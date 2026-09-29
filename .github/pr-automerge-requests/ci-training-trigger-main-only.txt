@@ -1,0 +1,1 @@
+armed by CI-TRAINING-TRIGGER lane: Tier-1 CI fix for PI-20260929-SASEC-0003 (training-rerun-5m push trigger main-only + guard).

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "Either on.push has `branches: [main]` and the workflow's own path is removed from on.push.paths (or the job's push step is gated to the default branch), verified by a branch edit of the file starting no run; OR the workflow is retired with a stated reason. Tier 2 (workflow change): manager decides which.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-SASEC-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/14180",
+    "rerun": "sed -n 21,27p .github/workflows/training-rerun-5m.yml (is the workflow's own path still in on.push.paths with no branches: filter?); mcp__github__actions_list(list_workflow_runs, training-rerun-5m.yml, workflow_runs_filter={branch:<a branch that edited it>}) to see event=push runs on non-main branches"
+  },
+  "state": "queued",
+  "what": "[LOUD] A branch push that edits .github/workflows/training-rerun-5m.yml RUNS a 60-min training job and tries to git-push TRAINING-RESULTS commits (14 files) into the PR's own branch. Measured 2026-09-29: PR #14180 (FIX-SA-13, edited this file's permissions) triggered run 36568485827 (event=push, head ea8ff4e); it trained, committed, and only the push was rejected because the branch had moved. Cause is the `on:` block, lines 21-27 of training-rerun-5m.yml: `on: push: paths:` includes the workflow's OWN path (line 26 `.github/workflows/training-rerun-5m.yml`) alongside run_5m.py and fetch_data.py (lines 24-25), and there is no `branches:` filter, so it fires on every branch. The step guard at line 81 `if: github.event_name != 'pull_request'` never excludes it because the event is `push`, not `pull_request`; the push target is `git push origin HEAD:${{ github.ref_name }}` (line 98). Pre-existing, not introduced or widened by #14180 (which only added a workflow-level `contents: read`; the job-level `contents: write` was already there and is what lets the push succeed when the branch has not moved). Any future edit to this file on a branch would land unreviewed results commits in that branch.\n\nFIX 2026-09-29 (lane CI-TRAINING-TRIGGER, branch claude/ci-training-trigger-main-only): on.push now has `branches: [main]` (workflow_dispatch kept); new guard scripts/ci/check_push_back_trigger.py (run_guards `push-back-trigger`, tests/test_push_back_trigger.py) fails any workflow on unfiltered push that git-pushes to the triggering ref unless every push path is under automation/. Guard verified RED on the unfixed workflow, GREEN on the fixed tree. Audit: 7 other workflows match (board-post, board-rotate, ci-settled, pr-automerge-disable, pr-close, pr-opener, trainer-diag-relay) but all trigger only on automation/** request-file paths by design; unchanged. Also seen: #14224 f8c18c0, #14218 run 36587838406. merged=no deployed=no observed=no; observe = a later branch edit of the workflow starts no run."
+}
