@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01Pr6YRTQYauPEEkK1xNyyAQ",
+  "branch": "fix/sa-03-alpaca-held-stop-visibility",
+  "claimed_at": "2026-09-29T10:59:29Z",
+  "purpose": "FIX-SA-03 step 2 alpaca held-stop visibility"
+}
