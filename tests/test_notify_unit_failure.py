@@ -18,7 +18,7 @@ def test_first_failure_pings_and_repeat_within_cooldown_is_suppressed(tmp_path, 
     assert n.run("ict-y.service", now=T0 + 61, logs=tmp_path) == "pinged"   # other unit unaffected
     assert n.run("ict-x.service", now=T0 + n.COOLDOWN_S + 1, logs=tmp_path) == "pinged"
     assert len(sent) == 3 and all(p == "high" for _, p in sent) and "ict-x.service" in sent[0][0]
-    rows = [json.loads(l) for l in (tmp_path / "unit_failures.jsonl").read_text().splitlines()]
+    rows = [json.loads(ln) for ln in (tmp_path / "unit_failures.jsonl").read_text().splitlines()]
     assert [r["pinged"] for r in rows] == [True, False, True, True]   # every failure logged, not only pinged ones
 
 
