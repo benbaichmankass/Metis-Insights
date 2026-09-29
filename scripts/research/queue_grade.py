@@ -315,14 +315,17 @@ def verify(root: Path, base: str) -> List[str]:
 
 
 def health(root: Path, *, now: Optional[datetime] = None) -> Dict[str, Any]:
-    """Runnable count and hours since the last dispatch -- the alarm's inputs."""
-    from scripts.research.queue_replenish import existing_units, runnable
+    """Runnable count (= what the dispatcher would fire within the next cycle,
+    see `queue_replenish.runnable`), the looser `queued` count beside it, and
+    hours since the last dispatch -- the alarm's inputs."""
+    from scripts.research.queue_replenish import dispatchable, existing_units, runnable
     units, bad = existing_units(root)
     now = now or datetime.now(timezone.utc)
+    queued = sorted(uid for uid, u in units.items() if dispatchable(u))
     stamps = [t for u in units.values() if (t := _parse_ts(u.get("last_dispatched_at")))]
     last = max(stamps) if stamps else None
     review = sorted(uid for uid, u in units.items() if isinstance(u.get("grading"), dict) and u["grading"].get("needs_review"))
-    return {"runnable": len(runnable(units)), "units": len(units), "unreadable": bad,
+    return {"runnable": len(runnable(units, now=now)), "queued": len(queued), "units": len(units), "unreadable": bad,
             "last_dispatched_at": last.isoformat() if last else None,
             "hours_since_last_dispatch": round((now - last).total_seconds() / 3600, 1) if last else None,
             "needs_review": review}

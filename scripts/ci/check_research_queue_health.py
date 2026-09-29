@@ -10,7 +10,12 @@ a quiet, healthy one until someone looks.
 
 WHAT IT CHECKS (population: every research/queue/**/*.yaml, read from the
 checkout; never inferred from a receipt alone):
-  H1  runnable units (status queued + a real *.yml run.workflow) >= --min-runnable
+  H1  runnable units >= --min-runnable, where RUNNABLE means the dispatcher would
+      fire it within the next cycle (status queued + a real *.yml run.workflow +
+      due by the dispatcher's own rule: never run, or cadence elapsed). A `once`
+      unit that already ran, or a monthly unit that ran yesterday, is queued but
+      NOT runnable -- counting those (as this did until 2026-09-29) read 21
+      runnable while 3 would fire, and the alarm stayed quiet on idle runners.
   H2  the newest last_dispatched_at across ALL units is younger than --max-idle-hours
 
 Exit 1 on either, printing the numbers, so the caller (research-queue-dispatch.yml's
@@ -36,7 +41,9 @@ DEFAULT_MAX_IDLE_HOURS = 12.0
 def grade(h: dict, *, min_runnable: int, max_idle_hours: float) -> list:
     problems = []
     if h["runnable"] < min_runnable:
-        problems.append(f"H1 runnable units {h['runnable']} < {min_runnable} (of {h['units']} unit(s))")
+        problems.append(f"H1 runnable units {h['runnable']} < {min_runnable} "
+                        f"(would fire within the next dispatch cycle; {h.get('queued', '?')} read queued, "
+                        f"of {h['units']} unit(s))")
     if h["hours_since_last_dispatch"] is None:
         problems.append("H2 no unit carries a last_dispatched_at at all -- nothing has ever run")
     elif h["hours_since_last_dispatch"] > max_idle_hours:
@@ -53,11 +60,20 @@ def _self_test() -> int:
     with tempfile.TemporaryDirectory() as td:
         r = Path(td)
         (r / "research" / "queue").mkdir(parents=True)
-        for i in range(3):
+        for i in range(3):   # daily units that ran 30 h ago: elapsed, so they fire next cycle
             (r / "research" / "queue" / f"RQ-20300101-{i+1:03d}.yaml").write_text(
-                f"id: RQ-20300101-{i+1:03d}\nstatus: queued\nrun:\n  workflow: x.yml\n"
+                f"id: RQ-20300101-{i+1:03d}\nstatus: queued\ncadence: daily\nrun:\n  workflow: x.yml\n"
                 f"last_dispatched_at: '{(now - timedelta(hours=30)).isoformat()}'\n")
+        # PLANTED (manager, 2026-09-29): queued but NOT runnable -- a once-unit that already
+        # ran and a monthly unit that ran yesterday. Both counted as runnable before.
+        (r / "research" / "queue" / "RQ-20300101-010.yaml").write_text(
+            f"id: RQ-20300101-010\nstatus: queued\ncadence: once\nrun:\n  workflow: x.yml\n"
+            f"last_dispatched_at: '{(now - timedelta(hours=30)).isoformat()}'\n")
+        (r / "research" / "queue" / "RQ-20300101-011.yaml").write_text(
+            f"id: RQ-20300101-011\nstatus: queued\ncadence: monthly\nrun:\n  workflow: x.yml\n"
+            f"last_dispatched_at: '{(now - timedelta(days=1)).isoformat()}'\n")
         h = health(r, now=now)
+        assert h["queued"] == 5 and h["runnable"] == 3, h
         p = grade(h, min_runnable=25, max_idle_hours=12)
         assert any(x.startswith("H1") for x in p) and any(x.startswith("H2") for x in p), p
         assert grade(h, min_runnable=3, max_idle_hours=48) == []
