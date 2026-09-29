@@ -58,4 +58,4 @@ generated:
   params:
     cadence_days: '7'
     start_date: '2005-01-01'
-last_dispatched_at: null
+last_dispatched_at: '2026-09-29T00:53:03+00:00'
