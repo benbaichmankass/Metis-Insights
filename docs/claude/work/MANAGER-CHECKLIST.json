@@ -3055,9 +3055,12 @@
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        14042,
+        14085
+      ],
       "blocked_on": [],
-      "note": "2026-09-29 (manager session_01KAQRJxRbRwpYTkPgBjNVyQ dispatch, priority 3 / M19): picking up R-M19's staged path (docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md). Step 1 done: ran RQ-20260928-002 (S1-v0) directly over committed data -- verdict fail (neither model veto nor confidence-only veto beats the permutation null; research/results/RQ-20260928-002/session_01TR74tvLR2AjCzrJMeBs47A-rq20260928-002-20260929.jsonl). This is the first of two nulls the S1 line's exhaustion condition needs -- not a kill; S1 (blocked/RQ-20260928-003) still runs once per its own rule. Next: build PI-20260928-VNMMNBJH-0001 (meta_veto_walkforward.py candle-join / --arms / --size-by-score extension), then dispatch RQ-20260928-003 (S1, market-state veto) once that lands. Offline only throughout: no order path, no live wiring, nothing under config/ that reaches a roster. If S1 clears its bar, S2 plan goes to the manager as a proposal, not wired.",
+      "note": "2026-09-29 (manager session_01KAQRJxRbRwpYTkPgBjNVyQ dispatch, priority 3 / M19): picking up R-M19's staged path (docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md). Step 1 done: ran RQ-20260928-002 (S1-v0) directly over committed data -- verdict fail (neither model veto nor confidence-only veto beats the permutation null; research/results/RQ-20260928-002/session_01TR74tvLR2AjCzrJMeBs47A-rq20260928-002-20260929.jsonl). First of two nulls the S1 line's exhaustion condition needs -- not a kill; S1 still runs once. PR #14042 held for manager review (queue-file result edits exceed STAMP_ONLY_SURFACE, so it cannot self-land). Step 2 done: built PI-20260928-VNMMNBJH-0001 (meta_veto_walkforward.py candle-join / --arms / --size-by-score / --scores-file / --emit-result extension; 24/24 self-test checks). PR #14085 -- Tier-1, scripts/research/** only, self-land ARMED, awaiting CI. Next once #14085 merges: dispatch RQ-20260928-003 (S1, market-state veto) via trainer-vm-diag (real candle coverage lives on datasets-out/market_raw on the trainer -- confirmed locally that the extension correctly reports zero coverage rather than fabricating against this repo's local data/). Reported to manager via trigger trig_01SfDrETz6AYkaQCuMj53Ktp 2026-09-29 ~10:03Z, including a flag that check_research_queue_health.py's H1 is failing on main independent of this lane's changes (pre-existing, verified by stashing the diff and re-running); filed as PI-20260929-VNMMNBJH-H1 rather than left only in the trigger message.",
       "id": "M19-S1"
     }
   ]
