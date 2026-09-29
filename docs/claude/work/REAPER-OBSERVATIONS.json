@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-29T17:40:40Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-29T17:34:51Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T09:46:26Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-29T17:34:51Z",
+  "updated_at": "2026-09-29T17:40:40Z",
   "latest": {
-    "generated_at": "2026-09-29T17:34:51Z",
+    "generated_at": "2026-09-29T17:40:40Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1014,7 +1014,7 @@
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
           "claude/correct-scalp-bracket-geometry-scope",
-          "claude/flag-scalp-exit-ladder-no-live-consumer"
+          "claude/correct-spy-pullback-1h-vol-trail-status"
         ],
         "session_0116oibqE8zMM9FZC4kXtcUs": [
           "claude/admin-triage-2026-09-28-capture-watch",
@@ -2049,8 +2049,7 @@
           "claude/mi229-closeout"
         ],
         "session_01TR74tvLR2AjCzrJMeBs47A": [
-          "claude/m19-s1-candle-resample-fix",
-          "claude/m19-s1-queue-promotion"
+          "claude/m19-s1-candle-resample-fix"
         ],
         "session_01TXmgt2S1zZjcdCDEpXdxmV": [
           "claude/flatten-marking-durable",
