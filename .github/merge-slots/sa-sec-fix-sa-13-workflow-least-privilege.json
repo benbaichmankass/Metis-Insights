@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01LF8rTDXMxEGKv4hJYtaQym",
+  "branch": "claude/sa-sec-fix-sa-13-workflow-least-privilege",
+  "claimed_at": "2026-09-29T12:20:31Z",
+  "purpose": "FIX-SA-13 workflow least privilege + weekly gitleaks (landing hold)"
+}
