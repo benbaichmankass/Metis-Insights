@@ -1,0 +1,6 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "declares atr_stop_mult 1.5 on spy_pullback_1h in config/strategies.yaml -- Tier-3 strategy/order-path change, operator/manager merge only"
+}
