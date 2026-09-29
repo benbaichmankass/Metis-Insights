@@ -2210,15 +2210,24 @@ class DXtradeAdapter(PropPlatformAdapter):
         # Playwright's own reason (e.g. "element is not enabled"), capped.
         step = "start"
         try:
+            # Click a side / order-type button only when the form does not
+            # ALREADY show it selected (dry run #13953: the click on an
+            # already-selected BUY timed out). The read-back below verifies
+            # the selection either way, so skipping never skips the check.
+            shown = form.get("selected") or {}
             step = "side click"
             side_btn = "side_buy" if spec.side == "long" else "side_sell"
-            if side_btn in form.get("buttons", {}):
+            if shown.get("side") == ("buy" if spec.side == "long" else "sell"):
+                pass
+            elif side_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={side_btn}]", timeout=5_000)
             elif form.get("buttons", {}).get("side_buy") is None and form.get("buttons", {}).get("side_sell") is None:
                 return refuse("no side selector in the form")
             step = "order-type click"
             type_btn = "type_limit" if spec.order_type == "limit" else "type_market"
-            if type_btn in form.get("buttons", {}):
+            if shown.get("order_type") == spec.order_type:
+                pass
+            elif type_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
             form = self._find_form(page)
             # Switch each leg's enabling toggle ON (the live sidebar's SL / TP
@@ -2248,7 +2257,11 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
             form = self._find_form(page)
         except Exception as exc:
-            why = re.sub(r"\s+", " ", str(exc))[:400]
+            # Playwright puts the REASON at the end of its call log ("...
+            # intercepts pointer events"); keep the head (the call) and the
+            # tail (the reason) -- #13953 cut the reason off at 400 chars.
+            msg = re.sub(r"\s+", " ", str(exc))
+            why = msg if len(msg) <= 600 else msg[:160] + " ... " + msg[-420:]
             return refuse(f"typing into the form failed at {step} ({type(exc).__name__}: {why})")
         # Read-back of all six fields (ORDER ENTRY rule 4): symbol, side,
         # order type, quantity, stop loss, take profit (+ price for a limit).

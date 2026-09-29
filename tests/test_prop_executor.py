@@ -1683,6 +1683,21 @@ def test_a_fill_timeout_names_the_step_and_the_reason(tpage):
     assert p.evaluate("window.__submits") is None
 
 
+def test_already_selected_side_is_not_clicked(tpage):
+    # Dry run #13953: the click on the ALREADY-selected BUY timed out. An
+    # overlay that swallows clicks on BUY must not stop the walk when BUY is
+    # already shown selected (the read-back still verifies it).
+    btn = '<button class="tb sd" data-test-id="BUY" onclick="pickSide(this)" style="background:rgb(26, 143, 109)"><span>Buy</span></button>'
+    html = _measured().replace(btn, '<div style="position:relative;display:inline-block">' + btn +
+                               '<div style="position:absolute;left:0;top:0;right:0;bottom:0;z-index:9"></div></div>')
+    assert html != _measured()
+    p = tpage(html=html)
+    spec = BracketSpec("t12", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("window.__submits") is None
+
+
 def test_colour_selection_needs_a_unique_unselected_colour(tpage):
     # Every toggle a different colour: no majority "unselected" colour → not readable.
     html = _measured().replace('class="tb tp" onclick="pickType(this)"><span>Limit', 'class="tp" style="background:rgb(1,1,1)" onclick="pickType(this)"><span>Limit') \
