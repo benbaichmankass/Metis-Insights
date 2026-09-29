@@ -141,7 +141,7 @@ def fetch_1m(klines_dir: str, symbol: str, start: str = "2020-01") -> int:
         try:
             urllib.request.urlretrieve(
                 BINANCE_URL.format(span=span, sym=symbol, stamp=stamp), dest)
-        except Exception as exc:  # noqa: BLE001 — a listed gap, never silent
+        except OSError as exc:  # HTTPError/URLError subclass OSError; the gap is printed
             dest.unlink(missing_ok=True)
             print(f"fetch_1m: {symbol} {stamp} unavailable ({exc})", file=sys.stderr)
     return len(list(Path(klines_dir).glob(f"{symbol}-1m-*.zip")))
