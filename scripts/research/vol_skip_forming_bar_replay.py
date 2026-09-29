@@ -46,8 +46,22 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from src.runtime import execution_costs  # noqa: E402
 
+import importlib.util  # noqa: E402
+
 import backtest_pullback  # noqa: E402
-import backtest_trend  # noqa: E402
+
+
+def _load_by_path(name: str, path: Path) -> Any:
+    # By FILE, not by name: scripts/research/backtest_trend.py is the RETIRED
+    # engine stub and sits earlier on sys.path than the live scripts/ engine.
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod  # dataclasses resolve their module via sys.modules
+    spec.loader.exec_module(mod)
+    return mod
+
+
+backtest_trend = _load_by_path("backtest_trend_live", ROOT / "scripts/backtest_trend.py")
 from src.units.strategies import htf_pullback_trend_2h as _pb_unit  # noqa: E402
 from src.units.strategies import trend_donchian as _td_unit  # noqa: E402
 
@@ -292,13 +306,22 @@ def main(argv: List[str] | None = None) -> int:
                        "proxy for Bybit (api.bybit.com geo-blocked from the "
                        "research container)",
         "primary_offset_min": PRIMARY_K,
-        "legs": {leg: replay_leg(leg, LEGS[leg], args.klines_dir, tmp) for leg in legs},
+        "legs": {},
     }
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    for leg in legs:
+        part = tmp / f"{leg}.result.json"
+        if part.exists():  # resume: a leg already replayed is not recomputed
+            rec["legs"][leg] = json.loads(part.read_text())
+        else:
+            rec["legs"][leg] = replay_leg(leg, LEGS[leg], args.klines_dir, tmp)
+            part.write_text(json.dumps(rec["legs"][leg], default=str))
+        print(f"{leg}: done", flush=True)
     for f in tmp.glob("*"):
         f.unlink()
     tmp.rmdir()
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(rec, indent=1, default=str) + "\n")
+    out.write_text(json.dumps(rec, indent=1, default=str) + "\n")
     print(f"wrote {args.out}")
     return 0
 
