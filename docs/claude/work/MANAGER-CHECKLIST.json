@@ -2353,13 +2353,13 @@
       "state": "queued",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "lane": null,
-      "model": "claude-opus-5",
+      "model": "claude-opus-5-5",
       "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: order-path work is always opus (manager model table). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.1 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-1.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: order-path work is always opus (manager model table). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.1 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-1.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-1.md."
     },
     {
       "id": "AUD-2",
@@ -2368,13 +2368,13 @@
       "state": "queued",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "lane": null,
-      "model": "claude-sonnet-5",
+      "model": "claude-sonnet-5-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.2 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-2.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.2 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-2.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-2.md."
     },
     {
       "id": "AUD-3",
@@ -2383,13 +2383,13 @@
       "state": "queued",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "lane": null,
-      "model": "claude-sonnet-5",
+      "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.3 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-3.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.3 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-3.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-3.md."
     },
     {
       "id": "AUD-4",
@@ -2398,13 +2398,13 @@
       "state": "queued",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "lane": null,
-      "model": "claude-sonnet-5",
+      "model": "claude-sonnet-5-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default; trainer-diag round trips are the cost driver. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.4 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-4.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default; trainer-diag round trips are the cost driver. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.4 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-4.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-4.md."
     },
     {
       "id": "AUD-5",
@@ -2413,13 +2413,13 @@
       "state": "queued",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "lane": null,
-      "model": "claude-sonnet-5",
+      "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.5 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-5.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.5 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-5.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-5.md."
     },
     {
       "id": "AUD-6",
@@ -2434,7 +2434,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: operator decision D9 (row E75): Haiku for the mechanical guard-coverage lane. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.6 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-6.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: operator decision D9 (row E75): Haiku for the mechanical guard-coverage lane. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.6 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-6.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-6.md."
     },
     {
       "id": "AUD-7",
@@ -2443,13 +2443,13 @@
       "state": "queued",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "lane": null,
-      "model": "claude-sonnet-5",
+      "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: credential-adjacent, not order-path (proposal s7). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.7 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-7.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: credential-adjacent, not order-path (proposal s7). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.7 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-7.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-7.md."
     },
     {
       "id": "AUD-8",
@@ -2458,13 +2458,13 @@
       "state": "queued",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "lane": null,
-      "model": "claude-sonnet-5",
+      "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.8 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-8.{md,findings.jsonl}."
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.8 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-8.{md,findings.jsonl}. Brief: docs/audits/system-audit-2026-09-29/briefs/AUD-8.md."
     },
     {
       "id": "E76",
