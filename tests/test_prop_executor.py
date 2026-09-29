@@ -880,6 +880,27 @@ def test_quote_from_tables():
     assert quote_from_tables([{"headers": ["Symbol", "Price"], "rows": [["ETHUSD", "1"]]}], "ETHUSD") is None
 
 
+def test_parse_price_joins_split_spans_only_around_one_decimal_point():
+    from src.prop.platform.dxtrade import parse_price, quote_from_tables
+    assert parse_price("184.25") == 184.25
+    assert parse_price("184.\n25") == 184.25            # "###." + raised "##" (#13855)
+    assert parse_price("184.25\n3") == 184.253          # pipette span
+    assert parse_price("184\n25") is None                # no point: never 18425
+    assert parse_price("1.8\n4.25") is None              # two points
+    assert parse_price(None) is None
+    tables = [{"headers": ["Symbol", "Bid", "Ask"], "rows": [["SOLUSD", "184.\n24", "184.\n26"]]}]
+    assert quote_from_tables(tables, "SOLUSD") == {"bid": 184.24, "ask": 184.26}
+
+
+def test_quote_diagnostics_shows_raw_cells_of_the_symbol_row_only():
+    from src.prop.platform.dxtrade import quote_diagnostics
+    tables = [{"kind": "grid", "headers": ["Symbol", "Bid", "Ask"], "rows": [["SOLUSD", "x\ny", "?"], ["ETHUSD", "1", "2"]]},
+              {"kind": "table", "headers": ["Symbol", "Qty", "P&L"], "rows": [["SOLUSD", "1", "5"]]}]
+    d = quote_diagnostics(tables, "SOLUSD")
+    assert [t["headers"] for t in d["symbol_tables"]] == [["Symbol", "Bid", "Ask"], ["Symbol", "Qty", "P&L"]]
+    assert d["rows"] == [["'SOLUSD'", "'x\\ny'", "'?'"]]      # positions rows are never dumped
+
+
 class RTAdapter(FakeAdapter):
     """A terminal where a submit opens a bracketed position and a flatten
     closes it (unless told otherwise)."""
@@ -950,6 +971,15 @@ def test_round_trip_refuses_before_any_click(tmp_path, setup, needle):
     ad = RTAdapter()
     res = rt(ad, FakeApi(), tmp_path, **setup)
     assert needle in (res.halted or "") and ad.calls == []
+
+
+def test_round_trip_without_a_quote_logs_the_watchlist_and_clicks_nothing(tmp_path):
+    ad = RTAdapter(quote={})
+    ad.quote_diagnostics = lambda page, venue: {"rows": [["'SOLUSD'"]]}
+    res = rt(ad, FakeApi(), tmp_path, arm=False)
+    assert "no bid/ask for SOLUSD" in (res.halted or "") and ad.calls == []
+    diag = [a for a in res.actions if a["what"] == "quote_diagnostics"]
+    assert diag and diag[0]["watchlist"] == {"rows": [["'SOLUSD'"]]}
 
 
 def test_round_trip_refuses_when_the_symbol_is_already_in_use(tmp_path):
