@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only: closes PI-20260929-K1XNYYAQ-0002 as done (fixed by #14347, 5b5e7ce) and files the two non-blocking review notes from #14347's review as a new row, so they are not lost when lane FIX-SA-03 is archived."
+}
