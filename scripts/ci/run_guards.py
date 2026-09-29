@@ -226,6 +226,15 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_workflow_actor_guard.py"]],
     },
     {
+        # PI-20260929-SASEC-0003: a workflow on unfiltered `push` that git-pushes
+        # back to the triggering ref fires on every PR branch that touches it.
+        "name": "push-back-trigger",
+        "when": {"globs": [".github/workflows/*.yml", ".github/workflows/*.yaml",
+                            "scripts/ci/check_push_back_trigger.py"]},
+        "steps": [["python3", "scripts/ci/check_push_back_trigger.py", "--self-test"],
+                  ["python3", "scripts/ci/check_push_back_trigger.py"]],
+    },
+    {
         # FIX-SA-10, 2026-09-29: re-armed (removed in the 2026-09-21 reset, which
         # is why four in_flight rows naming archived lanes went unflagged). CI
         # cannot read session state, so the archived-lane check prints COULD NOT

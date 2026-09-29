@@ -1,0 +1,214 @@
+name: trainer-boot-volume
+
+# Measure the tenancy's block-storage total and grow the TRAINER's boot volume
+# online, then grow its partition + filesystem. Built for
+# PI-20260929-BTG1YDOI-0002 (trainer root disk 92% used, 2026-09-29; operator
+# Tier-2 OK "All three (Recommended)", relayed by the manager, lane TRAINER-DISK).
+#
+# Scope is the trainer ONLY. The target instance is resolved from the trainer's
+# own IMDS document (SSH to TRAINER_VM_IP), so this workflow never contacts the
+# live VM or the IB gateway, and cannot resize any other instance's volume.
+#
+# Trigger: issues.opened with label `trainer-boot-volume`. Body fields:
+#   mode: measure          # read-only (default): per-volume table + total + verdict
+#   mode: resize           # needs `confirm: yes`; refused unless within Always Free
+#   size_gb: 100
+#   confirm: yes
+#
+# The free-tier gate lives in scripts/ops/oci_trainer_boot_volume.py: the resize
+# is refused (exit 3, nothing changed) unless the projected tenancy total of
+# boot + block volumes stays within 200 GB.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode: { description: "measure | resize", required: true, default: "measure" }
+      size_gb: { description: "target boot volume size (GB)", required: false, default: "100" }
+      confirm: { description: "'yes' required for resize", required: false, default: "" }
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: trainer-boot-volume
+  cancel-in-progress: false
+
+jobs:
+  boot-volume:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'trainer-boot-volume'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+      # PINNED target. The script and the grow step both refuse unless the host's
+      # IMDS reports exactly this id AND display name, so a TRAINER_VM_IP that
+      # ever points at the live VM (141.145.193.91) is refused, never resized.
+      TRAINER_INSTANCE_OCID: ocid1.instance.oc1.eu-paris-1.anrwiljrnpsiupacbfquzkaxjkej2tlxbwggjr4ma3zfkbpnjr7uqefbheyq  # read from the trainer IMDS, relay #14254
+      TRAINER_DISPLAY_NAME: ict-trainer-vm
+      TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse request
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body || '' }}
+          IN_MODE: ${{ inputs.mode || '' }}
+          IN_SIZE: ${{ inputs.size_gb || '' }}
+          IN_CONFIRM: ${{ inputs.confirm || '' }}
+        run: |
+          set -euo pipefail
+          fld() { printf '%s' "${ISSUE_BODY}" | awk -F: -v k="$1" '$1 ~ "^[[:space:]]*"k"[[:space:]]*$"{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2);print $2;exit}'; }
+          mode="${IN_MODE:-$(fld mode)}"; mode="$(printf '%s' "${mode:-measure}" | tr '[:upper:]' '[:lower:]')"
+          size="${IN_SIZE:-$(fld size_gb)}"; size="${size:-100}"
+          confirm="${IN_CONFIRM:-$(fld confirm)}"
+          case "$mode" in measure|resize) ;; *) echo "::error::mode must be measure|resize"; exit 1 ;; esac
+          [[ "$size" =~ ^[0-9]+$ ]] || { echo "::error::size_gb must be an integer"; exit 1; }
+          if [ "$mode" = "resize" ] && [ "$confirm" != "yes" ]; then
+            echo "::error::mode: resize requires 'confirm: yes'"; exit 1
+          fi
+          { echo "mode=$mode"; echo "size=$size"; } >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH (trainer only)
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key && chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Read trainer IMDS + disk (before)
+        run: |
+          set -euo pipefail
+          SSH="ssh -i $HOME/.ssh/trainer_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 ${TRAINER_USER}@${TRAINER_IP}"
+          $SSH 'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' > imds.json
+          python3 - <<'PY'
+          import json, os, sys
+          d = json.load(open("imds.json"))
+          print("host instance:", d["displayName"], d["shape"], d["availabilityDomain"])
+          if d["displayName"] != os.environ["TRAINER_DISPLAY_NAME"] or d["id"] != os.environ["TRAINER_INSTANCE_OCID"]:
+              print("::error::host at TRAINER_IP is not the pinned trainer instance; refusing")
+              sys.exit(2)
+          PY
+          { echo "### before"; $SSH 'df -h /; lsblk'; } | tee -a report.txt
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
+      - name: Install oci sdk
+        run: python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Measure (and resize if requested)
+        id: oci
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          MODE: ${{ steps.parse.outputs.mode }}
+          SIZE: ${{ steps.parse.outputs.size }}
+        run: |
+          set -uo pipefail
+          set +e
+          python3 scripts/ops/oci_trainer_boot_volume.py --mode "$MODE" --size-gb "$SIZE" \
+            --imds imds.json --out boot_volume_report.json 2>&1 | tee -a report.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: Grow partition + filesystem on the trainer
+        if: steps.parse.outputs.mode == 'resize' && steps.oci.outputs.rc == '0'
+        env:
+          SIZE: ${{ steps.parse.outputs.size }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+              "${TRAINER_USER}@${TRAINER_IP}" \
+              "TARGET_GB=${SIZE} EXPECTED_OCID=${TRAINER_INSTANCE_OCID} EXPECTED_NAME=${TRAINER_DISPLAY_NAME} bash -s" \
+              <<'REMOTE' 2>&1 | tee -a report.txt
+          set -euo pipefail
+          # Re-check identity ON the host before touching its partition table.
+          IMDS=$(curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/)
+          NAME=$(printf '%s' "$IMDS" | python3 -c 'import json,sys;print(json.load(sys.stdin)["displayName"])')
+          IID=$(printf '%s' "$IMDS" | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+          if [ "$NAME" != "$EXPECTED_NAME" ] || [ "$IID" != "$EXPECTED_OCID" ]; then
+            echo "REFUSED: this host ($NAME, $(hostname)) is not the pinned trainer instance"; exit 2
+          fi
+          echo "identity ok: $NAME ($(hostname))"
+          # Lower bound in decimal GB, so it holds whether OCI "GB" means 10^9 or
+          # 2^30 bytes; either way it sits far above the old ~48 GB device.
+          TARGET_B=$(( TARGET_GB * 1000 * 1000 * 1000 ))
+          BEFORE_G=$(df -B1G --output=size / | tail -1 | tr -d ' ')
+          SRC=$(findmnt -no SOURCE /)
+          FST=$(findmnt -no FSTYPE /)
+          PART=$(basename "$SRC")
+          DISK=$(lsblk -no PKNAME "$SRC" | head -1)
+          PNUM=$(cat "/sys/class/block/$PART/partition")
+          echo "root: $SRC ($FST) on /dev/$DISK partition $PNUM"
+          # Make the kernel see the new size (paravirtualized attach: sysfs rescan;
+          # iSCSI attach: iscsiadm rescan).
+          # Wait (bounded) until the kernel sees the new size; a stale size would
+          # make growpart print NOCHANGE and the job go green at the old size.
+          for i in $(seq 1 40); do
+            if [ -e "/sys/class/block/$DISK/device/rescan" ]; then
+              echo 1 | sudo tee "/sys/class/block/$DISK/device/rescan" >/dev/null
+            fi
+            if command -v iscsiadm >/dev/null 2>&1; then sudo iscsiadm -m node -R >/dev/null 2>&1 || true; fi
+            DEV_B=$(lsblk -bdno SIZE "/dev/$DISK")
+            [ "$DEV_B" -ge "$TARGET_B" ] && break
+            sleep 15
+          done
+          DEV_B=$(lsblk -bdno SIZE "/dev/$DISK")
+          if [ "$DEV_B" -lt "$TARGET_B" ]; then
+            echo "FAILED: /dev/$DISK is $DEV_B bytes after rescan, below target $TARGET_B"; exit 1
+          fi
+          lsblk "/dev/$DISK"
+          set +e
+          out=$(sudo growpart "/dev/$DISK" "$PNUM" 2>&1); grc=$?
+          set -e
+          echo "$out"
+          if [ $grc -ne 0 ] && ! printf '%s' "$out" | grep -q NOCHANGE; then
+            echo "growpart failed rc=$grc"; exit 1
+          fi
+          case "$FST" in
+            ext4|ext3) sudo resize2fs "$SRC" ;;
+            xfs) sudo xfs_growfs / ;;
+            *) echo "unsupported root fs: $FST"; exit 1 ;;
+          esac
+          echo "### after"
+          df -h /
+          lsblk "/dev/$DISK"
+          AFTER_G=$(df -B1G --output=size / | tail -1 | tr -d ' ')
+          echo "root filesystem size: ${BEFORE_G}G -> ${AFTER_G}G"
+          if [ "$AFTER_G" -le "$BEFORE_G" ]; then
+            echo "FAILED: root filesystem did not grow"; exit 1
+          fi
+          REMOTE
+
+      - name: Comment result on the issue
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const out = fs.existsSync('report.txt') ? fs.readFileSync('report.txt', 'utf8') : '(no report produced)';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const status = '${{ job.status }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `**trainer-boot-volume** — job status: \`${status}\` · rc: \`${{ steps.oci.outputs.rc || 'n/a' }}\`\nRun: ${runUrl}\n\n\`\`\`\n${out.slice(-60000)}\n\`\`\``,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed',
+            });

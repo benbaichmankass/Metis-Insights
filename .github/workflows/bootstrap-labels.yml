@@ -170,6 +170,11 @@ jobs:
                 description: 'Triggers terminate-instance — terminate an OCI instance by display_name (frees Ampere budget). Requires confirm: yes.',
               },
               {
+                name: 'trainer-boot-volume',
+                color: '5319e7',
+                description: 'Triggers trainer-boot-volume — measure tenancy block storage; grow the TRAINER boot volume online (resize needs confirm: yes; refused past Always Free 200 GB).',
+              },
+              {
                 name: 'reset-instance',
                 color: 'd93f0b',
                 description: 'Triggers reset-instance — out-of-band OCI hard RESET of a hung/SSH-dead VM by display_name (preserves the box). Requires confirm: yes.',

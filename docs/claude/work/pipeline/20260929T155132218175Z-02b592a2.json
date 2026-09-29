@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-CMXYTHSP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "manager review of PR #14231 (merged 0d30844), 2026-09-29",
+    "rerun": "grep -nE 'BEFORE_G|AFTER_G|TARGET_B' .github/workflows/trainer-boot-volume.yml"
+  },
+  "state": "queued",
+  "what": "trainer-boot-volume.yml review follow-ups (non-blocking, from the manager's review of #14231). (a) The grow step (~yml:194) compares AFTER_G to BEFORE_G, so a re-run after a successful grow ends RED even though the filesystem is already at target. Compare the df size to the target instead. (b) The stale-size bound (~yml:151, a TARGET_GB*10^9 lower bound) cannot tell a stale device from a grown one at tiny increments, e.g. 51 GB from the current 47 GiB (50,010,783,744 B) device. Tighten it: require the size to exceed the pre-resize device bytes AND reach at least the target in GiB minus slack. MEASURED in #14268: OCI size_in_gbs is GiB (the trainer's '47 GB' boot volume is 50.01e9 B)."
+}

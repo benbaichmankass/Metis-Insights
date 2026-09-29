@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI only: restricts training-rerun-5m.yml's push trigger to main and adds a push-back-trigger guard. No runtime, order path, strategy config, risk cap or account mode."
+}
