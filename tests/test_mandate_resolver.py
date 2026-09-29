@@ -187,16 +187,100 @@ def test_fire_s0_to_s1(repo):
     assert res["proposal"]["roster_add"] == {"bybit_1": [LEG]}
 
 
-def test_fire_demote_s2_to_s1_on_a_negative_mirror_window(repo):
+def _stage2_accts():
     accts = copy.deepcopy(ACCOUNTS)
     accts["accounts"]["bybit_2"]["strategies"].append(LEG)
     accts["accounts"]["bybit_portfolio"]["strategies"].append(LEG)
-    root = repo(accounts=accts, mirror={"leg": LEG, "n_closed": 40, "net_r_net_of_full_cost": -3.2,
-                                        "source_run": "comms/mandate_evidence/runs/m.jsonl"})
+    return accts
+
+
+def _t3_mirror(root, windows=(-6.0, -6.0), stage0=(1.0, -0.8, 0.6, -1.0, 1.2), **over):
+    """Give LEG a Stage-0 per-trade stream and write the T3 mirror-window record
+    the gate would write for `windows` (oldest first)."""
+    src = (mr._json(root / f"{mr.EVIDENCE_DIR_REL}/{LEG}.json") or {})["source_run"]
+    (root / src).write_text("".join(json.dumps({"net_r": x}) + "\n" for x in stage0))
+    p = mr.stage0_block_p10(LEG, root)
+    rec = {"leg": LEG, "rule": mr.T3_RULE_ID, "n_closed": 40,
+           "net_r_net_of_full_cost": round(sum(windows), 4),
+           "windows": [{"n_closed": 20, "net_r": w} for w in windows],
+           "p10_threshold": p["p10"], "bootstrap_seed": mr.T3_BOOTSTRAP_SEED,
+           "evidence_record": p["evidence_record"],
+           "source_run": "comms/mandate_evidence/runs/m.jsonl", **over}
+    _w(root, f"{mr.MIRROR_DIR_REL}/{LEG}.json", rec)
+    (root / rec["source_run"]).parent.mkdir(parents=True, exist_ok=True)
+    (root / rec["source_run"]).write_text("{}\n")
+    return p
+
+
+def test_fire_demote_s2_to_s1_when_both_t3_windows_are_below_p10(repo):
+    root = repo(accounts=_stage2_accts())
+    p = _t3_mirror(root)
+    assert -6.0 < p["p10"] < 0, p
     res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
     assert res["verdict"] == "FIRE", res
     assert res["proposal"]["roster_remove"] == {"bybit_2": [LEG], "bybit_portfolio": [LEG]}
     assert res["proposal"]["roster_add"] == {}
+    assert res["evidence"]["t3_p10"] == p["p10"]
+
+
+@pytest.mark.parametrize("windows,clause", [
+    ((+2.0, -6.0), "R-T3"),              # only one window bad: T3 not met
+    ((-1.0, -6.0), "R-T3"),              # both negative, one above p10
+    ((-6.0, +7.0), "R-EXPECTANCY"),      # 40-trade net non-negative: never-clause
+])
+def test_refuse_demotion_when_t3_is_not_met(repo, windows, clause):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root, windows=windows)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), clause)
+
+
+def test_positive_p10_never_fires_on_a_positive_window(repo):
+    root = repo(accounts=_stage2_accts())
+    p = _t3_mirror(root, windows=(0.5, 0.5), stage0=(1.5, 0.9, 1.1, -0.2, 1.3))
+    assert p["p10"] > 1.0
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-EXPECTANCY")
+
+
+def test_needs_data_on_a_pre_t3_record_or_short_windows_or_no_stage0(repo):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root, rule=None)
+    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
+    assert res["verdict"] == mr.NEEDS_DATA and res["clause"] == "R-T3-WINDOWS"
+    _t3_mirror(root, n_closed=39)
+    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
+    assert res["verdict"] == mr.NEEDS_DATA and res["clause"] == "R-N"
+    _t3_mirror(root, stage0=(0.4,))
+    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
+    assert res["verdict"] == mr.NEEDS_DATA and res["clause"] == "R-T3-NO-EVIDENCE"
+    assert res["data_task"]["what"]
+
+
+def test_refuse_a_record_that_contradicts_itself_or_its_threshold(repo):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root, net_r_net_of_full_cost=-20.0)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-T3-WINDOWS")
+    _t3_mirror(root, p10_threshold=5.0)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-T3-THRESHOLD")
+
+
+def test_stage0_p10_is_deterministic_and_seeded(repo):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root)
+    a, b = mr.stage0_block_p10(LEG, root), mr.stage0_block_p10(LEG, root)
+    assert a == b and a["seed"] == mr.T3_BOOTSTRAP_SEED
+    assert mr.stage0_block_p10(LEG, root, seed=1)["p10"] != a["p10"]
+
+
+def test_real_stage2_thresholds_match_the_operators_pricing():
+    """The operator was told xrp_4h, ief and iaum have POSITIVE p10 and the
+    other Stage-2 legs negative (SIGNAL-0005). Pin that on the real records."""
+    for leg, positive in (("trend_donchian_xrp_4h", True), ("ief_pullback_1d", True),
+                          ("iaum_pullback_1d", True), ("xrp_pullback_2h", False),
+                          ("ada_pullback_2h", False), ("trend_donchian_eth_4h", False),
+                          ("slv_pullback_1d", False)):
+        p = mr.stage0_block_p10(leg, REPO)
+        assert p["p10"] is not None, (leg, p["why"])
+        assert (p["p10"] > 0) == positive, (leg, p["p10"])
 
 
 def test_proposal_never_writes(repo):

@@ -268,6 +268,9 @@ CATEGORY_EXPLICIT: Dict[str, Tuple[str, str]] = {
     # obeyed as one. Read in full by MI-162; no directory or name rule reaches
     # it, so it graded `unknown` until assigned here.
     "docs/claude/TASK-PRIORITY-2026-09-07.md": ("plan", "read:ranks-tasks-under-the-current-cycle-priority"),
+    # Evidence: a stated-population measurement (the triage of the first gitleaks
+    # full-history run), authored by the session that took it. No name rule reaches it.
+    "docs/security/gitleaks-baseline.md": ("evidence", "read:SA-SEC-lane-authored-the-triage-2026-09-29"),
 }
 
 # ---------------------------------------------------------------------------
@@ -349,6 +352,17 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
         "the 2026-09-22 review could not produce; verdict `watch` -- 2 of 5 "
         "sources swept clean, 1 partial, 2 `could_not_look` with named reasons; "
         "superseded by the next sweep, and its windows are short by construction",
+    ),
+    # SA-SEC lane, 2026-09-29: authored by the session that measured it (fresh full
+    # clone, 12,301 commits, 1,501 branches; count cross-checked against CI run
+    # 36584026733) and pinned by tests/test_gitleaks_baseline.py. It goes stale the
+    # moment `.gitleaks-baseline.json` is regenerated without updating it.
+    "docs/security/gitleaks-baseline.md": (
+        "live",
+        "read:SA-SEC-lane-authored-and-measured-it-2026-09-29",
+        "what .gitleaks-baseline.json accepts and why: 352 first-run findings "
+        "classified by value shape, 4 named known-revoked entries, and the "
+        "planted-key proof; count pinned by tests/test_gitleaks_baseline.py",
     ),
     "docs/claude/TASK-PRIORITY-2026-09-07.md": (
         "live",

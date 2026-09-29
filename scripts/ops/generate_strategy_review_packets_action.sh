@@ -26,7 +26,7 @@
 #   all_btc: <true|1>             (optional; iterate every BTCUSDT strategy -- legacy matrix)
 #   all_strategies: <true|1>      (optional; the stage-aware cron path)
 #   shadow_soak_days: <int>       (optional, default 0 -- legacy matrix only, promote gate)
-#   stage2_window: <str>          (optional, default 30d -- all_strategies only, R4's window)
+#   stage2_window: <str>          (DEPRECATED, ignored since 2026-09-29 -- R4 reads each Stage-2 leg's last 40 closed trades)
 #   stage1_window_hours: <int>    (optional, default 168 -- all_strategies only, R5's window)
 #   skip_stage1_cost_pull: <true|1> (optional -- all_strategies only, mechanics-only dry run)
 #

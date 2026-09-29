@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "changes what a security detector reports: .gitleaks-baseline.json makes the weekly full-history secret scan accept 352 reviewed findings (manager session_01HYq6XtfesZ57VyaQrK6CL1 reviews the classes and merges); also edits .github/workflows/pytest-run.yml (adds the two baseline paths to its trigger filter so a PR touching only them runs the suite)",
+  "why": "PI-20260929-SASEC-0001: triage of the first gitleaks run. 348 findings baselined as false-positive classes, 4 baselined as NAMED known-revoked entries (operator 'Revoked' 2026-09-29 13:50Z). Proven: baseline gives 0 new findings; a planted synthetic key gives new findings and exit 1. Data + docs + test, plus one workflow edit: pytest-run.yml's path filter gains the baseline and its notes doc (test_pytest_run_filter demanded it)."
+}
