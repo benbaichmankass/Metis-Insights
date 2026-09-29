@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path change to AlpacaClient.place_protective (the naked-sweep re-arm): the pre-cancel is scoped to the re-armed position's own legs instead of every order on the symbol. Held for the manager per FIX-SA-03 dispatch.",
+  "why": "FIX-SA-03 step 3 / PI-20260929-PR6YRTQY-0001: an unscoped pre-cancel stripped sibling rows' legs (and opening-side entries) on a netted symbol, then re-placed protection for one row only."
+}
