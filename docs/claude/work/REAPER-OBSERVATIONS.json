@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-29T12:37:29Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-29T12:15:07Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T06:11:46Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-29T12:15:07Z",
+  "updated_at": "2026-09-29T12:37:29Z",
   "latest": {
-    "generated_at": "2026-09-29T12:15:07Z",
+    "generated_at": "2026-09-29T12:37:29Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1151,
+      "unregistered_claude_branches": 1152,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 318,
+      "unregistered_but_attributable_sessions": 317,
       "unregistered_owner_map": {
         "session_0116oibqE8zMM9FZC4kXtcUs": [
           "claude/admin-triage-2026-09-28-capture-watch",
@@ -1460,18 +1460,11 @@
           "claude/document-index-write-second-instance",
           "claude/mi-209c-partial-close-producer-20260909"
         ],
-        "session_01DZkP4Jj9JNSsxhGFZEyjmM": [
-          "claude/fix-sa-01-replay-archives",
-          "claude/fix-sa-01-trade-scores-archives"
-        ],
         "session_01DabHd36V6iqcd9diSrCFfP": [
           "claude/mi302-backlog-drain"
         ],
         "session_01DkqJWZsHsYTkP7ba49Gepj": [
           "claude/fix-ca-09-measure"
-        ],
-        "session_01E8qLr49iNrYHdkeA899zcS": [
-          "claude/grade-closed-trades-schedule"
         ],
         "session_01EHkF94b1cSZ9gTfGFkysZH": [
           "claude/audit-B-salvage-stale-backlog",
@@ -1494,8 +1487,9 @@
           "claude/mi247-oi-option-a-observed"
         ],
         "session_01Ek5siXbMhnqA59WJuteNgu": [
-          "claude/fix-sa-09",
-          "claude/fix-sa-10"
+          "claude/fix-sa-10",
+          "claude/jc-sa-06",
+          "claude/sa-docs-pipeline"
         ],
         "session_01Ex5Dx1TMYy46ncsp8eptpx": [
           "claude/mi251-inverse-proxy-screen-20260918",
@@ -1664,6 +1658,10 @@
         "session_01JHFDpaWxaGw4BaxMGgtF9A": [
           "claude/mi307-offline-mfe-distribution"
         ],
+        "session_01JTqmnBwmw3nfKaHxo9WPvh": [
+          "claude/fix-sa-04-provenance-zero-pnl",
+          "claude/fix-sa-05-measured-only-sum"
+        ],
         "session_01JZxTx1RYggzVemZCbLnSyG": [
           "claude/e45-close-row"
         ],
@@ -1732,7 +1730,8 @@
           "claude/phase-b-done-post"
         ],
         "session_01LF8rTDXMxEGKv4hJYtaQym": [
-          "claude/sa-sec-fix-sa-07-diag-relay-hardening"
+          "claude/sa-sec-fix-sa-07-diag-relay-hardening",
+          "claude/sa-sec-fix-sa-13-workflow-least-privilege"
         ],
         "session_01LRLUSvcGqQjPcMByAiggsg": [
           "claude/mi189b-unread-account-venue-audit"
@@ -2179,7 +2178,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 0,
-      "origin_head_count": 1495,
+      "origin_head_count": 1500,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",
