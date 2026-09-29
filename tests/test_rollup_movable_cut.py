@@ -179,8 +179,31 @@ def test_measured_state_2026_08_17():
     # RULE-D1-STAGE0-NET-OF-FULL-COST), taking their cells out of the live
     # movable population. The remaining 4 (eth_15m, sol_15m, xrp_15m, xrp_5m)
     # are unaffected and still pending bracket_geometry.
-    assert len(cut.get("movable", [])) == 4
-    assert {i[3] for i in cut["movable"]} == {"bracket_geometry"}
+    #
+    # 4 -> 0 on 2026-09-29 (lane EXIT-OPS, checklist row EXIT-OPS, filed as
+    # PI-20260929-EXITOPS-0006): THIS TEST'S OWN COMMENT ABOVE WAS WRONG --
+    # "bracket_geometry ... HAS a sweep producer ... m20_fleet_exit_sweep.classify
+    # returns 'scalp' with a real SCALP_HARNESS. A session can move them" checked
+    # `classify()`/`FAMILY_HARNESS` (which do map scalp -> scripts/backtest_ict_scalp.py)
+    # but never checked whether the SWEEP PLANNER actually schedules the family.
+    # It does not: `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to
+    # `fam not in ("donchian", "pullback", "squeeze")` -> skip, with its own
+    # comment explaining why -- "`scalp`/`fvg` carry a REAL `tp_at_r`/`tp_r`
+    # bracket rather than the 50.0 sentinel, so this grid would mean something
+    # different on them." Verified by actually running the planner, not by
+    # re-reading prose: `python3 scripts/research/e35_shard_plan.py --only
+    # ict_scalp_eth_15m,ict_scalp_sol_15m,ict_scalp_xrp_15m,ict_scalp_xrp_5m
+    # --ignore-missing-data` returns 0 jobs, all 4 `out_of_scope_family:scalp`.
+    # The four cells' coverage-matrix status was corrected `pending` ->
+    # `blocked:out_of_scope_family` (docs/research/exit-refinement-coverage.json)
+    # so they no longer read as an open, sweepable backlog. `blocked:<reason>` on
+    # a status GATE_KINDS does not recognise lands in `unclassified` by this
+    # file's own documented design (a new blocked reason must not silently join a
+    # neighbouring bucket), NOT in `no_sweep_path` -- `bracket_geometry` genuinely
+    # has a sweep path for other families (pullback/donchian/squeeze), so filing
+    # it there would overstate the finding to "no run of this LEVER can ever
+    # move any cell," which is false. `movable` is therefore 0, not 4.
+    assert len(cut.get("movable", [])) == 0
     #
     # E65 (2026-09-24, PR #12868): 4 -> 2. The `exit_ladder` cells on
     # trend_donchian_eth_prop and trend_donchian_sol_prop RESOLVED to
@@ -221,10 +244,10 @@ def test_internal_keys_are_not_printed_as_buckets():
     # The cut must not be rendered as gate-kind rows...
     assert not re.search(r"^\s+\d+\s+_?movable\b", text, re.M)
     assert not re.search(r"^\s+\d+\s+_?no_sweep_path\b", text, re.M)
-    # ...while the measured count IS rendered (4 since the 2026-09-28 demotion,
-    # 1 since the 2026-09-29 regime_flip_exit resolution; see
-    # test_measured_state_2026_08_17 above).
-    assert "MOVABLE BY A SESSION: 4" in text
+    # ...while the measured count IS rendered (0 since the 2026-09-29
+    # out_of_scope_family correction, 1 since the 2026-09-29
+    # regime_flip_exit resolution; see test_measured_state_2026_08_17 above).
+    assert "MOVABLE BY A SESSION: 0" in text
     assert "NO SWEEP PATH AT ALL: 1" in text
 
 
