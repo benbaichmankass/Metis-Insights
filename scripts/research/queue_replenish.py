@@ -480,10 +480,16 @@ def _self_test() -> int:
     assert runnable(planted, now=t0, horizon_hours=0) == ["monthly-old", "once-never"]   # weekly-soon is due in 4 h
     assert len([u for u in planted.values() if dispatchable(u)]) == 5, "5 read queued; only 3 are runnable"
     root = _REPO
-    p1 = plan(root, day="2030-01-01", target=25)
-    p2 = plan(root, day="2030-01-01", target=25)
+    # Plan ABOVE the live runnable count, so this checks the templates and not
+    # whether the queue happens to be full today: the first replenish PR
+    # (#13950, 2026-09-29) filled the queue to exactly 25 and this self-test,
+    # planning at target 25, then failed the guard on that very PR.
+    live_have = len(runnable(existing_units(root)[0]))
+    p1 = plan(root, day="2030-01-01", target=live_have + 3)
+    p2 = plan(root, day="2030-01-01", target=live_have + 3)
     assert [u["text"] for u in p1["new_units"]] == [u["text"] for u in p2["new_units"]], "not deterministic"
     assert p1["new_units"], "the live templates generate nothing -- a template or a grid source is broken"
+    assert plan(root, day="2030-01-01", target=live_have)["new_units"] == [], "a full queue must generate nothing"
     # every generated unit is valid queue schema + a pre-registered rule
     from scripts.research.research_queue import validate, grade_power, grade_route
     yaml = _yaml()
