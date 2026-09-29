@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260928-005.yaml status/grading edit exceeds STAMP_ONLY_SURFACE (same precedent as #14042 and #14292).",
+  "why": "Lands the RQ-20260928-005 grading record and queue disposition. No config/, src/, roster, gate or order-path file touched."
+}
