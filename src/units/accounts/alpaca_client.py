@@ -2168,7 +2168,9 @@ class AlpacaClient:
         a take-profit limit + a stop, ``time_in_force: gtc``) on the
         closing side so protection persists across closes/weekends/restarts.
 
-        Cancels any resting orders on the symbol first (no OCO stacking). Needs
+        Cancels THIS position's own resting protective legs first (no OCO
+        stacking) — never a sibling row's legs or an opening-side order; see
+        :meth:`_scoped_rearm_cancel`. Needs
         BOTH ``sl`` and ``tp`` (an OCO is a limit+stop pair). ``order`` keys:
         ``symbol``, ``direction`` (the POSITION side, ``long``/``short`` or
         ``buy``/``sell`` — the OCO takes the reverse, closing side), ``qty``
@@ -2200,8 +2202,18 @@ class AlpacaClient:
             return {"retCode": -2, "retMsg": f"invalid qty: {exc}"}
         sym = str(order["symbol"]).upper()
         close_side = "sell" if pos_long else "buy"
-        # Idempotency: clear any resting legs first so re-arms don't stack OCOs.
-        self._cancel_open_orders_for_symbol(sym)
+        # Idempotency, SCOPED TO THIS POSITION'S OWN LEGS (FIX-SA-03 step 3,
+        # PI-20260929-PR6YRTQY-0001). This used to be
+        # `_cancel_open_orders_for_symbol(sym)`: every order on the symbol was
+        # DELETEd before an OCO sized to ONE journal row was placed. Alpaca nets
+        # per symbol, so on a symbol more than one row holds (alpaca_paper SPY,
+        # 8 + 11 shares, 2026-09-29) that stripped the sibling's legs and put
+        # back only this row's — and, before #14123, a sibling BRACKET's held
+        # stop went with its cancelled take-profit leg (the venue cascades an
+        # OCO/bracket cancel). It also cancelled opening-side ENTRY orders a
+        # strategy had resting. Now only reducing-side protective legs sized to
+        # THIS row's qty are cleared; see `_scoped_rearm_cancel`.
+        kept_targets = self._scoped_rearm_cancel(sym, close_side, qty)
         body: Dict[str, Any] = {
             "symbol": sym,
             "qty": str(qty),
@@ -2218,7 +2230,89 @@ class AlpacaClient:
             "stop_loss": {"stop_price": f"{float(sl):.2f}"},
         }
         env = self._request("POST", "/v2/orders", body)
+        if env.get("retCode") != 0 and kept_targets:
+            # The venue refused, and sibling TAKE-PROFIT legs were left resting
+            # on the reducing side — they may be reserving the shares this OCO
+            # needs ("insufficient qty available"). Arming a STOP on a naked
+            # position outranks a sibling's target geometry, so those target
+            # legs are released and the OCO retried ONCE. A sibling STOP is
+            # never released here: if one rests, the position is not stop-naked
+            # and the refusal stands. Named in the log, never silent.
+            logger.warning(
+                "alpaca place_protective(%s): OCO refused (%s) with %d sibling "
+                "take-profit leg(s) resting — releasing %s and retrying once so "
+                "the STOP can be armed; the sibling target(s) must be re-placed "
+                "by their owner", sym, env.get("retMsg"), len(kept_targets),
+                ",".join(kept_targets),
+            )
+            for oid in kept_targets:
+                self._request("DELETE", f"/v2/orders/{oid}")
+            env = self._request("POST", "/v2/orders", body)
         if env.get("retCode") != 0:
             return env
         result = env.get("result") or {}
         return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
+
+    def _scoped_rearm_cancel(self, sym: str, close_side: str, qty: int) -> List[str]:
+        """Cancel THIS position's own resting protective legs; keep the rest.
+
+        A leg is this position's own when it is a protective type (stop family
+        or limit, via :meth:`_leg_protective_side`), on the REDUCING side
+        (*close_side*), and sized to *qty* (:meth:`_leg_qty`). Everything else
+        is left alone:
+
+        * **opening-side orders** — a strategy's resting entry is not
+          protection and a re-arm has no business cancelling it;
+        * **reducing-side legs of another size** — a sibling row's protection
+          on the same netted symbol;
+        * **legs whose side/qty cannot be read** — ownership unknown, so not
+          ours to cancel (the POST's refusal, if any, is then reported).
+
+        Returns the ids of kept reducing-side TARGET legs (limits) so
+        :meth:`place_protective` can release them if, and only if, the venue
+        refuses the stop — and ``[]`` whenever any other reducing-side STOP
+        rests, because a target may share an OCO/bracket group with it and
+        Alpaca cancels the group together. A sibling stop is never released. A failed open-orders read cancels nothing and returns
+        ``[]`` — the POST still goes ahead, because a read failure must not
+        block arming protection on a naked position (the previous contract).
+        """
+        legs = self._open_orders_for_symbol(sym)
+        if legs is None:
+            logger.warning(
+                "alpaca place_protective(%s): open-orders read FAILED — "
+                "cancelled nothing before the re-arm (could not look)", sym,
+            )
+            return []
+        own: List[str] = []
+        kept_targets: List[str] = []
+        other_stop = False
+        seen: set = set()
+        for o in legs:
+            oid = o.get("id")
+            if not oid or oid in seen:
+                continue
+            seen.add(oid)
+            kind = self._leg_protective_side(o.get("type") or o.get("order_type"))
+            if not kind:
+                continue
+            if str(o.get("side") or "").lower() != close_side:
+                continue
+            lq = self._leg_qty(o)
+            if lq is not None and abs(lq - qty) <= _QTY_EPS:
+                own.append(str(oid))
+            elif kind == "target":
+                kept_targets.append(str(oid))
+            else:
+                other_stop = True
+        for oid in own:
+            env = self._request("DELETE", f"/v2/orders/{oid}")
+            if env.get("retCode") not in (0, 404):
+                logger.warning(
+                    "alpaca place_protective(%s): cancel of own leg %s refused: "
+                    "rc=%s %s", sym, oid, env.get("retCode"), env.get("retMsg"),
+                )
+        # A sibling STOP rests on the reducing side: the target legs kept above
+        # may share an OCO/bracket group with it, and Alpaca cancels a group
+        # together — releasing one would take the stop with it. So nothing is
+        # offered for release; a refusal then stands and is reported.
+        return [] if other_stop else kept_targets
