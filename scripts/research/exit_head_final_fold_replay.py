@@ -58,6 +58,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -255,7 +256,8 @@ def main(argv: List[str]) -> int:
     for leg in a.legs.split(","):
         try:
             res.append(replay_leg(Path(a.round_dir), leg, a.tf, a.expect_year))
-        except Exception as exc:  # noqa: BLE001 - a crashed leg must be VISIBLE, not dropped
+        except Exception as exc:  # noqa: BLE001  # allow-silent: NOT silent - the stack trace is logged below and the leg is recorded as state `replay_failed`, which exit_head_final_fold_grade maps to not_applicable / producer_failed (a crashed leg is never dropped from the denominator)
+            traceback.print_exc(file=sys.stderr)
             res.append({"leg": leg, "state": "replay_failed",
                         "error": f"{type(exc).__name__}: {exc}"[:300]})
     print(json.dumps(res, indent=1, sort_keys=True))
