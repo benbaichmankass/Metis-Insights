@@ -56,12 +56,23 @@ CORPUS = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
 # `EXPECTED_OWN_LEVER_DROPPED` (41) and the ten zero-delta rows are both unmoved,
 # which is the check that the corpus grew without disturbing the finding's
 # own population.
+#
+# RE-MEASURED 2026-09-29 when the corpus grew 1376 -> 1377: one row landed via
+# `scripts/research/m20_corpus_union.py` (PR #14053) — the ada_pullback_2h /
+# vol_trail / vt_hot90_t2.5 cell, run_id 2026-09-29T00:56:49.355532Z, now
+# committed to `docs/research/m20-sweep-corpus.jsonl` on main. Its
+# `declared_levers_present` is `[]` (vol_trail is undeclared on every live leg
+# as of that run) and `declared_levers_dropped` is also `[]`, so it grades
+# `lever_absent_from_baseline` — recomputed via `lever_in_baseline`, not
+# assumed. The +1 lands entirely in that bucket (474 -> 475); `lever_in_baseline`
+# (61), `unknown` (841) and `EXPECTED_OWN_LEVER_DROPPED` (41) are all unmoved,
+# confirming the new row does not touch the finding's own population.
 EXPECTED_PARTITION = {
     "lever_in_baseline": 61,
-    "lever_absent_from_baseline": 474,
+    "lever_absent_from_baseline": 475,
     "unknown": 841,
 }
-EXPECTED_TOTAL = 1376
+EXPECTED_TOTAL = 1377
 # Rows where the row's own lever was DROPPED — the population the naive
 # predicate gets wrong, and the reason `dropped` is consulted first.
 EXPECTED_OWN_LEVER_DROPPED = 41
