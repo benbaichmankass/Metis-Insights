@@ -1,6 +1,6 @@
 # System Audit 2026-09-29 — AUD-6 CI Guard Health
 
-> **Doc status:** `draft` · category `audit` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `audit` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 >
 > **Lane:** AUD-6 (CI guard health audit)  
 > **Dispatch:** audit/sa-2026-09-29-dispatch, approved 2026-09-29 ~09:50Z  
