@@ -33,7 +33,7 @@ outside the registered grid and were not tested."* This round:
    walk-forward re-tuned, unlike R3 — this scores the leg AS CURRENTLY
    CONFIGURED in `config/strategies.yaml`).
 3. **Pre-registers the full remaining candidate grid** (42 units,
-   `RQ-20260929-001..042`, PR #14049) so every Breakout-mapped, live-roster
+   `RQ-20260929-019..060`, PR #14049) so every Breakout-mapped, live-roster
    leg on the watchlist symbols that `queue_replenish`'s own candidate list
    carries has a queued, self-reproducing decision rule — whether or not this
    round runs all of them (see §4).
@@ -179,7 +179,7 @@ Separately, `BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES`
 live lot-rule lookup misses — worth fixing before any AVAX leg is graduated to
 live, independent of whether it ever clears the EV bar.
 
-**The remaining 32 pre-registered queue units** (`RQ-20260929-001..042` minus
+**The remaining 32 pre-registered queue units** (`RQ-20260929-019..060` minus
 the 6 legs graded above; PR #14049) cover the same 6 legs' `bal010`/`room033`
 (where not already run) and mechanically hand the same question to the
 auto-dispatcher, plus the 10 non-crypto legs from the template's `markets:`
@@ -217,7 +217,7 @@ by whatever lane owns non-crypto prop-fit next.
 
 - **No proposal.** This document proposes no roster or parameter change for
   `breakout_1`.
-- **Research units:** `RQ-20260929-001..042` land `status: done` (the 6 graded
+- **Research units:** `RQ-20260929-019..060` land `status: done` (the 6 graded
   legs, both arms where run) or stay `queued` (the remainder, for the
   auto-dispatcher). Full per-seed records at `research/results/RQ-20260929-*`.
 - Closes the immediate ask on checklist row **P2** for the crypto watchlist
