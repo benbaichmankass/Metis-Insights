@@ -430,3 +430,66 @@ class TestUnverifiedReasonKeepsAccountability:
         assert p.classify_pnl({"exit_price_source": "bybit_closed_pnl"})[0] == p.MEASURED
         assert p.classify_pnl({"exit_price_source": "candle_at_close"})[0] == p.ESTIMATED
         assert p.is_measured({"exit_price_source": "entry_order_avg_price_unreliable"}) is False
+
+
+# ── FIX-SA-04: a MEASURED source does not launder a self-contradicting pnl ──
+# Row shape = the `trades` columns + the JSON `notes` blob the writers stamp
+# (SA-AUD-3: 18 ib_paper rows read ('measured', 'exit_price_source=ib_execution', 0.0)).
+def _trade(source="ib_execution", **kw):
+    row = {
+        "direction": "long", "entry_price": 5000.0, "exit_price": 5010.0,
+        "position_size": 2.0, "pnl": 100.0,
+        "notes": json.dumps({"exit_price_source": source, "pnl_source": "local_compute"}),
+    }
+    row.update(kw)
+    return row
+
+
+def test_ib_zero_pnl_on_moving_close_is_unverified():
+    bucket, why = P.classify_pnl(_trade(pnl=0.0))
+    assert bucket == P.UNVERIFIED
+    assert "ib_execution" in why and "pnl=0.0" in why
+
+
+def test_ib_zero_pnl_on_flat_close_stays_measured():
+    # genuine break-even: exit == entry, so 0.0 is consistent with the move
+    assert P.classify_pnl(_trade(pnl=0.0, exit_price=5000.0))[0] == P.MEASURED
+
+
+def test_ib_nonzero_pnl_stays_measured():
+    assert P.classify_pnl(_trade())[0] == P.MEASURED
+
+
+def test_zero_pnl_demotion_is_ib_specific():
+    # a zero on a bybit_closed_pnl row is not the IB defaulting defect
+    assert P.classify_pnl(_trade(source="bybit_closed_pnl", pnl=0.0))[0] == P.MEASURED
+
+
+@pytest.mark.parametrize("direction,exit_price,pnl", [
+    ("long", 4900.0, 50.0),     # -2% adverse, positive pnl
+    ("long", 5100.0, -50.0),    # +2% favourable, negative pnl
+    ("short", 5100.0, 50.0),
+    ("short", 4900.0, -50.0),
+])
+def test_sign_inconsistent_pnl_is_unverified(direction, exit_price, pnl):
+    row = _trade(source="bybit_closed_pnl", direction=direction,
+                 exit_price=exit_price, pnl=pnl)
+    bucket, why = P.classify_pnl(row)
+    assert bucket == P.UNVERIFIED and "sign-inconsistent" in why
+
+
+def test_sign_flip_inside_noise_band_is_not_demoted():
+    # +0.1% move (< 0.2%) with a fee-driven negative pnl is legitimate
+    row = _trade(source="bybit_closed_pnl", exit_price=5005.0, pnl=-1.0)
+    assert P.classify_pnl(row)[0] == P.MEASURED
+
+
+def test_missing_fields_cannot_be_checked_so_label_stands():
+    row = {"notes": json.dumps({"exit_price_source": "ib_execution"}), "pnl": 0.0}
+    assert P.classify_pnl(row)[0] == P.MEASURED   # notes-only callers unchanged
+
+
+def test_demotion_only_touches_measured():
+    # ESTIMATED with a contradicting sign keeps its (weaker) bucket
+    row = _trade(source="candle_at_close", exit_price=4900.0, pnl=50.0)
+    assert P.classify_pnl(row)[0] == P.ESTIMATED
