@@ -1,0 +1,42 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  eth_pullback_2h              A        seed=1 exit=2 NO STATS (0.3s)
+  eth_pullback_2h              A        seed=2 exit=2 NO STATS (0.3s)
+  eth_pullback_2h              A        seed=3 exit=2 NO STATS (0.3s)
+  eth_pullback_2h              A        seed=4 exit=2 NO STATS (0.3s)
+  eth_pullback_2h              A        seed=5 exit=2 NO STATS (0.1s)
+::error::5 of 5 cells failed or produced no stats
+  eth_pullback_2h A seed=1: exit=2 ODES]
+                      [--lives LIVES] [--outer OUTER]
+                      [--lives-per-outer LIVES_PER_OUTER] [--seed SEED]
+                      [--out OUT] [--emit-result] [--run-id RUN_ID]
+                      [--rule {v1,v2}]
+prop_ev_sim.py: error: unrecognized arguments: {sizing_args}
+
+  eth_pullback_2h A seed=2: exit=2 ODES]
+                      [--lives LIVES] [--outer OUTER]
+                      [--lives-per-outer LIVES_PER_OUTER] [--seed SEED]
+                      [--out OUT] [--emit-result] [--run-id RUN_ID]
+                      [--rule {v1,v2}]
+prop_ev_sim.py: error: unrecognized arguments: {sizing_args}
+
+  eth_pullback_2h A seed=3: exit=2 ODES]
+                      [--lives LIVES] [--outer OUTER]
+                      [--lives-per-outer LIVES_PER_OUTER] [--seed SEED]
+                      [--out OUT] [--emit-result] [--run-id RUN_ID]
+                      [--rule {v1,v2}]
+prop_ev_sim.py: error: unrecognized arguments: {sizing_args}
+
+  eth_pullback_2h A seed=4: exit=2 ODES]
+                      [--lives LIVES] [--outer OUTER]
+                      [--lives-per-outer LIVES_PER_OUTER] [--seed SEED]
+                      [--out OUT] [--emit-result] [--run-id RUN_ID]
+                      [--rule {v1,v2}]
+prop_ev_sim.py: error: unrecognized arguments: {sizing_args}
+
+  eth_pullback_2h A seed=5: exit=2 ODES]
+                      [--lives LIVES] [--outer OUTER]
+                      [--lives-per-outer LIVES_PER_OUTER] [--seed SEED]
+                      [--out OUT] [--emit-result] [--run-id RUN_ID]
+                      [--rule {v1,v2}]
+prop_ev_sim.py: error: unrecognized arguments: {sizing_args}
+
