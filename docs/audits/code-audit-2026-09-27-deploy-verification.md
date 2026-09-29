@@ -173,7 +173,7 @@ still awaiting one**, though three have not finished landing cleanly:
 |---|---|---|
 | JC-CA-01 | Option A — durable commit to `main` on `set-account-mode` | **Decided, `landed_unproven`.** #13508 merged (`3deb2385`); deploy/observe convergence tracked separately (issue #13572, `PI-20260928-TURC5MJC-0006`), not by this doc. |
 | JC-CA-02 | Option B — remove `htf_trend_filter_enabled` from the 7 legs | **Decided and landed.** #13505 merged (`6a299600`). |
-| JC-CA-03 | Re-decided 2026-09-28 12:10Z: "Keep PAT, verify run" (API-verified provenance over Option A/B/C) | **Decided, blocked in review.** Implementation PR #13609 sent back by an independent review (B1: A7 grades the synthetic merge commit so the route refuses every genuine PR; B2: nothing binds PR content to the run id) — not yet re-landed. |
+| JC-CA-03 | Re-decided 2026-09-28 12:10Z: "Keep PAT, verify run" (API-verified provenance over Option A/B/C) | **Landed** (#13609, `4df71fb5`); both review findings verified fixed on `main` 2026-09-29 by lane JC-CA-03-FIX (mutation-probed). `landed_unproven` until a real `MD-DEMOTE-S2-S1` producer PR passes R16 in CI. |
 | JC-CA-04 | Option B — post-merge `hold`-violation alarm | **Decided and landed.** #13507 merged (`78d00c89`). |
 | JC-CA-05 | Option B — fail loud, no auto-revert | **Decided and landed.** #13509 merged (`3c441d37`). |
 | JC-CA-06 | Option A (retire the `account_state.yaml` fold), contingent on JC-CA-01's fix being observed converged | **Decided in principle, execution gated on JC-CA-01.** Not yet actioned; FIX-CA-32 (documenting the fold) already landed regardless of this call. |
