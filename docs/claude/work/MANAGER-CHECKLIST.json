@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-29T09:40Z",
+  "updated_at": "2026-09-29T09:50Z",
   "updated_by": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -2335,10 +2335,10 @@
       "id": "E75",
       "title": "System audit (E71/E73 review-pack D7-D10): scope, cadence, model and budget decided -- lanes launch when the operator says go",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "manager",
-      "lane": null,
-      "model": null,
+      "lane": "session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "model": "claude-opus-5-5",
       "ceiling_usd": 270,
       "spend_usd": null,
       "tier": 1,
@@ -2350,7 +2350,7 @@
           "what": "the four questions below are answered and the audit's shape is decided; the lanes themselves launch only when the operator says go"
         }
       ],
-      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a76's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the \u00a74.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a77's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in \u00a77 sum inside this figure; it is not an additional per-lane amount). \u26a0\ufe0f THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself."
+      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a76's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the \u00a74.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a77's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in \u00a77 sum inside this figure; it is not an additional per-lane amount). \u26a0\ufe0f THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself.\n[2026-09-29T09:50Z manager] OPERATOR GO, popup verbatim: \"Launch now (Recommended)\". Dispatched AUD-LEAD (runs AUD-1..8 as subagents/sub-sessions, $270 cap, AUD-6 on haiku, no re-do of the CA code audit)."
     },
     {
       "id": "E76",
@@ -2984,7 +2984,7 @@
       "tier": 3,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup ~13:20Z, verbatim answer \"Ship the 3-part change (Recommended)\" on the GLD confirming walk-forward (#13600: stop-only sm1.5 FAILED 3/6 folds; tp6_sm1.5_to24 PASSED 6/6, OOS dnet_R +20.08, n=54). Lane ships the geometry + regenerated evidence as a held PR, then prepares a held roster PR per leg that the armed mandate FIREs for (alpaca_live + alpaca_portfolio, cap + sizing arithmetic). Manager merges after independent review and notifies the operator with evidence + revert.",
+      "note": "2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup ~13:20Z, verbatim answer \"Ship the 3-part change (Recommended)\" on the GLD confirming walk-forward (#13600: stop-only sm1.5 FAILED 3/6 folds; tp6_sm1.5_to24 PASSED 6/6, OOS dnet_R +20.08, n=54). Lane ships the geometry + regenerated evidence as a held PR, then prepares a held roster PR per leg that the armed mandate FIREs for (alpaca_live + alpaca_portfolio, cap + sizing arithmetic). Manager merges after independent review and notifies the operator with evidence + revert.\n[2026-09-29T09:50Z manager] PR #13698 (slv_trend_1h S1->S2) put to the operator; answer, verbatim: \"In general, we clearer, more automated processes for these kinds of decisions - either we have enough data to decide, or we don't and then getting that data becomes a task which needs to happen so that a decision can be made\". Applied: row DECIDE-AUTO (resolver gains NEEDS-DATA -> auto-filed data task; SLV is NEEDS-DATA: shadow/not soaked, cost fidelity insufficient_n) and #13698 closes with the data task linked.",
       "id": "PROMOTE"
     },
     {
@@ -3104,6 +3104,36 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-09-29T09:45Z manager] Lane session_01RPz6PpXuDjaKkKxYNrXCUH was first briefed on P1b+E65; both are already settled (P1b: operator 'Keep flat $75' 09-28; E65 done, honest_negative). Redirected here. Measured specs only; nothing joins executor.enabled_venue_symbols until SOL is live and that symbol passes its own D1-D7."
+    },
+    {
+      "id": "JC-CA-06",
+      "title": "Retire the config/account_state.yaml dry-only fold (third execution input)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager",
+      "lane": "session_01KwYKLvsHXXh27f6ZgRXVRb",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-09-29T09:50Z manager] OPERATOR DECISION, popup verbatim: \"Retire it (Recommended)\". Lane stops if any account reads dry_run: true in account_state.yaml (removal would flip it live)."
+    },
+    {
+      "id": "DECIDE-AUTO",
+      "title": "Decisions are data-settled (automated) or become a data task: mandate resolver FIRE/REFUSE/NEEDS-DATA + auto-filed data tasks; manager popup rule",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager",
+      "lane": "session_01MzcnnctDtz7LFETeKrdiiQ",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-09-29T09:50Z manager] OPERATOR DIRECTIVE (verbatim on row PROMOTE). First case: slv_trend_1h / #13698."
     }
   ]
 }
