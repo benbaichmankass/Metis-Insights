@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/pipeline-only append-only correction record; no runtime, order path, or config touched"
+}

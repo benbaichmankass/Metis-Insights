@@ -3223,18 +3223,22 @@ class IBClient:
         in ``refusal``, so a permanent refusal (10147) is distinguishable from a
         cancel that is merely slow — the two want opposite retry behaviour.
 
-        ⚠️ **Not yet registered with ``collapsed-state-guard``, deliberately**,
-        following the ``BYBIT_HEDGE_MODE_SYMBOLS`` precedent. ``verified`` and
-        ``unverified`` each have a real consumer branch today (the refuse-to-arm
-        invariant in :meth:`place_protective` and :meth:`_log_cancel_verdict`),
-        but ``not_attempted`` does not: the consumer that would care — "was this
-        position protected a moment ago?" — is the naked-detection path, which
-        does not call this. Registering the contract now would either fail the
-        guard or invite a decorative branch, and a guard that is cheaper to lie
-        to than to satisfy is worse than no guard. It becomes registrable in the
-        change that gives ``not_attempted`` a consumer. The state is kept in the
-        envelope regardless, because collapsing it into ``verified`` would say
-        "we looked and nothing survived" about a call that never looked.
+        ⚠️ **Registered with ``collapsed-state-guard`` as
+        ``ib_client.verify_state`` (FIX-SA-06, 2026-09-29).** This paragraph
+        used to say it was deliberately NOT registered because ``not_attempted``
+        had no consumer branch. That is still true of PRODUCTION code:
+        ``verified`` / ``unverified`` are branched on in-file
+        (:meth:`place_protective`, :meth:`_log_cancel_verdict`), and
+        ``not_attempted`` is read by nothing outside the tests. It registers
+        anyway because the guard excludes the producer file from consumers and
+        credits ``tests/test_ib_cancel_verification.py``, which asserts all
+        three; the guard's producer-integrity check (each state is emitted as a
+        ``"verify_state": "<x>"`` value) is what detects a regression that
+        folds ``unverified`` into ``verified``. A production consumer for
+        ``not_attempted`` -- "was this position protected a moment ago?" -- is
+        still owed. The state stays in the envelope because collapsing it into
+        ``verified`` would say "we looked and nothing survived" about a call
+        that never looked.
         """
         if not attempted:
             return {"verify_state": "not_attempted", "still_resting": [],

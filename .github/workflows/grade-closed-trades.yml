@@ -1,0 +1,213 @@
+name: grade-closed-trades
+
+# The GRADED hop of the trade pipeline, on a CADENCE — JC-SA-01 (2026-09-29).
+#
+# WHAT WAS BROKEN. `comms/claude_strategy_scores.jsonl` had no row after
+# 2026-09-08T10:50:51Z (measured 2026-09-29 on origin/main, 3,446 rows) while
+# 498 non-backtest trades closed across 7 accounts (diag journal pull). The
+# grader (`scripts/ops/score_order_packages.py::_grade_package`, a
+# deterministic rubric) and its system-action both still worked — re-run
+# against that pull the grader emits 491 rows. What was missing is a SCHEDULE:
+# every commit ever to touch the score file was a `/system-review` or
+# `/performance-review` session dispatching `grade-closed-trades` by hand. The
+# last was #11379 on 09-08; the 09-11 `/system-review` (#11818) did not grade;
+# the 09-21 reset retired `/system-review` and its prose-only freshness guard.
+#
+# WHAT THIS DOES. Daily: SSH to the live VM, run the EXISTING wrapper
+# (`grade_closed_trades_action.sh`, sqlite mode=ro, prints NDJSON, writes
+# nothing) in `--by-trade` mode — one row per CLOSED TRADE keyed on
+# linked_trade_id — then append the delta to the score file here and land it
+# through commit-to-main. Append-only: no existing row is ever rewritten.
+#
+# WHY GRADING RUNS ON THE VM. The rubric reads the live trade journal; copying a
+# money DB to a hosted runner to grade it is a worse trade than one SSH (same
+# reasoning as strategy-review-packets.yml).
+#
+# FRESHNESS IS ALERTED OUTSIDE THIS JOB. scripts/ci/check_grading_freshness.py
+# (run_guards `grading-freshness`) is ALERT-ONLY: it warns on PRs, and
+# grading-freshness-alert.yml (daily 04:10Z) sends one Telegram ping when
+# max(reviewed_at) is >3 days old or unreadable, so a schedule that stops firing
+# is loud even when this workflow never runs to report its own failure.
+
+on:
+  schedule:
+    # 03:10 UTC. Clear of strategy-review-packets (04:40), probes (05:20),
+    # due-list (05:50) and health-snapshot (every 6h on the hour), so it never
+    # stacks on another job on the money box. The journal read is sqlite
+    # mode=ro and touches no broker, so the IB gateway reset is not a constraint.
+    - cron: "10 3 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Grade and report counts, but commit nothing"
+        type: boolean
+        default: false
+      since:
+        description: "Override the closed_at floor (ISO-8601). Default: max(2026-09-08T00:00:00Z, now-30d)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: grade-closed-trades
+  cancel-in-progress: false
+
+jobs:
+  # schedule-keeper (scripts/ops/schedule_keeper.py): GitHub creates this
+  # repo's scheduled runs hours late, so the keeper dispatches near the slot and
+  # this job skips the late duplicate. Fails open: an error here means "run".
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
+  grade:
+    needs: dedupe
+    if: "!cancelled() && needs.dedupe.outputs.skip != 'true'"
+    runs-on: ubuntu-latest
+    # 45: commit-to-main with verify-merged waits up to 30 min for the PR to merge.
+    timeout-minutes: 45
+    env:
+      VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_USER: ubuntu
+      VM_REPO: /home/ubuntu/ict-trading-bot
+      SCORES: comms/claude_strategy_scores.jsonl
+      # The backfill floor: grading stopped 2026-09-08. A rolling 30-day window
+      # past that bounds the query without ever re-opening pre-floor history.
+      SINCE_FLOOR: "2026-09-08T00:00:00Z"
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+      SINCE_OVERRIDE: ${{ inputs.since }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # REQUIRED by commit-to-main: under the default GITHUB_TOKEN the PR it
+          # opens never receives the required pull_request checks.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up SSH key
+        run: |
+          set -eu
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          if ! ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+            echo "::error::VM_SSH_KEY is not a parseable OpenSSH private key."
+            exit 1
+          fi
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Grade on the VM (read-only)
+        run: |
+          set -euo pipefail
+          if [ -n "${SINCE_OVERRIDE}" ]; then
+            SINCE="${SINCE_OVERRIDE}"
+          else
+            SINCE="$(python3 -c "
+          from datetime import datetime, timedelta, timezone
+          floor = datetime.fromisoformat('${SINCE_FLOOR}'.replace('Z', '+00:00'))
+          print(max(floor, datetime.now(timezone.utc) - timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%SZ'))")"
+          fi
+          echo "since=${SINCE}"
+          # No `|| true`: an SSH failure must fail the run, never read as
+          # "nothing to grade".
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+              "$VM_USER@$VM_HOST" \
+              "ACTION_BY_TRADE=1 ACTION_SINCE=$(printf '%q' "$SINCE") ACTION_LIMIT=5000 \
+               nice -n 10 bash $VM_REPO/scripts/ops/grade_closed_trades_action.sh" \
+              > /tmp/grade.out
+
+      - name: Append the delta (dedup against main, refuse a package-keyed run)
+        id: append
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, sys
+          scores = os.environ["SCORES"]
+          rows, summary = [], None
+          for line in open("/tmp/grade.out", encoding="utf-8"):
+              line = line.strip()
+              if not line.startswith("{"):
+                  continue  # the wrapper's own `=====` / log lines
+              try:
+                  obj = json.loads(line)
+              except ValueError:
+                  continue
+              if obj.get("_delta_summary"):
+                  summary = obj
+              elif "linked_trade_id" in obj:
+                  rows.append(obj)
+          if summary is None:
+              sys.exit("::error::no _delta_summary line — the grader did not complete")
+          # A VM still on the pre-JC-SA-01 grader silently ignores --by-trade and
+          # emits PACKAGE-keyed rows. Refuse rather than land the wrong key.
+          if summary.get("keyed_on") != "linked_trade_id":
+              sys.exit("::error::VM grader is not keyed on linked_trade_id "
+                       f"(summary={summary}); ict-git-sync has not deployed it yet")
+          if summary.get("truncated"):
+              sys.exit(f"::error::delta truncated ({summary.get('more_available')} withheld); raise ACTION_LIMIT")
+          # The VM computed its skip-set from its ict-git-sync mirror, which can
+          # lag main by minutes. Dedup again against the checkout.
+          have = set()
+          for line in open(scores, encoding="utf-8"):
+              try:
+                  t = json.loads(line).get("linked_trade_id")
+                  if t is not None:
+                      have.add(int(t))
+              except (ValueError, TypeError, AttributeError):
+                  continue
+          new = [r for r in rows if int(r["linked_trade_id"]) not in have]
+          by_acct = {}
+          for r in new:
+              by_acct[r.get("account_id") or "?"] = by_acct.get(r.get("account_id") or "?", 0) + 1
+          print(f"vm_summary={json.dumps(summary)}")
+          print(f"appending={len(new)} (vm emitted {len(rows)}; {len(rows) - len(new)} already on main)")
+          print(f"by_account={json.dumps(dict(sorted(by_acct.items())))}")
+          if os.environ["DRY_RUN"] != "true" and new:
+              with open(scores, "a", encoding="utf-8") as fh:
+                  for r in new:
+                      fh.write(json.dumps(r) + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"appended={0 if os.environ['DRY_RUN'] == 'true' else len(new)}\n")
+          PY
+
+      - name: Freshness after this run
+        # Report, not gate: the gate is the CI guard. A quiet day (no closes)
+        # correctly appends nothing, and must not fail the grader itself.
+        run: python3 scripts/ci/check_grading_freshness.py || true
+
+      - name: Land on main (auto-merge PR)
+        if: env.DRY_RUN != 'true' && steps.append.outputs.appended != '0'
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/claude_strategy_scores.jsonl
+          message: "chore(grading): append closed-trade decision grades"
+          pr-title: "chore(grading): closed-trade decision grades (auto)"
+          pr-body: >
+            Daily grade-closed-trades run (JC-SA-01): one row per closed trade
+            keyed on linked_trade_id, rubric
+            scripts/ops/score_order_packages.py::_grade_package, append-only.
+            Data-only, no live-path change.
+          branch-prefix: automation/grade-closed-trades
+          verify-merged: "true"

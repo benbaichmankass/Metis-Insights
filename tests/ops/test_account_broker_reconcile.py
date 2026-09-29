@@ -183,6 +183,8 @@ def test_breakout_divergent_broker_only_position_and_pnl():
                               realized_today=500.0)
     # broker shows a position at a different symbol than the journal declares
     # -> the journal's BTCUSD becomes journal_only, ETHUSD (broker) is broker_only.
+    # Findings are keyed on the canonical BOT symbol (src/prop/symbol_map), the
+    # journal's own key, so the venue spellings read back as BTCUSDT / ETHUSDT.
     status["status"]["raw"] = json.dumps({"open_positions": [
         {"symbol": "ETHUSD", "side": "short", "quantity": 1,
          "stop_loss": None, "take_profit": None}]})
@@ -190,7 +192,7 @@ def test_breakout_divergent_broker_only_position_and_pnl():
     r = m.reconcile_breakout(status, fills, now=datetime(2026, 9, 28, tzinfo=timezone.utc))
     assert r["positions_state"] == "divergent"
     symbols_by_state = {p["symbol"]: p["state"] for p in r["positions"]}
-    assert symbols_by_state == {"BTCUSD": "journal_only", "ETHUSD": "broker_only"}
+    assert symbols_by_state == {"BTCUSDT": "journal_only", "ETHUSDT": "broker_only"}
     assert r["pnl_state"] == "divergent"
 
 
@@ -316,3 +318,145 @@ def test_bybit_wallet_truth_state_field_is_read_not_read_state():
     assert "read_state" not in wt["accounts"][0]  # prove the shape
     r = m.reconcile_bybit(j_pos, j_closed, broker, wt)
     assert r["pnl_state"] == "agree"
+
+
+# ------------------------------------------- reduce legs (issue #14113, 5702)
+# The REAL /api/bot/trades/closed wire shape (fetched live 2026-09-29): the
+# P&L field is "realizedPnl" — never "pnl" — and it carries NO setup_type /
+# notes, so a wire row is classified by id against the raw journal read
+# (/api/diag/journal?table=trades — every column). Trade 5702 is an
+# eth_pullback_2h intent_reduce leg whose pnl is NULL BY DESIGN
+# (BL-20260711), written by src/units/accounts/execute.py's reduce audit row.
+
+def _wire_close(tid, pnl, closed_at, pattern="trend_donchian_eth_4h", reason="sl"):
+    return {"id": str(tid), "account": "bybit_2", "accountClass": "real_money",
+            "isDemo": False, "symbol": "ETHUSDT", "assetClass": "crypto",
+            "side": "sell", "pattern": pattern, "qty": 0.01, "entryPrice": 2500.0,
+            "exitPrice": 2502.42, "realizedPnl": pnl,
+            "pnlProvenance": None if pnl is None else "measured",
+            "journalTrust": "known_divergent", "realizedPnlPct": None,
+            "openedAt": closed_at, "closedAt": closed_at, "closeReason": reason}
+
+
+# raw `trades` rows as /api/diag/journal returns them (columns per
+# src/units/db/database.py; values per execute.py's reduce audit insert)
+_RAW_5702 = {"id": 5702, "account_id": "bybit_2", "symbol": "ETHUSDT",
+             "strategy_name": "eth_pullback_2h", "setup_type": "intent_reduce",
+             "exit_reason": "intent_reduce_executed", "status": "closed",
+             "position_size": 0.01, "pnl": None, "pnl_percent": None,
+             "closed_at": "2026-09-11T20:02:01.225085+00:00",
+             "notes": json.dumps({"pnl_source": "deferred_intent_reduce",
+                                  "intent_reduce_allocations": [
+                                      {"trade_id": 5682, "qty": 0.01}]})}
+_RAW_5682 = {"id": 5682, "account_id": "bybit_2", "symbol": "ETHUSDT",
+             "strategy_name": "trend_donchian_eth_4h", "setup_type": "trend",
+             "exit_reason": "sl", "status": "closed", "exit_price": 2502.42,
+             "pnl": -2.8395, "closed_at": "2026-09-13T08:31:31.454000+00:00",
+             "notes": json.dumps({"pnl_source": "bybit_closed_pnl"})}
+
+
+def _wt(realized):
+    return {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+            "realized_usd": realized, "window_start_ms": 1782902876782,
+            "window_end_ms": 1790678876782}]}
+
+
+def _live_closes():
+    return [_wire_close(5682, -2.8395, "2026-09-13T08:31:31.454000+00:00"),
+            _wire_close(5702, None, "2026-09-11T20:02:01.225085+00:00",
+                        pattern="eth_pullback_2h", reason="other"),
+            _wire_close(5644, -3.4241, "2026-09-11T08:30:35.831000+00:00")]
+
+
+def test_bybit_reduce_leg_null_pnl_is_excluded_not_could_not_look():
+    j_pos, _, broker, _ = _bybit_fixture()
+    raw = [_RAW_5682, _RAW_5702]
+    r = m.reconcile_bybit(j_pos, _live_closes(), broker, _wt(-6.2636), raw_trades=raw)
+    assert r["pnl_state"] == "agree"
+    assert r["pnl"]["journal_pnl_sum"] == -6.2636
+    assert r["pnl"]["n_closes"] == 2
+    assert r["pnl"]["reduce_legs_excluded"] == ["5702"]
+
+
+def test_bybit_reduce_leg_via_run_and_diag_envelope():
+    """run() threads the raw read through; the envelope=true shape
+    ({"rows": [...]}) is accepted as well as the bare array."""
+    j_pos, _, broker, _ = _bybit_fixture()
+    res = m.run(j_pos, _live_closes(), None, broker, _wt(-6.2636), None, [],
+                raw_trades={"rows": [_RAW_5702]})
+    assert res["accounts"]["bybit_2"]["pnl_state"] == "agree"
+
+
+def test_bybit_raw_journal_reduce_row_is_excluded_by_setup_type():
+    """A raw journal row passed as the closed list is classified directly."""
+    j_pos, _, broker, _ = _bybit_fixture()
+    r = m.reconcile_bybit(j_pos, [_RAW_5682, _RAW_5702], broker, _wt(-2.8395))
+    assert r["pnl_state"] == "agree"
+    assert r["pnl"]["reduce_legs_excluded"] == ["5702"]
+
+
+def test_bybit_reduce_leg_unclassifiable_without_raw_read_stays_could_not_look():
+    """No raw read -> 5702 cannot be told from a real unknown -> could_not_look,
+    naming it, and saying the reduce read was unavailable."""
+    j_pos, _, broker, _ = _bybit_fixture()
+    r = m.reconcile_bybit(j_pos, _live_closes(), broker, _wt(-6.2636))
+    assert r["pnl_state"] == "could_not_look"
+    assert r["pnl"]["null_pnl_trade_ids"] == ["5702"]
+    assert r["pnl"]["reduce_leg_read"] == "unavailable"
+
+
+def test_bybit_non_reduce_null_pnl_still_could_not_look():
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [_wire_close(5682, -2.8395, "2026-09-13T08:31:31Z"),
+              _wire_close(5703, None, "2026-09-12T00:00:00Z")]  # NOT a reduce leg
+    raw = [_RAW_5682, _RAW_5702, dict(_RAW_5682, id=5703, pnl=None)]
+    r = m.reconcile_bybit(j_pos, closes, broker, _wt(-2.8395), raw_trades=raw)
+    assert r["pnl_state"] == "could_not_look"
+    assert r["pnl"]["null_pnl_trade_ids"] == ["5703"]
+    assert r["pnl"]["reduce_leg_read"] == "read"
+
+
+def test_bybit_wire_realizedPnl_field_is_read_not_pnl():
+    """First live run (#14113): reading "pnl" off the wire made all 20 rows
+    None -> journal_pnl_sum None -> could_not_look, whatever the rows held."""
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [_wire_close(5682, -2.8395, "2026-09-13T08:31:31Z")]
+    assert "pnl" not in closes[0]  # prove the shape
+    r = m.reconcile_bybit(j_pos, closes, broker, _wt(-2.8395))
+    assert r["pnl_state"] == "agree"
+
+
+# ----------------------------------- breakout_1 venue symbol alias (#14113)
+# The REAL /api/bot/prop/status shape read live 2026-09-29: the journal side
+# (rule_distance.open_risk.positions) keys the position SOLUSDT, the DXtrade
+# terminal (status.raw.open_positions) names the SAME position SOLUSD — same
+# side, qty, entry and stop. Exact-string matching split it into
+# broker_only + journal_only (run 36579673814).
+
+def _prop_status(journal_sym, broker_sym):
+    return {"present": True,
+            "status": {"realized_today": 0.0,
+                       "raw": json.dumps({"open_positions": [
+                           {"symbol": broker_sym, "side": "long", "quantity": 0.01,
+                            "entry_price": 120.62, "stop_loss": 119.36,
+                            "take_profit": 121.78, "unrealized_pnl": None}]})},
+            "rule_distance": {"open_risk": {"positions": [
+                {"fill_id": 47, "ticket_id": "roundtrip-solusd-20260929T125601Z",
+                 "symbol": journal_sym, "direction": "long", "qty": 0.01,
+                 "entry_price": 120.62, "sl": 119.36}]}}}
+
+
+def test_breakout_venue_symbol_matches_journal_bot_symbol():
+    r = m.reconcile_breakout(_prop_status("SOLUSDT", "SOLUSD"), [])
+    assert r["positions_state"] == "agree"
+    assert [p["state"] for p in r["positions"]] == ["position_match"]
+    assert r["positions"][0]["symbol"] == "SOLUSDT"
+    # the protection lookup must find the broker row through the alias too
+    assert r["protection_state"] == "agree"
+    assert r["positions"][0]["has_stop"] is True
+
+
+def test_breakout_genuinely_different_symbol_still_divergent():
+    r = m.reconcile_breakout(_prop_status("SOLUSDT", "ETHUSD"), [])
+    assert r["positions_state"] == "divergent"
+    assert sorted(p["state"] for p in r["positions"]) == ["broker_only", "journal_only"]

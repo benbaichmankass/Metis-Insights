@@ -189,8 +189,22 @@ def test_measured_state_2026_08_17():
     # same bracket without it on both legs). The two that remain:
     # squeeze_breakout_4h exit_ladder (blocked:no_harness_levers) and
     # trend_donchian_eth_prop regime_flip_exit (pending).
-    assert len(cut.get("no_sweep_path", [])) == 2
-    assert {i[3] for i in cut["no_sweep_path"]} == {"exit_ladder", "regime_flip_exit"}
+    #
+    # 2 -> 1 on 2026-09-29 (lane EXIT-OPS, PI-20260929-EXITOPS unfiled ref --
+    # docs/research/exit-refinement-coverage.json PR #14076): the remaining
+    # trend_donchian_eth_prop regime_flip_exit cell RESOLVED pending ->
+    # honest_negative. It was left `pending` only because the pre-live-parity
+    # evidence was genuinely interpretive (a recorded PASS that only looked
+    # like an improvement on a heavy-loser book); the 2026-08-16 live-parity
+    # re-sweep already cited on that cell settles it -- verdict FAIL, wf=2/6,
+    # net_R degrades -4.0203 -> -27.762 at the geometry the live unit actually
+    # places. A non-`pending`/`blocked` status drops OUT of `gate_partition`'s
+    # buckets entirely (`OPEN_STATUSES = ("pending", "blocked")`), not just out
+    # of `no_sweep_path`, which is the correct behavior: the cell is no longer
+    # open. The one that remains: squeeze_breakout_4h exit_ladder
+    # (blocked:no_harness_levers).
+    assert len(cut.get("no_sweep_path", [])) == 1
+    assert {i[3] for i in cut["no_sweep_path"]} == {"exit_ladder"}
 
 
 def test_internal_keys_are_not_printed_as_buckets():
@@ -208,9 +222,10 @@ def test_internal_keys_are_not_printed_as_buckets():
     assert not re.search(r"^\s+\d+\s+_?movable\b", text, re.M)
     assert not re.search(r"^\s+\d+\s+_?no_sweep_path\b", text, re.M)
     # ...while the measured count IS rendered (4 since the 2026-09-28 demotion,
-    # 2 since E65; see test_measured_state_2026_08_17 above).
+    # 1 since the 2026-09-29 regime_flip_exit resolution; see
+    # test_measured_state_2026_08_17 above).
     assert "MOVABLE BY A SESSION: 4" in text
-    assert "NO SWEEP PATH AT ALL: 2" in text
+    assert "NO SWEEP PATH AT ALL: 1" in text
 
 
 def test_the_cut_is_NOT_inside_the_partition():

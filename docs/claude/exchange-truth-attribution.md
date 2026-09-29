@@ -69,7 +69,7 @@ The puller does not run automatically — operator opt-in. Two paths:
 # Drop a unit + timer under deploy/ and let scripts/install_systemd_units.sh
 # pick them up on the next deploy. Skeleton:
 #
-# deploy/ict-pull-exchange-fills.service:
+# deploy/ict-exchange-fills-pull.service:
 #   [Unit]
 #   Description=Pull recent Bybit fills into local store
 #   After=network-online.target
@@ -79,7 +79,7 @@ The puller does not run automatically — operator opt-in. Two paths:
 #   EnvironmentFile=/etc/ict-trading-bot/exchange.env
 #   ExecStart=/usr/bin/python3 scripts/pull_exchange_fills.py --days 2
 #
-# deploy/ict-pull-exchange-fills.timer:
+# deploy/ict-exchange-fills-pull.timer:
 #   [Timer]
 #   OnCalendar=daily
 #   RandomizedDelaySec=900
@@ -88,7 +88,7 @@ The puller does not run automatically — operator opt-in. Two paths:
 #   WantedBy=timers.target
 ```
 
-Add `ict-pull-exchange-fills.service` to `DEPLOY_RESTART_SKIP` (see
+Add `ict-exchange-fills-pull.service` to `DEPLOY_RESTART_SKIP` (see
 `docs/claude/deployment-ops.md` § Services restarted) so the deploy
 script doesn't restart the oneshot.
 

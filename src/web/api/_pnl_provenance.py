@@ -16,7 +16,12 @@ reporting the same population under the same key must not disagree:
 
 * ``pnlCoverage`` / ``pnlMeasuredCount`` — **MEASURED-only**. ESTIMATED is *not*
   "covered"; that is the canonical `provenance.coverage` population.
-* ``totalPnLMeasured`` — sums **MEASURED + ESTIMATED**.
+* ``totalPnLMeasured`` — sums **MEASURED + ESTIMATED** (the NAME understates
+  it; FIX-SA-05). ``totalPnLMeasuredOnly`` is the MEASURED half, over the SAME
+  population as ``pnlMeasuredCount``, and ``totalPnLEstimated`` the ESTIMATED
+  half, over ``pnlEstimatedCount``'s. ``totalPnLMeasured`` equals the two to
+  rounding. (Casing follows this surface's ``totalPnL…``; ``/performance``
+  spells the same fields ``totalPnlMeasuredOnly`` / ``totalPnlEstimated``.)
 
 Neither may be "harmonised" to the other. `/performance`'s own note records that
 the R4 promotion gate depends on exactly that asymmetry.
@@ -53,6 +58,7 @@ logger = logging.getLogger(__name__)
 #: The four keys, always present, so a consumer never branches on absence.
 KEYS: Tuple[str, ...] = (
     "pnlCoverage", "pnlMeasuredCount", "pnlEstimatedCount", "totalPnLMeasured",
+    "totalPnLMeasuredOnly", "totalPnLEstimated",
 )
 
 
@@ -69,7 +75,8 @@ def looked_and_found_nothing() -> Dict[str, Any]:
     thing that separates them, which is why they are not ``None`` here.
     """
     return {"pnlCoverage": None, "pnlMeasuredCount": 0,
-            "pnlEstimatedCount": 0, "totalPnLMeasured": 0.0}
+            "pnlEstimatedCount": 0, "totalPnLMeasured": 0.0,
+            "totalPnLMeasuredOnly": 0.0, "totalPnLEstimated": 0.0}
 
 
 def block_for_rows(rows: Iterable[Any]) -> Dict[str, Any]:
@@ -83,19 +90,28 @@ def block_for_rows(rows: Iterable[Any]) -> Dict[str, Any]:
         return looked_and_found_nothing()
     counts: Dict[str, int] = {}
     measured_sum = 0.0
+    measured_only_sum = 0.0
+    estimated_sum = 0.0
     for r in rows:
         bucket = classify_pnl(r)[0]
         counts[bucket] = counts.get(bucket, 0) + 1
         if bucket in (MEASURED, ESTIMATED):
             try:
-                measured_sum += float(r["pnl"])
+                v = float(r["pnl"])
             except (TypeError, ValueError, KeyError, IndexError):
-                pass
+                continue
+            measured_sum += v
+            if bucket == MEASURED:
+                measured_only_sum += v
+            else:
+                estimated_sum += v
     return {
         "pnlCoverage": coverage({**counts, "total": len(rows)}),
         "pnlMeasuredCount": counts.get(MEASURED, 0),
         "pnlEstimatedCount": counts.get(ESTIMATED, 0),
         "totalPnLMeasured": round(measured_sum, 2),
+        "totalPnLMeasuredOnly": round(measured_only_sum, 2),
+        "totalPnLEstimated": round(estimated_sum, 2),
     }
 
 
@@ -117,8 +133,16 @@ def fetch_rows(
         return None
     try:
         conn.row_factory = sqlite3.Row
+        # `classify_pnl` demotes a MEASURED row whose pnl contradicts its own
+        # entry->exit move (FIX-SA-04) and can only do so if the row CARRIES those
+        # columns; selecting `pnl, notes` alone made that check dead on /stats.
+        # Optional, so a legacy schema degrades to "cannot check", not an error.
+        avail = {r[1] for r in conn.execute("PRAGMA table_info(trades)")}
+        extra = "".join(
+            f", {c}" for c in ("entry_price", "exit_price", "position_size", "direction")
+            if c in avail)
         return list(conn.execute(
-            f"SELECT pnl, notes FROM trades WHERE {where}", list(params)))
+            f"SELECT pnl, notes{extra} FROM trades WHERE {where}", list(params)))
     except sqlite3.Error:  # allow-silent: returns None = COULD-NOT-LOOK, never an empty/zero answer; the three states are pinned by tests/test_pnl_provenance_helper.py
         logger.warning("pnl-provenance: read failed", exc_info=True)
         return None
