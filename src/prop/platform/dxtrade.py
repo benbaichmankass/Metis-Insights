@@ -986,6 +986,7 @@ ORDER_FORM_JS = r"""
   // sibling sections). Widen it to the smallest ancestor that also holds the
   // ticket's BUY, SELL and symbol_input: the same anchor the probe's panel
   // dump uses. Terminals without those test ids keep the fields' container.
+  const fieldsForm = form;
   if (form) {
     for (let e = form; e && e !== document.body; e = e.parentElement) {
       if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')
@@ -1046,6 +1047,18 @@ ORDER_FORM_JS = r"""
     if (m.length === 1) { m[0].setAttribute('data-metis-btn', k); out.buttons[k] = txt(m[0]) || m[0].getAttribute('aria-label') || ''; }
     else if (m.length > 1) out.ambiguous.push('btn:' + k);
   }
+  // Geometry of the ticket panel and of every tagged button (operator
+  // 2026-09-29): the chart toolbar carries its own "Sell <price>" /
+  // "<price> Buy" buttons which, with one-click trading ON, execute a full
+  // lot instantly. A side / type / submit control this run would click must
+  // sit inside the ticket panel: the Python side refuses one that does not
+  // (verify_buttons_in_panel). Boxes only; never text.
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  out.panel_box = box(form);
+  out.fields_box = box(fieldsForm);
+  out.button_boxes = {};
+  for (const b of document.querySelectorAll('[data-metis-btn]')) out.button_boxes[b.getAttribute('data-metis-btn')] = box(b);
   // The venue symbol the ticket is set to: the sidebar's own symbol_input
   // value (an instrument name, never account data; letters/digits only).
   const symIn = form.querySelector('[data-test-id=symbol_input]');
@@ -1552,17 +1565,64 @@ def _fmt_num(x: float) -> str:
 
 
 def verify_form_values(fields: Mapping[str, Mapping[str, Any]], want: Mapping[str, float],
-                       rel_tol: float = 1e-9) -> List[str]:
+                       rel_tol: float = 1e-9, abs_tol: Optional[Mapping[str, float]] = None) -> List[str]:
     """Pure: compare what the form SHOWS against what we meant to type.
     Returns the list of mismatches (empty = verified). A field we meant to set
-    that the form does not show, or shows unparseable, is a mismatch."""
+    that the form does not show, or shows unparseable, is a mismatch.
+
+    ``abs_tol`` names, per field, the venue's price increment: a PRICE field
+    the terminal rounds to its tick (dry run #13965: 119.2002 shown as 119.2)
+    is verified when it is within one increment of what was typed (criterion
+    D3, "within one tick"). Quantity never gets a tolerance."""
     bad: List[str] = []
     for k, v in want.items():
         shown = parse_number((fields.get(k) or {}).get("value"))
+        tol = float((abs_tol or {}).get(k) or 0.0)
         if shown is None:
             bad.append(f"{k}: not readable back")
-        elif not math.isclose(shown, float(v), rel_tol=rel_tol, abs_tol=1e-12):
+        elif tol > 0 and abs(shown - float(v)) > tol + 1e-9:
+            bad.append(f"{k}: typed {_fmt_num(v)}, form shows {_fmt_num(shown)} (more than one tick of {_fmt_num(tol)} away)")
+        elif tol <= 0 and not math.isclose(shown, float(v), rel_tol=rel_tol, abs_tol=1e-12):
             bad.append(f"{k}: typed {_fmt_num(v)}, form shows {_fmt_num(shown)}")
+    return bad
+
+
+def price_tolerances(spec: "BracketSpec", want: Mapping[str, float]) -> Dict[str, float]:
+    """The per-field read-back tolerance for a spec: one ``price_step`` on
+    each PRICE field (stop loss, take profit, limit price), nothing on the
+    quantity. Empty when the venue's increment is not declared."""
+    ps = getattr(spec, "price_step", None)
+    if not ps or not (float(ps) > 0):
+        return {}
+    return {k: float(ps) for k in ("stop_loss", "take_profit", "price") if k in want}
+
+
+def verify_buttons_in_panel(form: Mapping[str, Any], keys: Sequence[str] = (
+        "side_buy", "side_sell", "type_market", "type_limit", "submit"), slack: int = 10) -> List[str]:
+    """Pure: every tagged control this run may CLICK sits inside the ticket
+    panel (operator 2026-09-29: the chart toolbar's own "Sell <price>" /
+    "<price> Buy" buttons execute a full lot instantly with one-click ON).
+    A control is inside when it has a size and lies within the fields'
+    COLUMN (``fields_box`` left..right): the chart sits beside the sidebar,
+    never in its column. Vertically nothing is judged, because the sidebar
+    scrolls internally (the side / type row scrolls above the panel's top
+    once the brackets are on, the submit is a footer below the fields) and
+    the DOM containment that found the control already holds. A form that
+    reports no geometry (a terminal whose discovery predates this) is not
+    refused here; the box checks on the submit itself still apply."""
+    fb, boxes = form.get("fields_box"), form.get("button_boxes") or {}
+    if not fb:
+        return []
+    bad: List[str] = []
+    for k in keys:
+        b = boxes.get(k)
+        if not b:
+            continue
+        left, _top, width, height = b
+        inside = (width > 0 and height > 0
+                  and left >= fb[0] - slack and left + width <= fb[0] + fb[2] + slack)
+        if not inside:
+            bad.append(f"{k}: at {list(b)} is outside the ticket panel (fields column {list(fb)})")
     return bad
 
 
@@ -2187,9 +2247,11 @@ class DXtradeAdapter(PropPlatformAdapter):
                                 form={"one_click": opened.get("one_click")})
         form = opened["form"]
 
+        trace: List[Dict[str, Any]] = []
+
         def refuse(why: str, f: Optional[Mapping[str, Any]] = None) -> PlaceAttempt:
             self.close_order_ticket(page)
-            return PlaceAttempt(stage="refused", detail=why, form=dict(f or form))
+            return PlaceAttempt(stage="refused", detail=why, form={**dict(f or form), "fill_trace": trace})
 
         if form.get("ambiguous"):
             return refuse(f"ambiguous form controls: {form['ambiguous']}")
@@ -2205,6 +2267,12 @@ class DXtradeAdapter(PropPlatformAdapter):
             form = self._scroll_until_submit(page)
             if "submit" not in (form.get("buttons") or {}):
                 return refuse("no unique submit control in the form (panel scrolled to the end)")
+        # Never a control outside the ticket panel (the chart's own price
+        # buttons execute instantly with one-click ON). Checked before any
+        # click, and again in every read-back.
+        outside = verify_buttons_in_panel(form)
+        if outside:
+            return refuse("control outside the ticket panel: " + "; ".join(outside))
         # Each step is NAMED so a timeout says which one (dry run #13942:
         # "typing into the form failed (TimeoutError)" could not), and carries
         # Playwright's own reason (e.g. "element is not enabled"), capped.
@@ -2252,10 +2320,41 @@ class DXtradeAdapter(PropPlatformAdapter):
             still = [k for k in ("stop_loss", "take_profit") if ((form.get("fields") or {}).get(k) or {}).get("disabled")]
             if still:
                 return refuse(f"the enabling toggle did not enable {still} (inputs still disabled after the click)", form)
+            # Quantity FIRST, then let the terminal settle: a size change
+            # makes it recompute its own SL / TP defaults asynchronously, and
+            # in dry run #13965 that recompute landed on the stop loss typed
+            # right after the quantity (read back as the terminal's default,
+            # 117.96, five ticks under the bid) while the take profit typed
+            # last stuck. Each field is blurred after the fill so the
+            # terminal commits and formats it before the read-back.
+            step = "quantity fill"
+            self._fill_field(page, "quantity", want["quantity"])
+            page.wait_for_timeout(600)
             for k, v in want.items():
+                if k == "quantity":
+                    continue
                 step = f"{k} fill"
-                page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
+                self._fill_field(page, k, v)
+            page.wait_for_timeout(300)
             form = self._find_form(page)
+            # Verify every typed value; re-fill only the fields the form
+            # does not show as typed (within one tick for prices), at most
+            # twice, after a settle. Each pass is traced so the run log says
+            # which field the terminal reset and whether the re-fill stuck.
+            tol = price_tolerances(spec, want)
+            for pass_no in range(1, 4):
+                fields = form.get("fields") or {}
+                bad = [k for k in want if verify_form_values(fields, {k: want[k]}, abs_tol=tol)]
+                trace.append({"pass": pass_no, "shown": {k: (fields.get(k) or {}).get("value") for k in want},
+                              "refilled": bad})
+                if not bad or pass_no == 3:
+                    break
+                page.wait_for_timeout(500)
+                for k in bad:
+                    step = f"{k} re-fill (pass {pass_no + 1})"
+                    self._fill_field(page, k, want[k])
+                page.wait_for_timeout(300)
+                form = self._find_form(page)
         except Exception as exc:
             # Playwright puts the REASON at the end of its call log ("...
             # intercepts pointer events"); keep the head (the call) and the
@@ -2277,7 +2376,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             return refuse(why, form)
         # Diagnostic only: the toggle's reading right before submit travels
         # with the attempt so the run log shows it. Nothing is gated on it.
-        form = {**form, "one_click": self.read_one_click(page), "submit": submit_info}
+        form = {**form, "one_click": self.read_one_click(page), "submit": submit_info, "fill_trace": trace}
         if not arm:
             self.close_order_ticket(page)
             return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
@@ -2297,13 +2396,26 @@ class DXtradeAdapter(PropPlatformAdapter):
         return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
 
     @staticmethod
+    def _fill_field(page: Any, key: str, value: float) -> None:
+        """Type one value into a tagged field, then blur it so the terminal
+        commits (and formats) it before anything reads it back."""
+        sel = f"[data-metis-field={key}]"
+        page.fill(sel, _fmt_num(value), timeout=5_000)
+        try:
+            page.locator(sel).blur()
+        except Exception:
+            pass          # an older Playwright without Locator.blur: the read-back still decides
+
+    @staticmethod
     def _read_back(form: Mapping[str, Any], spec: BracketSpec, want: Mapping[str, float]) -> List[str]:
         """The full pre-submit read-back: symbol, side, order type, every typed
-        value, and both bracket legs armed (toggle ON, mode Price)."""
+        value (a price within one venue tick), both bracket legs armed (toggle
+        ON, mode Price), and every clickable control inside the ticket panel."""
         mism = [] if form_names_symbol(form, spec.venue_symbol) else [f"symbol: form no longer names {spec.venue_symbol}"]
         mism += verify_form_selection(form, spec.side, spec.order_type)
-        mism += verify_form_values(form.get("fields") or {}, want)
+        mism += verify_form_values(form.get("fields") or {}, want, abs_tol=price_tolerances(spec, want))
         mism += verify_bracket_legs(form)
+        mism += verify_buttons_in_panel(form)
         return mism
 
     def _scroll_until_submit(self, page: Any, max_steps: int = 8) -> Dict[str, Any]:

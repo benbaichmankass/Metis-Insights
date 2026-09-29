@@ -1811,3 +1811,145 @@ def test_live_shape_requires_a_readable_mode():
     f = {"toggle_candidates": 2, "data_value_toggles": 2, "checkboxes": on, "fields": {"stop_loss": {}, "take_profit": {}}}
     bad = dx.verify_bracket_legs(f)
     assert "stop_loss: entry mode is None, need 'Price'" in bad and len(bad) == 2
+
+
+# ── PROP-EXEC fix-forward #7 (dry run #13965): tick-rounded prices, a settle
+# after the quantity, re-fill of a field the terminal reset, and no control
+# outside the ticket panel ────────────────────────────────────────────────
+
+
+def test_round_to_step_rounds_to_the_venue_increment_or_leaves_it():
+    assert pe.round_to_step(116.8398, 0.01) == 116.84
+    assert pe.round_to_step(119.2002, 0.01) == 119.2
+    assert pe.round_to_step(118.0, 0.01) == 118.0
+    assert pe.round_to_step(116.8398, None) == 116.8398
+    assert pe.round_to_step(116.8398, 0) == 116.8398
+    assert pe.round_to_step(None, 0.01) is None
+
+
+def test_verify_form_values_accepts_a_price_within_one_tick_only_when_told():
+    from src.prop.platform.dxtrade import price_tolerances
+    tol = {"take_profit": 0.01, "stop_loss": 0.01}
+    # the measured #13965 read-back: the terminal rounded 119.2002 to 119.2
+    assert verify_form_values({"take_profit": {"value": "119.2"}}, {"take_profit": 119.2002}, abs_tol=tol) == []
+    # ... and reset the stop loss to its own default: more than a tick away
+    bad = verify_form_values({"stop_loss": {"value": "117.96"}}, {"stop_loss": 116.84}, abs_tol=tol)
+    assert bad == ["stop_loss: typed 116.84, form shows 117.96 (more than one tick of 0.01 away)"]
+    # exactly one tick passes, no tolerance keeps the exact rule, quantity never gets one
+    assert verify_form_values({"stop_loss": {"value": "116.85"}}, {"stop_loss": 116.84}, abs_tol=tol) == []
+    assert verify_form_values({"take_profit": {"value": "119.2"}}, {"take_profit": 119.2002}) == [
+        "take_profit: typed 119.2002, form shows 119.2"]
+    spec = BracketSpec("t", "SOLUSD", "long", 0.01, 116.84, 119.2, "market", price_step=0.01)
+    assert price_tolerances(spec, {"quantity": 0.01, "stop_loss": 116.84, "take_profit": 119.2}) == {
+        "stop_loss": 0.01, "take_profit": 0.01}
+    assert price_tolerances(SOL, {"quantity": 0.5, "stop_loss": 118.0}) == {}
+
+
+def test_round_trip_types_tick_rounded_brackets(tmp_path):
+    ad = RTAdapter(quote={"bid": 118.01, "ask": 118.02})
+    c = cfg(symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0, "min_lots": 0.01,
+                                 "lot_step": 0.01, "price_step": 0.01}},
+            watched_click_max_lots={"SOLUSD": 0.01})
+    res = rt(ad, FakeApi(), tmp_path, arm=False, c=c)
+    spec = next(a for a in res.actions if a["what"] == "round_trip_spec")["spec"]
+    assert (spec["stop_loss"], spec["take_profit"], spec["price_step"]) == (116.84, 119.2, 0.01)
+    # no declared step: the raw values, exact read-back required
+    res = rt(RTAdapter(quote={"bid": 118.01, "ask": 118.02}), FakeApi(), tmp_path, arm=False)
+    spec = next(a for a in res.actions if a["what"] == "round_trip_spec")["spec"]
+    assert (spec["stop_loss"], spec["take_profit"], spec["price_step"]) == (116.8398, 119.2002, None)
+
+
+def test_bracket_from_ticket_types_tick_rounded_prices_and_grades_the_typed_risk():
+    c = cfg(symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0, "min_lots": 0.01,
+                                 "lot_step": 0.01, "price_step": 0.01}})
+    spec, facts, why = pe.bracket_from_ticket(ticket(entry=120.004, sl=118.006, tp=126.001, qty=1), c)
+    assert why == "" and (spec.limit_price, spec.stop_loss, spec.take_profit, spec.price_step) == (120.0, 118.01, 126.0, 0.01)
+    assert facts["ticket_risk_usd"] == round(1.0 * (120.0 - 118.01) * 1.0, 2)
+
+
+def test_real_config_sol_price_step_is_measured_eth_is_not():
+    c = pe.load_config("breakout_1")
+    assert c.symbols["SOLUSDT"]["price_step"] == 0.01
+    assert c.symbols["ETHUSDT"]["price_step"] is None
+
+
+def test_tick_script_opens_the_browser_at_the_operator_sized_viewport():
+    from scripts.prop import prop_executor_tick as tick
+    assert tick.VIEWPORT == {"width": 1920, "height": 1600}
+    src = (Path(__file__).resolve().parents[1] / "scripts" / "prop" / "prop_executor_tick.py").read_text()
+    assert src.count("browser.new_context(") == 2 and src.count("viewport=VIEWPORT") == 2
+
+
+def test_verify_buttons_in_panel():
+    from src.prop.platform.dxtrade import verify_buttons_in_panel
+    form = {"panel_box": [903, 99, 330, 630], "fields_box": [903, 99, 330, 630],
+            "button_boxes": {"side_buy": [1070, 150, 80, 30], "type_market": [910, 120, 60, 24],
+                             "submit": [919, 659, 298, 48]}}
+    assert verify_buttons_in_panel(form) == []
+    # the chart toolbar's own price button, tagged as the side by mistake
+    form["button_boxes"]["side_sell"] = [302, 110, 77, 24]
+    assert verify_buttons_in_panel(form) == [
+        "side_sell: at [302, 110, 77, 24] is outside the ticket panel (fields column [903, 99, 330, 630])"]
+    # scrolled above the panel's top stays inside (the sidebar scrolls internally);
+    # a zero-size box is outside; no geometry = not judged here
+    assert verify_buttons_in_panel({**form, "button_boxes": {"side_buy": [1000, -334, 80, 30]}}) == []
+    assert verify_buttons_in_panel({**form, "button_boxes": {"side_buy": [1000, 150, 0, 0]}})
+    assert verify_buttons_in_panel({"button_boxes": {"side_buy": [1, 1, 5, 5]}}) == []
+
+
+def test_place_bracket_refills_a_field_the_terminal_resets_after_typing(tpage):
+    # The #13965 shape: the stop-loss field takes our value, then the
+    # terminal's async default recompute overwrites it with 117.96 once. The
+    # adapter re-reads, re-fills the one field, and verifies again.
+    html = (TICKET_PAGE % "").replace(
+        '<input id="sl" aria-label="Stop Loss price" disabled>',
+        '<input id="sl" aria-label="Stop Loss price" disabled oninput="if(!window.__reset){window.__reset=1;'
+        'setTimeout(()=>{this.value=\'117.96\'},50)}">')
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("document.getElementById('sl').value") == "118"
+    trace = att.form["fill_trace"]
+    assert [t["refilled"] for t in trace] == [["stop_loss"], []]
+    assert trace[0]["shown"]["stop_loss"] == "117.96" and trace[1]["shown"]["stop_loss"] == "118"
+    pub = pe._attempt_public(att)
+    assert pub["fill_trace"] == trace and pub["panel"]["fields_box"] and pub["panel"]["button_boxes"]["submit"]
+
+
+def test_place_bracket_refuses_a_field_the_terminal_keeps_resetting(tpage):
+    html = (TICKET_PAGE % "").replace(
+        '<input id="sl" aria-label="Stop Loss price" disabled>',
+        '<input id="sl" aria-label="Stop Loss price" disabled oninput="setTimeout(()=>{this.value=\'117.96\'},50)">')
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "stop_loss: typed 118, form shows 117.96" in att.detail
+    assert [t["refilled"] for t in att.form["fill_trace"]] == [["stop_loss"]] * 3
+    assert p.evaluate("window.__submits") is None
+
+
+def test_place_bracket_read_back_accepts_the_terminal_rounding_to_its_tick(tpage):
+    # the ticket rounds prices to 2 decimals (measured #13965: 119.2002 -> 119.2)
+    rounding = 'oninput="this.value=String(Math.round(+this.value*100)/100)"'
+    html = (TICKET_PAGE % "").replace('<input id="sl" aria-label="Stop Loss price" disabled>',
+                                      f'<input id="sl" aria-label="Stop Loss price" disabled {rounding}>') \
+                             .replace('<input id="tp" aria-label="Take Profit price" disabled>',
+                                      f'<input id="tp" aria-label="Take Profit price" disabled {rounding}>')
+    ticked = BracketSpec("t1", "SOLUSD", "long", 0.5, 118.004, 126.001, "limit", 120.0, price_step=0.01)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(html=html), ticked)
+    assert att.stage == "form_verified", att.detail
+    exact = BracketSpec("t1", "SOLUSD", "long", 0.5, 118.004, 126.001, "limit", 120.0)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(html=html), exact)
+    assert att.stage == "refused" and "stop_loss: typed 118.004, form shows 118" in att.detail
+
+
+def test_place_bracket_refuses_a_side_button_outside_the_ticket_panel(tpage):
+    # the tagged Buy sits where the chart toolbar is, far left of the ticket column
+    html = (TICKET_PAGE % "").replace('<div id="ticket" style="display:none">',
+                                      '<div id="ticket" style="display:none;margin-left:600px">') \
+                             .replace('<button data-g="side" onclick="window.__side=\'buy\';sel(this)">Buy</button>',
+                                      '<button data-g="side" style="position:absolute;left:0;top:0" '
+                                      'onclick="window.__side=\'buy\';sel(this)">Buy</button>')
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and att.detail.startswith("control outside the ticket panel: side_buy: at ["), att.detail
+    assert p.evaluate("window.__submits") is None and p.evaluate("window.__side") is None

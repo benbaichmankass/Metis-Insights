@@ -141,6 +141,7 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
             "lot_units": lot.get("lot_units"),
             "min_lots": lot.get("min_lots"),
             "lot_step": lot.get("lot_step"),
+            "price_step": lot.get("price_step"),
         }
     return ExecutorConfig(
         account_id=account_id,
@@ -203,6 +204,18 @@ def _dir(side: Optional[str]) -> Optional[str]:
     return {"buy": "long", "long": "long", "sell": "short", "short": "short"}.get(s)
 
 
+def round_to_step(x: Optional[float], step: Optional[float]) -> Optional[float]:
+    """A price rounded to the venue's declared increment (nearest), or
+    unchanged when no increment is declared. Typing a price the venue cannot
+    represent leaves the terminal to round it (dry run #13965: 119.2002 read
+    back as 119.2), so the executor rounds first and the read-back compares
+    what it actually meant."""
+    v, st = _f(x), _f(step)
+    if v is None or not st or st <= 0:
+        return v
+    return round(round(v / st) * st, 10)
+
+
 def size_lots(qty_units: Optional[float], sym: Mapping[str, Any]) -> Tuple[Optional[float], str]:
     """Ticket units → venue lots, rounded DOWN to the lot step. ``(None, why)``
     when the lot size is not declared (unmeasured) or the size rounds below the
@@ -253,10 +266,14 @@ def bracket_from_ticket(ticket: Mapping[str, Any], cfg: ExecutorConfig,
     if cvpp is None:
         return None, {}, f"contract value per point for {bot} is not declared"
     units = lots * float(sym["lot_units"])
+    # Prices are typed at the venue's increment when it is declared; the risk
+    # the guards grade is computed from the values actually typed.
+    ps = _f(sym.get("price_step"))
+    entry, sl, tp = round_to_step(entry, ps), round_to_step(sl, ps), round_to_step(tp, ps)
     risk = units * abs(entry - sl) * cvpp
     spec = BracketSpec(ticket_id=str(ticket.get("ticket_id") or ""), venue_symbol=sym["venue"],
                        side=side, quantity=lots, stop_loss=sl, take_profit=tp,
-                       order_type="limit", limit_price=entry)
+                       order_type="limit", limit_price=entry, price_step=ps)
     return spec, {"lots": lots, "units": units, "ticket_risk_usd": round(risk, 2),
                   "ticket_claimed_risk_usd": _f(ticket.get("risk_usd")), "cvpp": cvpp}, ""
 
@@ -921,9 +938,14 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     ref = quote["ask"] if side == "long" else quote["bid"]
     sl = ref * (1 - bracket_pct) if side == "long" else ref * (1 + bracket_pct)
     tp = ref * (1 + bracket_pct) if side == "long" else ref * (1 - bracket_pct)
+    # Typed at the venue's price increment when declared (dry run #13965: the
+    # terminal rounded a typed 119.2002 to 119.2 and the exact read-back
+    # refused; the criterion is "within one tick").
+    ps = _f(sym.get("price_step"))
+    sl, tp = round_to_step(round(sl, 6), ps), round_to_step(round(tp, 6), ps)
     tid = f"roundtrip-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
     spec = BracketSpec(ticket_id=tid, venue_symbol=venue, side=side, quantity=float(lots),
-                       stop_loss=round(sl, 6), take_profit=round(tp, 6), order_type="market")
+                       stop_loss=sl, take_profit=tp, order_type="market", price_step=ps)
     risk = float(lots) * float(sym["lot_units"]) * float(_f(sym.get("cvpp")) or 1.0) * abs(ref - sl)
     res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2))
 
@@ -1013,6 +1035,12 @@ def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
             # 117.14"-shaped labels, never account data). Absent when the
             # submit was inside the form.
             "submit_search": form.get("submit_search"),
+            # Each typed field per fill pass: what the form showed before and
+            # after (our own numbers, never account data), so a run log says
+            # which field the terminal reset and whether the re-fill stuck.
+            "fill_trace": form.get("fill_trace"),
+            # Where the ticket panel and its tagged controls sit (boxes only).
+            "panel": {k: form.get(k) for k in ("panel_box", "fields_box", "button_boxes") if form.get(k)} or None,
             "ambiguous": form.get("ambiguous") or None}
 
 
@@ -1175,5 +1203,5 @@ __all__ = [
     "MODE_ENV", "MODES", "DEFAULT_MODE", "executor_mode", "ExecutorConfig", "load_config",
     "size_lots", "bracket_from_ticket", "open_risk", "evaluate_guards", "GuardVerdict",
     "match_terminal", "classify_confirmation", "IntentLedger", "ExecutorState",
-    "day_start_balance", "trading_day", "run_cycle", "run_round_trip", "CycleResult",
+    "day_start_balance", "trading_day", "run_cycle", "run_round_trip", "round_to_step", "CycleResult",
 ]
