@@ -1,0 +1,144 @@
+id: RQ-20260929-001
+title: >-
+  M28 reshaped-thesis scoping — does restricting the committed event-blind P4
+  entries to a single conviction band already clear the naive all-long
+  baseline, using ONLY already-committed calibration_bins data (no new run)?
+status: done
+cadence: once
+kind: experiment
+
+question: >-
+  Manager direction 2026-09-28 14:15Z / checklist row MACRO-RESHAPE: "M28
+  re-shape via research: wire-and-rescore + reshaped-thesis units."
+  RQ-20260928-009 (event-wired rescore) and RQ-20260928-010 (realistic-cost
+  rescore) are the wire-and-rescore units. This is the cheapest possible
+  reshaped-thesis candidate: comms/macro/thesis_p4_scorecard.json (committed
+  2026-09-27, re-verified this session at n=1,109 entries — accrual moved it
+  from the 1,104 both RQ-20260928-009/-010 cite, a small drift stated rather
+  than silently reused) already carries score_backtest()'s calibration_bins,
+  which is literally the mean_net_return of a strategy that trades ONLY the
+  entries whose conviction falls in that band — no new backtest run is
+  needed to ask "does trading a narrower conviction slice already beat naive
+  all-long, on the SAME event-blind score CAA05-0003 found essentially flat
+  overall?"
+
+why_this_matters: >-
+  A reshape that only requires re-reading already-committed output is worth
+  ruling out before proposing one (RQ-20260928-009) that costs ~240 minutes
+  of new engineering. This unit either finds a free, already-there edge in
+  the existing conviction axis (a real, if narrow, Tier-3 proposal) or closes
+  the cheapest reshape candidate honestly so RQ-20260928-009's event join
+  stays the more promising remaining lever — either way it is new information
+  RQ-20260928-010 (cost) and the original P4 gate (calibration_rank/
+  edge_vs_baseline pooled across ALL conviction) do not already report.
+
+power:
+  expected_n: 1109
+  min_detectable_effect: 0.02
+  effect_units: 'mean_net_return delta vs baseline_mean_net_return (same units score_backtest() reports; not standardised — this reuses the +/-0.02 "real-but-modest" floor RQ-20260928-009''s own decision_rule and horizon_ic_scan.py''s docstring already use, not a bespoke bar)'
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Fixed committed population (n=1,109 total, already partitioned by
+    calibration_bins into 4 conviction quartiles). Per-bin n is each band's
+    own count, reported below — this is a SUBGROUP read of already-fixed
+    data, not a new accrual, so power is bounded by each bin's own n. The
+    n>=88 floor (this repo's standard d=0.3 floor, e.g. RQ-20260928-011/-012)
+    is applied per bin to flag an underpowered slice rather than grade it.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Zero new compute. Reads comms/macro/thesis_p4_scorecard.json's already-
+      committed calibration_bins + baseline_mean_net_return fields directly;
+      verified this session against src/units/strategies/macro_thesis/
+      thesis_backtest.py:score_backtest/calibration_bins (calibration_bins[i]
+      .mean_net_return IS the mean net return of the subset of entries whose
+      conviction in [lo,hi) — confirmed by reading the function body, not
+      assumed from its name).
+
+design:
+  method: >-
+    Read comms/macro/thesis_p4_scorecard.json (committed, zero-cost,
+    event-blind — the SAME file RQ-20260928-009/-010 both cite). For each of
+    the 4 calibration bins, compare bin.mean_net_return against the file's
+    own scorecard.baseline_mean_net_return. No new script run, no new
+    candles, no config change.
+
+decision_rule:
+  id: RULE-RQ0929-001-CONVICTION-BAND-RESHAPE-SCOPING
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    Per bin: (bin.mean_net_return - scorecard.baseline_mean_net_return), and
+    bin.n against the n>=88 power floor.
+  rule: >-
+    WORTH_PROPOSING IF at least one bin clears n>=88 AND
+    (bin.mean_net_return - baseline_mean_net_return) >= +0.02 -- a Tier-3
+    proposal to restrict the (still event-blind) thesis to that conviction
+    band, reported alongside the reminder that RQ-20260928-009's event join
+    is the larger, not-yet-tested lever.
+    NOT_YET IF no bin clears both bars -- does not kill the conviction axis
+    (operator's standing rule) or the M28 idea; records that THIS narrow
+    reshape (band-restriction on the CURRENT event-blind score) does not
+    already show a free edge, leaving RQ-20260928-009 (event-wired rescore)
+    as the reshape actually worth the engineering cost.
+    UNDERPOWERED (per bin) IF n<88 -- reported, not weighted into the overall
+    verdict.
+
+  what_it_does_not_do: >-
+    Does not run a new backtest, does not touch config/macro_theses.yaml or
+    any live/paper account, does not decide RQ-20260928-009's event-wiring
+    priority (that unit's own engineering cost is unaffected by this read
+    either way) -- this only asks whether a strategy that trades a
+    conviction slice of the EXISTING scored entries would already have beat
+    naive all-long, as a free byproduct of data already on main.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 0.1
+  est_minutes: 2
+  basis: reads one already-committed JSON file, no run.
+
+run:
+  workflow: 'none — session-local, read comms/macro/thesis_p4_scorecard.json directly'
+  inputs:
+    research_unit: RQ-20260929-001
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - 'RQ-20260928-009 (event-wired rescore -- the larger reshape lever this scoping compares against)'
+  - 'RQ-20260928-010 (realistic-cost rescore -- the other half of wire-and-rescore)'
+  - 'comms/macro/thesis_p4_scorecard.json (the committed evidence this unit reads, unmodified)'
+  - 'docs/claude/work/MANAGER-CHECKLIST.json:MACRO-RESHAPE'
+last_dispatched_at: '2026-09-29T00:00:00+00:00'
+result: >-
+  GRADED 2026-09-29 by lane session_015JePcaHfBSBVrcGyu2QtAo against the
+  pre-registered rule, from comms/macro/thesis_p4_scorecard.json (committed,
+  unmodified by this unit; re-read this session: n=1,109 entries, 265
+  rebalances, zero-cost, event-blind, symbols GLD/IEF/SLV/SPY/TLT,
+  baseline_mean_net_return=0.0076857). PER-BIN READ (calibration_bins, 4
+  quartiles): bin[0.00-0.25] n=0 (empty, no entries this low); bin[0.25-0.50]
+  n=84 mean_net_return=0.0077292, delta vs baseline +0.0000433 --
+  UNDERPOWERED (n<88) and the delta itself is two orders of magnitude below
+  the +/-0.02 floor; bin[0.50-0.75] n=308 mean_net_return=-0.0010118, delta
+  -0.0086975 -- powered, does NOT clear +0.02, actually negative;
+  bin[0.75-1.00] n=717 mean_net_return=0.0035426, delta -0.0041431 --
+  powered, does NOT clear +0.02, below baseline. VERDICT (RULE-RQ0929-001):
+  NOT_YET -- no bin clears both the n>=88 power floor and the +0.02 edge
+  floor; the two powered bins (n=308, n=717) are both BELOW the naive
+  all-long baseline, and the one bin nominally above baseline (n=84) is both
+  underpowered and negligible (+0.0000433, not distinguishable from zero).
+  Conclusion: the conviction axis, AS CURRENTLY SCORED (event-blind,
+  valuation-only), shows no exploitable band even restricted to its
+  best-performing quartile by n -- consistent with CAA05-0003's own pooled
+  calibration_rank/edge_vs_baseline reading near zero. This does not kill
+  M28 (operator's standing rule) -- it says the cheap reshape (band
+  restriction on the current score) is not where the edge is, which leaves
+  RQ-20260928-009's event-wired rescore as the reshape actually worth its
+  ~240-minute engineering cost, not a redundant alternative to it.

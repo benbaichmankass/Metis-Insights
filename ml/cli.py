@@ -490,7 +490,10 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
                 shadow_log=args.shadow_log,
                 datasets_root=args.datasets_root,
             )
-            if rg4_report is not None:
+            # An error report ("we could not look") is not a 0-row report:
+            # feeding n_records=0 to the labels_accruing gate would read as
+            # "looked, found nothing", so treat it as unmeasured like None.
+            if rg4_report is not None and not rg4_report.get("error"):
                 live_regime_auc = _rg4_auc(rg4_report)
                 labels_accruing = labels_accruing_from_counts(
                     args.model_id,

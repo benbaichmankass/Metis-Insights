@@ -161,3 +161,14 @@ def test_reporter_flags_a_measured_loser_and_abstains_on_fabrication(tmp_path):
     assert report["enforced"] is False   # OBSERVE-ONLY
     # would_block sorts before abstain (a review looks at it first)
     assert report["legs"][0]["strategy"] == "loser"
+
+
+def test_verdict_record_carries_measured_only_and_estimated_count_but_not_as_input():
+    """FIX-SA-05 / JC-SA-03: recorded beside the decision input, never read by it."""
+    from src.runtime.research_results_gate import source_verdict
+    base = {"trades": 40, "totalPnlMeasured": 500.0, "pnlCoverage": 0.9,
+            "pnlMeasuredCount": 36, "pnlEstimatedCount": 4, "totalPnl": 500.0}
+    a = source_verdict({**base, "totalPnlMeasuredOnly": 480.0})
+    b = source_verdict({**base, "totalPnlMeasuredOnly": -9999.0})
+    assert a["totalPnlMeasuredOnly"] == 480.0 and a["pnlEstimatedCount"] == 4
+    assert a["status"] == b["status"], "the verdict must not key on the MEASURED-only half"

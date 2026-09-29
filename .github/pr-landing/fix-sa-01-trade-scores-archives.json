@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Touches src/web/api/routers/trade_scores.py, a read-only API route outside the guard's Tier-1 allowlist; manager merges (lane SA-DATA brief).",
+  "why": "SA-AUD-4-api-shadow-predictions-and-promotion-clock-active-only: /api/bot/trades/scores reads the real-time shadow log through iter_records_with_archives (archives_since 60d) so trades scored before the last rotation keep their scores. Read path only."
+}

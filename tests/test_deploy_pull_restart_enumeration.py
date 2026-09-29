@@ -112,6 +112,8 @@ esac
         "ict-heartbeat.service       loaded inactive dead ICT heartbeat\n"
         "ict-git-sync.service        loaded inactive dead ICT git sync\n"
         "ict-hourly-snapshot.service loaded inactive dead ICT hourly snap\n"
+        "ict-trainer-disk-alarm.service loaded inactive dead ICT trainer disk alarm\n"
+        "ict-notify-failure@ict-db-integrity.service loaded inactive dead ICT failure alert\n"
     )
     restart_log = tmp_path / "restart.log"
     _make_stub(
@@ -207,6 +209,25 @@ def test_default_restart_includes_long_running_units_and_skips_oneshots(
     assert "ict-heartbeat.service" not in restarted
     assert "ict-git-sync.service" not in restarted
     assert "ict-hourly-snapshot.service" not in restarted
+    # FIX-SA-12: the disk-alarm oneshot is owned by its timer.
+    assert "ict-trainer-disk-alarm.service" not in restarted
+    # FIX-SA-08: a notify template instance must never be restarted.
+    assert "ict-notify-failure@ict-db-integrity.service" not in restarted
+
+
+def test_template_instances_are_never_restarted_even_with_a_custom_skip_list(
+    fake_repo_with_advance,
+):
+    """Restarting ict-notify-failure@<unit>.service pings "unit FAILED" for a
+    unit that did not fail. The `@` guard is in the loop, so it survives a
+    DEPLOY_RESTART_SKIP override that replaces the default list."""
+    res = _run(fake_repo_with_advance, env_extra={
+        "DEPLOY_RESTART_SKIP": "ict-trader-live.service",
+    })
+    assert res.returncode == 0, res.stderr
+    restarted = _restarted(fake_repo_with_advance)
+    assert "ict-notify-failure@ict-db-integrity.service" not in restarted
+    assert "ict-web-api.service" in restarted  # control: the loop did run
 
 
 def test_custom_skip_list_overrides_default(fake_repo_with_advance):

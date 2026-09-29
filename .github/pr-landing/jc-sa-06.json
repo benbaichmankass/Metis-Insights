@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-path tooling only (scripts/ops/pipeline.py render_section_0 + alarm, render_daily_brief section 5 line, tests). JC-SA-06, decided and data-settled in docs/audits/system-audit-2026-09-29.md: section 0 is capped to the 25 oldest due items with an 'N more' count and an alarm fires when the unrouted count exceeds 100 or the oldest unrouted item exceeds 7 days (bounds from the measured distribution, stated in the pipeline.py comment). Nothing is dropped from the store; --due --all renders everything. No runtime, order path or live-VM change."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Touches scripts/ml/replay_pregate_live.py and ml/cli.py, read-path/research code outside the guard's Tier-1 allowlist; manager merges (lane SA-DATA brief: workflow/unvouchable -> hold).",
+  "why": "FIX-SA-01 (docs/audits/system-audit-2026-09-29.md): RG4 stage-2 replay reads rotated shadow-log archives via iter_records_with_archives and returns an error state instead of SystemExit. Read-only analysis path; no order path, config or runtime service touched."
+}

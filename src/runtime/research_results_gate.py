@@ -111,10 +111,15 @@ def _verdict(
         "status": status,
         "detail": detail,
         "trades": int(s.get("trades") or 0),
-        "totalPnlMeasured": s.get("totalPnlMeasured"),
+        "totalPnlMeasured": s.get("totalPnlMeasured"),   # MEASURED+ESTIMATED (the input)
+        # Recorded beside it, NOT read by any verdict (JC-SA-03, FIX-SA-05): the
+        # MEASURED-only half and the ESTIMATED count, so a reader can see how much
+        # of the decision input is a reconstruction.
+        "totalPnlMeasuredOnly": s.get("totalPnlMeasuredOnly"),
         "totalPnl": s.get("totalPnl"),          # contrast only — NOT the input
         "pnlCoverage": s.get("pnlCoverage"),
         "pnlMeasuredCount": s.get("pnlMeasuredCount"),
+        "pnlEstimatedCount": s.get("pnlEstimatedCount"),
         "coverageFloor": coverage_floor,
         "minTrades": min_trades,
     }

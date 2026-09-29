@@ -1,0 +1,19 @@
+# Live TSFM forecast producer (M19 Track-1, fc-head serve).
+[Unit]
+Description=Produce live TSFM forecast-serve artifacts (fc_*)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# Nice: it imports torch/chronos — keep it off the training cycle's back on the
+# 1-OCPU trainer. Inference is sub-second; only yields under real contention.
+Nice=10
+ExecStart=/bin/bash scripts/ops/run_forecast_producer.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
