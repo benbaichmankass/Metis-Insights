@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A PR changes the close-path ledger handling so a stale close-purpose 'unconfirmed' row does not trip the latch, with a test; or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-AQRK6CL1-0009",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29 19:18Z; diag #14381, clear-halt #14382; PROP-EXEC lane session_01WDQADTgoiLiDKc2PNSPdNU",
+    "rerun": "grep -n 'ledger.record(tid, \"unconfirmed\"' src/prop/prop_executor.py and read the not_found branch of the confirm reconcile (~L1214): if a close-purpose unconfirmed row still reaches the unconfirmed_submit trip, the item applies."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "what": "Breakout executor go-live was halted 2026-09-29 18:44Z by its own AUTO-REVERT latch because the round-trip TEST close paths (src/prop/prop_executor.py ~L999 round_trip_close and ~L1118 close_position) record ledger state 'unconfirmed' when a close is refused or done by hand, and nothing resolves that row once the position is closed on the venue. The live reconcile (~L1214-1221) then reads each such row as an unconfirmed SUBMIT, and after unconfirmed_reads misses records skipped:unconfirmed_submit AND trips the latch. Two stale rows (roundtrip-solusd-20260929T062715Z and the 12:56Z round trip) tripped it on the first live ticks (fills #71/#72); cleared by manager via executor-clear-halt #14382 with no exposure. Fix: a close-purpose 'unconfirmed' row whose position reads flat (and is journaled closed) should resolve to a terminal state without tripping, or the test modes should write a distinct purpose the live reconcile skips; add a test. Until fixed, every round-trip-live test that ends in a manual/refused close will re-halt go-live."
+}
