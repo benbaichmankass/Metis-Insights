@@ -32,7 +32,7 @@ power:
     accrual_basis: >-
       Re-grading of committed trade evidence; nothing accrues.
 decision_rule:
-  id: "RULE-TPL-PROP-FIT-B6V2-{leg}-{sizing_key}"
+  id: "RULE-TPL-PROP-FIT-B6V2-{leg}-{sizing_arm_key}"
   statistic: >-
     Per seed: prop_ev_sim path-mode ev_net_usd_per_life and p_net_positive
     over the leg's committed trades ({trades_file}), sizing {sizing_arm}.
@@ -57,7 +57,7 @@ run:
     - --leg
     - "{leg}"
     - --arm
-    - "A={sizing_args}"
+    - "A={sizing_arm_args}"
     - --common
     - "--ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model {swap_model}"
     - --seeds
