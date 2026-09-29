@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only (docs/claude/work/pipeline/*.json) closing PI-20260929-TARTLANE-0001 as done, plus its own merge-slot/pr-landing/automerge-request bookkeeping files. No runtime, order path, strategy config, risk caps, or live-VM code touched. Evidence: PR #14094 merged (per-issue concurrency for vm-web-api-recover.yml) and a fresh vm-web-api-recover-labelled issue (#14112) completed in ~15s afterward (previously stuck queued for 5+ minutes), restarting ict-web-api; /api/diag/version confirms git_sha==git_sha_on_disk==f61e8d743 with restart_pending=false."
+}
