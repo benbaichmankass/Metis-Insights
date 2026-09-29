@@ -480,6 +480,67 @@ def _row_float(row: Any, key: str) -> Optional[float]:
         return None
 
 
+def reduce_parent_ids(rows: Iterable[Any]) -> set:
+    """Trade ids that ABSORBED a reduce leg's deferred PnL, read off the CHILDREN.
+
+    BL-20260711: an ``intent_reduce`` leg books ``pnl=None`` and the PARENT leg
+    carries the realised pnl. The parent's own row keeps no trace of that (a
+    partial reduce only shrinks ``position_size``), so the linkage lives on the
+    child: ``notes.intent_reduce_allocations[].parent_id``. Measured on the live
+    journal 2026-09-29 (6,286 rows): 112 parents. A caller holding a population
+    resolves this once and sets ``reduce_leg_absorbed`` on those rows before
+    :func:`classify_pnl`, which then skips the sign test for them.
+    """
+    out: set = set()
+    for r in rows:
+        try:
+            notes = _decode_notes(r["notes"])
+        except (KeyError, IndexError, TypeError):
+            continue
+        for a in notes.get("intent_reduce_allocations") or ():
+            try:
+                out.add(int(a["parent_id"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+    return out
+
+
+def _absorbed_partial_pnl(row: Any) -> bool:
+    """True when the row's own fields say its ``pnl`` is NOT a single entry->exit
+    close, so the entry/exit price move cannot be compared with it.
+
+    * ``reduce_leg_absorbed`` -- set by a caller that resolved
+      :func:`reduce_parent_ids` (the only way to see a reduce PARENT);
+    * a reduce leg itself: ``setup_type == 'intent_reduce'`` or
+      ``notes.intent_reduce`` (the definition ``src.web.api._clean_trades.
+      exclude_reduce_leg_predicate`` and ``bracket_outcome.is_reduce_leg`` use)
+      or ``pnl_source == 'deferred_intent_reduce'``;
+    * a strategy partial-close ladder: ``notes.partial_closes`` non-empty or
+      ``notes.original_position_size`` present (``order_monitor.
+      _apply_partial_close`` stamps both on the first partial).
+    """
+    try:
+        if row["reduce_leg_absorbed"]:
+            return True
+    except (KeyError, IndexError, TypeError):
+        pass
+    try:
+        if str(row["setup_type"] or "").strip().lower() == "intent_reduce":
+            return True
+    except (KeyError, IndexError, TypeError):
+        pass
+    try:
+        notes = _decode_notes(row["notes"])
+    except (KeyError, IndexError, TypeError):
+        return False
+    return bool(
+        notes.get("intent_reduce")
+        or notes.get("partial_closes")
+        or "original_position_size" in notes
+        or str(notes.get("pnl_source") or "") == "deferred_intent_reduce"
+    )
+
+
 def _pnl_contradicts_price_move(row: Any, evidence: str) -> Optional[str]:
     """Reason string when a MEASURED-source ``pnl`` contradicts the row's own arithmetic.
 
@@ -493,7 +554,9 @@ def _pnl_contradicts_price_move(row: Any, evidence: str) -> Optional[str]:
       UNSET sentinel to 0.0), so a zero on a moving close is unmeasured.
     * a ``pnl`` whose SIGN contradicts the entry->exit move by more than
       :data:`_SIGN_MOVE_FRAC` -- the FIX-CA-19 sanity guard from
-      ``backfill_orphan_pnl._plan_row`` (a mismatched closed-pnl record).
+      ``backfill_orphan_pnl._plan_row`` (a mismatched closed-pnl record),
+      EXCEPT on a row that absorbed reduce-leg / partial-close pnl
+      (:func:`_absorbed_partial_pnl`).
 
     Needs ``pnl``, ``entry_price``, ``exit_price``, ``position_size``/``qty`` (+
     ``direction`` for the sign test) as row keys; any missing => no demotion
@@ -524,7 +587,11 @@ def _pnl_contradicts_price_move(row: Any, evidence: str) -> Optional[str]:
         direction = str(row["direction"] or "").lower()
     except (KeyError, IndexError, TypeError):
         direction = ""
-    if direction in ("long", "short"):
+    # The sign test (only) is skipped for a row whose pnl absorbed a reduce leg or
+    # a partial close: a profitable partial plus a losing final exit is a genuine
+    # positive pnl on an adverse final move. We cannot check it, so the source
+    # label stands. (The zero-pnl test above is unaffected.)
+    if direction in ("long", "short") and not _absorbed_partial_pnl(row):
         move = exit_ - entry
         if direction == "short":
             move = -move

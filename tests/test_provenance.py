@@ -500,3 +500,61 @@ def test_zero_pnl_demotion_reads_the_performance_route_alias_qty():
     row = _trade(pnl=0.0)
     row["qty"] = row.pop("position_size")
     assert P.classify_pnl(row)[0] == P.UNVERIFIED
+
+
+# ── FIX-SA-04 review fix: the sign test must not demote a reduce PARENT ─────
+# Real shape (live journal 2026-09-29): trade 5702 is the intent_reduce child
+# (pnl None, notes.intent_reduce_allocations -> parent 5682, pnl_source
+# deferred_intent_reduce); 5682 is the parent, whose OWN row carries no marker.
+_CHILD_5702 = {
+    "id": 5702, "direction": "short", "entry_price": 2540.46, "exit_price": None,
+    "position_size": 0.01, "pnl": None, "setup_type": "intent_reduce",
+    "notes": json.dumps({
+        "intent_reduce": True, "pnl_source": "deferred_intent_reduce",
+        "intent_reduce_allocations": [
+            {"parent_id": 5682, "consumed": 0.01, "closed": False, "new_size": 0.03}],
+    }),
+}
+
+
+def _parent_5682(**kw):
+    row = {"id": 5682, "direction": "long", "entry_price": 2593.65,
+           "exit_price": 2502.42, "position_size": 0.03, "pnl": -2.8395,
+           "setup_type": "trend_donchian_eth_4h",
+           "notes": json.dumps({"exit_price_source": "bybit_closed_pnl",
+                                "bybit_closed_pnl": -2.83949364})}
+    row.update(kw)
+    return row
+
+
+def test_reduce_parent_ids_are_read_off_the_children():
+    assert P.reduce_parent_ids([_CHILD_5702, _parent_5682()]) == {5682}
+    assert P.reduce_parent_ids([_parent_5682(), {"notes": None}, {}]) == set()
+
+
+def test_the_real_5682_shape_stays_measured():
+    assert P.classify_pnl(_parent_5682())[0] == P.MEASURED
+
+
+def test_a_reduce_parent_with_a_profitable_partial_and_a_losing_exit_stays_measured():
+    # profitable partial + final exit beyond entry at a loss => pnl > 0 with an
+    # adverse (-3.5%) move: correct and measured
+    parent = _parent_5682(pnl=1.4)
+    assert P.classify_pnl(parent)[0] == P.UNVERIFIED, "unmarked: row cannot say"
+    flagged = dict(parent, reduce_leg_absorbed=1 if 5682 in P.reduce_parent_ids(
+        [_CHILD_5702]) else 0)
+    assert P.classify_pnl(flagged)[0] == P.MEASURED
+
+
+def test_partial_ladder_markers_on_the_row_skip_the_sign_test():
+    for extra in ({"partial_closes": [{"qty": 0.25, "reason": "tp1"}]},
+                  {"original_position_size": 0.04}):
+        notes = {"exit_price_source": "bybit_closed_pnl", **extra}
+        row = _parent_5682(pnl=1.4, notes=json.dumps(notes))
+        assert P.classify_pnl(row)[0] == P.MEASURED, extra
+
+
+def test_the_zero_pnl_demotion_is_not_skipped_by_the_partial_markers():
+    row = _trade(pnl=0.0)
+    row["reduce_leg_absorbed"] = 1
+    assert P.classify_pnl(row)[0] == P.UNVERIFIED
