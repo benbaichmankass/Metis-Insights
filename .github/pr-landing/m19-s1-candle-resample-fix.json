@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Fixes scripts/research/meta_veto_walkforward.py only (TIER1_SURFACE) -- checks the candle resolver's resample field before use instead of silently reading a finer-grain file as the leg's own bars, and fixes an importlib/sys.modules gotcha that broke the resample path even with pandas available. Offline/stdlib+optional-pandas, no config/src/order-path/roster/mode change. Self-test extended (29/29 pass, 5 new checks exercising the real resample path with pandas installed) and ruff clean."
+}
