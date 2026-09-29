@@ -10,7 +10,7 @@
     "ref": "docs/audits/system-audit-2026-09-29/AUD-6.md — finding SA-AUD-6-zero-evidence-guards",
     "rerun": "python3 scripts/ci/check_guard_selftest_coverage.py | grep -A 20 'none        :'"
   },
-  "state": "filed",
+  "state": "queued",
   "next_action": "ask_operator",
   "routed_to": null,
   "what": "9 CI guards have zero failure-path evidence anywhere (not self-test, not pytest, not gated comparison, not return-code assertion). Running these guards on the current codebase proves nothing about whether they would catch the defect they exist for. AUDIT FINDING: audit-sa-2026-09-29 lane E75 (AUD-6) enumerated via python3 scripts/ci/check_guard_selftest_coverage.py category 'none: 9' (no coverage mechanism found). Examples: guards with 'always' trigger or complex glob patterns with no associated checker script that validates against a known-bad input. Tier-3 finding: analysis complete, awaiting operator decision on whether to add self-tests or document why testing is structurally impossible.",
