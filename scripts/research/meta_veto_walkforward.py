@@ -398,7 +398,7 @@ def _resample_candles(rows: list, target_tf: str) -> Optional[list]:
             [{"timestamp": r[0], "open": r[1], "high": r[2], "low": r[3], "close": r[4]}
              for r in rows])
         out = mod._resample(df, target_tf)
-    except Exception:  # noqa: BLE001 -- fail closed to "cannot resample", never a wrong bar
+    except Exception:  # noqa: BLE001  # allow-silent: fail CLOSED to "cannot resample" (pandas/import unavailable, malformed frame) -- the caller skips the leg with a named reason rather than reading finer-grain bars as this leg's own; never re-raised because this must never break the walk-forward run over one leg's optional feature
         return None
     return [(row.timestamp.to_pydatetime(), float(row.open), float(row.high),
             float(row.low), float(row.close), 0.0, None) for row in out.itertuples()]
