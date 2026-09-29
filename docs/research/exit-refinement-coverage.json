@@ -2548,8 +2548,8 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "blocked:out_of_scope_family",
+    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
    }
   },
   {
@@ -2596,8 +2596,8 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "blocked:out_of_scope_family",
+    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
    }
   },
   {
@@ -2644,8 +2644,8 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "blocked:out_of_scope_family",
+    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
    }
   },
   {
@@ -2736,8 +2736,8 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "blocked:out_of_scope_family",
+    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
    }
   },
   {
@@ -2784,8 +2784,8 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "blocked:out_of_scope_family",
+    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
    }
   },
   {
@@ -2832,8 +2832,8 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "blocked:out_of_scope_family",
+    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
    }
   },
   {
@@ -2879,8 +2879,8 @@
     "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
    },
    "bracket_geometry": {
-    "status": "pending",
-    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked."
+    "status": "blocked:out_of_scope_family",
+    "ref": "Not swept in the 2026-08-20 run (scope was the trend/pullback/squeeze fleet). Crypto — the free `data.binance.vision` lane DOES cover these, so this is genuinely pending, not blocked. || CORRECTED 2026-09-29 (exit-refinement lane, checklist row EXIT-OPS): the \"genuinely pending, not blocked\" claim above checked only data availability, never whether the sweep TOOL runs for this family -- it does not. Verified via `python3 scripts/research/e35_shard_plan.py --only <these 7 legs> --ignore-missing-data`: 0 jobs planned, all 7 `out_of_scope_family:scalp`. `e35_bracket_geometry_sweep.py::plan_legs` restricts its grid to (\"donchian\", \"pullback\", \"squeeze\") by design -- scalp/fvg legs carry a REAL `tp_at_r` bracket rather than the tool's 50.0 sentinel, so the tp_r x atr_stop_mult x timeout grid would mean something different on them (own comment, same file). No other sweep tool covers bracket_geometry for this family (`mi312_scalp_target_arms.py` answers a different question -- MFE/target-setting, not geometry). Status corrected to reflect that no run can move this cell today; closing it needs either a new sweep methodology for a real-fixed-TP bracket or an explicit permanent-scope decision, not a re-run. Filed as PI-20260929-EXITOPS-0006."
    }
   },
   {

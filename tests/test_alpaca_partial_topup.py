@@ -381,10 +381,10 @@ def test_top_up_with_a_breached_stop_exits_the_row_labelled_sl(monkeypatch):
     assert db.updates[0][0] == 6023 and db.updates[0][1]["exit_reason"] == "sl"
 
 
-def test_top_up_breach_exit_deferred_when_the_market_is_closed(monkeypatch):
-    """REVIEW-14241 round 2: the venue's own 'market closed — exit deferred'
-    on a confirmed top-up breach is reported as exit_deferred (the sweep
-    counts it so), never as exited or as a refusal; the row stays open."""
+def test_top_up_breach_exit_deferred_rests_the_top_up_stop(monkeypatch):
+    """K1XNYYAQ-0002 (1): the venue DEFERS a confirmed top-up breach exit
+    (retCode 2). Nothing was sent, so no cooldown stands; the uncovered shares
+    get a RESTING top-up stop this same sweep. The row is not closed."""
     monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
     monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
     monkeypatch.setattr(om, "_send_close_to_exchange",
@@ -401,8 +401,26 @@ def test_top_up_breach_exit_deferred_when_the_market_is_closed(monkeypatch):
     db = _Db()
     cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
     out = om._alpaca_top_up_uncovered(db, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert out == "exit_deferred_topped_up"
+    (p,) = v.posts()
+    assert p["qty"] == "22" and p["stop_loss"]["stop_price"] == "716.80"
+    assert db.updates == []
+
+
+def test_top_up_deferred_exit_with_a_refused_stop_is_exit_deferred(monkeypatch):
+    """Deferred exit AND the resting top-up refused by the venue: reported
+    exit_deferred (not topped_up, not refused_by_venue). The only cooldown left
+    is the one the refused POST set — like any refused top-up — never one for
+    the exit that was not sent."""
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda m: {"ok": False, "error": "market closed — exit deferred"})
+    v = _Venue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                    "current_price": "710.00"}, post_rc=403)
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    out = om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
     assert out == "exit_deferred"
-    assert v.posts() == [] and db.updates == []
 
 
 def test_unconfirmed_top_up_breach_sets_no_cooldown_and_escalates(monkeypatch):

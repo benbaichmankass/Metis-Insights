@@ -8556,8 +8556,16 @@ def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
                 db, row, account_id, symbol, reason="sl",
                 why=(f"top-up stop {a_sl} breached by a fresh last trade "
                      f"({(_binfo.get('trade') or {}).get('price')})"))
-            return {"exited": "exited_breached_stop", "deferred": "exit_deferred",
-                    "failed": "exit_failed"}[_res]
+            if _res != "deferred":
+                return {"exited": "exited_breached_stop", "failed": "exit_failed"}[_res]
+            # The venue DEFERRED the exit: nothing was sent, so the cooldown set
+            # above must not stand (K1XNYYAQ-0002 (1)). Fall through and REST the
+            # top-up stop for the uncovered shares instead — it triggers on the
+            # next print through it, which is the exit the breach called for.
+            _ALPACA_TOPUP_ATTEMPTS.pop(cd_key, None)
+            _deferred_exit = True
+        else:
+            _deferred_exit = False
         place_qty = min(uncovered, float(fresh["size"]) - float(fresh.get("stop_qty") or 0.0))
         if place_qty < 1 or abs(place_qty - round(place_qty)) > 1e-9:
             return "refused_state_changed"
@@ -8574,14 +8582,14 @@ def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
                 "trade_id=%s: %r", account_id, symbol, row["id"],
                 (topup_resp or {}).get("retMsg"),
             )
-            return "refused_by_venue"
+            return "exit_deferred" if _deferred_exit else "refused_by_venue"
         _stamp_repair(db, row, "partial_topup")
         logger.warning(
             "_alpaca_top_up_uncovered: topped up %s/%s — GTC OCO for the "
             "uncovered %s sh (sl=%s tp=%s) on trade_id=%s; no leg cancelled",
             account_id, symbol, int(round(place_qty)), a_sl, a_tp, row["id"],
         )
-        return "topped_up"
+        return "exit_deferred_topped_up" if _deferred_exit else "topped_up"
     except Exception as exc:  # noqa: BLE001 — never break the sweep
         logger.warning("_alpaca_top_up_uncovered: %s/%s failed: %s",
                        account_id, symbol, exc)
@@ -8815,10 +8823,14 @@ def _record_rearm_attempt(account_id: str, trade_id: Any) -> None:
 
 
 def _page_rearm_refusal(kind: str, account_id: str, symbol: str,
-                        trade_id: Any, reason: str) -> None:
-    """Log every refusal; page CRITICAL (per symbol+kind cooldown)."""
-    logger.warning("_alpaca_rearm_preflight: %s/%s trade_id=%s REFUSED (%s): %s",
-                   account_id, symbol, trade_id, kind, reason)
+                        trade_id: Any, reason: str, *, verb: str = "refused") -> None:
+    """Log every refusal; page CRITICAL (per symbol+kind cooldown).
+
+    *verb* names what happened when it was not a refusal — the escalated
+    re-arm POSTS the stop, so it pages as ``escalated`` (K1XNYYAQ-0002 (3)).
+    """
+    logger.warning("_alpaca_rearm_preflight: %s/%s trade_id=%s %s (%s): %s",
+                   account_id, symbol, trade_id, verb.upper(), kind, reason)
     if not _cooldown_admits("alpaca_rearm_refused", f"{account_id}|{symbol}|{kind}",
                             _ALPACA_REARM_REFUSAL_PAGE_COOLDOWN_S):
         return
@@ -8826,7 +8838,7 @@ def _page_rearm_refusal(kind: str, account_id: str, symbol: str,
         from src.runtime.outcomes import Level, report
 
         report("alpaca_rearm_refused", "detected", level=Level.CRITICAL,
-               reason=f"{account_id}/{symbol} trade {trade_id}: re-arm refused "
+               reason=f"{account_id}/{symbol} trade {trade_id}: re-arm {verb} "
                       f"({kind}) — {reason}",
                account_id=account_id, symbol=symbol, trade_id=trade_id, kind=kind)
     except Exception:  # noqa: BLE001
@@ -8907,8 +8919,14 @@ def _breach_deferral(account_id: str, symbol: str, trade_id: Any) -> Tuple[bool,
     key = (account_id, symbol.upper(), trade_id)
     n = _ALPACA_BREACH_DEFERRALS.get(key, 0) + 1
     _ALPACA_BREACH_DEFERRALS[key] = n
+    if n > _BREACH_DEFER_MAX:
+        # Escalating: the stop is about to be POSTED, so the breach-channel
+        # "NOTHING is resting" page would be false from here on — the caller
+        # pages the escalation itself (K1XNYYAQ-0002 (3)).
+        _clear_protection_unreadable(account_id, symbol, "breach")
+        return True, n
     _note_protection_unreadable(account_id, symbol, trade_id, channel="breach")
-    return n > _BREACH_DEFER_MAX, n
+    return False, n
 
 
 def _clear_breach_deferral(account_id: str, symbol: str, trade_id: Any) -> None:
@@ -9080,7 +9098,7 @@ def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
             f"stop {sl} looked breached on the quote/position price for {_n} "
             "sweeps with no fresh last trade to confirm it — posting the stop "
             "(an Alpaca stop triggers on trades, so a stale quote leaves it "
-            "resting and a real breach exits through it)")
+            "resting and a real breach exits through it)", verb="escalated")
     else:
         _clear_breach_deferral(account_id, symbol, row["id"])
     if bstate == "session_closed":
@@ -9093,7 +9111,25 @@ def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
     n = _rearm_attempts(account_id, row["id"])
     if n >= _ALPACA_REARM_CAP:
         return "cap", {"attempts": n}
-    return "ok", {}
+    # `escalated`: the caller must count this post against the cap EVEN IF the
+    # venue rejects it, or a rejected escalated stop is re-posted every sweep
+    # with the cap never advancing (K1XNYYAQ-0002 (2)).
+    return "ok", ({"escalated": True} if bstate == "unconfirmed" else {})
+
+
+def _log_equity_sweep_summary(summary: Dict[str, Any]) -> None:
+    """Log ONE line per Alpaca equity sweep with every outcome counter.
+
+    Zeros included, keys sorted — "all keys present at 0" must be readable off
+    the log, because nothing else carries these counters: the tick's
+    ``summaries`` dict is discarded by ``src/main.py``'s exit loop
+    (K1XNYYAQ-0002 (6)). Never raises.
+    """
+    try:
+        logger.info("_check_broker_naked_equity_positions: sweep %s",
+                    json.dumps(summary, sort_keys=True, default=str))
+    except Exception:  # noqa: BLE001 — observability must never break the tick
+        logger.debug("_log_equity_sweep_summary: unserialisable summary")
 
 
 def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
@@ -9311,6 +9347,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "venue_holding_cooldown": 0,
         "rearm_refused_deferred_unconfirmed_breach": 0,
         "exit_deferred": 0,
+        "escalated_post_rejected": 0,
         "exit_failed": 0,
     }
     try:
@@ -9347,6 +9384,10 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         f"{r['account_id']}|{r['id']}" for r in rows
         if str(r["account_id"] or "") in alpaca_ids
     })
+    # Same hygiene for the in-process breach-deferral counts (K1XNYYAQ-0002 (5)).
+    _open_ids = {(str(r["account_id"] or ""), r["id"]) for r in rows}
+    for _dk in [k for k in _ALPACA_BREACH_DEFERRALS if (k[0], k[2]) not in _open_ids]:
+        _ALPACA_BREACH_DEFERRALS.pop(_dk, None)
     _venue_protected: set = set()
     now = datetime.now(timezone.utc)
     clients: Dict[str, object] = {}
@@ -9511,9 +9552,15 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                                 summary["breach_exits"] += 1
                             elif _topup == "exit_failed":
                                 summary["exit_failed"] += 1
+                            elif _topup == "exit_deferred_topped_up":
+                                # the venue deferred the breach exit, so the
+                                # uncovered shares got a RESTING top-up stop
+                                # this same sweep (K1XNYYAQ-0002 (1))
+                                summary["exit_deferred"] += 1
+                                summary["topped_up"] += 1
                             elif _topup == "exit_deferred":
-                                # market closed: the uncovered shares still get
-                                # a resting stop via the next sweep's top-up
+                                # deferred AND the resting top-up was refused:
+                                # no cooldown was left, so the next sweep retries
                                 summary["exit_deferred"] += 1
                             else:
                                 summary["topup_refused"] += 1
@@ -9666,7 +9713,14 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             if _pf != "ok":
                 summary[f"rearm_refused_{_pf}"] = summary.get(f"rearm_refused_{_pf}", 0) + 1
                 continue
-            if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
+            _placed = _attempt_naked_autoprotect(row, a_sl, a_tp, db=db)
+            if not _placed and _pf_info.get("escalated"):
+                # A REJECTED escalated stop still spends one unit of the cap
+                # (K1XNYYAQ-0002 (2)) — otherwise it is re-posted every sweep.
+                # Once the cap is spent the row escalates to the close path.
+                _record_rearm_attempt(account_id, row["id"])
+                summary["escalated_post_rejected"] += 1
+            if _placed:
                 _record_rearm_attempt(account_id, row["id"])
                 summary["rearmed"] += 1
                 logger.info(
@@ -13921,9 +13975,15 @@ def run_reconciliation_tick(
     try:
         with _phase("check_broker_naked_equity_positions"):
             broker_naked_summary = _check_broker_naked_equity_positions(db)
-        # Surfaced whenever ANY outcome counter is non-zero — not only
-        # broker_naked/errors: a failed read, a top-up, a refusal or an exit is
-        # invisible otherwise (REVIEW round 2, non-blocking; taken in #14241).
+        # ONE line per sweep with EVERY outcome counter, zeros included — the
+        # only place these are observable. The `summaries` dict below is
+        # returned to src/main.py's exit loop, which discards it (measured
+        # 2026-09-29: nothing reads "__broker_naked_equity__"), so without this
+        # line "the sweep ran and found nothing" and "the sweep never ran" read
+        # the same. Mirrors the IB sweep's per-sweep line (K1XNYYAQ-0002 (6)).
+        _log_equity_sweep_summary(broker_naked_summary)
+        # Also kept in the tick's summaries whenever ANY outcome counter is
+        # non-zero, for callers that do read them (REVIEW round 2; #14241).
         if any(v for k, v in broker_naked_summary.items()
                if k not in ("checked", "covered") and isinstance(v, (int, float))):
             summaries["__broker_naked_equity__"] = broker_naked_summary
