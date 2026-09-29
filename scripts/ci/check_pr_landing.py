@@ -512,6 +512,18 @@ def e58_generated_queue_vouch(root: Path, base: str, branch: Optional[str],
     queue_paths = [p for p in changed if fnmatch.fnmatch(p, "research/queue/*.yaml")]
     if not queue_paths:
         return [], []
+    # ⚠️ REVIEW FIX (2026-09-29): a producer branch may carry ONLY queue files
+    # plus the three landing files commit-to-main writes for its own slug.
+    # Anything else -- above all a fabricated research/results/** row that a
+    # grade would then be "reproduced" from -- means this is not the producer's
+    # output, and nothing on it is vouched.
+    slug = branch.replace("/", "-")
+    own = {f"{LANDING_DIR}/{slug}.json", f"{AUTOMERGE_DIR}/{slug}.txt", f"{BRANCH_SLOT_DIR}/{slug}.json"}
+    foreign = sorted(p for p in changed if p not in queue_paths and p not in own)
+    if foreign:
+        return [], [f"E58 {branch}: REFUSED -- the branch changes {len(foreign)} path(s) outside research/queue/ "
+                    f"({', '.join(foreign[:4])}); a producer branch carries only its queue files, so nothing "
+                    "on it is vouched"]
     if not (root / script).is_file():
         return [], [f"E58 {branch}: producer {script} is absent at HEAD -- nothing vouched"]
     try:

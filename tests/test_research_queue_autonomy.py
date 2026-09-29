@@ -121,10 +121,14 @@ def _mini_repo(tmp_path: Path) -> Path:
     return r
 
 
-def test_e58_vouches_only_a_reproducible_producer_branch(tmp_path):
+def test_e58_vouches_only_a_reproducible_producer_branch(tmp_path, monkeypatch):
     sys.path.insert(0, str(REPO / "scripts" / "ci"))
     import check_pr_landing as g  # noqa: E402
     r = _mini_repo(tmp_path)
+    # the copied producer re-expands its templates from the mini repo's rosters and
+    # needs the real repo's `src.config.accounts_loader` on its path (in production
+    # the checkout IS the repo, so this is the fixture's concern only)
+    monkeypatch.setenv("PYTHONPATH", str(REPO))
     git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=str(r), check=True, capture_output=True)  # noqa: E731
     pl = queue_replenish.plan(r, day="2031-02-02", target=2)
     for u in pl["new_units"]:
@@ -143,6 +147,21 @@ def test_e58_vouches_only_a_reproducible_producer_branch(tmp_path):
     git("commit", "-q", "-am", "edit")
     vouched, notes = g.e58_generated_queue_vouch(r, "main", "automation/research-queue-replenish-1-1", changed)
     assert vouched == [] and any("REFUSED" in n for n in notes), notes
+    # PLANTED DEFECT (review 2026-09-29): a fabricated results row riding the
+    # producer branch -- the grade would be "reproduced" from it -- vouches nothing
+    (r / "research/results/RQ-20310202-001").mkdir(parents=True)
+    (r / "research/results/RQ-20310202-001/1.jsonl").write_text('{"verdict":"pass","read_state":"measured"}\n')
+    git("add", "-A")
+    git("commit", "-q", "-m", "forged row")
+    vouched, notes = g.e58_generated_queue_vouch(
+        r, "main", "automation/research-queue-replenish-1-1", changed + ["research/results/RQ-20310202-001/1.jsonl"])
+    assert vouched == [] and any("outside research/queue" in n for n in notes), notes
+    # the branch's own three landing files are the only non-queue paths allowed
+    own = ["research/queue/x.yaml", ".github/pr-landing/automation-research-queue-replenish-1-1.json",
+           ".github/pr-automerge-requests/automation-research-queue-replenish-1-1.txt",
+           ".github/merge-slots/automation-research-queue-replenish-1-1.json"]
+    _, own_notes = g.e58_generated_queue_vouch(r, "main", "automation/research-queue-replenish-1-1", own)
+    assert not any("outside research/queue" in n for n in own_notes), own_notes
     # the grade producer never vouches an ADDED unit (it only modifies)
     vouched, notes = g.e58_generated_queue_vouch(r, "main", "automation/research-queue-grade-1-1", changed)
     assert vouched == [] and any("REFUSED" in n for n in notes), notes

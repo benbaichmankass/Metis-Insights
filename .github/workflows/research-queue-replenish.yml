@@ -83,10 +83,14 @@ jobs:
         run: pip install --quiet pyyaml
       - name: Generate the missing units
         id: gen
+        env:
+          # An input reaches the shell through env, never by interpolation
+          # into `run:` (review fix 2026-09-29).
+          TARGET: ${{ inputs.target || '25' }}
         run: |
           set -euo pipefail
           python3 scripts/research/queue_replenish.py --self-test
-          python3 scripts/research/queue_replenish.py --write --target "${{ inputs.target || '25' }}" | tee /tmp/replenish.txt
+          python3 scripts/research/queue_replenish.py --write --target "${TARGET}" | tee /tmp/replenish.txt
           python3 scripts/research/dispatch_queue.py | tail -3
           echo "count=$(git status --porcelain research/queue | wc -l | tr -d ' ')" >> "$GITHUB_OUTPUT"
       - name: Land the new units on main

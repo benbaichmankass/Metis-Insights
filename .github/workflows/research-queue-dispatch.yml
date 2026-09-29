@@ -345,7 +345,7 @@ jobs:
             echo "::warning::research-queue health tripped — dispatching send-ping."
             gh workflow run system-actions.yml \
               -f action=send-ping \
-              -f message="research-queue health: $(echo "${HEALTH}" | grep -o 'H[0-9] [^\n]*' | head -3 | tr '\n' ' ') — runnable < 25 or idle > 12h. Replenisher: https://github.com/${{ github.repository }}/actions/workflows/research-queue-replenish.yml" \
+              -f message="research-queue health: $(echo "${HEALTH}" | grep -o 'H[0-9] .*' | head -3 | tr '\n' ' ') — runnable < 25 or idle > 12h. Replenisher: https://github.com/${{ github.repository }}/actions/workflows/research-queue-replenish.yml" \
               -f priority=high \
               -f target=claude \
               || echo "::error::could not dispatch the send-ping system-action — see the step log above."

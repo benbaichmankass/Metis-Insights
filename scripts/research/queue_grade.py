@@ -35,7 +35,11 @@ file moves):
   * fail, first time            -> NOT a kill: `last_dispatched_at: null`
     (re-queued for a confirmatory run) + `grading.confirmatory_run: 1`;
   * fail, second time           -> `status: done`, verdict fail, both runs
-    named;
+    named. The confirmatory pass reads ONLY rows landed since the
+    re-dispatch (`last_dispatched_at` after the reset); with none yet it is
+    not due, and a confirmatory PASS (or anything but fail) makes the two
+    runs {fail, pass}: not unanimous -> `needs_review`, never closed either
+    way by the grader;
   * anything else (mixed verdicts, a producer_failed row, too few rows,
     not_applicable, indeterminate) -> `grading.needs_review: true` with the
     reason; status unchanged, so a session's `needs_review` bucket is
@@ -100,7 +104,9 @@ def e5_rows(root: Path, unit_id: str, since: Optional[datetime]) -> List[Tuple[s
             except ValueError:
                 continue
             ts = _parse_ts(r.get("generated_at") or (r.get("run") or {}).get("started_at"))
-            if since and ts and ts < since:
+            # With a window, a row that cannot be dated cannot be placed in it:
+            # excluded, never assumed new (review fix 2026-09-29).
+            if since and (ts is None or ts < since):
                 continue
             out.append((f.relative_to(root).as_posix(), r))
     return out
@@ -170,6 +176,14 @@ def decide(unit: Dict[str, Any], g: Dict[str, Any], graded_at: str) -> Optional[
     if cadence in _RECURRING:
         return {"status": None, "reset_stamp": False,
                 "grading": {**base, "verdict": v, "latest": True, "needs_review": v == "indeterminate"}}
+    if int(prior.get("confirmatory_run") or 0) >= 1 and v != "fail":
+        # The confirmatory run did not repeat the FAIL: {fail, v} is not
+        # unanimous, so a session reads both runs (review fix 2026-09-29).
+        return {"status": None, "reset_stamp": False,
+                "grading": {**base, "verdict": None, "needs_review": True, "confirmatory_run": 1,
+                            "first_fail": prior.get("first_fail") or prior.get("reason"),
+                            "note": f"confirmatory run read {v!r} after a first FAIL: {{fail, {v}}} is not "
+                                    "unanimous -> needs_review, not closed"}}
     if v in ("pass", "no_action_warranted"):
         return {"status": "done", "reset_stamp": False, "grading": {**base, "verdict": v}}
     if v == "fail":
@@ -225,13 +239,21 @@ def grade_unit(root: Path, unit_id: str, text: str, graded_at: str) -> Optional[
         (isinstance(unit.get("grading"), dict) and unit["grading"].get("auto") is True)
     if not auto:
         return None
-    since = _parse_ts(unit.get("last_dispatched_at")) if unit.get("cadence") in _RECURRING else None
+    prior = unit.get("grading") if isinstance(unit.get("grading"), dict) else {}
+    confirmatory = int(prior.get("confirmatory_run") or 0) >= 1
+    # A recurring unit reads only its latest cadence window. A confirmatory
+    # pass (re-queued after a first FAIL) reads only rows landed since the
+    # re-dispatch -- re-reading run 1's own rows would "confirm" the FAIL with
+    # itself (review fix 2026-09-29).
+    since = _parse_ts(unit.get("last_dispatched_at")) if (unit.get("cadence") in _RECURRING or confirmatory) else None
     rule_id = str((unit.get("decision_rule") or {}).get("id") or "")
     lands = unit.get("lands") or {}
     if rule_id.startswith("RULE-TPL-E35-BRACKET-"):
         g = grade_e35(e35_rows(root, unit_id))
     else:
         g = grade_e5(e5_rows(root, unit_id, since), int(lands.get("min_rows") or 1))
+    if confirmatory and not g.get("rows"):
+        return None    # the confirmatory run has not landed anything yet -- not due
     d = decide(unit, g, graded_at)
     if d is None:
         return None
@@ -325,6 +347,8 @@ def _self_test() -> int:
     assert d["status"] is None and d["reset_stamp"] and d["grading"]["confirmatory_run"] == 1
     d2 = decide({**u, "grading": {"confirmatory_run": 1}}, {"verdict": "fail", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")
     assert d2["status"] == "done" and d2["grading"]["verdict"] == "fail"
+    d3 = decide({**u, "grading": {"confirmatory_run": 1}}, {"verdict": "pass", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")
+    assert d3["status"] is None and d3["grading"]["needs_review"] and "not unanimous" in d3["grading"]["note"], d3
     assert decide({**u, "cadence": "monthly"}, {"verdict": "fail", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")["status"] is None
     assert decide(u, {"verdict": None, "rows": 0, "files": [], "reason": "0 result row(s)"}, "2030-01-01") is None
     assert decide(u, {"verdict": None, "rows": 2, "files": [], "reason": "verdicts not unanimous"}, "2030-01-01")["grading"]["needs_review"]
@@ -349,8 +373,23 @@ def _self_test() -> int:
         t1 = grade_unit(r, "RQ-20300101-001", unit_text, "2030-01-02")
         assert "last_dispatched_at: null" in t1 and "confirmatory_run: 1" in t1 and "status: queued" in t1, t1
         t1b = t1.replace("last_dispatched_at: null", "last_dispatched_at: '2030-01-03T00:00:00+00:00'")
+        # PLANTED DEFECT (review 2026-09-29): the confirmatory pass must NOT re-read
+        # run 1's rows and call them a second FAIL -- undated / older rows are not
+        # the confirmatory run's, so with nothing new the unit is simply not due.
+        assert grade_unit(r, "RQ-20300101-001", t1b, "2030-01-04") is None
+        old1 = json.dumps({"verdict": "fail", "read_state": "measured", "generated_at": "2030-01-01T12:00:00Z"})
+        (r / RESULTS / "RQ-20300101-001" / "1.jsonl").write_text(old1 + "\n" + old1 + "\n")
+        assert grade_unit(r, "RQ-20300101-001", t1b, "2030-01-04") is None
+        # a dated FAIL from the confirmatory run closes it; a dated PASS -> needs_review
+        new2 = json.dumps({"verdict": "fail", "read_state": "measured", "generated_at": "2030-01-03T12:00:00Z"})
+        (r / RESULTS / "RQ-20300101-001" / "2.jsonl").write_text(new2 + "\n" + new2 + "\n")
         t2 = grade_unit(r, "RQ-20300101-001", t1b, "2030-01-04")
         assert "status: done" in t2 and "verdict: fail" in t2 and "two consecutive" in t2, t2
+        pass2 = json.dumps({"verdict": "pass", "read_state": "measured", "generated_at": "2030-01-03T12:00:00Z"})
+        (r / RESULTS / "RQ-20300101-001" / "2.jsonl").write_text(pass2 + "\n" + pass2 + "\n")
+        t2p = grade_unit(r, "RQ-20300101-001", t1b, "2030-01-04")
+        assert "needs_review: true" in t2p and "status: queued" in t2p and "not unanimous" in t2p, t2p
+        (r / RESULTS / "RQ-20300101-001" / "2.jsonl").unlink()
         # grading block replaces, never stacks
         assert t2.count("grading:") == 1
         # mixed -> needs_review, status untouched
