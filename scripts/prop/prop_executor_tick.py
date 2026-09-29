@@ -91,6 +91,18 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     return base
 
 
+def _code_sha() -> str:
+    """The commit this tick runs from, so a run log proves WHICH code ran
+    (three dry runs on 2026-09-29 could not tell a deploy lag from a wrong
+    hypothesis). Read-only; "unknown" when git cannot answer."""
+    import subprocess
+    try:
+        return subprocess.run(["git", "rev-parse", "--short=9", "HEAD"], cwd=str(Path(__file__).resolve().parents[2]),
+                              capture_output=True, text=True, timeout=5).stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--account", default="breakout_1")
@@ -119,7 +131,7 @@ def main(argv: Optional[list] = None) -> int:
     password = os.environ.get(cfg_plat.get("password_env", ""), "")
     secrets = (username, password)
     emit({"executor": "start", "account": args.account, "mode": mode, "login": args.login,
-          "env_mode": pe.executor_mode()})
+          "env_mode": pe.executor_mode(), "code_sha": _code_sha()})
     if mode == "not_armed":
         emit({"executor": "not_armed", "why": f"a live click needs {pe.MODE_ENV}=live explicitly "
                                               f"(it reads {pe.executor_mode()!r}); nothing clicked"})
