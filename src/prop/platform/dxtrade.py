@@ -1503,6 +1503,37 @@ def verify_form_selection(form: Mapping[str, Any], side: str, order_type: str) -
     return bad
 
 
+#: The measured DXtrade submit label (probe #13855, 2026-09-28):
+#: "Buy <qty> SOLUSD at <price>" -- the TERMINAL's own statement of what it is
+#: about to send.
+_SUBMIT_LABEL = re.compile(r"\b(buy|sell)\s+([0-9]+(?:[.,][0-9]+)?)\s+([A-Za-z0-9._/-]+)", re.IGNORECASE)
+
+
+def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
+    """'' when the submit label agrees with the spec, else why not.
+
+    When the label states a quantity, it must equal ``spec.quantity`` and the
+    symbol after it must be ``spec.venue_symbol``. This is the only place the
+    terminal says what quantity it ACCEPTED: a venue that clamps a
+    below-minimum size up (or rounds it) changes this number, and the dry run
+    at the lot step is only a measurement of the venue minimum if that change
+    would be caught. A label with no quantity passes (the check is then the
+    input read-back alone).
+    """
+    m = _SUBMIT_LABEL.search(text or "")
+    if not m:
+        return ""
+    try:
+        qty = float(m.group(2).replace(",", "."))
+    except ValueError:
+        return f"its text {text!r} states an unparseable quantity"
+    if abs(qty - float(spec.quantity)) > 1e-9:
+        return f"its text {text!r} states quantity {qty}, not the typed {spec.quantity}"
+    if m.group(3).upper() != str(spec.venue_symbol).upper():
+        return f"its text {text!r} names {m.group(3)!r}, not {spec.venue_symbol}"
+    return ""
+
+
 def verify_bracket_legs(form: Mapping[str, Any]) -> List[str]:
     """Pure: both bracket legs are ARMED in the form. A leg whose enabling
     toggle is off would submit a NAKED order, the worst outcome here, so:
@@ -2177,6 +2208,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         mine, other = ("buy", "sell") if spec.side == "long" else ("sell", "buy")
         if not re.search(rf"\b{mine}\b", text) or re.search(rf"\b{other}\b", text):
             return False, f"submit: its text {chk.get('text')!r} does not name the intended side ({mine})", form, info
+        why = submit_label_mismatch(str(chk.get("text") or ""), spec)
+        if why:
+            return False, f"submit: {why}", form, info
         mism = self._read_back(form, spec, want)
         if mism:
             return False, "read-back after scrolling to submit: " + "; ".join(mism), form, info

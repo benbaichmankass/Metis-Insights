@@ -193,6 +193,19 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # permanently disabled account, and it could not be read from outside.
     # `off`/`annotate`/`enforce` is not a secret.
     "PROP_TICKET_RISK_GATE_MODE",
+    # --- Added 2026-09-28 (PROP-EXEC): the prop executor's kill switch. `set-env` could write PROP_EXECUTOR_MODE (off |
+    # read_only | live) and nothing could read it back, so the live-test
+    # criterion "mode back to read_only, confirmed" (L8) had no reader.
+    # ict-prop-executor.service is a oneshot with no EnvironmentFile (the tick
+    # greps the repo .env itself), so read these with the default unit and
+    # trust the DECLARED side: it is the file the next tick reads. The trader's
+    # PROCESS side only reflects the .env as of its last restart, so a
+    # `set-env service: none` legitimately reads `pending_restart` there.
+    # A mode word is not a secret. PROP_EXECUTOR_SYMBOLS is deliberately NOT
+    # here: the tick loads only PROP_EXECUTOR_MODE from .env, so a .env value
+    # for it is inert and reading one back would suggest an effect it lacks
+    # (the enabled symbols come from config/prop_platforms.yaml).
+    "PROP_EXECUTOR_MODE",
     # PROTECTION_STRAY_GROUP_* cancels a live position's resting protective
     # legs. Its EMPTY `..._ACCOUNTS` means NONE (inverted from its
     # CONVICTION_SIZING_/NETTING_ATTRIBUTION_ siblings, where empty means ALL),
