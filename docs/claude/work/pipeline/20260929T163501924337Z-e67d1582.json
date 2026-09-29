@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "operator decides breakout_1 go-live sizing/account plan with the $24 cushion stated",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-AQRK6CL1-0005",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "manager-local live-trade check 2026-09-29 16:31-16:37Z, direct HTTPS pulls of https://ict-bot.duckdns.org/api/bot/*",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/prop/status | python3 -c \"import json,sys;r=json.load(sys.stdin)['rule_distance'];print(r['balance'],r['static_dd_floor_usd'],r['distance_to_dd_floor_usd'])\""
+  },
+  "state": "queued",
+  "what": "[prop][go-live][money] breakout_1 is $24.00 above its static drawdown floor: /api/bot/prop/status rule_distance at 16:32:29Z reads balance 4724.0 (equity_provenance measured), static_dd_floor_usd 4700.0 (max_drawdown_pct 0.06), distance_to_dd_floor_usd 24.0. One stopped trade at the P1b flat $75 risk would breach the floor and fail the account. Breakout go-live sizing must be decided against this cushion before any armed live entry."
+}

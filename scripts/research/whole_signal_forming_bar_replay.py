@@ -34,7 +34,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -52,15 +51,10 @@ sys.path.insert(0, str(ROOT))
 
 import vol_skip_forming_bar_replay as vs  # noqa: E402  (frame builder + harness loaders)
 sys.path.insert(0, str(ROOT))  # vs prepends scripts/ again on import
-from src.runtime import entry_head_pwin  # noqa: E402
+import forming_bar_entries as fbe  # noqa: E402  (THE live forming-bar decision)
 
-# The P_win head only ANNOTATES a package after every gate has passed (it
-# never gates or sizes — see the units' order_package). Stubbed so a replay of
-# ~10^5 unit calls does not score a model it cannot change the decision of.
-entry_head_pwin.maybe_score_entry_pwin = lambda **_kw: None
-
-WINDOW = 200            # live fetch_candles(limit=200)
-TICK_STEP = 2           # live tick cadence, minutes
+WINDOW = fbe.WINDOW
+TICK_STEP = fbe.TICK_STEP
 IMPL_OFFSET = 2         # A_impl: first live tick after the close, minutes
 BOOT_N = 10_000
 BOOT_SEED = 301
@@ -107,133 +101,6 @@ def _assert_config_exact() -> Dict[str, dict]:
                                  f"script={v!r} — update LEGS first")
         out[leg] = block
     return out
-
-
-# ── per-minute partial-bar matrices ────────────────────────────────────────
-
-def minute_matrices(m1: pd.DataFrame, bars: pd.DataFrame, tf_min: int) -> Dict[str, np.ndarray]:
-    """Per bar (row, aligned to ``bars``) × minute-into-bar (col): the running
-    high / low / last close the live fetch sees after that minute, and the
-    remaining high / low from that minute on (for the entry-bar remainder)."""
-    key = m1["ts"].dt.floor(f"{tf_min}min")
-    row_of = pd.Series(np.arange(len(bars)), index=pd.DatetimeIndex(bars["timestamp"]))
-    rows = row_of.reindex(key).to_numpy()
-    ok = ~np.isnan(rows)
-    r = rows[ok].astype(int)
-    c = ((m1["ts"] - key).dt.total_seconds() // 60).astype(int).to_numpy()[ok]
-    shape = (len(bars), tf_min)
-    H = np.full(shape, np.nan)
-    L = np.full(shape, np.nan)
-    C = np.full(shape, np.nan)
-    H[r, c] = m1["high"].to_numpy(float)[ok]
-    L[r, c] = m1["low"].to_numpy(float)[ok]
-    C[r, c] = m1["close"].to_numpy(float)[ok]
-    run_h = np.fmax.accumulate(H, axis=1)
-    run_l = np.fmin.accumulate(L, axis=1)
-    last_c = pd.DataFrame(C).ffill(axis=1).to_numpy()
-    rest_h = np.fmax.accumulate(H[:, ::-1], axis=1)[:, ::-1]
-    rest_l = np.fmin.accumulate(L[:, ::-1], axis=1)[:, ::-1]
-    return {"run_h": run_h, "run_l": run_l, "last_c": last_c,
-            "rest_h": rest_h, "rest_l": rest_l}
-
-
-def direction_prefilter(harness: str, bars: pd.DataFrame, block: dict,
-                        close_tick: np.ndarray) -> np.ndarray:
-    """EXACT necessary condition for the unit to return a package, from
-    quantities that do not depend on the forming row (every channel below is
-    shift(1)), evaluated at each tick's close. True = call order_package."""
-    hi_s, lo_s, cl = bars["high"], bars["low"], bars["close"]
-    if harness == "pullback":
-        tl, pl = int(block["trend_lookback"]), int(block["pullback_lookback"])
-        pf = float(block["pullback_frac"])
-        mid = ((hi_s.rolling(tl).max().shift(1) + lo_s.rolling(tl).min().shift(1)) / 2).to_numpy()
-        rhi = hi_s.rolling(pl).max().shift(1).to_numpy()
-        rlo = lo_s.rolling(pl).min().shift(1).to_numpy()
-        prev = cl.shift(1).to_numpy()
-        rng = (rhi - rlo)[:, None]
-        with np.errstate(invalid="ignore", divide="ignore"):
-            pos = (close_tick - rlo[:, None]) / rng
-            lng = (close_tick > mid[:, None]) & (pos <= pf) & (close_tick > prev[:, None])
-            sht = (close_tick < mid[:, None]) & (pos >= 1 - pf) & (close_tick < prev[:, None])
-        sf = str(block.get("side_filter") or "both")
-        return (lng if sf != "short" else False) | (sht if sf != "long" else False)
-    dn = int(block["donchian"])
-    hi = hi_s.rolling(dn).max().shift(1).to_numpy()[:, None]
-    lo = lo_s.rolling(dn).min().shift(1).to_numpy()[:, None]
-    sf = str(block.get("side_filter") or "both")
-    with np.errstate(invalid="ignore"):
-        lng, sht = close_tick > hi, close_tick < lo
-    return (lng if sf != "short" else False) | (sht if sf != "long" else False)
-
-
-# ── live-unit evaluation (worker) ──────────────────────────────────────────
-
-_W: Dict[str, Any] = {}
-
-
-def _init_worker(leg: str, block: dict, bars: pd.DataFrame, mats: Dict[str, np.ndarray]) -> None:
-    from src.runtime.strategy_signal_builders import (_resolve_side_filter,
-                                                      _side_filter_suppresses)
-    if LEGS[leg]["harness"] == "pullback":
-        from src.units.strategies.htf_pullback_trend_2h import order_package
-    else:
-        from src.units.strategies.trend_donchian import order_package
-    tf = str(block.get("timeframe"))
-    sym = str((block.get("symbols") or [""])[0])
-    _W.update(leg=leg, order_package=order_package,
-              cfg={"symbol": sym, "timeframe": tf, **block, "strategy_label": leg},
-              sf=_resolve_side_filter(block), supp=_side_filter_suppresses,
-              base=bars[["timestamp", "open", "high", "low", "close"]].reset_index(drop=True),
-              mats=mats)
-
-
-def _evaluate(frame: pd.DataFrame) -> Optional[dict]:
-    """The live builder's decision on one frame: order_package, then the
-    builder's side_filter. None = side 'none'."""
-    try:
-        pkg = _W["order_package"](dict(_W["cfg"]), candles_df=frame)
-    except ValueError:
-        return None
-    if _W["supp"](pkg["direction"], _W["sf"]):
-        return None
-    return pkg
-
-
-def _forming_chunk(args: Tuple[List[int], List[List[int]]]) -> Dict[int, dict]:
-    idxs, ticks_per = args
-    base, M = _W["base"], _W["mats"]
-    out: Dict[int, dict] = {}
-    for i, ticks in zip(idxs, ticks_per):
-        fr = base.iloc[i - WINDOW + 1:i + 1].reset_index(drop=True).copy()
-        for k in ticks:                        # ascending: first firing tick wins
-            col = k - 1                        # minutes [0, k) closed at tick k
-            fr.loc[WINDOW - 1, ["high", "low", "close"]] = (
-                M["run_h"][i, col], M["run_l"][i, col], M["last_c"][i, col])
-            pkg = _evaluate(fr)
-            if pkg is None:
-                continue
-            rest = (M["rest_h"][i, k], M["rest_l"][i, k]) if k < M["rest_h"].shape[1] else (np.nan, np.nan)
-            out[i] = {"direction": pkg["direction"], "entry": float(pkg["entry"]),
-                      "atr": float(pkg["meta"]["atr"]), "tick_min": k,
-                      "rest_high": None if np.isnan(rest[0]) else float(rest[0]),
-                      "rest_low": None if np.isnan(rest[1]) else float(rest[1])}
-            break
-    return out
-
-
-def _closed_chunk(idxs: List[int]) -> Dict[int, dict]:
-    base = _W["base"]
-    out: Dict[int, dict] = {}
-    for i in idxs:
-        pkg = _evaluate(base.iloc[i - WINDOW + 1:i + 1].reset_index(drop=True))
-        if pkg is not None:
-            out[i] = {"direction": pkg["direction"], "entry": float(pkg["entry"]),
-                      "atr": float(pkg["meta"]["atr"])}
-    return out
-
-
-def _chunks(seq: List[Any], n: int) -> List[List[Any]]:
-    return [seq[j::n] for j in range(n)] if seq else []
 
 
 # ── harness runs + statistics ──────────────────────────────────────────────
@@ -379,29 +246,15 @@ def replay_leg(leg: str, block: dict, klines_dir: str, tmp: Path, workers: int,
     tf_min = vs.TF_MIN[base["timeframe"]]
     m1 = vs.load_1m(klines_dir, base["symbol"])
     bars = vs.build_bars(m1, tf_min)
-    mats = minute_matrices(m1, bars, tf_min)
+    mats = fbe.minute_matrices(m1, bars, tf_min)
     del m1
     ticks = list(range(TICK_STEP, tf_min - 1, TICK_STEP))
-    close_tick = mats["last_c"][:, [k - 1 for k in ticks]]
-    pre_f = direction_prefilter(spec["harness"], bars, block, close_tick)
-    pre_c = direction_prefilter(spec["harness"], bars, block,
-                                bars["close"].to_numpy()[:, None])[:, 0]
-    rng_i = range(WINDOW - 1, len(bars) - 1)
-    f_idx = [i for i in rng_i if pre_f[i].any()]
-    f_ticks = [[ticks[c] for c in np.flatnonzero(pre_f[i])] for i in f_idx]
-    c_idx = [i for i in rng_i if pre_c[i]]
-    print(f"{leg}: {len(bars)} bars, forming candidates {len(f_idx)} bars / "
-          f"{sum(map(len, f_ticks))} ticks, closed candidates {len(c_idx)}",
-          file=sys.stderr, flush=True)
-    with ProcessPoolExecutor(workers, initializer=_init_worker,
-                             initargs=(leg, block, bars, mats)) as ex:
-        b_ovr: Dict[int, dict] = {}
-        for part in ex.map(_forming_chunk, list(zip(_chunks(f_idx, workers * 8),
-                                                    _chunks(f_ticks, workers * 8)))):
-            b_ovr.update(part)
-        a_live: Dict[int, dict] = {}
-        for part in ex.map(_closed_chunk, _chunks(c_idx, workers * 8)):
-            a_live.update(part)
+    b_ovr = fbe.forming_entry_override(bars, None, block, family=spec["harness"],
+                                       label=leg, workers=workers, mats=mats)
+    a_live = fbe.closed_liveframe_override(bars, block, family=spec["harness"],
+                                           label=leg, workers=workers)
+    print(f"{leg}: {len(bars)} bars, forming entries {len(b_ovr)}, "
+          f"closed live-frame entries {len(a_live)}", file=sys.stderr, flush=True)
     a_impl: Dict[int, dict] = {}
     for i, ov in a_live.items():
         px = mats["last_c"][i + 1, IMPL_OFFSET - 1] if i + 1 < len(bars) else np.nan

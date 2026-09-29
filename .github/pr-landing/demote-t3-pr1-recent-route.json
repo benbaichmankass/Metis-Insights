@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Web-API read path on the live ict-web-api service (new GET /api/bot/performance/recent; unknown window on /performance now 400). Lane DEMOTE-T3 dispatch from the manager (session_01HYq6XtfesZ57VyaQrK6CL1): 'BUILD IT AS TWO HELD PRs ... The manager sends both PRs to independent review, then merges.'",
+  "why": "Tier-2 by path (src/web/api/routers/). Read-only: no order path, roster, risk or sizing touched. Every valid-window /performance response is pinned byte-identical to a pre-change golden."
+}

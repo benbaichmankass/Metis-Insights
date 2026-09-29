@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-only observability fix to scripts/ops/status_check.sh (the Tier-1 status-check action): `ls | head -30` under pipefail exits 141 on a large dir and truncates the report; replaced with `sed -n 1,30p`. No runtime, order path or config touched."
+}
