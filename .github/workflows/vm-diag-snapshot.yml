@@ -196,6 +196,16 @@ jobs:
 
           DIAG_PATH="${DISPATCH_PATH}"
 
+          # FIX-SA-07 (audit 2026-09-29): refuse `..` segments and encoded
+          # dots/separators (%2e, %252e, %2f, %5c). The charset check below
+          # ALLOWS `.` `/` `%`, so `../x` reached the VM-side URL and left the
+          # /api/diag/ prefix. Logic lives in a tested script, not inline.
+          if ! guard_reason="$(python3 scripts/ops/diag_path_guard.py "$DIAG_PATH" 2>&1)"; then
+            echo "::error::Rejected diag_path (path traversal): $guard_reason"
+            echo "diag_reject_reason=path traversal refused ($guard_reason)" >>"$GITHUB_ENV"
+            exit 1
+          fi
+
           # Strip optional leading /api/diag/ so callers can pass either
           # "snapshot?limit=200" or "/api/diag/snapshot?limit=200".
           path="${DIAG_PATH#/api/diag/}"
@@ -331,6 +341,12 @@ jobs:
               > diag-output.json
           python3 -c "import json,sys; json.load(open('diag-output.json')); print('valid json,', __import__('os').path.getsize('diag-output.json'), 'bytes')"
 
+      - name: Redact secrets from diag output (FIX-SA-07)
+        if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
+        # Runs BEFORE the run-log preview and the artifact upload — both are
+        # readable by anyone on this PUBLIC repo. Prints rule=count only.
+        run: python3 scripts/ops/redact_diag_output.py diag-output.json
+
       - name: Pretty-print diag response (run-log preview)
         if: github.event_name == 'workflow_dispatch' && steps.dedup.outputs.skip != 'true'
         run: |
@@ -377,6 +393,9 @@ jobs:
           import os
           import re
           import sys
+
+          sys.path.insert(0, os.getcwd())
+          from scripts.ops.diag_path_guard import traversal_reason
 
           MAX_PATHS = 15
           PATH_RE = re.compile(r'^[A-Za-z0-9/?&=_.:%-]+$')
@@ -438,6 +457,10 @@ jobs:
               path = raw.strip()
               if not path:
                   raise ValueError("empty path")
+              # FIX-SA-07: `..` / encoded-dot traversal (see diag_path_guard.py).
+              reason = traversal_reason(path)
+              if reason:
+                  raise ValueError(f"path traversal refused: {reason}")
               if path.startswith("/api/diag/"):
                   path = path[len("/api/diag/"):]
               path = path.lstrip("/")
@@ -662,6 +685,12 @@ jobs:
               'bash -s' > diag-multi-output.txt
           wc -l diag-multi-output.txt
 
+      - name: Redact secrets from raw diag output (FIX-SA-07)
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        # Before render_section so a per-path truncation cannot cut a secret
+        # in half and leave a partial that no pattern matches.
+        run: python3 scripts/ops/redact_diag_output.py diag-multi-output.txt
+
       - name: Build combined diag comment
         if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
         id: build_comment
@@ -749,6 +778,10 @@ jobs:
           PY
         env:
           DROPPED_COUNT: ${{ steps.resolve_multi.outputs.dropped_count }}
+
+      - name: Redact secrets from comment body (FIX-SA-07, second pass)
+        if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'
+        run: python3 scripts/ops/redact_diag_output.py diag-comment-body.md
 
       - name: Reply to issue with diag result
         if: github.event_name == 'issues' && steps.dedup.outputs.skip != 'true'

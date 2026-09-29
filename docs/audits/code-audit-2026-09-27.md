@@ -779,6 +779,10 @@ Each was caught in the manager's pre-merge review and fixed on the PR before it 
   - (B) Keep it as a documented, dry-only safety input. Name it in the Prime Directive and show it on `/api/bot/config` (FIX-CA-32).
   - (C) Leave it as is. Not acceptable: a gate that is invisible on the operator's config surface is the failure the Prime Directive exists to prevent.
 - **Lead recommendation:** B now (FIX-CA-32, Tier 1, no behaviour change), then A unless the operator names a use for a second dry switch. Anything `account_state.yaml` can do, `set-account-mode` does visibly, once JC-CA-01 makes that durable.
+- **DECIDED 2026-09-29 ~09:50Z — (A) Retire.** Operator popup answer, verbatim: "Retire it (Recommended)". It supersedes the 2026-09-28 answer "Retire after JC-CA-01". Built by lane session_01KwYKLvsHXXh27f6ZgRXVRb:
+  - The fold is removed from `Coordinator.multi_account_execute`, along with its reader `src/runtime/orders.py::account_state_dry_run`, `config/account_state.yaml` itself, and the `/api/bot/config` field `account_state_dry_run`. The dashboard SPA never read that field.
+  - Pre-ship measurement, 2026-09-29 09:47Z: every entry read `dry_run: false`, both on main and on the VM (bybit_1/2 false, the other 9 accounts absent). So no account's mode changed.
+  - Tests: `tests/test_account_state_fold_retired.py`.
 
 ### 6.2 Lower-severity judgment calls
 
@@ -1152,3 +1156,4 @@ Not visible to the lead: CA-B09's spend, CA-LANDING's spend, the fix lanes FIX-C
 - 2026-09-27 ~15:10Z — turn 2. Consolidated 17 findings files (Wave A plus B01 and B06). Re-verified 64 critical/high: final 30 confirmed, 33 downgraded, 1 not reproduced (verifiers 42/21/1 before lead overrides); 2 folded into CA-A01-073. Wrote FIX-CA-02…25 and JC-CA-01…05. Recorded that B06 did not meet its brief and that diag access is lost.
 - 2026-09-27 ~17:40Z — turn 3. Consolidated Wave B (B02, B03, B04, B05, B07, B08, B09). Re-verified all 39 of their critical/high: 7 confirmed, 28 downgraded, 4 not reproduced. Wrote FIX-CA-26…32 and JC-CA-06. Marked FIX-CA-01…25 merged, each against its PR. Recorded spend (§11). Recorded that B05's method is flawed.
 - 2026-09-27 ~23:20Z — turn 4 (final). FIX-CA-26…32 marked merged (#13314, #13316). All 32 briefs are merged; JC-CA-01…06 are outstanding with the operator. Recorded the five defects reviewers caught before merge (§5.9). No new findings consolidated.
+- 2026-09-29 — JC-CA-06 decided "Retire it" by the operator; the fold is retired (§6, JC-CA-06).
