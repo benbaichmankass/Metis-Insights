@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-29T22:14:46Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-29T22:08:07Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T15:18:59Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-29T22:08:07Z",
+  "updated_at": "2026-09-29T22:14:46Z",
   "latest": {
-    "generated_at": "2026-09-29T22:08:07Z",
+    "generated_at": "2026-09-29T22:14:46Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1618,8 +1618,8 @@
         ],
         "session_01HYq6XtfesZ57VyaQrK6CL1": [
           "claude/e44-lane-supervisor-build",
-          "claude/mgr-pipeline-14053-needs-data",
-          "claude/mgr-pipeline-mandate-soak-pathb"
+          "claude/m19-s2exit-rq005-result",
+          "claude/mgr-pipeline-14053-needs-data"
         ],
         "session_01HaWB6g8EsN1x64hKKQHT2B": [
           "claude/mlopt-regime-recency-adopt",
