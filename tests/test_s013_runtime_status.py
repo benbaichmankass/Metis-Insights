@@ -42,6 +42,11 @@ def test_build_status_has_schema_v1_and_required_keys(tmp_path):
         "live",
         "strategies",
         "git_sha",
+        # FIX-SA-11 — ADDITIVE, same reasoning as `process`: `git_sha` keeps its
+        # meaning (the CHECKOUT at write time), and the two new keys split what
+        # it conflated. `git_sha_running` is captured once at process start.
+        "git_sha_on_disk",
+        "git_sha_running",
         "last_tick_utc",
         # E31 — layer 4: what the PROCESS holds, beside the file views above.
         "process",

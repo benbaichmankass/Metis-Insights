@@ -129,3 +129,14 @@ related:
   - blocked/RQ-20260928-004 (S2-sizing, consumes arm (2)'s score)
   - PI-20260928-VNMMNBJH-0001 (the build item this is blocked on)
 last_dispatched_at: null
+note: >-
+  2026-09-29 (lane session_01TR74tvLR2AjCzrJMeBs47A, manager
+  session_01KAQRJxRbRwpYTkPgBjNVyQ): clause (b) of blocked_on ("RQ-20260928-002
+  has landed a result") is CLEARED --
+  research/results/RQ-20260928-002/session_01TR74tvLR2AjCzrJMeBs47A-rq20260928-002-20260929.jsonl,
+  verdict fail, veto_delta_r=-0.0502 (this unit's arm-(1) reference floor).
+  Clause (a) (the harness's --candles-dir / --arms extension,
+  PI-20260928-VNMMNBJH-0001) is UNCHANGED and still blocks -- this unit stays
+  in blocked/ until that PR lands. FAIL, not the two-null exhaustion (that
+  needs THIS unit to also be null), so this unit still runs once per
+  RQ-20260928-002's own rule once the harness extension lands.

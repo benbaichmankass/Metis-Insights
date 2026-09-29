@@ -251,6 +251,19 @@ the window:
 - `n_rejected` (status ∈ `failed_*`)
 - `win_rate` (closed_filled rows where `pnl > 0` ÷ closed_filled rows)
 - `pnl_total`, `pnl_avg_per_trade`
+- `pnl_measured_n` and `pnl_coverage` — **required beside every `pnl_total`**
+  (SA-AUD-3, FIX-SA-05). `pnl_measured_n` is the number of closed rows whose
+  `provenance.classify_pnl` bucket is MEASURED, `pnl_coverage` is
+  `pnl_measured_n ÷ closed rows`, and `pnl_estimated_n` counts the ESTIMATED
+  rows. Take them from `/api/bot/performance` `perStrategy[].pnlMeasuredCount`,
+  `.pnlCoverage`, `.pnlEstimatedCount`; never recompute over a different
+  population. `pnl_total` sums fabricated marks too, so a sum quoted without
+  its coverage is a number of unknown provenance.
+  ⚠️ **`totalPnlMeasured` is MEASURED+ESTIMATED despite its name.** Quote
+  `totalPnlMeasuredOnly` (the MEASURED rows, the same population as
+  `pnlMeasuredCount`) beside it and say so when the two disagree in sign: a
+  paper window read `totalPnlMeasured` +94,618 over 367 MEASURED rows against
+  699 ESTIMATED.
 - `avg_hold_seconds` (closed_at − opened_at)
 - `rejection_cluster` — most common rejection reason if rejections >
   filled
@@ -304,6 +317,23 @@ append packages decided since the last review.
 
 The retroactive backfiller for historical windows is
 `scripts/ops/score_order_packages.py` — re-use it, do not reinvent.
+
+**Closed trades are graded per TRADE, on a schedule (JC-SA-01, 2026-09-29).**
+`.github/workflows/grade-closed-trades.yml` runs daily and appends one row per
+closed, non-backtest trade, keyed on `linked_trade_id` (= that trade's
+`trades.id`), via `score_order_packages.py --emit-delta-only --by-trade` — the
+same `_grade_package` rubric, no new one. The skip-set for closed trades is
+therefore the set of `linked_trade_id`s already present, not the
+`order_package_id`s: a package that fans out to several accounts names only one
+trade in `order_packages.linked_trade_id`, and a package graded `orphaned`
+before its trades existed would otherwise keep that stale row forever
+(measured 2026-09-29: 54 of 486 recent closes fell in those two shapes). The
+stale package-level rows stay (append-only); the trade rows sit beside them.
+`scripts/ci/check_grading_freshness.py` is ALERT-ONLY (2026-09-29): it warns on
+a PR when `max(reviewed_at)` is older than 3 days and a daily
+`grading-freshness-alert.yml` pings Telegram. A review session no longer needs
+to run the grading pass for closed trades — it checks the guard emits no
+warning and reads the rows.
 
 **Web / PM session (no DB file):** dispatch the **`grade-closed-trades`**
 system-action (Tier-1, `docs/claude/system-actions.md`) instead of pulling the

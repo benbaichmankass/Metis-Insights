@@ -1117,6 +1117,12 @@ def _base_repo(tmp: Path, *, arm: bool = True) -> Path:
     root = tmp / "repo"
     root.mkdir(parents=True)
     _run(root, "init", "-q", "-b", "main")
+    # A fixture repo must not spawn background maintenance: a detached `git gc --auto` /
+    # `git maintenance` child still writing .git/objects when the TemporaryDirectory is
+    # cleaned up made cleanup fail with `[Errno 39] Directory not empty: 'objects'`
+    # (pytest-run, PR #14180, 2026-09-29). Turn it off at the source.
+    _run(root, "config", "gc.auto", "0")
+    _run(root, "config", "maintenance.auto", "false")
     _write(root, MANDATES_REL, _MANDATES.format(arm="    autoland: true" if arm else ""))
     _write(root, ACCOUNTS_REL, _ACCOUNTS.format(leg=LEG))
     _write(root, mr.STRATEGIES_REL, _STRATEGIES)
@@ -1258,7 +1264,7 @@ def _finish(root: Path, decl: dict, *, branch: str = BRANCH, env: Optional[dict]
 
 def _case(label: str, build, *, expect_ok: bool, expect_clause: Optional[str] = None,
           results: Optional[list] = None, quiet: bool = False) -> None:
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         tmp = Path(td)
         ok, fails, _notes = build(tmp)
     blob_text = " | ".join(fails)
@@ -1654,7 +1660,7 @@ def self_test(quiet: bool = False) -> int:
     # mandate -- which is every mandate today -- skipped the A5 resolver replay
     # and the guard refused having graded almost nothing. Caught by
     # tests/test_mandate_autoland.py, not by reading.
-    with tempfile.TemporaryDirectory() as td:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
         root = _base_repo(Path(td), arm=False)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)

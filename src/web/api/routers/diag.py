@@ -266,6 +266,10 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # rationale as the watchdog / bridge / insights pairs above.
     "ict-hourly-snapshot.service",
     "ict-hourly-snapshot.timer",
+    # FIX-SA-12 (2026-09-29): pushes when the TRAINER root is >= 90% used, read
+    # from the published mirror. Queryable so a session can confirm it is firing.
+    "ict-trainer-disk-alarm.service",
+    "ict-trainer-disk-alarm.timer",
     # MI-83 (2026-09-02). The hourly work digest, moved off GitHub Actions
     # cron onto the VM's own clock: work-digest.yml declares `20 * * * *` and
     # fired 5 times in a day at :19/:10/:33/:47 over its complete run history.
@@ -2183,6 +2187,39 @@ def get_journalctl(
     )
 
 
+# Paths deploy_pull_restart.sh does NOT restart for (its RUNTIME_CHANGES filter).
+# Keep in lock-step with that regex: `restart_pending` must mean "a commit the
+# deploy would restart for is not loaded", not "the shas differ".
+_NON_RUNTIME_PATHS_RE = re.compile(r"^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$)")
+
+
+def _restart_pending(running: str, on_disk: str) -> bool | None:
+    """True when a RUNTIME path differs between the loaded sha and the checkout.
+
+    Three-way: None means we could not look (unknown sha, or the diff failed,
+    e.g. the running sha is absent from a shallow clone) -- never False.
+    """
+    if running == "unknown" or on_disk == "unknown":
+        return None
+    if running == on_disk:
+        return False
+    try:
+        out = subprocess.run(
+            ["git", "diff", "--name-only", running, on_disk],
+            cwd=str(repo_root()),
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug("restart_pending: git diff could not run: %s", exc)
+        return None
+    if out.returncode != 0:
+        return None
+    return any(
+        line and not _NON_RUNTIME_PATHS_RE.match(line)
+        for line in out.stdout.splitlines()
+    )
+
+
 @router.get("/version")
 def get_version(request: Request) -> dict[str, Any]:
     """Diagnostic — git SHA + captured timestamp of the running web-api
@@ -2199,13 +2236,8 @@ def get_version(request: Request) -> dict[str, Any]:
     """
     _require_diag_token(request)
     on_disk = _resolve_git_sha()
-    # Three-way, never collapsed. "unknown" on either side means we could not
-    # look, which is NOT the same as "they agree" -- so restart_pending is None
-    # rather than False when either sha is unresolvable.
-    if _RUNNING_GIT_SHA == "unknown" or on_disk == "unknown":
-        restart_pending = None
-    else:
-        restart_pending = _RUNNING_GIT_SHA != on_disk
+    # Three-way, never collapsed: None = we could not look (see _restart_pending).
+    restart_pending = _restart_pending(_RUNNING_GIT_SHA, on_disk)
     return {
         # The sha the RUNNING process was loaded from -- captured once at
         # import. This is what the field name and this endpoint's whole
@@ -2215,9 +2247,10 @@ def get_version(request: Request) -> dict[str, Any]:
         # The sha currently checked out in the working tree, resolved live.
         # A pull advances this WITHOUT restarting anything.
         "git_sha_on_disk": on_disk,
-        # True when the tree has moved ahead of the running process, i.e. code
-        # was pulled and nothing restarted -- the 2026-05-09 incident state.
-        # None when either side is unknown (we could not look).
+        # True when a RUNTIME-path change (not docs/tests/.claude/.github/
+        # top-level md) sits between the running sha and the checkout -- the
+        # 2026-05-09 incident state. False when the shas differ only by files
+        # the deploy skips restarts for (FIX-SA-11). None = could not look.
         "restart_pending": restart_pending,
         "captured_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -2407,6 +2440,10 @@ async def get_exchange_positions(
                     logger.warning(
                         "get_exchange_positions: %s symbol read %s raised %s",
                         aid, want_symbol, exc)
+            # collapsed-state: could_not_look — forwards the venue helper's
+            # `query_state` VERBATIM into `symbol_read` (rows_returned / no_rows
+            # reach the response unchanged); the one branch of its own is the
+            # raised-read `could_not_look`.
             row["symbol_read"] = (
                 "not_bybit" if not is_bybit
                 else (books or {}).get("query_state") if isinstance(books, dict)
@@ -3646,6 +3683,89 @@ async def get_bybit_raw_positions(
         "requested_account_id": account_id,
         "count": len(out),
         "accounts": out,
+    }
+
+
+@router.get("/alpaca_order_history")
+async def get_alpaca_order_history(
+    request: Request,
+    account_id: str,
+    order_ids: str | None = None,
+    after: str | None = None,
+    until: str | None = None,
+    symbols: str | None = None,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Read-only **Alpaca order history**: every status, bracket legs nested.
+
+    FIX-SA-03 step 1 (E75 audit). ``/alpaca_open_orders`` says what rests NOW;
+    this says what rested THEN -- each order's ``status`` and lifecycle
+    timestamps (``canceled_at``, ``replaced_at``, ``filled_at`` ...) with its
+    bracket/OCO legs under ``legs``. It is the read that decides whether a
+    position the naked sweep re-armed was actually naked at the broker.
+
+    Params: ``account_id`` (required, one Alpaca account), ``order_ids``
+    (comma-separated Alpaca order ids, looked up one by one), ``after`` /
+    ``until`` (ISO-8601), ``symbols`` (comma-separated), ``limit`` (1-500).
+    A malformed argument is a **400**, never forwarded to the broker.
+
+    ``read_state``: ``not_alpaca`` / ``could_not_look`` (``result: null``) /
+    ``orders_read``. Per-id lookups carry their own read_state in
+    ``result.by_id``. Places, patches and cancels NOTHING. Tier 2.5.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_alpaca_order_history
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_alpaca_order_history: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    accounts = _diag_accounts("get_alpaca_order_history", list_accounts, account_id)
+    acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
+    if acc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "unknown_account", "account_id": account_id},
+        )
+    is_alpaca = ((acc or {}).get("exchange") or "unknown").lower() == "alpaca"
+    ids = [i for i in (order_ids or "").split(",") if i.strip()]
+    syms = [s for s in (symbols or "").split(",") if s.strip()]
+    result: Any = None
+    err: str | None = None
+    if is_alpaca:
+        try:
+            result = await run_account_read(
+                functools.partial(
+                    account_alpaca_order_history, order_ids=ids, after=after,
+                    until=until, symbols=syms, limit=limit,
+                ),
+                acc,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "bad_argument", "detail": str(exc)},
+            ) from exc
+        except Exception as exc:  # noqa: BLE001  # allow-silent: surfaced in the payload (error + result=null), logged
+            err = f"{type(exc).__name__}: {exc}"
+            logger.warning("get_alpaca_order_history: %s raised %s", account_id, exc)
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "account_id": account_id,
+        "exchange": (acc or {}).get("exchange"),
+        "mode": (acc or {}).get("mode"),
+        "account_class": (acc or {}).get("account_class"),
+        "read_state": (
+            "not_alpaca" if not is_alpaca
+            else "orders_read" if isinstance(result, dict)
+            else "could_not_look"
+        ),
+        "result": result,
+        "error": err,
     }
 
 

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane EXIT-CLUSTER (manager session_01HYq6XtfesZ57VyaQrK6CL1). Follow-up to #14106: the backfill-exit-labels system-action (issue #14188) ran with the order-identity rule OFF because the wrapper did not pass the canonical fills-store path (fresh SSH shell, no DATA_DIR). Wrapper-only change plus a stdout line; no src/, no order path. The manager merges.",
+  "why": "Lets the already-merged order-identity backfill rule actually reach the fills store, so the 223 planned Bybit relabels can be applied on a re-dispatch."
+}

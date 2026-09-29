@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three append-only records under docs/claude/work/pipeline/ (SA-INFRA follow-ups: post-deploy observation of PRs #14173/#14174, the trainer-disk decision list with measured sizes, trainer OnFailure route). No runtime, order path, strategy config, risk cap or live-VM file."
+}

@@ -372,6 +372,9 @@ def _section5(b: dict) -> list[str]:
          "taken it. This is the number that must never quietly grow: a rising "
          "count on this page is the structural difference between this "
          "pipeline and `DUE.md`, whose due-list nobody read.", ""]
+    alarm = b["pipeline"]["stats"].get("unrouted_alarm") or {}
+    if alarm.get("breached"):
+        L += ["> 🚨 **ROUTING ALARM:** " + "; ".join(alarm["breached"]) + ".", ""]
     if not b["pipeline"]["healthy"]:
         L += ["> ⚠️ The pipeline store has unreadable records (see §0) — "
               "the unrouted count above is a **floor**, not a total.", ""]

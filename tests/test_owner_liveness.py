@@ -336,3 +336,20 @@ def test_supported_is_still_reachable_from_the_real_registers():
     """
     assert stale_grade("session_freshact").support == ol.SUPPORTED
     assert ol.SUPPORTED in set(ol.CLAIM_SUPPORTS)
+
+
+def test_archived_lane_fails_only_when_state_is_readable(tmp_path):
+    """FIX-SA-10: a state file naming the lane archived FAILS; no file is COULD NOT LOOK."""
+    guard = [sys.executable, "scripts/ci/check_stale_in_flight.py"]
+    no_file = subprocess.run(guard, cwd=str(REPO_ROOT), capture_output=True,
+                             text=True, timeout=120)
+    assert no_file.returncode == 0
+    assert "COULD NOT LOOK" in no_file.stdout
+    assert "stale-in-flight: OK\n" not in no_file.stdout  # never a plain OK
+    lane = ol.owner_session_id(next(
+        r.lane for r in ol.in_flight_rows(REPO_ROOT, None) if ol.owner_session_id(r.lane)))
+    f = tmp_path / "s.json"
+    f.write_text('{"%s": "archived"}' % lane)
+    hit = subprocess.run(guard + ["--lane-states", str(f)], cwd=str(REPO_ROOT),
+                         capture_output=True, text=True, timeout=120)
+    assert hit.returncode == 1 and "ARCHIVED-LANE" in hit.stdout

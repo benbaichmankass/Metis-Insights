@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-02",
+    "kind": "date"
+  },
+  "id": "PI-20260929-PXGMJYTX-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/issues/14113",
+    "rerun": "Read the latest account-broker-reconcile run on issue #14113: compare bybit_2 pnl.journal_closed_at_window against pnl.wallet_truth_window_ms. They differ -> still open."
+  },
+  "state": "queued",
+  "what": "account_broker_reconcile.py bybit_2 realized-P&L compares two DIFFERENT populations: the journal side is the last 20 non-reduce bybit_2 closes (live 2026-09-29: closedAt 2026-09-03 -> 2026-09-28, sum -64.37), the broker side is bybit_wallet_truth over a fixed days=90 window set in account-broker-reconcile.yml (2026-07-01 -> 2026-09-29, realized_usd -74.25). The code comment claimed 'the SAME window'; it was never the same. A pnl 'divergent' (or 'agree') on this check is therefore not a finding until the windows match. Fix shape: either sum ALL journal closes inside the wallet-truth window (needs /trades/closed paging over the window + X-Has-More) or have the diag route accept start_ms and pass the oldest journal closedAt. Filed by lane RECON-REDUCE (branch recon-reduce-leg-null-pnl), which fixed only the NULL-pnl refusal."
+}

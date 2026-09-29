@@ -1,0 +1,37 @@
+name: grading-freshness-alert
+
+# ALERT-ONLY replacement for the old "stale grades red every PR" gate
+# (operator, 2026-09-29 ~13:50Z, "let's do b"). The grading-freshness guard in
+# run_guards.py now only WARNS on a PR. This is the alarm: once a day, after the
+# 03:10Z grade-closed-trades slot has run and landed, read the score file on
+# main and, if max(reviewed_at) is >3 days old OR the file is unreadable, send
+# ONE Telegram ping via the send-ping system-action. One run a day = at most
+# one ping a day while stale, never one per PR. Fresh is silent.
+
+on:
+  schedule:
+    # 04:10 UTC — after grade-closed-trades (03:10) and its commit-to-main
+    # merge wait; clear of strategy-review-packets (04:40).
+    - cron: "10 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # `gh workflow run system-actions.yml`
+
+concurrency:
+  group: grading-freshness-alert
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Ping once if grading is stale or unreadable
+        run: python3 scripts/ci/check_grading_freshness.py --alert

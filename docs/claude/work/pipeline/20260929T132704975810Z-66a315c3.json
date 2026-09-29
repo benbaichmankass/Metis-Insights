@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a close with closed_at >= 2026-09-29T12:50Z that was first written reconciler_filled / netting_attributed / exchange_flat_reconciled reads exit_reason sl|tp with notes.pre_label_exit_reason set and exit_reason_source venue_bracket_order or price_vs_pkg_bracket. (The backfill half cleared 2026-09-29 13:26Z, issue #14211.)",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-WL2HIWVS-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "deploy",
+    "ref": "lane EXIT-CLUSTER session_01XpKxKGrnBP9u4xwL2hiWVs; PR #14106 (89e71a5), PR #14194, issue #14188",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/ob && python3 -c \"import json;[print(r['id'],r['account_id'],r['exit_reason'],json.loads(r['notes'] or '{}').get('pre_label_exit_reason'),json.loads(r['notes'] or '{}').get('exit_reason_source')) for r in json.load(open('/tmp/ob/trades.json')) if (r.get('closed_at') or '')>='2026-09-29T12:50' and not r['is_backtest']]\""
+  },
+  "state": "queued",
+  "what": "[exit-label] OBSERVE #14106 on a NEW close. Deployed 2026-09-29 12:50Z (live git_sha 8ccdc0cb1, restart_pending false, /api/diag/version). Already MEASURED on existing rows (pull 2026-09-29 ~12:58Z, realized_slippage.py pull): the live sweep relabelled 57 Bybit rows closed in the last 14 days to sl/tp with exit_reason_source=venue_bracket_order (bybit_1 46, bybit_portfolio 6, bybit_2 5), and backfill issue #14188 relabelled 49 Alpaca/IB rows by price; 0 of those 106 rows had a pnl or exit_price change. No close had happened since the deploy (latest closed_at 11:50Z), so the NEW-close observation is still owed. The backfill's order-identity rule ran OFF (wrapper fills-path bug), fixed in PR #14194; re-dispatch backfill-exit-labels after it deploys. | 2026-09-29 13:26Z: BACKFILL DONE. #14194 merged (eb78e8d) and pulled by the VM (/api/diag/version git_sha eb78e8db1, restart_pending false). Re-dispatched backfill-exit-labels as issue #14211: 'order-identity rule: ON /data/bot-data/runtime_state/exchange_fills.sqlite'; 166 rows relabelled (117 sl, 49 tp; bybit_1 118, bybit_portfolio 28, bybit_2 20), matching the 223 planned minus the 57 the live sweep had already relabelled. MEASURED by diffing journal pulls taken before and after (realized_slippage.py pull, 13:24Z and 13:27Z): 166 exit_reason changes, 0 pnl, exit_price or pnl_percent changes anywhere in the journal. Still open: the NEW-close observation. No close had happened since the 12:50Z deploy as of 13:27Z."
+}

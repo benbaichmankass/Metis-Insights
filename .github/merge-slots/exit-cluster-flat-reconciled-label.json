@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01XpKxKGrnBP9u4xwL2hiWVs",
+  "branch": "claude/exit-cluster-flat-reconciled-label",
+  "claimed_at": "2026-09-29T10:21:11Z",
+  "purpose": "EXIT-CLUSTER Tier-2 relabel fix (landing hold; manager merges)"
+}

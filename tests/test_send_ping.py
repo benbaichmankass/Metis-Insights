@@ -178,7 +178,7 @@ def test_bot_drain_no_chat_id_warns_and_skips(tmp_path, monkeypatch):
     from src.bot import cloud_notifier
 
     # _drain_pending_pings resolves pings_dir from cloud_notifier.PENDING_PINGS_DIR.
-    # Other tests (e.g. test_account_state_gate) create real files in the default
+    # Other tests (e.g. test_account_state_fold_retired) create real files in the default
     # inbox via Coordinator side-effects. Redirect cloud_notifier directly so the
     # drain sees only the file we enqueue here, regardless of suite order.
     monkeypatch.setattr(cloud_notifier, "PENDING_PINGS_DIR", str(tmp_path))

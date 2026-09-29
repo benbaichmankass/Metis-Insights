@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import yaml
 
-from src.runtime.orders import account_state_dry_run
 
 if TYPE_CHECKING:
     from typing import Sequence
@@ -1400,17 +1399,13 @@ class Coordinator:
             else:
                 effective_dry = account_dry
 
-            # account_state.yaml belt-and-suspenders gate (PR-3 / M2).
-            # Only enforces dryness — never forces live. A missing file
-            # or missing account entry is a no-op (fail-open).
-            state_dry = account_state_dry_run(account.name)
-            if state_dry is True and not effective_dry:
-                logger.warning(
-                    "[coordinator] account_state.yaml overrides %s to dry_run "
-                    "(accounts.yaml said live, state file says dry)",
-                    account.name,
-                )
-                effective_dry = True
+            # The config/account_state.yaml dry-only fold that sat here
+            # (PR-3 / M2) was RETIRED 2026-09-29 by operator decision
+            # JC-CA-06 ("Retire it"): effective_dry is decided by the two
+            # declared execution gates only — accounts.yaml::mode (above)
+            # and strategies.yaml::execution (below). At retirement the file
+            # read dry_run: false for every entry on main and on the VM, so
+            # no account's mode changed.
 
             # Strategy-level execution gate (S9, operator-approved
             # 2026-05-24). A strategy marked ``execution: shadow`` in
@@ -1512,8 +1507,8 @@ class Coordinator:
             # ⚠️ IT REFUSES WITH A JOURNAL ROW, IT DOES NOT DEMOTE TO DRY. A
             # dry demotion writes an ordinary dry would-be row whose cause lives
             # only in a logger line (journald keeps ~30 min), so on a live-mode
-            # account it is indistinguishable from a shadow / side_filter /
-            # account_state demotion. The refusal row carries
+            # account it is indistinguishable from a shadow / side_filter
+            # demotion. The refusal row carries
             # reason=broker_shorting_disabled, so "why didn't it send?" is
             # answerable from the DB. No order path is added — this only ever
             # removes one.

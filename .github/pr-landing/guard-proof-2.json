@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Audit evidence only: appends plant-proof rows to docs/audits/system-audit-2026-09-29/GUARD-PROOF.findings.jsonl, rewrites the result section of GUARD-PROOF.md, adds --env/--no-all to the manual evidence tool scripts/ops/guard_plant.py, and records pipeline rows. No runtime, order path, config, workflow or guard was changed; every planted defect lived in a scratch worktree that was never pushed and has been removed."
+}

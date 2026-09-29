@@ -15,13 +15,13 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Query
 
-from ml.shadow.inspector import iter_records
+from ml.shadow.inspector import iter_records, iter_records_with_archives
 
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 
@@ -124,7 +124,17 @@ def _shadow_records_safe() -> list:
         if not path.exists():
             continue
         try:
-            out.extend(iter_records(path))
+            if path == _SHADOW_LOG:
+                # The real-time log rotates to gzipped archives every ~25-29d;
+                # an active-only read drops every trade scored before the last
+                # rotation (SA-AUD-4-api-shadow-predictions-...-active-only).
+                # The backfill log is not rotated, so it stays a plain read.
+                # archives_since prunes old archive FILES only; every row of
+                # the active log is still read, as before.
+                cutoff = datetime.now(timezone.utc) - timedelta(days=60)
+                out.extend(iter_records_with_archives(path, archives_since=cutoff))
+            else:
+                out.extend(iter_records(path))
         except (OSError, ValueError):
             # OSError = file read failure (permissions, missing midway through tail).
             # ValueError = inspector's malformed-record signal. Both are
