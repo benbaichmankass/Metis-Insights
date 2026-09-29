@@ -8501,6 +8501,76 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
         return False
 
 
+def _oldest_open_created_at(rows, account_id: str, symbol: str) -> Optional[str]:
+    """Earliest ``created_at`` among open rows on *account_id*/*symbol*, or None."""
+    stamps = []
+    for r in rows:
+        try:
+            if (str(r["account_id"] or "") == account_id
+                    and str(r["symbol"] or "").upper() == symbol.upper()):
+                ts = _parse_created_at(r["created_at"])
+                if ts is not None:
+                    stamps.append(ts)
+        except Exception:  # noqa: BLE001 — a malformed row only loosens the bound
+            continue
+    return min(stamps).isoformat() if stamps else None
+
+
+#: Consecutive sweeps on which an Alpaca position's protection could not be
+#: read, per (account, SYMBOL). Per-process; a restart re-arms the count.
+_PROTECTION_UNREADABLE_STREAK: Dict[Tuple[str, str], int] = {}
+_PROTECTION_UNREADABLE_PAGE_AFTER = 3
+_PROTECTION_UNREADABLE_COOLDOWN_S = 3600.0
+
+
+def _clear_protection_unreadable(account_id: str, symbol: str) -> None:
+    _PROTECTION_UNREADABLE_STREAK.pop((account_id, symbol.upper()), None)
+
+
+def _note_protection_unreadable(account_id: str, symbol: str, trade_id: Any) -> None:
+    """Log every unreadable protection read; page when it PERSISTS.
+
+    One failed read is usually a network blip, so it is logged, not paged. From
+    the ``_PROTECTION_UNREADABLE_PAGE_AFTER``-th consecutive sweep it is paged
+    CRITICAL (Telegram + banner), under a durable per-symbol cooldown: a live
+    position whose stop we cannot see for minutes is one we cannot claim is
+    protected. Never raises into the sweep.
+    """
+    key = (account_id, symbol.upper())
+    n = _PROTECTION_UNREADABLE_STREAK.get(key, 0) + 1
+    _PROTECTION_UNREADABLE_STREAK[key] = n
+    logger.warning(
+        "_check_broker_naked_equity_positions: %s/%s protection UNREADABLE "
+        "(consecutive=%d, trade_id=%s) — not re-armed, not graded; this is "
+        "'we could not look', not 'protected'", account_id, symbol, n, trade_id,
+    )
+    if n < _PROTECTION_UNREADABLE_PAGE_AFTER:
+        return
+    if not _cooldown_admits("alpaca_protection_unreadable", f"{account_id}|{symbol}",
+                            _PROTECTION_UNREADABLE_COOLDOWN_S):
+        return
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report(
+            "alpaca_protection_unreadable",
+            "detected",
+            level=Level.CRITICAL,
+            reason=(
+                f"{account_id}/{symbol}: resting-order state unreadable for {n} "
+                "consecutive sweeps — the naked sweep cannot tell whether this "
+                "position has a stop, so it is neither re-armed nor graded."
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            consecutive=n,
+            trade_id=trade_id,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception("_note_protection_unreadable: alert failed for %s/%s",
+                         account_id, symbol)
+
+
 def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
     """Re-arm GTC protection on Alpaca positions that are NAKED at the broker.
 
@@ -8543,6 +8613,10 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "partially_naked": 0,
         "coverage_ungradeable": 0,
         "coverage_read_failed": 0,
+        # protection_state() could not be read for a past-grace position:
+        # "we did not look", counted and (on persistence) paged — never a
+        # silent skip (REVIEW-14123).
+        "protection_read_failed": 0,
     }
     try:
         from src.bot import data_loaders
@@ -8622,9 +8696,20 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             # a stop-only book, so consuming it here read "protected" over a
             # position that can only stop out or run — the Alpaca half of
             # BL-20260816-COVERAGE-IS-ONE-SIDED, over 13 live positions.
-            state = client.protection_state(symbol)
+            # The oldest OPEN journal row on this account+symbol bounds how far
+            # back a still-resting bracket child can have been placed (#14123
+            # second review): the client scans filled parents only from there.
+            _since = _oldest_open_created_at(rows, account_id, symbol)
+            state = client.protection_state(symbol, since=_since)
             if state is None:
-                continue  # read failure — never act on an unconfirmed read
+                # Never act on an unconfirmed read — and never skip it
+                # SILENTLY either (REVIEW-14123): a position whose protection
+                # cannot be read may be naked, so it is counted and, when it
+                # persists, paged.
+                summary["protection_read_failed"] += 1
+                _note_protection_unreadable(account_id, symbol, row["id"])
+                continue
+            _clear_protection_unreadable(account_id, symbol)
 
             # ── QUANTITY COVERAGE — DETECTION ONLY.
             # `protection_state` above grades which SIDES rest and returns a
@@ -8665,7 +8750,9 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                          "target_qty": 0.0, "legs": 0, "unknown_qty_legs": 0,
                          "source": "flat"}
                         if _p is None else
-                        client.protection_coverage(symbol, position=_p)
+                        client.protection_coverage(
+                            symbol, position=_p,
+                            since=_oldest_open_created_at(rows, account_id, symbol))
                     )
             _cov = coverage_memo[_cov_key]
             if _cov_key not in graded_keys:

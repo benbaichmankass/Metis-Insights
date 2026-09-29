@@ -438,14 +438,37 @@ _RESTING_LEG_STATUSES = frozenset({
     "pending_replace", "accepted_for_bidding", "calculated",
 })
 
-#: Page size (Alpaca's maximum) and page budget for the scan of a symbol's
-#: CLOSED orders for filled bracket parents whose children still rest. The scan
-#: pages backwards through history; if the budget runs out before history does,
-#: the read is TRUNCATED and reported as "could not look" (``None``), never as
-#: "no stop" — a bracket older than the window would otherwise have its held
-#: stop unseen and the symbol graded naked (REVIEW-14123).
+#: The filled-parent scan is TIME-BOUNDED, not count-bounded (REVIEW-14123,
+#: second pass). A bracket child can only still rest if its parent was
+#: submitted within Alpaca's GTC lifetime (90 days; +1 day slack), and — when
+#: the caller knows it — no earlier than the oldest open journal row on the
+#: symbol (minus a day): an older bracket cannot be protecting today's shares.
+#: Inside that window the scan pages to exhaustion; the page cap below is a
+#: runaway guard only (10,000 orders on ONE symbol in the window), and hitting
+#: it is reported as "could not look" (``None``), never "no stop". MEASURED
+#: 2026-09-29 via /api/diag/alpaca_order_history, 2026-01-01..now: the largest
+#: symbol is 50 top-level orders (alpaca_portfolio QQQ), so every scan today is
+#: ONE page.
 _FILLED_PARENT_SCAN_PAGE = 500
-_FILLED_PARENT_SCAN_MAX_PAGES = 4
+_FILLED_PARENT_SCAN_MAX_PAGES = 20
+_FILLED_PARENT_LOOKBACK = timedelta(days=91)
+_FILLED_PARENT_SINCE_SLACK = timedelta(days=1)
+
+
+def _scan_after(since: Any) -> str:
+    """The ``after`` bound for the filled-parent scan (ISO-8601, UTC)."""
+    floor = datetime.now(timezone.utc) - _FILLED_PARENT_LOOKBACK
+    start = floor
+    if since:
+        try:
+            s = since if isinstance(since, datetime) else datetime.fromisoformat(
+                str(since).replace("Z", "+00:00"))
+            if s.tzinfo is None:
+                s = s.replace(tzinfo=timezone.utc)
+            start = max(floor, s - _FILLED_PARENT_SINCE_SLACK)
+        except ValueError:
+            start = floor  # unparseable hint: fall back to the GTC bound
+    return start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _oldest_submitted_at(orders: List[Dict[str, Any]]) -> Optional[str]:
@@ -1636,7 +1659,9 @@ class AlpacaClient:
         result = env.get("result") or {}
         return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
 
-    def _open_orders_for_symbol(self, symbol: str) -> Optional[list]:
+    def _open_orders_for_symbol(
+        self, symbol: str, since: Any = None,
+    ) -> Optional[list]:
         """Open (working) orders on *symbol*, including bracket child legs.
 
         Returns the flattened order list (parents + nested ``legs``) filtered
@@ -1688,12 +1713,14 @@ class AlpacaClient:
         # may rest unseen, so "no stop" would be a guess.
         parents: list = []
         seen_parent: set = set()
+        after = _scan_after(since)
         until: Optional[str] = None
         exhausted = False
         for _page in range(_FILLED_PARENT_SCAN_MAX_PAGES):
             path = (
                 f"/v2/orders?status=closed&nested=true&direction=desc"
                 f"&limit={_FILLED_PARENT_SCAN_PAGE}&symbols={sym}"
+                f"&after={after}"
             )
             if until:
                 path += f"&until={until}"
@@ -1714,9 +1741,10 @@ class AlpacaClient:
             until = oldest
         if not exhausted:
             logger.warning(
-                "alpaca _open_orders_for_symbol(%s): closed-order history "
-                "exceeds %d orders — child legs NOT fully read (could not "
+                "alpaca _open_orders_for_symbol(%s): more than %d closed "
+                "orders since %s — child legs NOT fully read (could not "
                 "look)", sym, _FILLED_PARENT_SCAN_PAGE * _FILLED_PARENT_SCAN_MAX_PAGES,
+                after,
             )
             return None
         seen = {o.get("id") for o in out if o.get("id")}
@@ -1905,7 +1933,7 @@ class AlpacaClient:
                 "result": {"orderId": patched[-1], "patched": patched}}
 
     # --------------------------------------------------- naked re-arm (GTC OCO)
-    def protection_state(self, symbol: str) -> Optional[dict]:
+    def protection_state(self, symbol: str, since: Any = None) -> Optional[dict]:
         """Which SIDES of the bracket actually rest on *symbol*, graded apart.
 
         ``{"stop": bool, "target": bool, "legs": int}``, or ``None`` on a read
@@ -1928,7 +1956,8 @@ class AlpacaClient:
         take-profit — *manufacturing* target coverage that does not exist,
         which is strictly worse than the bug being fixed.
         """
-        legs = self._open_orders_for_symbol(symbol)
+        legs = (self._open_orders_for_symbol(symbol, since=since)
+                if since is not None else self._open_orders_for_symbol(symbol))
         if legs is None:
             return None
         stop = target = False
@@ -1996,7 +2025,8 @@ class AlpacaClient:
         return ""
 
     def protection_coverage(
-        self, symbol: str, *, position: Optional[dict] = None
+        self, symbol: str, *, position: Optional[dict] = None,
+        since: Any = None,
     ) -> Optional[Dict[str, Any]]:
         """How MUCH of *symbol*'s Alpaca position is covered, graded per SIDE.
 
@@ -2088,7 +2118,8 @@ class AlpacaClient:
             }
 
         # (2) The NUMERATOR: resting protective legs, summed BY QTY.
-        legs = self._open_orders_for_symbol(sym)
+        legs = (self._open_orders_for_symbol(sym, since=since)
+                if since is not None else self._open_orders_for_symbol(sym))
         if legs is None:
             return None
         reducing = self._reducing_side_for(pos_side)

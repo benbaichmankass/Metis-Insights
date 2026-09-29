@@ -972,6 +972,12 @@ _LOG_FILES: dict[str, Path] = {
     # on the one surface a relay-bound session can reach.
     "partial_stop_coverage_alert_state":
         runtime_logs_dir() / "partial_stop_coverage_alert_state.json",
+    # REVIEW-14123 (FIX-SA-03): `_note_protection_unreadable` pages CRITICAL
+    # when an Alpaca position's resting-order state stays unreadable, through
+    # `_cooldown_admits("alpaca_protection_unreadable", ...)`. Registered in
+    # the same commit as its writer, like every sibling above.
+    "alpaca_protection_unreadable_alert_state":
+        runtime_logs_dir() / "alpaca_protection_unreadable_alert_state.json",
     # MI-276. ⚠️ THE FIRST PUSH REGISTERED ONLY THE TWO COOLDOWN FILES WHILE
     # THIS COMMENT ALREADY CLAIMED ALL FOUR, AND THE TWO IT OMITTED WERE THE
     # ONES THAT MATTER: `OI-20260911-THE-TWO-DETECTORS-...`'s clears_when
