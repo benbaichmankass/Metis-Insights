@@ -9117,6 +9117,21 @@ def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
     return "ok", ({"escalated": True} if bstate == "unconfirmed" else {})
 
 
+def _log_equity_sweep_summary(summary: Dict[str, Any]) -> None:
+    """Log ONE line per Alpaca equity sweep with every outcome counter.
+
+    Zeros included, keys sorted — "all keys present at 0" must be readable off
+    the log, because nothing else carries these counters: the tick's
+    ``summaries`` dict is discarded by ``src/main.py``'s exit loop
+    (K1XNYYAQ-0002 (6)). Never raises.
+    """
+    try:
+        logger.info("_check_broker_naked_equity_positions: sweep %s",
+                    json.dumps(summary, sort_keys=True, default=str))
+    except Exception:  # noqa: BLE001 — observability must never break the tick
+        logger.debug("_log_equity_sweep_summary: unserialisable summary")
+
+
 def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
                      why: str) -> str:
     """Exit ONE row via the trade-scoped close path; journal it as *reason*.
@@ -13960,9 +13975,15 @@ def run_reconciliation_tick(
     try:
         with _phase("check_broker_naked_equity_positions"):
             broker_naked_summary = _check_broker_naked_equity_positions(db)
-        # Surfaced whenever ANY outcome counter is non-zero — not only
-        # broker_naked/errors: a failed read, a top-up, a refusal or an exit is
-        # invisible otherwise (REVIEW round 2, non-blocking; taken in #14241).
+        # ONE line per sweep with EVERY outcome counter, zeros included — the
+        # only place these are observable. The `summaries` dict below is
+        # returned to src/main.py's exit loop, which discards it (measured
+        # 2026-09-29: nothing reads "__broker_naked_equity__"), so without this
+        # line "the sweep ran and found nothing" and "the sweep never ran" read
+        # the same. Mirrors the IB sweep's per-sweep line (K1XNYYAQ-0002 (6)).
+        _log_equity_sweep_summary(broker_naked_summary)
+        # Also kept in the tick's summaries whenever ANY outcome counter is
+        # non-zero, for callers that do read them (REVIEW round 2; #14241).
         if any(v for k, v in broker_naked_summary.items()
                if k not in ("checked", "covered") and isinstance(v, (int, float))):
             summaries["__broker_naked_equity__"] = broker_naked_summary

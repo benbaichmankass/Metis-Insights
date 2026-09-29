@@ -845,3 +845,37 @@ def test_breach_deferrals_are_pruned_for_closed_rows(world):
     _use(mp, v)
     om._check_broker_naked_equity_positions(db)
     assert set(om._ALPACA_BREACH_DEFERRALS) == {("alpaca_portfolio", "QQQ", 6024)}
+
+
+def test_every_equity_sweep_logs_all_counters_including_zeros(world, caplog):
+    """(6) The per-sweep counters line is the ONLY place these are observable
+    (src/main.py discards the tick's summaries), so it carries every key, zeros
+    included, as JSON."""
+    import json as _json
+    import logging as _logging
+    db, _pages, mp = world
+    _set_rows(db, [])
+    v = _Venue(qty=0.0, price=735.0)
+    _use(mp, v)
+    s = om._check_broker_naked_equity_positions(db)
+    with caplog.at_level(_logging.INFO, logger="src.runtime.order_monitor"):
+        om._log_equity_sweep_summary(s)
+    (rec,) = [r for r in caplog.records
+              if r.getMessage().startswith("_check_broker_naked_equity_positions: sweep ")]
+    logged = _json.loads(rec.getMessage().split(" sweep ", 1)[1])
+    assert logged == s
+    for k in ("breach_exits", "cap_exits", "exit_deferred", "escalated_post_rejected",
+              "rearm_refused_deferred_unconfirmed_breach", "topped_up"):
+        assert logged[k] == 0, k
+
+
+def test_reconciliation_tick_logs_the_equity_sweep_on_every_tick():
+    """Static pin: run_reconciliation_tick logs the equity sweep's summary right
+    after running it — unconditionally, not only when a counter is non-zero."""
+    from pathlib import Path as _P
+    src = (_P(__file__).resolve().parents[1] / "src" / "runtime" / "order_monitor.py").read_text()
+    body = src.split("def run_reconciliation_tick", 1)[1].split("\ndef ", 1)[0]
+    i = body.index("broker_naked_summary = _check_broker_naked_equity_positions(db)")
+    j = body.index("_log_equity_sweep_summary(broker_naked_summary)")
+    k = body.index("if any(v for k, v in broker_naked_summary.items()")
+    assert i < j < k
