@@ -75,7 +75,9 @@ def test_refuses_a_latch_with_no_recorded_reason(sandbox):
 
 def test_the_workflow_allows_the_apply_and_requires_a_reason():
     wf = (REPO / ".github" / "workflows" / "system-actions.yml").read_text()
-    assert "executor-clear-halt)" in wf or "|executor-clear-halt)" in wf
+    # the token must sit in the apply allowlist group, wherever in the group
+    import re
+    assert re.search(r"\|executor-clear-halt[|)]", wf)
     assert "executor-clear-halt requires a 'reason:' line" in wf
 
 
