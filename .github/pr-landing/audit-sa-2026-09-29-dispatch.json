@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records the operator's 2026-09-29 GO for the E75 system audit on the checklist: E75 -> in_flight with the lead's session id, and nine lane rows (AUD-1..AUD-8) queued with model, ceiling and question. docs/claude/work/MANAGER-CHECKLIST.json only, plus this branch's landing declaration, arming file and merge-slot claim. No src/, config/, deploy/, tests/, scripts/, workflow or order path."
+}
