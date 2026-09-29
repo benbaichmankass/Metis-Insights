@@ -104,3 +104,52 @@ def test_self_tests_pass():
 @pytest.mark.parametrize("flag", ["--max-research-inflight", "--max-repo-queued"])
 def test_the_dispatcher_workflow_passes_both_caps(flag):
     assert flag in (REPO / ".github/workflows/research-queue-dispatch.yml").read_text()
+
+
+# ── stuck runs are not load (measured 2026-09-29 06:56Z, first fired cycle after #13907) ──
+def test_stuck_runs_older_than_a_day_count_against_neither_cap():
+    """All 36 queued runs on 2026-09-29 06:56Z were created on 2026-05-15 (issue-triggered
+    vm-* jobs no runner ever served), and the 3 'research runs in flight' were three
+    trainer-vm-diag dispatches from the same morning. They deferred every fire and would
+    have done so on every cycle until someone cancelled them by hand."""
+    from datetime import datetime, timezone
+    now = datetime(2026, 9, 29, 6, 56, tzinfo=timezone.utc)
+    zombies = [{"databaseId": i, "workflowName": "vm-web-api-recover", "status": "queued",
+                "createdAt": "2026-05-15T07:45:37Z"} for i in range(33)]
+    zombies += [{"databaseId": 100 + i, "workflowName": "trainer-vm-diag", "status": "queued",
+                 "createdAt": "2026-05-15T07:5%d:00Z" % i} for i in range(3)]
+    names = {"trainer-vm-diag.yml": "trainer-vm-diag", "e35-bracket-sweep.yml": "e35-bracket-sweep"}
+    r = dq.backpressure(names, max_inflight=3, max_queued=10, now=now,
+                        runs_by_status={"queued": zombies, "in_progress": []})
+    assert r["block"] is None, r
+    assert r["repo_queued"] == 0 and r["inflight_research"] == 0 and r["stale_ignored"] == 36
+    assert "36 stuck run(s)" in r["detail"]
+    # fresh runs still count, exactly as before
+    fresh = [{"databaseId": 200 + i, "workflowName": "Guards", "status": "queued",
+              "createdAt": "2026-09-29T06:50:00Z"} for i in range(11)]
+    r2 = dq.backpressure(names, max_inflight=3, max_queued=10, now=now,
+                         runs_by_status={"queued": zombies + fresh, "in_progress": []})
+    assert r2["block"] and r2["repo_queued"] == 11 and r2["stale_ignored"] == 36
+    live = [{"databaseId": 300 + i, "workflowName": "e35-bracket-sweep", "status": "in_progress",
+             "createdAt": "2026-09-29T06:00:00Z"} for i in range(3)]
+    r3 = dq.backpressure(names, max_inflight=3, max_queued=10, now=now,
+                         runs_by_status={"queued": zombies, "in_progress": live})
+    assert r3["block"] and r3["inflight_research"] == 3
+
+
+def test_an_unreadable_created_at_counts_as_fresh():
+    from datetime import datetime, timezone
+    now = datetime(2026, 9, 29, 6, 56, tzinfo=timezone.utc)
+    rows = [{"databaseId": 1, "workflowName": "e35-bracket-sweep", "status": "queued", "createdAt": "garbage"},
+            {"databaseId": 2, "workflowName": "e35-bracket-sweep", "status": "queued"},
+            {"databaseId": 3, "workflowName": "e35-bracket-sweep", "status": "queued", "createdAt": "2026-09-29T06:00:00Z"}]
+    r = dq.backpressure({"e.yml": "e35-bracket-sweep"}, max_inflight=3, max_queued=10, now=now,
+                        runs_by_status={"queued": rows, "in_progress": []})
+    assert r["inflight_research"] == 3 and r["stale_ignored"] == 0 and r["block"]
+
+
+def test_the_stale_window_is_a_flag_the_workflow_can_pass():
+    import subprocess, sys
+    out = subprocess.run([sys.executable, "scripts/research/dispatch_queue.py", "--help"],
+                         capture_output=True, text=True, cwd=str(REPO)).stdout
+    assert "--pressure-stale-hours" in out
