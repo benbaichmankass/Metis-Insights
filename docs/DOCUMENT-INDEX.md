@@ -748,6 +748,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/exit-management-ml-experiment-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/exit-reason-frozen-at-close-2026-08-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-refinement/RQ-20260927-003-prop-exit-head-feasibility.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/exit-refinement/exit-head-donchian-1h-v1-gate-check-2026-09-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-sweep-positive-control-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-trailing-and-banking-measurement-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-trailing-banking-broker-truth-2026-09-09.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
