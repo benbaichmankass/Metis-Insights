@@ -178,6 +178,9 @@ def main(argv: Optional[list] = None) -> int:
                     help="post ONE account_status through POST /api/bot/prop/report (default: off)")
     ap.add_argument("--api-base", default="http://127.0.0.1:8001")
     ap.add_argument("--timeout-s", type=int, default=45)
+    ap.add_argument("--dump-tables", action="store_true",
+                    help="print every table the read path extracts (kind, headers, row count, first rows, "
+                         "ids masked) and how the positions / orders readers classify it (read-only diagnostic)")
     ap.add_argument("--dump-dir", default="",
                     help="write the post-login page text + extracted tables here (on the VM, "
                          "never to stdout) so selectors can be fixed from the first live run")
@@ -342,6 +345,14 @@ def main(argv: Optional[list] = None) -> int:
                 except LookupError as le:
                     print(_redact(f"{label}: UNPARSED ({le})", username, password))
                     rc = EXIT_UNPARSED
+
+            if args.dump_tables and hasattr(adapter, "dump_tables"):
+                try:
+                    for line in adapter.dump_tables(page, (username, password)):
+                        print(_redact(line, username, password))
+                except Exception as exc:
+                    print(_redact(f"dump_tables: FAILED ({type(exc).__name__}: {exc})",
+                                  username, password, limit=300))
 
             if rc == EXIT_UNPARSED and hasattr(adapter, "structure"):
                 try:

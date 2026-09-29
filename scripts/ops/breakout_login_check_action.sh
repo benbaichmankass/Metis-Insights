@@ -23,6 +23,10 @@
 #                    run ends with "environment: chromium failed to launch".
 #     emit-status  — post ONE account_status through POST /api/bot/prop/report.
 #                    Default OFF.
+#     dump-tables  — READ-ONLY diagnostic of the positions / orders read path:
+#                    print every extracted table (kind, headers, row count,
+#                    first rows with ids masked) and how the readers classify
+#                    it (live test #13987: a filled position read back as 0).
 #     reset-feed   — re-arm the scheduled feed (deploy/ict-prop-feed.timer,
 #                    scripts/ops/prop_feed_tick.sh) after it TRIPPED: clears
 #                    its trip marker and failure count AFTER this check exits
@@ -88,6 +92,7 @@ APPLY="${ACTION_APPLY:-}"
 case ",${APPLY}," in *",install-deps,"*) WANT_DEPS=1 ;; *) WANT_DEPS=0 ;; esac
 case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
+case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
 for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-live \
          executor-enable-timer executor-disable-timer executor-clear-halt; do
@@ -291,6 +296,7 @@ fi
 
 ARGS=(--account "${ACCOUNT}" --dump-dir "${BASE}/last-run")
 [ "${WANT_EMIT}" = "1" ] && ARGS+=(--emit-status)
+[ "${WANT_TABLES}" = "1" ] && ARGS+=(--dump-tables)
 
 log "Running read-only login check (account=${ACCOUNT} emit_status=${WANT_EMIT})"
 set +e

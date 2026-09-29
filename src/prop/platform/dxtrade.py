@@ -2440,21 +2440,21 @@ class DXtradeAdapter(PropPlatformAdapter):
             return PlaceAttempt(stage="submitted", submitted=True,
                                 detail=f"submit click raised {type(exc).__name__}; outcome unknown", form=form)
         confirmed = self._confirm_dialog(page)
-        # What the click produced, recorded on the attempt (live test #13987:
-        # nothing was known about the terminal after the click). A single
-        # NEW control that reads as the confirmation of OUR order is pressed
-        # once; anything else is only recorded.
-        after = self._after_submit(page, spec, dialog_confirmed=confirmed)
-        form = {**form, "after_submit": after}
+        # What the click produced, RECORDED on the attempt (live test #13987:
+        # the click filled 0.01 SOLUSD with both legs attached, the terminal
+        # asked for no confirmation, and the run log said nothing about the
+        # page after the click). Nothing here is pressed: this terminal places
+        # on the submit alone, so a second click could only ever be a second
+        # order.
+        form = {**form, "after_submit": self._after_submit(page, dialog_confirmed=confirmed)}
         return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
 
-    #: A NEW control after the submit click that confirms the order: a plain
-    #: Confirm / OK / Yes / Place order / Submit / Send, or a button naming OUR
-    #: side (optionally restating "<qty> <symbol> ...", which must then match).
-    _CONFIRM_WORDS = re.compile(r"^(confirm|ok|yes|place order|submit|send|place)$", re.IGNORECASE)
-
-    def _after_submit(self, page: Any, spec: BracketSpec, *, dialog_confirmed: bool) -> Dict[str, Any]:
-        out: Dict[str, Any] = {"dialog_confirmed": dialog_confirmed, "confirm_clicked": None, "why": None}
+    def _after_submit(self, page: Any, *, dialog_confirmed: bool) -> Dict[str, Any]:
+        """Read-only: every visible control that appeared after the submit
+        click (text, box, disabled) and the redacted text of the element
+        holding them (POST_SUBMIT_JS). Never clicks."""
+        out: Dict[str, Any] = {"dialog_confirmed": dialog_confirmed, "new_buttons": [], "overlay_text": None,
+                               "dialogs": None, "why": None}
         try:
             page.wait_for_timeout(300)
             got = page.evaluate(POST_SUBMIT_JS, ["diff"]) or {}
@@ -2462,33 +2462,46 @@ class DXtradeAdapter(PropPlatformAdapter):
             out["why"] = f"post-submit read failed ({type(exc).__name__})"
             return out
         out.update({k: got.get(k) for k in ("new_buttons", "overlay_text", "dialogs")})
-        if dialog_confirmed:
-            out["why"] = "a role=dialog confirmation was pressed"
-            return out
-        mine, other = ("buy", "sell") if spec.side == "long" else ("sell", "buy")
-        cands = []
-        for b in got.get("new_buttons") or []:
-            t = str(b.get("text") or "").strip()
-            low = t.lower()
-            if b.get("disabled"):
-                continue
-            if self._CONFIRM_WORDS.match(t):
-                cands.append(b)
-            elif re.match(rf"^{mine}\b", low) and not re.search(rf"\b{other}\b", low) \
-                    and not submit_label_mismatch(t, spec):
-                cands.append(b)
-        if any(re.search(rf"\b{other}\b", str(b.get("text") or "").lower()) for b in got.get("new_buttons") or []):
-            out["why"] = f"a new control names the other side ({other}); nothing pressed"
-            return out
-        if len(cands) != 1:
-            out["why"] = f"{len(cands)} confirmation-like new controls; nothing pressed"
-            return out
-        try:
-            page.click(f"[data-metis-new='{cands[0]['i']}']", timeout=5_000)
-            out["confirm_clicked"] = cands[0]["text"]
-        except Exception as exc:
-            out["why"] = f"confirm click raised {type(exc).__name__}; outcome unknown"
+        out["why"] = "recorded only; nothing pressed"
         return out
+
+    def dump_tables(self, page: Any, secrets: Sequence[str] = ()) -> List[str]:
+        """READ-ONLY diagnostic of the positions / orders read path (live test
+        #13987: a position the operator could see, 0.01 SOLUSD with both
+        legs, read back as 0 positions for 7 minutes, so the reader is blind
+        somewhere between the tab click, the table extraction and the
+        classification). For each view tab: the tab-like controls the page
+        shows, whether the tab click landed, then every table
+        EXTRACT_TABLES_JS finds (kind, headers, row count, first 3 rows) and
+        how the readers classify it. Every string is redacted; digit runs of
+        5+ are masked so a position id never reaches a public log. Clicks
+        only the view tabs, never a row control."""
+        def r(t: Any, n: int = 40) -> str:
+            return _cap(re.sub(r"\d{5,}", "#####", redact_text(str(t or ""), *secrets)), n)
+
+        lines: List[str] = ["dump_tables: BEGIN (read-only; ids masked)"]
+        try:
+            tabs = page.evaluate(
+                "() => [...document.querySelectorAll('[role=tab], [data-active]:not(button):not([role=button])')]"
+                ".map(e => (e.innerText || '').trim().replace(/\\s+/g, ' ').slice(0, 30)).filter(Boolean).slice(0, 20)")
+            lines.append(f"dump_tables.tab_like: {[r(t, 30) for t in (tabs or [])]}")
+        except Exception as exc:
+            lines.append(f"dump_tables.tab_like: FAILED ({type(exc).__name__})")
+        for key in ("tab_positions", "tab_orders"):
+            shown = self._show_tab(page, key)
+            tables = self._tables(page)
+            lines.append(f"dump_tables[{SELECTORS[key]}]: tab_click={shown} tables={len(tables)}")
+            for i, t in enumerate(tables):
+                headers = list(t.get("headers") or [])
+                reads_as = ("positions" if _is_positions_table(headers)
+                            else "orders" if _is_orders_table(headers) else "neither")
+                rows = t.get("rows") or []
+                lines.append(f"dump_tables.table[{i}] kind={t.get('kind')} reads_as={reads_as} rows={len(rows)} "
+                             f"headers={[r(h) for h in headers]}")
+                for row in rows[:3]:
+                    lines.append(f"dump_tables.row[{i}]: {[r(c) for c in row]}")
+        lines.append("dump_tables: END")
+        return lines
 
     def _ticket_after(self, page: Any) -> Dict[str, Any]:
         """Dismiss the ticket, then MEASURE what is left: whether a dismiss

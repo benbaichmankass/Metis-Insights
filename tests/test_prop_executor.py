@@ -1973,66 +1973,110 @@ def test_place_bracket_refuses_a_side_button_outside_the_ticket_panel(tpage):
     assert p.evaluate("window.__submits") is None and p.evaluate("window.__side") is None
 
 
-# ── after the ARMED submit click: what appeared, and one confirmation only
-# (live test #13987: submit clicked, then nothing was known) ─────────────
+# ── after the ARMED submit click: what appeared is RECORDED, never pressed
+# (live test #13987: the submit alone filled the order; the log said nothing
+# about the page after the click) ────────────────────────────────────────
 
 _MODAL = """
 <div id="modal" style="display:none;position:fixed;left:300px;top:300px;background:#fff">
-  <div>Confirm order: Buy 0.01 SOLUSD at 118.94 (account 12345678)</div>
-  <button id="mc" onclick="window.__confirmed=(window.__confirmed||0)+1;document.getElementById('modal').style.display='none'">%s</button>
+  <div>Order placed: Buy 0.01 SOLUSD at 118.94 (position 12345678)</div>
+  <button id="mc" onclick="window.__pressed=(window.__pressed||0)+1;document.getElementById('modal').style.display='none'">%s</button>
   <button onclick="document.getElementById('modal').style.display='none'">Cancel</button>
 </div>
 """
 
 
-def _modal_page(confirm_label="Confirm", submit_opens_modal=True):
+def _modal_page(label="OK", submit_opens_modal=True):
     html = TICKET_PAGE % ""
     sub = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
     assert sub in html
     if submit_opens_modal:
         html = html.replace(sub, '<button id="sub" onclick="window.__submits=(window.__submits||0)+1;'
                                  'document.getElementById(\'modal\').style.display=\'block\'">Place Order</button>')
-    return html.replace("</body>", (_MODAL % confirm_label) + "</body>")
+    return html.replace("</body>", (_MODAL % label) + "</body>")
 
 
-def test_armed_submit_presses_one_new_confirmation_and_records_the_overlay(tpage):
-    p = tpage(html=_modal_page("Confirm"))
+@pytest.mark.parametrize("label", ["OK", "Confirm", "Buy 0.5 SOLUSD at 120.0", "Sell"])
+def test_armed_submit_records_what_appeared_and_presses_nothing(tpage, label):
+    p = tpage(html=_modal_page(label))
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.submitted is True and p.evaluate("window.__submits") == 1
-    assert p.evaluate("window.__confirmed") == 1
+    assert p.evaluate("window.__pressed") is None                      # never a second click
     after = att.form["after_submit"]
-    assert after["confirm_clicked"] == "Confirm" and after["dialog_confirmed"] is False
-    assert [b["text"] for b in after["new_buttons"]] == ["Confirm", "Cancel"]
+    assert after["dialog_confirmed"] is False and after["why"] == "recorded only; nothing pressed"
+    assert [b["text"] for b in after["new_buttons"]] == [label, "Cancel"]
     assert "Buy 0.01 SOLUSD at 118.94" in after["overlay_text"] and "12345678" not in after["overlay_text"]
-    assert pe._attempt_public(att)["after_submit"]["confirm_clicked"] == "Confirm"
-    assert "12345678" not in json.dumps(pe._attempt_public(att))
-
-
-def test_armed_submit_presses_a_new_button_naming_our_side_and_order(tpage):
-    p = tpage(html=_modal_page("Buy 0.5 SOLUSD at 120.0"))
-    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
-    assert p.evaluate("window.__confirmed") == 1 and att.form["after_submit"]["confirm_clicked"].startswith("Buy 0.5")
-
-
-def test_armed_submit_never_presses_the_other_side_or_an_ambiguous_control(tpage):
-    p = tpage(html=_modal_page("Sell"))
-    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
-    assert p.evaluate("window.__confirmed") is None
-    assert att.form["after_submit"]["confirm_clicked"] is None and "other side" in att.form["after_submit"]["why"]
-    # a restated order that does not match ours is not a confirmation of ours
-    p = tpage(html=_modal_page("Buy 0.7 SOLUSD at 120.0"))
-    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
-    assert p.evaluate("window.__confirmed") is None and "0 confirmation-like" in att.form["after_submit"]["why"]
-    # two plausible confirmations: nothing pressed
-    html = _modal_page("Confirm").replace(">Cancel</button>", ">OK</button>")
-    p = tpage(html=html)
-    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
-    assert p.evaluate("window.__confirmed") is None and "2 confirmation-like" in att.form["after_submit"]["why"]
+    pub = pe._attempt_public(att)
+    assert pub["after_submit"] == after and "12345678" not in json.dumps(pub)
 
 
 def test_armed_submit_with_nothing_new_records_an_empty_diff(tpage):
-    p = tpage(html=_modal_page("Confirm", submit_opens_modal=False))
+    p = tpage(html=_modal_page(submit_opens_modal=False))
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     after = att.form["after_submit"]
-    assert after["new_buttons"] == [] and after["overlay_text"] is None and after["confirm_clicked"] is None
-    assert after["why"] == "0 confirmation-like new controls; nothing pressed"
+    assert after["new_buttons"] == [] and after["overlay_text"] is None and after["dialogs"] == 0
+
+
+# ── the positions reader must be MEASURABLE against a live position ──────
+
+
+def test_dump_tables_lists_every_table_its_classification_and_masks_ids(tpage):
+    html = (TICKET_PAGE % "").replace("</body>", """
+<div class="tabs"><div data-active="true">Positions</div><div data-active="false">Orders</div></div>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Position Volume</th><th>Open Price</th><th>Position ID</th></tr></thead>
+<tbody><tr><td>SOLUSD</td><td>Buy</td><td>0.01</td><td>118.94</td><td>987654321</td></tr></tbody></table>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Price</th><th>Order ID</th></tr></thead><tbody></tbody></table>
+</body>""")
+    lines = DXtradeAdapter(timeout_ms=3_000).dump_tables(tpage(html=html), ("secret-user",))
+    assert lines[0].startswith("dump_tables: BEGIN") and lines[-1] == "dump_tables: END"
+    assert "dump_tables.tab_like: ['Positions', 'Orders']" in lines
+    assert "dump_tables[Positions]: tab_click=True tables=3" in lines
+    assert any("reads_as=neither" in ln and "'Bid'" in ln for ln in lines)          # the watchlist
+    assert any("reads_as=positions rows=1" in ln and "'Position Volume'" in ln for ln in lines)
+    assert any("reads_as=orders rows=0" in ln and "'Order ID'" in ln for ln in lines)
+    row = next(ln for ln in lines if ln.startswith("dump_tables.row[") and "'Buy'" in ln)
+    assert "'SOLUSD', 'Buy', '0.01', '118.94', '#####'" in row and "987654321" not in "\n".join(lines)
+
+
+def test_login_check_passes_dump_tables_through():
+    src = (Path(__file__).resolve().parents[1] / "scripts" / "prop" / "breakout_login_check.py").read_text()
+    assert '"--dump-tables"' in src and "adapter.dump_tables(page, (username, password))" in src
+    sh = (Path(__file__).resolve().parents[1] / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
+    assert '*",dump-tables,"*) WANT_TABLES=1' in sh and 'ARGS+=(--dump-tables)' in sh
+
+
+# ── the round trip waits the 60 s criterion L2 registers, not 15 s ───────
+
+
+class LateFillAdapter(RTAdapter):
+    """The terminal shows the position only from the N-th read after submit."""
+
+    def __init__(self, late, **kw):
+        super().__init__(**kw)
+        self.late, self.reads_after_submit, self.submitted = late, 0, False
+
+    def place_bracket(self, page, spec, *, arm=False):
+        att = super().place_bracket(page, spec, arm=arm)
+        self.submitted = arm
+        return att
+
+    def read_positions(self, page):
+        if self.submitted and self.positions:
+            self.reads_after_submit += 1
+            if self.reads_after_submit < self.late:
+                return []
+        return list(self.positions)
+
+
+def test_round_trip_confirms_a_fill_that_lands_within_60s(tmp_path):
+    ad = LateFillAdapter(late=18)                     # 18 x 3 s = 54 s after submit
+    res = rt(ad, FakeApi(), tmp_path)
+    assert res.halted is None, res.actions
+    assert next(a for a in res.actions if a["what"] == "confirm_entry")["verdict"] == "open"
+
+
+def test_round_trip_still_stops_when_nothing_lands_within_60s(tmp_path):
+    ad = LateFillAdapter(late=30)                     # would land at 90 s
+    res = rt(ad, FakeApi(), tmp_path)
+    assert res.halted == "round trip stopped at entry (not_found)"
+    assert ad.reads_after_submit == 20
