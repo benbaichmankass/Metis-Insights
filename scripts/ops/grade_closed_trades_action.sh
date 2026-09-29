@@ -30,6 +30,12 @@
 #   since: <ISO_TS>        (optional; only packages created at/after this)
 #   limit: <int>           (optional, default 300 — see score_order_packages.py)
 #   include_open: <true|1> (optional; widen scope beyond closed-only)
+#
+# ACTION_BY_TRADE=1 (env; set by .github/workflows/grade-closed-trades.yml, the
+# daily schedule added for JC-SA-01 on 2026-09-29) switches to one row per
+# CLOSED TRADE keyed on linked_trade_id — see score_order_packages.py's
+# `--by-trade` docstring for why the package key missed 54 of 486 closes.
+# `since:` then filters on trades.closed_at.
 set -euo pipefail
 
 SCRIPT_NAME="grade_closed_trades"
@@ -43,6 +49,7 @@ DB_PATH="$(runtime_db_path)"
 SINCE="${ACTION_SINCE:-}"
 LIMIT="${ACTION_LIMIT:-300}"
 INCLUDE_OPEN="${ACTION_INCLUDE_OPEN:-}"
+BY_TRADE="${ACTION_BY_TRADE:-}"
 
 case "${INCLUDE_OPEN,,}" in
     1|true|yes|on) INCLUDE_OPEN=1 ;;
@@ -68,9 +75,10 @@ CMD=(python3 scripts/ops/score_order_packages.py "${DB_PATH}" "${SCORES_PATH}"
 if [ -n "${SINCE}" ]; then
     CMD+=(--since "${SINCE}")
 fi
-if [ "${INCLUDE_OPEN}" -eq 1 ]; then
-    CMD+=(--include-open)
-fi
+case "${BY_TRADE,,}" in
+    1|true|yes|on) CMD+=(--by-trade) ;;
+    *) if [ "${INCLUDE_OPEN}" -eq 1 ]; then CMD+=(--include-open); fi ;;
+esac
 
 echo
 echo "===== ${CMD[*]} ====="
@@ -80,6 +88,6 @@ exit_code=$?
 set -e
 
 record_audit "grade-closed-trades" "ok" \
-    "{\"since\": \"${SINCE}\", \"limit\": ${LIMIT}, \"include_open\": ${INCLUDE_OPEN}, \"exit_code\": ${exit_code}}" >/dev/null || true
+    "{\"since\": \"${SINCE}\", \"limit\": ${LIMIT}, \"include_open\": ${INCLUDE_OPEN}, \"by_trade\": \"${BY_TRADE}\", \"exit_code\": ${exit_code}}" >/dev/null || true
 
 exit "${exit_code}"

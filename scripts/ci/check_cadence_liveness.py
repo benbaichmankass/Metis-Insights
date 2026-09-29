@@ -185,6 +185,15 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    by the detector itself on every run and landed through commit-to-main,
     #    so a detector that stops firing goes STALE here and reds CI rather
     #    than leaving "no alert" to be read as "nothing lost".
+    # ── JC-SA-01 (2026-09-29): the daily grader appends to the score file
+    #    and lands it through commit-to-main, so the last commit touching it
+    #    IS the receipt. (Its reviewed_at age is ALSO graded, more tightly,
+    #    by check_grading_freshness.py.)
+    "grade-closed-trades.yml": {
+        "receipt": "comms/claude_strategy_scores.jsonl",
+        "why": "the workflow appends and commits the score file itself via "
+               "commit-to-main; the last commit touching it IS the receipt",
+    },
     "research-loss-detector.yml": {
         "receipt": "docs/claude/work/RESEARCH-LOSS-RECEIPT.json",
         "why": "the detector writes the receipt on every run and commits it "
