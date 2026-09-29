@@ -18,6 +18,15 @@ Modes (exactly one; default = one scheduled cycle):
   ticket (is it DOM or canvas?). Opens the form, records its shape and the
   one-click toggle's reading (a diagnostic: nothing gates on it, operator
   2026-09-28), closes it. Types nothing.
+- ``--instrument-probe SYMBOLS`` (comma-separated venue symbols, e.g.
+  ``BTCUSD,ADAUSD,AVAXUSD,XRPUSD``): READ-ONLY, one at a time — searches the
+  watchlist/instrument search field for each symbol and dumps whatever
+  surfaces (digit-run-masked), then resets the field before the next symbol.
+  Never opens the order ticket, never touches BUY/SELL/submit/the chart. See
+  ``DXtradeAdapter.probe_instrument_details``'s docstring for why this stops
+  at a structure DUMP rather than parsing named fields. Always exits
+  ``EXIT_OK`` (like the passive instrument-spec read, a probe result never
+  gates the exit code) unless the session/environment itself fails.
 - ``--round-trip VENUE [--lots N] [--side long|short] [--live]``: the
   end-to-end test (operator 2026-09-28): ONE minimum-size market bracket with
   SL+TP → confirm by re-read → report ``open`` → the bot closes it at market →
@@ -83,6 +92,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     base = pe.executor_mode(env)
     if args.probe_ticket:
         return "probe"
+    if getattr(args, "instrument_probe", ""):
+        return "instrument_probe"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -121,6 +132,8 @@ def main(argv: Optional[list] = None) -> int:
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--dry-run", action="store_true")
     g.add_argument("--probe-ticket", default="", metavar="VENUE_SYMBOL")
+    g.add_argument("--instrument-probe", default="", metavar="VENUE_SYMBOLS",
+                   help="comma-separated venue symbols to search + dump (read-only); see module docstring")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -218,6 +231,15 @@ def main(argv: Optional[list] = None) -> int:
                     emit({"feasibility": "canvas_ticket"})
                     return EXIT_FEASIBILITY
                 return EXIT_OK if surface == "dom" else EXIT_UNPARSED
+
+            if mode == "instrument_probe":
+                syms = [s.strip() for s in args.instrument_probe.split(",") if s.strip()]
+                for sym in syms:
+                    got = adapter.probe_instrument_details(page, sym)
+                    emit({"instrument_probe": {"symbol": sym, **got}}, *secrets)
+                # A probe result never gates the exit code — same doctrine as
+                # the passive instrument-spec read in breakout_login_check.py.
+                return EXIT_OK
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
             state_dir = Path(args.state_dir)

@@ -898,6 +898,14 @@ def extract_instrument_specs_from_responses(
 TICKET_OPENER_NAMES: Sequence[str] = ("New Order", "New order", "Create Order", "Create order",
                                       "Place Order", "Place order", "Order Entry", "Trade")
 
+# Candidate SEARCH/FILTER input attribute-text substrings (case-insensitive),
+# tried in order by FIND_INSTRUMENT_SEARCH_JS. NOT MEASURED: no run has
+# confirmed any of these yet -- first candidate found wins, none found is
+# reported honestly (probe_instrument_details) rather than guessed.
+INSTRUMENT_SEARCH_CANDIDATES: Sequence[str] = (
+    "search", "find symbol", "find instrument", "symbol search", "instrument search",
+)
+
 # Form-field label patterns (anchored, case-insensitive), matched against the
 # label text the discovery JS derives for each control.
 FORM_FIELD_PATTERNS: Dict[str, str] = {
@@ -1362,6 +1370,95 @@ TICKET_PANEL_DUMP_JS = r"""
   }).filter(Boolean);
   return {found: true, n: rows.length, truncated: rows.length >= 300,
           scroll: [panel.scrollHeight, panel.clientHeight], rows, submit_candidates, panel_parents, qty_constraints};
+}
+"""
+
+# Discovery for a symbol SEARCH/FILTER input (PROP-ETH, 2026-09-29) -- NOT
+# MEASURED, no run has confirmed any candidate yet. Tries, in document order,
+# an input whose placeholder/aria-label/data-test-id/title contains one of
+# INSTRUMENT_SEARCH_CANDIDATES (case-insensitive), else a bare
+# ``input[type=search]``. NEVER the order ticket's own ``symbol_input`` and
+# NEVER anything inside the BUY/SELL order panel (same containment check
+# TICKET_PANEL_DUMP_JS uses to find that panel) -- this probe must not be
+# able to reach the order form even by accident. Tags the one match with
+# ``data-metis-search-hit`` for the Python side to locate; reads nothing,
+# types nothing, clicks nothing.
+FIND_INSTRUMENT_SEARCH_JS = r"""
+([candidates]) => {
+  const buys = document.querySelectorAll('[data-test-id=BUY]');
+  let orderPanel = null;
+  if (buys.length === 1) {
+    for (let e = buys[0].parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]')) { orderPanel = e; break; }
+    }
+  }
+  const inOrderPanel = el => orderPanel ? orderPanel.contains(el) : false;
+  const attrText = el => [el.getAttribute('placeholder'), el.getAttribute('aria-label'),
+                          el.getAttribute('data-test-id'), el.getAttribute('title')]
+      .filter(Boolean).join(' ').toLowerCase();
+  const inputs = [...document.querySelectorAll('input')].filter(el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && el.getAttribute('data-test-id') !== 'symbol_input'
+      && !inOrderPanel(el);
+  });
+  for (const cand of candidates) {
+    const hit = inputs.filter(el => attrText(el).includes(cand));
+    if (hit.length === 1) {
+      hit[0].setAttribute('data-metis-search-hit', '1');
+      return {found: true, via: 'text:' + cand};
+    }
+  }
+  const bare = inputs.filter(el => (el.getAttribute('type') || '').toLowerCase() === 'search');
+  if (bare.length === 1) {
+    bare[0].setAttribute('data-metis-search-hit', '1');
+    return {found: true, via: 'type=search'};
+  }
+  return {found: false, n_candidate_inputs: inputs.length};
+}
+"""
+
+# Read-only, DIGIT-RUN-masked (runs of 5+ digits only -- deliberately looser
+# than CONTROLS_DUMP_JS's every-digit mask, because the numbers THIS dump
+# exists to surface -- lot size, tick/price step, a venue minimum -- are
+# exactly the short ones an every-digit mask would destroy; a 5+ run catches
+# account numbers, order ids and timestamps instead) dump of controls plus
+# short static text leaves (an Instrument Details panel is plausibly plain
+# label/value divs, not "controls" in the CONTROLS_DUMP_JS sense). Same
+# personal-control exclusion as CONTROLS_DUMP_JS. Reads nothing from an
+# input's VALUE. Bounded to 300 rows.
+INSTRUMENT_DETAILS_DUMP_JS = r"""
+() => {
+  const maskRuns = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80) : null;
+  const personal = /user|profile|account|login|email/i;
+  const out = [];
+  const ctlSel = 'input, select, textarea, button, [role=button], [role=tab], [role=radio], [role=switch], [data-test-id]';
+  for (const el of document.querySelectorAll(ctlSel)) {
+    if (el.closest('tbody')) continue;
+    const cls = typeof el.className === 'string' ? el.className : '';
+    const tid = el.getAttribute('data-test-id') || '';
+    if (personal.test(tid) || personal.test(cls)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    out.push({kind: 'control', tag: el.tagName.toLowerCase(), tid: maskRuns(tid),
+              role: maskRuns(el.getAttribute('role')), ph: maskRuns(el.getAttribute('placeholder')),
+              aria: maskRuns(el.getAttribute('aria-label')),
+              text: (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA' && el.children.length === 0)
+                ? maskRuns(el.innerText || el.textContent || '') : null});
+    if (out.length >= 300) return {found: out.length > 0, n: out.length, rows: out};
+  }
+  for (const el of document.querySelectorAll('div, span, td, dt, dd, li')) {
+    if (el.children.length > 0) continue;
+    if (el.closest('tbody')) continue;
+    const t = (el.innerText || el.textContent || '').trim();
+    if (!t || t.length > 60) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    out.push({kind: 'text', tag: el.tagName.toLowerCase(), text: maskRuns(t)});
+    if (out.length >= 300) break;
+  }
+  return {found: out.length > 0, n: out.length, rows: out};
 }
 """
 
@@ -2267,6 +2364,93 @@ class DXtradeAdapter(PropPlatformAdapter):
             result["controls_dump"] = self.controls_dump(page)
         if opened.get("opened"):
             result["closed"] = self.close_order_ticket(page)
+        return result
+
+    # ── instrument-details probe (PROP-ETH, 2026-09-29) ───────────────────
+    #
+    # The passive network capture (extract_instrument_specs_from_responses,
+    # start_response_capture) only sees instrument data for symbols the
+    # terminal's OWN traffic already requested -- MEASURED 2026-09-29 (issue
+    # #14038, run 36550488339): a login-check served fields for ETHUSD/SOLUSD
+    # (breakout_1's routed strategies) and NOTHING for BTCUSD/ADAUSD/XRPUSD,
+    # matching how ADA/XRP's existing lot values were actually obtained (the
+    # operator reading the terminal's Instrument Details panel BY HAND,
+    # 2026-09-28) rather than this passive method. Reaching a symbol outside
+    # the account's own traffic needs an ACTIVE step: search for it.
+    #
+    # ⚠️ THIS IS THE SAME SURFACE THREE EARLIER ROUNDS OF REVIEW REJECTED --
+    # see this module's top-level docstring: "search box, panel click,
+    # label/value scan ... each fix produced a new way for the WRONG symbol's
+    # numbers to be read as the requested one's." This probe does NOT repeat
+    # that mistake by naming and parsing specific fields from an unmeasured
+    # panel. It TYPES the search and DUMPS the resulting structure
+    # (digit-run-masked) -- the same "measure the shape, THEN write the
+    # parser" sequence CONTROLS_DUMP_JS / TICKET_PANEL_DUMP_JS already use
+    # elsewhere in this file. Extracting NAMED fields (lot size, price step,
+    # a venue minimum) from a live run's real dump is deliberately a
+    # FOLLOW-UP once that shape is actually measured against this probe's own
+    # output -- writing a field parser against a panel nobody has seen yet is
+    # exactly how the earlier attempts drifted onto the wrong symbol's
+    # numbers. `symbol_echoed` is reported as a quality signal (does the
+    # dump's own text contain the exact requested symbol as a whole word?)
+    # but is NOT a hard gate: the dump is attached either way, honestly
+    # labelled with whether the echo held.
+    #
+    # Never touches BUY/SELL, a watchlist row double-click, a submit control,
+    # the chart, or TICKET_OPENER_NAMES -- this method never calls
+    # open_order_ticket or anything that reaches the order form; the search
+    # field it types into is explicitly excluded from ever being inside the
+    # BUY/SELL panel (FIND_INSTRUMENT_SEARCH_JS's own containment check).
+    def _find_instrument_search(self, page: Any) -> Dict[str, Any]:
+        """Locate a symbol SEARCH/FILTER input. Discovery only: clicks and
+        types nothing. See FIND_INSTRUMENT_SEARCH_JS."""
+        try:
+            return page.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)]) or {}
+        except Exception as exc:
+            return {"found": False, "why": f"probe failed ({type(exc).__name__})"}
+
+    def instrument_details_dump(self, page: Any) -> Dict[str, Any]:
+        """Read-only, digit-run-masked (runs >= 5) dump of controls + short
+        static text leaves on the page (INSTRUMENT_DETAILS_DUMP_JS)."""
+        try:
+            return page.evaluate(INSTRUMENT_DETAILS_DUMP_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
+    def probe_instrument_details(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """READ-ONLY: search for ``venue_symbol`` in the watchlist/instrument
+        search field (never the order ticket's ``symbol_input``, never
+        anything inside the BUY/SELL panel), dump whatever the search
+        surfaces, then RESET the field so the next symbol probes cleanly.
+        Never opens the order ticket; never clicks BUY/SELL/submit/chart.
+        """
+        loc = self._find_instrument_search(page)
+        if not loc.get("found"):
+            return {"searched": False, "reset": None, **loc}
+        hit = page.locator("[data-metis-search-hit='1']")
+        result: Dict[str, Any] = {"searched": False, "via": loc.get("via")}
+        try:
+            if hit.count() != 1:
+                result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
+                return result
+            hit.first.fill(venue_symbol, timeout=5_000)
+            page.wait_for_timeout(1_000)
+            readback = hit.first.input_value(timeout=5_000)
+            result["searched"] = True
+            result["readback_matches"] = (readback.strip().upper() == venue_symbol.strip().upper())
+            dump = self.instrument_details_dump(page)
+            result["dump"] = dump
+            blob = " ".join((r.get("text") or "") for r in (dump.get("rows") or []))
+            result["symbol_echoed"] = bool(re.search(
+                r"(?<![A-Z0-9])" + re.escape(venue_symbol.upper()) + r"(?![A-Z0-9])", blob.upper()))
+        except Exception as exc:
+            result["error"] = type(exc).__name__
+        finally:
+            try:
+                hit.first.fill("", timeout=5_000)
+                result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+            except Exception:
+                result["reset"] = False
         return result
 
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
