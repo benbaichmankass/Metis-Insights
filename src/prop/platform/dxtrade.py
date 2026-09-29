@@ -1460,28 +1460,88 @@ TICKET_PANEL_DUMP_JS = r"""
 # input inside a BUY+SELL-holding container, whatever the count -- the
 # ORDER TICKET's own presence, not its count, is what matters), but it is no
 # longer a PRECONDITION for the whole probe to run.
+#
+# ⚠️ HARDENED again 2026-09-29 (manager review of #14442, before merge): the
+# first version's ``rows[0]`` was the first ``tr.instrument``/``[data-row-id]``
+# ANYWHERE IN THE DOCUMENT, not necessarily a row of the watchlist's own
+# header table. Whether the Positions/Orders grids ALSO use this same row
+# selector is UNMEASURED -- the one recorded dump-tables run that shows a
+# live Positions row (issue #14198, run 36572236094) prints each row's
+# PARSED CELLS and its hover-control markup (button/title/aria-label
+# elements only), never the ``<tr>`` element's own class or attributes, so
+# it neither confirms nor rules this out. If it turned out true and a
+# Positions/Orders row happened to precede the watchlist in document order,
+# ``rows[0]`` could anchor on a container far wider than the watchlist --
+# possibly the app root -- and containment would then admit almost anything.
+# Three layers now guard against exactly that, refusing rather than trusting
+# an unmeasured assumption:
+#   1. The anchor row must ALIGN with the watchlist's OWN header: the same
+#      cell count, and its cell under the header's own Symbol column index
+#      reads a symbol-shaped token (never just "whatever tr matches first").
+#   2. The resolved panel must hold exactly one Symbol-headed table (itself);
+#      more than one, or any OTHER table in the panel whose headers look
+#      like a positions/orders grid (side/quantity/p&l/profit/order type/
+#      status), refuses -- a watchlist panel holds one quote table.
+#   3. The upward walk excludes ``document.body`` by construction (the loop
+#      never assigns it to ``e``), so the panel can never resolve to it.
 FIND_INSTRUMENT_SEARCH_JS = r"""
 ([candidates]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const symLike = /^[A-Z0-9]{2,15}$/i;
+  const posOrdHeaderRe = /\b(side|quantity|p&l|profit|order type|status)\b/;
 
-  // The watchlist panel: MEASURED header table (Symbol/Bid/Ask) + at least
-  // one measured row, same selectors as WATCHLIST_ROWS_JS / open_order_ticket.
-  let headerTable = null;
+  // The watchlist's own header table (Symbol/Bid/Ask). Refuse if more than
+  // one table on the page shares a Symbol header -- which one is "the"
+  // watchlist is then undecidable, never guessed.
+  const symbolTables = [];
   for (const t of document.querySelectorAll('table')) {
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
-    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) { headerTable = t; break; }
+    if (hs.includes('symbol')) symbolTables.push({t, hs});
   }
-  const rows = document.querySelectorAll('tr.instrument, tr[data-row-id]');
-  if (!headerTable || rows.length === 0) {
-    return {found: false, why: 'no measured watchlist table/rows on this page'};
+  const watchlistTables = symbolTables.filter(x => x.hs.includes('bid') && x.hs.includes('ask'));
+  if (watchlistTables.length !== 1) {
+    return {found: false, why: `${watchlistTables.length} tables with Symbol/Bid/Ask headers (need exactly 1)`};
   }
+  const headerTable = watchlistTables[0].t;
+  const headers = watchlistTables[0].hs;
+  const symbolIdx = headers.indexOf('symbol');
+
+  // The anchor row must ALIGN with that header -- same cell count, symbol-
+  // shaped Symbol cell -- never just the first tr.instrument/[data-row-id]
+  // found anywhere in the document (see the block comment above).
+  let anchorRow = null;
+  for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    const cells = [...r.querySelectorAll('td')].map(txt);
+    if (cells.length !== headers.length) continue;
+    if (symLike.test((cells[symbolIdx] || '').trim())) { anchorRow = r; break; }
+  }
+  if (!anchorRow) {
+    return {found: false, why: 'no measured watchlist row aligned with the header'};
+  }
+
   let watchlistPanel = null;
   for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
-    if (e.contains(rows[0])) { watchlistPanel = e; break; }
+    if (e.contains(anchorRow)) { watchlistPanel = e; break; }
   }
   if (!watchlistPanel) {
-    return {found: false, why: 'no common ancestor of the watchlist header and its rows'};
+    return {found: false, why: 'no common ancestor of the watchlist header and its row'};
+  }
+
+  // The panel must hold exactly one Symbol-headed table (itself), and no
+  // OTHER table inside it may look like a positions/orders grid.
+  const tablesInPanel = [...watchlistPanel.querySelectorAll('table')];
+  const symbolTablesInPanel = tablesInPanel.filter(t =>
+    [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).includes('symbol'));
+  if (symbolTablesInPanel.length !== 1) {
+    return {found: false, why: `panel holds ${symbolTablesInPanel.length} Symbol-headed tables (need exactly 1)`};
+  }
+  for (const t of tablesInPanel) {
+    if (t === headerTable) continue;
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).join(' ');
+    if (posOrdHeaderRe.test(hs)) {
+      return {found: false, why: 'panel also contains a positions/orders-shaped table'};
+    }
   }
 
   // Defense in depth: never admit an input inside ANY BUY+SELL-holding

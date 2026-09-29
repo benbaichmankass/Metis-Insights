@@ -1059,7 +1059,7 @@ def test_probe_instrument_details_reports_not_found_rather_than_guessing(chromiu
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is False
     assert res["found"] is False
-    assert "watchlist" in res.get("why", "")
+    assert "Symbol/Bid/Ask" in res.get("why", "")
     chromium_page.set_content(DIVGRID.read_text())
 
 
@@ -1191,7 +1191,7 @@ def test_find_instrument_search_refuses_when_no_watchlist_table_is_measured(chro
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is False and res["found"] is False
-    assert "watchlist" in res.get("why", "")
+    assert "Symbol/Bid/Ask" in res.get("why", "")
     assert chromium_page.input_value("#only-search") == ""
     assert chromium_page.evaluate(
         "document.querySelector('#only-search').hasAttribute('data-metis-search-hit')") is False
@@ -1250,6 +1250,103 @@ def test_find_instrument_search_excludes_inputs_inside_any_order_panel_defense_i
     assert chromium_page.input_value("#ticket-search-a") == ""
     assert chromium_page.evaluate(
         "document.querySelector('#ticket-search-a').hasAttribute('data-metis-search-hit')") is False
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+# ── manager review of #14442, before merge: harden the anchor further ─────
+# rows[0] (the first tr.instrument/[data-row-id] anywhere in the document)
+# was not necessarily a row of the watchlist's own header table -- whether
+# the Positions/Orders grids also use this row selector is UNMEASURED (the
+# one recorded run with a live Positions row, issue #14198, run
+# 36572236094, prints parsed cells and hover-control markup, never the
+# <tr>'s own class/attributes). These two tests are the required regression
+# coverage: the anchor row must ALIGN with the watchlist header (never just
+# "whichever row is first"), and the resolved panel must never include a
+# second Symbol-headed table or a positions/orders-shaped one.
+
+
+def test_find_instrument_search_resolves_the_true_watchlist_panel_even_when_a_positions_row_precedes_it(chromium_page):
+    # A positions-shaped row using tr[data-row-id] (a 4-cell row: Symbol/
+    # Side/Size/Open P&L) precedes the watchlist's own row in document
+    # order, and both share a wrapping ancestor -- the exact shape that
+    # would anchor on the wrapper (far wider than the watchlist) if the
+    # anchor row were simply "the first match in the document". The cell-
+    # count-alignment rule must skip the mismatched positions row (4 cells
+    # against the watchlist header's 3) and anchor on the watchlist's own
+    # row instead, so the resolved panel stays NARROW: the positions
+    # panel's own candidate-matching input must never become eligible.
+    chromium_page.set_content("""<html><body>
+<div class="app-shell">
+  <div class="positions-panel">
+    <table>
+      <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open P&L</th></tr></thead>
+      <tbody><tr data-row-id="pos-1"><td>SOLUSD</td><td>Buy</td><td>0.01</td><td>-0.01</td></tr></tbody>
+    </table>
+    <input id="wrong-search" placeholder="Search instruments" type="text">
+  </div>
+  <div class="watchlist-panel">
+    <table>
+      <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
+      <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
+    </table>
+    <input id="watchlist-search" placeholder="Search instruments" type="text">
+  </div>
+</div>
+</body></html>""")
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(chromium_page, "BTCUSD")
+    # If scoping had failed wide, BOTH inputs (identical matching text)
+    # would be eligible and the candidate would be ambiguous -- refused,
+    # not found. Succeeding, with exactly this one candidate, IS the proof
+    # the panel resolved narrow.
+    assert res["searched"] is True
+    assert res["via"] == "text:search"
+    assert chromium_page.input_value("#wrong-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_find_instrument_search_refuses_when_the_panel_also_holds_a_positions_or_orders_shaped_table(chromium_page):
+    # Two Symbol-headed tables in the same resolved panel: refuse, never
+    # treat either as unambiguously "the" watchlist.
+    chromium_page.set_content("""<html><body>
+<div class="mixed-panel">
+  <table>
+    <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
+    <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
+  </table>
+  <table>
+    <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Status</th></tr></thead>
+    <tbody><tr><td>SOLUSD</td><td>Buy</td><td>0.01</td><td>Open</td></tr></tbody>
+  </table>
+  <input id="watchlist-search" placeholder="Search instruments" type="text">
+</div>
+</body></html>""")
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(chromium_page, "BTCUSD")
+    assert res["searched"] is False and res["found"] is False
+    assert "Symbol-headed tables" in res.get("why", "")
+    assert chromium_page.input_value("#watchlist-search") == ""
+
+    # A positions/orders-SHAPED table (no Symbol column of its own) sharing
+    # the same panel as the watchlist -- refuse rather than admit an input
+    # from a panel that also holds trading-position data.
+    chromium_page.set_content("""<html><body>
+<div class="mixed-panel">
+  <table>
+    <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
+    <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
+  </table>
+  <table>
+    <thead><tr><th>Side</th><th>Quantity</th><th>Status</th></tr></thead>
+    <tbody><tr><td>Buy</td><td>0.01</td><td>Open</td></tr></tbody>
+  </table>
+  <input id="watchlist-search" placeholder="Search instruments" type="text">
+</div>
+</body></html>""")
+    res = a.probe_instrument_details(chromium_page, "BTCUSD")
+    assert res["searched"] is False and res["found"] is False
+    assert "positions/orders-shaped" in res.get("why", "")
+    assert chromium_page.input_value("#watchlist-search") == ""
     chromium_page.set_content(DIVGRID.read_text())
 
 
