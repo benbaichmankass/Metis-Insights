@@ -1435,6 +1435,53 @@ def parse_price(text: Optional[str]) -> Optional[float]:
     return float(joined) if re.fullmatch(r"\d+\.\d+", joined) else None
 
 
+#: The watchlist's ROWS, read directly. MEASURED 2026-09-29 (dry run #13898,
+#: run 36507086110): the table carrying the Symbol/Bid/Ask/Change/Chg%/
+#: Description headers has ZERO body rows. The rows live in a separate
+#: header-less table (a virtualised grid), which EXTRACT_TABLES_JS skips, so
+#: every quote read returned None. The rows are the same
+#: ``tr.instrument, tr[data-row-id]`` the ticket opener double-clicks.
+WATCHLIST_ROWS_JS = r"""
+([venue]) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  let headers = null;
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
+    const n = hs.map(norm);
+    if (n.includes('symbol') && n.includes('bid') && n.includes('ask')) { headers = hs; break; }
+  }
+  const want = String(venue || '').toUpperCase();
+  const rows = [...document.querySelectorAll('tr.instrument, tr[data-row-id]')]
+    .map(r => [...r.querySelectorAll('td')].map(txt))
+    .filter(cells => cells.some(c => c.toUpperCase() === want));
+  return {headers, rows: rows.slice(0, 5)};
+}
+"""
+
+#: A quote whose spread is wider than this is not believed (a mis-aligned
+#: column would pair two unrelated numbers).
+MAX_QUOTE_SPREAD_FRAC = 0.02
+
+
+def quote_from_watchlist_rows(got: Mapping[str, Any], venue_symbol: str) -> Optional[Dict[str, float]]:
+    """``{"bid", "ask"}`` from :data:`WATCHLIST_ROWS_JS`'s result, or None.
+
+    The header table and the row table are separate elements, so their
+    alignment is PROVEN per row rather than assumed: the row must have exactly
+    as many cells as there are headers, the cell under "Symbol" must be the
+    venue symbol, 0 < bid <= ask, and the spread must be under
+    :data:`MAX_QUOTE_SPREAD_FRAC`. Anything else is None (could not look)."""
+    headers = list(got.get("headers") or [])
+    if not headers:
+        return None
+    rows = [r for r in (got.get("rows") or []) if len(r) == len(headers)]
+    q = quote_from_tables([{"headers": headers, "rows": rows}], venue_symbol)
+    if q is None or (q["ask"] - q["bid"]) / q["ask"] > MAX_QUOTE_SPREAD_FRAC:
+        return None
+    return q
+
+
 def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Dict[str, Any]:
     """Why :func:`quote_from_tables` found nothing, for the run log. Market
     data only: the headers of every table with a Symbol column, and the raw
@@ -1938,16 +1985,28 @@ class DXtradeAdapter(PropPlatformAdapter):
         return captured
 
     # ---- step 3: order entry (see the ORDER ENTRY block above) ----------
+    def _watchlist_rows(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        try:
+            return page.evaluate(WATCHLIST_ROWS_JS, [venue_symbol]) or {}
+        except Exception as exc:
+            return {"error": type(exc).__name__}
+
     def read_quote(self, page: Any, venue_symbol: str) -> Optional[Dict[str, float]]:
-        """Bid/ask off the watchlist table. Read-only."""
-        return quote_from_tables(self._tables(page), venue_symbol)
+        """Bid/ask off the watchlist. Read-only. A table carrying its own rows
+        first; else the virtualised grid's rows (#13898)."""
+        return (quote_from_tables(self._tables(page), venue_symbol)
+                or quote_from_watchlist_rows(self._watchlist_rows(page, venue_symbol), venue_symbol))
 
     def quote_diagnostics(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
         """Read-only: what the watchlist looked like when no quote parsed."""
         try:
-            return quote_diagnostics(self._tables(page), venue_symbol)
+            out = quote_diagnostics(self._tables(page), venue_symbol)
         except Exception as exc:
-            return {"error": type(exc).__name__}
+            out = {"error": type(exc).__name__}
+        got = self._watchlist_rows(page, venue_symbol)
+        out["watchlist_rows"] = {"headers": got.get("headers"), "error": got.get("error"),
+                                 "rows": [[repr(str(c))[:40] for c in r][:12] for r in got.get("rows") or []]}
+        return out
 
     def read_one_click(self, page: Any) -> Dict[str, Any]:
         """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC:
