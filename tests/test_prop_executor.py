@@ -2097,15 +2097,16 @@ POSITIONS_HEADERS = ["Symbol", "Side", "Size", "Open P&L", "Take profit", "Stop 
 POSITION_ROW = ["SOLUSD", "Buy", "0.01", "\u2014", "120.18", "117.80", "987654321", "118.94", "119.48", "29/09/26 09:27"]
 
 
-def _split_panel(rows, close_html='<button title="Close">\u00d7</button>', headers=None, body=True, cell=False):
+def _split_panel(rows, close_html='<button title="Close">\u00d7</button>', headers=None, body=True, cell=False, tr_attrs=""):
     """``cell=True`` is the LIVE layout measured by #14198: two extra empty
     header columns, and the row's controls in their own trailing
-    ``<td class="sticky--actions-cell">`` rather than inside the date cell."""
+    ``<td class="sticky--actions-cell">`` rather than inside the date cell.
+    ``tr_attrs`` are extra attributes on each body row (a class, a test id)."""
     headers = list(headers or POSITIONS_HEADERS) + (["", ""] if cell else [])
     head = "<table><thead><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr></thead><tbody></tbody></table>"
     tail = (lambda r: f"<td>{r[-1]}</td><td></td><td class=\"sticky--actions-cell\">{close_html}</td>") if cell \
         else (lambda r: f"<td>{r[-1]} {close_html}</td>")
-    trs = "".join("<tr data-row-id='%d'>" % i + "".join(f"<td>{c}</td>" for c in r[:-1])
+    trs = "".join("<tr data-row-id='%d' %s>" % (i, tr_attrs) + "".join(f"<td>{c}</td>" for c in r[:-1])
                   + tail(r) + "</tr>" for i, r in enumerate(rows, 1))
     body_t = f"<table><tbody>{trs}</tbody></table>" if body else ""
     return f'<div class="panel"><div data-active="true">Positions</div>{head}{body_t}</div>'
@@ -2203,7 +2204,7 @@ def _close_modal_html(heading="Close SOLUSD Buy Position", lots="0.01", caption=
 </div>"""
 
 
-def _close_page(row=POSITION_ROW, icons=None, modal=None, chart_x=True, cell=False):
+def _close_page(row=POSITION_ROW, icons=None, modal=None, chart_x=True, cell=False, tr_attrs=""):
     icons = icons if icons is not None else (
         '<button title="Reverse" onclick="window.__reverse=1">⇄</button>'
         '<button title="Modify" onclick="window.__modify=1">✎</button>'
@@ -2213,7 +2214,8 @@ def _close_page(row=POSITION_ROW, icons=None, modal=None, chart_x=True, cell=Fal
     chart = ('<div class="chart"><canvas width="300" height="200"></canvas>'
              '<button style="position:absolute;left:50px;top:50px" title="Close" onclick="window.__chart_x=1">✕</button></div>'
              if chart_x else "")
-    return (TICKET_PAGE % "").replace("</body>", _CLOSE_CSS + chart + _split_panel([row], close_html=close_html, cell=cell)
+    return (TICKET_PAGE % "").replace("</body>", _CLOSE_CSS + chart
+                                      + _split_panel([row], close_html=close_html, cell=cell, tr_attrs=tr_attrs)
                                       + modal + "</body>")
 
 
@@ -2409,6 +2411,58 @@ def test_watched_close_refuses_a_close_nested_in_or_under_another_control(tpage,
     assert got["ok"] is False and got["clicked"] is False and expect in got["why"], got
     assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
     assert p.evaluate("document.getElementById('cm').style.display") == "none"     # the modal never opened
+
+
+_CLOSE_BTN = '<button class="b" onclick="document.getElementById(\'cm\').style.display=\'block\'"><svg class="icon icon-close"/></button>'
+
+
+@pytest.mark.parametrize("wrap", [
+    '<div class="wrap" onclick="window.__reverse=1">%s</div>',                        # [onclick]
+    '<div class="wrap" role="menuitem" tabindex="0" onclick="window.__reverse=1">%s</div>',   # role=menuitem + tabindex
+    '<span class="wrap" role="link" onclick="window.__reverse=1">%s</span>',           # role=link
+    '<div class="wrap" tabindex="0">%s</div>',                                          # a focusable box, no attribute handler
+    '<div class="wrap" role="option" onclick="window.__reverse=1">%s</div>',           # role=option
+    '<label class="wrap" onclick="window.__reverse=1">%s</label>',                     # label
+    '<details open><summary class="wrap" onclick="window.__reverse=1">%s</summary></details>',   # summary
+])
+def test_watched_close_refuses_a_close_under_any_clickable_ancestor(tpage, wrap):
+    # REGRESSION (review of #14216, round 4), ARMED: the click would bubble to
+    # a neutral-named wrapper that takes clicks without being a button / link
+    p = tpage(html=_close_page(icons=wrap % _CLOSE_BTN, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and "nested in another pressable" in got["why"], got
+    assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+    assert p.evaluate("document.getElementById('cm').style.display") == "none"
+
+
+def test_watched_close_refuses_an_input_button_as_the_close_control(tpage):
+    # an <input type=button|submit> can hold no children, so it can never be an
+    # ancestor; as the close-named control itself it is not a pressable we press
+    icons = '<input type="button" class="icon-close" value="" onclick="window.__closed=1">'
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    # (the outermost non-container left is the cell holding it, or the input itself: neither is pressed)
+    assert got["ok"] is False and got["clicked"] is False and "not a button (" in got["why"], got
+    assert _nothing_pressed(p)
+
+
+def test_watched_close_why_is_masked_and_a_row_class_like_editable_does_not_refuse(tpage):
+    ad = DXtradeAdapter(timeout_ms=3_000)
+    # the reviewer's probe: a row carrying a test id; a class token "edit" on the row
+    # makes it a reverse / modify ancestor, and the refusal must not quote the id
+    p = tpage(html=_close_page(icons=_CLOSE_BTN, cell=True, tr_attrs='class="row edit-mode" data-test-id="pos-7788991"'))
+    got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and "qualified ancestor" in got["why"], got
+    assert "7788991" not in got["why"] and "#####" in got["why"] and _nothing_pressed(p)
+    # a row class "editable" / "swappable" is a WORD, not the token edit / swap:
+    # the ancestor rule reads by word, so such a row is not refused
+    p = tpage(html=_close_page(icons=_CLOSE_BTN, cell=True, tr_attrs='class="editable swappable" data-test-id="pos-7788991"'))
+    got = ad.flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["chosen"] == 0, got
+    # a located-row refusal that quotes the terminal is masked as well
+    p = tpage(html=_close_page(icons=_CLOSE_BTN, cell=True))
+    got = ad.flatten(p, "ETHUSD", arm=True, side="long", quantity=0.01)
+    assert got["ok"] is False and "found 0" in got["why"]
 
 
 def test_watched_close_hint_is_masked_for_the_log(tpage):

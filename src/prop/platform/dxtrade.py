@@ -1672,15 +1672,32 @@ CLOSE_ROW_JS = r"""
       // control, so it is never pressed. And every ancestor up to the row
       // is read by its own attributes: a reverse / modify / qualified name
       // on the way up disqualifies, whatever the chosen element says.
-      const outer = c.parentElement ? c.parentElement.closest(PRESS) : null;
+      // Anything CLICKABLE above the chosen control counts as an outer control
+      // (review of #14216, round 4: a <div onclick>, a role=menuitem with a
+      // tabindex, a role=link span all received the bubbled click): the
+      // pressables plus every attribute-visible way an element takes a
+      // click. A React / framework handler leaves NO attribute, so this
+      // cannot see every clickable ancestor — the ancestor-NAME check below
+      // (a reverse / modify / qualified name anywhere up to the row) stays
+      // the main defence, and the modal read-back the last one.
+      const CLICKY = PRESS + ', [onclick], [tabindex]:not([tabindex="-1"]), [role=link], [role=menuitem], [role=option], '
+        + 'input[type=button], input[type=submit], summary, label';
+      const outer = c.parentElement ? c.parentElement.closest(CLICKY) : null;
       const ancestors = []; for (let a = c.parentElement; a && a !== row.parentElement; a = a.parentElement) ancestors.push(a);
       const ancestorParts = ancestors.flatMap(a => [
         norm([attr(a, 'title'), attr(a, 'aria-label')].filter(Boolean).join(' ')),
         norm(tokens([attr(a, 'class'), attr(a, 'href'), attr(a, 'xlink:href'), attr(a, 'data-icon'), attr(a, 'data-test-id'), attr(a, 'name')]
           .filter(Boolean).join(' ')))].filter(Boolean));
-      const badAncestor = ancestorParts.find(s => BAD_RE.test(s) || QUAL_RE.test(s));
+      // Ancestors are read by WORD (the row itself is one of them, and a row
+      // class such as "editable" or "swappable" must not refuse every row);
+      // the chosen control keeps the substring rule.
+      const ANCESTOR_BAD_RE = /(^|\s)(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)(\s|$)/i;
+      const badAncestor = ancestorParts.find(s => ANCESTOR_BAD_RE.test(s) || QUAL_RE.test(s));
+      // Bound for a public log (round 4: a data-test-id "pos-<id>" on the row
+      // reached `why`): digit runs of 5+ and hex runs of 8+ masked here too.
+      const maskText = s => (s || '').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########');
       if (outer && row.contains(outer)) why = 'close control nested in another pressable (' + outer.tagName.toLowerCase() + ')';
-      else if (badAncestor) why = 'close control sits under a reverse / modify / qualified ancestor ("' + badAncestor.slice(0, 40) + '")';
+      else if (badAncestor) why = 'close control sits under a reverse / modify / qualified ancestor ("' + maskText(badAncestor).slice(0, 40) + '")';
       else if (!inRow) why = 'the close control is not boxed inside its row';
       else if (nearCanvas) why = 'the close control sits beside a canvas';
       else { c.setAttribute('data-metis-row-action', '1'); chosen = closeIdx[0]; }
@@ -1732,11 +1749,6 @@ def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
     hex / uuid runs of 8+ and data-*id values masked — a position id may be
     any of those (review of #14216: a hex or UUID id survives ``\\d{5,}``).
     The JS already masks; this is the belt on top of it."""
-    def mask(s: str) -> str:
-        s = redact_text(s)
-        s = re.sub(r'(data-[\w-]*id[\w-]*=")[^"]*(")', r"\1#####\2", s, flags=re.I)
-        return re.sub(r"[0-9a-f]{8,}", "########", re.sub(r"\d{5,}", "#####", s), flags=re.I)
-
     out: List[Dict[str, Any]] = []
     for c in controls or []:
         c = dict(c) if isinstance(c, Mapping) else {"hint": str(c)}
@@ -1744,9 +1756,20 @@ def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
         # #14216: a data-test-id "close-<positionid>" would reach the log).
         for key in ("html", "hint"):
             if c.get(key) is not None:
-                c[key] = mask(str(c[key]))
+                c[key] = _mask_public_text(str(c[key]))
         out.append(c)
     return out
+
+
+def _mask_public_text(s: Any) -> str:
+    """Text bound for a PUBLIC log (a refusal reason that quotes a row's
+    attributes, a control's markup or hint): ``redact_text`` first, then
+    ``data-*id`` values, digit runs of 5+ and hex / uuid runs of 8+ masked
+    (review of #14216, round 4: a data-test-id "pos-<id>" on the row reached
+    the ``why`` string unmasked)."""
+    t = redact_text(str(s if s is not None else ""))
+    t = re.sub(r'(data-[\w-]*id[\w-]*=")[^"]*(")', r"\1#####\2", t, flags=re.I)
+    return re.sub(r"[0-9a-f]{8,}", "########", re.sub(r"\d{5,}", "#####", t), flags=re.I)
 
 
 def parse_price(text: Optional[str]) -> Optional[float]:
@@ -3025,7 +3048,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"locate failed ({type(exc).__name__})"}
         if not loc.get("ok"):
-            return {"ok": False, "clicked": False, "why": loc.get("why") or "row not located", "rows": loc.get("rows")}
+            return {"ok": False, "clicked": False, "why": _mask_public_text(loc.get("why") or "row not located"), "rows": loc.get("rows")}
         facts = loc.get("facts") or {}
         bad = _row_facts_mismatch(facts, side, quantity, entry_price, rel_tol)
         if bad:
@@ -3038,7 +3061,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"hover / controls failed ({type(exc).__name__})", "row": facts}
         if not ctl.get("ok"):
-            return {"ok": False, "clicked": False, "why": f"close control: {ctl.get('why')}", "row": facts,
+            return {"ok": False, "clicked": False, "why": _mask_public_text(f"close control: {ctl.get('why')}"), "row": facts,
                     "controls": _mask_controls(ctl.get("controls"))}
         if not arm:
             return {"ok": True, "clicked": False, "why": "disarmed: stopped before the row's close control",
@@ -3056,7 +3079,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         bad = _close_modal_mismatch(modal, symbol, side, quantity if quantity is not None else _f_or_none(facts.get("size")))
         if bad:
             discarded = self._discard_modal(page)
-            return {"ok": False, "clicked": True, "why": "close modal refused: " + "; ".join(bad) + (
+            return {"ok": False, "clicked": True, "why": _mask_public_text("close modal refused: " + "; ".join(bad)) + (
                 "; Discard pressed" if discarded else "; no Discard control found (modal may still be open)"),
                     "row": facts, "modal": modal}
         try:
