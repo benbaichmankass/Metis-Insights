@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "FIX-SA-11 (audit docs/audits/system-audit-2026-09-29.md, SA-AUD-5-restart-pending-false-positive + SA-AUD-5-status-git-sha-is-disk-not-process), dispatched by the manager. Read-only observability: /api/diag/version restart_pending is now computed from the runtime-path diff (same non-runtime filter as deploy_pull_restart.sh; None when the diff cannot be read) and runtime_status.json gains git_sha_running/git_sha_on_disk beside the unchanged git_sha. No order path, no strategy config, no risk cap, no account mode. NOTE FOR THE MERGER: any src/ change on main makes ict-git-sync run deploy_pull_restart.sh, which restarts ict-trader-live and ict-web-api as it does for every runtime PR; this PR issues no restart of its own."
+}

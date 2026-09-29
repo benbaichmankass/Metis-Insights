@@ -1,0 +1,1 @@
+FIX-SA-11 Tier 1 read-only diag/status fields; tests/test_diag_version_reports_running_sha.py 9 passed locally
