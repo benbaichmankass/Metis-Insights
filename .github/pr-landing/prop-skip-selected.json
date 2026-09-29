@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR in this lane is held; the manager merges. Do not arm auto-merge.",
+  "why": "PROP-EXEC fix-forward #6. Dry run #13953 (04:45Z, code_sha dcc0c883a includes #13946) named the failing step: 'side click'. Page.click on the uniquely-resolved BUY button (data-test-id=BUY) timed out at 'attempting click action - waiting', and the 400-char cap cut Playwright's reason off. BUY and Market were already selected (colour reader). (1) Side and order-type buttons are clicked only when the form does not already show them selected; the read-back still verifies both. (2) Refusal reasons keep the head and the tail of Playwright's call log, where the reason is. A replica with an overlay swallowing clicks on the already-selected BUY fails on main and passes here. Nothing was submitted. Tier 2: order-entry clicks on a funded prop account; no sizing, guard or risk change."
+}
