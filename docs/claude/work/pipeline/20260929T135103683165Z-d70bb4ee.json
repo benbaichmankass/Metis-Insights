@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-30",
+    "kind": "date"
+  },
+  "id": "PI-20260929-AQRK6CL1-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1; #14180 job 109425165343, #14087 guards",
+    "rerun": "python3 scripts/ci/check_mandate_autoland.py --self-test; grep -n 'TemporaryDirectory\\|gc.auto' scripts/ci/check_mandate_autoland.py"
+  },
+  "state": "queued",
+  "what": "scripts/ci/check_mandate_autoland.py --self-test intermittently exits 1 in CI with OSError [Errno 39] Directory not empty: 'objects' during TemporaryDirectory cleanup (git gc/maintenance still writing .git/objects in the scratch repo). Turned #14180 (pytest-run, job 109425165343) and #14087 (guards) red on diffs that do not touch it. Fix: TemporaryDirectory(ignore_cleanup_errors=True) at the self_test/_case sites and gc.auto=0 + maintenance.auto=false in _base_repo. SA-SEC asked to port it in #14180."
+}
