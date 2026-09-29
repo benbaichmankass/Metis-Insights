@@ -172,3 +172,66 @@ def test_cancel_pass_reaches_the_held_stop_directly():
     deleted = sorted(p for m, p in venue.calls if m == "DELETE")
     assert deleted == [f"/v2/orders/{_TP_LEG['id']}", f"/v2/orders/{_SL_LEG['id']}"]
     assert outcome.accepted == 2
+
+
+# ---------------------------------------------------------------------------
+# REVIEW-14123: the closed-order scan is PAGED; a truncated scan is None.
+# ---------------------------------------------------------------------------
+from src.units.accounts import alpaca_client as _ac  # noqa: E402
+
+
+def _filler(i):
+    """A closed, unrelated order (a filled plain market sell) — page padding."""
+    return {"id": f"ffffffff-0000-4000-8000-{i:012d}", "symbol": "QQQ",
+            "order_class": "simple", "type": "market", "side": "sell",
+            "qty": "1", "status": "filled",
+            "submitted_at": f"2026-09-28T15:{(59 - i // 60) % 60:02d}:{59 - i % 60:02d}.000000Z",
+            "legs": None}
+
+
+class _PagedVenue(AlpacaClient):
+    def __init__(self, open_rows, pages):
+        self.open_rows, self.pages, self.calls = open_rows, list(pages), []
+
+    def _request(self, method, path, json_body=None):  # type: ignore[override]
+        self.calls.append((method, path))
+        if "status=open" in path:
+            return {"retCode": 0, "result": self.open_rows}
+        if "status=closed" in path:
+            return {"retCode": 0, "result": self.pages.pop(0) if self.pages else []}
+        return {"retCode": 500, "retMsg": "unrouted"}
+
+
+def test_parent_on_the_second_page_is_found(monkeypatch):
+    monkeypatch.setattr(_ac, "_FILLED_PARENT_SCAN_PAGE", 3)
+    full = [_filler(i) for i in range(3)]
+    older = dict(_FILLED_BRACKET, submitted_at="2026-09-20T15:03:36.000000Z")
+    v = _PagedVenue(_OPEN_AFTER_BRACKET_FILL, [full, [older]])
+    st = v.protection_state("QQQ")
+    assert st["stop"] is True
+    closed = [p for _m, p in v.calls if "status=closed" in p]
+    assert len(closed) == 2 and "until=" in closed[1] and "until=" not in closed[0]
+
+
+def test_truncated_history_is_could_not_look_never_no_stop(monkeypatch):
+    monkeypatch.setattr(_ac, "_FILLED_PARENT_SCAN_PAGE", 3)
+    monkeypatch.setattr(_ac, "_FILLED_PARENT_SCAN_MAX_PAGES", 2)
+    pages = [[_filler(i) for i in range(3)], [_filler(i) for i in range(3, 6)]]
+    v = _PagedVenue(_OPEN_AFTER_BRACKET_FILL, list(pages))
+    assert v.protection_state("QQQ") is None
+    v.pages = list(pages)
+    assert v.protection_coverage("QQQ", position={"qty": "54", "side": "long"}) is None
+
+
+def test_a_short_page_ends_the_scan_in_one_call():
+    v = _PagedVenue(_OPEN_AFTER_BRACKET_FILL, [[_FILLED_BRACKET]])
+    assert v.protection_state("QQQ")["stop"] is True
+    assert sum(1 for _m, p in v.calls if "status=closed" in p) == 1
+
+
+def test_until_is_nudged_past_the_oldest_stamp():
+    nxt = _ac._oldest_submitted_at([
+        {"submitted_at": "2026-09-28T15:10:26.361604Z"},
+        {"submitted_at": "2026-09-27T09:33:30.530109Z"},
+    ])
+    assert nxt == "2026-09-27T09:33:30.530110Z"
