@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register: records the manager handoff (session_01KAQRJxRbRwpYTkPgBjNVyQ -> session_01HYq6XtfesZ57VyaQrK6CL1), adds rows for three untracked lanes (RQ-RUN, ML-REVIEW, CA-VERIFY) and corrects four stale in_flight rows whose PRs merged, on docs/claude/work/MANAGER-CHECKLIST.json (docs-only, TIER1_SURFACE)."
+}
