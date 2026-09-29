@@ -1,6 +1,6 @@
 id: RQ-20260928-005
 title: M19 S2-exit — does the walk-forward exit head recover net R on the ict_scalp 15m family, or only on trend_donchian?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -157,3 +157,21 @@ last_dispatched_at: '2026-09-28T11:06:10+00:00'
 result: >-
   GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
   DISPOSITION: stays queued -- 1 of 3 legs landed; the other two were dispatched token-free on 2026-09-28 ~18:18Z. Landed: research/results/RQ-20260928-005/36413623634.jsonl, ict_scalp/SOLUSDT 15m, n_oos=108: FAIL on RULE-EXIT-HEAD-CLEARS-BAR (OOS AUC 0.5348, mean net-R improvement -0.0963/trade, cost_basis net_venue_bps 10.5). Under this unit's own rule that is recovered_R_oos <= 0 on one leg with n >= 64. XRPUSDT (research-exit-head-build run 36464183831) and ETHUSDT (run 36464257723) were dispatched by lane RQ-RUN with research_unit=RQ-20260928-005; their records land under research/results/RQ-20260928-005/ and the rule (2 of 3 / 1 of 3 / 0 of 3) is graded once all three rows exist.
+grading:
+  graded_at: '2026-09-29'
+  graded_by: lane M19-S2EXIT (session_01Um3DdFoaFgrhnEfcJRwVAK, manager session_01HYq6XtfesZ57VyaQrK6CL1)
+  verdict: indeterminate
+  record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-20260929.jsonl
+  disposition: >-
+    All three legs had landed (SOL 36413623634 n=108, XRP 36464183831 n=107,
+    ETH 36464257723 n=97; pooled 5-fold OOS, MEASURED). Every leg is negative:
+    recovered_R pooled -10.40 / -13.69 / -3.42 R. But the rule registered the
+    FINAL fold's n_oos against a floor of 64, and the instrument
+    (analyze_exit_head.py) pools 5 folds with a 12-bar embargo and emits no
+    per-fold n. With ~20 trades per fold on average, a final fold at n>=64 is
+    not plausible (INFERRED). Under the n-floor branch (never lower the floor)
+    the unit reads indeterminate. Read on the pooled population it is the FAIL
+    branch (0 of 3 legs > 0): exit head donchian-specific, exit line exhausted
+    for ict_scalp unless the donchian pass replicates. Which reading binds is
+    the manager's call; no rule was rewritten here. No consequence applied
+    beyond recording (the FAIL consequence is narrative, not a queue kill).
