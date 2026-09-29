@@ -12376,7 +12376,7 @@ def _sweep_exit_label_from_bracket_order(
                 wconn = db.connect()
                 try:
                     cur = wconn.execute(
-                        "UPDATE trades SET exit_reason = ?, notes = ? "
+                        "UPDATE trades SET exit_reason = ?, notes = ? "  # writer-conformance: allow conditional relabel; update_trade cannot guard its WHERE (REVIEW-14106 a) and does no normalisation for exit_reason/notes
                         " WHERE id = ? "
                         f"  AND COALESCE(exit_reason, '') IN ({placeholders})",
                         (leg, dump_capped(notes, 500), int(row["id"]),

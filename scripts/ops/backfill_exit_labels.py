@@ -330,7 +330,8 @@ def _self_test() -> int:
     ck("short mid-range", classify("short", 98.0, 105.0, 90.0), None)
     ck("unknown direction", classify("", 90.0, 95.0, 110.0), None)
     ck("no levels", classify("long", 90.0, None, None), None)
-    F = lambda *xs: [{"order_id": o, "qty": q} for o, q in xs]
+    def F(*xs):
+        return [{"order_id": o, "qty": q} for o, q in xs]
     ck("order id: last exit fill on the stop",
        bracket_leg("s1", "t1", F(("s1", 10)), 10), "sl")
     ck("order id: target filled whole position, sibling fill after",
