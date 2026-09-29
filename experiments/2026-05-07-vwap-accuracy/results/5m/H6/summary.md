@@ -1,16 +1,16 @@
-# H6 — Stacked best (top-2 by Sharpe): **anchored_vwap** + **htf_soft** (mode=anchored)
+# H6 — Stacked best (top-2 by Sharpe): **htf_soft** + **slope_filter** (mode=rolling)
 
 Per-candidate ranking (≥100 trades qualifies):
-- **anchored_vwap**: sharpe=+2.16 win=20.99% trades=991 E[R]=+0.1702
-- **slope_filter**: sharpe=+1.01 win=28.63% trades=227 E[R]=+0.1269
-- **htf_soft**: sharpe=+1.25 win=33.63% trades=113 E[R]=+0.2160
-- **rsi_conf**: sharpe=+0.68 win=28.22% trades=241 E[R]=+0.0812
-- **vol_spike**: sharpe=+1.09 win=30.17% trades=179 E[R]=+0.1564
+- **anchored_vwap**: sharpe=+0.81 win=19.23% trades=988 E[R]=+0.0615
+- **slope_filter**: sharpe=+1.42 win=30.14% trades=209 E[R]=+0.1890
+- **htf_soft**: sharpe=+1.62 win=36.89% trades=103 E[R]=+0.2938
+- **rsi_conf**: sharpe=+1.27 win=29.96% trades=227 E[R]=+0.1606
+- **vol_spike**: sharpe=+1.19 win=30.00% trades=170 E[R]=+0.1774
 
 | metric | baseline | variant | Δ |
 |---|---|---|---|
-| trades | 261 | 525 | +264 (drop -101.1%) |
-| win_rate | 29.12% | 21.33% | -7.79% |
-| expectancy_R | +0.1263 | +0.1726 | +0.0463 |
-| sharpe | +1.08 | +1.59 | +0.51 |
-| max_dd_R | -22.48 | -60.59 | -38.11 |
+| trades | 244 | 95 | -149 (drop 61.1%) |
+| win_rate | 28.69% | 37.89% | +9.21% |
+| expectancy_R | +0.1088 | +0.3270 | +0.2182 |
+| sharpe | +0.90 | +1.72 | +0.82 |
+| max_dd_R | -24.51 | -10.38 | +14.13 |
