@@ -38,9 +38,12 @@ TWO SELF-CHECKS, so a wrong number cannot pass quietly
      of baseline R here must equal `e1_report.json`'s `model_cond[...]` / `actual`
      `net_r` (which `agg` rounds to 2 dp) to within 0.011. Otherwise the leg reads
      `replay_mismatch`, not graded.
-  2. The cost policy must be the harness's: for every fold trade the emitted
+  2. The cost policy must be the harness's: for EVERY fold trade the emitted
      `cost_total_r` is recomputed from the same model with the resolved policy and
-     must agree within 1e-3, else `cost_policy_mismatch`. This is also the first
+     must agree within 1e-3, else `cost_policy_mismatch`. The number of trades
+     actually checked (`n_cost_checked`) must equal `n_oos`; a trade whose emitted
+     cost cannot be recomputed is uncounted, not a zero gap, and any shortfall reads
+     `cost_policy_unverified`. This is also the first
      actual check that the emitted `net_r` is net of the full venue cost stack.
 
 `recovered_r_oos` is UNROUNDED (the trainer's `agg` rounds to 0.01R).
@@ -136,6 +139,7 @@ def replay_fold(trades: Dict[str, List[dict]], probs: Dict[str, Any],
     base = head_gross = head_net = costs = fees = 0.0
     n = n_early = 0
     worst_gap = 0.0
+    n_cost_checked = 0
     missing: List[str] = []
     for tk, bars in trades.items():
         e = emit_by_key.get(tk)
@@ -162,13 +166,14 @@ def replay_fold(trades: Dict[str, List[dict]], probs: Dict[str, Any],
             costs += r["cost_r"]
             fees += r["exit_fee_r"]
         gap = baseline_cost_gap(e, policy)
-        if gap is not None:
+        if gap is not None:                # an underivable trade is NOT a zero gap: it is uncounted
+            n_cost_checked += 1
             worst_gap = max(worst_gap, gap)
     return {"n_oos": n, "n_early_exits": n_early, "join_missing": missing,
             "baseline_net_r": base, "head_gross_r": head_gross, "head_net_r": head_net,
             "recovered_r_oos": head_net - base, "recovered_r_gross": head_gross - base,
             "charged_roundtrip_cost_r": costs, "charged_exit_fee_r": fees,
-            "worst_baseline_cost_gap_r": worst_gap}
+            "worst_baseline_cost_gap_r": worst_gap, "n_cost_checked": n_cost_checked}
 
 
 def replay_leg(round_dir: Path, leg: str, tf: str, expect_year: int) -> Dict[str, Any]:
@@ -236,6 +241,10 @@ def replay_leg(round_dir: Path, leg: str, tf: str, expect_year: int) -> Dict[str
                 or abs(tr_base - out["baseline_net_r"]) > TRAINER_ROUNDING
                 or abs(tr_head - out["head_gross_r"]) > TRAINER_ROUNDING):
             out["state"] = "replay_mismatch"
+        elif out["n_cost_checked"] != out["n_oos"]:
+            # the cost self-check ran on fewer trades than are graded: a trade whose emitted
+            # cost could not be recomputed must not pass as a zero gap
+            out["state"] = "cost_policy_unverified"
         elif out["worst_baseline_cost_gap_r"] > COST_TOL:
             out["state"] = "cost_policy_mismatch"
         else:

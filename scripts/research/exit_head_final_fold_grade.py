@@ -19,8 +19,9 @@ WHAT IT READS, PER LEG: `<round>/<leg>/final_fold_net.json`, written by
   recovered_R_oos = head_net_r - baseline_net_r, UNROUNDED, on the SAME trades
 
 THE PARTITION (RQ-20260928-005's rule with its gaps closed, thresholds unchanged)
-  producer problem on ANY leg (no report, replay failed / mismatched the trainer's
-  own fold, cost policy differs from the harness, incomplete join, wrong fold mode)
+  producer problem on ANY leg (no report, unreadable/corrupt report, replay failed /
+  mismatched the trainer's own fold, cost policy differs from or could not be verified
+  against the harness, incomplete join, wrong fold mode)
                               -> not_applicable  (read_state producer_failed);
                                  NEVER dropped from Q silently
   Q = legs with n_oos >= FLOOR (64); a leg whose final-year fold does not exist
@@ -50,7 +51,7 @@ FLOOR = 64   # RQ-20260928-005 / RQ-20260927-001 power floor; never lowered
 #: States that mean "the producer did not give us a measurement" — distinct from
 #: "we measured and the leg is thin". Both used to be one silent exclusion.
 PRODUCER_STATES = ("no_report", "replay_failed", "replay_mismatch", "cost_policy_mismatch",
-                   "join_incomplete", "wrong_fold_mode", "malformed")
+                   "cost_policy_unverified", "join_incomplete", "wrong_fold_mode", "malformed")
 
 
 def leg_stat(net: Dict[str, Any], leg: str) -> Dict[str, Any]:
@@ -75,6 +76,24 @@ def leg_stat(net: Dict[str, Any], leg: str) -> Dict[str, Any]:
             "n_early_exits": net.get("n_early_exits"),
             "charged_roundtrip_cost_r": net.get("charged_roundtrip_cost_r"),
             "charged_exit_fee_r": net.get("charged_exit_fee_r")}
+
+
+def read_leg(round_dir: Path, leg: str) -> Dict[str, Any]:
+    """Load one leg's `final_fold_net.json` -> its stat. A missing file is `no_report`; a file that
+    is unreadable, not JSON, or not an object is `malformed` — it must never crash the grader and so
+    lose the other legs' results (both are producer problems -> not_applicable)."""
+    p = Path(round_dir) / leg / "final_fold_net.json"
+    if not p.exists():
+        return {"leg": leg, "state": "no_report", "detail": {"missing": str(p)}}
+    try:
+        obj = json.loads(p.read_text())
+    except (OSError, ValueError) as exc:          # JSONDecodeError and UnicodeDecodeError are ValueErrors
+        return {"leg": leg, "state": "malformed",
+                "detail": {"why": f"unreadable final_fold_net.json: {type(exc).__name__}: {exc}"[:200]}}
+    if not isinstance(obj, dict):
+        return {"leg": leg, "state": "malformed",
+                "detail": {"why": f"final_fold_net.json is a {type(obj).__name__}, not an object"}}
+    return leg_stat(obj, leg)
 
 
 def grade(stats: List[Dict[str, Any]], floor: int = FLOOR) -> Dict[str, Any]:
@@ -106,9 +125,7 @@ def main(argv: List[str]) -> int:
     a = ap.parse_args(argv[1:])
     stats: List[Dict[str, Any]] = []
     for leg in a.legs.split(","):
-        p = Path(a.round_dir) / leg / "final_fold_net.json"
-        stats.append(leg_stat(json.loads(p.read_text()), leg) if p.exists()
-                     else {"leg": leg, "state": "no_report", "detail": {"missing": str(p)}})
+        stats.append(read_leg(Path(a.round_dir), leg))
     print(json.dumps(grade(stats), indent=1, sort_keys=True))
     return 0
 

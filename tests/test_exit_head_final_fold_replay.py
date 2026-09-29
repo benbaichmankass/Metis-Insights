@@ -86,6 +86,15 @@ def test_join_gaps_and_a_different_cost_policy_are_visible():
     assert R.baseline_cost_gap({"entry": 1}, POL) is None           # underivable != zero gap
 
 
+def test_underivable_trade_is_uncounted_not_a_zero_gap():
+    trades = {"a": _bars([0.0, 0.1], 0.5), "b": _bars([0.0, 0.1], 0.5)}
+    bad = {k: v for k, v in _emit().items() if k != "cost_total_r"}      # emitted cost missing
+    out = R.replay_fold(trades, {"a": [.9, .9], "b": [.9, .9]}, {"a": _emit(), "b": bad}, POL, 900,
+                        lambda b, p: None)
+    assert out["n_oos"] == 2 and out["n_cost_checked"] == 1               # the shortfall is visible
+    assert out["worst_baseline_cost_gap_r"] < R.COST_TOL                  # ...even though the gap looks fine
+
+
 def test_replay_leg_end_to_end_reproduces_the_trainers_own_fold(tmp_path, monkeypatch):
     """Drive replay_leg through the REAL train_exit_head fold/eval code with a stub booster.
 
@@ -154,6 +163,18 @@ def test_replay_leg_end_to_end_reproduces_the_trainers_own_fold(tmp_path, monkey
     assert out["head_net_r"] < out["head_gross_r"]                     # the head paid for its exits
     assert (rnd / leg / "final_fold_net.json").exists()
     assert R.replay_leg(rnd, leg, "15m", 2027)["state"] == "final_fold_missing"   # no borrowed year
+    # a fold trade whose emitted cost cannot be recomputed must not pass the cost self-check as a
+    # zero gap: it is uncounted, and the leg reads cost_policy_unverified (manager re-review)
+    good_emit = (rnd / "emit" / f"{leg}.jsonl").read_text()
+    lines = good_emit.splitlines()
+    stripped = json.loads(lines[-1])                      # a 2026 (fold) trade
+    stripped.pop("cost_total_r")
+    (rnd / "emit" / f"{leg}.jsonl").write_text("\n".join(lines[:-1] + [json.dumps(stripped)]))
+    unver = R.replay_leg(rnd, leg, "15m", 2026)
+    assert unver["state"] == "cost_policy_unverified", unver
+    assert unver["n_cost_checked"] == unver["n_oos"] - 1
+    (rnd / "emit" / f"{leg}.jsonl").write_text(good_emit)
+    assert R.replay_leg(rnd, leg, "15m", 2026)["n_cost_checked"] == 55       # restored: every trade checked
     # a trainer report that disagrees with the replay must NOT be graded
     res["actual"]["net_r"] += 0.5
     (rnd / leg / "e1_report.json").write_text(json.dumps({"fold_mode": "years", "folds": [res]}))

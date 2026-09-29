@@ -56,3 +56,23 @@ def test_partition_pass_refine_fail_and_floor():
     assert g["verdict"] == "indeterminate" and g["n_legs_graded"] == 2 and g["n_legs_positive"] == 1
     g = G.grade([_ok(63, 9), _ok(62, 9), _ok(100, 1)])
     assert g["verdict"] == "indeterminate" and "underpowered" in g["why"]
+
+
+def test_corrupt_or_non_object_report_is_malformed_and_never_crashes_the_grader(tmp_path):
+    import json
+    for name, body in (("a", "{not json"), ("b", "[1, 2]"), ("c", "\xff\xfe\x00bad")):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "final_fold_net.json").write_bytes(body.encode("latin-1"))
+    (tmp_path / "d").mkdir()
+    (tmp_path / "d" / "final_fold_net.json").write_text(json.dumps(_net(n=80)))
+    stats = [G.read_leg(tmp_path, leg) for leg in "abcd"] + [G.read_leg(tmp_path, "missing")]
+    assert [s["state"] for s in stats] == ["malformed", "malformed", "malformed", "ok", "no_report"]
+    g = G.grade(stats)
+    assert g["verdict"] == "not_applicable" and g["read_state"] == "producer_failed"
+    assert "a=malformed" in g["why"] and "missing=no_report" in g["why"]
+
+
+def test_cost_policy_unverified_is_a_producer_state():
+    assert "cost_policy_unverified" in G.PRODUCER_STATES
+    g = G.grade([{"leg": "a", "state": "cost_policy_unverified"}, _ok(100, 1), _ok(98, 1)])
+    assert g["verdict"] == "not_applicable" and "a=cost_policy_unverified" in g["why"]

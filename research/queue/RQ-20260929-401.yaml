@@ -105,7 +105,10 @@ decision_rule:
     leg unless its replay reproduces the trainer's own fold (gross head sum and
     baseline sum within 0.011R of e1_report.json, same n) -> replay_mismatch, and
     (2) refuses unless the emitted cost_total_r recomputed with the resolved
-    policy agrees within 1e-3R for every fold trade -> cost_policy_mismatch. n_oos
+    policy agrees within 1e-3R for EVERY fold trade -> cost_policy_mismatch, and
+    the number of trades actually checked (n_cost_checked) equals n_oos — a trade
+    whose emitted cost cannot be recomputed is uncounted, never a zero gap ->
+    cost_policy_unverified. n_oos
     = the fold's trades that join to the harness emit (a gap reads
     join_incomplete). The grading is scripts/research/exit_head_final_fold_grade.py
     (committed with this unit, tested). Trade population: the harness at the
@@ -117,9 +120,9 @@ decision_rule:
     used — it cannot reach the floor.
   rule: >-
     Let Q = legs with n_oos >= 64, and P = legs in Q with recovered_R_oos > 0
-    (strictly). IF any leg has a PRODUCER problem (no report, replay crashed,
-    replay_mismatch, cost_policy_mismatch, join_incomplete, wrong fold mode,
-    malformed): verdict not_applicable, read_state producer_failed, the legs named
+    (strictly). IF any leg has a PRODUCER problem (no report, an unreadable or
+    non-object report, replay crashed, replay_mismatch, cost_policy_mismatch,
+    cost_policy_unverified, join_incomplete, wrong fold mode, malformed): verdict not_applicable, read_state producer_failed, the legs named
     — a leg is NEVER silently dropped from Q. A leg whose final-year fold does not
     exist (< 50 test trades) is final_fold_missing = underpowered and is excluded
     from Q; an earlier year never stands in. THEN IF |Q| < 2: verdict
@@ -150,7 +153,13 @@ decision_rule:
     harness parameters are the driver's config-exact ones resolved from
     config/strategies.yaml (m20_fleet_exit_sweep.base_args), NOT the workflow
     inputs time_stop_bars 12 / tp_r 2.0 / exit_threshold 0.5. (6) TP geometry:
-    --tp-cap-pct 0.099 (live parity). (7) Cost method: the head arm is charged
+    --tp-cap-pct 0.099 (live parity). (8) FAIL at |Q| = 2: RQ-20260928-005 wrote FAIL as "recovered_R_oos <= 0 on all
+    three legs with n >= 64" and, when fewer than 3 legs cleared the floor, only
+    that the rule "is applied over the remaining legs" without saying how; here
+    |Q| = 2 with |P| = 0 is a FAIL (2 legs graded, neither positive), |Q| = 2 with
+    |P| = 1 is REFINE, and |Q| < 2 is indeterminate. The thresholds (n >= 64,
+    strictly > 0, 2-of-legs for PASS) are unchanged; only that undefined case is
+    now defined, before the run. (7) Cost method: the head arm is charged
     round-trip cost + exit fee per truncated trade via execution_costs (RQ-005's
     workflow charged an equal flat cost_bps to both arms plus exit_fee_bps on
     early exits — same intent, different arithmetic: here the cost is per trade at
