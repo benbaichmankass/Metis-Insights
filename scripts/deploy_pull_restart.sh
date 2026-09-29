@@ -411,8 +411,14 @@ fi
 # of these three to fire needlessly: the gateway is the component with the
 # wedge history (BL-20260609 / BL-20260709), and a deploy can land inside
 # IBKR's ~03:45-05:45 UTC reset window. Let the timer own it.
+# ict-trainer-disk-alarm.service (FIX-SA-12) is a oneshot owned by
+# ict-trainer-disk-alarm.timer (hourly). A deploy restart would only fire an
+# unscheduled extra check; let the timer own it.
+# ict-notify-failure@<unit>.service instances (FIX-SA-08) are NOT listed here
+# because instance names vary: the restart loop below skips every `@` unit
+# outright, since restarting one would send a bogus "unit FAILED" ping.
 # ---------------------------------------------------------------------------
-DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service ict-exchange-fills-pull.service ict-alpaca-fills-pull.service ict-ib-executions-pull.service ict-prop-feed.service ict-prop-executor.service"
+DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service ict-exchange-fills-pull.service ict-alpaca-fills-pull.service ict-ib-executions-pull.service ict-prop-feed.service ict-prop-executor.service ict-trainer-disk-alarm.service"
 SKIP_LIST="${DEPLOY_RESTART_SKIP:-${DEFAULT_SKIP}}"
 
 # list-units --all surfaces inactive units too; --type=service excludes
@@ -543,6 +549,13 @@ send_deploy_failure_ping() {
 echo ">>> Restarting services (enumeration: ${#ICT_UNITS[@]} ict-* unit(s))..."
 RESTARTED_UNITS=()
 for unit in "${ICT_UNITS[@]}"; do
+    # FIX-SA-08: a template INSTANCE (ict-notify-failure@<failed-unit>.service,
+    # loaded after any OnFailure= fire) is fired only by systemd. Restarting it
+    # runs the notifier for a unit that did not fail. Unlike DEFAULT_SKIP this
+    # cannot be overridden away by DEPLOY_RESTART_SKIP.
+    case "${unit}" in
+        *@*) echo ">>>   skip ${unit} (template instance; fired only by OnFailure=)"; continue;;
+    esac
     skip=0
     for skip_unit in ${SKIP_LIST}; do
         if [ "${unit}" = "${skip_unit}" ]; then
