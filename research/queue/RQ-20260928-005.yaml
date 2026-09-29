@@ -160,33 +160,25 @@ result: >-
 grading:
   graded_at: '2026-09-29'
   graded_by: lane M19-S2EXIT (session_01Um3DdFoaFgrhnEfcJRwVAK, manager session_01HYq6XtfesZ57VyaQrK6CL1)
-  verdict: fail
-  record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-final-fold-2200d.jsonl
-  superseded_record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-20260929.jsonl  # indeterminate; per-fold n was not emitted
+  verdict: indeterminate
+  record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-20260929.jsonl
+  supplementary_record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-supplementary-2200d-non-verdict.jsonl
   disposition: >-
-    All three legs had landed (SOL 36413623634 n=108, XRP 36464183831 n=107,
-    ETH 36464257723 n=97; pooled 5-fold OOS, MEASURED). Every leg is negative:
-    recovered_R pooled -10.40 / -13.69 / -3.42 R. But the rule registered the
-    FINAL fold's n_oos against a floor of 64, and the instrument
-    (analyze_exit_head.py) pools 5 folds with a 12-bar embargo and emits no
-    per-fold n. With ~20 trades per fold on average, a final fold at n>=64 is
-    not plausible (INFERRED). Under the n-floor branch (never lower the floor)
-    the unit reads indeterminate, and that verdict STANDS (manager decision
-    2026-09-29: substituting the pooled CV after seeing the data would defeat
-    pre-registration). The pooled figures (0 of 3 legs positive; recovered R
-    -10.40 / -13.69 / -3.42) are DESCRIPTIVE and non-deciding. Follow-up:
-    analyze_exit_head.py now emits per-fold n_oos and recovered R
-    (exit_policy.by_fold / final_fold); the three legs are re-run with
-    days=2200 to test whether the registered final fold can reach
-    n_oos >= 64. If not: power-limited, one pipeline row, stop.
-  final_disposition: >-
-    FAIL (2026-09-29, registered statistic). analyze_exit_head.py now emits
-    per-fold n_oos and recovered R; re-run on trailing 2200d (runs 36615144815
-    SOL, 36615154335 XRP, 36615157916 ETH). FINAL time-block fold n_oos
-    120 / 96 / 104 (floor 64 met on all three), recovered_R_oos
-    -11.25 / -12.22 / -14.43 -> 0 of 3 legs > 0 -> the FAIL branch: the exit head
-    is donchian-specific on current evidence; S2 is veto + fixed exits; the
-    ict_scalp exit line is exhausted unless the donchian pass replicates on a
-    second split. Disclosed deviations: window 2200d not 365d; embargo 12 bars
-    not 7 days; exit_threshold 0.5 not below_half_r tau 0.10; 5 contiguous
-    blocks not per-year folds. No live change; nothing promoted.
+    REGISTERED VERDICT: indeterminate. At the registered 365d window the final
+    fold holds ~20 trades per leg (5 contiguous blocks over 97-108 pooled
+    trades), so the n_oos >= 64 floor is unreachable; the rule's n-floor branch
+    applies and the floor is not lowered (manager decision 2026-09-29). Pooled
+    5-fold figures (0 of 3 legs positive; -10.40 / -13.69 / -3.42 R) are
+    descriptive and non-deciding.
+  supplementary_evidence: >-
+    NOT A VERDICT. A trailing-2200d re-run (runs 36615144815 SOL, 36615154335
+    XRP, 36615157916 ETH) after per-fold emission was added to
+    analyze_exit_head.py: final-block n_oos 120 / 96 / 104, recovered R
+    -11.25 / -12.22 / -14.43, 0 of 3 legs > 0. Four deviations from the
+    registration: window 2200d (registered 365d); 5 contiguous blocks
+    (registered per-year folds); 12-bar embargo (registered 7 days; biases
+    toward PASS); exit_threshold 0.5 (registered below_half_r tau 0.10 - a
+    different parameter). Changing the window after the 365d run without
+    re-registering is a post-hoc substitution, so it does not stand as this
+    unit's verdict. No consequence is drawn for the ict_scalp exit line.
+    The sample-size fix is registered as a NEW unit before any run.
