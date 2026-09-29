@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane EXIT-CLUSTER (manager session_01HYq6XtfesZ57VyaQrK6CL1, checklist row EXIT-CLUSTER, tier 2). Changes src/runtime/order_monitor.py (the broker-PnL sweep's exit relabel) and src/utils/json_notes.py (the notes cap fallback) on the live trader. Neither touches an order, a size, a mode or a bracket. It changes only which close LABEL is written and keeps provenance keys that were being dropped. Evidence: 77 exchange_flat_reconciled closes since 2026-07-31, 64 at or within 10 bps of a package level (PR body). The manager merges.",
+  "why": "exchange_flat_reconciled closes on Alpaca/IB are broker-side stop/target fills the snapshot reconciler noticed; they are relabelled sl/tp off a MEASURED venue fill, and the notes cap no longer wipes every key (incl. exit_price_source) when a long protected closed_reason overflows 500 chars."
+}

@@ -73,6 +73,12 @@ from src.runtime import provenance as prov  # noqa: E402
 
 GENERIC_REASONS = ("", "reconciler_filled")
 
+# EXIT-CLUSTER (2026-09-29): the position-snapshot reconciler's reason. It is
+# relabelled ONLY off a MEASURED price, and with the same tolerance the live
+# sweep uses for it (order_monitor._SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS).
+SNAPSHOT_FLAT_REASON = "exchange_flat_reconciled"
+SNAPSHOT_FLAT_TOLERANCE_BPS = 10.0
+
 LABEL_SOURCE_BY_BASIS = {
     prov.MEASURED: "price_vs_pkg_bracket",
     prov.ESTIMATED: "price_vs_pkg_bracket_est_price",
@@ -96,25 +102,32 @@ def _notes(raw: Any) -> Dict[str, Any]:
 
 
 def classify(direction: str, exit_price: float,
-             sl: Optional[float], tp: Optional[float]) -> Optional[str]:
+             sl: Optional[float], tp: Optional[float],
+             tolerance_bps: float = 0.0) -> Optional[str]:
     """The SAME conservative inequality as ``_classify_broker_exit``.
 
     Kept as a pure function so the backfill and the live classifier can be
     compared directly; a second, subtly different rule would relabel history to
-    a standard production does not use.
+    a standard production does not use. ``tolerance_bps`` mirrors the live
+    classifier's parameter, including dropping it on a bracket too narrow for
+    the widened levels to stay apart.
     """
     d = (direction or "").lower()
     if d not in ("long", "short"):
         return None
+    tol = max(0.0, float(tolerance_bps or 0.0)) / 10_000.0
+    if tol and sl is not None and tp is not None:
+        if abs(tp - sl) <= tol * (sl + tp):
+            tol = 0.0
     if d == "long":
-        if sl is not None and exit_price <= sl:
+        if sl is not None and exit_price <= sl * (1.0 + tol):
             return "sl"
-        if tp is not None and exit_price >= tp:
+        if tp is not None and exit_price >= tp * (1.0 - tol):
             return "tp"
     else:
-        if sl is not None and exit_price >= sl:
+        if sl is not None and exit_price >= sl * (1.0 - tol):
             return "sl"
-        if tp is not None and exit_price <= tp:
+        if tp is not None and exit_price <= tp * (1.0 + tol):
             return "tp"
     return None
 
@@ -141,8 +154,11 @@ def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
     out = []
     for r in rows:
         stats["scanned"] += 1
-        # Guard 2 — only a row still carrying the GENERIC reason.
-        if str(r["exit_reason"] or "").strip() not in GENERIC_REASONS:
+        # Guard 2 — only a row still carrying the GENERIC reason, or the
+        # snapshot reconciler's "went flat" reason (MEASURED price only, below).
+        reason = str(r["exit_reason"] or "").strip()
+        is_flat = reason == SNAPSHOT_FLAT_REASON
+        if reason not in GENERIC_REASONS and not is_flat:
             stats["skip_has_real_reason"] += 1
             continue
         n = _notes(r["notes"])
@@ -156,7 +172,7 @@ def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
         stats["eligible"] += 1
 
         basis = prov.classify(n.get("exit_price_source"), "exit_price_source")
-        if basis not in LABEL_SOURCE_BY_BASIS:
+        if basis not in LABEL_SOURCE_BY_BASIS or (is_flat and basis != prov.MEASURED):
             stats[f"refused_{basis}"] += 1
             out.append({"id": r["id"], "action": "refuse", "basis": basis,
                         "source": prov.EXIT_LABEL_REFUSED_UNMEASURED,
@@ -165,7 +181,8 @@ def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
 
         sl = _f(r["pkg_sl"]) or _f(r["stop_loss"])
         tp = _f(r["pkg_tp"]) or _f(r["take_profit_1"])
-        resolved = classify(str(r["direction"] or ""), px, sl, tp)
+        resolved = classify(str(r["direction"] or ""), px, sl, tp,
+                            SNAPSHOT_FLAT_TOLERANCE_BPS if is_flat else 0.0)
         if resolved:
             stats[f"relabel_{resolved}_{basis}"] += 1
             out.append({"id": r["id"], "action": "relabel", "basis": basis,
@@ -220,6 +237,17 @@ def _self_test() -> int:
     ck("short mid-range", classify("short", 98.0, 105.0, 90.0), None)
     ck("unknown direction", classify("", 90.0, 95.0, 110.0), None)
     ck("no levels", classify("long", 90.0, None, None), None)
+    # Real row 5766 (alpaca_portfolio TLT short): the stop filled at 81.19,
+    # the package stop is 81.19321429. Strict says between; 10 bps says sl.
+    ck("strict misses a cent-rounded stop",
+       classify("short", 81.19, 81.19321429, 73.1612), None)
+    ck("tolerance catches it",
+       classify("short", 81.19, 81.19321429, 73.1612, 10.0), "sl")
+    # Real row 5364 (alpaca_paper USO long): 42 bps inside the stop stays out.
+    ck("tolerance does not reach mid-range",
+       classify("long", 139.17684, 138.58857143, 151.83285714, 10.0), None)
+    ck("narrow bracket drops the tolerance",
+       classify("long", 100.0, 99.95, 100.05, 10.0), None)
     # The basis gate — the control this script exists for.
     ck("markprice is fabricated",
        prov.classify("local_markprice", "exit_price_source") in LABEL_SOURCE_BY_BASIS,

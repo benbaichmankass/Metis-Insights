@@ -6619,8 +6619,35 @@ _EXIT_LABEL_SOURCE_BY_BASIS: Dict[str, str] = {
 }
 
 
+#: The position-snapshot reconciler's close reason. It says HOW the close was
+#: noticed (the venue reported the symbol flat), never WHY the position ended.
+_SNAPSHOT_FLAT_REASON = "exchange_flat_reconciled"
+
+#: Tolerance (bps of the level) for classifying an ``exchange_flat_reconciled``
+#: close against its package bracket. It applies ONLY to that reason and only
+#: to a MEASURED exit price. The reconciler_filled path keeps the strict
+#: inequality (tolerance 0).
+#:
+#: Why a tolerance exists at all: Alpaca brackets are sent with the level
+#: rounded to the cent (``alpaca_client.py`` ``f"{float(sl):.2f}"``), and a
+#: stop-market fill may print a few cents better than its trigger. So a genuine
+#: stop fill can sit just INSIDE the unrounded package level, and the strict
+#: inequality returns "between".
+#:
+#: Why 10: MEASURED 2026-09-29 (EXIT-CLUSTER) over the 77 closed non-backtest
+#: ``exchange_flat_reconciled`` rows with ``closed_at`` >= 2026-07-31, each
+#: matched to its venue exit fill in ``/api/bot/pnl/exchange/fills`` (74
+#: matched). 48 are at or through a level. 26 are strictly between, and they
+#: split with a gap: 16 lie within 0.0-8.3 bps of a level, and the next one is
+#: 42.4 bps away. 10 bps sits inside that gap. Re-run:
+#: ``scripts/research/realized_slippage.py pull`` then compare exit to
+#: ``order_packages.sl``/``tp`` per row.
+_SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS = 10.0
+
+
 def _classify_broker_exit(
     db, row: Dict[str, Any], exit_price: Any, *, is_reduce_leg: bool = False,
+    tolerance_bps: float = 0.0,
 ) -> Optional[str]:
     """Classify a reconciler-finalised broker close as 'sl' or 'tp'.
 
@@ -6647,6 +6674,13 @@ def _classify_broker_exit(
     Anything strictly between the bracket levels returns ``None`` → the caller
     keeps ``reconciler_filled`` (a genuine non-bracket close — the real
     "flag it" residue). Best-effort; never raises.
+
+    ``tolerance_bps`` (default 0, the strict rule above) widens each level
+    toward the inside of the bracket by that many bps of the level. Only the
+    ``exchange_flat_reconciled`` path passes a non-zero value; see
+    ``_SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS``. The tolerance is dropped when the
+    bracket is too narrow for both widened levels to stay apart, so one price
+    can never match both.
     """
     if is_reduce_leg:
         return None
@@ -6685,15 +6719,20 @@ def _classify_broker_exit(
         sl = None
     if not (tp and tp > 0):
         tp = None
+    tol = max(0.0, _safe_float(tolerance_bps) or 0.0) / 10_000.0
+    if tol and sl is not None and tp is not None:
+        # Keep the widened levels apart: a price must never match both.
+        if abs(tp - sl) <= tol * (sl + tp):
+            tol = 0.0
     if direction == "long":
-        if sl is not None and px <= sl:
+        if sl is not None and px <= sl * (1.0 + tol):
             return "sl"
-        if tp is not None and px >= tp:
+        if tp is not None and px >= tp * (1.0 - tol):
             return "tp"
     else:  # short
-        if sl is not None and px >= sl:
+        if sl is not None and px >= sl * (1.0 - tol):
             return "sl"
-        if tp is not None and px <= tp:
+        if tp is not None and px <= tp * (1.0 + tol):
             return "tp"
     return None
 
@@ -11536,6 +11575,42 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
                     )
                     if _resolved:
                         _reclassified = _resolved
+                elif _current_reason == _SNAPSHOT_FLAT_REASON:
+                    # EXIT-CLUSTER (2026-09-29, PI-20260924-BOFCWBO7-0001).
+                    # The position-snapshot reconciler (Alpaca / IB / OANDA)
+                    # writes this reason when the venue reports the symbol
+                    # flat. On Alpaca and IB the bracket rests AT THE BROKER, so
+                    # a stop or target that fires there is only noticed by this
+                    # reconciler, and the close was recorded as "went flat"
+                    # rather than as the stop or target it was. MEASURED over the
+                    # 77 such closes since 2026-07-31: 64 exit at a package level
+                    # or within 10 bps of one (see
+                    # _SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS).
+                    #
+                    # MEASURED prices only. This path is broker truth by
+                    # construction, but the check is explicit so a future record
+                    # source that is not a fill can never mint a label.
+                    from src.runtime import provenance as _prov
+                    _basis = _prov.classify(
+                        notes.get("exit_price_source"), "exit_price_source",
+                    )
+                    if _basis == _prov.MEASURED:
+                        _resolved = _classify_broker_exit(
+                            db, row, avg_exit_price, is_reduce_leg=_is_reduce,
+                            tolerance_bps=_SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS,
+                        )
+                        notes["exit_reason_source"] = (
+                            "price_vs_pkg_bracket" if _resolved else "unresolved"
+                        )
+                        if _resolved:
+                            _reclassified = _resolved
+                            # Keep how the close was DETECTED; the label now
+                            # says why the position ended.
+                            notes["pre_label_exit_reason"] = _SNAPSHOT_FLAT_REASON
+                    else:
+                        notes["exit_reason_source"] = (
+                            _prov.EXIT_LABEL_REFUSED_UNMEASURED
+                        )
             except Exception as exc:  # noqa: BLE001 — never lose the price write
                 logger.warning(
                     "_sweep_pending_pnl_from_bybit: exit re-classification "
