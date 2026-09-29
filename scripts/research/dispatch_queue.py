@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -235,6 +236,45 @@ def dispatch_inputs(entry: Dict[str, Any], *, power_state: str = "",
 # the next cycle exactly as if it had never been looked at.
 DEFERRED = "deferred"
 
+# ── same-workflow serialization (PI-20260929-RQRUN-E35CORPUS-0001) ─────────
+# MEASURED 2026-09-29 00:53Z: one cycle fired three e35-bracket-sweep units.
+# e35-bracket-sweep.yml declares `concurrency: {group: e35-bracket-sweep,
+# cancel-in-progress: false}`, and GitHub keeps ONE pending run per group, so
+# the third dispatch CANCELLED the second (RQ-20260928-017 ran nothing, stayed
+# stamped, and would never have re-fired). The two survivors then each
+# rewrote docs/research/e35-bracket-corpus.jsonl from their own checkout and
+# their landing PRs (#13910, #13801) stranded CONFLICTING. m20-exit-lever-
+# sweep has no group but the same whole-file corpus rewrite. So a cycle fires
+# at most `--max-fires-per-workflow` unit(s) per workflow FILE; the rest are
+# DEFERRED to the next cycle, unstamped. Only workflows that can collide are
+# serialized (see serialized_workflow()): a per-run or per-unit concurrency
+# group -- the harness dispatcher, the exit-head build, the token-free runner
+# whose results land in ONE batch PR -- fans out as before.
+#: Workflows whose runs collide even without a constant concurrency group:
+#: they rewrite a whole corpus file and land it via commit-to-main.
+SERIALIZED_WORKFLOWS = frozenset({"e35-bracket-sweep.yml", "m20-exit-lever-sweep.yml",
+                                  "macro-valuation-backfill.yml"})
+_CONCURRENCY_GROUP_RE = re.compile(r"^concurrency:\s*\n(?:[ \t]+.*\n)*?[ \t]+group:[ \t]*(.+?)[ \t]*$", re.M)
+
+
+def serialized_workflow(wf_file: str, repo: Path = _REPO) -> bool:
+    """Should the dispatcher fire at most one unit of this workflow per cycle?
+    Yes when it is a known corpus rewriter (SERIALIZED_WORKFLOWS) or its file
+    declares a CONSTANT `concurrency.group` (no `${{ ... }}`), because GitHub
+    keeps one pending run per group and cancels the rest. A per-run group
+    (`${{ github.run_id }}`, a per-unit input) never cancels, so those
+    workflows -- the harness dispatcher, the exit-head build, the token-free
+    runner -- fan out as before."""
+    name = wf_file.split("/")[-1]
+    if name in SERIALIZED_WORKFLOWS:
+        return True
+    try:
+        text = (repo / ".github" / "workflows" / name).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    m = _CONCURRENCY_GROUP_RE.search(text)
+    return bool(m) and "${{" not in m.group(1)
+
 
 def research_workflow_names(jobs: List[Any], repo: Path = _REPO) -> Dict[str, str]:
     """{workflow file -> its `name:`} for every real workflow the queue routes
@@ -424,6 +464,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--max-repo-queued", type=int, default=10,
                     help="defer every fire while more than this many workflow runs are queued "
                          "repo-wide (research must never starve a system-action)")
+    ap.add_argument("--max-fires-per-workflow", type=int, default=1,
+                    help="fire at most this many units per workflow FILE per cycle; the rest are "
+                         "deferred (same-workflow runs cancel each other in a concurrency group "
+                         "and collide on whole-file corpus rewrites). research-script-run.yml "
+                         "is exempt: per-unit concurrency, batch-landed results")
     ap.add_argument("--max-gpu-dispatches-per-run", type=int, default=1,
                     help="per-RUN cap on GPU bursts; the ledger cap is monthly and "
                          "cannot bound a loop inside one run")
@@ -458,6 +503,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"::notice::research-queue-dispatch deferred every fire: {pressure['block']}", file=sys.stderr)
     inflight = int(pressure.get("inflight_research") or 0)
     gpu_fired = 0
+    fired_by_workflow: Dict[str, int] = {}
     for job in jobs:
         entry = job.raw
         row: Dict[str, Any] = {"id": job.id, "path": _display_path(job.path)}
@@ -515,11 +561,20 @@ def main(argv: Optional[List[str]] = None) -> int:
                               f"({inflight} in flight incl. fires above) -- due again next cycle")
             decisions.append(row)
             continue
+        wf_file = str((entry.get("run") or {}).get("workflow") or "").split("/")[-1]
+        if serialized_workflow(wf_file) and fired_by_workflow.get(wf_file, 0) >= args.max_fires_per_workflow:
+            row.update(outcome=DEFERRED,
+                       reason=f"{wf_file} already fired {fired_by_workflow[wf_file]} unit(s) this cycle "
+                              f"(cap {args.max_fires_per_workflow}): same-workflow runs cancel each other "
+                              "in its concurrency group and collide on the corpus landing -- due again next cycle")
+            decisions.append(row)
+            continue
 
         ok, detail = _fire(entry, route=route.state, ref=args.ref,
                            power_state=power.state)
         if ok:
             inflight += 1
+            fired_by_workflow[wf_file] = fired_by_workflow.get(wf_file, 0) + 1
         row.update(outcome=DISPATCHED if ok else DISPATCH_FAILED, detail=detail)
         if ok:
             # Stamp only a SUCCESSFUL fire. Stamping a failed one would mark the

@@ -154,3 +154,77 @@ def test_the_stale_window_is_a_flag_the_workflow_can_pass():
     out = subprocess.run([sys.executable, "scripts/research/dispatch_queue.py", "--help"],
                          capture_output=True, text=True, cwd=str(REPO)).stdout
     assert "--pressure-stale-hours" in out
+
+
+# ── same-workflow fires are serialized: one per workflow file per cycle ──────
+def _unit_text(uid: str, workflow: str) -> str:
+    """A real, power-graded, routable unit from the committed queue (RQ-20260928-016, e35,
+    monthly) re-pointed at `workflow`, unstamped and cadence once."""
+    import yaml
+    d = yaml.safe_load((REPO / "research/queue/RQ-20260928-016.yaml").read_text())
+    d.update(id=uid, status="queued", cadence="once", last_dispatched_at=None)
+    d.pop("grading", None)
+    d["run"] = {"workflow": workflow, "inputs": {"research_unit": uid}}
+    return yaml.safe_dump(d, sort_keys=False)
+
+
+def _fired_cycle(tmp_path, monkeypatch, units, extra_args=()):
+    """Run --fire with gh mocked: no pressure, every `gh workflow run` succeeds. Returns the dispatched ids in order."""
+    q = tmp_path / "queue"
+    q.mkdir()
+    for uid, wf in units:
+        (q / f"{uid}.yaml").write_text(_unit_text(uid, wf))
+    fired = []
+
+    def fake_run(cmd, *a, **k):
+        class P:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+        if cmd[:3] == ["gh", "workflow", "run"]:
+            fired.append(cmd)
+        return P()
+
+    monkeypatch.setattr(dq, "gh_runs", lambda status, limit=200: [])
+    monkeypatch.setattr(dq, "declared_inputs", lambda *a, **k: {"research_unit", "power_state"})
+    from scripts.research import script_run
+    monkeypatch.setattr(script_run, "plan", lambda *a, **k: type("P", (), {"ok": True, "errors": []})())
+    monkeypatch.setattr(dq.subprocess, "run", fake_run)
+    rc = dq.main(["--queue-dir", str(q), "--fire", "--ref", "main", "--json", "--max-research-inflight", "9",
+                  *extra_args])
+    assert rc == 0
+    stamped = sorted(p.stem for p in q.glob("*.yaml") if "last_dispatched_at: null" not in p.read_text())
+    return fired, stamped
+
+
+def test_three_e35_units_due_in_one_cycle_fire_one_and_defer_two(tmp_path, monkeypatch, capsys):
+    """PLANTED (2026-09-29 00:53Z): three e35-bracket-sweep fires in one cycle -- the
+    concurrency group cancelled the middle one and the survivors' corpus PRs collided."""
+    units = [("RQ-20300101-001", "e35-bracket-sweep.yml"), ("RQ-20300101-002", "e35-bracket-sweep.yml"),
+             ("RQ-20300101-003", "e35-bracket-sweep.yml"), ("RQ-20300101-004", "m20-exit-lever-sweep.yml")]
+    fired, stamped = _fired_cycle(tmp_path, monkeypatch, units)
+    assert len(fired) == 2, fired                       # one e35 + one m20
+    assert stamped == ["RQ-20300101-001", "RQ-20300101-004"]
+    out = capsys.readouterr().out
+    assert out.count("already fired 1 unit(s) this cycle") == 2, out
+
+
+def test_the_token_free_runner_is_not_serialized(tmp_path, monkeypatch):
+    units = [(f"RQ-20300101-00{i}", "research-script-run.yml") for i in range(1, 4)]
+    fired, stamped = _fired_cycle(tmp_path, monkeypatch, units)
+    assert len(fired) == 3 and len(stamped) == 3
+
+
+def test_the_per_workflow_cap_is_a_flag(tmp_path, monkeypatch):
+    units = [("RQ-20300101-001", "e35-bracket-sweep.yml"), ("RQ-20300101-002", "e35-bracket-sweep.yml")]
+    fired, stamped = _fired_cycle(tmp_path, monkeypatch, units, extra_args=("--max-fires-per-workflow", "2"))
+    assert len(fired) == 2 and len(stamped) == 2
+
+
+def test_only_colliding_workflows_are_serialized():
+    assert dq.serialized_workflow("e35-bracket-sweep.yml")            # constant concurrency group + corpus
+    assert dq.serialized_workflow("m20-exit-lever-sweep.yml")         # no group, but a whole-file corpus rewrite
+    assert dq.serialized_workflow("macro-valuation-backfill.yml")
+    assert not dq.serialized_workflow("research-script-run.yml")      # per-unit group, batch-landed
+    assert not dq.serialized_workflow("research-harness-dispatch.yml")  # per-run group
+    assert not dq.serialized_workflow("no-such-workflow.yml")
