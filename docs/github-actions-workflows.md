@@ -1264,6 +1264,7 @@ header before triggering a mutating one).
 | `cutover-live.yml` | Migration | OPERATOR-APPROVAL | label / dispatch | Cut the live trader over to the Ampere candidate VM. |
 | `reserve-live-ip.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Make the live trader's public IP a reserved (static) IP. |
 | `terminate-instance.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Terminate an OCI instance by display name (frees Always-Free budget). |
+| `trainer-boot-volume.yml` | Infra | OPERATOR-APPROVAL | label `trainer-boot-volume` / dispatch | Measure tenancy block storage (boot + block volumes vs Always Free 200 GB); grow the TRAINER boot volume online + growpart/resize2fs. Resize needs `confirm: yes` and is refused past 200 GB. |
 | `vm-resize-live.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Resize the live trader VM within the OCI Always-Free pool. |
 | `vm-devnull-deploy-bootstrap.yml` | One-shot repair | OPERATOR-APPROVAL | label / dispatch | One-shot bootstrap to break the /dev/null auto-deploy chicken-and-egg. |
 | `vm-fix-devnull.yml` | One-shot repair | OPERATOR-APPROVAL | label / dispatch | One-shot repair of a broken /dev/null on the live trader VM. |
