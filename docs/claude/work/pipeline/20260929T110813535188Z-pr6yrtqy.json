@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "AlpacaClient.place_protective's re-arm pre-cancel is scoped so that re-arming one journal row cannot cancel protective legs sized to a sibling row on the same netted symbol (or the re-arm is sized to the live net position), with a test on a two-row symbol; OR the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-PR6YRTQY-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "FIX-SA-03 step 3 (E75 system audit, docs/audits/system-audit-2026-09-29.md in PR #14108); lane session_01Pr6YRTQYauPEEkK1xNyyAQ; fix for steps 1-2 in PRs #14115 / #14123",
+    "rerun": "Read src/units/accounts/alpaca_client.py place_protective: does it still call _cancel_open_orders_for_symbol(sym) unscoped before POSTing an OCO of the ROW's qty? Then /api/diag/alpaca_open_orders: any alpaca_* symbol carrying >1 OCO group (today alpaca_paper SPY 8+11) is exposed."
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 2,
+  "what": "Alpaca naked re-arm strips SIBLING protection. _attempt_naked_autoprotect (src/runtime/order_monitor.py) calls AlpacaClient.place_protective with the journal ROW's qty; place_protective first runs _cancel_open_orders_for_symbol(sym), which DELETEs every resting order on the symbol, then places one GTC OCO sized to that one row. On a symbol held by more than one open row the other rows' stops are cancelled and not replaced. Measured exposure 2026-09-29T10:38Z (/api/diag/alpaca_open_orders): alpaca_paper SPY carries two OCO groups (8 + 11 shares on a 19-share position) -- a true re-arm of either row would leave the other's shares naked. The quantity-coverage detector would then page partially_naked, but nothing repairs it. #14123 removes the FALSE re-arms (the dominant trigger), not this path; true re-arms (GTC 90-day expiry, day-TIF fallback) still reach it. IB already scopes its pre-cancel by oca_key (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY); the Alpaca path ignores the oca_key it is passed."
+}
