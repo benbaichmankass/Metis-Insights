@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A follow-up PR to #14241 fixes (1), (2), (3) and (5) with tests, and states the answer to (4) with evidence; or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-K1XNYYAQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "REVIEW-14241 round-3 APPROVE (manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29 17:32Z); lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ; code in src/runtime/order_monitor.py",
+    "rerun": "grep -n '_ALPACA_TOPUP_ATTEMPTS\\[cd_key\\]\\|_ALPACA_BREACH_DEFERRALS\\|breach_deferral_escalated\\|NOTHING is resting' src/runtime/order_monitor.py. Each item still applies while (1) the cooldown is set before _exit_alpaca_row in the confirmed branch with no reset on 'deferred', (2) no _record_rearm_attempt on a failed escalated post, (3) the page and label strings are unchanged, (5) nothing pops _ALPACA_BREACH_DEFERRALS for closed rows. For (4), read the journal exit_reason of any alpaca row whose protection_repairs include a breach_deferral_escalated page."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "what": "Non-blocking follow-ups to #14241 (Alpaca re-arm preflight), from the manager's APPROVE re-review of 2c047b6 (2026-09-29 17:32Z). Fix in one small follow-up PR after #14241 lands.\n(1) _alpaca_top_up_uncovered: a confirmed-breach exit that returns 'deferred' still sets the 900 s top-up cooldown although nothing was posted. The sweep comment near the exit_deferred counter (which says the next sweep's top-up rests a stop) is therefore wrong.\n(2) An escalated stop (after _BREACH_DEFER_MAX unconfirmed deferrals) that the venue REJECTS is never recorded, so the re-arm cap never advances and the stop is re-posted every sweep. Check whether Alpaca rejects a sell stop priced above the market.\n(3) After escalation, the breach-channel page text ('NOTHING is resting') and the 're-arm refused (breach_deferral_escalated)' label are wrong, because the stop has been posted.\n(4) Verify which exit_reason the reconciler records when an escalated stop fills on arrival.\n(5) _ALPACA_BREACH_DEFERRALS is never pruned for closed rows; prune it as _prune_rearm_attempts does."
+}
