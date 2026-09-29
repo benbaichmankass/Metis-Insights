@@ -103,7 +103,8 @@ def test_place_protective_cancels_resting_first(monkeypatch):
     c = _client()
     monkeypatch.setattr(c, "_request", fake_request)
     c.place_protective(
-        {"symbol": "SPY", "direction": "long", "qty": 5, "sl": 1.0, "tp": 2.0}
+        {"symbol": "SPY", "direction": "long", "qty": 5, "sl": 1.0, "tp": 2.0,
+         "sibling_qtys": []}
     )
     deletes = [p for (m, p) in calls if m == "DELETE"]
     assert "/v2/orders/old-stop" in deletes

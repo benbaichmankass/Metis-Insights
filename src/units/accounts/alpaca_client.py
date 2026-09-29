@@ -1623,6 +1623,11 @@ class AlpacaClient:
         failing is ``None``.
         """
         sym = str(symbol).upper()
+        # Which symbol's filled-bracket CHILD legs were last read definitively.
+        # Cleared first, set only after the status=closed read below succeeds,
+        # so a consumer that must not act without seeing held stops (the
+        # re-arm's target release) can require it rather than assume it.
+        self._child_legs_read_symbol = None
         env = self._request(
             "GET", f"/v2/orders?status=open&nested=true&symbols={sym}"
         )
@@ -1660,6 +1665,7 @@ class AlpacaClient:
         )
         if env2.get("retCode") != 0:
             return None
+        self._child_legs_read_symbol = sym
         seen = {o.get("id") for o in out if o.get("id")}
         for parent in env2.get("result") or []:
             if not isinstance(parent, dict):
@@ -2279,7 +2285,11 @@ class AlpacaClient:
         # OCO/bracket cancel). It also cancelled opening-side ENTRY orders a
         # strategy had resting. Now only reducing-side protective legs sized to
         # THIS row's qty are cleared; see `_scoped_rearm_cancel`.
-        kept_targets = self._scoped_rearm_cancel(sym, close_side, qty)
+        refusal, kept_targets = self._scoped_rearm_cancel(
+            sym, close_side, qty, order.get("sibling_qtys"),
+        )
+        if refusal:
+            return {"retCode": -3, "retMsg": refusal}
         body: Dict[str, Any] = {
             "symbol": sym,
             "qty": str(qty),
@@ -2319,28 +2329,39 @@ class AlpacaClient:
         result = env.get("result") or {}
         return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
 
-    def _scoped_rearm_cancel(self, sym: str, close_side: str, qty: int) -> List[str]:
+    def _scoped_rearm_cancel(
+        self, sym: str, close_side: str, qty: int, sibling_qtys: Any = None,
+    ) -> Tuple[Optional[str], List[str]]:
         """Cancel THIS position's own resting protective legs; keep the rest.
+
+        Returns ``(refusal, releasable_targets)``. A non-``None`` *refusal*
+        means NOTHING was cancelled and :meth:`place_protective` must not POST.
 
         A leg is this position's own when it is a protective type (stop family
         or limit, via :meth:`_leg_protective_side`), on the REDUCING side
         (*close_side*), and sized to *qty* (:meth:`_leg_qty`). Everything else
-        is left alone:
+        is left alone: opening-side orders (a strategy's resting entry),
+        reducing-side legs of another size (a sibling row's protection on the
+        same netted symbol), and legs whose side/qty cannot be read.
 
-        * **opening-side orders** — a strategy's resting entry is not
-          protection and a re-arm has no business cancelling it;
-        * **reducing-side legs of another size** — a sibling row's protection
-          on the same netted symbol;
-        * **legs whose side/qty cannot be read** — ownership unknown, so not
-          ours to cancel (the POST's refusal, if any, is then reported).
+        ⚠️ **Size identifies ownership only when it is unique.** *sibling_qtys*
+        are the other open journal rows' sizes on this account+symbol (the
+        caller reads them). If one equals *qty*, a leg of that size may be the
+        sibling's, so this cancels nothing and refuses (REVIEW-14127 blocker 2).
+        ``None`` means the caller could not say: nothing is cancelled and no
+        target is releasable, but the POST still goes ahead (the read-failure
+        contract — a naked position is not left un-armed on an unknown).
 
-        Returns the ids of kept reducing-side TARGET legs (limits) so
-        :meth:`place_protective` can release them if, and only if, the venue
-        refuses the stop — and ``[]`` whenever any other reducing-side STOP
-        rests, because a target may share an OCO/bracket group with it and
-        Alpaca cancels the group together. A sibling stop is never released. A failed open-orders read cancels nothing and returns
-        ``[]`` — the POST still goes ahead, because a read failure must not
-        block arming protection on a naked position (the previous contract).
+        *releasable_targets* are kept reducing-side TARGET legs that
+        :meth:`place_protective` may release if, and only if, the venue refuses
+        the stop. It is ``[]`` unless ALL of: sibling sizes are known; no other
+        reducing-side STOP rests (a target may share its OCO/bracket group, and
+        Alpaca cancels a group together); and the filled-bracket CHILD legs were
+        read definitively for this symbol (``_child_legs_read_symbol``). Without
+        that read a bracket's held stop is invisible, and releasing its target
+        would cascade into cancelling that unseen stop (REVIEW-14127
+        blocker 1). A failed open-orders read cancels nothing and releases
+        nothing.
         """
         legs = self._open_orders_for_symbol(sym)
         if legs is None:
@@ -2348,7 +2369,35 @@ class AlpacaClient:
                 "alpaca place_protective(%s): open-orders read FAILED — "
                 "cancelled nothing before the re-arm (could not look)", sym,
             )
-            return []
+            return None, []
+        children_seen = getattr(self, "_child_legs_read_symbol", None) == sym
+
+        if sibling_qtys is None:
+            logger.warning(
+                "alpaca place_protective(%s): sibling row sizes not supplied — "
+                "cancelling nothing (ownership by size cannot be established)",
+                sym,
+            )
+            return None, []
+        try:
+            sibs = [abs(float(q)) for q in sibling_qtys]
+        except (TypeError, ValueError):
+            logger.warning(
+                "alpaca place_protective(%s): unreadable sibling sizes %r — "
+                "cancelling nothing", sym, sibling_qtys,
+            )
+            return None, []
+        clash = [q for q in sibs if abs(q - qty) <= 0.5]  # whole shares
+        if clash:
+            msg = (
+                f"refusing re-arm on {sym}: another open row on this symbol is "
+                f"also {qty} share(s), so its resting legs cannot be told apart "
+                "from this position's by size — cancelled nothing, placed "
+                "nothing (REVIEW-14127)"
+            )
+            logger.warning("alpaca place_protective: %s", msg)
+            return msg, []
+
         own: List[str] = []
         kept_targets: List[str] = []
         other_stop = False
@@ -2377,8 +2426,11 @@ class AlpacaClient:
                     "alpaca place_protective(%s): cancel of own leg %s refused: "
                     "rc=%s %s", sym, oid, env.get("retCode"), env.get("retMsg"),
                 )
-        # A sibling STOP rests on the reducing side: the target legs kept above
-        # may share an OCO/bracket group with it, and Alpaca cancels a group
-        # together — releasing one would take the stop with it. So nothing is
-        # offered for release; a refusal then stands and is reported.
-        return [] if other_stop else kept_targets
+        if other_stop or not children_seen:
+            if kept_targets and not children_seen:
+                logger.warning(
+                    "alpaca place_protective(%s): filled-bracket child legs "
+                    "were not read — sibling targets are NOT releasable", sym,
+                )
+            return None, []
+        return None, kept_targets

@@ -8339,6 +8339,32 @@ def _stamp_repair(db, row, kind: str, verified: str = "unverified") -> None:
         )
 
 
+def _open_sibling_qtys(db, row, account_id: str, symbol: str) -> Optional[List[float]]:
+    """Sizes of the OTHER open, non-backtest rows on *account_id*/*symbol*.
+
+    ``None`` when they cannot be read (no db handle, or the query failed) —
+    never ``[]``, which would claim there are no siblings.
+    """
+    if db is None:
+        return None
+    try:
+        conn = db.connect()
+        try:
+            got = conn.execute(
+                "SELECT position_size FROM trades WHERE status='open' "
+                "AND COALESCE(is_backtest,0)=0 AND account_id=? AND symbol=? "
+                "AND id != ?",
+                (account_id, symbol, row["id"]),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [float(r[0]) for r in got if r[0] is not None]
+    except Exception as exc:  # noqa: BLE001 — unknown, not "no siblings"
+        logger.warning("_open_sibling_qtys(%s/%s): read failed: %s",
+                       account_id, symbol, exc)
+        return None
+
+
 def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
                                bybit_position_idx: Optional[int] = None) -> bool:
     """Re-arm a broker-side GTC protective bracket on a naked position.
@@ -8463,8 +8489,16 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
             return False  # not a re-armable broker (oanda atomic at entry)
         if client is None:
             return False
+        extra: Dict[str, Any] = {}
+        if exchange == "alpaca":
+            # The OTHER open rows' sizes on this account+symbol, so the Alpaca
+            # re-arm can tell whether a resting leg's size identifies it as THIS
+            # position's (REVIEW-14127). `None` = could not read them; the
+            # client then cancels nothing rather than guess.
+            extra["sibling_qtys"] = _open_sibling_qtys(db, row, account_id, symbol)
         resp = client.place_protective(
             {
+                **extra,
                 "symbol": protect_symbol,
                 "direction": direction,
                 "qty": qty,
