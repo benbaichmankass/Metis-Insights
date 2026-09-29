@@ -1,5 +1,7 @@
 # AUD-7 — Security: credential privilege and secret exposure (E75, 2026-09-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## 1. Question and answer
 
 Does every credential-bearing path have minimum privilege, and is secret-shaped material reachable from a surface that should not have it?
