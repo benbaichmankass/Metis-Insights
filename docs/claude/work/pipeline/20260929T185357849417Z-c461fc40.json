@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The next PR that touches src/runtime/order_monitor.py corrects the comment (a) and splits or documents escalated_post_rejected (b); or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-K1XNYYAQ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "Independent review of #14347 (manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29 18:52Z); lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ",
+    "rerun": "grep -n 'no cooldown was left' src/runtime/order_monitor.py (still present = (a) open); read _attempt_naked_autoprotect for 'return False' before place_protective, and the escalated_post_rejected increment (unchanged = (b) open)."
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 2,
+  "what": "Two non-blocking notes from the independent review of #14347 (merged 5b5e7ce). The manager's instruction was to fold them into the next change to src/runtime/order_monitor.py, not a PR of their own. Both were verified on main at a211c5aa5.\n(a) Around line 9563, the comment on the top-up 'exit_deferred' result says 'no cooldown was left, so the next sweep retries'. That is wrong: the refused resting POST DID set the 900 s top-up cooldown, so the retry comes after the cooldown, not on the next sweep.\n(b) The escalated_post_rejected counter (around line 9722) counts every falsy _attempt_naked_autoprotect result, including its several 'return False' paths that fail BEFORE any venue call (no client, and so on). A rejection the venue never saw is counted as a venue rejection, and it still spends one unit of the re-arm cap. Either split the counter (venue-rejected vs not-sent) or document that it means 'escalated post did not rest'."
+}
