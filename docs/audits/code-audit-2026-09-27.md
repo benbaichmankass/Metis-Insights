@@ -384,6 +384,8 @@ Lanes marked *unstated* did not supply the §3.3 statement; that is recorded, no
 
 **Landing status (turn 3, 17:25Z).** FIX-CA-01 through 25 are all **merged** on `main`: the lead checked every PR number against `git log origin/main`. The manager reports them **deployed and live**. The lead could **not** confirm deployment independently, because `/api/diag/version` answers 401. Being merged is not proof of being deployed or observed; each pipeline item's `clears_when` is the closing observation.
 
+**Deploy verification (2026-09-29).** All 32 fixes (plus FIX-CA-01b/01c) were independently re-checked against live state — merge commit found for every PR, its ancestry confirmed against each VM's actually-running git SHA, and a live runtime signature pulled where one is currently producible. Result: everything with code to deploy is merged **and** deployed; several have a directly observed runtime signature (FIX-CA-01 Part A, 12, 17, 24, 25, 26, 31/OPS2, 32), the rest are honestly not-yet-observed pending their trigger condition. Full table + evidence: [`docs/audits/code-audit-2026-09-27-deploy-verification.md`](code-audit-2026-09-27-deploy-verification.md).
+
 Ordered roughly by blast radius: order-path correctness first (02–13), then ops/security (14–19), then ML serving and gates (20–25). Each brief can be dispatched verbatim. The tier is the lane/verifier assessment as reviewed by the lead. A Tier-3 brief (FIX-CA-09) falls under the data-backed Tier-2/3 standing authorization: ship, verify, and notify the operator at once.
 
 ### FIX-CA-01 — **MERGED #13187** (code fix); FIX-CA-01b (cancel of 906/907) dispatched by the manager; FIX-CA-01c (git-sync never restarts an operator-stopped trader; IBKR 10148 graded as cancel-in-flight) **MERGED #13241**
