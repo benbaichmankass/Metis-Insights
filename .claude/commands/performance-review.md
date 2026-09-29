@@ -36,7 +36,8 @@ keyed by `order_package_id` (+ the three training-friendly labels),
 appends each grade to `comms/claude_strategy_scores.jsonl`, reads the
 M13 AI-analyst insights cache and cross-checks its claims against the
 same data, proposes Tier-3 tweaks with evidence, drains
-`docs/claude/performance-review-backlog.json`, and posts a one-line
+open rows in
+`docs/claude/work/PIPELINE.jsonl` (the archived review backlog is retired), and posts a one-line
 update to the Claude channel.
 
 Strategy / risk-cap changes are **Tier-3** — proposed only. The
