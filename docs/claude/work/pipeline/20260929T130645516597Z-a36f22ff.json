@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the ib_fill_to_row mapper no longer emits realized_pnl=0.0 for a fill whose CommissionReport was never populated, verified on a fresh ib_paper close, or the finding is killed with a measured reason",
+    "kind": "event"
+  },
+  "id": "PI-20260929-HXO9WPVH-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#fix-sa-04",
+    "rerun": "diag relay (db read) on ib_paper: SELECT exec_id, json_extract(raw,'$.realized_pnl'), fee, exec_time FROM exchange_fills WHERE account_id='ib_paper' AND side IS NOT NULL ORDER BY exec_time DESC; expect realized_pnl 0.0 with fee 0.0 on the fills behind the ib_execution rows; then python3 -c classify_pnl over journal rows with exit_price_source=ib_execution and pnl=0 (should be UNVERIFIED after #14172)"
+  },
+  "state": "queued",
+  "what": "IB realizedPNL reads 0.0 on closing fills (root cause of SA-AUD-3 ib_execution zero-pnl rows, FIX-SA-04 #14172 only demotes the symptom). Read from ib_insync 0.9.86 source, NOT confirmed on the live raw store: Fill is built with a default CommissionReport() (realizedPNL=0.0, execId=''), and wrapper.commissionReport coerces IB's UNSET_DOUBLE to 0.0 before src/runtime/exchange_fills_ib.py::ib_fill_to_row's `abs(realized) > 1e17` sentinel check can see it (that check is dead for ib_insync). So 0.0 means 'no commission report yet' or 'not applicable', not break-even. Proposed fix (Tier-2, runtime mapper): in ib_fill_to_row treat a report with empty execId as absent (realized=None) so fills_pnl.exit_from_fills(require_realized=True) returns None and the resolver falls back instead of stamping ib_execution with 0.0. Before fixing: confirm on ib_paper that the 18 zero rows' raw fills carry commission_report execId ''."
+}

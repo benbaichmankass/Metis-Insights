@@ -26,7 +26,7 @@ import json
 import math
 import statistics
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -39,6 +39,7 @@ from scripts.ml.replay_pregate_fleet import _load_jsonl  # noqa: E402
 from ml.registry.model_registry import ModelRegistry  # noqa: E402
 from ml.shadow import factory as _factory  # noqa: E402
 from ml.shadow.factory import resolve_predictor  # noqa: E402
+from ml.shadow.inspector import iter_records_with_archives  # noqa: E402
 from src.runtime.regime_shadow import regime_spec_of  # noqa: E402
 
 
@@ -214,6 +215,32 @@ def _nearest_label(label_map: Dict[datetime, int], when: datetime,
     return label_map.get(bar)
 
 
+# Look-back for the shadow-log read. ``ict-shadow-log-rotate.timer`` moves the
+# active log to a (gzipped) archive every ~25-29 days, so an active-only read
+# sees only the rows since the last rotation and the ``labels_accruing`` gate
+# reads "0 rows" right after one (FIX-SA-01 / SA-AUD-4-labels-accruing-gate-
+# active-log-only). Two rotation cycles, same as the other ml/ consumers.
+_LOOKBACK_DAYS: float = 60.0
+
+
+def _read_model_records(shadow_log: str, model_id: str,
+                        *, now: Optional[datetime] = None) -> List[Dict[str, Any]]:
+    """Rows for *model_id* from the rotated archives + the active log, as the
+    plain dicts the replay scores (``feature_row`` / ``stage`` / timestamp)."""
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=_LOOKBACK_DAYS)
+    return [
+        {
+            "model_id": r.model_id,
+            "stage": r.stage,
+            "feature_row": r.feature_row,
+            "predicted_at_utc": r.predicted_at_utc.isoformat(),
+        }
+        for r in iter_records_with_archives(shadow_log, since=since)
+        if r.model_id == model_id
+    ]
+
+
 def run(model_id: str, *, shadow_log: str, candles: str, forward_m: int,
         vol_threshold: float, positive_class: str, bar_seconds: float) -> Dict[str, Any]:
     reg = ModelRegistry(_factory._resolve_default_registry_root())
@@ -222,10 +249,16 @@ def run(model_id: str, *, shadow_log: str, candles: str, forward_m: int,
     if regime_spec_of(base) is None:
         raise SystemExit(f"{model_id}: no regime_spec — stage-2 expects a regime head")
 
-    records = [r for r in _load_jsonl(Path(shadow_log))
-               if str(r.get("model_id")) == model_id]
+    records = _read_model_records(shadow_log, model_id)
     if not records:
-        raise SystemExit(f"no shadow-log records for {model_id}")
+        # An error STATE, not SystemExit: SystemExit is a BaseException and
+        # sails past ml/cli.py::_compute_regime_live_replay's `except
+        # Exception`, killing the whole gate-check (FIX-SA-01).
+        return {
+            "stage": 2, "model_id": model_id, "n_records": 0,
+            "error": f"no shadow-log records for {model_id} in the last "
+                     f"{_LOOKBACK_DAYS:g}d (active log + rotated archives)",
+        }
 
     candle_rows = _load_jsonl(Path(candles))
     # Resolve the label threshold per-symbol (MB-20260628-RG4-THRESH) so the
@@ -332,6 +365,10 @@ def main() -> int:
     report = run(a.model_id, shadow_log=a.shadow_log, candles=a.candles,
                  forward_m=a.forward_m, vol_threshold=a.vol_threshold,
                  positive_class=a.positive_class, bar_seconds=a.bar_seconds)
+    if report.get("error"):
+        # Same exit status the old SystemExit(msg) gave the shell wrappers.
+        print(report["error"], file=sys.stderr)
+        return 1
     out = json.dumps(report, indent=1)
     if a.json_out and a.json_out != "-":
         Path(a.json_out).write_text(out, encoding="utf-8")

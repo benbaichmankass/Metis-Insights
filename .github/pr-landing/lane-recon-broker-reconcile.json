@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "RECON (docs/claude/work/MANAGER-CHECKLIST.json): a new scheduled workflow (.github/workflows/account-broker-reconcile.yml, cron 6h + dispatch) and a change to the live ict-prop-feed's posted payload (scripts/prop/breakout_login_check.py's build_status_report now includes open_positions/open_orders, already read off the terminal every tick, previously discarded). Held per the manager's instruction (2026-09-28/29): every workflow/scheduler PR on this lane is held for review; get CI green first. Read-only against every broker (no order, cancel, or DB write) -- scripts/ops/account_broker_reconcile.py is a pure detector fed by JSON files. breakout_1's positions/protection check is deliberately conservative until PR #14005 merges + deploys: an empty broker-side positions read is reported could_not_look, never a confident 'flat', because #14005 documents a measured blind-reader bug on that exact read path.",
+  "why": "Closes OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT: journalTrust could only ever flag bybit_2 (the one hand-populated broker_truth_ledger.json entry), so a real alpaca_live/breakout_1 divergence was invisible. Operator popup 2026-09-28 ~11:45Z: 'Build automated reconcile (Recommended)'."
+}

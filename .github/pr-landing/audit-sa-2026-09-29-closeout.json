@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "E75 close-out: sets the E75 row to done, adds one pipeline item routing FIX-SA-04..13 and JC-SA-02/03/05/06/08, and corrects two held-to-closed PR statuses in the audit report. Register, pipeline and docs only."
+}

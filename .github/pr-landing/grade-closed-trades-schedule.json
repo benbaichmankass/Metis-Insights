@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager dispatch for JC-SA-01 (pipeline item PI-20260929-TWEW1FZJ-0004, decided option (a) under the operator's data-backed standing authorization): 'This is a data-mutation job (Tier 2, landing hold; I merge).' The manager reviews and merges; it adds a new scheduled workflow that SSHes the live VM (read-only sqlite) and appends 491 backfill rows to comms/claude_strategy_scores.jsonl.",
+  "why": "Resumes the graded hop of the trade pipeline, which has been dead since 2026-09-08. It adds a daily grade-closed-trades.yml schedule and by-trade keying on linked_trade_id, using the same _grade_package rubric. It also adds a grading-freshness CI guard (max(reviewed_at) > 3 days fails) and the 491-row backfill of closes since 2026-09-08. No order-path, strategy or config change."
+}

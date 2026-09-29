@@ -31,6 +31,21 @@ on:
         description: "Snapshot cadence in days across the FRED span"
         required: false
         default: "7"
+      fee_frac:
+        description: >-
+          P4 gate round-trip fee as a fraction of notional (e.g. 0.005 for a
+          debit-vertical estimate). Default 0.0 preserves the existing
+          zero-cost baseline exactly. A NONZERO value here or in
+          carry_frac_per_day routes the scorecard to a SEPARATE output path
+          (thesis_p4_scorecard_realistic_cost.json) instead of overwriting
+          the canonical zero-cost comms/macro/thesis_p4_scorecard.json — see
+          PI-20260927-CAA05-0003 / RQ-20260928-010.
+        required: false
+        default: "0.0"
+      carry_frac_per_day:
+        description: "P4 gate per-day carry/roll drag as a fraction of notional. Default 0.0."
+        required: false
+        default: "0.0"
   issues:
     types: [opened]
 
@@ -94,13 +109,28 @@ jobs:
 
       - name: Run the M28 P4 value-thesis gate
         id: gate
+        env:
+          FEE_FRAC: ${{ github.event.inputs.fee_frac || '0.0' }}
+          CARRY_FRAC_PER_DAY: ${{ github.event.inputs.carry_frac_per_day || '0.0' }}
         run: |
           set -euo pipefail
+          # A nonzero cost input routes to a SEPARATE output path so this run
+          # can never overwrite the canonical zero-cost baseline
+          # (comms/macro/thesis_p4_scorecard.json) that PI-20260927-CAA05-0003
+          # and other findings cite by value. Default (both "0.0") reproduces
+          # the exact prior behaviour: same path, same args.
+          if [ "${FEE_FRAC}" = "0.0" ] && [ "${CARRY_FRAC_PER_DAY}" = "0.0" ]; then
+            OUT_JSON="comms/macro/thesis_p4_scorecard.json"
+          else
+            OUT_JSON="comms/macro/thesis_p4_scorecard_realistic_cost.json"
+          fi
+          echo "OUT_JSON=${OUT_JSON}" >> "$GITHUB_ENV"
           python scripts/macro/thesis_backtest_run.py \
             --snapshots comms/macro/valuation_snapshots_backfill.jsonl \
             --candles-dir data/macro_candles \
             --rebalance-every 30 --horizon-days 30 \
-            --json comms/macro/thesis_p4_scorecard.json | tee /tmp/scorecard.txt
+            --fee-frac "${FEE_FRAC}" --carry-frac-per-day "${CARRY_FRAC_PER_DAY}" \
+            --json "${OUT_JSON}" | tee /tmp/scorecard.txt
 
       - name: Horizon-IC scan (conviction→return across horizons)
         id: horizon
@@ -115,12 +145,26 @@ jobs:
             --json comms/macro/horizon_ic_scorecard.json | tee -a /tmp/scorecard.txt || \
             echo "::warning::horizon-IC scan degraded"
 
+      - name: Compute the land-paths list (list whichever scorecard path the gate step actually wrote)
+        id: land_paths
+        run: |
+          set -euo pipefail
+          # OUT_JSON was set by the gate step (via GITHUB_ENV) to whichever
+          # path it actually ran `--json` against: the canonical zero-cost
+          # file by default, or the realistic-cost file for a nonzero
+          # fee_frac/carry_frac_per_day input. The gate step's own
+          # `set -euo pipefail` means this job never reaches here unless
+          # that file was written, so listing exactly OUT_JSON (never both
+          # scorecard paths) keeps `git add -f --` from erroring on a
+          # pathspec that matches nothing on a default run.
+          echo "paths=comms/macro/valuation_snapshots_backfill.jsonl comms/macro/horizon_ic_scorecard.json ${OUT_JSON}" >> "$GITHUB_OUTPUT"
+
       - name: Land reconstructed history + scorecards on main
         id: commit
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: comms/macro/valuation_snapshots_backfill.jsonl comms/macro/thesis_p4_scorecard.json comms/macro/horizon_ic_scorecard.json
+          paths: ${{ steps.land_paths.outputs.paths }}
           message: "chore(m28): backfilled valuation history + P4 + horizon-IC scorecards"
           pr-title: "chore(m28): valuation backfill + P4 + horizon-IC scorecards (auto)"
           pr-body: "Reconstructed point-in-time valuation snapshots (FRED history) + the M28 P4 value-thesis scorecard + the horizon-IC scan. Research data; auto-merge."

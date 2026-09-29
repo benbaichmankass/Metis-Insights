@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "PR #14094 is merged to main AND a fresh vm-web-api-recover-labelled issue completes (not stuck queued) within ~60s of opening, demonstrating the per-issue concurrency group actually unsticks new dispatches.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-TARTLANE-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/14094",
+    "rerun": "mcp__github__actions_list(list_workflow_runs, vm-web-api-recover.yml) for a freshly opened vm-web-api-recover-labelled issue; confirm it reaches completed (not stuck queued) within ~60s. Also: bash scripts/ops/diag_fetch.sh version to confirm restart_pending clears after a successful recovery run."
+  },
+  "state": "queued",
+  "what": "[LOUD] vm-web-api-recover.yml self-heal path was non-functional via its issues-opened trigger: the workflow runs on EVERY issue opened repo-wide (no label filter at trigger level) and shared one literal concurrency group (vm-web-api-recover), so a legitimately labelled restart request could be starved behind unrelated issue-open volume with no error and no comment ever posted. MEASURED 2026-09-29 (WEBAPI-RESTART lane): issue #14078 sat queued for 5+ minutes with zero progress (run 36552764437) while sibling diag-request/system-action runs for the same issue-open events completed in ~1-2s each; several queued runs in the same group dated back to 2026-05-15 and never executed -- this path was likely broken for months. Fix opened as PR #14094 (per-issue concurrency group, mirroring vm-diag-snapshot.yml's 2026-07-04 fix for the identical failure shape, BL-20260611-002). NOT merged, NOT observed working yet."
+}

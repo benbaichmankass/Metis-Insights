@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "An evidence file states n >= 10 live/paper stop-exit pairs with their gap distribution, or the manager decides JC-SA-08 without it and kills this row with that reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-PR6YRTQY-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "JC-SA-08 evidence docs/research/evidence/jc-sa-08-alpaca-mirror-exit-divergence-2026-09-29.md; lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ for manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "journal trades for alpaca_* closes since 2026-09-01 joined on strategy_name+symbol; for each pair read alpaca_order_history by symbol over the close window and compare filled_avg_price/filled_at of the filled stop/limit legs."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "JC-SA-08 population is too small to decide (a) caveat vs (b) mirror-follows-venue: since the strict Stage-2 roster (2026-09-21) there are 3 alpaca_live closes and only 1 has an alpaca_portfolio twin (SLV 5875/5874). That one diverged: the same-level GTC OCO stop filled live at 13:30:03 @55.3132 and on the paper mirror at 13:35:06 @55.38189 (+12.4 bps, mirror better; alpaca_paper +14.8 bps). Mechanism: paper-engine fill vs live venue fill on an opening gap, not an app-side exit and not the re-arm window. Data task: extend to every Alpaca stop/target exit since 2026-09-01 where a live account and any paper book held the same strategy x symbol (roster strictness does not affect the mechanism), and report n, the sign distribution and mean gap in bps. The (a)/(b) decision waits on it."
+}

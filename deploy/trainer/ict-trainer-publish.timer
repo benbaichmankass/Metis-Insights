@@ -1,0 +1,11 @@
+# 2-minute heartbeat for trainer-mirror publisher.
+[Unit]
+Description=Periodic trainer mirror publish
+
+[Timer]
+OnBootSec=30sec
+OnUnitActiveSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01QLcLE9ogmHJziMbtg1yDoi",
+  "branch": "sa-infra/fix-sa-11-restart-pending",
+  "claimed_at": "2026-09-29T12:06:27Z",
+  "purpose": "FIX-SA-11 restart_pending + running-vs-disk sha"
+}

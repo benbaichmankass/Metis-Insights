@@ -105,6 +105,11 @@ SELECTORS: Dict[str, str] = {
     # ── post-login view tabs (NOT MEASURED: matched by accessible name) ──
     "tab_positions": "Positions",
     "tab_orders": "Orders",
+    # Bottom-panel history tabs (operator screenshot 2026-09-29: Positions |
+    # Orders | Order History | Trade History). Read by dump-tables only, as
+    # observation, e.g. to journal a close the operator made by hand.
+    "tab_order_history": "Order History",
+    "tab_trade_history": "Trade History",
 }
 
 # Text markers of an interstitial bot challenge (Cloudflare and similar).
@@ -416,21 +421,64 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
 # "Symbol"/"Instrument", walked up to the first ancestor with >= 3 short-text
 # children (the header row); its data rows are later elements with the same
 # tag and child count under the nearest ancestor that holds more than one.
+# The terminal renders EVERY grid as TWO <table> elements: a header table
+# whose own body carries ZERO rows, followed by a header-less table holding
+# the (virtualised) rows. MEASURED for the watchlist (dry run #13898, run
+# 36507086110: "Symbol/Bid/Ask… rows: 0" beside the tr.instrument rows PR
+# #13908 then read directly), and the cause of the blind positions reader
+# (live test #13987 filled 0.01 SOLUSD, the operator saw the row under
+# Symbol | Side | Size | Open P&L | Take profit | Stop loss | Position ID |
+# Fill Price | Current Price | Date and Time, and every read returned 0
+# positions). This helper PAIRS a header table that has no rows of its own
+# with the first header-less table that follows it in document order,
+# before the next headed table, and only when that table is empty or its
+# first row has exactly as many cells as there are headers (alignment is
+# proven, never assumed, as in #13908). A headed table with its own rows is
+# self-contained. Shared by EXTRACT_TABLES_JS and ROW_ACTION_JS so the
+# reader and the row controls see the same rows.
+_PAIRED_TABLES_HELPER_JS = r"""
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const allTables = [...document.querySelectorAll('table')];
+  const tinfo = allTables.map(t => ({
+    t,
+    headers: [...t.querySelectorAll('thead th, tr:first-child th')].filter(h => h.closest('table') === t).map(txt),
+    trs: [...t.querySelectorAll('tr')].filter(r => r.closest('table') === t && r.querySelector('td')),
+  }));
+  const paired = [];
+  tinfo.forEach((h, i) => {
+    if (!h.headers.length) return;
+    let trs = h.trs, body = null, unpaired = 0;
+    if (!trs.length) {
+      for (let j = i + 1; j < tinfo.length; j++) {
+        const b = tinfo[j];
+        if (b.headers.length) break;
+        if (!b.trs.length || b.trs[0].querySelectorAll('td').length === h.headers.length) { body = b.t; trs = b.trs; break; }
+        unpaired += b.trs.length;
+      }
+    }
+    paired.push({t: h.t, headers: h.headers, trs, body, own_rows: h.trs.length, unpaired_body_rows: unpaired});
+  });
+  const headerless = tinfo.filter(x => !x.headers.length).map(x => x.trs.length);
+"""
+
 EXTRACT_TABLES_JS = r"""
 () => {
-  const txt = el => (el.innerText || el.textContent || '').trim();
+""" + _PAIRED_TABLES_HELPER_JS + r"""
   const out = [];
   const seen = new Set();
-  const push = (kind, headers, rows) => {
+  const push = (kind, headers, rows, extra) => {
     const sig = kind === 'divgrid' ? headers.join('|') : null;
     if (sig && seen.has(sig)) return;
     if (sig) seen.add(sig);
-    out.push({kind, headers, rows});
+    out.push(Object.assign({kind, headers, rows}, extra || {}));
   };
-  for (const t of document.querySelectorAll('table')) {
-    const headers = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
-    const rows = [...t.querySelectorAll('tbody tr')].map(r => [...r.querySelectorAll('td')].map(txt));
-    if (headers.length) push('table', headers, rows);
+  const ctlDesc = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
+    (txt(c) || c.getAttribute('title') || c.getAttribute('aria-label') || c.tagName.toLowerCase()).slice(0, 30));
+  for (const p of paired) {
+    const rows = p.trs.map(r => [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt));
+    push('table', p.headers, rows, {paired: !!p.body, own_rows: p.own_rows, unpaired_body_rows: p.unpaired_body_rows,
+                                    headerless_tables: headerless,
+                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : []});
   }
   for (const g of document.querySelectorAll('[role=grid], [role=treegrid], [role=table]')) {
     const headers = [...g.querySelectorAll('[role=columnheader]')].map(txt);
@@ -1459,28 +1507,153 @@ POST_SUBMIT_JS = r"""
 ROW_ACTION_JS = r"""
 (args) => {
   const [kind, keyCol, key, actionPat] = args;
-  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
+""" + _PAIRED_TABLES_HELPER_JS + r"""
   const norm = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
   document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
-  const want = kind === 'orders' ? /^(order id|sts)$/ : /^(position volume|position id|open price|avg fill price|open p&l)$/;
+  const want = kind === 'orders' ? /^(order id|sts)$/ : /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
   const act = new RegExp(actionPat, 'i');
-  let rows = [], ctl = [];
-  for (const t of document.querySelectorAll('table')) {
-    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+  let rows = [], ctl = [], why = null;
+  for (const p of paired) {
+    const hs = p.headers.map(norm);
     if (!hs.some(h => want.test(h))) continue;
     const ci = hs.indexOf(norm(keyCol));
     if (ci < 0) continue;
-    for (const r of t.querySelectorAll('tbody tr')) {
-      const cells = [...r.querySelectorAll('td')];
+    for (const r of p.trs) {
+      const cells = [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table'));
       if (cells[ci] && txt(cells[ci]) === key) rows.push(r);
     }
   }
   if (rows.length === 1) {
-    ctl = [...rows[0].querySelectorAll('button, [role=button], [title], [aria-label]')].filter(b =>
+    const row = rows[0];
+    ctl = [...row.querySelectorAll('button, [role=button], [title], [aria-label]')].filter(b =>
       act.test(txt(b)) || act.test(b.getAttribute('aria-label') || '') || act.test(b.getAttribute('title') || ''));
-    if (ctl.length === 1) ctl[0].setAttribute('data-metis-row-action', '1');
+    // The chart draws the position and its legs as overlays with their own
+    // x controls (close / cancel a leg): a row control must be INSIDE this
+    // row of the positions table, boxed within it, and nowhere near a
+    // canvas (operator 2026-09-29). Anything else is refused, never clicked.
+    if (ctl.length === 1) {
+      const c = ctl[0], rb = row.getBoundingClientRect(), cb = c.getBoundingClientRect();
+      const inRow = c.closest('tr') === row && cb.width > 0 && cb.height > 0
+        && cb.left >= rb.left - 4 && cb.right <= rb.right + 4 && cb.top >= rb.top - 4 && cb.bottom <= rb.bottom + 4;
+      const nearCanvas = !!(c.closest('canvas') || [...c.parentElement ? c.parentElement.children : []].some(e => e.tagName === 'CANVAS'));
+      if (!inRow || nearCanvas) { why = inRow ? 'control sits beside a canvas' : 'control is not boxed inside its row'; ctl = []; }
+      else c.setAttribute('data-metis-row-action', '1');
+    }
   }
-  return {rows: rows.length, controls: ctl.length};
+  return {rows: rows.length, controls: ctl.length, why};
+}
+"""
+
+
+# The watched CLOSE, to the operator's flow (screenshots 2026-09-29, relayed
+# by the manager 07:20Z): hover the Positions row -> three icons appear at
+# its right end, reverse (two arrows) . modify (pencil) . close (x, orange)
+# -> click ONLY the close, the LAST control of the row -> a "Close Position"
+# modal: heading "Close <SYMBOL> <Buy|Sell> Position", a "Lots to Close"
+# input pre-filled with the full size and a caption "<n> out of <n>", buttons
+# Discard and Close Position (+ an x in the corner) -> click Close Position
+# only after every read-back passes, else Discard.
+#  "locate":   tag the ONE row of the positions table whose Symbol is the
+#              venue symbol and return its facts (side, size, fill, SL, TP).
+#  "controls": after the hover, list the row's controls; tag the close
+#              control only when exactly one x-type control exists, it is the
+#              LAST control in the row, no control reads as reverse/modify
+#              is chosen, and it is boxed inside the row away from any canvas.
+#  "modal":    read the modal back (heading, lots-to-close value, caption,
+#              buttons) and tag confirm / discard / dismiss. Clicks nothing.
+CLOSE_ROW_JS = r"""
+(args) => {
+  const [op, symbol] = args;
+""" + _PAIRED_TABLES_HELPER_JS + r"""
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const hint = el => norm([txt(el), el.getAttribute('title'), el.getAttribute('aria-label'),
+    typeof el.className === 'string' ? el.className : '', el.getAttribute('data-test-id')].filter(Boolean).join(' '));
+  const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i;
+  if (op === 'locate') {
+    document.querySelectorAll('[data-metis-close-row]').forEach(e => e.removeAttribute('data-metis-close-row'));
+    const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
+    const rows = [];
+    for (const p of paired) {
+      const hs = p.headers.map(norm);
+      if (!hs.some(h => posWords.test(h))) continue;
+      const ci = hs.indexOf('symbol'); if (ci < 0) continue;
+      for (const r of p.trs) {
+        const cells = [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt);
+        if ((cells[ci] || '').toUpperCase() === String(symbol).toUpperCase()) rows.push({r, hs, cells});
+      }
+    }
+    if (rows.length !== 1) return {ok: false, rows: rows.length, why: 'need exactly 1 row for ' + symbol + ' (found ' + rows.length + ')'};
+    const {r, hs, cells} = rows[0];
+    const get = names => { for (const n of names) { const i = hs.indexOf(n); if (i >= 0) return cells[i]; } return null; };
+    r.setAttribute('data-metis-close-row', '1');
+    return {ok: true, rows: 1, facts: {side: get(['side', 'direction']),
+            size: get(['size', 'position volume', 'position qty', 'qty', 'quantity', 'volume']),
+            fill: get(['fill price', 'open price', 'avg fill price', 'entry price', 'average price']),
+            sl: get(['stop loss', 'sl']), tp: get(['take profit', 'tp'])}};
+  }
+  if (op === 'controls') {
+    const row = document.querySelector('[data-metis-close-row]');
+    if (!row) return {ok: false, why: 'no located row'};
+    document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
+    // Clickable-looking things in the row, outermost only (an icon inside its button counts once).
+    const all = [...row.querySelectorAll('button, [role=button], a, [title], [aria-label], svg, [class*=icon], [class*=close], [class*=action]')]
+      .filter(vis);
+    const ctls = all.filter(el => !all.some(o => o !== el && o.contains(el)));
+    const desc = ctls.map(el => ({hint: hint(el).slice(0, 60), box: box(el)}));
+    const closeIdx = ctls.map((el, i) => (CLOSE_RE.test(hint(el)) && !BAD_RE.test(hint(el))) ? i : -1).filter(i => i >= 0);
+    let why = null, chosen = null;
+    if (!ctls.length) why = 'the row shows no control';
+    else if (closeIdx.length !== 1) why = closeIdx.length + ' close-type controls in the row (need exactly 1)';
+    else if (closeIdx[0] !== ctls.length - 1) why = 'the close-type control is not the LAST control of the row';
+    else {
+      const c = ctls[closeIdx[0]], rb = row.getBoundingClientRect(), cb = c.getBoundingClientRect();
+      const inRow = c.closest('tr') === row && cb.width > 0 && cb.height > 0
+        && cb.left >= rb.left - 4 && cb.right <= rb.right + 4 && cb.top >= rb.top - 4 && cb.bottom <= rb.bottom + 4;
+      const nearCanvas = !!(c.closest('canvas') || [...(c.parentElement ? c.parentElement.children : [])].some(e => e.tagName === 'CANVAS'));
+      if (!inRow) why = 'the close control is not boxed inside its row';
+      else if (nearCanvas) why = 'the close control sits beside a canvas';
+      else { c.setAttribute('data-metis-row-action', '1'); chosen = closeIdx[0]; }
+    }
+    return {ok: chosen !== null, controls: desc, chosen, why};
+  }
+  if (op === 'modal') {
+    document.querySelectorAll('[data-metis-modal-btn]').forEach(e => e.removeAttribute('data-metis-modal-btn'));
+    // The modal: the smallest visible element holding both a "Lots to Close"
+    // text and a "Close Position" button.
+    const lotsLabel = [...document.querySelectorAll('body *')].filter(el => vis(el) && el.children.length <= 2 && /lots to close/i.test(txt(el)));
+    if (!lotsLabel.length) return {ok: false, why: 'no "Lots to Close" in the page'};
+    let modal = lotsLabel[0];
+    while (modal && modal !== document.body && ![...modal.querySelectorAll('button, [role=button]')].some(b => /^close position$/i.test(txt(b)))) modal = modal.parentElement;
+    if (!modal || modal === document.body) return {ok: false, why: 'no "Close Position" button near "Lots to Close"'};
+    const btns = [...modal.querySelectorAll('button, [role=button]')].filter(vis);
+    const confirm = btns.filter(b => /^close position$/i.test(txt(b)));
+    const discard = btns.filter(b => /^(discard|cancel)$/i.test(txt(b)));
+    // The dismiss fallback (the modal's own x) is NEVER the confirm button and
+    // never anything that reads "position": an aria-label of "Close position"
+    // on the "Close Position" button also matches /close/ (review of #14013:
+    // with no Discard present, that button was tagged discard and a read-back
+    // mismatch pressed it — a partial close).
+    const aria = b => b.getAttribute('aria-label') || '';
+    const dismiss = btns.filter(b => !confirm.includes(b) && !discard.includes(b)
+      && !/position/i.test(txt(b) + ' ' + aria(b))
+      && (/^(×|✕|✖|x)$/i.test(txt(b)) || /close|dismiss/i.test(aria(b))));
+    const heading = [...modal.querySelectorAll('h1, h2, h3, h4, [class*=title], [class*=heading]')].map(txt).find(t => /position/i.test(t))
+      || (modal.innerText || '').split('\n').map(x => x.trim()).find(t => /^close\s+\S+\s+(buy|sell)\s+position/i.test(t)) || null;
+    const inputs = [...modal.querySelectorAll('input:not([type=hidden]):not([type=checkbox]), [role=spinbutton]')].filter(vis);
+    const lots = inputs.length ? String(inputs[0].value !== undefined ? inputs[0].value : txt(inputs[0])) : null;
+    const cap = ((modal.innerText || '').match(/([0-9]+(?:\.[0-9]+)?)\s*out of\s*([0-9]+(?:\.[0-9]+)?)/i) || []);
+    if (confirm.length === 1) confirm[0].setAttribute('data-metis-modal-btn', 'confirm');
+    if (discard.length === 1) discard[0].setAttribute('data-metis-modal-btn', 'discard');
+    else if (dismiss.length === 1) dismiss[0].setAttribute('data-metis-modal-btn', 'discard');
+    return {ok: true, heading, lots, caption: cap.length ? [cap[1], cap[2]] : null, inputs: inputs.length,
+            buttons: btns.map(b => txt(b).slice(0, 30)), confirm: confirm.length, discard: discard.length + dismiss.length,
+            confirm_enabled: confirm.length === 1 && !(confirm[0].disabled || confirm[0].getAttribute('aria-disabled') === 'true'),
+            text: (modal.innerText || '').replace(/\s+/g, ' ').replace(/\d{5,}/g, '#####').slice(0, 300)};
+  }
+  return {ok: false, why: 'unknown op'};
 }
 """
 
@@ -1543,10 +1716,7 @@ def quote_from_watchlist_rows(got: Mapping[str, Any], venue_symbol: str) -> Opti
     if not headers:
         return None
     rows = [r for r in (got.get("rows") or []) if len(r) == len(headers)]
-    q = quote_from_tables([{"headers": headers, "rows": rows}], venue_symbol)
-    if q is None or (q["ask"] - q["bid"]) / q["ask"] > MAX_QUOTE_SPREAD_FRAC:
-        return None
-    return q
+    return quote_from_tables([{"headers": headers, "rows": rows}], venue_symbol)
 
 
 def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Dict[str, Any]:
@@ -1573,7 +1743,13 @@ def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
 def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
     """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
     (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
-    table carries both, the symbol has no row, or the numbers do not parse."""
+    table carries both, the symbol has no row, or the numbers do not parse.
+
+    The plausibility rules of #13908 apply on EVERY path, because the rows
+    of a headed table can now come from a paired header-less body table
+    (EXTRACT_TABLES_JS): a row must have exactly as many cells as there are
+    headers, 0 < bid <= ask, and the spread must be under
+    :data:`MAX_QUOTE_SPREAD_FRAC`; otherwise the row is not a quote."""
     for t in tables:
         headers = list(t.get("headers") or [])
         norm = [_norm(h) for h in headers]
@@ -1581,9 +1757,12 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
             continue
         c_sym, c_bid, c_ask = norm.index("symbol"), norm.index("bid"), norm.index("ask")
         for row in t.get("rows") or []:
+            if len(row) != len(headers):
+                continue
             if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
                 bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
-                if bid is not None and ask is not None and 0 < bid <= ask:
+                if (bid is not None and ask is not None and 0 < bid <= ask
+                        and (ask - bid) / ask <= MAX_QUOTE_SPREAD_FRAC):
                     return {"bid": bid, "ask": ask}
     return None
 
@@ -1757,6 +1936,68 @@ def verify_bracket_legs(form: Mapping[str, Any]) -> List[str]:
         for leg, m in modes.items():
             if str(m or "").strip().lower() != "price":
                 bad.append(f"{leg}: entry mode is {m!r}, need 'Price'")
+    return bad
+
+
+def _f_or_none(x: Any) -> Optional[float]:
+    return parse_number(x) if x is not None else None
+
+
+def _row_facts_mismatch(facts: Mapping[str, Any], side: Optional[str], quantity: Optional[float],
+                        entry_price: Optional[float], rel_tol: float = 0.02) -> List[str]:
+    """Pure: the located row's Side / Size / Fill Price against the position
+    the caller means to close. A fact the caller did not give is not judged;
+    a fact the row cannot show is a mismatch (never assumed)."""
+    bad: List[str] = []
+    if side is not None:
+        shown = _side(facts.get("side"))
+        if shown != side:
+            bad.append(f"side: row shows {facts.get('side')!r}, want {side}")
+    if quantity is not None:
+        shown = parse_number(facts.get("size"))
+        if shown is None or not math.isclose(shown, float(quantity), rel_tol=rel_tol, abs_tol=1e-9):
+            bad.append(f"size: row shows {facts.get('size')!r}, want {_fmt_num(quantity)}")
+    if entry_price is not None:
+        shown = parse_number(facts.get("fill"))
+        if shown is None or not math.isclose(shown, float(entry_price), rel_tol=rel_tol):
+            bad.append(f"fill: row shows {facts.get('fill')!r}, want {_fmt_num(entry_price)}")
+    return bad
+
+
+def _close_modal_mismatch(modal: Mapping[str, Any], symbol: str, side: Optional[str],
+                          quantity: Optional[float]) -> List[str]:
+    """Pure: the "Close Position" modal read-back. It must name OUR symbol
+    and side in its heading, offer exactly the full size as lots-to-close
+    (input value and the "<n> out of <n>" caption agree with the position's
+    size), and carry exactly one enabled "Close Position" button."""
+    bad: List[str] = []
+    if not modal.get("ok"):
+        return [str(modal.get("why") or "modal not read")]
+    head = str(modal.get("heading") or "")
+    if symbol.upper() not in head.upper():
+        bad.append(f"heading {head!r} does not name {symbol}")
+    if side is not None:
+        want = "buy" if side == "long" else "sell"
+        other = "sell" if want == "buy" else "buy"
+        if not re.search(rf"\b{want}\b", head, re.IGNORECASE) or re.search(rf"\b{other}\b", head, re.IGNORECASE):
+            bad.append(f"heading {head!r} does not name our side ({want})")
+    lots = parse_number(modal.get("lots"))
+    cap = modal.get("caption") or []
+    cap_n, cap_of = (parse_number(cap[0]), parse_number(cap[1])) if len(cap) == 2 else (None, None)
+    if lots is None:
+        bad.append("lots-to-close not readable")
+    if cap_of is None:
+        bad.append('"<n> out of <n>" caption not readable')
+    if quantity is not None:
+        for name, v in (("lots-to-close", lots), ("caption lots", cap_n), ("caption total", cap_of)):
+            if v is not None and not math.isclose(v, float(quantity), rel_tol=1e-6, abs_tol=1e-9):
+                bad.append(f"{name} {_fmt_num(v)} != the full size {_fmt_num(quantity)}")
+    elif lots is not None and cap_of is not None and not math.isclose(lots, cap_of, rel_tol=1e-6, abs_tol=1e-9):
+        bad.append(f"lots-to-close {_fmt_num(lots)} != the position size {_fmt_num(cap_of)}")
+    if modal.get("confirm") != 1:
+        bad.append(f"{modal.get('confirm')} \"Close Position\" buttons (need exactly 1)")
+    elif not modal.get("confirm_enabled"):
+        bad.append('"Close Position" is disabled')
     return bad
 
 
@@ -2487,8 +2728,21 @@ class DXtradeAdapter(PropPlatformAdapter):
             lines.append(f"dump_tables.tab_like: {[r(t, 30) for t in (tabs or [])]}")
         except Exception as exc:
             lines.append(f"dump_tables.tab_like: FAILED ({type(exc).__name__})")
-        for key in ("tab_positions", "tab_orders"):
+        for key in ("tab_positions", "tab_orders", "tab_order_history", "tab_trade_history"):
             shown = self._show_tab(page, key)
+            # The row's own controls appear on HOVER (operator 2026-09-29: a
+            # reverse / modify / close icon trio at the row's right end), so
+            # hover the first body row of each table before reading. A hover
+            # is not a click; nothing is pressed.
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-hover]').forEach(e => e.removeAttribute('data-metis-hover'));"
+                              " const r = [...document.querySelectorAll('table tr')].find(r => r.querySelector('td'));"
+                              " if (r) r.setAttribute('data-metis-hover', '1'); }")
+                if page.locator("[data-metis-hover]").count() == 1:
+                    page.hover("[data-metis-hover]", timeout=3_000)
+                    page.wait_for_timeout(300)
+            except Exception:
+                pass
             tables = self._tables(page)
             lines.append(f"dump_tables[{SELECTORS[key]}]: tab_click={shown} tables={len(tables)}")
             for i, t in enumerate(tables):
@@ -2498,7 +2752,15 @@ class DXtradeAdapter(PropPlatformAdapter):
                 rows = t.get("rows") or []
                 lines.append(f"dump_tables.table[{i}] kind={t.get('kind')} reads_as={reads_as} rows={len(rows)} "
                              f"headers={[r(h) for h in headers]}")
-                for row in rows[:3]:
+                if t.get("kind") == "table":
+                    lines.append(f"dump_tables.table[{i}].pairing: paired_body={t.get('paired')} own_rows={t.get('own_rows')} "
+                                 f"unpaired_body_rows={t.get('unpaired_body_rows')} "
+                                 f"headerless_tables_rows={t.get('headerless_tables')} "
+                                 f"first_row_controls={[r(c, 30) for c in (t.get('first_row_controls') or [])]}")
+                # First 3 rows, and the last 3 when there are more (a history
+                # tab may list the newest fill at either end).
+                shown_rows = rows[:3] + (rows[-3:] if len(rows) > 6 else rows[3:6])
+                for row in shown_rows:
                     lines.append(f"dump_tables.row[{i}]: {[r(c) for c in row]}")
         lines.append("dump_tables: END")
         return lines
@@ -2644,14 +2906,88 @@ class DXtradeAdapter(PropPlatformAdapter):
         return self._row_action(page, "orders", "Order ID", str(order.order_id),
                                 r"^(cancel|cancel order|×|✕|x|remove)$", arm)
 
-    def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False) -> Dict[str, Any]:
-        """Close ONE symbol's position at market (never 'close all': a
-        symbol is required so a flatten can never widen past its target)."""
+    def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False,
+                side: Optional[str] = None, quantity: Optional[float] = None,
+                entry_price: Optional[float] = None, rel_tol: float = 0.02) -> Dict[str, Any]:
+        """Close ONE symbol's position through the terminal's own flow, every
+        step read back (operator 2026-09-29): the one Positions row for
+        ``symbol`` (its side / size / fill must match what the caller means
+        to close, when given) -> hover -> the row's LAST control, the only
+        close-type one, boxed inside the row and away from any canvas ->
+        the "Close Position" modal must name OUR symbol and side and offer
+        the FULL size as lots-to-close (never edited) -> "Close Position".
+        Any mismatch presses Discard (or the modal's x) and refuses. Never
+        "close all": a symbol is required. With ``arm=False`` it locates the
+        row and its close control and stops before any click."""
         if not symbol:
             return {"ok": False, "clicked": False, "why": "symbol required (no close-all)"}
         self._show_tab(page, "tab_positions")
-        return self._row_action(page, "positions", "Symbol", symbol,
-                                r"^(close|close position|×|✕|x)$", arm)
+        try:
+            loc = page.evaluate(CLOSE_ROW_JS, ["locate", symbol]) or {}
+        except Exception as exc:
+            return {"ok": False, "clicked": False, "why": f"locate failed ({type(exc).__name__})"}
+        if not loc.get("ok"):
+            return {"ok": False, "clicked": False, "why": loc.get("why") or "row not located", "rows": loc.get("rows")}
+        facts = loc.get("facts") or {}
+        bad = _row_facts_mismatch(facts, side, quantity, entry_price, rel_tol)
+        if bad:
+            return {"ok": False, "clicked": False, "why": "row does not match the position to close: " + "; ".join(bad),
+                    "row": facts}
+        try:
+            page.hover("[data-metis-close-row]", timeout=5_000)
+            page.wait_for_timeout(400)
+            ctl = page.evaluate(CLOSE_ROW_JS, ["controls", symbol]) or {}
+        except Exception as exc:
+            return {"ok": False, "clicked": False, "why": f"hover / controls failed ({type(exc).__name__})", "row": facts}
+        if not ctl.get("ok"):
+            return {"ok": False, "clicked": False, "why": f"close control: {ctl.get('why')}", "row": facts,
+                    "controls": ctl.get("controls")}
+        if not arm:
+            return {"ok": True, "clicked": False, "why": "disarmed: stopped before the row's close control",
+                    "row": facts, "controls": ctl.get("controls"), "chosen": ctl.get("chosen")}
+        try:
+            page.click("[data-metis-row-action]", timeout=5_000)
+        except Exception as exc:
+            return {"ok": False, "clicked": True, "why": f"close control click raised {type(exc).__name__}; outcome unknown",
+                    "row": facts}
+        page.wait_for_timeout(800)
+        try:
+            modal = page.evaluate(CLOSE_ROW_JS, ["modal", symbol]) or {}
+        except Exception as exc:
+            modal = {"ok": False, "why": f"modal read failed ({type(exc).__name__})"}
+        bad = _close_modal_mismatch(modal, symbol, side, quantity if quantity is not None else _f_or_none(facts.get("size")))
+        if bad:
+            discarded = self._discard_modal(page)
+            return {"ok": False, "clicked": True, "why": "close modal refused: " + "; ".join(bad) + (
+                "; Discard pressed" if discarded else "; no Discard control found (modal may still be open)"),
+                    "row": facts, "modal": modal}
+        try:
+            page.click("[data-metis-modal-btn=confirm]", timeout=5_000)
+        except Exception as exc:
+            return {"ok": False, "clicked": True, "why": f"Close Position click raised {type(exc).__name__}; outcome unknown",
+                    "row": facts, "modal": modal}
+        return {"ok": True, "clicked": True, "why": "Close Position confirmed", "row": facts, "modal": modal}
+
+    @staticmethod
+    def _discard_modal(page: Any) -> bool:
+        """Press the modal's Discard (or its x) — never the confirm button.
+        Belt and braces on top of CLOSE_ROW_JS's tagging: whatever carries the
+        discard tag is read back first, and anything that reads "Close
+        Position" is left alone (Escape is the only fallback)."""
+        try:
+            loc = page.locator("[data-metis-modal-btn=discard]")
+            if loc.count() == 1:
+                label = " ".join(str(x or "") for x in (loc.inner_text(timeout=2_000), loc.get_attribute("aria-label")))
+                if not re.search(r"close\s+position|position", label, re.I):
+                    page.click("[data-metis-modal-btn=discard]", timeout=5_000)
+                    return True
+        except Exception:
+            pass
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        return False
 
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
