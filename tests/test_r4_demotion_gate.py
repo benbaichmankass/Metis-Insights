@@ -86,11 +86,18 @@ def _entry(leg, windows, usd=None, cov=0.8, avail=None):
                        for i, w in enumerate(windows)]}
 
 
-def _recent(real=None, mirror=None):
+def _now_close():
+    import datetime as dt
+    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _recent(real=None, mirror=None, newest=...):
+    newest = _now_close() if newest is ... else newest
     return {"n": 40, "block": 20, "error": False,
-            "realMoney": {"readState": "ok", "perStrategy": real or {}},
+            "realMoney": {"readState": "ok", "newestClosedAt": newest,
+                          "perStrategy": real or {}},
             "mirror": {"readState": "ok", "accountIds": ["bybit_portfolio", "alpaca_portfolio"],
-                       "perStrategy": mirror or {}}}
+                       "newestClosedAt": None, "perStrategy": mirror or {}}}
 
 
 @pytest.fixture
@@ -401,9 +408,14 @@ def test_the_gate_parses_a_real_route_payload(tmp_path, monkeypatch, root):
            n_per=45)
     monkeypatch.setattr(P, "_DB_PATH", db)
     monkeypatch.setattr(P, "journal_trust_map", lambda: S.TRUST_MAP)
-    monkeypatch.setattr(P, "_portfolio_paper_account_ids", lambda: ["bybit_portfolio"])
+    monkeypatch.setattr(P, "_book_rosters", lambda: {
+        "readState": "ok", "realMoneyLegs": [LEG], "portfolioAccounts": ["bybit_portfolio"],
+        "portfolioLegs": [LEG]})
     recent = json.loads(json.dumps(P.get_performance_recent(n=40)))
-    d = _dec(g.run(recent, root=root(), apply=False))
+    assert [b["label"] for b in recent["realMoney"]["perStrategy"][LEG]["blocks"]] == ["recent", "prior"]
+    # the seed's clock is frozen; judge it at that clock so freshness does not drift with the date
+    d = _dec(g.run(recent, root=root(), apply=False, now=S.FROZEN_NOW))
+    assert d["abstain"] != "stale"
     assert d["book"]["last"]["trades"] == 40 and len(d["book"]["blocks"]) == 2
     assert all(b["trades"] == 20 for b in d["book"]["blocks"])
     assert d["r4"]["real"]["status"] != "abstain_thin"        # the gate saw 40 trades
@@ -426,3 +438,35 @@ def test_mirror_window_record_carries_both_pnl_bases_without_moving_the_verdict(
     assert rec["net_usd_measured"] == 900.0
     assert rec["net_usd_measured_only"] == -50.0
     assert rec["n_estimated"] == 18
+
+
+@pytest.mark.parametrize("newest", ["2026-01-01 00:00:00", None])
+def test_a_stale_payload_abstains_every_leg_and_is_counted(root, newest):
+    """N4: nothing closed on either book within MAX_STALENESS_HOURS -- a stalled
+    trader re-serves the same 40 trades, which are not new evidence."""
+    r = root()
+    out = g.run(_recent(real={LEG: _entry(LEG, [-9.0, -9.0])}, newest=newest), root=r, apply=True)
+    d = _dec(out)
+    assert d["action"] == g.ABSTAIN and d["abstain"] == "stale" and "STALE" in d["why"]
+    assert out["counts"]["abstain_stale"] == len(out["legs"]) and out["demoted"] == []
+    assert out["freshness"]["stale"] is True
+
+
+def test_fresh_payload_within_the_bound_is_judged(root):
+    import datetime as dt
+    edge = (dt.datetime.now(dt.timezone.utc)
+            - dt.timedelta(hours=g.MAX_STALENESS_HOURS - 1)).strftime("%Y-%m-%d %H:%M:%S")
+    out = g.run(_recent(real={LEG: _entry(LEG, [-6.0, -6.0])}, newest=edge), root=root(),
+                apply=False)
+    assert _dec(out)["action"] == g.DEMOTE and out["freshness"]["stale"] is False
+
+
+def test_record_windows_carry_block_labels_and_edge_trade_ids(root):
+    r = root()
+    ent = _entry(LEG, [-6.0, -6.0])
+    for i, (b, lab) in enumerate(zip(ent["blocks"], ("recent", "prior"))):
+        b.update({"label": lab, "firstTradeId": 100 - 20 * i - 19, "lastTradeId": 100 - 20 * i})
+    g.run(_recent(real={LEG: ent}), root=r, apply=True)
+    rec = json.loads((r / f"comms/mandate_evidence/mirror_window/{LEG}.json").read_text())
+    assert [w["label"] for w in rec["windows"]] == ["recent", "prior"]
+    assert rec["windows"][0]["first_trade_id"] == 81 and rec["windows"][1]["last_trade_id"] == 80

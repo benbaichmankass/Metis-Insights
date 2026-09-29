@@ -104,28 +104,34 @@ def _stage2_recent_payload(db_path: str) -> Dict[str, Any]:
     from src.web.api.routers.performance import (  # noqa: PLC0415
         RECENT_BLOCK,
         _book_blocks,
-        _portfolio_paper_account_ids,
+        _book_rosters,
+        _newest_close,
         _query,
     )
     import scripts.ops.r4_demotion_gate as _r4  # noqa: PLC0415
 
     n = _r4.mr.T3_N
     path = Path(db_path)
-    portfolio_ids = _portfolio_paper_account_ids()
+    rosters = _book_rosters()
+    real_rows = _query(path, None, demo=False)
+    pids = rosters["portfolioAccounts"]
+    pp_rows = _query(path, None, demo=True, account_ids=pids) if pids else []
+    mirror_state = ("accounts_unreadable" if rosters["readState"] != "ok"
+                    else "ok" if pids else "no_portfolio_accounts_declared")
     return {
         "n": n,
         "block": RECENT_BLOCK,
         "error": False,
-        "realMoney": {"readState": "ok",
-                      "perStrategy": _book_blocks(_query(path, None, demo=False), n, RECENT_BLOCK)},
+        "realMoney": {"readState": "ok", "newestClosedAt": _newest_close(real_rows),
+                      "perStrategy": _book_blocks(real_rows, n, RECENT_BLOCK,
+                                                  rosters["realMoneyLegs"])},
         # No portfolio-mirror books declared: the mirror read is empty BY
         # DESIGN (not the full soak roster) -- every leg's mirror then abstains
         # thin rather than silently substituting the whole paper fleet.
-        "mirror": {"readState": "ok" if portfolio_ids else "no_portfolio_accounts_declared",
-                   "accountIds": portfolio_ids,
-                   "perStrategy": (_book_blocks(_query(path, None, demo=True,
-                                                       account_ids=portfolio_ids),
-                                                n, RECENT_BLOCK) if portfolio_ids else {})},
+        "mirror": {"readState": mirror_state, "accountIds": pids,
+                   "newestClosedAt": _newest_close(pp_rows),
+                   "perStrategy": (_book_blocks(pp_rows, n, RECENT_BLOCK,
+                                                rosters["portfolioLegs"]) if pids else {})},
     }
 
 

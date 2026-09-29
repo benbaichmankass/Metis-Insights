@@ -247,8 +247,11 @@ def test_stage2_payload_off_a_real_journal_is_the_routes_shape(tmp_path, monkeyp
     db = tmp_path / "tj.db"
     S.seed(db, n_per=45)
     monkeypatch.setattr(P, "journal_trust_map", lambda: S.TRUST_MAP)
-    monkeypatch.setattr(P, "_portfolio_paper_account_ids", lambda: ["bybit_portfolio"])
+    monkeypatch.setattr(P, "_book_rosters", lambda: {
+        "readState": "ok", "realMoneyLegs": ["leg_a", "leg_idle"],
+        "portfolioAccounts": ["bybit_portfolio"], "portfolioLegs": ["leg_a"]})
     recent = srp._stage2_recent_payload(str(db))
+    assert recent["realMoney"]["perStrategy"]["leg_idle"]["closedAvailable"] == 0
     assert recent["n"] == 40 and recent["block"] == 20
     leg = recent["realMoney"]["perStrategy"]["leg_a"]
     assert leg["complete"] and [b["totalTrades"] for b in leg["blocks"]] == [20, 20]

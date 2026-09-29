@@ -30,6 +30,9 @@ fixed seed, imported here and re-run by the resolver on every replay, so the
 gate and the resolver cannot disagree about it.
 
   * fewer than 40 closed trades on the chosen book -> ABSTAIN (counted);
+  * nothing closed on either book within MAX_STALENESS_HOURS (72h) -> every
+    leg ABSTAINS as ``stale`` (counted): a stalled trader re-serves the same
+    40 trades, and re-judging them is not new evidence;
   * no usable Stage-0 evidence -> ABSTAIN, LOUDLY (a ``::warning::`` line and
     its own count) -- a threshold is never guessed;
   * the window/30d rollup of ``/api/bot/performance`` is no longer read, and
@@ -146,6 +149,12 @@ DEMOTE, HOLD, ABSTAIN = "demote", "hold", "abstain"
 #: fixed) `window` input declares and what check_mandate_autoland A7 binds the
 #: run's provenance to; any other label is a caller choosing its own evidence.
 WINDOW_LABEL = f"last{mr.T3_N}"
+#: Freshness bound (manager review N4, 2026-09-29): if NOTHING closed on either
+#: Stage-2 book for this long, the trader or the journal is stalled and the
+#: payload is the same 40 trades as yesterday -- every leg abstains ("stale").
+#: 72h: Stage-2 spans 7 legs on crypto (24/7) and equities; a fleet-wide 3-day
+#: silence is a stall, not a slow leg. A per-leg bound would silence the 1d legs.
+MAX_STALENESS_HOURS = 72
 
 #: The Stage-2 real-money accounts, taken from the resolver so the two can
 #: never disagree about what Stage 2 is.
@@ -182,7 +191,38 @@ def _book(recent: Dict[str, Any], key: str, leg: str) -> Dict[str, Any]:
             "complete": bool(ent.get("complete")),
             "last": _leg_row(ent.get("last"), leg),
             "blocks": [_leg_row(b, leg) for b in blocks],
-            "blockSpans": [(b.get("closedFrom"), b.get("closedTo")) for b in blocks]}
+            "blockSpans": [(b.get("closedFrom"), b.get("closedTo")) for b in blocks],
+            "blockMeta": [{"label": b.get("label"), "first_trade_id": b.get("firstTradeId"),
+                           "last_trade_id": b.get("lastTradeId")} for b in blocks]}
+
+
+def _parse_ts(v: Any) -> Optional[_dt.datetime]:
+    """A journal close time (``YYYY-MM-DD HH:MM:SS`` or ISO) as aware UTC."""
+    if not isinstance(v, str) or not v.strip():
+        return None
+    try:
+        ts = _dt.datetime.fromisoformat(v.strip().replace("Z", "+00:00").replace(" ", "T", 1))
+    except ValueError:
+        return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=_dt.timezone.utc)
+
+
+def staleness(recent: Dict[str, Any], now: _dt.datetime) -> Dict[str, Any]:
+    """Is the payload FRESH? The newest close across both books must be within
+    ``MAX_STALENESS_HOURS`` of ``now``. A stalled trader (or a frozen journal)
+    re-serves the same last 40 trades every day; judging them again is not new
+    evidence, so every leg abstains -- counted -- until closes resume."""
+    newest = [ts for ts in (_parse_ts((recent.get(k) or {}).get("newestClosedAt"))
+                            for k in ("realMoney", "mirror")) if ts]
+    if not newest:
+        return {"stale": True, "newest_closed_at": None,
+                "why": "no newestClosedAt on either book -- freshness cannot be read"}
+    top = max(newest)
+    age_h = (now - top).total_seconds() / 3600.0
+    return {"stale": age_h > MAX_STALENESS_HOURS, "newest_closed_at": top.isoformat(),
+            "age_hours": round(age_h, 2),
+            "why": (f"newest close {top.isoformat()} is {age_h:.1f}h old > the stated "
+                    f"{MAX_STALENESS_HOURS}h bound" if age_h > MAX_STALENESS_HOURS else None)}
 
 
 def _r(row: Optional[Dict[str, Any]]) -> Optional[float]:
@@ -192,7 +232,8 @@ def _r(row: Optional[Dict[str, Any]]) -> Optional[float]:
 
 def leg_decision(leg: str, account: str, real: Dict[str, Any], mirror: Dict[str, Any],
                  threshold: Dict[str, Any], *, coverage_floor: float,
-                 min_trades: int = mr.T3_N) -> Dict[str, Any]:
+                 min_trades: int = mr.T3_N,
+                 fresh: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """R4 over the last 40, then T3 AND net<0 over the two 20-trade windows."""
     v = combined_leg_verdict(real["last"], mirror["last"], coverage_floor=coverage_floor,
                              min_trades=min_trades)
@@ -210,6 +251,9 @@ def leg_decision(leg: str, account: str, real: Dict[str, Any], mirror: Dict[str,
     if p10 is None:
         return out(ABSTAIN, f"NO USABLE STAGE-0 EVIDENCE -- {threshold.get('why')}; the T3 "
                             "threshold is never guessed", "no_evidence")
+    if fresh and fresh.get("stale"):
+        return out(ABSTAIN, f"STALE PAYLOAD -- {fresh.get('why')}; the same trades are not new "
+                            "evidence", "stale")
     if v["status"] == ABSTAIN_THIN:
         return out(ABSTAIN, f"fewer than {min_trades} closed trades on either book: {v['detail']}",
                    "thin")
@@ -234,12 +278,15 @@ def leg_decision(leg: str, account: str, real: Dict[str, Any], mirror: Dict[str,
 
 
 def evaluate(recent: Dict[str, Any], root: Path, *, coverage_floor: float = COVERAGE_FLOOR,
-             min_trades: int = mr.T3_N) -> List[Dict[str, Any]]:
+             min_trades: int = mr.T3_N,
+             now: Optional[_dt.datetime] = None) -> List[Dict[str, Any]]:
+    fresh = staleness(recent, now or _dt.datetime.now(_dt.timezone.utc))
     out = []
     for acct, leg in stage2_legs(root):
         out.append(leg_decision(leg, acct, _book(recent, "realMoney", leg),
                                 _book(recent, "mirror", leg), mr.stage0_block_p10(leg, root),
-                                coverage_floor=coverage_floor, min_trades=min_trades))
+                                coverage_floor=coverage_floor, min_trades=min_trades,
+                                fresh=fresh))
     return out
 
 
@@ -290,8 +337,9 @@ def mirror_window_record(dec: Dict[str, Any], source_run_rel: str, window: str,
             {"n_closed": (b or {}).get("trades"), "net_r": _r(b),
              "r_population": (b or {}).get("rTradeCount"),
              "net_usd_measured": (b or {}).get("totalPnlMeasured"),
-             "closed_from": span[0], "closed_to": span[1]}
-            for b, span in zip(book["blocks"], book["blockSpans"])
+             "closed_from": span[0], "closed_to": span[1], **meta}
+            for b, span, meta in zip(book["blocks"], book["blockSpans"],
+                                     book.get("blockMeta") or [{}] * len(book["blocks"]))
         ],
         # The threshold, its seed and its source -- re-derived by the resolver
         # on every replay (R-T3-THRESHOLD refuses a mismatch).
@@ -435,13 +483,14 @@ def run(recent: Dict[str, Any], *, root: Path = REPO, window: str = WINDOW_LABEL
         coverage_floor: float = COVERAGE_FLOOR, now: Optional[_dt.datetime] = None) -> Dict[str, Any]:
     now = now or _dt.datetime.now(_dt.timezone.utc)
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
-    decisions = evaluate(recent, root, coverage_floor=coverage_floor)
+    decisions = evaluate(recent, root, coverage_floor=coverage_floor, now=now)
     candidates = [d for d in decisions if d["action"] == DEMOTE]
     out: Dict[str, Any] = {
         "mode": "apply" if apply else "dry_run", "window": window, "rule": mr.T3_RULE_ID,
         "n": recent.get("n"), "block": recent.get("block"),
         "generated_at": now.isoformat(), "coverage_floor": coverage_floor,
         "min_trades": mr.T3_N, "stage2_accounts": list(STAGE2_ACCOUNTS),
+        "freshness": staleness(recent, now), "max_staleness_hours": MAX_STALENESS_HOURS,
         "legs": decisions, "counts": _counts(decisions),
         "no_evidence": [d["leg"] for d in decisions if d["abstain"] == "no_evidence"],
         "demoted": [], "refused": [], "written": [],

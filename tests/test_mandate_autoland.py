@@ -84,9 +84,11 @@ def _recent_payload(leg: str) -> dict:
                        "closedTo": "2026-09-12T00:00:00"},
                       {"perStrategy": [row(20, -6.0)], "closedFrom": "2026-09-13T00:00:00",
                        "closedTo": "2026-09-27T00:00:00"}]}
+    import datetime as dt
+    fresh = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
     return {"n": 40, "block": 20, "error": False,
-            "realMoney": {"readState": "ok", "perStrategy": {leg: ent}},
-            "mirror": {"readState": "ok", "accountIds": [MIRROR_ACCOUNT],
+            "realMoney": {"readState": "ok", "newestClosedAt": fresh, "perStrategy": {leg: ent}},
+            "mirror": {"readState": "ok", "accountIds": [MIRROR_ACCOUNT], "newestClosedAt": fresh,
                        "perStrategy": {leg: json.loads(json.dumps(ent))}}}
 
 

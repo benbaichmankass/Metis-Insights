@@ -911,7 +911,45 @@ def check_grant_at_base(root: Path, base: str, mb: str,
                 fails.append(f"A8 {leg}: {mid} is no longer granted, derisk_only and armed with "
                              f"`{ARM_FIELD}: true` in {MANDATES_REL} at {base} (main now). A "
                              f"disarm or revocation after the run fired stops its PR too.")
-    return fails, ([] if fails else [f"A4/A8 re-checked at {base}: still granted and armed"])
+        fails += _threshold_at_base(root, base, leg)
+    return fails, ([] if fails else [f"A4/A8 + T3 threshold re-checked at {base}: still granted, "
+                                     f"armed, and the record's p10 is the leg's p10 on main now"])
+
+
+def _threshold_at_base(root: Path, base: str, leg: str) -> List[str]:
+    """MD-DEMOTE-S2-S1's T3 threshold RE-DERIVED AT LAND TIME (manager review
+    N3, 2026-09-29): the leg's Stage-0 record on main NOW, not only at the
+    branch's cut point. If the record changed after the run fired, the p10 the
+    mirror-window record was judged against is no longer the leg's own, and
+    the PR does not land on it."""
+    record = _json_text(blob(root, _GRADED, f"{MIRROR_DIR}/{leg}.json")) or {}
+    stated = record.get("p10_threshold")
+    tmp = Path(tempfile.mkdtemp(prefix="mandate-autoland-p10-"))
+    try:
+        ev_rel = f"{mr.EVIDENCE_DIR_REL}/{leg}.json"
+        ev_text = blob(root, base, ev_rel)
+        if ev_text is not None:
+            (tmp / ev_rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / ev_rel).write_text(ev_text, encoding="utf-8")
+            src = (_json_text(ev_text) or {}).get("source_run")
+            if isinstance(src, str) and src.strip() and ".." not in Path(src).parts \
+                    and not src.startswith("/"):
+                src_text = blob(root, base, src)
+                if src_text is not None:
+                    (tmp / src).parent.mkdir(parents=True, exist_ok=True)
+                    (tmp / src).write_text(src_text, encoding="utf-8")
+        thr = mr.stage0_block_p10(leg, tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if thr.get("p10") is None:
+        return [f"A5 {leg}: the T3 threshold cannot be derived from {base} (main now): "
+                f"{thr.get('why')}. A threshold is never guessed; refusing."]
+    if not isinstance(stated, (int, float)) or isinstance(stated, bool) \
+            or abs(float(stated) - thr["p10"]) > 1e-6:
+        return [f"A5 {leg}: the record's p10_threshold {stated!r} is not the leg's p10 on {base} "
+                f"(main now) -- {thr['p10']} from {thr['evidence_record']}. The Stage-0 record "
+                f"changed after the run fired; the demotion was judged against a stale bar."]
+    return []
 
 
 def check_slot(root: Path, mb: str, changed: List[str], slug: str,
@@ -1152,7 +1190,7 @@ def _base_repo(tmp: Path, *, arm: bool = True) -> Path:
                json.dumps({"strategy": leg, "source_run": src}))
     # The producer's DECLARED window lives in its workflow's `window` default.
     _write(root, WORKFLOW_REL, 'on:\n  workflow_dispatch:\n    inputs:\n      window:\n'
-                               '        default: "30d"\n')
+                               '        default: "last40"\n')
     # The planted event payload lives in the work tree; it must never reach the
     # diff, or A1 would refuse every fixture for a file the fixture invented.
     _write(root, ".gitignore", ".fixture-event.json\n")
@@ -1178,12 +1216,12 @@ _STAGE0_NET_R = (1.0, -0.8, 0.6, -1.0, 1.2)
 def _evidence(root: Path, *, leg: str = LEG, net: float = -12.0,
               mandate: str = "MD-DEMOTE-S2-S1", accounts: Optional[List[str]] = None,
               windows: Optional[List[float]] = None) -> None:
-    run_rel = f"{RUNS_DIR}/20260925T000000Z-30d.json"
-    _write(root, run_rel, json.dumps({"kind": "r4_demotion_gate_source_run", "window": "30d"}))
+    run_rel = f"{RUNS_DIR}/20260925T000000Z-last40.json"
+    _write(root, run_rel, json.dumps({"kind": "r4_demotion_gate_source_run", "window": "last40"}))
     windows = windows if windows is not None else [net / 2, net / 2]
     th = mr.stage0_block_p10(leg, root)
     _write(root, f"{MIRROR_DIR}/{leg}.json", json.dumps({
-        "leg": leg, "account": "bybit_2", "mandate": mandate, "window": "30d",
+        "leg": leg, "account": "bybit_2", "mandate": mandate, "window": "last40",
         "rule": mr.T3_RULE_ID, "source_run": run_rel, "n_closed": mr.T3_N,
         "net_r_net_of_full_cost": net,
         "windows": [{"n_closed": mr.T3_BLOCK, "net_r": w} for w in windows],
@@ -1279,7 +1317,7 @@ def _finish(root: Path, decl: dict, *, branch: str = BRANCH, env: Optional[dict]
         if prov is None:
             return None, "planted: the run uploaded no provenance artifact"
         rec = {"run_id": RUN_ID, "branch": branch, "head_sha": tip, "removals": removals,
-               "window": "30d", "event": "schedule"}
+               "window": "last40", "event": "schedule"}
         rec.update(prov if isinstance(prov, dict) else {})
         return rec, "planted artifact"
     saved = {k: os.environ.get(k) for k in ("GITHUB_REPOSITORY", "GITHUB_EVENT_NAME")}
@@ -1458,6 +1496,46 @@ def self_test(quiet: bool = False) -> int:
     _case("no Stage-0 evidence at the merge-base refuses -- a threshold is never guessed (A5)",
           t3_no_stage0, expect_ok=False, expect_clause="A5", results=results, quiet=quiet)
 
+    def stage0_moved_on_main(tmp: Path):
+        """N3 (manager review, 2026-09-29): the run fired against the Stage-0
+        record at its cut point; main's record has since been re-run, so the
+        leg's p10 moved. The LAND-TIME re-derivation refuses the stale bar."""
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        decl = _paperwork(root)
+        _run(root, "stash", "-u", "-q")
+        _run(root, "checkout", "-q", "-b", "cutpoint")
+        _run(root, "checkout", "-q", "mainbase")
+        _write(root, f"{mr.EVIDENCE_DIR_REL}/runs/fixture/{LEG}__trades.jsonl",
+               "".join(json.dumps({"net_r": x}) + "\n" for x in (3.0, 2.5, 4.0, 3.5)))
+        _run(root, "add", "-A")
+        _run(root, "commit", "-qm", "stage-0 re-run on main", env=_HUMAN_ENV)
+        _run(root, "checkout", "-q", "cutpoint")
+        _run(root, "stash", "pop", "-q")
+        _run(root, "checkout", "-q", "-b", BRANCH)
+        _run(root, "add", "-A")
+        _run(root, "commit", "-qm", "cut", env=_BOT_ENV)
+        _, tip = _git(root, "rev-parse", "HEAD")
+        mb = merge_base(root, "mainbase") or ""
+        removals = roster_removals(_yaml_text(blob(root, mb, ACCOUNTS_REL)),
+                                   _yaml_text(blob(root, tip.strip(), ACCOUNTS_REL)))
+        changed = _changed(root, "mainbase") or []
+        os.environ["GITHUB_REPOSITORY"] = _FIXTURE_REPO
+        try:
+            return verdict(root, "mainbase", BRANCH, decl, changed, SLUG, event_path="",
+                           in_actions=True, head=tip.strip(),
+                           run_fetch=lambda r: (_genuine_run(mb), "planted"),
+                           prov_fetch=lambda r: ({"run_id": RUN_ID, "branch": BRANCH,
+                                                  "head_sha": tip.strip(), "removals": removals,
+                                                  "window": "last40", "event": "schedule"},
+                                                 "planted"))
+        finally:
+            os.environ.pop("GITHUB_REPOSITORY", None)
+    _case("a Stage-0 record RE-RUN on main after the run fired refuses at land time (A5, N3)",
+          stage0_moved_on_main, expect_ok=False, expect_clause="A5", results=results, quiet=quiet)
+
+
     def no_firing(tmp: Path):
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
@@ -1471,7 +1549,7 @@ def self_test(quiet: bool = False) -> int:
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)
-        (root / f"{RUNS_DIR}/20260925T000000Z-30d.json").unlink()
+        (root / f"{RUNS_DIR}/20260925T000000Z-last40.json").unlink()
         return _finish(root, _paperwork(root))
     _case("an evidence record citing a source_run absent from the tree refuses (A3)",
           no_source_run, expect_ok=False, expect_clause="A3", results=results, quiet=quiet)
@@ -1659,7 +1737,7 @@ def self_test(quiet: bool = False) -> int:
         _evidence(root)
         return _finish(root, _paperwork(root), run={"event": "workflow_dispatch"},
                        prov={"window": "1d", "event": "workflow_dispatch"})
-    _case("FORGED: a genuine dispatch with window=1d (not the declared 30d) refuses (A7/N1)",
+    _case("FORGED: a genuine dispatch with window=1d (not the declared last40) refuses (A7/N1)",
           short_window, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
 
     def event_mismatch(tmp: Path):
@@ -1699,7 +1777,7 @@ def self_test(quiet: bool = False) -> int:
                            run_fetch=lambda r: (_genuine_run(mb), "planted"),
                            prov_fetch=lambda r: ({"run_id": RUN_ID, "branch": BRANCH,
                                                   "head_sha": tip.strip(), "removals": removals,
-                                                  "window": "30d", "event": "schedule"},
+                                                  "window": "last40", "event": "schedule"},
                                                  "planted"))
         finally:
             os.environ.pop("GITHUB_REPOSITORY", None)
