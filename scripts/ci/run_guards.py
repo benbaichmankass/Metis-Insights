@@ -1599,7 +1599,10 @@ GUARDS: List[Dict[str, Any]] = [
         # reviewed_at 2026-09-08) because grading only ever ran by hand inside
         # /system-review. Now scheduled (grade-closed-trades.yml); this is the
         # detector that makes a stopped schedule loud: max(reviewed_at) older
-        # than 3 days fails. Exit 2 = could not look, never read as fresh.
+        # than 3 days. ALERT-ONLY since 2026-09-29 (operator, "let's do b"): here
+        # it prints a ::warning:: and exits 0 so a stale grade never reds
+        # unrelated PRs; the daily grading-freshness-alert.yml sends the ping.
+        # Unreadable also warns — never read as fresh.
         "name": "grading-freshness",
         "when": None,
         "steps": [

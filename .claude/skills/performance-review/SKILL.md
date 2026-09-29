@@ -329,9 +329,11 @@ trade in `order_packages.linked_trade_id`, and a package graded `orphaned`
 before its trades existed would otherwise keep that stale row forever
 (measured 2026-09-29: 54 of 486 recent closes fell in those two shapes). The
 stale package-level rows stay (append-only); the trade rows sit beside them.
-`scripts/ci/check_grading_freshness.py` fails CI when `max(reviewed_at)` is
-older than 3 days. A review session no longer needs to run the grading pass
-for closed trades — it checks that the guard is green and reads the rows.
+`scripts/ci/check_grading_freshness.py` is ALERT-ONLY (2026-09-29): it warns on
+a PR when `max(reviewed_at)` is older than 3 days and a daily
+`grading-freshness-alert.yml` pings Telegram. A review session no longer needs
+to run the grading pass for closed trades — it checks the guard emits no
+warning and reads the rows.
 
 **Web / PM session (no DB file):** dispatch the **`grade-closed-trades`**
 system-action (Tier-1, `docs/claude/system-actions.md`) instead of pulling the
