@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260928-002.yaml and research/queue/blocked/RQ-20260928-003.yaml carry a result/note field beyond the last_dispatched_at stamp, which is outside STAMP_ONLY_SURFACE per check_pr_landing.py's own R13/E57 rule (\"a pre-registered decision rule may not self-land\" on anything but a bare stamp) -- a landed research verdict on a queue unit is not a mechanical stamp.",
+  "why": "Runs the pre-registered S1-v0 statistic and lands its result + queue bookkeeping + a checklist row update. No config/, src/, deploy/ or order-path file touched."
+}
