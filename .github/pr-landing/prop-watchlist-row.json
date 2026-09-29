@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR in this lane is held; the manager merges. Do not arm auto-merge.",
+  "why": "PROP-EXEC fix-forward #2 for the D1-D7 dry run. #13898 (run 36507086110) refused again before touching the ticket, and its quote_diagnostics MEASURED the cause: the Symbol/Bid/Ask/Change/Chg%/Description header table has ZERO body rows; the rows live in a separate header-less table (virtualised grid) that EXTRACT_TABLES_JS skips. read_quote now falls back to reading those rows (tr.instrument / tr[data-row-id], the same rows the ticket opener double-clicks) with alignment PROVEN per row: cell count == header count, the symbol under 'Symbol', 0<bid<=ask, spread < 2%. Also carries the manager's Tier-1 ask: status_check.sh prints `uname -r`. Tier 2: the round-trip test's quote read on a funded prop account; no sizing, guard or order-control change."
+}
