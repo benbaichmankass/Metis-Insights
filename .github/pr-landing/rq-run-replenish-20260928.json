@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Sixteen NEW research/queue units generated once, locally, by the replenisher in #13748 (scripts/research/queue_replenish.py over research/templates/*.yaml at their #13748 sha) so the queue holds >= 25 runnable, runner-routed units through Wednesday 2026-09-30 whether or not #13748 lands first. A new queue unit is a registration, not a stamp (E57), so pr-landing-guard cannot vouch it: the manager reads and merges. Every unit carries decision_rule.registered_before_run: true, a template-fixed rule, and passes validate/grade_power/grade_route and (for the six prop units) the runner preflight.",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), operator 20:05Z: research must keep running without a session through Wednesday evening. Tier-1 by path (research/queue/*.yaml only)."
+}
