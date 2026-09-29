@@ -160,6 +160,7 @@ markers that were cheaper to lie to than to satisfy — `new-table-wiring-guard`
 
 | document | generator | waiver |
 |---|---|---|
+| `docs/audits/system-audit-2026-09-29/AUD-3.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/claude/DUE.md` | `scripts/ops/render_due_list.py` | verified: generator exists and names the file |
 | `docs/claude/READOUT.md` | `scripts/ops/constraint_readout.py` | verified: generator exists and names the file |
 | `docs/strategy-coverage-matrix.md` | `scripts/check_strategy_coverage.py` | verified: generator exists and names the file |
