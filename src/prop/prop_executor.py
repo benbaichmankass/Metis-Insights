@@ -1007,7 +1007,13 @@ def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
             "form_buttons": sorted((form.get("buttons") or {}).keys()),
             # The one-click toggle's reading: a DIAGNOSTIC the adapter records
             # and gates nothing on (operator 2026-09-28). state + why only.
-            "one_click": {"state": oc.get("state"), "why": oc.get("why")} if oc else None}
+            "one_click": {"state": oc.get("state"), "why": oc.get("why")} if oc else None,
+            # Where the submit search looked and why each candidate failed
+            # (buttons matching the submit pattern only: "Buy 0.01 SOLUSD at
+            # 117.14"-shaped labels, never account data). Absent when the
+            # submit was inside the form.
+            "submit_search": form.get("submit_search"),
+            "ambiguous": form.get("ambiguous") or None}
 
 
 def _skip_body(cfg: ExecutorConfig, t: Mapping[str, Any], reason: str) -> Dict[str, Any]:
