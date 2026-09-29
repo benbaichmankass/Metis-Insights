@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "FIX-SA-04 (docs/audits/system-audit-2026-09-29.md § 5). src/runtime/provenance.py::classify_pnl now demotes a MEASURED-source row to UNVERIFIED when (a) exit_price_source=ib_execution and pnl==0 while |exit-entry|*size>0, or (b) pnl's sign contradicts the entry->exit move by >0.2% (the FIX-CA-19 guard from backfill_orphan_pnl._plan_row). Classification/read path only: no order path, config, risk cap or account mode. Rows lacking pnl/entry/exit fields (notes-only callers) are unchanged. Effect: the 18 ib_paper rows read ('measured', ib_execution, 0.0) leave the MEASURED population; ib_paper is not a ladder book, so no promotion/demotion input moves."
+  "landing": "hold",
+  "why": "FIX-SA-04 (docs/audits/system-audit-2026-09-29.md \u00a7 5). src/runtime/provenance.py::classify_pnl now demotes a MEASURED-source row to UNVERIFIED when (a) exit_price_source=ib_execution and pnl==0 while |exit-entry|*size>0, or (b) pnl's sign contradicts the entry->exit move by >0.2% (the FIX-CA-19 guard from backfill_orphan_pnl._plan_row). Classification/read path only: no order path, config, risk cap or account mode. Rows lacking pnl/entry/exit fields (notes-only callers) are unchanged. Effect: the 18 ib_paper rows read ('measured', ib_execution, 0.0) leave the MEASURED population; ib_paper is not a ladder book, so no promotion/demotion input moves.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "src/runtime/provenance.py is Tier-2 by name in check_pr_landing, so the guard refuses self-landing (R5). Manager reviews and merges. The change itself is classification-only."
 }
