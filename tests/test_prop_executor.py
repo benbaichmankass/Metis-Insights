@@ -880,6 +880,63 @@ def test_quote_from_tables():
     assert quote_from_tables([{"headers": ["Symbol", "Price"], "rows": [["ETHUSD", "1"]]}], "ETHUSD") is None
 
 
+def test_parse_price_joins_split_spans_only_around_one_decimal_point():
+    from src.prop.platform.dxtrade import parse_price, quote_from_tables
+    assert parse_price("184.25") == 184.25
+    assert parse_price("184.\n25") == 184.25            # "###." + raised "##" (#13855)
+    assert parse_price("184.25\n3") == 184.253          # pipette span
+    assert parse_price("184\n25") is None                # no point: never 18425
+    assert parse_price("1.8\n4.25") is None              # two points
+    assert parse_price(None) is None
+    tables = [{"headers": ["Symbol", "Bid", "Ask"], "rows": [["SOLUSD", "184.\n24", "184.\n26"]]}]
+    assert quote_from_tables(tables, "SOLUSD") == {"bid": 184.24, "ask": 184.26}
+
+
+# The MEASURED watchlist shape (#13898): a header-only table and a separate
+# header-less row table, plus an Orders table that also names SOLUSD.
+SPLIT_WATCHLIST = """<html><body>
+<table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th><th>Change</th><th>Chg%</th><th>Description</th><th></th></tr></thead><tbody></tbody></table>
+<table><tbody>
+ <tr class="instrument"><td>ETHUSD</td><td>2682.48</td><td>2682.49</td><td>-1</td><td>-0.1%</td><td>Ether</td><td></td></tr>
+ <tr class="instrument"><td>SOLUSD</td><td>%BID%</td><td>%ASK%</td><td>0.5</td><td>0.3%</td><td>Solana</td><td></td></tr>
+</tbody></table>
+<table><thead><tr><th>Sts</th><th>Symbol</th><th>Side</th></tr></thead>
+ <tbody><tr data-row-id="1"><td>W</td><td>SOLUSD</td><td>Buy</td></tr></tbody></table>
+</body></html>"""
+
+
+def test_read_quote_reads_the_virtualised_watchlist_rows(tpage):
+    p = tpage(html=SPLIT_WATCHLIST.replace("%BID%", "184.24").replace("%ASK%", "184.26"))
+    ad = DXtradeAdapter(timeout_ms=3_000)
+    assert ad.read_quote(p, "SOLUSD") == {"bid": 184.24, "ask": 184.26}
+    assert ad.read_quote(p, "BTCUSD") is None
+
+
+def test_read_quote_refuses_a_misaligned_or_implausible_row(tpage):
+    ad = DXtradeAdapter(timeout_ms=3_000)
+    wide = tpage(html=SPLIT_WATCHLIST.replace("%BID%", "100").replace("%ASK%", "184.26"))
+    assert ad.read_quote(wide, "SOLUSD") is None                    # 45% spread: not a quote
+    short = tpage(html=SPLIT_WATCHLIST.replace('<td>Solana</td><td></td>', '<td>Solana</td>')
+                  .replace("%BID%", "184.24").replace("%ASK%", "184.26"))
+    assert ad.read_quote(short, "SOLUSD") is None                   # cell count != header count
+
+
+def test_quote_from_watchlist_rows_needs_the_symbol_under_the_symbol_header():
+    from src.prop.platform.dxtrade import quote_from_watchlist_rows
+    got = {"headers": ["Symbol", "Bid", "Ask"], "rows": [["184.2", "SOLUSD", "184.3"]]}
+    assert quote_from_watchlist_rows(got, "SOLUSD") is None
+    assert quote_from_watchlist_rows({"headers": None, "rows": [["SOLUSD", "1", "1"]]}, "SOLUSD") is None
+
+
+def test_quote_diagnostics_shows_raw_cells_of_the_symbol_row_only():
+    from src.prop.platform.dxtrade import quote_diagnostics
+    tables = [{"kind": "grid", "headers": ["Symbol", "Bid", "Ask"], "rows": [["SOLUSD", "x\ny", "?"], ["ETHUSD", "1", "2"]]},
+              {"kind": "table", "headers": ["Symbol", "Qty", "P&L"], "rows": [["SOLUSD", "1", "5"]]}]
+    d = quote_diagnostics(tables, "SOLUSD")
+    assert [t["headers"] for t in d["symbol_tables"]] == [["Symbol", "Bid", "Ask"], ["Symbol", "Qty", "P&L"]]
+    assert d["rows"] == [["'SOLUSD'", "'x\\ny'", "'?'"]]      # positions rows are never dumped
+
+
 class RTAdapter(FakeAdapter):
     """A terminal where a submit opens a bracketed position and a flatten
     closes it (unless told otherwise)."""
@@ -950,6 +1007,15 @@ def test_round_trip_refuses_before_any_click(tmp_path, setup, needle):
     ad = RTAdapter()
     res = rt(ad, FakeApi(), tmp_path, **setup)
     assert needle in (res.halted or "") and ad.calls == []
+
+
+def test_round_trip_without_a_quote_logs_the_watchlist_and_clicks_nothing(tmp_path):
+    ad = RTAdapter(quote={})
+    ad.quote_diagnostics = lambda page, venue: {"rows": [["'SOLUSD'"]]}
+    res = rt(ad, FakeApi(), tmp_path, arm=False)
+    assert "no bid/ask for SOLUSD" in (res.halted or "") and ad.calls == []
+    diag = [a for a in res.actions if a["what"] == "quote_diagnostics"]
+    assert diag and diag[0]["watchlist"] == {"rows": [["'SOLUSD'"]]}
 
 
 def test_round_trip_refuses_when_the_symbol_is_already_in_use(tmp_path):
