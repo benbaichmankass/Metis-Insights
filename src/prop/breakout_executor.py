@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -66,8 +66,30 @@ def _per_symbol(routing: Dict[str, Any], symbol: str, key: str, default: Any) ->
     return default
 
 
+#: How long a ticket left MID-DIALOG (``expiry_prompted``: "did you place
+#: this?" never answered; ``awaiting_report``: "yes" answered, fill never
+#: reported) keeps blocking re-tickets for its key AFTER its ``valid_until``.
+#: Measured 2026-09-29 (PI-20260929-2PNSPDNU-0002): two 09-25 11:11Z tickets
+#: whose prompt was never answered suppressed every SOL-long and ETH-long
+#: signal for four days, the same way two 08-28/08-30 tickets suppressed 37
+#: signals until cleared by hand on 09-11. A prompt nobody answered within a
+#: day of the setup going stale is a stale prompt, not a live ticket.
+STALE_PROMPT_GRACE = timedelta(hours=24)
+
+
+def _parse_valid_until(vu: Any) -> Optional[datetime]:
+    """``valid_until`` as an aware UTC datetime, or None when absent / unparseable."""
+    if not vu:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(vu).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
 def _reticket_suppress_reason(
-    account_id: str, symbol: str, direction: str,
+    account_id: str, symbol: str, direction: str, *, now: Optional[datetime] = None,
 ) -> Optional[str]:
     """Reason to SUPPRESS a new ticket for (account, symbol, direction), or None.
 
@@ -80,10 +102,15 @@ def _reticket_suppress_reason(
     - an OPEN prop position exists for the key (newest ``prop_fills`` row is
       ``open``/``filled`` — the same derivation the monitor pulse uses), or
     - a still-LIVE outstanding ticket exists: ``placed`` (working order on the
-      terminal), ``expiry_prompted``/``awaiting_report`` (operator mid-dialog),
-      or ``emitted`` whose ``valid_until`` has not passed. An EXPIRED unacted
-      ticket does NOT block — a fresh signal after the old setup went stale is
-      a new trade decision.
+      terminal — real exposure, blocks until reported); ``expiry_prompted`` /
+      ``awaiting_report`` (operator mid-dialog) only within ``valid_until`` +
+      ``STALE_PROMPT_GRACE``, or with no readable ``valid_until`` (fail-safe:
+      a validity we cannot read is not known to have passed); or ``emitted``
+      whose ``valid_until`` has not passed. An EXPIRED unacted ticket does
+      NOT block — a fresh signal after the old setup went stale is a new
+      trade decision — and neither does a prompt about one that nobody
+      answered within the grace window (2026-09-29: two such prompts from
+      09-25 blocked every SOL-long / ETH-long signal until cleared by hand).
 
     Fail-OPEN: any journal read error returns None so a genuine trade is never
     stranded by a read hiccup (same posture as the reconciler guards).
@@ -103,23 +130,26 @@ def _reticket_suppress_reason(
 
         from src.prop import prop_journal
 
-        now = datetime.now(timezone.utc)
+        now = now or datetime.now(timezone.utc)
         for t in prop_journal.list_tickets(account_id=account_id, limit=200):
             if (str(t.get("symbol") or "").upper() != sym
                     or str(t.get("direction") or "").lower() != d):
                 continue
             status = str(t.get("status") or "").lower()
-            if status in ("placed", "expiry_prompted", "awaiting_report"):
+            if status == "placed":
                 return f"outstanding_ticket:{status}: {t.get('ticket_id')}"
+            if status in ("expiry_prompted", "awaiting_report"):
+                vu_dt = _parse_valid_until(t.get("valid_until"))
+                if vu_dt is None or vu_dt + STALE_PROMPT_GRACE > now:
+                    return f"outstanding_ticket:{status}: {t.get('ticket_id')}"
+                logger.info(
+                    "breakout_executor: %s ticket %s (%s %s) is %s but its validity "
+                    "passed %s ago — a stale prompt, not an outstanding ticket",
+                    account_id, t.get("ticket_id"), sym, d, status, now - vu_dt,
+                )
+                continue
             if status == "emitted":
-                vu = t.get("valid_until")
-                try:
-                    vu_dt = datetime.fromisoformat(
-                        str(vu).replace("Z", "+00:00")) if vu else None
-                    if vu_dt is not None and vu_dt.tzinfo is None:
-                        vu_dt = vu_dt.replace(tzinfo=timezone.utc)
-                except (ValueError, TypeError):
-                    vu_dt = None
+                vu_dt = _parse_valid_until(t.get("valid_until"))
                 if vu_dt is None or vu_dt > now:
                     return f"outstanding_ticket:emitted: {t.get('ticket_id')}"
     except Exception as exc:  # noqa: BLE001 — fail-open, never strand a trade
