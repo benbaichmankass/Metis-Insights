@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "every FIX-SA-04..13 has a checklist row (or is explicitly killed with a reason) and JC-SA-02/03/05/06/08 have appeared in a daily brief section 2",
+    "kind": "event"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#5-evidence-settled-fixes-checklist-row-proposals-for-the-manager-to-dispatch",
+    "rerun": "grep -nE '^### (FIX|JC)-SA-' docs/audits/system-audit-2026-09-29.md; python3 -c \"import json;print([r['id'] for r in json.load(open('docs/claude/work/MANAGER-CHECKLIST.json'))['items'] if 'SA-' in r['id']])\""
+  },
+  "state": "queued",
+  "what": "Route the E75 system audit's lower-severity outputs, which are not yet on the checklist or in the brief. FIX-SA-04 through FIX-SA-13 are evidence-settled fix briefs (provenance zero-PnL demotion, totalPnlMeasuredOnly, collapsed-state CONTRACTS registration, diag relay '..' rejection and redaction, OnFailure= units, stale instruction surfaces, stale in_flight rows, restart_pending, trainer disk at 93%, workflow least privilege); each is written to be dispatched verbatim. JC-SA-02, 03, 05, 06 and 08 are operator judgment calls for daily brief section 2. Each needs a checklist row or a brief entry."
+}
