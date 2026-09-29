@@ -90,15 +90,21 @@ def test_place_protective_cancels_resting_first(monkeypatch):
         calls.append((method, path))
         if method == "GET":
             return {"retCode": 0, "result": [
-                {"id": "old-stop", "symbol": "SPY", "type": "stop"},
-                {"id": "old-limit", "symbol": "SPY", "type": "limit"},
+                # Real Alpaca legs always carry side + qty; a re-arm now cancels
+                # only THIS position's own legs (reducing side, same qty) —
+                # FIX-SA-03 step 3, see test_alpaca_rearm_scoped_cancel.py.
+                {"id": "old-stop", "symbol": "SPY", "type": "stop",
+                 "side": "sell", "qty": "5"},
+                {"id": "old-limit", "symbol": "SPY", "type": "limit",
+                 "side": "sell", "qty": "5"},
             ]}
         return {"retCode": 0, "result": {"id": "oco-new"}}
 
     c = _client()
     monkeypatch.setattr(c, "_request", fake_request)
     c.place_protective(
-        {"symbol": "SPY", "direction": "long", "qty": 5, "sl": 1.0, "tp": 2.0}
+        {"symbol": "SPY", "direction": "long", "qty": 5, "sl": 1.0, "tp": 2.0,
+         "sibling_qtys": []}
     )
     deletes = [p for (m, p) in calls if m == "DELETE"]
     assert "/v2/orders/old-stop" in deletes
