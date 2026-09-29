@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR in this lane is held; the manager merges. Do not arm auto-merge.",
+  "why": "PROP-EXEC fix-forward after the D1-D7 dry run #13869 (run 36502244194) refused before touching the ticket: 'no bid/ask for SOLUSD in the watchlist (could not look)', with positions 0, orders 0, balance 4724. (1) quote_from_tables now reads prices with parse_price, which joins DXtrade's split price spans ('184.\\n25', measured shape '###.' + raised '##' in #13855) only around exactly one decimal point, never '184\\n25' -> 18425. parse_number (balances, P&L) is unchanged. (2) On a missing quote the round trip logs quote_diagnostics: the Symbol-table headers plus raw repr cells of the Bid/Ask row naming the symbol (market data only; positions rows are never dumped), so the next run MEASURES the cause if (1) is not it. Tier 2: the round-trip test path on a funded prop account; no sizing, guard or order-control change."
+}
