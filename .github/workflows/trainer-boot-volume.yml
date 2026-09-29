@@ -48,6 +48,11 @@ jobs:
     timeout-minutes: 30
     env:
       TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+      # PINNED target. The script and the grow step both refuse unless the host's
+      # IMDS reports exactly this id AND display name, so a TRAINER_VM_IP that
+      # ever points at the live VM (141.145.193.91) is refused, never resized.
+      TRAINER_INSTANCE_OCID: ocid1.instance.oc1.eu-paris-1.anrwiljrnpsiupacbfquzkaxjkej2tlxbwggjr4ma3zfkbpnjr7uqefbheyq  # read from the trainer IMDS, relay #14254
+      TRAINER_DISPLAY_NAME: ict-trainer-vm
       TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
     steps:
       - uses: actions/checkout@v4
@@ -86,7 +91,14 @@ jobs:
           set -euo pipefail
           SSH="ssh -i $HOME/.ssh/trainer_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 ${TRAINER_USER}@${TRAINER_IP}"
           $SSH 'curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/' > imds.json
-          python3 -c 'import json;d=json.load(open("imds.json"));print("trainer instance:",d["displayName"],d["shape"],d["availabilityDomain"])'
+          python3 - <<'PY'
+          import json, os, sys
+          d = json.load(open("imds.json"))
+          print("host instance:", d["displayName"], d["shape"], d["availabilityDomain"])
+          if d["displayName"] != os.environ["TRAINER_DISPLAY_NAME"] or d["id"] != os.environ["TRAINER_INSTANCE_OCID"]:
+              print("::error::host at TRAINER_IP is not the pinned trainer instance; refusing")
+              sys.exit(2)
+          PY
           { echo "### before"; $SSH 'df -h /; lsblk'; } | tee -a report.txt
 
       - uses: actions/setup-python@v5
@@ -117,11 +129,27 @@ jobs:
 
       - name: Grow partition + filesystem on the trainer
         if: steps.parse.outputs.mode == 'resize' && steps.oci.outputs.rc == '0'
+        env:
+          SIZE: ${{ steps.parse.outputs.size }}
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
-              "${TRAINER_USER}@${TRAINER_IP}" 'bash -s' <<'REMOTE' 2>&1 | tee -a report.txt
+              "${TRAINER_USER}@${TRAINER_IP}" \
+              "TARGET_GB=${SIZE} EXPECTED_OCID=${TRAINER_INSTANCE_OCID} EXPECTED_NAME=${TRAINER_DISPLAY_NAME} bash -s" \
+              <<'REMOTE' 2>&1 | tee -a report.txt
           set -euo pipefail
+          # Re-check identity ON the host before touching its partition table.
+          IMDS=$(curl -sS -H "Authorization: Bearer Oracle" --max-time 5 http://169.254.169.254/opc/v2/instance/)
+          NAME=$(printf '%s' "$IMDS" | python3 -c 'import json,sys;print(json.load(sys.stdin)["displayName"])')
+          IID=$(printf '%s' "$IMDS" | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+          if [ "$NAME" != "$EXPECTED_NAME" ] || [ "$IID" != "$EXPECTED_OCID" ]; then
+            echo "REFUSED: this host ($NAME, $(hostname)) is not the pinned trainer instance"; exit 2
+          fi
+          echo "identity ok: $NAME ($(hostname))"
+          # Lower bound in decimal GB, so it holds whether OCI "GB" means 10^9 or
+          # 2^30 bytes; either way it sits far above the old ~48 GB device.
+          TARGET_B=$(( TARGET_GB * 1000 * 1000 * 1000 ))
+          BEFORE_G=$(df -B1G --output=size / | tail -1 | tr -d ' ')
           SRC=$(findmnt -no SOURCE /)
           FST=$(findmnt -no FSTYPE /)
           PART=$(basename "$SRC")
@@ -130,11 +158,21 @@ jobs:
           echo "root: $SRC ($FST) on /dev/$DISK partition $PNUM"
           # Make the kernel see the new size (paravirtualized attach: sysfs rescan;
           # iSCSI attach: iscsiadm rescan).
-          if [ -w "/sys/class/block/$DISK/device/rescan" ] || [ -e "/sys/class/block/$DISK/device/rescan" ]; then
-            echo 1 | sudo tee "/sys/class/block/$DISK/device/rescan" >/dev/null
+          # Wait (bounded) until the kernel sees the new size; a stale size would
+          # make growpart print NOCHANGE and the job go green at the old size.
+          for i in $(seq 1 40); do
+            if [ -e "/sys/class/block/$DISK/device/rescan" ]; then
+              echo 1 | sudo tee "/sys/class/block/$DISK/device/rescan" >/dev/null
+            fi
+            if command -v iscsiadm >/dev/null 2>&1; then sudo iscsiadm -m node -R >/dev/null 2>&1 || true; fi
+            DEV_B=$(lsblk -bdno SIZE "/dev/$DISK")
+            [ "$DEV_B" -ge "$TARGET_B" ] && break
+            sleep 15
+          done
+          DEV_B=$(lsblk -bdno SIZE "/dev/$DISK")
+          if [ "$DEV_B" -lt "$TARGET_B" ]; then
+            echo "FAILED: /dev/$DISK is $DEV_B bytes after rescan, below target $TARGET_B"; exit 1
           fi
-          if command -v iscsiadm >/dev/null 2>&1; then sudo iscsiadm -m node -R >/dev/null 2>&1 || true; fi
-          sleep 3
           lsblk "/dev/$DISK"
           set +e
           out=$(sudo growpart "/dev/$DISK" "$PNUM" 2>&1); grc=$?
@@ -151,6 +189,11 @@ jobs:
           echo "### after"
           df -h /
           lsblk "/dev/$DISK"
+          AFTER_G=$(df -B1G --output=size / | tail -1 | tr -d ' ')
+          echo "root filesystem size: ${BEFORE_G}G -> ${AFTER_G}G"
+          if [ "$AFTER_G" -le "$BEFORE_G" ]; then
+            echo "FAILED: root filesystem did not grow"; exit 1
+          fi
           REMOTE
 
       - name: Comment result on the issue

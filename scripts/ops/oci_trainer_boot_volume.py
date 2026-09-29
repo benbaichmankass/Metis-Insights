@@ -38,6 +38,10 @@ import sys
 import time
 
 FREE_CEILING_GB = 200
+# The ONLY instance this tool may resize. Both must match the IMDS document it is
+# handed, so a mis-set TRAINER_VM_IP (e.g. pointing at the live VM) is refused
+# before any OCI call is made rather than growing the wrong volume.
+EXPECTED_DISPLAY_NAME = "ict-trainer-vm"
 # ⚠️ INFERRED list price, not read from any bill: OCI Block Volume storage
 # $0.0255/GB-month + Balanced performance (10 VPU/GB x $0.0017) = $0.0425/GB-month.
 # Printed only to size an overage for the operator; nothing is spent on it.
@@ -60,8 +64,13 @@ def _config() -> dict:
     }
 
 
-def _compartments(identity, tenancy: str) -> tuple[list[str], str]:
-    """Every ACTIVE compartment in the tenancy plus the root, and the scope read."""
+def _compartments(identity, tenancy: str, strict: bool) -> tuple[list[str], str]:
+    """Every ACTIVE compartment in the tenancy plus the root, and the scope read.
+
+    ``strict`` (resize mode): a failed sub-compartment listing is fatal, because a
+    root-only total UNDERCOUNTS and would let the 200 GB gate pass wrongly. The
+    root-only fallback survives only in measure mode, where it is reported.
+    """
     import oci  # noqa: PLC0415
 
     try:
@@ -71,12 +80,37 @@ def _compartments(identity, tenancy: str) -> tuple[list[str], str]:
             lifecycle_state="ACTIVE").data
         return [tenancy] + [c.id for c in subs], "tenancy root + all accessible sub-compartments"
     except Exception as exc:  # noqa: BLE001 — scope is reported, never hidden
+        if strict:
+            print(f"ERROR: could not list sub-compartments ({exc}); refusing to resize on "
+                  "a possibly-undercounted total", file=sys.stderr)
+            sys.exit(2)
         print(f"WARNING: could not list sub-compartments ({exc}); measuring the root only",
               file=sys.stderr)
         return [tenancy], "tenancy root ONLY (sub-compartment listing failed)"
 
 
-def measure(cfg: dict, imds: dict) -> dict:
+def check_identity(imds: dict, expected_ocid: str) -> None:
+    """Refuse anything that is not the pinned trainer instance."""
+    name, iid = imds.get("displayName"), imds.get("id")
+    if name != EXPECTED_DISPLAY_NAME:
+        print(f"ERROR: IMDS displayName is {name!r}, expected {EXPECTED_DISPLAY_NAME!r}; "
+              "refusing", file=sys.stderr)
+        sys.exit(2)
+    if not expected_ocid or iid != expected_ocid:
+        print("ERROR: IMDS instance id does not match the pinned TRAINER_INSTANCE_OCID; "
+              "refusing", file=sys.stderr)
+        sys.exit(2)
+
+
+def _size(obj) -> int:
+    if obj.size_in_gbs is None:
+        print(f"ERROR: {obj.display_name} ({obj.id}) reports size_in_gbs=None; the total "
+              "cannot be trusted", file=sys.stderr)
+        sys.exit(2)
+    return int(obj.size_in_gbs)
+
+
+def measure(cfg: dict, imds: dict, strict: bool) -> dict:
     import oci  # noqa: PLC0415
 
     identity = oci.identity.IdentityClient(cfg)
@@ -85,7 +119,7 @@ def measure(cfg: dict, imds: dict) -> dict:
     tenancy = cfg["tenancy"]
 
     ads = [a.name for a in identity.list_availability_domains(tenancy).data]
-    comps, scope = _compartments(identity, tenancy)
+    comps, scope = _compartments(identity, tenancy, strict)
 
     rows = []
     for comp in comps:
@@ -94,14 +128,29 @@ def measure(cfg: dict, imds: dict) -> dict:
                     bs.list_boot_volumes, availability_domain=ad, compartment_id=comp).data:
                 if bv.lifecycle_state in LIVE_STATES:
                     rows.append({"kind": "boot", "name": bv.display_name, "id": bv.id,
-                                 "size_gb": int(bv.size_in_gbs), "state": bv.lifecycle_state,
+                                 "size_gb": _size(bv), "state": bv.lifecycle_state,
                                  "vpus_per_gb": bv.vpus_per_gb})
         for v in oci.pagination.list_call_get_all_results(
                 bs.list_volumes, compartment_id=comp).data:
             if v.lifecycle_state in LIVE_STATES:
                 rows.append({"kind": "block", "name": v.display_name, "id": v.id,
-                             "size_gb": int(v.size_in_gbs), "state": v.lifecycle_state,
+                             "size_gb": _size(v), "state": v.lifecycle_state,
                              "vpus_per_gb": v.vpus_per_gb})
+
+    # Backups are reported (not summed): Always Free counts them separately
+    # (5 backups), but an operator reading the total should see them.
+    backups = []
+    for comp in comps:
+        for b in oci.pagination.list_call_get_all_results(
+                bs.list_boot_volume_backups, compartment_id=comp).data:
+            if b.lifecycle_state in ("CREATING", "AVAILABLE"):
+                backups.append({"kind": "boot_backup", "name": b.display_name,
+                                "size_gb": b.size_in_gbs, "state": b.lifecycle_state})
+        for b in oci.pagination.list_call_get_all_results(
+                bs.list_volume_backups, compartment_id=comp).data:
+            if b.lifecycle_state in ("CREATING", "AVAILABLE"):
+                backups.append({"kind": "volume_backup", "name": b.display_name,
+                                "size_gb": b.size_in_gbs, "state": b.lifecycle_state})
 
     # The trainer's boot volume, resolved from ITS OWN instance id.
     inst_id = imds["id"]
@@ -128,7 +177,8 @@ def measure(cfg: dict, imds: dict) -> dict:
             "trainer": {"instance_id": inst_id, "display_name": imds.get("displayName"),
                         "boot_volume_id": trainer_bv.id,
                         "boot_volume_name": trainer_bv.display_name,
-                        "size_gb": int(trainer_bv.size_in_gbs)}}
+                        "size_gb": _size(trainer_bv)},
+            "backups": backups}
 
 
 def verdict(m: dict, target: int) -> dict:
@@ -153,7 +203,9 @@ def resize(cfg: dict, bv_id: str, target: int, timeout_s: int = 900) -> int:
         if bv.lifecycle_state == "AVAILABLE" and int(bv.size_in_gbs) >= target:
             return int(bv.size_in_gbs)
         time.sleep(15)
-    return int(bs.get_boot_volume(bv_id).data.size_in_gbs)
+    print(f"ERROR: boot volume did not reach AVAILABLE at >= {target} GB within {timeout_s}s",
+          file=sys.stderr)
+    return -1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -162,6 +214,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--size-gb", type=int, default=100)
     ap.add_argument("--imds", required=True, help="trainer IMDS /opc/v2/instance/ JSON file")
     ap.add_argument("--out", default="boot_volume_report.json")
+    ap.add_argument("--expected-ocid", default=os.environ.get("TRAINER_INSTANCE_OCID", ""),
+                    help="pinned trainer instance OCID (env TRAINER_INSTANCE_OCID)")
     a = ap.parse_args(argv)
     if not 50 <= a.size_gb <= FREE_CEILING_GB:
         print("ERROR: --size-gb must be within [50, 200]", file=sys.stderr)
@@ -170,7 +224,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = _config()
     with open(a.imds, encoding="utf-8") as fh:
         imds = json.load(fh)
-    m = measure(cfg, imds)
+    check_identity(imds, a.expected_ocid)
+    m = measure(cfg, imds, strict=(a.mode == "resize"))
     v = verdict(m, a.size_gb)
     report = {"mode": a.mode, "measure": m, "verdict": v, "resized_to_gb": None}
 
@@ -179,6 +234,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {r['kind']:5} {r['size_gb']:>4} GB  {r['state']:<11} vpus={r['vpus_per_gb']}  {r['name']}")
     print(f"TENANCY BLOCK TOTAL: {m['total_gb']} GB of {FREE_CEILING_GB} GB free "
           f"({len(m['volumes'])} volumes)")
+    for b in m["backups"]:
+        print(f"  {b['kind']:13} {b['size_gb']} GB  {b['state']:<9} {b['name']}  (not summed)")
+    print(f"backups: {len(m['backups'])} (Always Free allows 5; not part of the 200 GB total)")
     print(f"trainer boot volume: {m['trainer']['boot_volume_name']} = {v['current_gb']} GB")
     print(f"projected total at {a.size_gb} GB: {v['projected_total_gb']} GB -> "
           + ("WITHIN free tier" if v["within_free"] else
