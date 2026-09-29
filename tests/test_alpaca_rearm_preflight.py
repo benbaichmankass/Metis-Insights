@@ -177,6 +177,7 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
     om._PROTECTION_UNREADABLE_STREAK.clear()
     om._ALPACA_TOPUP_ATTEMPTS.clear()
+    om._ALPACA_BREACH_DEFERRALS.clear()
     return _Db(path), pages, monkeypatch
 
 
@@ -682,3 +683,76 @@ def test_latest_trade_parses_the_real_data_v2_payload(monkeypatch):
 
     monkeypatch.setattr("src.units.accounts.alpaca_client.requests.get", _boom)
     assert AlpacaClient.latest_trade(c, "QQQ") is None
+
+
+def test_unconfirmed_breach_deferral_is_bounded_then_the_stop_is_posted(world):
+    """REVIEW-14241 round 3, B2: latest_trade keeps failing (None) while the
+    IEX bid is through 6024's stop. A deferred row has nothing resting, so
+    after _BREACH_DEFER_MAX deferrals the row's own stop is posted anyway
+    (an Alpaca stop triggers on trades: against a stale bid it just rests).
+    Never a market exit; the page names what it is."""
+    db, pages, mp = world
+    _close_row(db, 5928)
+    v = _Venue(qty=56.0, price=720.0)
+    v.bid, v.ask = 716.50, 720.10
+    v.trade_age = None
+    _use(mp, v)
+    closes = _closer(mp, v)
+    for _ in range(om._BREACH_DEFER_MAX):
+        s = om._check_broker_naked_equity_positions(db)
+        assert s["rearm_refused_deferred_unconfirmed_breach"] == 1
+    assert v.posts() == []
+    breach = [(a, k) for a, k in pages
+              if a[0] == "alpaca_protection_unreadable" and k.get("channel") == "breach"]
+    assert breach and "UNCONFIRMED" in breach[-1][1]["reason"]
+    assert "unreadable" not in breach[-1][1]["reason"]
+    s = om._check_broker_naked_equity_positions(db)
+    (p,) = v.posts()
+    assert p["qty"] == "56" and p["stop_loss"]["stop_price"] == "716.80"
+    assert closes == [] and s["rearm_refused_deferred_unconfirmed_breach"] == 0
+    assert "breach_deferral_escalated" in _kinds(pages)
+
+
+def test_escalated_post_still_respects_the_cap(world):
+    db, _pages, mp = world
+    _close_row(db, 5928)
+    for _ in range(om._ALPACA_REARM_CAP):
+        om._record_rearm_attempt("alpaca_portfolio", 6024)
+    om._ALPACA_BREACH_DEFERRALS[("alpaca_portfolio", "QQQ", 6024)] = om._BREACH_DEFER_MAX
+    v = _Venue(qty=56.0, price=720.0)
+    v.bid, v.ask = 716.50, 720.10
+    v.trade_age = None
+    _use(mp, v)
+    closes = _closer(mp, v)
+    s = om._check_broker_naked_equity_positions(db)
+    assert v.posts() == [] and [c["id"] for c in closes] == [6024]
+    assert s["cap_exits"] == 1
+
+
+def test_a_clear_read_resets_the_deferral_count(world):
+    db, _pages, mp = world
+    _close_row(db, 5928)
+    om._ALPACA_BREACH_DEFERRALS[("alpaca_portfolio", "QQQ", 6024)] = 2
+    v = _Venue(qty=56.0, price=735.0)
+    _use(mp, v)
+    om._check_broker_naked_equity_positions(db)
+    assert ("alpaca_portfolio", "QQQ", 6024) not in om._ALPACA_BREACH_DEFERRALS
+
+
+def test_extended_hours_deferred_to_the_regular_session_is_a_deferral(world):
+    """REVIEW-14241 round 3: AlpacaClient.close's near-16:00 retCode-2 text
+    ('... DEFERRED to the regular session ...') is a deferral, not exit_failed."""
+    db, pages, mp = world
+    _close_row(db, 5928)
+    v = _Venue(qty=56.0, price=710.0)
+    _use(mp, v)
+    mp.setattr(om, "_send_close_to_exchange", lambda m: {"ok": False, "error": (
+        "extended-hours: trade-scoped exit of 56 of 56 on QQQ DEFERRED to the "
+        "regular session — the extended-hours limit path cannot close part of "
+        "a symbol")})
+    rests = []
+    mp.setattr(om, "_attempt_naked_autoprotect",
+               lambda row, sl, tp, db=None: rests.append(row["id"]) or True)
+    s = om._check_broker_naked_equity_positions(db)
+    assert s["exit_deferred"] == 1 and s["exit_failed"] == 0 and rests == [6024]
+    assert "exit_failed" not in _kinds(pages)

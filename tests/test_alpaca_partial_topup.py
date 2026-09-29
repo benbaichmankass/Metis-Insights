@@ -55,8 +55,10 @@ def _row(id_, sym, qty, sl, tp, created="2026-09-21T14:25:28+00:00"):
 @pytest.fixture(autouse=True)
 def _fresh_cooldown():
     om._ALPACA_TOPUP_ATTEMPTS.clear()
+    om._ALPACA_BREACH_DEFERRALS.clear()
     yield
     om._ALPACA_TOPUP_ATTEMPTS.clear()
+    om._ALPACA_BREACH_DEFERRALS.clear()
 
 
 _PX = {"QQQ": "740.00", "SPY": "770.00", "TLT": "80.00"}
@@ -401,3 +403,50 @@ def test_top_up_breach_exit_deferred_when_the_market_is_closed(monkeypatch):
     out = om._alpaca_top_up_uncovered(db, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
     assert out == "exit_deferred"
     assert v.posts() == [] and db.updates == []
+
+
+def test_unconfirmed_top_up_breach_sets_no_cooldown_and_escalates(monkeypatch):
+    """REVIEW-14241 round 3, B1+B2: QQQ's position price 710 is through 6023's
+    stop 716.80 but no last trade can be read. Nothing is sent, so NO cooldown
+    is set — every sweep looks again (never refused_cooldown) — and after
+    _BREACH_DEFER_MAX deferrals the top-up stop is posted anyway."""
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
+
+    class _NoTrade(_Venue):
+        def latest_trade(self, symbol):
+            return None
+
+    v = _NoTrade(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                      "current_price": "710.00"})
+
+    class _Db:
+        def update_trade(self, tid, upd):
+            raise AssertionError("an unconfirmed breach must never close the row")
+
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    outs = [om._alpaca_top_up_uncovered(_Db(), v, "alpaca_paper", "QQQ", cov,
+                                        _qqq_rows(), NOW)
+            for _ in range(om._BREACH_DEFER_MAX)]
+    assert outs == ["deferred_unconfirmed_breach"] * om._BREACH_DEFER_MAX
+    assert v.posts() == []
+    assert om._ALPACA_TOPUP_ATTEMPTS == {}          # nothing sent -> no cooldown
+    out = om._alpaca_top_up_uncovered(_Db(), v, "alpaca_paper", "QQQ", cov,
+                                      _qqq_rows(), NOW)
+    assert out == "topped_up"
+    (p,) = v.posts()
+    assert p["qty"] == "22" and p["stop_loss"]["stop_price"] == "716.80"
+
+
+def test_top_up_clears_the_breach_strike_once_the_stop_is_clear(monkeypatch):
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
+    om._ALPACA_BREACH_DEFERRALS[("alpaca_paper", "QQQ", 6023)] = 2
+    om._PROTECTION_UNREADABLE_STREAK[("alpaca_paper", "QQQ", "breach")] = 2
+    v = _Venue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                    "current_price": "740.00"})
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    assert om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov,
+                                       _qqq_rows(), NOW) == "topped_up"
+    assert ("alpaca_paper", "QQQ", 6023) not in om._ALPACA_BREACH_DEFERRALS
+    assert ("alpaca_paper", "QQQ", "breach") not in om._PROTECTION_UNREADABLE_STREAK

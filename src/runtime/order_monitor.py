@@ -8533,9 +8533,20 @@ def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
         _side = "long" if want_side == "buy" else "short"
         _bst, _binfo = _breach_state(client, symbol, _side, float(a_sl), _px, _bid, _ask)
         if _bst == "unconfirmed":
-            _ALPACA_TOPUP_ATTEMPTS[cd_key] = time.monotonic()
-            _note_protection_unreadable(account_id, symbol, row["id"], channel="breach")
-            return "deferred_unconfirmed_breach"
+            # NO cooldown here (REVIEW-14241 round 3, B1): nothing was sent, so
+            # the next sweep must look again rather than sit out 15 minutes
+            # with the shares uncovered. Bounded: after _BREACH_DEFER_MAX
+            # consecutive deferrals the top-up is placed anyway (B2).
+            _esc, _n = _breach_deferral(account_id, symbol, row["id"])
+            if not _esc:
+                return "deferred_unconfirmed_breach"
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s trade_id=%s unconfirmed breach "
+                "deferred %d sweeps — posting the top-up stop anyway (an Alpaca "
+                "stop triggers on trades, not on the quote)",
+                account_id, symbol, row["id"], _n)
+        else:
+            _clear_breach_deferral(account_id, symbol, row["id"])
         if _bst == "confirmed":
             # The attributed row is CONFIRMED present (the fresh read matched
             # the grade) and a FRESH last trade is through its stop: exit it via
@@ -8872,6 +8883,38 @@ def _stop_is_marketable(side: str, stop: float, last: Optional[float],
 #: round 2, blocker 1): a stale print must never fire a market exit.
 _BREACH_TRADE_MAX_AGE_S = 120.0
 
+#: Consecutive UNCONFIRMED-breach deferrals after which the row's own stop is
+#: posted anyway (REVIEW-14241 round 3, B2). A deferred row has NOTHING resting
+#: at the venue, so the deferral must be bounded. Posting is then safe: an
+#: Alpaca stop triggers on TRADES, so a stop placed against a stale or thin
+#: IEX quote is inert until a real print reaches it, and a real breach exits
+#: through the stop itself. Still bounded by the per-row re-arm cap.
+_BREACH_DEFER_MAX = 3
+#: (account, SYMBOL, trade_id) -> consecutive unconfirmed-breach deferrals.
+#: Per-process: a restart re-counts from zero (it can only delay, by at most
+#: _BREACH_DEFER_MAX sweeps, a stop that is then posted).
+_ALPACA_BREACH_DEFERRALS: Dict[Tuple[str, str, Any], int] = {}
+
+
+def _breach_deferral(account_id: str, symbol: str, trade_id: Any) -> Tuple[bool, int]:
+    """Count one unconfirmed-breach deferral; ``(escalate, n)``.
+
+    ``escalate`` is True once *n* exceeds ``_BREACH_DEFER_MAX`` — the caller
+    then posts the stop instead of deferring again. Every deferral is streaked
+    on the ``breach`` channel, whose page says what it is (an unconfirmed
+    breach, not an unreadable read).
+    """
+    key = (account_id, symbol.upper(), trade_id)
+    n = _ALPACA_BREACH_DEFERRALS.get(key, 0) + 1
+    _ALPACA_BREACH_DEFERRALS[key] = n
+    _note_protection_unreadable(account_id, symbol, trade_id, channel="breach")
+    return n > _BREACH_DEFER_MAX, n
+
+
+def _clear_breach_deferral(account_id: str, symbol: str, trade_id: Any) -> None:
+    _ALPACA_BREACH_DEFERRALS.pop((account_id, symbol.upper(), trade_id), None)
+    _clear_protection_unreadable(account_id, symbol, "breach")
+
 
 def _breach_state(client, symbol: str, side: str, stop: float,
                   last_pos: Optional[float], bid: Optional[float],
@@ -9024,15 +9067,28 @@ def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
     if bstate == "confirmed":
         return "exit_breached", binfo
     if bstate == "unconfirmed":
-        # Refuse to post a stop the book says would trigger, but do not sell at
-        # market on a quote alone. Streaked: a persistent deferral pages.
-        _note_protection_unreadable(account_id, symbol, row["id"], channel="breach")
-        return "deferred_unconfirmed_breach", binfo
-    _clear_protection_unreadable(account_id, symbol, "breach")
+        # Refuse to post a stop the quote says would trigger, and do not sell at
+        # market on a quote alone. BOUNDED (REVIEW-14241 round 3, B2): a
+        # deferred row has nothing resting at the venue, so after
+        # _BREACH_DEFER_MAX consecutive deferrals the stop is posted anyway —
+        # through the cap check below, like any re-arm.
+        esc, _n = _breach_deferral(account_id, symbol, row["id"])
+        if not esc:
+            return "deferred_unconfirmed_breach", binfo
+        _page_rearm_refusal(
+            "breach_deferral_escalated", account_id, symbol, row["id"],
+            f"stop {sl} looked breached on the quote/position price for {_n} "
+            "sweeps with no fresh last trade to confirm it — posting the stop "
+            "(an Alpaca stop triggers on trades, so a stale quote leaves it "
+            "resting and a real breach exits through it)")
+    else:
+        _clear_breach_deferral(account_id, symbol, row["id"])
     if bstate == "session_closed":
-        # Market closed: a GTC stop just RESTS and triggers at the open. The
-        # cap still applies (it counts re-arms, not exits), but it cannot
-        # escalate to a market exit that cannot fill now.
+        # Market closed: a GTC stop just RESTS and triggers at the open, and a
+        # stop cannot fill on arrival outside RTH, so a re-arm now cannot loop.
+        # The cap is therefore NOT checked here — it would escalate to a
+        # market exit that cannot fill — and is enforced at the first RTH
+        # sweep, where the attempts made overnight still count.
         return "ok", binfo
     n = _rearm_attempts(account_id, row["id"])
     if n >= _ALPACA_REARM_CAP:
@@ -9062,7 +9118,11 @@ def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
     if not resp.get("ok"):
         err = str(resp.get("error") or "")
         low = err.lower()
-        if "exit deferred" in low or "deferring" in low or "market closed" in low:
+        # Every AlpacaClient.close retCode-2 message says "deferred" (market
+        # closed; extended-hours "DEFERRED to the regular session"; limit
+        # close still working; position unreadable) — match the word, not one
+        # phrasing (REVIEW-14241 round 3).
+        if "deferred" in low or "deferring" in low or "market closed" in low:
             logger.info("_exit_alpaca_row: %s/%s trade_id=%s %s exit DEFERRED "
                         "(market session): %s", account_id, symbol, row["id"],
                         reason, err)
@@ -9166,6 +9226,12 @@ def _note_protection_unreadable(account_id: str, symbol: str, trade_id: Any,
             "detected",
             level=Level.CRITICAL,
             reason=(
+                f"{account_id}/{symbol}: stop breach UNCONFIRMED for {n} "
+                "consecutive sweeps — the quote/position price is through the "
+                "stop but no fresh last trade confirms it, so the re-arm is "
+                "deferred and NOTHING is resting at the venue (the stop is "
+                f"posted after {_BREACH_DEFER_MAX} deferrals)."
+                if channel == "breach" else
                 f"{account_id}/{symbol}: {channel} read unreadable for {n} "
                 "consecutive sweeps — the naked sweep cannot tell whether this "
                 "position has a stop, so it is neither re-armed nor graded."
