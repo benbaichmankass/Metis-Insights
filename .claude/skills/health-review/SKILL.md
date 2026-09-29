@@ -739,7 +739,9 @@ to be found first; it is one break with four instances.
 |---|---|---|---|
 | `/health-review` | `health-review-backlog.json` | **no** | **repointed above** |
 | `/performance-review` | `performance-review-backlog.json`, `research-review-backlog.json` | **no**, **no** | **still broken** — its own § "Draining the backlog" demands the same `count_untriaged == 0` |
-| `/ml-review` | `ml-review-backlog.json` | **no** | **still broken** — same |
+| `/ml-review` | `ml-review-backlog.json` (archived) | **no** | **still broken** — same |
+
+> **Update 2026-09-29 (FIX-SA-09):** the live instruction lines in `/ml-review`, `sprint-format` and `doc-freshness` now point at `docs/claude/work/PIPELINE.jsonl`; the `retired-backlog-paths` guard fails any new live reference under `.claude/`.
 
 Both siblings carry the identical *"HARD COMPLETION GATE (not a sample)"*
 heading and the identical `backlog_coverage.count_untriaged` output contract
@@ -835,8 +837,7 @@ the operator can verify fast.
 - Touch `src/`, `config/`, or any live-path file. Reviews don't trade.
 - Append to `comms/claude_strategy_scores.jsonl` (that belongs to
   `/performance-review` now).
-- Modify `docs/claude/performance-review-backlog.json` or
-  `docs/claude/ml-review-backlog.json` (those belong to their
+- Close the performance or ML rows in `docs/claude/work/PIPELINE.jsonl` (those belong to their
   respective skills).
 - Modify `comms/follow_ups.json` (deferred until the comms cleanup
   session).

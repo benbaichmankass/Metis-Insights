@@ -1,6 +1,6 @@
 ---
 name: ml-review
-description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service health, training cycles since the last review, dataset builds, per-model status (latest training metrics + shadow/live track record), promotion/demotion recommendations against the 3-stage ladder (candidate→shadow→advisory), per-model fit within the unified-confidence framework, and AI-experiment proposals to continue expanding ML coverage. Owns docs/claude/ml-review-backlog.json (AI experiment follow-ups, new manifests to try, new features/feeds to engineer). Use when the operator says "run the ml review", "/ml-review", "how are the models doing", or "what should we train next". NOT for live trading promotion past shadow (Tier-3, operator-gated) — this skill proposes, the operator promotes. NOT for system health (use /health-review) and NOT for strategy trade scoring (use /performance-review).
+description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service health, training cycles since the last review, dataset builds, per-model status (latest training metrics + shadow/live track record), promotion/demotion recommendations against the 3-stage ladder (candidate→shadow→advisory), per-model fit within the unified-confidence framework, and AI-experiment proposals to continue expanding ML coverage. Files ML follow-ups to docs/claude/work/PIPELINE.jsonl (AI experiment follow-ups, new manifests to try, new features/feeds to engineer). Use when the operator says "run the ml review", "/ml-review", "how are the models doing", or "what should we train next". NOT for live trading promotion past shadow (Tier-3, operator-gated) — this skill proposes, the operator promotes. NOT for system health (use /health-review) and NOT for strategy trade scoring (use /performance-review).
 ---
 
 > **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
@@ -178,7 +178,7 @@ the trainer relay errored):
     (a) shrink its peak RSS (dataset chunking / shorter 5m window — a manifest
     change, Tier-3 propose), (b) route it to the GPU burst (note LightGBM is
     CPU-bound, so the burst just gets it off the box — no speedup), or (c)
-    drop/split it. Log an `ml-review-backlog` item naming the manifest and the
+    drop/split it. File a `docs/claude/work/PIPELINE.jsonl` row (`scripts/ops/pipeline.py`) naming the manifest and the
     chosen disposition; the quarantine self-clears once it trains fit or after
     the recheck window. Known first case: `btc-regime-5m-lgbm-flow-v1`.
 - **`trainer_datasets`** — `ok` if `datasets-out/` has the expected
@@ -336,7 +336,7 @@ Every `/ml-review`:
    `brier_lift < 0`, `AUC < 0.5` for `advisory`; all gates pass for `shadow`).
 2. **On a `demote` (an `advisory` model degrading)** — recommend the soft-off
    (`advisory → shadow`, Tier-3) in `promotion_recommendations[]` AND open a
-   `[refinement]` item in `docs/claude/ml-review-backlog.json` with the trigger
+   `[refinement]` row in `docs/claude/work/PIPELINE.jsonl` with the trigger
    evidence, a concrete refinement hypothesis, and a `resolution_criteria`
    (re-gate clears → restore; else N=3 attempts → **retire** to `candidate` +
    deprecate the manifest).
@@ -412,8 +412,8 @@ on a stuck model.
 
 ## Draining the backlog — a HARD COMPLETION GATE (not a sample)
 
-**An ml-review is NOT complete until every open item in
-`docs/claude/ml-review-backlog.json` has been triaged THIS run.**
+**An ml-review is NOT complete until every open ML row in
+`docs/claude/work/PIPELINE.jsonl` has been triaged THIS run.**
 Triaging a sample / "the recent few" is a review failure — the backlog
 IS the standing open-task list. (Health and performance backlogs are
 not touched here; each of the three reviews enforces this same gate on
@@ -479,8 +479,8 @@ Emit a single JSON object conforming to
 - `promotion_recommendations[]` — Tier-3 proposals with evidence;
   empty when none warranted.
 - `experiments_proposed[]` — forward-looking experiment ideas.
-- `backlog_drain[]` — actions taken on
-  `docs/claude/ml-review-backlog.json`.
+- `backlog_drain[]` — actions taken on open ML rows in
+  `docs/claude/work/PIPELINE.jsonl`.
 - `anomalies[]` — free-form notable items (datasets failing, runs
   erroring, predictions silently dropping, etc.).
 - `recommended_action`, `operator_attention_required`.
@@ -491,7 +491,7 @@ numbers so the operator can verify fast.
 ## What you DO write (and what you don't)
 
 **Write:**
-- Edit `docs/claude/ml-review-backlog.json` to drain + add new items.
+- File and close ML rows in `docs/claude/work/PIPELINE.jsonl` via `scripts/ops/pipeline.py` (never hand-edit the JSONL).
 - Post the Claude-channel ping (`send-ping` system-action; fallback
   `docs/claude/pending-pings.jsonl`).
 - The read-only diag-trigger issues (`vm-diag-request`,
@@ -504,8 +504,7 @@ numbers so the operator can verify fast.
 - Run a training cycle / promote a model / build a dataset from this
   skill — chain into the `model-training` skill if the operator
   approves a proposal.
-- Modify `docs/claude/health-review-backlog.json` or
-  `docs/claude/performance-review-backlog.json`.
+- Close another review's rows in `docs/claude/work/PIPELINE.jsonl`.
 - Append to `comms/claude_strategy_scores.jsonl` — that's
   `/performance-review`.
 - Ask the operator to paste/download/SSH — autonomy violation.

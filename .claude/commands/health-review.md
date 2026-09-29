@@ -36,7 +36,8 @@ state, reads the cron health-snapshot report, grades full-pipeline
 plumbing + DB integrity + data validity + service state + the trainer
 *service* (not models — that's `/ml-review`), reviews recent sprint
 logs for doc correctness, drains
-`docs/claude/health-review-backlog.json`, and posts a one-line update
+open rows in
+`docs/claude/work/PIPELINE.jsonl` (the archived review backlog is retired), and posts a one-line update
 to the Claude channel.
 
 ## What it produces
