@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR in this lane is held; the manager merges. Do not arm auto-merge.",
+  "why": "PROP-EXEC fix-forward #4. Dry run #13931 (03:17Z, after #13921) refused again: 'no unique submit control'. Nothing was submitted. The log could not say whether #13921's code ran or why the search failed. (1) The submit search is now document-wide, like the probe dump that DID find this submit (#13855), instead of 4 ancestors up. Unchanged constraints: in the form's column, below the visible form, not in a table, exactly one. A replica with the footer 6 levels up fails on main and passes here. (2) The attempt log carries submit_search (form rect, visible bottom, every submit-pattern button with its box and which constraint it failed), so a further failure is measured. (3) The executor start line carries code_sha, so a run proves which code ran. Tier 2: the order-entry locator on a funded prop account; no sizing, guard or risk change."
+}

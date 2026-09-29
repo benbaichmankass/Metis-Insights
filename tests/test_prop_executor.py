@@ -1517,6 +1517,70 @@ def _measured(sym="SOLUSD", symval="SOLUSD", slmode="Price"):
     return MEASURED_SIDEBAR.replace("%SYMVAL%", symval).replace("%SYM%", sym).replace("%SLMODE%", slmode)
 
 
+def _live_layout():
+    """The LIVE geometry (probe #13855): the fields are scroll content
+    (630px) inside a shorter scroll viewport, and the submit is a footer
+    OUTSIDE the viewport, below it but above the content box's own bottom."""
+    html = _measured().replace(
+        '<div id="col" style="position:absolute;left:903px;top:0;width:330px;height:300px;overflow-y:auto">\n <div id="panel">',
+        '<div id="side" style="position:absolute;left:903px;top:105px;width:330px">'
+        '<div id="col" style="height:300px;overflow-y:scroll">\n <div id="panel" style="min-height:630px">')
+    html = html.replace('\n <div id="footer" style="padding-top:200px">', '</div>\n <div id="footer">')
+    assert 'id="side"' in html and '<div id="footer">' in html
+    return html
+
+
+def test_live_layout_finds_the_footer_submit_below_the_scroll_viewport(tpage):
+    p = tpage(html=_live_layout())
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
+    assert form["buttons"].get("submit") == "Buy SOLUSD" and form["submit_outside_form"] is True
+    spec = BracketSpec("t7", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_live_layout_armed_clicks_the_footer_submit_once(tpage):
+    p = tpage(html=_live_layout())
+    spec = BracketSpec("t8", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.submitted, att.detail
+    assert p.evaluate("window.__submits") == 1
+
+
+def test_deeply_nested_footer_submit_is_found_document_wide(tpage):
+    # The footer sits 6 ancestors above the fields (more than the old
+    # 4-ancestor walk reached); the document-wide search in the form's
+    # column still finds exactly it.
+    html = _live_layout().replace('<div id="col"', '<div><div><div><div><div id="col"', 1) \
+                         .replace('</div>\n <div id="footer">', '</div></div></div></div></div>\n <div id="footer">', 1)
+    p = tpage(html=html)
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
+    assert form["buttons"].get("submit") == "Buy SOLUSD", form.get("submit_search")
+
+
+def test_submit_search_reports_why_a_candidate_failed(tpage):
+    # A submit-shaped button OUTSIDE the column: refused, and the log says why.
+    html = _live_layout().replace('<div id="footer">', '<div id="footer" style="position:absolute;left:-600px;top:500px">', 1)
+    p = tpage(html=html)
+    spec = BracketSpec("t9", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and "no unique submit" in att.detail
+    pub = pe._attempt_public(att)
+    m = pub["submit_search"]["matches"]
+    assert m and m[0]["text"] == "Buy SOLUSD" and m[0]["in_column"] is False and not m[0]["in_form"]
+    assert p.evaluate("window.__submits") is None
+
+
+def test_tick_start_line_carries_the_code_sha():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("tick", "scripts/prop/prop_executor_tick.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    sha = mod._code_sha()
+    assert sha and (sha == "unknown" or len(sha) >= 7)
+
+
 def test_measured_sidebar_is_recognised_labels_selection_symbol_submit(tpage):
     p = tpage(html=_measured())
     form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)

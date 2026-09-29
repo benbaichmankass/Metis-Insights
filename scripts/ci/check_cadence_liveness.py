@@ -197,6 +197,14 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    the output path for each is the obvious next shrink of this file.
     "schedule-keeper.yml": {"receipt": None, "why": "no in-repo trace by design: it reads the Actions API and dispatches; it also fires on every push to main, so its own cron is only the night-time floor (W6-OPS-R 2026-09-27)"},
     "r4-demotion-gate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch); a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
+    # RQ-RUN (2026-09-28): the queue's own replenisher and grader. Both commit
+    # ONLY when they changed a unit (a full queue / nothing new to grade is a
+    # clean no-op), so no unconditional receipt path exists; a dead scheduled
+    # run is caught by claude-run-failure-alert (both are on its list) and a
+    # queue that is not being refilled pages through research-queue-dispatch's
+    # queue-health alarm (scripts/ci/check_research_queue_health.py).
+    "research-queue-replenish.yml": {"receipt": None, "why": "commits only when it generated units; a full queue is a no-op by design -- a dead run is caught by claude-run-failure-alert, a dry queue by the dispatcher's queue-health alarm"},
+    "research-queue-grade.yml": {"receipt": None, "why": "commits only when a unit's grade changed; nothing-to-grade is a no-op by design -- a dead run is caught by claude-run-failure-alert"},
     # ── PI-20260922-ONLY-1-OF-38 triage (2026-09-28): the 6 below were
     #    re-measured by reading each workflow file rather than trusting the
     #    "commits back" label above. Field beats comment: `git grep` for

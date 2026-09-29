@@ -143,6 +143,13 @@ def _check_argv(argv: Any, *, repo: Path, idx: int) -> List[str]:
             errs.append(f"{tag}[{j}]: every token must be a non-empty string, got {tok!r}")
         elif ".." in tok or "\n" in tok or "\0" in tok:
             errs.append(f"{tag}[{j}]: token {tok!r} contains '..', a newline or NUL — refused")
+        else:
+            left = sorted(set(_PLACEHOLDER_RE.findall(tok)) - _RUNNER_PLACEHOLDERS)
+            if left:
+                errs.append(f"{tag}[{j}]: token {tok!r} still carries template placeholder(s) {left} "
+                            f"that the runner does not substitute (it fills only "
+                            f"{sorted(_RUNNER_PLACEHOLDERS)}) — a generator left them unresolved; "
+                            "refused before anything runs")
     if errs:
         return errs
     if argv[0] not in _INTERPRETERS:
@@ -158,6 +165,10 @@ def _check_argv(argv: Any, *, repo: Path, idx: int) -> List[str]:
     elif not (repo / script).is_file():
         errs.append(f"{tag}: script {script!r} does not exist in the checkout")
     return errs
+
+
+_RUNNER_PLACEHOLDERS = frozenset({"out_dir", "unit", "run_id"})
+_PLACEHOLDER_RE = re.compile(r"\{([a-z_]+)\}")
 
 
 def _substitute(argv: List[str], *, out_dir: Path, unit: str, run_id: str) -> List[str]:
@@ -511,6 +522,8 @@ def _self_test() -> int:
             "traversal": ["python3", "scripts/research/../ops/evil.py"],
             "missing script": ["python3", "scripts/research/nope.py"],
             "dotdot in arg": ["python3", "scripts/research/_st_ok.py", "--out", "../../etc"],
+            "unresolved placeholder": ["python3", "scripts/research/_st_ok.py", "--out", "{out_dir}",
+                                       "--arm", "A={sizing_args}"],
             "non-string token": ["python3", "scripts/research/_st_ok.py", 3],
             "empty": [],
         }
