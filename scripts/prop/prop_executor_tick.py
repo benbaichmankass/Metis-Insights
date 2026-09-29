@@ -61,6 +61,13 @@ from src.prop.platform import FeasibilityError, adapter_for_platform, load_platf
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV, EXIT_NO_SESSION = 0, 1, 3, 4, 5, 6
 
+# Headless viewport. Playwright's default (1280x720) clipped the sidebar
+# ticket at y 640 with the submit footer at y 659 (dry runs #13917, #13965);
+# the operator's ~2000px-tall browser shows the whole ticket, submit
+# included, without a scroll. Match that layout; the adapter's scroll path
+# (SUBMIT_JS scroll_step / mark) stays as the fallback when it still clips.
+VIEWPORT: Dict[str, int] = {"width": 1920, "height": 1600}
+
 
 def _redact(text: str, *secrets: str) -> str:
     from src.prop.platform.dxtrade import redact_text
@@ -178,7 +185,7 @@ def main(argv: Optional[list] = None) -> int:
                 if saved is None:
                     emit({"session": "none", "why": "no saved session; the feed logs in, the executor does not"})
                     return EXIT_NO_SESSION
-                context = browser.new_context(storage_state=saved)
+                context = browser.new_context(storage_state=saved, viewport=VIEWPORT)
                 page = context.new_page()
                 try:
                     st = adapter.resume_session(page, cfg_plat["login_url"])
@@ -191,7 +198,7 @@ def main(argv: Optional[list] = None) -> int:
                     return EXIT_NO_SESSION
                 emit({"session": "reused"})
             else:
-                context = browser.new_context()
+                context = browser.new_context(viewport=VIEWPORT)
                 page = context.new_page()
                 try:
                     adapter.login(page, cfg_plat["login_url"], username, password)
