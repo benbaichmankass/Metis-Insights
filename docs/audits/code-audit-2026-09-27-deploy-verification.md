@@ -1,7 +1,7 @@
 # Code audit 2026-09-27 — deploy verification (2026-09-29)
 
-> **Doc status:** `live` · category `evidence` · verified `2026-09-29` · linked from
-> [`docs/audits/code-audit-2026-09-27.md`](code-audit-2026-09-27.md) §5.
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-29` ·
+> linked from [`docs/audits/code-audit-2026-09-27.md`](code-audit-2026-09-27.md) §5.
 
 **Why this exists.** The audit's §5 (turn 3, 17:25Z) recorded that FIX-CA-01
 through 25 were merged and that "the manager reports them deployed and live,"
