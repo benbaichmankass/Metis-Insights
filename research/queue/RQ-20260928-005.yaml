@@ -188,3 +188,9 @@ grading:
     ETH) vs the 64 floor because the trainer's 15m candles end 2026-06-18
     (MEASURED, trainer census #14398). Floor not lowered. Reachable after a
     candle refresh plus a --fold-mode passthrough in m20_exit_head_round.py.
+  follow_up_registered: >-
+    Registered as RQ-20260929-401 (PR #14438): per-year final fold, 7-day embargo,
+    the shipped below_half_r tau 0.10 policy with the head arm charged its
+    round-trip cost + exit fee; MEASURED final-fold (2026 to 09-28) harness
+    trades SOL 100 / XRP 98 / ETH 84, all >= 64. That unit, not this one,
+    carries the sample-size fix; nothing here is re-graded.
