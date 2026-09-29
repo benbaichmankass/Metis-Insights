@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "declares trail_vol_above_pctl/trail_vol_tight_mult/vol_pctl_window on ada_pullback_2h (bybit_2 REAL MONEY, config/strategies.yaml); needs operator/manager approval per docs/claude/work/PIPELINE.jsonl item PI-20260929-EXITOPS-0002",
+  "why": "config/strategies.yaml order-path change on a real-money leg; Tier-3 per docs/CLAUDE-RULES-CANONICAL.md"
+}
