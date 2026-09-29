@@ -6,33 +6,34 @@ WHY THIS IS COMMITTED BEFORE THE RUN
 The rule is registered in `research/queue/RQ-20260929-401.yaml`; this file is the
 same rule as code, committed in the SAME PR and merged before any dispatch, so the
 partition (which legs count, what PASS / REFINE / FAIL mean) is not re-derived by
-eye after the numbers are known. It reads what `scripts/ml/train_exit_head.py`
-already wrote (`<round>/<leg>/e1_report.json`) and adds NO measurement of its own.
+eye after the numbers are known.
 
-WHAT IT READS, PER LEG (a single-leg family dir, so the family block IS the leg)
-  fold           the one whose `year` == --expect-year (the latest calendar year);
-                 a leg with no such fold is `final_fold_missing`, never "the
-                 previous year stands in" (the same rule as analyze_exit_head's
-                 `_final_fold_entry`)
-  n_oos          fold["n_trades"]
-  baseline       fold["actual"]["net_r"]                      (held to the harness exit)
-  head           fold["model_cond"]["below_half_r_tau_0.1"]["net_r"]
-                 = the SHIPPED donchian shape {below_half_r, tau 0.10, below_r 0.5}
-                 (src.runtime.exit_head_shadow.would_exit_for) — ONE arm, fixed a
-                 priori. NOT max-over-arms, and NOT `selected_tau`.
-  recovered_R_oos = head - baseline, on the SAME trades (asserted: trade counts equal)
+WHAT IT READS, PER LEG: `<round>/<leg>/final_fold_net.json`, written by
+`scripts/research/exit_head_final_fold_replay.py`. It does NOT read the trainer's
+`e1_report.json` arms directly, because those are on different cost bases (baseline
+= harness net_r; head = raw candle mark `open_r`, i.e. GROSS) — see that module.
+  n_oos             fold trades that joined to the harness emit
+  baseline_net_r    each trade held to the harness exit (harness net_r)
+  head_net_r        the shipped {below_half_r, tau 0.10, below_r 0.5} head, each
+                    truncated trade charged its round-trip cost + exit fee
+  recovered_R_oos = head_net_r - baseline_net_r, UNROUNDED, on the SAME trades
 
 THE PARTITION (RQ-20260928-005's rule with its gaps closed, thresholds unchanged)
-  Q = legs with n_oos >= FLOOR (64).  P = legs in Q with recovered_R_oos > 0.
-  |Q| < 2  -> indeterminate (underpowered). The floor is never lowered.
-  |P| >= 2 -> pass          |P| == 1 -> indeterminate (refine: re-run 2nd split)
-  |P| == 0 -> fail
+  producer problem on ANY leg (no report, replay failed / mismatched the trainer's
+  own fold, cost policy differs from the harness, incomplete join, wrong fold mode)
+                              -> not_applicable  (read_state producer_failed);
+                                 NEVER dropped from Q silently
+  Q = legs with n_oos >= FLOOR (64); a leg whose final-year fold does not exist
+  (fewer than 50 test trades) is `final_fold_missing` = underpowered = not in Q.
+  P = legs in Q with recovered_R_oos > 0.
+  |Q| < 2  -> indeterminate (underpowered).   The floor is never lowered.
+  |P| >= 2 -> pass     |P| == 1 -> indeterminate (refine)     |P| == 0 -> fail
 
-Usage (on the trainer, after the round)::
+Usage (on the trainer, after the replay)::
 
     python scripts/research/exit_head_final_fold_grade.py \\
         --round-dir /home/ubuntu/rq20260929_401_round \\
-        --legs ict_scalp_sol_15m,ict_scalp_xrp_15m,ict_scalp_eth_15m --expect-year 2026
+        --legs ict_scalp_sol_15m,ict_scalp_xrp_15m,ict_scalp_eth_15m
 """
 # wiring: manual-only - grades the one-off trainer round dispatched by
 # research/queue/RQ-20260929-401.yaml (`run.note`); not called from CI.
@@ -44,35 +45,45 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-FLOOR = 64                       # RQ-20260928-005 / RQ-20260927-001 power floor; never lowered
-ARM = "below_half_r_tau_0.1"     # key = f"{shape}_tau_{tau}" in train_exit_head.eval_split
+FLOOR = 64   # RQ-20260928-005 / RQ-20260927-001 power floor; never lowered
+
+#: States that mean "the producer did not give us a measurement" — distinct from
+#: "we measured and the leg is thin". Both used to be one silent exclusion.
+PRODUCER_STATES = ("no_report", "replay_failed", "replay_mismatch", "cost_policy_mismatch",
+                   "join_incomplete", "wrong_fold_mode", "malformed")
 
 
-def leg_stat(report: Dict[str, Any], leg: str, expect_year: int) -> Dict[str, Any]:
-    """One leg's final-fold statistic, or an explicit non-computed state."""
-    if report.get("fold_mode") != "years":
-        return {"leg": leg, "state": "wrong_fold_mode", "fold_mode": report.get("fold_mode")}
-    match = [f for f in (report.get("folds") or []) if int(f.get("year", -1)) == int(expect_year)]
-    if not match:
-        have = sorted(int(f.get("year", -1)) for f in (report.get("folds") or []))
-        return {"leg": leg, "state": "final_fold_missing", "expect_year": expect_year,
-                "folds_present": have}
-    f = match[0]
-    actual = (f.get("actual") or {})
-    head = ((f.get("model_cond") or {}).get(ARM) or {})
-    n = f.get("n_trades")
-    if (not isinstance(n, int) or actual.get("trades") != n or head.get("trades") != n
-            or actual.get("net_r") is None or head.get("net_r") is None):
-        return {"leg": leg, "state": "malformed_fold", "n_trades": n,
-                "actual_trades": actual.get("trades"), "head_trades": head.get("trades")}
-    return {"leg": leg, "state": "ok", "fold_year": int(f["year"]), "n_oos": n,
-            "baseline_net_r": actual["net_r"], "head_net_r": head["net_r"],
-            "recovered_r_oos": round(head["net_r"] - actual["net_r"], 4),
-            "train_rows": f.get("train_rows"), "auc": f.get("auc")}
+def leg_stat(net: Dict[str, Any], leg: str) -> Dict[str, Any]:
+    """One leg's statistic from its `final_fold_net.json`, or an explicit non-computed state."""
+    state = net.get("state")
+    if state == "final_fold_missing":
+        return {"leg": leg, "state": "final_fold_missing", "n_test": net.get("n_test")}
+    if state != "ok":
+        return {"leg": leg, "state": state if state in PRODUCER_STATES else "malformed",
+                "detail": {k: net.get(k) for k in ("why", "error", "missing", "fold_mode")
+                           if net.get(k) is not None}}
+    try:
+        n = int(net["n_oos"])
+        base, head = float(net["baseline_net_r"]), float(net["head_net_r"])
+        rec = float(net["recovered_r_oos"])
+    except (KeyError, TypeError, ValueError):
+        return {"leg": leg, "state": "malformed"}
+    if abs((head - base) - rec) > 1e-9:          # the stored delta must be head - baseline
+        return {"leg": leg, "state": "malformed", "detail": {"why": "recovered != head - baseline"}}
+    return {"leg": leg, "state": "ok", "n_oos": n, "baseline_net_r": base, "head_net_r": head,
+            "recovered_r_oos": rec, "recovered_r_gross": net.get("recovered_r_gross"),
+            "n_early_exits": net.get("n_early_exits"),
+            "charged_roundtrip_cost_r": net.get("charged_roundtrip_cost_r"),
+            "charged_exit_fee_r": net.get("charged_exit_fee_r")}
 
 
 def grade(stats: List[Dict[str, Any]], floor: int = FLOOR) -> Dict[str, Any]:
     """The registered partition. Pure function of the per-leg stats."""
+    bad = [s for s in stats if s.get("state") in PRODUCER_STATES]
+    if bad:
+        return {"verdict": "not_applicable", "read_state": "producer_failed",
+                "why": "producer problem on: " + ", ".join(f"{s['leg']}={s['state']}" for s in bad),
+                "floor": floor, "legs": stats}
     q = [s for s in stats if s.get("state") == "ok" and s["n_oos"] >= floor]
     p = [s for s in q if s["recovered_r_oos"] > 0]
     if len(q) < 2:
@@ -83,8 +94,8 @@ def grade(stats: List[Dict[str, Any]], floor: int = FLOOR) -> Dict[str, Any]:
         verdict, why = "indeterminate", "refine: exactly 1 leg positive; re-run on the fold before the last"
     else:
         verdict, why = "fail", "recovered_R_oos <= 0 on every leg with n_oos >= %d" % floor
-    return {"verdict": verdict, "why": why, "floor": floor, "n_legs_graded": len(q),
-            "n_legs_positive": len(p), "legs": stats}
+    return {"verdict": verdict, "read_state": "measured", "why": why, "floor": floor,
+            "n_legs_graded": len(q), "n_legs_positive": len(p), "legs": stats}
 
 
 def main(argv: List[str]) -> int:
@@ -92,15 +103,12 @@ def main(argv: List[str]) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--round-dir", required=True)
     ap.add_argument("--legs", required=True)
-    ap.add_argument("--expect-year", type=int, required=True)
     a = ap.parse_args(argv[1:])
     stats: List[Dict[str, Any]] = []
     for leg in a.legs.split(","):
-        p = Path(a.round_dir) / leg / "e1_report.json"
-        if not p.exists():
-            stats.append({"leg": leg, "state": "no_report", "path": str(p)})
-            continue
-        stats.append(leg_stat(json.loads(p.read_text()), leg, a.expect_year))
+        p = Path(a.round_dir) / leg / "final_fold_net.json"
+        stats.append(leg_stat(json.loads(p.read_text()), leg) if p.exists()
+                     else {"leg": leg, "state": "no_report", "detail": {"missing": str(p)}})
     print(json.dumps(grade(stats), indent=1, sort_keys=True))
     return 0
 
