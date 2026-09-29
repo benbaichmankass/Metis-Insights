@@ -435,7 +435,8 @@ def _query(
         # does not exist, and the next reader would trust it.
         exit_select = "\n                   t.exit_reason AS exit_reason,"
         sql = f"""
-            SELECT t.strategy_name,
+            SELECT t.id AS trade_id,
+                   t.strategy_name,
                    t.symbol AS symbol,
                    t.account_id AS account_id,
                    t.pnl AS pnl,{r_select}{notes_select}{exit_select}{meta_select}
@@ -462,7 +463,11 @@ def _query(
         if since:
             sql += f" AND {_CLOSE_TIME_SQL} >= datetime(?)"
             params.append(since)
-        sql += f" ORDER BY {_CLOSE_TIME_SQL} ASC"
+        # `t.id` breaks ties: the close-time basis is second-precision, so two
+        # trades closing in the same second had no defined order, and a
+        # consumer slicing the last N (/performance/recent) could move a trade
+        # across a block boundary between two reads of the same journal.
+        sql += f" ORDER BY {_CLOSE_TIME_SQL} ASC, t.id ASC"
         return conn.execute(sql, params).fetchall()
     finally:
         conn.close()
@@ -1318,22 +1323,35 @@ RECENT_N_DEFAULT = 40
 RECENT_N_MAX = 200
 
 
+#: Block names, NEWEST first: ``blocks[0]`` is always the most recent
+#: ``RECENT_BLOCK`` closed trades, whatever else the leg has.
+_BLOCK_LABELS = ("recent", "prior", "prior_2", "prior_3", "prior_4", "prior_5",
+                 "prior_6", "prior_7", "prior_8", "prior_9")
+
+
 def _leg_blocks(rows: List[sqlite3.Row], n: int, block: int) -> Dict[str, Any]:
-    """One leg's last ``n`` closed rows (oldest→newest, as ``_query`` returns
-    them) as ``_aggregate`` outputs: ``last`` over all of them and ``blocks``
-    over each COMPLETE ``block``-trade chunk, aligned to the NEWEST trade so
-    the newest block is always full. A leg with fewer than ``n`` rows reports
-    ``complete: false`` and only the complete blocks it has -- never a short
-    block presented as a full one."""
+    """One leg's last ``n`` closed rows (``_query`` returns them oldest→newest,
+    ties broken by trade id) as ``_aggregate`` outputs: ``last`` over all of
+    them, and ``blocks`` over each COMPLETE ``block``-trade chunk, NEWEST
+    FIRST and named (``recent``, ``prior``, ...), each carrying the trade ids
+    it covers so non-overlap is checkable on ids, not timestamps. A leg with
+    fewer than ``n`` rows reports ``complete: false`` and only the complete
+    blocks it has -- never a short block presented as a full one."""
     tail = rows[-n:]
-    k = len(tail) // block
-    usable = tail[len(tail) - k * block:]
     blocks = []
-    for i in range(k):
-        chunk = usable[i * block:(i + 1) * block]
+    for i in range(len(tail) // block):
+        hi = len(tail) - i * block
+        chunk = tail[hi - block:hi]
         agg = _strip_envelope(_aggregate(chunk, "recent", None))
-        agg["closedFrom"] = _rget(chunk[0], "closed_at")
-        agg["closedTo"] = _rget(chunk[-1], "closed_at")
+        ids = [_rget(r, "trade_id") for r in chunk]
+        agg.update({
+            "label": _BLOCK_LABELS[i],
+            "closedFrom": _rget(chunk[0], "closed_at"),
+            "closedTo": _rget(chunk[-1], "closed_at"),
+            "firstTradeId": ids[0],
+            "lastTradeId": ids[-1],
+            "tradeIds": ids,
+        })
         blocks.append(agg)
     return {
         "closedAvailable": len(rows),
@@ -1344,13 +1362,55 @@ def _leg_blocks(rows: List[sqlite3.Row], n: int, block: int) -> Dict[str, Any]:
     }
 
 
-def _book_blocks(rows: List[sqlite3.Row], n: int, block: int) -> Dict[str, Any]:
-    by: Dict[str, List[sqlite3.Row]] = {}
+def _book_blocks(rows: List[sqlite3.Row], n: int, block: int,
+                 roster: List[str]) -> Dict[str, Any]:
+    by: Dict[str, List[sqlite3.Row]] = {leg: [] for leg in roster}
     for r in rows:
         # The SAME name key `_aggregate` buckets `perStrategy` on, so a leg here
         # and a leg in /performance's perStrategy are one population.
         by.setdefault(r["strategy_name"] or "(unknown)", []).append(r)
+    # A ROSTERED leg with no closed trade is emitted with closedAvailable 0, so
+    # "on the roster, never closed" is distinguishable from "not on the roster".
     return {name: _leg_blocks(legrows, n, block) for name, legrows in sorted(by.items())}
+
+
+def _newest_close(rows: List[sqlite3.Row]) -> Optional[str]:
+    return _rget(rows[-1], "closed_at") if rows else None
+
+
+def _book_rosters() -> Dict[str, Any]:
+    """The rosters the two books serve, read from ``config/accounts.yaml``:
+    ``{"readState", "realMoneyLegs", "portfolioAccounts", "portfolioLegs"}``.
+
+    ``readState`` is ``ok`` or ``unreadable``. Unlike
+    ``_portfolio_paper_account_ids`` (which /performance keeps, and which folds
+    a load error into "none declared"), "we could not read the config" stays
+    its own state here."""
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        accounts_yaml = Path(__file__).resolve().parents[4] / "config" / "accounts.yaml"
+        accounts = load_accounts_dict(accounts_yaml)
+        if not isinstance(accounts, dict):
+            raise ValueError(f"accounts is {type(accounts).__name__}, not a mapping")
+    except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + returned as readState "unreadable", which the route publishes on the mirror book and the R4 gate refuses to run on
+        logger.exception("performance/recent: accounts.yaml unreadable")
+        return {"readState": "unreadable", "realMoneyLegs": [], "portfolioAccounts": [],
+                "portfolioLegs": []}
+    real_legs: List[str] = []
+    pids: List[str] = []
+    pp_legs: List[str] = []
+    for aid, cfg in accounts.items():
+        if not isinstance(cfg, dict):
+            continue
+        cls = str(cfg.get("account_class") or "").lower()
+        legs = [str(x) for x in (cfg.get("strategies") or [])]
+        if cls == "real_money":
+            real_legs.extend(legs)
+        elif cls == "paper" and str(cfg.get("paper_role") or "").lower() == "portfolio":
+            pids.append(str(aid))
+            pp_legs.extend(legs)
+    return {"readState": "ok", "realMoneyLegs": sorted(set(real_legs)),
+            "portfolioAccounts": pids, "portfolioLegs": sorted(set(pp_legs))}
 
 
 @router.get("/performance/recent")
@@ -1371,7 +1431,12 @@ def get_performance_recent(
     ⚠️ The mirror does NOT fall back to the all-paper book when no portfolio
     account is declared (``/performance`` does): the Stage-1 soak book is not
     the Stage-2 mirror, and a demotion signal read off the wrong book is worse
-    than none. ``mirror.readState`` says which happened.
+    than none. ``mirror.readState`` says which happened: ``ok``,
+    ``no_portfolio_accounts_declared``, ``accounts_unreadable`` (the config
+    could not be read -- never folded into "none declared"), ``absent`` (no
+    journal) or ``error``. Every leg on a book's roster is present, with
+    ``closedAvailable: 0`` if it never closed. ``newestClosedAt`` per book lets
+    a consumer refuse a stale read (a stalled trader re-serves the same 40).
 
     ``n`` must be a multiple of ``RECENT_BLOCK`` (400 otherwise). A DB read
     failure returns ``error: true`` with both books ``readState: "error"`` --
@@ -1387,27 +1452,35 @@ def get_performance_recent(
         "n": n,
         "block": RECENT_BLOCK,
         "error": False,
-        "basis": ("last n closed non-backtest trades per strategy_name, oldest->newest by "
-                  "close time; blocks are complete, non-overlapping and aligned to the "
-                  "newest trade"),
-        "realMoney": {"readState": "absent", "perStrategy": {}},
-        "mirror": {"readState": "absent", "accountIds": [], "perStrategy": {}},
+        "basis": ("last n closed non-backtest trades per strategy_name, ordered by close "
+                  "time then trade id; blocks are complete, non-overlapping, NEWEST FIRST "
+                  "(labels recent, prior, ...) and carry the trade ids they cover"),
+        "realMoney": {"readState": "absent", "newestClosedAt": None, "perStrategy": {}},
+        "mirror": {"readState": "absent", "accountIds": [], "newestClosedAt": None,
+                   "perStrategy": {}},
     }
     if not _DB_PATH.exists():
         return env
     try:
+        rosters = _book_rosters()
+        real_rows = _query(_DB_PATH, None, demo=False)
         env["realMoney"] = {
             "readState": "ok",
-            "perStrategy": _book_blocks(_query(_DB_PATH, None, demo=False), n, RECENT_BLOCK),
+            "rosterReadState": rosters["readState"],
+            "newestClosedAt": _newest_close(real_rows),
+            "perStrategy": _book_blocks(real_rows, n, RECENT_BLOCK, rosters["realMoneyLegs"]),
         }
-        portfolio_ids = _portfolio_paper_account_ids()
-        if portfolio_ids:
+        portfolio_ids = rosters["portfolioAccounts"]
+        if rosters["readState"] != "ok":
+            # "We could not read the config" -- never "none declared".
+            env["mirror"]["readState"] = "accounts_unreadable"
+        elif portfolio_ids:
+            pp_rows = _query(_DB_PATH, None, demo=True, account_ids=portfolio_ids)
             env["mirror"] = {
                 "readState": "ok",
                 "accountIds": portfolio_ids,
-                "perStrategy": _book_blocks(
-                    _query(_DB_PATH, None, demo=True, account_ids=portfolio_ids),
-                    n, RECENT_BLOCK),
+                "newestClosedAt": _newest_close(pp_rows),
+                "perStrategy": _book_blocks(pp_rows, n, RECENT_BLOCK, rosters["portfolioLegs"]),
             }
         else:
             env["mirror"]["readState"] = "no_portfolio_accounts_declared"
@@ -1415,6 +1488,7 @@ def get_performance_recent(
     except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + an explicit error envelope (error: true, readState "error" on both books) so "could not look" never reads as "no trades"
         logger.exception("performance/recent: read failed")
         env["error"] = True
-        env["realMoney"] = {"readState": "error", "perStrategy": {}}
-        env["mirror"] = {"readState": "error", "accountIds": [], "perStrategy": {}}
+        env["realMoney"] = {"readState": "error", "newestClosedAt": None, "perStrategy": {}}
+        env["mirror"] = {"readState": "error", "accountIds": [], "newestClosedAt": None,
+                         "perStrategy": {}}
         return env
