@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Files one pipeline row (PI-20260929-K1XNYYAQ-0001): us_equity_session misreads the March/November DST weeks and US holidays. Requested by the manager in REVIEW-14241 round 3. Pipeline record only."
+}
