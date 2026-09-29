@@ -149,7 +149,8 @@ def test_an_unreadable_created_at_counts_as_fresh():
 
 
 def test_the_stale_window_is_a_flag_the_workflow_can_pass():
-    import subprocess, sys
+    import subprocess
+    import sys
     out = subprocess.run([sys.executable, "scripts/research/dispatch_queue.py", "--help"],
                          capture_output=True, text=True, cwd=str(REPO)).stdout
     assert "--pressure-stale-hours" in out
