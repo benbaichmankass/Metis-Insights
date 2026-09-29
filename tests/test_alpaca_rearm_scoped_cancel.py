@@ -225,7 +225,8 @@ def test_sweep_passes_the_other_rows_sizes(tmp_path):
         (5556, "alpaca_paper", "SPY", "closed", 0, 3.0),
         (5557, "alpaca_portfolio", "SPY", "open", 0, 7.0),
     ])
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
     class _Db:
         def connect(self):
