@@ -642,7 +642,7 @@ def test_summary_declares_every_outcome_key_at_zero(world):
               "rearm_refused_all_stops_breached", "breach_exits", "cap_exits",
               "venue_holding_protected", "exit_failed", "protection_read_failed",
               "topped_up", "topup_refused", "exit_deferred",
-              "venue_holding_cooldown",
+              "venue_holding_cooldown", "escalated_post_rejected",
               "rearm_refused_deferred_unconfirmed_breach"):
         assert s[k] == 0, k
 
@@ -756,3 +756,92 @@ def test_extended_hours_deferred_to_the_regular_session_is_a_deferral(world):
     s = om._check_broker_naked_equity_positions(db)
     assert s["exit_deferred"] == 1 and s["exit_failed"] == 0 and rests == [6024]
     assert "exit_failed" not in _kinds(pages)
+
+
+# --- K1XNYYAQ-0002: #14241 follow-ups ---------------------------------------
+def test_escalating_sweep_pages_escalated_not_nothing_resting(world):
+    """(3) On the sweep that POSTS the escalated stop, the page says
+    'escalated' (not 're-arm refused') and no breach-channel 'NOTHING is
+    resting' page fires on that sweep."""
+    db, pages, mp = world
+    _close_row(db, 5928)
+    v = _Venue(qty=56.0, price=720.0)
+    v.bid, v.ask = 716.50, 720.10
+    v.trade_age = None
+    _use(mp, v)
+    for _ in range(om._BREACH_DEFER_MAX):
+        om._check_broker_naked_equity_positions(db)
+    n_before = sum(1 for a, k in pages if k.get("channel") == "breach")
+    om._check_broker_naked_equity_positions(db)
+    assert sum(1 for a, k in pages if k.get("channel") == "breach") == n_before
+    esc = [k for a, k in pages if k.get("kind") == "breach_deferral_escalated"]
+    assert esc and "re-arm escalated" in esc[-1]["reason"]
+    assert "refused" not in esc[-1]["reason"]
+    assert ("alpaca_portfolio", "QQQ", "breach") not in om._PROTECTION_UNREADABLE_STREAK
+    assert len(v.posts()) == 1
+
+
+def test_rejected_escalated_stop_spends_the_cap(world):
+    """(2) An escalated stop the venue REJECTS still counts against the re-arm
+    cap, so it is not re-posted every sweep: once the cap is spent the row
+    escalates to the close path."""
+    db, _pages, mp = world
+    _close_row(db, 5928)
+
+    class _Reject(_Venue):
+        def _request(self, method, path, json_body=None):  # type: ignore[override]
+            if method == "POST":
+                self.calls.append((method, path, json_body))
+                return {"retCode": 422, "retMsg": "stop price must be below market"}
+            return super()._request(method, path, json_body)
+
+    v = _Reject(qty=56.0, price=720.0)
+    v.bid, v.ask = 716.50, 720.10
+    v.trade_age = None
+    _use(mp, v)
+    closes = _closer(mp, v)
+    om._ALPACA_BREACH_DEFERRALS[("alpaca_portfolio", "QQQ", 6024)] = om._BREACH_DEFER_MAX
+    posts_per_sweep = []
+    for _ in range(om._ALPACA_REARM_CAP):
+        before = len(v.posts())
+        s = om._check_broker_naked_equity_positions(db)
+        posts_per_sweep.append(len(v.posts()) - before)
+        assert s["escalated_post_rejected"] == 1
+    assert posts_per_sweep == [1] * om._ALPACA_REARM_CAP
+    assert om._rearm_attempts("alpaca_portfolio", 6024) == om._ALPACA_REARM_CAP
+    s = om._check_broker_naked_equity_positions(db)
+    assert s["cap_exits"] == 1 and [c["id"] for c in closes] == [6024]
+
+
+def test_non_escalated_rejected_rearm_does_not_spend_the_cap_positive_control(world):
+    """Only the ESCALATED post is charged on rejection; an ordinary re-arm's
+    behaviour is unchanged."""
+    db, _pages, mp = world
+    _close_row(db, 5928)
+
+    class _Reject(_Venue):
+        def _request(self, method, path, json_body=None):  # type: ignore[override]
+            if method == "POST":
+                self.calls.append((method, path, json_body))
+                return {"retCode": 422, "retMsg": "refused"}
+            return super()._request(method, path, json_body)
+
+    v = _Reject(qty=56.0, price=735.0)
+    _use(mp, v)
+    s = om._check_broker_naked_equity_positions(db)
+    assert s["escalated_post_rejected"] == 0
+    assert om._rearm_attempts("alpaca_portfolio", 6024) == 0
+
+
+def test_breach_deferrals_are_pruned_for_closed_rows(world):
+    """(5) _ALPACA_BREACH_DEFERRALS drops entries of rows no longer open."""
+    db, _pages, mp = world
+    _close_row(db, 5928)
+    om._ALPACA_BREACH_DEFERRALS[("alpaca_portfolio", "QQQ", 5928)] = 2   # closed row
+    om._ALPACA_BREACH_DEFERRALS[("alpaca_portfolio", "QQQ", 999)] = 1    # never existed
+    v = _Venue(qty=56.0, price=720.0)
+    v.bid, v.ask = 716.50, 720.10
+    v.trade_age = None
+    _use(mp, v)
+    om._check_broker_naked_equity_positions(db)
+    assert set(om._ALPACA_BREACH_DEFERRALS) == {("alpaca_portfolio", "QQQ", 6024)}
