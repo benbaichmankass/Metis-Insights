@@ -50,8 +50,13 @@ on:
   workflow_dispatch:
     inputs:
       window:
-        description: "performance window (the declared demotion window)"
-        default: "30d"
+        # A LABEL, not a token: since 2026-09-29 (MD-DEMOTE-S2-S1, operator
+        # "Last 20 + strict test") the gate reads a fixed trade-count payload,
+        # last 20 closed trades x 2 non-overlapping windows. The default is the
+        # declared demotion window check_mandate_autoland.py A7 binds a run's
+        # provenance to, so a dispatch with any other value is refused there.
+        description: "declared demotion window label (fixed: last 20 closed trades x 2)"
+        default: "last20x2"
       apply:
         description: "true = enforce (open the PR on a FIRE); false = dry run"
         default: "true"
@@ -98,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      WINDOW: ${{ github.event.inputs.window || '30d' }}
+      WINDOW: ${{ github.event.inputs.window || 'last20x2' }}
       APPLY: ${{ github.event.inputs.apply || 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -123,12 +128,14 @@ jobs:
       - name: Install deps
         run: pip install -q pyyaml
 
-      - name: Fetch the R4 input (GET /api/bot/performance)
+      - name: Fetch the R4 input (GET /api/bot/performance, trade-count windows)
         run: |
           set -euo pipefail
+          # Fixed query, never ${WINDOW}: the trigger is each leg's last 20
+          # closed trades and the 20 before them, whatever their dates.
           curl -fsS -m 60 --retry 3 --retry-delay 5 \
-            "https://ict-bot.duckdns.org/api/bot/performance?window=${WINDOW}" -o perf.json
-          python3 -c "import json;d=json.load(open('perf.json'));assert 'perStrategy' in d and 'paperPortfolio' in d, 'not a performance payload'"
+            "https://ict-bot.duckdns.org/api/bot/performance?window=all&last_n=20&blocks=2" -o perf.json
+          python3 -c "import json;d=json.load(open('perf.json'));rb=d.get('recentBlocks') or {};assert 'perStrategy' in d and 'paperPortfolio' in d, 'not a performance payload';assert rb.get('blockSize')==20 and rb.get('blocks')==2, 'no recentBlocks -- the web-api predates the trade-count window; not deployed yet'"
 
       - name: Run the gate
         id: gate

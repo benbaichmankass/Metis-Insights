@@ -104,8 +104,10 @@ def _stage2_perf_payload(db_path: str, window: str) -> Dict[str, Any]:
         _aggregate,
         _portfolio_paper_account_ids,
         _query,
+        _recent_blocks,
         _window_since,
     )
+    import scripts.ops.r4_demotion_gate as _r4  # noqa: PLC0415
 
     since = _window_since(window)
     path = Path(db_path)
@@ -120,11 +122,21 @@ def _stage2_perf_payload(db_path: str, window: str) -> Dict[str, Any]:
         # DESIGN (not the full soak roster) — every leg's mirror then abstains
         # thin rather than silently substituting the whole paper fleet.
         mirror_agg = _aggregate([], window, since)
+    # R4's MD-DEMOTE-S2-S1 trigger (2026-09-29) reads trade-COUNT windows —
+    # each leg's last two non-overlapping blocks of BLOCK closed trades, any
+    # dates — so the blocks come from ALL rows, exactly as the live endpoint's
+    # ``?window=all&last_n=20&blocks=2`` builds them.
+    all_real = _query(path, None, demo=False)
+    all_mirror = (_query(path, None, demo=True, account_ids=portfolio_ids)
+                  if portfolio_ids else [])
     return {
         "since": since,
         "window": window,
         "perStrategy": real_agg.get("perStrategy", []),
         "paperPortfolio": {"perStrategy": mirror_agg.get("perStrategy", [])},
+        "recentBlocks": {"blockSize": _r4.BLOCK, "blocks": _r4.WINDOWS,
+                         "real": _recent_blocks(all_real, _r4.BLOCK, _r4.WINDOWS),
+                         "mirror": _recent_blocks(all_mirror, _r4.BLOCK, _r4.WINDOWS)},
     }
 
 
@@ -138,7 +150,7 @@ def build_stage2_rows(db_path: str, window: str = STAGE2_WINDOW_DEFAULT) -> Dict
 
     perf = _stage2_perf_payload(db_path, window)
     decisions = _r4.evaluate(
-        perf, _REPO_ROOT, coverage_floor=_r4.COVERAGE_FLOOR, min_trades=_r4.MIN_TRADES
+        perf, _REPO_ROOT, coverage_floor=_r4.COVERAGE_FLOOR, min_trades=_r4.BLOCK
     )
     rows: List[Dict[str, Any]] = []
     for d in decisions:

@@ -219,6 +219,8 @@ STRATEGIES_REL = "config/strategies.yaml"
 EVIDENCE_DIR_REL = "comms/strategy_evidence"
 R3_DIR_REL = "comms/research/r3_cost_fidelity"
 MIRROR_DIR_REL = "comms/mandate_evidence/mirror_window"
+#: MD-DEMOTE-S2-S1's firing rule; must equal r4_demotion_gate.TRIGGER_RULE.
+DEMOTE_TRIGGER_RULE = "last20_own_p10_x2_and_net_neg"
 FIRINGS_DIR_REL = "comms/mandate_firings"
 
 FIRE, REFUSE, NEEDS_DATA = "FIRE", "REFUSE", "NEEDS-DATA"
@@ -876,6 +878,29 @@ def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
     if net >= 0:
         raise _Refuse("R-EXPECTANCY", f"mirror window net {net} R is not negative -- the evidence "
                                       "does not support a demotion")
+    # MD-DEMOTE-S2-S1's firing clause since 2026-09-29 (operator: "Last 20 +
+    # strict test (Recommended)"; net<0 conjunct per manager the same day):
+    # BOTH of the last two non-overlapping 20-trade windows below the leg's own
+    # Stage-0 p10 AND below 0. Re-checked here from the record's own fields, so
+    # a record written under any other rule -- including the plain 30-day
+    # net<0 rule it replaced -- cannot fire.
+    rule = rec.get("trigger_rule")
+    ctx["evidence"].update({"trigger_rule": rule, "p10_threshold": rec.get("p10_threshold"),
+                            "windows": rec.get("windows")})
+    if rule != DEMOTE_TRIGGER_RULE:
+        raise _Refuse("R-TRIGGER-RULE", f"record trigger_rule {rule!r} is not {DEMOTE_TRIGGER_RULE!r} "
+                                        "-- not produced under the mandate's current firing clause")
+    p10 = rec.get("p10_threshold")
+    wins = rec.get("windows") or []
+    if not isinstance(p10, (int, float)) or isinstance(p10, bool):
+        raise _Refuse("R-TRIGGER-RULE", f"p10_threshold={p10!r} is not stated")
+    if len(wins) < 2:
+        raise _Refuse("R-TRIGGER-RULE", f"{len(wins)} window(s) stated; the rule needs 2")
+    for w in wins[:2]:
+        wr = (w or {}).get("net_r")
+        if not isinstance(wr, (int, float)) or isinstance(wr, bool) or not (wr < 0 and wr < p10):
+            raise _Refuse("R-TRIGGER-RULE", f"window {(w or {}).get('window')} net {wr!r} R is not below "
+                                            f"both 0 and the leg's p10 {p10} R")
 
 
 def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path,

@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Changes the firing mechanism of the auto-landing mandate MD-DEMOTE-S2-S1 (scripts/ops/r4_demotion_gate.py, scripts/ops/mandate_resolver.py, .github/workflows/r4-demotion-gate.yml) and adds a Tier-2 read path on the live web-api (src/web/api/routers/performance.py: last_n/blocks trade-count window, and an unknown window token is now HTTP 400). Merged != deployed: the workflow's fetch needs the web-api deploy before it can run. The config/mandates.yaml fires_when/never text is NOT in this diff (a session edit to the authorization store was refused by the permission check); the exact proposed text is in the PR body for a human to apply. Held for the manager's merge after an independent review, per the manager's dispatch.",
+  "why": "Operator decision 2026-09-29 ~14:17Z (popup relayed by manager session_01HYq6XtfesZ57VyaQrK6CL1, verbatim \"Last 20 + strict test (Recommended)\"), plus the manager's in-choice net<0 adjustment at 15:18Z; priced in PI-20260929-VOLSKIP-SIGNAL-0005; build row PI-20260929-VOLSKIP-SIGNAL-0007."
+}

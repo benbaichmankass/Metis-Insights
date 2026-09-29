@@ -66,19 +66,24 @@ def _git(root: Path, *args: str, env: dict | None = None) -> str:
 
 
 def _perf_payload(leg: str) -> dict:
-    """A `/api/bot/performance` body R4 reads as `would_block` with negative R.
+    """A `/api/bot/performance?window=all&last_n=20&blocks=2` body R4 reads as a
+    demotion: both of the leg's last two 20-trade windows `would_block` with a
+    net R below the leg's own Stage-0 p10 AND below 0 (MD-DEMOTE-S2-S1's
+    firing clause since 2026-09-29).
 
-    Shaped against `src/runtime/research_results_gate.source_verdict`: trades
-    above `MIN_TRADES`, `pnlCoverage` above `COVERAGE_FLOOR`, and a NEGATIVE
-    `totalPnlMeasured` — plus `totalR < 0`, which `r4_demotion_gate` requires
-    separately so the dollar read and the R read must agree in sign.
+    Each window is shaped against `research_results_gate.source_verdict`:
+    `gate.BLOCK` trades, `pnlCoverage` above `COVERAGE_FLOOR`, a NEGATIVE
+    `totalPnlMeasured`, and a `totalR` far below any plausible p10.
     """
-    row = {"name": leg, "trades": gate.MIN_TRADES + 21,
+    row = {"name": leg, "trades": gate.BLOCK,
            "totalPnlMeasured": -412.50, "totalPnl": -430.0,
-           "pnlCoverage": 0.92, "pnlMeasuredCount": 56,
-           "totalR": -3.1400, "rTradeCount": 41}
-    return {"window": "30d", "since": "2026-08-26T00:00:00Z",
-            "perStrategy": [row], "paperPortfolio": {"perStrategy": [dict(row)]}}
+           "pnlCoverage": 0.92, "pnlMeasuredCount": 18,
+           "totalR": -25.0, "rTradeCount": gate.BLOCK}
+    book = {leg: {"available": 2 * gate.BLOCK, "blocks": [dict(row), dict(row)]}}
+    return {"window": "all", "since": None,
+            "perStrategy": [row], "paperPortfolio": {"perStrategy": [dict(row)]},
+            "recentBlocks": {"blockSize": gate.BLOCK, "blocks": 2,
+                             "real": book, "mirror": {k: dict(v) for k, v in book.items()}}}
 
 
 def _fixture(tmp_path: Path, *, armed: bool) -> Path:
@@ -86,6 +91,13 @@ def _fixture(tmp_path: Path, *, armed: bool) -> Path:
     root = tmp_path / "repo"
     (root / "config").mkdir(parents=True)
     for rel in (mr.ACCOUNTS_REL, mr.MANDATES_REL, mr.STRATEGIES_REL):
+        shutil.copy2(REPO / rel, root / rel)
+    # The leg's committed Stage-0 record and the per-trade rows it cites: R4
+    # derives the leg's p10 from them and abstains without them.
+    rec_rel = f"{gate.EVIDENCE_DIR_REL}/{LEG}.json"
+    src_rel = json.loads((REPO / rec_rel).read_text(encoding="utf-8"))["source_run"]
+    for rel in (rec_rel, src_rel):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / rel, root / rel)
     # The real store has been ARMED on MD-DEMOTE-S2-S1 since 2026-09-27
     # (operator). Normalise to the requested state either way, so the fixture
@@ -108,7 +120,7 @@ def _fixture(tmp_path: Path, *, armed: bool) -> Path:
 def _produce(root: Path) -> dict:
     """Run the REAL producer, then write the paperwork the workflow writes."""
     _git(root, "checkout", "-q", "-b", BRANCH)
-    out = gate.run(_perf_payload(LEG), root=root, window="30d", apply=True)
+    out = gate.run(_perf_payload(LEG), root=root, window="last20x2", apply=True)
     assert [d["leg"] for d in out["demoted"]] == [LEG], out
     decl = {"tier": 3, "landing": autoland.LANDING_VALUE, "mandate": "MD-DEMOTE-S2-S1",
             "run_id": RUN_ID, "workflow": autoland.WORKFLOW_REL,

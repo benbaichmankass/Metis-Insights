@@ -65,7 +65,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
@@ -1218,9 +1218,41 @@ def _portfolio_paper_account_ids() -> List[str]:
     return out
 
 
+def _recent_blocks(rows: List[sqlite3.Row], block: int, blocks: int) -> Dict[str, Any]:
+    """Per strategy, the ``_aggregate`` of each of its last ``blocks``
+    NON-OVERLAPPING blocks of ``block`` closed trades, NEWEST block first.
+
+    A trade-COUNT window, for consumers whose question is "the last N trades"
+    rather than "the last N days" (R4 / MD-DEMOTE-S2-S1, operator decision
+    2026-09-29 "Last 20 + strict test"). ``rows`` arrive oldest→newest from
+    ``_query``. Each block entry is that strategy's own ``perStrategy`` row
+    computed by the SAME ``_aggregate`` every time window uses — one R /
+    coverage / provenance implementation, never a second. ``available`` is the
+    strategy's closed-row count, so a strategy with fewer than
+    ``block * blocks`` rows is visible as thin instead of silently short.
+    """
+    by: Dict[str, List[sqlite3.Row]] = {}
+    for r in rows:
+        by.setdefault(str(r["strategy_name"]), []).append(r)
+    out: Dict[str, Any] = {}
+    for name, rs in by.items():
+        entries: List[Optional[Dict[str, Any]]] = []
+        for k in range(blocks):
+            hi = len(rs) - k * block
+            lo = hi - block
+            if lo < 0:
+                break
+            per = _aggregate(rs[lo:hi], "all", None).get("perStrategy") or []
+            entries.append(next((e for e in per if e.get("name") == name), None))
+        out[name] = {"available": len(rs), "blocks": entries}
+    return out
+
+
 @router.get("/performance")
 def get_performance(
     window: str = Query("all", max_length=8),
+    last_n: Optional[int] = Query(None, ge=5, le=100),
+    blocks: int = Query(2, ge=1, le=4),
 ) -> Dict[str, Any]:
     """Aggregate trade performance for the requested *window*.
 
@@ -1236,10 +1268,27 @@ def get_performance(
     Trades with ``pnl IS NULL`` are excluded from both — see ``_query`` for
     why ("0-pnl closed trade" complaint, reconciler fallback path).
 
-    Returns a zeroed envelope (HTTP 200) on an unknown window token or a
-    DB read error so the consumer's tab stays usable instead of erroring.
+    Returns a zeroed envelope (HTTP 200) on a DB read error so the consumer's
+    tab stays usable instead of erroring.
+
+    An UNKNOWN window token is HTTP 400 naming the accepted set. It used to be
+    mapped silently to ``all``, so a caller asking for ``90d`` got all-time data
+    with nothing saying so (PI-20260929-VOLSKIP-SIGNAL-0006) -- R4, an
+    auto-landing demotion gate, reads this endpoint.
+
+    ``last_n`` (optional; absent = byte-identical time-window output) adds a
+    ``recentBlocks`` block: per strategy, the aggregate of each of its last
+    ``blocks`` non-overlapping ``last_n``-trade blocks, newest first, for the
+    real-money book (``real``) and the portfolio mirror (``mirror``). See
+    ``_recent_blocks``.
     """
-    window = window if window in _WINDOWS else "all"
+    # Called directly (tests, R4 fixtures) the Query defaults arrive as
+    # FieldInfo objects, not values.
+    last_n = last_n if isinstance(last_n, int) and not isinstance(last_n, bool) else None
+    blocks = blocks if isinstance(blocks, int) and not isinstance(blocks, bool) else 2
+    if window not in _WINDOWS:
+        raise HTTPException(status_code=400, detail={
+            "error": "unknown_window", "got": window, "accepted": sorted(_WINDOWS)})
     since = _window_since(window)
     if not _DB_PATH.exists():
         env = _empty(window, since)
@@ -1266,7 +1315,14 @@ def get_performance(
             pp_rows = _query(_DB_PATH, since, demo=True, account_ids=portfolio_ids)
             live["paperPortfolio"] = _strip_envelope(_aggregate(pp_rows, window, since))
         else:
+            pp_rows = paper_rows
             live["paperPortfolio"] = paper
+        if last_n is not None:
+            live["recentBlocks"] = {
+                "blockSize": last_n, "blocks": blocks,
+                "real": _recent_blocks(live_rows, last_n, blocks),
+                "mirror": _recent_blocks(pp_rows, last_n, blocks),
+            }
         return live
     except sqlite3.Error:  # allow-silent: logged (logger.exception) + best-effort zeroed envelope so the Performance tab stays usable on a DB read failure
         logger.exception("performance: sqlite read failed")

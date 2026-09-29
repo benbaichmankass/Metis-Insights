@@ -1151,8 +1151,15 @@ def _evidence(root: Path, *, leg: str = LEG, net: float = -1.25,
     run_rel = f"{RUNS_DIR}/20260925T000000Z-30d.json"
     _write(root, run_rel, json.dumps({"kind": "r4_demotion_gate_source_run", "window": "30d"}))
     _write(root, f"{MIRROR_DIR}/{leg}.json", json.dumps({
-        "leg": leg, "account": "bybit_2", "mandate": mandate, "window": "30d",
-        "source_run": run_rel, "n_closed": 41, "net_r_net_of_full_cost": net}))
+        "leg": leg, "account": "bybit_2", "mandate": mandate, "window": "last20x2",
+        "source_run": run_rel, "n_closed": 20, "net_r_net_of_full_cost": net,
+        # MD-DEMOTE-S2-S1's firing clause since 2026-09-29: both of the last two
+        # 20-trade windows below the leg's own p10 AND below 0. The p10 sits
+        # above `net`, so a negative `net` satisfies the rule and a positive
+        # one is refused on the net<0 half.
+        "trigger_rule": mr.DEMOTE_TRIGGER_RULE, "block_size": 20,
+        "p10_threshold": net / 2 if net < 0 else -1.0,
+        "windows": [{"window": 0, "net_r": net}, {"window": 1, "net_r": net}]}))
     _write(root, f"{FIRINGS_DIR}/20260925T000000Z-{leg}-demote.json", json.dumps({
         "mandate": mandate, "action": "remove", "leg": leg,
         "accounts": accounts if accounts is not None else ["bybit_2", "bybit_portfolio"],
