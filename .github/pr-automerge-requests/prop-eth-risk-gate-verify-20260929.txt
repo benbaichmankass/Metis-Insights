@@ -1,0 +1,1 @@
+PROP-ETH lane: Tier-1 pipeline record correction, self-land per .github/pr-landing/prop-eth-risk-gate-verify-20260929.json
