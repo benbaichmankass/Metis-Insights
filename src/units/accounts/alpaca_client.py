@@ -427,6 +427,24 @@ class MissingCredentialsError(RuntimeError):
     """
 
 
+
+#: Alpaca order statuses in which a bracket child leg is still RESTING at the
+#: venue. ``held`` is the OCO sibling waiting on its partner (a bracket's stop);
+#: ``new``/``accepted``/``partially_filled``/``pending_new``/``pending_replace``
+#: are working. ``pending_cancel`` is deliberately absent: a leg on its way out
+#: is not protection to count on.
+_RESTING_LEG_STATUSES = frozenset({
+    "new", "accepted", "held", "partially_filled", "pending_new",
+    "pending_replace", "accepted_for_bidding", "calculated",
+})
+
+#: How many of a symbol's most recent CLOSED orders are scanned for a filled
+#: bracket parent whose children still rest. A bracket older than this many
+#: closed orders on one symbol is not reached and grades as it did before this
+#: scan existed (its held stop unseen) — the pre-fix behaviour, not a new gap.
+_FILLED_PARENT_SCAN_LIMIT = 100
+
+
 class AlpacaClient:
     """Thin Trading-API REST client (key-pair auth, paper host default)."""
 
@@ -1598,8 +1616,11 @@ class AlpacaClient:
         Returns the flattened order list (parents + nested ``legs``) filtered
         to *symbol*, or ``None`` on a read failure (so the caller can refuse
         to act rather than assume "no legs"). ``nested=true`` so an
-        un-triggered bracket's children come back attached to the parent;
-        once the entry fills the legs surface as top-level open orders too.
+        un-triggered bracket's children come back attached to the parent.
+        A ``held`` leg is NEVER returned at top level, so the held stop of a
+        bracket whose entry has FILLED is read from that filled parent's
+        ``legs`` via a second, ``status=closed`` read (FIX-SA-03); either read
+        failing is ``None``.
         """
         sym = str(symbol).upper()
         env = self._request(
@@ -1611,6 +1632,51 @@ class AlpacaClient:
         for o in env.get("result") or []:
             out.append(o)
             for leg in o.get("legs") or []:
+                out.append(leg)
+
+        # ── FILLED-BRACKET CHILDREN (FIX-SA-03, E75 audit) ──────────────────
+        # `status=open&nested=true` returns a HELD leg ONLY nested under its
+        # parent — never at top level. MEASURED 2026-09-29T10:38Z via
+        # /api/diag/alpaca_open_orders: 9 of 9 resting `held` stop legs
+        # (alpaca_paper 7, alpaca_portfolio 2; every one an OCO) appear only
+        # under `legs`, none at top level. An OCO's parent is its own working limit leg, so the stop is
+        # reached through it. A BRACKET's parent is the market ENTRY, which is
+        # `filled` — not open — so it is not returned and its held stop child
+        # was never seen. The docstring's "once the entry fills the legs
+        # surface as top-level open orders too" holds for the `new` target leg
+        # only. Result: every post-grace sweep graded a freshly bracketed
+        # position stop-naked and re-armed it (17 of 20 Alpaca entries since
+        # 09-15, all 3 alpaca_live), and the re-arm's cancel pass tore down a
+        # resting bracket to replace it with an OCO.
+        #
+        # So the children of recently CLOSED (filled) parents are read too, and
+        # a child counts only while ITS OWN status is a resting one. A failed
+        # read is "could not look" (None), never "no legs" — the caller then
+        # refuses to act, exactly as for the open read above.
+        env2 = self._request(
+            "GET",
+            f"/v2/orders?status=closed&nested=true&direction=desc"
+            f"&limit={_FILLED_PARENT_SCAN_LIMIT}&symbols={sym}",
+        )
+        if env2.get("retCode") != 0:
+            return None
+        seen = {o.get("id") for o in out if o.get("id")}
+        for parent in env2.get("result") or []:
+            if not isinstance(parent, dict):
+                continue
+            if str(parent.get("status") or "").lower() not in (
+                "filled", "partially_filled",
+            ):
+                continue
+            for leg in parent.get("legs") or []:
+                if not isinstance(leg, dict):
+                    continue
+                if str(leg.get("status") or "").lower() not in _RESTING_LEG_STATUSES:
+                    continue
+                lid = leg.get("id")
+                if lid and lid in seen:
+                    continue
+                seen.add(lid)
                 out.append(leg)
         return [o for o in out if str(o.get("symbol") or "").upper() == sym]
 
