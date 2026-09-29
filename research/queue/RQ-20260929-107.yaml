@@ -1,0 +1,88 @@
+id: RQ-20260929-107
+title: 'Stage-0 backtest: chop_scalp harness on BTCUSDT 15m (harness with zero live-roster or queue history)'
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  scripts/backtest_chop_scalp.py is one of the ten E7 harnesses
+  research-harness-dispatch.yml can dispatch, but no live strategy leg in
+  config/strategies.yaml names it and no research/queue/ or
+  research/results/ unit has ever dispatched `harness: chop_scalp` (checked
+  this session, zero hits both ways -- the only E7 harness besides `orb`
+  and `funding_carry` with a totally empty history; funding_carry is
+  queued separately in RQ-20260929-104). A range-bound mean-reversion scalp
+  is a structurally different regime bet from every live trend/pullback/
+  squeeze leg. Does it show net-of-cost edge on BTCUSDT 15m, the harness's
+  own default symbol/cadence assumption?
+
+why_this_matters: >-
+  This is a genuinely new strategy family question, not a parameter tweak
+  on something already running -- the roster today is trend-following
+  (donchian/pullback), breakout-fade, and volatility-squeeze; nothing bets
+  on chop/range persistence. A PASS opens a real diversification family; a
+  FAIL is still useful (closes the question rather than leaving the harness
+  permanently untested, which is the state it has been in since it was
+  wired).
+
+power:
+  expected_n: 50
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.45 -> 39 trades at alpha 0.05/power 0.8, this repo's standing E35
+    floor. expected_n=50 is a round-number guess reflecting that a 15m scalp
+    harness plausibly trades more frequently than a 2h/4h swing leg over the
+    same window -- not a measurement, since no history exists (see
+    feasibility).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      The chop_scalp harness has NEVER been dispatched in this repo against
+      any symbol (research/queue/, research/results/,
+      config/strategies.yaml all checked this session, zero references).
+      This run is the family's first observation.
+
+decision_rule:
+  id: RULE-RQ0929-107-BTCUSDT-CHOP-SCALP-STAGE0
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    net_total_r (net of the full cost stack) and n_trades from the
+    chop_scalp harness's own JSON summary, harness-default parameters (no
+    live config to match against, since nothing runs this strategy live).
+  rule: >-
+    PASS IF net_total_r > 0 AND n_trades >= 39 -- Stage-0 evidence only. FAIL
+    IF net_total_r <= 0 with n_trades >= 39 -- re-queues for a confirmatory
+    run rather than being killed on one pass. indeterminate IF n_trades < 39.
+  what_it_does_not_do: >-
+    Does not touch config/strategies.yaml and does not propose a new live
+    leg -- a PASS is Stage-0 evidence a future unit could build a parameter
+    sweep on, nothing more.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: Single-symbol GitHub-runner harness dispatch, same shape as every other research-harness-dispatch.yml unit.
+
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: chop_scalp
+    symbol: BTCUSDT
+    timeframe: "15m"
+    research_unit: RQ-20260929-107
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - RQ-20260929-108 (the orb harness's own equivalent first-dispatch question)
+last_dispatched_at: null

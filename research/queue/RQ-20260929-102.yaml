@@ -1,0 +1,85 @@
+id: RQ-20260929-102
+title: 'Stage-0 backtest: squeeze harness on BNBUSDT 4h (uncovered symbol)'
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  squeeze_breakout_4h (config/strategies.yaml:305) is live on BTCUSDT only
+  ("currently the only supported symbol"). BNBUSDT is declared in
+  config/instruments.yaml and already carries pairs-sleeve exposure
+  (config/pairs.yaml: bnb_btc, sol_bnb) but has never been backtested on the
+  squeeze harness. Does a Bollinger-in-Keltner squeeze-breakout entry on
+  BNBUSDT 4h clear the same net-of-cost bar the BTCUSDT leg cleared before
+  its 2026-05-25 promotion?
+
+why_this_matters: >-
+  squeeze_breakout_4h was chosen for its LOW correlation to the live 2h
+  trend/pullback family (monthly_corr 0.30 vs BTCUSDT trend_donchian, per
+  the leg's own config comment) -- diversification, not just a second
+  symbol's returns. BNBUSDT's price behaviour differs from BTC's (lower
+  liquidity, exchange-token-specific flow), so this asks whether the SAME
+  entry trigger generalizes to a second symbol before anyone proposes
+  widening squeeze_breakout_4h's `symbols:` list.
+
+power:
+  expected_n: 40
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same E35/roster-walkforward floor: d=0.45 -> 39 trades at alpha 0.05 /
+    power 0.8. expected_n=40 is a round-number placeholder just above that
+    floor -- BNBUSDT has no squeeze-harness history to cite (see feasibility).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No prior squeeze-harness run against BNBUSDT exists anywhere in this
+      repo (checked research/queue/, research/results/, docs/research/*.jsonl
+      this session, zero hits). This run is the first observation.
+
+decision_rule:
+  id: RULE-RQ0929-102-BNBUSDT-SQUEEZE-STAGE0
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    net_total_r (net of the full cost stack) and n_trades from the squeeze
+    harness's JSON summary, config-exact against squeeze_breakout_4h's live
+    BTCUSDT params (BB(20,2.0) / KC(1.0xATR), kc_mult 1.0, trail 3.5) unless
+    the harness's own defaults differ.
+  rule: >-
+    PASS IF net_total_r > 0 AND n_trades >= 39 -- Stage-0 evidence only, not
+    a proposal to widen squeeze_breakout_4h's symbol list. FAIL IF
+    net_total_r <= 0 with n_trades >= 39 -- re-queues for a confirmatory run
+    (never killed on one pass); two consecutive FAILs are a candidate to
+    close the idea, not decided here. indeterminate IF n_trades < 39.
+  what_it_does_not_do: >-
+    Does not touch config/strategies.yaml. Does not propose adding BNBUSDT
+    to squeeze_breakout_4h's live symbols -- that is a separate, human-
+    reviewed Tier-3 step.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: Single-symbol GitHub-runner harness dispatch, same shape as RQ-20260929-101.
+
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: squeeze
+    symbol: BNBUSDT
+    timeframe: "4h"
+    research_unit: RQ-20260929-102
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - 'squeeze_breakout_4h (config/strategies.yaml:305) -- the BTCUSDT-only leg this checks a second symbol against'
+last_dispatched_at: null
