@@ -371,6 +371,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/silent-empty-reporting-2026-05-10.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/squeeze-breakout-complement-2026-05-24.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/strategy-loss-drivers-2026-05-23.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-5.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-portfolio-backtest-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/walkforward-flip-policy-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/automation/oci-storage-setup.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
