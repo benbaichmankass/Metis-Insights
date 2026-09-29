@@ -65,7 +65,7 @@ reconciliation pass (CLAUDE-RULES-CANONICAL.md § Session-end). At close:
 1. Write/finish the sprint log here.
 2. Update ROADMAP.md (the centralized record) with the sprint's status row.
 3. Run the **`doc-freshness`** skill; fix Tier-1 contradictions, log
-   minor leftovers to `docs/claude/health-review-backlog.json`.
+   minor leftovers to `docs/claude/work/PIPELINE.jsonl` (`scripts/ops/pipeline.py`).
 
 If the session is closing because it's run long and is handing off to a
 fresh session rather than continuing (see **`session-handoff`**), this log

@@ -1,0 +1,16 @@
+# Trainer-mirror publisher (S-AI-WS8-PART-2).
+[Unit]
+Description=Publish trainer mirror to live VM
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+ExecStart=/bin/bash scripts/ops/publish_trainer_mirror.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

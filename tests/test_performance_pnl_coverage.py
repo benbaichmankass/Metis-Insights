@@ -307,3 +307,49 @@ def test_per_strategy_counts_never_exceed_trades(tmp_path):
         assert s["pnlMeasuredCount"] + s["pnlEstimatedCount"] <= s["trades"], s
     a = {x["name"]: x for x in agg["perStrategy"]}["a"]
     assert (a["trades"], a["pnlMeasuredCount"], a["pnlEstimatedCount"]) == (3, 1, 1)
+
+
+# ── FIX-SA-05: publish the halves of `totalPnlMeasured` (MEASURED+ESTIMATED) ──
+# SA-AUD-3: a paper window read totalPnLMeasured +94,618 over 367 MEASURED rows
+# against 699 ESTIMATED -- the count and the sum are over different populations.
+_MIXED = [
+    ("vwap", "BTCUSDT", 10.0, "bybit_closed_pnl"),    # MEASURED
+    ("vwap", "BTCUSDT", -4.0, "bybit_closed_pnl"),    # MEASURED
+    ("vwap", "BTCUSDT", 1000.0, "candle_at_close"),   # ESTIMATED
+    ("vwap", "BTCUSDT", -2500.0, "local_markprice"),  # FABRICATED
+    ("vwap", "BTCUSDT", 7.0, None),                   # UNVERIFIED
+]
+
+
+def test_measured_only_sums_only_the_measured_population(tmp_path):
+    agg = _agg(tmp_path, _MIXED)
+    assert agg["pnlMeasuredCount"] == 2
+    assert agg["totalPnlMeasuredOnly"] == pytest.approx(6.0)     # 10 - 4
+    assert agg["totalPnlEstimated"] == pytest.approx(1000.0)
+    assert agg["pnlEstimatedCount"] == 1
+    # the legacy field is still MEASURED+ESTIMATED, and equals the two halves
+    assert agg["totalPnlMeasured"] == pytest.approx(1006.0)
+    assert agg["totalPnlMeasured"] == pytest.approx(
+        agg["totalPnlMeasuredOnly"] + agg["totalPnlEstimated"])
+
+
+def test_the_estimated_row_can_flip_the_sign_and_the_halves_show_it(tmp_path):
+    agg = _agg(tmp_path, [
+        ("vwap", "BTCUSDT", -50.0, "bybit_closed_pnl"),
+        ("vwap", "BTCUSDT", 900.0, "candle_at_close"),
+    ])
+    assert agg["totalPnlMeasured"] > 0 > agg["totalPnlMeasuredOnly"]
+
+
+def test_measured_only_per_strategy_and_per_exit_path(tmp_path):
+    agg = _agg(tmp_path, _MIXED)
+    (strat,) = agg["perStrategy"]
+    assert strat["totalPnlMeasuredOnly"] == pytest.approx(6.0)
+    assert strat["totalPnlEstimated"] == pytest.approx(1000.0)
+    assert sum(p["totalPnlMeasuredOnly"] for p in agg["perExitPath"]) == pytest.approx(6.0)
+
+
+def test_measured_only_present_and_zero_on_empty_and_error_envelope(tmp_path):
+    for env in (_empty("all", None), _agg(tmp_path, [])):
+        assert env["totalPnlMeasuredOnly"] == 0.0
+        assert env["totalPnlEstimated"] == 0.0

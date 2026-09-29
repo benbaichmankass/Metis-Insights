@@ -240,6 +240,7 @@ uniqueness-weighted**. That is stricter than the plain harnesses in §1.
 | Fleet entry-filter sweep | `scripts/research/m21_entry_sweep.py` |
 | Fleet P_win entry-head round | `scripts/research/m21_entry_head_round.py` |
 | Component-level edge attribution | `scripts/research/component_edge_report.py` |
+| **Does a live entry gate that reads a still-FORMING bar decide differently from the closed-bar gate Stage 0 measured?** Replays the M21 `vol_skip_*` gate per bar on the percentile the LIVE frame sees (199 closed bars + the trigger bar truncated to k minutes, from 1m data, ranked by the live unit's own `_atr`/`_trailing_atr_pctl`) vs the closed bar vs lag-1 (what `drop_forming_bar()` in the gate yields), through the Stage-0 harness config-exact at the full cost stack; the ONLY difference between arms is the percentile, injected via `run_backtest(vol_pctl_override=...)` (default None, byte-identical). Reports gate-decision agreement over signal bars and the differing entries' n / net R. `--fetch` pulls the Binance USD-M 1m archives itself (Bybit proxy). ⚠️ **MEASURED 2026-09-29: the gate-local fix is FURTHER from Stage 0** (ada agreement 0.9855 lag-1 vs 0.9927 forming) — the real skew is the whole signal on the forming bar (PI-20260929-VOLSKIP-0001) | `scripts/research/vol_skip_forming_bar_replay.py` (RQ-20260929-201) |
 
 ## 5. Panels + standing discovery (the large-N substrate)
 

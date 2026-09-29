@@ -482,6 +482,54 @@ mandates.** A decision that arrives twice in the same shape is raised as
 *"should this become a mandate, and at what bounds?"* A mandate that has NEVER
 fired is either mis-specified or its condition does not occur — say which.
 
+### Before any operator popup: classify the decision (operator directive, 2026-09-29)
+
+PR #13698 asked the operator whether to promote `slv_trend_1h` — a leg that
+turned out to be `execution: shadow` with zero real fills and an
+`insufficient_n` cost-fidelity verdict. That should never have reached a
+popup. The operator's ruling is the standing rule, not a one-off fix:
+
+> "In general, we need clearer, more automated processes for these kinds of
+> decisions — either we have enough data to decide, or we don't and then
+> getting that data becomes a task which needs to happen so that a decision
+> can be made."
+
+So **before drafting any operator popup**, classify it into exactly one of
+three buckets — never skip straight to drafting the question:
+
+1. **Data-settled.** A committed evidence record decisively answers it —
+   either under a granted mandate (act, ping, and record the evidence per
+   the mandate table above) or under a tier the manager already holds
+   (Tier-1/Tier-2 with the operator's standing "decide, ship, verify, then
+   tell me" authorization — see `docs/CLAUDE-RULES-CANONICAL.md` §
+   "Data-backed Tier-2/3 decisions"). **No popup.** Act, then report what
+   happened in section 1 or 3 of the brief.
+2. **Data-missing.** The evidence needed to decide does not exist yet, or
+   exists but is below a stated floor (an absent Stage-0 record, `n` below a
+   mandate's floor, an R3 cost-fidelity verdict of `inconclusive` /
+   `insufficient_n` / `no_record` / stale, a leg that is `execution: shadow`
+   or has never soaked at Stage 1). **No popup either.** File the data task
+   in `docs/claude/work/PIPELINE.jsonl` via `scripts/ops/pipeline.py`, with a
+   `clears_when` that states exactly what would settle it and an
+   `origin.rerun` that re-asks the same question — a research-queue unit, a
+   Stage-1 soak placement proposal, or a longer accrual window. `#13698`'s
+   own case: `scripts/ops/mandate_resolver.py` now returns a THIRD verdict,
+   `NEEDS_DATA` (never `FIRE`, never a decisive `REFUSE`), names the exact
+   clause that lacks data, and `needs_data_pipeline_item()` /
+   `file_needs_data()` turn that straight into a pipeline row — read that
+   module's docstring before hand-rolling an equivalent for a non-ladder
+   decision.
+3. **Genuinely a preference.** Two courses are both evidence-supportable and
+   the choice is a values call the operator has not already made standing
+   policy on (a sizing tradeoff, which of two valid designs to ship, whether
+   to spend budget on X vs Y). **Only this bucket earns a popup**, and it
+   goes in section 2 of the brief with no cap on count.
+
+A popup that turns out, on inspection, to be bucket 1 or 2 wearing bucket 3's
+clothes is the `#13698` failure repeating. If a lane hands the manager a
+question, the manager re-runs this classification itself before relaying it
+— it does not trust the lane's own framing of "this needs the operator".
+
 ## The daily brief
 
 Rendered and **pushed before** the sync. Six sections, fixed order.

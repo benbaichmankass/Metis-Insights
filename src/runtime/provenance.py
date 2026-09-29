@@ -227,6 +227,13 @@ MEASURED_SOURCES = frozenset({
     "exchange_fill",
     # A real fill the operator reported when flattening by hand.
     "operator_flatten_fill",
+    # `exit_reason_source`: the exit REASON read from venue ORDER IDENTITY. A
+    # fill in the exchange-fills store carries the trade's own `sl_order_id` or
+    # `tp_order_id`, so the venue itself says the stop (or target) order
+    # filled. Unlike `price_vs_pkg_bracket` (ESTIMATED: a price compared to a
+    # level) this is not a derivation. Written by
+    # order_monitor._sweep_exit_label_from_bracket_order (EXIT-CLUSTER).
+    "venue_bracket_order",
 })
 
 ESTIMATED_SOURCES = frozenset({
@@ -460,6 +467,150 @@ def classify_row(row: Any, key: str = "exit_price_source") -> Tuple[str, str]:
 _SEVERITY = (FABRICATED, ESTIMATED, MEASURED)
 
 
+#: A price move smaller than this fraction of entry is fee/funding noise: a
+#: near-breakeven trade whose net-of-fees pnl legitimately flips sign must not
+#: be demoted. Same 0.2% band as ``backfill_orphan_pnl._plan_row`` (FIX-CA-19).
+_SIGN_MOVE_FRAC = 0.002
+
+
+def _row_float(row: Any, key: str) -> Optional[float]:
+    """``row[key]`` as a float, or ``None`` (absent / null / non-numeric)."""
+    try:
+        v = row[key]
+    except (KeyError, IndexError, TypeError):
+        return None
+    if v is None or v == "":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def reduce_parent_ids(rows: Iterable[Any]) -> set:
+    """Trade ids that ABSORBED a reduce leg's deferred PnL, read off the CHILDREN.
+
+    BL-20260711: an ``intent_reduce`` leg books ``pnl=None`` and the PARENT leg
+    carries the realised pnl. The parent's own row keeps no trace of that (a
+    partial reduce only shrinks ``position_size``), so the linkage lives on the
+    child: ``notes.intent_reduce_allocations[].parent_id``. Measured on the live
+    journal 2026-09-29 (6,286 rows): 112 parents. A caller holding a population
+    resolves this once and sets ``reduce_leg_absorbed`` on those rows before
+    :func:`classify_pnl`, which then skips the sign test for them.
+    """
+    out: set = set()
+    for r in rows:
+        try:
+            notes = _decode_notes(r["notes"])
+        except (KeyError, IndexError, TypeError):
+            continue
+        for a in notes.get("intent_reduce_allocations") or ():
+            try:
+                out.add(int(a["parent_id"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+    return out
+
+
+def _absorbed_partial_pnl(row: Any) -> bool:
+    """True when the row's own fields say its ``pnl`` is NOT a single entry->exit
+    close, so the entry/exit price move cannot be compared with it.
+
+    * ``reduce_leg_absorbed`` -- set by a caller that resolved
+      :func:`reduce_parent_ids` (the only way to see a reduce PARENT);
+    * a reduce leg itself: ``setup_type == 'intent_reduce'`` or
+      ``notes.intent_reduce`` (the definition ``src.web.api._clean_trades.
+      exclude_reduce_leg_predicate`` and ``bracket_outcome.is_reduce_leg`` use)
+      or ``pnl_source == 'deferred_intent_reduce'``;
+    * a strategy partial-close ladder: ``notes.partial_closes`` non-empty or
+      ``notes.original_position_size`` present (``order_monitor.
+      _apply_partial_close`` stamps both on the first partial).
+    """
+    try:
+        if row["reduce_leg_absorbed"]:
+            return True
+    except (KeyError, IndexError, TypeError):
+        pass
+    try:
+        if str(row["setup_type"] or "").strip().lower() == "intent_reduce":
+            return True
+    except (KeyError, IndexError, TypeError):
+        pass
+    try:
+        notes = _decode_notes(row["notes"])
+    except (KeyError, IndexError, TypeError):
+        return False
+    return bool(
+        notes.get("intent_reduce")
+        or notes.get("partial_closes")
+        or "original_position_size" in notes
+        or str(notes.get("pnl_source") or "") == "deferred_intent_reduce"
+    )
+
+
+def _pnl_contradicts_price_move(row: Any, evidence: str) -> Optional[str]:
+    """Reason string when a MEASURED-source ``pnl`` contradicts the row's own arithmetic.
+
+    A source label says where a number CAME FROM, not that it is right
+    (SA-AUD-3). Two contradictions are detectable from the row alone:
+
+    * ``exit_price_source=ib_execution`` with ``pnl == 0`` while
+      ``|exit-entry|*size > 0``. IB's ``realizedPNL`` reads 0.0 both for a
+      genuine break-even and for "no commission report yet" (ib_insync builds
+      every ``Fill`` with a default ``CommissionReport()`` and coerces IB's
+      UNSET sentinel to 0.0), so a zero on a moving close is unmeasured.
+    * a ``pnl`` whose SIGN contradicts the entry->exit move by more than
+      :data:`_SIGN_MOVE_FRAC` -- the FIX-CA-19 sanity guard from
+      ``backfill_orphan_pnl._plan_row`` (a mismatched closed-pnl record),
+      EXCEPT on a row that absorbed reduce-leg / partial-close pnl
+      (:func:`_absorbed_partial_pnl`).
+
+    Needs ``pnl``, ``entry_price``, ``exit_price``, ``position_size``/``qty`` (+
+    ``direction`` for the sign test) as row keys; any missing => no demotion
+    (we cannot check, so the source label stands). Returns ``None`` then.
+    """
+    pnl = _row_float(row, "pnl")
+    entry = _row_float(row, "entry_price")
+    exit_ = _row_float(row, "exit_price")
+    if pnl is None or entry is None or exit_ is None or entry <= 0:
+        return None
+    # `/performance` selects the size column AS `qty`; the journal calls it
+    # `position_size`. Read either, or the check is dead on that route.
+    size = _row_float(row, "position_size")
+    if size is None:
+        size = _row_float(row, "qty")
+    if (
+        pnl == 0.0
+        and "ib_execution" in evidence
+        and size is not None
+        and abs(exit_ - entry) * abs(size) > 0
+    ):
+        return (
+            f"{evidence}: pnl=0.0 but |exit-entry|*size="
+            f"{abs(exit_ - entry) * abs(size):.6g} > 0 (IB realizedPNL zero on a "
+            f"moving close is not a measurement)"
+        )
+    try:
+        direction = str(row["direction"] or "").lower()
+    except (KeyError, IndexError, TypeError):
+        direction = ""
+    # The sign test (only) is skipped for a row whose pnl absorbed a reduce leg or
+    # a partial close: a profitable partial plus a losing final exit is a genuine
+    # positive pnl on an adverse final move. We cannot check it, so the source
+    # label stands. (The zero-pnl test above is unaffected.)
+    if direction in ("long", "short") and not _absorbed_partial_pnl(row):
+        move = exit_ - entry
+        if direction == "short":
+            move = -move
+        frac = move / entry
+        if (frac < -_SIGN_MOVE_FRAC and pnl > 0) or (frac > _SIGN_MOVE_FRAC and pnl < 0):
+            return (
+                f"{evidence}: pnl={pnl:+.4f} contradicts the {direction} entry->exit "
+                f"move ({frac * 100:+.2f}%) -- sign-inconsistent, not a measurement"
+            )
+    return None
+
+
 def classify_pnl(row: Any) -> Tuple[str, str]:
     """Bucket a row's ``pnl`` using BOTH provenance keys. Returns ``(bucket, why)``.
 
@@ -508,6 +659,10 @@ def classify_pnl(row: Any) -> Tuple[str, str]:
             unrecognised.append(f"{key}={raw}")
     for bucket in _SEVERITY:
         if bucket in buckets:
+            if bucket == MEASURED:
+                contradiction = _pnl_contradicts_price_move(row, buckets[bucket])
+                if contradiction:
+                    return UNVERIFIED, contradiction
             return bucket, buckets[bucket]
     # ⚠️ THE BUCKET IS RIGHT; THE REASON USED TO BE A FALSE STATEMENT.
     # This returned "(no provenance on either key)" unconditionally, discarding

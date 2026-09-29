@@ -38,7 +38,8 @@ trainer-center health (`trainer_service`, `trainer_datasets`,
 for **every** model in `python -m ml list-models`, identifies
 promotion / demotion candidates against the 3-stage ladder (candidate→shadow→advisory), proposes
 AI experiments to expand coverage, drains
-`docs/claude/ml-review-backlog.json`, and posts a one-line update to
+open rows in
+`docs/claude/work/PIPELINE.jsonl` (the archived review backlog is retired), and posts a one-line update to
 the Claude channel.
 
 Promotion past `shadow` is **Tier-3** — proposed only. The operator

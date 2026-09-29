@@ -468,26 +468,81 @@ def test_db_info_401_without_token(client, fake_runtime):
 # ``git_sha`` is now bound at import; the live resolve is ``git_sha_on_disk``.
 
 
+def _two_real_commits(tmp_path, monkeypatch, *, changed_path):
+    """A throwaway git repo with two REAL commits, the second touching
+    ``changed_path``. ``restart_pending`` is computed from ``git diff``, so the
+    shas must exist in a repo the router is pointed at -- fake shas make the diff
+    fail, which is (correctly) ``None``, not the state under test."""
+    import subprocess
+
+    def git(*a):
+        return subprocess.run(["git", *a], cwd=tmp_path, check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    git("init", "-q")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "a.py").write_text("1")
+    git("add", ".")
+    git("commit", "-qm", "base")
+    running = git("rev-parse", "--short", "HEAD")
+    target = tmp_path / changed_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("2")
+    git("add", ".")
+    git("commit", "-qm", "next")
+    on_disk = git("rev-parse", "--short", "HEAD")
+    monkeypatch.setattr(diag_router, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", running)
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: on_disk)
+    return running, on_disk
+
+
 def test_version_reports_the_RUNNING_sha_not_a_live_resolve(
-    client, fake_runtime, monkeypatch
+    client, fake_runtime, monkeypatch, tmp_path
 ):
     """THE REGRESSION. A live resolve must NOT be able to move ``git_sha``."""
-    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", "aaaaaaa")
-    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "bbbbbbb")
+    running, on_disk = _two_real_commits(
+        tmp_path, monkeypatch, changed_path="src/a.py")   # a RUNTIME-path change
     resp = client.get("/api/diag/version", headers=_bearer(_TOKEN))
     assert resp.status_code == 200
     body = resp.json()
-    assert body["git_sha"] == "aaaaaaa", (
+    assert body["git_sha"] == running, (
         "git_sha must be the sha the PROCESS was loaded from; if a live "
         "resolve can move it, the endpoint is reporting disk again"
     )
-    assert body["git_sha_on_disk"] == "bbbbbbb"
+    assert body["git_sha_on_disk"] == on_disk
+    assert running != on_disk
     assert body["restart_pending"] is True, (
         "disk ahead of the running process IS the 2026-05-09 stale-code state"
     )
     assert "captured_at" in body
     # ISO-8601 UTC.
     assert body["captured_at"].endswith("+00:00") or body["captured_at"].endswith("Z")
+
+
+def test_version_docs_only_diff_is_not_restart_pending(
+    client, fake_runtime, monkeypatch, tmp_path
+):
+    """FIX-SA-11: the shas differ but only by files deploy_pull_restart.sh does
+    not restart for -> nothing stale is being served."""
+    running, on_disk = _two_real_commits(
+        tmp_path, monkeypatch, changed_path="docs/note.md")
+    body = client.get("/api/diag/version", headers=_bearer(_TOKEN)).json()
+    assert body["git_sha"] != body["git_sha_on_disk"]
+    assert body["restart_pending"] is False
+
+
+def test_version_restart_pending_is_none_when_the_diff_cannot_be_read(
+    client, fake_runtime, monkeypatch
+):
+    """Shas that exist in no repo: we could not look, which is not "no restart
+    pending". Pins the None state at the endpoint, not only the helper."""
+    monkeypatch.setattr(diag_router, "_RUNNING_GIT_SHA", "aaaaaaa")
+    monkeypatch.setattr(diag_router, "_resolve_git_sha", lambda: "bbbbbbb")
+    body = client.get("/api/diag/version", headers=_bearer(_TOKEN)).json()
+    assert body["restart_pending"] is None
 
 
 def test_version_reports_no_restart_pending_when_they_agree(

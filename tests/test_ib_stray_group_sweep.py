@@ -4,6 +4,9 @@ Includes a POSITIVE CONTROL that the shipped keyed pre-cancel genuinely leaves
 the strays behind — without it these tests could pass against code that never
 had the defect.
 """
+# collapsed-state: verified — the sweep tests stub the `verified` envelope; the
+# unverified / not_attempted branches are pinned in
+# tests/test_ib_cancel_verification.py.
 
 import types
 
