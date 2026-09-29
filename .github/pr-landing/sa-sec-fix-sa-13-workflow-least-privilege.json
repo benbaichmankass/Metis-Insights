@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "changes five .github/workflows files (four permission blocks, one new scheduled workflow); lane SA-SEC brief: landing hold, manager session_01HYq6XtfesZ57VyaQrK6CL1 reviews and merges",
+  "why": "FIX-SA-13 (system-audit-2026-09-29 § 5) plus SA-AUD-7-secret-scan-head-only: least-privilege permissions on four workflows, and a weekly full-history gitleaks scan that never prints a matched value. Tier-2 by path (workflows holding VM/Alpaca secrets), Tier-1 by content."
+}

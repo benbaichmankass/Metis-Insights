@@ -212,6 +212,11 @@ CADENCE_REGISTRY: dict[str, dict] = {
     # run is caught by claude-run-failure-alert (both are on its list) and a
     # queue that is not being refilled pages through research-queue-dispatch's
     # queue-health alarm (scripts/ci/check_research_queue_health.py).
+    # FIX-SA-13 (2026-09-29): weekly full-history gitleaks. A scan that finds nothing
+    # writes nothing on purpose -- its report is deleted so no artifact can carry a
+    # matched value on this PUBLIC repo -- so there is no receipt path to name. A dead
+    # run is caught by claude-run-failure-alert (it is on that list).
+    "gitleaks-history-weekly.yml": {"receipt": None, "why": "writes nothing by design (report deleted; public repo); outcome is the run's pass/fail + job summary, and a dead run is caught by claude-run-failure-alert"},
     "research-queue-replenish.yml": {"receipt": None, "why": "commits only when it generated units; a full queue is a no-op by design -- a dead run is caught by claude-run-failure-alert, a dry queue by the dispatcher's queue-health alarm"},
     "research-queue-grade.yml": {"receipt": None, "why": "commits only when a unit's grade changed; nothing-to-grade is a no-op by design -- a dead run is caught by claude-run-failure-alert"},
     # ── PI-20260922-ONLY-1-OF-38 triage (2026-09-28): the 6 below were
