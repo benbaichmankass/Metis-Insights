@@ -1016,6 +1016,16 @@ ORDER_FORM_JS = r"""
       // #13816: not in the panel, below y 735). Look in the form's ancestors,
       // only within the form's own column, and require exactly one.
       const fr = form.getBoundingClientRect();
+      // The form's VISIBLE bottom: on the live sidebar the fields are scroll
+      // content (y 105-735) inside a viewport ending at y 640, and the submit
+      // is a fixed footer at y 659 -- below what is visible but above the
+      // content box's own bottom. Clip to every scrolling/clipping ancestor
+      // (dry run #13917 refused "no unique submit" on exactly this).
+      let visBottom = fr.bottom;
+      for (let a = form.parentElement; a && a !== document.body; a = a.parentElement) {
+        const oy = getComputedStyle(a).overflowY;
+        if (oy === 'scroll' || oy === 'auto' || oy === 'hidden') visBottom = Math.min(visBottom, a.getBoundingClientRect().bottom);
+      }
       let anc = form.parentElement;
       for (let i = 0; i < 4 && anc && anc !== document.body && m.length === 0; i++, anc = anc.parentElement) {
         m = [...anc.querySelectorAll('button, [role=button], input[type=submit]')].filter(b => {
@@ -1025,7 +1035,7 @@ ORDER_FORM_JS = r"""
           // under the fields' panel) — never a price/quick-trade control
           // stacked above or beside it.
           return br.width > 0 && br.left >= fr.left - 10 && br.right <= fr.right + 10
-            && br.top >= fr.bottom - 10;
+            && br.top >= visBottom - 10;
         });
       }
       if (m.length) out.submit_outside_form = true;
