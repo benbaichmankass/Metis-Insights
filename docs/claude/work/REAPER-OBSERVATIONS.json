@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-29T14:17:40Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-29T13:31:19Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T06:50:29Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-29T13:31:19Z",
+  "updated_at": "2026-09-29T14:17:40Z",
   "latest": {
-    "generated_at": "2026-09-29T13:31:19Z",
+    "generated_at": "2026-09-29T14:17:40Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1153,
+      "unregistered_claude_branches": 1163,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,8 +1009,12 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 320,
+      "unregistered_but_attributable_sessions": 327,
       "unregistered_owner_map": {
+        "session_01113oMBNikT5uJanU16K3yq": [
+          "claude/correct-eth-prop-regime-flip-status",
+          "claude/flag-scalp-exit-ladder-no-live-consumer"
+        ],
         "session_0116oibqE8zMM9FZC4kXtcUs": [
           "claude/admin-triage-2026-09-28-capture-watch",
           "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1112,6 +1116,9 @@
         ],
         "session_014KmudAoAJoVsatWrpnD9ah": [
           "claude/mi257-checklist-vocabulary-resolve"
+        ],
+        "session_014PWy5CbFYcBszh7j9epRLF": [
+          "claude/grade-freshness-alert-only"
         ],
         "session_014RAYKspW1gtBsjuHA1XzKJ": [
           "claude/pr-conflict-board"
@@ -1417,6 +1424,9 @@
         "session_01BszfYWtJAeemBNhAywRuv5": [
           "claude/session-doc-freshness"
         ],
+        "session_01BuzwdjYBjCo5bQCmxYTHSp": [
+          "claude/trainer-boot-volume-resize"
+        ],
         "session_01CFHeaBLPVuLw2V2LvHWuCE": [
           "claude/ca-a07-audit",
           "claude/ca-wave-a-landing"
@@ -1490,7 +1500,7 @@
           "claude/mi247-oi-option-a-observed"
         ],
         "session_01Ek5siXbMhnqA59WJuteNgu": [
-          "claude/fix-sa-10"
+          "claude/sa-docs-closeout"
         ],
         "session_01Ex5Dx1TMYy46ncsp8eptpx": [
           "claude/mi251-inverse-proxy-screen-20260918",
@@ -1604,7 +1614,9 @@
           "claude/mi125-mi122-mi123-residues"
         ],
         "session_01HYq6XtfesZ57VyaQrK6CL1": [
-          "claude/e44-lane-supervisor-build"
+          "claude/e44-lane-supervisor-build",
+          "claude/mgr-register-20260929-1350",
+          "claude/mgr-register-20260929-1400"
         ],
         "session_01HaWB6g8EsN1x64hKKQHT2B": [
           "claude/mlopt-regime-recency-adopt",
@@ -1663,9 +1675,7 @@
           "claude/mi307-offline-mfe-distribution"
         ],
         "session_01JTqmnBwmw3nfKaHxo9WPvh": [
-          "claude/fix-sa-04-provenance-zero-pnl",
-          "claude/sa-prov-pipeline-leftovers",
-          "claude/sa-prov-reduce-parent-row"
+          "claude/sa-prov-pipeline-leftovers"
         ],
         "session_01JZxTx1RYggzVemZCbLnSyG": [
           "claude/e45-close-row"
@@ -1882,6 +1892,7 @@
           "claude/mi318-decision-prompt-compaction"
         ],
         "session_01PKaAcoDPsdP7brPxGmJyTX": [
+          "claude/recon-reduce-closeout-filings",
           "claude/recon-reduce-leg-null-pnl"
         ],
         "session_01PT8KKSz3KzyN2hE5UpwTaU": [
@@ -1903,7 +1914,8 @@
           "claude/subsession-registry-coupling-handoff-check"
         ],
         "session_01Pr6YRTQYauPEEkK1xNyyAQ": [
-          "claude/jc-sa-08-alpaca-mirror-exits"
+          "claude/jc-sa-08-alpaca-mirror-exits",
+          "claude/jc-sa-08-population"
         ],
         "session_01PyohkPdSE4VrqUd9R6qTdB": [
           "claude/pipeline-autoland-tmp-race",
@@ -1911,6 +1923,9 @@
         ],
         "session_01Q1HYBVoThQdKTWSYQHpm6Y": [
           "claude/mi90-board-scratch"
+        ],
+        "session_01Q7TGqYqH4YebXv5vmBTZPh": [
+          "claude/guard-proof-2"
         ],
         "session_01QF6kgTnqd4yg32y2UYe9FQ": [
           "claude/ci-unbreak-phantom-register-removal"
@@ -2036,9 +2051,15 @@
           "claude/mgr-route-mi229-20260909T2307",
           "claude/mi229-closeout"
         ],
+        "session_01TR74tvLR2AjCzrJMeBs47A": [
+          "claude/m19-s1-candle-resample-fix"
+        ],
         "session_01TXmgt2S1zZjcdCDEpXdxmV": [
           "claude/flatten-marking-durable",
           "claude/hedge-phase-b-fix"
+        ],
+        "session_01Tg5q6wnWWVzdT6NCHGhNL9": [
+          "claude/ci-main-pytest-no-cancel"
         ],
         "session_01TnHSxwJD7n2vNMo4aiBt2k": [
           "claude/w6-breakout-dx-build"
@@ -2099,6 +2120,9 @@
           "claude/mi194-phase-a-respec",
           "claude/mi194-phase-abcd-observations",
           "claude/mi194-strategy-decision-record"
+        ],
+        "session_01WDQADTgoiLiDKc2PNSPdNU": [
+          "claude/prop-close-actions-cell"
         ],
         "session_01WKwvhBuaYYCKbdkk7fHrpf": [
           "claude/mi275-close-out",
@@ -2185,7 +2209,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 0,
-      "origin_head_count": 1498,
+      "origin_head_count": 1502,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",
