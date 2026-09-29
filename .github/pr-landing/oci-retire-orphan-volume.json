@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier 2: adds a route that backs up then DELETES the orphan block volume ict-bot-data-vol. Operator approval: popup answer 'Back up, then delete (Recommended)' (2026-09-29 ~16:46Z, relayed by manager session_01HYq6XtfesZ57VyaQrK6CL1), and the operator's 'A' in the lane session allowing the action. The manager merges.",
+  "why": "PI-20260929-CMXYTHSP-0002: tenancy block storage 241 GB > Always Free 200 GB; ict-bot-data-vol (100 GB) is MEASURED unattached (#14283) and unreferenced, and live /data/bot-data is a directory on the boot volume (#14285). Deleting it frees the room to grow the trainer boot volume inside the free tier."
+}
