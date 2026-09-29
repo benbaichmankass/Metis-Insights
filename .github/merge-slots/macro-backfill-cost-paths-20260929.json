@@ -1,0 +1,6 @@
+{
+  "held_by": "session_015JePcaHfBSBVrcGyu2QtAo",
+  "branch": "claude/macro-backfill-cost-paths-20260929",
+  "claimed_at": "2026-09-29T09:41:51Z",
+  "purpose": "macro-valuation-backfill.yml: conditional land-paths for realistic-cost scorecard"
+}
