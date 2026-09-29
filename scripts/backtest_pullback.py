@@ -214,7 +214,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  side_filter: str = "both",
                  subbar_df: Optional[pd.DataFrame] = None,
                  exit_grain: str = "leg",
-                 vol_pctl_override: Optional[Sequence[float]] = None) -> Dict[str, Any]:
+                 vol_pctl_override: Optional[Sequence[float]] = None,
+                 entry_override: Optional[Dict[int, Dict[str, Any]]] = None) -> Dict[str, Any]:
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in the CSV set. Exits are
     # never touched — an open trade rides through skipped hours unchanged.
@@ -399,6 +400,22 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         elif downtrend and pos >= (1 - pullback_frac) and c < prev_c:
             direction = "short"
             depth = (mid - c) / atr
+        # Research-only hook (None = byte-identical): the ENTRY decision per
+        # bar comes from outside — {bar_index: {"direction", "entry", "atr",
+        # optional "rest_high"/"rest_low"}} — and a bar not in it is skipped.
+        # Exits, costs and the position/cooldown bookkeeping stay this
+        # harness's own. scripts/research/whole_signal_forming_bar_replay.py
+        # enters where the LIVE unit fires on a FORMING bar at the 2-min tick
+        # cadence (PI-20260929-VOLSKIP-0001) and disables the entry gates it
+        # already applied. rest_high/rest_low = the entry bar's range AFTER the
+        # entry tick; a stop/target touched there exits on the entry bar.
+        _ov = None
+        if entry_override is not None:
+            _ov = entry_override.get(i)
+            direction = None if _ov is None else str(_ov["direction"])
+            if _ov is not None:
+                c, atr = float(_ov["entry"]), float(_ov["atr"])
+                depth = ((c - mid) if direction == "long" else (mid - c)) / atr
         if direction is None:
             i += 1
             continue
@@ -646,7 +663,16 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                         return px, "rr_floor_exit"
             return None
 
-        for j in range(i + 1, min(i + timeout_bars + 1, n)):
+        # entry_override only: a stop/target touched in the entry bar's range
+        # AFTER the entry tick exits on the entry bar (SL-first, no ratchet on
+        # that remainder — conservative). None on every harness-decided entry.
+        _rest_hit = None
+        if _ov is not None and _ov.get("rest_high") is not None:
+            # The harness's ONE stop/target test (trail == sl here, so a hit
+            # reads "stop"); tests/test_backtest_trend_live_tp.py pins that it
+            # is the only SL-first site.
+            _rest_hit = _stop_or_target(float(_ov["rest_high"]), float(_ov["rest_low"]))
+        for j in range(i + 1, min(i + timeout_bars + 1, n)) if _rest_hit is None else ():
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0=off, byte-identical): bank
             # `bank_frac` at entry ± bank_at_r × risk; remainder keeps the
@@ -704,6 +730,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 exit_price, exit_reason = hit[0], hit[1]
                 exit_idx = j
                 break
+        if _rest_hit is not None:
+            exit_price, exit_reason = _rest_hit
+            exit_idx = i
         if rr_min is not None:
             _rr_min_per_trade.append(rr_min)
         if exit_price is None:
