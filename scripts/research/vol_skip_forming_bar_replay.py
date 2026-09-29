@@ -120,11 +120,49 @@ def _assert_config_exact() -> None:
                                  f"script={v!r} — update LEGS first")
 
 
+BINANCE_URL = ("https://data.binance.vision/data/futures/um/{span}/klines/"
+               "{sym}/1m/{sym}-1m-{stamp}.zip")
+
+
+def fetch_1m(klines_dir: str, symbol: str, start: str = "2020-01") -> int:
+    """Download Binance USD-M 1m kline zips into klines_dir (monthly archives
+    through last month, daily archives for the current month). Idempotent:
+    a present non-empty file is kept. Returns the number of files present."""
+    import urllib.request
+    Path(klines_dir).mkdir(parents=True, exist_ok=True)
+    today = datetime.now(timezone.utc).date()
+    stamps = [("monthly", p.strftime("%Y-%m"))
+              for p in pd.period_range(start, today.strftime("%Y-%m"), freq="M")[:-1]]
+    stamps += [("daily", f"{today:%Y-%m}-{d:02d}") for d in range(1, today.day)]
+    for span, stamp in stamps:
+        dest = Path(klines_dir) / f"{symbol}-1m-{stamp}.zip"
+        if dest.exists() and dest.stat().st_size > 0:
+            continue
+        try:
+            urllib.request.urlretrieve(
+                BINANCE_URL.format(span=span, sym=symbol, stamp=stamp), dest)
+        except Exception as exc:  # noqa: BLE001 — a listed gap, never silent
+            dest.unlink(missing_ok=True)
+            print(f"fetch_1m: {symbol} {stamp} unavailable ({exc})", file=sys.stderr)
+    return len(list(Path(klines_dir).glob(f"{symbol}-1m-*.zip")))
+
+
 def load_1m(klines_dir: str, symbol: str) -> pd.DataFrame:
+    """Every <symbol>-1m-*.zip in klines_dir, concatenated and de-duplicated.
+    It reads ALL of them (not the newest one) and prints which it read."""
     frames = []
-    for path in sorted(glob.glob(os.path.join(klines_dir, f"{symbol}-1m-*.zip"))):
+    # provenance: load_1m — reads every matching archive; the set is printed below
+    paths = sorted(glob.glob(os.path.join(klines_dir, f"{symbol}-1m-*.zip")))
+    if not paths:
+        raise SystemExit(f"load_1m: no {symbol}-1m-*.zip in {klines_dir}")
+    print(f"load_1m: {symbol} reading {len(paths)} archives "
+          f"{os.path.basename(paths[0])} .. {os.path.basename(paths[-1])} "
+          f"from {klines_dir}", file=sys.stderr)
+    for path in paths:
         with zipfile.ZipFile(path) as zf:
+            # provenance: load_1m — each Binance archive holds exactly one CSV
             raw = zf.read(zf.namelist()[0]).decode()
+        # provenance: load_1m — header row present from 2022 on, absent before
         first = raw.split("\n", 1)[0]
         header = 0 if first.startswith("open_time") else None
         df = pd.read_csv(io.StringIO(raw), header=header, usecols=range(5))
@@ -294,11 +332,17 @@ def main(argv: List[str] | None = None) -> int:
     ap.add_argument("--klines-dir", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--leg", action="append", default=None)
+    ap.add_argument("--fetch", action="store_true",
+                    help="download the Binance 1m archives into --klines-dir first")
     args = ap.parse_args(argv)
     _assert_config_exact()
     tmp = Path(args.out).with_suffix(".tmp.d")
     tmp.mkdir(parents=True, exist_ok=True)
     legs = args.leg or list(LEGS)
+    if args.fetch:
+        for leg in legs:
+            n = fetch_1m(args.klines_dir, LEGS[leg]["symbol"])
+            print(f"fetch_1m: {LEGS[leg]['symbol']} {n} archives present", file=sys.stderr)
     rec = {
         "unit": "RQ-20260929-201", "rule": "RULE-RQ0929-002-VOLSKIP-FORMING",
         "generated_at": datetime.now(timezone.utc).isoformat(),

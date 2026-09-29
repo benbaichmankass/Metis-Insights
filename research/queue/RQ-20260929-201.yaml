@@ -102,13 +102,17 @@ routing:
 
 run:
   workflow: research-script-run.yml
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20260929-201
   commands:
   - - python3
     - scripts/research/vol_skip_forming_bar_replay.py
+    - --fetch
     - --klines-dir
-    - '{klines_dir}'
+    - '{out_dir}/klines'
     - --out
-    - docs/research/evidence/vol-skip-forming-bar-2026-09-29.json
+    - '{out_dir}/vol-skip-forming-bar.json'
 
 lands:
   store: docs/research/evidence/vol-skip-forming-bar-2026-09-29.json
