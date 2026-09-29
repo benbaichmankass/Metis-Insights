@@ -977,14 +977,51 @@ class AlpacaClient:
         result = env.get("result")
         return result if isinstance(result, dict) else None
 
-    def latest_quote(self, symbol: str) -> Optional[Dict[str, Optional[float]]]:
-        """Latest NBBO-side ``{"bid", "ask"}`` from Alpaca Data v2, or ``None``.
+    def latest_trade(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Latest trade ``{"price", "age_s"}`` from Alpaca Data v2, or ``None``.
 
-        REVIEW-14241 item 5: the marketable-stop test needs the bid (long) /
-        ask (short), not only the last trade. Same host, feed and key pair as
-        ``src.exchange.alpaca_connector.AlpacaMarketData`` (``ALPACA_DATA_URL``,
-        ``ALPACA_DATA_FEED``, default iex). A price that is absent or zero is
-        ``None``, never ``0.0``. Never raises.
+        The ONLY input allowed to CONFIRM that a stop is already breached and
+        drive a market exit (REVIEW-14241 round 2, blocker 1): a trade that
+        printed, with its age, so a stale print cannot fire an exit. Same host,
+        feed and keys as :meth:`latest_quote`. Never raises.
+        """
+        base = os.environ.get("ALPACA_DATA_URL", "https://data.alpaca.markets").rstrip("/")
+        feed = os.environ.get("ALPACA_DATA_FEED", "iex")
+        try:
+            resp = requests.get(
+                f"{base}/v2/stocks/{str(symbol).upper()}/trades/latest",
+                params={"feed": feed},
+                headers={"APCA-API-KEY-ID": self.api_key,
+                         "APCA-API-SECRET-KEY": self.api_secret},
+                timeout=self.timeout,
+            )
+            if not (200 <= resp.status_code < 300):
+                return None
+            t = (resp.json() or {}).get("trade") or {}
+            px = float(t.get("p"))
+            # Alpaca stamps nanoseconds ("...:10.123456789Z"); trim to the
+            # microseconds every supported Python's fromisoformat accepts.
+            raw_t = re.sub(r"(\.\d{6})\d+", r"\1", str(t.get("t")))
+            ts = datetime.fromisoformat(raw_t.replace("Z", "+00:00"))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("alpaca latest_trade(%s) failed: %s", symbol, exc)
+            return None
+        if not (px > 0 and px == px):
+            return None
+        return {"price": px,
+                "age_s": (datetime.now(timezone.utc) - ts).total_seconds()}
+
+    def latest_quote(self, symbol: str) -> Optional[Dict[str, Optional[float]]]:
+        """Latest ``{"bid", "ask"}`` from the Alpaca Data v2 feed, or ``None``.
+
+        ⚠️ With the default ``iex`` feed this is the IEX top of book, NOT the
+        NBBO, and it carries no staleness check. It may therefore only ever
+        make the re-arm MORE cautious (refuse / defer a stop the quote says
+        would trigger) — never CONFIRM a breach or drive an exit; that takes a
+        fresh :meth:`latest_trade` (REVIEW-14241 round 2, blocker 1). Same
+        host, feed and key pair as ``AlpacaMarketData`` (``ALPACA_DATA_URL``,
+        ``ALPACA_DATA_FEED``). An absent or zero price is ``None``, never
+        ``0.0``. Never raises.
         """
         base = os.environ.get("ALPACA_DATA_URL", "https://data.alpaca.markets").rstrip("/")
         feed = os.environ.get("ALPACA_DATA_FEED", "iex")

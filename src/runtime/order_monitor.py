@@ -49,6 +49,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -8530,16 +8531,22 @@ def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
             return "refused_fresh_read_unavailable"
         _clear_protection_unreadable(account_id, symbol, "topup")
         _side = "long" if want_side == "buy" else "short"
-        if _stop_is_marketable(_side, float(a_sl), _px, _bid, _ask):
-            # The attributed row is CONFIRMED present (the fresh read matched
-            # the grade) and its stop is already through the market: exit it
-            # via the trade-scoped close, labelled sl (REVIEW-14241 item 2).
+        _bst, _binfo = _breach_state(client, symbol, _side, float(a_sl), _px, _bid, _ask)
+        if _bst == "unconfirmed":
             _ALPACA_TOPUP_ATTEMPTS[cd_key] = time.monotonic()
-            _exit_alpaca_row(
+            _note_protection_unreadable(account_id, symbol, row["id"], channel="breach")
+            return "deferred_unconfirmed_breach"
+        if _bst == "confirmed":
+            # The attributed row is CONFIRMED present (the fresh read matched
+            # the grade) and a FRESH last trade is through its stop: exit it via
+            # the trade-scoped close, labelled sl (REVIEW-14241 item 2).
+            _ALPACA_TOPUP_ATTEMPTS[cd_key] = time.monotonic()
+            _res = _exit_alpaca_row(
                 db, row, account_id, symbol, reason="sl",
-                why=(f"top-up stop {a_sl} already through the market (last "
-                     f"{_px}, bid {_bid}, ask {_ask})"))
-            return "exited_breached_stop"
+                why=(f"top-up stop {a_sl} breached by a fresh last trade "
+                     f"({(_binfo.get('trade') or {}).get('price')})"))
+            return {"exited": "exited_breached_stop", "deferred": "exit_deferred",
+                    "failed": "exit_failed"}[_res]
         place_qty = min(uncovered, float(fresh["size"]) - float(fresh.get("stop_qty") or 0.0))
         if place_qty < 1 or abs(place_qty - round(place_qty)) > 1e-9:
             return "refused_state_changed"
@@ -8861,6 +8868,50 @@ def _stop_is_marketable(side: str, stop: float, last: Optional[float],
     return bool(refs) and float(stop) <= max(refs)
 
 
+#: A last trade older than this cannot CONFIRM a stop breach (REVIEW-14241
+#: round 2, blocker 1): a stale print must never fire a market exit.
+_BREACH_TRADE_MAX_AGE_S = 120.0
+
+
+def _breach_state(client, symbol: str, side: str, stop: float,
+                  last_pos: Optional[float], bid: Optional[float],
+                  ask: Optional[float]) -> Tuple[str, Dict[str, Any]]:
+    """``confirmed`` / ``unconfirmed`` / ``clear`` / ``session_closed``.
+
+    * ``session_closed`` — outside the regular (``rth``) US-equity session no stop can
+      trigger and no market exit can fill: a stop may simply REST (it fires at
+      the open, which is exactly the stop's meaning) — never an exit attempt.
+    * ``confirmed`` — a FRESH last trade (≤ ``_BREACH_TRADE_MAX_AGE_S``) is at
+      or through the stop. Only this may drive the trade-scoped exit, labelled
+      ``sl``: it preserves the stop's own semantics — Alpaca's trade-triggered
+      stop would have fired on that print.
+    * ``unconfirmed`` — no fresh trade confirms it, but the IEX bid/ask or the
+      position's last price says the stop would trigger on arrival: do NOT
+      exit (a thin or stale IEX book must not sell at market), do NOT post a
+      stop that fills on arrival — DEFER the re-arm and look again next tick.
+    * ``clear`` — nothing says the stop is through the market.
+    """
+    try:
+        from src.runtime.market_hours import us_equity_session
+        if us_equity_session() != "rth":
+            return "session_closed", {}
+    except Exception:  # noqa: BLE001 — unknown session: fall through to the price tests
+        pass
+    trade = None
+    try:
+        trade = client.latest_trade(symbol)
+    except Exception:  # noqa: BLE001
+        trade = None
+    info = {"trade": trade, "last": last_pos, "bid": bid, "ask": ask}
+    if trade and trade.get("age_s") is not None and trade["age_s"] <= _BREACH_TRADE_MAX_AGE_S:
+        tp = float(trade["price"])
+        if (side == "long" and float(stop) >= tp) or (side == "short" and float(stop) <= tp):
+            return "confirmed", info
+    if _stop_is_marketable(side, float(stop), last_pos, bid, ask):
+        return "unconfirmed", info
+    return "clear", info
+
+
 def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
                             sym_rows: List[Any], sl: float) -> Tuple[str, Dict[str, Any]]:
     """Decide what the naked sweep may do for *row*: ``(verdict, info)``.
@@ -8880,10 +8931,14 @@ def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
     * ``flat`` / ``side_mismatch`` / ``row_shares_gone`` — this row's shares
       are not at the venue (gone, or the book is on the other side). Refused
       and paged: a re-arm would open exposure or sell a sibling's shares.
-    * ``exit_breached`` — the row is CONFIRMED present and its stop is
-      already through the market (bid/ask aware). The stop would fill on
-      arrival, so the row is EXITED via the trade-scoped close, labelled
-      ``sl`` — not left naked, not re-armed into an instant fill.
+    * ``exit_breached`` — the row is CONFIRMED present and a FRESH last trade
+      is through its stop (:func:`_breach_state`). That print would have fired
+      Alpaca's own stop, so the row is EXITED via the trade-scoped close,
+      labelled ``sl`` — preserving the stop's semantics, not left naked, not
+      re-armed into an instant fill.
+    * ``deferred_unconfirmed_breach`` — only the IEX quote / position price
+      says the stop is through: no exit, no instant-fill stop; deferred and
+      streaked (paged on persistence).
     * ``protect_venue_holding`` — the venue holds fewer shares than the open
       rows claim and no single row explains it (or rows on this symbol point
       both ways). *info* names ONE additive OCO for what the venue actually
@@ -8965,8 +9020,20 @@ def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
         _page_rearm_refusal("row_shares_gone", account_id, symbol, row["id"],
                             f"row {row_qty} exceeds venue {venue_qty}")
         return "row_shares_gone", {}
-    if _stop_is_marketable(want, float(sl), last, bid, ask):
-        return "exit_breached", {"last": last, "bid": bid, "ask": ask}
+    bstate, binfo = _breach_state(client, symbol, want, float(sl), last, bid, ask)
+    if bstate == "confirmed":
+        return "exit_breached", binfo
+    if bstate == "unconfirmed":
+        # Refuse to post a stop the book says would trigger, but do not sell at
+        # market on a quote alone. Streaked: a persistent deferral pages.
+        _note_protection_unreadable(account_id, symbol, row["id"], channel="breach")
+        return "deferred_unconfirmed_breach", binfo
+    _clear_protection_unreadable(account_id, symbol, "breach")
+    if bstate == "session_closed":
+        # Market closed: a GTC stop just RESTS and triggers at the open. The
+        # cap still applies (it counts re-arms, not exits), but it cannot
+        # escalate to a market exit that cannot fill now.
+        return "ok", binfo
     n = _rearm_attempts(account_id, row["id"])
     if n >= _ALPACA_REARM_CAP:
         return "cap", {"attempts": n}
@@ -8974,14 +9041,18 @@ def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
 
 
 def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
-                     why: str) -> bool:
+                     why: str) -> str:
     """Exit ONE row via the trade-scoped close path; journal it as *reason*.
 
     Exchange first (``_send_close_to_exchange`` → ``AlpacaClient.close`` with
     the row's own qty, which never flattens a sibling), then the journal row.
     The fill price is read back when the venue returns an order id; otherwise
-    the exit price is left for the reconciler rather than invented. Pages
-    CRITICAL either way. Returns True when the venue accepted the close.
+    the exit price is left for the reconciler rather than invented.
+
+    Returns ``exited`` / ``deferred`` / ``failed``. ``deferred`` is the venue's
+    own "market closed — exit deferred" (AlpacaClient.close retCode 2): NOT a
+    refusal, not paged as one; the caller keeps a stop resting instead
+    (REVIEW-14241 round 2, blocker 3). ``failed`` is paged CRITICAL.
     """
     matched = {
         "id": row["id"], "account_id": account_id, "symbol": symbol,
@@ -8989,9 +9060,16 @@ def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
     }
     resp = _send_close_to_exchange(matched) or {}
     if not resp.get("ok"):
+        err = str(resp.get("error") or "")
+        low = err.lower()
+        if "exit deferred" in low or "deferring" in low or "market closed" in low:
+            logger.info("_exit_alpaca_row: %s/%s trade_id=%s %s exit DEFERRED "
+                        "(market session): %s", account_id, symbol, row["id"],
+                        reason, err)
+            return "deferred"
         _page_rearm_refusal("exit_failed", account_id, symbol, row["id"],
-                            f"{reason} exit REFUSED by the venue: {resp.get('error')}")
-        return False
+                            f"{reason} exit REFUSED by the venue: {err}")
+        return "failed"
     fill = None
     try:
         fill = _capture_fill_details(matched, resp.get("exchange_order_id"))
@@ -9012,7 +9090,7 @@ def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
                            "closed_at": now_iso, "notes": dump_capped(notes, 2000)}
     if fill and fill.get("avg_price"):
         upd["exit_price"] = float(fill["avg_price"])
-        notes["exit_price_source"] = "venue_fill"
+        notes["exit_price_source"] = "exchange_fill"
         upd["notes"] = dump_capped(notes, 2000)
     try:
         db.update_trade(int(row["id"]), upd)
@@ -9021,7 +9099,7 @@ def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
     except Exception:  # noqa: BLE001
         logger.exception("_exit_alpaca_row: journal close failed for %s", row["id"])
     _page_rearm_refusal(f"exited_{reason}", account_id, symbol, row["id"], why)
-    return True
+    return "exited"
 
 
 def _oldest_open_created_at(rows, account_id: str, symbol: str) -> Optional[str]:
@@ -9164,6 +9242,9 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "breach_exits": 0,
         "cap_exits": 0,
         "venue_holding_protected": 0,
+        "venue_holding_cooldown": 0,
+        "rearm_refused_deferred_unconfirmed_breach": 0,
+        "exit_deferred": 0,
         "exit_failed": 0,
     }
     try:
@@ -9360,6 +9441,14 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                             )
                             if _topup == "topped_up":
                                 summary["topped_up"] += 1
+                            elif _topup == "exited_breached_stop":
+                                summary["breach_exits"] += 1
+                            elif _topup == "exit_failed":
+                                summary["exit_failed"] += 1
+                            elif _topup == "exit_deferred":
+                                # market closed: the uncovered shares still get
+                                # a resting stop via the next sweep's top-up
+                                summary["exit_deferred"] += 1
                             else:
                                 summary["topup_refused"] += 1
                     elif _size > 0:
@@ -9429,29 +9518,34 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                 a_sl,
             )
             _pf, _pf_info = _pf
-            if _pf == "exit_breached":
-                # Row CONFIRMED present, stop already through the market: the
-                # stop would fill on arrival, so EXIT via the trade-scoped
-                # close, labelled sl (REVIEW-14241 item 2).
-                if _exit_alpaca_row(
+            if _pf in ("exit_breached", "cap"):
+                if _pf == "exit_breached":
+                    # A FRESH last trade is through the stop with the row
+                    # CONFIRMED present: exit via the trade-scoped close,
+                    # labelled sl — what the stop itself would have done.
+                    _res = _exit_alpaca_row(
                         db, row, account_id, symbol, reason="sl",
-                        why=(f"stop {a_sl} already through the market "
-                             f"(last {_pf_info.get('last')}, bid "
-                             f"{_pf_info.get('bid')}, ask {_pf_info.get('ask')})")):
-                    summary["breach_exits"] += 1
+                        why=(f"stop {a_sl} breached by a fresh last trade "
+                             f"({(_pf_info.get('trade') or {}).get('price')})"))
+                    _ok_key = "breach_exits"
                 else:
-                    summary["exit_failed"] += 1
-                continue
-            if _pf == "cap":
-                # Re-armed _ALPACA_REARM_CAP times in 24 h without a stop
-                # holding: escalate to the trade-scoped close (item 4).
-                if _exit_alpaca_row(
+                    # Re-armed _ALPACA_REARM_CAP times in 24 h without a stop
+                    # holding: escalate to the trade-scoped close (item 4).
+                    _res = _exit_alpaca_row(
                         db, row, account_id, symbol,
                         reason="protection_rearm_exhausted",
                         why=(f"{_pf_info.get('attempts')} re-arms in 24 h did not "
-                             "leave a resting stop — position exited rather than "
-                             "left naked")):
-                    summary["cap_exits"] += 1
+                             "leave a resting stop — position exited rather "
+                             "than left naked"))
+                    _ok_key = "cap_exits"
+                if _res == "exited":
+                    summary[_ok_key] += 1
+                elif _res == "deferred":
+                    # Market closed: keep a stop RESTING instead (it triggers
+                    # at the open), never leave the row naked overnight.
+                    summary["exit_deferred"] += 1
+                    if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
+                        summary["rearmed"] += 1
                 else:
                     summary["exit_failed"] += 1
                 continue
@@ -9460,6 +9554,24 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                 if _key in _venue_protected:
                     continue
                 _venue_protected.add(_key)
+                # One attempt per symbol per cooldown: a refused additive OCO
+                # (e.g. a target-only leg holding the shares) must not be
+                # re-POSTed every tick (REVIEW-14241 round 2).
+                _vk = ("venue", account_id, symbol.upper())
+                _vlast = _ALPACA_TOPUP_ATTEMPTS.get(_vk)
+                if _vlast is not None and time.monotonic() - _vlast < _ALPACA_TOPUP_COOLDOWN_S:
+                    summary["venue_holding_cooldown"] += 1
+                    continue
+                _ALPACA_TOPUP_ATTEMPTS[_vk] = time.monotonic()
+                # FLOOR, never round: a fractional holding must not be rounded
+                # UP past what the venue holds.
+                _vqty = int(math.floor(float(_pf_info["qty"]) + 1e-9))
+                if _vqty < 1:
+                    summary["exit_failed"] += 1
+                    _page_rearm_refusal(
+                        "venue_holding_unprotected", account_id, symbol, row["id"],
+                        f"venue holding {_pf_info['qty']} is below one whole share")
+                    continue
                 _pick = _pf_info["row"]
                 _p_sl = _safe_float(_pick["stop_loss"])
                 _p_tp = _safe_float(_pick["take_profit_1"])
@@ -9471,7 +9583,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                 if _p_sl and _p_tp:
                     _resp = client.place_protective({
                         "symbol": symbol, "direction": _pf_info["side"],
-                        "qty": int(round(float(_pf_info["qty"]))),
+                        "qty": _vqty,
                         "sl": _p_sl, "tp": _p_tp, "additive": True,
                         "oca_key": str(_pick["id"]), "account_id": account_id,
                     })

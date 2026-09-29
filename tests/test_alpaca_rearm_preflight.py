@@ -52,6 +52,9 @@ _OCO_5928_FILLED = {
 }
 
 
+from src.runtime.market_hours import us_equity_session as _REAL_US_EQUITY_SESSION  # noqa: E402
+
+
 class _Venue(AlpacaClient):
     """alpaca_portfolio at 2026-09-24 13:32:11Z. A POSTed OCO whose stop is
     at/above the price fills on arrival (what the venue did 28 times)."""
@@ -97,6 +100,15 @@ class _Venue(AlpacaClient):
 
     bid = None
     ask = None
+    # Age of the latest trade print at ``price`` (Data v2 trades/latest);
+    # None = the read failed. Fresh by default so a price through the stop is
+    # a CONFIRMED breach (REVIEW-14241 round 2, blocker 1).
+    trade_age = 5.0
+
+    def latest_trade(self, symbol):
+        if self.trade_age is None:
+            return None
+        return {"price": self.price, "age_s": self.trade_age}
 
     def latest_quote(self, symbol):
         if self.bid is None and self.ask is None:
@@ -160,6 +172,9 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr(om, "is_active_close", lambda *a: False)
     monkeypatch.setattr(om, "_capture_fill_details", lambda *a, **k: None)
     monkeypatch.setattr(om, "_cascade_close_linked_package", lambda *a, **k: True)
+    # Regular session unless a test says otherwise — the real clock would make
+    # these tests depend on when they run.
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
     om._PROTECTION_UNREADABLE_STREAK.clear()
     om._ALPACA_TOPUP_ATTEMPTS.clear()
     return _Db(path), pages, monkeypatch
@@ -254,18 +269,118 @@ def test_gap_through_with_row_present_exits_labelled_sl(world):
     assert db.status(6024) == ("closed", "sl")
 
 
-def test_bid_side_of_the_marketable_test(world):
-    """REVIEW-14241 item 5: last 720 is above the stop 716.80 but the BID is
-    716.50 — a sell stop at 716.80 would trigger on arrival. Treated as
-    breached (exit), not re-armed."""
-    db, _pages, mp = world
+def test_bid_side_of_the_marketable_test_defers_never_exits(world):
+    """REVIEW-14241 round 2, blocker 1: last 720 is above the stop 716.80 but
+    the IEX BID is 716.50 — a sell stop at 716.80 might trigger on arrival.
+    The quote may only REFUSE the re-arm: no OCO, and no market exit either
+    (a thin IEX book must not sell 56 shares at market). Deferred, not paged
+    until it persists."""
+    db, pages, mp = world
     _close_row(db, 5928)
     v = _Venue(qty=56.0, price=720.0)
     v.bid, v.ask = 716.50, 720.10
     _use(mp, v)
     closes = _closer(mp, v)
+    s = om._check_broker_naked_equity_positions(db)
+    assert v.posts() == [] and closes == []
+    assert s["rearm_refused_deferred_unconfirmed_breach"] == 1
+    assert s["breach_exits"] == 0
+    assert db.status(6024)[0] == "open"
+    for _ in range(2):
+        om._check_broker_naked_equity_positions(db)
+    assert any(a[0] == "alpaca_protection_unreadable" and k.get("channel") == "breach"
+               for a, k in pages)
+
+
+def test_breach_state_reads_the_real_session_vocabulary(world, monkeypatch):
+    """The session literal is ``market_hours.us_equity_session``'s own
+    (``rth``/``extended``/``closed``). Pinned against the REAL function at a
+    known RTH instant, so a spelling drift (this branch once compared against
+    "regular" and would have read every RTH tick as closed) fails here."""
+    from datetime import datetime, timezone
+    from src.runtime import market_hours as mh
+    real = _REAL_US_EQUITY_SESSION           # the fixture patched the module attr
+    rth_ts = datetime(2026, 9, 29, 16, 41, tzinfo=timezone.utc)   # Tue 12:41 ET
+    monkeypatch.setattr(mh, "us_equity_session", lambda *a, **k: real(rth_ts))
+    v = _Venue(qty=56.0, price=710.0)
+    st, _info = om._breach_state(v, "QQQ", "long", 716.80, 710.0, None, None)
+    assert st == "confirmed"
+    sat_ts = datetime(2026, 9, 26, 16, 41, tzinfo=timezone.utc)
+    monkeypatch.setattr(mh, "us_equity_session", lambda *a, **k: real(sat_ts))
+    assert om._breach_state(v, "QQQ", "long", 716.80, 710.0, None, None)[0] == "session_closed"
+
+
+def test_stale_trade_through_the_stop_never_exits(world):
+    """A last trade through the stop but older than _BREACH_TRADE_MAX_AGE_S
+    cannot confirm a breach: deferred, no exit, no OCO."""
+    db, _pages, mp = world
+    _close_row(db, 5928)
+    v = _Venue(qty=56.0, price=710.0)
+    v.trade_age = om._BREACH_TRADE_MAX_AGE_S + 60
+    _use(mp, v)
+    closes = _closer(mp, v)
+    s = om._check_broker_naked_equity_positions(db)
+    assert v.posts() == [] and closes == []
+    assert s["rearm_refused_deferred_unconfirmed_breach"] == 1
+
+
+def test_unreadable_trade_through_the_stop_never_exits(world):
+    db, _pages, mp = world
+    _close_row(db, 5928)
+    v = _Venue(qty=56.0, price=710.0)
+    v.trade_age = None
+    _use(mp, v)
+    closes = _closer(mp, v)
     om._check_broker_naked_equity_positions(db)
-    assert v.posts() == [] and [c["id"] for c in closes] == [6024]
+    assert v.posts() == [] and closes == []
+
+
+def test_market_closed_rests_the_stop_instead_of_exiting(world):
+    """Outside the regular session no stop triggers and no market exit fills:
+    the row's own stop is posted to REST (it fires at the open) — never an
+    exit attempt on an extended-hours print."""
+    db, _pages, mp = world
+    _close_row(db, 5928)
+    mp.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "closed")
+    v = _Venue(qty=56.0, price=740.0)
+    _use(mp, v)
+    closes = _closer(mp, v)
+    s = om._check_broker_naked_equity_positions(db)
+    assert closes == [] and s["breach_exits"] == 0
+    (p,) = v.posts()
+    assert p["qty"] == "56" and p["stop_loss"]["stop_price"] == "716.80"
+
+
+def test_deferred_close_keeps_a_stop_resting(world):
+    """REVIEW-14241 round 2, blocker 3: the venue's own 'market closed — exit
+    deferred' (AlpacaClient.close retCode 2) is not a refusal: counted as
+    exit_deferred, not paged as exit_failed, and a stop is put back to rest."""
+    db, pages, mp = world
+    _close_row(db, 5928)
+    v = _Venue(qty=56.0, price=710.0)
+    _use(mp, v)
+    mp.setattr(om, "_send_close_to_exchange",
+               lambda m: {"ok": False, "error": "market closed — exit deferred"})
+    rests = []
+    mp.setattr(om, "_attempt_naked_autoprotect",
+               lambda row, sl, tp, db=None: rests.append(row["id"]) or True)
+    s = om._check_broker_naked_equity_positions(db)
+    assert s["exit_deferred"] == 1 and s["exit_failed"] == 0
+    assert rests == [6024]
+    assert "exit_failed" not in _kinds(pages)
+    assert db.status(6024)[0] == "open"
+
+
+def test_refused_close_is_exit_failed_and_paged(world):
+    db, pages, mp = world
+    _close_row(db, 5928)
+    v = _Venue(qty=56.0, price=710.0)
+    _use(mp, v)
+    mp.setattr(om, "_send_close_to_exchange",
+               lambda m: {"ok": False, "error": "insufficient qty available"})
+    s = om._check_broker_naked_equity_positions(db)
+    assert s["exit_failed"] == 1 and s["exit_deferred"] == 0
+    assert "exit_failed" in _kinds(pages)
 
 
 def test_attempt_cap_escalates_to_the_close_path(world, tmp_path):
@@ -372,6 +487,46 @@ def test_ambiguous_netting_protects_what_the_venue_holds(world):
     assert not any(m == "DELETE" for m, *_ in v.calls)
     assert s["venue_holding_protected"] == 1
     assert "venue_holding_protected" in _kinds(pages)
+
+
+def test_venue_holding_oco_is_not_reposted_every_tick(world):
+    """REVIEW-14241 round 2: a refused additive OCO for the venue holding is
+    attempted once per cooldown, not re-POSTed on every sweep."""
+    db, _pages, mp = world
+    _set_rows(db, [
+        (1, "alpaca_portfolio", "QQQ", "long", 10.0, 700.0, 790.0, "2026-09-18T16:00:00+00:00"),
+        (2, "alpaca_portfolio", "QQQ", "long", 10.0, 725.0, 780.0, "2026-09-19T16:00:00+00:00"),
+        (3, "alpaca_portfolio", "QQQ", "long", 20.0, 710.0, 785.0, "2026-09-20T16:00:00+00:00"),
+    ])
+
+    class _Refuse(_Venue):
+        def _request(self, method, path, json_body=None):  # type: ignore[override]
+            if method == "POST":
+                self.calls.append((method, path, json_body))
+                return {"retCode": 403, "retMsg": "insufficient qty available"}
+            return super()._request(method, path, json_body)
+
+    v = _Refuse(qty=30.0, price=735.0)
+    _use(mp, v)
+    s1 = om._check_broker_naked_equity_positions(db)
+    s2 = om._check_broker_naked_equity_positions(db)
+    assert len(v.posts()) == 1
+    assert s1["exit_failed"] == 1 and s2["venue_holding_cooldown"] == 1
+
+
+def test_venue_holding_fractional_qty_is_floored(world):
+    """A fractional holding of 30.6 protects 30 shares, never rounds up to 31."""
+    db, _pages, mp = world
+    _set_rows(db, [
+        (1, "alpaca_portfolio", "QQQ", "long", 10.0, 700.0, 790.0, "2026-09-18T16:00:00+00:00"),
+        (2, "alpaca_portfolio", "QQQ", "long", 10.0, 725.0, 780.0, "2026-09-19T16:00:00+00:00"),
+        (3, "alpaca_portfolio", "QQQ", "long", 20.0, 710.0, 785.0, "2026-09-20T16:00:00+00:00"),
+    ])
+    v = _Venue(qty=30.6, price=735.0)
+    _use(mp, v)
+    om._check_broker_naked_equity_positions(db)
+    (p,) = v.posts()
+    assert p["qty"] == "30"
 
 
 def test_ambiguous_netting_skips_breached_candidates(world):
@@ -485,5 +640,45 @@ def test_summary_declares_every_outcome_key_at_zero(world):
               "rearm_refused_side_mismatch", "rearm_refused_row_shares_gone",
               "rearm_refused_all_stops_breached", "breach_exits", "cap_exits",
               "venue_holding_protected", "exit_failed", "protection_read_failed",
-              "topped_up", "topup_refused"):
+              "topped_up", "topup_refused", "exit_deferred",
+              "venue_holding_cooldown",
+              "rearm_refused_deferred_unconfirmed_breach"):
         assert s[k] == 0, k
+
+
+def test_latest_trade_parses_the_real_data_v2_payload(monkeypatch):
+    """GET /v2/stocks/{sym}/trades/latest — Alpaca Data v2 shape, nanosecond
+    timestamp. age_s is measured from the print; a failed read is None."""
+    from datetime import datetime, timedelta, timezone
+
+    class _Resp:
+        status_code = 200
+
+        def __init__(self, body):
+            self._b = body
+
+        def json(self):
+            return self._b
+
+    t = (datetime.now(timezone.utc) - timedelta(seconds=30)).strftime(
+        "%Y-%m-%dT%H:%M:%S.%f") + "789Z"
+    body = {"symbol": "QQQ", "trade": {"t": t, "x": "V", "p": 710.12, "s": 100,
+                                       "c": ["@"], "i": 52983525033527, "z": "C"}}
+    seen = {}
+
+    def _get(url, params=None, headers=None, timeout=None):
+        seen["url"], seen["params"] = url, params
+        return _Resp(body)
+
+    monkeypatch.setattr("src.units.accounts.alpaca_client.requests.get", _get)
+    c = _Venue()
+    c.timeout = 5.0
+    out = AlpacaClient.latest_trade(c, "qqq")
+    assert seen["url"].endswith("/v2/stocks/QQQ/trades/latest")
+    assert out["price"] == 710.12 and 25 <= out["age_s"] <= 60
+
+    def _boom(*a, **k):
+        raise OSError("down")
+
+    monkeypatch.setattr("src.units.accounts.alpaca_client.requests.get", _boom)
+    assert AlpacaClient.latest_trade(c, "QQQ") is None
