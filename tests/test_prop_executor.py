@@ -2274,8 +2274,9 @@ def test_watched_close_refuses_when_the_close_control_is_not_the_last_or_not_uni
                                      '<button title="Modify">✎</button>'))
     got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01)
     assert got["ok"] is False and "not the LAST control" in got["why"] and _nothing_pressed(p)
-    # two close-type controls
-    p = tpage(html=_close_page(icons='<button title="Close">✕</button><button title="Close all">x</button>'))
+    # two close-type controls ("Close all" is a QUALIFIED close since the review of
+    # #14216 and is covered by test_watched_close_refuses_a_qualified_close)
+    p = tpage(html=_close_page(icons='<button title="Close">✕</button><button title="Close">x</button>'))
     got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01)
     assert got["ok"] is False and "2 close-type controls" in got["why"] and _nothing_pressed(p)
     # no control at all in the row
@@ -2343,7 +2344,7 @@ def test_watched_close_descends_into_the_actions_cell_and_picks_the_last_icon(tp
     ('<button class="b"><svg class="icon icon-close"/></button><button class="b"><svg class="icon icon-edit"/></button>',
      "not the LAST control"),
     # two close-named icons
-    ('<button class="b"><svg class="icon icon-close"/></button><button class="b"><svg class="icon icon-close-all"/></button>',
+    ('<button class="b"><svg class="icon icon-close"/></button><button class="b"><svg class="icon icon-close"/></button>',
      "2 close-type controls"),
 ])
 def test_watched_close_refuses_an_actions_cell_that_does_not_name_one_close(tpage, icons, expect):
@@ -2352,6 +2353,82 @@ def test_watched_close_refuses_an_actions_cell_that_does_not_name_one_close(tpag
     assert got["ok"] is False and got["clicked"] is False and expect in got["why"], got
     assert all("html" in c and c["tag"] == "button" for c in got["controls"]), got["controls"]
     assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+
+
+@pytest.mark.parametrize("wrap", [
+    '<div class="row-icons">%s</div>',          # matches [class*=icon] itself
+    '<div title="Actions">%s</div>',            # a [title] wrapper
+    '<div role="button">%s</div>',              # a role=button wrapper
+    '<span class="acts"><div class="row-icons"><div title="Row actions">%s</div></div></span>',   # nested wrappers
+])
+def test_watched_close_never_presses_a_wrapper_around_the_trio(tpage, wrap):
+    # REGRESSION (review of #14216, F1): a wrapper that itself looks
+    # interactive (icon class, title, role=button) used to survive as the
+    # outermost control, read "close" from its descendants, and its CENTRE
+    # was the modify button. Any element holding a pressable is a container.
+    trio = ('<button class="btn-icon" onclick="window.__reverse=1"><svg class="icon icon-arrows"/></button>'
+            '<button class="btn-icon" onclick="window.__modify=1"><svg class="icon icon-pen"/></button>'
+            '<button class="btn-icon" onclick="document.getElementById(\'cm\').style.display=\'block\'"><svg class="icon icon-close"/></button>')
+    ad = DXtradeAdapter(timeout_ms=3_000)
+    p = tpage(html=_close_page(icons=wrap % trio, cell=True))
+    got = ad.flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["chosen"] == 2, got
+    assert [c["tag"] for c in got["controls"]] == ["button"] * 3 and all(c["pressable"] for c in got["controls"])
+    assert p.evaluate("document.querySelector('[data-metis-row-action]').tagName") == "BUTTON"
+    got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["why"] == "Close Position confirmed", got
+    assert p.evaluate("window.__closed") == 1
+    assert p.evaluate("window.__modify") is None and p.evaluate("window.__reverse") is None
+
+
+def test_watched_close_refuses_a_close_named_wrapper_with_no_pressable_inside(tpage):
+    # a close-named box that holds only icons (no button) is never pressed
+    icons = '<div class="row-icons"><svg class="icon icon-arrows"/><svg class="icon icon-pen"/><svg class="icon icon-close"/></div>'
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False, got
+    # the outermost non-container left is the cell itself (or the box): never a pressable
+    assert "not a button (" in got["why"] or "close-type controls" in got["why"], got["why"]
+    assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+
+
+@pytest.mark.parametrize("icons,expect", [
+    # close-all beside reverse: the qualified close is not a close (F2)
+    ('<button class="b" onclick="window.__reverse=1"><svg class="icon icon-reverse"/></button>'
+     '<button class="b" onclick="window.__closed=1"><svg class="icon icon-close-all"/></button>', "0 close-type controls"),
+    # a single close-all as the last (only) control
+    ('<button class="b" onclick="window.__closed=1"><svg class="icon icon-close-all"/></button>', "0 close-type controls"),
+    # a titled "Close all"
+    ('<button title="Close all" onclick="window.__closed=1">✕</button>', "0 close-type controls"),
+    # any other qualifier right after close
+    ('<button class="b" onclick="window.__closed=1"><svg class="icon icon-close-group"/></button>', "0 close-type controls"),
+])
+def test_watched_close_refuses_a_qualified_close(tpage, icons, expect):
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and expect in got["why"], got
+    assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+
+
+def test_watched_close_still_accepts_a_close_position_title_or_icon(tpage):
+    # "Close position" (the terminal's likely tooltip) is not a qualified close
+    icons = ('<button title="Reverse position">⇄</button><button title="Modify position">✎</button>'
+             '<button title="Close position" onclick="document.getElementById(\'cm\').style.display=\'block\'">✕</button>')
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["chosen"] == 2, got
+
+
+def test_flatten_controls_markup_is_masked_for_the_log(tpage):
+    icons = ('<button data-position-id="abcdef12-3456-7890-abcd-ef1234567890" onclick="window.__reverse=1"></button>'
+             '<button data-id="9876543210" onclick="window.__modify=1"></button>'
+             '<button onclick="window.__closed=1"><span>deadbeefcafe</span></button>')
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and "0 close-type" in got["why"] and _nothing_pressed(p)
+    blob = " ".join(c["html"] for c in got["controls"])
+    assert "abcdef12" not in blob and "9876543210" not in blob and "deadbeefcafe" not in blob
+    assert "#####" in blob and "########" in blob
 
 
 def test_watched_close_refuses_an_actions_cell_whose_only_child_is_the_chart_x(tpage):

@@ -478,7 +478,8 @@ EXTRACT_TABLES_JS = r"""
   // live test #14191 read the position row's trio as three text-less
   // buttons, so what they are CALLED is the only way to tell them apart.
   const ctlHtml = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
-    (c.outerHTML || '').replace(/\s+/g, ' ').replace(/\d{5,}/g, '#####').slice(0, 220));
+    (c.outerHTML || '').replace(/\s+/g, ' ').replace(/(data-[\w-]*id[\w-]*=")[^"]*(")/gi, '$1#####$2')
+      .replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 220));
   for (const p of paired) {
     const rows = p.trs.map(r => [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt));
     push('table', p.headers, rows, {paired: !!p.body, own_rows: p.own_rows, unpaired_body_rows: p.unpaired_body_rows,
@@ -1583,19 +1584,33 @@ CLOSE_ROW_JS = r"""
   // name of the icon inside is the only thing that says which one closes.
   const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
   const tokens = s => (s || '').replace(/[-_./#:]+/g, ' ');
-  const label = el => norm([el, ...el.querySelectorAll('*')]
-    .map(d => [d === el ? txt(el) : '', attr(d, 'title'), attr(d, 'aria-label')].filter(Boolean).join(' ')).filter(Boolean).join(' '));
-  const called = el => norm([el, ...el.querySelectorAll('*')]
-    .map(d => tokens([attr(d, 'class'), attr(d, 'href'), attr(d, 'xlink:href'), attr(d, 'data-icon'), attr(d, 'data-test-id'),
-                      attr(d, 'name')].filter(Boolean).join(' '))).filter(Boolean).join(' '));
+  // Kept as PARTS (one per attribute of each element) as well as joined: the
+  // qualified-close rule below reads each part on its own, so a class
+  // "icon-close" followed by an href "#i-close" is not "close i".
+  const labelParts = el => [el, ...el.querySelectorAll('*')].flatMap(d =>
+    [d === el ? txt(el) : '', attr(d, 'title'), attr(d, 'aria-label')].filter(Boolean).map(norm));
+  const calledParts = el => [el, ...el.querySelectorAll('*')].flatMap(d =>
+    [attr(d, 'class'), attr(d, 'href'), attr(d, 'xlink:href'), attr(d, 'data-icon'), attr(d, 'data-test-id'), attr(d, 'name')]
+      .filter(Boolean).map(v => norm(tokens(v))));
+  const label = el => labelParts(el).join(' ');
+  const called = el => calledParts(el).join(' ');
   const hint = el => norm(label(el) + ' ' + called(el));
-  const snippet = el => (el.outerHTML || '').replace(/\s+/g, ' ').replace(/\d{5,}/g, '#####').slice(0, 200);
+  // Markup for the log: whitespace folded; digit runs of 5+, hex / uuid runs
+  // of 8+ and any data-*id value masked (a position id may be any of those).
+  const snippet = el => (el.outerHTML || '').replace(/\s+/g, ' ')
+    .replace(/(data-[\w-]*id[\w-]*=")[^"]*(")/gi, '$1#####$2').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 200);
   // The glyph / x spellings count from the LABEL only: a class token such
   // as "x-small" is not a close. A name says close only as the word close
-  // (or cross); reverse / modify words anywhere disqualify.
+  // (or cross); reverse / modify words anywhere disqualify, and so does a
+  // QUALIFIED close (review of #14216: "icon-close-all" tokenised to "icon
+  // close all" and read as a close — a close-all could flatten every
+  // position): the token "all" anywhere, or any word right after "close"
+  // other than icon / btn / button / svg / position / x, disqualifies.
   const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, CLOSE_NAME_RE = /(^|\s)(close|cross)(\s|$)/i,
-        BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i;
-  const isClose = el => (CLOSE_RE.test(label(el)) || CLOSE_NAME_RE.test(called(el))) && !BAD_RE.test(hint(el));
+        BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i,
+        QUAL_RE = /(^|\s)all(\s|$)|(^|\s)close\s+(?!(icon|btn|button|svg|position|x|×|✕)(\s|$))\S/i;
+  const isQualified = el => [...labelParts(el), ...calledParts(el)].some(s => QUAL_RE.test(s));
+  const isClose = el => (CLOSE_RE.test(label(el)) || CLOSE_NAME_RE.test(called(el))) && !BAD_RE.test(hint(el)) && !isQualified(el);
   if (op === 'locate') {
     document.querySelectorAll('[data-metis-close-row]').forEach(e => e.removeAttribute('data-metis-close-row'));
     const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
@@ -1622,23 +1637,30 @@ CLOSE_ROW_JS = r"""
     const row = document.querySelector('[data-metis-close-row]');
     if (!row) return {ok: false, why: 'no located row'};
     document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
-    // Clickable-looking things in the row. A CONTAINER — an element matched
-    // only by a class such as "sticky--actions-cell" that itself holds
-    // candidates (live test #14191: the hovered row's icon trio sits inside
-    // that cell, and this filter used to keep the cell and drop the icons)
-    // — is descended into and never counted. Among the rest, outermost only
-    // (an icon inside its button counts once).
-    const INTERACTIVE = 'button, [role=button], a, [title], [aria-label], svg, [class*=icon], [class*=close]';
+    // Clickable-looking things in the row. A CONTAINER — ANY element that
+    // holds a pressable (button / role=button / a), whatever it matches
+    // itself: the "sticky--actions-cell" of live test #14191 (class only),
+    // and equally a <div class="row-icons">, a [title] or a role=button
+    // wrapper around the trio (review of #14216: a wrapper that survived as
+    // the outermost control read "close" from its descendants and its
+    // CENTRE was the modify button) — is descended into and never counted.
+    // Among the rest, outermost only (an icon inside its button counts
+    // once). The control that gets pressed must itself be a pressable.
+    const PRESS = 'button, [role=button], a';
+    const INTERACTIVE = PRESS + ', [title], [aria-label], svg, [class*=icon], [class*=close]';
     const all = [...row.querySelectorAll(INTERACTIVE + ', [class*=action]')].filter(vis);
-    const isContainer = el => !el.matches(INTERACTIVE) && all.some(o => o !== el && el.contains(o));
+    const presses = all.filter(el => el.matches(PRESS));
+    const isContainer = el => presses.some(p => p !== el && el.contains(p));
     const cands = all.filter(el => !isContainer(el));
     const ctls = cands.filter(el => !cands.some(o => o !== el && o.contains(el)));
-    const desc = ctls.map(el => ({hint: hint(el).slice(0, 80), tag: el.tagName.toLowerCase(), box: box(el), html: snippet(el)}));
+    const desc = ctls.map(el => ({hint: hint(el).slice(0, 80), tag: el.tagName.toLowerCase(), pressable: el.matches(PRESS),
+                                  box: box(el), html: snippet(el)}));
     const closeIdx = ctls.map((el, i) => isClose(el) ? i : -1).filter(i => i >= 0);
     let why = null, chosen = null;
     if (!ctls.length) why = 'the row shows no control';
     else if (closeIdx.length !== 1) why = closeIdx.length + ' close-type controls in the row (need exactly 1)';
     else if (closeIdx[0] !== ctls.length - 1) why = 'the close-type control is not the LAST control of the row';
+    else if (!ctls[closeIdx[0]].matches(PRESS)) why = 'the close-type control is not a button (' + ctls[closeIdx[0]].tagName.toLowerCase() + ')';
     else {
       const c = ctls[closeIdx[0]], rb = row.getBoundingClientRect(), cb = c.getBoundingClientRect();
       const inRow = c.closest('tr') === row && cb.width > 0 && cb.height > 0
@@ -1687,6 +1709,24 @@ CLOSE_ROW_JS = r"""
   return {ok: false, why: 'unknown op'};
 }
 """
+
+
+def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
+    """The row controls' markup, bound for a PUBLIC log: through
+    ``redact_text`` (credential-shaped runs, e-mails), then digit runs of 5+,
+    hex / uuid runs of 8+ and data-*id values masked — a position id may be
+    any of those (review of #14216: a hex or UUID id survives ``\\d{5,}``).
+    The JS already masks; this is the belt on top of it."""
+    out: List[Dict[str, Any]] = []
+    for c in controls or []:
+        c = dict(c) if isinstance(c, Mapping) else {"hint": str(c)}
+        if c.get("html") is not None:
+            h = redact_text(str(c["html"]))
+            h = re.sub(r'(data-[\w-]*id[\w-]*=")[^"]*(")', r"\1#####\2", h, flags=re.I)
+            h = re.sub(r"[0-9a-f]{8,}", "########", re.sub(r"\d{5,}", "#####", h), flags=re.I)
+            c["html"] = h
+        out.append(c)
+    return out
 
 
 def parse_price(text: Optional[str]) -> Optional[float]:
@@ -2979,10 +3019,10 @@ class DXtradeAdapter(PropPlatformAdapter):
             return {"ok": False, "clicked": False, "why": f"hover / controls failed ({type(exc).__name__})", "row": facts}
         if not ctl.get("ok"):
             return {"ok": False, "clicked": False, "why": f"close control: {ctl.get('why')}", "row": facts,
-                    "controls": ctl.get("controls")}
+                    "controls": _mask_controls(ctl.get("controls"))}
         if not arm:
             return {"ok": True, "clicked": False, "why": "disarmed: stopped before the row's close control",
-                    "row": facts, "controls": ctl.get("controls"), "chosen": ctl.get("chosen")}
+                    "row": facts, "controls": _mask_controls(ctl.get("controls")), "chosen": ctl.get("chosen")}
         try:
             page.click("[data-metis-row-action]", timeout=5_000)
         except Exception as exc:
