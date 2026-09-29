@@ -1,0 +1,1 @@
+Tier-1 self-land: mandate_resolver three-outcome (FIRE/REFUSE/NEEDS-DATA) change. See .github/pr-landing/mandate-resolver-needs-data-13698.json.
