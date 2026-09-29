@@ -35,6 +35,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 DB_PATH="$(runtime_db_path)"
+# The order-identity rule reads the exchange-fills store. This wrapper runs from
+# a fresh SSH shell without DATA_DIR, so the python default resolves a
+# repo-relative runtime_state/ that does not exist and the rule silently turns
+# OFF (issue #14188, 2026-09-29: "order-identity rule: OFF (no fills store)",
+# 0 of the 223 planned Bybit relabels written). Pass the canonical path, the
+# same fix the fills-reading wrappers took for BL-20260717-FILLS-STORE-PATH-SPLIT.
+FILLS_DB="$(fills_store_path)"
 PY_SCRIPT="${REPO_DIR}/scripts/ops/backfill_exit_labels.py"
 
 if [ ! -f "${PY_SCRIPT}" ]; then
@@ -42,6 +49,10 @@ if [ ! -f "${PY_SCRIPT}" ]; then
     record_audit "backfill-exit-labels" "error" \
         "{\"reason\": \"helper missing\", \"path\": \"${PY_SCRIPT}\"}" >/dev/null || true
     exit 1
+fi
+if [ ! -f "${FILLS_DB}" ]; then
+    # Not fatal: the price rule still runs. But say it loudly, never silently.
+    log "WARNING: exchange-fills store not found at ${FILLS_DB} — the order-identity rule will be OFF this run."
 fi
 if [ ! -f "${DB_PATH}" ]; then
     log "ERROR: trade_journal.db not present at ${DB_PATH}."
@@ -86,7 +97,7 @@ log "Rows generic + unstamped (pre-backfill): ${pre}"
 echo
 echo "===== backfill_exit_labels.py (DRY-RUN plan) ====="
 set +e
-TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" --db "${DB_PATH}"
+TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" --db "${DB_PATH}" --fills-db "${FILLS_DB}"
 dry_code=$?
 set -e
 if [ "${dry_code}" -ne 0 ]; then
@@ -99,7 +110,7 @@ fi
 echo
 echo "===== backfill_exit_labels.py --apply (COMMIT) ====="
 set +e
-TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" --db "${DB_PATH}" --apply
+TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" --db "${DB_PATH}" --fills-db "${FILLS_DB}" --apply
 apply_code=$?
 set -e
 

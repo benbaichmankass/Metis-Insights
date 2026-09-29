@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01XpKxKGrnBP9u4xwL2hiWVs",
+  "branch": "claude/exit-cluster-backfill-fills-path",
+  "claimed_at": "2026-09-29T12:52:40Z",
+  "purpose": "EXIT-CLUSTER backfill wrapper fills path (hold; manager merges)"
+}

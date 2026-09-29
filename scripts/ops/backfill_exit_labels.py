@@ -403,10 +403,13 @@ def main(argv=None) -> int:
                 fdb = str(_fp) if _fp.exists() else None
             except Exception:  # noqa: BLE001
                 fdb = None
-        if fdb and fdb != "none":
+        if fdb and fdb != "none" and Path(fdb).exists():
             fills = sqlite3.connect(f"file:{fdb}?mode=ro", uri=True)
-        print(f"order-identity rule: {'ON ' + fdb if fills else 'OFF (no fills store)'}",
-              file=sys.stderr)
+        # stdout, not stderr: the action's comment-back captures stdout, and
+        # #14188 showed this line is the only thing that says the rule ran.
+        print(f"order-identity rule: "
+              f"{'ON ' + fdb if fills else 'OFF (no fills store at ' + str(fdb) + ')'}",
+              file=sys.stderr if a.json else sys.stdout)
         planned, stats = plan(conn, fills)
         if a.json:
             print(json.dumps({"stats": dict(stats), "planned": planned}, indent=1))
