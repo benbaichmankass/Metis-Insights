@@ -225,3 +225,15 @@ def test_a_fabricated_price_would_otherwise_have_been_labelled(tmp_path):
     """
     mod = _load_module()
     assert mod.classify("long", 89.0, 90.0, 110.0) == "sl"
+
+
+def test_wrapper_passes_the_canonical_fills_store_to_both_runs():
+    """Issue #14188 (2026-09-29): the wrapper ran without --fills-db, the python
+    default resolved a repo-relative runtime_state/ (no DATA_DIR in the SSH
+    shell), and the order-identity rule silently ran OFF. Both the dry run and
+    --apply must receive the `_lib.sh::fills_store_path` path."""
+    from pathlib import Path
+    src = Path("scripts/ops/backfill_exit_labels_action.sh").read_text()
+    assert 'FILLS_DB="$(fills_store_path)"' in src
+    runs = [ln for ln in src.splitlines() if 'python3 "${PY_SCRIPT}" --db' in ln]
+    assert len(runs) == 2 and all('--fills-db "${FILLS_DB}"' in ln for ln in runs)
