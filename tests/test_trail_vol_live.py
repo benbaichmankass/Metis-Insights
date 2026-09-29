@@ -14,6 +14,8 @@ Parity with the harness lever (tests/test_vol_conditional_trail_lever.py):
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pandas as pd
 
 from src.runtime.trail_vol import resolve_vol_trail_mult
@@ -85,4 +87,45 @@ def test_meta_overrides_cfg():
         {"trail_vol_below_pctl": 0.10, "trail_vol_tight_mult": 2.5,
          "vol_pctl_window": WIN, "atr_period": 14},
         {"trail_vol_tight_mult": 0.0}, _COLD_LAST, 5.0, "long")
+    assert out == 2.5
+
+
+def _df_with_timestamps(ranges, *, tf: str, forming_last: bool):
+    """Like ``_df`` above but with a real ``timestamp`` column so
+    ``drop_forming_bar`` can evaluate closedness. The bars step back from
+    NOW by one bar period each; the last bar's open is placed a few seconds
+    ago (still forming) or safely more than one bar period ago (closed)."""
+    tf_s = {"1h": 3600, "2h": 7200}[tf]
+    now = datetime.now(timezone.utc)
+    last_open = now - timedelta(seconds=5) if forming_last else now - timedelta(seconds=tf_s * 2)
+    opens = [last_open - timedelta(seconds=tf_s * (len(ranges) - 1 - i))
+             for i in range(len(ranges))]
+    rows = [{"timestamp": o, "high": 100 + r / 2, "low": 100 - r / 2, "close": 100.0}
+            for o, r in zip(opens, ranges)]
+    return pd.DataFrame(rows)
+
+
+def test_forming_last_bar_is_dropped_before_scoring():
+    # 200 baseline (mid-range) closed bars, then the TRUE last-closed bar
+    # (also mid-range — nowhere near the hot tail), then a still-forming bar
+    # with an extreme range that WOULD rank in the top decile if it were
+    # scored. If the forming bar leaked into the percentile calc (the bug
+    # this test guards), the lever fires; correctly dropped, it must not.
+    ranges = [5.0] * 200 + [5.0] + [50.0]  # closed(-2)=mid, forming(-1)=extreme
+    df = _df_with_timestamps(ranges, tf="2h", forming_last=True)
+    cfg = {"trail_vol_above_pctl": 0.90, "trail_vol_tight_mult": 2.5,
+           "vol_pctl_window": WIN, "atr_period": 14, "timeframe": "2h"}
+    out = resolve_vol_trail_mult({}, cfg, df, 5.0, "long")
+    assert out == 5.0  # forming bar dropped -> scores the mid-range closed bar -> no fire
+
+
+def test_closed_last_bar_is_not_dropped():
+    # Sibling control: an ALREADY-closed last bar with the same extreme
+    # range DOES fire — proves the guard trims only a genuinely forming bar,
+    # not the last row unconditionally.
+    ranges = [5.0] * 200 + [50.0]
+    df = _df_with_timestamps(ranges, tf="2h", forming_last=False)
+    cfg = {"trail_vol_above_pctl": 0.90, "trail_vol_tight_mult": 2.5,
+           "vol_pctl_window": WIN, "atr_period": 14, "timeframe": "2h"}
+    out = resolve_vol_trail_mult({}, cfg, df, 5.0, "long")
     assert out == 2.5

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "src/runtime/trail_vol.py is an order-path runtime module; fixes a forming-bar train/live skew in the vol_trail exit lever's ATR-percentile calc. Zero live-leg impact today (vol_trail is undeclared on every live leg), but the manager asked for this as a separate held PR blocking #14053 (declare vol_trail on ada_pullback_2h) -- needs one operator/manager OK per Tier-2 rules.",
+  "why": "src/runtime/trail_vol.py order-path change; Tier-2 by path per docs/CLAUDE-RULES-CANONICAL.md"
+}

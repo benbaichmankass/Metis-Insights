@@ -64,11 +64,16 @@ def resolve_vol_trail_mult(
 ) -> float:
     """Return the EFFECTIVE trail mult for this closed bar (base or tightened).
 
-    ``candles_df`` is the full closed-bar frame the monitor already holds; the
-    percentile is evaluated at its LAST row (the current closed bar). Composes
-    with :func:`src.runtime.trail_decay.resolve_trail_mult` via ``min`` — the
-    caller passes the possibly-decay-tightened mult as ``base_mult`` and the
-    tighter of the two wins, mirroring the harness ``_tm = min(_tm, tight)``.
+    ``candles_df`` is the frame the monitor already holds, WHICH MAY END ON A
+    STILL-FORMING BAR (the caller's fetch does not guarantee closed-only).
+    This function drops it itself (``src.runtime.closed_bars.drop_forming_bar``,
+    keyed on ``timeframe`` from ``meta``/``cfg_dict``) before computing
+    anything, so the percentile is evaluated at the last CLOSED row —
+    matching the harness, which only ever sees closed historical bars.
+    Composes with :func:`src.runtime.trail_decay.resolve_trail_mult` via
+    ``min`` — the caller passes the possibly-decay-tightened mult as
+    ``base_mult`` and the tighter of the two wins, mirroring the harness
+    ``_tm = min(_tm, tight)``.
     """
     try:
         def _pick(key: str) -> Any:
@@ -81,6 +86,26 @@ def resolve_vol_trail_mult(
         declared = tight is not None and tight > 0 and (above > 0.0 or below > 0.0)
         if not declared:
             return base_mult
+
+        # CLOSED BARS ONLY (train/live parity — the CA-B01 class,
+        # docs/claude/work/ audit 2026-09-27, src/runtime/closed_bars.py).
+        # `candles_df` as received here is whatever the caller's ``fetch_candles``
+        # returned, whose LAST row is the still-forming bar (unfixed call site;
+        # PI-20260929-EXITOPS-0005 files the sibling gap in the M21 entry
+        # vol-skip gate, which reads this same shape). The harness's ATR
+        # percentile is computed over ONLY closed historical bars — a forming
+        # bar's partial high/low/close would distort the ATR value the
+        # percentile ranks, which is exactly the skew #6207 / CA-B01 name.
+        # Trim before ANYTHING is computed off `candles_df` so the window-size
+        # check below also reflects the trimmed frame.
+        try:
+            from src.runtime.closed_bars import drop_forming_bar
+
+            timeframe = str(_pick("timeframe") or "")
+            if timeframe:
+                candles_df = drop_forming_bar(candles_df, timeframe)
+        except Exception:  # noqa: BLE001 — trimming must never break the lever
+            pass
 
         try:
             win = int(_pick("vol_pctl_window") or _DEFAULT_WINDOW)
