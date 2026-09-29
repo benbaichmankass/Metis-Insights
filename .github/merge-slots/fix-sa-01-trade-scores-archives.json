@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01DZkP4Jj9JNSsxhGFZEyjmM",
+  "branch": "claude/fix-sa-01-trade-scores-archives",
+  "claimed_at": "2026-09-29T12:06:41Z",
+  "purpose": "SA-AUD-4 trade_scores reads rotated archives (PR B)"
+}
