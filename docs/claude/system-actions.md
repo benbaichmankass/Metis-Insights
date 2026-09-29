@@ -1064,3 +1064,29 @@ needs a new allowlist entry today:
 - `scripts/ops/*.sh` — wrapper scripts (one per action).
 - `tests/ops/` — workflow + script validation.
 
+---
+
+## OCI-API actions (separate workflows, not this allowlist)
+
+The allowlist above runs wrapper scripts **on the live VM over SSH**. Actions
+that call the **OCI API** instead run in their own label-triggered workflows.
+They use the `OCI_CLI_*` secrets and never SSH to the live VM, and each keeps
+its guards in a tested script:
+
+| Workflow (label) | Tier | Script | Mutates? |
+|---|---|---|---|
+| `trainer-boot-volume.yml` (`trainer-boot-volume`) | 1 measure / 2 resize | `scripts/ops/oci_trainer_boot_volume.py` | resize: grows the TRAINER boot volume only (pinned OCID; refused past Always Free 200 GB) |
+| `oci-retire-orphan-volume.yml` (`oci-retire-orphan-volume`) | 1 plan / 2 execute | `scripts/ops/oci_retire_orphan_volume.py` | execute: FULL backup of `ict-bot-data-vol` (must reach AVAILABLE), then **deletes that volume** |
+
+`oci-retire-orphan-volume` exists for ONE operator decision (2026-09-29, "Back up,
+then delete (Recommended)", PI-20260929-CMXYTHSP-0002). How it finds and checks
+the target:
+- It matches the volume by name, size and its immutable `time_created`, and
+  exactly one volume may match.
+- `execute` also needs the OCID that `plan` printed, echoed back as `volume_id`.
+- It refuses if the volume has any attachment record in any state, or if the
+  attachment listing errors.
+- It refuses, and does not delete, if the backup does not reach AVAILABLE.
+- It re-checks attachments right before the delete.
+- Tests: `tests/ops/test_oci_retire_orphan_volume.py`.
+
