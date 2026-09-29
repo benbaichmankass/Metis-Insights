@@ -106,6 +106,13 @@ jobs:
             > /tmp/bybit.json || echo '{"accounts":[]}' > /tmp/bybit.json
           bash scripts/ops/diag_fetch.sh 'bybit_wallet_truth?account_id=bybit_2&days=90' \
             > /tmp/bybit_wt.json || echo '{"accounts":[]}' > /tmp/bybit_wt.json
+          # Raw trades rows (setup_type/notes) — /trades/closed carries
+          # neither, so this is how a NULL-pnl intent_reduce leg (pnl
+          # deferred by design) is told apart from a real unknown. A failed
+          # read writes nothing, and the detector then reports every NULL-pnl
+          # row as could_not_look (reduce_leg_read: unavailable).
+          bash scripts/ops/diag_fetch.sh 'journal?table=trades&limit=1000' \
+            > /tmp/j_trades_raw.json || rm -f /tmp/j_trades_raw.json
 
           for f in /tmp/j_positions.json /tmp/j_closed.json /tmp/prop_status.json /tmp/prop_fills.json; do
             if [ ! -s "$f" ]; then
@@ -119,8 +126,13 @@ jobs:
         id: reconcile
         run: |
           set -uo pipefail
+          RAW_ARG=""
+          if [ -s /tmp/j_trades_raw.json ]; then
+            RAW_ARG="--journal-trades-raw-json /tmp/j_trades_raw.json"
+          fi
           ARGS="--journal-positions-json /tmp/j_positions.json \
                 --journal-closed-json /tmp/j_closed.json \
+                $RAW_ARG \
                 --alpaca-broker-json /tmp/alpaca.json \
                 --bybit-broker-json /tmp/bybit.json \
                 --bybit-wallet-truth-json /tmp/bybit_wt.json \

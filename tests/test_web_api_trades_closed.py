@@ -99,8 +99,6 @@ def test_returns_closed_trade_with_full_shape(db, client):
         # seed account here is the divergent one
         # (BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER).
         "journalTrust": "known_divergent",
-        # a real strategy setup_type (NULL here) is not a reduce leg
-        "isReduceLeg": False,
     }
 
 
@@ -669,29 +667,3 @@ def test_pnl_provenance_null_when_pnl_null(db, client):
     rows = client.get("/api/bot/trades/closed").json()
     assert rows[0]["realizedPnl"] is None
     assert rows[0]["pnlProvenance"] is None
-
-
-def test_reduce_leg_is_flagged_on_the_wire(db, client):
-    """Trade 5702's real shape (issue #14113): the intent_reduce audit row
-    ``execute.py`` writes — setup_type='intent_reduce', exit_reason
-    'intent_reduce_executed', pnl NULL, notes pnl_source
-    'deferred_intent_reduce'. The wire must say ``isReduceLeg: true`` so a
-    consumer can drop it before treating NULL pnl as "could not look"."""
-    _insert_trade(
-        db, timestamp="2026-09-11T20:02:01Z", symbol="ETHUSDT",
-        direction="short", entry_price=2500.0, position_size=0.01,
-        setup_type="intent_reduce", exit_reason="intent_reduce_executed",
-        pnl=None, status="closed", closed_at="2026-09-11T20:02:01Z",
-        is_backtest=0, strategy_name="eth_pullback_2h", account_id="bybit_2",
-        notes=json.dumps({"pnl_source": "deferred_intent_reduce"}),
-    )
-    _insert_trade(
-        db, timestamp="2026-09-13T08:00:00Z", symbol="ETHUSDT",
-        direction="long", entry_price=2550.0, exit_price=2502.42,
-        position_size=0.03, exit_reason="sl", pnl=-2.8395, status="closed",
-        closed_at="2026-09-13T08:31:31Z", is_backtest=0,
-        strategy_name="trend_donchian_eth_4h", account_id="bybit_2",
-    )
-    body = client.get("/api/bot/trades/closed?account_id=bybit_2").json()
-    by_pnl = {r["realizedPnl"]: r["isReduceLeg"] for r in body}
-    assert by_pnl == {None: True, -2.8395: False}

@@ -41,7 +41,7 @@ def client(tmp_path, monkeypatch):
             pnl_percent REAL, status TEXT, notes TEXT, is_backtest INTEGER,
             strategy_name TEXT, account_id TEXT, is_demo INTEGER,
             account_class TEXT, closed_at TEXT, exit_reason TEXT,
-            reconcile_status TEXT, setup_type TEXT
+            reconcile_status TEXT
         );
         CREATE TABLE order_packages (
             order_package_id TEXT PRIMARY KEY, linked_trade_id INTEGER,
