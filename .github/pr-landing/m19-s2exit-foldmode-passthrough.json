@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Forwards --fold-mode from scripts/research/m20_exit_head_round.py to scripts/ml/train_exit_head.py (which already accepts it), pre-flighted like --fold-offset and stamped on _round_meta and every evidence row, plus a test. scripts/research/** and tests/** are on TIER1_SURFACE. Offline research tooling; default behaviour is unchanged when the flag is omitted. No config/, src/, deploy/ or order-path file touched, no roster/mode/registry/VM change."
+}
