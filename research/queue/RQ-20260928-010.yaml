@@ -128,19 +128,28 @@ routing:
     RQ-20260928-009.
 
 run:
-  workflow: '.github/workflows/macro-valuation-backfill.yml (needs --fee-frac/--carry-frac-per-day inputs added first, writing to a NEW path — see design.workflow_change_needed)'
+  workflow: .github/workflows/macro-valuation-backfill.yml
   inputs:
     research_unit: RQ-20260928-010
     label_trigger: macro-valuation-backfill-now
+    fee_frac: 'NOT YET DECIDED -- see design.cost_figure'
+    carry_frac_per_day: 'NOT YET DECIDED -- see design.cost_figure'
     note: >-
-      Not dispatched this session: this sandbox verified it cannot itself
-      fetch Yahoo/Stooq candles (network fetch failed here — stooq connection
-      reset, no yfinance installed), and the workflow change needed to avoid
-      overwriting the CAA05-0003 baseline was judged too large to also land
-      and validate in this turn's remaining budget. Left `queued`, not
-      `blocked`, because nothing genuinely prevents it — the next session
-      with room should add the two inputs + new output path, decide the cost
-      figure, and dispatch via the existing label trigger.
+      design.workflow_change_needed CLEARED and OBSERVED 2026-09-29: PR
+      #14043 (merged c61f13d6, verified on origin/main this session via
+      `git show origin/main:.github/workflows/macro-valuation-backfill.yml`)
+      added the fee_frac/carry_frac_per_day workflow_dispatch inputs and
+      routes a nonzero-cost run's scorecard to
+      comms/macro/thesis_p4_scorecard_realistic_cost.json, landed alongside
+      (never overwriting) the zero-cost comms/macro/thesis_p4_scorecard.json
+      baseline -- the workflow can now run this unit without risk to the
+      CAA05-0003 baseline. STILL NOT DISPATCHED: design.cost_figure (a
+      debit-vertical round-trip options cost for the alpaca_options_paper
+      venue) remains undecided -- this run must not silently reuse an
+      equity-style fee_frac guess. Next session: pull Alpaca's actual
+      options commission schedule + a representative bid/ask width for the
+      5-symbol universe (or a clearly-labeled conservative proxy, stated as
+      such), then dispatch via the label trigger with the decided figure.
 
 lands:
   store: comms/macro/thesis_p4_scorecard_realistic_cost.json
