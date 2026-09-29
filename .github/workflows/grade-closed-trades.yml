@@ -171,10 +171,10 @@ jobs:
           for line in open(scores, encoding="utf-8"):
               try:
                   t = json.loads(line).get("linked_trade_id")
-              except (ValueError, AttributeError):
+                  if t is not None:
+                      have.add(int(t))
+              except (ValueError, TypeError, AttributeError):
                   continue
-              if t is not None:
-                  have.add(int(t))
           new = [r for r in rows if int(r["linked_trade_id"]) not in have]
           by_acct = {}
           for r in new:
