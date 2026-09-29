@@ -12,6 +12,13 @@ on:
   issues:
     types: [opened]
 
+# FIX-SA-13 (audit 2026-09-29): least privilege. Every step read: the only
+# GitHub API use is actions/github-script issues.createComment / issues.update,
+# so `issues: write` is needed and nothing else (no checkout, no push, no PR).
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   test-alpaca-from-vm:
     if: |

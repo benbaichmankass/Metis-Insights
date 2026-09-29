@@ -3226,7 +3226,7 @@
       "title": "Independent AI trader: build stage S1 offline per the R-M19 design",
       "phase": "W6",
       "state": "in_flight",
-      "owner": "manager",
+      "owner": "research lane",
       "lane": "session_01TR74tvLR2AjCzrJMeBs47A",
       "model": "claude-sonnet-5",
       "ceiling_usd": null,
@@ -3237,7 +3237,7 @@
         14085
       ],
       "blocked_on": [],
-      "note": "[2026-09-29T09:40Z manager] Priority 3. Offline only; no order path. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260928-002 (S1-v0) FAILED: row-only veto d=-0.0502 (perm_p 0.996), confidence-only -0.0101 (0.665) -- first of two nulls the S1 exhaustion condition needs, not a kill. #14042 HELD for manager review (queue-file edits exceed STAMP_ONLY_SURFACE). #14085 (Tier-1 harness extension, self-land). Next: RQ-20260928-003 market-state veto on the trainer. H1 queue-health failure routed to RQ-RUN. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14042 (S1-v0 fail result) reviewed + auto-merge armed."
+      "note": "[2026-09-29T09:40Z manager] Priority 3. Offline only; no order path. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260928-002 (S1-v0) FAILED: row-only veto d=-0.0502 (perm_p 0.996), confidence-only -0.0101 (0.665) -- first of two nulls the S1 exhaustion condition needs, not a kill. #14042 HELD for manager review (queue-file edits exceed STAMP_ONLY_SURFACE). #14085 (Tier-1 harness extension, self-land). Next: RQ-20260928-003 market-state veto on the trainer. H1 queue-health failure routed to RQ-RUN (filed by the M19-S1 lane as PI-20260929-JMEBS47A-0001, due 2026-10-02). || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14042 (S1-v0 fail result) reviewed + auto-merge armed."
     },
     {
       "id": "NEW-STRAT",
