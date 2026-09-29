@@ -56,12 +56,30 @@ CORPUS = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
 # `EXPECTED_OWN_LEVER_DROPPED` (41) and the ten zero-delta rows are both unmoved,
 # which is the check that the corpus grew without disturbing the finding's
 # own population.
+#
+# RE-MEASURED 2026-09-29 when the corpus grew 1376 -> 1379: three
+# `spy_pullback_1h`/`vol_trail` rows (vt_hot90_t2.5, vt_hot80_t2.5,
+# vt_cold10_t2.5; run_id 2026-09-28T14:16:04.794618Z) landed via
+# `scripts/research/m20_corpus_union.py`, resolving a coverage-matrix
+# misclassification (the cell read `passed_unshipped` off a leg-level
+# "passing_cells" summary that only meant the weaker `candidate`/IS-OOS
+# stage; the per-cell verdict was `wf_fail` on all three independent
+# measurements of it, corrected to `honest_negative`). All three rows'
+# `declared_levers_present`/`declared_levers_dropped` are `[]` (vol_trail is
+# undeclared on every live leg), so they grade `lever_absent_from_baseline`
+# -- the +3 lands entirely in that bucket (474 -> 477); `lever_in_baseline`
+# (61), `unknown` (841) and `EXPECTED_OWN_LEVER_DROPPED` (41) are all
+# unmoved. NOTE: this correction and the 2026-09-29 `ada_pullback_2h`
+# correction (1376 -> 1377, PR #14053, still unmerged at the time this was
+# written) both grow the SAME baseline independently -- whichever merges
+# second needs a rebase and a re-measured total, not a naive sum of the two
+# deltas, since a merge can itself deduplicate or reorder rows.
 EXPECTED_PARTITION = {
     "lever_in_baseline": 61,
-    "lever_absent_from_baseline": 474,
+    "lever_absent_from_baseline": 477,
     "unknown": 841,
 }
-EXPECTED_TOTAL = 1376
+EXPECTED_TOTAL = 1379
 # Rows where the row's own lever was DROPPED — the population the naive
 # predicate gets wrong, and the reason `dropped` is consulted first.
 EXPECTED_OWN_LEVER_DROPPED = 41
