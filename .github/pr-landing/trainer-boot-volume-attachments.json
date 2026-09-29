@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager instruction (operator's channel), 2026-09-29 16:00Z: 'Any change needs a Tier-1 claude/ PR, which I review.' The manager merges after review.",
+  "why": "Read-only observability for PI-20260929-CMXYTHSP-0002. oci_trainer_boot_volume.py measure mode now reports each block volume's attachments (instance, state, type, device), time_created, volume group and backup policy. status_check.sh (the Tier-1 status-check system-action) gains a read-only storage section: findmnt --target /data/bot-data, df, lsblk and fstab. No mutation, no detach, no delete."
+}
