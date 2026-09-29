@@ -287,7 +287,8 @@ def analyze_exit_head(
     policy_delta_r: List[float] = []
     imp_drop: Dict[str, List[float]] = {c: [] for c in feats}
 
-    for train_idx, test_idx in folds:
+    policy_by_fold: List[Dict[str, Any]] = []
+    for fold_pos, (train_idx, test_idx) in enumerate(folds):
         xt = _np.array([[float(usable[i][c]) for c in feats] for i in train_idx])
         yt = _np.array([float(usable[i]["label_hold"]) for i in train_idx])
         advt = _np.array([float(usable[i].get("advantage_r") or 0.0) for i in train_idx])
@@ -326,17 +327,23 @@ def analyze_exit_head(
                 r2_folds.append(1.0 - ss_res / ss_tot)
 
         # ---- net-of-fee exit-policy sim (per test trade) ----
+        n_before = len(policy_delta_r)
         _policy_sim(
             usable, test_idx, beta, mu, sd, feats,
             exit_threshold, exit_fee_r,
             policy_head_r, policy_base_r, policy_delta_r,
             cost_bps=cost_bps, exit_fee_bps=exit_fee_bps,
         )
+        policy_by_fold.append(_fold_policy_entry(
+            fold_pos, len(folds), policy_delta_r[n_before:]))
 
     report["regression"] = _summarize_regression(auc_folds, r2_folds, imp_drop, feats)
     report["exit_policy"] = _summarize_policy(
         policy_head_r, policy_base_r, policy_delta_r, n_trials=n_trials
     )
+    if report["exit_policy"].get("computed"):
+        report["exit_policy"]["by_fold"] = policy_by_fold
+        report["exit_policy"]["final_fold"] = _final_fold_entry(policy_by_fold)
     report["verdict"] = _verdict(report)
     return report
 
@@ -393,6 +400,35 @@ def _policy_sim(usable, test_idx, beta, mu, sd, feats, threshold, fee_r,
         head_r.append(realized)
         base_r.append(base)
         delta_r.append(realized - base)
+
+
+def _fold_policy_entry(fold_pos: int, n_folds_total: int,
+                       deltas: Sequence[float]) -> Dict[str, Any]:
+    """One fold's paired exit-policy result: n and recovered R (sum of head-minus-baseline).
+
+    ``is_last_block`` marks the fold that tests the LATEST time block (trained only
+    on everything earlier) — the slice RQ-20260928-005's rule registers.
+    """
+    return {
+        "fold": fold_pos,
+        "is_last_block": fold_pos == n_folds_total - 1,
+        "n_oos": len(deltas),
+        "recovered_r": round(float(sum(deltas)), 4),
+        "mean_net_r_improvement": (round(float(sum(deltas)) / len(deltas), 4)
+                                   if deltas else None),
+    }
+
+
+def _final_fold_entry(by_fold: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """The last-block fold's entry, or an explicit not-computed state.
+
+    A last block that was skipped (single-class train labels, no fit) must read
+    as not scored, never as the previous fold standing in for it.
+    """
+    for e in by_fold:
+        if e.get("is_last_block"):
+            return dict(e, computed=True)
+    return {"computed": False, "reason": "last time block produced no scored fold"}
 
 
 def _summarize_regression(auc_folds, r2_folds, imp_drop, feats) -> Dict[str, Any]:  # inert: feats — the ranked importance is keyed off imp_drop, which already carries the feature names; feats is redundant
