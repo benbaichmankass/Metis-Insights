@@ -104,6 +104,10 @@ One line. Not a list of everything outstanding — **the first thing**, and the
 reason it is first. A successor that has to re-derive the ordering will pick
 differently, and the ordering usually encodes something you learned.
 
+**If you are the manager**, also confirm every finished lane is archived
+per `.claude/skills/manager/SKILL.md` § "Archive protocol" — closing finished
+sessions is the manager's job, never the operator's.
+
 ---
 
 ## Stopping early is legitimate. It is a HANDOFF, not a completion.

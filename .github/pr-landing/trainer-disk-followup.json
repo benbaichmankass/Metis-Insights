@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs/register only: two new pipeline records filed via scripts/ops/pipeline.py (append-only files under docs/claude/work/pipeline/). No runtime, config, order path or workflow touched."
+}
