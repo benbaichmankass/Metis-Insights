@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-29T16:10:00Z",
+  "updated_at": "2026-09-29T17:00:00Z",
   "updated_by": "session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -2533,16 +2533,18 @@
       "id": "P2",
       "title": "Prop-candidate-search lane (breakout_1): candidates ONLY from the Breakout symbols list",
       "phase": "P",
-      "state": "in_flight",
+      "state": "queued",
       "owner": "research lane",
       "lane": "session_017iooKr4neXBffsffxbdWY9",
       "model": "claude-sonnet-5",
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        14049
+      ],
       "blocked_on": [],
-      "note": "FIRST TRACKING ROW for the wave-6 \"P2 prop candidate search, crypto on Breakout\" lane -- dispatched per the operator's wave-6 launch decision already recorded on row R4 (\"launch WAVE 6 now... P2 prop candidate search, crypto on Breakout\"), but no distinct checklist row existed for it before this PR (checked: grep of this file for P1/P1b/P2 as an `id` before this edit returns nothing). OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D5), verbatim, in response to breakout_1/iaum_pullback_1d being evaluated as a drop candidate on an account it was never tradable on: \"Why was it even checked if it can't be traded? We are only supposed to checking candidates from the symbols list I gave you.\" STANDING CONSTRAINT recorded by this row: every prop-candidate this lane (or any breakout_1/prop-account candidate search) considers must come ONLY from https://www.breakoutprop.com/symbols/. This does not reopen or dispute RQ-20260827-001's own finding that breakout_1 should drop iaum_pullback_1d (p_profitable=0.0647, EV -$3.65/trade, gld_compat) -- that specific drop stands. The operator's point is upstream of it: a candidate should never have been scoped or evaluated at all if it is not on the approved, tradable symbols list. Documentation-only PR; no candidate-list code or scoping logic changed here -- the dispatching/continuing session must apply the constraint going forward and should update this row's `lane`/`prs` once it has a session id.\n[2026-09-29T09:40Z manager] Dispatched: Breakout candidate search, Breakout-listed symbols x corpus strategies, net of cost; ranked shortlist + held roster PR only if a pre-registered rule clears. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged."
+      "note": "FIRST TRACKING ROW for the wave-6 \"P2 prop candidate search, crypto on Breakout\" lane -- dispatched per the operator's wave-6 launch decision already recorded on row R4 (\"launch WAVE 6 now... P2 prop candidate search, crypto on Breakout\"), but no distinct checklist row existed for it before this PR (checked: grep of this file for P1/P1b/P2 as an `id` before this edit returns nothing). OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D5), verbatim, in response to breakout_1/iaum_pullback_1d being evaluated as a drop candidate on an account it was never tradable on: \"Why was it even checked if it can't be traded? We are only supposed to checking candidates from the symbols list I gave you.\" STANDING CONSTRAINT recorded by this row: every prop-candidate this lane (or any breakout_1/prop-account candidate search) considers must come ONLY from https://www.breakoutprop.com/symbols/. This does not reopen or dispute RQ-20260827-001's own finding that breakout_1 should drop iaum_pullback_1d (p_profitable=0.0647, EV -$3.65/trade, gld_compat) -- that specific drop stands. The operator's point is upstream of it: a candidate should never have been scoped or evaluated at all if it is not on the approved, tradable symbols list. Documentation-only PR; no candidate-list code or scoping logic changed here -- the dispatching/continuing session must apply the constraint going forward and should update this row's `lane`/`prs` once it has a session id.\n[2026-09-29T09:40Z manager] Dispatched: Breakout candidate search, Breakout-listed symbols x corpus strategies, net of cost; ranked shortlist + held roster PR only if a pre-registered rule clears. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived 2026-09-29; the row's prs was empty. #14049 is on main (merge c5a5caaa; branch claude/p2-prop-fit-breakout-gap-units): it pre-registered RQ-20260929-043..060 and graded some of them with zero passes. By status field, 8 of those 18 units are done (044,045,047,048,050,051,053,054) and 10 are still queued (043,046,049,052,055..060). No ranked shortlist is recorded and no roster PR exists. Needs re-dispatch to grade the rest and produce the shortlist, or an explicit drop."
     },
     {
       "id": "P1b",
@@ -2976,16 +2978,19 @@
     {
       "title": "M28 re-shape via research: wire-and-rescore + reshaped-thesis units",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "queued",
       "owner": "research lane",
       "lane": "session_015JePcaHfBSBVrcGyu2QtAo",
       "model": "claude-sonnet-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        14043,
+        14046
+      ],
       "blocked_on": [],
-      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Re-shape via research (Recommended)\". Basis: comms/macro/thesis_p4_scorecard.json n=1,104, 2005-2026, zero cost: calibration_rank -0.0037, edge_vs_baseline -0.0047; P2 event join never wired (PI-20260927-CAA05-0002). Offline harness only; M29 dormant until it reads out.\n[2026-09-29T09:40Z manager] Resumed on the standing RESEARCH lane. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14043 (self-land, workflow land-step fix) and #14046 (held: RQ-20260929-001 scoping unit, verdict NOT_YET) open.",
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Re-shape via research (Recommended)\". Basis: comms/macro/thesis_p4_scorecard.json n=1,104, 2005-2026, zero cost: calibration_rank -0.0037, edge_vs_baseline -0.0047; P2 event join never wired (PI-20260927-CAA05-0002). Offline harness only; M29 dormant until it reads out.\n[2026-09-29T09:40Z manager] Resumed on the standing RESEARCH lane. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14043 (self-land, workflow land-step fix) and #14046 (held: RQ-20260929-001 scoping unit, verdict NOT_YET) open. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived 2026-09-29. On main: #14043 c61f13d6 and #14046 (merge 316efffe). The scoping unit RQ-20260929-001 is status done, verdict NOT_YET: band-restriction does not clear the naive baseline. The re-shape itself is not done. RQ-20260928-010 (realistic-cost P4 rescore) is queued. RQ-20260928-009 (event-wired rescore) is in research/queue/blocked because the thesis_backtest_run.py / build_replay_entries events argument is not built. Needs re-dispatch or explicit drop.",
       "id": "MACRO-RESHAPE"
     },
     {
@@ -3245,7 +3250,7 @@
       "id": "NEW-STRAT",
       "title": "Disposition graded research results; Stage-0 for passes; >=10 new pre-registered units",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "manager",
       "lane": "session_01AT3PLEoboqj3jkyggMzWk7",
       "model": "claude-sonnet-5",
@@ -3256,7 +3261,7 @@
         14070
       ],
       "blocked_on": [],
-      "note": "[2026-09-29T09:40Z manager] Priority 4. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14070 draft held: disposition RQ-20260928-018 underpowered; PI-20260929-YGGMZWK7-0001..0004; 10 new pre-registered units RQ-20260929-101..110. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14070 still draft; guards red (no pr-landing file). Sent back."
+      "note": "[2026-09-29T09:40Z manager] Priority 4. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14070 draft held: disposition RQ-20260928-018 underpowered; PI-20260929-YGGMZWK7-0001..0004; 10 new pre-registered units RQ-20260929-101..110. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14070 still draft; guards red (no pr-landing file). Sent back. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14070 on main as 16b47412. The deliverable is the records, and I observed them on main: 10 new pre-registered units, RQ-20260929-101..108 in research/queue (status queued) and 109..110 in research/queue/blocked. The PASS dispositions are filed as PI-20260929-YGGMZWK7-0001..0004 (queued), and their Stage-0 runs are carried there, not by this row."
     },
     {
       "id": "PROP-ETH",
@@ -3312,7 +3317,7 @@
       "id": "RQ-RUN",
       "title": "Token-free research execution: generic runner workflow + grade the ran-but-ungraded units; queue replenish (E58 self-land, e35 serialization)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane",
       "lane": "session_0179hCBVrY5PJMaHhK3BKcKe",
       "model": "claude-fable-5-1",
@@ -3324,7 +3329,7 @@
         14098
       ],
       "blocked_on": [],
-      "note": "2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): FIRST ROW for this lane -- it was dispatched by session_01KAQRJxRbRwpYTkPgBjNVyQ (tag manager:session_01KAQRJxRbRwpYTkPgBjNVyQ) with no checklist row. Ceiling was not recorded on the register (UNKNOWN; asked of the previous manager). Handoff trigger fired, returned the lane's own cse_ id. Replenish #13950 closed unmerged 09:33Z; successor auto PR #14035 open (CI re-running at read time). || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling set $200 (running spend $159.55 at 09:56Z per the previous manager's get_session read; the lane had none recorded). Above that, read its output, then kill or re-scope. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): routed 10:07Z: check_research_queue_health H1 fails on main (runnable 8/58 < 25) -- starved queue vs threshold miscalibrated by #13952's 'runnable' redefinition; land #14035. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14098 MERGED 00711bf (H1: genuinely short 8/58<25 AND alarm miscalibrated in cadence; fillable H1 now dispatches replenish instead of paging; 25 unchanged). Running $170.15 of $200 at 10:50Z. #14035 closed unmerged earlier. Held #14011/#14041 still to review."
+      "note": "2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): FIRST ROW for this lane -- it was dispatched by session_01KAQRJxRbRwpYTkPgBjNVyQ (tag manager:session_01KAQRJxRbRwpYTkPgBjNVyQ) with no checklist row. Ceiling was not recorded on the register (UNKNOWN; asked of the previous manager). Handoff trigger fired, returned the lane's own cse_ id. Replenish #13950 closed unmerged 09:33Z; successor auto PR #14035 open (CI re-running at read time). || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling set $200 (running spend $159.55 at 09:56Z per the previous manager's get_session read; the lane had none recorded). Above that, read its output, then kill or re-scope. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): routed 10:07Z: check_research_queue_health H1 fails on main (runnable 8/58 < 25) -- starved queue vs threshold miscalibrated by #13952's 'runnable' redefinition; land #14035. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14098 MERGED 00711bf (H1: genuinely short 8/58<25 AND alarm miscalibrated in cadence; fillable H1 now dispatches replenish instead of paging; 25 unchanged). Running $170.15 of $200 at 10:50Z. #14035 closed unmerged earlier. Held #14011/#14041 still to review. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived (ended at its $200 ceiling per #14199). On main: #14098 (merge 00711bf6), #14011 bf03c359, #14041 c96649e3, #14199 613427c4. #14035 is not on main; the earlier note says it was closed unmerged. Partly observed: the first post-#14011 dispatcher cycle (run 36571325087) fired 3 units. Still owed, per PI-20260929-RQRUN-CLOSEOUT-0001 (queued): the backpressure line of that cycle and one post-#14041 cycle. Closes when that record clears."
     },
     {
       "id": "ML-REVIEW",
@@ -3414,7 +3419,7 @@
       "id": "EXIT-CLUSTER",
       "title": "Why do live closes land as exchange_flat_reconciled instead of sl/tp/strategy-close? Root-cause (labelling gap vs real protection failure) and fix",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "fix lane",
       "lane": "session_01XpKxKGrnBP9u4xwL2hiWVs",
       "model": "claude-opus-5-5",
@@ -3427,7 +3432,7 @@
         14214
       ],
       "blocked_on": [],
-      "note": "2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): raised by DECIDE-AUTO: slv_trend_1h's 2026-08-24 demotion closed all 6 packages via exchange_flat_reconciled. Existing filing PI-20260924-BOFCWBO7-0001 (queued, unrouted): 4 of 5 alpaca_live-leg closes on alpaca_paper to 2026-09-24 were exchange_flat_reconciled. Session contract: any close not TP/SL/strategy-close is a bug to fix. Opus: close-reason / reconciler path on real-money accounts. Fresh session. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): also owns audit FIX-SA-02 (bybit_2 venue SL fills journaled reconciler_filled/netting_attributed; 7/11 real-money closes carry no TP/SL/strategy reason). Lane BLOCKED at 10:50Z on a permission prompt -- operator click. Running $7.95. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): report 11:42Z: LABELLING, not protection (1,191 closed trades since 07-31; 64/77 exchange_flat_reconciled exit within 10 bps of pkg SL/TP; bybit_2 20/26 reconciler closes filled on the trade's own sl/tp order). #14106 (Tier 2, hold): label-only sweep keyed on venue order id / 10 bps price, notes-cap fix; never writes pnl/exit_price. Independent review REVIEW-14106 dispatched; manager merges on MERGE + green. Backfill (backfill-exit-labels, dry run 284 rows) NOT run -- separate Tier-2 step after merge. Unpriced bybit_2 close (#14113) = trade 5702 reduce leg, by design -> RECON-REDUCE. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14194 merged (eb78e8d), deployed 13:23Z; backfill #14211: order-identity rule ON, 166 relabels (223 planned - 57 already swept), 0 pnl/exit_price/pnl_percent changes. NEW-close observation still owed (PI-20260929-WL2HIWVS-0003, #14214)."
+      "note": "2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): raised by DECIDE-AUTO: slv_trend_1h's 2026-08-24 demotion closed all 6 packages via exchange_flat_reconciled. Existing filing PI-20260924-BOFCWBO7-0001 (queued, unrouted): 4 of 5 alpaca_live-leg closes on alpaca_paper to 2026-09-24 were exchange_flat_reconciled. Session contract: any close not TP/SL/strategy-close is a bug to fix. Opus: close-reason / reconciler path on real-money accounts. Fresh session. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): also owns audit FIX-SA-02 (bybit_2 venue SL fills journaled reconciler_filled/netting_attributed; 7/11 real-money closes carry no TP/SL/strategy reason). Lane BLOCKED at 10:50Z on a permission prompt -- operator click. Running $7.95. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): report 11:42Z: LABELLING, not protection (1,191 closed trades since 07-31; 64/77 exchange_flat_reconciled exit within 10 bps of pkg SL/TP; bybit_2 20/26 reconciler closes filled on the trade's own sl/tp order). #14106 (Tier 2, hold): label-only sweep keyed on venue order id / 10 bps price, notes-cap fix; never writes pnl/exit_price. Independent review REVIEW-14106 dispatched; manager merges on MERGE + green. Backfill (backfill-exit-labels, dry run 284 rows) NOT run -- separate Tier-2 step after merge. Unpriced bybit_2 close (#14113) = trade 5702 reduce leg, by design -> RECON-REDUCE. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14194 merged (eb78e8d), deployed 13:23Z; backfill #14211: order-identity rule ON, 166 relabels (223 planned - 57 already swept), 0 pnl/exit_price/pnl_percent changes. NEW-close observation still owed (PI-20260929-WL2HIWVS-0003, #14214). 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. All 3 PRs are on main: #14106 89e71a5b, #14194 eb78e8db, #14214 8c2ea82e. The backfill half is observed (#14211: 166 relabels, 0 money changes). The NEW-close half is not: PI-20260929-WL2HIWVS-0003 is still queued. Closes when a close with closed_at >= 2026-09-29T12:50Z reads sl|tp with notes.pre_label_exit_reason set, as that record's clears_when states."
     },
     {
       "id": "FIX-SA-03",
@@ -3489,22 +3494,25 @@
       "id": "RECON-REDUCE",
       "title": "account-broker-reconcile excludes deferred-pnl reduce legs (issue #14113), then re-run the bybit_2 journal-vs-broker P&L comparison",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_01PKaAcoDPsdP7brPxGmJyTX",
       "model": "claude-opus-5-5",
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        14183,
+        14232
+      ],
       "blocked_on": [],
-      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RECON lane archived; reuse src/web/api/_clean_trades.exclude_reduce_leg_predicate, never a second predicate; other NULL-pnl rows stay could_not_look."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RECON lane archived; reuse src/web/api/_clean_trades.exclude_reduce_leg_predicate, never a second predicate; other NULL-pnl rows stay could_not_look. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14183 on main as 08a52c74 (account_broker_reconcile excludes intent_reduce legs; reads realizedPnl before the NULL-pnl refusal). The related #14232 is 647d2d19. The re-run of the bybit_2 journal-vs-broker comparison is NOT recorded as observed. PI-20260929-PXGMJYTX-0001 (queued, due 2026-10-02) says that comparison sets two different windows against each other (last-20 closes vs days=90), so any agree/divergent result is not a finding until the windows match. Closes on a post-deploy account-broker-reconcile bybit_2 run with reduce legs excluded AND matched windows."
     },
     {
       "id": "SA-DATA",
       "title": "Audit FIX-SA-01: replay/labels_accruing gate reads rotated shadow-log archives; empty -> error state, not SystemExit",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_01DZkP4Jj9JNSsxhGFZEyjmM",
       "model": "claude-sonnet-5-5",
@@ -3516,7 +3524,7 @@
         14163
       ],
       "blocked_on": [],
-      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet per model table (no order path). Pipeline PI-20260929-TWEW1FZJ-0001. Also trade_scores archive read (SA-AUD-4 row). || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14159 (replay reads archives; empty -> error state) and #14163 (trade_scores reads archives) reviewed, merge on green."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet per model table (no order path). Pipeline PI-20260929-TWEW1FZJ-0001. Also trade_scores archive read (SA-AUD-4 row). || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14159 (replay reads archives; empty -> error state) and #14163 (trade_scores reads archives) reviewed, merge on green. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. Both PRs are on main: #14159 58c0c862 and #14163 3ae86fcd. Half of PI-20260929-TWEW1FZJ-0001's clears_when is checked: scripts/ml/replay_pregate_live.py imports and calls iter_records_with_archives (lines 42, 239). The other half is not: tests/ml/test_replay_pregate_live_archives.py was SKIPPED here because pandas is not installed. Closes when that test passes in CI, or when a trainer-side labels_accruing/RG4 run reads the archives; the pipeline record then closes."
     },
     {
       "id": "SA-PROV",
@@ -3578,7 +3586,7 @@
       "id": "SA-DOCS",
       "title": "Audit FIX-SA-09/10 + JC-SA-06: stale instruction surfaces, archived-lane in_flight guard, section-0 cap + unrouted alarm",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_01Ek5siXbMhnqA59WJuteNgu",
       "model": "claude-sonnet-5-5",
@@ -3592,7 +3600,7 @@
         14169
       ],
       "blocked_on": [],
-      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Manager reconciles checklist rows; lane does not edit the checklist. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14158 FIX-SA-09 reviewed (claim verified in work.py /brief), merge on green; #14162 FIX-SA-10 (could_not_look in CI), #14168 JC-SA-06 (section 0 302KB->16KB; alarm fires today: 153 unrouted, oldest 20d), #14169 self-land."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Manager reconciles checklist rows; lane does not edit the checklist. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14158 FIX-SA-09 reviewed (claim verified in work.py /brief), merge on green; #14162 FIX-SA-10 (could_not_look in CI), #14168 JC-SA-06 (section 0 302KB->16KB; alarm fires today: 153 unrouted, oldest 20d), #14169 self-land. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. All 4 PRs are on main: #14158 c602f7a6, #14162 3032618e, #14168 7b6969f6, #14169 e50ba9c9. PI-20260929-WJUTENGU-0003 (filed ~14:13Z, after #14168) says the unrouted alarm 'now fires', but it does not say where that was read. Closes when GET /api/bot/work/brief on the VM shows section 0 capped at 25 items with the unrouted alarm, and check_stale_in_flight goes red (not COULD NOT LOOK) on an archived-lane in_flight row. Leftovers are filed as PI-20260929-WJUTENGU-0001..0005."
     },
     {
       "id": "GRADE",
@@ -3615,7 +3623,7 @@
       "id": "ML-DEMOTE",
       "title": "Audit JC-SA-02 (a): demote to candidate the shadow heads whose declared features are never served (re-measured first)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_011f6jYBLZThQ4HuK85q64Sf",
       "model": "claude-sonnet-5-5",
@@ -3626,7 +3634,7 @@
         14166
       ],
       "blocked_on": [],
-      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DECIDED (a): de-risk, data-backed; only heads the re-measure confirms. Stops if any head feeds a live decision. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DEMOTED shadow->candidate, OBSERVED on the trainer registry (issue #14152): conviction-meta-v1, setup-quality-lgbm-v2, btc-regime-1h funding-svble-v1, btc-regime-5m flow-v1-offload. MES baselines NOT demoted (audit claim refuted: 341 preds each; silent since 09-01, filed). None advisory/live. #14166 self-lands."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DECIDED (a): de-risk, data-backed; only heads the re-measure confirms. Stops if any head feeds a live decision. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DEMOTED shadow->candidate, OBSERVED on the trainer registry (issue #14152): conviction-meta-v1, setup-quality-lgbm-v2, btc-regime-1h funding-svble-v1, btc-regime-5m flow-v1-offload. MES baselines NOT demoted (audit claim refuted: 341 preds each; silent since 09-01, filed). None advisory/live. #14166 self-lands. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14166 on main as 847f3ad9. The effect was already OBSERVED per this row's 12:20Z note: 4 heads demoted shadow->candidate on the trainer registry (issue #14152). Return paths are filed as PI-20260929-K85Q64SF-0001..0004, and the MES discrepancy as -0005 (all queued)."
     },
     {
       "id": "GUARD-PROOF",
@@ -3677,37 +3685,41 @@
       "id": "GUARD-PROOF-2",
       "title": "Plant-a-defect proof for the remaining guards: 10 classifier-denied + 48 self-test-only (JC-SA-07 a, operator-supervised non-auto session)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane (operator-supervised)",
       "lane": "session_01Q7TGqYqH4YebXv5vmBTZPh",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        14229
+      ],
       "blocked_on": [],
-      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator decided JC-SA-07 13:50Z 'Let's do a, if you can kick off the session then give me the link so I can take it off of auto mode'. Sonnet per the audit's D9 note (no Haiku for claimed measurements)."
+      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator decided JC-SA-07 13:50Z 'Let's do a, if you can kick off the session then give me the link so I can take it off of auto mode'. Sonnet per the audit's D9 note (no Haiku for claimed measurements). 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14229 on main as e2e68673 ('92 caught, 5 unplantable of 97'). Effect OBSERVED by the plant runs themselves: pipeline PI-20260929-LEUUWHQC-0001 is done with terminal_reason 'all 10 guards plant-proven ... 9 caught'. Coverage gaps stay filed, not on this row: PI-20260929-5VMBTZPH-0001 and PI-20260929-LEUUWHQC-0002 (both queued, due 2026-10-06)."
     },
     {
       "id": "GRADE-ALERT",
       "title": "Grading-freshness guard -> alert-only: PR warning + one daily Telegram ping when grading is stale (operator decision b)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_014PWy5CbFYcBszh7j9epRLF",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        14230
+      ],
       "blocked_on": [],
-      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z 'let's do b'. Sonnet: bounded CI/tooling change."
+      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z 'let's do b'. Sonnet: bounded CI/tooling change. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14230 on main as 0b566cbb (adds .github/workflows/grading-freshness-alert.yml and alert-only scripts/ci/check_grading_freshness.py). No record observes it firing. Closes on the first stale-grading run of grading-freshness-alert.yml that sends exactly one Telegram ping, or a PR run that warns without failing."
     },
     {
       "id": "REVIEW-14216",
       "title": "Independent review of #14216 (Breakout close: actions-cell icon buttons)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "dropped",
       "owner": "review lane",
       "lane": "session_01Pa6DRmSDW5ikYNWDFU6FYe",
       "model": "claude-opus-5-5",
@@ -3718,13 +3730,13 @@
         14216
       ],
       "blocked_on": [],
-      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Opus: real-money prop click path; the worst case is pressing reverse/modify. 2026-09-29 ~16:01Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): F3 fix pushed (head 9e190de6); reviewer session unreachable (session connector needs re-authorization), final re-review running manager-local."
+      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Opus: real-money prop click path; the worst case is pressing reverse/modify. 2026-09-29 ~16:01Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): F3 fix pushed (head 9e190de6); reviewer session unreachable (session connector needs re-authorization), final re-review running manager-local. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): review sessions superseded by manager-local independent reviews (rounds 3\u20135 on #14216); session archived 2026-09-29 16:51Z. (#14216 itself is not on main as of 2f838f1a.)"
     },
     {
       "id": "VOLSKIP-SIGNAL",
       "title": "Whole entry signal on the forming bar live vs closed bar in Stage 0 (RQ-301/302) + xrp_pullback_2h D1 restatement",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "research lane",
       "lane": "session_01GvZxxxgFK3JVaBFhfzZx6N",
       "model": "claude-opus-5-5",
@@ -3736,7 +3748,7 @@
         14218
       ],
       "blocked_on": [],
-      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-302 pooled INCONCLUSIVE; SIGNAL-0003 (xrp) = NEEDS-DATA under MD-DEMOTE-S2-S1; lane computing bootstrap CI + MDE before any Tier-3 proposal. 2026-09-29 ~14:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator popup, verbatim 'Last 20 + strict test (Recommended)' for the MD-DEMOTE-S2-S1 trigger. Decision record PI-20260929-VOLSKIP-SIGNAL-0007 landed on main by the manager register commit (copied verbatim from #14218's branch) because #14272 cites it. Duplicate build #14270 closed; the build belongs to DEMOTE-T3."
+      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-302 pooled INCONCLUSIVE; SIGNAL-0003 (xrp) = NEEDS-DATA under MD-DEMOTE-S2-S1; lane computing bootstrap CI + MDE before any Tier-3 proposal. 2026-09-29 ~14:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator popup, verbatim 'Last 20 + strict test (Recommended)' for the MD-DEMOTE-S2-S1 trigger. Decision record PI-20260929-VOLSKIP-SIGNAL-0007 landed on main by the manager register commit (copied verbatim from #14218's branch) because #14272 cites it. Duplicate build #14270 closed; the build belongs to DEMOTE-T3. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. On main: #14195 bcdb8e72 (RQ-301, HARNESS_MODELS_FORMING) and #14218 e0ab29d4 (RQ-302 pooled INCONCLUSIVE; xrp_pullback_2h fails D1 under forming). Chose done over landed_unproven because the research result itself is the deliverable. It is committed as evidence (docs/research/evidence/forming-bar-pooled-2026-09-29.json), and PI-20260929-VOLSKIP-SIGNAL-0002 is done with that terminal_reason. No runtime effect is owed. Follow-ups PI-20260929-VOLSKIP-SIGNAL-0003..0007 stay queued and are routed to DEMOTE-T3 (in_flight)."
     },
     {
       "id": "JC-SA-05-SCOPES",
@@ -3817,7 +3829,7 @@
       "prs": [
         14255
       ],
-      "note": "2026-09-29 ~16:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): merged 57e2e80, 6 of 6 checks green. Closes when a PR-branch push touching the workflow's paths produces no TRAINING-RESULTS commit (PI-20260929-SASEC-0003)."
+      "note": "2026-09-29 ~16:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): merged 57e2e80, 6 of 6 checks green. Closes when a PR-branch push touching the workflow's paths produces no TRAINING-RESULTS commit (PI-20260929-SASEC-0003). 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14255 on main as 57e2e80a. I found no record of a PR-branch push touching training-rerun-5m.yml's paths that started no run or produced no TRAINING-RESULTS commit, and PI-20260929-SASEC-0003 is still queued. Stays landed_unproven on that observation."
     },
     {
       "phase": "W6",
