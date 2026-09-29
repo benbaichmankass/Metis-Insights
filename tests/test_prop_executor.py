@@ -2150,12 +2150,12 @@ def test_flatten_finds_the_row_control_in_the_paired_body_and_never_the_chart_ov
     p = tpage(html=_split_page([POSITION_ROW]))
     ad = DXtradeAdapter(timeout_ms=3_000)
     got = ad.flatten(p, "SOLUSD", arm=False)
-    assert got == {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
+    assert got["ok"] is True and got["clicked"] is False and got["why"].startswith("disarmed"), got
     assert p.evaluate("document.querySelector('[data-metis-row-action]').closest('tr').dataset.rowId") == "1"
     # the same control pulled out of its row (an overlay-like placement) is refused
     p = tpage(html=_split_page([POSITION_ROW], close_html='<button style="position:fixed;left:60px;top:60px" title="Close">\u00d7</button>'))
     got = ad.flatten(p, "SOLUSD", arm=False)
-    assert got["ok"] is False and "controls=0" in got["why"]
+    assert got["ok"] is False and "not boxed inside its row" in got["why"]
     assert p.evaluate("document.querySelector('[data-metis-row-action]')") is None
 
 
@@ -2170,3 +2170,139 @@ def test_dump_tables_reports_the_pairing_and_the_row_controls(tpage):
 def test_parse_number_em_dash_is_none():
     from src.prop.platform.dxtrade import parse_number
     assert parse_number("\u2014") is None and parse_number("—") is None and parse_number("0.24") == 0.24
+
+
+# ── the watched close, to the operator's flow (2026-09-29): hover -> the
+# row's LAST control, the only close-type one -> the "Close Position" modal
+# read back -> Close Position; anything else presses Discard ─────────────
+
+_CLOSE_CSS = "<style>.acts{visibility:hidden} tr:hover .acts{visibility:visible}</style>"
+
+
+def _close_modal_html(heading="Close SOLUSD Buy Position", lots="0.01", caption="0.01 out of 0.01"):
+    return f"""
+<div id="cm" style="display:none;position:fixed;left:400px;top:200px;background:#fff;padding:10px">
+  <button aria-label="dismiss" onclick="document.getElementById('cm').style.display='none'">×</button>
+  <h3>{heading}</h3>
+  <div>Fill Price @118.94 · Current Price 119.48 · Open P&L 0.00</div>
+  <label>Lots to Close <input id="lots" value="{lots}"></label>
+  <div>{caption}</div>
+  <button onclick="window.__discard=(window.__discard||0)+1;document.getElementById('cm').style.display='none'">Discard</button>
+  <button onclick="window.__closed=(window.__closed||0)+1;document.getElementById('cm').style.display='none';
+                   document.querySelector('tr[data-row-id]:not(.instrument)').remove()">Close Position</button>
+</div>"""
+
+
+def _close_page(row=POSITION_ROW, icons=None, modal=None, chart_x=True):
+    icons = icons if icons is not None else (
+        '<button title="Reverse" onclick="window.__reverse=1">⇄</button>'
+        '<button title="Modify" onclick="window.__modify=1">✎</button>'
+        '<button title="Close" onclick="document.getElementById(\'cm\').style.display=\'block\'">✕</button>')
+    modal = modal if modal is not None else _close_modal_html()
+    close_html = f'<span class="acts">{icons}</span>'
+    chart = ('<div class="chart"><canvas width="300" height="200"></canvas>'
+             '<button style="position:absolute;left:50px;top:50px" title="Close" onclick="window.__chart_x=1">✕</button></div>'
+             if chart_x else "")
+    return (TICKET_PAGE % "").replace("</body>", _CLOSE_CSS + chart + _split_panel([row], close_html=close_html) + modal + "</body>")
+
+
+def _nothing_pressed(p):
+    return all(p.evaluate(f"window.{k}") is None for k in ("__reverse", "__modify", "__chart_x", "__closed"))
+
+
+def test_watched_close_disarmed_locates_the_row_and_its_last_close_control(tpage):
+    p = tpage(html=_close_page())
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["clicked"] is False and got["why"].startswith("disarmed")
+    assert got["row"] == {"side": "Buy", "size": "0.01", "fill": "118.94", "sl": "117.80", "tp": "120.18"}
+    assert [c["hint"].split(" ")[0] for c in got["controls"]] == ["⇄", "✎", "✕"] and got["chosen"] == 2
+    assert p.evaluate("document.querySelector('[data-metis-row-action]').title") == "Close"
+    assert _nothing_pressed(p)
+
+
+def test_watched_close_armed_reads_the_modal_back_and_presses_close_position_once(tpage):
+    p = tpage(html=_close_page())
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["clicked"] is True and got["why"] == "Close Position confirmed", got
+    assert got["modal"]["heading"] == "Close SOLUSD Buy Position" and got["modal"]["lots"] == "0.01"
+    assert got["modal"]["caption"] == ["0.01", "0.01"] and got["modal"]["confirm"] == 1
+    assert p.evaluate("window.__closed") == 1 and p.evaluate("window.__discard") is None
+    assert p.evaluate("window.__reverse") is None and p.evaluate("window.__modify") is None and p.evaluate("window.__chart_x") is None
+    assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 0     # the row is gone
+    # the caller's facts are checked from the row too: lots not edited
+    assert p.evaluate("document.getElementById('lots').value") == "0.01"
+
+
+@pytest.mark.parametrize("side,qty,entry,expect", [
+    ("short", 0.01, 118.94, "side: row shows 'Buy'"),
+    ("long", 0.02, 118.94, "size: row shows '0.01'"),
+    ("long", 0.01, 125.0, "fill: row shows '118.94'"),
+])
+def test_watched_close_refuses_a_row_that_is_not_the_position_to_close(tpage, side, qty, entry, expect):
+    p = tpage(html=_close_page())
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side=side, quantity=qty, entry_price=entry)
+    assert got["ok"] is False and got["clicked"] is False and expect in got["why"], got
+    assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+
+
+def test_watched_close_refuses_when_the_close_control_is_not_the_last_or_not_unique(tpage):
+    ad = DXtradeAdapter(timeout_ms=3_000)
+    # close first, then reverse and modify: the last control is the modify pencil
+    p = tpage(html=_close_page(icons='<button title="Close">✕</button><button title="Reverse">⇄</button>'
+                                     '<button title="Modify">✎</button>'))
+    got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01)
+    assert got["ok"] is False and "not the LAST control" in got["why"] and _nothing_pressed(p)
+    # two close-type controls
+    p = tpage(html=_close_page(icons='<button title="Close">✕</button><button title="Close all">x</button>'))
+    got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01)
+    assert got["ok"] is False and "2 close-type controls" in got["why"] and _nothing_pressed(p)
+    # no control at all in the row
+    p = tpage(html=_close_page(icons=""))
+    got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01)
+    assert got["ok"] is False and "no control" in got["why"] and _nothing_pressed(p)
+    # a reverse/modify-looking control never counts as the close, even when last
+    p = tpage(html=_close_page(icons='<button title="Close">✕</button><button title="Reverse close">⇄</button>'))
+    got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01)
+    assert got["ok"] is False and "not the LAST control" in got["why"] and _nothing_pressed(p)
+
+
+@pytest.mark.parametrize("modal_kw,expect", [
+    ({"heading": "Close SOLUSD Sell Position"}, "does not name our side (buy)"),
+    ({"heading": "Close ETHUSD Buy Position"}, "does not name SOLUSD"),
+    ({"lots": "0.005"}, "lots-to-close 0.005 != the full size 0.01"),
+    ({"caption": "0.01 out of 0.02"}, "caption total 0.02 != the full size 0.01"),
+    ({"caption": "no caption here"}, "caption not readable"),
+])
+def test_watched_close_discards_a_modal_that_does_not_read_back(tpage, modal_kw, expect):
+    p = tpage(html=_close_page(modal=_close_modal_html(**modal_kw)))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is True and expect in got["why"], got
+    assert "Discard pressed" in got["why"] and p.evaluate("window.__discard") == 1
+    assert p.evaluate("window.__closed") is None and p.evaluate("document.getElementById('cm').style.display") == "none"
+    assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 1     # the row stays
+
+
+def test_watched_close_never_touches_the_chart_overlay_or_a_close_all(tpage):
+    # the row's own control is missing; the chart's overlay x and a panel-level x are the only x's
+    html = _close_page(icons="").replace('<div data-active="true">Positions</div>',
+                                         '<div data-active="true">Positions</div><button title="Close panel">×</button>')
+    p = tpage(html=html)
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01)
+    assert got["ok"] is False and got["clicked"] is False and _nothing_pressed(p)
+
+
+def test_close_modal_and_row_fact_helpers_are_pure():
+    from src.prop.platform.dxtrade import _close_modal_mismatch, _row_facts_mismatch
+    ok = {"ok": True, "heading": "Close SOLUSD Buy Position", "lots": "0.01", "caption": ["0.01", "0.01"],
+          "confirm": 1, "confirm_enabled": True}
+    assert _close_modal_mismatch(ok, "SOLUSD", "long", 0.01) == []
+    assert _close_modal_mismatch({**ok, "confirm": 2}, "SOLUSD", "long", 0.01) == ['2 "Close Position" buttons (need exactly 1)']
+    assert _close_modal_mismatch({**ok, "confirm_enabled": False}, "SOLUSD", "long", 0.01) == ['"Close Position" is disabled']
+    assert _close_modal_mismatch({"ok": False, "why": "no modal"}, "SOLUSD", "long", 0.01) == ["no modal"]
+    # without the caller's size, the input must still equal the caption's total
+    assert _close_modal_mismatch({**ok, "lots": "0.005"}, "SOLUSD", "long", None) == ["lots-to-close 0.005 != the position size 0.01"]
+    facts = {"side": "Buy", "size": "0.01", "fill": "118.94"}
+    assert _row_facts_mismatch(facts, "long", 0.01, 118.94) == []
+    assert _row_facts_mismatch(facts, None, None, None) == []
+    assert _row_facts_mismatch({"side": None, "size": None, "fill": None}, "long", 0.01, 118.94) == [
+        "side: row shows None, want long", "size: row shows None, want 0.01", "fill: row shows None, want 118.94"]
