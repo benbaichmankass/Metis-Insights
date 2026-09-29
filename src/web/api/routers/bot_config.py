@@ -50,7 +50,6 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter
 
-from src.runtime.orders import account_state_dry_run
 from src.runtime.runtime_flags import halt_flag_path as _resolve_halt_flag_path
 from src.utils.paths import runtime_logs_dir
 
@@ -213,13 +212,9 @@ def _public_account(name: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
     # Default `enabled` to True so the dashboard doesn't have to carry
     # the implicit-default rule.
     out.setdefault("enabled", True)
-    # FIX-CA-32 (CA-B09-third-execution-gate-undocumented): the third,
-    # dry-only gate input (config/account_state.yaml, folded into
-    # effective_dry by Coordinator.multi_account_execute) was invisible on
-    # this endpoint — surfaced here so it is observable, not just present
-    # in code. None = no override entry (fail-open, no-op); True/False =
-    # the declared override (only True can change what the account does).
-    out["account_state_dry_run"] = account_state_dry_run(name)
+    # `account_state_dry_run` (FIX-CA-32) was removed 2026-09-29 with the
+    # config/account_state.yaml fold it surfaced — operator decision
+    # JC-CA-06 retired that fold. The dashboard SPA never read the field.
     return out
 
 

@@ -371,3 +371,57 @@ def test_self_test_passes_as_a_subprocess():
 def test_the_committed_store_is_valid():
     """The real store, not a fixture — this is what the guard protects."""
     assert P._check(REPO / P.STORE) == 0
+
+
+# ── JC-SA-06: section 0 cap + routing alarm ────────────────────────────────
+def _mk_items(n_unrouted, day="20260927", routed=0):
+    out = {}
+    for k in range(n_unrouted):
+        iid = f"PI-{day}-AAAAAAAA-{k:04d}"
+        out[iid] = {"id": iid, "what": "x" * 400, "state": "queued",
+                    "next_action": "n", "origin": {"rerun": "r"},
+                    "due_when": {"kind": "date", "due_date": "2026-01-01"}}
+    for k in range(routed):
+        iid = f"PI-20260920-BBBBBBBB-{k:04d}"
+        out[iid] = {"id": iid, "what": "w", "state": "routed", "routed_to": "s",
+                    "next_action": "n", "origin": {"rerun": "r"},
+                    "due_when": {"kind": "date", "due_date": "2026-01-01"}}
+    return out
+
+
+def _res(items):
+    sys.path.insert(0, str(REPO / "scripts" / "ops"))
+    import pipeline as p
+    r = p.LoadResult()
+    r.items = items
+    return p, r
+
+
+def test_section_0_is_capped_and_says_how_many_are_left_out():
+    p, r = _res(_mk_items(60, routed=5))
+    text = "\n".join(p.render_section_0(r, date(2026, 9, 29)))
+    assert text.count("\n- **PI-") == p.SECTION0_CAP
+    assert "40 more due, not shown" in text  # 65 due - 25 shown
+    # unrouted before routed, even though the routed ones are older
+    assert "BBBBBBBB" not in text
+    full = "\n".join(p.render_section_0(r, date(2026, 9, 29), limit=None))
+    assert full.count("\n- **PI-") == 65 and "more due" not in full
+
+
+def test_alarm_fires_on_count_or_age_and_not_below_both_bounds():
+    p, r = _res(_mk_items(101))
+    a = p.unrouted_alarm(r.items.values(), date(2026, 9, 29))
+    assert any("count" in b for b in a["breached"])
+    p, r = _res(_mk_items(5, day="20260920"))
+    a = p.unrouted_alarm(r.items.values(), date(2026, 9, 29))
+    assert a["oldest_days"] == 9 and any("oldest" in b for b in a["breached"])
+    p, r = _res(_mk_items(5, day="20260927"))
+    assert p.unrouted_alarm(r.items.values(), date(2026, 9, 29))["breached"] == []
+    assert "ROUTING ALARM" not in "\n".join(p.render_section_0(r, date(2026, 9, 29)))
+
+
+def test_an_undated_unrouted_item_is_reported_not_treated_as_young():
+    items = _mk_items(1)
+    items["OI-nodate"] = {**next(iter(items.values())), "id": "OI-nodate"}
+    p, r = _res(items)
+    assert p.unrouted_alarm(r.items.values(), date(2026, 9, 29))["undated"] == 1

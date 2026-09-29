@@ -121,18 +121,12 @@ def _read_live_per_account(accounts_yaml: Path) -> Dict[str, bool]:
       2. Default ``live`` per the Autonomous live-trading rule
          (``CLAUDE.md``).
 
-    ⚠️ **CORRECTED (FIX-CA-32, CA-B09-third-execution-gate-undocumented).**
-    This used to say *"the in-memory override layer was removed in the
-    2026-06-10 dead-code cleanup; mode: in accounts.yaml is the only
-    source"* — false against the live code. ``config/account_state.yaml``
-    still folds a dry-only override into ``effective_dry`` at runtime
-    (``Coordinator.multi_account_execute``, ``src/core/coordinator.py``) and
-    is a documented third gate input — see
-    ``docs/CLAUDE-RULES-CANONICAL.md``'s Prime Directive and
-    ``CLAUDE.md``'s § "The two execution gates". This function is a FILE
-    view of ``accounts.yaml::mode`` only (layer 5 per the module docstring
-    above) and never reflects the account_state.yaml fold — that is a
-    property of this projection, not a claim that the fold doesn't exist.
+    ``config/account_state.yaml``'s dry-only fold into ``effective_dry``
+    (documented as a third gate input by FIX-CA-32) was RETIRED 2026-09-29
+    by operator decision JC-CA-06, so ``accounts.yaml::mode`` plus
+    ``strategies.yaml::execution`` are again the only execution gates; this
+    function is a FILE view of ``accounts.yaml::mode`` only (layer 5 per the
+    module docstring above).
     """
     from src.config.accounts_loader import load_accounts_dict
     errors: list = []

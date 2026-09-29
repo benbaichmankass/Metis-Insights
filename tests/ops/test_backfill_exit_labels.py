@@ -75,7 +75,7 @@ def test_script_runs_standalone_the_way_the_wrapper_invokes_it(tmp_path):
     )
     # The self-test is the wrapper's precondition for applying; it must have
     # actually exercised its planted controls, not just exited 0.
-    assert "self-test: 12/12 passed" in proc.stdout, proc.stdout
+    assert "self-test: 20/20 passed" in proc.stdout, proc.stdout
 
 
 def test_dry_run_is_read_only_and_says_so(tmp_path):
