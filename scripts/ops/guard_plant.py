@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -56,16 +57,19 @@ def sh(cmd, cwd, timeout=900):
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
-def run_guard(wt, guard):
+def run_guard(wt, guard, env_extra=None, use_all=True):
     # run_guards.py treats an explicit --pr-diff as caller-supplied and does not
     # generate it, so write the diff here, fresh, before EVERY run (controls get
     # an empty one). Without this, `{pr_diff}` guards die on a missing file.
     d = subprocess.run(["git", "diff", "origin/main...HEAD"], cwd=wt, text=True,
                        capture_output=True).stdout
     (Path(wt) / ".plant-pr.diff").write_text(d)
-    argv = ["python3", "scripts/ci/run_guards.py", "--only", guard, "--all",
-            "--base-ref", "main", "--pr-diff", str(Path(wt) / ".plant-pr.diff")]
-    p = subprocess.run(argv, cwd=wt, text=True, capture_output=True, timeout=1500)
+    argv = ["python3", "scripts/ci/run_guards.py", "--only", guard]
+    if use_all:  # --no-all: relevance ON, so per-step `when` clauses see the changed files
+        argv.append("--all")
+    argv += ["--base-ref", "main", "--pr-diff", str(Path(wt) / ".plant-pr.diff")]
+    env = dict(os.environ, **(env_extra or {}))
+    p = subprocess.run(argv, cwd=wt, text=True, capture_output=True, timeout=1500, env=env)
     out = (p.stdout or "") + (p.stderr or "")
     m = COUNTS.search(out)
     counts = dict(zip(("pass", "fail", "could_not_run", "skip"),
@@ -84,9 +88,15 @@ def main():
     ap.add_argument("--plant-sh", help="shell run inside the scratch worktree")
     ap.add_argument("--unplantable", help="reason; records no exit codes")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--env", action="append", default=[], metavar="K=V",
+                    help="env var for the guard run (e.g. GITHUB_HEAD_REF=claude/x for a detached worktree)")
+    ap.add_argument("--no-all", action="store_true",
+                    help="run WITHOUT --all so per-step `when` relevance sees the plant's changed files")
     ap.add_argument("--variant", default="", help="label when a guard gets >1 plant")
     a = ap.parse_args()
 
+    env_extra = dict(e.split("=", 1) for e in a.env)
+    use_all = not a.no_all
     if a.unplantable:
         row = {"guard": a.guard, "variant": a.variant, "claim": a.claim,
                "verdict": "unplantable", "reason": a.unplantable}
@@ -104,15 +114,15 @@ def main():
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         # local ref `main` so `--base-ref main` resolves origin/main in the worktree
-        pre = run_guard(wt, a.guard)
+        pre = run_guard(wt, a.guard, env_extra, use_all)
         rc, out = sh(a.plant_sh, wt)
         plant_rc = rc
-        sh("git add -A && git -c user.email=p@p -c user.name=plant commit -q "
+        sh("git add -A -- . ':!.plant-pr.diff' && git -c user.email=p@p -c user.name=plant commit -q "
            "--allow-empty -m 'PLANT (scratch, never pushed)'", wt)
         diff = sh("git diff origin/main...HEAD", wt)[1]
-        planted = run_guard(wt, a.guard)
+        planted = run_guard(wt, a.guard, env_extra, use_all)
         sh(f"git reset -q --hard {base}", wt)
-        post = run_guard(wt, a.guard)
+        post = run_guard(wt, a.guard, env_extra, use_all)
     finally:
         subprocess.call(["git", "worktree", "remove", "--force", wt], cwd=REPO,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -136,7 +146,8 @@ def main():
            "planted_counts": planted["counts"], "planted_excerpt": planted["excerpt"],
            "control_pre_counts": pre["counts"], "control_post_counts": post["counts"],
            "verdict": verdict, "verdict_basis": why,
-           "harness": "scripts/ci/run_guards.py --only <guard> --all --base-ref main",
+           "harness": "scripts/ci/run_guards.py --only <guard>" + (" --all" if use_all else "") + " --base-ref main",
+           "env": env_extra, "relevance_on": not use_all,
            "base_sha": base}
     with open(a.out, "a") as f:
         f.write(json.dumps(row) + "\n")
