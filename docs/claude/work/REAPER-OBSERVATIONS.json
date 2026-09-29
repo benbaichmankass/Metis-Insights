@@ -14,6 +14,38 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-29T00:53:32Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-09-29T00:49:14Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-29T00:44:19Z",
       "rows_graded": 0,
       "by_state": {
@@ -940,43 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-28T18:45:48Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-09-28T18:40:48Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-29T00:44:19Z",
+  "updated_at": "2026-09-29T00:53:32Z",
   "latest": {
-    "generated_at": "2026-09-29T00:44:19Z",
+    "generated_at": "2026-09-29T00:53:32Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1133,
+      "unregistered_claude_branches": 1132,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1147,6 +1147,9 @@
         "session_0155iFHoP6BJuj62kfWRL9r1": [
           "claude/code-audit-ca-a01",
           "claude/code-audit-ca-a01-critical"
+        ],
+        "session_015JePcaHfBSBVrcGyu2QtAo": [
+          "claude/e44-lane-supervisor-build"
         ],
         "session_015K3oTDNwh2X6C33P6jh6CR": [
           "claude/mi286-open-item-fanout-unexercised"
@@ -1752,9 +1755,6 @@
         "session_01MQggD8Bidctr1fRf8JH4aB": [
           "claude/mi315-close-bybit2-eth-phantom-close",
           "claude/mi315-pr-queue-noise-measurement"
-        ],
-        "session_01MVZR1A4pGGRerkk3Gzxiav": [
-          "claude/prop-quote-read"
         ],
         "session_01MbqAr49twiFKMwkfjiJJA6": [
           "claude/mgr-lease-hb-20260909T2128"
