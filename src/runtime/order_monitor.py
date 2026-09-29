@@ -12177,32 +12177,103 @@ _BRACKET_ORDER_RELABEL_REASONS = (
 BRACKET_ORDER_LABEL_SOURCE = "venue_bracket_order"
 
 
-def bracket_leg_from_order_ids(
-    sl_order_id: Any, tp_order_id: Any, filled_order_ids: Any,
-) -> Optional[str]:
-    """``'sl'`` / ``'tp'`` when exactly one of the trade's bracket orders has a
-    venue fill, else ``None``.
+#: Relative qty tolerance for "this bracket order closed the whole position".
+#: Same value as `fills_pnl.QTY_TOLERANCE`, so the two fill readers agree.
+_BRACKET_ORDER_QTY_TOLERANCE = 0.05
 
-    Pure, so the rule is testable without a store. ``None`` covers three
-    states that all mean "do not label": neither leg filled, the trade has no
-    bracket order ids, and BOTH legs filled (a partial target then a stop is
-    not one exit reason, so it is left for a human rather than guessed).
+
+def bracket_leg_from_exit_fills(
+    sl_order_id: Any, tp_order_id: Any, exit_fills: Any, position_size: Any,
+) -> Optional[str]:
+    """``'sl'`` / ``'tp'`` when the venue fills show that bracket leg ENDED the
+    position, else ``None`` (leave the label alone).
+
+    *exit_fills* is the trade's exit-side fills on its account and symbol
+    between the open and the close, oldest first, each ``{"order_id", "qty"}``.
+
+    A leg ended the position when EITHER
+      1. the LAST exit fill is on that leg's order, or
+      2. that leg's order filled at least the whole position (within
+         `_BRACKET_ORDER_QTY_TOLERANCE`), and the other leg's did not.
+
+    Why not "any fill on the order" (REVIEW-14106 (b)): a partial take-profit
+    followed by a close through a different order would read as ``tp``. Rule 1
+    is the evidence the measurement used (the last exit fill); rule 2 covers a
+    netting sibling's fill landing after this trade's own bracket had already
+    closed it. Anything else, including no bracket order ids, returns ``None``.
+    Pure, so the rule is testable without a store.
     """
-    ids = {str(x) for x in (filled_order_ids or ()) if x}
-    sl_hit = bool(sl_order_id) and str(sl_order_id) in ids
-    tp_hit = bool(tp_order_id) and str(tp_order_id) in ids
-    if sl_hit and not tp_hit:
+    sl = str(sl_order_id) if sl_order_id else None
+    tp = str(tp_order_id) if tp_order_id else None
+    if not (sl or tp):
+        return None
+    fills = [f for f in (exit_fills or ()) if isinstance(f, dict)]
+    if not fills:
+        return None
+    last = str(fills[-1].get("order_id") or "")
+    if sl and last == sl:
         return "sl"
-    if tp_hit and not sl_hit:
+    if tp and last == tp:
+        return "tp"
+    size = _safe_float(position_size)
+    if not size or size <= 0:
+        return None
+
+    def _qty(oid: Optional[str]) -> float:
+        if not oid:
+            return 0.0
+        return sum(_safe_float(f.get("qty")) or 0.0
+                   for f in fills if str(f.get("order_id") or "") == oid)
+
+    floor = size * (1.0 - _BRACKET_ORDER_QTY_TOLERANCE)
+    sl_full = _qty(sl) >= floor
+    tp_full = _qty(tp) >= floor
+    if sl_full and not tp_full:
+        return "sl"
+    if tp_full and not sl_full:
         return "tp"
     return None
+
+
+def _bracket_exit_fills(fconn, row: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The trade's exit-side fills (account, symbol, window) from the fills
+    store, oldest first. The window runs from 60 s before the open to 2 min
+    after the recorded close (the reconciler notices a close after the fill).
+    """
+    from src.runtime.broker_cost_attribution import normalize_symbol
+
+    side = {"long": "sell", "short": "buy"}.get(
+        str(row.get("direction") or "").lower())
+    want = normalize_symbol(str(row.get("symbol") or ""))
+    opened = _isoformat_to_ms(row.get("created_at"))
+    if not side or not want or opened is None:
+        return []
+    closed = _isoformat_to_ms(row.get("closed_at"))
+    start = datetime.fromtimestamp((opened - 60_000) / 1000.0, tz=timezone.utc)
+    end = (
+        datetime.fromtimestamp((closed + 120_000) / 1000.0, tz=timezone.utc)
+        if closed is not None else datetime.now(timezone.utc)
+    )
+    out = []
+    for oid, qty, sym in fconn.execute(
+        "SELECT order_id, qty, symbol FROM exchange_fills "
+        " WHERE account_id = ? AND side = ? "
+        "   AND datetime(exec_time) >= datetime(?) "
+        "   AND datetime(exec_time) <= datetime(?) "
+        " ORDER BY datetime(exec_time) ASC",
+        (str(row.get("account_id") or ""), side,
+         start.isoformat(), end.isoformat()),
+    ).fetchall():
+        if normalize_symbol(sym) == want:
+            out.append({"order_id": oid, "qty": qty})
+    return out
 
 
 def _sweep_exit_label_from_bracket_order(
     db, *, fills_conn_factory=None,
 ) -> Dict[str, int]:
-    """Relabel a generically-closed trade ``sl``/``tp`` when the venue shows a
-    fill on that trade's OWN stop or target order.
+    """Relabel a generically-closed trade ``sl``/``tp`` when the venue fills
+    show that trade's OWN stop or target order ended the position.
 
     EXIT-CLUSTER (2026-09-29; manager-folded audit finding FIX-SA-02).
     MEASURED over bybit_2 (real money), closed non-backtest, closed_at >=
@@ -12214,18 +12285,22 @@ def _sweep_exit_label_from_bracket_order(
     tick, often INSIDE the unrounded package level, and 8 of the 26 were
     priced off a candle (ESTIMATED), which that classifier may not label.
 
-    Order identity needs neither a price nor a tolerance. It is a LOCAL read
-    of the exchange-fills store, like `fills_pnl.exit_from_fills`, never a
-    broker call on the monitor tick. The pullers fill that store hourly, so a
-    row is rechecked each tick for 14 days after its close.
+    The decision is `bracket_leg_from_exit_fills` (last exit fill on the
+    leg's order, or that order filled the whole position). It needs neither a
+    price nor a tolerance. It is a LOCAL read of the exchange-fills store, like
+    `fills_pnl.exit_from_fills`, never a broker call on the monitor tick. The
+    pullers fill that store hourly, so a row is rechecked each tick for 14 days
+    after its close.
 
-    Guards: only `_BRACKET_ORDER_RELABEL_REASONS`; intent_reduce legs
-    excluded; the prior reason kept in `pre_label_exit_reason`; `pnl` and
-    `exit_price` are never touched. Best-effort, never raises.
+    Guards: only `_BRACKET_ORDER_RELABEL_REASONS`, re-checked IN the UPDATE so
+    a concurrent writer (an operator mark, another sweep) that changed the
+    reason in between is never overwritten; intent_reduce legs excluded; the
+    prior reason kept in `pre_label_exit_reason`; `pnl` and `exit_price` are
+    never touched. Best-effort, never raises.
     """
     summary: Dict[str, int] = {
         "scanned": 0, "relabelled": 0, "no_bracket_fill": 0,
-        "store_unreadable": 0, "errors": 0,
+        "store_unreadable": 0, "lost_race": 0, "errors": 0,
     }
     placeholders = ",".join("?" for _ in _BRACKET_ORDER_RELABEL_REASONS)
     try:
@@ -12233,8 +12308,9 @@ def _sweep_exit_label_from_bracket_order(
         try:
             conn.row_factory = __import__("sqlite3").Row
             rows = [dict(r) for r in conn.execute(
-                "SELECT id, account_id, exit_reason, notes, sl_order_id, "
-                "       tp_order_id "
+                "SELECT id, account_id, symbol, direction, position_size, "
+                "       created_at, closed_at, exit_reason, notes, "
+                "       sl_order_id, tp_order_id "
                 "  FROM trades "
                 " WHERE status = 'closed' "
                 "   AND COALESCE(is_backtest, 0) = 0 "
@@ -12284,27 +12360,36 @@ def _sweep_exit_label_from_bracket_order(
     try:
         for row in rows:
             try:
-                oids = [str(x) for x in (row.get("sl_order_id"),
-                                         row.get("tp_order_id")) if x]
-                q = ",".join("?" for _ in oids)
-                filled = [r[0] for r in fconn.execute(
-                    "SELECT DISTINCT order_id FROM exchange_fills "
-                    f" WHERE account_id = ? AND order_id IN ({q})",
-                    (str(row.get("account_id") or ""), *oids),
-                ).fetchall()]
-                leg = bracket_leg_from_order_ids(
-                    row.get("sl_order_id"), row.get("tp_order_id"), filled)
+                leg = bracket_leg_from_exit_fills(
+                    row.get("sl_order_id"), row.get("tp_order_id"),
+                    _bracket_exit_fills(fconn, row), row.get("position_size"))
                 if leg is None:
                     summary["no_bracket_fill"] += 1
                     continue
                 notes = _decode_notes(row.get("notes"))
                 notes["pre_label_exit_reason"] = str(row.get("exit_reason") or "")
                 notes["exit_reason_source"] = BRACKET_ORDER_LABEL_SOURCE
-                db.update_trade(int(row["id"]), {
-                    "exit_reason": leg,
-                    "notes": dump_capped(notes, 500),
-                })
-                summary["relabelled"] += 1
+                # Conditional write (REVIEW-14106 (a)): the reason must still
+                # be one this sweep may replace at the moment of the UPDATE.
+                # Only exit_reason and notes change, so update_trade's
+                # close/SL-TP notification hook has nothing to fire for.
+                wconn = db.connect()
+                try:
+                    cur = wconn.execute(
+                        "UPDATE trades SET exit_reason = ?, notes = ? "
+                        " WHERE id = ? "
+                        f"  AND COALESCE(exit_reason, '') IN ({placeholders})",
+                        (leg, dump_capped(notes, 500), int(row["id"]),
+                         *_BRACKET_ORDER_RELABEL_REASONS),
+                    )
+                    wconn.commit()
+                    changed = cur.rowcount
+                finally:
+                    wconn.close()
+                if changed:
+                    summary["relabelled"] += 1
+                else:
+                    summary["lost_race"] += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "_sweep_exit_label_from_bracket_order: row %s: %s",
@@ -12315,7 +12400,7 @@ def _sweep_exit_label_from_bracket_order(
             fconn.close()
         except Exception:  # noqa: BLE001
             pass
-    if summary["relabelled"] or summary["errors"]:
+    if summary["relabelled"] or summary["errors"] or summary["lost_race"]:
         logger.info("_sweep_exit_label_from_bracket_order: %s", summary)
     return summary
 

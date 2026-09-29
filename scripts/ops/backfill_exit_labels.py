@@ -86,18 +86,70 @@ SNAPSHOT_FLAT_TOLERANCE_BPS = 10.0
 ORDER_ID_RELABEL_REASONS = ("", "reconciler_filled", "netting_attributed",
                             SNAPSHOT_FLAT_REASON)
 ORDER_ID_LABEL_SOURCE = "venue_bracket_order"
+_RELABEL_PH = ",".join("?" for _ in ORDER_ID_RELABEL_REASONS)
 
 
-def bracket_leg(sl_oid: Any, tp_oid: Any, filled: Any) -> Optional[str]:
-    """Mirror of ``order_monitor.bracket_leg_from_order_ids``."""
-    ids = {str(x) for x in (filled or ()) if x}
-    sl_hit = bool(sl_oid) and str(sl_oid) in ids
-    tp_hit = bool(tp_oid) and str(tp_oid) in ids
-    if sl_hit and not tp_hit:
+BRACKET_ORDER_QTY_TOLERANCE = 0.05
+
+
+def bracket_leg(sl_oid: Any, tp_oid: Any, exit_fills: Any,
+                position_size: Any) -> Optional[str]:
+    """Mirror of ``order_monitor.bracket_leg_from_exit_fills``: the leg whose
+    order carries the LAST exit fill, else the one leg whose order filled the
+    whole position. Otherwise ``None`` (leave the label alone)."""
+    sl = str(sl_oid) if sl_oid else None
+    tp = str(tp_oid) if tp_oid else None
+    fills = [f for f in (exit_fills or ()) if isinstance(f, dict)]
+    if not (sl or tp) or not fills:
+        return None
+    last = str(fills[-1].get("order_id") or "")
+    if sl and last == sl:
         return "sl"
-    if tp_hit and not sl_hit:
+    if tp and last == tp:
+        return "tp"
+    size = _f(position_size)
+    if size is None:
+        return None
+    def qty(oid):
+        return sum(_f(f.get("qty")) or 0.0 for f in fills
+                   if oid and str(f.get("order_id") or "") == oid)
+    floor = size * (1.0 - BRACKET_ORDER_QTY_TOLERANCE)
+    sl_full, tp_full = qty(sl) >= floor, qty(tp) >= floor
+    if sl_full and not tp_full:
+        return "sl"
+    if tp_full and not sl_full:
         return "tp"
     return None
+
+
+def exit_fills_for(fills: sqlite3.Connection, r: Any) -> list:
+    """The trade's exit-side fills, oldest first, from 60 s before the open to
+    2 min after the recorded close (same window as the live sweep)."""
+    from datetime import datetime, timedelta, timezone
+    from src.runtime.broker_cost_attribution import normalize_symbol
+
+    side = {"long": "sell", "short": "buy"}.get(str(r["direction"] or "").lower())
+    want = normalize_symbol(str(r["symbol"] or ""))
+
+    def ts(v):
+        try:
+            d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+    op, cl = ts(r["created_at"]), ts(r["closed_at"])
+    if not side or not want or op is None:
+        return []
+    end = (cl + timedelta(minutes=2)) if cl else datetime.now(timezone.utc)
+    return [{"order_id": oid, "qty": q} for oid, q, sym in fills.execute(
+        "SELECT order_id, qty, symbol FROM exchange_fills WHERE account_id = ? "
+        "AND side = ? AND datetime(exec_time) >= datetime(?) "
+        "AND datetime(exec_time) <= datetime(?) ORDER BY datetime(exec_time) ASC",
+        (str(r["account_id"] or ""), side,
+         (op - timedelta(seconds=60)).isoformat(), end.isoformat())).fetchall()
+        if normalize_symbol(sym) == want]
+
 
 LABEL_SOURCE_BY_BASIS = {
     prov.MEASURED: "price_vs_pkg_bracket",
@@ -158,7 +210,8 @@ def plan(conn: sqlite3.Connection,
     rows = conn.execute(
         "SELECT t.id, t.direction, t.exit_price, t.stop_loss, t.take_profit_1, "
         "       t.exit_reason, t.notes, t.setup_type, t.order_package_id, "
-        "       t.account_id, t.sl_order_id, t.tp_order_id, "
+        "       t.account_id, t.sl_order_id, t.tp_order_id, t.symbol, "
+        "       t.position_size, t.created_at, t.closed_at, "
         "       p.sl AS pkg_sl, p.tp AS pkg_tp "
         "  FROM trades t "
         "  LEFT JOIN order_packages p "
@@ -179,12 +232,8 @@ def plan(conn: sqlite3.Connection,
         reason0 = str(r["exit_reason"] or "").strip()
         if (fills is not None and reason0 in ORDER_ID_RELABEL_REASONS
                 and (r["sl_order_id"] or r["tp_order_id"])):
-            oids = [str(x) for x in (r["sl_order_id"], r["tp_order_id"]) if x]
-            got = [x[0] for x in fills.execute(
-                "SELECT DISTINCT order_id FROM exchange_fills WHERE account_id = ? "
-                f"AND order_id IN ({','.join('?' for _ in oids)})",
-                (str(r["account_id"] or ""), *oids)).fetchall()]
-            leg = bracket_leg(r["sl_order_id"], r["tp_order_id"], got)
+            leg = bracket_leg(r["sl_order_id"], r["tp_order_id"],
+                              exit_fills_for(fills, r), r["position_size"])
             if leg:
                 stats[f"relabel_{leg}_order_id"] += 1
                 out.append({"id": r["id"], "action": "relabel",
@@ -248,12 +297,18 @@ def apply(conn: sqlite3.Connection, planned: list) -> int:
         if p["new_reason"]:
             # Reversible from the row itself.
             n["pre_backfill_exit_reason"] = str(cur[1] or "")
-            conn.execute("UPDATE trades SET exit_reason = ?, notes = ? WHERE id = ?",
-                         (p["new_reason"], json.dumps(n), p["id"]))
+            c = conn.execute(
+                "UPDATE trades SET exit_reason = ?, notes = ? WHERE id = ? "
+                f"AND COALESCE(exit_reason, '') IN ({_RELABEL_PH})",
+                (p["new_reason"], json.dumps(n), p["id"], *ORDER_ID_RELABEL_REASONS))
         else:
-            conn.execute("UPDATE trades SET notes = ? WHERE id = ?",
-                         (json.dumps(n), p["id"]))
-        written += 1
+            c = conn.execute(
+                "UPDATE trades SET notes = ? WHERE id = ? "
+                f"AND COALESCE(exit_reason, '') IN ({_RELABEL_PH})",
+                (json.dumps(n), p["id"], *ORDER_ID_RELABEL_REASONS))
+        # REVIEW-14106 (a): a row whose reason changed since plan() (an
+        # operator mark, a live sweep) is left alone, and not counted.
+        written += c.rowcount
     conn.commit()
     return written
 
@@ -275,10 +330,14 @@ def _self_test() -> int:
     ck("short mid-range", classify("short", 98.0, 105.0, 90.0), None)
     ck("unknown direction", classify("", 90.0, 95.0, 110.0), None)
     ck("no levels", classify("long", 90.0, None, None), None)
-    ck("order id: stop filled", bracket_leg("s1", "t1", ["s1"]), "sl")
-    ck("order id: target filled", bracket_leg("s1", "t1", ["t1", "x"]), "tp")
-    ck("order id: both filled is not one reason", bracket_leg("s1", "t1", ["s1", "t1"]), None)
-    ck("order id: neither", bracket_leg("s1", None, ["x"]), None)
+    F = lambda *xs: [{"order_id": o, "qty": q} for o, q in xs]
+    ck("order id: last exit fill on the stop",
+       bracket_leg("s1", "t1", F(("s1", 10)), 10), "sl")
+    ck("order id: target filled whole position, sibling fill after",
+       bracket_leg("s1", "t1", F(("t1", 10), ("x", 5)), 10), "tp")
+    ck("order id: PARTIAL target then another order closes -> no label",
+       bracket_leg("s1", "t1", F(("t1", 4), ("x", 6)), 10), None)
+    ck("order id: no bracket fill", bracket_leg("s1", None, F(("x", 10)), 10), None)
     # Real row 5766 (alpaca_portfolio TLT short): the stop filled at 81.19,
     # the package stop is 81.19321429. Strict says between; 10 bps says sl.
     ck("strict misses a cent-rounded stop",

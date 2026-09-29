@@ -235,41 +235,57 @@ def test_protected_prose_is_shortened_before_every_key_is_dropped():
 
 
 # ── Venue order identity (manager-folded FIX-SA-02: bybit_2, real money) ──────
-# Real rows and fills from the 2026-09-29 pull. Trade 5697 (bybit_2 XRPUSDT short,
-# reconciler_filled): its own sl_order_id filled at 1.4416. Trade 4863 (bybit_2
-# BTCUSDT long, netting_attributed): its own tp_order_id filled at 75699.9.
-_T5697 = {"id": 5697, "account_id": "bybit_2", "exit_reason": "reconciler_filled",
+# Real ids, sizes and prices from the 2026-09-29 pull. Trade 5697 (bybit_2 XRPUSDT
+# short 55.6, reconciler_filled): its own sl order filled 55.6 at 1.4416. Trade 4863
+# (bybit_2 BTCUSDT long 0.005, netting_attributed): its own tp order filled 0.005 at
+# 75699.9. Timestamps are shifted to "now" because the sweep only looks back 14 days
+# (5697 closed 2026-09-14, 4863 on 2026-08-21); the gap between fill and close is
+# kept (~2.5 min, ~3 min).
+_T5697 = {"id": 5697, "account_id": "bybit_2", "symbol": "XRPUSDT", "direction": "short",
+          "position_size": 55.6, "exit_reason": "reconciler_filled",
           "sl_order_id": "9cd6763c-656c-459b-ba35-93a8f6d97bb8",
           "tp_order_id": "60cdc0f7-ab92-4f45-b2eb-eb7075d5124d",
           "setup_type": "xrp_pullback_2h",
           "notes": '{"exit_price_source": "bybit_closed_pnl", "exit_reason_source": "unresolved"}'}
-_T4863 = {"id": 4863, "account_id": "bybit_2", "exit_reason": "netting_attributed",
+_T4863 = {"id": 4863, "account_id": "bybit_2", "symbol": "BTCUSDT", "direction": "long",
+          "position_size": 0.005, "exit_reason": "netting_attributed",
           "sl_order_id": "59de5fda-5e66-43a8-b2a2-e9b11890c2ec",
           "tp_order_id": "2de01b61-1452-4f20-bcdb-7416da68539c",
           "setup_type": "ict_scalp_5m",
           "notes": '{"netting_attribution_basis": "leg_gone", "exit_price_source": "candle_at_close"}'}
-_FILLS = [
-    ("b1734a58-3bf2-5f3c-85b4-6f064ad5c034", "bybit_2", "XRP/USDT:USDT", "buy", 1.4416,
-     55.6, "2026-09-14T18:19:22.974000+00:00", "9cd6763c-656c-459b-ba35-93a8f6d97bb8"),
-    ("af896b68-5d31-529e-b3c6-a1e4c445fd14", "bybit_2", "BTC/USDT:USDT", "sell", 75699.9,
-     0.005, "2026-08-21T06:39:45.939000+00:00", "2de01b61-1452-4f20-bcdb-7416da68539c"),
+
+
+def _ago(**kw):
+    return (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(**kw)).isoformat()
+
+
+def _fill(exec_id, acct, sym, side, price, qty, when, oid):
+    return (exec_id, acct, sym, side, price, qty, when, oid)
+
+
+_REAL_FILLS = [
+    _fill("b1734a58-3bf2-5f3c-85b4-6f064ad5c034", "bybit_2", "XRP/USDT:USDT", "buy",
+          1.4416, 55.6, _ago(hours=2, minutes=2, seconds=30),
+          "9cd6763c-656c-459b-ba35-93a8f6d97bb8"),
+    _fill("af896b68-5d31-529e-b3c6-a1e4c445fd14", "bybit_2", "BTC/USDT:USDT", "sell",
+          75699.9, 0.005, _ago(hours=2, minutes=3),
+          "2de01b61-1452-4f20-bcdb-7416da68539c"),
 ]
 
 
-def _run_bracket_sweep(tmp_path, rows, fills=_FILLS):
-    now = _dt.datetime.now(_dt.timezone.utc)
+def _run_bracket_sweep(tmp_path, rows, fills=None, *, mutate_before_write=None):
+    fills = _REAL_FILLS if fills is None else fills
     jp, fp = tmp_path / "j.db", tmp_path / "f.db"
     c = sqlite3.connect(jp)
-    c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
-              "exit_reason TEXT, notes TEXT, sl_order_id TEXT, tp_order_id TEXT, "
-              "setup_type TEXT, status TEXT, is_backtest INTEGER, closed_at TEXT, "
-              "created_at TEXT)")
+    c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, symbol TEXT, "
+              "direction TEXT, position_size REAL, exit_reason TEXT, notes TEXT, "
+              "sl_order_id TEXT, tp_order_id TEXT, setup_type TEXT, status TEXT, "
+              "is_backtest INTEGER, closed_at TEXT, created_at TEXT)")
     for r in rows:
-        c.execute("INSERT INTO trades VALUES (?,?,?,?,?,?,?,'closed',0,?,?)",
-                  (r["id"], r["account_id"], r["exit_reason"], r["notes"],
-                   r["sl_order_id"], r["tp_order_id"], r["setup_type"],
-                   (now - _dt.timedelta(hours=2)).isoformat(),
-                   (now - _dt.timedelta(days=1)).isoformat()))
+        c.execute("INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?,?,'closed',0,?,?)",
+                  (r["id"], r["account_id"], r["symbol"], r["direction"],
+                   r["position_size"], r["exit_reason"], r["notes"], r["sl_order_id"],
+                   r["tp_order_id"], r["setup_type"], _ago(hours=2), _ago(days=3)))
     c.commit()
     c.close()
     f = sqlite3.connect(fp)
@@ -278,72 +294,158 @@ def _run_bracket_sweep(tmp_path, rows, fills=_FILLS):
     f.executemany("INSERT INTO exchange_fills VALUES (?,?,?,?,?,?,?,?)", fills)
     f.commit()
     f.close()
-    captured = {}
+
+    class _DB:
+        def __init__(self):
+            self.n = 0
+
+        def connect(self):
+            self.n += 1
+            # The 2nd connect is the conditional write: let a test change the
+            # row in between, the way a concurrent operator mark would.
+            if self.n == 2 and mutate_before_write:
+                mc = sqlite3.connect(jp)
+                mutate_before_write(mc)
+                mc.commit()
+                mc.close()
+            return sqlite3.connect(jp)
+
+        def update_trade(self, *a, **k):  # must not be used: it cannot guard
+            raise AssertionError("the sweep must write through its guarded UPDATE")
+
+    s = om._sweep_exit_label_from_bracket_order(
+        _DB(), fills_conn_factory=lambda: sqlite3.connect(fp))
+    rc = sqlite3.connect(jp)
+    rc.row_factory = sqlite3.Row
+    out = {r["id"]: dict(r) for r in rc.execute("SELECT * FROM trades")}
+    rc.close()
+    return s, out
+
+
+def test_bybit2_stop_order_fill_relabels_reconciler_filled(tmp_path):
+    s, out = _run_bracket_sweep(tmp_path, [_T5697])
+    assert out[5697]["exit_reason"] == "sl"
+    n = json.loads(out[5697]["notes"])
+    assert n["exit_reason_source"] == "venue_bracket_order"
+    assert n["pre_label_exit_reason"] == "reconciler_filled"
+    assert n["exit_price_source"] == "bybit_closed_pnl"   # nothing else touched
+    assert s["relabelled"] == 1
+
+
+def test_bybit2_target_order_fill_relabels_netting_attributed(tmp_path):
+    s, out = _run_bracket_sweep(tmp_path, [_T4863])
+    assert out[4863]["exit_reason"] == "tp"
+    assert json.loads(out[4863]["notes"])["pre_label_exit_reason"] == "netting_attributed"
+
+
+def test_partial_target_then_close_by_another_order_is_not_labelled_tp(tmp_path):
+    """REVIEW-14106 (b). No such row exists in the 2026-09-29 pull (0 of 236 rows
+    whose bracket order filled), so this plants it on trade 4863's real shape: the
+    target order fills 0.002 of 0.005, then a different order closes the rest."""
+    fills = [
+        _fill("p1", "bybit_2", "BTC/USDT:USDT", "sell", 75699.9, 0.002,
+              _ago(hours=2, minutes=30), "2de01b61-1452-4f20-bcdb-7416da68539c"),
+        _fill("p2", "bybit_2", "BTC/USDT:USDT", "sell", 75510.0, 0.003,
+              _ago(hours=2, minutes=3), "operator-flatten-order"),
+    ]
+    s, out = _run_bracket_sweep(tmp_path, [_T4863], fills=fills)
+    assert out[4863]["exit_reason"] == "netting_attributed"
+    assert s["no_bracket_fill"] == 1 and s["relabelled"] == 0
+
+
+def test_target_filled_whole_position_then_sibling_fill_still_tp(tmp_path):
+    """Rule 2: the target order filled the whole 0.005; a netting sibling's exit
+    fill lands after it. The trade's own target still ended it."""
+    fills = list(_REAL_FILLS) + [
+        _fill("sib", "bybit_2", "BTC/USDT:USDT", "sell", 75701.0, 0.004,
+              _ago(hours=2, minutes=2), "sibling-order"),
+    ]
+    s, out = _run_bracket_sweep(tmp_path, [_T4863], fills=fills)
+    assert out[4863]["exit_reason"] == "tp"
+
+
+def test_concurrent_operator_mark_is_not_overwritten(tmp_path):
+    """REVIEW-14106 (a): the reason is re-checked inside the UPDATE."""
+    def _operator_marks(c):
+        c.execute("UPDATE trades SET exit_reason='operator_flatten_reconciled' WHERE id=5697")
+    s, out = _run_bracket_sweep(tmp_path, [_T5697], mutate_before_write=_operator_marks)
+    assert out[5697]["exit_reason"] == "operator_flatten_reconciled"
+    assert s["lost_race"] == 1 and s["relabelled"] == 0
+
+
+def test_no_bracket_fill_leaves_the_row(tmp_path):
+    s, out = _run_bracket_sweep(tmp_path, [_T5697], fills=[])
+    assert out[5697]["exit_reason"] == "reconciler_filled" and s["no_bracket_fill"] == 1
+
+
+def test_a_real_reason_is_not_relabelled_by_order_identity(tmp_path):
+    s, out = _run_bracket_sweep(tmp_path, [dict(_T5697, exit_reason="sl_cross")])
+    assert out[5697]["exit_reason"] == "sl_cross" and s["scanned"] == 0
+
+
+def test_unreadable_store_is_not_no_fill(tmp_path):
+    jp = tmp_path / "j2.db"
+    c = sqlite3.connect(jp)
+    c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, symbol TEXT, "
+              "direction TEXT, position_size REAL, exit_reason TEXT, notes TEXT, "
+              "sl_order_id TEXT, tp_order_id TEXT, setup_type TEXT, status TEXT, "
+              "is_backtest INTEGER, closed_at TEXT, created_at TEXT)")
+    c.execute("INSERT INTO trades VALUES (1,'bybit_2','XRPUSDT','short',1,'reconciler_filled',"
+              "'{}','a','b','x','closed',0,datetime('now'),datetime('now'))")
+    c.commit()
+    c.close()
 
     class _DB:
         def connect(self):
             return sqlite3.connect(jp)
 
-        def update_trade(self, t, u):
-            captured[t] = dict(u)
-
-    s = om._sweep_exit_label_from_bracket_order(
-        _DB(), fills_conn_factory=lambda: sqlite3.connect(fp))
-    return s, captured
-
-
-def test_bybit2_stop_order_fill_relabels_reconciler_filled(tmp_path):
-    s, cap = _run_bracket_sweep(tmp_path, [_T5697])
-    assert cap[5697]["exit_reason"] == "sl"
-    n = json.loads(cap[5697]["notes"])
-    assert n["exit_reason_source"] == "venue_bracket_order"
-    assert n["pre_label_exit_reason"] == "reconciler_filled"
-    assert "pnl" not in cap[5697] and "exit_price" not in cap[5697]
-    assert s["relabelled"] == 1
-
-
-def test_bybit2_target_order_fill_relabels_netting_attributed(tmp_path):
-    s, cap = _run_bracket_sweep(tmp_path, [_T4863])
-    assert cap[4863]["exit_reason"] == "tp"
-    assert json.loads(cap[4863]["notes"])["pre_label_exit_reason"] == "netting_attributed"
-
-
-def test_no_bracket_fill_leaves_the_row(tmp_path):
-    s, cap = _run_bracket_sweep(tmp_path, [_T5697], fills=[])
-    assert cap == {} and s["no_bracket_fill"] == 1
-
-
-def test_a_real_reason_is_not_relabelled_by_order_identity(tmp_path):
-    s, cap = _run_bracket_sweep(tmp_path, [dict(_T5697, exit_reason="sl_cross")])
-    assert cap == {} and s["scanned"] == 0
-
-
-def test_unreadable_store_is_not_no_fill(tmp_path):
-    class _DB:
-        def connect(self):
-            c = sqlite3.connect(tmp_path / "j2.db")
-            return c
-    c = sqlite3.connect(tmp_path / "j2.db")
-    c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, "
-              "exit_reason TEXT, notes TEXT, sl_order_id TEXT, tp_order_id TEXT, "
-              "setup_type TEXT, status TEXT, is_backtest INTEGER, closed_at TEXT, "
-              "created_at TEXT)")
-    c.execute("INSERT INTO trades VALUES (1,'bybit_2','reconciler_filled','{}','a','b',"
-              "'x','closed',0,datetime('now'),datetime('now'))")
-    c.commit()
-    c.close()
     s = om._sweep_exit_label_from_bracket_order(_DB(), fills_conn_factory=lambda: None)
     assert s["store_unreadable"] == 1 and s["no_bracket_fill"] == 0
 
 
-@pytest.mark.parametrize("sl,tp,filled,want", [
-    ("s", "t", ["s"], "sl"), ("s", "t", ["t"], "tp"),
-    ("s", "t", ["s", "t"], None), ("s", None, [], None), (None, None, ["s"], None),
+_F = lambda *xs: [{"order_id": o, "qty": q} for o, q in xs]  # noqa: E731
+
+
+@pytest.mark.parametrize("sl,tp,fills,size,want", [
+    ("s", "t", _F(("s", 10)), 10, "sl"),                    # last fill on stop
+    ("s", "t", _F(("t", 10)), 10, "tp"),                    # last fill on target
+    ("s", "t", _F(("t", 4), ("x", 6)), 10, None),           # partial tp, other close
+    ("s", "t", _F(("t", 10), ("x", 3)), 10, "tp"),          # full tp, sibling after
+    ("s", "t", _F(("t", 4), ("s", 6)), 10, "sl"),           # partial tp, stop last
+    ("s", None, _F(("x", 10)), 10, None),                   # no bracket fill
+    (None, None, _F(("s", 10)), 10, None),                  # no bracket ids
+    ("s", "t", [], 10, None),                               # no fills
 ])
-def test_bracket_leg_from_order_ids(sl, tp, filled, want):
-    assert om.bracket_leg_from_order_ids(sl, tp, filled) == want
+def test_bracket_leg_from_exit_fills(sl, tp, fills, size, want):
+    assert om.bracket_leg_from_exit_fills(sl, tp, fills, size) == want
 
 
 def test_venue_bracket_order_is_measured():
     from src.runtime import provenance as prov
     assert prov.classify("venue_bracket_order", "exit_reason_source") == prov.MEASURED
+
+
+def test_backfill_apply_does_not_overwrite_a_reason_changed_since_plan(tmp_path):
+    """REVIEW-14106 (a), backfill side: plan() saw reconciler_filled, an operator
+    marked the row before --apply ran; apply() must leave it and not count it."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "bfx", "scripts/ops/backfill_exit_labels.py")
+    bfx = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bfx)
+    c = sqlite3.connect(tmp_path / "j.db")
+    c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, exit_reason TEXT, notes TEXT)")
+    c.execute("INSERT INTO trades VALUES (5697, 'operator_flatten_reconciled', '{}')")
+    c.execute("INSERT INTO trades VALUES (4863, 'netting_attributed', '{}')")
+    c.commit()
+    planned = [
+        {"id": 5697, "action": "relabel", "basis": "measured",
+         "source": "venue_bracket_order", "new_reason": "sl",
+         "old_reason": "reconciler_filled"},
+        {"id": 4863, "action": "relabel", "basis": "measured",
+         "source": "venue_bracket_order", "new_reason": "tp",
+         "old_reason": "netting_attributed"},
+    ]
+    assert bfx.apply(c, planned) == 1
+    got = dict(c.execute("SELECT id, exit_reason FROM trades").fetchall())
+    assert got == {5697: "operator_flatten_reconciled", 4863: "tp"}
