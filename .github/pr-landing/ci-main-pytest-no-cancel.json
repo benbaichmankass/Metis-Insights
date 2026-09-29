@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI workflow concurrency only (pytest-run.yml, pytest-collect.yml): stop cancelling in-flight push-to-main runs. No runtime, order path, strategy config or risk cap touched. Tier-1 (CI) per the lane dispatch."
+}
