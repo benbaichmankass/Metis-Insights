@@ -97,7 +97,7 @@ import os
 import random
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 EVIDENCE_DIR = os.path.join(ROOT, "comms", "strategy_evidence")
@@ -370,13 +370,49 @@ def market_state_asof(candles: Sequence[Tuple[datetime, float, float, float, flo
     return out
 
 
+def _resample_candles(rows: list, target_tf: str) -> Optional[list]:
+    """Resample finer-grain `rows` (as `load_candle_rows` returns them) up to
+    `target_tf`, reusing `scripts/backtest_trend.py::_resample` — the SAME
+    aggregation (`label="right", closed="right"`, OHLC agg) every backtest
+    harness in this repo already runs on, imported rather than re-derived
+    (RC-BUILT-A-MECHANISM-THAT-ALREADY-EXISTED: a second resample
+    implementation could disagree with the canonical one on a bucket
+    boundary and nothing would catch it). `None` on any failure (pandas
+    unavailable, import failure) — the caller skips the leg rather than
+    silently reading finer-grain bars as if they were the coarser leg's own,
+    which would compute every as-of feature on the wrong bar size."""
+    try:
+        import importlib.util
+        import pandas as pd  # noqa: F401 -- import-checked here so the except below is honest
+        p = os.path.join(ROOT, "scripts", "backtest_trend.py")
+        spec = importlib.util.spec_from_file_location("_backtest_trend_for_resample", p)
+        mod = importlib.util.module_from_spec(spec)
+        # Registered in sys.modules BEFORE exec: backtest_trend.py declares
+        # @dataclass classes, and dataclass's own field-type resolution looks
+        # the defining module up via `sys.modules[cls.__module__]` — which is
+        # None (AttributeError) for a module executed without ever being
+        # registered under its own __name__.
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        df = pd.DataFrame(
+            [{"timestamp": r[0], "open": r[1], "high": r[2], "low": r[3], "close": r[4]}
+             for r in rows])
+        out = mod._resample(df, target_tf)
+    except Exception:  # noqa: BLE001 -- fail closed to "cannot resample", never a wrong bar
+        return None
+    return [(row.timestamp.to_pydatetime(), float(row.open), float(row.high),
+            float(row.low), float(row.close), 0.0, None) for row in out.itertuples()]
+
+
 def resolve_candles_for_legs(cell_symtf: Dict[str, Tuple[Optional[str], Optional[str]]],
                              candles_dir: str) -> Tuple[Dict[str, list], Dict[str, List[datetime]], List[Tuple[str, str]]]:
     """cell -> candles, cell -> [ts...] (parallel, for bisect), and (cell, why) for
     every cell whose candle file could not be resolved. Resolution is via the
     canonical `(symbol, timeframe) -> file` resolver — never an implicit
-    default; a cell with no symbol/timeframe on its evidence record, or no file
-    for that pair, is a named skip, not a silent empty join."""
+    default; a cell with no symbol/timeframe on its evidence record, no file
+    for that pair, or a resample the resolver calls for but this pass cannot
+    perform (pandas unavailable) is a named skip, not a silent empty join or
+    a silent read of the wrong bar size."""
     from scripts.ops import backtest_data_source as bds
 
     candles: Dict[str, list] = {}
@@ -385,29 +421,41 @@ def resolve_candles_for_legs(cell_symtf: Dict[str, Tuple[Optional[str], Optional
     # Two small caches keyed by (symbol, timeframe), separate from `candles`
     # (which is keyed by CELL): several cells legitimately share one pair
     # (e.g. two accounts trading the same leg), and this is what lets them
-    # share one resolve + one parsed file instead of repeating either.
-    path_by_symtf: Dict[Tuple[str, str], Optional[str]] = {}
-    refusal_by_symtf: Dict[Tuple[str, str], str] = {}
-    parsed_by_path: Dict[str, list] = {}
+    # share one resolve + one parsed/resampled series instead of repeating either.
+    resolved_by_symtf: Dict[Tuple[str, str], Any] = {}
+    reason_by_symtf: Dict[Tuple[str, str], str] = {}
     for cell, (symbol, timeframe) in cell_symtf.items():
         if not symbol or not timeframe:
             skipped.append((cell, f"evidence record carries no symbol/timeframe "
                                   f"(symbol={symbol!r} timeframe={timeframe!r})"))
             continue
         key = (str(symbol), str(timeframe))
-        if key not in path_by_symtf:
+        if key not in resolved_by_symtf:
             res = bds.resolve_or_refuse(symbol, timeframe, None, data_dir=candles_dir)
-            path_by_symtf[key] = res.path if res.ok else None
             if not res.ok:
-                refusal_by_symtf[key] = bds.refusal_message(res, harness="meta_veto_walkforward")
-        path = path_by_symtf[key]
-        if not path:
-            skipped.append((cell, refusal_by_symtf.get(key, f"no candle file resolved for {key}")))
+                resolved_by_symtf[key] = None
+                reason_by_symtf[key] = bds.refusal_message(res, harness="meta_veto_walkforward")
+            else:
+                base_rows = load_candle_rows(res.path)
+                if res.resample:
+                    rs = _resample_candles(base_rows, res.resample)
+                    if rs is None:
+                        resolved_by_symtf[key] = None
+                        reason_by_symtf[key] = (
+                            f"{res.path} is a finer grain than {timeframe} and the resolver called "
+                            f"for a resample to {res.resample!r}, but this run could not perform it "
+                            f"(pandas/backtest_trend import unavailable) -- never reading the finer "
+                            f"bars as if they were this leg's own {timeframe} bars")
+                    else:
+                        resolved_by_symtf[key] = rs
+                else:
+                    resolved_by_symtf[key] = base_rows
+        series = resolved_by_symtf[key]
+        if series is None:
+            skipped.append((cell, reason_by_symtf.get(key, f"no candle file resolved for {key}")))
             continue
-        if path not in parsed_by_path:
-            parsed_by_path[path] = load_candle_rows(path)
-        candles[cell] = parsed_by_path[path]
-        ts_index[cell] = [c[0] for c in candles[cell]]
+        candles[cell] = series
+        ts_index[cell] = [c[0] for c in series]
     return candles, ts_index, skipped
 
 
@@ -1131,6 +1179,41 @@ def _self_test() -> int:
     check("sizing --scores-file: measured, uses the supplied scores",
           sz_from_file["read_state"] == "measured" and sz_from_file["score_source"] == "scores_file"
           and sz_from_file["missing_scores"] == 0)
+
+    # --- resample fallback: never read a finer grain as the leg's own bars ---
+    # Starts at 00:15 (not 00:00) so every bucket is COMPLETE: pandas resample
+    # with label="right", closed="right" (the canonical backtest_trend.py
+    # convention this reuses) puts a bar timestamped exactly ON an hour
+    # boundary into the bucket ENDING there, so an 00:00-anchored series
+    # would open with a lone 1-bar partial bucket -- a real edge case, just
+    # not the one this test is checking.
+    fine = [(datetime(2024, 1, 1, 0, 15, tzinfo=timezone.utc) + timedelta(minutes=15 * k),
+            100.0 + k, 100.0 + k + 1.0, 100.0 + k - 1.0, 100.0 + k + 0.5, 10.0, None)
+           for k in range(8)]  # 8 x 15m bars, 00:15..02:00 = exactly two complete 1h buckets
+    rs = _resample_candles(fine, "1h")
+    try:
+        import pandas as _pd  # noqa: F401
+        pandas_here = True
+    except ImportError:
+        pandas_here = False
+    if pandas_here:
+        check("resample: pandas available -> produces bars, never None", rs is not None)
+        if rs is not None:
+            check("resample: two complete 15m->1h buckets from 8 bars", len(rs) == 2)
+            first_bucket = fine[0:4]
+            check("resample: bucket open is the FIRST sub-bar's open",
+                  abs(rs[0][1] - first_bucket[0][1]) < 1e-9)
+            check("resample: bucket close is the LAST sub-bar's close",
+                  abs(rs[0][4] - first_bucket[-1][4]) < 1e-9)
+            check("resample: bucket high is the MAX of sub-bar highs",
+                  abs(rs[0][2] - max(b[2] for b in first_bucket)) < 1e-9)
+            check("resample: bucket low is the MIN of sub-bar lows",
+                  abs(rs[0][3] - min(b[3] for b in first_bucket)) < 1e-9)
+            check("resample: bucket is right-LABELED (01:00, not 00:15)",
+                  rs[0][0] == datetime(2024, 1, 1, 1, 0, tzinfo=timezone.utc))
+    else:
+        check("resample: pandas unavailable -> fails CLOSED (None), never a wrong-grain read",
+              rs is None)
 
     print(f"meta_veto_walkforward --self-test: {'OK' if not fails else 'FAILED ' + str(fails)}")
     return 0 if not fails else 1
