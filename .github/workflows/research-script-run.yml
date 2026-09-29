@@ -26,17 +26,29 @@ name: research-script-run
 # this file on every PR, and checks that this file still declares ONLY the
 # two inputs below.
 #
-# SECRETS. The `run` job holds nothing beyond the ambient GITHUB_TOKEN and
+# SECRETS. This workflow holds nothing beyond the ambient GITHUB_TOKEN and
 # checks out with persist-credentials: false — the unit's script cannot reach
-# a PAT. The PAT (BRANCH_PROTECTION_TOKEN) is used ONLY by the separate `land`
-# job, which never executes the unit's command; it needs the PAT because a PR
-# opened with GITHUB_TOKEN never receives its required checks and auto-merge
-# waits forever (see .github/actions/commit-to-main/action.yml).
+# a PAT. NO PAT IS USED HERE AT ALL: the run only UPLOADS its outputs (plus
+# `record-inputs.json`, the E5 record's inputs derived from what it wrote) as
+# an artifact.
+#
+# LANDING IS BATCHED (manager review, 2026-09-29 01:27Z). Until then a `land`
+# job here opened TWO auto-merge PRs per unit (outputs, then the record), each
+# with a 30-min verify-merged wait and a full CI fan-out; sixteen units fired in
+# one cycle put ~130 CI jobs in the same runner pool every system-action
+# (set-env, flatten, the Breakout AUTO-REVERT) waits in. Now
+# scripts/research/collect_runner_results.py, run at the top of every
+# research-queue-dispatch cycle, downloads every completed run's artifact that
+# is not yet on main, emits the records through research-result's own emitter,
+# and the dispatcher lands the whole batch in ONE commit-to-main PR and asserts
+# every record landed. Artifacts are kept 14 days, i.e. 56 cycles of slack.
 #
 # `power_state` is the dispatcher's COMPUTED R4 safety label, passed through
 # verbatim to the record (see .github/actions/research-result): `accruing`
 # means "do not read this run's output as a test result". It is a label, not
 # a command, and the runner never branches on it.
+#
+# landed-by: scripts/research/collect_runner_results.py
 #
 # Tier-1: runs on the GitHub-hosted runner, reads the repo, writes only
 # comms/research/** and research/results/**. No live path, no order path,
@@ -87,16 +99,26 @@ jobs:
           python3 scripts/research/script_run.py --unit "${UNIT}" --run-id "${GITHUB_RUN_ID}" --check
       - name: Run the unit's command(s)
         id: run
-        # continue-on-error so a failing script still lands its manifest and
-        # logs as a `producer_failed` record — a run that exits red having
-        # landed nothing is the invisible failure this runner exists to end.
-        # The `land` job re-asserts the failure at the very end.
+        # continue-on-error so a failing script still uploads its manifest and
+        # logs and derives a `producer_failed` record — a run that exits red
+        # having produced nothing is the invisible failure this runner exists
+        # to end. The last step re-asserts the failure.
         continue-on-error: true
         env:
           UNIT: ${{ inputs.research_unit }}
         run: |
           set -euo pipefail
           python3 scripts/research/script_run.py --unit "${UNIT}" --run-id "${GITHUB_RUN_ID}" --run
+      - name: Derive the result record into the artifact
+        if: always()
+        env:
+          UNIT: ${{ inputs.research_unit }}
+          POWER_STATE: ${{ inputs.power_state }}
+        run: |
+          set -euo pipefail
+          python3 scripts/research/script_run.py --unit "${UNIT}" --run-id "${GITHUB_RUN_ID}" \
+            --derive-record --power-state "${POWER_STATE}" > /dev/null
+          test -s "comms/research/${UNIT}/${GITHUB_RUN_ID}/record-inputs.json"
       - name: Upload the run outputs
         if: always()
         uses: actions/upload-artifact@v4
@@ -104,77 +126,7 @@ jobs:
           name: research-script-run-${{ inputs.research_unit }}-${{ github.run_id }}
           path: comms/research/${{ inputs.research_unit }}/${{ github.run_id }}
           retention-days: 14
-          if-no-files-found: warn
-
-  land:
-    needs: [run]
-    if: always()
-    runs-on: ubuntu-latest
-    # Two commit-to-main waits (outputs, then the record), 30 min each by the
-    # action's own default, + slack — the same arithmetic
-    # research-queue-dispatch.yml records for its two calls.
-    timeout-minutes: 75
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          # PAT so the landing PRs receive their required checks.
-          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pyyaml
-        run: pip install --quiet pyyaml
-      - uses: actions/download-artifact@v4
-        id: fetch
-        continue-on-error: true
-        with:
-          name: research-script-run-${{ inputs.research_unit }}-${{ github.run_id }}
-          path: comms/research/${{ inputs.research_unit }}/${{ github.run_id }}
-      - name: Land the run outputs on main
-        id: outputs
-        uses: ./.github/actions/commit-to-main
-        with:
-          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: comms/research/${{ inputs.research_unit }}/${{ github.run_id }}
-          message: "research: ${{ inputs.research_unit }} outputs from research-script-run ${{ github.run_id }}"
-          pr-title: "research outputs: ${{ inputs.research_unit }} (run ${{ github.run_id }})"
-          pr-body: >-
-            Automated landing of `comms/research/${{ inputs.research_unit }}/${{ github.run_id }}/`
-            (run-manifest.json, verdict.json if the script graded itself, logs/)
-            from the token-free research runner. The E5 result record follows
-            in a second PR from the same run.
-          branch-prefix: automation/research-script-outputs
-          verify-merged: "true"
-      - name: Derive the result record from what the run wrote
-        id: derive
-        env:
-          UNIT: ${{ inputs.research_unit }}
-        run: |
-          set -euo pipefail
-          python3 scripts/research/script_run.py --unit "${UNIT}" --run-id "${GITHUB_RUN_ID}" --derive-record
-      - name: Land the E5 result record
-        uses: ./.github/actions/research-result
-        with:
-          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          research-unit: ${{ inputs.research_unit }}
-          power-state: ${{ inputs.power_state }}
-          decision-rule-id: ${{ steps.derive.outputs.decision_rule_id }}
-          decision-rule-registered-at: ${{ steps.derive.outputs.decision_rule_registered_at }}
-          verdict: ${{ steps.derive.outputs.verdict }}
-          read-state: ${{ steps.derive.outputs.read_state }}
-          population: ${{ steps.derive.outputs.population }}
-          n: ${{ steps.derive.outputs.n }}
-          measurement-file: ${{ steps.derive.outputs.measurement_file }}
-          records-file: ${{ steps.derive.outputs.records_file }}
-          min-rows: ${{ steps.derive.outputs.min_rows }}
-          artifact-store: ${{ steps.derive.outputs.artifact_store }}
-          artifact-locator: ${{ steps.derive.outputs.artifact_locator }}
-          tool: ${{ steps.derive.outputs.tool }}
-          note: ${{ steps.derive.outputs.note }}
+          if-no-files-found: error
       - name: Summarize
         if: always()
         env:
@@ -183,18 +135,19 @@ jobs:
           {
             echo "### research-script-run — ${UNIT}"
             echo
-            echo "* run job: \`${{ needs.run.result }}\`"
-            echo "* outputs: \`comms/research/${UNIT}/${GITHUB_RUN_ID}/\` (PR: ${{ steps.outputs.outputs.pr }})"
-            echo "* verdict / read-state: \`${{ steps.derive.outputs.verdict }}\` / \`${{ steps.derive.outputs.read_state }}\`"
+            echo "* command(s): \`${{ steps.run.outcome }}\`"
+            echo "* outputs + record-inputs.json uploaded as artifact; landed in one batch by the next research-queue-dispatch cycle"
             echo
             echo '```'
             cat "comms/research/${UNIT}/${GITHUB_RUN_ID}/run-manifest.json" 2>/dev/null || echo "(no run-manifest.json)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      # Re-assert the failure the `run` job swallowed with continue-on-error,
-      # now that the manifest, logs and the producer_failed record have landed.
+      # Re-assert the failure the run step swallowed with continue-on-error,
+      # now that the manifest, logs and the producer_failed record inputs are
+      # in the artifact.
       - name: Fail if the unit's command failed
-        if: always() && needs.run.result != 'success'
+        if: always() && steps.run.outcome != 'success'
         run: |
-          echo "::error::the unit's command did not complete (run job: ${{ needs.run.result }}) — its manifest/logs and a producer_failed record landed above."
+          echo "::error::the unit's command did not complete (run step: ${{ steps.run.outcome }}) — its manifest/logs and a producer_failed record are in the artifact and land with the next cycle."
           exit 1
+

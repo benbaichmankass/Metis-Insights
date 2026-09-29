@@ -55,30 +55,50 @@ def test_the_run_job_holds_no_secret_and_persists_no_credential():
     assert checkout and all(s["with"]["persist-credentials"] is False for s in checkout)
 
 
-def test_the_land_job_uses_the_shared_landing_actions():
-    """Outputs through commit-to-main, the record through research-result —
-    the two owners of "how a workflow gets a file onto protected main"."""
+def test_the_runner_lands_nothing_itself_and_holds_no_pat():
+    """Manager review 2026-09-29: the runner only uploads an artifact (outputs +
+    record-inputs.json); landing is batched by the dispatcher's collect step."""
     wf = yaml.safe_load(WF.read_text())
-    uses = [s.get("uses") for s in wf["jobs"]["land"]["steps"]]
-    assert "./.github/actions/commit-to-main" in uses
-    assert "./.github/actions/research-result" in uses
-    c2m = [s for s in wf["jobs"]["land"]["steps"] if s.get("uses") == "./.github/actions/commit-to-main"][0]
-    assert str(c2m["with"]["verify-merged"]).lower() == "true"
+    assert list(wf["jobs"]) == ["run"], list(wf["jobs"])
+    jobs_text = yaml.safe_dump(wf["jobs"])   # the jobs, not the header prose
+    assert "BRANCH_PROTECTION_TOKEN" not in jobs_text and "commit-to-main" not in jobs_text
+    assert "secrets." not in jobs_text
+    steps = wf["jobs"]["run"]["steps"]
+    derive = [s for s in steps if "record-inputs.json" in str(s.get("run", ""))]
+    assert derive and "--derive-record" in derive[0]["run"] and "--power-state" in derive[0]["run"]
+    upload = [s for s in steps if str(s.get("uses", "")).startswith("actions/upload-artifact")][0]
+    assert upload["with"]["if-no-files-found"] == "error"
+    assert str(upload["with"]["name"]).startswith("research-script-run-")
 
 
-def test_every_with_key_passed_to_research_result_is_declared():
-    action = yaml.safe_load((REPO / ".github/actions/research-result/action.yml").read_text())
-    wf = yaml.safe_load(WF.read_text())
-    step = [s for s in wf["jobs"]["land"]["steps"] if s.get("uses") == "./.github/actions/research-result"][0]
-    undeclared = set(step["with"]) - set(action["inputs"])
-    assert not undeclared, undeclared
-    # and every output the workflow reads from --derive-record is one it emits
-    derived = {k for k in step["with"] if "steps.derive.outputs." in str(step["with"][k])}
-    # cheap structural check: the keys named in the YAML exist in derive_record's dict
+def test_the_dispatcher_lands_the_batch_once_per_cycle_and_asserts_it():
+    wf = yaml.safe_load((REPO / ".github/workflows/research-queue-dispatch.yml").read_text())
+    steps = wf["jobs"]["dispatch"]["steps"]
+    names = [s.get("name", "") for s in steps]
+    i_collect = next(i for i, n in enumerate(names) if n.startswith("Collect the runner"))
+    i_batch = next(i for i, n in enumerate(names) if n.startswith("Land the batch"))
+    i_assert = next(i for i, n in enumerate(names) if n.startswith("Assert every batched"))
+    i_grade = names.index("Grade and dispatch")
+    assert i_collect < i_batch < i_assert < i_grade
+    batch = steps[i_batch]
+    assert batch["uses"] == "./.github/actions/commit-to-main"
+    assert str(batch["with"]["verify-merged"]).lower() == "true"
+    assert batch["with"]["paths"] == "comms/research research/results"
+    assert "collect_runner_results.py" in steps[i_collect]["run"]
+    assert "--max-research-inflight 3" in steps[i_grade]["run"] and "--max-repo-queued 10" in steps[i_grade]["run"]
+
+
+def test_record_inputs_cover_every_emit_field():
+    """Every field the collector passes to research_result.py --emit is one
+    derive_record() writes (plus the two the runner adds), so a record can
+    never land with a placeholder for a field the run actually produced."""
+    from scripts.research import collect_runner_results as col
     src = (REPO / "scripts/research/script_run.py").read_text()
-    for key in derived:
-        out_key = str(step["with"][key]).split("steps.derive.outputs.")[1].rstrip(" }")
-        assert f'"{out_key}"' in src, f"{out_key} is read by the workflow but never emitted"
+    for key in col._EMIT_FIELDS:
+        assert f'"{key}"' in src, f"{key} is emitted by the collector but never derived"
+    argv_src = (REPO / "scripts/research/research_result.py").read_text()
+    for key in col._EMIT_FIELDS:
+        assert f'"--{key.replace("_", "-")}"' in argv_src, key
 
 
 @pytest.mark.parametrize("argv", [

@@ -107,6 +107,12 @@ class BracketSpec:
     take_profit: float
     order_type: str = "limit"  # "limit" | "market"
     limit_price: Optional[float] = None
+    # The venue's price increment, when declared (config/prop_platforms.yaml
+    # executor.lots.<venue>.price_step). The executor types prices ROUNDED to
+    # it, and the form read-back accepts a price field within one step of the
+    # typed value (the terminal rounds what it shows: dry run #13965 read
+    # 119.2 back for a typed 119.2002). None = exact read-back required.
+    price_step: Optional[float] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return asdict(self)

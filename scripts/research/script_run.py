@@ -109,6 +109,8 @@ MIN_TIMEOUT_MIN = 10
 MAX_TIMEOUT_MIN = 330   # the job's own ceiling is 360; leave room to land
 DEFAULT_TIMEOUT_MIN = 120
 LOG_TAIL_BYTES = 200_000
+#: Written by --derive-record beside run-manifest.json; read by the batch collector.
+RECORD_INPUTS = "record-inputs.json"
 
 VERDICTS = ("pass", "fail", "no_action_warranted", "indeterminate", "not_applicable")
 READ_STATES = ("measured", "no_data", "producer_failed", "not_attempted")
@@ -575,7 +577,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--check", action="store_true", help="static check only; exit 1 on refusal")
     ap.add_argument("--run", action="store_true", help="execute the plan (writes comms/research/<unit>/<run_id>/)")
     ap.add_argument("--derive-record", action="store_true",
-                    help="print (and append to $GITHUB_OUTPUT) the research-result inputs")
+                    help="print (and append to $GITHUB_OUTPUT) the research-result inputs, and write them "
+                         "to <out_dir>/record-inputs.json so the batch collector can land the record")
+    ap.add_argument("--power-state", default="",
+                    help="the dispatcher's computed R4 label, recorded verbatim in record-inputs.json")
     args = ap.parse_args(argv)
     if args.self_test:
         return _self_test()
@@ -599,7 +604,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"::error::{args.unit}: a command failed — see run-manifest.json", file=sys.stderr)
             rc = 1
     if args.derive_record:
-        _emit_outputs(derive_record(p))
+        rec = derive_record(p)
+        rec["power_state"] = args.power_state
+        rec["research_unit"] = p.unit
+        _emit_outputs(rec)
+        # The batch collector (scripts/research/collect_runner_results.py,
+        # manager review 2026-09-29) lands records one PR per dispatcher cycle
+        # instead of one PR per run; it reads exactly this file from the
+        # run's artifact.
+        p.out_dir.mkdir(parents=True, exist_ok=True)
+        (p.out_dir / RECORD_INPUTS).write_text(json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if not (args.run or args.derive_record):
         ap.error("one of --check, --run, --derive-record, --self-test")
     return rc

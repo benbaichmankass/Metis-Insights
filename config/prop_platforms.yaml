@@ -74,7 +74,12 @@ accounts:
         # The venue MINIMUM was NOT in the served fields: min_lots is null
         # (no local minimum check); fill it from the probe / Instrument Details.
         ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
-        SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
+        # SOLUSD price_step 0.01: MEASURED 2026-09-29 (dry run #13965, run
+        # 36526339732): the watchlist quotes 118.01 / 118.02, the submit label
+        # reads "at 118.02", and the ticket rounded a typed 119.2002 to 119.2.
+        # The executor types SL / TP rounded to it and accepts a read-back
+        # within one step (criterion D3). ETHUSD's step is not measured: unset.
+        SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: null, price_step: 0.01}
         # BTCUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED (no fields served)
       # The watched click / round trip places at most this many lots of the
       # named venue symbol, meant to be the venue MINIMUM. Empty = they refuse.

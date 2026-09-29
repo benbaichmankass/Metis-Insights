@@ -222,6 +222,92 @@ def dispatch_inputs(entry: Dict[str, Any], *, power_state: str = "",
     return {k: v for k, v in inputs.items() if k in declared}, dropped
 
 
+
+# ── backpressure (manager review 2026-09-29, 01:27Z) ────────────────────────
+# MEASURED at 01:27Z on 2026-09-29: 67 runs queued repo-wide and 12 research
+# compute runs in progress at once (6 research-script-run, 2 harness, 2 m20,
+# 1 e35, 1 macro backfill) after the dispatcher fanned the whole queue out in
+# one cycle. Every system-action -- set-env, flatten, the Breakout AUTO-REVERT
+# -- waited in the same runner pool. Research must never starve a safety
+# action, so a fire is DEFERRED (not failed, not stamped) when research
+# compute already holds `--max-research-inflight` runs or the repo already has
+# more than `--max-repo-queued` runs waiting. A deferred unit is due again on
+# the next cycle exactly as if it had never been looked at.
+DEFERRED = "deferred"
+
+
+def research_workflow_names(jobs: List[Any], repo: Path = _REPO) -> Dict[str, str]:
+    """{workflow file -> its `name:`} for every real workflow the queue routes
+    to, plus the token-free runner. A run counts as research compute when its
+    workflowName is one of these names (gh run list reports names, not files)."""
+    files = {"research-script-run.yml"}
+    for job in jobs:
+        wf = str(((getattr(job, "raw", None) or {}).get("run") or {}).get("workflow") or "")
+        if wf.endswith((".yml", ".yaml")) and not any(ch.isspace() for ch in wf):
+            files.add(wf.split("/")[-1])
+    out: Dict[str, str] = {}
+    for f in sorted(files):
+        path = repo / ".github" / "workflows" / f
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            if line.startswith("name:"):
+                out[f] = line.split(":", 1)[1].strip().strip("\"'")
+                break
+    return out
+
+
+def gh_runs(status: str, *, limit: int = 200) -> Optional[List[Dict[str, Any]]]:
+    """`gh run list` rows for one status, or None when gh could not answer --
+    a count we could not take is reported as such, never as zero."""
+    cmd = ["gh", "run", "list", "--status", status, "--limit", str(limit),
+           "--json", "databaseId,workflowName,status,createdAt"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        rows = json.loads(proc.stdout or "[]")
+    except ValueError:
+        return None
+    return rows if isinstance(rows, list) else None
+
+
+def backpressure(research_names: Dict[str, str], *, max_inflight: int, max_queued: int,
+                 runs_by_status: Optional[Dict[str, Optional[List[Dict[str, Any]]]]] = None
+                 ) -> Dict[str, Any]:
+    """What the runner pool looks like before this cycle fires anything.
+
+    Returns {inflight_research, repo_queued, block, detail}. `block` is None
+    when firing may proceed (subject to the per-fire count), else a reason.
+    A status gh could not list is a BLOCK with that reason: the conservative
+    direction for research spend is to wait one cycle."""
+    if runs_by_status is None:
+        runs_by_status = {st: gh_runs(st) for st in ("queued", "in_progress")}
+    names = set(research_names.values())
+    unreadable = [st for st, rows in runs_by_status.items() if rows is None]
+    if unreadable:
+        return {"inflight_research": None, "repo_queued": None,
+                "block": f"could not count {'/'.join(unreadable)} runs via gh -- deferring every fire this cycle"}
+    queued = runs_by_status.get("queued") or []
+    inprog = runs_by_status.get("in_progress") or []
+    inflight = sum(1 for r in list(queued) + list(inprog) if str(r.get("workflowName")) in names)
+    out = {"inflight_research": inflight, "repo_queued": len(queued), "block": None,
+           "detail": f"research compute in flight {inflight} (cap {max_inflight}); repo runs queued "
+                     f"{len(queued)} (cap {max_queued})"}
+    if len(queued) > max_queued:
+        out["block"] = (f"{len(queued)} workflow runs are queued repo-wide (> {max_queued}): research "
+                        "must not add to a saturated runner pool -- deferring every fire this cycle")
+    elif inflight >= max_inflight:
+        out["block"] = (f"{inflight} research compute run(s) already queued/in progress (cap "
+                        f"{max_inflight}) -- deferring every fire this cycle")
+    return out
+
+
 def _fire(entry: Dict[str, Any], *, route: str, ref: str,
           power_state: str = "") -> tuple:
     """Dispatch via `gh workflow run`. Returns (ok, detail)."""
@@ -286,6 +372,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="actually dispatch; default is a dry run that only reports")
     ap.add_argument("--ref", default=os.environ.get("GITHUB_REF_NAME") or "main")
     ap.add_argument("--only", default=None, help="dispatch just this job id")
+    ap.add_argument("--max-research-inflight", type=int, default=3,
+                    help="defer every fire while this many research compute runs are already "
+                         "queued or in progress (counted via gh; see backpressure())")
+    ap.add_argument("--max-repo-queued", type=int, default=10,
+                    help="defer every fire while more than this many workflow runs are queued "
+                         "repo-wide (research must never starve a system-action)")
     ap.add_argument("--max-gpu-dispatches-per-run", type=int, default=1,
                     help="per-RUN cap on GPU bursts; the ledger cap is monthly and "
                          "cannot bound a loop inside one run")
@@ -308,6 +400,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     decisions: List[Dict[str, Any]] = []
+    # Backpressure is read ONCE per cycle, then every successful fire counts
+    # against the in-flight cap so one cycle cannot fan the whole queue out.
+    pressure: Dict[str, Any] = {"block": None, "inflight_research": 0, "detail": "dry run: not counted"}
+    if args.fire:
+        pressure = backpressure(research_workflow_names(jobs), max_inflight=args.max_research_inflight,
+                                max_queued=args.max_repo_queued)
+        print(f"backpressure: {pressure.get('detail') or pressure.get('block')}", file=sys.stderr)
+        if pressure["block"]:
+            print(f"::notice::research-queue-dispatch deferred every fire: {pressure['block']}", file=sys.stderr)
+    inflight = int(pressure.get("inflight_research") or 0)
     gpu_fired = 0
     for job in jobs:
         entry = job.raw
@@ -356,9 +458,21 @@ def main(argv: Optional[List[str]] = None) -> int:
             row.update(outcome="would_dispatch", detail=f"route={route.state} (dry run)")
             decisions.append(row)
             continue
+        if pressure["block"]:
+            row.update(outcome=DEFERRED, reason=pressure["block"])
+            decisions.append(row)
+            continue
+        if inflight >= args.max_research_inflight:
+            row.update(outcome=DEFERRED,
+                       reason=f"research compute cap {args.max_research_inflight} reached this cycle "
+                              f"({inflight} in flight incl. fires above) -- due again next cycle")
+            decisions.append(row)
+            continue
 
         ok, detail = _fire(entry, route=route.state, ref=args.ref,
                            power_state=power.state)
+        if ok:
+            inflight += 1
         row.update(outcome=DISPATCHED if ok else DISPATCH_FAILED, detail=detail)
         if ok:
             # Stamp only a SUCCESSFUL fire. Stamping a failed one would mark the
