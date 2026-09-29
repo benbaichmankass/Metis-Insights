@@ -266,6 +266,10 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # rationale as the watchdog / bridge / insights pairs above.
     "ict-hourly-snapshot.service",
     "ict-hourly-snapshot.timer",
+    # FIX-SA-12 (2026-09-29): pushes when the TRAINER root is >= 90% used, read
+    # from the published mirror. Queryable so a session can confirm it is firing.
+    "ict-trainer-disk-alarm.service",
+    "ict-trainer-disk-alarm.timer",
     # MI-83 (2026-09-02). The hourly work digest, moved off GitHub Actions
     # cron onto the VM's own clock: work-digest.yml declares `20 * * * *` and
     # fired 5 times in a day at :19/:10/:33/:47 over its complete run history.
@@ -2177,6 +2181,39 @@ def get_journalctl(
     )
 
 
+# Paths deploy_pull_restart.sh does NOT restart for (its RUNTIME_CHANGES filter).
+# Keep in lock-step with that regex: `restart_pending` must mean "a commit the
+# deploy would restart for is not loaded", not "the shas differ".
+_NON_RUNTIME_PATHS_RE = re.compile(r"^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$)")
+
+
+def _restart_pending(running: str, on_disk: str) -> bool | None:
+    """True when a RUNTIME path differs between the loaded sha and the checkout.
+
+    Three-way: None means we could not look (unknown sha, or the diff failed,
+    e.g. the running sha is absent from a shallow clone) -- never False.
+    """
+    if running == "unknown" or on_disk == "unknown":
+        return None
+    if running == on_disk:
+        return False
+    try:
+        out = subprocess.run(
+            ["git", "diff", "--name-only", running, on_disk],
+            cwd=str(repo_root()),
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug("restart_pending: git diff could not run: %s", exc)
+        return None
+    if out.returncode != 0:
+        return None
+    return any(
+        line and not _NON_RUNTIME_PATHS_RE.match(line)
+        for line in out.stdout.splitlines()
+    )
+
+
 @router.get("/version")
 def get_version(request: Request) -> dict[str, Any]:
     """Diagnostic — git SHA + captured timestamp of the running web-api
@@ -2193,13 +2230,8 @@ def get_version(request: Request) -> dict[str, Any]:
     """
     _require_diag_token(request)
     on_disk = _resolve_git_sha()
-    # Three-way, never collapsed. "unknown" on either side means we could not
-    # look, which is NOT the same as "they agree" -- so restart_pending is None
-    # rather than False when either sha is unresolvable.
-    if _RUNNING_GIT_SHA == "unknown" or on_disk == "unknown":
-        restart_pending = None
-    else:
-        restart_pending = _RUNNING_GIT_SHA != on_disk
+    # Three-way, never collapsed: None = we could not look (see _restart_pending).
+    restart_pending = _restart_pending(_RUNNING_GIT_SHA, on_disk)
     return {
         # The sha the RUNNING process was loaded from -- captured once at
         # import. This is what the field name and this endpoint's whole
@@ -2209,9 +2241,10 @@ def get_version(request: Request) -> dict[str, Any]:
         # The sha currently checked out in the working tree, resolved live.
         # A pull advances this WITHOUT restarting anything.
         "git_sha_on_disk": on_disk,
-        # True when the tree has moved ahead of the running process, i.e. code
-        # was pulled and nothing restarted -- the 2026-05-09 incident state.
-        # None when either side is unknown (we could not look).
+        # True when a RUNTIME-path change (not docs/tests/.claude/.github/
+        # top-level md) sits between the running sha and the checkout -- the
+        # 2026-05-09 incident state. False when the shas differ only by files
+        # the deploy skips restarts for (FIX-SA-11). None = could not look.
         "restart_pending": restart_pending,
         "captured_at": datetime.now(timezone.utc).isoformat(),
     }

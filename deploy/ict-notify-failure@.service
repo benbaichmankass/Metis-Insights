@@ -1,0 +1,30 @@
+# ============================================
+# ICT UNIT-FAILURE ALERT (template) — FIX-SA-08
+#
+# Instantiated as ict-notify-failure@<failed-unit>.service by the OnFailure=
+# drop-in that scripts/install_systemd_units.sh installs on every oneshot unit
+# driven by a timer (deploy/dropins/onfailure.conf, `OnFailure=...@%n.service`).
+#
+# Why: a failed oneshot behind a healthy timer reads `active (waiting)` on the
+# timer and only `failed` on the service, and nothing pushed. The
+# PI-20260927-YZRZQ725-0002 masking pattern (audit SA-AUD-5-onfailure-still-
+# absent, CA-A10-402). systemd honours SuccessExitStatus= when deciding a unit
+# failed, so declared-success exits (e.g. 75, 2) do not fire this.
+#
+# %i is the failed unit's full name (from %n). The script logs every failure to
+# runtime_logs/unit_failures.jsonl and pings at most once per unit per 6 h, so a
+# per-minute timer that keeps failing is ONE ping, not sixty an hour.
+#
+# Never restarts anything. Save to: /etc/systemd/system/ict-notify-failure@.service
+# (installed by scripts/install_systemd_units.sh).
+# ============================================
+
+[Unit]
+Description=ICT — unit failure alert for %i
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+ExecStart=/usr/bin/python3 -u scripts/ops/notify_unit_failure.py %i

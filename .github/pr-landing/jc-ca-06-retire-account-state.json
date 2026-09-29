@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "JC-CA-06, operator decision 2026-09-29 ~09:50Z ('Retire it (Recommended)'), relayed by the manager. The PR removes an input to effective_dry in Coordinator.multi_account_execute, which is the order path, so it is Tier 2. The dispatch says to HOLD it for manager review before merge.",
+  "why": "Retires the config/account_state.yaml dry-only fold so the code matches the two execution gates. Removed: the fold, orders.account_state_dry_run, config/account_state.yaml, and the /api/bot/config account_state_dry_run field (the SPA never read it). Before shipping, measured 2026-09-29 09:47Z: every entry read dry_run: false on main and on the VM, so no account changes mode."
+}
