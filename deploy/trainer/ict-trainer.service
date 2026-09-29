@@ -1,0 +1,27 @@
+# ICT model training center service (S-AI-WS9).
+#
+# DISABLED BY DEFAULT. The operator opts in with:
+#   sudo systemctl enable --now ict-trainer.service
+#
+# Defers to scripts/ops/run_training_cycle.sh inside the cloned
+# repo. That script is the operator-facing entrypoint; it can
+# call ml.cli, run experiment manifests, sync from the live VM,
+# etc. The script does NOT yet exist on `main` — it's a
+# placeholder filed for a follow-up PR. Until the script lands,
+# `systemctl start ict-trainer.service` will fail loudly and
+# the unit will stay inactive, which is the intended safety.
+[Unit]
+Description=ICT model training center (S-AI-WS9)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

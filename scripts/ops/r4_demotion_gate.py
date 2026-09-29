@@ -207,7 +207,13 @@ def mirror_window_record(dec: Dict[str, Any], source_run_rel: str, window: str,
         "n_closed": chosen.get("trades"),
         "net_r_net_of_full_cost": dec["totalR"],
         "r_population": dec["rTradeCount"],
+        # MEASURED+ESTIMATED (the name understates it -- JC-SA-03 keeps it and
+        # records both). `net_usd_measured_only` is the MEASURED half, over the
+        # same population as pnl_coverage_measured; `n_estimated` is how many
+        # ESTIMATED rows make up the difference. No gate logic reads either.
         "net_usd_measured": chosen.get("totalPnlMeasured"),
+        "net_usd_measured_only": chosen.get("totalPnlMeasuredOnly"),
+        "n_estimated": chosen.get("pnlEstimatedCount"),
         "pnl_coverage_measured": chosen.get("pnlCoverage"),
         "coverage_floor": chosen.get("coverageFloor"),
         "min_trades": chosen.get("minTrades"),

@@ -73,6 +73,84 @@ from src.runtime import provenance as prov  # noqa: E402
 
 GENERIC_REASONS = ("", "reconciler_filled")
 
+# EXIT-CLUSTER (2026-09-29): the position-snapshot reconciler's reason. It is
+# relabelled ONLY off a MEASURED price, and with the same tolerance the live
+# sweep uses for it (order_monitor._SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS).
+SNAPSHOT_FLAT_REASON = "exchange_flat_reconciled"
+SNAPSHOT_FLAT_TOLERANCE_BPS = 10.0
+
+# Rule 0, applied before any price comparison: venue ORDER IDENTITY. A fill in
+# the exchange-fills store on the trade's own sl_order_id / tp_order_id makes
+# the exit that leg, MEASURED. Same rule and same reasons as the live sweep
+# (order_monitor._sweep_exit_label_from_bracket_order).
+ORDER_ID_RELABEL_REASONS = ("", "reconciler_filled", "netting_attributed",
+                            SNAPSHOT_FLAT_REASON)
+ORDER_ID_LABEL_SOURCE = "venue_bracket_order"
+_RELABEL_PH = ",".join("?" for _ in ORDER_ID_RELABEL_REASONS)
+
+
+BRACKET_ORDER_QTY_TOLERANCE = 0.05
+
+
+def bracket_leg(sl_oid: Any, tp_oid: Any, exit_fills: Any,
+                position_size: Any) -> Optional[str]:
+    """Mirror of ``order_monitor.bracket_leg_from_exit_fills``: the leg whose
+    order carries the LAST exit fill, else the one leg whose order filled the
+    whole position. Otherwise ``None`` (leave the label alone)."""
+    sl = str(sl_oid) if sl_oid else None
+    tp = str(tp_oid) if tp_oid else None
+    fills = [f for f in (exit_fills or ()) if isinstance(f, dict)]
+    if not (sl or tp) or not fills:
+        return None
+    last = str(fills[-1].get("order_id") or "")
+    if sl and last == sl:
+        return "sl"
+    if tp and last == tp:
+        return "tp"
+    size = _f(position_size)
+    if size is None:
+        return None
+    def qty(oid):
+        return sum(_f(f.get("qty")) or 0.0 for f in fills
+                   if oid and str(f.get("order_id") or "") == oid)
+    floor = size * (1.0 - BRACKET_ORDER_QTY_TOLERANCE)
+    sl_full, tp_full = qty(sl) >= floor, qty(tp) >= floor
+    if sl_full and not tp_full:
+        return "sl"
+    if tp_full and not sl_full:
+        return "tp"
+    return None
+
+
+def exit_fills_for(fills: sqlite3.Connection, r: Any) -> list:
+    """The trade's exit-side fills, oldest first, from 60 s before the open to
+    2 min after the recorded close (same window as the live sweep)."""
+    from datetime import datetime, timedelta, timezone
+    from src.runtime.broker_cost_attribution import normalize_symbol
+
+    side = {"long": "sell", "short": "buy"}.get(str(r["direction"] or "").lower())
+    want = normalize_symbol(str(r["symbol"] or ""))
+
+    def ts(v):
+        try:
+            d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+    op, cl = ts(r["created_at"]), ts(r["closed_at"])
+    if not side or not want or op is None:
+        return []
+    end = (cl + timedelta(minutes=2)) if cl else datetime.now(timezone.utc)
+    return [{"order_id": oid, "qty": q} for oid, q, sym in fills.execute(
+        "SELECT order_id, qty, symbol FROM exchange_fills WHERE account_id = ? "
+        "AND side = ? AND datetime(exec_time) >= datetime(?) "
+        "AND datetime(exec_time) <= datetime(?) ORDER BY datetime(exec_time) ASC",
+        (str(r["account_id"] or ""), side,
+         (op - timedelta(seconds=60)).isoformat(), end.isoformat())).fetchall()
+        if normalize_symbol(sym) == want]
+
+
 LABEL_SOURCE_BY_BASIS = {
     prov.MEASURED: "price_vs_pkg_bracket",
     prov.ESTIMATED: "price_vs_pkg_bracket_est_price",
@@ -96,34 +174,44 @@ def _notes(raw: Any) -> Dict[str, Any]:
 
 
 def classify(direction: str, exit_price: float,
-             sl: Optional[float], tp: Optional[float]) -> Optional[str]:
+             sl: Optional[float], tp: Optional[float],
+             tolerance_bps: float = 0.0) -> Optional[str]:
     """The SAME conservative inequality as ``_classify_broker_exit``.
 
     Kept as a pure function so the backfill and the live classifier can be
     compared directly; a second, subtly different rule would relabel history to
-    a standard production does not use.
+    a standard production does not use. ``tolerance_bps`` mirrors the live
+    classifier's parameter, including dropping it on a bracket too narrow for
+    the widened levels to stay apart.
     """
     d = (direction or "").lower()
     if d not in ("long", "short"):
         return None
+    tol = max(0.0, float(tolerance_bps or 0.0)) / 10_000.0
+    if tol and sl is not None and tp is not None:
+        if abs(tp - sl) <= tol * (sl + tp):
+            tol = 0.0
     if d == "long":
-        if sl is not None and exit_price <= sl:
+        if sl is not None and exit_price <= sl * (1.0 + tol):
             return "sl"
-        if tp is not None and exit_price >= tp:
+        if tp is not None and exit_price >= tp * (1.0 - tol):
             return "tp"
     else:
-        if sl is not None and exit_price >= sl:
+        if sl is not None and exit_price >= sl * (1.0 - tol):
             return "sl"
-        if tp is not None and exit_price <= tp:
+        if tp is not None and exit_price <= tp * (1.0 + tol):
             return "tp"
     return None
 
 
-def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
+def plan(conn: sqlite3.Connection,
+         fills: Optional[sqlite3.Connection] = None) -> Tuple[list, Counter]:
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT t.id, t.direction, t.exit_price, t.stop_loss, t.take_profit_1, "
         "       t.exit_reason, t.notes, t.setup_type, t.order_package_id, "
+        "       t.account_id, t.sl_order_id, t.tp_order_id, t.symbol, "
+        "       t.position_size, t.created_at, t.closed_at, "
         "       p.sl AS pkg_sl, p.tp AS pkg_tp "
         "  FROM trades t "
         "  LEFT JOIN order_packages p "
@@ -141,8 +229,23 @@ def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
     out = []
     for r in rows:
         stats["scanned"] += 1
-        # Guard 2 — only a row still carrying the GENERIC reason.
-        if str(r["exit_reason"] or "").strip() not in GENERIC_REASONS:
+        reason0 = str(r["exit_reason"] or "").strip()
+        if (fills is not None and reason0 in ORDER_ID_RELABEL_REASONS
+                and (r["sl_order_id"] or r["tp_order_id"])):
+            leg = bracket_leg(r["sl_order_id"], r["tp_order_id"],
+                              exit_fills_for(fills, r), r["position_size"])
+            if leg:
+                stats[f"relabel_{leg}_order_id"] += 1
+                out.append({"id": r["id"], "action": "relabel",
+                            "basis": prov.MEASURED,
+                            "source": ORDER_ID_LABEL_SOURCE,
+                            "new_reason": leg, "old_reason": reason0})
+                continue
+        # Guard 2 — only a row still carrying the GENERIC reason, or the
+        # snapshot reconciler's "went flat" reason (MEASURED price only, below).
+        reason = str(r["exit_reason"] or "").strip()
+        is_flat = reason == SNAPSHOT_FLAT_REASON
+        if reason not in GENERIC_REASONS and not is_flat:
             stats["skip_has_real_reason"] += 1
             continue
         n = _notes(r["notes"])
@@ -156,7 +259,7 @@ def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
         stats["eligible"] += 1
 
         basis = prov.classify(n.get("exit_price_source"), "exit_price_source")
-        if basis not in LABEL_SOURCE_BY_BASIS:
+        if basis not in LABEL_SOURCE_BY_BASIS or (is_flat and basis != prov.MEASURED):
             stats[f"refused_{basis}"] += 1
             out.append({"id": r["id"], "action": "refuse", "basis": basis,
                         "source": prov.EXIT_LABEL_REFUSED_UNMEASURED,
@@ -165,7 +268,8 @@ def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
 
         sl = _f(r["pkg_sl"]) or _f(r["stop_loss"])
         tp = _f(r["pkg_tp"]) or _f(r["take_profit_1"])
-        resolved = classify(str(r["direction"] or ""), px, sl, tp)
+        resolved = classify(str(r["direction"] or ""), px, sl, tp,
+                            SNAPSHOT_FLAT_TOLERANCE_BPS if is_flat else 0.0)
         if resolved:
             stats[f"relabel_{resolved}_{basis}"] += 1
             out.append({"id": r["id"], "action": "relabel", "basis": basis,
@@ -193,12 +297,18 @@ def apply(conn: sqlite3.Connection, planned: list) -> int:
         if p["new_reason"]:
             # Reversible from the row itself.
             n["pre_backfill_exit_reason"] = str(cur[1] or "")
-            conn.execute("UPDATE trades SET exit_reason = ?, notes = ? WHERE id = ?",
-                         (p["new_reason"], json.dumps(n), p["id"]))
+            c = conn.execute(
+                "UPDATE trades SET exit_reason = ?, notes = ? WHERE id = ? "
+                f"AND COALESCE(exit_reason, '') IN ({_RELABEL_PH})",
+                (p["new_reason"], json.dumps(n), p["id"], *ORDER_ID_RELABEL_REASONS))
         else:
-            conn.execute("UPDATE trades SET notes = ? WHERE id = ?",
-                         (json.dumps(n), p["id"]))
-        written += 1
+            c = conn.execute(
+                "UPDATE trades SET notes = ? WHERE id = ? "
+                f"AND COALESCE(exit_reason, '') IN ({_RELABEL_PH})",
+                (json.dumps(n), p["id"], *ORDER_ID_RELABEL_REASONS))
+        # REVIEW-14106 (a): a row whose reason changed since plan() (an
+        # operator mark, a live sweep) is left alone, and not counted.
+        written += c.rowcount
     conn.commit()
     return written
 
@@ -220,6 +330,26 @@ def _self_test() -> int:
     ck("short mid-range", classify("short", 98.0, 105.0, 90.0), None)
     ck("unknown direction", classify("", 90.0, 95.0, 110.0), None)
     ck("no levels", classify("long", 90.0, None, None), None)
+    def F(*xs):
+        return [{"order_id": o, "qty": q} for o, q in xs]
+    ck("order id: last exit fill on the stop",
+       bracket_leg("s1", "t1", F(("s1", 10)), 10), "sl")
+    ck("order id: target filled whole position, sibling fill after",
+       bracket_leg("s1", "t1", F(("t1", 10), ("x", 5)), 10), "tp")
+    ck("order id: PARTIAL target then another order closes -> no label",
+       bracket_leg("s1", "t1", F(("t1", 4), ("x", 6)), 10), None)
+    ck("order id: no bracket fill", bracket_leg("s1", None, F(("x", 10)), 10), None)
+    # Real row 5766 (alpaca_portfolio TLT short): the stop filled at 81.19,
+    # the package stop is 81.19321429. Strict says between; 10 bps says sl.
+    ck("strict misses a cent-rounded stop",
+       classify("short", 81.19, 81.19321429, 73.1612), None)
+    ck("tolerance catches it",
+       classify("short", 81.19, 81.19321429, 73.1612, 10.0), "sl")
+    # Real row 5364 (alpaca_paper USO long): 42 bps inside the stop stays out.
+    ck("tolerance does not reach mid-range",
+       classify("long", 139.17684, 138.58857143, 151.83285714, 10.0), None)
+    ck("narrow bracket drops the tolerance",
+       classify("long", 100.0, 99.95, 100.05, 10.0), None)
     # The basis gate — the control this script exists for.
     ck("markprice is fabricated",
        prov.classify("local_markprice", "exit_price_source") in LABEL_SOURCE_BY_BASIS,
@@ -241,6 +371,10 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db")
+    ap.add_argument("--fills-db",
+                    help="exchange-fills store for the order-identity rule "
+                         "(default: the canonical store if present; 'none' "
+                         "disables the rule)")
     ap.add_argument("--apply", action="store_true",
                     help="write. Without it this is a read-only dry run.")
     ap.add_argument("--json", action="store_true")
@@ -260,7 +394,23 @@ def main(argv=None) -> int:
     uri = f"file:{db}" + ("" if a.apply else "?mode=ro")
     conn = sqlite3.connect(uri, uri=True)
     try:
-        planned, stats = plan(conn)
+        fills = None
+        fdb = a.fills_db
+        if fdb is None:
+            try:
+                from src.runtime.exchange_fills_store import get_fills_db_path
+                _fp = get_fills_db_path()
+                fdb = str(_fp) if _fp.exists() else None
+            except Exception:  # noqa: BLE001
+                fdb = None
+        if fdb and fdb != "none" and Path(fdb).exists():
+            fills = sqlite3.connect(f"file:{fdb}?mode=ro", uri=True)
+        # stdout, not stderr: the action's comment-back captures stdout, and
+        # #14188 showed this line is the only thing that says the rule ran.
+        print(f"order-identity rule: "
+              f"{'ON ' + fdb if fills else 'OFF (no fills store at ' + str(fdb) + ')'}",
+              file=sys.stderr if a.json else sys.stdout)
+        planned, stats = plan(conn, fills)
         if a.json:
             print(json.dumps({"stats": dict(stats), "planned": planned}, indent=1))
         else:

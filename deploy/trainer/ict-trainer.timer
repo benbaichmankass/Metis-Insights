@@ -1,0 +1,13 @@
+# Optional timer for periodic training cycles. Also disabled
+# by default. Operator enables with:
+#   sudo systemctl enable --now ict-trainer.timer
+[Unit]
+Description=Periodic ICT model training cycle
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -237,6 +237,17 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_stale_in_flight.py", "--self-test"],
                   ["python3", "scripts/ci/check_stale_in_flight.py"]],
     },
+    {
+        # FIX-SA-09, 2026-09-29: the SessionStart hook, three slash commands and
+        # four skills told sessions to drain review backlogs archived on
+        # 2026-09-21. This is the detector: no live `.claude/` line may name a
+        # retired register without a retirement note beside it.
+        "name": "retired-backlog-paths",
+        "when": {"globs": [".claude/**", "scripts/ci/check_retired_backlog_paths.py"]},
+        "steps": [["python3", "scripts/ci/check_retired_backlog_paths.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_retired_backlog_paths.py"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
@@ -1593,6 +1604,19 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_cadence_liveness.py", "--self-test"],
             ["python3", "scripts/ci/check_cadence_liveness.py"],
+        ],
+    },
+    {
+        # JC-SA-01 (2026-09-29): the GRADED hop went 21 days silent (max
+        # reviewed_at 2026-09-08) because grading only ever ran by hand inside
+        # /system-review. Now scheduled (grade-closed-trades.yml); this is the
+        # detector that makes a stopped schedule loud: max(reviewed_at) older
+        # than 3 days fails. Exit 2 = could not look, never read as fresh.
+        "name": "grading-freshness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_grading_freshness.py", "--self-test"],
+            ["python3", "scripts/ci/check_grading_freshness.py"],
         ],
     },
     {
