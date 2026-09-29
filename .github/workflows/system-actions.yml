@@ -1081,7 +1081,8 @@ jobs:
           # `account` optional (default breakout_1); `apply` is an optional
           # comma-separated subset of install-deps,emit-status,reset-feed,
           # probe-ticket,executor-dry-run,watched-click,round-trip-dry,
-          # round-trip-live,sol,executor-enable-timer,executor-disable-timer
+          # round-trip-live,sol,executor-enable-timer,executor-disable-timer,
+          # dump-tables (read-only table dump of the positions / orders read path)
           # (the step-3 executor; the wrapper allows at most one mode per
           # dispatch; watched-click and round-trip-live place real orders and
           # are dispatched only with the operator informed).
@@ -1090,8 +1091,8 @@ jobs:
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt)(,(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt)){0,10}$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,executor-enable-timer,executor-disable-timer,executor-clear-halt (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables)(,(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables)){0,10}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables (got '${ACTION_APPLY}')."
               exit 1
             fi
           fi

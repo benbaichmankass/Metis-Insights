@@ -2080,3 +2080,93 @@ def test_round_trip_still_stops_when_nothing_lands_within_60s(tmp_path):
     res = rt(ad, FakeApi(), tmp_path)
     assert res.halted == "round trip stopped at entry (not_found)"
     assert ad.reads_after_submit == 20
+
+
+
+# ── the terminal's split tables: a header table with no rows of its own,
+# followed by a header-less body table (measured for the watchlist in
+# #13898/#13908; the operator's Positions panel, live test #13987) ────────
+
+POSITIONS_HEADERS = ["Symbol", "Side", "Size", "Open P&L", "Take profit", "Stop loss", "Position ID",
+                     "Fill Price", "Current Price", "Date and Time"]
+POSITION_ROW = ["SOLUSD", "Buy", "0.01", "\u2014", "120.18", "117.80", "987654321", "118.94", "119.48", "29/09/26 09:27"]
+
+
+def _split_panel(rows, close_html='<button title="Close">\u00d7</button>', headers=None, body=True):
+    headers = headers or POSITIONS_HEADERS
+    head = "<table><thead><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr></thead><tbody></tbody></table>"
+    trs = "".join("<tr data-row-id='%d'>" % i + "".join(f"<td>{c}</td>" for c in r[:-1])
+                  + f"<td>{r[-1]} {close_html}</td></tr>" for i, r in enumerate(rows, 1))
+    body_t = f"<table><tbody>{trs}</tbody></table>" if body else ""
+    return f'<div class="panel"><div data-active="true">Positions</div>{head}{body_t}</div>'
+
+
+def _split_page(rows, **kw):
+    chart = '<div class="chart"><canvas width="300" height="200"></canvas>' \
+            '<button style="position:absolute;left:50px;top:50px" title="Close">\u00d7</button></div>'
+    return (TICKET_PAGE % "").replace("</body>", chart + _split_panel(rows, **kw) + "</body>")
+
+
+def test_positions_reader_pairs_the_header_table_with_its_body_table(tpage):
+    p = tpage(html=_split_page([POSITION_ROW]))
+    got = DXtradeAdapter(timeout_ms=3_000).read_positions(p)
+    assert len(got) == 1
+    pos = got[0]
+    assert (pos.symbol, pos.side, pos.quantity, pos.entry_price, pos.stop_loss, pos.take_profit) == \
+        ("SOLUSD", "long", 0.01, 118.94, 117.8, 120.18)
+    assert pos.unrealized_pnl is None                       # the em-dash P&L parses to None, never chokes
+    # and the executor's confirmation reads it as an OPEN bracketed position
+    spec = {"venue_symbol": "SOLUSD", "side": "long", "quantity": 0.01, "limit_price": None,
+            "stop_loss": 117.8, "take_profit": 120.18}
+    found = pe.match_terminal(spec, got, [], 0.02)
+    assert pe.classify_confirmation(spec, found, 0.02) == "open"
+
+
+def test_positions_reader_negative_control_an_empty_body_table_is_truly_empty(tpage):
+    p = tpage(html=_split_page([]))
+    assert DXtradeAdapter(timeout_ms=3_000).read_positions(p) == []
+    tables = p.evaluate(__import__("src.prop.platform.dxtrade", fromlist=["EXTRACT_TABLES_JS"]).EXTRACT_TABLES_JS)
+    pos_t = next(t for t in tables if "Position ID" in t["headers"])
+    assert pos_t["paired"] is True and pos_t["own_rows"] == 0 and pos_t["rows"] == []
+
+
+def test_positions_reader_does_not_pair_a_body_with_a_different_column_count(tpage):
+    # a following header-less table whose rows have 3 cells is NOT the body of a 10-column header
+    html = _split_page([]).replace("</tbody></table></div>", "</tbody></table>"
+                                    "<table><tbody><tr><td>x</td><td>y</td><td>z</td></tr></tbody></table></div>")
+    p = tpage(html=html)
+    assert DXtradeAdapter(timeout_ms=3_000).read_positions(p) == []
+    tables = p.evaluate(__import__("src.prop.platform.dxtrade", fromlist=["EXTRACT_TABLES_JS"]).EXTRACT_TABLES_JS)
+    pos_t = next(t for t in tables if "Position ID" in t["headers"])
+    assert pos_t["paired"] is True and pos_t["unpaired_body_rows"] == 0   # paired with the EMPTY body that comes first
+    html2 = _split_page([], body=False).replace("</tbody></table></div>", "</tbody></table>"
+                                                 "<table><tbody><tr><td>x</td><td>y</td><td>z</td></tr></tbody></table></div>")
+    tables = tpage(html=html2).evaluate(__import__("src.prop.platform.dxtrade", fromlist=["EXTRACT_TABLES_JS"]).EXTRACT_TABLES_JS)
+    pos_t = next(t for t in tables if "Position ID" in t["headers"])
+    assert pos_t["paired"] is False and pos_t["unpaired_body_rows"] == 1 and pos_t["rows"] == []
+
+
+def test_flatten_finds_the_row_control_in_the_paired_body_and_never_the_chart_overlay(tpage):
+    p = tpage(html=_split_page([POSITION_ROW]))
+    ad = DXtradeAdapter(timeout_ms=3_000)
+    got = ad.flatten(p, "SOLUSD", arm=False)
+    assert got == {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
+    assert p.evaluate("document.querySelector('[data-metis-row-action]').closest('tr').dataset.rowId") == "1"
+    # the same control pulled out of its row (an overlay-like placement) is refused
+    p = tpage(html=_split_page([POSITION_ROW], close_html='<button style="position:fixed;left:60px;top:60px" title="Close">\u00d7</button>'))
+    got = ad.flatten(p, "SOLUSD", arm=False)
+    assert got["ok"] is False and "controls=0" in got["why"]
+    assert p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+
+
+def test_dump_tables_reports_the_pairing_and_the_row_controls(tpage):
+    lines = DXtradeAdapter(timeout_ms=3_000).dump_tables(tpage(html=_split_page([POSITION_ROW])), ())
+    pair = next(ln for ln in lines if ".pairing:" in ln and "first_row_controls=['\u00d7']" in ln)
+    assert "paired_body=True own_rows=0 unpaired_body_rows=0" in pair
+    row = next(ln for ln in lines if "'SOLUSD', 'Buy', '0.01'" in ln)
+    assert "'#####'" in row and "987654321" not in "\n".join(lines)
+
+
+def test_parse_number_em_dash_is_none():
+    from src.prop.platform.dxtrade import parse_number
+    assert parse_number("\u2014") is None and parse_number("—") is None and parse_number("0.24") == 0.24
