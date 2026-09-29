@@ -1026,18 +1026,21 @@ ORDER_FORM_JS = r"""
         const oy = getComputedStyle(a).overflowY;
         if (oy === 'scroll' || oy === 'auto' || oy === 'hidden') visBottom = Math.min(visBottom, a.getBoundingClientRect().bottom);
       }
-      let anc = form.parentElement;
-      for (let i = 0; i < 4 && anc && anc !== document.body && m.length === 0; i++, anc = anc.parentElement) {
-        m = [...anc.querySelectorAll('button, [role=button], input[type=submit]')].filter(b => {
-          if (form.contains(b) || !r.test(bname(b)) || b.closest('table, tr')) return false;
-          const br = b.getBoundingClientRect();
-          // In the form's column AND below it (measured: the submit sits
-          // under the fields' panel) — never a price/quick-trade control
-          // stacked above or beside it.
-          return br.width > 0 && br.left >= fr.left - 10 && br.right <= fr.right + 10
-            && br.top >= visBottom - 10;
-        });
+      // Document-wide, like the probe's panel dump that DID find it (#13855):
+      // the footer can sit more than a few ancestors above the fields.
+      const diag = {form: [Math.round(fr.left), Math.round(fr.top), Math.round(fr.width), Math.round(fr.height)],
+                    vis_bottom: Math.round(visBottom), matches: []};
+      for (const b of document.querySelectorAll('button, [role=button], input[type=submit]')) {
+        if (!r.test(bname(b))) continue;
+        const br = b.getBoundingClientRect();
+        const f = {text: bname(b).slice(0, 60), box: [Math.round(br.left), Math.round(br.top), Math.round(br.width), Math.round(br.height)],
+                   in_form: form.contains(b), in_table: !!b.closest('table, tr'),
+                   in_column: br.width > 0 && br.left >= fr.left - 10 && br.right <= fr.right + 10,
+                   below: br.top >= visBottom - 10};
+        if (diag.matches.length < 10) diag.matches.push(f);
+        if (!f.in_form && !f.in_table && f.in_column && f.below) m.push(b);
       }
+      out.submit_search = diag;
       if (m.length) out.submit_outside_form = true;
     }
     if (m.length === 1) { m[0].setAttribute('data-metis-btn', k); out.buttons[k] = txt(m[0]) || m[0].getAttribute('aria-label') || ''; }
