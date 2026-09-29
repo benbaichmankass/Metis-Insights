@@ -1,0 +1,62 @@
+{
+  "verdict": "fail",
+  "read_state": "measured",
+  "population": "2 leg(s) [trend_donchian_eth_prop, trend_donchian_sol_prop], 234 committed trades in total; grade=reproduce, overall=all",
+  "n": 234,
+  "measurement": {
+    "leg_verdicts": {
+      "trend_donchian_eth_prop": "fail",
+      "trend_donchian_sol_prop": "fail"
+    },
+    "grade": "reproduce",
+    "overall": "all",
+    "cells": 2
+  },
+  "note": "trend_donchian_eth_prop: NOT_REPRODUCED outside \u00b110%: ev +128.04 vs +883.00 (85%), p 0.3115 vs 0.8477 (63%); trend_donchian_sol_prop: NOT_REPRODUCED outside \u00b110%: ev +121.77 vs +483.00 (75%), p 0.3508 vs 0.7427 (53%)",
+  "records": [
+    {
+      "verdict": "fail",
+      "read_state": "measured",
+      "population": "trend_donchian_eth_prop: 169 committed trades from comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl (evidence record comms/strategy_evidence/trend_donchian_eth_prop.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 1 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 169,
+      "measurement": {
+        "leg": "trend_donchian_eth_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 128.04,
+              "ev_se": 5.92,
+              "p_net_positive": 0.3115,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "NOT_REPRODUCED outside \u00b110%: ev +128.04 vs +883.00 (85%), p 0.3115 vs 0.8477 (63%)"
+    },
+    {
+      "verdict": "fail",
+      "read_state": "measured",
+      "population": "trend_donchian_sol_prop: 65 committed trades from comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl (evidence record comms/strategy_evidence/trend_donchian_sol_prop.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 1 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 65,
+      "measurement": {
+        "leg": "trend_donchian_sol_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 121.77,
+              "ev_se": 5.25,
+              "p_net_positive": 0.3508,
+              "p_alive_at_horizon": 0.0083,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "NOT_REPRODUCED outside \u00b110%: ev +121.77 vs +483.00 (75%), p 0.3508 vs 0.7427 (53%)"
+    }
+  ]
+}

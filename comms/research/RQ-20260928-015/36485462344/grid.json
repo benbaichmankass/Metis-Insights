@@ -1,0 +1,114 @@
+{
+  "tool": "scripts/research/prop_ev_grid.py",
+  "sim": "scripts/research/prop_ev_sim.py",
+  "mode": "path",
+  "common": [
+    "--ruleset",
+    "config/prop_rulesets/breakout.yaml",
+    "--costs",
+    "breakout",
+    "--funded-start",
+    "fresh",
+    "--swap-model",
+    "dxtrade"
+  ],
+  "arms": {
+    "A": [
+      "--sizing",
+      "balance",
+      "--risk-pct",
+      "0.015"
+    ]
+  },
+  "seeds": [
+    1
+  ],
+  "grade": "reproduce",
+  "overall": "all",
+  "legs": {
+    "trend_donchian_eth_prop": {
+      "trades_file": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+      "resolved_by": "evidence record comms/strategy_evidence/trend_donchian_eth_prop.json -> cost_stack.source",
+      "n_trades": 169
+    },
+    "trend_donchian_sol_prop": {
+      "trades_file": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl",
+      "resolved_by": "evidence record comms/strategy_evidence/trend_donchian_sol_prop.json -> cost_stack.source",
+      "n_trades": 65
+    }
+  },
+  "cells": [
+    {
+      "leg": "trend_donchian_eth_prop",
+      "arm": "A",
+      "seed": 1,
+      "exit_code": 0,
+      "seconds": 42.6,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "dxtrade",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.015",
+        "--seed",
+        "1",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20260928-015/36485462344/sims/trend_donchian_eth_prop__A__seed1.json"
+      ],
+      "out": "comms/research/RQ-20260928-015/36485462344/sims/trend_donchian_eth_prop__A__seed1.json",
+      "stats": {
+        "ev": 128.04,
+        "ev_se": 5.92,
+        "p_net_positive": 0.3115,
+        "p_alive_at_horizon": 0.0,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "trend_donchian_sol_prop",
+      "arm": "A",
+      "seed": 1,
+      "exit_code": 0,
+      "seconds": 71.6,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "dxtrade",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.015",
+        "--seed",
+        "1",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20260928-015/36485462344/sims/trend_donchian_sol_prop__A__seed1.json"
+      ],
+      "out": "comms/research/RQ-20260928-015/36485462344/sims/trend_donchian_sol_prop__A__seed1.json",
+      "stats": {
+        "ev": 121.77,
+        "ev_se": 5.25,
+        "p_net_positive": 0.3508,
+        "p_alive_at_horizon": 0.0083,
+        "rule_v2_verdict": "indeterminate"
+      }
+    }
+  ]
+}

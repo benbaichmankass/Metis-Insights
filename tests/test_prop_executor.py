@@ -94,7 +94,7 @@ def test_real_config_loads_and_keeps_flat_75_and_unmeasured_lots_refuse():
     assert c.symbols["ADAUSDT"]["min_lots"] == 10
     spec, _, why = pe.bracket_from_ticket(ticket(symbol="BTCUSDT"), c)
     assert spec is None and "not declared" in why
-    assert c.watched_click_max_lots == {}                 # the watched click refuses until set
+    assert c.watched_click_max_lots == {"SOLUSD": 0.01}   # the lot step; only SOLUSD (#13855)
 
 
 # ── § 3.3 guards, one at a time ───────────────────────────────────────────
@@ -596,7 +596,8 @@ TICKET_PAGE = """
 <div class="chart"><button>Sell 119.9</button><button>120.0 Buy</button></div>
 <button onclick="document.getElementById('ticket').style.display='block'">New Order</button>
 <script>
-function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=>x.removeAttribute('aria-pressed'));b.setAttribute('aria-pressed','true')}
+function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=>x.removeAttribute('aria-pressed'));b.setAttribute('aria-pressed','true');
+  if(b.dataset.g==='side'){document.getElementById('sub').textContent='Place '+b.textContent+' Order'}}
 </script>
 <div id="ticket" style="display:none">
   <div class="hdr">SOLUSD</div>
@@ -606,8 +607,9 @@ function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=
   <div><span>Price</span><input id="px"></div>
   <div><label><input type="checkbox" id="slc" onclick="document.getElementById('sl').disabled=!this.checked">Stop Loss</label>
        <input id="sl" aria-label="Stop Loss price" disabled></div>
-  <div><span>Take Profit</span><input id="tp"></div>
-  <button onclick="window.__submits=(window.__submits||0)+1">Place Order</button>
+  <div><label><input type="checkbox" id="tpc" onclick="document.getElementById('tp').disabled=!this.checked">Take Profit</label>
+       <input id="tp" aria-label="Take Profit price" disabled></div>
+  <button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>
   <button onclick="document.getElementById('ticket').style.display='none'">Cancel</button>
 </div>
 </body></html>
@@ -786,9 +788,9 @@ def test_place_bracket_refuses_on_read_back_mismatch(tpage):
 
 
 def test_place_bracket_refuses_ambiguous_fields(tpage):
-    html = (TICKET_PAGE % "").replace('<div><span>Take Profit</span><input id="tp"></div>',
-                                      '<div><span>Take Profit</span><input id="tp"></div>'
-                                      '<div><span>Take Profit</span><input id="tp2"></div>')
+    dup = '<input id="tp" aria-label="Take Profit price" disabled></div>'
+    assert dup in TICKET_PAGE
+    html = (TICKET_PAGE % "").replace(dup, dup + '<div><span>Take Profit</span><input id="tp2"></div>')
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(html=html), SOL, arm=True)
     assert att.stage == "refused" and "ambiguous" in att.detail
 
@@ -1103,3 +1105,546 @@ def test_controls_dump_masks_digits_and_never_reads_values(tpage):
     assert next(c for c in dump["controls"] if c["tid"] == "qty")["label"] == "Quantity"
     probe = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
     assert probe["surface"] == "not_opened" and probe["controls_dump"]["found"]
+
+
+# Shaped like the sidebar MEASURED in probe #13760 (test ids symbol_input, BUY,
+# SELL; Market/Limit/Stop/OCO buttons; SL/TP inputs behind data-value toggles).
+SIDEBAR = """
+<div class='hdr'><button data-test-id='account_menu'>Jane Doe</button></div>
+<div class='panel'>
+  <div><span>Symbol</span><input data-test-id='symbol_input' value='SOLUSD'></div>
+  <div><button class='tp-a sel' style='background:rgb(1,2,3)'>Market</button><button class='tp-a'>Limit</button>
+       <button class='tp-a'>Stop</button><button class='tp-a'>OCO</button></div>
+  <div><button data-test-id='SELL' class='sd'>Sell</button>
+       <button data-test-id='BUY' class='sd on' style='background:rgb(0,128,0)'>Buy</button></div>
+  <div><span>Quantity</span><input value='823528'></div>
+  <div>Stop Loss <div data-value='false'></div><input value='117.5'><button>Price</button></div>
+  <div>Take Profit <div data-value='false'></div><input value='126.25'><button>Price</button></div>
+  <div>Projected P&amp;L 12.34 contact jane.doe@example.com</div>
+  <button class='submit'>Place Order</button>
+</div>
+"""
+
+
+def test_ticket_panel_dump_reads_the_measured_sidebar_shape_and_redacts(tpage):
+    p = tpage(html=SIDEBAR)
+    a = DXtradeAdapter(timeout_ms=3_000)
+    dump = a.ticket_panel_dump(p)
+    assert dump["found"] and not dump["truncated"]
+    blob = json.dumps(dump["rows"])
+    assert "823528" not in blob and "117" not in blob and "@" not in blob and "jane" not in blob.lower()
+    texts = [r.get("text") for r in dump["rows"]]
+    assert {"Stop Loss", "Take Profit", "Quantity", "Market", "Buy", "Place Order"} <= set(texts)
+    buy = next(r for r in dump["rows"] if r.get("tid") == "BUY")
+    sell = next(r for r in dump["rows"] if r.get("tid") == "SELL")
+    assert buy["style"]["bg"] != sell["style"]["bg"] and buy["cls"] == "sd on"
+    toggles = [r for r in dump["rows"] if (r.get("state") or {}).get("data-value") == "false"]
+    assert len(toggles) == 2
+    assert not any(r.get("tid") == "account_menu" for r in dump["rows"])   # outside the panel
+    probe = a.probe_order_ticket(p, "SOLUSD")
+    assert probe["ticket_panel"]["found"] and "controls_dump" not in probe
+    assert p.evaluate("document.querySelectorAll('input')[1].value") == "823528"   # nothing typed
+
+
+def test_ticket_panel_dump_falls_back_to_the_control_map(tpage):
+    p = tpage(html="<div><button>Trade</button></div>")
+    probe = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
+    assert "ticket_panel" not in probe and probe["ticket_panel_why"] and probe["controls_dump"]["found"]
+
+
+# The live sidebar's shape (probe #13760): SL / TP behind div[data-value]
+# toggles that start "false", a "Price" mode button beside each, and a short
+# scrollable panel whose submit sits below the fold once the brackets are on.
+LIVE_SIDEBAR = """
+<html><body style="margin:0">
+<script>
+function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=>x.removeAttribute('aria-pressed'));
+  b.setAttribute('aria-pressed','true');
+  if(b.dataset.g==='side'){document.getElementById('sub').textContent=b.textContent+' SOLUSD'}}
+function tog(d){ if(!d.hasAttribute('data-stuck')) d.setAttribute('data-value', d.getAttribute('data-value')==='true'?'false':'true') }
+</script>
+<div id="panel" style="height:260px;overflow-y:auto;width:320px">
+  <div class="hdr">SOLUSD</div>
+  <button data-g="type" onclick="sel(this)">Market</button><button data-g="type" onclick="sel(this)">Limit</button>
+  <button data-test-id="SELL" data-g="side" onclick="sel(this)">Sell</button>
+  <button data-test-id="BUY" data-g="side" onclick="sel(this)">Buy</button>
+  <div><span>Quantity</span><input id="q"></div>
+  <div><span>Price</span><input id="px"></div>
+  <div><span>Stop Loss</span><div id="slt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div>
+       <input id="sl"><button>%SLMODE%</button></div>
+  <div><span>Take Profit</span><div id="tpt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div>
+       <input id="tp"><button>Price</button></div>
+  <div style="height:400px"></div>
+  %SUBMIT%
+</div>
+</body></html>
+"""
+SUBMIT_BTN = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
+
+
+def _live(slmode="Price", submit=SUBMIT_BTN, extra=""):
+    return LIVE_SIDEBAR.replace("%SLMODE%", slmode).replace("%SUBMIT%", submit) + extra
+
+
+def test_live_shape_switches_both_toggles_on_scrolls_to_submit_and_verifies(tpage):
+    p = tpage(html=_live())
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
+    assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert p.evaluate("window.__submits") is None
+
+
+def test_live_shape_armed_clicks_the_scrolled_submit_once(tpage):
+    p = tpage(html=_live())
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.submitted is True and p.evaluate("window.__submits") == 1, att.detail
+
+
+def test_a_toggle_left_off_refuses_never_submits_naked(tpage):
+    p = tpage(html=_live().replace('id="tpt" data-value="false"', 'id="tpt" data-value="false" data-stuck="1"'))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "take_profit: enabling toggle is OFF" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_bracket_mode_other_than_price_refuses(tpage):
+    p = tpage(html=_live(slmode="Pips"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "stop_loss: entry mode is 'Pips'" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_virtualised_submit_is_found_by_scrolling_the_panel(tpage):
+    # The submit is rendered only once the panel is scrolled near its end.
+    lazy = ("<script>document.getElementById('panel').addEventListener('scroll', e => {"
+            " const p = e.target; if (p.scrollTop + p.clientHeight > p.scrollHeight - 120 && !document.getElementById('sub')) {"
+            " p.insertAdjacentHTML('beforeend', " + json.dumps(SUBMIT_BTN) + "); } });</script>")
+    p = tpage(html=_live(submit="") + lazy)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL)
+    assert att.stage == "form_verified", att.detail
+
+
+def test_a_field_changed_by_scrolling_refuses(tpage):
+    # A panel that rewrites the quantity when scrolled: the post-scroll read-back must catch it.
+    evil = ("<script>document.getElementById('panel').addEventListener('scroll', () => {"
+            " document.getElementById('q').value = '9'; });</script>")
+    p = tpage(html=_live() + evil)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "read-back after scrolling to submit" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_submit_that_does_not_name_the_side_refuses(tpage):
+    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "does not name the intended side" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_verify_bracket_legs_pure():
+    import src.prop.platform.dxtrade as pe_dx
+    on = [{"field": "stop_loss", "checked": True}, {"field": "take_profit", "checked": True}]
+    f = {"toggle_candidates": 2, "checkboxes": on, "fields": {"stop_loss": {"mode": "Price"}, "take_profit": {"mode": "Price"}}}
+    assert pe_dx.verify_bracket_legs(f) == []
+    assert pe_dx.verify_bracket_legs({**f, "checkboxes": on[:1]}) == ["take_profit: 0 enabling toggles found (need exactly 1)"]
+    assert pe_dx.verify_bracket_legs({"fields": {}}) == []            # a form with no toggles at all
+    assert pe_dx.verify_bracket_legs({**f, "fields": {"stop_loss": {"mode": "Price"}, "take_profit": {}}}) \
+        == ["take_profit: entry mode is None, need 'Price'"]
+
+
+def test_ticket_panel_dump_anchors_on_the_sidebar_not_the_work_area(tpage):
+    # Probe #13775: the work area holds a watchlist table AND the sidebar; the
+    # sidebar (here with only 2 inputs) must be the anchor and tables skipped.
+    rows = "".join(f"<tr><td>SYM{i}</td><td><button>Sell</button></td><td><button>Buy</button></td></tr>"
+                   for i in range(200))
+    html = ("<div class='workarea'><table><tbody>" + rows + "</tbody></table>"
+            "<div class='side'><input data-test-id='symbol_input'>"
+            "<button data-test-id='SELL'>Sell</button><button data-test-id='BUY'>Buy</button>"
+            "<div><span>Quantity</span><input></div><button>Place Order</button></div></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] and not dump["truncated"]
+    texts = [r.get("text") for r in dump["rows"]]
+    assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("SYM") for t in texts)
+
+
+# ── auto-revert triggers (operator go-live criteria, 2026-09-28) ──────────
+
+
+def test_one_read_error_does_not_trip_two_consecutive_do(env):
+    _, state = env
+    ad = FakeAdapter(read_error="no positions table")
+    run(ad, FakeApi([ticket()]), env)
+    assert state.halted() is None
+    res = run(ad, FakeApi([ticket()]), env)
+    assert state.halted() and "2 consecutive ticks" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+    assert ad.calls == []
+
+
+def test_a_clean_read_resets_the_error_count(env):
+    _, state = env
+    run(FakeAdapter(read_error="x"), FakeApi(), env)
+    run(FakeAdapter(), FakeApi(), env)                    # clean cycle in between
+    run(FakeAdapter(read_error="x"), FakeApi(), env)
+    assert state.halted() is None
+
+
+def test_read_only_never_writes_the_latch(env):
+    _, state = env
+    for _ in range(3):
+        res = run(FakeAdapter(read_error="x"), FakeApi(), env, mode="read_only")
+    assert state.halted() is None and any(a.startswith("AUTO-REVERT") for a in res.alerts)
+
+
+def test_partial_no_sl_tp_after_submit_trips_at_once(env):
+    _, state = env
+    ad = FakeAdapter(after_submit=([_p(stop_loss=None, quantity=0.5)], []))
+    res = run(ad, FakeApi([ticket()]), env)
+    assert state.halted() and "partial_no_sl_tp" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+
+
+def test_partial_found_by_a_later_reconcile_trips(env):
+    ledger, state = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    run(FakeAdapter(positions=[_p(stop_loss=None)]), FakeApi(), env)
+    assert state.halted() and "t1: partial_no_sl_tp" in state.halted()
+
+
+def test_duplicate_trips(env):
+    ledger, state = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    run(FakeAdapter(orders=[_o(order_id="O1"), _o(order_id="O2")]), FakeApi(), env)
+    assert state.halted() and "duplicate" in state.halted()
+
+
+def test_unconfirmed_placement_trips_after_the_configured_reads(env):
+    ledger, state = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    for _ in range(cfg().unconfirmed_reads):
+        run(FakeAdapter(), FakeApi(), env)
+    assert ledger.state("t1") == "skipped"
+    assert state.halted() and "unconfirmed placement" in state.halted()
+
+
+def test_two_consecutive_readback_refusals_trip(env):
+    _, state = env
+    bad = PlaceAttempt(stage="refused", detail="form read-back mismatch: quantity: typed 0.5, form shows 5")
+    run(FakeAdapter(attempt=bad), FakeApi([ticket()]), env)
+    assert state.halted() is None
+    run(FakeAdapter(attempt=bad), FakeApi([ticket(ticket_id="prop-manual-bbb")]), env)
+    assert state.halted() and "2 consecutive read-back refusals" in state.halted()
+
+
+def test_a_non_readback_refusal_does_not_count(env):
+    _, state = env
+    other = PlaceAttempt(stage="refused", detail="no unique submit control in the form")
+    run(FakeAdapter(attempt=other), FakeApi([ticket()]), env)
+    run(FakeAdapter(attempt=other), FakeApi([ticket(ticket_id="prop-manual-bbb")]), env)
+    assert state.halted() is None
+
+
+def test_a_tripped_latch_refuses_the_next_ticket(env):
+    _, state = env
+    state.halt("AUTO-REVERT: test")
+    ad = FakeAdapter()
+    run(ad, FakeApi([ticket()]), env)
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+
+
+def test_record_tick_error_trips_on_the_second(tmp_path):
+    assert pe.record_tick_error(tmp_path, True, "TimeoutError") is None
+    trip = pe.record_tick_error(tmp_path, True, "TimeoutError")
+    assert trip and "2 consecutive ticks" in trip and pe.ExecutorState(tmp_path).halted()
+    assert pe.record_tick_error(tmp_path / "ro", False, "x") is None
+    assert pe.record_tick_error(tmp_path / "ro", False, "x") is None
+    assert pe.ExecutorState(tmp_path / "ro").halted() is None
+
+
+def test_ticket_panel_dump_ignores_the_charts_symbol_input(tpage):
+    # Probe #13797: the chart widget has its own symbol_input, first in DOM
+    # order; the dump must anchor on the ticket (from its BUY button).
+    html = ("<div class='layout'><div class='chart'><input data-test-id='symbol_input' placeholder='Symbol...'>"
+            + "".join(f"<div>row {i}</div>" for i in range(400)) + "</div>"
+            "<div class='side'><input data-test-id='symbol_input'>"
+            "<button data-test-id='SELL'>Sell</button><button data-test-id='BUY'>Buy</button>"
+            "<div><span>Quantity</span><input></div><button>Place Order</button></div></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] and not dump["truncated"] and dump["n"] < 20
+    texts = [r.get("text") for r in dump["rows"]]
+    assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("row") for t in texts)
+
+
+def test_ticket_panel_dump_refuses_two_buy_buttons(tpage):
+    html = ("<div><input data-test-id='symbol_input'><button data-test-id='BUY'>Buy</button>"
+            "<button data-test-id='BUY'>Buy</button><button data-test-id='SELL'>Sell</button></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] is False and "2 [data-test-id=BUY]" in dump["why"]
+
+
+# A replica of the order-ticket sidebar MEASURED in probe #13816: selection is
+# shown ONLY by background colour; the quantity label is the previous sibling
+# of the input's container; SL / TP inputs and their "Price" select are
+# disabled until their data-value toggle (placed BEFORE the label) is on; the
+# visible text says "SOL", the symbol_input carries the venue symbol; the
+# submit sits in a footer BELOW the fields' panel, in a short scrolling column.
+MEASURED_SIDEBAR = """
+<html><body style="margin:0">
+<style>.tb{background:rgb(64,66,94)} .row{display:flex}</style>
+<script>
+const SEL = {type: 'rgb(80, 87, 179)', BUY: 'rgb(26, 143, 109)', SELL: 'rgb(200, 50, 50)'};
+function pickType(b){document.querySelectorAll('.tp').forEach(x=>x.style.background='');b.style.background=SEL.type}
+function pickSide(b){document.querySelectorAll('.sd').forEach(x=>x.style.background='');
+  b.style.background=SEL[b.dataset.testId];document.getElementById('sub').textContent=b.textContent+' %SYM%'}
+function tog(d){ if(d.hasAttribute('data-stuck')) return; const on=d.getAttribute('data-value')!=='true';
+  d.setAttribute('data-value', on?'true':'false');
+  d.closest('.blk').querySelectorAll('input,button').forEach(x=>x.disabled=!on) }
+</script>
+<div id="col" style="position:absolute;left:903px;top:0;width:330px;height:300px;overflow-y:auto">
+ <div id="panel">
+  <section id="s1">
+   <div><div>Symbol</div><div><div><input data-test-id="symbol_input" value="%SYMVAL%"></div></div></div>
+   <div>SOL</div>
+   <div class="row">
+    <button class="tb tp" onclick="pickType(this)" style="background:rgb(80, 87, 179)"><span>Market</span></button>
+    <button class="tb tp" onclick="pickType(this)"><span>Limit</span></button>
+    <button class="tb tp" onclick="pickType(this)"><span>Stop</span></button>
+    <button class="tb tp" onclick="pickType(this)"><span>OCO</span></button>
+   </div>
+  </section>
+  <section id="s2">
+   <div class="row">
+    <button class="tb sd" data-test-id="SELL" onclick="pickSide(this)"><span>Sell</span></button>
+    <button class="tb sd" data-test-id="BUY" onclick="pickSide(this)" style="background:rgb(26, 143, 109)"><span>Buy</span></button>
+   </div>
+   <div>
+    <div>Lots x 1 SOL</div>
+    <div><div><input id="q" inputmode="numeric" step="0.01" min="0.01"><button></button><button></button></div></div>
+   </div>
+   <div><div>Current Price (Ask)</div><span>120.00</span></div>
+  </section>
+  <section id="s3">
+   <div>Protection</div>
+   <div class="blk">
+    <div class="row"><div id="slt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div><div>Stop Loss:</div></div>
+    <div class="row"><div><div><input id="sl" inputmode="numeric" disabled><button disabled></button></div></div>
+      <button disabled><div><div>%SLMODE%</div></div></button></div>
+    <div><div>Pips</div><div>0.0</div></div>
+   </div>
+   <div class="blk">
+    <div class="row"><div id="tpt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div><div>Take Profit:</div></div>
+    <div class="row"><div><div><input id="tp" inputmode="numeric" disabled><button disabled></button></div></div>
+      <button disabled><div><div>Price</div></div></button></div>
+    <div><div>Pips</div><div>0.0</div></div>
+   </div>
+  </section>
+ </div>
+ <div id="footer" style="padding-top:200px"><button id="sub" onclick="window.__submits=(window.__submits||0)+1">Buy %SYM%</button></div>
+</div>
+</body></html>
+"""
+
+
+def _measured(sym="SOLUSD", symval="SOLUSD", slmode="Price"):
+    return MEASURED_SIDEBAR.replace("%SYMVAL%", symval).replace("%SYM%", sym).replace("%SLMODE%", slmode)
+
+
+def test_measured_sidebar_is_recognised_labels_selection_symbol_submit(tpage):
+    p = tpage(html=_measured())
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
+    assert form["found"], form
+    assert form["fields"]["quantity"]["label"].startswith("Lots x")
+    assert form["fields"]["stop_loss"]["label"] == "Stop Loss:" and form["fields"]["take_profit"]["label"] == "Take Profit:"
+    assert form["selected"] == {"side": "buy", "order_type": "market"}      # by background only
+    assert form["symbol_value"] == "SOLUSD" and form["submit_outside_form"] is True
+    assert form["buttons"]["submit"] == "Buy SOLUSD"
+    assert [c["field"] for c in form["checkboxes"]] == ["stop_loss", "take_profit"]
+
+
+def test_measured_sidebar_disarmed_walk_passes_the_full_read_back(tpage):
+    p = tpage(html=_measured())
+    spec = BracketSpec("t1", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
+    assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert p.evaluate("window.__submits") is None
+
+
+def test_measured_sidebar_sell_is_selected_and_read_back_by_colour(tpage):
+    p = tpage(html=_measured())
+    spec = BracketSpec("t2", "SOLUSD", "short", 0.01, 126.0, 118.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell SOLUSD"
+
+
+def test_measured_sidebar_refuses_another_symbol(tpage):
+    p = tpage(html=_measured(sym="ETHUSD", symval="ETHUSD"))
+    spec = BracketSpec("t3", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and "does not name SOLUSD" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_measured_sidebar_stuck_toggle_refuses(tpage):
+    p = tpage(html=_measured().replace('id="tpt" data-value="false"', 'id="tpt" data-value="false" data-stuck="1"'))
+    spec = BracketSpec("t4", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and p.evaluate("window.__submits") is None
+
+
+def _measured_live_label(clamp_min=None):
+    """The replica with the MEASURED label shape (probe #13855): the terminal
+    writes "<Side> <qty> SOLUSD at <price>" from the quantity it accepted;
+    ``clamp_min`` models a venue that silently raises a smaller size."""
+    js = ("<script>function relabel(){const b=document.querySelector('.sd[style*=background]');"
+          "let q=parseFloat(document.getElementById('q').value)||0;"
+          + (f"if(q>0&&q<{clamp_min})q={clamp_min};" if clamp_min else "") +
+          "document.getElementById('sub').textContent=(b?b.textContent.trim():'Buy')+' '+q+' SOLUSD at 120.05'}"
+          "document.addEventListener('input',relabel);document.addEventListener('click',()=>setTimeout(relabel,0));</script>")
+    return _measured().replace("</body>", js + "</body>")
+
+
+def test_submit_label_mismatch_reads_the_measured_label_shape():
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    spec = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    assert submit_label_mismatch("Buy 0.01 SOLUSD at 120.05", spec) == ""
+    assert submit_label_mismatch("Buy SOLUSD", spec) == ""                 # no qty stated: read-back alone
+    assert "states quantity 0.1" in submit_label_mismatch("Buy 0.1 SOLUSD at 120.05", spec)
+    assert "names 'ETHUSD'" in submit_label_mismatch("Buy 0.01 ETHUSD at 3000.1", spec)
+
+
+def test_measured_sidebar_label_stating_the_typed_qty_passes(tpage):
+    p = tpage(html=_measured_live_label())
+    spec = BracketSpec("t5", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+
+
+def test_measured_sidebar_label_with_a_clamped_qty_refuses(tpage):
+    # A venue that clamps a below-minimum size up shows it here; the dry run at
+    # the lot step is a venue-minimum measurement only because this refuses.
+    p = tpage(html=_measured_live_label(clamp_min=0.1))
+    spec = BracketSpec("t6", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and "states quantity 0.1" in att.detail, att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_colour_selection_needs_a_unique_unselected_colour(tpage):
+    # Every toggle a different colour: no majority "unselected" colour → not readable.
+    html = _measured().replace('class="tb tp" onclick="pickType(this)"><span>Limit', 'class="tp" style="background:rgb(1,1,1)" onclick="pickType(this)"><span>Limit') \
+                      .replace('class="tb tp" onclick="pickType(this)"><span>Stop', 'class="tp" style="background:rgb(2,2,2)" onclick="pickType(this)"><span>Stop') \
+                      .replace('class="tb tp" onclick="pickType(this)"><span>OCO', 'class="tp" style="background:rgb(3,3,3)" onclick="pickType(this)"><span>OCO') \
+                      .replace('class="tb sd" data-test-id="SELL"', 'class="sd" style="background:rgb(4,4,4)" data-test-id="SELL"')
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(tpage(html=html))
+    assert form["selected"]["order_type"] is None
+
+
+def test_probe_on_the_measured_sidebar_reports_submit_candidates(tpage):
+    p = tpage(html=_measured())
+    got = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
+    assert got["surface"] == "dom" and got["symbol_value"] == "SOLUSD" and got["submit_outside_form"] is True
+    tp_ = got["ticket_panel"]
+    assert any(c["text"] == "Buy SOLUSD" for c in tp_["submit_candidates"])
+    assert {"step": "0.01", "min": "0.01"}.items() <= next(c for c in tp_["qty_constraints"]).items()
+    assert any(pp["overflow_y"] == "auto" for pp in tp_["panel_parents"])
+    assert p.evaluate("window.__submits") is None
+
+
+# ── SOL-only go-live: a non-enabled symbol is SKIPPED, never refused ──────
+
+
+def _sol_only():
+    c = cfg()
+    c.enabled_venue_symbols = ["SOLUSD"]
+    return c
+
+
+def test_a_non_enabled_symbol_is_skipped_before_the_form_and_counts_nothing(env):
+    ledger, state = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT")
+    ad, api = FakeAdapter(), FakeApi([eth])
+    st0 = dict(state.load())
+    c = _sol_only()
+    c.symbols = {**c.symbols, "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                          "min_lots": 0.01, "lot_step": 0.01}}
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW)
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+    assert ledger.state("prop-eth") == "skipped" and ledger.latest()["prop-eth"]["reason"] == "symbol_not_enabled"
+    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"] == ["symbol_not_enabled"]
+    st1 = state.load()
+    assert st1.get("readback_refusals", 0) == st0.get("readback_refusals", 0) and state.halted() is None
+    assert res.halted is None
+
+
+def test_a_skipped_symbol_does_not_block_the_next_enabled_ticket(env):
+    ledger, _ = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT")
+    sol = ticket(ticket_id="prop-sol", created_at=(NOW + timedelta(seconds=1)).isoformat())
+    ad = FakeAdapter(after_submit=([], [_o(quantity=0.5)]))
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([eth, sol]), cfg=_sol_only(), mode="live",
+                 ledger=ledger, state=env[1], now=NOW)
+    assert [c[1] for c in ad.calls if c[0] == "place_bracket"] == ["prop-sol"]
+
+
+def test_enabled_venues_env_overrides_config_and_missing_enables_nothing():
+    assert pe.enabled_venues({"enabled_venue_symbols": ["SOLUSD"]}, env={}) == ["SOLUSD"]
+    assert pe.enabled_venues({"enabled_venue_symbols": ["SOLUSD"]}, env={"PROP_EXECUTOR_SYMBOLS": "solusd, ethusd"}) \
+        == ["ETHUSD", "SOLUSD"]
+    assert pe.enabled_venues({}, env={}) == []
+
+
+def test_the_real_config_enables_sol_only():
+    c = pe.load_config("breakout_1")
+    assert c.enabled_venue_symbols == ["SOLUSD"]
+
+
+def test_round_trip_refuses_a_non_enabled_venue(env):
+    ledger, _ = env
+    c = _sol_only()
+    c.symbols = {**c.symbols, "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                          "min_lots": 0.01, "lot_step": 0.01}}
+    c.watched_click_max_lots = {"ETHUSD": 0.01, "SOLUSD": 0.01}
+    res = pe.run_round_trip(adapter=FakeAdapter(), page=None, api=FakeApi(), cfg=c, ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert res.halted and "enabled_venue_symbols" in res.halted
+
+
+# ── Fable review of #13822 ─────────────────────────────────────────────────
+
+
+def test_outside_submit_must_sit_below_the_form_not_above(tpage):
+    # A same-column "Buy …" control ABOVE the fields (a quick-trade widget),
+    # no submit below: never tagged as the submit.
+    html = _measured().replace('<div id="footer" style="padding-top:200px"><button id="sub" '
+                               'onclick="window.__submits=(window.__submits||0)+1">Buy SOLUSD</button></div>', '') \
+                      .replace('<div id="panel">',
+                               '<button id="quick" onclick="window.__quick=1">Buy 120.05</button><div id="panel">')
+    p = tpage(html=html)
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
+    assert "submit" not in form["buttons"]
+    spec = BracketSpec("t9", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and p.evaluate("window.__quick") is None
+
+
+def test_the_click_targets_the_token_proven_element(tpage):
+    p = tpage(html=_measured())
+    spec = BracketSpec("t10", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.submitted and att.form["submit"]["token"].startswith("t")
+    assert p.evaluate("document.getElementById('sub').dataset.metisSubmitToken") == att.form["submit"]["token"]
+
+
+def test_live_shape_requires_a_readable_mode():
+    import src.prop.platform.dxtrade as dx
+    on = [{"field": "stop_loss", "checked": True}, {"field": "take_profit", "checked": True}]
+    f = {"toggle_candidates": 2, "data_value_toggles": 2, "checkboxes": on, "fields": {"stop_loss": {}, "take_profit": {}}}
+    bad = dx.verify_bracket_legs(f)
+    assert "stop_loss: entry mode is None, need 'Price'" in bad and len(bad) == 2

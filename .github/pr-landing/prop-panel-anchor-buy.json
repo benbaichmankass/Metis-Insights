@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only probe fix (PROP-EXEC sidebar dump anchor, take 2)",
+  "why": "probe-ticket #13797 (on 0733de47e, includes #13779) still dumped the whole layout: the CHART widget carries its own data-test-id=symbol_input (x 328, 'Symbol...' placeholder), first in DOM order, so climbing from symbol_input reached the layout root. The dump now anchors on the single [data-test-id=BUY] and climbs to the smallest ancestor holding SELL and a symbol_input; more than one BUY refuses. Same redaction; read-only. Tier-2 by path."
+}
