@@ -66,9 +66,11 @@ def _per_symbol(routing: Dict[str, Any], symbol: str, key: str, default: Any) ->
     return default
 
 
-#: How long a ticket left MID-DIALOG (``expiry_prompted``: "did you place
-#: this?" never answered; ``awaiting_report``: "yes" answered, fill never
-#: reported) keeps blocking re-tickets for its key AFTER its ``valid_until``.
+#: How long a ticket left at ``expiry_prompted`` ("did you place this?"
+#: never answered, so nothing is known to have been placed) keeps blocking
+#: re-tickets for its key AFTER its ``valid_until``. ``awaiting_report``
+#: ("yes" answered, fill never reported) is NOT time-bound: it blocks until
+#: reported, like ``placed``, because it may be a live position.
 #: Measured 2026-09-29 (PI-20260929-2PNSPDNU-0002): two 09-25 11:11Z tickets
 #: whose prompt was never answered suppressed every SOL-long and ETH-long
 #: signal for four days, the same way two 08-28/08-30 tickets suppressed 37
@@ -102,15 +104,19 @@ def _reticket_suppress_reason(
     - an OPEN prop position exists for the key (newest ``prop_fills`` row is
       ``open``/``filled`` — the same derivation the monitor pulse uses), or
     - a still-LIVE outstanding ticket exists: ``placed`` (working order on the
-      terminal — real exposure, blocks until reported); ``expiry_prompted`` /
-      ``awaiting_report`` (operator mid-dialog) only within ``valid_until`` +
-      ``STALE_PROMPT_GRACE``, or with no readable ``valid_until`` (fail-safe:
-      a validity we cannot read is not known to have passed); or ``emitted``
-      whose ``valid_until`` has not passed. An EXPIRED unacted ticket does
-      NOT block — a fresh signal after the old setup went stale is a new
-      trade decision — and neither does a prompt about one that nobody
-      answered within the grace window (2026-09-29: two such prompts from
-      09-25 blocked every SOL-long / ETH-long signal until cleared by hand).
+      terminal) and ``awaiting_report`` (operator answered "yes, placed" and
+      never reported the fill) — either may be a live position the fills
+      journal cannot see, so both block until reported, with NO time window
+      (manager decision 2026-09-29 17:24Z); ``expiry_prompted`` (the "did you
+      place this?" prompt was never answered, so nothing is known to have
+      been placed) only within ``valid_until`` + ``STALE_PROMPT_GRACE``, or
+      with no readable ``valid_until`` (fail-safe: a validity we cannot read
+      is not known to have passed); or ``emitted`` whose ``valid_until`` has
+      not passed. An EXPIRED unacted ticket does NOT block — a fresh signal
+      after the old setup went stale is a new trade decision — and neither
+      does a prompt about one that nobody answered within the grace window
+      (2026-09-29: two such prompts from 09-25 blocked every SOL-long /
+      ETH-long signal until cleared by hand).
 
     Fail-OPEN: any journal read error returns None so a genuine trade is never
     stranded by a read hiccup (same posture as the reconciler guards).
@@ -136,9 +142,14 @@ def _reticket_suppress_reason(
                     or str(t.get("direction") or "").lower() != d):
                 continue
             status = str(t.get("status") or "").lower()
-            if status == "placed":
+            if status in ("placed", "awaiting_report"):
+                # A working order, or an operator "yes, placed" never reported:
+                # either may be a live position the fills journal cannot see.
+                # Blocks until reported, NO time window (manager decision
+                # 2026-09-29 17:24Z: a doubled prop position costs more than
+                # one lost signal — this is the fail-safe side).
                 return f"outstanding_ticket:{status}: {t.get('ticket_id')}"
-            if status in ("expiry_prompted", "awaiting_report"):
+            if status == "expiry_prompted":
                 vu_dt = _parse_valid_until(t.get("valid_until"))
                 if vu_dt is None or vu_dt + STALE_PROMPT_GRACE > now:
                     return f"outstanding_ticket:{status}: {t.get('ticket_id')}"

@@ -10,8 +10,11 @@ answered, suppressed the 09-27 07:58Z / 08:01Z SOL longs and the 09-28 17:15Z
 ETH long — the same failure class as 2026-09-11, when two 08-28 / 08-30
 prompts had suppressed 37 signals until cleared by hand (fills #42 / #43).
 
-Now: ``placed`` (a working order — real exposure) blocks until reported;
-``expiry_prompted`` / ``awaiting_report`` block only within ``valid_until`` +
+Now: ``placed`` (a working order) and ``awaiting_report`` (the operator said
+"yes, placed" and never reported — possibly a live position the fills journal
+cannot see) block until reported, with no time window (manager decision
+2026-09-29 17:24Z); ``expiry_prompted`` (the prompt was never answered, so
+nothing is known to have been placed) blocks only within ``valid_until`` +
 ``STALE_PROMPT_GRACE``, or with no readable validity (fail-safe); ``emitted``
 blocks only within ``valid_until`` (unchanged). Every case here runs against
 an isolated ``trade_journal.db`` through the real journal read.
@@ -94,21 +97,29 @@ def test_the_window_edge_is_exact(isolated_env):
     assert _reason(edge) is None                       # `>` not `>=`: at the edge it is stale
 
 
-@pytest.mark.parametrize("status", ["expiry_prompted", "awaiting_report"])
-def test_both_mid_dialog_statuses_follow_the_same_rule(isolated_env, status):
-    _ticket("prop-manual-693bb30f7638", status=status, symbol="ETHUSDT")
+def test_the_eth_prompt_follows_the_same_rule(isolated_env):
+    _ticket("prop-manual-693bb30f7638", status="expiry_prompted", symbol="ETHUSDT")
     assert _reason(VALID_UNTIL + timedelta(hours=2), symbol="ETHUSDT") == \
-        f"outstanding_ticket:{status}: prop-manual-693bb30f7638"
+        "outstanding_ticket:expiry_prompted: prop-manual-693bb30f7638"
     assert _reason(VALID_UNTIL + timedelta(days=2), symbol="ETHUSDT") is None
 
 
 # ── what does NOT change ─────────────────────────────────────────────────
 
-def test_a_placed_working_order_blocks_however_old(isolated_env):
-    # real exposure on the terminal: a working order is not a stale prompt
-    _ticket("prop-manual-placed", status="placed")
+@pytest.mark.parametrize("status", ["placed", "awaiting_report"])
+def test_a_working_order_or_a_yes_placed_blocks_however_old(isolated_env, status):
+    # placed: a working order on the terminal. awaiting_report: the operator
+    # answered "yes, placed" and never reported the fill — either may be a
+    # live position the fills journal cannot see, so NO time window (manager
+    # decision 2026-09-29 17:24Z): a doubled prop position costs more than
+    # one lost signal
+    from src.prop.breakout_executor import STALE_PROMPT_GRACE
+
+    _ticket("prop-manual-held", status=status)
+    assert _reason(VALID_UNTIL + STALE_PROMPT_GRACE + timedelta(seconds=1)) == \
+        f"outstanding_ticket:{status}: prop-manual-held"
     assert _reason(VALID_UNTIL + timedelta(days=30)) == \
-        "outstanding_ticket:placed: prop-manual-placed"
+        f"outstanding_ticket:{status}: prop-manual-held"
 
 
 @pytest.mark.parametrize("valid_until", [None, "not-a-date"])
