@@ -12162,6 +12162,164 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
     return summary
 
 
+#: Close reasons that say HOW a close was noticed rather than WHY the position
+#: ended, and so may be replaced by the bracket leg the venue says filled.
+#: A real reason (sl, tp, sl_cross, pairs_*, intent_reduce_*, operator_*, ...)
+#: is never in this set and is never overwritten.
+_BRACKET_ORDER_RELABEL_REASONS = (
+    "", "reconciler_filled", "netting_attributed", _SNAPSHOT_FLAT_REASON,
+)
+
+#: `exit_reason_source` for a label taken from venue ORDER IDENTITY: a fill in
+#: the exchange-fills store carries the trade's own `sl_order_id` or
+#: `tp_order_id`. Registered MEASURED in `src/runtime/provenance.py`, because
+#: the venue itself attributes that fill to the stop or target order.
+BRACKET_ORDER_LABEL_SOURCE = "venue_bracket_order"
+
+
+def bracket_leg_from_order_ids(
+    sl_order_id: Any, tp_order_id: Any, filled_order_ids: Any,
+) -> Optional[str]:
+    """``'sl'`` / ``'tp'`` when exactly one of the trade's bracket orders has a
+    venue fill, else ``None``.
+
+    Pure, so the rule is testable without a store. ``None`` covers three
+    states that all mean "do not label": neither leg filled, the trade has no
+    bracket order ids, and BOTH legs filled (a partial target then a stop is
+    not one exit reason, so it is left for a human rather than guessed).
+    """
+    ids = {str(x) for x in (filled_order_ids or ()) if x}
+    sl_hit = bool(sl_order_id) and str(sl_order_id) in ids
+    tp_hit = bool(tp_order_id) and str(tp_order_id) in ids
+    if sl_hit and not tp_hit:
+        return "sl"
+    if tp_hit and not sl_hit:
+        return "tp"
+    return None
+
+
+def _sweep_exit_label_from_bracket_order(
+    db, *, fills_conn_factory=None,
+) -> Dict[str, int]:
+    """Relabel a generically-closed trade ``sl``/``tp`` when the venue shows a
+    fill on that trade's OWN stop or target order.
+
+    EXIT-CLUSTER (2026-09-29; manager-folded audit finding FIX-SA-02).
+    MEASURED over bybit_2 (real money), closed non-backtest, closed_at >=
+    2026-07-31 (realized_slippage.py pull incl. /api/bot/pnl/exchange/fills):
+    26 closes carry `reconciler_filled` (18) or `netting_attributed` (8). For
+    20 of them the last exit-side fill before the close has `order_id` equal
+    to the trade's own `sl_order_id` (17) or `tp_order_id` (3). The
+    price-vs-bracket classifier missed them: Bybit rounds the level to the
+    tick, often INSIDE the unrounded package level, and 8 of the 26 were
+    priced off a candle (ESTIMATED), which that classifier may not label.
+
+    Order identity needs neither a price nor a tolerance. It is a LOCAL read
+    of the exchange-fills store, like `fills_pnl.exit_from_fills`, never a
+    broker call on the monitor tick. The pullers fill that store hourly, so a
+    row is rechecked each tick for 14 days after its close.
+
+    Guards: only `_BRACKET_ORDER_RELABEL_REASONS`; intent_reduce legs
+    excluded; the prior reason kept in `pre_label_exit_reason`; `pnl` and
+    `exit_price` are never touched. Best-effort, never raises.
+    """
+    summary: Dict[str, int] = {
+        "scanned": 0, "relabelled": 0, "no_bracket_fill": 0,
+        "store_unreadable": 0, "errors": 0,
+    }
+    placeholders = ",".join("?" for _ in _BRACKET_ORDER_RELABEL_REASONS)
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = [dict(r) for r in conn.execute(
+                "SELECT id, account_id, exit_reason, notes, sl_order_id, "
+                "       tp_order_id "
+                "  FROM trades "
+                " WHERE status = 'closed' "
+                "   AND COALESCE(is_backtest, 0) = 0 "
+                f"  AND COALESCE(exit_reason, '') IN ({placeholders}) "
+                "   AND (COALESCE(sl_order_id, '') != '' "
+                "        OR COALESCE(tp_order_id, '') != '') "
+                "   AND COALESCE(setup_type, '') != 'intent_reduce' "
+                "   AND COALESCE(notes, '') NOT LIKE '%\"intent_reduce\": true%' "
+                "   AND datetime(COALESCE(closed_at, created_at)) "
+                "       >= datetime('now', '-14 days') "
+                " ORDER BY datetime(COALESCE(closed_at, created_at)) DESC "
+                " LIMIT 100",
+                _BRACKET_ORDER_RELABEL_REASONS,
+            ).fetchall()]
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_exit_label_from_bracket_order: scan failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+    if not rows:
+        return summary
+    summary["scanned"] = len(rows)
+
+    try:
+        if fills_conn_factory is not None:
+            fconn = fills_conn_factory()
+        else:
+            import sqlite3 as _sq
+            from src.runtime.exchange_fills_store import get_fills_db_path
+            path = get_fills_db_path()
+            fconn = (
+                _sq.connect(f"file:{path}?mode=ro", uri=True)
+                if path.exists() else None
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_exit_label_from_bracket_order: fills store open failed: %s",
+            exc)
+        fconn = None
+    if fconn is None:
+        # We could not look. Not "no bracket fill".
+        summary["store_unreadable"] = len(rows)
+        return summary
+
+    try:
+        for row in rows:
+            try:
+                oids = [str(x) for x in (row.get("sl_order_id"),
+                                         row.get("tp_order_id")) if x]
+                q = ",".join("?" for _ in oids)
+                filled = [r[0] for r in fconn.execute(
+                    "SELECT DISTINCT order_id FROM exchange_fills "
+                    f" WHERE account_id = ? AND order_id IN ({q})",
+                    (str(row.get("account_id") or ""), *oids),
+                ).fetchall()]
+                leg = bracket_leg_from_order_ids(
+                    row.get("sl_order_id"), row.get("tp_order_id"), filled)
+                if leg is None:
+                    summary["no_bracket_fill"] += 1
+                    continue
+                notes = _decode_notes(row.get("notes"))
+                notes["pre_label_exit_reason"] = str(row.get("exit_reason") or "")
+                notes["exit_reason_source"] = BRACKET_ORDER_LABEL_SOURCE
+                db.update_trade(int(row["id"]), {
+                    "exit_reason": leg,
+                    "notes": dump_capped(notes, 500),
+                })
+                summary["relabelled"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_sweep_exit_label_from_bracket_order: row %s: %s",
+                    row.get("id"), exc)
+                summary["errors"] += 1
+    finally:
+        try:
+            fconn.close()
+        except Exception:  # noqa: BLE001
+            pass
+    if summary["relabelled"] or summary["errors"]:
+        logger.info("_sweep_exit_label_from_bracket_order: %s", summary)
+    return summary
+
+
 def _options_executor_for(account_cfg: Dict[str, Any]):
     """Build an :class:`AlpacaOptionsExecutor` for an options-expressing account.
 
@@ -12709,6 +12867,19 @@ def run_reconciliation_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: local-pnl sweep raised: %s", exc,
+        )
+
+    # EXIT-CLUSTER: a close whose own stop/target ORDER has a venue fill is an
+    # sl/tp, whatever path noticed it. Runs after both PnL sweeps so it only
+    # ever relabels a row the price-based classifier left generic.
+    try:
+        with _phase("sweep_exit_label_from_bracket_order"):
+            bracket_lbl = _sweep_exit_label_from_bracket_order(db)
+        if bracket_lbl.get("relabelled") or bracket_lbl.get("errors"):
+            summaries["__bracket_order_label__"] = bracket_lbl
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: bracket-order label sweep raised: %s", exc,
         )
 
     # Slice-4 options-lifecycle reconciler: close options-expression rows the

@@ -79,6 +79,26 @@ GENERIC_REASONS = ("", "reconciler_filled")
 SNAPSHOT_FLAT_REASON = "exchange_flat_reconciled"
 SNAPSHOT_FLAT_TOLERANCE_BPS = 10.0
 
+# Rule 0, applied before any price comparison: venue ORDER IDENTITY. A fill in
+# the exchange-fills store on the trade's own sl_order_id / tp_order_id makes
+# the exit that leg, MEASURED. Same rule and same reasons as the live sweep
+# (order_monitor._sweep_exit_label_from_bracket_order).
+ORDER_ID_RELABEL_REASONS = ("", "reconciler_filled", "netting_attributed",
+                            SNAPSHOT_FLAT_REASON)
+ORDER_ID_LABEL_SOURCE = "venue_bracket_order"
+
+
+def bracket_leg(sl_oid: Any, tp_oid: Any, filled: Any) -> Optional[str]:
+    """Mirror of ``order_monitor.bracket_leg_from_order_ids``."""
+    ids = {str(x) for x in (filled or ()) if x}
+    sl_hit = bool(sl_oid) and str(sl_oid) in ids
+    tp_hit = bool(tp_oid) and str(tp_oid) in ids
+    if sl_hit and not tp_hit:
+        return "sl"
+    if tp_hit and not sl_hit:
+        return "tp"
+    return None
+
 LABEL_SOURCE_BY_BASIS = {
     prov.MEASURED: "price_vs_pkg_bracket",
     prov.ESTIMATED: "price_vs_pkg_bracket_est_price",
@@ -132,11 +152,13 @@ def classify(direction: str, exit_price: float,
     return None
 
 
-def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
+def plan(conn: sqlite3.Connection,
+         fills: Optional[sqlite3.Connection] = None) -> Tuple[list, Counter]:
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT t.id, t.direction, t.exit_price, t.stop_loss, t.take_profit_1, "
         "       t.exit_reason, t.notes, t.setup_type, t.order_package_id, "
+        "       t.account_id, t.sl_order_id, t.tp_order_id, "
         "       p.sl AS pkg_sl, p.tp AS pkg_tp "
         "  FROM trades t "
         "  LEFT JOIN order_packages p "
@@ -154,6 +176,22 @@ def plan(conn: sqlite3.Connection) -> Tuple[list, Counter]:
     out = []
     for r in rows:
         stats["scanned"] += 1
+        reason0 = str(r["exit_reason"] or "").strip()
+        if (fills is not None and reason0 in ORDER_ID_RELABEL_REASONS
+                and (r["sl_order_id"] or r["tp_order_id"])):
+            oids = [str(x) for x in (r["sl_order_id"], r["tp_order_id"]) if x]
+            got = [x[0] for x in fills.execute(
+                "SELECT DISTINCT order_id FROM exchange_fills WHERE account_id = ? "
+                f"AND order_id IN ({','.join('?' for _ in oids)})",
+                (str(r["account_id"] or ""), *oids)).fetchall()]
+            leg = bracket_leg(r["sl_order_id"], r["tp_order_id"], got)
+            if leg:
+                stats[f"relabel_{leg}_order_id"] += 1
+                out.append({"id": r["id"], "action": "relabel",
+                            "basis": prov.MEASURED,
+                            "source": ORDER_ID_LABEL_SOURCE,
+                            "new_reason": leg, "old_reason": reason0})
+                continue
         # Guard 2 — only a row still carrying the GENERIC reason, or the
         # snapshot reconciler's "went flat" reason (MEASURED price only, below).
         reason = str(r["exit_reason"] or "").strip()
@@ -237,6 +275,10 @@ def _self_test() -> int:
     ck("short mid-range", classify("short", 98.0, 105.0, 90.0), None)
     ck("unknown direction", classify("", 90.0, 95.0, 110.0), None)
     ck("no levels", classify("long", 90.0, None, None), None)
+    ck("order id: stop filled", bracket_leg("s1", "t1", ["s1"]), "sl")
+    ck("order id: target filled", bracket_leg("s1", "t1", ["t1", "x"]), "tp")
+    ck("order id: both filled is not one reason", bracket_leg("s1", "t1", ["s1", "t1"]), None)
+    ck("order id: neither", bracket_leg("s1", None, ["x"]), None)
     # Real row 5766 (alpaca_portfolio TLT short): the stop filled at 81.19,
     # the package stop is 81.19321429. Strict says between; 10 bps says sl.
     ck("strict misses a cent-rounded stop",
@@ -269,6 +311,10 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db")
+    ap.add_argument("--fills-db",
+                    help="exchange-fills store for the order-identity rule "
+                         "(default: the canonical store if present; 'none' "
+                         "disables the rule)")
     ap.add_argument("--apply", action="store_true",
                     help="write. Without it this is a read-only dry run.")
     ap.add_argument("--json", action="store_true")
@@ -288,7 +334,20 @@ def main(argv=None) -> int:
     uri = f"file:{db}" + ("" if a.apply else "?mode=ro")
     conn = sqlite3.connect(uri, uri=True)
     try:
-        planned, stats = plan(conn)
+        fills = None
+        fdb = a.fills_db
+        if fdb is None:
+            try:
+                from src.runtime.exchange_fills_store import get_fills_db_path
+                _fp = get_fills_db_path()
+                fdb = str(_fp) if _fp.exists() else None
+            except Exception:  # noqa: BLE001
+                fdb = None
+        if fdb and fdb != "none":
+            fills = sqlite3.connect(f"file:{fdb}?mode=ro", uri=True)
+        print(f"order-identity rule: {'ON ' + fdb if fills else 'OFF (no fills store)'}",
+              file=sys.stderr)
+        planned, stats = plan(conn, fills)
         if a.json:
             print(json.dumps({"stats": dict(stats), "planned": planned}, indent=1))
         else:
