@@ -2906,8 +2906,29 @@ strategies:
     # trail is for. beats_baseline TRUE, train/OOS-consistent TRUE over 13,212 XRPUSDT 2h
     # bars (net-of-cost 7.5bps, --oos-start 2026-01-01). ROLLBACK: set back to 5.0.
     trail_mult: 6.0
-    trail_decay_arm_r: 4.49   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
-    trail_decay_tight_mult: 2.5
+    # trail_decay_arm_r + trail_decay_tight_mult REMOVED 2026-09-29 — Tier-3 PROPOSED,
+    # held for operator approval (exit-refinement lane, checklist row EXIT-OPS). Was:
+    #   `trail_decay_arm_r: 4.49`   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
+    #   `trail_decay_tight_mult: 2.5`
+    # SAME PATTERN AS E41/E48 (qqq_trend_long_1d #12737, gld_pullback_1d #12737,
+    # scha_trend_long_1d #E48-PR): the arm was declared 2026-07-13 when `tp_r` was
+    # still the 50.0 far-sentinel ("no real target, the trail is the exit"). The
+    # 2026-08-23 Tier-3 change below cut `tp_r` 50.0 -> 3.0 and re-swept `trail_mult`
+    # alongside it, but did NOT re-sweep or re-check this arm against the new ceiling.
+    # THIS IS A CONSTRUCTION ARGUMENT, not a re-run backtest count (stated so, per
+    # RULE ONE — no fresh sweep was executed this session): the live unit places TP at
+    # `tp = min(entry*(1+_TP_SENTINEL_CAP_PCT), entry + tp_r*risk)`
+    # (src/units/strategies/htf_pullback_trend_2h.py:351, the same formula E41/E48 used
+    # on trend_donchian.py:393). With `tp_r: 3.0` the ceiling is <= 3.0R on EVERY entry,
+    # deterministically below the 4.49R the arm needs to fire — tighter than the E48
+    # 0/78 empirical zero (Clopper-Pearson CI [0.0%, 4.6%]) because this is a hard bound,
+    # not a sampled rate. Applies to THIS leg specifically: xrp_pullback_2h runs on
+    # bybit_2 REAL MONEY (execution: live, see the account note above) — an armed-but-
+    # inert lever on a real-money leg is the exact shape E41 flagged fleet-wide; this
+    # leg was not in that sweep's population (declared here 2026-07-13 under the OLD
+    # tp_r, so no fleet audit since the 2026-08-23 tp_r cut had reason to catch it).
+    # docs/research/exit-refinement-coverage.json::xrp_pullback_2h.trail_decay updated
+    # in the same PR. ROLLBACK: re-add both lines at the values above.
     # tp_r 50.0 -> 3.0 (Tier-3, operator-approved 2026-08-23). The 50 was a FAR
     # SENTINEL meaning "no real target, the trail is the exit" — so the placed TP was
     # set by the venue's 9.9% ceiling, not by the strategy (13/14 open packages,

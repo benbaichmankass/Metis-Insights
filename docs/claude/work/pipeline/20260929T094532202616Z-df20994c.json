@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the HELD PR either merges (trail_decay_arm_r/trail_decay_tight_mult absent from xrp_pullback_2h, coverage matrix status stripped_unreachable) or the operator declines it with a reason recorded on the coverage matrix cell.",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EXITOPS-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-OPS (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-29, exit-refinement sweep",
+    "rerun": "python3 -c \"import yaml; s=yaml.safe_load(open('config/strategies.yaml'))['strategies']['xrp_pullback_2h']; print('arm', s.get('trail_decay_arm_r'), 'tp_r', s.get('tp_r'))\"  # arm present + tp_r <= 3.0 reproduces the finding; arm absent means the strip merged."
+  },
+  "state": "queued",
+  "what": "[strategy] xrp_pullback_2h (bybit_2 REAL MONEY) carries trail_decay_arm_r=4.49 declared 2026-07-13 under tp_r=50.0 (far-sentinel, \"trail is the exit\"). The 2026-08-23 Tier-3 change cut tp_r 50.0 -> 3.0 (re-sweeping trail_mult alongside it) but did not re-check this arm. CONSTRUCTION ARGUMENT (audited this session, no fresh sweep run): live TP places at min(entry*(1+cap_pct), entry+tp_r*risk) (src/units/strategies/htf_pullback_trend_2h.py:351) -- with tp_r=3.0 the ceiling is <= 3.0R on every entry, deterministically below the 4.49R arm. Same E41/E48 pattern (qqq_trend_long_1d #12737, scha_trend_long_1d) applied to a leg that pattern had not covered (declared before the tp_r cut, so the fleet audits that closed E41 never saw it armed-and-dead). HELD PR proposes stripping trail_decay_arm_r + trail_decay_tight_mult, mirroring the two sibling strips already landed. Evidence: PR branch exit-ops/strip-xrp-pullback-2h-decay-arm; docs/research/exit-refinement-coverage.json::xrp_pullback_2h.trail_decay updated same PR."
+}
