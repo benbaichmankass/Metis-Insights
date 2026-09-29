@@ -234,3 +234,28 @@ def test_sweep_passes_the_other_rows_sizes(tmp_path):
 
     assert om._open_sibling_qtys(_Db(), {"id": 6131}, "alpaca_paper", "SPY") == [11.0]
     assert om._open_sibling_qtys(None, {"id": 6131}, "alpaca_paper", "SPY") is None
+
+
+# ---------------------------------------------------------------------------
+# REVIEW-14127 danger (i): a GROUP target is never released, even when its
+# stop cannot be seen — Alpaca would cancel the whole group, stop included.
+# ---------------------------------------------------------------------------
+def test_bracket_class_target_with_unseen_stop_is_never_released():
+    """The sibling bracket's parent is outside what was read, so only its `new`
+    take-profit surfaces; its held stop is invisible. No release."""
+    v = _VenueWithHistory([_SIB_TP], [], post_results=[_REFUSED])
+    r = _rearm(v, 8, sibling_qtys=[11])
+    assert r["retCode"] == 403
+    assert v.deletes() == []
+    assert sum(1 for m, *_ in v.calls if m == "POST") == 1
+
+
+def test_truncated_child_history_releases_nothing(monkeypatch):
+    from src.units.accounts import alpaca_client as ac
+    monkeypatch.setattr(ac, "_FILLED_PARENT_SCAN_PAGE", 1)
+    monkeypatch.setattr(ac, "_FILLED_PARENT_SCAN_MAX_PAGES", 1)
+    simple_tp = dict(_SIB_TP, order_class="simple")
+    v = _VenueWithHistory([simple_tp], [_SIB_BRACKET], post_results=[_REFUSED])
+    r = _rearm(v, 8, sibling_qtys=[11])
+    assert v.deletes() == []            # truncated -> could not look -> no cancel, no release
+    assert r["retCode"] == 403
