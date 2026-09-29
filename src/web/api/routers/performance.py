@@ -16,6 +16,11 @@ Window (``?window=``):
   - ``7d``  — last 7 days.
   - ``30d`` — last 30 days.
   - ``all`` — all closed trades (default).
+  - anything else — HTTP 400 (it silently meant ``all`` until 2026-09-29).
+
+``GET /api/bot/performance/recent?n=40`` serves each leg's LAST n closed
+trades as non-overlapping 20-trade blocks (MD-DEMOTE-S2-S1's T3 rule) --
+see ``get_performance_recent``.
 
 The close-time basis is the canonical ``trades.closed_at`` column (P1-B),
 falling back to ``COALESCE(t.closed_at, op.updated_at, t.timestamp)`` for rows predating
@@ -65,7 +70,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
@@ -1236,10 +1241,24 @@ def get_performance(
     Trades with ``pnl IS NULL`` are excluded from both — see ``_query`` for
     why ("0-pnl closed trade" complaint, reconciler fallback path).
 
-    Returns a zeroed envelope (HTTP 200) on an unknown window token or a
-    DB read error so the consumer's tab stays usable instead of erroring.
+    Returns a zeroed envelope (HTTP 200) on a DB read error so the consumer's
+    tab stays usable instead of erroring.
+
+    ⚠️ AN UNKNOWN ``window`` TOKEN IS HTTP 400, NOT ALL-TIME (2026-09-29,
+    PI-20260929-VOLSKIP-SIGNAL-0006). Until then an unknown token silently
+    became ``all``, so a caller asking for ``window=90d`` got the all-time
+    figures back labelled ``"window": "all"`` -- a DIFFERENT population from the
+    one requested, answered with HTTP 200. A reader that did not re-check the
+    echoed label (the R4 demotion gate is one) would act on the wrong window.
+    Every valid token's response is unchanged byte-for-byte
+    (``tests/test_performance_recent_blocks.py`` pins it against a golden
+    captured from the pre-change code).
     """
-    window = window if window in _WINDOWS else "all"
+    if window not in _WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown window {window!r}; valid: {sorted(_WINDOWS)}",
+        )
     since = _window_since(window)
     if not _DB_PATH.exists():
         env = _empty(window, since)
@@ -1283,4 +1302,119 @@ def get_performance(
         env["demo"] = empty_sub
         env["paper"] = empty_sub
         env["paperPortfolio"] = empty_sub
+        return env
+
+
+# --------------------------------------------------------------------------
+# GET /api/bot/performance/recent — the last N closed trades per leg, in
+# non-overlapping blocks (MD-DEMOTE-S2-S1's T3 rule, operator 2026-09-29).
+# --------------------------------------------------------------------------
+#: Block size of the T3 rule: "the LAST 40 closed trades as two non-overlapping
+#: 20-trade windows" (operator decision "Last 20 + strict test (Recommended)",
+#: 2026-09-29, pipeline row PI-20260929-VOLSKIP-SIGNAL-0007). Fixed here, not a
+#: query parameter, so no caller can re-price the rule by asking differently.
+RECENT_BLOCK = 20
+RECENT_N_DEFAULT = 40
+RECENT_N_MAX = 200
+
+
+def _leg_blocks(rows: List[sqlite3.Row], n: int, block: int) -> Dict[str, Any]:
+    """One leg's last ``n`` closed rows (oldest→newest, as ``_query`` returns
+    them) as ``_aggregate`` outputs: ``last`` over all of them and ``blocks``
+    over each COMPLETE ``block``-trade chunk, aligned to the NEWEST trade so
+    the newest block is always full. A leg with fewer than ``n`` rows reports
+    ``complete: false`` and only the complete blocks it has -- never a short
+    block presented as a full one."""
+    tail = rows[-n:]
+    k = len(tail) // block
+    usable = tail[len(tail) - k * block:]
+    blocks = []
+    for i in range(k):
+        chunk = usable[i * block:(i + 1) * block]
+        agg = _strip_envelope(_aggregate(chunk, "recent", None))
+        agg["closedFrom"] = _rget(chunk[0], "closed_at")
+        agg["closedTo"] = _rget(chunk[-1], "closed_at")
+        blocks.append(agg)
+    return {
+        "closedAvailable": len(rows),
+        "nUsed": len(tail),
+        "complete": len(tail) == n,
+        "last": _strip_envelope(_aggregate(tail, "recent", None)),
+        "blocks": blocks,
+    }
+
+
+def _book_blocks(rows: List[sqlite3.Row], n: int, block: int) -> Dict[str, Any]:
+    by: Dict[str, List[sqlite3.Row]] = {}
+    for r in rows:
+        # The SAME name key `_aggregate` buckets `perStrategy` on, so a leg here
+        # and a leg in /performance's perStrategy are one population.
+        by.setdefault(r["strategy_name"] or "(unknown)", []).append(r)
+    return {name: _leg_blocks(legrows, n, block) for name, legrows in sorted(by.items())}
+
+
+@router.get("/performance/recent")
+def get_performance_recent(
+    n: int = Query(RECENT_N_DEFAULT, ge=RECENT_BLOCK, le=RECENT_N_MAX),
+) -> Dict[str, Any]:
+    """Each leg's LAST ``n`` closed trades, split into non-overlapping
+    ``RECENT_BLOCK``-trade blocks, on the real-money book and on the
+    live-portfolio mirror (``paper_role: portfolio``) -- the input to
+    MD-DEMOTE-S2-S1's T3 rule (``scripts/ops/r4_demotion_gate.py``).
+
+    Every figure is an ``_aggregate()`` output over rows from ``_query()`` --
+    the same population filter, R basis and provenance rules as
+    ``/api/bot/performance``; there is no second R implementation here. Each
+    block's ``perStrategy[0]`` is exactly the row R4 reads from
+    ``/performance``'s ``perStrategy``, computed over that block only.
+
+    ⚠️ The mirror does NOT fall back to the all-paper book when no portfolio
+    account is declared (``/performance`` does): the Stage-1 soak book is not
+    the Stage-2 mirror, and a demotion signal read off the wrong book is worse
+    than none. ``mirror.readState`` says which happened.
+
+    ``n`` must be a multiple of ``RECENT_BLOCK`` (400 otherwise). A DB read
+    failure returns ``error: true`` with both books ``readState: "error"`` --
+    "we could not look" is never an empty ``perStrategy`` that reads as "no
+    legs traded".
+    """
+    if n % RECENT_BLOCK:
+        raise HTTPException(
+            status_code=400,
+            detail=f"n={n} is not a multiple of the {RECENT_BLOCK}-trade block",
+        )
+    env: Dict[str, Any] = {
+        "n": n,
+        "block": RECENT_BLOCK,
+        "error": False,
+        "basis": ("last n closed non-backtest trades per strategy_name, oldest->newest by "
+                  "close time; blocks are complete, non-overlapping and aligned to the "
+                  "newest trade"),
+        "realMoney": {"readState": "absent", "perStrategy": {}},
+        "mirror": {"readState": "absent", "accountIds": [], "perStrategy": {}},
+    }
+    if not _DB_PATH.exists():
+        return env
+    try:
+        env["realMoney"] = {
+            "readState": "ok",
+            "perStrategy": _book_blocks(_query(_DB_PATH, None, demo=False), n, RECENT_BLOCK),
+        }
+        portfolio_ids = _portfolio_paper_account_ids()
+        if portfolio_ids:
+            env["mirror"] = {
+                "readState": "ok",
+                "accountIds": portfolio_ids,
+                "perStrategy": _book_blocks(
+                    _query(_DB_PATH, None, demo=True, account_ids=portfolio_ids),
+                    n, RECENT_BLOCK),
+            }
+        else:
+            env["mirror"]["readState"] = "no_portfolio_accounts_declared"
+        return env
+    except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + an explicit error envelope (error: true, readState "error" on both books) so "could not look" never reads as "no trades"
+        logger.exception("performance/recent: read failed")
+        env["error"] = True
+        env["realMoney"] = {"readState": "error", "perStrategy": {}}
+        env["mirror"] = {"readState": "error", "accountIds": [], "perStrategy": {}}
         return env

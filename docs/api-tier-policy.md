@@ -19,7 +19,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 114 of 114 routes documented (100%).**
+> **Coverage, computed rather than counted: 115 of 115 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -55,7 +55,7 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **79 rows in the table below**;
+Endpoints a consumer hits directly without a JWT. **80 rows in the table below**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
 
@@ -148,7 +148,8 @@ the same staleness this paragraph was already written to complain about.
 | `GET /api/bot/notifications` | `routers/notifications.py` | The can't-miss banner feed both apps render on Overview (trainer down, account down, operator warnings, unreconciled orphans, trades opened). **Connection-free and best-effort** — any source failure omits that banner kind rather than 5xx-ing. |
 | `GET /api/bot/order-packages` | `routers/order_packages.py` | Decision-level view (one row per order package) + the per-model ML scores and Claude grade recorded at signal time. Backtest + paper rows filtered by default. |
 | `GET /api/bot/pairs/soak` | `routers/pairs.py` | M22 D2 market-neutral pairs-sleeve soak (per-bar spread/z decision + placement/close outcome, incl. the `half_open` leg state). Observe-only. |
-| `GET /api/bot/performance` | `routers/performance.py` | Windowed aggregate trade analytics computed **in SQL over the full window (uncapped)** — the replacement for consumer-side rollups over the 200-row `/trades/closed` cap. Windowed by design, so it satisfies rule 2 above. Zeroed envelope (HTTP 200 + `error`) on unknown window / DB error. |
+| `GET /api/bot/performance` | `routers/performance.py` | Windowed aggregate trade analytics computed **in SQL over the full window (uncapped)** — the replacement for consumer-side rollups over the 200-row `/trades/closed` cap. Windowed by design, so it satisfies rule 2 above. Zeroed envelope (HTTP 200 + `error`) on a DB error; an unknown `window` token is **HTTP 400** (it silently meant `all` until 2026-09-29, PI-20260929-VOLSKIP-SIGNAL-0006). |
+| `GET /api/bot/performance/recent` | `routers/performance.py` | Each leg's LAST `n` closed trades (default 40, a multiple of 20, max 200) as non-overlapping 20-trade blocks, on the real-money book and the `paper_role: portfolio` mirror — the input to MD-DEMOTE-S2-S1's T3 rule (`scripts/ops/r4_demotion_gate.py`). Every figure is an `_aggregate()` output over `_query()` rows; no second R basis. Bounded by `n`, so it satisfies rule 2 above. The mirror never falls back to the soak book (`readState` says so); a DB error is `error: true` + `readState: "error"`, never an empty book. |
 | `GET /api/bot/pnl/exchange` | `routers/pnl_exchange.py` | Exchange-truth P&L attribution (FIFO lot pairing) from `runtime_state/exchange_fills.sqlite`. `days` 1..90 (default 7). |
 | `GET /api/bot/pnl/exchange/fills` | `routers/pnl_exchange.py` | The individual exchange fill **rows**, newest-first. `symbol` is the exact stored venue form and is **bound, never interpolated**; `limit` 1..1000; `truncated` declares a page that hit the cap so a short list is never mistaken for a complete population. |
 | `GET /api/bot/pnl/broker-truth` | `routers/pnl_broker_truth.py` | Authoritative per-account lifetime realized PnL from the committed `comms/broker_truth_ledger.json`. **Not a money-DB rewrite** — records account-level truth beside the journal's figure. Best-effort: missing ledger → `present:false`. |
