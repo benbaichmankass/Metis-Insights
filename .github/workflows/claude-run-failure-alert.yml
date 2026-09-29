@@ -217,6 +217,13 @@ on:
       # otherwise be observable only by reading its tracking issue's
       # "Last checked" line.
       - broker-bracket-reconcile
+      # Added 2026-09-29 with the workflow itself (RECON,
+      # OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT). Same design as
+      # broker-bracket-reconcile.yml immediately above: no self-notify path,
+      # stays silent unless the graded state moves, so a dead schedule would
+      # otherwise be observable only by reading its tracking issue's
+      # "Last checked" line.
+      - account-broker-reconcile
       # Added 2026-08-21 once the self-ping dedupe landed. Both self-ping, so
       # both were excluded before; the dedupe suppresses this listener only on
       # a VERIFIED successful `[operator-ping]` step, leaving their genuinely

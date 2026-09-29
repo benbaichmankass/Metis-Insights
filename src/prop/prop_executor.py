@@ -989,10 +989,37 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec.as_dict(), "open", entry=pos.entry_price),
                         "reason": "round_trip_test"})
 
-    # 2. close at market, then confirm flat
+    # 2. close through the terminal's own flow (row -> Close Position modal,
+    #    every step read back against THIS position), then confirm flat
     last_unreal = pos.unrealized_pnl
-    res.log("close", ticket_id=tid, result=adapter.flatten(page, venue, arm=True))
-    flat = False
+    closed, last_unreal, why = _close_and_confirm(res, adapter, page, venue, side, pos, reads, sleep, tid)
+    if not closed:
+        res.alerts.append(f"{tid}: {why}")
+        res.halted = "round trip: close not confirmed"
+        ledger.record(tid, "unconfirmed", purpose="round_trip_close")
+        return res
+    ledger.record(tid, "closed")
+    _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec.as_dict(), "closed", entry=pos.entry_price),
+                        "pnl": last_unreal, "closed_at": datetime.now(timezone.utc).isoformat(),
+                        "reason": "round_trip_test: closed at market by the executor; pnl is the last "
+                                  "unrealized P&L read before the close (ESTIMATED, not the broker fill)"})
+    res.log("round_trip_done", ticket_id=tid)
+    return res
+
+
+def _close_and_confirm(res: CycleResult, adapter: Any, page: Any, venue: str, side: str, pos: Position,
+                       reads: int, sleep: Callable[[float], None], tid: str
+                       ) -> Tuple[bool, Optional[float], str]:
+    """The watched close of ONE position and its confirmation (criterion L5):
+    ``adapter.flatten`` with the row facts we mean to close (side, size,
+    fill), then up to ``reads`` x 3 s until the row is gone, then no working
+    order left for the symbol (an orphan SL / TP), then the account read
+    after. Returns (confirmed, last unrealized P&L read, why-not)."""
+    r = adapter.flatten(page, venue, arm=True, side=side, quantity=pos.quantity, entry_price=pos.entry_price)
+    res.log("close", ticket_id=tid, result=r)
+    if not r.get("clicked") or not r.get("ok"):
+        return False, pos.unrealized_pnl, f"close not confirmed on the terminal: {r.get('why')}"
+    last_unreal, flat = pos.unrealized_pnl, False
     for _ in range(max(1, reads)):
         sleep(3.0)
         try:
@@ -1007,17 +1034,95 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
             flat = True
             break
     if not flat:
-        res.alerts.append(f"{tid}: close NOT confirmed flat after {reads} re-reads — the position stays "
-                          f"protected by its bracket; close it by hand")
-        res.halted = "round trip: close not confirmed"
-        ledger.record(tid, "unconfirmed", purpose="round_trip_close")
+        return False, last_unreal, (f"close NOT confirmed flat after {reads} re-reads; the position stays "
+                                    f"protected by its bracket; close it by hand")
+    try:
+        orphans = [o for o in adapter.read_orders(page) if o.symbol.upper() == venue]
+    except Exception as exc:
+        return False, last_unreal, f"flat, but the orders re-read failed ({type(exc).__name__}): orphan legs unknown"
+    if orphans:
+        res.log("orphan_orders", ticket_id=tid, orders=[{"order_id": o.order_id, "side": o.side, "price": o.price,
+                                                            "type": getattr(o, "order_type", None)} for o in orphans])
+        return False, last_unreal, f"flat, but {len(orphans)} working order(s) for {venue} remain (orphan SL/TP)"
+    try:
+        after = adapter.read_account(page).as_dict()
+        res.log("after_close", ticket_id=tid, account={k: after.get(k) for k in ("balance", "equity", "margin_used", "available")})
+    except Exception as exc:
+        res.alerts.append(f"{tid}: account read after close failed ({type(exc).__name__})")
+    return True, last_unreal, ""
+
+
+def run_close_position(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, ledger: IntentLedger,
+                       venue_symbol: str, arm: bool = False, reads: int = 20,
+                       sleep: Callable[[float], None] = lambda s: None,
+                       now: Optional[datetime] = None) -> CycleResult:
+    """Close ONE existing position on the terminal (manager 2026-09-29: the
+    live test's 0.01 SOLUSD fill that our blind reader never confirmed),
+    through the same watched flow the round trip uses, and JOURNAL it: an
+    ``open`` fill report from the row (its entry, SL, TP, size) under the
+    ledger's own unresolved round-trip ticket for the symbol when there is
+    one, else a fresh ``closeout-`` id; then ``closed`` once flat is
+    confirmed, no orphan order remains, and the account was re-read.
+    Refuses unless exactly ONE position for the symbol exists. Disarmed, it
+    locates the row and its close control and reports; clicks nothing."""
+    now = now or datetime.now(timezone.utc)
+    res = CycleResult(mode="close_position_live" if arm else "close_position_dry")
+    post = api.post_report if arm else None
+    venue = venue_symbol.upper()
+
+    def stop(why: str) -> CycleResult:
+        res.halted = why
+        res.log("refused", why=why)
         return res
-    ledger.record(tid, "closed")
-    _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec.as_dict(), "closed", entry=pos.entry_price),
+
+    if cfg.enabled_venue_symbols is not None and venue not in cfg.enabled_venue_symbols:
+        return stop(f"{venue} is not in executor.enabled_venue_symbols {cfg.enabled_venue_symbols}")
+    try:
+        acct = adapter.read_account(page)
+        positions = adapter.read_positions(page)
+        orders = adapter.read_orders(page)
+    except Exception as exc:
+        return stop(f"terminal read failed ({type(exc).__name__}: {exc})")
+    mine = [p for p in positions if p.symbol.upper() == venue]
+    res.reads = {"account": acct.as_dict(), "positions": len(positions), "orders": len(orders),
+                 "symbol_positions": [{"side": p.side, "quantity": p.quantity, "entry_price": p.entry_price,
+                                       "stop_loss": p.stop_loss, "take_profit": p.take_profit,
+                                       "unrealized_pnl": p.unrealized_pnl} for p in mine]}
+    if len(mine) != 1:
+        return stop(f"need exactly 1 {venue} position to close (found {len(mine)})")
+    pos = mine[0]
+    if pos.side not in ("long", "short") or not pos.quantity:
+        return stop(f"the {venue} row's side / size did not parse (side={pos.side!r}, size={pos.quantity!r})")
+    # The ledger's own unresolved round-trip ticket for this symbol keeps the
+    # journal linked to the click that placed it; else a fresh close-out id.
+    tid = next((k for k, v in sorted(ledger.latest().items(), key=lambda kv: str(kv[1].get("ts") or ""))
+                if k.startswith(f"roundtrip-{venue.lower()}-") and v.get("state") in IntentLedger.UNRESOLVED), None)
+    if tid is None:
+        tid = f"closeout-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    spec = {"ticket_id": tid, "venue_symbol": venue, "side": pos.side, "quantity": pos.quantity,
+            "stop_loss": pos.stop_loss, "take_profit": pos.take_profit, "order_type": "market", "limit_price": None}
+    res.log("close_position_spec", ticket_id=tid, spec=spec, entry_price=pos.entry_price)
+    if not arm:
+        r = adapter.flatten(page, venue, arm=False, side=pos.side, quantity=pos.quantity, entry_price=pos.entry_price)
+        res.log("would_close", ticket_id=tid, result=r)
+        if not r.get("ok"):
+            res.halted = f"close control not located: {r.get('why')}"
+        return res
+    ledger.record(tid, "open", purpose="close_position", entry=pos.entry_price)
+    _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec, "open", entry=pos.entry_price),
+                        "reason": "close_position: journaled from the terminal row before the watched close"})
+    closed, last_unreal, why = _close_and_confirm(res, adapter, page, venue, pos.side, pos, reads, sleep, tid)
+    if not closed:
+        res.alerts.append(f"{tid}: {why}")
+        res.halted = f"close_position: {why}"
+        ledger.record(tid, "unconfirmed", purpose="close_position")
+        return res
+    ledger.record(tid, "closed", purpose="close_position")
+    _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec, "closed", entry=pos.entry_price),
                         "pnl": last_unreal, "closed_at": datetime.now(timezone.utc).isoformat(),
-                        "reason": "round_trip_test: closed at market by the executor; pnl is the last "
-                                  "unrealized P&L read before the close (ESTIMATED, not the broker fill)"})
-    res.log("round_trip_done", ticket_id=tid)
+                        "reason": "close_position: closed through the terminal's Close Position flow by the executor; "
+                                  "pnl is the last unrealized P&L read before the close (ESTIMATED, not the broker fill)"})
+    res.log("close_position_done", ticket_id=tid)
     return res
 
 
@@ -1211,5 +1316,5 @@ __all__ = [
     "MODE_ENV", "MODES", "DEFAULT_MODE", "executor_mode", "ExecutorConfig", "load_config",
     "size_lots", "bracket_from_ticket", "open_risk", "evaluate_guards", "GuardVerdict",
     "match_terminal", "classify_confirmation", "IntentLedger", "ExecutorState",
-    "day_start_balance", "trading_day", "run_cycle", "run_round_trip", "round_to_step", "CycleResult",
+    "day_start_balance", "trading_day", "run_cycle", "run_round_trip", "run_close_position", "round_to_step", "CycleResult",
 ]

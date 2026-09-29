@@ -263,8 +263,10 @@ hand-written ones that opt in with `grading: {auto: true}`; every other
 hand-written unit is graded by a session, as before. The `needs_review`
 bucket is `grep -l "needs_review: true" research/queue/*.yaml`. The alarm
 (`scripts/ci/check_research_queue_health.py`, run from the dispatcher) pages
-through the send-ping system-action when runnable units (same definition) < 25 or nothing has
-dispatched in 12 h.
+through the send-ping system-action when nothing has dispatched in 12 h or runnable units (same definition) < 25 AND the
+templates cannot fill the gap; when they can, it fires `research-queue-replenish.yml`
+instead of paging (exit 3 from the health check), because the refill is daily while the
+dispatcher consumes up to 3 units every 6 h.
 
 ## `run.workflow` DECLARED vs. actually `gh workflow run`-DISPATCHABLE
 

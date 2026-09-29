@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either the live score is traced to source (per_strategy_winrate.PerStrategyWinRateTrainer's serving lookup for these two model_ids) and confirmed correct (a coincidence, not a fallback bug) or not (a fix ships and a subsequent shadow/stats pull over a fresh window shows real per-strategy variance).",
+    "kind": "event"
+  },
+  "id": "PI-20260929-UAOAYGBB-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "ml-review W7 lane (dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ), session_0193d6xZVThefpX6UaoAyGbb, comms/reviews/ml-review-20260929.json",
+    "rerun": "vm-diag: api/bot/shadow/stats?model_id=execution-quality-baseline-v0 and ?model_id=setup-quality-audit-baseline-v0 -- check score_min vs score_max over the record; if still byte-identical over a >100-count window, the collapse is confirmed persistent."
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "Two shadow-stage baseline models emit a LITERALLY CONSTANT live score across their full sampled window (754 predictions each, 2026-09-26 to 2026-09-29), while a sibling model of the SAME trainer/family scoring the SAME live population over the SAME window shows normal per-strategy variance -- ruling out 'the population itself is homogeneous' as the explanation. MEASURED this session, api/bot/shadow/stats: execution-quality-baseline-v0 (regression_baseline, PerStrategyWinRateTrainer): score_min=score_max=-0.20166275180833781 (byte-identical) across all 754 records, n_eval at training time was only 65. setup-quality-audit-baseline-v0 (same trainer family): score_min=score_max=-0.05719595959595961 across all 754 records, n_eval=49. Comparison: setup-quality-baseline-v0 (identical trainer, same 754-record window, first_seen/last_seen match exactly) shows score_min=-0.1740/score_max=-0.1652 -- real per-strategy variance, n_eval=507 at training. HYPOTHESIS (not confirmed): the two collapsed models' small training n_eval (49, 65) gives them sparse per-strategy coverage, and live serving for most/all strategies in the current population is falling through to a single default/global mean rather than a per-strategy value -- but this was not traced into the serving code this session. Both are shadow-stage / low live-influence, so this is a flag-and-file rather than an immediate concern, but it feeds the conviction/execution-quality lenses per the unified-confidence framework and a degenerate input there is a conviction-quality issue worth fixing before either is ever considered for promotion."
+}

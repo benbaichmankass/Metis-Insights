@@ -401,12 +401,23 @@ jobs:
           # itself must hold >= 25 runnable units and must have dispatched
           # something in the last 12 h, whatever this run did. Graded from
           # the checkout, so a dry queue pages even when every run is green.
-          if ! HEALTH="$(python3 scripts/ci/check_research_queue_health.py 2>&1)"; then
-            echo "${HEALTH}"
+          # Exit 3 = the ONLY problem is an H1 the committed templates can fill:
+          # REFILL, do not page (manager 2026-09-29 10:07Z: runnable 8 with 153
+          # unclaimed template points; the refill is daily, consumption is up to
+          # 3 units per 6 h cycle, so a bare page would ring after most cycles).
+          # Exit 1 = a refill cannot fix it (unfillable H1, or H2 idle): PAGE.
+          HRC=0
+          HEALTH="$(python3 scripts/ci/check_research_queue_health.py 2>&1)" || HRC=$?
+          echo "${HEALTH}"
+          if [ "${HRC}" -eq 3 ]; then
+            echo "::notice::research-queue health: runnable below target but fillable — dispatching research-queue-replenish.yml (its concurrency group serialises it with the daily run)."
+            gh workflow run research-queue-replenish.yml -f target=25 \
+              || echo "::error::could not dispatch research-queue-replenish.yml — see the step log above."
+          elif [ "${HRC}" -ne 0 ]; then
             echo "::warning::research-queue health tripped — dispatching send-ping."
             gh workflow run system-actions.yml \
               -f action=send-ping \
-              -f message="research-queue health: $(echo "${HEALTH}" | grep -o 'H[0-9] .*' | head -3 | tr '\n' ' ') — runnable < 25 or idle > 12h. Replenisher: https://github.com/${{ github.repository }}/actions/workflows/research-queue-replenish.yml" \
+              -f message="research-queue health: $(echo "${HEALTH}" | grep -o 'H[0-9][A-Z-]* .*' | head -3 | tr '\n' ' ') — a refill cannot fix this (unfillable gap or idle > 12h). Replenisher: https://github.com/${{ github.repository }}/actions/workflows/research-queue-replenish.yml" \
               -f priority=high \
               -f target=claude \
               || echo "::error::could not dispatch the send-ping system-action — see the step log above."
