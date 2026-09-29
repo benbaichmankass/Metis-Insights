@@ -1,7 +1,7 @@
 {
-  "run_id": "36570849080",
-  "conclusion": "success",
-  "timestamp": "2026-09-29T12:51:34.996541+00:00",
+  "run_id": "36571325087",
+  "conclusion": "failure",
+  "timestamp": "2026-09-29T12:55:59.220771+00:00",
   "event_name": "workflow_dispatch",
   "fired": "true"
 }
