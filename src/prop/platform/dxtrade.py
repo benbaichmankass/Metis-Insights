@@ -1441,11 +1441,16 @@ TICKET_PANEL_DUMP_JS = r"""
 FIND_INSTRUMENT_SEARCH_JS = r"""
 ([candidates]) => {
   const buys = document.querySelectorAll('[data-test-id=BUY]');
+  if (buys.length !== 1) {
+    // Containment can only be trusted when there is exactly one BUY button
+    // to anchor it from -- with 0 or 2+, which panel (if any) is "the"
+    // order ticket is undecidable, so every input (order-ticket fields
+    // included) would otherwise become eligible. Refuse instead of guessing.
+    return {found: false, why: `${buys.length} BUY buttons (need exactly 1 to locate the order panel)`};
+  }
   let orderPanel = null;
-  if (buys.length === 1) {
-    for (let e = buys[0].parentElement; e && e !== document.body; e = e.parentElement) {
-      if (e.querySelector('[data-test-id=SELL]')) { orderPanel = e; break; }
-    }
+  for (let e = buys[0].parentElement; e && e !== document.body; e = e.parentElement) {
+    if (e.querySelector('[data-test-id=SELL]')) { orderPanel = e; break; }
   }
   const inOrderPanel = el => orderPanel ? orderPanel.contains(el) : false;
   const attrText = el => [el.getAttribute('placeholder'), el.getAttribute('aria-label'),
@@ -1458,17 +1463,39 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   });
   for (const cand of candidates) {
     const hit = inputs.filter(el => attrText(el).includes(cand));
+    if (hit.length > 1) {
+      // Ambiguous on THIS candidate -- refuse outright rather than fall
+      // through to a later candidate that might match a single (but wrong)
+      // input, which would silently pick a guess over a refusal.
+      return {found: false, why: `${hit.length} inputs match candidate '${cand}' (need exactly 1)`};
+    }
     if (hit.length === 1) {
       hit[0].setAttribute('data-metis-search-hit', '1');
       return {found: true, via: 'text:' + cand};
     }
   }
   const bare = inputs.filter(el => (el.getAttribute('type') || '').toLowerCase() === 'search');
+  if (bare.length > 1) {
+    return {found: false, why: `${bare.length} inputs of type=search (need exactly 1)`};
+  }
   if (bare.length === 1) {
     bare[0].setAttribute('data-metis-search-hit', '1');
     return {found: true, via: 'type=search'};
   }
   return {found: false, n_candidate_inputs: inputs.length};
+}
+"""
+
+# Cleanup for FIND_INSTRUMENT_SEARCH_JS's own tag. Strips
+# ``data-metis-search-hit`` from every element that carries it, run
+# unconditionally at the end of probe_instrument_details (success, refusal
+# or exception alike) so a tag from one symbol's probe can never linger and
+# throw off the tag-count check on the NEXT symbol's probe. Clicks nothing,
+# reads nothing, changes no value -- removes only the marker this file adds.
+CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
+() => {
+  document.querySelectorAll('[data-metis-search-hit]').forEach(
+    el => el.removeAttribute('data-metis-search-hit'));
 }
 """
 
@@ -1506,6 +1533,9 @@ INSTRUMENT_DETAILS_DUMP_JS = r"""
   for (const el of document.querySelectorAll('div, span, td, dt, dd, li')) {
     if (el.children.length > 0) continue;
     if (el.closest('tbody')) continue;
+    const cls = typeof el.className === 'string' ? el.className : '';
+    const tid = el.getAttribute('data-test-id') || '';
+    if (personal.test(cls) || personal.test(tid)) continue;
     const t = (el.innerText || el.textContent || '').trim();
     if (!t || t.length > 60) continue;
     const r = el.getBoundingClientRect();
@@ -2797,7 +2827,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         if not loc.get("found"):
             return {"searched": False, "reset": None, **loc}
         hit = page.locator("[data-metis-search-hit='1']")
-        result: Dict[str, Any] = {"searched": False, "via": loc.get("via")}
+        result: Dict[str, Any] = {"searched": False, "via": loc.get("via"), "reset": None}
         try:
             if hit.count() != 1:
                 result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
@@ -2815,11 +2845,22 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             result["error"] = type(exc).__name__
         finally:
+            # Only reached a real search field when the tag count check
+            # above passed (searched=True) -- an early refusal (ambiguous
+            # or missing tag) must never fall into resetting/filling an
+            # element nobody verified is the intended search input.
+            if result["searched"]:
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                except Exception:
+                    result["reset"] = False
+            # Unconditional: strip our own tag so it can never linger into
+            # the next symbol's probe, whatever happened above.
             try:
-                hit.first.fill("", timeout=5_000)
-                result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
             except Exception:
-                result["reset"] = False
+                pass
         return result
 
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:

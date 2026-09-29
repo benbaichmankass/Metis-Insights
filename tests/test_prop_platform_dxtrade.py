@@ -971,6 +971,7 @@ def test_modify_bracket_records_an_unknown_one_click_and_does_not_gate_on_it():
 # parsing named fields — see the docstring on probe_instrument_details).
 
 INSTRUMENT_SEARCH_PAGE = """<html><body>
+<div class="ticket"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button></div>
 <input id="watchlist-search" placeholder="Search instruments" type="text">
 <div id="details" style="display:none">
   <div>Symbol</div><div id="details-symbol"></div>
@@ -1049,6 +1050,7 @@ def test_probe_instrument_details_reports_not_found_rather_than_guessing(chromiu
 def test_probe_instrument_details_refuses_an_ambiguous_search_field(chromium_page):
     # Two candidates both matching "search": never guess which one.
     chromium_page.set_content("""<html><body>
+<div class="ticket"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button></div>
 <input id="s1" placeholder="Search instruments">
 <input id="s2" placeholder="Search account history">
 </body></html>""")
@@ -1075,3 +1077,116 @@ def test_instrument_details_dump_masks_only_digit_runs_of_five_or_more():
     assert mask("118.02") == "118.02"
     assert mask("1234567") == "#######"
     assert mask("order 987654 filled") == "order ###### filled"
+
+
+# ── independent-review fixes on the instrument probe (2026-09-29) ─────────
+# 1. FIND_INSTRUMENT_SEARCH_JS must refuse (never scan every input) when the
+#    BUY-button count isn't exactly 1 -- containment is undecidable otherwise.
+# 2. An ambiguous match on one candidate must refuse outright, never fall
+#    through to a later candidate that happens to match a single input.
+# 3. probe_instrument_details's finally block must only fill/reset when the
+#    tag-count check actually passed (searched=True), never on a refusal.
+# 4. INSTRUMENT_DETAILS_DUMP_JS's text-leaf loop must apply the same
+#    personal-shaped exclusion the control loop already applies.
+# 5. data-metis-search-hit must be cleared after every probe call so a stale
+#    tag from one symbol never blocks the next symbol's probe.
+
+
+def test_find_instrument_search_refuses_when_buy_button_count_is_not_exactly_one(chromium_page):
+    # Zero BUY buttons: no order panel to anchor containment from, so every
+    # input becomes eligible under the OLD rule -- must refuse instead.
+    chromium_page.set_content("""<html><body>
+<input id="only-search" placeholder="Search instruments" type="text">
+</body></html>""")
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(chromium_page, "BTCUSD")
+    assert res["searched"] is False and res["found"] is False
+    assert chromium_page.input_value("#only-search") == ""
+    assert chromium_page.evaluate(
+        "document.querySelector('#only-search').hasAttribute('data-metis-search-hit')") is False
+
+    # Two BUY buttons: which order panel is "the" one to exclude is
+    # undecidable -- must refuse rather than guess or admit everything.
+    chromium_page.set_content("""<html><body>
+<div class="ticket-a"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button></div>
+<div class="ticket-b"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button></div>
+<input id="only-search" placeholder="Search instruments" type="text">
+</body></html>""")
+    res = a.probe_instrument_details(chromium_page, "BTCUSD")
+    assert res["searched"] is False and res["found"] is False
+    assert chromium_page.input_value("#only-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_find_instrument_search_refuses_on_the_first_ambiguous_candidate_rather_than_falling_through(chromium_page):
+    # Two inputs both match the FIRST candidate ("search"); a third input
+    # uniquely matches a LATER candidate ("find symbol"). The ambiguity on
+    # the first candidate must refuse outright -- never fall through to the
+    # later, unambiguous candidate and guess that one instead.
+    chromium_page.set_content("""<html><body>
+<div class="ticket"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button></div>
+<input id="s1" placeholder="Search instruments" type="text">
+<input id="s2" placeholder="Search account history" type="text">
+<input id="s3" aria-label="find symbol" type="text">
+</body></html>""")
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(chromium_page, "BTCUSD")
+    assert res["searched"] is False and res["found"] is False
+    assert chromium_page.input_value("#s1") == ""
+    assert chromium_page.input_value("#s2") == ""
+    assert chromium_page.input_value("#s3") == ""
+    assert chromium_page.evaluate(
+        "document.querySelector('#s3').hasAttribute('data-metis-search-hit')") is False
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_probe_instrument_details_never_fills_when_the_tag_count_is_not_exactly_one(chromium_page):
+    # A stale data-metis-search-hit tag (as findings 3/5 describe) makes the
+    # post-search tag count 2. Must refuse -- and must never reach the
+    # .fill("") reset call on an element nobody verified as the search field.
+    chromium_page.set_content("""<html><body>
+<div class="ticket"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button></div>
+<input id="watchlist-search" placeholder="Search instruments" type="text">
+<input id="stale" data-metis-search-hit="1" value="leftover">
+</body></html>""")
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(chromium_page, "BTCUSD")
+    assert res["searched"] is False
+    assert "2 tagged candidates" in res.get("why", "")
+    # Neither element was ever filled/reset.
+    assert chromium_page.input_value("#watchlist-search") == ""
+    assert chromium_page.input_value("#stale") == "leftover"
+    # The stale tag (and the freshly-set one) are both cleared regardless.
+    assert chromium_page.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_probe_instrument_details_clears_its_tag_so_a_later_probe_is_not_blocked_by_a_stale_one(chromium_page):
+    chromium_page.set_content("""<html><body>
+<div class="ticket"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button></div>
+<input id="watchlist-search" placeholder="Search instruments" type="text">
+</body></html>""")
+    a = DXtradeAdapter()
+    first = a.probe_instrument_details(chromium_page, "ETHUSD")
+    assert first["searched"] is True
+    assert chromium_page.evaluate(
+        "document.querySelector('#watchlist-search').hasAttribute('data-metis-search-hit')") is False
+    second = a.probe_instrument_details(chromium_page, "BTCUSD")
+    assert second["searched"] is True
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_instrument_details_dump_masks_personal_classed_text_leaves_too(chromium_page):
+    # Comma/space-grouped digits (e.g. an account number rendered in groups)
+    # never form a single run of 5+ digits, so the digit-run mask alone would
+    # let them through; the personal-classed leaf must be dropped entirely.
+    chromium_page.set_content("""<html><body>
+<div class="account-number">4128 8812 9911 2234</div>
+<div>Lot Size</div><div>1</div>
+</body></html>""")
+    a = DXtradeAdapter()
+    dump = a.instrument_details_dump(chromium_page)
+    blob = " ".join((r.get("text") or "") for r in dump.get("rows", []))
+    assert "8812" not in blob and "9911" not in blob and "4128" not in blob
+    assert any(r.get("text") == "1" for r in dump.get("rows", []))
+    chromium_page.set_content(DIVGRID.read_text())
