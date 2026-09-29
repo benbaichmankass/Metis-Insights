@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-30",
+    "kind": "date"
+  },
+  "id": "PI-20260929-RQRUN-E35CORPUS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/13910",
+    "rerun": "gh pr list --state open --search 'head:automation/e35-bracket-corpus' --json number,headRefName,mergeable  # any row reading CONFLICTING reproduces the finding; zero open rows after a research-queue-dispatch cycle that fired >=2 e35 units (its log) clears it"
+  },
+  "state": "queued",
+  "what": "E35 CORPUS LANDINGS COLLIDE WHEN THE DISPATCHER FIRES >1 e35 UNIT IN ONE CYCLE. Measured 2026-09-29 ~02:30Z: the 00:53Z cycle fired RQ-20260928-016/-017/-018 (all e35-bracket-sweep.yml); each run's corpus job REWRITES docs/research/e35-bracket-corpus.jsonl (+ the history sidecar) from its own checkout and lands via commit-to-main; the first PR merged, #13910 (-018, 397 rows main lacked) and the older #13801 (RQ-20260922-008 from the 20:20Z cycle, 596 rows main lacked) stranded as CONFLICTING with zero checks -- rows produced by a multi-hour sweep, unreadable on main, exactly the write-only class e35_corpus_extract.py exists to cure. Hand-repaired this session (merge main into each branch, corpus regenerated with scripts/research/m20_corpus_union.py --corpus e35, history sidecar unioned append-only; heads 0056884d6 / ab6ef7044). DURABLE FIX (Tier-1, tooling): make the landing self-healing -- either commit-to-main's conflict path re-derives the two corpus files with m20_corpus_union.py --corpus e35 before retrying (the m20 workflow's own cure), or the dispatcher fires at most one e35 unit per cycle (a cap keyed on run.workflow, beside #13907's in-flight cap of 3, which does NOT serialize same-workflow landings). #13907's backpressure reduces but does not remove this."
+}
