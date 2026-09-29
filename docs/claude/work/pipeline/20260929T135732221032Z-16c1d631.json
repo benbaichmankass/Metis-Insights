@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-30",
+    "kind": "date"
+  },
+  "id": "PI-20260929-AQRK6CL1-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "SA-PROV report 2026-09-29 ~13:56Z (session_01JTqmnBwmw3nfKaHxo9WPvh) + manager read of pytest-run.yml:87-89",
+    "rerun": "grep -n -A2 '^concurrency' .github/workflows/pytest-run.yml; # then list the last 10 push-to-main pytest-run conclusions via actions_list"
+  },
+  "state": "queued",
+  "what": "main has no completed post-merge pytest-run: .github/workflows/pytest-run.yml sets concurrency group pytest-run-${{github.event_name}}-${{github.ref}} with cancel-in-progress: true, so on push to main every merge cancels the previous main run. The suite takes ~18.5 min (1113s on 2026-09-29) and merges land every few minutes, so main's pytest-run is CANCELLED run after run (SA-PROV observed a9f9bb26 cancelled, 222a4bed in progress, 2026-09-29 ~13:56Z). Consequence: a semantic break between two PRs each green against an older base (e.g. #14179 + #14172) is never caught by CI on main. Fix: for push events on main use cancel-in-progress: false (queue) or group by github.sha; keep cancel-in-progress for pull_request."
+}

@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-29T12:20Z",
+  "updated_at": "2026-09-29T14:00Z",
   "updated_by": "manager session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -3516,7 +3516,7 @@
       "id": "SA-PROV",
       "title": "Audit FIX-SA-04/05/06: zero-broker-PnL provenance demotion, MEASURED-only sums, collapsed-state registrations",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01JTqmnBwmw3nfKaHxo9WPvh",
       "model": "claude-sonnet-5-5",
@@ -3525,7 +3525,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. JC-SA-03 decided (b): gate logic unchanged, both bases recorded. Includes IB realizedPNL=0 root cause and performance-review skill coverage fields."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. JC-SA-03 decided (b): gate logic unchanged, both bases recorded. Includes IB realizedPNL=0 root cause and performance-review skill coverage fields. || 2026-09-29 ~14:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OBSERVED on VM e2d8f8433 (after a9f9bb26): /performance paper pnlMeasuredCount 368->339 (-29 = 18 ib_paper zero-pnl + 11 bybit_1 sign rows), unverified 135->164, totalPnlMeasuredOnly -59689.01 -> -55966.36 (+3722.65 = the sign rows' pnl sum, checked); real book unchanged (338). /stats matches. Per-row UNVERIFIED not read on the live route; count+sum arithmetic is the evidence. Remaining owed work is PI-...-0004 (reduce_parent_ids wiring, #14210). Paper headline totalPnlMeasured +96.7k is dominated by 152.7k ESTIMATED; MEASURED-only is -55.97k."
     },
     {
       "id": "SA-SEC",
