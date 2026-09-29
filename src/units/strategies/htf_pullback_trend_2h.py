@@ -68,7 +68,6 @@ import pandas as pd
 
 from src.runtime.tp_venue_cap import (  # the ONE owner of the clamp
     TP_VENUE_CAP_PCT as _TP_SENTINEL_CAP_PCT)
-from src.runtime.closed_bars import drop_forming_bar
 from src.units.strategies._base import require_candles
 
 _DEFAULTS: Dict[str, Any] = {
@@ -294,25 +293,15 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
                 "non-actionable."
             )
 
-    # M21 E-2 vol-at-entry gate. An undefined percentile (window unfilled /
-    # any error) never skips (fail-permissive). The percentile is ranked on
-    # the last CLOSED bar: live, the frame ends on the still-forming bar, whose
-    # partial range drags its ATR down (at the median live decision offset,
-    # 7.6 min into a 2h bar, the dead-tail gate fired on bars the closed-bar
-    # gate passes). The trigger bar's closed ATR does not exist yet at decision
-    # time, so the last closed bar is the nearest live-computable reading of
-    # the harness's gate — RQ-20260929-002 / PI-20260929-EXITOPS-0005, the
-    # entry-side twin of the trail_vol fix (#14101, CA-B01). The builder
-    # fetches vol_pctl_window + 1 bars so the trim cannot leave it undefined.
+    # M21 E-2 vol-at-entry gate — same trigger-bar anchor as skip_hours,
+    # mirroring scripts/backtest_pullback.py bar-for-bar. An undefined
+    # percentile (window unfilled / any error) never skips (fail-permissive).
     vol_above = _coerce_float(params.get("vol_skip_above_pctl")) or 0.0
     vol_below = _coerce_float(params.get("vol_skip_below_pctl")) or 0.0
     vol_pctl: Optional[float] = None
     if vol_above > 0.0 or vol_below > 0.0:
         vol_window = int(_coerce_float(params.get("vol_pctl_window")) or 200)
-        closed_df = drop_forming_bar(df, timeframe)
-        vol_atr = (atr_series if closed_df is df
-                   else _atr(closed_df.reset_index(drop=True), atr_period))
-        vol_pctl = _trailing_atr_pctl(vol_atr, -1, vol_window)
+        vol_pctl = _trailing_atr_pctl(atr_series, -1, vol_window)
         if vol_pctl is not None:
             if vol_above > 0.0 and vol_pctl > vol_above:
                 raise ValueError(
