@@ -32,7 +32,7 @@ import logging
 import os
 import re
 import time
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 import requests
@@ -438,11 +438,37 @@ _RESTING_LEG_STATUSES = frozenset({
     "pending_replace", "accepted_for_bidding", "calculated",
 })
 
-#: How many of a symbol's most recent CLOSED orders are scanned for a filled
-#: bracket parent whose children still rest. A bracket older than this many
-#: closed orders on one symbol is not reached and grades as it did before this
-#: scan existed (its held stop unseen) — the pre-fix behaviour, not a new gap.
-_FILLED_PARENT_SCAN_LIMIT = 100
+#: Page size (Alpaca's maximum) and page budget for the scan of a symbol's
+#: CLOSED orders for filled bracket parents whose children still rest. The scan
+#: pages backwards through history; if the budget runs out before history does,
+#: the read is TRUNCATED and reported as "could not look" (``None``), never as
+#: "no stop" — a bracket older than the window would otherwise have its held
+#: stop unseen and the symbol graded naked (REVIEW-14123).
+_FILLED_PARENT_SCAN_PAGE = 500
+_FILLED_PARENT_SCAN_MAX_PAGES = 4
+
+
+def _oldest_submitted_at(orders: List[Dict[str, Any]]) -> Optional[str]:
+    """The next page's ``until`` for a newest-first page of orders.
+
+    Alpaca's ``until`` is exclusive, so the oldest ``submitted_at`` is nudged
+    one microsecond LATER — an order sharing that exact instant is then
+    re-read (and deduplicated by id) rather than skipped. ``None`` if no order
+    carries a parseable ``submitted_at``.
+    """
+    stamps = []
+    for o in orders:
+        raw = o.get("submitted_at") or o.get("created_at")
+        if not raw:
+            continue
+        try:
+            stamps.append(datetime.fromisoformat(str(raw).replace("Z", "+00:00")))
+        except ValueError:
+            continue
+    if not stamps:
+        return None
+    nxt = min(stamps) + timedelta(microseconds=1)
+    return nxt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 class AlpacaClient:
@@ -1653,15 +1679,48 @@ class AlpacaClient:
         # a child counts only while ITS OWN status is a resting one. A failed
         # read is "could not look" (None), never "no legs" — the caller then
         # refuses to act, exactly as for the open read above.
-        env2 = self._request(
-            "GET",
-            f"/v2/orders?status=closed&nested=true&direction=desc"
-            f"&limit={_FILLED_PARENT_SCAN_LIMIT}&symbols={sym}",
-        )
-        if env2.get("retCode") != 0:
+        #
+        # PAGED, NOT CAPPED (REVIEW-14123): the closed history is read newest
+        # first in pages of `_FILLED_PARENT_SCAN_PAGE`, each page ending just
+        # past the oldest `submitted_at` of the one before. A short page means
+        # history is exhausted. If the page budget runs out first the scan is
+        # TRUNCATED and the whole read is `None` — an older bracket's held stop
+        # may rest unseen, so "no stop" would be a guess.
+        parents: list = []
+        seen_parent: set = set()
+        until: Optional[str] = None
+        exhausted = False
+        for _page in range(_FILLED_PARENT_SCAN_MAX_PAGES):
+            path = (
+                f"/v2/orders?status=closed&nested=true&direction=desc"
+                f"&limit={_FILLED_PARENT_SCAN_PAGE}&symbols={sym}"
+            )
+            if until:
+                path += f"&until={until}"
+            env2 = self._request("GET", path)
+            if env2.get("retCode") != 0:
+                return None
+            page = [o for o in (env2.get("result") or []) if isinstance(o, dict)]
+            fresh = [o for o in page if o.get("id") not in seen_parent]
+            for o in fresh:
+                seen_parent.add(o.get("id"))
+            parents.extend(fresh)
+            if len(page) < _FILLED_PARENT_SCAN_PAGE:
+                exhausted = True
+                break
+            oldest = _oldest_submitted_at(page)
+            if oldest is None or not fresh:
+                break  # cannot advance the window: treat as truncated
+            until = oldest
+        if not exhausted:
+            logger.warning(
+                "alpaca _open_orders_for_symbol(%s): closed-order history "
+                "exceeds %d orders — child legs NOT fully read (could not "
+                "look)", sym, _FILLED_PARENT_SCAN_PAGE * _FILLED_PARENT_SCAN_MAX_PAGES,
+            )
             return None
         seen = {o.get("id") for o in out if o.get("id")}
-        for parent in env2.get("result") or []:
+        for parent in parents:
             if not isinstance(parent, dict):
                 continue
             if str(parent.get("status") or "").lower() not in (
