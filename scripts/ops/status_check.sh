@@ -360,7 +360,11 @@ if [ -n "${data_dir}" ]; then
     done
     echo
     echo "--- ls ${python_alt_root}/ (parent must exist for writes) ---"
-    ls -la "${python_alt_root}/" 2>&1 | head -30
+    # sed, not head: head exits after 30 lines, and once the listing outgrows the
+    # pipe buffer ls dies of SIGPIPE; under `set -o pipefail` that 141 became the
+    # WHOLE script's exit code and cut off every section below (MEASURED:
+    # status-check #14285, 2026-09-29, exit 141 right after this listing).
+    ls -la "${python_alt_root}/" 2>&1 | sed -n '1,30p'
 else
     echo "(DATA_DIR unset; python resolver would return repo-relative paths)"
 fi
