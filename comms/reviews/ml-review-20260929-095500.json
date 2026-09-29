@@ -1,0 +1,2136 @@
+{
+  "request_id": "REQ-20260929-095000-ml-review-w7",
+  "reviewed_at": "2026-09-29T09:55:00+00:00",
+  "reviewer": "claude",
+  "session": "lane dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ (the third of the 3-review pack for the joint operator/manager session, per row E73), session_0193d6xZVThefpX6UaoAyGbb",
+  "window_start": "2026-09-27T06:52:00+00:00",
+  "window_end": "2026-09-29T09:55:00+00:00",
+  "_window_note": "Window since the last ml-review (comms/reviews/ml-review-20260927-063330.json, PR #13075).",
+  "overall_assessment": "caution",
+  "_headline": "Trainer healthy end-to-end (rc=0, timer on schedule, 96 models, 0 quarantine events this cycle). D1 (shadow-drift rotated-archive blind spot) and D2/E77 (exit-head twin-dedup) are CONFIRMED merged+deployed+OBSERVED live this session -- both pipeline items closed. With drift reads now trustworthy, btc/sol advisory regime heads correctly hold (no demote trigger). New findings this session: conviction-meta-v1 (the unified-confidence v2 stacker) shows SIGNIFICANT drift 98 days into an unresolved shadow soak; 4 manifests (1 of them SHADOW-stage, setup-quality-lgbm-v2) have been unable to train for ~65 days on a dead-feature dataset-audit quarantine, the exact bug class the soak-integrity-audit exists to catch; 2 shadow baselines show a literally collapsed live score vs. a sibling model on the identical population. E74 (SOL trend_vol OFF-cell) is NOT a from-scratch job -- a near-miss walk-forward already exists and was left as an unenacted operator judgment call on 2026-08-02; restated with a concrete next step.",
+  "trainer_findings": {
+    "trainer_service": {
+      "status": "ok",
+      "note": "unit disabled/inactive as expected for a timer-triggered oneshot; ExecMainStatus=0 on last run."
+    },
+    "trainer_datasets": {
+      "status": "ok",
+      "note": "24h builds: 120 ok, 0 failed, 2 skipped (ml/status). Disk 93% used, 3.6GB free on trainer / -- watch, not concern (not this skill's primary domain)."
+    },
+    "trainer_registry": {
+      "status": "ok",
+      "note": "96 models: 3 advisory, 29 shadow, 63 candidate, 1 research_only(->candidate). >=1 at shadow+."
+    },
+    "trainer_models": {
+      "status": "watch",
+      "note": "0 quarantine_tripped events this cycle (ok); but 4 manifests stuck untrained ~65d on dead-feature audit-skip, 1 of them shadow-stage -- see anomalies + PI-20260929-UAOAYGBB-0001. No advisory model is degrading -> watch, not concern."
+    }
+  },
+  "model_status": [
+    {
+      "model_id": "btc-c1-base-v903",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260702T061058Z",
+        "at": "2026-07-02T06:10:58.897539+00:00",
+        "code_revision": "af9a5ecee6bc",
+        "headline_metric": "macro_f1=0.557",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-02",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-c1-base-v905",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260702T061426Z",
+        "at": "2026-07-02T06:14:26.507009+00:00",
+        "code_revision": "af9a5ecee6bc",
+        "headline_metric": "macro_f1=0.592",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-02",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-c1-macro-v903",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260702T061215Z",
+        "at": "2026-07-02T06:12:15.731025+00:00",
+        "code_revision": "af9a5ecee6bc",
+        "headline_metric": "macro_f1=0.587",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-02",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-c1-macro-v905",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260702T061546Z",
+        "at": "2026-07-02T06:15:46.226187+00:00",
+        "code_revision": "af9a5ecee6bc",
+        "headline_metric": "macro_f1=0.562",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-02",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-direction-15m-lgbm-base-v003",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012027Z",
+        "at": "2026-09-29T01:20:27.712199+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.345",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-direction-15m-lgbm-emb-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T010956Z",
+        "at": "2026-08-06T01:09:56.491612+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.349",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-direction-15m-lgbm-fc-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012202Z",
+        "at": "2026-09-29T01:22:02.321493+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.344",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013257Z",
+        "at": "2026-09-29T01:32:57.035962+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.493",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 373,
+        "score_summary": "mean=0.9772 min=0.8981 max=0.9940 (soak_days=129.84)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-c1-base",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260702T052815Z",
+        "at": "2026-07-02T05:28:15.806176+00:00",
+        "code_revision": "af9a5ecee6bc",
+        "headline_metric": "macro_f1=0.557",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-02",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-c1-macro",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260702T052934Z",
+        "at": "2026-07-02T05:29:35.004083+00:00",
+        "code_revision": "af9a5ecee6bc",
+        "headline_metric": "macro_f1=0.587",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-02",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-hmm-cw-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012231Z",
+        "at": "2026-09-29T01:22:31.335306+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.584",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-hmm-fc-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012303Z",
+        "at": "2026-09-29T01:23:03.890978+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.491",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-hmm-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012332Z",
+        "at": "2026-09-29T01:23:32.523495+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.491",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-base-pcv-v003",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012436Z",
+        "at": "2026-09-29T01:24:36.385010+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.560",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-base-v003",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012503Z",
+        "at": "2026-09-29T01:25:03.540481+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.576",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-base-vt003-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260726T052933Z",
+        "at": "2026-07-26T05:29:33.335230+00:00",
+        "code_revision": "47747d174523",
+        "headline_metric": "macro_f1=0.480",
+        "n_eval": 107919.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "STALE 65d, audit-skip-quarantined",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-corpusemb-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T011550Z",
+        "at": "2026-08-06T01:15:50.367051+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.560",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-emb-pca-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T011633Z",
+        "at": "2026-08-06T01:16:33.292518+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.616",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-emb-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T011843Z",
+        "at": "2026-08-06T01:18:43.397213+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.612",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-emb-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T011926Z",
+        "at": "2026-08-06T01:19:26.370798+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.617",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012624Z",
+        "at": "2026-09-29T01:26:24.980388+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.603",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 373,
+        "score_summary": "mean=0.9619 min=0.5504 max=0.9991 (soak_days=56.17)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "stage": "advisory",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012746Z",
+        "at": "2026-09-29T01:27:46.763722+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.580",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": null,
+        "score_summary": "not sampled this run",
+        "drift": "ks=0.0736 (minor) psi=0.0194 (no_change) verdict=minor; rotated_logs_read=4 (D1-fixed read)",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-fc-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012814Z",
+        "at": "2026-09-29T01:28:14.564128+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.576",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-fcemb-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T012458Z",
+        "at": "2026-08-06T01:24:58.218297+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.605",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-v2-gpuburst",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260702T204526Z",
+        "at": "2026-07-02T21:54:32.464455+00:00",
+        "code_revision": "gpu-burst-re",
+        "headline_metric": "macro_f1=0.582",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-02",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012840Z",
+        "at": "2026-09-29T01:28:40.900466+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.582",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 373,
+        "score_summary": "mean=0.9571 min=0.5134 max=0.9998 (soak_days=70.58)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-vt003-pin-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T012947Z",
+        "at": "2026-09-29T01:29:47.637283+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.669",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-vt004-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260731T013508Z",
+        "at": "2026-07-31T01:35:08.053349+00:00",
+        "code_revision": "44e8710e4961",
+        "headline_metric": "macro_f1=0.628",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-31",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-vt004-pin-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013103Z",
+        "at": "2026-09-29T01:31:03.387300+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.629",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-vt005-pin-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013207Z",
+        "at": "2026-09-29T01:32:07.352067+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.598",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-yz-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013238Z",
+        "at": "2026-09-29T01:32:38.834827+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.594",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 373,
+        "score_summary": "mean=0.9705 min=0.5065 max=0.9998 (soak_days=116.37)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-15m-tcn-v1-gpuburst",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260703T063353Z",
+        "at": "2026-07-03T06:34:01.699038+00:00",
+        "code_revision": "4c791fad128a",
+        "headline_metric": "macro_f1=0.534",
+        "n_eval": 87605.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-03",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-hmm-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013301Z",
+        "at": "2026-09-29T01:33:01.354010+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.562",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-base-pcv-v003",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013319Z",
+        "at": "2026-09-29T01:33:19.646019+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.517",
+        "n_eval": 21900.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-emb-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T013032Z",
+        "at": "2026-08-06T01:30:32.277934+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.534",
+        "n_eval": 21900.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-funding-svble-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013328Z",
+        "at": "2026-09-29T01:33:28.243709+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.654",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 171,
+        "score_summary": "mean=0.9049 min=0.6963 max=0.9970 (soak_days=107.21)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-funding-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013336Z",
+        "at": "2026-09-29T01:33:36.981853+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.654",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013345Z",
+        "at": "2026-09-29T01:33:45.169368+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.660",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 171,
+        "score_summary": "mean=0.8511 min=0.5215 max=0.9965 (soak_days=123.92)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-lgbm-yz-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013353Z",
+        "at": "2026-09-29T01:33:53.872233+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.660",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 171,
+        "score_summary": "mean=0.8731 min=0.5027 max=0.9987 (soak_days=98.11)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-1h-trend-lgbm-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013402Z",
+        "at": "2026-09-29T01:34:02.928458+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.343",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-5m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013847Z",
+        "at": "2026-09-29T01:38:47.807307+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.499",
+        "n_eval": 105173.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 931,
+        "score_summary": "mean=0.9962 min=0.9756 max=0.9991 (soak_days=129.98)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-5m-lgbm-flow-v1-offload",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260828T072009Z",
+        "at": "2026-08-28T19:39:27.903708+00:00",
+        "code_revision": "7774d1c3",
+        "headline_metric": "macro_f1=0.564",
+        "n_eval": 22978.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-28",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 931,
+        "score_summary": "mean=0.9911 min=0.5580 max=0.9999 (soak_days=31.0)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-5m-lgbm-flow-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013530Z",
+        "at": "2026-09-29T01:35:30.528970+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.548",
+        "n_eval": 105173.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "btc-regime-5m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013646Z",
+        "at": "2026-09-29T01:36:46.175383+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.548",
+        "n_eval": 105173.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 931,
+        "score_summary": "mean=0.9912 min=0.5541 max=1.0000 (soak_days=125.74)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "btc-regime-5m-lgbm-yz-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013809Z",
+        "at": "2026-09-29T01:38:09.971873+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.553",
+        "n_eval": 105173.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 931,
+        "score_summary": "mean=0.9947 min=0.5457 max=1.0000 (soak_days=96.13)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "conviction-meta-base-btc-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013849Z",
+        "at": "2026-09-29T01:38:49.753779+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.561",
+        "n_eval": 20.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "conviction-meta-emb-btc-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T013551Z",
+        "at": "2026-08-06T01:35:51.469035+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.600",
+        "n_eval": 20.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "conviction-meta-v1-bt",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013853Z",
+        "at": "2026-09-29T01:38:53.090594+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.489",
+        "n_eval": 241.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "conviction-meta-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013857Z",
+        "at": "2026-09-29T01:38:57.253322+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.489",
+        "n_eval": 241.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 754,
+        "score_summary": "mean=0.7457 min=0.5583 max=0.8523 (soak_days=98.08)",
+        "drift": "ks=0.3685 (significant) psi=0.4073 (significant) verdict=SIGNIFICANT; rotated_logs_read=4 (D1-fixed read) -- see PI-20260929-UAOAYGBB-0002",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "corpus-ssl-encoder-mae-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260726T055204Z",
+        "at": "2026-07-26T05:52:04.769759+00:00",
+        "code_revision": "47747d174523",
+        "headline_metric": "embedding_dim=16.0",
+        "n_eval": 851.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-07-26",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-direction-1h-lgbm-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013906Z",
+        "at": "2026-09-29T01:39:06.759237+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.341",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-direction-1h-lgbm-xasset-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013918Z",
+        "at": "2026-09-29T01:39:18.293535+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.346",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-regime-15m-hmm-cw-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T013945Z",
+        "at": "2026-09-29T01:39:45.756187+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.455",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-regime-15m-lgbm-base-pcv-v003",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014049Z",
+        "at": "2026-09-29T01:40:49.529659+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.460",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-regime-15m-lgbm-emb-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260806T013950Z",
+        "at": "2026-08-06T01:39:50.747342+00:00",
+        "code_revision": "7485fd5f5c67",
+        "headline_metric": "macro_f1=0.517",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-08-06",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-regime-15m-lgbm-fc-pcv-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014207Z",
+        "at": "2026-09-29T01:42:07.903779+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.584",
+        "n_eval": 87636.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-regime-15m-lgbm-selfonly-v901ctrl",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014235Z",
+        "at": "2026-09-29T01:42:35.556379+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.458",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 368,
+        "score_summary": "mean=0.8046 min=0.5024 max=0.9844 (soak_days=74.03)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "eth-regime-15m-lgbm-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014306Z",
+        "at": "2026-09-29T01:43:06.771100+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.615",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "eth-regime-15m-lgbm-xasset-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014340Z",
+        "at": "2026-09-29T01:43:40.797561+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.482",
+        "n_eval": 35054.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 368,
+        "score_summary": "mean=0.8008 min=0.5006 max=0.9874 (soak_days=74.05)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "eth-regime-1h-lgbm-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014349Z",
+        "at": "2026-09-29T01:43:49.548228+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.583",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 189,
+        "score_summary": "mean=0.7525 min=0.5071 max=0.9745 (soak_days=97.15)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "eth-regime-1h-lgbm-xasset-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014359Z",
+        "at": "2026-09-29T01:43:59.712030+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.580",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 189,
+        "score_summary": "mean=0.7117 min=0.5023 max=0.9654 (soak_days=102.47)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "eth-regime-5m-lgbm-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014526Z",
+        "at": "2026-09-29T01:45:26.189450+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.558",
+        "n_eval": 105173.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 923,
+        "score_summary": "mean=0.9490 min=0.5039 max=0.9996 (soak_days=93.25)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "execution-quality-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T011906Z",
+        "at": "2026-09-29T01:19:06.333949+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "mae=3.2638",
+        "n_eval": 65.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 754,
+        "score_summary": "mean=-0.2017 min=-0.2017 max=-0.2017 (soak_days=133.21) [COLLAPSED SCORE SPREAD \u2014 degenerate]",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "mes-regime-15m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014540Z",
+        "at": "2026-09-29T01:45:40.035067+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.549",
+        "n_eval": 2844.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 241,
+        "score_summary": "mean=0.6065 min=0.5156 max=0.7907 (soak_days=129.85)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "mes-regime-15m-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014533Z",
+        "at": "2026-09-29T01:45:33.171375+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.687",
+        "n_eval": 2844.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 241,
+        "score_summary": "mean=0.7400 min=0.5002 max=0.9681 (soak_days=123.92)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "mes-regime-15m-lgbm-yz-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014537Z",
+        "at": "2026-09-29T01:45:37.573406+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.670",
+        "n_eval": 2844.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "mes-regime-1d-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014544Z",
+        "at": "2026-09-29T01:45:44.823843+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.633",
+        "n_eval": 586.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 138,
+        "score_summary": "mean=0.7692 min=0.7134 max=0.7847 (soak_days=122.02)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "mes-regime-5m-baseline-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014612Z",
+        "at": "2026-09-29T01:46:12.100855+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.651",
+        "n_eval": 6599.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 467,
+        "score_summary": "mean=0.6322 min=0.5066 max=0.8241 (soak_days=129.85)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-macro-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014555Z",
+        "at": "2026-09-29T01:45:55.508886+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.670",
+        "n_eval": 6599.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-v2",
+      "stage": "advisory",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014602Z",
+        "at": "2026-09-29T01:46:02.212242+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.699",
+        "n_eval": 6599.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": null,
+        "score_summary": "not sampled this run",
+        "drift": "ks=0.0776 (minor) psi=0.0636 (no_change) verdict=minor; rotated_logs_read=4 (D1-fixed read)",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-yz-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014609Z",
+        "at": "2026-09-29T01:46:09.121031+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.672",
+        "n_eval": 6599.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "mes-regime-classifier-baseline-v0",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260522T090539Z",
+        "at": "2026-05-22T09:05:39.094403+00:00",
+        "code_revision": "c0b14ff183d8",
+        "headline_metric": "macro_f1=0.685",
+        "n_eval": 1292.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-05-22",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "mes-setup-quality-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014612Z",
+        "at": "2026-09-29T01:46:12.534913+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "mae=0.9989",
+        "n_eval": 7.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 0,
+        "score_summary": "no predictions yet",
+        "drift": "not computed (0 predictions)",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "mes-trade-outcome-winrate-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014612Z",
+        "at": "2026-09-29T01:46:12.950442+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.6",
+        "n_eval": 5.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 0,
+        "score_summary": "no predictions yet",
+        "drift": "not computed (0 predictions)",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "prop-mission-policy-baseline-v0",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260726T052008Z",
+        "at": "2026-07-26T05:20:08.944097+00:00",
+        "code_revision": "47747d174523",
+        "headline_metric": "accuracy=1.0",
+        "n_eval": 53.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "STALE 65d, audit-skip-quarantined",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "regime-classifier-baseline-v0",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T011910Z",
+        "at": "2026-09-29T01:19:10.030969+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "macro_f1=0.449",
+        "n_eval": 8760.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-backtest-c1-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014614Z",
+        "at": "2026-09-29T01:46:14.730785+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.7898936170212766",
+        "n_eval": 376.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-backtest-c2-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014616Z",
+        "at": "2026-09-29T01:46:16.717457+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "mae=1.3916",
+        "n_eval": 376.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-backtest-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014618Z",
+        "at": "2026-09-29T01:46:18.724216+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.6941489361702128",
+        "n_eval": 376.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-p2pool-c1-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014620Z",
+        "at": "2026-09-29T01:46:20.958758+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.8117283950617284",
+        "n_eval": 324.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-p2pool-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014623Z",
+        "at": "2026-09-29T01:46:23.220521+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.7160493827160493",
+        "n_eval": 324.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-siglog-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014625Z",
+        "at": "2026-09-29T01:46:25.615158+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.6941489361702128",
+        "n_eval": 376.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014627Z",
+        "at": "2026-09-29T01:46:27.621383+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.6941489361702128",
+        "n_eval": 376.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-xsym-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014630Z",
+        "at": "2026-09-29T01:46:30.809443+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "accuracy=0.7570621468926554",
+        "n_eval": 354.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-candidates-metalabel-xsym-yz-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260726T060147Z",
+        "at": "2026-07-26T06:01:47.468005+00:00",
+        "code_revision": "47747d174523",
+        "headline_metric": "accuracy=0.7570621468926554",
+        "n_eval": 354.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "STALE 65d, audit-skip-quarantined; dead feature: parkinson_vol/garman_klass_vol/rogers_satchell_vol/yang_zhang_vol 100% NaN",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "setup-quality-audit-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T011910Z",
+        "at": "2026-09-29T01:19:10.478542+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "mae=0.0650",
+        "n_eval": 49.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 754,
+        "score_summary": "mean=-0.0572 min=-0.0572 max=-0.0572 (soak_days=133.21) [COLLAPSED SCORE SPREAD \u2014 degenerate]",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "setup-quality-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T011910Z",
+        "at": "2026-09-29T01:19:10.937546+00:00",
+        "code_revision": "d526c7e64a1c",
+        "headline_metric": "mae=0.9802",
+        "n_eval": 507.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 754,
+        "score_summary": "mean=-0.1701 min=-0.1740 max=-0.1652 (soak_days=133.21)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "setup-quality-lgbm-v2",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260726T060149Z",
+        "at": "2026-07-26T06:01:49.304066+00:00",
+        "code_revision": "47747d174523",
+        "headline_metric": "mae=1.4907",
+        "n_eval": 153.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "STALE 65d, audit-skip-quarantined; dead feature: killzone/bias 100% NaN (8 consecutive daily audits, 09-22..09-29)",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 754,
+        "score_summary": "mean=-0.1379 min=-0.4798 max=0.2776 (soak_days=98.08)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-base-pcv-v530",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014733Z",
+        "at": "2026-09-29T01:47:33.708518+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.504",
+        "n_eval": 82788.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-fc-pcv-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T014844Z",
+        "at": "2026-09-29T01:48:44.232375+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.549",
+        "n_eval": 82788.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 368,
+        "score_summary": "mean=0.7610 min=0.5003 max=0.9911 (soak_days=65.13)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "stage": "advisory",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T015002Z",
+        "at": "2026-09-29T01:50:02.568233+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.540",
+        "n_eval": 86868.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": null,
+        "score_summary": "not sampled this run",
+        "drift": "ks=0.1595 (moderate) psi=0.1207 (moderate) verdict=moderate; rotated_logs_read=4 (D1-fixed read)",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T015028Z",
+        "at": "2026-09-29T01:50:28.611009+00:00",
+        "code_revision": "bc78fea0642d",
+        "headline_metric": "macro_f1=0.542",
+        "n_eval": 34747.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "sol-regime-5m-lgbm-v1",
+      "stage": "shadow",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T015152Z",
+        "at": "2026-09-29T01:51:52.546663+00:00",
+        "code_revision": "5cc03b318960",
+        "headline_metric": "macro_f1=0.561",
+        "n_eval": 104251.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 913,
+        "score_summary": "mean=0.9176 min=0.5007 max=0.9994 (soak_days=93.05)",
+        "drift": "not pulled this run",
+        "realized": "n/a (see promotion_recommendations for joined-trade evidence on advisory heads)"
+      }
+    },
+    {
+      "model_id": "trade-outcome-global-baseline-v0",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260628T010834Z",
+        "at": "2026-06-28T01:08:34.965894+00:00",
+        "code_revision": "5a2db1f27b97",
+        "headline_metric": "accuracy=0.8356164383561644",
+        "n_eval": 73.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-06-28",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "trade-outcome-lgbm-v1",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260929T015155Z",
+        "at": "2026-09-29T01:51:55.013043+00:00",
+        "code_revision": "5cc03b318960",
+        "headline_metric": "macro_f1=0.501",
+        "n_eval": 507.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "trained current cycle",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    },
+    {
+      "model_id": "trade-outcome-winrate-baseline-v0",
+      "stage": "candidate",
+      "registry_status": "candidate",
+      "last_training": {
+        "run_id": "20260628T010835Z",
+        "at": "2026-06-28T01:08:35.292521+00:00",
+        "code_revision": "5a2db1f27b97",
+        "headline_metric": "accuracy=0.8356164383561644",
+        "n_eval": 73.0,
+        "trend_vs_prior_run": "not_computed (registry exposes latest run only)"
+      },
+      "note": "last trained 2026-06-28",
+      "live_shadow": {
+        "influence": "none(candidate)",
+        "predictions": null,
+        "score_summary": "pre-shadow, no live serving",
+        "drift": "n/a",
+        "realized": "n/a"
+      }
+    }
+  ],
+  "soak_audit": [
+    {
+      "head": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "parity": "not re-diffed this session (last checked 2026-09-27, ok); row_keys_seen live (20 keys incl. fc_* forecast features) unchanged from prior review's sample.",
+      "label_coverage": "not recomputed this session -- stage-guard's fresh attribution read (trainer-vm-diag #36551197099) used n=31 trusted-provenance closed trades (404-of-489 population after excluding 85 non-measured/estimated pnl rows).",
+      "evidence_destination": "already advisory; ongoing soak feeds demote/hold. drift=minor (D1-fixed read) -> hold, no demote trigger tripped. Regime-classifier axis (brier_lift/AUC trade-win triggers correctly suppressed per MB-20260630-001, verified against ml/promotion/stage_guard.py L90-143, not assumed)."
+    },
+    {
+      "head": "mes-regime-5m-lgbm-v2",
+      "parity": "not re-diffed this session.",
+      "label_coverage": "not recomputed this session.",
+      "evidence_destination": "already advisory; drift=minor (D1-fixed read) -> hold, no demote trigger tripped."
+    },
+    {
+      "head": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "parity": "not re-diffed this session.",
+      "label_coverage": "not recomputed this session.",
+      "evidence_destination": "already advisory; drift=moderate (not significant, D1-fixed read) -> hold, no demote trigger tripped. Separately: ZERO real-money order effect since 08-02 promotion (no SOL trend_vol OFF-cell exists) -- see E74 checklist row, updated this session with the existing near-miss walk-forward evidence."
+    },
+    {
+      "head": "conviction-meta-v1",
+      "parity": "not diffed this session (would need a feature_row pull vs its training dataset -- flagged as follow-up in PI-20260929-UAOAYGBB-0002, not done here).",
+      "label_coverage": "not recomputed this session.",
+      "evidence_destination": "shadow, 98 days soaking (soak_started_at 2026-06-23), destination = shadow->advisory (THE learned-conviction switch per unified-confidence-risk-DESIGN.md). drift=SIGNIFICANT (ks=0.3685, psi=0.4073, D1-fixed read) -- NOT accruing toward a clean promotion; flagged loudly, filed PI-20260929-UAOAYGBB-0002. This is the mandatory soak-integrity flag this section exists to produce."
+    },
+    {
+      "head": "setup-quality-lgbm-v2",
+      "parity": "PARITY CONCERN (not a confirmed bug, but the exact bug shape): 'killzone' and 'bias' are 100% NaN (nan_fraction=1.0) in the TRAINING dataset (8 consecutive daily dataset_audit.jsonl entries, 2026-09-22..2026-09-29) yet 'killzone' appears as a served row_key in the LIVE shadow_predictions.jsonl for this model_id. Could not confirm the live VALUE is non-null from the API (row_keys only, not values) -- root-caused only to 'flag loudly, needs a feature_row value pull', not fully diagnosed. Filed PI-20260929-UAOAYGBB-0001.",
+      "label_coverage": "not computed -- blocked on the same finding.",
+      "evidence_destination": "shadow, 98 days soaking, cannot retrain (audit-skip-quarantined 65d) -- soak is NOT accruing toward anything actionable while the underlying dataset stays broken. Recommend: fix the dead-feature dataset bug before any further soak-time credit is given."
+    }
+  ],
+  "promotion_recommendations": [],
+  "_promotion_recommendations_note": "No shadow->advisory promotion is recommended this run. btc/mes/sol advisory regime heads: no change (hold confirmed by a now-trustworthy drift read). conviction-meta-v1: NOT recommended for promotion (significant drift, unresolved). exit-head-donchian-1h-v1: its sole blocker (twin-dedup) is now confirmed cleared and its OOS re-grade is a marginal pass (+1.3127R n=119) -- this is a 'ready to gate-check' status, not a promotion recommendation; exit-head artifacts aren't in ml.list-models' registry and route through the exit-refinement skill's own gate, out of this skill's direct action scope. Recommending the manager dispatch that gate-check as the concrete next step.",
+  "experiments_proposed": [
+    {
+      "kind": "new_feature",
+      "name": "fix-xsym-yz-volatility-features",
+      "rationale": "4 volatility features (parkinson/garman_klass/rogers_satchell/yang_zhang_vol) are 100% NaN in setup-candidates-metalabel-xsym-yz-v1's dataset, quarantining it from training for 65 days.",
+      "input_changes": "Dataset-builder wiring for these 4 columns on the xsym-yz dataset family -- likely a missing join/lookup, not a labeling issue (direction/symbol/n_unique look healthy in the same audit).",
+      "expected_metric_signal": "dataset_audit.jsonl ok=true for this manifest, and it resumes appearing in daily training_cycle.jsonl as manifest_ok instead of manifest_audit_skipped_enforced.",
+      "tier": 3,
+      "next_step": "Trace src/ml/datasets/... (or the manifest's declared dataset builder) for why these 4 columns are unpopulated on this specific dataset family when they ARE populated for the SAME-named columns on e.g. btc-regime-15m-lgbm-fc-pcv-v2's dataset (row_keys_seen there is healthy)."
+    },
+    {
+      "kind": "new_feature",
+      "name": "fix-setup-quality-killzone-bias",
+      "rationale": "setup-quality-lgbm-v2 (SHADOW stage, 98-day soak) has killzone+bias 100% NaN in training but killzone is a served live row_key -- a train/serve parity gap on a model already accruing shadow soak time it cannot currently use.",
+      "input_changes": "Dataset-builder wiring for killzone/bias on the setup-quality dataset family (n_rows=2536, small -- check whether the source join for these two columns silently returns null for this manifest's row selection).",
+      "expected_metric_signal": "dataset_audit.jsonl ok=true, manifest resumes training, and a feature_row diff (live vs a fresh training dataset) shows killzone/bias populated on both sides.",
+      "tier": 3,
+      "next_step": "PR a dataset-builder fix + re-run the manifest; separately, a feature_row value pull (not just row_keys) from shadow_predictions.jsonl to confirm whether the LIVE value is actually non-null (this session could not distinguish 'live is fine, only training is broken' from 'both sides are broken and row_keys just lists the schema')."
+    },
+    {
+      "kind": "hyperparam_sweep",
+      "name": "sol-trend-vol-offcell-refresh",
+      "rationale": "The 2026-08-02 SOL trend_vol OFF-cell walk-forward near-missed (2/3 net-pass folds) under the CURRENT advisory head with data through mid-2026; 2 more months of live data now exist that could resolve the marginal fold.",
+      "input_changes": "Re-run scripts/ml/walkforward_cell_selection.py against data/SOLUSDT_5m.csv with the window extended through 2026-09, same roster (trend_donchian_sol, trend_donchian_sol_4h, sol_pullback_2h), same model-id sol-regime-15m-lgbm-fc-pcv-v2.",
+      "expected_metric_signal": "net PASS 3/3 folds (clears the strict bar) -- or confirms the near-miss persists, closing the question either way instead of leaving it presented-but-unenacted for another cycle.",
+      "tier": 3,
+      "next_step": "Dispatch via the regime-selectivity / backtesting skills; see E74 checklist row (updated this session) for the full evidence chain."
+    },
+    {
+      "kind": "new_target",
+      "name": "conviction-meta-drift-rootcause",
+      "rationale": "conviction-meta-v1's significant drift (ks=0.3685) needs a root-cause pass: is it the meta-model's own input distribution shifting because its lens models retrain daily, or a real change in the live order-package population it scores?",
+      "input_changes": "Pull the score distributions of conviction-meta-v1's known lens inputs (c_reg / c_setup / c_wr family heads) over the same reference/current windows and check whether any single lens moved enough to explain the stacker's shift.",
+      "expected_metric_signal": "One or more input lenses show a matching distributional shift (root-caused, likely self-correcting on the next retrain) vs. none do (needs deeper investigation before any future promotion consideration).",
+      "tier": 3,
+      "next_step": "PI-20260929-UAOAYGBB-0002 names this as the follow-up; a research or build lane can pick it up directly."
+    }
+  ],
+  "backlog_drain": [],
+  "_backlog_drain_note": "docs/claude/ml-review-backlog.json does not exist (retired under the 2026-09-21 operating reset; root CLAUDE.md 'Do not resurrect them'; confirmed this session via `ls docs/claude/*.json` -- the file is genuinely absent, not just unread). Per the same instruction and the 2026-09-27 ml-review's precedent, follow-up items are filed as pipeline records instead (3 new: PI-20260929-UAOAYGBB-0001/0002/0003; 1 closed this session: PI-20260927-YZRZQ725-0001/D1). backlog_coverage is intentionally omitted -- there is no live backlog file for this skill to drain.",
+  "anomalies": [
+    "4 manifests stuck untrained ~65 days on a dataset-audit dead-feature/degenerate-label enforced quarantine, 1 of them (setup-quality-lgbm-v2) already at SHADOW stage -- PI-20260929-UAOAYGBB-0001.",
+    "conviction-meta-v1 (shadow, the unified-confidence v2 learned-conviction candidate) shows significant score-distribution drift 98 days into an unresolved soak -- PI-20260929-UAOAYGBB-0002.",
+    "execution-quality-baseline-v0 and setup-quality-audit-baseline-v0 (both shadow) emit a byte-identical live score across their entire 754-prediction sampled window, unlike a sibling model on the identical population -- PI-20260929-UAOAYGBB-0003.",
+    "mes-trade-outcome-winrate-baseline-v0 and mes-setup-quality-baseline-v0 (both shadow, trained fresh this cycle) show ZERO live shadow predictions this session -- not confirmed as a bug (MES trades infrequently; 'no predictions yet' is a valid status per this skill's own rubric) vs. a wiring gap; not filed as a pipeline item given the ambiguity, but worth a look if it persists past the next review.",
+    "trainer disk at 93% used / 3.6GB free -- not this skill's primary domain (health-review's), noted here only because it borders dataset-build capacity; not independently filed to avoid duplicating health-review's territory.",
+    "model_status[].last_training.trend_vs_prior_run could not be computed for any of the 96 models this run -- the registry mirror exposes only the LATEST run per model_id, not a history to diff against; a genuine process gap (not filed as a pipeline item; noting it here so a future review or infra fix knows the reason a required-schema field is uniformly 'not_computed')."
+  ],
+  "recommended_action": "1) Dispatch a Tier-1 lane on PI-20260929-UAOAYGBB-0001 (dead-feature dataset fix, prioritize setup-quality-lgbm-v2 since it's shadow-stage). 2) Root-cause conviction-meta-v1's drift (PI-20260929-UAOAYGBB-0002) before considering its promotion further. 3) Decide E74's next step (fresh walk-forward vs. bring the existing near-miss to the operator) -- checklist row updated with the evidence chain, needs a manager/operator call, not another blind research dispatch. 4) Dispatch exit-head-donchian-1h-v1's promotion gate-check now that its blocker is cleared.",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "/ml-review -- 96 models (3 advisory/29 shadow/63 candidate), trainer=ok. D1+E77 fixes CONFIRMED live+observed, both closed. New: conviction-meta-v1 significant drift, 4 manifests dead-feature-blocked (1 shadow), 2 baselines collapsed-score. 0 promotions, 0 demotions. E74/SOL near-miss restated w/ evidence."
+  }
+}
