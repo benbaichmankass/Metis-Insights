@@ -11,7 +11,7 @@
     "rerun": "python3 scripts/ci/check_guard_selftest_coverage.py | grep -A 2 'pytest_only'"
   },
   "state": "filed",
-  "next_action": "backlog_medium_priority",
+  "next_action": "ask_operator",
   "routed_to": null,
   "what": "34 CI guards have test coverage only via pytest files that name them, with no independent proof the CI guard would actually fail when the defect is planted into the working tree. A passing test file proves the test logic is correct, not that the guard catches the defect. AUDIT FINDING: audit-sa-2026-09-29 lane E75 (AUD-6) identified via python3 scripts/ci/check_guard_selftest_coverage.py category 'pytest_only: 34' (test references guard but guard_selftests.py has no entry). HIGH-PRIORITY candidates: dry-run-guard, env-gate-guard, roster-promotion-evidence-guard, new-table-wiring-guard, claim-basis-guard (order-path impact). Tier-2 finding: data-backed, fix approach documented in AUD-6.md (migrate logic from test to guard_selftests.py), filed for backlog (lower urgency than zero-evidence but same solution pattern).",
   "tier": 2,

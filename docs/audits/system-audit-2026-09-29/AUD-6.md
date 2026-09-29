@@ -74,7 +74,7 @@ The audit confirms **all 16 self-tests pass** (every planted defect caught); doc
 - Historical git log for guard changes: **not needed** — audit is point-in-time (HEAD at 2026-09-29)
 
 **Coverage conclusion:**
-- **Behavioral:** 100% coverage of guard registry, 100% of self-test suite, 59.4% coverage breakdown from existing tooling
+- **Behavioral:** 100% coverage of guard registry (95/95 guards), 100% of self-test suite (16/16 tests), 59.4% coverage breakdown from existing tooling (63/106 proven)
 - **Reading:** Audit scope is guard-test wiring, not guard logic correctness; files read match that scope
 
 ---

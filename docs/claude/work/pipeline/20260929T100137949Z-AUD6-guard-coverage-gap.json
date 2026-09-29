@@ -11,7 +11,7 @@
     "rerun": "python3 scripts/ci/check_guard_selftest_coverage.py && python3 scripts/ci/run_guards.py --list | wc -l"
   },
   "state": "filed",
-  "next_action": "operator_scope_decision",
+  "next_action": "ask_operator",
   "routed_to": null,
   "what": "79 of 95 CI guards in run_guards.py have NO proven failure-path coverage. 47 lack any test at all; 34 rely on pytest-only (unproven); 9 have zero failure-path evidence anywhere. A guard that passes on a clean tree is not proven to catch the defect it exists for. AUDIT FINDING: audit-sa-2026-09-29 lane E75 (AUD-6) confirmed via python3 scripts/ci/check_guard_selftest_coverage.py that 63/106 guards have proven coverage (59.4%), leaving 43 unproven in the broader pool and 79 unproven in run_guards.py's ~95 registered guards. Tier-2 finding: data-backed, proposed fix documented in AUD-6.md, awaiting operator scope decision on remediation priority.",
   "tier": 2,
