@@ -160,8 +160,9 @@ result: >-
 grading:
   graded_at: '2026-09-29'
   graded_by: lane M19-S2EXIT (session_01Um3DdFoaFgrhnEfcJRwVAK, manager session_01HYq6XtfesZ57VyaQrK6CL1)
-  verdict: indeterminate
-  record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-20260929.jsonl
+  verdict: fail
+  record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-final-fold-2200d.jsonl
+  superseded_record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-20260929.jsonl  # indeterminate; per-fold n was not emitted
   disposition: >-
     All three legs had landed (SOL 36413623634 n=108, XRP 36464183831 n=107,
     ETH 36464257723 n=97; pooled 5-fold OOS, MEASURED). Every leg is negative:
@@ -178,3 +179,14 @@ grading:
     (exit_policy.by_fold / final_fold); the three legs are re-run with
     days=2200 to test whether the registered final fold can reach
     n_oos >= 64. If not: power-limited, one pipeline row, stop.
+  final_disposition: >-
+    FAIL (2026-09-29, registered statistic). analyze_exit_head.py now emits
+    per-fold n_oos and recovered R; re-run on trailing 2200d (runs 36615144815
+    SOL, 36615154335 XRP, 36615157916 ETH). FINAL time-block fold n_oos
+    120 / 96 / 104 (floor 64 met on all three), recovered_R_oos
+    -11.25 / -12.22 / -14.43 -> 0 of 3 legs > 0 -> the FAIL branch: the exit head
+    is donchian-specific on current evidence; S2 is veto + fixed exits; the
+    ict_scalp exit line is exhausted unless the donchian pass replicates on a
+    second split. Disclosed deviations: window 2200d not 365d; embargo 12 bars
+    not 7 days; exit_threshold 0.5 not below_half_r tau 0.10; 5 contiguous
+    blocks not per-year folds. No live change; nothing promoted.
