@@ -530,10 +530,9 @@ mandates:
       demotion, not merely fail to forbid it. Never an addition to a real-money
       roster under this id.
     evidence_required: >-
-      The mirror-window record with its n_closed, its stated window, its two
-      20-trade windows, the p10 threshold with its seed and source record, and
-      its net-of-full-cost result, plus the realtime ping and the section-1
-      evidence review in the next daily brief.
+      The mirror-window record with its n_closed, its stated window and its
+      net-of-full-cost result, plus the realtime ping and the section-1 evidence
+      review in the next daily brief.
 
   - id: MD-DEMOTE-S1-OFF
     grants: drop a Stage-1 leg whose realized cost diverges from its harness assumption
