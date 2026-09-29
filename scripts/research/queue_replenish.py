@@ -279,14 +279,29 @@ def existing_units(root: Path) -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
     return units, bad
 
 
-def runnable(units: Dict[str, Dict[str, Any]]) -> List[str]:
-    """Queued units the dispatcher can actually fire: a real *.yml workflow."""
-    out = []
-    for uid, u in units.items():
-        wf = str((u.get("run") or {}).get("workflow") or "")
-        if u.get("status") == "queued" and wf.endswith((".yml", ".yaml")) and not any(c.isspace() for c in wf):
-            out.append(uid)
-    return sorted(out)
+#: The dispatcher's cron is `20 */6 * * *` (research-queue-dispatch.yml), so a
+#: unit that becomes due within six hours fires on the next cycle.
+DISPATCH_CYCLE_HOURS = 6.0
+
+
+def dispatchable(u: Dict[str, Any]) -> bool:
+    """Routed to a real *.yml workflow (not a session note) and still queued."""
+    wf = str((u.get("run") or {}).get("workflow") or "")
+    return u.get("status") == "queued" and wf.endswith((".yml", ".yaml")) and not any(c.isspace() for c in wf)
+
+
+def runnable(units: Dict[str, Dict[str, Any]], *, now: Optional[datetime] = None,
+             horizon_hours: float = DISPATCH_CYCLE_HOURS) -> List[str]:
+    """Queued units the dispatcher WOULD FIRE within the next cycle: a real
+    *.yml workflow AND due by the dispatcher's own rule (`dispatch_queue.due_within`)
+    at now + horizon. `status: queued` alone is NOT runnable: a `once` unit that
+    already ran is waiting on grading, and a monthly unit that ran yesterday is
+    idle for 29 days. Measured 2026-09-29 04:35Z on main (manager): 21 units
+    read "runnable" while the dispatcher would fire 3 -- so the refill saw no
+    deficit and the alarm stayed quiet while the runners sat idle."""
+    from scripts.research.dispatch_queue import due_within
+    now = now or datetime.now(timezone.utc)
+    return sorted(uid for uid, u in units.items() if dispatchable(u) and due_within(u, now, horizon_hours))
 
 
 def allocate(deficit: int, weights: Dict[str, int], available: Dict[str, int]) -> Dict[str, int]:
@@ -326,10 +341,10 @@ def next_ids(units: Dict[str, Dict[str, Any]], day: str, count: int) -> List[str
     return [f"RQ-{compact}-{n:03d}" for n in range(start, start + count)]
 
 
-def plan(root: Path, *, day: str, target: int) -> Dict[str, Any]:
+def plan(root: Path, *, day: str, target: int, now: Optional[datetime] = None) -> Dict[str, Any]:
     facts = repo_facts(root)
     units, bad = existing_units(root)
-    have = runnable(units)
+    have = runnable(units, now=now)
     seen_keys = {str((u.get("generated") or {}).get("key")) for u in units.values() if isinstance(u.get("generated"), dict)}
     families = []
     for tpl_path, sha, tpl in load_templates(root):
@@ -350,6 +365,7 @@ def plan(root: Path, *, day: str, target: int) -> Dict[str, Any]:
         new_units.append({"id": uid, "family": f["family"], "key": key,
                           "text": render(f["tpl"], f["path"], f["sha"], p, uid, day)})
     return {"day": day, "target": target, "runnable_before": len(have), "deficit": deficit, "unreadable": bad,
+            "queued_not_due": sorted(uid for uid, u in units.items() if dispatchable(u) and uid not in have),
             "candidates": {f["family"]: len(f["candidates"]) for f in families}, "allocation": alloc,
             "new_units": new_units}
 
@@ -447,11 +463,33 @@ def _self_test() -> int:
     assert allocate(0, {"a": 1}, {"a": 5}) == {"a": 0}
     assert allocate(5, {"a": 1}, {"a": 0}) == {"a": 0}
     assert _fill("x {leg} {out_dir} {nope}", {"leg": "L"}) == "x L {out_dir} {nope}"
+    # runnable == what the dispatcher would fire within the next cycle, never bare `status: queued`
+    t0 = datetime(2030, 1, 10, 12, tzinfo=timezone.utc)
+    ago = lambda **kw: (t0 - __import__("datetime").timedelta(**kw)).isoformat()  # noqa: E731
+    wf = {"workflow": "x.yml"}
+    planted = {
+        "once-never":    {"status": "queued", "cadence": "once", "run": wf, "last_dispatched_at": None},
+        "once-ran":      {"status": "queued", "cadence": "once", "run": wf, "last_dispatched_at": ago(hours=3)},
+        "monthly-fresh": {"status": "queued", "cadence": "monthly", "run": wf, "last_dispatched_at": ago(days=2)},
+        "monthly-old":   {"status": "queued", "cadence": "monthly", "run": wf, "last_dispatched_at": ago(days=31)},
+        "weekly-soon":   {"status": "queued", "cadence": "weekly", "run": wf, "last_dispatched_at": ago(days=6, hours=20)},
+        "done-never":    {"status": "done", "cadence": "once", "run": wf, "last_dispatched_at": None},
+        "session-bound": {"status": "queued", "cadence": "once", "run": {"workflow": "none -- session-local"}},
+    }
+    assert runnable(planted, now=t0) == ["monthly-old", "once-never", "weekly-soon"], runnable(planted, now=t0)
+    assert runnable(planted, now=t0, horizon_hours=0) == ["monthly-old", "once-never"]   # weekly-soon is due in 4 h
+    assert len([u for u in planted.values() if dispatchable(u)]) == 5, "5 read queued; only 3 are runnable"
     root = _REPO
-    p1 = plan(root, day="2030-01-01", target=25)
-    p2 = plan(root, day="2030-01-01", target=25)
+    # Plan ABOVE the live runnable count, so this checks the templates and not
+    # whether the queue happens to be full today: the first replenish PR
+    # (#13950, 2026-09-29) filled the queue to exactly 25 and this self-test,
+    # planning at target 25, then failed the guard on that very PR.
+    live_have = len(runnable(existing_units(root)[0]))
+    p1 = plan(root, day="2030-01-01", target=live_have + 3)
+    p2 = plan(root, day="2030-01-01", target=live_have + 3)
     assert [u["text"] for u in p1["new_units"]] == [u["text"] for u in p2["new_units"]], "not deterministic"
     assert p1["new_units"], "the live templates generate nothing -- a template or a grid source is broken"
+    assert plan(root, day="2030-01-01", target=live_have)["new_units"] == [], "a full queue must generate nothing"
     # every generated unit is valid queue schema + a pre-registered rule
     from scripts.research.research_queue import validate, grade_power, grade_route
     yaml = _yaml()

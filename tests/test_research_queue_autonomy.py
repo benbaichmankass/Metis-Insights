@@ -174,3 +174,76 @@ def test_e58_vouches_only_a_reproducible_producer_branch(tmp_path, monkeypatch):
     # the grade producer never vouches an ADDED unit (it only modifies)
     vouched, notes = g.e58_generated_queue_vouch(r, "main", "automation/research-queue-grade-1-1", changed)
     assert vouched == [] and any("REFUSED" in n for n in notes), notes
+
+
+# ── runnable means "the dispatcher would fire it next cycle" (manager, 2026-09-29) ──
+def test_runnable_is_what_the_dispatcher_would_fire_not_bare_queued():
+    """Measured on main 2026-09-29 04:35Z: 21 units read `status: queued` while the
+    dispatcher would fire 3 -- 14 once-units had already run and 8 monthly / 2 weekly
+    units had not elapsed. Counting `queued` as runnable kept the refill at zero
+    deficit and the alarm quiet while the runners sat idle."""
+    from datetime import datetime, timedelta, timezone
+    from scripts.research import dispatch_queue as dq
+    from scripts.research.queue_replenish import dispatchable, runnable
+    t0 = datetime(2030, 1, 10, 12, tzinfo=timezone.utc)
+    ago = lambda **kw: (t0 - timedelta(**kw)).isoformat()  # noqa: E731
+    wf = {"workflow": "x.yml"}
+    units = {
+        "once-never":    {"status": "queued", "cadence": "once", "run": wf, "last_dispatched_at": None},
+        "once-ran":      {"status": "queued", "cadence": "once", "run": wf, "last_dispatched_at": ago(hours=3)},
+        "monthly-fresh": {"status": "queued", "cadence": "monthly", "run": wf, "last_dispatched_at": ago(days=1)},
+        "monthly-old":   {"status": "queued", "cadence": "monthly", "run": wf, "last_dispatched_at": ago(days=30)},
+        "weekly-soon":   {"status": "queued", "cadence": "weekly", "run": wf, "last_dispatched_at": ago(days=6, hours=20)},
+        "bad-stamp":     {"status": "queued", "cadence": "weekly", "run": wf, "last_dispatched_at": "not a date"},
+        "session-bound": {"status": "queued", "cadence": "once", "run": {"workflow": "none -- session-local"}},
+        "done":          {"status": "done", "cadence": "once", "run": wf, "last_dispatched_at": None},
+    }
+    assert sum(dispatchable(u) for u in units.values()) == 6          # the OLD, looser count
+    assert runnable(units, now=t0) == ["monthly-old", "once-never", "weekly-soon"]
+    assert runnable(units, now=t0, horizon_hours=0) == ["monthly-old", "once-never"]
+    # and it is the dispatcher's OWN rule, not a copy of it
+    for uid, u in units.items():
+        if dispatchable(u):
+            assert (uid in runnable(units, now=t0, horizon_hours=0)) == dq._is_due(u, t0)[0], uid
+
+
+def test_live_queue_runnable_matches_dispatcher_decisions():
+    """Over the committed queue: every runnable unit is one the dispatcher's dry run
+    marks would_dispatch, and every would_dispatch unit with a real workflow is
+    runnable (horizon 0 so the two clocks agree)."""
+    from datetime import datetime, timezone
+    from scripts.research import dispatch_queue as dq
+    from scripts.research.queue_replenish import dispatchable, existing_units, runnable
+    units, bad = existing_units(REPO)
+    assert not bad, bad
+    now = datetime.now(timezone.utc)
+    have = set(runnable(units, now=now, horizon_hours=0))
+    for uid, u in units.items():
+        if dispatchable(u):
+            assert (uid in have) == dq._is_due(u, now)[0], (uid, dq._is_due(u, now))
+        else:
+            assert uid not in have, uid
+    # the alarm reads the same number
+    from scripts.research.queue_grade import health
+    h = health(REPO, now=now)
+    assert h["runnable"] == len(runnable(units, now=now)) and h["queued"] == sum(dispatchable(u) for u in units.values())
+
+
+# ── the alarm refills before it pages (manager 2026-09-29 10:07Z) ────────────
+def test_the_dispatcher_alarm_refills_a_fillable_gap_and_pages_the_rest():
+    """Exit 3 from check_research_queue_health.py (fillable H1) must dispatch
+    research-queue-replenish.yml; any other non-zero exit must still page."""
+    import yaml
+    wf = yaml.safe_load((REPO / ".github/workflows/research-queue-dispatch.yml").read_text())
+    steps = wf["jobs"]["dispatch"]["steps"]
+    alarm = next(s for s in steps if s.get("name", "").startswith("Alarm if the dispatcher"))
+    run = alarm["run"]
+    assert 'HEALTH="$(python3 scripts/ci/check_research_queue_health.py' in run
+    assert '-eq 3 ]' in run and "gh workflow run research-queue-replenish.yml" in run
+    assert "-ne 0 ]" in run and "action=send-ping" in run
+    # the two branches are exclusive: the refill branch must not page and vice versa
+    refill_branch = run.split("-eq 3 ]")[1].split("elif")[0]
+    assert "send-ping" not in refill_branch
+    from scripts.ci import check_research_queue_health as hc
+    assert hc.EXIT_REFILL == 3
+    assert hc._exit_code(["H1-REFILL x"]) == 3 and hc._exit_code(["H1 x"]) == 1 and hc._exit_code(["H1-REFILL x", "H2 y"]) == 1

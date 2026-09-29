@@ -251,7 +251,7 @@ Three scheduled workflows now own that:
 
 | workflow | what | lands |
 |---|---|---|
-| `research-queue-replenish.yml` (daily 05:50) | `scripts/research/queue_replenish.py` expands `research/templates/*.yaml` (five pre-registered families, weights 30/25/20/15/10) into new units until >= 25 runnable units are queued | new `RQ-*.yaml` files, carrying `generated:` |
+| `research-queue-replenish.yml` (daily 05:50) | `scripts/research/queue_replenish.py` expands `research/templates/*.yaml` (five pre-registered families, weights 30/25/20/15/10) into new units until >= 25 RUNNABLE units are queued -- runnable = the dispatcher would fire it within the next 6 h cycle (never run, or cadence elapsed; a `once` unit that already ran or a monthly unit that ran yesterday is queued but NOT runnable) | new `RQ-*.yaml` files, carrying `generated:` |
 | `research-queue-dispatch.yml` (every 6 h) | fires what is due | `last_dispatched_at` stamps |
 | `research-queue-grade.yml` (every 6 h, :50) | `scripts/research/queue_grade.py` reads each ran unit's committed rows and applies its rule mechanically | `status: done`, a confirmatory re-queue on a first FAIL, or `grading.needs_review: true` |
 
@@ -263,8 +263,10 @@ hand-written ones that opt in with `grading: {auto: true}`; every other
 hand-written unit is graded by a session, as before. The `needs_review`
 bucket is `grep -l "needs_review: true" research/queue/*.yaml`. The alarm
 (`scripts/ci/check_research_queue_health.py`, run from the dispatcher) pages
-through the send-ping system-action when runnable units < 25 or nothing has
-dispatched in 12 h.
+through the send-ping system-action when nothing has dispatched in 12 h or runnable units (same definition) < 25 AND the
+templates cannot fill the gap; when they can, it fires `research-queue-replenish.yml`
+instead of paging (exit 3 from the health check), because the refill is daily while the
+dispatcher consumes up to 3 units every 6 h.
 
 ## `run.workflow` DECLARED vs. actually `gh workflow run`-DISPATCHABLE
 

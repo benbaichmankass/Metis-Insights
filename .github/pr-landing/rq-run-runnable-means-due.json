@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager (with the operator's authority), 2026-09-29 04:40Z, verbatim: \"Fix it so 'runnable' means would_dispatch within the next cycle (or queued and never-run) ... Put this in a small follow-up PR and hold it for me.\" Measured on main 04:35Z: 21 units read runnable (status queued) while the dispatcher would fire 3; after #13748's unstamps, 21 vs 7. This PR makes the refill and the alarm count exactly what the dispatcher would fire within the next 6 h cycle. The manager merges.",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH). Tier-1 by path: scripts/research/*, scripts/ci/*, tests, docs. No src/, config/, workflow, order path, deploy or live-VM file."
+}
