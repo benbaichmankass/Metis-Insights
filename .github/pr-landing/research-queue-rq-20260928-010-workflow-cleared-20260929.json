@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260928-010.yaml is an existing queue-unit registration; this PR edits its run.inputs.note (and workflow: field) only -- no decision_rule change, no status change (stays queued, not dispatched). pr-landing-guard's stamp-only-surface logic treats research/queue/** as outside self-land even for a note update, same reasoning as the hold on PR #13568/#14046 for this family. Asking for one human read that the claim (PR #14043 merged, verified via `git show origin/main:.github/workflows/macro-valuation-backfill.yml`) is accurately reflected and that the unit correctly stays undispatched pending its own cost_figure decision.",
+  "why": "research/queue/** only, Tier-1 surface, no src/config/scripts/workflow change, no run dispatched. Updates RQ-20260928-010's note now that PR #14043 (merged, observed on main) clears its design.workflow_change_needed blocker; the unit itself is NOT dispatched -- design.cost_figure is still undecided. No live/paper account touched."
+}
