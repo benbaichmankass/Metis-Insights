@@ -41,7 +41,8 @@ Wire shape (camelCase):
       ],
       "perExitPath": [                  # worst coverage FIRST, not best PnL
         {"exitPath": "pairs_stop", "trades": 40, "wins": 12, "winRate": 30.0,
-         "totalPnl": -80.1, "totalPnlMeasured": 0.0,
+         "totalPnl": -80.1, "totalPnlMeasured": 0.0,        # MEASURED+ESTIMATED
+         "totalPnlMeasuredOnly": 0.0, "totalPnlEstimated": 0.0,
          "pnlMeasuredCount": 0, "pnlEstimatedCount": 0, "pnlCoverage": 0.0,
          # Is the bucket KEY itself evidence? Counts, never a ratio — an
          # AUTHORED path (pairs_*, sl_cross, ...) never reaches the exit
@@ -213,6 +214,8 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         # keep "no rows" distinguishable from "rows, none measured". The R4 gate
         # keys its abstain on pnlCoverage, never on this sum alone.
         "totalPnlMeasured": 0.0,
+        "totalPnlMeasuredOnly": 0.0,
+        "totalPnlEstimated": 0.0,
         "pnlMeasuredCount": 0,
         "pnlEstimatedCount": 0,
         "pnlFabricatedCount": 0,
@@ -488,6 +491,9 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     gross_loss = 0.0     # abs sum of losing-trade pnl
     total_pnl = 0.0
     total_pnl_measured = 0.0   # sum of pnl over MEASURED+ESTIMATED rows only
+    # The two halves of the sum above, so a reader can see what it is made of.
+    total_pnl_measured_only = 0.0   # MEASURED rows only == the pnlMeasuredCount population
+    total_pnl_estimated = 0.0       # ESTIMATED rows only == the pnlEstimatedCount population
     total_r = 0.0          # sum of per-trade R over R-measurable trades only
     r_count = 0            # # trades with a computable R (entry+stop+size known)
     pnl_prov: Dict[str, int] = {}   # pnl-provenance split (measured/…/unverified)
@@ -629,11 +635,16 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         pnl_is_measured = pnl_bucket in (MEASURED, ESTIMATED)
         if pnl_is_measured:
             total_pnl_measured += pnl
+        if pnl_bucket == MEASURED:
+            total_pnl_measured_only += pnl
+        elif pnl_bucket == ESTIMATED:
+            total_pnl_estimated += pnl
 
         name = r["strategy_name"] or "(unknown)"
         bucket = per.setdefault(
             name,
-            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
+            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0, "pnl_measured_only_sum": 0.0,
+             "pnl_estimated_sum": 0.0,
              "r": 0.0, "rc": 0.0, "pnl_measured": 0.0, "pnl_estimated": 0.0,
              "r_prov": r_empty_counts(), "r_basis": r_empty_basis_counts()},
         )
@@ -651,6 +662,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             bucket["pnl_estimated"] += 1
         if pnl_is_measured:
             bucket["pnl_measured_sum"] += pnl
+        if pnl_bucket == MEASURED:
+            bucket["pnl_measured_only_sum"] += pnl
+        elif pnl_bucket == ESTIMATED:
+            bucket["pnl_estimated_sum"] += pnl
         if rr is not None:
             bucket["r"] += rr
             bucket["rc"] += 1
@@ -667,7 +682,8 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         exit_path = str(_rget(r, "exit_reason") or "(unrecorded)")
         ebucket = per_exit.setdefault(
             exit_path,
-            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
+            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0, "pnl_measured_only_sum": 0.0,
+             "pnl_estimated_sum": 0.0,
              "pnl_measured": 0.0, "pnl_estimated": 0.0,
              "label_attested": 0.0, "label_refused": 0.0,
              "label_unresolved": 0.0, "label_unattested": 0.0},
@@ -718,6 +734,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             ebucket["pnl_estimated"] += 1
         if pnl_is_measured:
             ebucket["pnl_measured_sum"] += pnl
+        if pnl_bucket == MEASURED:
+            ebucket["pnl_measured_only_sum"] += pnl
+        elif pnl_bucket == ESTIMATED:
+            ebucket["pnl_estimated_sum"] += pnl
         # asset-class breakdown (crypto / index / commodity / equity / fx)
         cls = asset_class_for_symbol(r["symbol"])
         cbucket = per_class.setdefault(
@@ -769,7 +789,14 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             # rows only. The R4 promotion gate reads THIS, not totalPnl: a leg is
             # judged on measured money, never manufactured. Pair with pnlCoverage
             # below — a low-coverage strategy's measured sum is a thin sample.
+            # ⚠️ MEASURED+ESTIMATED, despite the name (JC-SA-03: kept, and both
+            # halves recorded). The two fields below split it.
             "totalPnlMeasured": round(b["pnl_measured_sum"], 4),
+            # MEASURED rows ONLY -- the SAME population as `pnlMeasuredCount`
+            # (FIX-SA-05). `totalPnlMeasured` == totalPnlMeasuredOnly +
+            # totalPnlEstimated, to rounding.
+            "totalPnlMeasuredOnly": round(b["pnl_measured_only_sum"], 4),
+            "totalPnlEstimated": round(b["pnl_estimated_sum"], 4),
             "expectancy": round(b["pnl"] / b["trades"], 4) if b["trades"] else 0.0,
             # R-normalised (cross-instrument-comparable). None when no trade in
             # the bucket had a measurable risk; rTradeCount says how many did.
@@ -858,7 +885,9 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "wins": int(b["wins"]),
             "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
             "totalPnl": round(b["pnl"], 4),
-            "totalPnlMeasured": round(b["pnl_measured_sum"], 4),
+            "totalPnlMeasured": round(b["pnl_measured_sum"], 4),   # MEASURED+ESTIMATED
+            "totalPnlMeasuredOnly": round(b["pnl_measured_only_sum"], 4),
+            "totalPnlEstimated": round(b["pnl_estimated_sum"], 4),
             # MEASURED-only, like every other pnlCoverage in this file — ESTIMATED
             # is deliberately NOT "covered", and `totalPnlMeasured` above sums
             # MEASURED+ESTIMATED. The asymmetry is load-bearing (see the long note
@@ -955,6 +984,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     # export, so an unrecorded account means nobody has reconciled it — never
     # that it reconciles. `readState: "unreadable"` means we could not look,
     # which is a third thing again.
+    # collapsed-state: unreadable — publishes the map's read_state VERBATIM as
+    # journalTrust.readState (all three values reach the response) and groups
+    # accounts by journal_trust_for's per-account verdict; it branches on no
+    # read_state value itself.
     _trust_map = journal_trust_map()
     _by_state: Dict[str, List[str]] = {}
     for _aid in sorted({str(_rget(r, "account_id") or "") for r in rows} - {""}):
@@ -1125,7 +1158,14 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # gate on totalPnl: it sums fabricated marks too. Read this beside
         # pnlCoverage — below the coverage floor the measured sum is too thin a
         # sample to gate on and the gate ABSTAINS (R4 design §3). Added 2026-08-01.
+        #
+        # ⚠️ The NAME understates it: this is MEASURED **+ ESTIMATED**
+        # (SA-AUD-3: a paper window read `totalPnlMeasured` +94,618 with 367
+        # MEASURED rows against 699 ESTIMATED). The next two fields are its
+        # halves, over the same populations as the two counts below.
         "totalPnlMeasured": round(total_pnl_measured, 4),
+        "totalPnlMeasuredOnly": round(total_pnl_measured_only, 4),
+        "totalPnlEstimated": round(total_pnl_estimated, 4),
         "pnlMeasuredCount": int(pnl_prov.get(MEASURED, 0)),
         "pnlEstimatedCount": int(pnl_prov.get(ESTIMATED, 0)),
         "pnlFabricatedCount": int(pnl_prov.get(FABRICATED, 0)),

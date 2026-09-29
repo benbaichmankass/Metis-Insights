@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Gate-check for checklist row EXITHEAD-DONCHIAN-GATE (dispatched by the manager): synthesizes already-landed evidence (RQ-20260927-001/-002, the 2026-08-14 live-parity AUC re-sweep) against the exit-refinement skill's pre-registered GATE E1→E2 and reaches a FAIL verdict. New evidence doc under docs/research/exit-refinement/, a one-field addendum to docs/research/exit-refinement-coverage.json's trend_donchian/BTCUSDT/1h exit_head_ml.ref (status left unchanged), a new filed pipeline record, and a DOCUMENT-INDEX.md row for the new doc. No src/, config/, order-path, or workflow changes; no artifact-stage or model-registry mutation."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager (with the operator's authority), 2026-09-29 10:07Z: H1 fails on main (runnable 8 of 58 < 25 after #13952 redefined runnable); decide starved vs miscalibrated and fix in a small PR; hold landing-machinery changes. VERDICT: both -- genuinely starved today (8 due, refill #14035 pending = 25) AND miscalibrated in cadence: the refill is daily while the dispatcher consumes up to 3 units per 6 h cycle, so a bare page at 25 rings after most cycles. This PR makes the alarm refill before it pages. It edits research-queue-dispatch.yml, so the manager merges.",
+  "why": "Lane RQ-RUN (manager session_01HYq6XtfesZ57VyaQrK6CL1, checklist row RESEARCH). Tier-1 by path: scripts/ci/check_research_queue_health.py, one research workflow's alarm step, tests, docs. No src/, config/, order path, deploy or live-VM file."
+}

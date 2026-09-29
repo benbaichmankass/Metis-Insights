@@ -72,6 +72,7 @@ heal_devnull() {
 heal_devnull || true
 
 changed=0
+_VM_ROLE_EARLY="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
 
 # ---------------------------------------------------------------------------
 # Select the data-dir drop-in flavor by mount topology.
@@ -355,6 +356,76 @@ if [ -f "${_DATADIR_DROPIN_SRC}" ]; then
         "${SUDO[@]}" chmod 0644 "${_SHADOWROT_DROPIN_DST}"
         changed=1
     fi
+fi
+
+# ict-trainer-disk-alarm (FIX-SA-12) resolves runtime_logs_dir() (DATA_DIR-aware)
+# to read the trainer mirror the publisher rsyncs into $DATA_DIR/runtime_logs.
+# Without the generic data-dir drop-in it would read <repo>/runtime_logs -- a
+# DIFFERENT, never-written directory -- and report "no mirror" (unknown) forever.
+_DISKALARM_DROPIN_DST="${SYSTEMD_DIR}/ict-trainer-disk-alarm.service.d/data-dir.conf"
+if [ -f "${_DATADIR_DROPIN_SRC}" ]; then
+    if [ ! -e "${_DISKALARM_DROPIN_DST}" ] || ! cmp -s "${_DATADIR_DROPIN_SRC}" "${_DISKALARM_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_DISKALARM_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_DISKALARM_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_DATADIR_DROPIN_SRC}" "${_DISKALARM_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_DISKALARM_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# OnFailure= alerting (FIX-SA-08, SA-AUD-5-onfailure-still-absent, CA-A10-402).
+#
+# A failed oneshot behind an active timer shows `active (waiting)` on the timer
+# and pushed nothing (the PI-20260927-YZRZQ725-0002 masking pattern). Install:
+#   1. the ict-notify-failure@.service TEMPLATE (the generic loop above skips
+#      `@` units, so it is copied here) + the same data-dir drop-in the other
+#      writers carry, so the alert lands in the canonical runtime_logs;
+#   2. `OnFailure=ict-notify-failure@%n.service` as a drop-in on every
+#      Type=oneshot unit that has a sibling timer in deploy/.
+# Drop-in only: never edits a unit file and never restarts anything (the
+# trader is a long-running simple unit and is not selected). Skipped on the
+# gateway VM (a minimal box with no venv/.env for the notifier), and for the
+# units named below.
+# ---------------------------------------------------------------------------
+_ONFAILURE_EXCLUDED=" ict-trainer-git-sync ict-heartbeat ict-ib-gateway-reset ict-ib-gateway-watchdog "
+_NOTIFY_TPL_SRC="${REPO_DIR}/deploy/ict-notify-failure@.service"
+_ONFAILURE_DROPIN_SRC="${REPO_DIR}/deploy/dropins/onfailure.conf"
+if [ "$_VM_ROLE_EARLY" != "gateway" ] && [ -f "${_NOTIFY_TPL_SRC}" ] && [ -f "${_ONFAILURE_DROPIN_SRC}" ]; then
+    _NOTIFY_TPL_DST="${SYSTEMD_DIR}/ict-notify-failure@.service"
+    if [ ! -e "${_NOTIFY_TPL_DST}" ] || ! cmp -s "${_NOTIFY_TPL_SRC}" "${_NOTIFY_TPL_DST}"; then
+        echo ">>> install_systemd_units: ict-notify-failure@.service → ${_NOTIFY_TPL_DST}"
+        "${SUDO[@]}" cp "${_NOTIFY_TPL_SRC}" "${_NOTIFY_TPL_DST}"
+        "${SUDO[@]}" chmod 0644 "${_NOTIFY_TPL_DST}"
+        changed=1
+    fi
+    if [ -f "${_DATADIR_DROPIN_SRC}" ]; then
+        _NOTIFY_DD_DST="${SYSTEMD_DIR}/ict-notify-failure@.service.d/data-dir.conf"
+        if [ ! -e "${_NOTIFY_DD_DST}" ] || ! cmp -s "${_DATADIR_DROPIN_SRC}" "${_NOTIFY_DD_DST}"; then
+            echo ">>> install_systemd_units: dropin data-dir.conf → ${_NOTIFY_DD_DST}"
+            "${SUDO[@]}" mkdir -p "$(dirname "${_NOTIFY_DD_DST}")"
+            "${SUDO[@]}" cp "${_DATADIR_DROPIN_SRC}" "${_NOTIFY_DD_DST}"
+            "${SUDO[@]}" chmod 0644 "${_NOTIFY_DD_DST}"
+            changed=1
+        fi
+    fi
+    shopt -s nullglob
+    for _tp in deploy/*.timer; do
+        _base=$(basename "$_tp" .timer)
+        [[ "$_base" == *@* ]] && continue
+        case "$_ONFAILURE_EXCLUDED" in *" $_base "*) continue;; esac
+        [ -f "deploy/${_base}.service" ] || continue
+        grep -q '^Type=oneshot' "deploy/${_base}.service" || continue
+        _OF_DST="${SYSTEMD_DIR}/${_base}.service.d/onfailure.conf"
+        if [ ! -e "${_OF_DST}" ] || ! cmp -s "${_ONFAILURE_DROPIN_SRC}" "${_OF_DST}"; then
+            echo ">>> install_systemd_units: dropin onfailure.conf → ${_OF_DST}"
+            "${SUDO[@]}" mkdir -p "$(dirname "${_OF_DST}")"
+            "${SUDO[@]}" cp "${_ONFAILURE_DROPIN_SRC}" "${_OF_DST}"
+            "${SUDO[@]}" chmod 0644 "${_OF_DST}"
+            changed=1
+        fi
+    done
+    shopt -u nullglob
 fi
 
 if [ "$changed" -eq 1 ]; then

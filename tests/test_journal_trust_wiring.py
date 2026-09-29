@@ -112,6 +112,33 @@ def test_map_read_state_is_not_collapsed_into_an_empty_map(tmp_path):
     assert journal_trust_for("bybit_2", m)["state"] == TRUST_UNREADABLE
 
 
+def test_map_read_state_names_all_three_ledger_outcomes(tmp_path, ledger):
+    """FIX-SA-06: `read` / `absent` / `unreadable` are three different facts.
+
+    Real shapes: the committed-ledger fixture (`read`), a path that does not
+    exist (`absent` -- on the VM that is a DEPLOY failure), and a file that will
+    not parse (`unreadable`). An `absent` or `unreadable` map grades every
+    account TRUST_UNREADABLE, never `no_record`; only `read` can grade an
+    account against the ledger.
+    """
+    assert journal_trust_map(ledger)["read_state"] == "read"
+
+    absent = journal_trust_map(tmp_path / "not-deployed.json")
+    assert absent["read_state"] == "absent"
+    assert absent["accounts"] == {}
+
+    broken = tmp_path / "broken.json"
+    broken.write_text("{ not json")
+    assert journal_trust_map(broken)["read_state"] == "unreadable"
+
+    for m in (absent, journal_trust_map(broken)):
+        assert journal_trust_for("bybit_2", m)["state"] == TRUST_UNREADABLE
+    # and a genuinely read ledger that lists nothing for the account is the
+    # DIFFERENT, weaker claim
+    assert journal_trust_for("no-such-account", journal_trust_map(ledger))[
+        "state"] == TRUST_NO_RECORD
+
+
 def test_a_missing_account_id_is_not_graded_against_a_real_account(ledger):
     assert journal_trust(None, ledger)["state"] == TRUST_NO_RECORD
 

@@ -77,6 +77,11 @@ _DEFAULT_PROTECTED: tuple[str, ...] = (
     # readable prose. The FLAG is what a consumer branches on, so the flag is
     # what must survive — the same distinction the sentinel note below draws.
     "closed_by_operator", "pre_mark_exit_reason",
+    # Same reversibility role for a relabelled `exchange_flat_reconciled`
+    # close (order_monitor._sweep_pending_pnl_from_bybit, EXIT-CLUSTER): the
+    # stored reason becomes sl/tp, and this short string keeps how the close
+    # was detected.
+    "pre_label_exit_reason",
     # FOURTH instance, measured 2026-08-30 on live trade 4905 — and the one
     # that showed protection alone is not the whole fix. `operator_flatten_intent`
     # is the flag saying an OPEN row was flattened by a human; it was stored as a
@@ -93,6 +98,10 @@ _DEFAULT_PROTECTED: tuple[str, ...] = (
 _ELLIPSIS = "…"
 # Hard stop on the trim loop so a pathological payload can never spin.
 _MAX_TRIM_ITERS = 200
+# A protected string longer than this is prose and may be shortened when the
+# protected set alone overflows. Timestamps, source stamps and flags are well
+# under it.
+_PROTECTED_PROSE_MIN_LEN = 64
 
 
 def sanitize_nonfinite(obj: Any) -> Any:
@@ -239,6 +248,31 @@ def _shrink_dict(
     s = _dumps(minimal, ensure_ascii)
     if len(s) <= max_len:
         return s
+    # The protected set alone overflows. Before giving up on EVERY key, shorten
+    # protected PROSE: string values longer than _PROTECTED_PROSE_MIN_LEN. That
+    # is free text such as the snapshot reconciler's ~330-char `closed_reason`,
+    # never a timestamp, a source stamp or a flag.
+    #
+    # Measured 2026-09-29 (EXIT-CLUSTER): live trade 4711 (alpaca_paper QLD,
+    # closed `exchange_flat_reconciled`) stores notes of exactly
+    # `{"_truncated": true}`. Its protected keys (that `closed_reason` plus the
+    # sweeps' `exit_price_source` / `pnl_source`) passed 500 chars, and this
+    # fallback dropped all of them, including the provenance stamp that says
+    # the exit price was a venue fill.
+    for _ in range(_MAX_TRIM_ITERS):
+        key = None
+        longest = _PROTECTED_PROSE_MIN_LEN
+        for k, v in minimal.items():
+            if isinstance(v, str) and len(v) > longest:
+                key, longest = k, len(v)
+        if key is None:
+            break
+        cur = minimal[key]
+        new_len = max(_PROTECTED_PROSE_MIN_LEN, min(len(cur) - 8, len(cur) // 2))
+        minimal[key] = cur[:new_len] + _ELLIPSIS
+        s = _dumps(minimal, ensure_ascii)
+        if len(s) <= max_len:
+            return s
     # Even the protected set overflows — emit the barest valid marker.
     return _dumps({"_truncated": True}, ensure_ascii)
 

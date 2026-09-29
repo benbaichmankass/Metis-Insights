@@ -1,0 +1,1 @@
+armed by session_015JePcaHfBSBVrcGyu2QtAo for claude/macro-backfill-cost-paths-20260929: Tier-1 workflow-only edit, self-land per pr-landing declaration (paths inside TIER1_SURFACE, not landing machinery).

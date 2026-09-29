@@ -166,7 +166,7 @@ EXTRACT_TABLES_JS = _DX_EXTRACT_TABLES_JS.replace(
 # The dxtrade row-action JS keys tables on DXtrade headers; widen them to this
 # vocabulary. Still exactly-one-row / exactly-one-control, and never clicks.
 _DX_ROW_WANT = ("const want = kind === 'orders' ? /^(order id|sts)$/ : "
-                "/^(position volume|position id|open price|avg fill price|open p&l)$/;")
+                "/^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;")
 ROW_ACTION_JS = _DX_ROW_ACTION_JS.replace(
     _DX_ROW_WANT,
     "const want = kind === 'orders' ? /^(order id|order type|limit price|trigger price|filled)$/ : "

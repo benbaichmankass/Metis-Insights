@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Two follow-up rows appended to the pipeline store (docs/claude/work/pipeline/) via scripts/ops/pipeline.py: the dead stale-in-flight ratchet found by FIX-SA-10 and the still-582 KB brief left by JC-SA-06. Data files only; no runtime or live-VM change."
+}

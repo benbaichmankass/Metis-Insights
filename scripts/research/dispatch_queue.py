@@ -277,28 +277,71 @@ def gh_runs(status: str, *, limit: int = 200) -> Optional[List[Dict[str, Any]]]:
     return rows if isinstance(rows, list) else None
 
 
+#: A run still `queued` or `in_progress` this long after it was created is not
+#: waiting for a hosted runner -- it is STUCK (an `issues`-triggered job whose
+#: label no runner serves, a lost runner) and adds nothing to the pool's load.
+#: MEASURED 2026-09-29 06:56Z on the first fired cycle after #13907: every one
+#: of the 36 "queued" runs was created on 2026-05-15, and the "3 research runs
+#: in flight" were three `trainer-vm-diag` issue dispatches from the same
+#: morning. Counting them deferred every fire, and would have forever.
+STALE_PRESSURE_HOURS = 24.0
+
+
+def _run_age_hours(row: Dict[str, Any], now: datetime) -> Optional[float]:
+    """Hours since the run was created, or None when createdAt is unreadable."""
+    raw = row.get("createdAt")
+    if not raw:
+        return None
+    try:
+        when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (now - when).total_seconds() / 3600.0
+
+
 def backpressure(research_names: Dict[str, str], *, max_inflight: int, max_queued: int,
-                 runs_by_status: Optional[Dict[str, Optional[List[Dict[str, Any]]]]] = None
+                 runs_by_status: Optional[Dict[str, Optional[List[Dict[str, Any]]]]] = None,
+                 now: Optional[datetime] = None, stale_after_hours: float = STALE_PRESSURE_HOURS
                  ) -> Dict[str, Any]:
     """What the runner pool looks like before this cycle fires anything.
 
-    Returns {inflight_research, repo_queued, block, detail}. `block` is None
-    when firing may proceed (subject to the per-fire count), else a reason.
-    A status gh could not list is a BLOCK with that reason: the conservative
-    direction for research spend is to wait one cycle."""
+    Returns {inflight_research, repo_queued, stale_ignored, block, detail}.
+    `block` is None when firing may proceed (subject to the per-fire count),
+    else a reason. A status gh could not list is a BLOCK with that reason: the
+    conservative direction for research spend is to wait one cycle.
+
+    A run created more than `stale_after_hours` ago and still queued / in
+    progress is STUCK, not load (see STALE_PRESSURE_HOURS): it is reported in
+    `stale_ignored` and counted against neither cap. A run whose `createdAt`
+    cannot be read counts as fresh -- the conservative direction."""
     if runs_by_status is None:
         runs_by_status = {st: gh_runs(st) for st in ("queued", "in_progress")}
+    now = now or datetime.now(timezone.utc)
     names = set(research_names.values())
     unreadable = [st for st, rows in runs_by_status.items() if rows is None]
     if unreadable:
-        return {"inflight_research": None, "repo_queued": None,
+        return {"inflight_research": None, "repo_queued": None, "stale_ignored": None,
                 "block": f"could not count {'/'.join(unreadable)} runs via gh -- deferring every fire this cycle"}
-    queued = runs_by_status.get("queued") or []
-    inprog = runs_by_status.get("in_progress") or []
-    inflight = sum(1 for r in list(queued) + list(inprog) if str(r.get("workflowName")) in names)
-    out = {"inflight_research": inflight, "repo_queued": len(queued), "block": None,
+
+    def fresh(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out = []
+        for r in rows:
+            age = _run_age_hours(r, now)
+            if age is None or age <= stale_after_hours:
+                out.append(r)
+        return out
+
+    queued_all = list(runs_by_status.get("queued") or [])
+    inprog_all = list(runs_by_status.get("in_progress") or [])
+    queued, inprog = fresh(queued_all), fresh(inprog_all)
+    stale = (len(queued_all) - len(queued)) + (len(inprog_all) - len(inprog))
+    inflight = sum(1 for r in queued + inprog if str(r.get("workflowName")) in names)
+    out = {"inflight_research": inflight, "repo_queued": len(queued), "stale_ignored": stale, "block": None,
            "detail": f"research compute in flight {inflight} (cap {max_inflight}); repo runs queued "
-                     f"{len(queued)} (cap {max_queued})"}
+                     f"{len(queued)} (cap {max_queued}); {stale} stuck run(s) older than "
+                     f"{stale_after_hours:g} h ignored"}
     if len(queued) > max_queued:
         out["block"] = (f"{len(queued)} workflow runs are queued repo-wide (> {max_queued}): research "
                         "must not add to a saturated runner pool -- deferring every fire this cycle")
@@ -375,6 +418,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--max-research-inflight", type=int, default=3,
                     help="defer every fire while this many research compute runs are already "
                          "queued or in progress (counted via gh; see backpressure())")
+    ap.add_argument("--pressure-stale-hours", type=float, default=STALE_PRESSURE_HOURS,
+                    help="a run still queued/in progress this many hours after creation is stuck, "
+                         "not load, and counts against neither cap (see STALE_PRESSURE_HOURS)")
     ap.add_argument("--max-repo-queued", type=int, default=10,
                     help="defer every fire while more than this many workflow runs are queued "
                          "repo-wide (research must never starve a system-action)")
@@ -405,7 +451,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     pressure: Dict[str, Any] = {"block": None, "inflight_research": 0, "detail": "dry run: not counted"}
     if args.fire:
         pressure = backpressure(research_workflow_names(jobs), max_inflight=args.max_research_inflight,
-                                max_queued=args.max_repo_queued)
+                                max_queued=args.max_repo_queued,
+                                stale_after_hours=args.pressure_stale_hours)
         print(f"backpressure: {pressure.get('detail') or pressure.get('block')}", file=sys.stderr)
         if pressure["block"]:
             print(f"::notice::research-queue-dispatch deferred every fire: {pressure['block']}", file=sys.stderr)

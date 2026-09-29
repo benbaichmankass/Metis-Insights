@@ -1,0 +1,6 @@
+{
+  "held_by": "lane-webapi-restart",
+  "branch": "claude/webapi-restart-recover-concurrency-fix-20260929",
+  "claimed_at": "2026-09-29T10:09:53Z",
+  "purpose": "Fix vm-web-api-recover.yml's shared concurrency group starving legitimate restart requests behind unrelated issue-open traffic (blocked WEBAPI-RESTART lane's Tier-2 web-api restart)"
+}

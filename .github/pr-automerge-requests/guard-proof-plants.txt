@@ -1,0 +1,1 @@
+request auto-merge for claude/guard-proof-plants
