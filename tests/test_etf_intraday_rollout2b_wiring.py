@@ -110,7 +110,10 @@ def test_yaml_entries_pin_validated_params():
     assert spy["symbols"] == ["SPY"]
     assert spy["signal_prefixes"] == ["spy_pullback"]
     assert (spy["trend_lookback"], spy["pullback_lookback"], spy["pullback_frac"]) == (60, 12, 0.618)
-    assert (spy["atr_period"], spy["atr_stop_mult"], spy["trail_mult"]) == (14, 2.5, 5.0)
+    # atr_stop_mult 2.5 -> 1.5: M20 e35 bracket-geometry re-check 2026-08-31,
+    # cell sm1.5 (path_b_wf_pass, wf 5/6, d_net_r +28.1569); PR #14332
+    # (supersedes the round-2b rollout's pin).
+    assert (spy["atr_period"], spy["atr_stop_mult"], spy["trail_mult"]) == (14, 1.5, 5.0)
     assert spy["timeframe"] == "1h"
     assert spy["min_confidence"] == 0.0 and spy["shadow_model_ids"] == []
     assert spy["model"] is None
