@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20260929-002
 title: 'Breakout prop fit: ict_scalp_eth_15m at sizing flat 1.5% of balance under RULE-B6 V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 question: Does ict_scalp_eth_15m (ETHUSDT 15m, Breakout market ETHUSD) clear the operator's prop bar --
