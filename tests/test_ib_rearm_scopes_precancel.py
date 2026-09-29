@@ -134,7 +134,9 @@ class TestEveryIBCallSitePassesIt:
         n = src.count("modify_protective(") + src.count("place_protective(")
         # 3 since PI-20260929-PR6YRTQY-0003: `_alpaca_top_up_uncovered` is an
         # ALPACA-only additive top-up; it passes oca_key anyway (inert there).
-        assert n == 3, (
-            f"expected 3 re-arm call sites in order_monitor, found {n}. A "
+        # 4 since PR6YRTQY-0005 / REVIEW-14241: the Alpaca venue-holding
+        # additive OCO in the naked sweep — also passes oca_key.
+        assert n == 4, (
+            f"expected 4 re-arm call sites in order_monitor, found {n}. A "
             "new one must pass oca_key — add it above and update this count."
         )

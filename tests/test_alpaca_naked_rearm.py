@@ -185,6 +185,9 @@ class _FakeAlpaca:
         return {"stop": bool(self._protected), "target": bool(self._target),
                 "legs": int(bool(self._protected)) + int(bool(self._target))}
 
+    def latest_quote(self, symbol):
+        return None                   # no bid/ask: the last-trade test stands
+
     def position_quote(self, symbol):
         # PR6YRTQY-0005 pre-flight: a live long of the row's size, priced
         # well above the test stops (730), so the pre-flight lets it through.
@@ -392,4 +395,4 @@ def test_unreadable_protection_is_counted_and_paged_on_persistence(tmp_path, mon
 
     fake._protected = True                        # readable again: streak clears
     om._check_broker_naked_equity_positions(db)
-    assert ("alpaca_paper", "SPY") not in om._PROTECTION_UNREADABLE_STREAK
+    assert ("alpaca_paper", "SPY", "state") not in om._PROTECTION_UNREADABLE_STREAK

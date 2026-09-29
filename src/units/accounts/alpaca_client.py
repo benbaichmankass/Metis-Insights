@@ -977,6 +977,41 @@ class AlpacaClient:
         result = env.get("result")
         return result if isinstance(result, dict) else None
 
+    def latest_quote(self, symbol: str) -> Optional[Dict[str, Optional[float]]]:
+        """Latest NBBO-side ``{"bid", "ask"}`` from Alpaca Data v2, or ``None``.
+
+        REVIEW-14241 item 5: the marketable-stop test needs the bid (long) /
+        ask (short), not only the last trade. Same host, feed and key pair as
+        ``src.exchange.alpaca_connector.AlpacaMarketData`` (``ALPACA_DATA_URL``,
+        ``ALPACA_DATA_FEED``, default iex). A price that is absent or zero is
+        ``None``, never ``0.0``. Never raises.
+        """
+        base = os.environ.get("ALPACA_DATA_URL", "https://data.alpaca.markets").rstrip("/")
+        feed = os.environ.get("ALPACA_DATA_FEED", "iex")
+        try:
+            resp = requests.get(
+                f"{base}/v2/stocks/{str(symbol).upper()}/quotes/latest",
+                params={"feed": feed},
+                headers={"APCA-API-KEY-ID": self.api_key,
+                         "APCA-API-SECRET-KEY": self.api_secret},
+                timeout=self.timeout,
+            )
+            if not (200 <= resp.status_code < 300):
+                return None
+            q = (resp.json() or {}).get("quote") or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("alpaca latest_quote(%s) failed: %s", symbol, exc)
+            return None
+
+        def _p(v: Any) -> Optional[float]:
+            try:
+                f = float(v)
+            except (TypeError, ValueError):
+                return None
+            return f if f > 0 and f == f else None
+
+        return {"bid": _p(q.get("bp")), "ask": _p(q.get("ap"))}
+
     def position_quote(self, symbol: str) -> Dict[str, Any]:
         """ONE fresh ``GET /v2/positions/{symbol}``: size, side and last price.
 

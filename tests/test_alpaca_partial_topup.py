@@ -102,6 +102,9 @@ class _Venue(AlpacaClient):
             return {"retCode": 0, "result": {"id": "topup-oco"}}
         return {"retCode": 0, "result": {}}
 
+    def latest_quote(self, symbol):
+        return None                   # no bid/ask: the last-trade test stands
+
     def posts(self):
         return [b for m, _p, b in self.calls if m == "POST"]
 
@@ -342,11 +345,29 @@ def test_side_mismatch_refuses():
 
 
 
-def test_top_up_refuses_a_stop_already_through_the_market(monkeypatch):
-    """PR6YRTQY-0005 in top-up form: QQQ at 710 is below 6023's stop 716.80 —
-    a top-up stop there would fill on arrival. Refused, nothing placed."""
+def test_top_up_with_a_breached_stop_exits_the_row_labelled_sl(monkeypatch):
+    """PR6YRTQY-0005 / REVIEW-14241 item 2, top-up form: QQQ at 710 is below
+    6023's stop 716.80 — a top-up stop there would fill on arrival. The row is
+    confirmed present, so it is EXITED via the trade-scoped close labelled sl;
+    no OCO is placed and no sibling leg is touched."""
     monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    closes = []
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda m: closes.append(m) or {"ok": True, "exchange_order_id": None})
+    monkeypatch.setattr(om, "_capture_fill_details", lambda *a, **k: None)
     v = _Venue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
                                     "current_price": "710.00"})
-    _cov, out = _run(v, "QQQ", 32, _qqq_rows())
-    assert out == "refused_marketable_stop" and v.posts() == [] and v.deletes() == []
+
+    class _Db:
+        updates = []
+
+        def update_trade(self, tid, upd):
+            self.updates.append((tid, upd))
+
+    db = _Db()
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    out = om._alpaca_top_up_uncovered(db, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert out == "exited_breached_stop"
+    assert v.posts() == [] and v.deletes() == []
+    assert [c["id"] for c in closes] == [6023] and closes[0]["position_size"] == 22.0
+    assert db.updates[0][0] == 6023 and db.updates[0][1]["exit_reason"] == "sl"
