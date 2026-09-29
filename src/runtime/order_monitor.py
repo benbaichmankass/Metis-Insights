@@ -8378,6 +8378,171 @@ def _stamp_repair(db, row, kind: str, verified: str = "unverified") -> None:
         )
 
 
+#: Per-PROCESS attempt memo for Alpaca quantity top-ups, keyed
+#: ``(account_id, SYMBOL, trade_id)`` -> monotonic seconds of the last attempt.
+#: A restart forgets it, which costs at most one extra correctly-sized attempt.
+_ALPACA_TOPUP_ATTEMPTS: Dict[Tuple[str, str, Any], float] = {}
+_ALPACA_TOPUP_COOLDOWN_S = 900.0
+
+
+def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
+                             cov: Dict[str, Any], sym_rows: List[Any],
+                             now: datetime) -> str:
+    """Protect the UNCOVERED shares of a partially-covered Alpaca position.
+
+    PI-20260929-PR6YRTQY-0003. MEASURED 2026-09-29 via
+    /api/diag/alpaca_order_history: paper rows 6023 (QQQ 22), 6024 (QQQ 56)
+    and 6131 (SPY 8) lost their entry-bracket legs at the 20:00Z close while a
+    sibling row's OCO on the same symbol kept `protection_state` reading
+    `stop: True` — so the sweep graded them `partially_naked`, alerted, and
+    re-armed nothing, overnight.
+
+    Returns the outcome as a string: ``topped_up`` or ``refused_<why>``.
+
+    The rules, each a refusal rather than a guess (they extend #14127's):
+
+    * the shortfall must be ATTRIBUTABLE: match every open row on the symbol
+      against the resting stop legs by size; exactly ONE row may be left
+      unmatched, and its size must equal ``size - stop_qty``;
+    * no OTHER open row may share that row's size (size is ownership only when
+      unique);
+    * the unmatched row must be past the entry grace (its legs may still be
+      attaching);
+    * the uncovered quantity must be a whole number of shares;
+    * the row's direction must match the venue position's side;
+    * one attempt per row per ``_ALPACA_TOPUP_COOLDOWN_S`` (success or not);
+    * a FRESH coverage read taken just before placing must reproduce the
+      graded size, side and stop legs, and caps the placed qty (REVIEW-14177:
+      the sweep's positions snapshot can go stale mid-sweep; a truncated order
+      history reads ``None`` and refuses).
+
+    The OCO is placed with ``additive: True`` — :meth:`place_protective` then
+    cancels NOTHING and releases nothing, so a covered sibling's legs are never
+    touched. Its levels are the attributed row's own sl/tp (falling back to the
+    originating package, as the naked re-arm does). Never raises.
+    """
+    try:
+        size = float(cov.get("size") or 0.0)
+        stop_q = float(cov.get("stop_qty") or 0.0)
+        uncovered = size - stop_q
+        if stop_q <= 0 or uncovered <= 1e-9:
+            return "refused_not_partial"
+        if abs(uncovered - round(uncovered)) > 1e-9:
+            return "refused_fractional_shortfall"
+        legs = [float(q) for q in (cov.get("stop_leg_qtys") or [])]
+        unmatched = []
+        for r in sorted(sym_rows, key=lambda r: r["id"]):
+            q = _safe_float(r["position_size"])
+            if q is None or q <= 0:
+                return "refused_unreadable_row_size"
+            hit = next((i for i, lq in enumerate(legs) if abs(lq - q) <= 1e-9), None)
+            if hit is None:
+                unmatched.append(r)
+            else:
+                legs.pop(hit)
+        if len(unmatched) != 1:
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s shortfall %s not attributable "
+                "(%d unmatched rows) — refusing, alert stands",
+                account_id, symbol, uncovered, len(unmatched),
+            )
+            return "refused_ambiguous_attribution"
+        row = unmatched[0]
+        rq = float(row["position_size"])
+        if abs(rq - uncovered) > 1e-9:
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s unmatched row %s is %s sh but "
+                "the shortfall is %s — refusing, alert stands",
+                account_id, symbol, row["id"], rq, uncovered,
+            )
+            return "refused_qty_mismatch"
+        if any(r["id"] != row["id"] and abs(float(r["position_size"] or 0) - rq) <= 1e-9
+               for r in sym_rows):
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s another open row is also %s sh "
+                "— ownership by size not unique, refusing", account_id, symbol, rq,
+            )
+            return "refused_same_size_sibling"
+        created = _parse_created_at(row["created_at"])
+        if created is not None and (now - created).total_seconds() < _NAKED_POSITION_GRACE_SECONDS:
+            return "refused_within_grace"
+        # The row must be on the side the venue says the position is on; a
+        # top-up on the wrong side would OPEN exposure, not protect it.
+        want_side = {"long": "buy", "buy": "buy", "short": "sell",
+                     "sell": "sell"}.get(str(row["direction"] or "").lower())
+        if not want_side or want_side != str(cov.get("side") or ""):
+            return "refused_side_mismatch"
+        # One attempt per row per cooldown window, success OR refusal: a
+        # refused POST must not repeat every tick, and an accepted one must not
+        # be doubled by a sweep whose read has not yet caught up.
+        cd_key = (account_id, symbol.upper(), row["id"])
+        last = _ALPACA_TOPUP_ATTEMPTS.get(cd_key)
+        if last is not None and time.monotonic() - last < _ALPACA_TOPUP_COOLDOWN_S:
+            return "refused_cooldown"
+        sl, tp = row["stop_loss"], row["take_profit_1"]
+        a_sl = sl if (sl not in (None, 0) and sl > 0) else None
+        a_tp = tp if (tp not in (None, 0) and tp > 0) else None
+        if a_sl is None or a_tp is None:
+            r_sl, r_tp = _resolve_protective_levels(db, symbol, str(row["direction"] or ""))
+            a_sl = a_sl if a_sl is not None else r_sl
+            a_tp = a_tp if a_tp is not None else r_tp
+        if a_sl is None or a_tp is None:
+            return "refused_no_levels"
+        # `oca_key` is inert on Alpaca (its client scopes by size, not OCA
+        # group) and passed so every re-arm call site in this module carries
+        # it, as tests/test_ib_rearm_scopes_precancel.py requires.
+        # FRESH re-read immediately before placing (REVIEW-14177 blocker a).
+        # `cov` came from a positions snapshot taken once per sweep; a sibling's
+        # stop can fill in between, leaving the shares this would protect
+        # already flat. The fresh read (its own /v2/positions/{sym}, and the
+        # paged order read — None when truncated, blocker b) must reproduce the
+        # graded size and stop legs exactly, and the placed qty is capped at
+        # what is still uncovered NOW.
+        fresh = client.protection_coverage(
+            symbol, since=_oldest_open_created_at(sym_rows, account_id, symbol))
+        if (not isinstance(fresh, dict) or fresh.get("unknown_qty_legs")
+                or fresh.get("source") != "orders"):
+            return "refused_fresh_read_unavailable"
+        if (abs(float(fresh.get("size") or 0.0) - size) > 1e-9
+                or sorted(float(q) for q in (fresh.get("stop_leg_qtys") or []))
+                != sorted(float(q) for q in (cov.get("stop_leg_qtys") or []))
+                or str(fresh.get("side") or "") != str(cov.get("side") or "")):
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s changed since the sweep's "
+                "snapshot (size %s -> %s) — refusing; next sweep re-grades",
+                account_id, symbol, size, fresh.get("size"),
+            )
+            return "refused_state_changed"
+        place_qty = min(uncovered, float(fresh["size"]) - float(fresh.get("stop_qty") or 0.0))
+        if place_qty < 1 or abs(place_qty - round(place_qty)) > 1e-9:
+            return "refused_state_changed"
+        _ALPACA_TOPUP_ATTEMPTS[cd_key] = time.monotonic()
+        topup_resp = client.place_protective({
+            "symbol": symbol, "direction": str(row["direction"] or ""),
+            "qty": int(round(place_qty)), "sl": a_sl, "tp": a_tp,
+            "additive": True, "oca_key": str(row["id"]),
+            "account_id": account_id,
+        })
+        if not topup_resp or topup_resp.get("retCode") != 0:
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s top-up refused by venue for "
+                "trade_id=%s: %r", account_id, symbol, row["id"],
+                (topup_resp or {}).get("retMsg"),
+            )
+            return "refused_by_venue"
+        _stamp_repair(db, row, "partial_topup")
+        logger.warning(
+            "_alpaca_top_up_uncovered: topped up %s/%s — GTC OCO for the "
+            "uncovered %s sh (sl=%s tp=%s) on trade_id=%s; no leg cancelled",
+            account_id, symbol, int(round(place_qty)), a_sl, a_tp, row["id"],
+        )
+        return "topped_up"
+    except Exception as exc:  # noqa: BLE001 — never break the sweep
+        logger.warning("_alpaca_top_up_uncovered: %s/%s failed: %s",
+                       account_id, symbol, exc)
+        return "refused_error"
+
+
 def _open_sibling_qtys(db, row, account_id: str, symbol: str) -> Optional[List[float]]:
     """Sizes of the OTHER open, non-backtest rows on *account_id*/*symbol*.
 
@@ -8686,6 +8851,11 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "partially_naked": 0,
         "coverage_ungradeable": 0,
         "coverage_read_failed": 0,
+        # Quantity top-ups (PI-20260929-PR6YRTQY-0003): a partially_naked
+        # symbol is either topped up for its uncovered shares or refused with a
+        # logged reason — declared at 0 so "none needed" is not "not looked".
+        "topped_up": 0,
+        "topup_refused": 0,
         # protection_state() could not be read for a past-grace position:
         # "we did not look", counted and (on persistence) paged — never a
         # silent skip (REVIEW-14123).
@@ -8795,11 +8965,14 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             # invisible to every accessor. This is the quantity half of
             # BL-20260816-COVERAGE-IS-ONE-SIDED, ported from the Bybit
             # (`covered_qty`) and IB (`protection_coverage`) implementations.
-            # ⚠️ NOTHING IS RE-ARMED OFF THIS GRADE. Binding it to the repair
-            # path is a Tier-2 order-path change and needs an operator OK;
+            # A SHORTFALL IS NOW TOPPED UP (PI-20260929-PR6YRTQY-0003, manager
+            # dispatch under operator authority, Tier-2 PR held for review):
+            # `_alpaca_top_up_uncovered` ADDS an OCO for the uncovered shares
+            # only and cancels nothing — the failure
             # BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG
-            # is what automatic remediation of this class did last time. The
-            # re-arm below still reads `protection_state`, byte-identically.
+            # recorded was a remediation that CANCELLED; this one cannot.
+            # Over-coverage is still alert-only. The naked re-arm below still
+            # reads `protection_state`, byte-identically.
             _cov_key = (account_id, symbol)
             if _cov_key not in coverage_memo:
                 if account_id not in pos_snapshots:
@@ -8860,6 +9033,24 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                             trade_ids=row["id"],
                             venue="alpaca",
                         )
+                        # REPAIR, not only alert (PI-20260929-PR6YRTQY-0003):
+                        # top up the UNCOVERED shares when the shortfall can
+                        # be attributed to exactly one row; never cancels.
+                        # A fully stop-naked symbol (stop_q == 0) is left to
+                        # the naked re-arm below.
+                        if _stop_q > 0:
+                            _topup = _alpaca_top_up_uncovered(
+                                db, client, account_id, symbol, _cov,
+                                [r for r in rows
+                                 if str(r["account_id"] or "") == account_id
+                                 and str(r["symbol"] or "").upper()
+                                 == symbol.upper()],
+                                now,
+                            )
+                            if _topup == "topped_up":
+                                summary["topped_up"] += 1
+                            else:
+                                summary["topup_refused"] += 1
                     elif _size > 0:
                         summary["covered"] += 1
 

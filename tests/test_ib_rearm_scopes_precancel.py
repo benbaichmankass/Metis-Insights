@@ -132,7 +132,9 @@ class TestEveryIBCallSitePassesIt:
         unscoped — a guard over the population, not over three known names."""
         src = (_REPO / "src/runtime/order_monitor.py").read_text()
         n = src.count("modify_protective(") + src.count("place_protective(")
-        assert n == 2, (
-            f"expected 2 IB re-arm call sites in order_monitor, found {n}. A "
+        # 3 since PI-20260929-PR6YRTQY-0003: `_alpaca_top_up_uncovered` is an
+        # ALPACA-only additive top-up; it passes oca_key anyway (inert there).
+        assert n == 3, (
+            f"expected 3 re-arm call sites in order_monitor, found {n}. A "
             "new one must pass oca_key — add it above and update this count."
         )
