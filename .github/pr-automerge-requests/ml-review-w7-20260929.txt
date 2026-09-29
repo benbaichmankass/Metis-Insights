@@ -1,0 +1,1 @@
+ml-review W7: trainer/live ML state review, D1+E77 fixes confirmed live+observed and pipeline-closed, 3 new pipeline findings filed, E74/E77 checklist rows settled with data.
