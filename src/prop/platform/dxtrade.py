@@ -474,11 +474,17 @@ EXTRACT_TABLES_JS = r"""
   };
   const ctlDesc = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
     (txt(c) || c.getAttribute('title') || c.getAttribute('aria-label') || c.tagName.toLowerCase()).slice(0, 30));
+  // The same controls' markup (whitespace folded, digit runs of 5+ masked):
+  // live test #14191 read the position row's trio as three text-less
+  // buttons, so what they are CALLED is the only way to tell them apart.
+  const ctlHtml = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
+    (c.outerHTML || '').replace(/\s+/g, ' ').replace(/\d{5,}/g, '#####').slice(0, 220));
   for (const p of paired) {
     const rows = p.trs.map(r => [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt));
     push('table', p.headers, rows, {paired: !!p.body, own_rows: p.own_rows, unpaired_body_rows: p.unpaired_body_rows,
                                     headerless_tables: headerless,
-                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : []});
+                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : [],
+                                    first_row_control_html: p.trs.length ? ctlHtml(p.trs[0]) : []});
   }
   for (const g of document.querySelectorAll('[role=grid], [role=treegrid], [role=table]')) {
     const headers = [...g.querySelectorAll('[role=columnheader]')].map(txt);
@@ -1569,9 +1575,27 @@ CLOSE_ROW_JS = r"""
   const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
   const box = el => { const r = el.getBoundingClientRect();
     return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
-  const hint = el => norm([txt(el), el.getAttribute('title'), el.getAttribute('aria-label'),
-    typeof el.className === 'string' ? el.className : '', el.getAttribute('data-test-id')].filter(Boolean).join(' '));
-  const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i;
+  // What a control SAYS (its own and its descendants' text / title /
+  // aria-label) and what it is CALLED (class, href, data-icon, data-test-id,
+  // name — its own and its descendants', split on - _ . / # : so that
+  // "icon-close" reads as the word close). Live test #14191: the row's icon
+  // trio is three text-less <button>s (no title, no aria-label), so the
+  // name of the icon inside is the only thing that says which one closes.
+  const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
+  const tokens = s => (s || '').replace(/[-_./#:]+/g, ' ');
+  const label = el => norm([el, ...el.querySelectorAll('*')]
+    .map(d => [d === el ? txt(el) : '', attr(d, 'title'), attr(d, 'aria-label')].filter(Boolean).join(' ')).filter(Boolean).join(' '));
+  const called = el => norm([el, ...el.querySelectorAll('*')]
+    .map(d => tokens([attr(d, 'class'), attr(d, 'href'), attr(d, 'xlink:href'), attr(d, 'data-icon'), attr(d, 'data-test-id'),
+                      attr(d, 'name')].filter(Boolean).join(' '))).filter(Boolean).join(' '));
+  const hint = el => norm(label(el) + ' ' + called(el));
+  const snippet = el => (el.outerHTML || '').replace(/\s+/g, ' ').replace(/\d{5,}/g, '#####').slice(0, 200);
+  // The glyph / x spellings count from the LABEL only: a class token such
+  // as "x-small" is not a close. A name says close only as the word close
+  // (or cross); reverse / modify words anywhere disqualify.
+  const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, CLOSE_NAME_RE = /(^|\s)(close|cross)(\s|$)/i,
+        BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i;
+  const isClose = el => (CLOSE_RE.test(label(el)) || CLOSE_NAME_RE.test(called(el))) && !BAD_RE.test(hint(el));
   if (op === 'locate') {
     document.querySelectorAll('[data-metis-close-row]').forEach(e => e.removeAttribute('data-metis-close-row'));
     const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
@@ -1598,12 +1622,19 @@ CLOSE_ROW_JS = r"""
     const row = document.querySelector('[data-metis-close-row]');
     if (!row) return {ok: false, why: 'no located row'};
     document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
-    // Clickable-looking things in the row, outermost only (an icon inside its button counts once).
-    const all = [...row.querySelectorAll('button, [role=button], a, [title], [aria-label], svg, [class*=icon], [class*=close], [class*=action]')]
-      .filter(vis);
-    const ctls = all.filter(el => !all.some(o => o !== el && o.contains(el)));
-    const desc = ctls.map(el => ({hint: hint(el).slice(0, 60), box: box(el)}));
-    const closeIdx = ctls.map((el, i) => (CLOSE_RE.test(hint(el)) && !BAD_RE.test(hint(el))) ? i : -1).filter(i => i >= 0);
+    // Clickable-looking things in the row. A CONTAINER — an element matched
+    // only by a class such as "sticky--actions-cell" that itself holds
+    // candidates (live test #14191: the hovered row's icon trio sits inside
+    // that cell, and this filter used to keep the cell and drop the icons)
+    // — is descended into and never counted. Among the rest, outermost only
+    // (an icon inside its button counts once).
+    const INTERACTIVE = 'button, [role=button], a, [title], [aria-label], svg, [class*=icon], [class*=close]';
+    const all = [...row.querySelectorAll(INTERACTIVE + ', [class*=action]')].filter(vis);
+    const isContainer = el => !el.matches(INTERACTIVE) && all.some(o => o !== el && el.contains(o));
+    const cands = all.filter(el => !isContainer(el));
+    const ctls = cands.filter(el => !cands.some(o => o !== el && o.contains(el)));
+    const desc = ctls.map(el => ({hint: hint(el).slice(0, 80), tag: el.tagName.toLowerCase(), box: box(el), html: snippet(el)}));
+    const closeIdx = ctls.map((el, i) => isClose(el) ? i : -1).filter(i => i >= 0);
     let why = null, chosen = null;
     if (!ctls.length) why = 'the row shows no control';
     else if (closeIdx.length !== 1) why = closeIdx.length + ' close-type controls in the row (need exactly 1)';
@@ -2757,6 +2788,13 @@ class DXtradeAdapter(PropPlatformAdapter):
                                  f"unpaired_body_rows={t.get('unpaired_body_rows')} "
                                  f"headerless_tables_rows={t.get('headerless_tables')} "
                                  f"first_row_controls={[r(c, 30) for c in (t.get('first_row_controls') or [])]}")
+                    # The controls' own markup, for a positions / orders row
+                    # only (a watchlist row's Buy / Sell buttons are not the
+                    # question): text-less icon buttons are told apart by
+                    # what they are called, and that is only visible here.
+                    if reads_as in ("positions", "orders") and t.get("first_row_control_html"):
+                        lines.append(f"dump_tables.table[{i}].first_row_control_html: "
+                                     f"{[r(h, 240) for h in t.get('first_row_control_html')]}")
                 # First 3 rows, and the last 3 when there are more (a history
                 # tab may list the newest fill at either end).
                 shown_rows = rows[:3] + (rows[-3:] if len(rows) > 6 else rows[3:6])

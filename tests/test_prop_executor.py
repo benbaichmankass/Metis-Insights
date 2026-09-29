@@ -2097,11 +2097,16 @@ POSITIONS_HEADERS = ["Symbol", "Side", "Size", "Open P&L", "Take profit", "Stop 
 POSITION_ROW = ["SOLUSD", "Buy", "0.01", "\u2014", "120.18", "117.80", "987654321", "118.94", "119.48", "29/09/26 09:27"]
 
 
-def _split_panel(rows, close_html='<button title="Close">\u00d7</button>', headers=None, body=True):
-    headers = headers or POSITIONS_HEADERS
+def _split_panel(rows, close_html='<button title="Close">\u00d7</button>', headers=None, body=True, cell=False):
+    """``cell=True`` is the LIVE layout measured by #14198: two extra empty
+    header columns, and the row's controls in their own trailing
+    ``<td class="sticky--actions-cell">`` rather than inside the date cell."""
+    headers = list(headers or POSITIONS_HEADERS) + (["", ""] if cell else [])
     head = "<table><thead><tr>" + "".join(f"<th>{h}</th>" for h in headers) + "</tr></thead><tbody></tbody></table>"
+    tail = (lambda r: f"<td>{r[-1]}</td><td></td><td class=\"sticky--actions-cell\">{close_html}</td>") if cell \
+        else (lambda r: f"<td>{r[-1]} {close_html}</td>")
     trs = "".join("<tr data-row-id='%d'>" % i + "".join(f"<td>{c}</td>" for c in r[:-1])
-                  + f"<td>{r[-1]} {close_html}</td></tr>" for i, r in enumerate(rows, 1))
+                  + tail(r) + "</tr>" for i, r in enumerate(rows, 1))
     body_t = f"<table><tbody>{trs}</tbody></table>" if body else ""
     return f'<div class="panel"><div data-active="true">Positions</div>{head}{body_t}</div>'
 
@@ -2198,7 +2203,7 @@ def _close_modal_html(heading="Close SOLUSD Buy Position", lots="0.01", caption=
 </div>"""
 
 
-def _close_page(row=POSITION_ROW, icons=None, modal=None, chart_x=True):
+def _close_page(row=POSITION_ROW, icons=None, modal=None, chart_x=True, cell=False):
     icons = icons if icons is not None else (
         '<button title="Reverse" onclick="window.__reverse=1">⇄</button>'
         '<button title="Modify" onclick="window.__modify=1">✎</button>'
@@ -2208,7 +2213,19 @@ def _close_page(row=POSITION_ROW, icons=None, modal=None, chart_x=True):
     chart = ('<div class="chart"><canvas width="300" height="200"></canvas>'
              '<button style="position:absolute;left:50px;top:50px" title="Close" onclick="window.__chart_x=1">✕</button></div>'
              if chart_x else "")
-    return (TICKET_PAGE % "").replace("</body>", _CLOSE_CSS + chart + _split_panel([row], close_html=close_html) + modal + "</body>")
+    return (TICKET_PAGE % "").replace("</body>", _CLOSE_CSS + chart + _split_panel([row], close_html=close_html, cell=cell)
+                                      + modal + "</body>")
+
+
+#: The LIVE trio as #14198 measured it: three text-less <button>s, no title,
+#: no aria-label, inside the row's own "sticky--actions-cell". What each one
+#: is CALLED (the icon's class) is assumed here — the measured facts are the
+#: tag, the count and the absence of any label; the class names come from
+#: the next dump-tables read (first_row_control_html).
+_LIVE_TRIO = ('<button class="btn-icon" onclick="window.__reverse=1"><svg class="icon icon-reverse"><use href="#i-reverse"/></svg></button>'
+              '<button class="btn-icon" onclick="window.__modify=1"><svg class="icon icon-edit"><use href="#i-edit"/></svg></button>'
+              '<button class="btn-icon" onclick="document.getElementById(\'cm\').style.display=\'block\'">'
+              '<svg class="icon icon-close"><use href="#i-close"/></svg></button>')
 
 
 def _nothing_pressed(p):
@@ -2285,6 +2302,79 @@ def test_watched_close_discards_a_modal_that_does_not_read_back(tpage, modal_kw,
     assert "Discard pressed" in got["why"] and p.evaluate("window.__discard") == 1
     assert p.evaluate("window.__closed") is None and p.evaluate("document.getElementById('cm').style.display") == "none"
     assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 1     # the row stays
+
+
+def test_watched_close_descends_into_the_actions_cell_and_picks_the_last_icon(tpage):
+    # REGRESSION (live test #14191): the icon trio sits inside the row's own
+    # "sticky--actions-cell"; the finder kept that cell as the only control
+    # and refused with "0 close-type controls". The cell is a container.
+    ad = DXtradeAdapter(timeout_ms=3_000)
+    # (a) the operator's titled icons, in the cell
+    p = tpage(html=_close_page(cell=True))
+    got = ad.flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["chosen"] == 2, got
+    assert [c["hint"].split(" ")[0] for c in got["controls"]] == ["⇄", "✎", "✕"] and all(c["tag"] == "button" for c in got["controls"])
+    assert not any("actions-cell" in c["hint"] for c in got["controls"])
+    assert p.evaluate("document.querySelector('[data-metis-row-action]').closest('td').className") == "sticky--actions-cell"
+    assert _nothing_pressed(p)
+    # (b) the LIVE shape: three text-less buttons told apart by their icons' names
+    p = tpage(html=_close_page(icons=_LIVE_TRIO, cell=True))
+    got = ad.flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["chosen"] == 2, got
+    assert [c["tag"] for c in got["controls"]] == ["button"] * 3
+    assert "icon close" in got["controls"][2]["hint"] and "icon-close" in got["controls"][2]["html"]
+    assert _nothing_pressed(p)
+    # armed: the modal is read back and Close Position pressed exactly once; reverse / modify never
+    got = ad.flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["why"] == "Close Position confirmed", got
+    assert p.evaluate("window.__closed") == 1 and p.evaluate("window.__reverse") is None and p.evaluate("window.__modify") is None
+    assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 0
+
+
+@pytest.mark.parametrize("icons,expect", [
+    # three text-less, nameless buttons: nothing says which one closes -> refuse, and say what was seen
+    ('<button onclick="window.__reverse=1"></button><button onclick="window.__modify=1"></button>'
+     '<button onclick="window.__closed=1"></button>', "0 close-type controls"),
+    # a class token "x-small" is not the glyph x
+    ('<button class="btn x-small" onclick="window.__closed=1"></button>', "0 close-type controls"),
+    # the close icon inside a button that is itself called reverse: reverse wins, never pressed
+    ('<button class="btn-reverse" onclick="window.__reverse=1"><svg class="icon icon-close"/></button>', "0 close-type controls"),
+    # the close icon is not the LAST control of the row
+    ('<button class="b"><svg class="icon icon-close"/></button><button class="b"><svg class="icon icon-edit"/></button>',
+     "not the LAST control"),
+    # two close-named icons
+    ('<button class="b"><svg class="icon icon-close"/></button><button class="b"><svg class="icon icon-close-all"/></button>',
+     "2 close-type controls"),
+])
+def test_watched_close_refuses_an_actions_cell_that_does_not_name_one_close(tpage, icons, expect):
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and expect in got["why"], got
+    assert all("html" in c and c["tag"] == "button" for c in got["controls"]), got["controls"]
+    assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+
+
+def test_watched_close_refuses_an_actions_cell_whose_only_child_is_the_chart_x(tpage):
+    # the chart's overlay x (a canvas beside it) rendered inside the row's actions cell
+    icons = '<canvas width="40" height="20"></canvas><button title="Close" onclick="window.__chart_x=1">✕</button>'
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and "beside a canvas" in got["why"], got
+    assert _nothing_pressed(p)
+
+
+def test_dump_tables_prints_the_position_row_controls_markup_masked(tpage):
+    row = POSITION_ROW[:-1] + ["29/09/26 12:56"]
+    html = _split_page([row], close_html=_LIVE_TRIO.replace('class="btn-icon"', 'class="btn-icon" data-pid="1234567890"', 1), cell=True)
+    lines = DXtradeAdapter(timeout_ms=3_000).dump_tables(tpage(html=html), ())
+    ctl = next(ln for ln in lines if ".first_row_control_html:" in ln)
+    assert "icon-close" in ctl and "icon-reverse" in ctl and "#####" in ctl and "1234567890" not in ctl
+    pair = next(ln for ln in lines if ".pairing:" in ln and "first_row_controls=['button', 'button', 'button']" in ln)
+    assert "paired_body=True" in pair
+    # one markup line per view tab (the replica shows the same positions table under
+    # each), and every one of them is the position row's: the watchlist gets none
+    ctl_lines = [ln for ln in lines if ".first_row_control_html:" in ln]
+    assert len(ctl_lines) == 4 and all("icon-close" in ln for ln in ctl_lines), ctl_lines
 
 
 def _close_modal_without_discard(lots="0.005", aria='aria-label="Close position"'):
