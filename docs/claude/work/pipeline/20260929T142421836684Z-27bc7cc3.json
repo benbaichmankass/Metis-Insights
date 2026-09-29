@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "a held Tier-3 PR implementing the decided trigger (and the VM read path it needs) is merged after independent review",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-VOLSKIP-SIGNAL-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLSKIP-SIGNAL (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, SIGNAL-0005 decision",
+    "rerun": "grep -n 'net_r_net_of_full_cost < 0' config/mandates.yaml  # the build is outstanding while MD-DEMOTE-S2-S1 still fires on the plain net<0 clause"
+  },
+  "state": "queued",
+  "what": "[mandate][build][tier-3 HELD] Build the OPERATOR-DECIDED MD-DEMOTE-S2-S1 trigger. Decision as relayed by manager session_01HYq6XtfesZ57VyaQrK6CL1 (2026-09-29 ~14:17Z), operator popup answer verbatim \"Last 20 + strict test (Recommended)\": each Stage-2 leg's LAST 20 CLOSED trades regardless of date; demote only when the 20-trade net R is below the 10th percentile of the leg's own Stage-0 bootstrap of 20-trade sums AND that holds on 2 consecutive NON-overlapping 20-trade windows (priced as T3 in SIGNAL-0005: healthy-leg P(ever demoted within 1y) 0.09-0.12 on the three 44-57/yr bybit_2 legs, 0.02-0.05 on the 3-16/yr legs; 4,000 sims per leg, scripts/research/r4_trigger_pricing_sim.py). The mandate's existing never-clause \"Never on a non-negative window\" is kept, which also prevents the POSITIVE p10 thresholds on trend_donchian_xrp_4h / ief / iaum (+2.35R / +12.06R / +11.28R) from demoting a profitable leg. BLOCKER found 2026-09-29: no runner-reachable read path exposes per-leg per-trade R (the /performance payload is per-leg aggregates plus a global USD equity curve; /trades/closed has no SL/risk field), so the trade-count mode needs a VM read path reusing performance._query()/_aggregate() over the last N closed rows per leg (Tier-2 web-api change + deploy) before r4_demotion_gate.py (Tier-3) can use it. Scope as dispatched: R4 trade-count mode + trigger + per-leg threshold provenance in the mirror-window record; loud abstain + count when a leg has no usable Stage-0 record or < 40 trades; config/mandates.yaml fires_when/never updated with the decision quoted (id, direction, autoland, granted_by unchanged); workflow invocation; tests (healthy HOLD, planted -0.3R demoted after 2 windows, <40 trades abstains, no record abstains, provenance)."
+}
