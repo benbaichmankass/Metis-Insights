@@ -4,7 +4,7 @@ title: >-
   CLOSED bar in Stage 0 — how much does that change the trade set and the net
   R (full cost stack) of the two real-money bybit_2 legs, ada_pullback_2h and
   trend_donchian_xrp_4h? (PI-20260929-VOLSKIP-0001)
-status: queued
+status: done
 cadence: once
 kind: deterministic
 
@@ -152,3 +152,27 @@ related:
   - PI-20260929-VOLSKIP-0001
   - RQ-20260929-201 (vol gate alone; KEEP_AND_REPORT)
   - PR #14131
+last_dispatched_at: '2026-09-29T12:45:00+00:00'
+verdict: HARNESS_MODELS_FORMING
+result: >-
+  docs/research/evidence/whole-signal-forming-bar-2026-09-29.json. Rule
+  committed at cdefc417 before the run. Binance USD-M 1m proxy, full cost
+  stack (fee 7.5 + venue slippage bps rt, funding per 8h). Entries on bars
+  with a 200-bar live frame. ada_pullback_2h: A_closed n=399 +73.80R, B_forming
+  n=567 +48.10R; shared 149, only-closed 250 (+60.81R), only-forming 418
+  (+21.81R); J=0.18; dR -25.70R, 90% CI [-66.31, +15.27], ex-max-year (2023)
+  -10.62R, MDE 62.1R — underpowered. trend_donchian_xrp_4h (trail_decay
+  included, which RQ-201 omitted): A_closed n=73 +15.28R, B_forming n=135
+  +9.53R; shared 62, only-closed 11 (+0.05R), only-forming 73 (-16.47R);
+  J=0.42; dR -5.75R, CI [-25.71, +14.96], ex-max-year (2025) -15.73R, MDE
+  30.8R — underpowered. Not MOVE_LIVE_TO_CLOSED (CI crosses 0 on both); J <
+  0.80 on both, so HARNESS_MODELS_FORMING: no live change; carried as
+  PI-20260929-VOLSKIP-SIGNAL-0002 (forming-bar harness mode + pooled
+  re-measurement across the variant legs). Live cross-check (diag
+  audit_query pipeline_result since 2026-07-14): B fires the live bar and
+  side on 36/38 ada dispatches (median live 7.7 min into bar, B first tick
+  6 min) and 4/5 xrp; A_closed trades only 7/38 and 1/5 of those bars — arm
+  B is the live leg, Stage 0 is not. Decomposition (not graded):
+  A_liveframe vs A_closed J 0.998 / 1.0 (the 200-bar frame is not a factor);
+  A_impl (closed decision, entry 2 min into the next bar) +17.11R on ada
+  (CI [3.04, 32.89]) and -0.14R on xrp.
