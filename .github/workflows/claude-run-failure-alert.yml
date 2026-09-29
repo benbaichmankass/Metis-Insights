@@ -228,6 +228,11 @@ on:
       #    had already failed twice unobserved when this was measured.
       - alpaca-settlement-soak-watch
       - research-queue-dispatch
+      # RQ-RUN (2026-09-28): the queue's replenisher and mechanical grader are
+      # what keep it running without a session; a dead scheduled run on either
+      # is the silence the operator asked to hear about.
+      - research-queue-replenish
+      - research-queue-grade
       # ── added with E52: the outside-in probe of the SPA's only path to the
       #    API (HTTPS / cert expiry / DNS A record / CORS). It already
       #    self-alerts via Telegram + a deduped issue on a FOUND problem, but

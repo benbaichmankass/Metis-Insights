@@ -481,6 +481,63 @@ def unvouched_paths(root: Path, base: str, paths: list[str]) -> list[str]:
     return out
 
 
+# E58, 2026-09-28 (lane RQ-RUN; operator: "the research queue should be running
+# 24/7 with or without Claude"). E57 refuses every non-stamp research/queue edit
+# for self-landing because a pre-registered rule must not be rewritten in the
+# act that lands it. A queue that refills and grades itself with NO session
+# needs exactly two automation producers to land queue edits anyway -- so the
+# admission is not "trust the bot" but REPRODUCIBILITY: the producer's own
+# `--verify --base <base>` is re-run HERE, at the PR's merge-base, and every
+# added (replenish) / modified (grade) unit must come out byte-identical from
+# the committed templates + `generated.params` / the committed results +
+# `grading.graded_at`. A hand-edit, a rule rewrite, a new hand-written unit or
+# a grade nobody can reproduce all fail `--verify` and fall back to E57's hold.
+# The branch prefix names WHICH producer to re-run; it grants nothing by itself.
+E58_PRODUCERS = {
+    "automation/research-queue-replenish-": "scripts/research/queue_replenish.py",
+    "automation/research-queue-grade-": "scripts/research/queue_grade.py",
+}
+
+
+def e58_generated_queue_vouch(root: Path, base: str, branch: Optional[str],
+                              changed: list[str]) -> tuple[list[str], list[str]]:
+    """(vouched research/queue paths, notes). Empty unless the branch is one of
+    the two producers' AND that producer's --verify reproduces every queue
+    change on it. Never vouches a path outside research/queue/."""
+    if not branch:
+        return [], []
+    script = next((s for pre, s in E58_PRODUCERS.items() if branch.startswith(pre)), None)
+    if script is None:
+        return [], []
+    queue_paths = [p for p in changed if fnmatch.fnmatch(p, "research/queue/*.yaml")]
+    if not queue_paths:
+        return [], []
+    # ⚠️ REVIEW FIX (2026-09-29): a producer branch may carry ONLY queue files
+    # plus the three landing files commit-to-main writes for its own slug.
+    # Anything else -- above all a fabricated research/results/** row that a
+    # grade would then be "reproduced" from -- means this is not the producer's
+    # output, and nothing on it is vouched.
+    slug = branch.replace("/", "-")
+    own = {f"{LANDING_DIR}/{slug}.json", f"{AUTOMERGE_DIR}/{slug}.txt", f"{BRANCH_SLOT_DIR}/{slug}.json"}
+    foreign = sorted(p for p in changed if p not in queue_paths and p not in own)
+    if foreign:
+        return [], [f"E58 {branch}: REFUSED -- the branch changes {len(foreign)} path(s) outside research/queue/ "
+                    f"({', '.join(foreign[:4])}); a producer branch carries only its queue files, so nothing "
+                    "on it is vouched"]
+    if not (root / script).is_file():
+        return [], [f"E58 {branch}: producer {script} is absent at HEAD -- nothing vouched"]
+    try:
+        proc = subprocess.run([sys.executable, script, "--verify", "--base", base],
+                              cwd=str(root), capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [], [f"E58 {branch}: {script} --verify could not run ({exc}) -- nothing vouched"]
+    if proc.returncode != 0:
+        tail = (proc.stdout + proc.stderr).strip().splitlines()[-3:]
+        return [], [f"E58 {branch}: {script} --verify REFUSED -- nothing vouched: " + " | ".join(tail)]
+    return queue_paths, [f"E58 verified -- {script} --verify reproduced {len(queue_paths)} queue "
+                         f"file(s) at the merge-base: " + ", ".join(sorted(queue_paths)[:5])]
+
+
 # Named so a failure can say WHY a path is barred, and so that widening
 # TIER1_SURFACE by mistake still trips a named check.
 TIER3_PATHS = [
@@ -647,6 +704,10 @@ LANDING_MACHINERY = [
     # branch never MODIFIES an approval record — R15 forbids it outright
     # (clause d) — so R12 fires on a PR that WRITES an approval and on nothing
     # else. It cannot make every branch un-landable.
+    # E58: the two producers whose --verify vouches their own queue PRs.
+    "scripts/research/queue_replenish.py",
+    "scripts/research/queue_grade.py",
+    "research/templates/**",
     f"{APPROVAL_DIR}/**",
 ]
 
@@ -1367,8 +1428,10 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
     # ---------------------------------------------------------------- diff floor
     barred3 = [p for p in changed if _match(p, TIER3_PATHS)]
     barred2 = [p for p in changed if _match(p, TIER2_PATHS) and p not in barred3]
+    e58_vouched, e58_notes = e58_generated_queue_vouch(root, base, branch, changed)
+    notes.extend(e58_notes)
     unvouched = [p for p in unvouched_paths(root, base, changed)
-                 if p not in barred3 and p not in barred2]
+                 if p not in barred3 and p not in barred2 and p not in e58_vouched]
     for p in changed:
         # Reported for every STAMP_ONLY_SURFACE match regardless of a
         # TIER1_SURFACE hit too -- `unvouched_paths` now grades these paths by
@@ -1572,7 +1635,7 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
         # bitten by and that this guard cites twice elsewhere.
         if reason == "unvouchable_paths":
             unvouchable = [p for p in unvouched_paths(root, base, changed)
-                           if p != decl_rel]
+                           if p != decl_rel and p not in e58_vouched]
             if not unvouchable:
                 fails.append(
                     f"R14 {decl_rel} claims `unvouchable_paths`, but every "

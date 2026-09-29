@@ -1195,6 +1195,19 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # RQ-RUN (2026-09-28): the queue's self-replenishment + mechanical
+        # grading + health alarm. Self-tests only: the live health read is
+        # the DISPATCHER's alarm (it pages), not a PR gate -- a PR must not go
+        # red because the queue happens to be short today.
+        "name": "research-queue-autonomy-selftests",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/research/queue_replenish.py", "--self-test"],
+            ["python3", "scripts/research/queue_grade.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_queue_health.py", "--self-test"],
+        ],
+    },
+    {
         # MANAGER-CHECKLIST.json row E7. Nine of the thirteen scripts/backtest_*.py
         # harnesses had NO WORKFLOW AT ALL, so nothing could regress their data
         # source -- there was no runner to regress. research-harness-dispatch.yml

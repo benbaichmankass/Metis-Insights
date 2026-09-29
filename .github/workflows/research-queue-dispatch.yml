@@ -336,6 +336,20 @@ jobs:
               -f target=claude \
               || echo "::error::could not dispatch the send-ping system-action — see the step log above."
           fi
+          # RQ-RUN (2026-09-28, operator: "keep replenishing it"): the queue
+          # itself must hold >= 25 runnable units and must have dispatched
+          # something in the last 12 h, whatever this run did. Graded from
+          # the checkout, so a dry queue pages even when every run is green.
+          if ! HEALTH="$(python3 scripts/ci/check_research_queue_health.py 2>&1)"; then
+            echo "${HEALTH}"
+            echo "::warning::research-queue health tripped — dispatching send-ping."
+            gh workflow run system-actions.yml \
+              -f action=send-ping \
+              -f message="research-queue health: $(echo "${HEALTH}" | grep -o 'H[0-9] .*' | head -3 | tr '\n' ' ') — runnable < 25 or idle > 12h. Replenisher: https://github.com/${{ github.repository }}/actions/workflows/research-queue-replenish.yml" \
+              -f priority=high \
+              -f target=claude \
+              || echo "::error::could not dispatch the send-ping system-action — see the step log above."
+          fi
 
       - name: Summarize in the job summary
         if: always()

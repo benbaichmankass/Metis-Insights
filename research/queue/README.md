@@ -244,6 +244,28 @@ papered over; giving every entry a dated `PI-` row is the obvious next step and
 is deliberately not done by the PR that created this directory, which was
 scoped to writing questions, not to building their follow-through.
 
+## The queue refills and grades itself (RQ-RUN, 2026-09-28)
+
+Operator: *"The research queue should be running 24/7 with or without Claude."*
+Three scheduled workflows now own that:
+
+| workflow | what | lands |
+|---|---|---|
+| `research-queue-replenish.yml` (daily 05:50) | `scripts/research/queue_replenish.py` expands `research/templates/*.yaml` (five pre-registered families, weights 30/25/20/15/10) into new units until >= 25 runnable units are queued | new `RQ-*.yaml` files, carrying `generated:` |
+| `research-queue-dispatch.yml` (every 6 h) | fires what is due | `last_dispatched_at` stamps |
+| `research-queue-grade.yml` (every 6 h, :50) | `scripts/research/queue_grade.py` reads each ran unit's committed rows and applies its rule mechanically | `status: done`, a confirmatory re-queue on a first FAIL, or `grading.needs_review: true` |
+
+A generated or graded unit self-lands ONLY because `check_pr_landing.py` (E58)
+re-runs the producer's `--verify` at the merge-base and gets the same bytes;
+a hand-edited unit, a new hand-written unit, or a rule rewrite still holds for
+a human (E57). Mechanical grading applies to template-generated units and to
+hand-written ones that opt in with `grading: {auto: true}`; every other
+hand-written unit is graded by a session, as before. The `needs_review`
+bucket is `grep -l "needs_review: true" research/queue/*.yaml`. The alarm
+(`scripts/ci/check_research_queue_health.py`, run from the dispatcher) pages
+through the send-ping system-action when runnable units < 25 or nothing has
+dispatched in 12 h.
+
 ## `run.workflow` DECLARED vs. actually `gh workflow run`-DISPATCHABLE
 
 > **RQ-RUN (2026-09-28): a session-local unit now has a token-free route.**
