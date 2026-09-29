@@ -179,7 +179,7 @@ class _FakeAlpaca:
     def has_protective_orders(self, symbol):
         return self._protected
 
-    def protection_state(self, symbol):
+    def protection_state(self, symbol, since=None):
         if self._protected is None:
             return None  # read failure must stay distinguishable from "no legs"
         return {"stop": bool(self._protected), "target": bool(self._target),
@@ -358,3 +358,33 @@ def test_fully_bracketed_book_is_silent(tmp_path, monkeypatch):
     summary = om._check_broker_naked_equity_positions(db)
     assert summary["target_naked"] == 0 and not alerts
     assert summary["broker_naked"] == 0 and summary["rearmed"] == 0
+
+
+def test_unreadable_protection_is_counted_and_paged_on_persistence(tmp_path, monkeypatch):
+    """REVIEW-14123: a `None` protection_state is never a silent skip."""
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=7, account_id="alpaca_paper", symbol="SPY", direction="long",
+            position_size=20, stop_loss=730.0, take_profit_1=818.5,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    monkeypatch.setattr("src.bot.data_loaders.list_accounts",
+                        lambda: [{"account_id": "alpaca_paper", "exchange": "alpaca"}])
+    fake = _FakeAlpaca(protected=None)            # read failure
+    monkeypatch.setattr("src.units.accounts.clients.alpaca_client_for", lambda acc: fake)
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: True)
+    pages = []
+    monkeypatch.setattr("src.runtime.outcomes.report",
+                        lambda *a, **k: pages.append((a, k)))
+    om._PROTECTION_UNREADABLE_STREAK.clear()
+
+    for n in (1, 2):
+        s = om._check_broker_naked_equity_positions(db)
+        assert s["protection_read_failed"] == 1 and s["rearmed"] == 0
+        assert pages == [], f"a single blip (sweep {n}) must not page"
+    s = om._check_broker_naked_equity_positions(db)
+    assert s["protection_read_failed"] == 1
+    assert len(pages) == 1 and pages[0][0][0] == "alpaca_protection_unreadable"
+    assert fake.rearmed == []                     # never acts on an unconfirmed read
+
+    fake._protected = True                        # readable again: streak clears
+    om._check_broker_naked_equity_positions(db)
+    assert ("alpaca_paper", "SPY") not in om._PROTECTION_UNREADABLE_STREAK

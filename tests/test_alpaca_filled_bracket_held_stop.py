@@ -235,3 +235,82 @@ def test_until_is_nudged_past_the_oldest_stamp():
         {"submitted_at": "2026-09-27T09:33:30.530109Z"},
     ])
     assert nxt == "2026-09-27T09:33:30.530110Z"
+
+
+# ---------------------------------------------------------------------------
+# REVIEW-14123 (second pass): the scan is TIME-bounded, so a symbol with a long
+# history (> 2000 closed orders) still resolves; only a window overflowing the
+# runaway cap reads None.
+# ---------------------------------------------------------------------------
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz  # noqa: E402
+from urllib.parse import parse_qs as _pq, urlparse as _up  # noqa: E402
+
+
+class _HistoryVenue(AlpacaClient):
+    """Honours `after`, `until`, `limit` and `direction=desc` like Alpaca."""
+
+    def __init__(self, open_rows, closed):
+        self.open_rows = open_rows
+        self.closed = sorted(closed, key=lambda o: o["submitted_at"], reverse=True)
+        self.calls: list = []
+
+    def _request(self, method, path, json_body=None):  # type: ignore[override]
+        self.calls.append((method, path))
+        if "status=open" in path:
+            return {"retCode": 0, "result": self.open_rows}
+        q = {k: v[0] for k, v in _pq(_up(path).query).items()}
+        rows = [o for o in self.closed
+                if (not q.get("after") or o["submitted_at"] > q["after"])
+                and (not q.get("until") or o["submitted_at"] < q["until"])]
+        return {"retCode": 0, "result": rows[: int(q.get("limit", 500))]}
+
+
+def _iso(t):
+    return t.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def _old_fillers(n, start):
+    return [{"id": f"eeeeeeee-0000-4000-8000-{i:012d}", "symbol": "QQQ",
+             "order_class": "simple", "type": "market", "side": "buy", "qty": "1",
+             "status": "filled", "submitted_at": _iso(start + _td(minutes=i)),
+             "legs": None} for i in range(n)]
+
+
+def test_symbol_with_2500_historical_closed_orders_still_resolves():
+    now = _dt.now(_tz.utc)
+    history = _old_fillers(2500, now - _td(days=200))          # all outside GTC life
+    bracket = dict(_FILLED_BRACKET, submitted_at=_iso(now - _td(days=2)))
+    v = _HistoryVenue(_OPEN_AFTER_BRACKET_FILL, history + [bracket])
+    st = v.protection_state("QQQ")
+    assert st is not None and st["stop"] is True
+    closed = [p for _m, p in v.calls if "status=closed" in p]
+    assert len(closed) == 1 and "after=" in closed[0]          # one page, bounded
+
+
+def test_since_narrows_the_window_to_the_oldest_open_row():
+    now = _dt.now(_tz.utc)
+    recent = _old_fillers(600, now - _td(days=30))             # 600 in the GTC window
+    bracket = dict(_FILLED_BRACKET, submitted_at=_iso(now - _td(hours=5)))
+    v = _HistoryVenue(_OPEN_AFTER_BRACKET_FILL, recent + [bracket])
+    st = v.protection_state("QQQ", since=_iso(now - _td(hours=6)))
+    assert st["stop"] is True
+    assert sum(1 for _m, p in v.calls if "status=closed" in p) == 1
+
+
+def test_runaway_window_still_reads_none(monkeypatch):
+    monkeypatch.setattr(_ac, "_FILLED_PARENT_SCAN_PAGE", 10)
+    monkeypatch.setattr(_ac, "_FILLED_PARENT_SCAN_MAX_PAGES", 3)
+    now = _dt.now(_tz.utc)
+    v = _HistoryVenue(_OPEN_AFTER_BRACKET_FILL, _old_fillers(100, now - _td(days=10)))
+    assert v.protection_state("QQQ") is None
+
+
+def test_scan_after_floor_and_since():
+    now = _dt.now(_tz.utc)
+    floor = _dt.fromisoformat(_ac._scan_after(None).replace("Z", "+00:00"))
+    assert abs((now - floor) - _td(days=91)) < _td(minutes=1)
+    s = _dt.fromisoformat(_ac._scan_after(_iso(now - _td(days=3))).replace("Z", "+00:00"))
+    assert abs((now - s) - _td(days=4)) < _td(minutes=1)
+    s2 = _dt.fromisoformat(_ac._scan_after(_iso(now - _td(days=300))).replace("Z", "+00:00"))
+    assert abs((now - s2) - _td(days=91)) < _td(minutes=1)     # never beyond GTC life
+    assert _ac._scan_after("garbage") == _ac._scan_after(None)
