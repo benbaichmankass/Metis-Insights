@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-29T15:51:19Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-29T15:46:26Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T08:08:00Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-29T15:46:26Z",
+  "updated_at": "2026-09-29T15:51:19Z",
   "latest": {
-    "generated_at": "2026-09-29T15:46:26Z",
+    "generated_at": "2026-09-29T15:51:19Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 326,
+      "unregistered_but_attributable_sessions": 325,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1424,9 +1424,6 @@
         "session_01BszfYWtJAeemBNhAywRuv5": [
           "claude/session-doc-freshness"
         ],
-        "session_01BuzwdjYBjCo5bQCmxYTHSp": [
-          "claude/trainer-boot-volume-resize"
-        ],
         "session_01CFHeaBLPVuLw2V2LvHWuCE": [
           "claude/ca-a07-audit",
           "claude/ca-wave-a-landing"
@@ -1591,6 +1588,7 @@
           "claude/w5n-exit-head-reconcile"
         ],
         "session_01GvZxxxgFK3JVaBFhfzZx6N": [
+          "claude/volskip-r4-last20",
           "claude/volskip-signal-pooled"
         ],
         "session_01GxXaAMqxdL3p1XTuRC5mjc": [
@@ -1614,7 +1612,8 @@
         ],
         "session_01HYq6XtfesZ57VyaQrK6CL1": [
           "claude/e44-lane-supervisor-build",
-          "claude/mgr-register-20260929-1350"
+          "claude/mgr-register-20260929-1350",
+          "claude/volskip-r4-last20"
         ],
         "session_01HaWB6g8EsN1x64hKKQHT2B": [
           "claude/mlopt-regime-recency-adopt",
