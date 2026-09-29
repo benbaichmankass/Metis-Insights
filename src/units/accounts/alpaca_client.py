@@ -2411,9 +2411,11 @@ class AlpacaClient:
         target is releasable, but the POST still goes ahead (the read-failure
         contract — a naked position is not left un-armed on an unknown).
 
-        *releasable_targets* are kept reducing-side TARGET legs that
-        :meth:`place_protective` may release if, and only if, the venue refuses
-        the stop. It is ``[]`` unless ALL of: sibling sizes are known; no other
+        *releasable_targets* are kept reducing-side TARGET legs of
+        ``order_class: simple`` (standalone — never a bracket/OCO/OTO leg, whose
+        group may hold an unseen stop) that :meth:`place_protective` may
+        release if, and only if, the venue refuses the stop. It is ``[]``
+        unless ALL of: sibling sizes are known; no other
         reducing-side STOP rests (a target may share its OCO/bracket group, and
         Alpaca cancels a group together); and the filled-bracket CHILD legs were
         read definitively for this symbol (``_child_legs_read_symbol``). Without
@@ -2475,7 +2477,12 @@ class AlpacaClient:
             if lq is not None and abs(lq - qty) <= _QTY_EPS:
                 own.append(str(oid))
             elif kind == "target":
-                kept_targets.append(str(oid))
+                # Only a STANDALONE target may ever be released. A target in a
+                # bracket/OCO/OTO group shares it with a stop that may rest
+                # unseen, and Alpaca cancels the group together — releasing it
+                # would strip that stop (REVIEW-14127 danger (i)).
+                if str(o.get("order_class") or "").lower() == "simple":
+                    kept_targets.append(str(oid))
             else:
                 other_stop = True
         for oid in own:
