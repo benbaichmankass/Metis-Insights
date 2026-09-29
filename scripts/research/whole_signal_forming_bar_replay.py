@@ -122,7 +122,9 @@ def minute_matrices(m1: pd.DataFrame, bars: pd.DataFrame, tf_min: int) -> Dict[s
     r = rows[ok].astype(int)
     c = ((m1["ts"] - key).dt.total_seconds() // 60).astype(int).to_numpy()[ok]
     shape = (len(bars), tf_min)
-    H = np.full(shape, np.nan); L = np.full(shape, np.nan); C = np.full(shape, np.nan)
+    H = np.full(shape, np.nan)
+    L = np.full(shape, np.nan)
+    C = np.full(shape, np.nan)
     H[r, c] = m1["high"].to_numpy(float)[ok]
     L[r, c] = m1["low"].to_numpy(float)[ok]
     C[r, c] = m1["close"].to_numpy(float)[ok]
@@ -135,7 +137,7 @@ def minute_matrices(m1: pd.DataFrame, bars: pd.DataFrame, tf_min: int) -> Dict[s
             "rest_h": rest_h, "rest_l": rest_l}
 
 
-def direction_prefilter(leg: str, harness: str, bars: pd.DataFrame, block: dict,
+def direction_prefilter(harness: str, bars: pd.DataFrame, block: dict,
                         close_tick: np.ndarray) -> np.ndarray:
     """EXACT necessary condition for the unit to return a package, from
     quantities that do not depend on the forming row (every channel below is
@@ -381,8 +383,8 @@ def replay_leg(leg: str, block: dict, klines_dir: str, tmp: Path, workers: int,
     del m1
     ticks = list(range(TICK_STEP, tf_min - 1, TICK_STEP))
     close_tick = mats["last_c"][:, [k - 1 for k in ticks]]
-    pre_f = direction_prefilter(leg, spec["harness"], bars, block, close_tick)
-    pre_c = direction_prefilter(leg, spec["harness"], bars, block,
+    pre_f = direction_prefilter(spec["harness"], bars, block, close_tick)
+    pre_c = direction_prefilter(spec["harness"], bars, block,
                                 bars["close"].to_numpy()[:, None])[:, 0]
     rng_i = range(WINDOW - 1, len(bars) - 1)
     f_idx = [i for i in rng_i if pre_f[i].any()]
