@@ -142,6 +142,10 @@ if _ROOT not in sys.path:
 # ``intent_reduce`` OR the ``notes.intent_reduce`` flag). Imported, never
 # re-spelled here.
 from src.runtime.bracket_outcome import is_reduce_leg  # noqa: E402
+# The ONE prop venue<->bot symbol map (config/prop_rulesets/breakout_routing.yaml
+# ``symbols[<bot>].dxtrade_symbol``): DXtrade names SOL ``SOLUSD`` while the
+# journal keys it ``SOLUSDT``. Imported, never re-spelled here.
+from src.prop.symbol_map import to_bot_symbol  # noqa: E402
 
 QTY_TOLERANCE = 1e-6
 PNL_TOLERANCE_USD = 1.0  # a $1 disagreement is float/fee noise, not a finding
@@ -530,7 +534,11 @@ def reconcile_breakout(
     open_risk = rule_distance.get("open_risk") or {}
     j_positions_raw = open_risk.get("positions") or []
     # find_open_prop_positions rows: symbol / direction / qty / entry_price / sl
-    j_rows = [{"symbol": p.get("symbol"), "side": p.get("direction"),
+    # Both sides are canonicalised to the bot symbol before matching: the
+    # journal carries ``SOLUSDT`` and the DXtrade terminal ``SOLUSD`` for the
+    # SAME position, and an exact-string match split one 0.01 SOL long into a
+    # broker_only + journal_only pair (run 36579673814, issue #14113).
+    j_rows = [{"symbol": to_bot_symbol(p.get("symbol")), "side": p.get("direction"),
                "qty": p.get("qty")} for p in j_positions_raw]
 
     raw = status.get("raw")
@@ -571,7 +579,7 @@ def reconcile_breakout(
                        "rows) — an empty read is reported cannot-read, never "
                        "trusted as flat.")
     else:
-        broker_rows = [{"symbol": p.get("symbol"), "side": p.get("side"),
+        broker_rows = [{"symbol": to_bot_symbol(p.get("symbol")), "side": p.get("side"),
                         "qty": p.get("quantity")} for p in broker_positions_field]
         matched = match_positions(j_rows, broker_rows)
         for r in matched:
@@ -579,7 +587,7 @@ def reconcile_breakout(
                 continue
             sym = r["symbol"]
             b = next((p for p in broker_positions_field
-                      if str(p.get("symbol") or "").upper() == sym), {})
+                      if str(to_bot_symbol(p.get("symbol")) or "").upper() == sym), {})
             r["has_stop"] = _num(b.get("stop_loss")) is not None
             r["has_target"] = _num(b.get("take_profit")) is not None
 
