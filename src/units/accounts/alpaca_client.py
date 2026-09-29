@@ -977,6 +977,49 @@ class AlpacaClient:
         result = env.get("result")
         return result if isinstance(result, dict) else None
 
+    def position_quote(self, symbol: str) -> Dict[str, Any]:
+        """ONE fresh ``GET /v2/positions/{symbol}``: size, side and last price.
+
+        PI-20260929-PR6YRTQY-0005. The re-arm pre-flight needs, from the same
+        instant, whether a position is still there, how big, on which side,
+        and where the market is — so it never re-arms a row whose shares are
+        gone and never posts a stop that is already through the price.
+
+        Returns ``{"state", "qty", "side", "current_price"}`` where ``state``
+        is ``open`` / ``flat`` (a POSITIVE 404, as :meth:`position_present`) /
+        ``could_not_look`` (anything else — never treated as flat).
+        ``current_price`` is ``None`` when unpublished, never ``0.0``.
+        """
+        out: Dict[str, Any] = {"state": "could_not_look", "qty": None,
+                               "side": None, "current_price": None}
+        try:
+            self._require_creds("position_quote")
+        except MissingCredentialsError as exc:
+            logger.warning("%s", exc)
+            return out
+        env = self._request("GET", f"/v2/positions/{str(symbol).upper()}")
+        rc = env.get("retCode")
+        if rc == 404:
+            return {"state": "flat", "qty": 0.0, "side": None, "current_price": None}
+        res = env.get("result")
+        if rc != 0 or not isinstance(res, dict):
+            return out
+        try:
+            qty = abs(float(res.get("qty")))
+        except (TypeError, ValueError):
+            return out
+        raw_side = str(res.get("side") or "").lower()
+        side = "long" if raw_side in ("long", "buy") else (
+            "short" if raw_side in ("short", "sell") else None)
+        try:
+            px = float(res.get("current_price"))
+            px = px if px > 0 and px == px else None
+        except (TypeError, ValueError):
+            px = None
+        if qty <= 0:
+            return {"state": "flat", "qty": 0.0, "side": side, "current_price": px}
+        return {"state": "open", "qty": qty, "side": side, "current_price": px}
+
     def position_present(self, symbol: str) -> Optional[bool]:
         """POSITIVE per-symbol open/flat confirmation via ``GET /v2/positions/{symbol}``.
 

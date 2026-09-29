@@ -185,6 +185,11 @@ class _FakeAlpaca:
         return {"stop": bool(self._protected), "target": bool(self._target),
                 "legs": int(bool(self._protected)) + int(bool(self._target))}
 
+    def position_quote(self, symbol):
+        # PR6YRTQY-0005 pre-flight: a live long of the row's size, priced
+        # well above the test stops (730), so the pre-flight lets it through.
+        return {"state": "open", "qty": 20.0, "side": "long", "current_price": 800.0}
+
     def place_protective(self, order):
         self.rearmed.append(order)
         return {"retCode": 0, "result": {"orderId": "oco-x"}}

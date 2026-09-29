@@ -59,6 +59,9 @@ def _fresh_cooldown():
     om._ALPACA_TOPUP_ATTEMPTS.clear()
 
 
+_PX = {"QQQ": "740.00", "SPY": "770.00", "TLT": "80.00"}
+
+
 class _Venue(AlpacaClient):
     """Real grading code; only the HTTP hop is faked. `position` is what
     GET /v2/positions/{sym} returns (the FRESH read); a POST that succeeds
@@ -80,7 +83,12 @@ class _Venue(AlpacaClient):
         if method == "GET" and path.startswith("/v2/positions/"):
             if self.position is None:
                 return {"retCode": 404, "retMsg": "position does not exist"}
-            return {"retCode": 0, "result": self.position}
+            pos = dict(self.position)
+            # Alpaca's position carries `current_price`; default to a price on
+            # the protected side of every stop in this file (QQQ entries were
+            # ~734.6 on 09-21, SPY ~759.9 on 09-24, the TLT short ~81).
+            pos.setdefault("current_price", _PX.get(pos.get("symbol"), None))
+            return {"retCode": 0, "result": pos}
         if method == "POST":
             if self.post_rc:
                 return {"retCode": self.post_rc, "retMsg": "refused"}
@@ -331,3 +339,14 @@ def test_side_mismatch_refuses():
             dict(_row(6023, "QQQ", 22, 716.8, 787.86), direction="short")]
     _cov, out = _run(v, "QQQ", 32, rows)
     assert out == "refused_side_mismatch" and v.posts() == []
+
+
+
+def test_top_up_refuses_a_stop_already_through_the_market(monkeypatch):
+    """PR6YRTQY-0005 in top-up form: QQQ at 710 is below 6023's stop 716.80 —
+    a top-up stop there would fill on arrival. Refused, nothing placed."""
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    v = _Venue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                    "current_price": "710.00"})
+    _cov, out = _run(v, "QQQ", 32, _qqq_rows())
+    assert out == "refused_marketable_stop" and v.posts() == [] and v.deletes() == []

@@ -8474,6 +8474,18 @@ def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
                 account_id, symbol, size, fresh.get("size"),
             )
             return "refused_state_changed"
+        # A top-up stop already through the market would fill on arrival —
+        # the PR6YRTQY-0005 failure in top-up form. Price from a fresh read.
+        _q = client.position_quote(symbol)
+        _px = _q.get("current_price") if isinstance(_q, dict) else None
+        if _px is None:
+            return "refused_fresh_read_unavailable"
+        _long = want_side == "buy"
+        if (_long and _px <= float(a_sl)) or (not _long and _px >= float(a_sl)):
+            _page_rearm_refusal("marketable_stop", account_id, symbol, row["id"],
+                                f"top-up stop {a_sl} already through the market "
+                                f"(last {_px})")
+            return "refused_marketable_stop"
         place_qty = min(uncovered, float(fresh["size"]) - float(fresh.get("stop_qty") or 0.0))
         if place_qty < 1 or abs(place_qty - round(place_qty)) > 1e-9:
             return "refused_state_changed"
@@ -8698,6 +8710,156 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
             row["id"], exc,
         )
         return False
+
+
+#: Re-arm budget per journal row (PI-20260929-PR6YRTQY-0005). A healthy row
+#: needs one re-arm per lapse; 5928 needed 29 in two hours because each one was
+#: consumed on arrival. Durable (runtime_logs), so a restart does not refill it.
+_ALPACA_REARM_CAP = 3
+_ALPACA_REARM_WINDOW_S = 24 * 3600.0
+_ALPACA_REARM_REFUSAL_PAGE_COOLDOWN_S = 3600.0
+
+
+def _rearm_attempts(account_id: str, trade_id: Any) -> int:
+    state, _ok = _load_alert_state("alpaca_rearm_attempts")
+    now = time.time()
+    rec = (state or {}).get(f"{account_id}|{trade_id}") or {}
+    return sum(1 for t in rec.get("at", []) if now - float(t) < _ALPACA_REARM_WINDOW_S)
+
+
+def _record_rearm_attempt(account_id: str, trade_id: Any) -> None:
+    try:
+        state, _ok = _load_alert_state("alpaca_rearm_attempts")
+        state = dict(state or {})
+        now = time.time()
+        key = f"{account_id}|{trade_id}"
+        at = [float(t) for t in (state.get(key) or {}).get("at", [])
+              if now - float(t) < _ALPACA_REARM_WINDOW_S]
+        at.append(now)
+        state[key] = {"at": at}
+        _save_alert_state("alpaca_rearm_attempts", state)
+    except Exception:  # noqa: BLE001 — bookkeeping must never abort the sweep
+        logger.exception("_record_rearm_attempt: %s/%s", account_id, trade_id)
+
+
+def _page_rearm_refusal(kind: str, account_id: str, symbol: str,
+                        trade_id: Any, reason: str) -> None:
+    """Log every refusal; page CRITICAL (per symbol+kind cooldown)."""
+    logger.warning("_alpaca_rearm_preflight: %s/%s trade_id=%s REFUSED (%s): %s",
+                   account_id, symbol, trade_id, kind, reason)
+    if not _cooldown_admits("alpaca_rearm_refused", f"{account_id}|{symbol}|{kind}",
+                            _ALPACA_REARM_REFUSAL_PAGE_COOLDOWN_S):
+        return
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report("alpaca_rearm_refused", "detected", level=Level.CRITICAL,
+               reason=f"{account_id}/{symbol} trade {trade_id}: re-arm refused "
+                      f"({kind}) — {reason}",
+               account_id=account_id, symbol=symbol, trade_id=trade_id, kind=kind)
+    except Exception:  # noqa: BLE001
+        logger.exception("_page_rearm_refusal: alert failed for %s/%s", account_id, symbol)
+
+
+def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
+                            sym_rows: List[Any], sl: float) -> str:
+    """``"ok"`` to re-arm *row*, else the refusal kind (counted by the sweep).
+
+    PI-20260929-PR6YRTQY-0005, measured 2026-09-24 alpaca_portfolio QQQ: after
+    row 5928's own 2-sh stop filled, the sweep re-armed 5928 28 more times with
+    a stop (736.35) the market was already below; each filled on arrival and
+    together they sold sibling 6024's 56 shares above 6024's own stop (716.80).
+
+    Refusals, from ONE fresh ``position_quote`` (never the sweep snapshot):
+
+    * ``could_not_look`` — position/price unreadable; never read as flat/fine.
+    * ``flat`` — no venue position: the row's shares are gone (its stop filled
+      while the journal still says open). A sell OCO here opens a SHORT.
+    * ``side_mismatch`` — the venue position is on the other side.
+    * ``row_shares_gone`` — the venue holds fewer shares than the open rows
+      claim, the deficit is exactly THIS row's (unique) size: its shares are
+      the ones already gone. The surviving rows still re-arm.
+    * ``short_of_journal`` — a deficit that cannot be attributed to exactly one
+      row, or this row alone exceeds the venue position: re-arming any row may
+      sell a sibling's shares.
+    * ``marketable_stop`` — long: price <= stop; short: price >= stop. The stop
+      would fill on arrival; it is an exit, not protection.
+    * ``cap`` — this row was re-armed ``_ALPACA_REARM_CAP`` times in 24 h.
+
+    ``could_not_look`` is logged only (transient); every other refusal is
+    logged and paged CRITICAL under a durable cooldown.
+    """
+    direction = str(row["direction"] or "").lower()
+    want = "long" if direction in ("long", "buy") else (
+        "short" if direction in ("short", "sell") else None)
+    q = client.position_quote(symbol)
+    st = q.get("state")
+    if st == "could_not_look" or want is None:
+        logger.warning("_alpaca_rearm_preflight: %s/%s trade_id=%s position/price "
+                       "unreadable — not re-armed (could not look)",
+                       account_id, symbol, row["id"])
+        return "could_not_look"
+    if st == "flat":
+        _page_rearm_refusal("flat", account_id, symbol, row["id"],
+                            "no venue position — the row's shares are gone; a "
+                            "re-arm would open exposure, not protect it")
+        return "flat"
+    if q.get("side") != want:
+        _page_rearm_refusal("side_mismatch", account_id, symbol, row["id"],
+                            f"venue side {q.get('side')} vs row {want}")
+        return "side_mismatch"
+    same_side = []
+    for r in sym_rows:
+        d = str(r["direction"] or "").lower()
+        if ("long" if d in ("long", "buy") else "short") == want:
+            same_side.append(r)
+    journal_qty = sum(float(_safe_float(r["position_size"]) or 0.0) for r in same_side)
+    row_qty = float(_safe_float(row["position_size"]) or 0.0)
+    deficit = journal_qty - float(q["qty"])
+    if deficit > 1e-9:
+        # The venue holds FEWER shares than the open rows claim: some row's
+        # shares are already gone (its stop filled; the journal still says
+        # open). Attribute the deficit only when it is EXACTLY one row's size
+        # and that size is unique on the symbol — then that row is refused
+        # (re-arming it would sell a sibling's shares) and the others proceed.
+        # Anything else is ambiguous and every row is refused (paged).
+        gone = [r for r in same_side
+                if abs(float(_safe_float(r["position_size"]) or 0.0) - deficit) <= 1e-9]
+        if len(gone) == 1:
+            if gone[0]["id"] == row["id"]:
+                _page_rearm_refusal(
+                    "row_shares_gone", account_id, symbol, row["id"],
+                    f"venue holds {q['qty']} vs {journal_qty} journaled — this "
+                    f"row's {row_qty} shares are the ones already gone")
+                return "row_shares_gone"
+            # this row survives; its shares are within what the venue holds
+        else:
+            _page_rearm_refusal(
+                "short_of_journal", account_id, symbol, row["id"],
+                f"venue holds {q['qty']} but open rows claim {journal_qty} — "
+                "which row's shares are gone cannot be told apart")
+            return "short_of_journal"
+    if row_qty > float(q["qty"]) + 1e-9:
+        _page_rearm_refusal("short_of_journal", account_id, symbol, row["id"],
+                            f"row {row_qty} exceeds venue {q['qty']}")
+        return "short_of_journal"
+    px = q.get("current_price")
+    if px is None:
+        logger.warning("_alpaca_rearm_preflight: %s/%s no current_price — not "
+                       "re-armed (could not look)", account_id, symbol)
+        return "could_not_look"
+    if (want == "long" and px <= float(sl)) or (want == "short" and px >= float(sl)):
+        _page_rearm_refusal(
+            "marketable_stop", account_id, symbol, row["id"],
+            f"stop {sl} is already through the market (last {px}); it would "
+            "fill on arrival")
+        return "marketable_stop"
+    n = _rearm_attempts(account_id, row["id"])
+    if n >= _ALPACA_REARM_CAP:
+        _page_rearm_refusal("cap", account_id, symbol, row["id"],
+                            f"{n} re-arms in 24 h (cap {_ALPACA_REARM_CAP})")
+        return "cap"
+    return "ok"
 
 
 def _oldest_open_created_at(rows, account_id: str, symbol: str) -> Optional[str]:
@@ -9063,7 +9225,23 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     row["id"], symbol,
                 )
                 continue
+            # PRE-FLIGHT (PI-20260929-PR6YRTQY-0005): a FRESH position read
+            # and price, never the sweep snapshot. Refuses a row whose shares
+            # are gone, a stop already through the market, and a row past its
+            # re-arm budget — the three things that let 5928 re-arm 28 times on
+            # 2026-09-24 and liquidate 6024's 56 shares above 6024's own stop.
+            _pf = _alpaca_rearm_preflight(
+                client, account_id, symbol, row,
+                [r for r in rows
+                 if str(r["account_id"] or "") == account_id
+                 and str(r["symbol"] or "").upper() == symbol.upper()],
+                a_sl,
+            )
+            if _pf != "ok":
+                summary[f"rearm_refused_{_pf}"] = summary.get(f"rearm_refused_{_pf}", 0) + 1
+                continue
             if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
+                _record_rearm_attempt(account_id, row["id"])
                 summary["rearmed"] += 1
                 logger.info(
                     "_check_broker_naked_equity_positions: re-armed GTC OCO "
