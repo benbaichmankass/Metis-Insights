@@ -2550,6 +2550,19 @@ class DXtradeAdapter(PropPlatformAdapter):
             lines.append(f"dump_tables.tab_like: FAILED ({type(exc).__name__})")
         for key in ("tab_positions", "tab_orders"):
             shown = self._show_tab(page, key)
+            # The row's own controls appear on HOVER (operator 2026-09-29: a
+            # reverse / modify / close icon trio at the row's right end), so
+            # hover the first body row of each table before reading. A hover
+            # is not a click; nothing is pressed.
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-hover]').forEach(e => e.removeAttribute('data-metis-hover'));"
+                              " const r = [...document.querySelectorAll('table tr')].find(r => r.querySelector('td'));"
+                              " if (r) r.setAttribute('data-metis-hover', '1'); }")
+                if page.locator("[data-metis-hover]").count() == 1:
+                    page.hover("[data-metis-hover]", timeout=3_000)
+                    page.wait_for_timeout(300)
+            except Exception:
+                pass
             tables = self._tables(page)
             lines.append(f"dump_tables[{SELECTORS[key]}]: tab_click={shown} tables={len(tables)}")
             for i, t in enumerate(tables):
