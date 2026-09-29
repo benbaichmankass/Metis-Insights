@@ -62,21 +62,21 @@ cite CA findings and to audit only what CA did not cover:
 
 ## 1. Scope, lanes and spend
 
-| Lane | Area | Model | Ceiling | Spend (USD, **running**, read 10:12–10:27Z) | PR |
+| Lane | Area | Model | Ceiling | Spend (USD, **final**, read at archive 11:02–11:05Z) | PR |
 |---|---|---|---|---|---|
-| AUD-1 | order-path safety | opus-5-5 | 45 | 6.17 | #14104 |
+| AUD-1 | order-path safety | opus-5-5 | 45 | 6.23 | #14104 |
 | AUD-2 | trading correctness | sonnet-5-5 | 30 | 1.97 | #14067 |
 | AUD-3 | runtime provenance | sonnet-5-5 | 25 | 3.35 | #14082 |
-| AUD-4 | ML serving fidelity | sonnet-5-5 | 30 | 5.10 | #14079 |
+| AUD-4 | ML serving fidelity | sonnet-5-5 | 30 | 5.76 | #14079 |
 | AUD-5 | infra/VMs | sonnet-5-5 | 20 | 2.96 | #14084 |
-| AUD-6 | CI guards | haiku-4-5 | 12 | 1.45 | #14083 (**held**, §9) |
+| AUD-6 | CI guards | haiku-4-5 | 12 | 2.40 | #14083 (**held**, §9) |
 | AUD-6b | CI guards (re-dispatch) | haiku-4-5 | 10 | 0.92 | #14099 (**held**, §9) |
 | AUD-7 | security | sonnet-5-5 | 20 | 2.95 | #14088 |
 | AUD-8 | operating model | sonnet-5-5 | 15 | 1.44 | #14068 |
-| **Lanes** | | | **207** | **26.31** | |
+| **Lanes** | | | **207** | **27.98** | |
 | AUD-LEAD | consolidation, re-verification, guard plants | opus-5-5 | remainder of 270 | not readable from inside a running session; the manager reads it at archive | this PR |
 
-- Every lane figure is a **running** total, read from `get_session` before archiving. They become final only once the lanes are archived.
+- Every lane figure was read from `get_session` after the lane was archived, so all of them are final.
 - The total is far under the $270 cap. The lanes worked from the direct diag route and read excerpts, not whole files.
 
 ## 2. Method
