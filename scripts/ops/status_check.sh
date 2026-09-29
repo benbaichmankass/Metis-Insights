@@ -37,6 +37,10 @@ CANONICAL_UNITS=(
 )
 
 log "Collecting service status…"
+# Running kernel (manager 2026-09-29): after the 1057 -> 1062 kernel reboot no
+# relay could read which kernel the box actually booted.
+echo "===== kernel ====="
+echo "uname -r: $(uname -r 2>/dev/null || echo '(unreadable)')"
 echo "===== systemctl is-active ====="
 overall_ok=0
 for unit in "${CANONICAL_UNITS[@]}"; do
