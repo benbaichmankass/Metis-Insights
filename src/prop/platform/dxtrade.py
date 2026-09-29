@@ -105,6 +105,11 @@ SELECTORS: Dict[str, str] = {
     # ── post-login view tabs (NOT MEASURED: matched by accessible name) ──
     "tab_positions": "Positions",
     "tab_orders": "Orders",
+    # Bottom-panel history tabs (operator screenshot 2026-09-29: Positions |
+    # Orders | Order History | Trade History). Read by dump-tables only, as
+    # observation, e.g. to journal a close the operator made by hand.
+    "tab_order_history": "Order History",
+    "tab_trade_history": "Trade History",
 }
 
 # Text markers of an interstitial bot challenge (Cloudflare and similar).
@@ -2715,7 +2720,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             lines.append(f"dump_tables.tab_like: {[r(t, 30) for t in (tabs or [])]}")
         except Exception as exc:
             lines.append(f"dump_tables.tab_like: FAILED ({type(exc).__name__})")
-        for key in ("tab_positions", "tab_orders"):
+        for key in ("tab_positions", "tab_orders", "tab_order_history", "tab_trade_history"):
             shown = self._show_tab(page, key)
             # The row's own controls appear on HOVER (operator 2026-09-29: a
             # reverse / modify / close icon trio at the row's right end), so
@@ -2744,7 +2749,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                                  f"unpaired_body_rows={t.get('unpaired_body_rows')} "
                                  f"headerless_tables_rows={t.get('headerless_tables')} "
                                  f"first_row_controls={[r(c, 30) for c in (t.get('first_row_controls') or [])]}")
-                for row in rows[:3]:
+                # First 3 rows, and the last 3 when there are more (a history
+                # tab may list the newest fill at either end).
+                shown_rows = rows[:3] + (rows[-3:] if len(rows) > 6 else rows[3:6])
+                for row in shown_rows:
                     lines.append(f"dump_tables.row[{i}]: {[r(c) for c in row]}")
         lines.append("dump_tables: END")
         return lines
