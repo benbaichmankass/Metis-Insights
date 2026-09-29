@@ -23,7 +23,8 @@ from typing import Any, Dict, List, Optional
 class FeasibilityError(RuntimeError):
     """The terminal refused to be driven in a way we will not work around.
 
-    ``reason`` is a short machine-readable token (``challenge``, ``captcha``,
+    ``reason`` is a short machine-readable token (``asn_blocked``,
+    ``access_denied``, ``challenge``, ``captcha``,
     ``2fa``, ``login_rejected``, ``password_expired``, ``no_credentials``,
     ``timeout``, ``unknown_page``). A feasibility finding is reported, never
     retried in a loop and never evaded.

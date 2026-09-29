@@ -132,6 +132,35 @@ def test_classify_page(visible, text, title, want):
     assert bt.classify_page(visible, text, title) == want
 
 
+# The live VM's landing at app.breakoutprop.com, 2026-09-29 (issue #14402,
+# run 36623749022), as the redacted page shape printed it.
+_ASN_TITLE = "Access denied | app.breakoutprop.com used Cloudflare to restrict access | app.breakoutprop.com | Cloudflare"
+_ASN_TEXT = ("Error 1005 Ray ID: a42d997bebc96f34 • 2026-09-29 20:04:53 UTC\nAccess denied\nWhat happened?\n"
+             "The owner of this website (app.breakoutprop.com) has banned the autonomous system number (ASN) "
+             "your IP address is in (31…\nWas this page helpful? Yes No")
+
+
+def test_cloudflare_asn_ban_is_a_stop_not_unknown():
+    assert bt.classify_page({}, _ASN_TEXT, _ASN_TITLE) == "asn_blocked"
+    assert bt.classify_page({}, "", _ASN_TITLE) == "access_denied"   # another Cloudflare ban page
+    assert bt.classify_page({}, "Error 1005", "") == "asn_blocked"
+    assert "asn_blocked" in bt.BreakoutTerminalAdapter._STOPS
+    assert "access_denied" in bt.BreakoutTerminalAdapter._STOPS
+
+
+def test_probe_ends_the_landing_on_a_block():
+    sys.path.insert(0, str(REPO / "scripts" / "prop"))
+    import breakout_terminal_probe as probe
+    for state in ("asn_blocked", "access_denied", "challenge", "captcha"):
+        assert probe.landing_exit(state) == probe.EXIT_FEASIBILITY == 4, state
+    for state in ("login_form", "dashboard", "unknown", "terminal"):
+        assert probe.landing_exit(state) is None, state
+    # The status label survives redaction (#14402 printed "<token>: 403").
+    from src.prop.platform.dxtrade import redact_text
+    assert redact_text("probe.landing.http: 403") == "probe.landing.http: 403"
+    assert "probe.landing.http_status" not in (REPO / "scripts" / "prop" / "breakout_terminal_probe.py").read_text()
+
+
 def test_tpsl_split():
     assert bt.split_tpsl("67,000.0 / 64,000.0") == (67000.0, 64000.0)
     assert bt.split_tpsl("-- / 64,000") == (None, 64000.0)
@@ -304,6 +333,18 @@ def test_email_code_is_a_feasibility_stop(browser):
     with pytest.raises(FeasibilityError) as ei:
         bt.BreakoutTerminalAdapter(timeout_ms=4_000).login(page, "https://app.breakoutprop.com/", "u", "p")
     assert ei.value.reason == "email_code"
+    ctx.close()
+
+
+def test_asn_block_page_is_a_feasibility_stop_in_a_browser(browser):
+    ctx = _site(browser, {"/": "asn_blocked.html.txt"})
+    page = ctx.new_page()
+    a = bt.BreakoutTerminalAdapter(timeout_ms=4_000)
+    page.goto("https://app.breakoutprop.com/")
+    assert a.page_state(page) == "asn_blocked"
+    with pytest.raises(FeasibilityError) as ei:
+        a.login(page, "https://app.breakoutprop.com/", "u", "p")
+    assert ei.value.reason == "asn_blocked"
     ctx.close()
 
 

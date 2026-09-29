@@ -30,7 +30,10 @@ defaults per platform, :data:`DEFAULT_LOGIN_URL`).
   The first probe run replaces them with captured, redacted ones.
 
 **Feasibility stops (reported as ``feasibility: <reason>``, never worked
-around):** ``challenge`` / ``captcha`` (bot check), ``email_code`` (an
+around):** ``asn_blocked`` / ``access_denied`` (Cloudflare block page: the
+site bans the VM's network, MEASURED from the live VM 2026-09-29, issue
+#14402; reaching it needs a different egress, an operator decision),
+``challenge`` / ``captcha`` (bot check), ``email_code`` (an
 emailed code or number-match at sign-in: spec S27 — if it appears on every
 login this adapter is infeasible), ``2fa``, ``login_rejected``,
 ``no_account`` (logged in, but no proprietary-terminal account to open),
@@ -125,6 +128,18 @@ PLATFORM = "breakout_terminal"
 DEFAULT_LOGIN_URL = "https://app.breakoutprop.com/"
 
 # ── page classification vocabulary (NOT MEASURED: generic markers) ────────
+
+# Cloudflare's "Access denied" block page: the site owner has banned the
+# visitor's network. MEASURED 2026-09-29 (issue #14402, run 36623749022): from
+# the live VM, app.breakoutprop.com served "Error 1005 ... has banned the
+# autonomous system number (ASN) your IP address is in", HTTP 403. That is NOT
+# a challenge that can clear: no retry, no other page, and no egress
+# workaround (a routing decision is the operator's). Checked BEFORE the
+# challenge markers.
+_ASN_BLOCK_MARKERS = ("error 1005", "banned the autonomous system number")
+# Cloudflare's other access-denied block pages (e.g. 1006-1008: IP or country
+# banned). Named apart from the ASN ban so the report says which one it was.
+_ACCESS_DENIED_MARKERS = ("used cloudflare to restrict access",)
 
 _CHALLENGE_MARKERS = (
     "just a moment", "checking your browser", "verify you are human",
@@ -298,7 +313,7 @@ def parse_account_metrics(page_text: str) -> AccountSnapshot:
 
 
 def classify_page(visible: Mapping[str, bool], page_text: str = "", title: str = "") -> str:
-    """One of ``challenge``, ``captcha``, ``email_code``, ``2fa``,
+    """One of ``asn_blocked``, ``access_denied``, ``challenge``, ``captcha``, ``email_code``, ``2fa``,
     ``login_error``, ``login_form``, ``no_account``, ``terminal``,
     ``dashboard``, ``unknown``. Pure.
 
@@ -310,6 +325,10 @@ def classify_page(visible: Mapping[str, bool], page_text: str = "", title: str =
     Open-Terminal control on the page.
     """
     low = f"{title}\n{page_text}".lower()
+    if any(m in low for m in _ASN_BLOCK_MARKERS):
+        return "asn_blocked"
+    if any(m in low for m in _ACCESS_DENIED_MARKERS):
+        return "access_denied"
     if any(m in low for m in _CHALLENGE_MARKERS):
         return "challenge"
     if visible.get("captcha_frame"):
@@ -621,7 +640,8 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
             return "?"
 
     # ---- login ------------------------------------------------------------
-    _STOPS = {"challenge": "challenge", "captcha": "captcha", "email_code": "email_code",
+    _STOPS = {"asn_blocked": "asn_blocked", "access_denied": "access_denied",
+              "challenge": "challenge", "captcha": "captcha", "email_code": "email_code",
               "2fa": "2fa", "no_account": "no_account"}
 
     def _wait_state(self, page: Any, until: Sequence[str], budget_ms: int) -> str:
