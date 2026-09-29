@@ -3074,17 +3074,22 @@ class DXtradeAdapter(PropPlatformAdapter):
             ctl = page.evaluate(CLOSE_ROW_JS, ["controls", symbol]) or {}
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"hover / controls failed ({type(exc).__name__})", "row": facts}
+        # What the row showed and which control was chosen ride EVERY result
+        # from here on, the armed success included (live test #14344: the pass
+        # proved the rules held but its log carried no control markup, so the
+        # trio's names could not be read back from the run — PI-20260929-2PNSPDNU-0004).
+        seen = {"controls": _mask_controls(ctl.get("controls")), "chosen": ctl.get("chosen")}
         if not ctl.get("ok"):
             return {"ok": False, "clicked": False, "why": _mask_public_text(f"close control: {ctl.get('why')}"), "row": facts,
-                    "controls": _mask_controls(ctl.get("controls"))}
+                    **seen}
         if not arm:
             return {"ok": True, "clicked": False, "why": "disarmed: stopped before the row's close control",
-                    "row": facts, "controls": _mask_controls(ctl.get("controls")), "chosen": ctl.get("chosen")}
+                    "row": facts, **seen}
         try:
             page.click("[data-metis-row-action]", timeout=5_000)
         except Exception as exc:
             return {"ok": False, "clicked": True, "why": f"close control click raised {type(exc).__name__}; outcome unknown",
-                    "row": facts}
+                    "row": facts, **seen}
         page.wait_for_timeout(800)
         try:
             modal = page.evaluate(CLOSE_ROW_JS, ["modal", symbol]) or {}
@@ -3095,13 +3100,13 @@ class DXtradeAdapter(PropPlatformAdapter):
             discarded = self._discard_modal(page)
             return {"ok": False, "clicked": True, "why": _mask_public_text("close modal refused: " + "; ".join(bad)) + (
                 "; Discard pressed" if discarded else "; no Discard control found (modal may still be open)"),
-                    "row": facts, "modal": modal}
+                    "row": facts, "modal": modal, **seen}
         try:
             page.click("[data-metis-modal-btn=confirm]", timeout=5_000)
         except Exception as exc:
             return {"ok": False, "clicked": True, "why": f"Close Position click raised {type(exc).__name__}; outcome unknown",
-                    "row": facts, "modal": modal}
-        return {"ok": True, "clicked": True, "why": "Close Position confirmed", "row": facts, "modal": modal}
+                    "row": facts, "modal": modal, **seen}
+        return {"ok": True, "clicked": True, "why": "Close Position confirmed", "row": facts, "modal": modal, **seen}
 
     @staticmethod
     def _discard_modal(page: Any) -> bool:

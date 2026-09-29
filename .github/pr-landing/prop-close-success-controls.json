@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01HYq6XtfesZ57VyaQrK6CL1): every PR in this lane is held; the manager merges after independent review. Do not arm auto-merge.",
+  "why": "PI-20260929-2PNSPDNU-0004: the watched close's ARMED SUCCESS result carried no controls / chosen (only a refusal or a disarmed run did), so the first live pass of the merged close path (#14344, 2026-09-29 18:17Z) logged 'Close Position confirmed' without the row's control tags and masked markup, and the manager's ask to read the trio's names and rule out a wrapper from the run log could not be met. Now the masked controls list and the chosen index ride every result after the controls op — success, click-raised, modal-refused, confirm-raised — as they already did on refusal and disarmed. No click, rule, sizing or guard change; two assertions added to the existing armed tests (titled trio and the live shape). Tier 2 because it is the live close path's log shape."
+}

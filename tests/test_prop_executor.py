@@ -2250,6 +2250,10 @@ def test_watched_close_armed_reads_the_modal_back_and_presses_close_position_onc
     assert got["ok"] is True and got["clicked"] is True and got["why"] == "Close Position confirmed", got
     assert got["modal"]["heading"] == "Close SOLUSD Buy Position" and got["modal"]["lots"] == "0.01"
     assert got["modal"]["caption"] == ["0.01", "0.01"] and got["modal"]["confirm"] == 1
+    # the armed SUCCESS carries what the row showed and which control was
+    # chosen (live test #14344: the pass had no control markup in its log)
+    assert [c["tag"] for c in got["controls"]] == ["button", "button", "button"] and got["chosen"] == 2
+    assert all(c["html"].startswith("<button") for c in got["controls"])
     assert p.evaluate("window.__closed") == 1 and p.evaluate("window.__discard") is None
     assert p.evaluate("window.__reverse") is None and p.evaluate("window.__modify") is None and p.evaluate("window.__chart_x") is None
     assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 0     # the row is gone
@@ -2332,6 +2336,9 @@ def test_watched_close_descends_into_the_actions_cell_and_picks_the_last_icon(tp
     assert got["ok"] is True and got["why"] == "Close Position confirmed", got
     assert p.evaluate("window.__closed") == 1 and p.evaluate("window.__reverse") is None and p.evaluate("window.__modify") is None
     assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 0
+    # the live shape's names are readable from the armed success log too
+    assert got["chosen"] == 2 and [c["tag"] for c in got["controls"]] == ["button"] * 3
+    assert "icon-close" in got["controls"][2]["hint"] + got["controls"][2]["html"]
 
 
 @pytest.mark.parametrize("icons,expect", [
