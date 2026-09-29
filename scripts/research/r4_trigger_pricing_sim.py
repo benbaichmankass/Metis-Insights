@@ -12,6 +12,7 @@ Stage-0 p10 of 20-trade sums; T2 p5; T3 T1 on 2 consecutive NON-overlapping
 edge 0 and -0.1R/trade, P(demoted within 1y / 5y) and the median time.
 Run from the repo root: python3 scripts/research/r4_trigger_pricing_sim.py
 """
+# wiring: manual-only - one-off read-only pricing for an operator decision on the MD-DEMOTE-S2-S1 trigger (SIGNAL-0005); re-run by hand when a Stage-2 record changes
 import json
 
 import numpy as np
