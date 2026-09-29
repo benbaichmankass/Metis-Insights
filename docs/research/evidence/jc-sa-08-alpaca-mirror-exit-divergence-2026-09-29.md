@@ -1,6 +1,6 @@
 # JC-SA-08 — do Stage-2 Alpaca mirror exits match the live exit? (evidence, 2026-09-29)
 
-> **Doc status:** `live` · category `evidence` · measured `2026-09-29T11:5xZ` · lane FIX-SA-03 (session_01Pr6YRTQYauPEEkK1xNyyAQ) for manager session_01HYq6XtfesZ57VyaQrK6CL1 · audit item JC-SA-08 (`docs/audits/system-audit-2026-09-29.md`, PR #14108)
+> **Doc status:** `unknown` · category `evidence` · measured `2026-09-29T11:5xZ` · lane FIX-SA-03 (session_01Pr6YRTQYauPEEkK1xNyyAQ) for manager session_01HYq6XtfesZ57VyaQrK6CL1 · audit item JC-SA-08 (`docs/audits/system-audit-2026-09-29.md`, PR #14108)
 
 ## Question
 On Stage-2 Alpaca, how often does the paper mirror (`alpaca_portfolio`) not take the identical exit the live account (`alpaca_live`) took, and why?
