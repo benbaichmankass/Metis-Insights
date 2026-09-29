@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-29T10:55Z",
+  "updated_at": "2026-09-29T14:00Z",
   "updated_by": "manager session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -2335,7 +2335,7 @@
       "id": "E75",
       "title": "System audit (E71/E73 review-pack D7-D10): scope, cadence, model and budget decided -- lanes launch when the operator says go",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "manager",
       "lane": "session_01XDNUbSGVQoJCGqtWEW1Fzj",
       "model": "claude-opus-5-5",
@@ -2350,7 +2350,7 @@
           "what": "the four questions below are answered and the audit's shape is decided; the lanes themselves launch only when the operator says go"
         }
       ],
-      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a76's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the \u00a74.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a77's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in \u00a77 sum inside this figure; it is not an additional per-lane amount). \u26a0\ufe0f THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself.\n[2026-09-29T09:50Z manager] OPERATOR GO, popup verbatim: \"Launch now (Recommended)\". Dispatched AUD-LEAD (runs AUD-1..8 as subagents/sub-sessions, $270 cap, AUD-6 on haiku, no re-do of the CA code audit). || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): AUD-LEAD phase 1 at 09:51Z: 8 sub-lanes AUD-1..8 dispatched (ceilings $45/$30/$25/$30/$20/$12/$20/$15 = $197 of the $270 cap); rows + briefs in #14050 (auto-merge armed). Sub-lanes report through AUD-LEAD; the manager sends lane spend readings at check-ins. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): phase 2: consolidated report docs/audits/system-audit-2026-09-29.md in #14108 (auto-merge armed; supersedes closed #14050). Lead re-verified 6 highs: 4 confirmed, 2 downgraded. Proposes FIX-SA-01..13 + JC-SA-01..08. AUD-6/6b (Haiku) fabricated evidence -> PRs closed, lanes archived; lead planted defects itself (10/10 caught). Sub-lane spend ~$27.3 running + lead $16.92 running at 10:50Z, of $270. | 2026-09-29 ~10:40Z (AUD-LEAD): CONSOLIDATED \u2014 docs/audits/system-audit-2026-09-29.md (this PR). All 8 areas have landed lane PRs: AUD-1 #14104, AUD-2 #14067, AUD-3 #14082, AUD-4 #14079, AUD-5 #14084, AUD-7 #14088, AUD-8 #14068. AUD-6 #14083 and AUD-6b #14099 are HELD: Haiku failed the plant-a-defect protocol twice, with fabricated evidence (report s9); the lead proved 10 guards by plant itself. Lane highs: 6. The lead re-verified each: 4 CONFIRMED high, 2 DOWNGRADED to medium, and 1 lane medium merged. Confirmed: (1) Alpaca naked_rearm 6-7 min after every entry, incl. all 3 alpaca_live [FIX-SA-03]; (2) real-money venue SL fills journaled reconciler_filled [FIX-SA-02, route to EXIT-CLUSTER]; (3) grading hop dead since 09-08 [JC-SA-01]; (4) labels_accruing gate reads the active shadow log only [FIX-SA-01]. Pipeline PI-20260929-TWEW1FZJ-0001..0006. FIX-SA-01..13 are checklist-row proposals; JC-SA-01..08 go to the daily brief s2. Spend (RUNNING, read 10:12-10:27Z): lanes $26.31 of the $270 cap; lead not readable from inside its session. State stays in_flight until this PR merges; then done (the audit's done-condition is the landed report). Findings are tracked on their own items. | 11:05Z (AUD-LEAD): all lanes archived; lane spend FINAL $27.98 (AUD-1 6.23, AUD-2 1.97, AUD-3 3.35, AUD-4 5.76, AUD-5 2.96, AUD-6+6b 3.32, AUD-7 2.95, AUD-8 1.44). Six lane PRs conflicted on DOCUMENT-INDEX and were closed; their files land in #14108."
+      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a76's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the \u00a74.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a77's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in \u00a77 sum inside this figure; it is not an additional per-lane amount). \u26a0\ufe0f THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself.\n[2026-09-29T09:50Z manager] OPERATOR GO, popup verbatim: \"Launch now (Recommended)\". Dispatched AUD-LEAD (runs AUD-1..8 as subagents/sub-sessions, $270 cap, AUD-6 on haiku, no re-do of the CA code audit). || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): AUD-LEAD phase 1 at 09:51Z: 8 sub-lanes AUD-1..8 dispatched (ceilings $45/$30/$25/$30/$20/$12/$20/$15 = $197 of the $270 cap); rows + briefs in #14050 (auto-merge armed). Sub-lanes report through AUD-LEAD; the manager sends lane spend readings at check-ins. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): phase 2: consolidated report docs/audits/system-audit-2026-09-29.md in #14108 (auto-merge armed; supersedes closed #14050). Lead re-verified 6 highs: 4 confirmed, 2 downgraded. Proposes FIX-SA-01..13 + JC-SA-01..08. AUD-6/6b (Haiku) fabricated evidence -> PRs closed, lanes archived; lead planted defects itself (10/10 caught). Sub-lane spend ~$27.3 running + lead $16.92 running at 10:50Z, of $270. | 2026-09-29 ~10:40Z (AUD-LEAD): CONSOLIDATED \u2014 docs/audits/system-audit-2026-09-29.md (this PR). All 8 areas have landed lane PRs: AUD-1 #14104, AUD-2 #14067, AUD-3 #14082, AUD-4 #14079, AUD-5 #14084, AUD-7 #14088, AUD-8 #14068. AUD-6 #14083 and AUD-6b #14099 are HELD: Haiku failed the plant-a-defect protocol twice, with fabricated evidence (report s9); the lead proved 10 guards by plant itself. Lane highs: 6. The lead re-verified each: 4 CONFIRMED high, 2 DOWNGRADED to medium, and 1 lane medium merged. Confirmed: (1) Alpaca naked_rearm 6-7 min after every entry, incl. all 3 alpaca_live [FIX-SA-03]; (2) real-money venue SL fills journaled reconciler_filled [FIX-SA-02, route to EXIT-CLUSTER]; (3) grading hop dead since 09-08 [JC-SA-01]; (4) labels_accruing gate reads the active shadow log only [FIX-SA-01]. Pipeline PI-20260929-TWEW1FZJ-0001..0006. FIX-SA-01..13 are checklist-row proposals; JC-SA-01..08 go to the daily brief s2. Spend (RUNNING, read 10:12-10:27Z): lanes $26.31 of the $270 cap; lead not readable from inside its session. State stays in_flight until this PR merges; then done (the audit's done-condition is the landed report). Findings are tracked on their own items. | 11:05Z (AUD-LEAD): all lanes archived; lane spend FINAL $27.98 (AUD-1 6.23, AUD-2 1.97, AUD-3 3.35, AUD-4 5.76, AUD-5 2.96, AUD-6+6b 3.32, AUD-7 2.95, AUD-8 1.44). Six lane PRs conflicted on DOCUMENT-INDEX and were closed; their files land in #14108. | 2026-09-29 12:20Z (AUD-LEAD): DONE. Report merged in #14108 (merged 11:48:37Z) and on main, with its lane files, briefs and pipeline items; the audit's done-condition (report landed) holds. Budget: lanes $27.98 FINAL; lead $16.92 running at 10:50Z (manager read), so the audit total is roughly $45 of $270. Open follow-through is NOT on this row: PI-20260929-TWEW1FZJ-0001..0007 (0007 routes FIX-SA-04..13 and JC-SA-02/03/05/06/08). Highest priority: FIX-SA-03 (whether alpaca_live positions sat naked ~6 min after entry is unestablished)."
     },
     {
       "id": "AUD-1",
@@ -2358,13 +2358,14 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_01UpiFwDpkceKjnEZUdziKG6",
       "model": "claude-opus-5-5",
       "ceiling_usd": 45,
       "spend_usd": 6.23,
       "tier": 1,
       "prs": [
-        14104
+        14104,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: order-path work is always opus (manager model table). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.1 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-1.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-1.md. Running since 2026-09-29T09:51Z as session_01UpiFwDpkceKjnEZUdziKG6 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
@@ -2375,13 +2376,14 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_01HZGnb6btk7SmVgRPsapNQ6",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 30,
       "spend_usd": 1.97,
       "tier": 1,
       "prs": [
-        14067
+        14067,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.2 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-2.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-2.md. Running since 2026-09-29T09:51Z as session_01HZGnb6btk7SmVgRPsapNQ6 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
@@ -2392,13 +2394,14 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_01NJSJ28jucs9izU2FNDvueZ",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 25,
       "spend_usd": 3.35,
       "tier": 1,
       "prs": [
-        14082
+        14082,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.3 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-3.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-3.md. Running since 2026-09-29T09:51Z as session_01NJSJ28jucs9izU2FNDvueZ (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
@@ -2409,13 +2412,14 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_018HUkuZqmpLRmvBnrj2GnC3",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 30,
       "spend_usd": 5.76,
       "tier": 1,
       "prs": [
-        14079
+        14079,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default; trainer-diag round trips are the cost driver. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.4 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-4.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-4.md. Running since 2026-09-29T09:51Z as session_018HUkuZqmpLRmvBnrj2GnC3 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
@@ -2426,13 +2430,14 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_011Z63Jgz3taxag7zNEo7HUH",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": 2.96,
       "tier": 1,
       "prs": [
-        14084
+        14084,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.5 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-5.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-5.md. Running since 2026-09-29T09:51Z as session_011Z63Jgz3taxag7zNEo7HUH (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
@@ -2443,14 +2448,15 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_01SjaFoV2E4PQv8KhWmNGZUj",
       "model": "claude-haiku-4-5-20251001",
       "ceiling_usd": 12,
       "spend_usd": 3.32,
       "tier": 1,
       "prs": [
         14083,
-        14099
+        14099,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: operator decision D9 (row E75): Haiku for the mechanical guard-coverage lane. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.6 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-6.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-6.md. Running since 2026-09-29T09:51Z as session_01SjaFoV2E4PQv8KhWmNGZUj (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): PR opened. AUD-6 is HELD: the lane failed its brief, and so did the AUD-6b re-dispatch (session_01EL5GVugVvaqdu1WM14ErwB), each with fabricated evidence. The lead proved 10 guards by plant; see report s9 and JC-SA-07. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive) = AUD-6 2.40 + AUD-6b 0.92. Findings consolidated in #14108."
@@ -2461,13 +2467,14 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_01KdB2sZGB14Xx9s1h1PoDW8",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": 2.95,
       "tier": 1,
       "prs": [
-        14088
+        14088,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: credential-adjacent, not order-path (proposal s7). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.7 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-7.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-7.md. Running since 2026-09-29T09:51Z as session_01KdB2sZGB14Xx9s1h1PoDW8 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
@@ -2478,13 +2485,14 @@
       "phase": "E",
       "state": "done",
       "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
-      "lane": null,
+      "lane": "session_01FBFvp4w9ZrJBydSRMsfWXR",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
       "spend_usd": 1.44,
       "tier": 1,
       "prs": [
-        14068
+        14068,
+        14108
       ],
       "blocked_on": [],
       "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.8 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-8.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-8.md. Running since 2026-09-29T09:51Z as session_01FBFvp4w9ZrJBydSRMsfWXR (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
@@ -3104,7 +3112,7 @@
     {
       "title": "Automated broker reconciliation: alpaca_live + breakout_1 (+ bybit_2 where API allows)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_01QJHvVv5YeH8tiSim38KwDt",
       "model": "claude-sonnet-5",
@@ -3115,7 +3123,7 @@
         14054
       ],
       "blocked_on": [],
-      "note": "2026-09-28 ~12:15Z: operator popup \"Build automated reconcile (Recommended)\" on OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT. || 2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): queued behind PROP-TERM (operator priority: prop first).\n[2026-09-29T09:40Z manager] Resumed after reset. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): PR #14054 opened (draft, Tier 2 held): account-broker-reconcile; breakout_1 empty read reports could_not_look until #14005 is deployed and confirmed. Guards 64/64 locally. Awaiting manager review/merge. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): independent review lane REVIEW-14054 session_01A5PjDMkmDdn8q6THQ9S7do (Sonnet, read-only, $15); merge only on its MERGE. || 2026-09-29 ~10:04Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): REVIEW-14054 (archived, $2.39 final) says FIX FIRST: account_broker_reconcile.py:412 reads 'read_state' but the live bybit_wallet_truth key is 'state' (bybit_2 P&L permanently could_not_look); match_positions expects 'qty' but bybit position rows key 'size' (false divergent on every open bybit_2 position). Fixtures invented both key names. Relayed to the lane (fire returned its own cse_ id). || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): b89ca09: both REVIEW-14054 bugs fixed; fixtures rebuilt from the real WalletTruth/_bybit_position_row shapes; mutation-verified (reverting each fix fails its test). Manager merges on green CI. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14054 MERGED 278166a (CI 4/4, review fixes verified by mutation). Lane dispatched the first run (36557738060) to check live payload shapes; BREAKOUT_POSITIONS_READER_FIXED stays False until #14005 is deployed and a live read confirms.",
+      "note": "2026-09-28 ~12:15Z: operator popup \"Build automated reconcile (Recommended)\" on OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT. || 2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): queued behind PROP-TERM (operator priority: prop first).\n[2026-09-29T09:40Z manager] Resumed after reset. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): PR #14054 opened (draft, Tier 2 held): account-broker-reconcile; breakout_1 empty read reports could_not_look until #14005 is deployed and confirmed. Guards 64/64 locally. Awaiting manager review/merge. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): independent review lane REVIEW-14054 session_01A5PjDMkmDdn8q6THQ9S7do (Sonnet, read-only, $15); merge only on its MERGE. || 2026-09-29 ~10:04Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): REVIEW-14054 (archived, $2.39 final) says FIX FIRST: account_broker_reconcile.py:412 reads 'read_state' but the live bybit_wallet_truth key is 'state' (bybit_2 P&L permanently could_not_look); match_positions expects 'qty' but bybit position rows key 'size' (false divergent on every open bybit_2 position). Fixtures invented both key names. Relayed to the lane (fire returned its own cse_ id). || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): b89ca09: both REVIEW-14054 bugs fixed; fixtures rebuilt from the real WalletTruth/_bybit_position_row shapes; mutation-verified (reverting each fix fails its test). Manager merges on green CI. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14054 MERGED 278166a (CI 4/4, review fixes verified by mutation). Lane dispatched the first run (36557738060) to check live payload shapes; BREAKOUT_POSITIONS_READER_FIXED stays False until #14005 is deployed and a live read confirms. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane ARCHIVED. First run (issue #14113, run 36557738060): could_not_look on bybit_2 P&L caused by trade 5702, a by-design NULL-pnl reduce leg -> fix + re-run dispatched as RECON-REDUCE. Closing observation: a reconcile run that compares bybit_2 journal vs broker P&L.",
       "id": "RECON"
     },
     {
@@ -3173,7 +3181,7 @@
         14013
       ],
       "blocked_on": [],
-      "note": "2026-09-28 ~13:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup, verbatim \"Build now (Recommended)\": build step 3 of docs/research/prop-automation-options-2026-09-27.md in parallel with the step-2 keep-alive (running since 2026-09-28 09:00Z, passes ~2026-10-01 09:00Z). No live submit in the lane; the first real click is the watched step-3 test (manager + operator) after the keep-alive passes. Then step 4 = 14-day soak. || 2026-09-28 ~13:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR CLARIFICATION, verbatim: \"we can breach the account and just buy a new one. That's not an issue, and that shouldn't stop us from building or acting on this.\" / \"I want to know when we're going live with the actual automated trading, even if the tickets are still coming on the Telegram as well\" / \"I definitely want to at least try a small test trade ... to prove that we can, um, set it correctly and close it.\" Applied: daily-loss/static-DD guards report-only on breakout_1 (per-account breach_guards: report; structure and could-not-look guards stay hard); a one-command open-then-close minimum-size test trade runs once the PRs merge, NOT gated on the 72h keep-alive, operator told first; \"live\" = executor placing orders (start of step 4), reported as such. Research lane re-briefed: grade Breakout candidates on EV per account purchase. || 2026-09-28 ~20:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR PRE-AUTHORIZATION of the live test trade, verbatim: \"I want to pre-authorize that live test. Don't wait for me run it uh, as soon as we can, and then uh, just report back to me that uh, that it's been set, and then what the result is.\" Applied: once round-trip-dry passes the full read-back (symbol, side, type, qty, SL/TP toggles ON + values, re-checked after any scroll), the lane runs ONE round-trip-live at the measured venue-minimum lot without a further ask: set-env PROP_EXECUTOR_MODE=live -> round-trip-live -> set-env PROP_EXECUTOR_MODE=read_only immediately after (executor timer stays disabled). Report 'set' when the order is confirmed, then the close result. Any anomaly (read-back mismatch, partial/naked position, unconfirmed close) -> contain (close at market), revert mode, stop, report. Scope: one test round trip only; enabling the executor timer (go-live of automated trading) is NOT covered by this authorization. Also relayed today: sidebar opener = two-arrow icon top right; submit may need a scroll after brackets are added; one-click toggle is irrelevant (diagnostic only, #13727). || 2026-09-28 ~20:10Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR PRE-AUTHORIZES AUTOMATED GO-LIVE on pre-registered success criteria, verbatim: \"I do want the uh, automated trader to go live as soon as possible, so let's try and predefine what success on the dry run and live test look like so that we can automate that part of the decision as well and that doesn't have to come back to me either.\" The operator then reviewed the criteria below in chat and, verbatim, \"I took you off auto mode so you can push the automated decision\". CRITERIA REGISTERED HERE BEFORE ANY RUN (the lane may not loosen them; tightening is fine). DRY RUN PASSES iff ALL: (D1) sidebar ticket located, symbol field names the venue symbol; (D2) side and order type read back as intended (not null/ambiguous); (D3) quantity = measured venue-minimum lot; SL and TP toggles read ON, mode Price, values equal intended within one tick; (D4) submit located inside the ticket (after panel scroll if needed), visible, enabled, label names the intended side; (D5) full read-back repeated after scroll, identical; (D6) disarmed: nothing submitted, open positions + working orders identical before/after; (D7) ticket reset/closed afterwards. LIVE TEST PASSES iff ALL: (L1) exactly one order submitted; (L2) terminal re-read shows exactly one new position, right symbol/side/size, within 60s; (L3) classify_confirmation == confirmed (SL and TP attached, within confirm_rel_tol) - partial_no_sl_tp is a FAIL even if contained; (L4) fill within max(0.5% of price, 3x quoted spread) of the quote at submit; (L5) market close confirmed within 60s, no residual position or orphan SL/TP order for that symbol; (L6) fill and close both journaled (prop report) with realized P&L matching the terminal within 1%; (L7) realized loss <= $25; (L8) PROP_EXECUTOR_MODE confirmed back to read_only by get-env/diag. ON PASS OF BOTH (no further operator ask): set-env PROP_EXECUTOR_MODE=live + executor-enable-timer = automated trading LIVE on breakout_1 (sizing unchanged: flat $75 risk per the P1b decision; breach guards report-only; Telegram tickets continue). Notify the operator 'automated trading is live' with the evidence. AUTO-REVERT (set-env PROP_EXECUTOR_MODE=read_only + executor-disable-timer, then report) on ANY of: a partial_no_sl_tp or unconfirmed placement; a close/modify that does not confirm; 2 consecutive form read-back refusals; a reconcile gap (ticket placed with no journaled fill, or a terminal position with no ticket); executor error on 2 consecutive ticks. Armed permanently; the first 5 automated trades or 72h (whichever is later) are probation, reported trade by trade. ON FAIL of the dry run or live test: contain, revert to read_only, stop, report; fix forward via a held PR and re-run under the SAME criteria.\n[2026-09-29T09:40Z manager] Lane moved to Fable successor session_01WDQADTgoiLiDKc2PNSPdNU (Opus lane archived 05:46Z). Live test #13987 FILLED 0.01 SOLUSD @118.94 but our positions reader was blind (fixed by #14005 paired header/body tables); operator closed it by hand (manual close, not L5). Next: #14005 CI fix, close wiring on #14013, fresh D1-D7 then L1-L8. OPERATOR ASK (09:35Z): 'once the current breakout dx trader is live, let me know so that we can start building the breakout platform alt - I'll open a new account with that platform for us to use during the build' -> manager pings operator at go-live; then PROP-TERM build starts. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): status_bucket BLOCKED at read time: waiting on a permission prompt (mcp__Github__pull_request_read). The operator took this lane off auto mode and approves its prompts; surfaced to the operator, not cleared. #14005 + #14013 open, on auto-merge per OLD. || 2026-09-29 ~10:03Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14005 (paired-tables positions reader + chart-overlay guard) MERGED dbb1b7b by the manager: CI 5/5 green, mergeable clean, reviewed by the previous manager against the PROP criteria. Merged, NOT yet deployed/observed: next is the read-only breakout-login-check expecting the live positions table read correctly (positions: 0 now that the operator closed SOLUSD by hand). #14013 (watched close) stacked on it, needs a main merge. Lane still BLOCKED on a permission prompt at 09:50Z; operator click needed. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ~10:10Z: operator cleared the permission prompt; lane WORKING ('both PRs pushed; manager report firing; #14013 body updated'). || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling raised $45 -> $90 (running $42.22 at 10:50Z): priority-1 lane mid go-live sequence, Fable budget. #14013 SENT BACK by REVIEW-14013 (dismiss set included the 'Close Position' confirm -> a read-back mismatch would press it = partial close; reproduced in Chromium); auto-merge disabled before review. Fixed in 7e57171 (tagging + click-side guards, 6 regression tests); manager read the diff, auto-merge re-armed 10:37Z. Lane BLOCKED at 10:50Z on a permission prompt (send_later) -- operator click.",
+      "note": "2026-09-28 ~13:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup, verbatim \"Build now (Recommended)\": build step 3 of docs/research/prop-automation-options-2026-09-27.md in parallel with the step-2 keep-alive (running since 2026-09-28 09:00Z, passes ~2026-10-01 09:00Z). No live submit in the lane; the first real click is the watched step-3 test (manager + operator) after the keep-alive passes. Then step 4 = 14-day soak. || 2026-09-28 ~13:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR CLARIFICATION, verbatim: \"we can breach the account and just buy a new one. That's not an issue, and that shouldn't stop us from building or acting on this.\" / \"I want to know when we're going live with the actual automated trading, even if the tickets are still coming on the Telegram as well\" / \"I definitely want to at least try a small test trade ... to prove that we can, um, set it correctly and close it.\" Applied: daily-loss/static-DD guards report-only on breakout_1 (per-account breach_guards: report; structure and could-not-look guards stay hard); a one-command open-then-close minimum-size test trade runs once the PRs merge, NOT gated on the 72h keep-alive, operator told first; \"live\" = executor placing orders (start of step 4), reported as such. Research lane re-briefed: grade Breakout candidates on EV per account purchase. || 2026-09-28 ~20:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR PRE-AUTHORIZATION of the live test trade, verbatim: \"I want to pre-authorize that live test. Don't wait for me run it uh, as soon as we can, and then uh, just report back to me that uh, that it's been set, and then what the result is.\" Applied: once round-trip-dry passes the full read-back (symbol, side, type, qty, SL/TP toggles ON + values, re-checked after any scroll), the lane runs ONE round-trip-live at the measured venue-minimum lot without a further ask: set-env PROP_EXECUTOR_MODE=live -> round-trip-live -> set-env PROP_EXECUTOR_MODE=read_only immediately after (executor timer stays disabled). Report 'set' when the order is confirmed, then the close result. Any anomaly (read-back mismatch, partial/naked position, unconfirmed close) -> contain (close at market), revert mode, stop, report. Scope: one test round trip only; enabling the executor timer (go-live of automated trading) is NOT covered by this authorization. Also relayed today: sidebar opener = two-arrow icon top right; submit may need a scroll after brackets are added; one-click toggle is irrelevant (diagnostic only, #13727). || 2026-09-28 ~20:10Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR PRE-AUTHORIZES AUTOMATED GO-LIVE on pre-registered success criteria, verbatim: \"I do want the uh, automated trader to go live as soon as possible, so let's try and predefine what success on the dry run and live test look like so that we can automate that part of the decision as well and that doesn't have to come back to me either.\" The operator then reviewed the criteria below in chat and, verbatim, \"I took you off auto mode so you can push the automated decision\". CRITERIA REGISTERED HERE BEFORE ANY RUN (the lane may not loosen them; tightening is fine). DRY RUN PASSES iff ALL: (D1) sidebar ticket located, symbol field names the venue symbol; (D2) side and order type read back as intended (not null/ambiguous); (D3) quantity = measured venue-minimum lot; SL and TP toggles read ON, mode Price, values equal intended within one tick; (D4) submit located inside the ticket (after panel scroll if needed), visible, enabled, label names the intended side; (D5) full read-back repeated after scroll, identical; (D6) disarmed: nothing submitted, open positions + working orders identical before/after; (D7) ticket reset/closed afterwards. LIVE TEST PASSES iff ALL: (L1) exactly one order submitted; (L2) terminal re-read shows exactly one new position, right symbol/side/size, within 60s; (L3) classify_confirmation == confirmed (SL and TP attached, within confirm_rel_tol) - partial_no_sl_tp is a FAIL even if contained; (L4) fill within max(0.5% of price, 3x quoted spread) of the quote at submit; (L5) market close confirmed within 60s, no residual position or orphan SL/TP order for that symbol; (L6) fill and close both journaled (prop report) with realized P&L matching the terminal within 1%; (L7) realized loss <= $25; (L8) PROP_EXECUTOR_MODE confirmed back to read_only by get-env/diag. ON PASS OF BOTH (no further operator ask): set-env PROP_EXECUTOR_MODE=live + executor-enable-timer = automated trading LIVE on breakout_1 (sizing unchanged: flat $75 risk per the P1b decision; breach guards report-only; Telegram tickets continue). Notify the operator 'automated trading is live' with the evidence. AUTO-REVERT (set-env PROP_EXECUTOR_MODE=read_only + executor-disable-timer, then report) on ANY of: a partial_no_sl_tp or unconfirmed placement; a close/modify that does not confirm; 2 consecutive form read-back refusals; a reconcile gap (ticket placed with no journaled fill, or a terminal position with no ticket); executor error on 2 consecutive ticks. Armed permanently; the first 5 automated trades or 72h (whichever is later) are probation, reported trade by trade. ON FAIL of the dry run or live test: contain, revert to read_only, stop, report; fix forward via a held PR and re-run under the SAME criteria.\n[2026-09-29T09:40Z manager] Lane moved to Fable successor session_01WDQADTgoiLiDKc2PNSPdNU (Opus lane archived 05:46Z). Live test #13987 FILLED 0.01 SOLUSD @118.94 but our positions reader was blind (fixed by #14005 paired header/body tables); operator closed it by hand (manual close, not L5). Next: #14005 CI fix, close wiring on #14013, fresh D1-D7 then L1-L8. OPERATOR ASK (09:35Z): 'once the current breakout dx trader is live, let me know so that we can start building the breakout platform alt - I'll open a new account with that platform for us to use during the build' -> manager pings operator at go-live; then PROP-TERM build starts. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): status_bucket BLOCKED at read time: waiting on a permission prompt (mcp__Github__pull_request_read). The operator took this lane off auto mode and approves its prompts; surfaced to the operator, not cleared. #14005 + #14013 open, on auto-merge per OLD. || 2026-09-29 ~10:03Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14005 (paired-tables positions reader + chart-overlay guard) MERGED dbb1b7b by the manager: CI 5/5 green, mergeable clean, reviewed by the previous manager against the PROP criteria. Merged, NOT yet deployed/observed: next is the read-only breakout-login-check expecting the live positions table read correctly (positions: 0 now that the operator closed SOLUSD by hand). #14013 (watched close) stacked on it, needs a main merge. Lane still BLOCKED on a permission prompt at 09:50Z; operator click needed. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ~10:10Z: operator cleared the permission prompt; lane WORKING ('both PRs pushed; manager report firing; #14013 body updated'). || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ceiling raised $45 -> $90 (running $42.22 at 10:50Z): priority-1 lane mid go-live sequence, Fable budget. #14013 SENT BACK by REVIEW-14013 (dismiss set included the 'Close Position' confirm -> a read-back mismatch would press it = partial close; reproduced in Chromium); auto-merge disabled before review. Fixed in 7e57171 (tagging + click-side guards, 6 regression tests); manager read the diff, auto-merge re-armed 10:37Z. Lane BLOCKED at 10:50Z on a permission prompt (send_later) -- operator click. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14013 MERGED 10:58:59Z (watched close + REVIEW-14013 fix). Lane BLOCKED since 10:59Z on a permission prompt (send_later) -- only the operator can click it; go-live sequence (dump-tables -> dry round trip -> one live min-lot round trip -> executor live) does not move until then.",
       "id": "PROP-EXEC"
     },
     {
@@ -3218,7 +3226,7 @@
       "title": "Independent AI trader: build stage S1 offline per the R-M19 design",
       "phase": "W6",
       "state": "in_flight",
-      "owner": "manager",
+      "owner": "research lane",
       "lane": "session_01TR74tvLR2AjCzrJMeBs47A",
       "model": "claude-sonnet-5",
       "ceiling_usd": null,
@@ -3229,7 +3237,7 @@
         14085
       ],
       "blocked_on": [],
-      "note": "[2026-09-29T09:40Z manager] Priority 3. Offline only; no order path. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260928-002 (S1-v0) FAILED: row-only veto d=-0.0502 (perm_p 0.996), confidence-only -0.0101 (0.665) -- first of two nulls the S1 exhaustion condition needs, not a kill. #14042 HELD for manager review (queue-file edits exceed STAMP_ONLY_SURFACE). #14085 (Tier-1 harness extension, self-land). Next: RQ-20260928-003 market-state veto on the trainer. H1 queue-health failure routed to RQ-RUN. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14042 (S1-v0 fail result) reviewed + auto-merge armed."
+      "note": "[2026-09-29T09:40Z manager] Priority 3. Offline only; no order path. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260928-002 (S1-v0) FAILED: row-only veto d=-0.0502 (perm_p 0.996), confidence-only -0.0101 (0.665) -- first of two nulls the S1 exhaustion condition needs, not a kill. #14042 HELD for manager review (queue-file edits exceed STAMP_ONLY_SURFACE). #14085 (Tier-1 harness extension, self-land). Next: RQ-20260928-003 market-state veto on the trainer. H1 queue-health failure routed to RQ-RUN (filed by the M19-S1 lane as PI-20260929-JMEBS47A-0001, due 2026-10-02). || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14042 (S1-v0 fail result) reviewed + auto-merge armed."
     },
     {
       "id": "NEW-STRAT",
@@ -3259,9 +3267,11 @@
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        14134
+      ],
       "blocked_on": [],
-      "note": "[2026-09-29T09:45Z manager] Lane session_01RPz6PpXuDjaKkKxYNrXCUH was first briefed on P1b+E65; both are already settled (P1b: operator 'Keep flat $75' 09-28; E65 done, honest_negative). Redirected here. Measured specs only; nothing joins executor.enabled_venue_symbols until SOL is live and that symbol passes its own D1-D7. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): instrument probe built on claude/prop-eth-instrument-probe-20260929 (structure dump, not a field parser -- correct: measure the panel shape first); PR held until #14013 merges (same 6 files). Resolve step would be 18,535/21,000 chars."
+      "note": "[2026-09-29T09:45Z manager] Lane session_01RPz6PpXuDjaKkKxYNrXCUH was first briefed on P1b+E65; both are already settled (P1b: operator 'Keep flat $75' 09-28; E65 done, honest_negative). Redirected here. Measured specs only; nothing joins executor.enabled_venue_symbols until SOL is live and that symbol passes its own D1-D7. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): instrument probe built on claude/prop-eth-instrument-probe-20260929 (structure dump, not a field parser -- correct: measure the panel shape first); PR held until #14013 merges (same 6 files). Resolve step would be 18,535/21,000 chars. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14134 (Tier 2, hold) reviewed: MERGE, SEQUENCED -- merged only after PROP-EXEC-F's live round trip, because it edits breakout_login_check_action.sh / the allowlist the go-live sequence runs next. Probe fills one tagged search field, never clicks/Enter. Lane keeps it green; no dispatch of instrument-probe until merged."
     },
     {
       "id": "JC-CA-06",
@@ -3274,9 +3284,12 @@
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        14107,
+        14164
+      ],
       "blocked_on": [],
-      "note": "[2026-09-29T09:50Z manager] OPERATOR DECISION, popup verbatim: \"Retire it (Recommended)\". Lane stops if any account reads dry_run: true in account_state.yaml (removal would flip it live). || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane BLOCKED ~09:50Z: its auto-mode classifier denied the coordinator.py fold removal ('Security Weaken'); nothing pushed; lane did not route around it. Safety check PASSED (account_state.yaml: bybit_1/bybit_2 dry_run false; /api/bot/config agrees). Needs the operator to take the session off auto mode (asked by the previous manager). Ordering: HOLD the PR until issue #13572 (JC-CA-01 observation) closes. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ~10:10Z: operator took the lane off auto mode; WORKING in default mode (may raise another permission prompt on the coordinator.py edit). Merge still gated on issue #13572. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): BUILT + HELD (branch jc-ca-06-retire-account-state; PR via pr-opener relay, number pending); 1862 tests, guards 66/0. Merge gated on issue #13572. Lane BLOCKED at 10:50Z on a permission prompt (send_later) -- operator click."
+      "note": "[2026-09-29T09:50Z manager] OPERATOR DECISION, popup verbatim: \"Retire it (Recommended)\". Lane stops if any account reads dry_run: true in account_state.yaml (removal would flip it live). || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane BLOCKED ~09:50Z: its auto-mode classifier denied the coordinator.py fold removal ('Security Weaken'); nothing pushed; lane did not route around it. Safety check PASSED (account_state.yaml: bybit_1/bybit_2 dry_run false; /api/bot/config agrees). Needs the operator to take the session off auto mode (asked by the previous manager). Ordering: HOLD the PR until issue #13572 (JC-CA-01 observation) closes. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ~10:10Z: operator took the lane off auto mode; WORKING in default mode (may raise another permission prompt on the coordinator.py edit). Merge still gated on issue #13572. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): BUILT + HELD (branch jc-ca-06-retire-account-state; PR via pr-opener relay, number pending); 1862 tests, guards 66/0. Merge gated on issue #13572. Lane BLOCKED at 10:50Z on a permission prompt (send_later) -- operator click. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14107 reviewed: MERGE ON GREEN. Ordering gate cleared (issue #13572 closed 2026-09-28). Blocker: zero check runs (opened by github-actions[bot] via the pr-opener relay, so CI never fired); lane told to merge main and push. Post-merge: lane verifies trader restart onto the new sha + yaml_mode unchanged. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14107 CLOSED (bot-opened -> every CI run action_required); same branch reopened by the manager as #14164 (head 1034f28), merge on green."
     },
     {
       "id": "DECIDE-AUTO",
@@ -3406,9 +3419,11 @@
       "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        14106
+      ],
       "blocked_on": [],
-      "note": "2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): raised by DECIDE-AUTO: slv_trend_1h's 2026-08-24 demotion closed all 6 packages via exchange_flat_reconciled. Existing filing PI-20260924-BOFCWBO7-0001 (queued, unrouted): 4 of 5 alpaca_live-leg closes on alpaca_paper to 2026-09-24 were exchange_flat_reconciled. Session contract: any close not TP/SL/strategy-close is a bug to fix. Opus: close-reason / reconciler path on real-money accounts. Fresh session. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): also owns audit FIX-SA-02 (bybit_2 venue SL fills journaled reconciler_filled/netting_attributed; 7/11 real-money closes carry no TP/SL/strategy reason). Lane BLOCKED at 10:50Z on a permission prompt -- operator click. Running $7.95."
+      "note": "2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): raised by DECIDE-AUTO: slv_trend_1h's 2026-08-24 demotion closed all 6 packages via exchange_flat_reconciled. Existing filing PI-20260924-BOFCWBO7-0001 (queued, unrouted): 4 of 5 alpaca_live-leg closes on alpaca_paper to 2026-09-24 were exchange_flat_reconciled. Session contract: any close not TP/SL/strategy-close is a bug to fix. Opus: close-reason / reconciler path on real-money accounts. Fresh session. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): also owns audit FIX-SA-02 (bybit_2 venue SL fills journaled reconciler_filled/netting_attributed; 7/11 real-money closes carry no TP/SL/strategy reason). Lane BLOCKED at 10:50Z on a permission prompt -- operator click. Running $7.95. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): report 11:42Z: LABELLING, not protection (1,191 closed trades since 07-31; 64/77 exchange_flat_reconciled exit within 10 bps of pkg SL/TP; bybit_2 20/26 reconciler closes filled on the trade's own sl/tp order). #14106 (Tier 2, hold): label-only sweep keyed on venue order id / 10 bps price, notes-cap fix; never writes pnl/exit_price. Independent review REVIEW-14106 dispatched; manager merges on MERGE + green. Backfill (backfill-exit-labels, dry run 284 rows) NOT run -- separate Tier-2 step after merge. Unpriced bybit_2 close (#14113) = trade 5702 reduce leg, by design -> RECON-REDUCE."
     },
     {
       "id": "FIX-SA-03",
@@ -3421,9 +3436,14 @@
       "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        14115,
+        14123,
+        14127,
+        14156
+      ],
       "blocked_on": [],
-      "note": "2026-09-29 ~10:36Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from E75 audit (lead-verified): naked_rearm 6-7 min after 17 of 20 Alpaca entries, incl. all 3 alpaca_live; whether live positions were actually naked is NOT established (no Alpaca order-history read surface). Money-path first: lane reports in one line before building if live positions were naked. Opus: order path, real money."
+      "note": "2026-09-29 ~10:36Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from E75 audit (lead-verified): naked_rearm 6-7 min after 17 of 20 Alpaca entries, incl. all 3 alpaca_live; whether live positions were actually naked is NOT established (no Alpaca order-history read surface). Money-path first: lane reports in one line before building if live positions were naked. Opus: order path, real money. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): MEASURED via deployed /api/diag/alpaca_order_history (#14115 merged 02a6189): 20/20 brackets NOT naked -- stop legs rested until the re-arm cancelled them; unprotected only in the cancel->POST gap (<=0.35s alpaca_live, <=0.50s overall). Root cause confirmed: checker could not see held stop legs. #14123 (checker fix) reviewed by REVIEW-14123 -- full report requested (post_turn_summary alone is not acted on). #14127 reworked 124ce7d, held behind #14123. Next: JC-SA-08 data task (mirror-vs-live exit census). || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): JC-SA-08 evidence (#14156): n=1 twin (SLV), mirror +12.4 bps better; mechanism = paper-engine vs venue fill on an opening gap; not systematic at n=1 -> PR6YRTQY-0004 extends to 09-01. Protection gap PR6YRTQY-0003 (qty shortfall never re-armed) dispatched first: live-reachable paths + held fix stacked after #14127."
     },
     {
       "id": "VOLSKIP-FORMING",
@@ -3436,9 +3456,207 @@
       "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 3,
+      "prs": [
+        14131
+      ],
+      "blocked_on": [],
+      "note": "2026-09-29 ~10:52Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from #14101 / PI-20260929-EXITOPS-0005 (live packages created ~7 min into a 2h bar). Operator directive 09:50Z: data-missing -> task, no popup. Lane registers a rule, replays the gate both ways net of full cost, cross-checks live decisions, ships a held Tier-3 fix; manager ships under the data-backed authorization and notifies. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict KEEP_AND_REPORT (0 live decisions flipped over 43,725 audit rows; gate-local fix moves away from Stage 0 and was reverted). #14131 renumbered to RQ-20260929-201 (3b55065); guards RED (unit placeholder {klines_dir}, run.inputs.research_unit stale, replay script missing from the research capability index) -- sent back. Inert trail_vol lever (PI-20260929-VOLSKIP-0002) sent to M20-EXITS; blocks #14053."
+    },
+    {
+      "id": "REVIEW-14106",
+      "title": "Independent review of #14106 (exit-reason relabel sweep, order_monitor label-only, Tier 2)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "review lane",
+      "lane": "session_01PGeebjCu5XDevmrtoomPRb",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14106
+      ],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): READ-ONLY reviewer, opus (touches the live order monitor). Verdict gates the manager's merge of #14106. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict MERGE (no blockers); non-blocking (a) concurrent-mark guard, (b) partial-TP mislabel, (d) stale doc sent to EXIT-CLUSTER to fold in before merge. Lane ARCHIVED ($2.06)."
+    },
+    {
+      "id": "RECON-REDUCE",
+      "title": "account-broker-reconcile excludes deferred-pnl reduce legs (issue #14113), then re-run the bybit_2 journal-vs-broker P&L comparison",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01PKaAcoDPsdP7brPxGmJyTX",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-29 ~10:52Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): from #14101 / PI-20260929-EXITOPS-0005 (live packages created ~7 min into a 2h bar). Operator directive 09:50Z: data-missing -> task, no popup. Lane registers a rule, replays the gate both ways net of full cost, cross-checks live decisions, ships a held Tier-3 fix; manager ships under the data-backed authorization and notifies."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RECON lane archived; reuse src/web/api/_clean_trades.exclude_reduce_leg_predicate, never a second predicate; other NULL-pnl rows stay could_not_look."
+    },
+    {
+      "id": "SA-DATA",
+      "title": "Audit FIX-SA-01: replay/labels_accruing gate reads rotated shadow-log archives; empty -> error state, not SystemExit",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01DZkP4Jj9JNSsxhGFZEyjmM",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14159,
+        14163
+      ],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet per model table (no order path). Pipeline PI-20260929-TWEW1FZJ-0001. Also trade_scores archive read (SA-AUD-4 row). || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14159 (replay reads archives; empty -> error state) and #14163 (trade_scores reads archives) reviewed, merge on green."
+    },
+    {
+      "id": "SA-PROV",
+      "title": "Audit FIX-SA-04/05/06: zero-broker-PnL provenance demotion, MEASURED-only sums, collapsed-state registrations",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01JTqmnBwmw3nfKaHxo9WPvh",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. JC-SA-03 decided (b): gate logic unchanged, both bases recorded. Includes IB realizedPNL=0 root cause and performance-review skill coverage fields. || 2026-09-29 ~14:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OBSERVED on VM e2d8f8433 (after a9f9bb26): /performance paper pnlMeasuredCount 368->339 (-29 = 18 ib_paper zero-pnl + 11 bybit_1 sign rows), unverified 135->164, totalPnlMeasuredOnly -59689.01 -> -55966.36 (+3722.65 = the sign rows' pnl sum, checked); real book unchanged (338). /stats matches. Per-row UNVERIFIED not read on the live route; count+sum arithmetic is the evidence. Remaining owed work is PI-...-0004 (reduce_parent_ids wiring, #14210). Paper headline totalPnlMeasured +96.7k is dominated by 152.7k ESTIMATED; MEASURED-only is -55.97k."
+    },
+    {
+      "id": "SA-SEC",
+      "title": "Audit FIX-SA-07/13: diag relay refuses .. and redacts before posting; workflow least privilege + weekly full-history gitleaks",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01LF8rTDXMxEGKv4hJYtaQym",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14167
+      ],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Workflow PRs are landing HOLD for manager review. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14167 FIX-SA-07 reviewed: '..'/encoded traversal refused + redaction before every public sink; differential over 195 documented relay paths: 0 verdict changes. Merge on green."
+    },
+    {
+      "id": "SA-INFRA",
+      "title": "Audit FIX-SA-08/11/12: OnFailure= on timer oneshots, running-vs-disk sha, trainer disk 93% prune + 90% alarm",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01QLcLE9ogmHJziMbtg1yDoi",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet (no order path). FIX-SA-08 Tier 2 hold; FIX-SA-12 may delete only provably rebuildable/superseded data on its own, lists the rest for a decision. Never restarts ict-trader-live."
+    },
+    {
+      "id": "SA-DOCS",
+      "title": "Audit FIX-SA-09/10 + JC-SA-06: stale instruction surfaces, archived-lane in_flight guard, section-0 cap + unrouted alarm",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01Ek5siXbMhnqA59WJuteNgu",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14158,
+        14162,
+        14168,
+        14169
+      ],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): sonnet. Manager reconciles checklist rows; lane does not edit the checklist. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14158 FIX-SA-09 reviewed (claim verified in work.py /brief), merge on green; #14162 FIX-SA-10 (could_not_look in CI), #14168 JC-SA-06 (section 0 302KB->16KB; alarm fires today: 153 unrouted, oldest 20d), #14169 self-land."
+    },
+    {
+      "id": "GRADE",
+      "title": "Audit JC-SA-01 (a): revive the grading hop (4/328 closes graded since 09-15, dead since 09-08), key on linked_trade_id, backfill, staleness detector",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01E8qLr49iNrYHdkeA899zcS",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        14161
+      ],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DECIDED (a) under the data-backed standing authorization: 'graded' is the last hop of the trade pipeline in the session-start definition of done. Backfill is Tier 2 hold; operator notified. Pipeline PI-20260929-TWEW1FZJ-0004. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14161 reviewed: MERGE ON GREEN. Root cause: grading was never scheduled (hand-run inside /system-review; last 09-08). Daily workflow keyed on linked_trade_id + 491-row backfill (checked: 491 unique trades, 7 accounts) + grading-freshness guard (fails every PR at >3d stale; operator told, can switch to alert-only)."
+    },
+    {
+      "id": "ML-DEMOTE",
+      "title": "Audit JC-SA-02 (a): demote to candidate the shadow heads whose declared features are never served (re-measured first)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_011f6jYBLZThQ4HuK85q64Sf",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14166
+      ],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DECIDED (a): de-risk, data-backed; only heads the re-measure confirms. Stops if any head feeds a live decision. || 2026-09-29 ~12:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DEMOTED shadow->candidate, OBSERVED on the trainer registry (issue #14152): conviction-meta-v1, setup-quality-lgbm-v2, btc-regime-1h funding-svble-v1, btc-regime-5m flow-v1-offload. MES baselines NOT demoted (audit claim refuted: 341 preds each; silent since 09-01, filed). None advisory/live. #14166 self-lands."
+    },
+    {
+      "id": "GUARD-PROOF",
+      "title": "Audit JC-SA-07 (a): plant-a-defect proof for the ~80 CI guards not yet proven",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_017ThKtGHMj5TRQHLeUUwhQc",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DECIDED (a): Haiku failed the protocol twice (AUD-6, AUD-6b); Sonnet with the lead's plant.sh pattern; evidence rows need the planted diff + both exit codes. Pipeline PI-20260929-TWEW1FZJ-0006."
+    },
+    {
+      "id": "SA-ROUTE",
+      "title": "Audit JC-SA-06: route the 143 unrouted due pipeline items (kill with a stated reason, or assign to a checklist row / queue unit)",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "routing lane",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): queued behind SA-DOCS's section-0 cap. Most archived rows should be killed explicitly, not carried. || E75 dispositions (manager, 11:55Z) #14108 MERGED 2e6ae44 (consolidated report). Dispositions: FIX-SA-01->SA-DATA; FIX-SA-02->EXIT-CLUSTER (#14106); FIX-SA-03->FIX-SA-03 lane; FIX-SA-04/05/06->SA-PROV; FIX-SA-07/13->SA-SEC; FIX-SA-08/11/12->SA-INFRA (WEBAPI-RESTART lane closed); FIX-SA-09/10->SA-DOCS (JC-GIT/EXEC-FIX/EXIT-OPS/ADMIN already corrected off in_flight). JC-SA-01 (a)->GRADE; JC-SA-02 (a)->ML-DEMOTE; JC-SA-03 (b) = status quo, no change beyond FIX-SA-05; JC-SA-06 cap+alarm->SA-DOCS, routing lane queued (SA-ROUTE); JC-SA-07 (a)->GUARD-PROOF; JC-SA-08 -> data task on the FIX-SA-03 lane (mirror-vs-live exit divergence census) before any choice. JC-SA-04 (revoke the leaked Telegram token + testnet key) and JC-SA-05 (split the PAT) are OPERATOR-ONLY credential actions: raised to the operator."
+    },
+    {
+      "id": "RQ-ID-ALLOCATOR",
+      "title": "Systemic: research-queue ids RQ-YYYYMMDD-NNN collide across concurrent lanes (#14103 vs #14131 vs #14049); no allocator",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): observed 3x on 2026-09-29 (002 then 019 taken; VOLSKIP renumbered twice). Needs an allocator or a lane-scoped id range enforced by check_research_queue. Queued for the next free lane slot."
     }
   ]
 }

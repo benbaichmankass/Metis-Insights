@@ -168,4 +168,25 @@ related:
   - RQ-20260928-005 (S2-exit; independent of this unit)
   - PI-20260928-VNMMNBJH-0001 (harness extension build item for S1 / S2-sizing)
   - PI-20260928-VNMMNBJH-0003 (follow-through: promote or kill the two blocked units when this lands)
-last_dispatched_at: null
+last_dispatched_at: '2026-09-29T00:00:00+00:00'
+result: >-
+  GRADED 2026-09-29 by lane session_01TR74tvLR2AjCzrJMeBs47A (manager
+  session_01KAQRJxRbRwpYTkPgBjNVyQ), run directly over committed data (no
+  VM/trainer needed per this unit's own routing note), against the
+  pre-registered rule RULE-RQ0928-002-WITHIN-CELL-VETO-V0.
+  DISPOSITION: verdict fail (the third rule branch, "neither veto significant").
+  n_oos=1857 (48 cells; population grew slightly vs the 1839/460 measured at
+  registration time -- evidence records regenerated since 2026-09-28 -- still
+  comfortably above the 392.4 floor, so no lowering applied). Model veto
+  veto_delta_r=-0.0502, perm_p=0.996 (not significant, and the sign is wrong --
+  vetoing made the kept group worse). Confidence-only veto veto_delta_r=-0.0101,
+  perm_p=0.665 (also not significant). Landed:
+  research/results/RQ-20260928-002/session_01TR74tvLR2AjCzrJMeBs47A-rq20260928-002-20260929.jsonl.
+  This is the FIRST of the two nulls the S1 line's exhaustion condition needs
+  (post-mortem section 4) -- S1 (blocked/RQ-20260928-003) still runs once per
+  this unit's own rule, not killed. PI-20260928-VNMMNBJH-0003's follow-through
+  now applies: RQ-20260928-003's blocked_on clause (b) ("RQ-20260928-002 has
+  landed a result") is CLEARED; clause (a) (the harness's --candles-dir /
+  --arms extension, PI-20260928-VNMMNBJH-0001) is unchanged and still blocks.
+  RQ-20260928-004 (S2-sizing) stays blocked -- no PASS yet on -002, and this is
+  one null, not the two-null exhaustion that would kill it.

@@ -315,6 +315,14 @@ jobs:
           DISPATCH_CMD: ${{ inputs.cmd }}
         run: printf '%s\n' "${DISPATCH_CMD}" > /tmp/trainer_diag_cmd.sh
 
+      - name: Checkout redaction script (FIX-SA-07)
+        if: steps.dedup.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/ops
+            src/utils
+
       - name: Set up SSH key
         if: steps.dedup.outputs.skip != 'true'
         env:
@@ -400,6 +408,14 @@ jobs:
               'bash -s' < /tmp/trainer_diag_cmd.sh \
               > /tmp/trainer_diag_output.txt 2>&1 || true
           wc -c /tmp/trainer_diag_output.txt
+
+      - name: Redact secrets from trainer output (FIX-SA-07)
+        if: steps.dedup.outputs.skip != 'true'
+        # Runs BEFORE the run-log preview, the artifact upload and the issue
+        # comment — all readable by anyone on this PUBLIC repo. The trainer
+        # command is arbitrary shell, so this is the ONLY gate on what it
+        # prints. Prints rule=count only, never a value.
+        run: python3 scripts/ops/redact_diag_output.py /tmp/trainer_diag_output.txt
 
       - name: Print output (run-log preview)
         if: steps.dedup.outputs.skip != 'true'

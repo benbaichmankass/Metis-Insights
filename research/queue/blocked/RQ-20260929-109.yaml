@@ -1,0 +1,131 @@
+id: RQ-20260929-109
+title: 'Does a serveable funding-augmented regime head lift f1_volatile for ETHUSDT 1h the way it does for BTCUSDT?'
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  ml/configs/btc-regime-1h-lgbm-funding-svble-v1.yaml (MB-20260613-001) adds
+  three serveable funding-rate features (funding_rate, funding_rate_zscore,
+  funding_rate_abs_z) to the BTCUSDT 1h regime classifier and is the
+  strongest 1h binary regime head measured, stuck at research_only only
+  because ITS SIBLING (the OI-bearing parent) needed non-serveable
+  open-interest columns this variant already drops. No equivalent
+  funding-augmented manifest exists for ETHUSDT or SOLUSDT 1h regime models
+  (checked ml/configs/ this session -- eth-regime-1h-lgbm-v1.yaml,
+  eth-regime-1h-lgbm-xasset-v1.yaml, sol-regime-15m-lgbm-*.yaml all carry no
+  funding_rate reference; there is no sol-regime-1h-*.yaml at all). Does the
+  same serveable-funding lift replicate on ETHUSDT 1h?
+
+why_this_matters: >-
+  If the funding-rate signal that lifts BTCUSDT's f1_volatile is a
+  BTC-specific artifact of BTC's funding dynamics, that is worth knowing
+  before more effort goes into funding-feature engineering elsewhere. If it
+  transfers to ETH, that is a second serveable-shadow candidate on the same
+  engineering cost (the feature-fetch script, scripts/ml/fetch_funding_oi.py,
+  is already symbol-parameterized: `--symbol` defaults to BTCUSDT but takes
+  any symbol).
+
+power:
+  expected_n: 2000
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Matches the standard classification-eval floor this repo's ml-review
+    convention uses for a holdout-set macro/per-class F1 comparison
+    (two_sample d=0.3 doubles the one_sample floor of ~88 to ~175 per group;
+    expected_n=2000 is a round-number placeholder reflecting that the
+    parent BTCUSDT 1h dataset (market_features v002) runs into the tens of
+    thousands of rows with a 0.2 holdout fraction, not a measurement of the
+    ETH-scoped equivalent, since that dataset does not exist yet -- see
+    blocked_on).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No ETHUSDT-scoped market_features v002 funding/OI-joined dataset has
+      been built (checked ml/configs/ and scripts/ml/fetch_funding_oi.py's
+      own usage examples this session -- both name BTCUSDT only). Nothing
+      accrues until that dataset is built; see blocked_on for the exact
+      unblock path.
+
+decision_rule:
+  id: RULE-RQ0929-109-ETH-FUNDING-REGIME-HEAD
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    f1_volatile and macro_f1 (MulticlassClassificationEvaluator's own
+    reported fields) for an eth-regime-1h-lgbm-funding-svble-v1 candidate
+    manifest (same architecture/hyperparameters as
+    btc-regime-1h-lgbm-funding-svble-v1, feature set = base ETH regime
+    features + funding_rate/funding_rate_zscore/funding_rate_abs_z),
+    compared against the existing eth-regime-1h-lgbm-v1.yaml champion on the
+    same time-aware holdout split.
+  rule: >-
+    PASS IF f1_volatile improves over the existing ETH 1h champion by >= the
+    same relative margin the BTC funding-svble variant showed over its own
+    champion (docs/research or the model registry's committed comparison
+    output is the source for that BTC margin at run time) -- this is a
+    research_only-stage EVAL CANDIDATE only; ships at target_deployment_stage
+    research_only exactly like its BTC sibling. FAIL IF f1_volatile does not
+    improve, or improves by materially less than the BTC margin --
+    HONEST_NEGATIVE for ETH funding features at 1h; re-queue is optional
+    (this is a once-cadence scoping question, not a monitored live leg).
+    indeterminate IF the holdout population is too small for the comparison
+    to be read (holdout row count < 200, an arbitrary but stated floor for a
+    multiclass F1 comparison).
+  what_it_does_not_do: >-
+    Does not promote anything past research_only (Tier-3, operator-gated,
+    per the parent manifest's own comment). Does not wire any model_id onto
+    a live strategy leg. Does not touch config/strategies.yaml.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 60
+  basis: >-
+    Dataset build (fetch_funding_oi.py + the market_features join step) plus
+    one LightGBM train + eval, same order of cost as the BTC funding-svble
+    variant's own training run -- trainer-resident (the published dataset
+    family lives on the trainer, not committed).
+
+blocked_on:
+  - what: >-
+      NO ETHUSDT-SCOPED market_features v002 FUNDING/OI-JOINED DATASET
+      EXISTS. btc-regime-1h-lgbm-funding-svble-v1.yaml's `dataset:` block
+      pins `symbol_scope: BTCUSDT`, and scripts/ml/fetch_funding_oi.py's own
+      module docstring gives only a BTCUSDT worked example for both the
+      funding/OI fetch step and the market_features join step that follows
+      it. Nothing in ml/configs/, scripts/ml/, or the trainer's committed
+      dataset manifests confirms an ETHUSDT equivalent was ever built.
+    ref: 'ml/configs/btc-regime-1h-lgbm-funding-svble-v1.yaml + scripts/ml/fetch_funding_oi.py (no ETHUSDT equivalent filed as a checklist row or PI yet -- this unit is the first record of the gap)'
+    clears_when: >-
+      An ETHUSDT market_features v002 (or equivalent) funding/OI-joined
+      dataset is built on the trainer (mirroring
+      `scripts/ml/fetch_funding_oi.py --symbol ETHUSDT --oi-interval 1h
+      --out datasets-out/funding_oi/ETHUSDT/v001` plus the same
+      dataset-family join step used for BTCUSDT's own v002) and the
+      candidate manifest above can be authored against it and trained with
+      `python -m ml train`.
+
+run:
+  workflow: null
+  note: >-
+    Deliberately null. No workflow builds an ETHUSDT funding/OI-joined
+    market_features dataset today; the trainer-vm-diag issue-label route
+    could plausibly run the two fetch/build commands by hand once someone
+    decides this is worth the trainer time, but naming that here before the
+    dataset-build recipe is confirmed to work for a non-BTC symbol would be
+    the `new-table-wiring-guard` failure (a declaration cheaper to write
+    than to satisfy). Fill this in once blocked_on clears.
+
+lands:
+  store: comms/reviews/ or a new ml/configs/eth-regime-1h-lgbm-funding-svble-v1.yaml, once trained
+
+related:
+  - 'ml/configs/btc-regime-1h-lgbm-funding-svble-v1.yaml (MB-20260613-001) -- the BTC head this asks whether ETH replicates'
+  - RQ-20260929-110 (the SOL analog of this same question)
+last_dispatched_at: null

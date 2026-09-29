@@ -16,6 +16,9 @@ Two layers are pinned:
 * ``IBClient.cancel_trade_protection`` itself cancelling ONLY
   ``oca-protect-t<id>`` while a sibling trade's keyed group survives.
 """
+# collapsed-state: verified — these tests stub the `verified` envelope to pin
+# the watchdog's cancel wiring; unverified / not_attempted are pinned in
+# tests/test_ib_cancel_verification.py.
 from __future__ import annotations
 
 import json

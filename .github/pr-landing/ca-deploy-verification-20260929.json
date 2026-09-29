@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/** only: a new evidence doc (docs/audits/code-audit-2026-09-27-deploy-verification.md), a link added to the existing audit's §5, and a DOCUMENT-INDEX.md registration row. No src/, no config/, no scripts/, no workflows, no order path. Reports only what was independently read from the live VM, the trainer VM, and GitHub this session (merge commits, deployed SHAs, runtime signatures) -- no behaviour anywhere is changed by this PR."
+}

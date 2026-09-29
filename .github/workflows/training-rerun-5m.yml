@@ -26,6 +26,12 @@ on:
       - ".github/workflows/training-rerun-5m.yml"
   workflow_dispatch:
 
+# FIX-SA-13: workflow-level default is read-only. The `run` job below keeps its
+# own `contents: write` on purpose — its last step `git push`es the results back
+# to the triggering branch, which a read-only token cannot do.
+permissions:
+  contents: read
+
 concurrency:
   group: training-rerun-5m-${{ github.ref }}
   cancel-in-progress: true

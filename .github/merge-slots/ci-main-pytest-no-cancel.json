@@ -1,0 +1,6 @@
+{
+  "held_by": "CI-MAIN-PYTEST",
+  "branch": "claude/ci-main-pytest-no-cancel",
+  "claimed_at": "2026-09-29T13:59:45Z",
+  "purpose": "push-to-main pytest no-cancel"
+}

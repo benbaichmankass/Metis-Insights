@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/research/exit-refinement-coverage.json status correction + a rollup test update to match the resulting count; no config, runtime, or order path touched"
+}

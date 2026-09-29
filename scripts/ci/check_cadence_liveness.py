@@ -204,6 +204,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    just has not been declared yet. Measured 2026-09-22: 9 of the 18
     #    scheduled workflows contain a commit-to-main / git push step. Naming
     #    the output path for each is the obvious next shrink of this file.
+    "grading-freshness-alert.yml": {"receipt": None, "why": "quiet by design when grading is fresh: it commits nothing and its only output is a Telegram ping on stale/unreadable; a dead run is caught by claude-run-failure-alert (GRADE-ALERT 2026-09-29)"},
     "schedule-keeper.yml": {"receipt": None, "why": "no in-repo trace by design: it reads the Actions API and dispatches; it also fires on every push to main, so its own cron is only the night-time floor (W6-OPS-R 2026-09-27)"},
     "r4-demotion-gate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch); a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
     # RQ-RUN (2026-09-28): the queue's own replenisher and grader. Both commit
@@ -212,6 +213,11 @@ CADENCE_REGISTRY: dict[str, dict] = {
     # run is caught by claude-run-failure-alert (both are on its list) and a
     # queue that is not being refilled pages through research-queue-dispatch's
     # queue-health alarm (scripts/ci/check_research_queue_health.py).
+    # FIX-SA-13 (2026-09-29): weekly full-history gitleaks. A scan that finds nothing
+    # writes nothing on purpose -- its report is deleted so no artifact can carry a
+    # matched value on this PUBLIC repo -- so there is no receipt path to name. A dead
+    # run is caught by claude-run-failure-alert (it is on that list).
+    "gitleaks-history-weekly.yml": {"receipt": None, "why": "writes nothing by design (report deleted; public repo); outcome is the run's pass/fail + job summary, and a dead run is caught by claude-run-failure-alert"},
     "research-queue-replenish.yml": {"receipt": None, "why": "commits only when it generated units; a full queue is a no-op by design -- a dead run is caught by claude-run-failure-alert, a dry queue by the dispatcher's queue-health alarm"},
     "research-queue-grade.yml": {"receipt": None, "why": "commits only when a unit's grade changed; nothing-to-grade is a no-op by design -- a dead run is caught by claude-run-failure-alert"},
     # ── PI-20260922-ONLY-1-OF-38 triage (2026-09-28): the 6 below were
@@ -334,6 +340,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "ict-heartbeat.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-hourly-snapshot.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-executions-pull.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
+    "ict-trainer-disk-alarm.timer": {"receipt": None, "why": "VM-side (FIX-SA-12); it writes runtime_logs/trainer_disk_alarm_state.json on the live VM, which is not in the repo; the surface is the diag relay (unit state + journal)"},
     "ict-prop-feed.timer": {"receipt": None, "why": "VM-side; its receipt is prop_account_status rows (source=breakout_login_check) read via GET /api/bot/prop/status"},
     "ict-ib-gateway-reset.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-gateway-watchdog.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},

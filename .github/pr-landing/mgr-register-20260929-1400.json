@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register: SA-PROV row -> done (observed on the VM) and one session-filed pipeline row (main pytest-run is cancelled by concurrency on every merge). Management surface only."
+}

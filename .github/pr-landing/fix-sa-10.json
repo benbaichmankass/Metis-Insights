@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI tooling only (scripts/ci/check_stale_in_flight.py, scripts/ops/owner_liveness.py, run_guards registration, one test). FIX-SA-10 of docs/audits/system-audit-2026-09-29.md: an in_flight checklist row whose lane session is archived now fails the guard when a lane-state file is supplied; with none (CI cannot read session state) it prints COULD NOT LOOK and never a plain OK. The guard had been removed from run_guards in the 2026-09-21 reset and is re-registered. MANAGER-CHECKLIST.json is not edited. No runtime, order path or live-VM change."
+}

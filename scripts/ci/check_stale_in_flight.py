@@ -43,6 +43,7 @@ or re-owned an `in_flight` row.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import tempfile
@@ -101,7 +102,57 @@ def _materialise_base(base: str, dest: Path) -> bool:
     return True
 
 
-def run(base: str = "origin/main") -> int:
+# ── FIX-SA-10: an `in_flight` row whose LANE session is archived ─────────────
+# Audit 2026-09-29 found four rows (JC-GIT, EXEC-FIX, EXIT-OPS, ADMIN) naming
+# archived, completed lanes that this guard never flagged. Two reasons:
+#   1. it was not in `run_guards.py` at all (removed in the 2026-09-21 reset), and
+#   2. its only session source, `SESSIONS.json`, is archived — `registry=unread`
+#      grades every row `could_not_establish`.
+# Session state now lives on the platform (`list_sessions`), which CI CANNOT
+# read. So the check has two honest outcomes and no silent third:
+#   * `--lane-states FILE` (JSON `{session_id: state}`, e.g. dumped from
+#     `list_sessions`) -> every in_flight row whose lane/owner session is in a
+#     terminal state FAILS, named.
+#   * no file -> `COULD NOT LOOK`, printed per run, exit 0, and never "OK".
+LANE_CHECK_LOOKED = "looked"
+LANE_CHECK_COULD_NOT_LOOK = "could_not_look"
+
+
+def lane_session_id(row: "ol.InFlightRow") -> str | None:
+    """The session a row is laned to: the owner's id if it names one, else the lane's."""
+    return ol.owner_session_id(row.owner) or ol.owner_session_id(row.lane)
+
+
+def archived_lane_rows(rows, lane_states: dict) -> tuple[list, list]:
+    """``(archived, unknown)``: rows whose session is terminal / absent from the states.
+
+    A row naming no session at all is in neither list — there is nothing to look at.
+    """
+    archived, unknown = [], []
+    for row in rows:
+        sid = lane_session_id(row)
+        if sid is None:
+            continue
+        state = lane_states.get(sid)
+        if state is None:
+            unknown.append(row)
+        elif str(state).lower() in ol.TERMINAL_STATES:
+            archived.append(row)
+    return archived, unknown
+
+
+def load_lane_states(path: str | None) -> dict | None:
+    """``None`` = could not look (no file, or unreadable). Never ``{}`` for those."""
+    if not path:
+        return None
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def run(base: str = "origin/main", lane_states_path: str | None = None) -> int:
     registry = ol.read_registry(REPO_ROOT)
     head_rows = ol.in_flight_rows(REPO_ROOT, registry)
     head_bad = ol.unsupported(head_rows)
@@ -125,6 +176,26 @@ def run(base: str = "origin/main") -> int:
               f"(registry {g.registry_state}, observed {g.observation_state} "
               f"{age} ago)")
 
+    # ── FIX-SA-10: archived lanes ────────────────────────────────────────────
+    lane_states = load_lane_states(lane_states_path)
+    lane_check = LANE_CHECK_LOOKED if lane_states is not None else LANE_CHECK_COULD_NOT_LOOK
+    archived: list = []
+    if lane_states is None:
+        laned = sum(1 for r in head_rows if lane_session_id(r))
+        why = ("--lane-states not given" if not lane_states_path
+               else f"{lane_states_path!r} unreadable")
+        print(f"{NAME}: archived-lane check=COULD NOT LOOK — {why}; CI cannot read "
+              f"session state (SESSIONS.json is archived, `list_sessions` is an "
+              f"MCP call). {laned} of {len(head_rows)} in_flight rows name a lane "
+              f"session and NONE were graded. Run with --lane-states FILE to look.")
+    else:
+        archived, unknown = archived_lane_rows(head_rows, lane_states)
+        print(f"{NAME}: archived-lane check=looked over {len(lane_states)} session "
+              f"state(s): archived={len(archived)} lane_not_in_states={len(unknown)}")
+        for row in archived:
+            print(f"{NAME}:   ARCHIVED-LANE [{row.register}] {row.row_id} — lane "
+                  f"{lane_session_id(row)} is {lane_states[lane_session_id(row)]}")
+
     # ── the ratchet ──────────────────────────────────────────────────────────
     with tempfile.TemporaryDirectory() as tmp:
         dest = Path(tmp)
@@ -132,8 +203,9 @@ def run(base: str = "origin/main") -> int:
             print(f"{NAME}: ratchet=base_unreadable — {base!r} could not be "
                   f"resolved, so the diff's own contribution was graded by "
                   f"NOBODY. This is a FINDING about the CI checkout, not a pass.")
-            print(f"{NAME}: OK (census only)")
-            return 0
+            print(f"{NAME}: OK (census only)" if not archived else
+                  f"{NAME}: FAIL — {len(archived)} in_flight row(s) name an archived lane")
+            return 1 if archived else 0
         # Base rows graded with the HEAD registry — see the module docstring.
         base_bad = len(ol.unsupported(ol.in_flight_rows(dest, registry)))
 
@@ -147,7 +219,13 @@ def run(base: str = "origin/main") -> int:
               f"a claim that the work is abandoned, and the row must NOT be "
               f"auto-closed to satisfy it.")
         return 1
-    print(f"{NAME}: OK")
+    if archived:
+        print(f"{NAME}: FAIL — {len(archived)} in_flight row(s) name an archived "
+              f"lane. Re-route or close the row (the manager reconciles); do not "
+              f"edit the checklist from this guard.")
+        return 1
+    print(f"{NAME}: OK" + ("" if lane_check == LANE_CHECK_LOOKED else
+                          " (archived-lane check COULD NOT LOOK)"))
     return 0
 
 
@@ -236,6 +314,23 @@ def self_test() -> int:
     check("staleness does not weaken a negative",
           g("session_bbbbbbbb", reg).support, ol.UNSUPPORTED)
 
+    # ── FIX-SA-10: archived lane ─────────────────────────────────────────────
+    def mk(rid, owner, lane):
+        return ol.InFlightRow(ol.CHECKLIST_REGISTER, rid, owner,
+                              g(owner, reg), lane=lane)
+    rows = [mk("R-ARCH", "manager", "session_cccccccc"),
+            mk("R-LIVE", "manager", "session_aaaaaaaa"),
+            mk("R-OWN", "session_cccccccc (LANE)", None),
+            mk("R-NONE", "manager", None),
+            mk("R-UNK", "manager", "session_zzzzzzzz")]
+    arch, unk = archived_lane_rows(rows, {k: v["state"] for k, v in reg.items()
+                                          if v.get("state")})
+    check("archived lane named", sorted(r.row_id for r in arch), ["R-ARCH", "R-OWN"])
+    check("absent session is unknown, not archived", [r.row_id for r in unk], ["R-UNK"])
+    check("no state file is could-not-look, not {}", load_lane_states(None), None)
+    check("unreadable state file is could-not-look",
+          load_lane_states("/nonexistent/x.json"), None)
+
     if failures:
         for f in failures:
             print(f"{NAME}: self-test FAIL — {f}")
@@ -248,6 +343,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--base", default="origin/main")
+    ap.add_argument("--lane-states", default=None, metavar="FILE",
+                    help="JSON {session_id: state} (e.g. from list_sessions); "
+                         "without it the archived-lane check reports COULD NOT LOOK")
     args = ap.parse_args()
     # The verdict below is about the COMMITTED tree. Say so when that is
     # not the tree you edited. See
@@ -258,7 +356,7 @@ def main() -> int:
     import _dirty_tree  # noqa: E402,PLC0415 — path shim above
     _dirty_tree.warn()
 
-    return self_test() if args.self_test else run(args.base)
+    return self_test() if args.self_test else run(args.base, args.lane_states)
 
 
 if __name__ == "__main__":

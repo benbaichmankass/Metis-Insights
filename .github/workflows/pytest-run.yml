@@ -85,8 +85,17 @@ on:
 # NEVER be cancelled by a `pull_request` run on the same ref, or the merge queue
 # stalls on a required check that reports `cancelled`. Same shape as guards.yml.
 concurrency:
+#
+# PUSH TO MAIN IS NOT CANCELLED (2026-09-29, PI-20260929-AQRK6CL1-0003). The
+# group is per-ref, so with `cancel-in-progress: true` every merge cancelled the
+# previous main run: measured 15 of the last 19 completed push-to-main runs were
+# `cancelled`, so main rarely finished a post-merge run and a semantic break
+# between two PRs each green on an older base went uncaught. Cancellation stays
+# for pull_request/merge_group/dispatch; for push the running run finishes and
+# GitHub keeps at most ONE pending run in the group (a newer push replaces the
+# pending one), bounding cost at one running + one pending instead of one per merge.
   group: pytest-run-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read

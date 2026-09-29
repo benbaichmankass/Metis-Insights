@@ -23,10 +23,11 @@ name: grade-closed-trades
 # money DB to a hosted runner to grade it is a worse trade than one SSH (same
 # reasoning as strategy-review-packets.yml).
 #
-# FRESHNESS IS GRADED IN CI, NOT HERE. scripts/ci/check_grading_freshness.py
-# (run_guards `grading-freshness`) fails every PR once max(reviewed_at) is >3
-# days old, so a schedule that stops firing is loud even when this workflow
-# never runs to report its own failure.
+# FRESHNESS IS ALERTED OUTSIDE THIS JOB. scripts/ci/check_grading_freshness.py
+# (run_guards `grading-freshness`) is ALERT-ONLY: it warns on PRs, and
+# grading-freshness-alert.yml (daily 04:10Z) sends one Telegram ping when
+# max(reviewed_at) is >3 days old or unreadable, so a schedule that stops firing
+# is loud even when this workflow never runs to report its own failure.
 
 on:
   schedule:

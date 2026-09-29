@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a human-reviewed PR lands (or the operator explicitly declines) declaring trail_geometry(trail5) for gld_pullback_1d in config/strategies.yaml",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-YGGMZWK7-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "research/queue/RQ-20260928-022.yaml + research/results/RQ-20260928-022/36505258498.jsonl",
+    "rerun": "gh workflow run m20-exit-lever-sweep.yml --ref main -f legs=gld_pullback_1d -f tp_cap_pct=0.099 -f split_mode=oos-trades -f research_unit=RQ-20260928-022 (same inputs as the landed run; the unit also re-fires automatically next month per its own cadence)"
+  },
+  "state": "queued",
+  "what": "RQ-20260928-022 (M20 exit-lever monthly sweep, gld_pullback_1d / GLD 1d) PASSED RULE-EXIT-REFINEMENT-P2-GATE: cell trail5 (trail_geometry lever) clears the P2 gate net of the full cost stack, base_oos_trades=49 (>= the 25-trade floor). MEASURED research/results/RQ-20260928-022/36505258498.jsonl (verdict=pass, read_state=measured, generated_at 2026-09-29T01:22:58Z), corpus rows docs/research/m20-sweep-corpus.jsonl (leg=gld_pullback_1d). gld_pullback_1d is a LIVE leg (config/strategies.yaml:2019). Per this repo's convention (a passing cell is not a passing lever disposition; a live-leg exit-geometry change is Tier-3), this is a CANDIDATE to declare trail_geometry(trail5) for gld_pullback_1d -- NOT applied by this unit. Proposed next step: a human-reviewed PR to config/strategies.yaml adding the lever, with docs/research/exit-refinement-coverage.json updated. This agent is NOT filing that PR (config/strategies.yaml is out of this session's scope)."
+}

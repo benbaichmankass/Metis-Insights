@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "touches .github/workflows/vm-diag-snapshot.yml and trainer-vm-diag.yml, which hold VM_SSH_KEY/DIAG_READ_TOKEN (lane SA-SEC brief: landing hold; manager session_01HYq6XtfesZ57VyaQrK6CL1 reviews and merges)",
+  "why": "FIX-SA-07 (system-audit-2026-09-29 \u00a7 5): refuse `..`/encoded-dot traversal in both relay resolvers; redact secret shapes before any comment, run-log preview or artifact. Logic is in tested scripts/ops/diag_path_guard.py and redact_diag_output.py. Tier-2 by path (secret-holding workflows), Tier-1 by content."
+}
