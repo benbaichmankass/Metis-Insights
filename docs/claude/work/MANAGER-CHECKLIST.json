@@ -2350,7 +2350,144 @@
           "what": "the four questions below are answered and the audit's shape is decided; the lanes themselves launch only when the operator says go"
         }
       ],
-      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a76's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the \u00a74.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a77's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in \u00a77 sum inside this figure; it is not an additional per-lane amount). \u26a0\ufe0f THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself.\n[2026-09-29T09:50Z manager] OPERATOR GO, popup verbatim: \"Launch now (Recommended)\". Dispatched AUD-LEAD (runs AUD-1..8 as subagents/sub-sessions, $270 cap, AUD-6 on haiku, no re-do of the CA code audit). || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): AUD-LEAD phase 1 at 09:51Z: 8 sub-lanes AUD-1..8 dispatched (ceilings $45/$30/$25/$30/$20/$12/$20/$15 = $197 of the $270 cap); rows + briefs in #14050 (auto-merge armed). Sub-lanes report through AUD-LEAD; the manager sends lane spend readings at check-ins. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): phase 2: consolidated report docs/audits/system-audit-2026-09-29.md in #14108 (auto-merge armed; supersedes closed #14050). Lead re-verified 6 highs: 4 confirmed, 2 downgraded. Proposes FIX-SA-01..13 + JC-SA-01..08. AUD-6/6b (Haiku) fabricated evidence -> PRs closed, lanes archived; lead planted defects itself (10/10 caught). Sub-lane spend ~$27.3 running + lead $16.92 running at 10:50Z, of $270."
+      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a76's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the \u00a74.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a77's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in \u00a77 sum inside this figure; it is not an additional per-lane amount). \u26a0\ufe0f THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself.\n[2026-09-29T09:50Z manager] OPERATOR GO, popup verbatim: \"Launch now (Recommended)\". Dispatched AUD-LEAD (runs AUD-1..8 as subagents/sub-sessions, $270 cap, AUD-6 on haiku, no re-do of the CA code audit). || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): AUD-LEAD phase 1 at 09:51Z: 8 sub-lanes AUD-1..8 dispatched (ceilings $45/$30/$25/$30/$20/$12/$20/$15 = $197 of the $270 cap); rows + briefs in #14050 (auto-merge armed). Sub-lanes report through AUD-LEAD; the manager sends lane spend readings at check-ins. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): phase 2: consolidated report docs/audits/system-audit-2026-09-29.md in #14108 (auto-merge armed; supersedes closed #14050). Lead re-verified 6 highs: 4 confirmed, 2 downgraded. Proposes FIX-SA-01..13 + JC-SA-01..08. AUD-6/6b (Haiku) fabricated evidence -> PRs closed, lanes archived; lead planted defects itself (10/10 caught). Sub-lane spend ~$27.3 running + lead $16.92 running at 10:50Z, of $270. | 2026-09-29 ~10:40Z (AUD-LEAD): CONSOLIDATED \u2014 docs/audits/system-audit-2026-09-29.md (this PR). All 8 areas have landed lane PRs: AUD-1 #14104, AUD-2 #14067, AUD-3 #14082, AUD-4 #14079, AUD-5 #14084, AUD-7 #14088, AUD-8 #14068. AUD-6 #14083 and AUD-6b #14099 are HELD: Haiku failed the plant-a-defect protocol twice, with fabricated evidence (report s9); the lead proved 10 guards by plant itself. Lane highs: 6. The lead re-verified each: 4 CONFIRMED high, 2 DOWNGRADED to medium, and 1 lane medium merged. Confirmed: (1) Alpaca naked_rearm 6-7 min after every entry, incl. all 3 alpaca_live [FIX-SA-03]; (2) real-money venue SL fills journaled reconciler_filled [FIX-SA-02, route to EXIT-CLUSTER]; (3) grading hop dead since 09-08 [JC-SA-01]; (4) labels_accruing gate reads the active shadow log only [FIX-SA-01]. Pipeline PI-20260929-TWEW1FZJ-0001..0006. FIX-SA-01..13 are checklist-row proposals; JC-SA-01..08 go to the daily brief s2. Spend (RUNNING, read 10:12-10:27Z): lanes $26.31 of the $270 cap; lead not readable from inside its session. State stays in_flight until this PR merges; then done (the audit's done-condition is the landed report). Findings are tracked on their own items. | 11:05Z (AUD-LEAD): all lanes archived; lane spend FINAL $27.98 (AUD-1 6.23, AUD-2 1.97, AUD-3 3.35, AUD-4 5.76, AUD-5 2.96, AUD-6+6b 3.32, AUD-7 2.95, AUD-8 1.44). Six lane PRs conflicted on DOCUMENT-INDEX and were closed; their files land in #14108."
+    },
+    {
+      "id": "AUD-1",
+      "title": "Order-path safety: does each venue's resting-order state match the journal's protection for every real-money position open in the window, across its life?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": 6.23,
+      "tier": 1,
+      "prs": [
+        14104
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: order-path work is always opus (manager model table). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.1 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-1.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-1.md. Running since 2026-09-29T09:51Z as session_01UpiFwDpkceKjnEZUdziKG6 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
+    },
+    {
+      "id": "AUD-2",
+      "title": "Trading correctness: does a stratified sample of closed trades (account x exit family) meet every hop contract signal->order->fill->exit->grade on live data?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": 1.97,
+      "tier": 1,
+      "prs": [
+        14067
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.2 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-2.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-2.md. Running since 2026-09-29T09:51Z as session_01HZGnb6btk7SmVgRPsapNQ6 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
+    },
+    {
+      "id": "AUD-3",
+      "title": "Data provenance at runtime: is every field the reviews/dashboards treat as MEASURED actually MEASURED upstream, and is every production three-state field registered with the collapsed-state guard?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": 3.35,
+      "tier": 1,
+      "prs": [
+        14082
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.3 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-3.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-3.md. Running since 2026-09-29T09:51Z as session_01NJSJ28jucs9izU2FNDvueZ (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
+    },
+    {
+      "id": "AUD-4",
+      "title": "ML serving fidelity: does every shadow+/advisory model's live feature path match its training-time features, and does any gate other than drift_clean share the rotation-window blind spot?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": 5.76,
+      "tier": 1,
+      "prs": [
+        14079
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default; trainer-diag round trips are the cost driver. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.4 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-4.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-4.md. Running since 2026-09-29T09:51Z as session_018HUkuZqmpLRmvBnrj2GnC3 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
+    },
+    {
+      "id": "AUD-5",
+      "title": "Infra/VMs: does every declared systemd unit on both VMs match what the fleet depends on, and is the live VM HEAD within one ict-git-sync interval of main?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": 2.96,
+      "tier": 1,
+      "prs": [
+        14084
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.5 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-5.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-5.md. Running since 2026-09-29T09:51Z as session_011Z63Jgz3taxag7zNEo7HUH (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
+    },
+    {
+      "id": "AUD-6",
+      "title": "CI guard health: for the guards not proven by CA-B05/B06, does each fail red on a planted defect it claims to catch (plant-a-defect protocol)?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 12,
+      "spend_usd": 3.32,
+      "tier": 1,
+      "prs": [
+        14083,
+        14099
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: operator decision D9 (row E75): Haiku for the mechanical guard-coverage lane. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.6 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-6.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-6.md. Running since 2026-09-29T09:51Z as session_01SjaFoV2E4PQv8KhWmNGZUj (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): PR opened. AUD-6 is HELD: the lane failed its brief, and so did the AUD-6b re-dispatch (session_01EL5GVugVvaqdu1WM14ErwB), each with fabricated evidence. The lead proved 10 guards by plant; see report s9 and JC-SA-07. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive) = AUD-6 2.40 + AUD-6b 0.92. Findings consolidated in #14108."
+    },
+    {
+      "id": "AUD-7",
+      "title": "Security: does every credential-bearing path have least privilege, and is any secret-shaped material reachable from a log, diag response, fixture or history?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": 2.95,
+      "tier": 1,
+      "prs": [
+        14088
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: credential-adjacent, not order-path (proposal s7). One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.7 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-7.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-7.md. Running since 2026-09-29T09:51Z as session_01KdB2sZGB14Xx9s1h1PoDW8 (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
+    },
+    {
+      "id": "AUD-8",
+      "title": "Operating model: is the 2026-09-21 promise (an item comes due on the operator's own page and stays until routed) true today, measured?",
+      "phase": "E",
+      "state": "done",
+      "owner": "AUD-LEAD session_01XDNUbSGVQoJCGqtWEW1Fzj",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": 1.44,
+      "tier": 1,
+      "prs": [
+        14068
+      ],
+      "blocked_on": [],
+      "note": "System audit 2026-09-29 (row E75, operator GO 2026-09-29 ~09:50Z). Fresh session, model: research lane default. One question (title). Spec: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md s4.8 and s5 schema. Only finds; fixes are separate lanes. Output docs/audits/system-audit-2026-09-29/AUD-8.{md,findings.jsonl}. Brief: branch audit/sa-2026-09-29-briefs, docs/audits/system-audit-2026-09-29/briefs/AUD-8.md. Running since 2026-09-29T09:51Z as session_01FBFvp4w9ZrJBydSRMsfWXR (create_session by AUD-LEAD, fresh, tagged manager:session_01KAQRJxRbRwpYTkPgBjNVyQ). `lane` is left for the manager to write: the register is the manager's, and manager-scope-guard classifies whichever session writes another session's id into `lane` as the manager. | 10:40Z (AUD-LEAD): lane landed its PR; findings consolidated in docs/audits/system-audit-2026-09-29.md. | 11:05Z: lane ARCHIVED; spend FINAL (read at archive). Findings consolidated in #14108."
     },
     {
       "id": "E76",
