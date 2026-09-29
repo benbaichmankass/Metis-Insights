@@ -1,0 +1,243 @@
+id: RQ-20260929-401
+title: M19 S2-exit (re-registered) — does the shipped below_half_r exit head recover net R on the ict_scalp 15m family, graded on the FINAL per-year fold?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  RQ-20260928-005 asked whether the exit head transfers from trend_donchian to
+  the ict_scalp 15m family (SOL, XRP, ETH). It graded INDETERMINATE: at its
+  registered 365-day window the final fold held ~20 trades per leg, so the
+  n_oos >= 64 floor was unreachable, and the manager ruled (2026-09-29) that
+  swapping the statistic after seeing the data would defeat pre-registration.
+  A 2200-day supplementary run (not a verdict) pointed the same way (0 of 3 legs
+  positive) but departed from the registration on four axes, one of which — the
+  12-bar embargo — biases toward PASS. This unit is the SAME question, statistic
+  and rule, re-registered BEFORE any run with the sample-size fix and the
+  artifact's own policy: does the exit head — LightGBM P(holding pays), purged
+  per-CALENDAR-YEAR walk-forward, 7-day embargo, the shipped
+  {below_half_r, tau 0.10, below_r 0.5} policy — recover positive net R on each
+  leg's OWN out-of-sample trades in the latest calendar year?
+
+why_this_matters: >-
+  S2 of the staged path (docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md
+  § 4) needs an exit policy that is a per-FAMILY property, not a donchian
+  artefact. RQ-20260927-001 (donchian BTC 1h, recovered_R_oos +1.3127, n=119,
+  one split) is the only genuine out-of-sample pass on record. A registered,
+  adequately powered answer on ict_scalp decides whether the exit head is a
+  reusable policy layer (S2 = veto + learned exit) or S2 = veto + fixed exits.
+  Operator rule 2026-09-27: refinement before kill — three legs are registered,
+  and one leg's failure is not a family verdict.
+
+power:
+  expected_n: 84
+  min_detectable_effect: 0.35
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Paired design identical to RQ-20260927-001 / RQ-20260928-005: head-on and
+    head-off arms score the SAME trades, so the unit is the per-trade difference
+    and the test is one-sample on its mean. Floor = (1.96 + 0.8416)^2 / 0.35^2 =
+    64.07, i.e. n_oos >= 64 (never lowered). expected_n = 84 is the SMALLEST of
+    the three legs' FINAL-FOLD (calendar 2026 to 2026-09-28) harness trade counts,
+    MEASURED on the trainer 2026-09-29 (issues #14398 / #14420, census tool
+    scripts/research/exit_head_leg_trade_census.py, candle files staged at
+    /home/ubuntu/refresh_15m_20260929): SOL 100, XRP 98, ETH 84 — all clear 64,
+    ETH by 20. Full per-year harness trades (same census): SOL 2020..2026 =
+    52/120/120/90/123/120/100 (sum 725), XRP 2021..2026 = 78/109/77/98/108/98
+    (sum 568), ETH 2020..2026 = 25/126/97/83/99/115/84 (sum 629); the sums were
+    re-added and equal the census totals. These are HARNESS trades emitted; the
+    dataset build and fold gate (--min-fold-trades 50, train rows) can drop some,
+    so n_oos is read from the report itself and the floor is applied to THAT — a
+    leg that falls under 64 reads underpowered, never a failed head. The same
+    tool measured the registered 365-day window at ~20 trades per fold, which is
+    why RQ-20260928-005 could not be graded there. n_oos in the grade is the number
+    of fold trades that JOIN to the harness emit, so a dropped trade is visible.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      `source: none`: the n values come from a one-off trainer census over
+      history (the harness replayed on the staged candle files), not from one of
+      research_disposition.CORPORA's registered JSONL corpora. The population is
+      fixed by history through 2026-09-28 (XRP to 2026-09-29); nothing accrues.
+
+decision_rule:
+  id: RULE-RQ0929-401-EXIT-HEAD-FAMILY-TRANSFER-PER-YEAR
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    Per leg L in {ict_scalp_sol_15m (SOLUSDT), ict_scalp_xrp_15m (XRPUSDT),
+    ict_scalp_eth_15m (ETHUSDT)}, timeframe 15m: recovered_R_oos(L) =
+    head_net_r - baseline_net_r over the trades of the FINAL walk-forward fold —
+    the latest CALENDAR YEAR in the data (2026) — UNROUNDED (the trainer's own
+    agg rounds to 0.01R), on the SAME trades, where:
+    FOLDS (scripts/ml/train_exit_head.py --fold-mode years, fold_blocks): the first
+    year present is training-only; each later year is a test fold; a fold's
+    training rows are every harness trade whose LAST bar is earlier than the test
+    year's start minus the 7-day embargo (EMBARGO_S = 604800 s = 672 15m bars);
+    the booster is train_model() (LightGBM, target holding_pays, base features,
+    random_state 7), unchanged; a fold with fewer than 50 test trades does not
+    exist (final_fold_missing).
+    BASELINE: baseline_net_r = sum over the fold's trades of the harness net_r
+    (fee + slippage + funding, each trade held to its harness exit).
+    HEAD: the shipped donchian artifact's shape {policy below_half_r, tau 0.10,
+    below_r 0.5} (src.runtime.exit_head_shadow.would_exit_for): exit at the first
+    bar where P(holding pays) < 0.10 AND open_r < 0.5; ONE arm, fixed a priori —
+    NOT the best of the other tau/shape arms in the trainer's report and NOT
+    `selected_tau` (either is max-over-arms selection on the test block). A trade
+    the head does not truncate keeps its harness net_r. A trade it truncates at
+    bar i is scored NET, because the trainer's own head arm is not: train_exit_head
+    scores a truncated trade at `open_r`, the raw candle mark (close - entry)/risk,
+    i.e. GROSS, against a baseline that is already NET, so left alone every
+    truncated trade would escape its round-trip cost (manager review 2026-09-29,
+    blocking). Registered charge: net = open_r(bar i) - roundtrip_cost_r - exit_fee_r
+    with roundtrip_cost_r from src.runtime.execution_costs.roundtrip_cost_r at the
+    harness CLI's own venue policy (fee DEFAULT_FEE_BPS_ROUNDTRIP = 7.5 bps round
+    trip + slippage_bps_roundtrip_for(symbol) + funding for the 8h windows crossed
+    up to the exit bar's close, exit price = entry +/- open_r x risk) and
+    exit_fee_r = one side of slippage (slippage_bps_roundtrip / 2, converted to R
+    at the average of entry and exit price) — the same convention as
+    research-exit-head-build.yml (exit_fee_bps = slip / 2) and the RQ-005 precedent
+    analyze_exit_head._policy_sim. Produced by
+    scripts/research/exit_head_final_fold_replay.py, which (1) refuses to grade a
+    leg unless its replay reproduces the trainer's own fold (gross head sum and
+    baseline sum within 0.011R of e1_report.json, same n) -> replay_mismatch, and
+    (2) refuses unless the emitted cost_total_r recomputed with the resolved
+    policy agrees within 1e-3R for EVERY fold trade -> cost_policy_mismatch, and
+    the number of trades actually checked (n_cost_checked) equals n_oos — a trade
+    whose emitted cost cannot be recomputed is uncounted, never a zero gap ->
+    cost_policy_unverified. n_oos
+    = the fold's trades that join to the harness emit (a gap reads
+    join_incomplete). The grading is scripts/research/exit_head_final_fold_grade.py
+    (committed with this unit, tested). Trade population: the harness at the
+    live-parity TP cap (--tp-cap-pct 0.099).
+    CANDLES, per leg, exactly what each has (Binance USD-M feed, trainer staging dir
+    /home/ubuntu/refresh_15m_20260929, data/ NOT touched): SOL 2020-09-20 ->
+    2026-09-28 (~2200 d), ETH 2020-09-20 -> 2026-09-28, XRP 2021-05-13 ->
+    2026-09-29 (~1965 d). The registered 365-day window of RQ-20260928-005 is NOT
+    used — it cannot reach the floor.
+  rule: >-
+    Let Q = legs with n_oos >= 64, and P = legs in Q with recovered_R_oos > 0
+    (strictly). IF any leg has a PRODUCER problem (no report, an unreadable or
+    non-object report, replay crashed, replay_mismatch, cost_policy_mismatch,
+    cost_policy_unverified, join_incomplete, wrong fold mode, malformed): verdict not_applicable, read_state producer_failed, the legs named
+    — a leg is NEVER silently dropped from Q. A leg whose final-year fold does not
+    exist (< 50 test trades) is final_fold_missing = underpowered and is excluded
+    from Q; an earlier year never stands in. THEN IF |Q| < 2: verdict
+    indeterminate (underpowered) — the floor is never lowered. ELSE IF |P| >= 2:
+    PASS — the exit head transfers across families at the registered design; the
+    ict_scalp exit heads are candidates for the exit-refinement pipeline's E1 step
+    (Tier-3 to flip live, NOT this unit's act). ELSE IF |P| == 1: indeterminate
+    (REFINE) — re-run that leg on the fold before the last before reading it as a
+    family property; not a kill. ELSE (|P| == 0): FAIL — at the registered design
+    the exit head does not recover R on ict_scalp; the S2-exit lever narrows to
+    trend_donchian (post-mortem § 4). This is RQ-20260928-005's rule with its
+    partition made complete (its "exactly 1 of 3" / "0 of 3" wording left |Q| = 2
+    undefined) and NO threshold changed.
+  what_it_does_not_do: >-
+    Declares no exit_head_model in config/strategies.yaml, promotes no head, writes
+    nothing under runtime_logs/trainer_mirror/, changes no live exit, and does NOT
+    overwrite data/. Exit logic stays Tier-1-research only; flipping any exit is
+    Tier-3 (exit-refinement skill).
+  deviations_from_rq_20260928_005: >-
+    Stated so the swap is not read as silent. (1) Window: per-leg refreshed
+    history (~1965-2200 d) instead of 365 d — the sample-size fix, registered
+    before any run. (2) Folds: per calendar year (train_exit_head years mode) —
+    the registered design, not the 5 contiguous blocks the workflow produced.
+    (3) Embargo 7 days (672 bars), not the workflow's 12 bars. (4) Policy: the
+    artifact's {below_half_r, tau 0.10, below_r 0.5}, not exit_threshold 0.5.
+    (5) Producer: the trainer round m20_exit_head_round.py -> train_exit_head.py
+    + the replay, not research-exit-head-build.yml / analyze_exit_head.py; its
+    harness parameters are the driver's config-exact ones resolved from
+    config/strategies.yaml (m20_fleet_exit_sweep.base_args), NOT the workflow
+    inputs time_stop_bars 12 / tp_r 2.0 / exit_threshold 0.5. (6) TP geometry:
+    --tp-cap-pct 0.099 (live parity). (8) FAIL at |Q| = 2: RQ-20260928-005 wrote FAIL as "recovered_R_oos <= 0 on all
+    three legs with n >= 64" and, when fewer than 3 legs cleared the floor, only
+    that the rule "is applied over the remaining legs" without saying how; here
+    |Q| = 2 with |P| = 0 is a FAIL (2 legs graded, neither positive), |Q| = 2 with
+    |P| = 1 is REFINE, and |Q| < 2 is indeterminate. The thresholds (n >= 64,
+    strictly > 0, 2-of-legs for PASS) are unchanged; only that undefined case is
+    now defined, before the run. (7) Cost method: the head arm is charged
+    round-trip cost + exit fee per truncated trade via execution_costs (RQ-005's
+    workflow charged an equal flat cost_bps to both arms plus exit_fee_bps on
+    early exits — same intent, different arithmetic: here the cost is per trade at
+    its actual exit price and hold).
+  known_limitations: >-
+    (a) Truncation is modelled at the exit bar's CLOSE mark (no gap, latency or
+    partial fill); a real discretionary exit can fill worse — the exit fee is a
+    one-side-of-slippage allowance, not a measurement. (b) The cost policy is the
+    repo's model (fee 7.5 bps + D3-measured perp slippage + funding), not realized
+    fills; the replay verifies the harness used that same model (emitted
+    cost_total_r within 1e-3R) but not that the model equals live. (c) The feed is
+    Binance USD-M; the trainer's older SOL/ETH files are a different feed (median
+    close diff 1.6 / 1.2 bps over overlapping bars, maxima 1649 / 693 bps on
+    isolated bars), so results are not comparable to studies that read those.
+    (d) A PASS supports the E1 step only; any Tier-3 proposal needs the exit head
+    re-checked against live fills first.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 90
+  basis: >-
+    Trainer VM: the staged candle files (/home/ubuntu/refresh_15m_20260929) and
+    the harness run live only there. MEASURED 2026-09-29: the harness-only census
+    on those files took ~13 min per leg (~40 min for three legs) on the 1-OCPU
+    box; the dataset build and six per-year LightGBM fits per leg are small next
+    to that (the older pooled 15m ict_scalp dataset was 28,683 rows). est_minutes
+    90 is an estimate, not a measurement. The trainer heavy-job queue is taken by
+    the driver itself. Run detached (nohup) — a foreground relay command has a
+    ~60-min ceiling that RQ-20260927-003 already hit.
+
+run:
+  workflow: 'trainer-vm-diag (issue label trainer-vm-diag-request)'
+  inputs:
+    legs: ict_scalp_sol_15m,ict_scalp_xrp_15m,ict_scalp_eth_15m
+    tf: 15m
+    data_dir: /home/ubuntu/refresh_15m_20260929
+    fold_mode: years
+    expect_year: 2026
+    replay: scripts/research/exit_head_final_fold_replay.py
+    research_unit: RQ-20260929-401
+  note: >-
+    DO NOT DISPATCH BEFORE THIS UNIT IS MERGED. Step 1 (detached, flat command,
+    no heredocs): `cd /home/ubuntu/ict-trading-bot && source .venv/bin/activate &&
+    nohup python scripts/research/m20_exit_head_round.py --legs
+    ict_scalp_sol_15m,ict_scalp_xrp_15m,ict_scalp_eth_15m --tf 15m --data-dir
+    /home/ubuntu/refresh_15m_20260929 --out /home/ubuntu/rq20260929_401_round
+    --fold-mode years > /home/ubuntu/rq20260929_401_round.log 2>&1 &`. The driver
+    forwards --fold-mode since PR #14407. Step 2, when the log shows the round
+    finished (poll `tail` of the log via a separate issue): `python
+    scripts/research/exit_head_final_fold_replay.py --round-dir
+    /home/ubuntu/rq20260929_401_round --tf 15m --expect-year 2026 --legs
+    ict_scalp_sol_15m,ict_scalp_xrp_15m,ict_scalp_eth_15m`. Step 3: `python
+    scripts/research/exit_head_final_fold_grade.py --round-dir
+    /home/ubuntu/rq20260929_401_round --legs
+    ict_scalp_sol_15m,ict_scalp_xrp_15m,ict_scalp_eth_15m`. Step 4: land the
+    verdict with scripts/research/research_result.py under
+    research/results/RQ-20260929-401/ (rule id above), the per-leg
+    final_fold_net.json (n_oos, baseline, head gross and net, recovered_R, early
+    exits, charged cost) in the measurement block — the trainer's files are NOT
+    durable — and the issue numbers in artifact.locator. Apply the rule
+    mechanically.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: >-
+    research/results/RQ-20260929-401/<run_id>.jsonl, one row carrying all three
+    legs (the rule counts legs, so a partial landing is indeterminate, never a
+    failing leg).
+
+related:
+  - RQ-20260928-005 (the registered question; graded indeterminate at 365d — this unit is its sample-size fix, registered before any run)
+  - RQ-20260927-001 (the one prior out-of-sample exit-head pass, trend_donchian BTC 1h)
+  - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S2-exit)
+  - docs/research/M20-exit-refinement-2026-07-12.md § 8-9 (the walk-forward recipe and the below_half_r policy)
+  - PI-20260929-FCJRWVAK-0001 (why the trainer's candles were stale; the refreshed dir and the open decision on data/)
+  - PR #14407 (the --fold-mode passthrough and the trade census tool)
+last_dispatched_at: null
