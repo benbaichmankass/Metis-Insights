@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR in this lane is held; the manager merges. Do not arm auto-merge.",
+  "why": "PROP-EXEC fix-forward #8. Live test #13987 (06:26Z, code_sha 9ee404e3b): the ticket read back clean, submit was clicked, then 5 re-reads found no SOLUSD position and no order (not_found); the executor halted without closing blind, and the run log could not say what the terminal showed after the click. (1) After an ARMED submit the adapter now records what the click produced: every NEW visible control (text, box) and the redacted text of the overlay holding them (digit runs of 5+ masked), and presses exactly ONE new control that reads as the confirmation of OUR order (Confirm/OK/Yes/Place order/Submit/Send, or a button naming our side whose restated qty/symbol match); a control naming the other side, or 0 / 2+ candidates, presses nothing and says why. (2) Criterion D7 is read back: after a disarmed walk the dismiss result and what the form still shows (values, toggles, selection) travel with the attempt. Replicas: a custom (non-ARIA) confirmation modal is pressed once; Sell / ambiguous / mismatched restatements are never pressed; a sidebar that ignores the dismiss is reported. 315 tests pass. Tier 2: one more click on the live order path, bounded to a confirmation of the order already typed and read back; no sizing, guard or risk change."
+}

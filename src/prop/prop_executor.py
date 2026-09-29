@@ -1039,6 +1039,12 @@ def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
             # after (our own numbers, never account data), so a run log says
             # which field the terminal reset and whether the re-fill stuck.
             "fill_trace": form.get("fill_trace"),
+            # After a DISARMED walk: what the dismiss did and what the form
+            # still shows (criterion D7, read back rather than assumed).
+            "ticket_after": form.get("ticket_after"),
+            # After an ARMED submit click: what appeared (new controls, the
+            # overlay's redacted text) and whether one confirmation was pressed.
+            "after_submit": form.get("after_submit"),
             # Where the ticket panel and its tagged controls sit (boxes only).
             "panel": {k: form.get(k) for k in ("panel_box", "fields_box", "button_boxes") if form.get(k)} or None,
             "ambiguous": form.get("ambiguous") or None}

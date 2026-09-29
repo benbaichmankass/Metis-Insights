@@ -762,6 +762,24 @@ def test_place_bracket_disarmed_fills_verifies_and_never_submits(tpage):
     assert p.evaluate("document.getElementById('sl').value") == "118"
     assert p.evaluate("window.__side") == "buy" and p.evaluate("window.__type") == "limit"
     assert p.evaluate("document.getElementById('ticket').style.display") == "none"  # closed
+    # Criterion D7 is read back: the dismiss clicked Cancel and the form is gone.
+    assert att.form["ticket_after"] == {"dismissed": True, "found": False, "values": {}, "toggles": {}, "selected": None}
+    assert pe._attempt_public(att)["ticket_after"]["found"] is False
+
+
+def test_disarmed_walk_reports_a_sidebar_that_stays_open_after_dismiss(tpage):
+    # A sidebar ticket with no Cancel control that ignores Escape: the walk
+    # reports what is left (our values, toggles still ON), it does not assume.
+    html = (TICKET_PAGE % "").replace(
+        '<button onclick="document.getElementById(\'ticket\').style.display=\'none\'">Cancel</button>', '')
+    assert "Cancel" not in html
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(html=html), SOL)
+    assert att.stage == "form_verified", att.detail
+    after = att.form["ticket_after"]
+    assert after["found"] is True and after["dismissed"] is True          # Escape was pressed, nothing closed
+    assert after["values"] == {"quantity": "0.5", "price": "120", "stop_loss": "118", "take_profit": "126"}
+    assert after["toggles"] == {"stop_loss": True, "take_profit": True}
+    assert after["selected"] == {"side": "buy", "order_type": "limit"}
 
 
 def test_place_bracket_armed_clicks_submit_exactly_once(tpage):
@@ -1953,3 +1971,68 @@ def test_place_bracket_refuses_a_side_button_outside_the_ticket_panel(tpage):
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and att.detail.startswith("control outside the ticket panel: side_buy: at ["), att.detail
     assert p.evaluate("window.__submits") is None and p.evaluate("window.__side") is None
+
+
+# ── after the ARMED submit click: what appeared, and one confirmation only
+# (live test #13987: submit clicked, then nothing was known) ─────────────
+
+_MODAL = """
+<div id="modal" style="display:none;position:fixed;left:300px;top:300px;background:#fff">
+  <div>Confirm order: Buy 0.01 SOLUSD at 118.94 (account 12345678)</div>
+  <button id="mc" onclick="window.__confirmed=(window.__confirmed||0)+1;document.getElementById('modal').style.display='none'">%s</button>
+  <button onclick="document.getElementById('modal').style.display='none'">Cancel</button>
+</div>
+"""
+
+
+def _modal_page(confirm_label="Confirm", submit_opens_modal=True):
+    html = TICKET_PAGE % ""
+    sub = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
+    assert sub in html
+    if submit_opens_modal:
+        html = html.replace(sub, '<button id="sub" onclick="window.__submits=(window.__submits||0)+1;'
+                                 'document.getElementById(\'modal\').style.display=\'block\'">Place Order</button>')
+    return html.replace("</body>", (_MODAL % confirm_label) + "</body>")
+
+
+def test_armed_submit_presses_one_new_confirmation_and_records_the_overlay(tpage):
+    p = tpage(html=_modal_page("Confirm"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.submitted is True and p.evaluate("window.__submits") == 1
+    assert p.evaluate("window.__confirmed") == 1
+    after = att.form["after_submit"]
+    assert after["confirm_clicked"] == "Confirm" and after["dialog_confirmed"] is False
+    assert [b["text"] for b in after["new_buttons"]] == ["Confirm", "Cancel"]
+    assert "Buy 0.01 SOLUSD at 118.94" in after["overlay_text"] and "12345678" not in after["overlay_text"]
+    assert pe._attempt_public(att)["after_submit"]["confirm_clicked"] == "Confirm"
+    assert "12345678" not in json.dumps(pe._attempt_public(att))
+
+
+def test_armed_submit_presses_a_new_button_naming_our_side_and_order(tpage):
+    p = tpage(html=_modal_page("Buy 0.5 SOLUSD at 120.0"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert p.evaluate("window.__confirmed") == 1 and att.form["after_submit"]["confirm_clicked"].startswith("Buy 0.5")
+
+
+def test_armed_submit_never_presses_the_other_side_or_an_ambiguous_control(tpage):
+    p = tpage(html=_modal_page("Sell"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert p.evaluate("window.__confirmed") is None
+    assert att.form["after_submit"]["confirm_clicked"] is None and "other side" in att.form["after_submit"]["why"]
+    # a restated order that does not match ours is not a confirmation of ours
+    p = tpage(html=_modal_page("Buy 0.7 SOLUSD at 120.0"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert p.evaluate("window.__confirmed") is None and "0 confirmation-like" in att.form["after_submit"]["why"]
+    # two plausible confirmations: nothing pressed
+    html = _modal_page("Confirm").replace(">Cancel</button>", ">OK</button>")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert p.evaluate("window.__confirmed") is None and "2 confirmation-like" in att.form["after_submit"]["why"]
+
+
+def test_armed_submit_with_nothing_new_records_an_empty_diff(tpage):
+    p = tpage(html=_modal_page("Confirm", submit_opens_modal=False))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    after = att.form["after_submit"]
+    assert after["new_buttons"] == [] and after["overlay_text"] is None and after["confirm_clicked"] is None
+    assert after["why"] == "0 confirmation-like new controls; nothing pressed"

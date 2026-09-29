@@ -1412,6 +1412,47 @@ SUBMIT_JS = r"""
 }
 """
 
+# What the submit click PRODUCED (live test #13987, 2026-09-29: submit was
+# clicked, then no position and no order appeared, and the run log could not
+# say what the terminal showed). "tag": mark every visible button present
+# BEFORE the click. "diff": every visible button that was NOT there before
+# (a confirmation modal's Confirm / Cancel, a rejection notice's OK), each
+# with its text and box, plus the text of the smallest element holding all
+# of them. Digit runs of 5+ are masked so an account number can never reach
+# the run log (our own price / quantity are shorter); emails are masked.
+# Clicks nothing.
+POST_SUBMIT_JS = r"""
+(args) => {
+  const [op] = args;
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const btnSel = 'button, [role=button], input[type=submit]';
+  if (op === 'tag') {
+    document.querySelectorAll('[data-metis-pre]').forEach(e => e.removeAttribute('data-metis-pre'));
+    let n = 0;
+    for (const b of document.querySelectorAll(btnSel)) if (vis(b)) { b.setAttribute('data-metis-pre', '1'); n++; }
+    return {ok: true, tagged: n};
+  }
+  const red = s => String(s || '').replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d{5,}/g, '#####').trim();
+  const txt = el => red(el ? (el.innerText || el.textContent || '') : '');
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const fresh = [...document.querySelectorAll(btnSel)].filter(b => vis(b) && !b.hasAttribute('data-metis-pre'));
+  document.querySelectorAll('[data-metis-new]').forEach(e => e.removeAttribute('data-metis-new'));
+  const out = {ok: true, new_buttons: [], overlay_text: null, dialogs: document.querySelectorAll('[role=dialog], [role=alertdialog]').length};
+  fresh.forEach((b, i) => {
+    b.setAttribute('data-metis-new', String(i));
+    out.new_buttons.push({i, text: (txt(b) || red(b.getAttribute('aria-label'))).slice(0, 80), box: box(b),
+                          disabled: !!(b.disabled || b.getAttribute('aria-disabled') === 'true')});
+  });
+  if (fresh.length) {
+    let e = fresh[0];
+    while (e && e !== document.body && !fresh.every(b => e.contains(b))) e = e.parentElement;
+    if (e && e !== document.body) out.overlay_text = txt(e).slice(0, 600);
+  }
+  return out;
+}
+"""
+
 # Finds ONE row of the orders or positions table by an exact key cell and ONE
 # control in it by an anchored pattern (text, aria-label or title), and tags
 # that control data-metis-row-action. Never clicks.
@@ -2378,7 +2419,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         # with the attempt so the run log shows it. Nothing is gated on it.
         form = {**form, "one_click": self.read_one_click(page), "submit": submit_info, "fill_trace": trace}
         if not arm:
-            self.close_order_ticket(page)
+            # Criterion D7 (ticket reset / closed afterwards) is READ BACK, not
+            # assumed: what the dismiss did and what the form shows after it.
+            form["ticket_after"] = self._ticket_after(page)
             return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
         # ── the one click that changes the account: the ticket's own submit ──
         # Click the element PROVEN a moment ago (its one-time token): a node
@@ -2386,14 +2429,87 @@ class DXtradeAdapter(PropPlatformAdapter):
         # attempt is reported unconfirmed (review of #13822).
         submit_sel = f"[data-metis-btn=submit][data-metis-submit-token={submit_info['token']}]"
         try:
+            page.evaluate(POST_SUBMIT_JS, ["tag"])
+        except Exception:
+            pass
+        try:
             page.click(submit_sel, timeout=5_000)
         except Exception as exc:
             # The click may or may not have landed: report submitted so the
             # caller treats it as UNCONFIRMED and re-reads; never resubmit.
             return PlaceAttempt(stage="submitted", submitted=True,
                                 detail=f"submit click raised {type(exc).__name__}; outcome unknown", form=form)
-        self._confirm_dialog(page)
+        confirmed = self._confirm_dialog(page)
+        # What the click produced, recorded on the attempt (live test #13987:
+        # nothing was known about the terminal after the click). A single
+        # NEW control that reads as the confirmation of OUR order is pressed
+        # once; anything else is only recorded.
+        after = self._after_submit(page, spec, dialog_confirmed=confirmed)
+        form = {**form, "after_submit": after}
         return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
+
+    #: A NEW control after the submit click that confirms the order: a plain
+    #: Confirm / OK / Yes / Place order / Submit / Send, or a button naming OUR
+    #: side (optionally restating "<qty> <symbol> ...", which must then match).
+    _CONFIRM_WORDS = re.compile(r"^(confirm|ok|yes|place order|submit|send|place)$", re.IGNORECASE)
+
+    def _after_submit(self, page: Any, spec: BracketSpec, *, dialog_confirmed: bool) -> Dict[str, Any]:
+        out: Dict[str, Any] = {"dialog_confirmed": dialog_confirmed, "confirm_clicked": None, "why": None}
+        try:
+            page.wait_for_timeout(300)
+            got = page.evaluate(POST_SUBMIT_JS, ["diff"]) or {}
+        except Exception as exc:
+            out["why"] = f"post-submit read failed ({type(exc).__name__})"
+            return out
+        out.update({k: got.get(k) for k in ("new_buttons", "overlay_text", "dialogs")})
+        if dialog_confirmed:
+            out["why"] = "a role=dialog confirmation was pressed"
+            return out
+        mine, other = ("buy", "sell") if spec.side == "long" else ("sell", "buy")
+        cands = []
+        for b in got.get("new_buttons") or []:
+            t = str(b.get("text") or "").strip()
+            low = t.lower()
+            if b.get("disabled"):
+                continue
+            if self._CONFIRM_WORDS.match(t):
+                cands.append(b)
+            elif re.match(rf"^{mine}\b", low) and not re.search(rf"\b{other}\b", low) \
+                    and not submit_label_mismatch(t, spec):
+                cands.append(b)
+        if any(re.search(rf"\b{other}\b", str(b.get("text") or "").lower()) for b in got.get("new_buttons") or []):
+            out["why"] = f"a new control names the other side ({other}); nothing pressed"
+            return out
+        if len(cands) != 1:
+            out["why"] = f"{len(cands)} confirmation-like new controls; nothing pressed"
+            return out
+        try:
+            page.click(f"[data-metis-new='{cands[0]['i']}']", timeout=5_000)
+            out["confirm_clicked"] = cands[0]["text"]
+        except Exception as exc:
+            out["why"] = f"confirm click raised {type(exc).__name__}; outcome unknown"
+        return out
+
+    def _ticket_after(self, page: Any) -> Dict[str, Any]:
+        """Dismiss the ticket, then MEASURE what is left: whether a dismiss
+        control was clicked (else Escape), whether the form is still found,
+        and, if so, its typed fields' values and the SL / TP toggle states.
+        Our own numbers only, never account data. Nothing is judged here: a
+        sidebar that stays open with our values is reported, so the next
+        dry run's log shows what "reset" means on this terminal."""
+        closed = self.close_order_ticket(page)
+        try:
+            page.wait_for_timeout(300)
+        except Exception:
+            pass
+        after = self._find_form(page)
+        fields = after.get("fields") or {}
+        return {"dismissed": closed, "found": bool(after.get("found")),
+                "values": {k: (fields.get(k) or {}).get("value") for k in ("quantity", "stop_loss", "take_profit", "price")
+                           if k in fields},
+                "toggles": {t.get("field"): t.get("checked") for t in (after.get("checkboxes") or [])
+                            if t.get("field")},
+                "selected": after.get("selected")}
 
     @staticmethod
     def _fill_field(page: Any, key: str, value: float) -> None:
