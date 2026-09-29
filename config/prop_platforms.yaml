@@ -77,10 +77,17 @@ accounts:
         SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
         # BTCUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED (no fields served)
       # The watched click / round trip places at most this many lots of the
-      # named venue symbol, meant to be the venue MINIMUM. Left EMPTY on
-      # purpose: the minimum is unmeasured (see above), so both refuse until
-      # the probe / Instrument Details give it. Empty = they refuse.
-      watched_click_max_lots: {}
+      # named venue symbol, meant to be the venue MINIMUM. Empty = they refuse.
+      # SOLUSD 0.01 (PROP-EXEC, 2026-09-28): the DOM does NOT state a minimum
+      # (probe #13855: qty_constraints [], the lots input has no min/step), so
+      # the cap is the LOT STEP (0.01, measured #13500): no valid size is
+      # smaller, so the venue minimum is >= 0.01. The dry run is what measures
+      # it: the terminal's submit label states the quantity it accepted
+      # ("Buy <qty> SOLUSD at <price>", #13855) and a label that differs from
+      # the typed 0.01 (a clamp to a higher minimum) REFUSES
+      # (dxtrade.submit_label_mismatch). If the dry run passes at 0.01, the
+      # minimum is 0.01. min_lots above stays null until then.
+      watched_click_max_lots: {SOLUSD: 0.01}
       # Venue symbols the executor may ACT on (manager 2026-09-28: SOL-only
       # go-live; the sidebar sits on SOLUSD and symbol switching is not built).
       # Any other ticket is SKIPPED `symbol_not_enabled` before the form is

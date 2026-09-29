@@ -914,6 +914,9 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     if any(p.symbol.upper() == venue for p in positions) or any(o.symbol.upper() == venue for o in orders):
         return stop(f"{venue} already has a position or working order; the test only closes what it opened")
     if not quote:
+        diag = getattr(adapter, "quote_diagnostics", None)
+        if diag is not None:
+            res.log("quote_diagnostics", venue=venue, watchlist=diag(page, venue))
         return stop(f"no bid/ask for {venue} in the watchlist (could not look)")
     ref = quote["ask"] if side == "long" else quote["bid"]
     sl = ref * (1 - bracket_pct) if side == "long" else ref * (1 + bracket_pct)

@@ -1418,6 +1418,44 @@ ROW_ACTION_JS = r"""
 """
 
 
+def parse_price(text: Optional[str]) -> Optional[float]:
+    """A watchlist price. DXtrade renders one price as several spans (the
+    sidebar's ask measured as ``"###."`` + a raised ``"##"``, #13855), so
+    innerText can carry a line break INSIDE the number (``"184.\n25"``,
+    pipette ``"184.25\n3"``). Whitespace is dropped only when the text holds
+    exactly one decimal point with digits around it; ``"184\n25"`` (no point)
+    stays None rather than being read as 18425."""
+    v = parse_number(text)
+    if v is not None or text is None:
+        return v
+    t = str(text)
+    if t.count(".") != 1:
+        return None
+    joined = re.sub(r"\s+", "", t)
+    return float(joined) if re.fullmatch(r"\d+\.\d+", joined) else None
+
+
+def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Dict[str, Any]:
+    """Why :func:`quote_from_tables` found nothing, for the run log. Market
+    data only: the headers of every table with a Symbol column, and the raw
+    cells (``repr``, so a line break shows) of rows naming the symbol in a
+    table that also has Bid and Ask columns."""
+    out: Dict[str, Any] = {"symbol_tables": [], "rows": []}
+    for t in tables:
+        norm = [_norm(h) for h in (t.get("headers") or [])]
+        if "symbol" not in norm:
+            continue
+        out["symbol_tables"].append({"kind": t.get("kind"), "headers": [str(h)[:30] for h in t.get("headers") or []],
+                                     "rows": len(t.get("rows") or [])})
+        if "bid" not in norm or "ask" not in norm:
+            continue
+        c_sym = norm.index("symbol")
+        for row in t.get("rows") or []:
+            if venue_symbol.upper() in (_cell(row, c_sym) or "").upper():
+                out["rows"].append([repr(str(c))[:40] for c in row][:12])
+    return out
+
+
 def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
     """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
     (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
@@ -1430,7 +1468,7 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
         c_sym, c_bid, c_ask = norm.index("symbol"), norm.index("bid"), norm.index("ask")
         for row in t.get("rows") or []:
             if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
-                bid, ask = parse_number(_cell(row, c_bid)), parse_number(_cell(row, c_ask))
+                bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
                 if bid is not None and ask is not None and 0 < bid <= ask:
                     return {"bid": bid, "ask": ask}
     return None
@@ -1501,6 +1539,37 @@ def verify_form_selection(form: Mapping[str, Any], side: str, order_type: str) -
         elif got != v:
             bad.append(f"{k}: chose {v}, form shows {got}")
     return bad
+
+
+#: The measured DXtrade submit label (probe #13855, 2026-09-28):
+#: "Buy <qty> SOLUSD at <price>" -- the TERMINAL's own statement of what it is
+#: about to send.
+_SUBMIT_LABEL = re.compile(r"\b(buy|sell)\s+([0-9]+(?:[.,][0-9]+)?)\s+([A-Za-z0-9._/-]+)", re.IGNORECASE)
+
+
+def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
+    """'' when the submit label agrees with the spec, else why not.
+
+    When the label states a quantity, it must equal ``spec.quantity`` and the
+    symbol after it must be ``spec.venue_symbol``. This is the only place the
+    terminal says what quantity it ACCEPTED: a venue that clamps a
+    below-minimum size up (or rounds it) changes this number, and the dry run
+    at the lot step is only a measurement of the venue minimum if that change
+    would be caught. A label with no quantity passes (the check is then the
+    input read-back alone).
+    """
+    m = _SUBMIT_LABEL.search(text or "")
+    if not m:
+        return ""
+    try:
+        qty = float(m.group(2).replace(",", "."))
+    except ValueError:
+        return f"its text {text!r} states an unparseable quantity"
+    if abs(qty - float(spec.quantity)) > 1e-9:
+        return f"its text {text!r} states quantity {qty}, not the typed {spec.quantity}"
+    if m.group(3).upper() != str(spec.venue_symbol).upper():
+        return f"its text {text!r} names {m.group(3)!r}, not {spec.venue_symbol}"
+    return ""
 
 
 def verify_bracket_legs(form: Mapping[str, Any]) -> List[str]:
@@ -1873,6 +1942,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         """Bid/ask off the watchlist table. Read-only."""
         return quote_from_tables(self._tables(page), venue_symbol)
 
+    def quote_diagnostics(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """Read-only: what the watchlist looked like when no quote parsed."""
+        try:
+            return quote_diagnostics(self._tables(page), venue_symbol)
+        except Exception as exc:
+            return {"error": type(exc).__name__}
+
     def read_one_click(self, page: Any) -> Dict[str, Any]:
         """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC:
         recorded in every order-control result, gated on by none (ORDER ENTRY
@@ -2177,6 +2253,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         mine, other = ("buy", "sell") if spec.side == "long" else ("sell", "buy")
         if not re.search(rf"\b{mine}\b", text) or re.search(rf"\b{other}\b", text):
             return False, f"submit: its text {chk.get('text')!r} does not name the intended side ({mine})", form, info
+        why = submit_label_mismatch(str(chk.get("text") or ""), spec)
+        if why:
+            return False, f"submit: {why}", form, info
         mism = self._read_back(form, spec, want)
         if mism:
             return False, "read-back after scrolling to submit: " + "; ".join(mism), form, info
