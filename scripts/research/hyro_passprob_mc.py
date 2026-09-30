@@ -69,7 +69,7 @@ def _draw_r(spec: Dict[str, Any], rng: np.random.Generator, state: Dict[str, Any
         v = r[state["i"] % len(r)]
         state["i"] += 1
         state["left"] -= 1
-        return float(v)
+        return float(v) + float(spec.get("r_shift", 0.0))
     wr, wR, lR = float(spec["win_rate"]), float(spec["win_r"]), float(spec["loss_r"])
     return wR if rng.random() < wr else -abs(lR)
 
@@ -102,14 +102,19 @@ def _phase(spec, rs, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_m
             else:
                 worst = bal + pnl
                 best = bal + loser_mfe_r * risk
-            # floating-equity checks (trailing daily from day peak; static max)
-            day_peak = max(day_peak, best)
+            # floating-equity checks (trailing daily from day peak; static max).
+            # EVENT ORDER matters: a winner's adverse excursion (worst) happens BEFORE
+            # its final peak, a loser's small favourable excursion (best) happens
+            # BEFORE its trough. Crediting a winner's peak first measured a +5R win
+            # as a 5% intraday drawdown (fixed 2026-09-30, caught on the trend ledger).
+            if R < 0:
+                day_peak = max(day_peak, best)
             if day_peak - worst > dd_daily * initial + 1e-9:
                 return dict(result="breach_daily", days=day + 1, qual=len(qual), bal=bal)
             if worst <= floor + 1e-9:
                 return dict(result="breach_max", days=day + 1, qual=len(qual), bal=bal)
             bal += pnl
-            day_peak = max(day_peak, bal)
+            day_peak = max(day_peak, best, bal)
             same = rng.random() < p_same
             value = notional if reading == "A" else notional / leverage
             if same and notional >= 0.05 * initial and value > 0 and abs(pnl) / value >= 0.01:
@@ -141,12 +146,16 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
     kw = dict(risk_pct=risk_pct, initial=initial, dd_daily=dd_d, dd_max=dd_m,
               flag_frac=flag_frac, reading=reading, leverage=leverage,
               winner_mae_r=winner_mae_r, loser_mfe_r=loser_mfe_r)
-    out = dict(p1=0, p1_breach=0, p1_timeout=0, both=0, p2_breach=0, p2_timeout=0,
+    out = dict(b_daily=0, b_max=0, p1=0, p1_breach=0, p1_timeout=0, both=0, p2_breach=0, p2_timeout=0,
                d1=[], d2=[], fund_surv=0, fund_ret=[], q1=[])
     for _ in range(n_paths):
         r1 = _phase(spec, rs, target=t1, days_cap=p1_cap, rng=rng, consistency=True,
                     need_qual=need, **kw)
         out["q1"].append(r1["qual"])
+        if r1["result"] == "breach_daily":
+            out["b_daily"] += 1
+        elif r1["result"] == "breach_max":
+            out["b_max"] += 1
         if r1["result"] != "pass":
             out["p1_breach" if r1["result"].startswith("breach") else "p1_timeout"] += 1
             continue
@@ -169,11 +178,13 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
     both = max(out["both"], 1)
     med = lambda a: float(np.median(a)) if a else None  # noqa: E731
     return {
-        "n_paths": n_paths, "risk_pct": risk_pct, "reading": reading,
+        "n_paths": n_paths, "cap_days": p1_cap, "risk_pct": risk_pct, "reading": reading,
         "winner_mae_r": winner_mae_r, "flag_frac": flag_frac,
         "p_pass_phase1": round(out["p1"] / n, 4),
         "p_phase1_breach": round(out["p1_breach"] / n, 4),
-        "p_phase1_timeout_180d": round(out["p1_timeout"] / n, 4),
+        "p_phase1_breach_daily_trailing": round(out["b_daily"] / n, 4),
+        "p_phase1_breach_max_static": round(out["b_max"] / n, 4),
+        "p_phase1_timeout_at_cap": round(out["p1_timeout"] / n, 4),
         "p_pass_both_phases": round(out["both"] / n, 4),
         "p_phase2_breach_given_p1": round(out["p2_breach"] / max(out["p1"], 1), 4),
         "median_days_phase1": med(out["d1"]), "median_days_phase2": med(out["d2"]),
@@ -197,6 +208,10 @@ def main() -> int:
     ap.add_argument("--winner-mae-r", default="0.3")
     ap.add_argument("--loser-mfe-r", type=float, default=0.3)
     ap.add_argument("--flag-fracs", default="0.0,1.0")
+    ap.add_argument("--r-shifts", default="0.0",
+                    help="edge-haircut sensitivity: added to every sampled R (e.g. -0.03)")
+    ap.add_argument("--cap-days", type=int, default=180,
+                    help="per-phase horizon (the firm sets NO time limit; timeouts are not failures)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     rs = load_ruleset(REPO / a.ruleset if not Path(a.ruleset).is_absolute() else a.ruleset)
@@ -207,13 +222,16 @@ def main() -> int:
             for rd in a.readings.split(","):
                 for mae in [float(x) for x in a.winner_mae_r.split(",")]:
                     for ff in [float(x) for x in a.flag_fracs.split(",")]:
-                        res = run(c, rs, n_paths=a.paths, seed=a.seed, risk_pct=risk, reading=rd,
+                        for shift in [float(x) for x in a.r_shifts.split(",")]:
+                          c2 = dict(c, r_shift=shift)
+                          res = run(c2, rs, n_paths=a.paths, seed=a.seed, risk_pct=risk, reading=rd,
                                   leverage=a.leverage, winner_mae_r=mae,
-                                  loser_mfe_r=a.loser_mfe_r, flag_frac=ff)
-                        res.update(candidate=c["name"], ruleset=rs.ruleset,
-                                   basis=("ledger n=%d" % len(c["r_samples"]) if c.get("r_samples")
-                                          else "summary-stats(parametric)"))
-                        rows.append(res)
+                                  loser_mfe_r=a.loser_mfe_r, flag_frac=ff,
+                                  p1_cap=a.cap_days, p2_cap=a.cap_days)
+                          res.update(candidate=c["name"], ruleset=rs.ruleset, r_shift=shift,
+                                     basis=("ledger n=%d" % len(c["r_samples"]) if c.get("r_samples")
+                                            else "summary-stats(parametric)"))
+                          rows.append(res)
     txt = json.dumps(rows, indent=1)
     if a.out:
         Path(a.out).write_text(txt + "\n")
