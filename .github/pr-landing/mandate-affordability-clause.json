@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Changes what the armed MD-PROMOTE-S1-S2 may do without asking: the resolver gains R-AFFORD (S1->S2), which can only REFUSE or NEEDS-DATA, never FIRE more. No config/mandates.yaml or accounts.yaml edit. Held for the manager per the STAGE2-MIRROR dispatch.",
+  "why": "PI-20260928-E8Y3BGBS-0003: on 2026-09-28 the resolver FIREd gld_pullback_1h onto alpaca_live ($193.56 equity measured 2026-09-30T05:36Z; one GLD share $393.01 at the record's latest committed setup). It now refuses: 0 of 54 permitted setups size."
+}

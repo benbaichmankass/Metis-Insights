@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "broker-reported open positions and open_risk agree, and each suppressed ticket has a journaled cause",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-AQRK6CL1-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager-local live-trade check 2026-09-29 16:31-16:37Z, direct HTTPS pulls of https://ict-bot.duckdns.org/api/bot/*",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/prop/status | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d['status']['raw'].get('open_positions'),d['rule_distance']['open_risk']['open_count'])\""
+  },
+  "routed_to": "PROP-EXEC",
+  "state": "routed",
+  "what": "[prop][reconcile] breakout_1 position disagreement: the broker login check at 16:32:29Z reports open_positions [] and open_orders [], while rule_distance.open_risk holds 1 measured position (the 0.01 SOLUSD round-trip fill from 09-29 12:56Z) and lane PROP-EXEC reported at 16:33Z the 0.01 SOLUSD long 'still open at 120.62 with SL 119.36 / TP 121.78'. Also 5 breakout_1 tickets 09-26..09-28 (incl. the 09-28 17:15Z ETH long) are status suppressed (src/prop/breakout_executor.py:190: held position or outstanding ticket) and the cause is unconfirmed. Establish which is true on the terminal and why the tickets were suppressed."
+}

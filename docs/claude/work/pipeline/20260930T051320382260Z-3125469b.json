@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "the operator decides JC-SA-01 in the daily brief and the chosen branch lands (grades newer than 3 days on main, or grading removed from the contract)",
+    "kind": "event"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0004",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-01",
+    "rerun": "git show origin/main:comms/claude_strategy_scores.jsonl | python3 -c \"import sys,json;print(max(json.loads(l).get('reviewed_at','') for l in sys.stdin if l.strip()))\""
+  },
+  "routed_to": "GRADE",
+  "state": "routed",
+  "what": "JC-SA-01 (HIGH, AUD-2): the trade-grading hop is dead: comms/claude_strategy_scores.jsonl max(reviewed_at)=2026-09-08T10:50Z; 4/328 closes since 09-15 have a grade row, all stale 'orphaned'. Operator: (a) resume grade-closed-trades on a schedule keyed on linked_trade_id + a staleness detector (recommended), or (b) retire grading and remove it from the pipeline contract, performance-review skill and SessionStart hook."
+}

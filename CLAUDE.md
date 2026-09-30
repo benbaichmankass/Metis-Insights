@@ -136,10 +136,13 @@ that establishes: a due item *reaches the page*. What it does **not**: that
 anyone routes it — the unrouted count is a number the page shows, and
 JC-SA-06 tracks it growing. *Field beats comment.*
 
-⚠️ **The 1,065 archived backlog rows and 91 monitoring rows are NOT imported.**
-The store is seeded empty on purpose; importing them is `A8`, and most of them
-should be *killed explicitly* rather than carried. Until A8 runs, those rows are
-still in git history with nothing reading them.
+⚠️ **The 1,065 archived backlog rows and 91 monitoring rows ARE imported** (corrected
+2026-09-30, SA-ROUTE; this paragraph read "NOT imported … until A8 runs" after A8
+merged in #12679). MEASURED by folding `docs/claude/work/pipeline/` and grouping on
+`origin.ref`: 91 rows from `OPEN-ITEMS.json` (5 done · 73 killed · 4 queued · 9
+routed) and 1,065 from the archived backlogs (5 done · 476 killed · 577 queued · 7
+routed). A8 is `landed_unproven`, not `done` — the open remainder is being driven to a
+disposition by `SA-ROUTE`. Re-run the grouping rather than quoting these numbers.
 
 **If you are filing something that needs picking up later, it goes in the
 pipeline** — not into a new register, and not into a memo.
@@ -181,7 +184,11 @@ live account carry the same strategies and take the same trades at all times.
 Both halves are enforced by strict equality in
 `tests/test_paper_portfolio_accounts.py` —
 `test_bybit_portfolio_mirrors_bybit_2_exactly` and
-`test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. The Alpaca
+`test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. Roster
+equality is not trade equality: since 2026-09-30 every trade-shaping account
+field (`side_filter`, `risk`, `mode`, …) must also be equal, fail-closed, in
+`test_mirror_trade_shaping_fields_equal_live`. Before then `alpaca_portfolio`
+traded the shorts `alpaca_live`'s `side_filter: long` suppresses. The Alpaca
 one carries the only sanctioned divergence: the two declared affordability
 proxies (`splg_trend_long_1d`, `iaum_pullback_1d`) are dropped, because
 mirroring a sub-$100 proxy on a ~$98k paper book doubles the exposure its

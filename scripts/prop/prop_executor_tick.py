@@ -27,6 +27,12 @@ Modes (exactly one; default = one scheduled cycle):
   at a structure DUMP rather than parsing named fields. Always exits
   ``EXIT_OK`` (like the passive instrument-spec read, a probe result never
   gates the exit code) unless the session/environment itself fails.
+- ``--instrument-search-dump``: READ-ONLY measurement (PROP-ETH-DOM,
+  2026-09-30) of where the symbol search/add control sits: every visible
+  input / combobox / searchbox / textbox / contenteditable / search-like
+  button, with its attributes and ancestor chain, nearest the watchlist
+  first (``DXtradeAdapter.instrument_search_dump``). Types, clicks and reads
+  no value. Always ``EXIT_OK`` unless the session/environment fails.
 - ``--round-trip VENUE [--lots N] [--side long|short] [--live]``: the
   end-to-end test (operator 2026-09-28): ONE minimum-size market bracket with
   SL+TP → confirm by re-read → report ``open`` → the bot closes it at market →
@@ -94,6 +100,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "probe"
     if getattr(args, "instrument_probe", ""):
         return "instrument_probe"
+    if getattr(args, "instrument_search_dump", False):
+        return "instrument_search_dump"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -111,6 +119,18 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
             return "close_position_dry"
         return "close_position_live" if base == "live" else "not_armed"
     return base
+
+
+def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
+    """Print an ``instrument_search_dump`` result one row per line, FARTHEST
+    first, then each frame's summary last: a run log read from its tail keeps
+    the nearest rows and the summary if it is cut."""
+    for fr in dump.get("frames") or []:
+        fr = dict(fr)
+        rows = fr.pop("rows", None) or []
+        for i in range(len(rows) - 1, -1, -1):
+            emit({"search_dump_row": {"frame": fr.get("frame"), "rank": i, **rows[i]}}, *secrets)
+        emit({"instrument_search_dump": fr}, *secrets)
 
 
 def _code_sha() -> str:
@@ -138,6 +158,8 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--probe-ticket", default="", metavar="VENUE_SYMBOL")
     g.add_argument("--instrument-probe", default="", metavar="VENUE_SYMBOLS",
                    help="comma-separated venue symbols to search + dump (read-only); see module docstring")
+    g.add_argument("--instrument-search-dump", action="store_true",
+                   help="read-only dump of the search/add controls near the watchlist; see module docstring")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -246,6 +268,10 @@ def main(argv: Optional[list] = None) -> int:
                     emit({"instrument_probe": {"symbol": sym, **got}}, *secrets)
                 # A probe result never gates the exit code — same doctrine as
                 # the passive instrument-spec read in breakout_login_check.py.
+                return EXIT_OK
+
+            if mode == "instrument_search_dump":
+                emit_search_dump(adapter.instrument_search_dump(page), *secrets)
                 return EXIT_OK
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())

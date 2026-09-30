@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "PR #14356 either merges (with this fix applied) or is closed/declined, whichever comes first",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EXITOPS-0010",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-OPS (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, winding down under an operator/manager budget instruction, reported verbally to the manager but filing durably per close-out check 4",
+    "rerun": "gh pr checks 14356 --repo benbaichmankass/Metis-Insights  # or: python3 -m pytest tests/test_corpus_fold_coverage.py::test_uncovered_oos_years_reproduce_on_the_committed_corpus -q  -- reproduces the exact failure locally"
+  },
+  "routed_to": "EXIT-OPS",
+  "state": "routed",
+  "what": "[ci][pinned-test-drift] PR #14356 (coverage-matrix: flag qqq_trend_long_1d vol_trail as degenerate, Tier-1 self-land, opened by the EXIT-OPS lane) is red on pytest-run. Root-caused: tests/test_corpus_fold_coverage.py::test_uncovered_oos_years_reproduce_on_the_committed_corpus pins an exact (leg, cell) -> uncovered_oos_years dict derived from the committed corpus, and #14356's own addition of the qqq_trend_long_1d/vt_hot90_t2 row to docs/research/m20-sweep-corpus.jsonl (uncovered_oos_years=[2017,2018,2019,2020]) is a new entry that dict doesn't carry yet -- the same class of pinned-count drift as several other fixes this lane made earlier the same day (corpus-partition count in tests/test_corpus_lever_in_baseline.py, MOVABLE-BY-A-SESSION count in tests/test_rollup_movable_cut.py, the round-2b rollout params pin in tests/test_etf_intraday_rollout2b_wiring.py), not a defect in the PR's substance. EXACT FIX, verified but not pushed (this lane stopped under a hard budget ceiling before pushing it): add ('qqq_trend_long_1d', 'vt_hot90_t2'): [2017, 2018, 2019, 2020] to the pinned dict in tests/test_corpus_fold_coverage.py, matching the shape of its existing entries. Also commented on PR #14356 itself with this same fix. This is a one-line, low-risk fix for whichever lane or operator next picks up this PR -- not a live-risk finding (the underlying matrix correction is Tier-1, no config/live behavior touched)."
+}
