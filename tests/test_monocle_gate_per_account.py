@@ -4,20 +4,22 @@ Until 2026-09-30 ``_has_open_package_for_strategy`` blocked a strategy+symbol
 on EVERY account while any account held its open package (#387, operator
 directive 2026-05-03 — an anti-stacking rule written before the Stage-1/Stage-2
 split). Measured on the live journal that day: pkg-5e636e3adddf4a83, an IEF
-short from 2026-07-29, is open because alpaca_paper (141 sh) and
-alpaca_portfolio (152 sh) still hold it; alpaca_live's leg was rejected and it
-is flat — so the next ief_pullback_1d long would have been skipped on the
-REAL-MONEY account because of a PAPER position.
+short from 2026-07-29, is open because alpaca_paper (141 sh, Stage-1 soak) and
+alpaca_portfolio (152 sh, Stage-2 mirror) still hold it; alpaca_live's leg was
+rejected and it is flat.
 
 Contracts pinned here, against a real temp journal:
 
-1. The IEF case exactly: paper + mirror hold, live is flat → the round is
-   NARROWED to exclude the holders; alpaca_live still dispatches.
+1. Stage-1 soak legs block ONLY their own account — never a Stage-2 account.
 2. A live account's own leg still blocks that account (anti-stacking kept).
-3. Stage-2 mirror pairing: the mirror follows its primary (a primary's leg
-   keeps the mirror out); a mirror's own leg never blocks the primary.
+3. Stage-2 PAIR-COUPLING (operator 2026-09-21: live and mirror "take the same
+   trades at all times"): a leg on EITHER member keeps BOTH out. So in the IEF
+   shape alpaca_live stays refused while alpaca_portfolio's legacy short is
+   open — the accepted cost of mirror identity.
 4. An open package with no live leg anywhere still blocks the whole strategy
    (the 2026-05-09 retry-storm case).
+5. FAIL CLOSED: a journal read failure at either read blocks the round with a
+   logged cause.
 """
 from __future__ import annotations
 
@@ -66,48 +68,42 @@ def audit(monkeypatch):
     return rows
 
 
-# ── 1. the IEF case ─────────────────────────────────────────────────────────
+# ── 1. Stage-1 soak legs block only themselves ──────────────────────────────
 
-def test_ief_paper_package_open_live_long_allowed(journal, audit):
-    """pkg-5e636e3adddf4a83's exact shape: paper + mirror open, live rejected."""
-    _pkg(journal, "pkg-5e636e3adddf4a83")
-    _leg(journal, "pkg-5e636e3adddf4a83", "alpaca_paper")
-    _leg(journal, "pkg-5e636e3adddf4a83", "alpaca_portfolio")
-    _leg(journal, "pkg-5e636e3adddf4a83", "alpaca_live", status="rejected")
+def test_paper_soak_leg_never_blocks_live(journal, audit):
+    """The reported bug: only alpaca_paper (Stage-1) holds → alpaca_live trades."""
+    _pkg(journal, "pkg-soak")
+    _leg(journal, "pkg-soak", "alpaca_paper")
+    _leg(journal, "pkg-soak", "alpaca_live", status="rejected")
 
     gate, scope = pl._open_package_round(_sig(), None)
 
     assert gate is None
-    assert "alpaca_live" in scope
-    assert "alpaca_paper" not in scope and "alpaca_portfolio" not in scope
-    # The round is narrowed to exactly the declared accounts minus the holders.
-    assert scope == sm._accounts_declaring(STRAT) - {"alpaca_paper", "alpaca_portfolio"}
-    assert audit and audit[-1]["event"] == "open_package_scoped"
-    assert audit[-1]["held_by_account"] == {
-        "alpaca_paper": "pkg-5e636e3adddf4a83",
-        "alpaca_portfolio": "pkg-5e636e3adddf4a83",
-    }
+    assert {"alpaca_live", "alpaca_portfolio"} <= scope
+    assert "alpaca_paper" not in scope
+    assert scope == sm._accounts_declaring(STRAT) - {"alpaca_paper"}
+    assert audit[-1]["event"] == "open_package_scoped"
+    assert audit[-1]["held_by_account"] == {"alpaca_paper": "pkg-soak"}
 
 
-def test_ief_case_with_an_elected_scope(journal, audit):
-    _pkg(journal, "pkg-ief")
-    _leg(journal, "pkg-ief", "alpaca_paper")
-    _leg(journal, "pkg-ief", "alpaca_portfolio")
+def test_soak_leg_with_an_elected_scope(journal, audit):
+    _pkg(journal, "pkg-soak")
+    _leg(journal, "pkg-soak", "bybit_1", symbol=SYM)
     gate, scope = pl._open_package_round(
-        _sig(), frozenset({"alpaca_live", "alpaca_paper", "alpaca_portfolio"}))
-    assert gate is None and scope == frozenset({"alpaca_live"})
+        _sig(), frozenset({"bybit_1", "bybit_2", "bybit_portfolio"}))
+    assert gate is None and scope == frozenset({"bybit_2", "bybit_portfolio"})
 
 
 def test_the_old_strategy_wide_helper_would_have_blocked_it(journal):
     """The regression this fixes, stated against the helper it replaces."""
-    _pkg(journal, "pkg-ief")
-    _leg(journal, "pkg-ief", "alpaca_paper")
-    assert sm._has_open_package_for_strategy(STRAT, SYM) == "pkg-ief"
+    _pkg(journal, "pkg-soak")
+    _leg(journal, "pkg-soak", "alpaca_paper")
+    assert sm._has_open_package_for_strategy(STRAT, SYM) == "pkg-soak"
 
 
 # ── 2. a live account's own leg still blocks it ─────────────────────────────
 
-def test_live_package_open_blocks_live(journal, audit):
+def test_live_package_open_blocks_live_and_its_mirror(journal, audit):
     _pkg(journal, "pkg-live", direction="long")
     _leg(journal, "pkg-live", "alpaca_live")
     gate, scope = pl._open_package_round(
@@ -115,10 +111,11 @@ def test_live_package_open_blocks_live(journal, audit):
     assert scope is None
     assert gate["status"] == "skipped" and gate["reason"] == "open_package_exists"
     assert gate["open_package_id"] == "pkg-live"
+    assert gate["pair_coupled"] == ["alpaca_portfolio"]
     assert audit[-1]["event"] == "open_package_blocked"
 
 
-def test_live_leg_blocks_live_but_not_an_unrelated_paper_account(journal, audit):
+def test_live_leg_never_blocks_a_soak_account(journal, audit):
     _pkg(journal, "pkg-live", direction="long")
     _leg(journal, "pkg-live", "alpaca_live")
     gate, scope = pl._open_package_round(
@@ -150,33 +147,86 @@ def test_other_symbol_and_strategy_are_independent(journal, audit):
     assert pl._open_package_round(_sig(), None) == (None, None)
 
 
-# ── 3. Stage-2 mirror pairing ───────────────────────────────────────────────
+# ── 3. Stage-2 pair-coupling ────────────────────────────────────────────────
 
-def test_mirror_follows_its_primary(journal, audit):
-    """bybit_2 holds → bybit_portfolio must not open a trade bybit_2 is not taking."""
+def test_ief_shape_mirror_leg_keeps_live_out_too(journal, audit):
+    """pkg-5e636e3adddf4a83 exactly: paper + mirror hold, live rejected/flat.
+    alpaca_paper frees nobody else; alpaca_portfolio's leg couples alpaca_live
+    out, so live is refused until the mirror's short exits (stated cost)."""
+    _pkg(journal, "pkg-5e636e3adddf4a83")
+    _leg(journal, "pkg-5e636e3adddf4a83", "alpaca_paper")
+    _leg(journal, "pkg-5e636e3adddf4a83", "alpaca_portfolio")
+    _leg(journal, "pkg-5e636e3adddf4a83", "alpaca_live", status="rejected")
+
+    gate, scope = pl._open_package_round(
+        _sig(), frozenset({"alpaca_live", "alpaca_portfolio", "alpaca_paper"}))
+
+    assert scope is None and gate["reason"] == "open_package_exists"
+    assert gate["held_by_account"] == {
+        "alpaca_paper": "pkg-5e636e3adddf4a83",
+        "alpaca_portfolio": "pkg-5e636e3adddf4a83",
+        "alpaca_live": "pkg-5e636e3adddf4a83",
+    }
+    assert gate["pair_coupled"] == ["alpaca_live"]
+    coupled = [r for r in audit if r["event"] == "open_package_pair_coupled"]
+    assert coupled == [{
+        "event": "open_package_pair_coupled", "strategy": STRAT, "symbol": SYM,
+        "side": "buy", "account": "alpaca_live", "partner": "alpaca_portfolio",
+        "open_package_id": "pkg-5e636e3adddf4a83",
+    }]
+
+
+def test_ief_shape_unscoped_round_dispatches_only_to_uncoupled_accounts(journal, audit):
+    _pkg(journal, "pkg-ief")
+    _leg(journal, "pkg-ief", "alpaca_paper")
+    _leg(journal, "pkg-ief", "alpaca_portfolio")
+    gate, scope = pl._open_package_round(_sig(), None)
+    declared = sm._accounts_declaring(STRAT)
+    expected = declared - {"alpaca_paper", "alpaca_portfolio", "alpaca_live"}
+    if expected:
+        assert gate is None and scope == expected
+    else:
+        assert gate["reason"] == "open_package_exists"
+
+
+def test_bybit_primary_leg_keeps_mirror_out(journal, audit):
     _pkg(journal, "pkg-b2", strategy="xrp_pullback_2h", symbol="XRPUSDT")
     _leg(journal, "pkg-b2", "bybit_2", symbol="XRPUSDT", strategy="xrp_pullback_2h")
     gate, _ = pl._open_package_round(
         _sig("xrp_pullback_2h", "XRPUSDT"), frozenset({"bybit_2", "bybit_portfolio"}))
     assert gate["reason"] == "open_package_exists"
     assert gate["held_by_account"] == {"bybit_2": "pkg-b2", "bybit_portfolio": "pkg-b2"}
+    assert gate["pair_coupled"] == ["bybit_portfolio"]
 
 
-def test_mirror_own_leg_never_blocks_the_primary(journal, audit):
+def test_bybit_mirror_leg_keeps_primary_out(journal, audit):
+    """The reverse: the mirror's own leg couples the primary out too."""
+    _pkg(journal, "pkg-bp", strategy="xrp_pullback_2h", symbol="XRPUSDT")
+    _leg(journal, "pkg-bp", "bybit_portfolio", symbol="XRPUSDT", strategy="xrp_pullback_2h")
+    gate, _ = pl._open_package_round(
+        _sig("xrp_pullback_2h", "XRPUSDT"), frozenset({"bybit_2", "bybit_portfolio"}))
+    assert gate["reason"] == "open_package_exists"
+    assert gate["pair_coupled"] == ["bybit_2"]
+
+
+def test_pair_coupling_leaves_soak_account_in_the_round(journal, audit):
     _pkg(journal, "pkg-bp", strategy="xrp_pullback_2h", symbol="XRPUSDT")
     _leg(journal, "pkg-bp", "bybit_portfolio", symbol="XRPUSDT", strategy="xrp_pullback_2h")
     gate, scope = pl._open_package_round(
-        _sig("xrp_pullback_2h", "XRPUSDT"), frozenset({"bybit_2", "bybit_portfolio"}))
-    assert gate is None and scope == frozenset({"bybit_2"})
+        _sig("xrp_pullback_2h", "XRPUSDT"),
+        frozenset({"bybit_1", "bybit_2", "bybit_portfolio"}))
+    assert gate is None and scope == frozenset({"bybit_1"})
 
 
-def test_mirror_map_matches_the_declared_stage2_pairs():
+def test_pairs_match_the_declared_stage2_mirrors():
+    """No config key declares the pairing; tie the constant to the mirror
+    tests' own parametrize list and to mandate_resolver.MIRROR_OF."""
+    import tests.test_paper_portfolio_accounts as ppa
+    marks = ppa.test_mirror_trade_shaping_fields_equal_live.pytestmark
+    declared = next(m.args[1] for m in marks if m.name == "parametrize")
+    assert set(sm.STAGE2_PAIRS) == {tuple(p) for p in declared}
     from scripts.ops.mandate_resolver import MIRROR_OF
-    assert sm.STAGE2_MIRROR_OF == {m: p for p, m in MIRROR_OF.items()}
-    import yaml
-    accts = yaml.safe_load(open("config/accounts.yaml"))["accounts"]
-    for mirror, primary in sm.STAGE2_MIRROR_OF.items():
-        assert mirror in accts and primary in accts
+    assert set(sm.STAGE2_PAIRS) == set(MIRROR_OF.items())
 
 
 # ── 4. unattributable open package keeps the strategy-wide block ────────────
@@ -193,6 +243,63 @@ def test_open_package_without_a_live_leg_blocks_everything(journal, audit):
 def test_terminal_statuses_cover_the_monitors():
     from src.runtime.order_monitor import _TERMINAL_TRADE_STATUSES
     assert set(_TERMINAL_TRADE_STATUSES) <= set(sm._TERMINAL_LEG_STATUSES)
+
+
+# ── 5. fail closed ──────────────────────────────────────────────────────────
+
+def test_package_read_failure_blocks_the_round(monkeypatch, audit):
+    class _BoomDb:
+        def __init__(self, *a, **kw):
+            pass
+
+        def get_order_packages_by_strategy(self, *a, **kw):
+            raise RuntimeError("database is locked")
+
+    monkeypatch.setattr("src.units.db.database.Database", _BoomDb)
+    gate, scope = pl._open_package_round(_sig(), frozenset({"alpaca_live"}))
+    assert scope is None
+    assert gate["reason"] == "open_package_read_failed"
+    assert "database is locked" in gate["cause"]
+    assert audit[-1]["event"] == "open_package_read_failed"
+
+
+def test_trades_read_failure_after_package_read_blocks_the_round(journal, monkeypatch, audit):
+    """The window the review found: order_packages shows an open package, then
+    the per-package trades SELECT throws. Must block, never pass."""
+    _pkg(journal, "pkg-live", direction="long")
+    _leg(journal, "pkg-live", "alpaca_live")
+
+    real_connect = Database.connect
+
+    class _Conn:
+        def __init__(self, inner):
+            self._inner = inner
+
+        def execute(self, sql, *a, **k):
+            if "FROM trades" in sql:
+                raise RuntimeError("database is locked")
+            return self._inner.execute(sql, *a, **k)
+
+        def close(self):
+            self._inner.close()
+
+    monkeypatch.setattr(Database, "connect",
+                        lambda self: _Conn(real_connect(self)))
+    gate, scope = pl._open_package_round(_sig(), None)
+    assert scope is None and gate["reason"] == "open_package_read_failed"
+
+
+def test_legacy_helper_fails_closed(monkeypatch):
+    class _BoomDb:
+        def __init__(self, *a, **kw):
+            pass
+
+        def get_order_packages_by_strategy(self, *a, **kw):
+            raise RuntimeError("database is locked")
+
+    monkeypatch.setattr("src.units.db.database.Database", _BoomDb)
+    got = sm._has_open_package_for_strategy(STRAT, SYM)
+    assert got and got.startswith(sm.UNREADABLE_PACKAGE_PREFIX)
 
 
 # ── the round loop uses it ──────────────────────────────────────────────────

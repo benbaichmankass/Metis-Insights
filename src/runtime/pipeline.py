@@ -912,13 +912,11 @@ def _open_package_round(
     ⚠️ PI-20260930-QZSE4AMA-0001. Until this change the gate was strategy-wide
     across every account (#387, 2026-05-04, operator directive 2026-05-03: stop
     VWAP stacking packages). After the Stage-1/Stage-2 split that let a PAPER
-    leg veto a REAL-MONEY entry: pkg-5e636e3adddf4a83 (IEF short held by
-    alpaca_paper + alpaca_portfolio) would have skipped alpaca_live's next
-    ief_pullback_1d long although alpaca_live is flat. The anti-stacking intent
-    is kept per account: an account holding a leg never gets a second package;
-    a Stage-2 mirror also stays out while its primary holds one (it follows the
-    real-money book, never leads it); an open package with no live leg anywhere
-    still blocks the whole strategy (the 2026-05-09 retry-storm case).
+    soak leg veto a REAL-MONEY entry. The anti-stacking intent is kept per
+    account; Stage-2 pairs (live + mirror) are COUPLED so they only ever take
+    the same trades (a leg on either keeps both out); Stage-1 soak legs block
+    only their own account. An open package with no live leg anywhere, or a
+    journal read failure, still blocks the whole strategy (fail closed).
     """
     strategy = (signal.get("meta") or {}).get("strategy_name") or signal.get("strategy")
     verdict = _open_package_scope(strategy, signal.get("symbol"), scope)
@@ -926,11 +924,28 @@ def _open_package_round(
     if action == "pass":
         return None, verdict["scope"]
     excluded = verdict.get("excluded") or {}
+    coupled = verdict.get("pair_coupled") or {}
+    for _acct, _c in coupled.items():
+        # One row per pair-coupled exclusion, distinct from the holder's own
+        # block, so "refused because the MIRROR holds a leg" is countable.
+        try:
+            log_signal({
+                "event": "open_package_pair_coupled",
+                "strategy": strategy,
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "account": _acct,
+                "partner": _c.get("partner"),
+                "open_package_id": _c.get("order_package_id"),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("strategy_monocle: pair-coupled audit emit failed")
     if action == "narrow":
         logger.info(
             "strategy_monocle: narrowing dispatch — strategy=%s symbol=%s "
-            "held by %s; dispatching to %s",
-            strategy, signal.get("symbol"), excluded, sorted(verdict["scope"]),
+            "held by %s (pair-coupled %s); dispatching to %s",
+            strategy, signal.get("symbol"), excluded, sorted(coupled),
+            sorted(verdict["scope"]),
         )
         try:
             log_signal({
@@ -939,33 +954,46 @@ def _open_package_round(
                 "symbol": signal.get("symbol"),
                 "side": signal.get("side"),
                 "held_by_account": excluded,
+                "pair_coupled": sorted(coupled),
                 "dispatch_accounts": sorted(verdict["scope"]),
             })
         except Exception:  # noqa: BLE001
             logger.exception("strategy_monocle: open-package scope audit emit failed")
         return None, verdict["scope"]
-    logger.info(
-        "strategy_monocle: skipping dispatch — strategy=%s "
-        "already has open package %s (held by %s)",
-        strategy, verdict["order_package_id"], excluded or "no account",
-    )
+    read_error = verdict.get("read_error")
+    if read_error:
+        logger.warning(
+            "strategy_monocle: skipping dispatch — strategy=%s symbol=%s: "
+            "open-package state unreadable, failing closed: %s",
+            strategy, signal.get("symbol"), read_error,
+        )
+    else:
+        logger.info(
+            "strategy_monocle: skipping dispatch — strategy=%s "
+            "already has open package %s (held by %s)",
+            strategy, verdict["order_package_id"], excluded or "no account",
+        )
     try:
         log_signal({
-            "event": "open_package_blocked",
+            "event": "open_package_read_failed" if read_error else "open_package_blocked",
             "strategy": strategy,
             "symbol": signal.get("symbol"),
             "side": signal.get("side"),
             "open_package_id": verdict["order_package_id"],
             "held_by_account": excluded,
+            "pair_coupled": sorted(coupled),
+            **({"cause": read_error} if read_error else {}),
         })
     except Exception:  # noqa: BLE001
         logger.exception("strategy_monocle: open-package audit emit failed")
     return {
         "status": "skipped",
-        "reason": "open_package_exists",
+        "reason": "open_package_read_failed" if read_error else "open_package_exists",
         "strategy": strategy,
         "open_package_id": verdict["order_package_id"],
         "held_by_account": excluded,
+        "pair_coupled": sorted(coupled),
+        **({"cause": read_error} if read_error else {}),
         "signal": signal,
     }, None
 

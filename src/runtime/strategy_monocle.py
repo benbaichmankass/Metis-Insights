@@ -1,10 +1,11 @@
 """Strategy-monocle gate helpers — extracted from pipeline.py (PR-8 / D1).
 
-One open package per strategy globally (``_has_open_package_for_strategy``)
-and a short refusal cooldown after a ``sized_qty=0`` rejection
-(``_recent_refusal_for_strategy``).  Both helpers are best-effort: a
-DB-read failure returns ``None`` (i.e. "no gate active") rather than
-blocking every dispatch on a transient SQLite hiccup.
+One open package per strategy (``_has_open_package_for_strategy``; applied
+per ACCOUNT by ``_open_package_scope``) and a short refusal cooldown after a
+``sized_qty=0`` rejection (``_recent_refusal_for_strategy``). The open-package
+helpers FAIL CLOSED on a DB-read failure (2026-09-30); the cooldown/debounce
+helpers stay best-effort (a failure there only loses a throttle, never
+stacks a package on a live one).
 """
 from __future__ import annotations
 
@@ -41,6 +42,11 @@ def _refusal_cooldown_seconds() -> int:
     return v if v >= 0 else _DEFAULT_REFUSAL_COOLDOWN_SECONDS
 
 
+#: What ``_has_open_package_for_strategy`` returns in place of a package id
+#: when the journal could not be read (fail closed).
+UNREADABLE_PACKAGE_PREFIX = "journal_unreadable:"
+
+
 def _has_open_package_for_strategy(
     strategy_name: Optional[str], symbol: Optional[str] = None
 ) -> Optional[str]:
@@ -61,11 +67,11 @@ def _has_open_package_for_strategy(
     versa). When ``symbol`` is None the query keeps its legacy
     strategy-global scope (single-symbol callers / tests).
 
-    Best-effort — a DB-read failure returns ``None`` (i.e. "no open
-    package known"), which means the dispatcher proceeds. The risk
-    is creating one extra duplicate package in the DB-read failure
-    window; the alternative (refusing the dispatch on every
-    DB-read failure) trades a real bug for a hypothetical one.
+    FAIL CLOSED (2026-09-30): a DB-read failure returns
+    ``UNREADABLE_PACKAGE_PREFIX + <exception type>`` so the caller skips the
+    dispatch with that cause. Until then it returned ``None`` and the
+    dispatcher proceeded, which could stack a second package on a live one
+    during the failure window.
 
     The strategy_name is read from ``signal.meta.strategy_name``
     (the canonical attribution source post-BUG-033). When unset
@@ -96,11 +102,16 @@ def _has_open_package_for_strategy(
             return str(rows[0].get("order_package_id") or "")
         return None
     except Exception as exc:  # noqa: BLE001
+        # FAIL CLOSED (2026-09-30, PI-20260930-QZSE4AMA-0001 review): an
+        # unreadable journal may hide an open package, and passing would
+        # stack a second one on it. The account stays live; this dispatch is
+        # refused with the cause logged. (Was: return None — dispatch proceeds.)
         logger.warning(
-            "_has_open_package_for_strategy(%s, symbol=%s): DB read failed — %s",
+            "_has_open_package_for_strategy(%s, symbol=%s): DB read failed — "
+            "blocking dispatch (fail closed): %s",
             strategy_name, symbol, exc,
         )
-        return None
+        return f"{UNREADABLE_PACKAGE_PREFIX}{type(exc).__name__}"
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +131,9 @@ def _has_open_package_for_strategy(
 #
 # The intent is kept at the grain it actually protects: an ACCOUNT never gets a
 # second package for a strategy+symbol while it still holds a leg of the first.
-# An account that holds nothing is not blocked by another account's leg.
+# An account that holds nothing is not blocked by another account's leg — EXCEPT
+# its Stage-2 pair partner's (STAGE2_PAIRS below): live and mirror are coupled
+# so they only ever take the same trades.
 
 #: Trade statuses that mean "this leg is no longer live". Mirrors
 #: ``order_monitor._TERMINAL_TRADE_STATUSES`` plus ``shadow_expired``;
@@ -134,17 +147,23 @@ _TERMINAL_LEG_STATUSES = (
     "shadow_expired",
 )
 
-#: Stage-2 mirror -> the real-money book it mirrors (CLAUDE.md § "The promotion
-#: ladder"; the roster equality is pinned by tests/test_paper_portfolio_accounts.py
-#: and the same pairs are spelled in scripts/ops/mandate_resolver.py::MIRROR_OF).
-#: THE MIRROR FOLLOWS ITS PRIMARY: a leg held by the primary also keeps the
-#: mirror out, so the mirror never opens a trade its primary is not taking. The
-#: reverse does NOT hold — a mirror's own leg never blocks the primary; that
-#: direction is exactly the IEF lock this change removes.
-STAGE2_MIRROR_OF = {
-    "bybit_portfolio": "bybit_2",
-    "alpaca_portfolio": "alpaca_live",
-}
+#: Stage-2 PAIRS: the real-money book and its paper mirror (CLAUDE.md § "The
+#: promotion ladder" — "the mirror and the live account carry the same
+#: strategies and take the same trades at all times", operator 2026-09-21).
+#: No config key declares the pairing; this constant is tied to the pairs
+#: ``tests/test_paper_portfolio_accounts.py::test_mirror_trade_shaping_fields_equal_live``
+#: parametrizes (and to ``scripts/ops/mandate_resolver.py::MIRROR_OF``) by
+#: ``tests/test_monocle_gate_per_account.py``.
+#:
+#: PAIR-COUPLED: a leg held by EITHER member keeps BOTH out, so the pair only
+#: ever opens a trade together. Stage-1 soak accounts (bybit_1, alpaca_paper,
+#: ib_paper, …) are in no pair: their legs block only themselves and never a
+#: Stage-2 account — which is what removes the reported bug (a PAPER soak
+#: package blocking a REAL-MONEY entry).
+STAGE2_PAIRS = (
+    ("bybit_2", "bybit_portfolio"),
+    ("alpaca_live", "alpaca_portfolio"),
+)
 
 
 def _open_package_holders(
@@ -152,17 +171,20 @@ def _open_package_holders(
 ) -> Optional[Dict[str, Any]]:
     """Who holds *strategy_name*'s open package(s) on *symbol*, per account.
 
-    Returns ``None`` when no open package exists (or on a DB-read failure —
-    the same best-effort direction as ``_has_open_package_for_strategy``).
-    Otherwise ``{"unscoped": <pkg_id or None>, "by_account": {account: pkg_id}}``:
+    Returns ``None`` ONLY when the journal was read and no open package
+    exists. Otherwise a dict:
 
+    * ``read_error`` — the order_packages OR the per-package trades read
+      failed. The caller BLOCKS (fail closed): a package it could not read
+      may have a live leg on any account, and passing the round would stack
+      a second package on it. The account stays live; this round is refused
+      with the cause logged (Prime Directive posture).
     * ``by_account`` — every account with a NON-terminal leg on an open
-      package. Those accounts are blocked; nobody else is.
+      package. Those accounts are blocked (plus their Stage-2 pair partner).
     * ``unscoped`` — an open package with NO live leg on any account (just
       minted, every leg refused, or not yet linked). It cannot be attributed
-      to an account, so it keeps the old strategy-wide block: this is the
-      2026-05-09 retry-storm case (``linked_only`` dropped) and it must stay
-      closed until the reconciler terminalises the row.
+      to an account, so it keeps the strategy-wide block: the 2026-05-09
+      retry-storm case (``linked_only`` dropped).
     """
     if not strategy_name:
         return None
@@ -196,13 +218,15 @@ def _open_package_holders(
                     by_account.setdefault(acct, pkg_id)
         finally:
             conn.close()
-        return {"unscoped": unscoped, "by_account": by_account}
+        return {"unscoped": unscoped, "by_account": by_account, "read_error": None}
     except Exception as exc:  # noqa: BLE001
         logger.warning(
-            "_open_package_holders(%s, symbol=%s): DB read failed — %s",
+            "_open_package_holders(%s, symbol=%s): journal read failed — "
+            "blocking the round (fail closed): %s",
             strategy_name, symbol, exc,
         )
-        return None
+        return {"unscoped": None, "by_account": {},
+                "read_error": f"{type(exc).__name__}: {exc}"}
 
 
 def _accounts_declaring(strategy_name: str) -> Optional[frozenset]:
@@ -248,35 +272,50 @@ def _open_package_scope(
 
     * ``{"action": "pass", "scope": scope}`` — nothing held; round unchanged
       (byte-for-byte the pre-change path, ``scope`` may stay ``None``).
-    * ``{"action": "narrow", "scope": frozenset, "excluded": {acct: pkg}}`` —
-      some accounts in the round hold a leg (or their Stage-2 primary does);
+    * ``{"action": "narrow", "scope": frozenset, "excluded": {acct: pkg},
+      "pair_coupled": {acct: {"partner", "order_package_id"}}}`` — some
+      accounts in the round hold a leg (or their Stage-2 partner does);
       dispatch to the rest only.
-    * ``{"action": "block", "order_package_id": pkg, "excluded": {...}}`` —
-      every account in the round is held, or an unattributable open package
-      exists, or the round's accounts could not be read.
+    * ``{"action": "block", "order_package_id": pkg, "excluded": {...},
+      "pair_coupled": {...}, "read_error": str|None}`` — every account in the
+      round is held, an unattributable open package exists, or the journal /
+      the round's accounts could not be read (FAIL CLOSED).
     """
     holders = _open_package_holders(strategy_name, symbol)
     if holders is None:
         return {"action": "pass", "scope": scope}
+    if holders.get("read_error"):
+        return {"action": "block", "order_package_id": None, "excluded": {},
+                "pair_coupled": {}, "read_error": holders["read_error"]}
     if holders["unscoped"]:
         return {"action": "block", "order_package_id": holders["unscoped"],
-                "excluded": dict(holders["by_account"])}
-    excluded: Dict[str, str] = dict(holders["by_account"])
-    for mirror, primary in STAGE2_MIRROR_OF.items():
-        if primary in holders["by_account"] and mirror not in excluded:
-            excluded[mirror] = holders["by_account"][primary]
+                "excluded": dict(holders["by_account"]), "pair_coupled": {},
+                "read_error": None}
+    held: Dict[str, str] = dict(holders["by_account"])
+    excluded: Dict[str, str] = dict(held)
+    pair_coupled: Dict[str, Dict[str, str]] = {}
+    for a, b in STAGE2_PAIRS:
+        for member, partner in ((a, b), (b, a)):
+            if partner in held and member not in held:
+                excluded[member] = held[partner]
+                pair_coupled[member] = {"partner": partner,
+                                        "order_package_id": held[partner]}
     candidates = scope if scope is not None else _accounts_declaring(str(strategy_name))
-    first_pkg = next(iter(holders["by_account"].values()), "")
     if candidates is None:
-        return {"action": "block", "order_package_id": first_pkg, "excluded": excluded}
+        return {"action": "block",
+                "order_package_id": next(iter(held.values()), None),
+                "excluded": excluded, "pair_coupled": pair_coupled,
+                "read_error": "accounts.yaml unreadable"}
     hit = {a: p for a, p in excluded.items() if a in candidates}
     if not hit:
         return {"action": "pass", "scope": scope}
+    coupled_hit = {a: v for a, v in pair_coupled.items() if a in hit}
     remaining = frozenset(candidates) - frozenset(hit)
     if not remaining:
         return {"action": "block", "order_package_id": next(iter(hit.values())),
-                "excluded": hit}
-    return {"action": "narrow", "scope": remaining, "excluded": hit}
+                "excluded": hit, "pair_coupled": coupled_hit, "read_error": None}
+    return {"action": "narrow", "scope": remaining, "excluded": hit,
+            "pair_coupled": coupled_hit}
 
 
 def _recent_refusal_for_strategy(
