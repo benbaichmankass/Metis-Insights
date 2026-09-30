@@ -157,9 +157,9 @@ API-key secret; everything else is ours.**
 - **Why first.** Same exchange, same order API and same native bracket
   semantics we already run on bybit_1/bybit_2. Crypto-perp coverage is the
   route's whole point. Rules are bot-survivable: no minimum hold and no HFT ban
-  found, 4%/6% limits, 3% per-trade cap, cheapest entry price seen ($59 for 5k,
-  refundable with first payout [1P]). A breach-and-rebuy at $59 is the best EV
-  per purchase of anything surveyed.
+  found, 4%/6% limits, 3% per-trade cap, lowest-priced crypto-native entry seen ($59 for 5k,
+  refundable with first payout [1P]; E8's $40 is an FX/CFD firm at 1:1 crypto leverage). Price is only
+  one side of EV per purchase (§ 6): P(pass) and payout are not measured here.
 - **Caveats that are still open.** (i) The bot FAQ body is unread first-party.
   (ii) A demo sub-account may not reproduce real fills, so **realised cost versus
   backtest cannot be read off it**, the Stage-1 concern. (iii) The key must never be
