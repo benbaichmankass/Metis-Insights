@@ -37,7 +37,7 @@ def _assert_accounted(s):
 _OLD = "2026-09-18T16:00:00+00:00"
 
 
-def test_live_line_2026_09_29_nine_rows_all_accounted(world):
+def test_live_line_2026_09_29_nine_rows_all_accounted(world):  # noqa: F811 — pytest fixture
     """The 18:55:56Z shape: 7 rows with a resting stop, one active-close skip,
     one inside the fresh-fill grace. Before this change the sum was 7 of 9."""
     db, _pages, mp = world
@@ -69,7 +69,7 @@ def test_live_line_2026_09_29_nine_rows_all_accounted(world):
     _assert_accounted(s)
 
 
-def test_no_client_and_empty_symbol_are_counted(world):
+def test_no_client_and_empty_symbol_are_counted(world):  # noqa: F811 — pytest fixture
     db, _pages, mp = world
     _set_rows(db, [(1, "alpaca_portfolio", "", "long", 1.0, 90.0, 110.0, _OLD),
                    (2, "alpaca_portfolio", "QQQ", "long", 1.0, 90.0, 110.0, _OLD)])
@@ -79,7 +79,7 @@ def test_no_client_and_empty_symbol_are_counted(world):
     _assert_accounted(s)
 
 
-def test_no_levels_is_counted(world):
+def test_no_levels_is_counted(world):  # noqa: F811 — pytest fixture
     db, _pages, mp = world
     _set_rows(db, [(6024, "alpaca_portfolio", "QQQ", "long", 56.0, None, None, _OLD)])
     mp.setattr(om, "_resolve_protective_levels", lambda *a, **k: (None, None))
@@ -89,7 +89,7 @@ def test_no_levels_is_counted(world):
     _assert_accounted(s)
 
 
-def test_replay_2026_09_24_every_sweep_is_accounted(world):
+def test_replay_2026_09_24_every_sweep_is_accounted(world):  # noqa: F811 — pytest fixture
     """30 sweeps of the measured loop: refusal, re-arm, then a resting stop.
     No sweep leaves a row in no counter or in two."""
     db, _pages, mp = world
@@ -98,7 +98,7 @@ def test_replay_2026_09_24_every_sweep_is_accounted(world):
         _assert_accounted(om._check_broker_naked_equity_positions(db))
 
 
-def test_deferred_exit_that_rests_a_stop_is_one_outcome_not_two(world):
+def test_deferred_exit_that_rests_a_stop_is_one_outcome_not_two(world):  # noqa: F811 — pytest fixture
     """A deferred exit that puts a stop back to rest counted exit_deferred AND
     rearmed for one row. `rearmed` is now a separate sub-count."""
     db, _pages, mp = world
@@ -113,7 +113,7 @@ def test_deferred_exit_that_rests_a_stop_is_one_outcome_not_two(world):
     _assert_accounted(s)
 
 
-def test_venue_holding_second_row_is_counted_as_duplicate(world):
+def test_venue_holding_second_row_is_counted_as_duplicate(world):  # noqa: F811 — pytest fixture
     db, _pages, mp = world
     _set_rows(db, [
         (1, "alpaca_portfolio", "QQQ", "long", 10.0, 700.0, 790.0, _OLD),
@@ -139,7 +139,7 @@ def test_venue_holding_second_row_is_counted_as_duplicate(world):
     _assert_accounted(s)
 
 
-def test_non_escalated_failed_rearm_is_counted(world):
+def test_non_escalated_failed_rearm_is_counted(world):  # noqa: F811 — pytest fixture
     db, _pages, mp = world
     _close_row(db, 5928)
 
@@ -166,7 +166,7 @@ def _escalating(db, mp):
     return v
 
 
-def test_escalated_post_that_never_reached_the_venue_is_not_a_rejection(world):
+def test_escalated_post_that_never_reached_the_venue_is_not_a_rejection(world):  # noqa: F811 — pytest fixture
     """(b) An escalated re-arm that fails before any venue call counts as
     escalated_post_not_sent, not escalated_post_rejected. It still spends one
     unit of the cap: nothing rests either way, and the cap is what bounds the
@@ -182,7 +182,7 @@ def test_escalated_post_that_never_reached_the_venue_is_not_a_rejection(world):
     _assert_accounted(s)
 
 
-def test_escalated_post_the_venue_refused_is_a_rejection(world):
+def test_escalated_post_the_venue_refused_is_a_rejection(world):  # noqa: F811 — pytest fixture
     db, _pages, mp = world
     v = _escalating(db, mp)
 
@@ -197,7 +197,7 @@ def test_escalated_post_the_venue_refused_is_a_rejection(world):
     _assert_accounted(s)
 
 
-def test_trace_marks_a_venue_call_only_when_one_was_made(world):
+def test_trace_marks_a_venue_call_only_when_one_was_made(world):  # noqa: F811 — pytest fixture
     db, _pages, mp = world
     _use(mp, _Venue(qty=56.0, price=735.0))
     row = {"id": 6024, "account_id": "alpaca_portfolio", "symbol": "QQQ",
@@ -211,7 +211,7 @@ def test_trace_marks_a_venue_call_only_when_one_was_made(world):
     assert "sent" not in t2
 
 
-def test_rearm_cap_is_three_and_bounds_a_stop_that_never_holds(world):
+def test_rearm_cap_is_three_and_bounds_a_stop_that_never_holds(world):  # noqa: F811 — pytest fixture
     """PR6YRTQY-0005 (d), pinned to a NUMBER. The row's shares stay present and
     the price sits above its stop, but every re-armed stop vanishes (the venue
     accepts it and nothing rests). The row is re-armed exactly 3 times, then
@@ -241,7 +241,7 @@ def test_rearm_cap_is_three_and_bounds_a_stop_that_never_holds(world):
     assert db.status(6024) == ("closed", "protection_rearm_exhausted")
 
 
-def test_topup_deferred_comment_matches_the_cooldown(world):
+def test_topup_deferred_comment_matches_the_cooldown(world):  # noqa: F811 — pytest fixture
     """(a) The refused resting top-up sets the 900 s cooldown, so the next
     sweep does not retry. The old comment said it did."""
     src = (Path(__file__).resolve().parents[1] / "src" / "runtime"
