@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Review nits on the live breakout_1 info probe (public run-log masking, alert wording). Manager asked for the PR number and merges it; no click or order-path change.",
+  "why": "Independent review of #14841, nits (d) no text in the new-element dump on the public log, and (b) the not-found alert says recovered or not."
+}
