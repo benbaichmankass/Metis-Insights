@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: a short scoping report for the Raspberry Pi home-box egress option (requirements from the code, bill of materials with sourced prices, setup, alternatives, recommendation) plus its document-index row. Nothing bought, built, deployed or routed; no src/, config/, workflow or runtime file touched. The VM address is not written in it."
+}
