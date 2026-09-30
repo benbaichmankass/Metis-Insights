@@ -76,7 +76,8 @@ def _draw_r(spec: Dict[str, Any], rng: np.random.Generator, state: Dict[str, Any
 
 def _phase(spec, rs, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_max,
            consistency, flag_frac, reading, leverage, winner_mae_r, loser_mfe_r,
-           need_qual, capped_day_share=0.40):
+           need_qual, capped_day_share=0.40, payout=False, split=0.80,
+           min_payout=100.0):
     """Walk one phase. Returns dict(result, days, qual_days, bal)."""
     bal = initial
     prog = 0.0                        # counted progress toward target (haircut + cap applied)
@@ -87,6 +88,7 @@ def _phase(spec, rs, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_m
     p_same = float(spec.get("same_day_frac", 1.0))
     stop = float(spec["stop_pct"]) / 100.0
     floor = initial * (1 - dd_max)
+    paid = 0.0
     for day in range(days_cap):
         day_open = bal
         day_peak = bal
@@ -110,9 +112,9 @@ def _phase(spec, rs, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_m
             if R < 0:
                 day_peak = max(day_peak, best)
             if day_peak - worst > dd_daily * initial + 1e-9:
-                return dict(result="breach_daily", days=day + 1, qual=len(qual), bal=bal)
+                return dict(result="breach_daily", days=day + 1, qual=len(qual), bal=bal, paid=paid)
             if worst <= floor + 1e-9:
-                return dict(result="breach_max", days=day + 1, qual=len(qual), bal=bal)
+                return dict(result="breach_max", days=day + 1, qual=len(qual), bal=bal, paid=paid)
             bal += pnl
             day_peak = max(day_peak, best, bal)
             same = rng.random() < p_same
@@ -127,10 +129,13 @@ def _phase(spec, rs, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_m
         d = day_prog.get(day, 0.0)
         if consistency and d > capped_day_share * target:
             day_prog[day] = capped_day_share * target
+        if payout and day % 7 == 6 and bal > initial and split * (bal - initial) >= min_payout:
+            paid += split * (bal - initial)      # bank_asap: withdraw all equity above start weekly
+            bal = initial
         prog = sum(day_prog.values())
         if prog >= target and len(qual) >= need_qual:
-            return dict(result="pass", days=day + 1, qual=len(qual), bal=bal)
-    return dict(result="timeout", days=days_cap, qual=len(qual), bal=bal)
+            return dict(result="pass", days=day + 1, qual=len(qual), bal=bal, paid=paid)
+    return dict(result="timeout", days=days_cap, qual=len(qual), bal=bal, paid=paid)
 
 
 def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, reading: str,
@@ -147,7 +152,7 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
               flag_frac=flag_frac, reading=reading, leverage=leverage,
               winner_mae_r=winner_mae_r, loser_mfe_r=loser_mfe_r)
     out = dict(b_daily=0, b_max=0, p1=0, p1_breach=0, p1_timeout=0, both=0, p2_breach=0, p2_timeout=0,
-               d1=[], d2=[], fund_surv=0, fund_ret=[], q1=[])
+               d1=[], d2=[], paid=[], fund_surv=0, fund_ret=[], q1=[])
     for _ in range(n_paths):
         r1 = _phase(spec, rs, target=t1, days_cap=p1_cap, rng=rng, consistency=True,
                     need_qual=need, **kw)
@@ -170,7 +175,8 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
         out["d2"].append(r2["days"])
         # funded: no target, no consistency, no qualifying-day need; survive `funded_days`
         rf = _phase(spec, rs, target=1e18, days_cap=funded_days, rng=rng, consistency=False,
-                    need_qual=0, **kw)
+                    need_qual=0, payout=True, **kw)
+        out["paid"].append(rf["paid"])
         if rf["result"] == "timeout":
             out["fund_surv"] += 1
         out["fund_ret"].append(rf["bal"] / initial - 1.0)
@@ -193,6 +199,12 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
         "funded_90d_return_mean_given_funded": (round(float(np.mean(out["fund_ret"])), 4)
                                                 if out["fund_ret"] else None),
         "n_funded_paths": out["both"],
+        "days_phase1_p10_p50_p90": ([round(float(np.percentile(out["d1"], q)), 0) for q in (10, 50, 90)]
+                                    if out["d1"] else None),
+        "days_phase2_p10_p50_p90": ([round(float(np.percentile(out["d2"], q)), 0) for q in (10, 50, 90)]
+                                    if out["d2"] else None),
+        "funded_payout_usd_per_month_mean_given_funded": (
+            round(float(np.mean(out["paid"])) * 30.0 / funded_days, 1) if out["paid"] else None),
     }
 
 
