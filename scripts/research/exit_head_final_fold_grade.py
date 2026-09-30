@@ -30,6 +30,9 @@ THE PARTITION (RQ-20260928-005's rule with its gaps closed, thresholds unchanged
   |Q| < 2  -> indeterminate (underpowered).   The floor is never lowered.
   |P| >= 2 -> pass     |P| == 1 -> indeterminate (refine)     |P| == 0 -> fail
 
+RQ-20260930-402 re-runs ONE leg (XRP) on the 2025 fold; `--rule single-leg` applies its
+registered rule (`grade_single_leg`). The default `family` rule is unchanged.
+
 Usage (on the trainer, after the replay)::
 
     python scripts/research/exit_head_final_fold_grade.py \\
@@ -117,16 +120,42 @@ def grade(stats: List[Dict[str, Any]], floor: int = FLOOR) -> Dict[str, Any]:
             "n_legs_graded": len(q), "n_legs_positive": len(p), "legs": stats}
 
 
+def grade_single_leg(stats: List[Dict[str, Any]], floor: int = FLOOR) -> Dict[str, Any]:
+    """RQ-20260930-402's registered rule: ONE leg, one fold (the REFINE re-run of RQ-20260929-401).
+
+    producer problem -> not_applicable; fold missing or n_oos < floor -> indeterminate
+    (underpowered); recovered_R_oos > 0 strictly -> pass; else fail. Pure function."""
+    if len(stats) != 1:
+        return {"verdict": "not_applicable", "read_state": "producer_failed",
+                "why": "single-leg rule needs exactly one leg, got %d" % len(stats),
+                "floor": floor, "legs": stats}
+    s = stats[0]
+    if s.get("state") in PRODUCER_STATES:
+        return {"verdict": "not_applicable", "read_state": "producer_failed",
+                "why": f"producer problem on: {s['leg']}={s['state']}", "floor": floor, "legs": stats}
+    if s.get("state") != "ok" or s["n_oos"] < floor:
+        verdict, why = "indeterminate", "underpowered: fold missing or n_oos < %d" % floor
+    elif s["recovered_r_oos"] > 0:
+        verdict, why = "pass", "n_oos >= %d and recovered_R_oos > 0" % floor
+    else:
+        verdict, why = "fail", "n_oos >= %d and recovered_R_oos <= 0" % floor
+    return {"verdict": verdict, "read_state": "measured", "why": why, "floor": floor, "legs": stats}
+
+
 def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--round-dir", required=True)
     ap.add_argument("--legs", required=True)
+    ap.add_argument("--rule", choices=("family", "single-leg"), default="family",
+                    help="family = RQ-20260929-401 (default, unchanged); "
+                         "single-leg = RQ-20260930-402 (exactly one leg)")
     a = ap.parse_args(argv[1:])
     stats: List[Dict[str, Any]] = []
     for leg in a.legs.split(","):
         stats.append(read_leg(Path(a.round_dir), leg))
-    print(json.dumps(grade(stats), indent=1, sort_keys=True))
+    fn = grade_single_leg if a.rule == "single-leg" else grade
+    print(json.dumps(fn(stats), indent=1, sort_keys=True))
     return 0
 
 

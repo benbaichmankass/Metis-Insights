@@ -76,3 +76,17 @@ def test_cost_policy_unverified_is_a_producer_state():
     assert "cost_policy_unverified" in G.PRODUCER_STATES
     g = G.grade([{"leg": "a", "state": "cost_policy_unverified"}, _ok(100, 1), _ok(98, 1)])
     assert g["verdict"] == "not_applicable" and "a=cost_policy_unverified" in g["why"]
+
+
+def test_single_leg_rule_rq_20260930_402():
+    g = G.grade_single_leg
+    assert g([_ok(108, 0.01)])["verdict"] == "pass"
+    assert g([_ok(64, 0.01)])["verdict"] == "pass"                     # floor is inclusive
+    assert g([_ok(108, 0.0)])["verdict"] == "fail"                     # 0.0 is not > 0
+    assert g([_ok(108, -2.0)])["verdict"] == "fail"
+    assert g([_ok(63, 9.0)])["verdict"] == "indeterminate"             # floor never lowered
+    assert g([{"leg": "x", "state": "final_fold_missing"}])["verdict"] == "indeterminate"
+    r = g([{"leg": "x", "state": "replay_mismatch"}])
+    assert r["verdict"] == "not_applicable" and r["read_state"] == "producer_failed"
+    assert g([_ok(100, 1), _ok(100, 1)])["verdict"] == "not_applicable"   # exactly one leg
+    assert G.grade([_ok(108, 1)])["verdict"] == "indeterminate"        # family rule unchanged
