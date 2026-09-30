@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "The Alpaca re-arm refuses when the venue position does not hold the row's qty/side or when the stop is already breached (tests + one observed refusal or a clean week of history with no repeated stop fills), or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-PR6YRTQY-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "JC-SA-08 population evidence docs/research/evidence/jc-sa-08-population-and-rearm-loop-2026-09-29.md; lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ",
+    "rerun": "alpaca_order_history?account_id=<acc>&after=<date> — any symbol with the SAME stop leg (qty, stop_price) filled more than once within an hour is this loop; also journal protection_repairs > 3 on an alpaca row."
+  },
+  "routed_to": "FIX-SA-03",
+  "severity": "high",
+  "state": "routed",
+  "tier": 2,
+  "what": "Alpaca naked re-arm has no position-presence or marketable-stop guard. MEASURED via /api/diag/alpaca_order_history: on 2026-09-24 alpaca_portfolio QQQ, after row 5928's own 2-sh stop filled at 13:32:10, the sweep re-armed 5928 28 more times (a 2-sh OCO at stop 736.35 with QQQ already below it); each stop filled on arrival, liquidating sibling row 6024's 56 shares at 734.96-736.42 although 6024's stop was 716.80 (5928 protection_repairs=29). #14123 does NOT remove this instance's trigger — 6024's own bracket legs had lapsed at the 09-21 close, so it had no resting stop to make visible (an earlier draft of this row said otherwise). _check_broker_naked_equity_positions re-arms without (1) confirming the venue position holds the row's qty on its side (a row whose stop filled but whose journal row is still open is re-armed as a sell OCO on a flat position -> unintended short or refusal loop; reachable on alpaca_live) and (2) refusing a stop already through the market (a marketable stop is an exit, not protection). Fix: fresh /v2/positions/{sym} read before re-arm (qty >= row qty, side matches, else refuse with reason) and a current_price vs sl check (long: price <= sl -> refuse + page), plus a per-row re-arm attempt cap. Fix: PR #14241 (held, stacked after #14177)."
+}

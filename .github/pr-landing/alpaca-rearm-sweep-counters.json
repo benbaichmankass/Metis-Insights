@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/runtime/order_monitor.py is the live order_monitor on the real-money alpaca_live account's re-arm sweep. Dispatched by the manager (session_01HYq6XtfesZ57VyaQrK6CL1) as lane ALPACA-REARM, which requires a HELD PR. The manager has it independently reviewed and merges it under the operator's standing data-backed authorization (2026-09-27). What changes on the order path: nothing about whether, when or how much is placed or cancelled. The change is (1) counters for each sweep early exit, (2) the top-up breach and exit results move to topup_* keys, (3) a deferred exit's re-rest is counted as exit_deferred_rearmed instead of rearmed, (4) escalated_post_rejected is split into rejected and not_sent, and (5) an optional trace kwarg on _attempt_naked_autoprotect records whether a venue call was made. Revert: git revert of the merge commit.",
+  "why": "PI-20260929-K1XNYYAQ-0003 (a)(b)(c): make the Alpaca equity sweep's counters sum to 'checked' (a skipped row and a lost row become distinguishable), split escalated_post_rejected, and fix the wrong cooldown comment. Adds tests that pin the PR6YRTQY-0005 re-arm cap at 3. Closes PR6YRTQY-0001 in the pipeline (already fixed on main by #14127 and re-verified by mutation)."
+}
