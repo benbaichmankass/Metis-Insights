@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "both docs carry a dated CORRECTION block matching the audit output of the rerun command, or the manager kills this row with a stated reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-39SDYWCO-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "python3 -c \"import sys,collections;sys.path.insert(0,'scripts/research');import timeout_binding_audit as t;a=t.audit(t.load_rows());print(len(a),collections.Counter(v['verdict'] for v in a.values()),[a[k]['verdict'] for k in ('qqq_pullback_1h','spy_pullback_1h','htf_pullback_trend_2h','squeeze_breakout_4h')])\""
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "CORRECT docs/research/timeout-bars-harness-vs-live-2026-08-29.md: it says the harness's default binds on 18 of 41 legs and (table, 'CONTAMINATED' row) names qqq_pullback_1h, spy_pullback_1h, htf_pullback_trend_2h and squeeze_breakout_4h as contaminated. NOT REPRODUCIBLE from committed data (split out of PI-20260930-39SDYWCO-0004, whose matrix-note half is now fixed on main). MEASURED 2026-09-30 with scripts/research/timeout_binding_audit.py audit(): those four legs read CLEAN on the 2026-08-29 rows alone AND on today's committed corpus (spy_pullback_1h 0 of 39 pairs binding, re-derived from raw rows too). Today's corpus (41 legs) reads 16 contaminated / 25 clean (I quoted 15 earlier in this lane; the corpus grew when sweep run 36684384649 merged, so the count moves: re-run, never quote). The 08-29 history rows cover only 28 legs (6 contaminated), so the write-up's 18 of 41 cannot be rebuilt from them either. Also section 4.2 of docs/research/e35-passed-unshipped-proposal-2026-08-31.md repeats the 17-of-39 claim and reasons that sm1.5 == sm1.5_to400 'does not rescue the leg', which is backwards (the 400 arm overrides the 200-bar default, so identity is evidence the default does not bind). FIX: add a dated CORRECTION block to both docs stating the audit's numbers and pointing at the audit; do not rewrite history in place. Tier-1 docs only."
+}
