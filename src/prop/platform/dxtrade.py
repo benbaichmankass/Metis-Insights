@@ -1240,9 +1240,13 @@ ONE_CLICK_JS = r"""
 () => {
   const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  const lab = [...document.querySelectorAll('body *')].find(el =>
+  // Exactly ONE label leaf (manager note on #14723): the first match in DOM
+  // order is not trusted when there are several.
+  const labs = [...document.querySelectorAll('body *')].filter(el =>
     el.children.length === 0 && /^one[- ]click trading$/i.test(txt(el)));
-  if (!lab) return {state: 'unknown', why: 'label not found'};
+  if (!labs.length) return {state: 'unknown', why: 'label not found'};
+  if (labs.length > 1) return {state: 'unknown', why: `${labs.length} one-click labels (need exactly 1)`};
+  const lab = labs[0];
   const states = [];
   let via = null;
   // REALLY visible: a size, and no display:none / visibility:hidden /
@@ -1293,20 +1297,28 @@ ONE_CLICK_JS = r"""
       toggleWhy = `data-value ${dv} disagrees with the knob (${knob})`;
     else { states.push(dv === 'true' ? 'on' : 'off'); via = 'data-value+knob'; }
   }
+  // Checkbox / switch / aria state near the label (the pre-measurement
+  // reader; other terminals and fixtures use it). Only REALLY visible
+  // controls count, and there must be exactly one at the first level that
+  // has any -- a hidden unchecked checkbox never reads 'off' (manager note on
+  // #14723). The info probe accepts only via 'data-value+knob' anyway.
+  let ctlWhy = null;
   for (let e = lab, i = 0; e && i < 4; e = e.parentElement, i++) {
-    const before = states.length;
-    const cands = [e, ...e.querySelectorAll('input[type=checkbox], [role=switch], [role=checkbox], [aria-pressed], [aria-checked]')];
-    for (const c of cands) {
-      if (c.type === 'checkbox') states.push(c.checked ? 'on' : 'off');
-      const ac = c.getAttribute && (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'));
-      if (ac === 'true') states.push('on'); else if (ac === 'false') states.push('off');
-    }
-    if (states.length > before) { via = via ? via + '+aria' : 'aria'; break; }
+    const cands = [e, ...e.querySelectorAll('input[type=checkbox], [role=switch], [role=checkbox], [aria-pressed], [aria-checked]')]
+      .filter(c => c.type === 'checkbox' || (c.getAttribute && (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'))));
+    if (!cands.length) continue;
+    const vis_c = cands.filter(shown);
+    if (vis_c.length !== 1) { ctlWhy = `${vis_c.length} visible checkbox/aria controls near the label (need exactly 1)`; break; }
+    const c = vis_c[0];
+    const ac = c.type === 'checkbox' ? (c.checked ? 'true' : 'false') : (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'));
+    if (ac === 'true') states.push('on'); else if (ac === 'false') states.push('off');
+    via = via ? via + '+aria' : 'aria';
+    break;
   }
   const uniq = [...new Set(states)];
-  const ok = uniq.length === 1 && !toggleWhy;
+  const ok = uniq.length === 1 && !toggleWhy && !ctlWhy;
   return {state: ok ? uniq[0] : 'unknown', via, n_toggles: toggles.length, knob,
-          why: ok ? 'read' : toggleWhy || (uniq.length ? 'conflicting controls' : 'no data-value toggle or checkbox/switch/aria state near the label'),
+          why: ok ? 'read' : toggleWhy || ctlWhy || (uniq.length ? 'conflicting controls' : 'no data-value toggle or checkbox/switch/aria state near the label'),
           chain: (() => { const c = []; for (let e = lab, i = 0; e && e.tagName && i < 4; e = e.parentElement, i++)
             c.push(e.tagName.toLowerCase() + ((typeof e.className === 'string' && e.className) ? '.' + e.className.trim().split(/\s+/).join('.') : '')
                    + [...e.attributes].map(a => a.name).filter(n => n.startsWith('aria-') || n.startsWith('data-')).map(n => '[' + n + ']').join(''));
@@ -2627,34 +2639,60 @@ INFO_PROBE_CLOSE_JS = r"""
 # MEASURED anchor (issue #14612 dump): the Orders widget carries a
 # ``[data-test-id=widget_menu_ORDERS]`` button. Required: exactly ONE such
 # visible button; its widget container (nearest ``widget__container`` /
-# ``widgetNew__container`` ancestor, <= 8 up) visible; inside it a header row
+# ``widgetNew__container`` ancestor, <= 12 up -- MEASURED at level 10 by
+# the 2nd dry run, issue #14754 run 36726271098, which is why the original
+# 8-level walk read "no visible widget container") visible; inside it a header row
 # naming Symbol plus Order ID or Order Type and NO history-shaped column
 # (close / closed / execution / filled time -- INFERRED names); body rows are
-# the visible ``tr`` whose cell count matches that header and whose Symbol
-# cell is non-empty. Anything else is ``found: false`` ("could not look").
+# the ``tr`` whose cell count matches that header and whose Symbol cell is
+# non-empty. Anything else is ``found: false`` ("could not look").
+# VISIBILITY, fail-closed (manager review of #14764, fixture S3b: a visible
+# container holding a display:none Orders table with a working order read
+# found:true, n_rows:0 -- a hidden grid as "no working orders"): "shown" is a
+# size AND no display:none / visibility:hidden / opacity 0 up the tree. Every
+# widget_menu_ORDERS counts (exactly 1, shown); the container must be shown
+# and hold no OTHER widget_menu_* button; exactly ONE matching header row,
+# counted visible or not, and it must be shown; body rows are counted visible
+# or not, and ANY hidden order-shaped row reads "could not look", never
+# "empty".
 INFO_PROBE_ORDERS_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  const menus = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS]')].filter(vis);
-  if (menus.length !== 1) return {found: false, why: `${menus.length} visible widget_menu_ORDERS (need exactly 1)`};
+  const shown = el => {
+    if (!vis(el)) return false;
+    for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse'
+          || parseFloat(cs.opacity) === 0) return false;
+    }
+    return true;
+  };
+  const menus = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS]')];
+  if (menus.length !== 1) return {found: false, why: `${menus.length} widget_menu_ORDERS (need exactly 1)`};
+  if (!shown(menus[0])) return {found: false, why: 'widget_menu_ORDERS is not shown'};
   let w = null;
-  for (let e = menus[0].parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+  for (let e = menus[0].parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
     const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
     if (cls.some(c => /^widget(New)?__container/.test(c))) { w = e; break; }
   }
-  if (!w || !vis(w)) return {found: false, why: 'no visible widget container around widget_menu_ORDERS'};
-  const heads = [...w.querySelectorAll('tr')].map(r => [...r.querySelectorAll('th')].map(txt)).filter(h => h.length);
-  const hdr = heads.filter(h => h.includes('symbol') && (h.includes('order id') || h.includes('order type')));
+  if (!w || !shown(w)) return {found: false, why: 'no visible widget container around widget_menu_ORDERS'};
+  const others = [...w.querySelectorAll('[data-test-id^=widget_menu_]')].filter(m => m !== menus[0]);
+  if (others.length) return {found: false, why: `the Orders widget container also holds ${others.length} other widget_menu_* (not one widget)`};
+  const hrows = [...w.querySelectorAll('tr')].map(r => ({r, h: [...r.querySelectorAll('th')].map(txt)})).filter(x => x.h.length);
+  const hdr = hrows.filter(x => x.h.includes('symbol') && (x.h.includes('order id') || x.h.includes('order type')));
   if (hdr.length !== 1) return {found: false, why: `${hdr.length} working-orders header rows in the Orders widget (need exactly 1)`};
-  const hs = hdr[0];
+  if (!shown(hdr[0].r)) return {found: false, why: 'the working-orders header row is not shown (a hidden grid is could-not-look, never empty)'};
+  const hs = hdr[0].h;
   if (hs.some(h => /\b(close|closed|execution|filled)\b.*\btime\b|\btime\b.*\b(close|closed)\b/.test(h)))
     return {found: false, why: 'the Orders widget shows a history-shaped table'};
   const si = hs.indexOf('symbol');
   const rows = [...w.querySelectorAll('tr')].filter(r => {
     const tds = [...r.querySelectorAll('td')];
-    return tds.length === hs.length && vis(r) && txt(tds[si]);
+    return tds.length === hs.length && txt(tds[si]);
   });
+  const hidden = rows.filter(r => !shown(r)).length;
+  if (hidden) return {found: false, why: `${hidden} order-shaped row(s) are not shown (could not look)`, n_rows_hidden: hidden};
   return {found: true, n_rows: rows.length, headers: hs};
 }
 """
@@ -2730,6 +2768,15 @@ def info_probe_flat_guard(account: AccountSnapshot, orders: Mapping[str, Any]) -
     if orders.get("n_rows"):
         return f"{orders['n_rows']} working order(s) on the account"
     return None
+
+
+def info_probe_one_click_off(one_click: Optional[Mapping[str, Any]]) -> bool:
+    """True only for a positive OFF read from the MEASURED toggle
+    (``via == "data-value+knob"``, optionally ``+aria`` agreeing). The
+    checkbox/aria fallback alone never passes the info probe's gate -- it is
+    not how the live terminal renders the toggle (issues #14714, #14754)."""
+    oc = one_click or {}
+    return oc.get("state") == "off" and str(oc.get("via") or "").startswith("data-value+knob")
 
 
 def info_probe_restore_latch_reason(got: Mapping[str, Any]) -> Optional[str]:
@@ -3413,10 +3460,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         return out
 
     def read_one_click(self, page: Any) -> Dict[str, Any]:
-        """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC:
-        recorded in every order-control result, gated on by none (ORDER ENTRY
-        rule 1; operator 2026-09-28). ``unknown`` is the live terminal's
-        measured reading (#13711) and blocks nothing."""
+        """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC for
+        every ORDER path: recorded in each order-control result, gated on by
+        none of them (ORDER ENTRY rule 1; operator 2026-09-28). The one
+        exception is the instrument INFO-PANEL probe (``probe_instrument_info``),
+        which clicks on the live terminal and refuses unless this reads
+        ``off`` via ``data-value+knob`` (the measured toggle, issues #14714 /
+        #14754). ``unknown`` blocks no order path."""
         try:
             got = page.evaluate(ONE_CLICK_JS) or {}
         except Exception as exc:
@@ -3690,7 +3740,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         clicked_any = False
         try:
             out["one_click"] = self.read_one_click(page)
-            if (out["one_click"] or {}).get("state") != "off":
+            if not info_probe_one_click_off(out["one_click"]):
                 # The guard fails CLOSED (manager review of #14645): only a
                 # positive "off" reading passes. The live terminal reads
                 # 'unknown' (#13711), so until a reader is built from this
@@ -3715,9 +3765,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                 why = res.get("why") or "resolve failed"
             elif res.get("dialogs"):
                 why = f"{res['dialogs']} dialog(s) already open"
-            elif (out["one_click"] or {}).get("state") != "off":
-                why = (f"one-click trading does not read OFF (reads "
-                       f"{(out['one_click'] or {}).get('state')!r}); refusing until it positively does")
+            elif not info_probe_one_click_off(out["one_click"]):
+                oc = out["one_click"] or {}
+                why = (f"one-click trading does not read OFF (reads {oc.get('state')!r}); via "
+                       f"{oc.get('via')!r}; refusing until it positively does from the measured toggle")
             else:
                 why = info_probe_flat_guard(acct, orders)
             if why is None and original not in (res.get("watchlist") or []):
@@ -3982,7 +4033,12 @@ class DXtradeAdapter(PropPlatformAdapter):
         # into a ticket for the wrong symbol is the worst silent failure here.
         if not form_names_symbol(form, spec.venue_symbol):
             return refuse(f"the open form does not name {spec.venue_symbol}")
-        need = ["quantity", "stop_loss", "take_profit"] + (["price"] if spec.order_type == "limit" else [])
+        # The PRICE field is not required here: the live Breakout form opens in
+        # MARKET mode and shows no price input until LIMIT is selected
+        # (2026-09-30 12:44Z, ticket prop-manual-b573aecb5d47 refused
+        # "form fields not found: ['price']" before the order-type click ever
+        # ran). It is required right after that click, below.
+        need = ["quantity", "stop_loss", "take_profit"]
         missing = [k for k in need if k not in (form.get("fields") or {})]
         if missing:
             return refuse(f"form fields not found: {missing}")
@@ -4020,7 +4076,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                 pass
             elif type_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
+                page.wait_for_timeout(300)
             form = self._find_form(page)
+            if spec.order_type == "limit" and "price" not in (form.get("fields") or {}):
+                return refuse("form fields not found after selecting LIMIT: ['price']", form)
             # Switch each leg's enabling toggle ON (the live sidebar's SL / TP
             # toggles read "false" by default): the operator's flow sets the
             # brackets BEFORE execution. Never switched off; read back below.

@@ -37,14 +37,27 @@ def page_html(*, margin="$0", order_rows="", one_click="", panel_names=None, dia
               close_btn=True, no_close=False, sym_cell_extra="", link_breaks_for="",
               panel_role="", orders_hidden=False, one_click_unreadable=False, panel_extra="",
               hover_button_for="", outside_table="", orders_headers=None, no_panel_for="",
-              toggle_attrs=""):
+              toggle_attrs="", orders_depth=1):
     rows = "".join(
         f'<tr class="instrument" data-row-id="{i}"><td class="sym">{s}{sym_cell_extra if s == "SOLUSD" else ""}</td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.1</button></td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.2</button></td></tr>'
         for i, s in enumerate(["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]))
+    # The MEASURED toggle (issues #14714/#14754): a div with data-value and a
+    # knob sibling (left = off). ``one_click="checked"`` renders the ON shape
+    # (UNMEASURED on the live terminal: knob right, data-value true).
+    on = one_click == "checked"
     toggle = (f'<div {toggle_attrs}><span>One-click trading</span></div>' if one_click_unreadable else
-              f'<label><input type="checkbox" {one_click}><span>One-click trading</span></label>')
+              f'<div style="position:relative;height:17px">'
+              f'<div data-test-id="one_click_trading" data-value="{"true" if on else "false"}" '
+              f'style="position:absolute;left:0;top:0;width:26px;height:16px"></div>'
+              f'<div style="position:absolute;left:{"12px" if on else "2px"};top:2px;width:12px;height:12px"></div>'
+              f'<div style="margin-left:30px">One-click trading</div></div>')
+    # The live Orders button sits 9 wrappers below its widgetNew__container
+    # (container at ancestor level 10, issue #14754); ``orders_depth`` nests it.
+    menu = '<button data-test-id="widget_menu_ORDERS">Orders</button>'
+    for _ in range(orders_depth - 1):
+        menu = f"<div>{menu}</div>"
     heads = "".join(f"<th>{h}</th>" for h in (orders_headers or ["Symbol", "Side", "Order Type", "Order ID"]))
     return f"""<html><body>
 <div class="metrics"><div><span>Balance</span><div>$5,024</div></div>
@@ -59,7 +72,7 @@ def page_html(*, margin="$0", order_rows="", one_click="", panel_names=None, dia
   <div class="instrument-details"><button data-test-id="instrument_info_button"><svg><use href="#icon-info"></use></svg></button></div>
 </div></div>
 <div class="widget__container___Or1 widgetNew__container orders-widget" {'style="display:none"' if orders_hidden else ''}>
-  <button data-test-id="widget_menu_ORDERS">Orders</button>
+  {menu}
   <table><thead><tr>{heads}</tr></thead><tbody>{order_rows}</tbody></table></div>
 {outside_table}
 <script>
@@ -265,7 +278,7 @@ def test_refuses_without_the_orders_widget(browser):
     html = re.sub(r'<div class="widget__container___Or1.*?</table></div>', "", page_html(), flags=re.S)
     assert "widget_menu_ORDERS" not in html
     got, st = run(browser, html)
-    assert "0 visible widget_menu_ORDERS" in got["refused"] and st["clicks"] == []
+    assert "0 widget_menu_ORDERS" in got["refused"] and st["clicks"] == []
 
 
 HISTORY_TABLE = ('<div class="history"><table><thead><tr><th>Symbol</th><th>Order ID</th><th>Order Type</th>'

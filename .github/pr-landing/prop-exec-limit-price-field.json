@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Money-path fix on the live prop executor's order path (src/prop/platform/dxtrade.py place_bracket + src/prop/prop_executor.py). The first real LIMIT ticket on the live terminal (prop-manual-b573aecb5d47, 2026-09-30 12:44Z) was refused 'form fields not found: [price]' because the price field was required before the LIMIT click; the live form opens in MARKET mode. Also adds a NOT PLACED alert on a mechanical refusal and a dry-only LIMIT round-trip walk (apply: round-trip-dry,sol,limit) to prove it on the live terminal after deploy. Held: the manager reviews and merges; no live click without the manager's OK.",
+  "why": "The executor could never place a ticket (they are all LIMIT) on the live Breakout form; this lets it select LIMIT before requiring the price field, and makes a failed placement loud."
+}

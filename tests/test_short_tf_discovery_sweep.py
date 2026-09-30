@@ -304,6 +304,16 @@ def test_a_shortened_stage_b_is_a_smoke_run(tmp_path, monkeypatch):
     assert seen["smoke"] is False
 
 
+def test_the_registered_504_and_505_commands_are_not_smoke_runs(tmp_path, monkeypatch):
+    """Run 36691408944 was labelled SMOKE because --timeframes 5m,15m,30m != the 4-timeframe default."""
+    seen = {}
+    monkeypatch.setattr(sw, "sweep", lambda **kw: seen.update(kw) or {"verdict": "null", "read_state": "measured", "K": 3, "population": "p"})
+    for tfs, expect_smoke in (("5m,15m,30m", False), ("1m", False), ("5m", True), ("15m,30m", True)):
+        seen.clear()
+        sw.main(["--out", str(tmp_path), "--timeframes", tfs])
+        assert seen["smoke"] is expect_smoke, tfs
+
+
 # ---- the collector contract (RQ-20260930-501 was mislabelled producer_failed by exactly this class of bug) ----
 _sr_spec = importlib.util.spec_from_file_location("script_run_sweep_contract", REPO / "scripts/research/script_run.py")
 sr = importlib.util.module_from_spec(_sr_spec)
