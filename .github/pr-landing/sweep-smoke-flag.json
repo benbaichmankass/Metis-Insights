@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling only: short_tf_discovery_sweep.py labelled the registered RQ-20260930-504 command (--timeframes 5m,15m,30m) a SMOKE run because the default timeframe set still includes 1m. The registered 504 and 505 timeframe sets are no longer treated as overrides; regression test added. No config, strategy or runtime change."
+}
