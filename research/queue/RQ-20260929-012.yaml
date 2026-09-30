@@ -89,4 +89,4 @@ generated:
     symbol: ETHUSDT
     timeframe: 15m
     trades_file: comms/strategy_evidence/runs/2026-09-25/ict_scalp_eth_15m__trades.jsonl
-last_dispatched_at: null
+last_dispatched_at: '2026-09-30T13:22:53+00:00'
