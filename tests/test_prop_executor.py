@@ -2979,3 +2979,102 @@ def test_read_only_never_cancels_a_resting_entry(env):
     pe.run_cycle(adapter=ad, page=None, api=FakeApi([]), cfg=cfg(), mode="read_only", ledger=ledger,
                  state=state, now=NOW)
     assert all(arm is False for (k, _, arm) in ad.calls if k == "cancel_order")
+
+
+# ── review of #14581 (manager, 2026-09-30 06:55Z) ─────────────────────────
+
+
+def test_an_expired_non_enabled_ticket_is_not_reported_expired_either(env):
+    # A ticket first seen after its valid_until (tick outage > TTL, or the
+    # first live cycle after read_only) must stay with the manual bridge.
+    ledger, state = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT", valid_until=(NOW - timedelta(minutes=5)).isoformat())
+    api = FakeApi([eth])
+    pe.run_cycle(adapter=FakeAdapter(), page=None, api=api, cfg=_sol_only(), mode="live",
+                 ledger=ledger, state=state, now=NOW)
+    assert not any(p.get("ticket_id") == "prop-eth" for p in api.posts)
+    assert ledger.latest()["prop-eth"]["reason"] == "symbol_not_enabled"
+
+
+class _FailingCancel(FakeAdapter):
+    def cancel_order(self, page, order, *, arm=False):
+        self.calls.append(("cancel_order", order.order_id, arm))
+        return {"ok": False, "clicked": False, "why": "need exactly 1 row"}
+
+
+def test_a_failed_cancel_is_not_recorded_as_requested_and_retries_then_gives_up_loudly(env):
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad = _FailingCancel(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=vu)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    api._tickets = []
+    alerts = []
+    for k in range(pe.CANCEL_EXPIRED_MAX_ATTEMPTS + 2):
+        ad.calls = []
+        res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
+                           state=state, now=NOW + timedelta(minutes=31 + 5 * k))
+        alerts.append(res.alerts)
+        row = ledger.latest()["prop-manual-aaa"]
+        assert not row.get("cancel_requested")
+        if k < pe.CANCEL_EXPIRED_MAX_ATTEMPTS:
+            assert [c[0] for c in ad.calls] == ["cancel_order"]
+        else:
+            assert ad.calls == []  # exhausted: no more clicks
+    assert all(any("retrying" in a for a in al) for al in alerts[:pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
+    assert any("STILL RESTING" in a for a in alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
+    assert not any(a for a in alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS:])  # one alert at exhaustion
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+
+
+def test_a_partial_fill_is_never_cancelled_or_reported_skipped(env):
+    # 0.2 of 0.5 filled while the order row still reads its full 0.5 (a
+    # "Size" column, not "Left Qty"): the order matches, the 0.2 position
+    # does not match the ticket's size, so found["positions"] is empty --
+    # the guard must look at ANY position on the symbol+side.
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, api, res = _placed_then(env, NOW + timedelta(minutes=31), vu, [_o()],
+                                positions=[_p(quantity=0.2)])
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+    assert not env[0].latest()["prop-manual-aaa"].get("cancel_requested")
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+
+
+def test_an_earlier_transient_miss_does_not_shorten_the_post_cancel_skip(env):
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad = FakeAdapter(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=vu)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    api._tickets = []
+    ad.orders = []  # one transient miss before expiry
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=5))
+    assert ledger.latest()["prop-manual-aaa"]["misses"] == 1
+    ad.orders = [_o()]
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=31))
+    assert ledger.latest()["prop-manual-aaa"]["cancel_requested"]
+    ad.orders = []
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=36))
+    assert not any(p.get("status") == "skipped" for p in api.posts)  # 1 read, not yet 2
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=41))
+    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"][0].startswith("expired")
+
+
+def test_a_new_ticket_in_the_cancel_cycle_is_held_not_refused(env):
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad = FakeAdapter(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=vu)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    later = NOW + timedelta(minutes=31)
+    api._tickets = [ticket(ticket_id="prop-new", created_at=later.isoformat(),
+                           valid_until=(later + timedelta(hours=1)).isoformat())]
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                       now=later)
+    assert "prop-new" not in ledger.latest()  # not refused, not recorded: decided on the next read
+    assert any(a["what"] == "hold" and a.get("ticket_id") == "prop-new" for a in res.actions)
+    assert not any(p.get("ticket_id") == "prop-new" for p in api.posts)

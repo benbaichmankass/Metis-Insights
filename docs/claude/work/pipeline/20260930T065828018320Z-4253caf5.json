@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "at #14581's deploy: the executor's intent ledger on the VM, read by a trainer/vm relay or an executor tick log, lists no row with state 'placed' and no 'valid_until'; OR one is found and cancelled on the terminal by hand, with the ticket_id named. Killed if #14581 is rejected.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, manager review of #14581 items 4(c)/4(d)",
+    "rerun": "curl https://ict-bot.duckdns.org/api/bot/prop/fills?limit=500 and count status=='placed'; on the VM: python3 -c \"import json;[print(l) for l in open('<state_dir>/intent_ledger.jsonl') if '\\\"placed\\\"' in l]\""
+  },
+  "state": "queued",
+  "what": "#14581 deploy check, review item 4(c): a resting entry placed BEFORE #14581 has no valid_until in the executor's intent ledger, so _expire_resting never cancels it. There is no diag path to the ledger file (state_dir/intent_ledger.jsonl on the live VM). The readable proxy was MEASURED on 2026-09-30 ~07:05Z: /api/bot/prop/fills has 0 rows with status 'placed' out of 72, and /api/bot/prop/tickets has 0 tickets 'placed' out of 173, with no ticket since 2026-09-28T17:15Z. So the journal shows no resting executor order. What the proxy cannot show: a placed order whose report POST failed."
+}

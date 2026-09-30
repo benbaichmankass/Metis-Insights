@@ -774,12 +774,17 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
 
     # 3. reconcile the ledger (confirm by re-read, contain per § 3.5)
     claimed_keys = set()
+    cancelled_this_cycle = False
     for tid, row in ledger.watched().items():
         spec = row.get("spec") or {}
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
         verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
-        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict, now=now)
+        if verdict == "placed" and row.get("state") == "placed":
+            if _expire_resting(res, adapter, page, live, ledger, tid, row, spec, found, positions, now):
+                cancelled_this_cycle = True
+            row = ledger.latest().get(tid, row)
+        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
         if trip:
             halted = halted or _trip(res, state, live, trip)
 
@@ -836,13 +841,12 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     fresh.sort(key=lambda t: str(t.get("created_at") or ""))
     candidate = None
     for t in fresh:
-        vu = _parse_ts(t.get("valid_until"))
-        if vu is not None and vu <= now:
-            res.log("expired", ticket_id=t["ticket_id"])
-            if live:
-                ledger.record(t["ticket_id"], "expired")
-                _report(res, post, _skip_body(cfg, t, "expired"))
-            continue
+        # The enabled-symbol filter runs FIRST: a ticket the executor does not
+        # act on is never reported at all, not even `expired` (a ticket first
+        # seen after its valid_until -- a tick outage longer than the TTL, or
+        # the first live cycle after read_only -- would otherwise be POSTed
+        # `skipped: expired` and pulled off `emitted` before the manual
+        # bridge's own expiry prompt asks about it).
         venue = (cfg.symbols.get(str(t.get("symbol") or "").upper()) or {}).get("venue")
         if cfg.enabled_venue_symbols is not None and str(venue or "").upper() not in cfg.enabled_venue_symbols:
             # Skipped BEFORE the form: not a refusal, no latch count (an ETH
@@ -861,10 +865,25 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             if live:
                 ledger.record(t["ticket_id"], "skipped", reason="symbol_not_enabled")
             continue
+        vu = _parse_ts(t.get("valid_until"))
+        if vu is not None and vu <= now:
+            res.log("expired", ticket_id=t["ticket_id"])
+            if live:
+                ledger.record(t["ticket_id"], "expired")
+                _report(res, post, _skip_body(cfg, t, "expired"))
+            continue
         if candidate is None:
             candidate = t
     if candidate is None:
         res.log("no_ticket")
+        return res
+    if cancelled_this_cycle:
+        # The positions/orders read above predates this cycle's cancel, so
+        # the busy-symbol guard would refuse (and finalise) a fresh ticket on
+        # an order that is already being withdrawn. Nothing is recorded: the
+        # ticket is decided next cycle on a fresh read.
+        res.log("hold", ticket_id=candidate["ticket_id"],
+                why="a resting entry was cancelled this cycle; deciding on the next read")
         return res
     if ledger.unresolved():
         res.log("hold", ticket_id=candidate["ticket_id"], why="an earlier submit is still unresolved")
@@ -1260,40 +1279,79 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
             "sl": spec.get("stop_loss"), "tp": spec.get("take_profit"), "source": "prop_executor"}
 
 
+#: Cancel attempts on one expired resting entry before the executor stops
+#: retrying and says so (an alert at exhaustion; later cycles only log).
+CANCEL_EXPIRED_MAX_ATTEMPTS = 3
+
+
 def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledger: IntentLedger,
-                    tid: str, row: Mapping[str, Any], found: Mapping[str, Any],
-                    now: Optional[datetime]) -> None:
+                    tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
+                    found: Mapping[str, Any], positions: Sequence[Position],
+                    now: Optional[datetime]) -> bool:
     """Cancel a resting (unfilled) entry once its ticket's ``valid_until`` has
-    passed. The executor types a LIMIT at the ticket's entry; nothing else
-    ever withdraws it, so a breakout that ran away from its entry rested
-    forever: it held the symbol (the one-bracket-per-symbol guard), kept the
-    ticket ``placed`` (which blocks every same-direction reticket with no time
+    passed. Returns True when a cancel was confirmed clicked this cycle.
+
+    The executor types a LIMIT at the ticket's entry; nothing else ever
+    withdrew it, so a breakout that ran away from its entry rested forever:
+    it held the symbol (the one-bracket-per-symbol guard), kept the ticket
+    ``placed`` (which blocks every same-direction reticket with no time
     window), and could fill days later on a setup that had gone stale -- the
     automated form of the expiry-prompt wedge (BREAKOUT-ATTRITION 2026-09-30).
 
-    Only the matched working orders are cancelled, only when the ledger row
-    carries a readable ``valid_until`` (a row written before this field
-    existed is never guessed at), and at most once: the row is marked
-    ``cancel_requested`` and the existing ``placed -> not_found`` path (two
-    reads) reports the ticket skipped with the expiry as its reason."""
-    if now is None or row.get("cancel_requested"):
-        return
+    Narrow on purpose:
+    - only when the ledger row carries a readable ``valid_until`` (a row
+      written before this field existed is never guessed at);
+    - never when ANY position is open on the ticket's venue symbol and side:
+      ``match_terminal`` matches positions by size, so a PARTIAL fill is not
+      in ``found`` and would otherwise have its remainder cancelled and the
+      ticket reported skipped with a position open;
+    - ``cancel_requested`` is recorded only when every matched order's cancel
+      returned ``ok`` and ``clicked``; a failed cancel alerts and retries, up
+      to :data:`CANCEL_EXPIRED_MAX_ATTEMPTS`, then alerts once that it gave
+      up (the order is still resting and needs a human);
+    - ``misses`` is reset with ``cancel_requested`` so the existing
+      ``placed -> not_found`` path takes its full two reads before reporting
+      the ticket skipped with the expiry as its reason."""
+    if now is None or row.get("cancel_requested") or row.get("cancel_exhausted"):
+        return False
     vu = _parse_ts(row.get("valid_until"))
     if vu is None or vu > now:
-        return
+        return False
     orders = list(found.get("orders") or [])
-    if not orders or found.get("positions"):
-        return
+    if not orders:
+        return False
+    venue = str(spec.get("venue_symbol") or "").upper()
+    side = spec.get("side")
+    held = [p for p in positions if p.symbol.upper() == venue and p.side == side]
+    if held or found.get("positions"):
+        res.log("expired_resting_not_cancelled", ticket_id=tid,
+                why=f"{len(held)} position(s) open on {venue} {side}: possible partial fill")
+        return False
     results = [adapter.cancel_order(page, o, arm=live) for o in orders]
     res.log("cancel_expired_resting", ticket_id=tid, valid_until=vu.isoformat(),
             order_ids=[o.order_id for o in orders], results=results)
-    if live:
-        ledger.record(tid, "placed", cancel_requested=vu.isoformat())
+    if not live:
+        return False
+    if all(bool(r.get("ok")) and bool(r.get("clicked")) for r in results):
+        ledger.record(tid, "placed", cancel_requested=vu.isoformat(), misses=0)
+        return True
+    n = int(row.get("cancel_attempts") or 0) + 1
+    whys = "; ".join(str(r.get("why") or "not clicked") for r in results
+                     if not (r.get("ok") and r.get("clicked")))
+    if n >= CANCEL_EXPIRED_MAX_ATTEMPTS:
+        ledger.record(tid, "placed", cancel_attempts=n, cancel_exhausted=True)
+        res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} could not be cancelled "
+                          f"after {n} attempts ({whys}); it is STILL RESTING, cancel it on the terminal")
+    else:
+        ledger.record(tid, "placed", cancel_attempts=n)
+        res.alerts.append(f"{tid}: cancel of resting entry past valid_until failed "
+                          f"(attempt {n}/{CANCEL_EXPIRED_MAX_ATTEMPTS}: {whys}); retrying next cycle")
+    return False
 
 
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
-             found: Mapping[str, Any], verdict: str, now: Optional[datetime] = None) -> Optional[str]:
+             found: Mapping[str, Any], verdict: str) -> Optional[str]:
     """§ 3.5 for one submitted ticket. Never resubmits. Returns an
     auto-revert trip reason (a bracket leg missing, a duplicate, or an
     unconfirmed placement), or None."""
@@ -1303,8 +1361,6 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         trip: Optional[str] = f"{tid}: {verdict}"
     else:
         trip = None
-    if verdict == "placed" and prev == "placed" and not trip:
-        _expire_resting(res, adapter, page, live, ledger, tid, row, found, now)
     if verdict == prev:
         return trip  # unchanged since last cycle: nothing to report twice
     if prev == "placed" and verdict == "not_found":
