@@ -26,8 +26,8 @@ Rules come from [`hyrotrader-bybit-deep-dive-2026-09-30.md`](hyrotrader-bybit-de
 | 40% single-day rule, phases 1–2 | "no single trading day may contribute more than 40% of the trader's total net result"; example: $500 target, +$320 day capped at $200 | each day's counted profit capped at 0.40 × target; losses in full |
 | Daily loss | trailing from the day's peak equity, floating counts, UTC reset (4% or 5%: conflict) | strict = 4% of initial, trailing |
 | Max loss | static from initial (5% or 6%: conflict) | strict = 5%; lenient = 6% |
-| Per-position loss | ≤3% of initial, "not monitored by our automated system and is reviewed manually" | not simulated; see the caveat in § 3.3 |
-| Demo realism | "Only 40% of profits from flagged trades count toward profit targets"; flagged = market orders "filled at exact levels ... with no slippage" | `flag_frac` × profit credit 0.4 |
+| Per-position loss | ≤3% of initial, "not monitored by our automated system and is reviewed manually" | not simulated; see the caveat in § 3.3 | <!-- population-ok: firm rule text quoted from its own page, not a measurement -->
+| Demo realism | "Only 40% of profits from flagged trades count toward profit targets"; flagged = market orders "filled at exact levels ... with no slippage" | `flag_frac` × profit credit 0.4 | <!-- population-ok: firm rule text quoted from its own page, not a measurement -->
 | Targets | 10% phase 1, 5% phase 2, no time limit, 30-day inactivity disables | 720-day horizon per phase |
 
 Rulesets written for this lane (they, the scripts and the test ride the companion HELD PR, not this docs-only PR): `config/prop_rulesets/hyrotrader.yaml` (strict) and `hyrotrader_lenient.yaml` (4/6), both `unconfirmed: true` (the firm's own pages conflict; § 5 of the deep dive).
