@@ -2377,11 +2377,16 @@ def watchlist_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[
 # Defensive rules (manager brief, 2026-09-30 08:02Z): the action holds
 # login.lock, so the executor tick skips while this runs; refuse unless the
 # account reads FLAT without clicking a tab (Used Margin parsed and 0, and the
-# visible Orders table found and empty); refuse if one-click reads ON (the
-# live reading is 'unknown', #13711; no price or trade control is ever
-# clicked); refuse on any dialog open before the run or appearing after a row
-# click; record the linked symbol first, RESTORE it and verify it after (a
-# failed restore is an alert and a non-zero exit); the watchlist symbol set
+# ONE identified working-Orders widget found and empty); refuse UNLESS
+# one-click positively reads OFF (fail-closed, manager review of #14645 -- the
+# live reading is 'unknown', #13711, so -probe refuses there until a reader is
+# built from the dump -dry records); refuse on any dialog open before the run
+# or appearing after a row click; re-check the Symbol cell for controls AFTER
+# hover, immediately before the click; a REFUSED panel is never click-closed
+# (one Escape, then abort); record the linked symbol first and RESTORE it on
+# every exit path while no dialog is open -- a skipped or failed restore is an
+# alert, a non-zero exit AND the executor's AUTO-REVERT latch, so no executor
+# tick trades until it is re-selected and cleared; the watchlist symbol set
 # must read the same before and after. A DOUBLE-click on a watchlist row
 # opens the order ticket (open_order_ticket): this probe only ever issues a
 # single click, on the Symbol cell, never on a Bid/Ask cell.
@@ -2474,8 +2479,11 @@ INFO_PROBE_SNAPSHOT_JS = r"""
 # Find the ONE new panel-sized element: not in the pre-click WeakSet, parent
 # not itself new, >= 120x60 px, >= 3 text leaves. Tag it
 # ``data-metis-info-panel`` and return its OWN text leaves (never page text)
-# with the identity checks. Runs of 8+ digits and e-mails are masked (a
-# contract size or max quantity can legitimately run to 6-7 digits).
+# with the identity checks. Masking follows the module convention (#14216,
+# manager review of #14645): runs of 5+ digits, runs of 8+ hex characters
+# and e-mails. ``confirm_like`` flags an element that reads like an order
+# CONFIRMATION (a confirm / submit / OK / place / buy / sell control or
+# wording) -- such a panel is refused and never clicked.
 INFO_PROBE_PANEL_JS = r"""
 ([target, others]) => {
   const pre = window.__metisPre;
@@ -2483,7 +2491,8 @@ INFO_PROBE_PANEL_JS = r"""
   document.querySelectorAll('[data-metis-info-panel]').forEach(e => e.removeAttribute('data-metis-info-panel'));
   const txt = el => (el.innerText || el.textContent || '').trim();
   const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
-                     .replace(/\d{8,}/g, m => '#'.repeat(m.length)).slice(0, 80);
+                     .replace(/\b[0-9a-f]{8,}\b/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80);
   const leaves = el => [...el.querySelectorAll('*')].filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
   const fresh = [...document.querySelectorAll('body *')]
     .filter(el => !pre.has(el) && !(el.parentElement && !pre.has(el.parentElement)));
@@ -2499,6 +2508,11 @@ INFO_PROBE_PANEL_JS = r"""
   out.names_others = others.filter(o => tokens.has(String(o).toUpperCase()));
   out.has_order_controls = !!p.querySelector('[data-test-id=BUY],[data-test-id=SELL]');
   out.is_dialog = p.matches('[role=dialog],[role=alertdialog],[aria-modal=true]');
+  const actionWord = /^(confirm|submit|ok|yes|place|send|buy|sell)\b/i;
+  out.confirm_like = [...p.querySelectorAll('button, [role=button], input[type=submit], input[type=button]')]
+      .some(b => [b.getAttribute('aria-label'), b.getAttribute('title'), b.value, (b.innerText || '').trim()]
+                   .filter(Boolean).some(v => actionWord.test(String(v).trim())))
+    || /\b(confirm|place order|submit order|are you sure)\b/i.test(txt(p));
   const all = leaves(p);
   out.leaves = all.slice(0, 120);
   out.truncated = all.length > 120;
@@ -2525,20 +2539,41 @@ INFO_PROBE_CLOSE_JS = r"""
 }
 """
 
-# How many VISIBLE tables carry the Orders grid's header shape (Symbol plus
-# Order ID or Order Type). The flat guard needs >= 1: a hidden grid may not
-# render its rows, and must never read as "no working order".
-INFO_PROBE_ORDERS_VISIBLE_JS = r"""
+# The WORKING-ORDERS count, read from ONE positively identified widget --
+# never from "any Orders-shaped table" (manager review of #14645: a hidden
+# Orders grid plus a visible order-HISTORY table must not read as "empty").
+# MEASURED anchor (issue #14612 dump): the Orders widget carries a
+# ``[data-test-id=widget_menu_ORDERS]`` button. Required: exactly ONE such
+# visible button; its widget container (nearest ``widget__container`` /
+# ``widgetNew__container`` ancestor, <= 8 up) visible; inside it a header row
+# naming Symbol plus Order ID or Order Type and NO history-shaped column
+# (close / closed / execution / filled time -- INFERRED names); body rows are
+# the visible ``tr`` whose cell count matches that header and whose Symbol
+# cell is non-empty. Anything else is ``found: false`` ("could not look").
+INFO_PROBE_ORDERS_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim().toLowerCase();
-  let n = 0;
-  for (const t of document.querySelectorAll('table')) {
-    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
-    const r = t.getBoundingClientRect();
-    if (hs.includes('symbol') && (hs.includes('order id') || hs.includes('order type'))
-        && r.width > 0 && r.height > 0) n++;
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const menus = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS]')].filter(vis);
+  if (menus.length !== 1) return {found: false, why: `${menus.length} visible widget_menu_ORDERS (need exactly 1)`};
+  let w = null;
+  for (let e = menus[0].parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+    const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { w = e; break; }
   }
-  return n;
+  if (!w || !vis(w)) return {found: false, why: 'no visible widget container around widget_menu_ORDERS'};
+  const heads = [...w.querySelectorAll('tr')].map(r => [...r.querySelectorAll('th')].map(txt)).filter(h => h.length);
+  const hdr = heads.filter(h => h.includes('symbol') && (h.includes('order id') || h.includes('order type')));
+  if (hdr.length !== 1) return {found: false, why: `${hdr.length} working-orders header rows in the Orders widget (need exactly 1)`};
+  const hs = hdr[0];
+  if (hs.some(h => /\b(close|closed|execution|filled)\b.*\btime\b|\btime\b.*\b(close|closed)\b/.test(h)))
+    return {found: false, why: 'the Orders widget shows a history-shaped table'};
+  const si = hs.indexOf('symbol');
+  const rows = [...w.querySelectorAll('tr')].filter(r => {
+    const tds = [...r.querySelectorAll('td')];
+    return tds.length === hs.length && vis(r) && txt(tds[si]);
+  });
+  return {found: true, n_rows: rows.length, headers: hs};
 }
 """
 
@@ -2561,21 +2596,38 @@ INFO_PROBE_CLEANUP_JS = r"""
 """
 
 
-def info_probe_flat_guard(account: AccountSnapshot, orders: Optional[List[WorkingOrder]]) -> Optional[str]:
+def info_probe_flat_guard(account: AccountSnapshot, orders: Mapping[str, Any]) -> Optional[str]:
     """Why the info probe must NOT click, or None when the account reads FLAT.
 
     Flat = Used Margin parsed and exactly 0 (an open position holds margin)
-    AND the Orders table was found WITHOUT clicking a tab and holds no
-    working order. "Could not look" refuses; it never passes."""
+    AND the ONE positively identified working-Orders widget
+    (INFO_PROBE_ORDERS_JS) was read WITHOUT clicking a tab and holds no row.
+    "Could not look" refuses; it never passes."""
     if account.margin_used is None:
         return "Used Margin not readable (could not confirm no open position)"
     if account.margin_used != 0:
         return f"Used Margin reads {account.margin_used} (a position may be open)"
-    if orders is None:
-        return "no Orders table visible without clicking a tab (could not confirm no working order)"
-    if orders:
-        return f"{len(orders)} working order(s) on the account"
+    if not orders.get("found"):
+        return f"working Orders not readable ({orders.get('why') or 'unknown'}; could not confirm no working order)"
+    if orders.get("n_rows"):
+        return f"{orders['n_rows']} working order(s) on the account"
     return None
+
+
+def info_probe_restore_latch_reason(got: Mapping[str, Any]) -> Optional[str]:
+    """The AUTO-REVERT latch reason to write when the probe may have left
+    the terminal's linked symbol changed, else None. Written by the tick
+    into the executor's own ``halted`` latch, which every executor tick
+    reads before trading (refuses every new entry, alerts) until the
+    manager/operator clears it with ``executor-clear-halt``."""
+    rest = got.get("restore") or {}
+    if got.get("mode") != "click" or not rest:
+        return None
+    if rest.get("verified") is True:
+        return None
+    return ("AUTO-REVERT: instrument-info-probe left the linked symbol unverified "
+            f"(should be {rest.get('original')!r}; restore attempted={rest.get('attempted')}); "
+            "re-select it on the terminal, then executor-clear-halt")
 
 
 #: A quote whose spread is wider than this is not believed (a mis-aligned
@@ -3470,6 +3522,25 @@ class DXtradeAdapter(PropPlatformAdapter):
             raise LookupError(f"{n} elements match {selector} (need exactly 1)")
         loc.first.click(timeout=5_000)
 
+    #: What counts as a control inside a watchlist Symbol cell (same set as
+    #: INFO_PROBE_RESOLVE_JS's ``ctl``).
+    _CELL_CONTROLS = "button, [role=button], a, input, select, textarea, [onclick]"
+
+    def _info_click_cell(self, page: Any, sym: str) -> bool:
+        """Hover the tagged Symbol cell, RE-CHECK it for controls (a row can
+        render buttons on hover), and click it only if it is still clean.
+        Returns False -- nothing clicked -- when a control appeared."""
+        loc = page.locator(f"[data-metis-row-cell='{sym}']")
+        n = loc.count()
+        if n != 1:
+            raise LookupError(f"{n} tagged Symbol cells for {sym} (need exactly 1)")
+        loc.first.hover(timeout=5_000)
+        page.wait_for_timeout(300)
+        if loc.first.evaluate("(c, s) => c.matches(s) || !!c.querySelector(s)", self._CELL_CONTROLS):
+            return False
+        loc.first.click(timeout=5_000)
+        return True
+
     @staticmethod
     def _linked_symbol(page: Any) -> Optional[str]:
         try:
@@ -3487,25 +3558,30 @@ class DXtradeAdapter(PropPlatformAdapter):
         single-click that symbol's watchlist Symbol cell; confirm no dialog
         appeared and the linked symbol input reads the symbol; click the info
         button; dump the ONE new panel's own text leaves (identity checked);
-        close it and confirm it is gone. Afterwards it re-selects the
-        originally linked symbol and verifies it. ``alerts`` is non-empty
-        whenever the terminal may have been left changed.
+        close it and confirm it is gone. On EVERY exit path (success, abort,
+        exception) it re-selects the originally linked symbol and verifies
+        it, unless a dialog is open. ``alerts`` is non-empty whenever the
+        terminal may have been left changed; an unverified restore is also
+        the executor's AUTO-REVERT latch (info_probe_restore_latch_reason,
+        written by the tick).
         """
-        want = [s.strip().upper() for s in symbols if s and s.strip()]
+        want = list(dict.fromkeys(s.strip().upper() for s in symbols if s and s.strip()))
         out: Dict[str, Any] = {"mode": "click" if click else "dry", "symbols": want,
                                "results": {}, "alerts": [], "refused": None}
         wl_before = self.watchlist_symbols(page)
         clicked_any = False
-        no_more_clicks = False
         try:
             out["one_click"] = self.read_one_click(page)
+            if (out["one_click"] or {}).get("state") != "off":
+                # The guard fails CLOSED (manager review of #14645): only a
+                # positive "off" reading passes. The live terminal reads
+                # 'unknown' (#13711), so until a reader is built from this
+                # structure dump, -probe REFUSES there; -dry records the dump.
+                out["one_click_dump"] = self.one_click_dump(page)
             acct = self.read_account(page)
             out["account_margin_used"] = acct.margin_used
-            orders = orders_from_tables(self._tables(page))    # no tab click
-            out["n_visible_orders_tables"] = page.evaluate(INFO_PROBE_ORDERS_VISIBLE_JS)
-            if not out["n_visible_orders_tables"]:
-                orders = None      # a hidden grid is "could not look", never "empty"
-            out["n_working_orders"] = None if orders is None else len(orders)
+            orders = page.evaluate(INFO_PROBE_ORDERS_JS) or {"found": False, "why": "no result"}
+            out["working_orders"] = orders
             res = page.evaluate(INFO_PROBE_RESOLVE_JS, [want]) or {}
             out["resolve"] = {k: v for k, v in res.items() if k != "ok"}
             original = res.get("linked_symbol")
@@ -3514,8 +3590,9 @@ class DXtradeAdapter(PropPlatformAdapter):
                 why = res.get("why") or "resolve failed"
             elif res.get("dialogs"):
                 why = f"{res['dialogs']} dialog(s) already open"
-            elif (out["one_click"] or {}).get("state") == "on":
-                why = "one-click trading reads ON"
+            elif (out["one_click"] or {}).get("state") != "off":
+                why = (f"one-click trading does not read OFF (reads "
+                       f"{(out['one_click'] or {}).get('state')!r}); refusing until it positively does")
             else:
                 why = info_probe_flat_guard(acct, orders)
             if why is None and original not in (res.get("watchlist") or []):
@@ -3539,14 +3616,18 @@ class DXtradeAdapter(PropPlatformAdapter):
                 if not (tag.get("ok") and (tag.get("targets") or {}).get(sym, {}).get("clean")):
                     r["skipped"] = "no single clean watchlist Symbol cell"
                     continue
-                self._info_click(page, f"[data-metis-row-cell='{sym}']")
+                # Set BEFORE the click: a click that raised half-way still
+                # gets the restore (a no-op when the linked symbol is intact).
                 clicked_any = True
+                if not self._info_click_cell(page, sym):
+                    out["alerts"].append(f"{sym}: a control appeared in its Symbol cell on hover; "
+                                         f"aborted before clicking it")
+                    return out
                 page.wait_for_timeout(settle_ms)
                 dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
                 if dialogs:
-                    no_more_clicks = True
                     out["alerts"].append(f"{dialogs} dialog(s) appeared after selecting {sym}; "
-                                         f"aborted, nothing more clicked (restore NOT attempted)")
+                                         f"aborted, nothing more clicked")
                     return out
                 linked = self._linked_symbol(page)
                 r["linked_after_select"] = linked
@@ -3560,17 +3641,18 @@ class DXtradeAdapter(PropPlatformAdapter):
                 if not panel.get("found"):
                     # Nothing verified opened, so nothing is clicked to close
                     # it, and no further symbol is attempted.
-                    no_more_clicks = True
                     out["alerts"].append(f"{sym}: {panel.get('why') or 'no panel'}; aborted before any "
-                                         f"close click (restore NOT attempted)")
+                                         f"close click")
                     return out
-                # A dialog-typed panel is accepted when it passes the same
-                # identity checks: the info click's own panel may be a modal
-                # (UNMEASURED). The "unexpected dialog" rule is the one after
-                # the ROW click, above. ``is_dialog`` is still recorded.
+                # A dialog-typed panel is accepted only when it passes the
+                # identity checks AND reads nothing like an order
+                # confirmation (confirm / submit / OK / place / buy / sell).
+                # The info click's own panel may be a modal (UNMEASURED).
                 bad = None
                 if panel.get("has_order_controls"):
                     bad = "the new element holds BUY/SELL controls"
+                elif panel.get("confirm_like"):
+                    bad = "the new element reads like an order confirmation"
                 elif not panel.get("names_target"):
                     bad = f"the panel does not name {sym}"
                 elif panel.get("names_others"):
@@ -3582,15 +3664,19 @@ class DXtradeAdapter(PropPlatformAdapter):
                         bad = f"panel text identical to {dup[0]}'s"
                     seen[sym] = h
                 if bad:
+                    # A REFUSED panel is never click-closed (manager review of
+                    # #14645): one Escape key, confirm it is gone, then abort
+                    # the run -- a refused panel means the terminal is not in
+                    # the state this probe was built against.
                     r["refused"] = bad
-                else:
-                    r["leaves"] = panel.get("leaves")
-                    r["truncated"] = panel.get("truncated")
-                if bad and panel.get("has_order_controls"):
-                    # An order surface appeared: click nothing more.
-                    no_more_clicks = True
-                    out["alerts"].append(f"{sym}: {bad}; aborted (restore NOT attempted)")
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(settle_ms)
+                    r["closed_via"] = "escape"
+                    r["closed"] = bool(page.evaluate(INFO_PROBE_PANEL_GONE_JS))
+                    out["alerts"].append(f"{sym}: {bad}; Escape pressed (panel gone: {r['closed']}); aborted")
                     return out
+                r["leaves"] = panel.get("leaves")
+                r["truncated"] = panel.get("truncated")
                 c = page.evaluate(INFO_PROBE_CLOSE_JS) or {}
                 if c.get("n") == 1:
                     self._info_click(page, "[data-metis-close='1']")
@@ -3601,18 +3687,32 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.wait_for_timeout(settle_ms)
                 r["closed"] = bool(page.evaluate(INFO_PROBE_PANEL_GONE_JS))
                 if not r["closed"]:
-                    no_more_clicks = True
-                    out["alerts"].append(f"{sym}'s info panel did not close; aborted (restore NOT attempted)")
+                    out["alerts"].append(f"{sym}'s info panel did not close; aborted")
                     return out
             return out
         except Exception as exc:
-            out["alerts"].append(f"probe raised {type(exc).__name__}: {str(exc)[:200]}")
+            # Type + a fixed code only: a Playwright message can echo DOM text
+            # into the public run log (manager review of #14645).
+            out["alerts"].append(f"probe raised {type(exc).__name__} (code=probe_exception)")
             return out
         finally:
-            if click and clicked_any and not no_more_clicks:
-                self._info_restore(page, out)
-            elif click and clicked_any:
-                out["restore"] = {"attempted": False}
+            # RESTORE ON EVERY EXIT PATH once anything was clicked -- abort,
+            # exception or success -- unless a dialog is open, where no
+            # further click is safe. A skipped or failed restore is recorded;
+            # the tick turns it into the executor's AUTO-REVERT latch
+            # (info_probe_restore_latch_reason).
+            if click and clicked_any:
+                try:
+                    open_dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
+                except Exception:
+                    open_dialogs = None
+                if open_dialogs == 0:
+                    self._info_restore(page, out)
+                else:
+                    out["restore"] = {"original": (out.get("resolve") or {}).get("linked_symbol"),
+                                      "attempted": False, "verified": False,
+                                      "why": f"dialogs open: {open_dialogs}"}
+                    out["alerts"].append("restore NOT attempted: a dialog is open (or could not be read)")
             wl_after = self.watchlist_symbols(page)
             out["watchlist_diff"] = {"before": wl_before, "after": wl_after,
                                      **watchlist_diff(wl_before, wl_after)}
@@ -3636,7 +3736,8 @@ class DXtradeAdapter(PropPlatformAdapter):
             chk = page.evaluate(INFO_PROBE_RESOLVE_JS, [[original]]) or {}
             if not (chk.get("targets") or {}).get(original, {}).get("clean"):
                 raise LookupError("original symbol's watchlist cell is not cleanly clickable")
-            self._info_click(page, f"[data-metis-row-cell='{original}']")
+            if not self._info_click_cell(page, original):
+                raise LookupError("a control appeared in the original symbol's cell on hover")
             page.wait_for_timeout(1_500)
             rest["clicked"] = True
             rest["verified"] = self._linked_symbol(page) == original

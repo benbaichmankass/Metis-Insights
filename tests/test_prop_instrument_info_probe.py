@@ -24,8 +24,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.prop.platform.base import AccountSnapshot, WorkingOrder
-from src.prop.platform.dxtrade import DXtradeAdapter, info_probe_flat_guard
+from src.prop.platform.base import AccountSnapshot
+from src.prop.platform.dxtrade import (DXtradeAdapter, info_probe_flat_guard,
+                                     info_probe_restore_latch_reason)
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -34,17 +35,21 @@ SPECS = {"BTCUSD": "0.001", "ETHUSD": "0.01", "SOLUSD": "0.1", "AVAXUSD": "1"}
 
 def page_html(*, margin="$0", order_rows="", one_click="", panel_names=None, dialog_on="",
               close_btn=True, no_close=False, sym_cell_extra="", link_breaks_for="",
-              panel_role="", orders_hidden=False):
+              panel_role="", orders_hidden=False, one_click_unreadable=False, panel_extra="",
+              hover_button_for="", outside_table="", orders_headers=None):
     rows = "".join(
         f'<tr class="instrument" data-row-id="{i}"><td class="sym">{s}{sym_cell_extra if s == "SOLUSD" else ""}</td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.1</button></td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.2</button></td></tr>'
         for i, s in enumerate(["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]))
+    toggle = ('<div><span>One-click trading</span></div>' if one_click_unreadable else
+              f'<label><input type="checkbox" {one_click}><span>One-click trading</span></label>')
+    heads = "".join(f"<th>{h}</th>" for h in (orders_headers or ["Symbol", "Side", "Order Type", "Order ID"]))
     return f"""<html><body>
 <div class="metrics"><div><span>Balance</span><div>$5,024</div></div>
   <div><span>Used Margin</span><div>{margin}</div></div>
   <div><span>Free Margin</span><div>$4,724</div></div>
-  <label><input type="checkbox" {one_click}><span>One-click trading</span></label></div>
+  {toggle}</div>
 <div class="widget__container___Ab1 widgetNew__container">
   <table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead><tbody>{rows}</tbody></table>
 </div>
@@ -52,8 +57,10 @@ def page_html(*, margin="$0", order_rows="", one_click="", panel_names=None, dia
   <input data-test-id="symbol_input" placeholder="Symbol..." value="SOLUSD">
   <div class="instrument-details"><button data-test-id="instrument_info_button"><svg><use href="#icon-info"></use></svg></button></div>
 </div></div>
-<div class="orders-widget" {'style="display:none"' if orders_hidden else ''}><table><thead><tr><th>Symbol</th><th>Side</th><th>Order Type</th><th>Order ID</th></tr></thead>
-  <tbody>{order_rows}</tbody></table></div>
+<div class="widget__container___Or1 widgetNew__container orders-widget" {'style="display:none"' if orders_hidden else ''}>
+  <button data-test-id="widget_menu_ORDERS">Orders</button>
+  <table><thead><tr>{heads}</tr></thead><tbody>{order_rows}</tbody></table></div>
+{outside_table}
 <script>
 const SPECS = {json.dumps(SPECS)};
 const PANEL_NAMES = {json.dumps(panel_names)};
@@ -62,6 +69,15 @@ document.addEventListener('click', e => window.__clicks.push(
   (e.target.closest('[data-test-id]') || e.target).getAttribute('data-test-id') || e.target.className || e.target.tagName), true);
 document.querySelectorAll('tr.instrument').forEach(tr => {{
   tr.addEventListener('dblclick', () => {{ window.__ticket = 1; }});
+  const cell = tr.querySelector('td.sym');
+  if (cell.firstChild.textContent.trim() === {json.dumps(hover_button_for)})
+    cell.addEventListener('mouseenter', () => {{
+      if (!cell.querySelector('.hoverbtn')) {{
+        const b = document.createElement('button'); b.className = 'hoverbtn';
+        b.addEventListener('click', () => {{ window.__trade = (window.__trade || 0) + 1; }});
+        cell.appendChild(b);
+      }}
+    }});
   tr.querySelector('td.sym').addEventListener('click', () => {{
     const s = tr.querySelector('td.sym').firstChild.textContent.trim();
     if (s === {json.dumps(dialog_on)}) {{
@@ -81,11 +97,18 @@ document.querySelector('[data-test-id=instrument_info_button]').addEventListener
   if ({json.dumps(panel_role)}) p.setAttribute('role', {json.dumps(panel_role)});
   p.style.cssText = 'width:300px;height:200px';
   p.innerHTML = '<div class="title">' + name + '</div><div>Lot size</div><div>' + (SPECS[s] || '?')
-    + '</div><div>Tick size</div><div>0.01</div>'
+    + '</div><div>Tick size</div><div>0.01</div>' + {json.dumps(panel_extra)}
     + ({json.dumps(close_btn)} ? '<button class="close" aria-label="Close">x</button>' : '');
-  const btn = p.querySelector('button');
+  const btn = p.querySelector('button.close');
   if (btn) btn.addEventListener('click', () => {{ if (!{json.dumps(no_close)}) p.remove(); }});
   document.body.appendChild(p);
+}});
+// Escape dismisses an open info panel (a refused panel is closed this way,
+// never by a click).
+document.addEventListener('keydown', e => {{
+  window.__keys = (window.__keys || []).concat([e.key]);
+  const open = document.querySelector('.info-panel');
+  if (e.key === 'Escape' && open && !{json.dumps(no_close)}) open.remove();
 }});
 </script></body></html>"""
 
@@ -114,6 +137,7 @@ def run(browser, html, symbols=("BTCUSD", "ETHUSD", "AVAXUSD"), click=True):
     p.set_content(html)
     got = DXtradeAdapter(timeout_ms=3_000).probe_instrument_info(p, list(symbols), click=click, settle_ms=50)
     state = p.evaluate("({clicks: window.__clicks, trade: window.__trade || 0, ticket: window.__ticket || 0,"
+                       " keys: window.__keys || [],"
                        " linked: document.querySelector('[data-test-id=symbol_input]').value,"
                        " tags: document.querySelectorAll('[data-metis-row-cell],[data-metis-info-btn],"
                        "[data-metis-sym-input],[data-metis-info-panel],[data-metis-close]').length,"
@@ -127,16 +151,27 @@ def never_traded(state):
     assert all(c not in ("px",) for c in state["clicks"])
 
 
-# ── the pure flat guard ────────────────────────────────────────────────────
+# ── the pure guards ────────────────────────────────────────────────────────
 
 
 def test_flat_guard_refuses_unless_it_could_look_and_saw_flat():
-    assert info_probe_flat_guard(AccountSnapshot(margin_used=0.0), []) is None
-    assert "not readable" in info_probe_flat_guard(AccountSnapshot(), [])
-    assert "12.5" in info_probe_flat_guard(AccountSnapshot(margin_used=12.5), [])
-    assert "could not confirm" in info_probe_flat_guard(AccountSnapshot(margin_used=0.0), None)
+    empty = {"found": True, "n_rows": 0}
+    assert info_probe_flat_guard(AccountSnapshot(margin_used=0.0), empty) is None
+    assert "not readable" in info_probe_flat_guard(AccountSnapshot(), empty)
+    assert "12.5" in info_probe_flat_guard(AccountSnapshot(margin_used=12.5), empty)
+    assert "could not confirm" in info_probe_flat_guard(AccountSnapshot(margin_used=0.0),
+                                                        {"found": False, "why": "x"})
     assert "1 working order" in info_probe_flat_guard(AccountSnapshot(margin_used=0.0),
-                                                      [WorkingOrder(symbol="SOLUSD")])
+                                                      {"found": True, "n_rows": 1})
+
+
+def test_restore_latch_reason_is_set_only_for_an_unverified_click_mode_restore():
+    assert info_probe_restore_latch_reason({"mode": "dry"}) is None
+    assert info_probe_restore_latch_reason({"mode": "click"}) is None           # nothing clicked
+    assert info_probe_restore_latch_reason({"mode": "click", "restore": {"verified": True}}) is None
+    why = info_probe_restore_latch_reason({"mode": "click", "restore": {
+        "original": "SOLUSD", "attempted": False, "verified": False}})
+    assert why.startswith("AUTO-REVERT") and "'SOLUSD'" in why and "executor-clear-halt" in why
 
 
 # ── dry mode clicks nothing ────────────────────────────────────────────────
@@ -145,11 +180,21 @@ def test_flat_guard_refuses_unless_it_could_look_and_saw_flat():
 def test_dry_resolves_everything_and_clicks_nothing(browser):
     got, st = run(browser, page_html(), click=False)
     assert got["mode"] == "dry" and got["refused"] is None and got["alerts"] == []
+    assert got["one_click"]["state"] == "off" and "one_click_dump" not in got
+    assert got["working_orders"]["found"] is True and got["working_orders"]["n_rows"] == 0
     r = got["resolve"]
     assert r["linked_symbol"] == "SOLUSD" and r["n_info_buttons"] == 1 and r["n_linked_inputs"] == 1
     assert all(r["targets"][s]["clean"] for s in ("BTCUSD", "ETHUSD", "AVAXUSD"))
     assert got["results"] == {} and st["clicks"] == [] and st["tags"] == 0
     assert got["watchlist_diff"]["changed"] is False
+
+
+def test_symbols_are_deduplicated():
+    class P:  # never reached: the first read already refuses
+        def evaluate(self, *a, **k):
+            raise RuntimeError("no page")
+    got = DXtradeAdapter(timeout_ms=1).probe_instrument_info(P(), ["btcusd", "BTCUSD ", "ETHUSD"])
+    assert got["symbols"] == ["BTCUSD", "ETHUSD"]
 
 
 # ── the click mode, happy path ─────────────────────────────────────────────
@@ -176,13 +221,23 @@ def test_probe_falls_back_to_the_info_toggle_when_the_panel_has_no_close_control
     assert st["panels"] == 0 and st["linked"] == "SOLUSD"
 
 
+def test_a_dialog_typed_info_panel_is_dumped_and_closed(browser):
+    # The live panel's type is UNMEASURED; a modal that passes the identity
+    # AND confirm-wording checks is the expected panel, not the "unexpected
+    # dialog" (which is the one after a ROW click).
+    got, st = run(browser, page_html(panel_role="dialog"), symbols=("BTCUSD",))
+    r = got["results"]["BTCUSD"]
+    assert got["alerts"] == [] and r["panel"]["is_dialog"] is True and SPECS["BTCUSD"] in r["leaves"]
+    assert r["closed"] is True and st["panels"] == 0 and st["linked"] == "SOLUSD"
+
+
 # ── refusals before any click ──────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("kw,why", [
     ({"margin": "$12.50"}, "Used Margin reads 12.5"),
     ({"order_rows": "<tr><td>SOLUSD</td><td>Buy</td><td>Limit</td><td>77</td></tr>"}, "1 working order"),
-    ({"one_click": "checked"}, "one-click trading reads ON"),
+    ({"one_click": "checked"}, "one-click trading does not read OFF (reads 'on')"),
     ({"sym_cell_extra": '<a href="#"></a>'}, "original symbol SOLUSD's watchlist cell is not cleanly clickable"),
 ])
 def test_refuses_before_any_click(browser, kw, why):
@@ -192,63 +247,150 @@ def test_refuses_before_any_click(browser, kw, why):
     never_traded(st)
 
 
-def test_refuses_without_a_visible_orders_table(browser):
-    html = re.sub(r'<div class="orders-widget"\s*>.*?</div>', "", page_html(), flags=re.S)
-    assert "Order ID" not in html
+def test_fix1_an_unreadable_one_click_toggle_refuses_and_records_its_structure(browser):
+    # Review fix 1: the live terminal reads 'unknown' (#13711). The guard
+    # fails CLOSED -- only a positive "off" passes -- and dry mode records the
+    # toggle's structure so a reader can be built from it.
+    got, st = run(browser, page_html(one_click_unreadable=True))
+    assert got["one_click"]["state"] == "unknown"
+    assert "does not read OFF (reads 'unknown')" in got["refused"]
+    assert "one_click_dump" in got and st["clicks"] == []
+    dry, _ = run(browser, page_html(one_click_unreadable=True), click=False)
+    assert dry["refused"] and "one_click_dump" in dry
+
+
+def test_refuses_without_the_orders_widget(browser):
+    html = re.sub(r'<div class="widget__container___Or1.*?</table></div>', "", page_html(), flags=re.S)
+    assert "widget_menu_ORDERS" not in html
     got, st = run(browser, html)
-    assert "no Orders table visible" in got["refused"] and st["clicks"] == []
+    assert "0 visible widget_menu_ORDERS" in got["refused"] and st["clicks"] == []
 
 
-def test_a_hidden_orders_table_is_could_not_look_never_empty(browser):
-    got, st = run(browser, page_html(orders_hidden=True))
-    assert got["n_visible_orders_tables"] == 0 and got["n_working_orders"] is None
-    assert "no Orders table visible" in got["refused"] and st["clicks"] == []
+HISTORY_TABLE = ('<div class="history"><table><thead><tr><th>Symbol</th><th>Order ID</th><th>Order Type</th>'
+                 '<th>Close Time</th></tr></thead><tbody></tbody></table></div>')
 
 
-def test_a_dialog_typed_info_panel_is_dumped_and_closed(browser):
-    # The live panel's type is UNMEASURED; a modal that passes the identity
-    # checks is the expected panel, not the "unexpected dialog" (which is the
-    # one after a ROW click).
-    got, st = run(browser, page_html(panel_role="dialog"), symbols=("BTCUSD",))
-    r = got["results"]["BTCUSD"]
-    assert got["alerts"] == [] and r["panel"]["is_dialog"] is True and SPECS["BTCUSD"] in r["leaves"]
-    assert r["closed"] is True and st["panels"] == 0 and st["linked"] == "SOLUSD"
+def test_fix2_a_hidden_orders_widget_beside_a_visible_empty_history_table_refuses(browser):
+    # Review fix 2: the working-Orders widget is hidden (another tab is
+    # showing) while an EMPTY Orders-shaped history table is visible. Only
+    # the ONE identified widget counts, so this is "could not look".
+    got, st = run(browser, page_html(orders_hidden=True, outside_table=HISTORY_TABLE))
+    assert got["working_orders"]["found"] is False
+    assert "working Orders not readable" in got["refused"] and st["clicks"] == []
 
 
-# ── aborts mid-run: nothing more is clicked ────────────────────────────────
+def test_a_history_shaped_table_inside_the_orders_widget_refuses(browser):
+    got, st = run(browser, page_html(orders_headers=["Symbol", "Order ID", "Close Time"]))
+    assert "history-shaped" in got["refused"] and st["clicks"] == []
 
 
-def test_a_dialog_after_a_row_click_aborts_everything(browser):
+def test_two_orders_tables_inside_the_widget_refuse(browser):
+    html = page_html().replace('<button data-test-id="widget_menu_ORDERS">Orders</button>',
+                               '<button data-test-id="widget_menu_ORDERS">Orders</button>'
+                               '<table><thead><tr><th>Symbol</th><th>Order ID</th></tr></thead></table>')
+    got, st = run(browser, html)
+    assert "2 working-orders header rows" in got["refused"] and st["clicks"] == []
+
+
+# ── aborts mid-run: nothing more is clicked, and the restore still runs ────
+
+
+def test_a_dialog_after_a_row_click_aborts_and_restore_is_skipped_loudly(browser):
     got, st = run(browser, page_html(dialog_on="ETHUSD"), symbols=("BTCUSD", "ETHUSD", "AVAXUSD"))
     assert any("dialog(s) appeared after selecting ETHUSD" in a for a in got["alerts"])
-    assert "AVAXUSD" not in got["results"] and got["restore"] == {"attempted": False}
+    assert "AVAXUSD" not in got["results"]
+    assert got["restore"]["attempted"] is False and got["restore"]["verified"] is False
+    assert any("restore NOT attempted" in a for a in got["alerts"])
+    assert info_probe_restore_latch_reason(got).startswith("AUTO-REVERT")
     never_traded(st)
 
 
-def test_a_panel_naming_another_symbol_is_refused_and_still_closed(browser):
-    got, st = run(browser, page_html(panel_names="ETHUSD BTCUSD"), symbols=("BTCUSD",))
-    r = got["results"]["BTCUSD"]
-    assert "also names ['ETHUSD']" in r["refused"] and "leaves" not in r and r["closed"] is True
-    assert got["restore"]["verified"] is True and st["panels"] == 0
-
-
-def test_a_panel_that_does_not_close_aborts_with_an_alert(browser):
+def test_fix3_an_aborted_run_still_restores_the_linked_symbol(browser):
+    # Review fix 3: the panel does not close -> abort. The restore runs on
+    # that exit path too (it used to run only after a clean finish).
     got, st = run(browser, page_html(no_close=True), symbols=("BTCUSD", "ETHUSD"))
     assert any("did not close" in a for a in got["alerts"]) and "ETHUSD" not in got["results"]
+    assert got["restore"]["attempted"] is True and got["restore"]["verified"] is True
+    assert st["linked"] == "SOLUSD"
+    assert info_probe_restore_latch_reason(got) is None
 
 
-def test_a_failed_restore_is_an_alert(browser):
+def test_fix3_a_failed_restore_writes_the_executor_halt_latch(browser, tmp_path):
+    from scripts.prop.prop_executor_tick import latch_info_probe
+    from src.prop import prop_executor as pe
     got, st = run(browser, page_html(link_breaks_for="SOLUSD"), symbols=("BTCUSD",))
     assert got["restore"]["verified"] is False
     assert any(a.startswith("RESTORE FAILED") for a in got["alerts"])
+    reason = latch_info_probe(got, tmp_path)
+    halted = pe.ExecutorState(tmp_path).halted()
+    assert reason and halted and "AUTO-REVERT: instrument-info-probe" in halted
+    assert any(a.startswith("executor halt latch written") for a in got["alerts"])
+    # a verified restore writes nothing
+    ok, _ = run(browser, page_html(), symbols=("BTCUSD",))
+    assert latch_info_probe(ok, tmp_path / "clean") is None
+    assert pe.ExecutorState(tmp_path / "clean").halted() is None
 
 
-def test_a_panel_that_never_names_the_symbol_is_refused_but_closed(browser):
+def test_fix4_a_panel_naming_another_symbol_is_escaped_never_click_closed(browser):
+    got, st = run(browser, page_html(panel_names="ETHUSD BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    r = got["results"]["BTCUSD"]
+    assert "also names ['ETHUSD']" in r["refused"] and "leaves" not in r
+    assert r["closed_via"] == "escape" and r["closed"] is True and "Escape" in st["keys"]
+    assert "close" not in st["clicks"] and "ETHUSD" not in got["results"]        # aborted
+    assert got["restore"]["verified"] is True and st["panels"] == 0 and st["linked"] == "SOLUSD"
+
+
+def test_fix4_a_panel_with_a_confirm_button_is_refused_and_its_buttons_never_clicked(browser):
+    # Review fix 4: a dialog-typed panel that passes identity but carries an
+    # OK / Confirm control reads like an order confirmation.
+    for extra in ('<button class="ok">OK</button>', '<button class="ok">Confirm</button>',
+                  '<div>Are you sure?</div>'):
+        got, st = run(browser, page_html(panel_role="dialog", panel_extra=extra), symbols=("BTCUSD",))
+        r = got["results"]["BTCUSD"]
+        assert r["panel"]["confirm_like"] is True and "order confirmation" in r["refused"], extra
+        assert r["closed_via"] == "escape" and "leaves" not in r
+        assert "close" not in st["clicks"] and "ok" not in st["clicks"], st["clicks"]
+        never_traded(st)
+
+
+def test_fix5_a_control_that_appears_on_hover_aborts_before_the_click(browser):
+    # Review fix 5: the cell was clean at resolve time; a button renders in
+    # it on hover. It is re-checked after hover and nothing is clicked.
+    got, st = run(browser, page_html(hover_button_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    assert any("control appeared in its Symbol cell on hover" in a for a in got["alerts"])
+    assert st["clicks"] == [] and "ETHUSD" not in got["results"]
+    assert got["restore"]["verified"] is True and st["linked"] == "SOLUSD"
+    never_traded(st)
+
+
+def test_fix6_panel_text_masks_long_digit_and_hex_runs(browser):
+    got, st = run(browser, page_html(panel_extra="<div>acct 12345</div><div>id deadbeef01</div>"
+                                                 "<div>word abcdefabc</div><div>ref 1234</div>"),
+                  symbols=("BTCUSD",))
+    leaves = got["results"]["BTCUSD"]["leaves"]
+    assert "acct #####" in leaves and "id ##########" in leaves
+    assert "word abcdefabc" in leaves and "ref 1234" in leaves        # no digit / too short
+    assert not any(re.search(r"\d{5,}", v) for v in leaves)
+
+
+def test_a_panel_that_never_names_the_symbol_is_refused_and_aborts(browser):
     got, st = run(browser, page_html(panel_names="SAMEPANEL"), symbols=("BTCUSD", "ETHUSD"))
-    for s in ("BTCUSD", "ETHUSD"):
-        r = got["results"][s]
-        assert "does not name" in r["refused"] and "leaves" not in r and r["closed"] is True
+    r = got["results"]["BTCUSD"]
+    assert "does not name" in r["refused"] and "leaves" not in r and r["closed"] is True
+    assert "ETHUSD" not in got["results"]
     assert st["panels"] == 0 and got["restore"]["verified"] is True
+
+
+def test_an_exception_logs_only_its_type(browser):
+    class Boom(DXtradeAdapter):
+        def _info_click_cell(self, page, sym):
+            raise RuntimeError("secret-looking DOM text 1234567890")
+    p = browser.new_page()
+    p.set_content(page_html())
+    got = Boom(timeout_ms=3_000).probe_instrument_info(p, ["BTCUSD"], click=True, settle_ms=50)
+    p.close()
+    assert "probe raised RuntimeError (code=probe_exception)" in got["alerts"]
+    assert not any("secret" in a or "1234567890" in a for a in got["alerts"])
 
 
 # ── tick + action wiring ───────────────────────────────────────────────────

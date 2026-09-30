@@ -171,6 +171,20 @@ def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
     return EXIT_UNPARSED if got.get("alerts") else EXIT_OK
 
 
+def latch_info_probe(got: Dict[str, Any], state_dir: Path) -> Optional[str]:
+    """A click-mode info probe that could not VERIFY the linked-symbol restore
+    writes the executor's own AUTO-REVERT ``halted`` latch (manager review of
+    #14645): the next executor tick reads it before trading and refuses every
+    new entry, alerting, until the symbol is re-selected and
+    ``executor-clear-halt`` runs. The reason is appended to ``alerts`` too."""
+    from src.prop.platform.dxtrade import info_probe_restore_latch_reason
+    reason = info_probe_restore_latch_reason(got)
+    if reason:
+        pe.ExecutorState(state_dir).halt(reason)
+        got.setdefault("alerts", []).append(f"executor halt latch written: {reason}")
+    return reason
+
+
 def _code_sha() -> str:
     """The commit this tick runs from, so a run log proves WHICH code ran
     (three dry runs on 2026-09-29 could not tell a deploy lag from a wrong
@@ -330,6 +344,7 @@ def main(argv: Optional[list] = None) -> int:
                 raw = args.instrument_info_dry or args.instrument_info_probe
                 syms = [s.strip() for s in raw.split(",") if s.strip()]
                 got = adapter.probe_instrument_info(page, syms, click=(mode == "instrument_info_probe"))
+                latch_info_probe(got, Path(args.state_dir))
                 return emit_info_probe(got, *secrets)
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
