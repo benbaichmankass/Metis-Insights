@@ -881,6 +881,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/prop-apex-vs-breakout-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-automation-options-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-candidates-2026-09-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/hyrotrader-bybit-deep-dive-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-platform-automation-survey-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-dynamic-exits-faster-banking-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/prop-exit-evidence-2026-09-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
