@@ -229,3 +229,53 @@ def test_exit_kind_still_requires_broker_flat(monkeypatch, db):
                            row_id=1, exit_kind="sl")
     assert r["action"] == "refused_position_open"
     assert _row(db)["status"] == "open"
+
+
+# ── netted row close while the symbol is still held (2026-09-30) ─────────────
+# The operator kept alpaca_paper instead of resetting it, so SPY never goes
+# flat while row 4347 holds 11 sh. Row 6131 (stopped out at the venue) may close
+# only when the OTHER open rows exactly account for the live broker position.
+
+def test_netted_row_closes_when_siblings_account_for_position(monkeypatch, db):
+    _add_sibling(db)  # row 2: IEF long 2.0, sibling of row 1 (long 1.0)
+    _patch_live(monkeypatch, {"side": "long", "size": 1.0})  # = row 1 alone
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=2, exit_kind="sl")
+    assert r["ok"] is True and r["rows_closed"] == 1
+    assert r["broker_position_accounted_by_siblings"] is True
+    assert _row(db, 2)["status"] == "closed" and _row(db, 2)["exit_reason"] == "sl"
+    assert _row(db, 1)["status"] == "open"
+
+
+@pytest.mark.parametrize("live", [
+    {"side": "long", "size": 3.0},   # broker holds more than the siblings
+    {"side": "long", "size": 0.5},   # broker holds less
+    {"side": "short", "size": 1.0},  # side mismatch
+])
+def test_netted_row_refused_unless_exactly_accounted(monkeypatch, db, live):
+    _add_sibling(db)
+    _patch_live(monkeypatch, live)
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=2, exit_kind="sl")
+    assert r["action"] == "refused_position_open"
+    assert _row(db, 2)["status"] == "open"
+
+
+def test_netted_exception_needs_exit_kind(monkeypatch, db):
+    _add_sibling(db)
+    _patch_live(monkeypatch, {"side": "long", "size": 1.0})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=None,
+                           reason="operator_flatten_reconciled", db_path=db, row_id=2)
+    assert r["action"] == "refused_position_open"
+    assert _row(db, 2)["status"] == "open"
+
+
+def test_netted_exception_refused_with_no_sibling(monkeypatch, db):
+    _patch_live(monkeypatch, {"side": "long", "size": 1.0})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=1, exit_kind="sl")
+    assert r["action"] == "refused_position_open"
+    assert _row(db, 1)["status"] == "open"

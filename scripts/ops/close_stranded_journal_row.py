@@ -43,7 +43,17 @@ entry would book a real strategy stop as an operational close with pnl 0.
 ``--row <id>`` restricts the close to that one open row; ``--exit-kind sl|tp``
 (requires ``--row`` and ``--exit-price``) stamps ``exit_reason`` = the kind and
 ``exit_price_source='exchange_fill'``: the price is the venue fill, read from
-Alpaca order history by the caller. The broker-flat gate is unchanged.
+Alpaca order history by the caller.
+
+The broker-flat gate has ONE narrow exception, and only with ``--row`` +
+``--exit-kind``. Added 2026-09-30, when the operator kept the account instead of
+resetting it, so SPY never reads flat while row 4347 holds 11 shares. The row
+may close while the symbol is still held only if the broker position is
+exactly accounted for by the OTHER open rows: same side, and the siblings'
+summed size equals the broker size. Closing the row then leaves the journal
+matching the broker, so no live share is orphaned. Any mismatch in side, qty or
+missing siblings is ``refused_position_open``, as before. Without ``--row`` and
+``--exit-kind`` the gate stays broker-flat.
 
 Exit price / pnl
 ----------------
@@ -200,6 +210,53 @@ def _plan_close(row: sqlite3.Row, *, exit_price: Optional[float], reason: str,
     return updates
 
 
+def _siblings_account_for_position(
+    account_id: str, symbol: str, pos: Dict[str, Any], row_id: int,
+    db_path: Optional[str],
+) -> Tuple[bool, str]:
+    """True only if the OTHER open rows on (account, symbol) exactly account for
+    the live broker position: same side, summed size == broker size."""
+    resolved_db = db_path
+    if not resolved_db:
+        from src.utils.paths import trade_journal_db_path
+        resolved_db = str(trade_journal_db_path())
+    if not os.path.exists(resolved_db):
+        return False, "db not found"
+    try:
+        conn = _connect(resolved_db)
+        try:
+            rows = _open_rows(conn, account_id, symbol)
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return False, f"db read failed: {type(exc).__name__}"
+    if not any(int(r["id"]) == row_id for r in rows):
+        return False, f"row {row_id} is not an open row on {account_id}/{symbol}"
+    siblings = [r for r in rows if int(r["id"]) != row_id]
+    if not siblings:
+        return False, "no sibling row holds the live position"
+    side = str(pos.get("side") or "").lower()
+    try:
+        broker_size = abs(float(pos.get("size")))
+    except (TypeError, ValueError):
+        return False, "broker size unreadable"
+    total = 0.0
+    for r in siblings:
+        d = str(r["direction"] or "").lower()
+        d = "long" if d in ("long", "buy") else "short" if d in ("short", "sell") else d
+        if d != side:
+            return False, f"sibling row {r['id']} direction {d!r} != broker side {side!r}"
+        try:
+            total += abs(float(r["position_size"]))
+        except (TypeError, ValueError):
+            return False, f"sibling row {r['id']} size unreadable"
+    if abs(total - broker_size) > 1e-9:
+        return False, (f"siblings hold {total} but broker holds {broker_size} — "
+                       "not exactly accounted for")
+    ids = ",".join(str(r["id"]) for r in siblings)
+    return True, f"broker {side} {broker_size} == sibling rows [{ids}]"
+
+
 def _apply_updates(conn: sqlite3.Connection, plans: List[Tuple[int, Dict[str, Any]]]) -> int:
     """Write each plan as its own UPDATE. The WHERE guard re-checks
     status='open' so a re-run (or a concurrent close) can't double-write."""
@@ -255,7 +312,12 @@ def close_stranded(
         out["detail"] = ("could not read the live Alpaca position (missing creds / API "
                          "error) — refusing to close the journal row blind")
         return out
-    if pos:  # a real position is still open on the broker
+    netted_ok = False
+    if pos and row_id is not None and exit_kind is not None:
+        netted_ok, why = _siblings_account_for_position(
+            account_id, symbol, pos, int(row_id), db_path)
+        out["netted_check"] = why
+    if pos and not netted_ok:  # a real position is still open on the broker
         size = pos.get("size")
         out["action"] = "refused_position_open"
         out["live_position"] = {"side": pos.get("side"), "size": size,
@@ -265,7 +327,10 @@ def close_stranded(
                          f"{account_id} — refusing to close the journal row (would orphan a "
                          "live position). Flatten it first (flatten-alpaca-position apply).")
         return out
-    # pos == {} → broker confirmed FLAT. Safe to reconcile the journal row.
+    # pos == {} → broker confirmed FLAT, or (netted_ok) the broker position is
+    # exactly the siblings' — either way closing this row orphans no live share.
+    if pos:
+        out["broker_position_accounted_by_siblings"] = True
 
     resolved_db = db_path
     if not resolved_db:
