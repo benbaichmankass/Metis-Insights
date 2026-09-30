@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator answers: either a PR adds the fifth clause to check_roster_promotion_evidence.py (and the affected records are listed), or the decline is recorded on RQ-20260922-004",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-HK3BKCKE-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "lane RQ-RUN session_0179hCBVrY5PJMaHhK3BKcKe (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28, grading of the ran-but-ungraded queue units; research/queue/RQ-20260922-004.yaml result",
+    "rerun": "git show origin/claude/m20-sweep-corpus:docs/research/m20-sweep-corpus.jsonl | python3 -c \"import sys,json; [print(r['cell'],r['d_net_r_OOS']) for r in map(json.loads,sys.stdin) if r.get('leg')=='xrp_pullback_2h' and r.get('lever')=='trail_decay' and str(r.get('sweep_generated_at','')).startswith('2026-09-28')]\""
+  },
+  "routed_to": "GUARD-FIDELITY",
+  "state": "routed",
+  "what": "RQ-20260922-004 BAR FINDING (operator decision): `fidelity: approximate` is materially load-bearing on xrp_pullback_2h -- simulating the omitted trail_decay lever costs 5.6-11.0R of OOS net R on 4 of 5 cells (bar 4.10R), in the FLATTERING direction. The unit's rule says the deliverable is a proposal to add a fifth clause to scripts/ci/check_roster_promotion_evidence.py refusing `fidelity: approximate` as Stage-0 evidence for a real-money slot. Operator: accept (guard PR, Tier-1 CI change, but it would refuse existing real-money evidence records) or decline with a stated reason."
+}

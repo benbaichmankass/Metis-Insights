@@ -1,0 +1,89 @@
+id: RQ-20260930-502
+title: 'HyroTrader fit: post-only LIMIT entries for the ict_scalp 15m book -- does the edge survive adverse selection and unfilled signals? (lane HYRO-STRATS, blocked on a harness flag)'
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  The demo-realism rule counts only 40% of profit from flagged trades (market fills "at exact levels
+  ... with no slippage"), and on a thin edge (PF ~1.1) that haircut alone drives counted progress
+  negative (exploratory MC: P(pass both) 0.27 -> 0.03-0.05 when half the fills are flagged). Every live and
+  backtested entry in this repo is a Market order (src/units/accounts/execute.py:1528); no maker
+  path exists. If the ict_scalp 15m signals are entered instead with a post-only limit at the signal
+  price, expiring unfilled after 3 bars, filled only when price trades THROUGH the limit, with maker fee
+  on entry and taker on exit and stop, does the filled-trade book keep a positive full-cost net R, and
+  what fraction of signals is lost?
+
+why_this_matters: >-
+  This is the only lever in reach that addresses the rule that binds a bot hardest. If adverse
+  selection eats the edge (filled limit orders are the ones price runs through), there is no
+  market-order path to HyroTrader for thin-edge scalps and the operator decision is to stop building
+  for it with this family.
+
+power:
+  expected_n: 300
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Floor 88 for d = 0.3 (repo standing floor); the registered floor is 300 filled trades because the
+    gating quantity is a pass probability. expected_n = 300 is an INFERENCE: pooled 378 trades/yr at
+    100% fills, times an assumed 50-80% fill rate over 1830 days.
+  feasibility:
+    source: none
+    accrual_basis: Historical re-run on staged candles; nothing accrues.
+
+decision_rule:
+  id: RULE-RQ0930-502-HYRO-15M-MAKER-ENTRY
+  registered_at: '2026-09-30'
+  registered_before_run: true
+  statistic: >-
+    backtest_ict_scalp.py with the NEW flag (see blocked_on) on ETH/SOL/XRP 15m, --days 1830, live-parity
+    config: (n_filled, fill_rate = filled / signals, pooled full-cost net R of FILLED trades, and net R
+    per SIGNAL = net R / signals), then hyro_fit_verdict.py's gates B and C on the filled-trade ledger
+    with flag_frac 0.0.
+  rule: >-
+    UNDERPOWERED IF n_filled < 300. ELSE PASS IF fill_rate >= 0.50 AND pooled net R of filled trades > 0
+    AND net R per signal > 0 AND gates B (P(both) >= 0.25, all seeds) and C (shifted -0.03, >= 0.10, all
+    seeds) of RQ-20260930-501 hold on the filled ledger. ELSE FAIL. The fill model is registered now and
+    is not to be tuned after seeing results: a limit at the signal bar's close; a long fills only if a later
+    bar's LOW is strictly below the limit (short: HIGH strictly above), within 3 bars, at the limit price;
+    entry fee = maker 2.0 bps/side (Bybit 0.0200%), exit and stop = taker 5.5 bps/side, slippage 0 on the
+    limit fill and the venue default on the taker exit.
+  what_it_does_not_do: >-
+    Does not prove Bybit DEMO fills honour limit orders like this model (it is a conservative
+    touch-through-only assumption); does not touch live execution code.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 60
+  basis: Same three legs and window as RQ-20260930-501.
+
+blocked_on:
+  - what: >-
+      scripts/backtest_ict_scalp.py has no limit-entry mode (grep of its add_argument list, 2026-09-30:
+      no maker / limit / expire flag; docs/research/small-tf-directions-2026-07-15.md records maker
+      entry as "recognized but deferred"). Needs --entry-mode {market,limit} and --limit-expire-bars,
+      implementing exactly the fill model in the rule, with a test that market mode is byte-identical
+      to today's output.
+    ref: RQ-20260930-501
+    clears_when: >-
+      the flag is merged with the byte-identical-market-mode test, and RQ-20260930-501 has graded PASS.
+
+run:
+  workflow: null
+  note: Deliberately null until the flag exists; fill in research-script-run.yml then.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - RQ-20260930-501
+  - docs/research/hyro-strategy-feasibility-2026-09-30.md
+last_dispatched_at: null

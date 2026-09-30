@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "tests/test_prop_sl_tp_alert.py (or equivalent) exists and covers the one-shot latch, state pruning, and the cross-module contract with prop_fills_staleness.py.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-CAA07-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A07 code audit lane, session_01CFHeaBLPVuLw2V2LvHWuCE, docs/audits/code-audit-2026-09-27/CA-A07.findings.jsonl",
+    "rerun": "ls tests/ | grep -i sl_tp ; grep -rl \"run_prop_sl_tp_alert\" tests/ -- if either now returns a match, coverage has been added."
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "routed",
+  "what": "CA-A07 code audit: src/prop/prop_sl_tp_alert.py — the only module that alerts the operator in real time when price crosses an open Breakout position's SL or TP, and whose persisted state prop_fills_staleness.py's crossed_unreported detector reads directly — has zero test coverage anywhere in the repo (no tests/test_prop_sl_tp_alert*.py, confirmed by grep). A manual sanity run during the audit found current behavior correct (fires once, persists, does not re-fire), so this is a coverage gap rather than a demonstrated live bug, but a future regression (e.g. a broken one-shot latch, or a persisted-state bug that silently stops alerting) would ship with no CI signal on a k eval account where a limit breach is permanent. Finding: prop-sl-tp-alert-zero-test-coverage in docs/audits/code-audit-2026-09-27/CA-A07.findings.jsonl. Needs tests/test_prop_sl_tp_alert.py covering SL/TP crossing (long+short), one-alert-per-level, state pruning on close, and a read-failure path, plus ideally an integration test wiring its real on-disk state into prop_fills_staleness.assess_crossings instead of the synthetic-dict monkeypatch currently used there."
+}
