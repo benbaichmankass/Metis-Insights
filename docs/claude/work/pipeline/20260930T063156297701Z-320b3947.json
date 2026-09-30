@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "on /api/bot/prop/tickets, every ticket whose last prop_fills row has status skipped AND reason 'expired' reads status `expired` (count of mismatches = 0, stated beside the denominator of such tickets).",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, for manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/tickets?limit=500' and 'https://ict-bot.duckdns.org/api/bot/prop/fills?limit=500'; join fills.ticket_id to tickets; count tickets with status 'skipped' whose last fill reason == 'expired' (was 17 on 2026-09-30)"
+  },
+  "state": "queued",
+  "what": "prop_report.ingest_report maps an executor report {status: skipped, reason: expired} to ticket status `skipped`, losing `expired`. MEASURED 2026-09-30: 17 of the 24 real `skipped` tickets are the executor's go-live sweep (prop_fills #54-#70, 2026-09-29T18:40:58Z, reason 'expired') of tickets emitted Jun 21-Aug 21 that never got an expiry prompt; they read as operator skips on /api/bot/prop/tickets and inflate 'skipped' in any attrition count. Fix: in ingest_report's ticket-status advance, reason=='expired' -> 'expired'; relabel the 17 in the same change (journal write, Tier-2)."
+}
