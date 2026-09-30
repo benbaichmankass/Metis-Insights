@@ -2644,31 +2644,55 @@ INFO_PROBE_CLOSE_JS = r"""
 # 8-level walk read "no visible widget container") visible; inside it a header row
 # naming Symbol plus Order ID or Order Type and NO history-shaped column
 # (close / closed / execution / filled time -- INFERRED names); body rows are
-# the visible ``tr`` whose cell count matches that header and whose Symbol
-# cell is non-empty. Anything else is ``found: false`` ("could not look").
+# the ``tr`` whose cell count matches that header and whose Symbol cell is
+# non-empty. Anything else is ``found: false`` ("could not look").
+# VISIBILITY, fail-closed (manager review of #14764, fixture S3b: a visible
+# container holding a display:none Orders table with a working order read
+# found:true, n_rows:0 -- a hidden grid as "no working orders"): "shown" is a
+# size AND no display:none / visibility:hidden / opacity 0 up the tree. Every
+# widget_menu_ORDERS counts (exactly 1, shown); the container must be shown
+# and hold no OTHER widget_menu_* button; exactly ONE matching header row,
+# counted visible or not, and it must be shown; body rows are counted visible
+# or not, and ANY hidden order-shaped row reads "could not look", never
+# "empty".
 INFO_PROBE_ORDERS_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  const menus = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS]')].filter(vis);
-  if (menus.length !== 1) return {found: false, why: `${menus.length} visible widget_menu_ORDERS (need exactly 1)`};
+  const shown = el => {
+    if (!vis(el)) return false;
+    for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse'
+          || parseFloat(cs.opacity) === 0) return false;
+    }
+    return true;
+  };
+  const menus = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS]')];
+  if (menus.length !== 1) return {found: false, why: `${menus.length} widget_menu_ORDERS (need exactly 1)`};
+  if (!shown(menus[0])) return {found: false, why: 'widget_menu_ORDERS is not shown'};
   let w = null;
   for (let e = menus[0].parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
     const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
     if (cls.some(c => /^widget(New)?__container/.test(c))) { w = e; break; }
   }
-  if (!w || !vis(w)) return {found: false, why: 'no visible widget container around widget_menu_ORDERS'};
-  const heads = [...w.querySelectorAll('tr')].map(r => [...r.querySelectorAll('th')].map(txt)).filter(h => h.length);
-  const hdr = heads.filter(h => h.includes('symbol') && (h.includes('order id') || h.includes('order type')));
+  if (!w || !shown(w)) return {found: false, why: 'no visible widget container around widget_menu_ORDERS'};
+  const others = [...w.querySelectorAll('[data-test-id^=widget_menu_]')].filter(m => m !== menus[0]);
+  if (others.length) return {found: false, why: `the Orders widget container also holds ${others.length} other widget_menu_* (not one widget)`};
+  const hrows = [...w.querySelectorAll('tr')].map(r => ({r, h: [...r.querySelectorAll('th')].map(txt)})).filter(x => x.h.length);
+  const hdr = hrows.filter(x => x.h.includes('symbol') && (x.h.includes('order id') || x.h.includes('order type')));
   if (hdr.length !== 1) return {found: false, why: `${hdr.length} working-orders header rows in the Orders widget (need exactly 1)`};
-  const hs = hdr[0];
+  if (!shown(hdr[0].r)) return {found: false, why: 'the working-orders header row is not shown (a hidden grid is could-not-look, never empty)'};
+  const hs = hdr[0].h;
   if (hs.some(h => /\b(close|closed|execution|filled)\b.*\btime\b|\btime\b.*\b(close|closed)\b/.test(h)))
     return {found: false, why: 'the Orders widget shows a history-shaped table'};
   const si = hs.indexOf('symbol');
   const rows = [...w.querySelectorAll('tr')].filter(r => {
     const tds = [...r.querySelectorAll('td')];
-    return tds.length === hs.length && vis(r) && txt(tds[si]);
+    return tds.length === hs.length && txt(tds[si]);
   });
+  const hidden = rows.filter(r => !shown(r)).length;
+  if (hidden) return {found: false, why: `${hidden} order-shaped row(s) are not shown (could not look)`, n_rows_hidden: hidden};
   return {found: true, n_rows: rows.length, headers: hs};
 }
 """

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges after review; tightens the flat guard the clicking instrument INFO-PANEL probe relies on for the funded breakout_1 DXtrade terminal",
+  "why": "PROP-ETH-DOM, pipeline PI-20260929-AQRK6CL1-0014. Manager review of #14764 (blocking for -probe): a visible container holding a hidden Orders table with a working order read found:true n_rows:0. INFO_PROBE_ORDERS_JS now counts every ORDERS menu (exactly 1, shown), requires the container shown and holding no other widget_menu_*, exactly one matching header row that is shown, and counts body rows visible or not -- any hidden order-shaped row reads could-not-look. No order control, config, sizing or risk change."
+}

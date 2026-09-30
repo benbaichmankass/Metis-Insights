@@ -278,7 +278,7 @@ def test_refuses_without_the_orders_widget(browser):
     html = re.sub(r'<div class="widget__container___Or1.*?</table></div>', "", page_html(), flags=re.S)
     assert "widget_menu_ORDERS" not in html
     got, st = run(browser, html)
-    assert "0 visible widget_menu_ORDERS" in got["refused"] and st["clicks"] == []
+    assert "0 widget_menu_ORDERS" in got["refused"] and st["clicks"] == []
 
 
 HISTORY_TABLE = ('<div class="history"><table><thead><tr><th>Symbol</th><th>Order ID</th><th>Order Type</th>'

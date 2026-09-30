@@ -229,3 +229,52 @@ def test_the_info_probe_gate_accepts_only_the_measured_toggle(browser):  # noqa:
     got, st = run(browser, html, click=False)
     assert got["one_click"]["state"] == "off" and got["one_click"]["via"] == "aria"
     assert "from the measured toggle" in got["refused"] and st["clicks"] == []
+
+
+# ── manager review of #14764: a hidden Orders grid is never "no orders" ────
+
+ORDER = "<tr><td>SOLUSD</td><td>Buy</td><td>Limit</td><td>77</td></tr>"
+MENU = '<button data-test-id="widget_menu_ORDERS">Orders</button>'
+
+
+def orders_table_styled(style, **kw):
+    html = page_html(**kw)
+    anchor = MENU + "\n  <table>"
+    assert html.count(anchor) == 1
+    return html.replace(anchor, MENU + f'\n  <table style="{style}">')
+
+
+@pytest.mark.parametrize("style", ["display:none", "visibility:hidden", "opacity:0"])
+def test_s3b_a_hidden_orders_table_with_a_working_order_is_could_not_look(browser, style):  # noqa: F811
+    # Reviewer fixture S3b, rebuilt: a VISIBLE container holding a hidden
+    # Orders table that has one working order. It used to read found:true,
+    # n_rows:0 -- the flat guard passed on the orders half.
+    got, st = run(browser, orders_table_styled(style, order_rows=ORDER), click=False)
+    assert got["working_orders"]["found"] is False, got["working_orders"]
+    assert "working Orders not readable" in got["refused"] and st["clicks"] == []
+
+
+def test_a_visible_header_with_a_hidden_order_row_is_could_not_look(browser):  # noqa: F811
+    hidden_row = ORDER.replace("<tr>", '<tr style="display:none">')
+    got, st = run(browser, page_html(order_rows=hidden_row), click=False)
+    assert got["working_orders"]["found"] is False and got["working_orders"]["n_rows_hidden"] == 1
+    assert "working Orders not readable" in got["refused"] and st["clicks"] == []
+
+
+def test_a_hidden_duplicate_orders_menu_is_refused(browser):  # noqa: F811
+    html = page_html().replace(MENU, MENU + '<button data-test-id="widget_menu_ORDERS" style="display:none"></button>')
+    got, _ = run(browser, html, click=False)
+    assert got["working_orders"]["found"] is False and "2 widget_menu_ORDERS" in got["working_orders"]["why"]
+
+
+def test_a_container_holding_another_widget_menu_is_refused(browser):  # noqa: F811
+    html = page_html().replace(MENU, MENU + '<button data-test-id="widget_menu_POSITIONS">Positions</button>')
+    got, _ = run(browser, html, click=False)
+    assert got["working_orders"]["found"] is False and "other widget_menu_" in got["working_orders"]["why"]
+
+
+def test_the_visible_empty_orders_table_still_reads_empty(browser):  # noqa: F811
+    for depth in (1, 10):
+        got, _ = run(browser, page_html(orders_depth=depth), click=False)
+        assert got["working_orders"] == {"found": True, "n_rows": 0, "headers": got["working_orders"]["headers"]}
+        assert got["refused"] is None
