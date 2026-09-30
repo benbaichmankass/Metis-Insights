@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One research memo + JSON inputs/outputs under docs/research/, two HyroTrader ruleset YAMLs under config/prop_rulesets/ (read only by the new research scripts, no runtime importer, breakout.yaml untouched), two research scripts and a test, one DOCUMENT-INDEX row. No config/strategies.yaml or accounts.yaml change, no order path, no risk cap, no account mode, no research-queue unit (those ride the separate held PR). Manager-dispatched (lane HYRO-STRATS, operator request ~05:40Z 2026-09-30). Nothing bought, no backtest run."
+}

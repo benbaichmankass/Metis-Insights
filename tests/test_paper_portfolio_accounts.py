@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -191,6 +192,100 @@ def test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies():
     assert portfolio.get("symbols") == expected_syms, (
         "alpaca_portfolio symbols must be alpaca_live's minus SPLG/IAUM."
     )
+
+
+# ── Trade-shaping fields: the mirror must take the SAME trades, not only carry
+# the same roster (PI-20260928-E8Y3BGBS-0002 / -SVBNZOVH-0002, 2026-09-30).
+#
+# Roster equality alone let ``alpaca_portfolio`` trade the shorts
+# ``alpaca_live``'s ``side_filter: long`` suppresses, and run at half live's
+# daily-loss / max-DD tolerance — so Gate 2's demotion read was a different
+# book's P&L. The check below is FAIL-CLOSED: every key either account declares
+# must be EQUAL on the two, unless it is in ``_MIRROR_IDENTITY_KEYS`` — the keys
+# that name WHICH venue, credentials or money class the book is, and so differ
+# by construction. A new per-account gate added to the live account only turns
+# this red without anyone remembering to list it.
+#
+# The per-account inputs ``Coordinator.multi_account_execute`` reads that decide
+# WHETHER and HOW BIG a package trades, all covered by that rule:
+#   mode              → effective_dry (account execution gate)
+#   side_filter       → effective_dry for a suppressed direction
+#   options           → options-expression (debit spread instead of a short)
+#   market_type       → sizing branch + Bybit category
+#   exchange / type   → routing + account_type scope
+#   enabled           → load_accounts drops the account
+#   risk.*            → RiskManager: risk_pct, max_dd_pct, daily_loss_pct,
+#                       daily_usd, leverage, max_gross_exposure_pct,
+#                       confidence_sizing/_floor/_knee, min_qty, qty_precision
+#   strategies        → per-account roster filter (asserted above, with the
+#                       proxy carve-out)
+#
+# NOT config, so NOT assertable here, and each can still make the two books
+# take different trades — stated so no one reads green as "identical":
+#   * the venue's ``shorting_enabled`` (broker_shorting_gate): alpaca_live is a
+#     cash book that reads false; moot for OPENS while both carry
+#     ``side_filter: long``;
+#   * ALPACA_CASH_SETTLEMENT_ACCOUNTS (env): the T+1 basis binds alpaca_live
+#     only (accounts.yaml alpaca_live comment: the mirror measured negative
+#     venue_cash and would halt under ``apply``);
+#   * cash vs margin buying power: the whole-share cash wall refuses on the
+#     ~$200 live book what the paper book sizes.
+_MIRROR_IDENTITY_KEYS = {
+    "account_class",   # real_money vs paper — the point of the pair
+    "paper_role",      # the mirror's marker
+    "alpaca_env",      # live vs paper host
+    "api_key_env",     # its own credentials
+    "api_secret_env",
+    "demo",            # Bybit demo venue selector
+    "strategies",      # asserted by the roster tests (proxy carve-out)
+    "symbols",         # asserted by the roster tests (proxy carve-out)
+}
+
+
+def _trade_shaping_diff(live: dict, mirror: dict) -> dict:
+    keys = (set(live) | set(mirror)) - _MIRROR_IDENTITY_KEYS
+    return {k: (live.get(k), mirror.get(k))
+            for k in sorted(keys) if live.get(k) != mirror.get(k)}
+
+
+@pytest.mark.parametrize("live_id,mirror_id", [
+    ("bybit_2", "bybit_portfolio"),
+    ("alpaca_live", "alpaca_portfolio"),
+])
+def test_mirror_trade_shaping_fields_equal_live(live_id, mirror_id):
+    accts = _accounts()
+    diff = _trade_shaping_diff(accts[live_id], accts[mirror_id])
+    assert not diff, (
+        f"{mirror_id} must take the SAME trades as {live_id} (CLAUDE.md § The "
+        "promotion ladder; B2 2026-09-21), so every trade-shaping field must be "
+        "equal. Differing (live, mirror): " + repr(diff) + ". If a key is "
+        "genuinely an identity field rather than a trade gate, add it to "
+        "_MIRROR_IDENTITY_KEYS with the reason — that is an operator-visible "
+        "decision, not a test fix."
+    )
+
+
+def test_alpaca_portfolio_trade_shaping_fields_equal_alpaca_live():
+    """Named for the two fields that were actually wrong, so a revert of
+    either reads by name in the CI log."""
+    accts = _accounts()
+    live, mirror = accts["alpaca_live"], accts["alpaca_portfolio"]
+    assert mirror.get("side_filter") == live.get("side_filter") == "long"
+    assert mirror["risk"] == live["risk"]
+
+
+def test_identity_allowlist_never_swallows_a_trade_gate():
+    """The carve-out must not be widened to hide a gate."""
+    for gate in ("mode", "side_filter", "options", "market_type", "risk",
+                 "exchange", "type", "enabled"):
+        assert gate not in _MIRROR_IDENTITY_KEYS, gate
+
+
+def test_the_comparison_catches_a_side_filter_divergence():
+    """Positive control: the probe can find what it is looking for."""
+    assert _trade_shaping_diff(
+        {"side_filter": "long", "api_key_env": "A"}, {"api_key_env": "B"},
+    ) == {"side_filter": ("long", None)}
 
 
 def test_paper_role_surfaced_on_config_api():
