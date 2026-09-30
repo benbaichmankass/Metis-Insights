@@ -31,6 +31,14 @@ def _fake_run(signals_per_leg, fail_on=None):
     calls = []
 
     def run(cmd, **kw):
+        if "fetch_backtest_candles.py" in " ".join(map(str, cmd)):
+            class F:
+                returncode = 1 if fail_on == "fetch" else 0
+                stderr = "no network"
+                stdout = ""
+            if fail_on != "fetch":
+                Path(cmd[cmd.index("--output") + 1]).write_text("ts,o,h,l,c,v\n")
+            return F()
         calls.append(cmd)
         leg = cmd[cmd.index("--strategy-name") + 1]
         emit, js = cmd[cmd.index("--emit-trades") + 1], cmd[cmd.index("--json") + 1]
@@ -124,3 +132,19 @@ def test_limit_outputs_are_accepted_by_the_real_collector(tmp_path):
     failed = dict(verdict="not_applicable", read_state="producer_failed", n=None, population="x")
     rec = derive("b", failed)
     assert (rec["read_state"], rec["n"]) == ("producer_failed", "null")
+
+
+def test_every_harness_call_gets_a_fetched_data_file(tmp_path):
+    run = _fake_run(200)
+    hfv.run_limit_legs(["ict_scalp_eth_15m"], 1830, tmp_path, run=run,
+                       today=datetime(2026, 9, 30, tzinfo=timezone.utc), strategies=STRATS)
+    assert len(run.calls) == 2
+    for cmd in run.calls:
+        d = Path(cmd[cmd.index("--data") + 1])
+        assert d.name == "ETHUSDT_15m.csv" and d.exists()
+
+
+def test_a_failed_candle_fetch_is_producer_failed_not_a_grade(tmp_path):
+    stats = hfv.run_limit_legs(["ict_scalp_eth_15m"], 1830, tmp_path, run=_fake_run(200, fail_on="fetch"),
+                               today=datetime(2026, 9, 30, tzinfo=timezone.utc), strategies=STRATS)
+    assert stats["failed"] and "fetch" in stats["failed"] and not stats["ledgers"]

@@ -14,6 +14,11 @@ question: >-
   on entry and taker on exit and stop, does the filled-trade book keep a positive full-cost net R, and
   what fraction of signals is lost?
 
+dispatch_precondition: >-
+  Dispatch only after RQ-20260930-501 has landed a MEASURED record (read_state=measured, integer n) and
+  been graded PASS; on a 501 FAIL or INDETERMINATE the 15m book is not a HyroTrader candidate and 502 is
+  not run.
+
 why_this_matters: >-
   This is the only lever in reach that addresses the rule that binds a bot hardest. If adverse
   selection eats the edge (filled limit orders are the ones price runs through), there is no
@@ -64,11 +69,11 @@ decision_rule:
     touch-through-only assumption); does not touch live execution code.
 
 routing:
-  needs_trainer_resident_data: true
+  needs_trainer_resident_data: false
   needs_gpu: false
   peak_memory_gb: 4.0
   est_minutes: 60
-  basis: Same three legs and window as RQ-20260930-501.
+  basis: Same three legs and window as RQ-20260930-501. Candles are fetched from Binance-vision on the runner (no resident data needed).
 
 run:
   workflow: research-script-run.yml

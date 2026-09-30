@@ -122,11 +122,37 @@ def leg_params(leg: str, strategies: Dict[str, Any] | None = None) -> Dict[str, 
     return {"symbol": str(cfg["symbols"][0]), "timeframe": str(cfg["timeframe"])}
 
 
+INTERVAL_CODE = {"1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60"}
+FETCH_START = "2020-12-01"      # a month of warm-up before the earliest window
+
+
+def fetch_candle_file(symbol: str, timeframe: str, data_dir: Path, *, run=subprocess.run,
+                      timeout_s: int = 3600) -> "tuple[Path | None, str]":
+    """Binance-vision candles into data_dir/{SYMBOL}_{tf}.csv (the runner has no data/ checkout).
+    Never raises: returns (None, reason) on any failure so the run is reported producer_failed."""
+    code = INTERVAL_CODE.get(timeframe)
+    if code is None:
+        return None, f"no interval code for {timeframe}"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    dest = data_dir / f"{symbol}_{timeframe}.csv"
+    cmd = [sys.executable, str(REPO / "scripts/ops/fetch_backtest_candles.py"), "--symbol", symbol,
+           "--source", "binance_vision", "--interval", code, "--start-date", FETCH_START, "--output", str(dest)]
+    try:
+        p = run(cmd, capture_output=True, text=True, timeout=timeout_s, cwd=str(REPO))
+    except subprocess.TimeoutExpired:
+        return None, f"fetch of {symbol} {timeframe} timed out after {timeout_s}s"
+    if p.returncode != 0 or not dest.exists():
+        return None, f"fetch of {symbol} {timeframe} failed rc={p.returncode} {(p.stderr or p.stdout or '')[-200:]}"
+    return dest, ""
+
+
 def harness_cmd(leg: str, params: Dict[str, str], start: str, end: str, emit: str, js: str,
-                *, limit: bool) -> List[str]:
+                *, limit: bool, data: "str | None" = None) -> List[str]:
     cmd = [sys.executable, str(REPO / "scripts/backtest_ict_scalp.py"), "--symbol", params["symbol"],
            "--timeframe", params["timeframe"], "--start", start, "--end", end, "--strategy-name", leg,
            "--emit-trades", emit, "--json", js]
+    if data:
+        cmd += ["--data", data]
     if limit:
         cmd += ["--entry-mode", "limit"]
     else:
@@ -146,10 +172,14 @@ def run_limit_legs(legs: List[str], days: int, out: Path, *, run=subprocess.run,
                            "legs": {}, "failed": None, "window": [start, end]}
     for leg in legs:
         params = leg_params(leg, strategies)
+        data_file, why = fetch_candle_file(params["symbol"], params["timeframe"], out / "data", run=run)
+        if data_file is None:
+            res["failed"] = f"{leg}: {why}"
+            return res
         lim_emit, lim_js = str(out / f"{leg}__limit.jsonl"), str(out / f"{leg}__limit.json")
         mkt_emit, mkt_js = str(out / f"{leg}__market11.jsonl"), str(out / f"{leg}__market11.json")
         for limit, emit, js in ((True, lim_emit, lim_js), (False, mkt_emit, mkt_js)):
-            p = run(harness_cmd(leg, params, start, end, emit, js, limit=limit),
+            p = run(harness_cmd(leg, params, start, end, emit, js, limit=limit, data=str(data_file)),
                     capture_output=True, text=True, cwd=str(REPO))
             if p.returncode != 0 or not Path(js).exists():
                 res["failed"] = f"{leg} {'limit' if limit else 'market11'}: rc={p.returncode} {(p.stderr or '')[-300:]}"
