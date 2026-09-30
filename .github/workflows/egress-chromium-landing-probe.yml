@@ -1,13 +1,25 @@
-# Landing-only Chromium reachability probe from a GitHub-hosted runner's egress
-# (PROP-TERM egress scoping, 2026-09-30). Tier-1: no secrets, no VM, no credentials,
-# nothing clicked. It answers: is a real headless Chromium SERVED, CHALLENGED or BANNED
-# at Breakout's terminal hosts from this runner's (Microsoft/Azure) address?
+# Landing-only Chromium reachability probe (PROP-TERM egress scoping, 2026-09-30).
+# Tier-1: no VM, no trading credential, nothing typed or clicked. It answers: is a real
+# headless Chromium SERVED, CHALLENGED or BANNED at Breakout's terminal hosts?
 #
-# Trigger: a pull request that touches `.github/egress-probe/run-request.txt` (a session
-# bumps that file to ask for a fresh measurement; the log is the result), or a manual
-# dispatch. Sessions cannot `workflow_dispatch`, hence the file trigger.
+# TWO MODES
+#   direct  (secret EGRESS_PROBE_PROXY unset or empty): the runner's own Microsoft/Azure egress.
+#   proxied (secret set): the browser goes ONLY through that proxy. FAIL-CLOSED: an unusable
+#           proxy reports `proxy_unreachable`; the run never falls back to the direct route.
 #
-# The script prints the egress ORGANISATION only, never an address.
+# THE SECRET. It is passed to exactly two steps through `env:`, never interpolated into a
+# command line, never echoed, never masked by a workflow command, never posted to an issue or
+# comment (this workflow has no write permission). The script prints no part of it: not the
+# string, host, port, user, password or address. tests/research/test_egress_chromium_landing_probe.py
+# proves that on every failure path.
+#
+# THE PASS RULE is evaluated by the script (`--evaluate`) over the result artifacts of the last
+# 72 h: three passing proxied runs at least an hour apart with an identical, known egress
+# organisation. The first failing run, or an organisation change, is FAIL (route ended).
+#
+# TRIGGERS. A PR touching the request file (sessions cannot workflow_dispatch); manual dispatch;
+# and an hourly schedule that is a TEMPORARY measurement aid: it does nothing unless the secret is
+# set and it stops for good on 2026-10-04 (the script and the gate step both enforce that).
 name: egress-chromium-landing-probe
 
 on:
@@ -17,23 +29,73 @@ on:
       - "scripts/research/egress_chromium_landing_probe.py"
       - ".github/workflows/egress-chromium-landing-probe.yml"
   workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: egress-chromium-landing-probe
+  cancel-in-progress: false
 
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
+      - name: Gate (scheduled runs need the secret and the window)
+        id: gate
+        env:
+          EGRESS_PROBE_PROXY: ${{ secrets.EGRESS_PROBE_PROXY }}
+        run: |
+          set -euo pipefail
+          run=true
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ -z "$EGRESS_PROBE_PROXY" ]; then run=false; echo "scheduled run skipped: no proxy configured"; fi
+            if [ "$(date -u +%s)" -ge "$(date -u -d '2026-10-04' +%s)" ]; then run=false; echo "scheduled run skipped: measurement window ended"; fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
         with:
           python-version: "3.11"
       - name: Install Playwright Chromium
+        if: steps.gate.outputs.run == 'true'
         run: |
           set -euo pipefail
           pip install playwright
           playwright install --with-deps chromium
       - name: Landing-only probe (no credentials, nothing clicked)
-        run: python3 scripts/research/egress_chromium_landing_probe.py
+        if: steps.gate.outputs.run == 'true'
+        env:
+          EGRESS_PROBE_PROXY: ${{ secrets.EGRESS_PROBE_PROXY }}
+        run: python3 scripts/research/egress_chromium_landing_probe.py --out probe-out/probe-result.json
+      - name: Keep this run's result (contains no secret, no address)
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/probe-result.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-result-${{ github.run_id }}
+          path: probe-out/probe-result.json
+          retention-days: 7
+      - name: Evaluate the PASS rule over the last 72 h
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/probe-result.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p prior
+          since="$(date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          ids="$(gh run list --workflow egress-chromium-landing-probe.yml --limit 100 \
+                   --json databaseId,createdAt -q ".[] | select(.createdAt > \"${since}\") | .databaseId")"
+          for id in ${ids}; do
+            [ "${id}" = "${{ github.run_id }}" ] && continue
+            if ! gh run download "${id}" --pattern 'probe-result-*' --dir "prior/${id}" >/dev/null 2>&1; then
+              echo "run ${id}: no result artifact (skipped run or expired)"
+            fi
+          done
+          mkdir -p prior/current && cp probe-out/probe-result.json prior/current/
+          python3 scripts/research/egress_chromium_landing_probe.py --evaluate prior
