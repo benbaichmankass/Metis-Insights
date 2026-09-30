@@ -62,6 +62,8 @@ KEEPER_ACTOR = "github-actions[bot]"
 #: (tests/test_schedule_keeper.py enforces both halves).
 TARGETS: dict[str, dict] = {
     "r4-demotion-gate.yml": {"stale_hours": 26},
+    # PATHB-MANDATE (2026-09-30): the runner for the granted MD-SOAK-EXIT-CELL-PATHB.
+    "exit-cell-mandate.yml": {"stale_hours": 26},
     "replay-pregate-nightly.yml": {"stale_hours": 26},
     "strategy-review-packets.yml": {"stale_hours": 26},
     # JC-SA-01 (2026-09-29): the graded hop of the trade pipeline, daily.
