@@ -1335,6 +1335,28 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 # error (e.g. a one-off network blip) still retries next tick.
                 if "not confirmed flat" in err_str.lower():
                     _PENDING_CLOSE_RETRY_COOLDOWN[_close_key] = datetime.now(timezone.utc)
+                # A failure that RE-EVIDENCES a standing unclearable wedge
+                # refreshes the ledger's last_seen NOW, whatever the alert
+                # streak says (PI-20260930-ZIFJ1RKM-0005). The ledger was only
+                # reached through the alert path below, and a market-session
+                # defer resets the streak, so after each closed session the
+                # re-probe ran every tick until streak 3. `touch_standing`
+                # refreshes last_seen only: no transition, no page. Paging stays
+                # on the alert path, unchanged.
+                try:
+                    from src.units.accounts.alpaca_client import parse_share_hold
+                    from src.runtime.close_wedge_standing import touch_standing
+                    touch_standing(
+                        matched_trade.get("account_id"),
+                        matched_trade.get("symbol"),
+                        matched_trade.get("direction"),
+                        parse_share_hold(err_str),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "order_monitor: standing-wedge refresh failed pkg=%s: %s",
+                        pkg_id, exc,
+                    )
                 # Item #3: count consecutive close failures for this
                 # (account, symbol, direction) and ALERT once the streak crosses
                 # the threshold (and every threshold-th failure after) — a
@@ -8631,6 +8653,11 @@ def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
                 db, row, account_id, symbol, reason="sl",
                 why=(f"top-up stop {a_sl} breached by a fresh last trade "
                      f"({(_binfo.get('trade') or {}).get('price')})"))
+            if _res == "working":
+                # A close-limit is resting at the broker and holds the shares:
+                # no top-up over it (ZIFJ1RKM-0004). Something WAS sent, so the
+                # cooldown set above stands.
+                return "exit_working"
             if _res != "deferred":
                 return {"exited": "exited_breached_stop", "failed": "exit_failed"}[_res]
             # The venue DEFERRED the exit: nothing was sent, so the cooldown set
@@ -9233,10 +9260,20 @@ def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
     The fill price is read back when the venue returns an order id; otherwise
     the exit price is left for the reconciler rather than invented.
 
-    Returns ``exited`` / ``deferred`` / ``failed``. ``deferred`` is the venue's
-    own "market closed — exit deferred" (AlpacaClient.close retCode 2): NOT a
-    refusal, not paged as one; the caller keeps a stop resting instead
-    (REVIEW-14241 round 2, blocker 3). ``failed`` is paged CRITICAL.
+    Returns ``exited`` / ``deferred`` / ``working`` / ``failed``.
+
+    * ``deferred`` is the venue's own "market closed — exit deferred"
+      (AlpacaClient.close retCode 2) with NOTHING working at the broker: not a
+      refusal, not paged as one; the caller keeps a stop resting instead
+      (REVIEW-14241 round 2, blocker 3).
+    * ``working`` is the extended-hours defer whose close-LIMIT reached the
+      broker and is still working (PI-20260930-ZIFJ1RKM-0004). The caller must
+      NOT re-arm: ``_scoped_rearm_cancel`` counts a reducing limit sized to the
+      row as the position's own leg, so a re-arm CANCELS the exit just placed
+      and replaces it with a stop Alpaca does not trigger outside regular hours.
+      The key is marked actively closing, so later sweeps also leave it alone
+      for ``ACTIVE_CLOSE_WINDOW_S``.
+    * ``failed`` is paged CRITICAL.
     """
     matched = {
         "id": row["id"], "account_id": account_id, "symbol": symbol,
@@ -9250,6 +9287,15 @@ def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
         # closed; extended-hours "DEFERRED to the regular session"; limit
         # close still working; position unreadable) — match the word, not one
         # phrasing (REVIEW-14241 round 3).
+        if "close working" in low:
+            # AlpacaClient._close_extended_hours: "extended-hours limit close
+            # working — not yet filled, exit deferred". Checked BEFORE the
+            # generic "deferred" match, which it also contains.
+            mark_active_close(account_id, symbol)
+            logger.info("_exit_alpaca_row: %s/%s trade_id=%s %s exit WORKING "
+                        "(extended-hours close-limit resting; no re-arm): %s",
+                        account_id, symbol, row["id"], reason, err)
+            return "working"
         if "deferred" in low or "deferring" in low or "market closed" in low:
             logger.info("_exit_alpaca_row: %s/%s trade_id=%s %s exit DEFERRED "
                         "(market session): %s", account_id, symbol, row["id"],
@@ -9439,6 +9485,9 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "venue_holding_cooldown": 0,
         "rearm_refused_deferred_unconfirmed_breach": 0,
         "exit_deferred": 0,
+        # The breach exit's extended-hours close-limit is working at the broker;
+        # no re-arm over it (PI-20260930-ZIFJ1RKM-0004).
+        "exit_working": 0,
         "escalated_post_rejected": 0,
         "exit_failed": 0,
         # ── Every early exit is counted (PI-20260929-K1XNYYAQ-0003 (c)). MEASURED
@@ -9464,6 +9513,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "topup_breach_exits": 0,
         "topup_exit_failed": 0,
         "topup_exit_deferred": 0,
+        "topup_exit_working": 0,
         # Sub-count of exit_deferred: a stop was put back to rest.
         "exit_deferred_rearmed": 0,
         "unaccounted": 0,
@@ -9681,6 +9731,10 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                                 # this same sweep (K1XNYYAQ-0002 (1))
                                 summary["topup_exit_deferred"] += 1
                                 summary["topped_up"] += 1
+                            elif _topup == "exit_working":
+                                # the breach exit's extended-hours close-limit
+                                # is working; nothing placed over it (0004)
+                                summary["topup_exit_working"] += 1
                             elif _topup == "exit_deferred":
                                 # deferred AND the resting top-up was refused by
                                 # the venue. The refused POST DID set the 900 s
@@ -9782,6 +9836,10 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     _ok_key = "cap_exits"
                 if _res == "exited":
                     summary[_ok_key] += 1
+                elif _res == "working":
+                    # An extended-hours close-limit is resting at the broker.
+                    # Re-arming here would cancel it (ZIFJ1RKM-0004): leave it.
+                    summary["exit_working"] += 1
                 elif _res == "deferred":
                     # Market closed: keep a stop RESTING instead (it triggers
                     # at the open), never leave the row naked overnight.
@@ -9904,7 +9962,8 @@ _EQUITY_SWEEP_NON_OUTCOME_KEYS = frozenset({
     "checked", "broker_naked", "target_naked",
     "covered", "partially_naked", "coverage_ungradeable", "coverage_read_failed",
     "topped_up", "topup_refused", "topup_breach_exits", "topup_exit_failed",
-    "topup_exit_deferred", "exit_deferred_rearmed", "unaccounted",
+    "topup_exit_deferred", "topup_exit_working", "exit_deferred_rearmed",
+    "unaccounted",
 })
 
 
