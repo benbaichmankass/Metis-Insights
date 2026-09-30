@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CLAUDE.md's A3/A7 paragraph is corrected to state A3 is done and section 0 renders live, matching MANAGER-CHECKLIST.json and render_daily_brief.py.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-CAB09-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-claude-md-a3-status-contradicts-checklist",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json')); [print(r.get('id'), r.get('state')) for r in d.get('items', d if isinstance(d, list) else []) if isinstance(r, dict) and r.get('id')=='A3']\"; grep -n 'render_section_0\\|unrouted_count' scripts/ops/render_daily_brief.py; grep -n 'A3 is not finished\\|Nothing runs them on a schedule' CLAUDE.md"
+  },
+  "state": "killed",
+  "terminal_reason": "Fixed: root CLAUDE.md's pipeline section now says the pull is connected and that checklist rows A3 and A7 are done (FIX-SA-09), matching MANAGER-CHECKLIST.json. Verified by reading both 2026-09-30.",
+  "what": "[operating-model] Root CLAUDE.md's 'follow-through pipeline' section states A3 (rendering pipeline section 0 on the operator's own Workflow page) 'is not built' and 'nothing runs render_section_0()/unrouted_count() on a schedule yet'. docs/claude/work/MANAGER-CHECKLIST.json row A3 currently reads state: done, with a note dated 2026-09-21 that A3a/A3b landed and closed on the same operator observation that closed A7 ('§0 is rendering on the live Workflow page'). scripts/ops/render_daily_brief.py does call pipeline.render_section_0() and pipeline.unrouted_count() (confirmed at the call sites). CLAUDE.md's prose has not been corrected to match its own checklist and the actual wiring -- a field-vs-comment mismatch in the #1-priority instruction doc's own core claim about the pipeline."
+}

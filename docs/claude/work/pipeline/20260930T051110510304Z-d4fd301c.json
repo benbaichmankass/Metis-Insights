@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "training-rerun-5m.yml no longer pushes to non-main branches, with a workflow-shape test",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-PGBJNVYQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ 2026-09-27",
+    "rerun": "grep -n 'ref_name' .github/workflows/training-rerun-5m.yml ; git log --all --author='github-actions' --grep='TRAINING-RESULTS' --format='%h %D' | grep claude/"
+  },
+  "state": "killed",
+  "terminal_reason": "Fixed on main: .github/workflows/training-rerun-5m.yml's push trigger is now branches: [main] (L26), so it can only push results back to main; tests/test_push_back_trigger.py exists to pin it (checklist CI-TRAINING-TRIGGER). Checked 2026-09-30.",
+  "what": "training-rerun-5m.yml commits its TRAINING-RESULTS back to whatever branch triggered it (checkout ref github.ref_name, `git push origin HEAD:${{ github.ref_name }}`, lines 17/44/92), so a push to ANY session branch that touches its paths gets a bot commit on that branch. MEASURED 2026-09-27: de197a3 landed on claude/great-faraday-f7r361 (manager register branch) and 8d573d3 on claude/ca-wave-b-landing (#13226), where it conflicted with main's own copy of the same 4 experiments/2026-05-07-vwap-accuracy/results/5m files and stalled the Wave-B audit landing ~1h. Proposed Tier-1 fix: restrict the workflow's push trigger to main (or commit results only via commit-to-main), and never push to a claude/* branch."
+}
