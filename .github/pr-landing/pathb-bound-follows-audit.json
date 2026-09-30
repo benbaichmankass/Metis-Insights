@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 by path (config/mandates.yaml): narrows clause (8) of the GRANTED MD-SOAK-EXIT-CELL-PATHB from 'audit OR matrix note' to 'audit decides', per the operator's popup answer relayed by the manager (~09:31Z 2026-09-30, verbatim 'Follow the data (Recommended)'). The manager records that answer on the checklist and merges.",
+  "why": "Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1). The operator was asked whether the timeout-contamination bound should key on the leg's name or on the measurement and answered 'Follow the data (Recommended)'. mandate_resolver.resolve_exit_cell clause 2b now refuses only when timeout_binding_audit.audit() reads contaminated (NEEDS-DATA if it cannot run or reads no_power); the coverage-matrix note is reported in the evidence and a caveat, never gating. config/mandates.yaml clause (8) text and a second `amendment` record say the same; no bar value, no autoland field and no other clause changed. This LOOSENS one bound relative to the previous OR rule (a stale note can no longer refuse a leg the audit calls clean), which is why it is held. Tests: 5 timeout-binding cases updated/added; the audit-contaminated legs (trend_donchian, _ada_4h, _avax_4h, _sol_4h) are still refused."
+}

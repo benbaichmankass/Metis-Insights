@@ -1374,15 +1374,18 @@ def select_cells(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
 def timeout_binding(root: Path, leg: str) -> Dict[str, Any]:
     """Does the harness's timeout force-close CONTAMINATE this leg's verdicts?
 
-    TWO INDEPENDENT READINGS, and the bound trips on EITHER (fail closed):
+    THE AUDIT DECIDES (operator, 2026-09-30, verbatim "Follow the data (Recommended)",
+    answering whether the bound should key on the leg's NAME or on the measurement).
+    Two readings are collected; only the first gates:
       * `audit`  -- scripts/research/timeout_binding_audit.audit() re-run over the
                     corpus rows NOW (the field): `contaminated` / `clean` /
                     `no_power`, or None if it could not run.
       * `matrix` -- the coverage matrix's own per-leg `timeout_binding` note
                     (a claim about the field): `CONTAMINATED` / `CLEAN` / None.
-    ⚠️ THEY DISAGREE ON spy_pullback_1h (2026-09-30): the note says CONTAMINATED
-    ("bound on 17 of 39 pairs"); audit() over BOTH the 08-29 and 08-31 sweeps says
-    clean, 0 of 39. Neither is silently preferred: the union refuses.
+                    INFORMATIONAL ONLY. Kept in the evidence so a disagreement with
+                    the audit is visible (it was: spy_pullback_1h's note said
+                    CONTAMINATED, 17 of 39; the audit and a raw-row recompute say 0
+                    of 39), but it never refuses on its own.
     """
     out: Dict[str, Any] = {"audit": None, "binding": None, "graded_pairs": None, "matrix": None}
     try:
@@ -1544,16 +1547,21 @@ def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed:
     # -- clause 2b: timeout-binding contamination (operator bound, 2026-09-30) --
     tb = timeout_binding(root, leg)
     ev["timeout_binding"] = tb
-    if tb["audit"] == "contaminated" or tb["matrix"] == "CONTAMINATED":
+    if tb["audit"] == "contaminated":
         raise _Refuse("R-TIMEOUT-BINDING",
                       f"the harness's timeout force-close CONTAMINATES this leg's verdicts (audit "
-                      f"{tb['audit']}, binding {tb['binding']}/{tb['graded_pairs']}; matrix note "
-                      f"{tb['matrix']}); the cell was measured under an exit production does not have")
+                      f"contaminated, binding {tb['binding']}/{tb['graded_pairs']}); the cell was "
+                      "measured under an exit production does not have")
     if tb["audit"] != "clean":
         raise _NeedsData("R-TIMEOUT-BINDING", f"timeout-binding audit reads {tb['audit']!r} (matrix "
                                               f"{tb['matrix']}); 'could not look' is not 'clean'",
                          _exit_cell_data_task(leg, cell, "timeout-binding audit not gradeable",
                                               "timeout_binding_audit.audit() returns `clean` for the leg"))
+    if tb["matrix"] == "CONTAMINATED":  # audit is clean: the note is the stale reading, not a bound
+        ctx["caveats"].append(
+            f"coverage-matrix timeout_binding note reads CONTAMINATED for {leg} but the audit reads clean "
+            f"({tb['binding']}/{tb['graded_pairs']} binding); the audit decides (operator, 2026-09-30) -- "
+            "correct the note (PI-20260930-39SDYWCO-0004)")
 
     # -- clause 3: both windows, net R and capital efficiency ---------------
     try:

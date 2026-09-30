@@ -88,15 +88,22 @@ def _run(tmp_path, **kw):
 
 @pytest.mark.parametrize("kw,verdict,clause", [
     ({"binding": True}, mr.REFUSE, "R-TIMEOUT-BINDING"),                            # audit says contaminated
-    ({"matrix_note": "MEASURED: leg CONTAMINATED -- x"}, mr.REFUSE, "R-TIMEOUT-BINDING"),  # note says so, audit clean
-    ({"binding": True, "matrix_note": "MEASURED: leg CLEAN"}, mr.REFUSE, "R-TIMEOUT-BINDING"),  # either source trips it
+    ({"binding": True, "matrix_note": "MEASURED: leg CLEAN"}, mr.REFUSE, "R-TIMEOUT-BINDING"),  # the AUDIT decides
     ({"audit": False}, mr.NEEDS_DATA, "R-TIMEOUT-BINDING"),                          # cannot audit -> not a pass
     ({"matrix_note": "MEASURED: leg CLEAN -- x"}, mr.FIRE, "ALL-CLAUSES-PASS"),      # positive control
+    # operator, 2026-09-30, "Follow the data": a stale NOTE never refuses on its own
+    ({"matrix_note": "MEASURED: leg CONTAMINATED -- x"}, mr.FIRE, "ALL-CLAUSES-PASS"),
 ])
 def test_timeout_binding_bound(tmp_path, kw, verdict, clause):
     r = _run(tmp_path, **kw)
     assert (r["verdict"], r["clause"]) == (verdict, clause), r["detail"]
     assert "timeout_binding" in r["evidence"] or verdict == mr.NEEDS_DATA
+
+
+def test_a_stale_matrix_note_is_reported_not_enforced(tmp_path):
+    r = _run(tmp_path, matrix_note="MEASURED: leg CONTAMINATED -- 17 of 39")
+    assert r["verdict"] == mr.FIRE and r["evidence"]["timeout_binding"]["matrix"] == "CONTAMINATED"
+    assert any("the audit decides" in c for c in r["caveats"])
 
 
 def test_the_grant_must_state_the_bound(tmp_path):

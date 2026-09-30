@@ -751,6 +751,11 @@ mandates:
       question whether the coverage matrix's `timeout_binding: CONTAMINATED` flag
       (the harness force-closes at 200 bars; live has no such exit) should become
       a bound. Clause (8) below. The grant otherwise stands as written.
+      SECOND AMENDMENT, same day (~09:31Z), relayed by the manager session
+      session_01HYq6XtfesZ57VyaQrK6CL1 from an operator popup, verbatim "Follow the
+      data (Recommended)": the bound keys on the MEASUREMENT, not the leg's name or
+      the matrix note. Clause (8) above was narrowed from "audit OR note" to "audit
+      decides" accordingly; no other clause moved.
       CONSEQUENCE, stated for the record: the bound also refuses four legs from the
       operator's 2026-08-30 approved batch -- trend_donchian, trend_donchian_ada_4h,
       trend_donchian_avax_4h, trend_donchian_sol_4h -- because the audit reads them
@@ -788,19 +793,17 @@ mandates:
       allowance min(D_b x dN/N_b, D_b) AND within
       bar.max_dd_worsening_frac_of_base of the base drawdown; (7) the cell's
       leverage_multiple <= bar.max_leverage_multiple; (8) the leg's verdicts are
-      not CONTAMINATED by the harness timeout force-close: EITHER
-      scripts/research/timeout_binding_audit.audit() re-run over the corpus reads
-      `contaminated` OR the coverage matrix's own `timeout_binding` note reads
-      `leg CONTAMINATED` refuses (fail closed), and an audit that cannot run or
-      reads `no_power` is NEEDS-DATA, never a pass. ⚠️ THE TWO READINGS DISAGREE ON
-      spy_pullback_1h AT ADOPTION: the matrix note says CONTAMINATED (17 of 39
-      pairs), the audit over both the 08-29 and 08-31 sweeps says clean (0 of 39).
-      RE-DERIVED 2026-09-30 from the RAW rows (base arm vs the 400-bar arm per
-      geometry, no audit() code): 0 of 39 (08-31) and 0 of 35 (08-29) differ, no
-      null arms; no leg in any sweep has exactly 17 of 39 (the only 17-binding
-      leg is trend_donchian_ada_4h, 17 of 38). So the NOTE is the stale reading
-      and the audit the reliable one; it is refused through the note only because
-      the bound fails closed until the note is corrected (PI-20260930-39SDYWCO-0004). The edit changes ONE key,
+      not CONTAMINATED by the harness timeout force-close, AS MEASURED: 
+      scripts/research/timeout_binding_audit.audit() re-run over the corpus rows
+      must read `clean`; `contaminated` refuses, and an audit that cannot run or
+      reads `no_power` is NEEDS-DATA, never a pass. The coverage matrix's own
+      `timeout_binding` note is INFORMATIONAL ONLY (reported, never gating). ⚠️ AT
+      ADOPTION THE TWO DISAGREED ON spy_pullback_1h: the note said CONTAMINATED (17
+      of 39 pairs), the audit says clean; RE-DERIVED 2026-09-30 from the RAW rows
+      (base arm vs the 400-bar arm per geometry): 0 of 39 (08-31) and 0 of 35
+      (08-29) differ, no null arms, and no leg in any sweep has exactly 17 of 39.
+      The NOTE was the stale reading (PI-20260930-39SDYWCO-0004; corrected in
+      #14651). The edit changes ONE key,
       `atr_stop_mult`, on that one leg in config/strategies.yaml, and nothing
       else. One cell per leg per fire, chosen by the rule B4 stated in advance:
       highest wf_wins_effective, tie-break d_net_r, over the leg's gate-passing
