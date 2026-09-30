@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "implemented with a test and merged, before PR #14673 (tradeify_1 go-live) merges; or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-BHYHMK2D-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "src/prop/breakout_executor.py::emit_prop_ticket",
+    "rerun": "Build a tradeify_1 ticket for XRPUSDT with entry 0.60, sl 0.599 (0.17% stop) at $50 risk and check qty*entry <= 2 * account balance; repeat for ETHUSDT with the 5:1 cap."
+  },
+  "state": "queued",
+  "what": "TRADEIFY-WIRE go-live blocker (a), manager review of #14672 2026-09-30: the prop ticket path does not enforce Tradeify's per-position leverage caps (5:1 BTC/ETH, 2:1 alts incl. SOL/XRP). The memo (#14580 § 3.2) shows 3 of 129 ict_scalp_xrp_15m trades would exceed 2:1 at 0.5% risk (stops 0.02-0.2%). Need: size = min(risk-based qty, cap x balance / entry) in build_account_leg / emit_prop_ticket for the account's ruleset, declared in the ruleset, with a test at the XRP stop widths. PR C (#14673) stays held until done."
+}
