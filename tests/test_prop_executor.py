@@ -3271,13 +3271,13 @@ BAND_MSG = "BREAKOUT TRADE SETUP\n  Entry    : 120.0   (only if live price is wi
 
 
 class QuoteAdapter(FakeAdapter):
+    """A retry must never read a quote (manager 2026-09-30 13:21Z: the same
+    guard set as a first attempt); any read_quote call fails the test."""
     def __init__(self, quote=None, **kw):
         super().__init__(**kw)
-        self.quote = quote
 
     def read_quote(self, page, venue):
-        self.calls.append(("read_quote", venue))
-        return self.quote
+        raise AssertionError("a retry must not add a quote read")
 
 
 PRE = PlaceAttempt(stage="refused", submitted=False, detail="form fields not found: ['price']")
@@ -3332,41 +3332,6 @@ def test_a_retry_is_refused_when_the_symbol_already_has_a_position_or_order(env)
     assert env[0].state("prop-manual-aaa") == "refused"
 
 
-def test_a_retry_waits_while_the_price_is_outside_the_entry_band(env):
-    # (3) the band is re-checked on every attempt; outside -> no attempt
-    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
-    api = FakeApi([ticket(message=BAND_MSG)])
-    _rcycle(ad, api, env, 0)
-    ad.attempt, ad.quote = None, {"bid": 121.0, "ask": 121.1}
-    res = _rcycle(ad, api, env, 1)
-    assert len(_places(ad)) == 1
-    assert any(a["what"] == "retry_wait" and "outside entry band" in a["why"] for a in res.actions)
-    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
-    assert env[0].latest()["prop-manual-aaa"]["attempts"] == 1  # a wait is not an attempt
-
-
-def test_a_retry_waits_when_the_quote_cannot_be_read(env):
-    ad = QuoteAdapter(quote=None, attempt=PRE)
-    api = FakeApi([ticket(message=BAND_MSG)])
-    _rcycle(ad, api, env, 0)
-    ad.attempt = None
-    _rcycle(ad, api, env, 1)
-    assert len(_places(ad)) == 1 and env[0].state("prop-manual-aaa") == pe.RETRY_STATE
-
-
-def test_a_retry_is_refused_when_the_entry_band_is_unreadable(env):
-    # planted negative: no band in the message -> never retried, terminal + alert
-    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
-    api = FakeApi([ticket(message="no band here")])
-    _rcycle(ad, api, env, 0)
-    ad.attempt = None
-    res = _rcycle(ad, api, env, 1)
-    assert len(_places(ad)) == 1
-    assert env[0].state("prop-manual-aaa") == "refused"
-    assert any("no retry" in a for a in res.alerts)
-    assert [p["status"] for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["skipped"]
-
-
 def test_retries_are_bounded_then_terminal_skipped_with_one_alert(env):
     # (4) RETRY_MAX_ATTEMPTS attempts, then terminal skipped with the real reason
     ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
@@ -3393,8 +3358,16 @@ def test_a_retry_pending_ticket_goes_terminal_at_valid_until(env):
     assert [p["reason"] for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["expired"]
 
 
-def test_the_entry_band_parser_reads_the_rendered_ticket():
-    assert pe._entry_band({"message": "  Entry    : 121.34   (only if live price is within 120.691 … 121.989)"}) \
-        == (120.691, 121.989)
-    assert pe._entry_band({"message": "within 1.0 ... 2.0"}) == (1.0, 2.0)
-    assert pe._entry_band({"message": ""}) is None and pe._entry_band({}) is None
+def test_a_retry_runs_the_same_guards_as_a_first_attempt(env):
+    # manager 2026-09-30 13:21Z: no retry-only price rule. A retry whose
+    # ticket no longer fits the § 3.3 guards is refused like a first attempt.
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket(message=BAND_MSG)])
+    _rcycle(ad, api, env, 0)
+    ad.attempt = None
+    ad.account = acct(4724.0, 4724.0)
+    env[1].save({**env[1].load(), "day": pe.trading_day(NOW), "day_start_captured": 4724.0})
+    api._tickets = [ticket(message=BAND_MSG, qty=37.5)]
+    _rcycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    assert env[0].state("prop-manual-aaa") == "refused"

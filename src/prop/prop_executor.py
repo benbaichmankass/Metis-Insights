@@ -848,7 +848,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     seen = ledger.latest()
     # A ticket whose placement failed BEFORE any submit click is `retry_pending`
     # in the ledger and is taken in again until its valid_until (operator
-    # directive 2026-09-30 ~13:12Z). Every other ledger state is final.
+    # directive 2026-09-30 ~13:12Z). Every other ledger state is final. A retry
+    # runs EXACTLY the guards a first attempt runs (manager 2026-09-30 13:21Z):
+    # this cycle's terminal read + the busy-symbol guard, valid_until, the
+    # § 3.3 guards, the LIMIT at entry. No retry-only price rule.
     fresh = [t for t in tickets if t.get("ticket_id")
              and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") == RETRY_STATE)]
     if only_ticket_id:
@@ -887,19 +890,6 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
             continue
-        if (seen.get(t["ticket_id"]) or {}).get("state") == RETRY_STATE:
-            ok, why = _retry_entry_ok(adapter, page, t, venue)
-            if not ok:
-                # Not an attempt: the price is outside the ticket's own entry
-                # band, or could not be read. Waits (still retryable) until
-                # valid_until; an unparseable band never retries.
-                res.log("retry_wait", ticket_id=t["ticket_id"], why=why)
-                if live and why.startswith("entry band unreadable"):
-                    ledger.record(t["ticket_id"], "refused", reasons=[f"retry refused: {why}"])
-                    _report(res, post, _skip_body(cfg, t, f"not submitted (retry refused: {why})"))
-                    res.alerts.append(f"{t['ticket_id']}: NOT PLACED, no retry ({why}); place it by hand "
-                                      f"by {t.get('valid_until')} or it is lost")
-                continue
         if candidate is None:
             candidate = t
     if candidate is None:
@@ -1340,46 +1330,6 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
 RETRY_STATE = "retry_pending"
 #: Placement attempts per ticket before the pre-submit failure is final.
 RETRY_MAX_ATTEMPTS = 3
-
-_BAND_RE = None
-
-
-def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
-    """The ticket's own entry band, as rendered in its message by
-    ``breakout_ticket`` ("only if live price is within <min> … <max>"), or
-    None when it cannot be read (never recomputed here: a second copy of the
-    rule could disagree with the ticket the operator saw)."""
-    import re
-    global _BAND_RE
-    if _BAND_RE is None:
-        _BAND_RE = re.compile(r"within\s+([0-9]+(?:\.[0-9]+)?)\s*(?:…|\.\.\.)\s*([0-9]+(?:\.[0-9]+)?)")
-    m = _BAND_RE.search(str(ticket.get("message") or ""))
-    if not m:
-        return None
-    lo, hi = float(m.group(1)), float(m.group(2))
-    return (lo, hi) if lo <= hi else None
-
-
-def _retry_entry_ok(adapter: Any, page: Any, ticket: Mapping[str, Any], venue: Optional[str]) -> Tuple[bool, str]:
-    """Before a RETRY: the live price must be inside the ticket's entry band,
-    read THIS cycle. Fail closed: no band, no quote, or a quote outside it
-    means no attempt."""
-    band = _entry_band(ticket)
-    if band is None:
-        return False, "entry band unreadable in the ticket message"
-    try:
-        q = adapter.read_quote(page, str(venue or "")) if venue else None
-    except Exception as exc:
-        q, _ = None, exc
-    if not q:
-        return False, "no quote for the entry-band check (could not look)"
-    px = _f(q.get("ask") if _dir(ticket.get("direction")) == "long" else q.get("bid"))
-    if px is None:
-        return False, "no quote for the entry-band check (could not look)"
-    if not (band[0] <= px <= band[1]):
-        return False, f"price {px} outside entry band {band[0]}..{band[1]}"
-    return True, ""
-
 
 #: Cancel attempts on one expired resting entry before the executor stops
 #: retrying and says so (an alert at exhaustion; later cycles only log).
