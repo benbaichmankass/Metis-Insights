@@ -2737,9 +2737,11 @@ INFO_PROBE_ORDERS_DUMP_JS = r"""
 # click left ONE new top-level element that was not panel-sized, n_panels 0,
 # so the run aborted and could not restore). Lists the NEW top-level elements
 # still in the page -- the same "new" test as INFO_PROBE_PANEL_JS -- with tag,
-# role, masked class tokens, size, whether it is visible, its text-leaf count
-# and its first 5 text leaves under the panel mask, so the info view's real
-# shape is MEASURED from the run log instead of guessed. ``n_visible`` is
+# role, class tokens (every digit masked), size, whether it is visible and
+# its text-leaf COUNT, so the info view's real shape is MEASURED from the run
+# log instead of guessed. NO TEXT is emitted (independent review of #14841,
+# nit d: the run log is PUBLIC and a short balance or account label would
+# pass the panel mask). ``n_visible`` is
 # what the recovery reads: 0 means nothing unidentified is still on screen.
 # Clicks, focuses and tags nothing.
 INFO_PROBE_NEW_ELEMENTS_JS = r"""
@@ -2747,23 +2749,20 @@ INFO_PROBE_NEW_ELEMENTS_JS = r"""
   const pre = window.__metisPre;
   if (!pre) return {readable: false, why: 'no pre-click snapshot'};
   const txt = el => (el.innerText || el.textContent || '').trim();
-  const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
-                     .replace(/(?<![0-9a-f.])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
-                     .replace(/(?<![.\d])\d(?:[\s-]?\d){7,}/g, m => '#'.repeat(m.length))
-                     .replace(/(?<![.\d])\d{7,}(?![.\d])/g, m => '#'.repeat(m.length)).slice(0, 40);
+  const mask = v => v.replace(/\d/g, '#').slice(0, 24);
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const fresh = [...document.querySelectorAll('body *')]
     .filter(el => !pre.has(el) && !(el.parentElement && !pre.has(el.parentElement)));
-  const leaves = el => [...el.querySelectorAll('*')].concat([el])
-    .filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
+  const leafCount = el => [...el.querySelectorAll('*')].concat([el])
+    .filter(x => x.children.length === 0 && txt(x)).length;
   return {readable: true, n_new_top: fresh.length, n_visible: fresh.filter(vis).length,
           elements: fresh.slice(0, 10).map(el => {
-            const r = el.getBoundingClientRect(), lv = leaves(el);
+            const r = el.getBoundingClientRect();
             return {tag: el.tagName.toLowerCase(), role: el.getAttribute('role') || '',
                     cls: (typeof el.className === 'string' ? el.className : '').split(/\s+/)
                            .filter(t => t && t.length < 24).map(mask).slice(0, 6),
                     w: Math.round(r.width), h: Math.round(r.height), visible: vis(el),
-                    n_leaves: lv.length, leaves: lv.slice(0, 5)};
+                    n_leaves: leafCount(el)};
           })};
 }
 """
@@ -3891,9 +3890,11 @@ class DXtradeAdapter(PropPlatformAdapter):
                     if left.get("readable") is True and left.get("n_visible") == 0:
                         r["panel_open"] = False
                         r["closed_via"] = "escape_nothing_left"
+                    after = ("recovered: nothing unidentified left visible, restore allowed"
+                             if r.get("closed_via") == "escape_nothing_left" else
+                             f"NOT recovered: unidentified element(s) still visible: {left.get('n_visible')}")
                     out["alerts"].append(f"{sym}: {panel.get('why') or 'no panel'}; aborted before any "
-                                         f"close click; Escape pressed (unidentified element(s) still "
-                                         f"visible: {left.get('n_visible')})")
+                                         f"close click; Escape pressed, {after}")
                     return out
                 # A dialog-typed panel is accepted only when it passes the
                 # identity checks AND reads nothing like an order
