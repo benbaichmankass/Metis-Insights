@@ -53,7 +53,7 @@ LEVERS (``--variants a,b,c --out-dir DIR``; diagnostics for choosing how the bro
   ``headed`` (a real window; needs a display, xvfb on the runner). Each lever is a fresh browser and writes its own
   ``probe-result-<variant>.json`` carrying ``variant``; per-host records add ``challenge_kind`` (``none`` /
   ``js_or_managed`` / ``interactive_widget`` / ``other``: a Turnstile widget is only OBSERVED, never clicked),
-  ``cf_clearance_set`` (cookie NAME presence only) and, in proxy mode, ``exit_country`` / ``exit_colo`` read from
+  ``cf_clearance_set`` (cookie NAME presence only) and, in proxy mode, ``exit_country`` (the ``loc=`` value only) read from
   Cloudflare's trace page (the ``ip=`` line on it is never kept). ``--evaluate --variant NAME`` judges one lever at a
   time (results with no ``variant`` are ``baseline``), so the PASS rule is unchanged. NOT built, on purpose: any option
   that HIDES automation (webdriver / User-Agent overrides, AutomationControlled): that needs an operator decision.
@@ -264,18 +264,17 @@ def _lookup_org(page, PlaywrightError, secrets):
 
 
 def _lookup_trace(page, PlaywrightError, secrets):
-    """Exit country/colo through the proxy from Cloudflare's own trace page. ONLY the two-letter ``loc`` and the
-    three-letter ``colo`` are kept: the page also prints the address (``ip=``), which is never stored or printed."""
+    """Exit country through the proxy from Cloudflare's own trace page. ONLY the two-letter ``loc=`` value is kept:
+    the page also prints the address (``ip=``) and more, which are never stored or printed."""
     try:
         resp = page.goto(TRACE_URL, wait_until="domcontentloaded", timeout=30_000)
         text = page.inner_text("body") or ""
     except PlaywrightError:
-        return "unknown", "unknown"
+        return "unknown"
     if resp is None or resp.status != 200:
-        return "unknown", "unknown"
+        return "unknown"
     loc = re.search(r"^loc=([A-Z]{2})$", text, re.M)
-    colo = re.search(r"^colo=([A-Z]{3})$", text, re.M)
-    return (loc.group(1) if loc else "unknown"), (colo.group(1) if colo else "unknown")
+    return loc.group(1) if loc else "unknown"
 
 
 def _is_challenge_title(title: str) -> bool:
@@ -340,7 +339,8 @@ def _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result):
             for sec in range(1, int(cfg["wait_s"]) + 1):  # keep watching: a JS/managed challenge often clears by itself
                 page.wait_for_timeout(1_000)
                 title, markers, login, widget, body = _observe(page, secrets)
-                if login and not _is_challenge_title(title):
+                cleared = any(c.get("name") == "cf_clearance" for c in ctx.cookies())  # name only, never the value
+                if (login or cleared) and not _is_challenge_title(title):
                     rec["cleared_after_s"] = 5 + sec
                     break
             if last_nav.get("status"):
@@ -396,7 +396,7 @@ def run_probe(spec, now=None, urls=URLS, variant="baseline"):
             try:
                 state, org, token = _lookup_org(page, PlaywrightError, secrets)
                 if state == "ok":
-                    result["exit_country"], result["exit_colo"] = _lookup_trace(page, PlaywrightError, secrets)
+                    result["exit_country"] = _lookup_trace(page, PlaywrightError, secrets)
             finally:
                 ctx.close()
             result["proxy_state"], result["egress_org"] = state, org
@@ -422,7 +422,7 @@ def print_result(result: dict) -> None:
     if result.get("variant"):
         print(f"variant={result['variant']}")
     if result.get("exit_country"):
-        print(f"exit_country={result['exit_country']} exit_colo={result.get('exit_colo', 'unknown')}")
+        print(f"exit_country={result['exit_country']}")
     for host, rec in result["hosts"].items():
         print(f"--- {host}")
         print(f"  http_status={rec['http_status'] or 'none'}")
@@ -448,7 +448,7 @@ def print_summary(results: list) -> None:
     for r in results:
         app = (r.get("hosts") or {}).get(APP_HOST, {})
         cleared = app.get("cleared_after_s")
-        print(f"variant={r.get('variant', 'baseline')} proxy_state={r['proxy_state']} exit={r.get('exit_country', 'n/a')}/{r.get('exit_colo', 'n/a')}"
+        print(f"variant={r.get('variant', 'baseline')} proxy_state={r['proxy_state']} exit={r.get('exit_country', 'n/a')}"
               f" org={r['egress_org']} | app: first={app.get('first_http_status') or 'none'}"
               f"{'/' + app['first_cf_mitigated'] if app.get('first_cf_mitigated') else ''}"
               f" final={app.get('http_status') or 'none'} cleared_after_s={cleared if cleared is not None else 'never'}"

@@ -590,8 +590,9 @@ def test_exit_country_is_read_and_the_address_is_never_kept(world, monkeypatch, 
     world.routes[APP], world.routes[WSS] = served(), served()
     code, text, out = run_main(monkeypatch, tmp_path, capsys, RAW_URL)
     r = json.loads(out.read_text())
-    assert r["exit_country"] == "US" and r["exit_colo"] == "EWR"
-    assert "203.0.113.77" not in text and "203.0.113.77" not in out.read_text()
+    assert r["exit_country"] == "US" and "exit_colo" not in r
+    for kept in (text, out.read_text()):   # ONLY loc= is kept: not ip=, not colo=, not the user-agent line
+        assert "203.0.113.77" not in kept and "EWR" not in kept and "uag" not in kept
     assert "exit_country=US" in text
 
 
@@ -738,8 +739,21 @@ def test_workflow_takes_a_variants_input_and_judges_the_first_lever():
     assert '--variants "${VARIANTS:-baseline}"' in probe_step["run"] and "xvfb-run -a" in probe_step["run"]
     assert probe_step["env"]["VARIANTS"] == "${{ inputs.variants }}"          # via env: never interpolated into the command
     ev = next(x for x in steps if "--evaluate prior" in x.get("run", ""))["run"]
-    assert '--variant "${eval_variant}"' in ev and "${VARIANTS%%,*}" in ev
+    assert '--variant "${eval_variant}"' in ev and "eval_variant=baseline" in ev   # the rule counts ONLY the default variant
+    assert "VARIANTS" not in next(x for x in steps if "--evaluate prior" in x.get("run", "")).get("env", {})
     assert "probe-out/*.json" in json.dumps(steps)
     # the pull_request job is the direct measurement: unchanged, no secret, no variants
     pr_job = json.dumps(wf["jobs"]["probe"])
     assert "EGRESS_PROBE_PROXY" not in pr_job and "--variants" not in pr_job and "secrets." not in pr_job
+
+
+def test_a_clearance_cookie_also_ends_the_wait_once_the_challenge_page_is_gone(world, monkeypatch, tmp_path, capsys):
+    """Some post-challenge pages have no login form we recognise: a cf_clearance cookie plus a non-challenge title is 'cleared'."""
+    world.routes["https://ipinfo.io/org"] = {"body": ORG}
+    page = challenged(clears_after_ms=12_000)
+    page["then"] = {"status": 200, "headers": {"server": "cloudflare"}, "title": "Breakout", "body": "welcome", "login": False}
+    world.routes[APP], world.routes[WSS] = page, served()
+    world.cookies = [{"name": "cf_clearance", "value": "V"}]
+    _, _, d = run_variants(monkeypatch, tmp_path, capsys, "wait")
+    app = load(d, "wait")["hosts"]["app.breakoutprop.com"]
+    assert app["cleared_after_s"] == 12 and app["login_form_rendered"] is False and app["cf_clearance_set"] is True
