@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "the operator has answered whether to park HyroTrader, buy the $59 challenge, or commission a further pre-registered unit, and the answer is recorded",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-HYRO502R-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "research/results/RQ-20260930-502/36732222189.jsonl",
+    "rerun": "Read research/results/RQ-20260930-50{1,2,3,4}/ records and the verdict.json of each run under comms/research/; confirm the 501 PASS, 502/503/504 FAIL verdicts still stand and whether the operator has decided."
+  },
+  "state": "done",
+  "terminal_reason": "Operator decision 2026-09-30, verbatim popup answer: \"Park it (Recommended)\". HyroTrader is PARKED; nothing purchased, no hyro_1 wiring. Reopen conditions are carried by the parked row PI-20260930-HYRO502P-0001.",
+  "what": "HYRO-STRATS outcome for the operator's HyroTrader decision: RQ-20260930-501 PASS (15m ict_scalp book at market, best-case no flagged fills), RQ-20260930-502 FAIL (same book with post-only limit entries; gate B seed 3 = 0.2293 vs 0.25, other seeds 0.2753/0.2687; mean 0.258; fill rate 0.9887; gate C passes), RQ-20260930-503 FAIL (day-flat 1h trend, gate B 0.119-0.134, gate C 0.055-0.060), RQ-20260930-504 FAIL (no confirmed short-timeframe cell). No registered PASS survives the demo-realism flagged-fill exposure (501 with half the fills flagged: P(both) 0.019). Decision for the operator: park HyroTrader, or buy the $59 challenge knowing the evidence is marginal at best. A further unit is owed only if the operator wants one; see docs/research/hyro-strategy-feasibility-2026-09-30.md section 7 for the options."
+}
