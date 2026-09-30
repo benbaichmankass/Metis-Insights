@@ -38,6 +38,17 @@ def test_action_and_workflow_accept_the_mode():
     assert wf.count("|instrument-search-dump|") == 2
 
 
+def test_tick_prints_rows_farthest_first_and_the_summary_last(capsys):
+    from scripts.prop.prop_executor_tick import emit_search_dump
+    emit_search_dump({"frames": [{"frame": 0, "found": True, "n_rows": 2,
+                                  "rows": [{"kind": "field", "placeholder": "near"},
+                                           {"kind": "field", "placeholder": "far"}]}]}, "s3cret")
+    lines = [json.loads(ln) for ln in capsys.readouterr().out.splitlines()]
+    assert [ln.get("search_dump_row", {}).get("placeholder") for ln in lines[:2]] == ["far", "near"]
+    assert lines[1]["search_dump_row"]["rank"] == 0
+    assert "rows" not in lines[2]["instrument_search_dump"] and lines[2]["instrument_search_dump"]["n_rows"] == 2
+
+
 def test_js_never_reads_a_value_or_acts():
     # Static backstop for the contract the browser test checks dynamically.
     js = INSTRUMENT_SEARCH_DUMP_JS
@@ -48,7 +59,7 @@ def test_js_never_reads_a_value_or_acts():
 
 FIXTURE = """<html><body>
 <div class="app">
-  <div class="wl-toolbar">
+  <div class="wl-toolbar watchlist-toolbar-container-outer">
     <input class="padding address" placeholder="Search instruments" data-test-id="wl_search" value="ALREADYTYPED">
     <button class="icon-btn" title="Add"><svg><use href="#icon-plus"></use></svg></button>
     <div class="padding address">not a control</div>
@@ -143,6 +154,18 @@ def test_dump_never_reads_values_or_the_ticket_and_changes_nothing(dump):
     assert before == after
     assert p.evaluate("window.__clicks") is None and p.evaluate("window.__focus") is None
     assert p.evaluate("document.querySelector('[data-test-id=wl_search]').value") == "ALREADYTYPED"
+
+
+def test_dump_survives_the_public_log_redactor_intact(dump):
+    # redact_text replaces any 24+ [A-Za-z0-9_-.=+/] run with "<token>"; a
+    # long CSS class or a dotted ancestor descriptor must reach the log as a
+    # readable prefix, not be erased by it.
+    from src.prop.platform.dxtrade import redact_text
+    _, got, _, _ = dump
+    blob = json.dumps(got)
+    assert redact_text(blob) == blob
+    search = next(r for r in got["frames"][0]["rows"] if r["data_test_id"] == "wl_search")
+    assert any(".watchlist-toolba\u2026" in c or ".watchlist-toolba…" in c for c in search["chain"])
 
 
 def test_dump_still_runs_document_wide_when_the_panel_does_not_resolve(browser):

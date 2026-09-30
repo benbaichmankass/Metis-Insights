@@ -1618,7 +1618,7 @@ CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 # name, class, rounded rect, whether it sits INSIDE the resolved watchlist
 # panel, how many ancestor levels above that panel first contain it
 # (``wl_level``, the "near" measure), and its ancestor chain with class names.
-# Sorted nearest-first, capped at MAX rows.
+# Sorted nearest-first, capped at MAX (50) rows so the run log's tail keeps it.
 #
 # What it NEVER does: read an input's value, read the text of an editable
 # control (only its length), type, click, focus, scroll, or tag anything. It
@@ -1628,10 +1628,16 @@ CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 # e-mails are masked in every string it returns.
 INSTRUMENT_SEARCH_DUMP_JS = r"""
 () => {
-  const MAX = 80, CHAIN = 8;
+  const MAX = 50, CHAIN = 6;
+  // Any 24+ run of [A-Za-z0-9_-.=+/] is cut to a 16-char prefix + an
+  // ellipsis HERE, because the run-log redactor (redact_text's
+  // _TOKENISH_RE) would otherwise replace a long CSS class name with
+  // "<token>" and erase the very measurement this dump exists for. A real
+  // token never survives whole; the redactor itself is left unchanged.
   const mask = (v, n) => (typeof v === 'string' && v.trim())
     ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
-        .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, n || 60) : null;
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length))
+        .replace(/[A-Za-z0-9_\-.=+\/]{24,}/g, m => m.slice(0, 16) + '\u2026').slice(0, n || 60) : null;
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const clsOf = el => (typeof el.className === 'string' ? el.className
@@ -1701,24 +1707,29 @@ INSTRUMENT_SEARCH_DUMP_JS = r"""
   }
   const inOrderPanel = el => orderPanels.some(p => p.contains(el));
 
+  // Space-separated parts ("div #id .a .b [role=x] [tid=y]"), never one
+  // dotted run the redactor would read as a token.
   const desc = e => {
-    let s = e.tagName.toLowerCase();
-    if (e.id) s += '#' + mask(e.id, 30);
-    const cls = clsOf(e).split(/\s+/).filter(Boolean).slice(0, 4).map(c => c.slice(0, 30));
-    if (cls.length) s += '.' + cls.join('.');
-    const role = e.getAttribute('role'); if (role) s += `[role=${mask(role, 20)}]`;
-    const tid = e.getAttribute('data-test-id'); if (tid) s += `[data-test-id=${mask(tid, 30)}]`;
-    if (e === panel) s += ' <WATCHLIST_PANEL>';
-    return s;
+    const parts = [e.tagName.toLowerCase()];
+    if (e.id) parts.push('#' + mask(e.id, 30));
+    for (const c of clsOf(e).split(/\s+/).filter(Boolean).slice(0, 3)) parts.push('.' + mask(c, 30));
+    const role = e.getAttribute('role'); if (role) parts.push(`[role=${mask(role, 20)}]`);
+    const tid = e.getAttribute('data-test-id'); if (tid) parts.push(`[tid=${mask(tid, 30)}]`);
+    if (e === panel) parts.push('<WATCHLIST_PANEL>');
+    return parts.join(' ');
   };
   const chain = el => {
     const out = [];
     for (let e = el.parentElement; e && e !== document.body && out.length < CHAIN; e = e.parentElement) out.push(desc(e));
     return out;
   };
+  // An icon's href keeps only its #fragment (a sprite id): a path or query
+  // is never read.
+  const frag = h => (h && h.includes('#')) ? '#' + h.split('#').pop() : null;
   const iconAttrs = el => [...el.querySelectorAll('svg, use, i, img, [class*=icon], [class*=Icon]')].slice(0, 4)
     .map(i => [clsOf(i), i.getAttribute('aria-label'), i.getAttribute('title'), i.getAttribute('data-test-id'),
-               i.getAttribute('href'), i.getAttribute('xlink:href'), i.getAttribute('alt')].filter(Boolean).join(' '))
+               frag(i.getAttribute('href')), frag(i.getAttribute('xlink:href')), i.getAttribute('alt')]
+               .filter(Boolean).join(' '))
     .join(' ');
 
   const kindOf = el => {
@@ -1783,7 +1794,7 @@ INSTRUMENT_SEARCH_DUMP_JS = r"""
   return {found: true, panel: panelInfo, panel_why: panelWhy, n_rows: rows.length,
           truncated: rows.length > MAX, rows: rows.slice(0, MAX),
           excluded_order_panel: nOrder, excluded_personal: nPersonal, hidden_in_panel: nHiddenInPanel,
-          order_panel_contains_watchlist: !!(panel && orderPanels.some(p => p.contains(panel))),
+          ticket_holds_watchlist: !!(panel && orderPanels.some(p => p.contains(panel))),
           n_iframes: document.querySelectorAll('iframe').length, n_shadow_hosts: shadowHosts,
           n_elements: all.length};
 }

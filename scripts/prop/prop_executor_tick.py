@@ -121,6 +121,18 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     return base
 
 
+def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
+    """Print an ``instrument_search_dump`` result one row per line, FARTHEST
+    first, then each frame's summary last: a run log read from its tail keeps
+    the nearest rows and the summary if it is cut."""
+    for fr in dump.get("frames") or []:
+        fr = dict(fr)
+        rows = fr.pop("rows", None) or []
+        for i in range(len(rows) - 1, -1, -1):
+            emit({"search_dump_row": {"frame": fr.get("frame"), "rank": i, **rows[i]}}, *secrets)
+        emit({"instrument_search_dump": fr}, *secrets)
+
+
 def _code_sha() -> str:
     """The commit this tick runs from, so a run log proves WHICH code ran
     (three dry runs on 2026-09-29 could not tell a deploy lag from a wrong
@@ -259,7 +271,7 @@ def main(argv: Optional[list] = None) -> int:
                 return EXIT_OK
 
             if mode == "instrument_search_dump":
-                emit({"instrument_search_dump": adapter.instrument_search_dump(page)}, *secrets)
+                emit_search_dump(adapter.instrument_search_dump(page), *secrets)
                 return EXIT_OK
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
