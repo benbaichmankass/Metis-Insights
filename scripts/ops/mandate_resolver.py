@@ -202,6 +202,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import subprocess
 import sys
@@ -948,7 +949,21 @@ def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
 
 
 def _num(v: Any) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool)
+    """A real, FINITE number. ⚠️ NaN and inf are rejected on purpose: every bar
+    comparison in this module is written `x < cap` / `x > cap`, which is False
+    for NaN, so a NaN that reached one would PASS it. json round-trips NaN, so a
+    corpus row can carry one. Non-finite is "we could not read it", never a pass."""
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _fin(v: Any) -> float:
+    """float(v), or ValueError if it is not a finite real number."""
+    if isinstance(v, bool):
+        raise ValueError("bool is not a number")
+    f = float(v)
+    if not math.isfinite(f):
+        raise ValueError(f"non-finite: {v!r}")
+    return f
 
 
 def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
@@ -1126,6 +1141,36 @@ def _leg_rows(root: Path, leg: str) -> List[Dict[str, Any]]:
     return rows
 
 
+def _rank_key(r: Dict[str, Any]) -> tuple:
+    """B4's rule, stated in advance and carried by the mandate: highest
+    `wf_wins_effective`, tie-break `d_net_r`. A non-finite value ranks LAST (it is
+    "could not read", not a big number), and a residual tie goes to the
+    lexicographically smallest cell name so the choice is a total order, not an
+    accident of file order."""
+    def f(v: Any) -> float:
+        return float(v) if _num(v) else float("-inf")
+    return (-f(r.get("wf_wins_effective")), -f(r.get("d_net_r")), str(r.get("cell")))
+
+
+def select_cells(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """leg -> the ONE top-ranked pure-stop `path_b_wf_pass` cell (its newest row).
+    Single-homed here so the resolver and the runner cannot disagree."""
+    newest: Dict[tuple, Dict[str, Any]] = {}
+    for r in rows:
+        if (r.get("gate_verdict") != PATHB_VERDICT or r.get("axis") != "stop"
+                or r.get("timeout") is not None or r.get("tp_r") is not None):
+            continue
+        k = (r.get("leg"), r.get("cell"))
+        if k not in newest or str(r.get("sweep_generated_at") or "") > str(
+                newest[k].get("sweep_generated_at") or ""):
+            newest[k] = r
+    best: Dict[str, Dict[str, Any]] = {}
+    for (leg, _cell), r in newest.items():
+        if leg not in best or _rank_key(r) < _rank_key(best[leg]):
+            best[leg] = r
+    return best
+
+
 def timeout_binding(root: Path, leg: str) -> Dict[str, Any]:
     """Does the harness's timeout force-close CONTAMINATE this leg's verdicts?
 
@@ -1281,12 +1326,20 @@ def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed:
                                       f"{sorted(EXIT_CELL_COST_COMPLETE_FAMILIES)}, the harnesses verified to "
                                       "resolve slippage/funding through the venue-aware policy")
     if row.get("gate_path") != "B" or row.get("axis") != "stop" or row.get("timeout") is not None \
-            or row.get("tp_r") is not None or row.get("stop_mult") is None:
+            or row.get("tp_r") is not None or not _num(row.get("stop_mult")):
         raise _Refuse("R-CELL-SHAPE", "the mandate covers a pure stop-multiplier cell "
                                       "(axis=stop, gate_path=B, no tp_r, no timeout -- no live unit "
                                       f"implements a bar-count exit); got axis={row.get('axis')!r} "
                                       f"path={row.get('gate_path')!r} tp_r={row.get('tp_r')!r} "
                                       f"timeout={row.get('timeout')!r}")
+
+    # -- clause 2a: ONE cell per leg per fire, the top-ranked (B4, as granted) ----
+    top = select_cells(_leg_rows(root, leg)).get(leg)
+    ev["top_cell"] = top.get("cell") if top else None
+    if top is None or top.get("cell") != cell:
+        raise _Refuse("R-NOT-TOP-CELL", f"{cell} is not this leg's top-ranked gate-passing cell "
+                                        f"({ev['top_cell']!r}; highest wf_wins_effective, tie-break d_net_r): "
+                                        "one cell per leg per fire, chosen by the stated rule")
 
     # -- clause 2b: timeout-binding contamination (operator bound, 2026-09-30) --
     tb = timeout_binding(root, leg)
@@ -1304,8 +1357,8 @@ def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed:
 
     # -- clause 3: both windows, net R and capital efficiency ---------------
     try:
-        d_is, d_oos = float(row["gate_is_d_net_r"]), float(row["gate_oos_d_net_r"])
-        cap_pd = float(row["capital_oos_d_net_r_per_capital_day"])
+        d_is, d_oos = _fin(row["gate_is_d_net_r"]), _fin(row["gate_oos_d_net_r"])
+        cap_pd = _fin(row["capital_oos_d_net_r_per_capital_day"])
     except (KeyError, TypeError, ValueError):
         raise _NeedsData("R-RECORD-MISSING", "IS/OOS d_net_r or capital_oos d_net_r_per_capital_day unreadable",
                          _exit_cell_data_task(leg, cell, "window deltas unreadable", "all three fields present"))
@@ -1333,8 +1386,8 @@ def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed:
 
     # -- clause 5: drawdown --------------------------------------------------
     try:
-        n_b, d_b = float(row["base_net_total_r"]), float(row["base_max_drawdown_r"])
-        dn, dd = float(row["d_net_r"]), float(row["d_max_dd"])
+        n_b, d_b = _fin(row["base_net_total_r"]), _fin(row["base_max_drawdown_r"])
+        dn, dd = _fin(row["d_net_r"]), _fin(row["d_max_dd"])
     except (KeyError, TypeError, ValueError):
         raise _NeedsData("R-DRAWDOWN", "base/cell net_R or maxDD unreadable",
                          _exit_cell_data_task(leg, cell, "drawdown fields unreadable", "fields present"))
@@ -1378,6 +1431,30 @@ def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed:
         "pr_title": f"{mid}: {leg} atr_stop_mult {cur} -> {row['stop_mult']} (cell {cell})",
         "then": "ping in realtime; show the evidence in §1 of the next daily brief",
     }
+
+
+def file_exit_cell_needs_data(entries: List[Dict[str, Any]], clause: str, session_ref: str,
+                              store: Path = pipeline.STORE) -> Optional[str]:
+    """ONE pipeline row per NEEDS-DATA *clause* (not per leg: nine legs sharing
+    R-BASE-N are one cause), skipped when an OPEN row already names this mandate
+    and that clause -- PI-20260930-39SDYWCO-0002 covers R-BASE-N today. Single-homed
+    here; the CLI and scripts/ops/exit_cell_runner.py both call it."""
+    for it in pipeline.load(store).items.values():
+        w = str(it.get("what") or "")
+        if it.get("state") in pipeline.OPEN_STATES and EXIT_CELL_MANDATE_ID in w and clause in w:
+            return None
+    legs = ", ".join(f"{e['leg']}:{e['cell']}" for e in entries)
+    task = entries[0]["result"].get("data_task") or {}
+    rerun = "python3 scripts/ops/exit_cell_runner.py --json"
+    item = {"id": pipeline.mint_id(session_ref, store=store),
+            "what": f"{EXIT_CELL_MANDATE_ID}: {len(entries)} cell(s) are NEEDS-DATA at {clause} -- "
+                    f"{task.get('what') or entries[0]['detail']} [{legs}]",
+            "origin": {"kind": "session", "ref": session_ref, "rerun": rerun},
+            "due_when": {"kind": "observation",
+                         "clears_when": f"{rerun} lists no cell NEEDS-DATA at {clause}",
+                         "check_every_days": task.get("check_every_days", 7)},
+            "next_action": task.get("next_action", "dispatch_lane"), "state": "queued"}
+    return pipeline.append(item, store, intent="new")["id"]
 
 
 # --------------------------------------------------------------------------
@@ -1450,12 +1527,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         res = resolve_exit_cell(a.leg, a.exit_cell, root=Path(a.root),
                                 mandate_id=a.mandate or EXIT_CELL_MANDATE_ID,
                                 allow_proposed=a.dry_proposed)
+        if res["verdict"] == NEEDS_DATA and a.file_needs_data:
+            pid = file_exit_cell_needs_data(
+                [{"leg": a.leg, "cell": a.exit_cell, "detail": res["detail"], "result": res}],
+                res["clause"], a.file_needs_data)
+            print(f"needs-data row: {pid or 'none filed (an open row already names this clause)'}",
+                  file=sys.stderr)
     elif not (a.frm and a.to and a.account):
         ap.error("--from, --to and --account are required unless --exit-cell is given")
     else:
         res = resolve(a.leg, a.frm, a.to, a.account, root=Path(a.root), mandate_id=a.mandate)
     filed = None
-    if res["verdict"] == NEEDS_DATA and a.file_needs_data and not a.exit_cell:
+    if res["verdict"] == NEEDS_DATA and a.file_needs_data and not a.exit_cell:  # exit-cell files above
         filed = file_needs_data(res, a.file_needs_data)
     if a.json:
         out = dict(res)

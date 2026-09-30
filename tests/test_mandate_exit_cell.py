@@ -22,6 +22,7 @@ sys.path.insert(0, str(REPO / "scripts" / "ops"))
 import mandate_resolver as mr  # noqa: E402
 
 MID = mr.EXIT_CELL_MANDATE_ID
+NAN, INF = float("nan"), float("inf")
 LEG, CELL = "spy_pullback_1h", "sm1.5"
 
 # spy_pullback_1h sm1.5, the fields #14332 cleared on (docs/research/e35-bracket-corpus.jsonl,
@@ -107,6 +108,42 @@ def test_the_grant_must_state_the_bound(tmp_path):
     assert (r["verdict"], r["clause"]) == (mr.REFUSE, "R-MANDATE-NOT-GRANTED")
 
 
+def test_only_the_top_ranked_cell_can_fire(tmp_path):
+    """B4, as granted: ONE cell per leg per fire. A lower-ranked cell that clears every
+    other clause is still REFUSED, so two cells for one leg can never both FIRE."""
+    other = dict(ROW, cell="sm2", stop_mult=2.0, wf_wins_effective=6, d_net_r=10.0)   # more folds: outranks sm1.5
+    root = _build(tmp_path, rows=[dict(ROW), other])
+    r = mr.resolve_exit_cell(LEG, CELL, root=root, allow_proposed=True)
+    assert (r["verdict"], r["clause"]) == (mr.REFUSE, "R-NOT-TOP-CELL") and r["evidence"]["top_cell"] == "sm2"
+    top = mr.resolve_exit_cell(LEG, "sm2", root=root, allow_proposed=True)
+    assert top["clause"] != "R-NOT-TOP-CELL"
+
+
+def test_tie_break_is_d_net_r_then_cell_name_and_nan_ranks_last():
+    rows = [dict(ROW, cell="a", wf_wins_effective=5, d_net_r=1.0),
+            dict(ROW, cell="b", wf_wins_effective=5, d_net_r=2.0),
+            dict(ROW, cell="c", wf_wins_effective=5, d_net_r=2.0),
+            dict(ROW, cell="d", wf_wins_effective=NAN, d_net_r=99.0)]
+    assert mr.select_cells(rows)[LEG]["cell"] == "b"            # d_net_r, then smallest name
+    assert mr.select_cells(rows[:1] + rows[3:])[LEG]["cell"] == "a"   # NaN wf loses to a real 5
+
+
+def test_cli_files_needs_data_once_per_clause(tmp_path, monkeypatch, capsys):
+    import pipeline
+    store = tmp_path / "pl"
+    monkeypatch.setattr(pipeline, "STORE", store)
+    monkeypatch.setattr(mr, "file_exit_cell_needs_data",
+                        lambda e, c, ref, st=store, _f=mr.file_exit_cell_needs_data: _f(e, c, ref, st))
+    root = _build(tmp_path / "r", rows=[])
+    args = ["--leg", LEG, "--exit-cell", CELL, "--root", str(root), "--dry-proposed",
+            "--file-needs-data", "session_cli"]
+    assert mr.main(args) == 3
+    assert "needs-data row: PI-" in capsys.readouterr().err
+    assert mr.main(args) == 3
+    assert "none filed" in capsys.readouterr().err
+    assert len(pipeline.load(store).items) == 1
+
+
 def test_dry_fire_is_the_positive_control_and_says_it_authorizes_nothing(tmp_path):
     r = _run(tmp_path)
     assert r["verdict"] == mr.FIRE and r["authorized"] is False
@@ -159,6 +196,23 @@ def test_soak_only_refuses(tmp_path, accounts, why):
     ({"base_net_total_r": -1.0}, "R-DRAWDOWN", mr.REFUSE),
     ({"leverage": {"leverage_multiple": 2.5}}, "R-LEVERAGE", mr.REFUSE),
     ({"leverage": {"leverage_multiple": None}}, "R-LEVERAGE", mr.NEEDS_DATA),
+    # Non-finite evidence is "could not read", never a pass: `x < cap` is False for NaN.
+    ({"base_oos_trades": NAN}, "R-BASE-N", mr.NEEDS_DATA),
+    ({"wf_usable": NAN}, "R-FOLDS", mr.NEEDS_DATA),
+    ({"wf_wins_effective": NAN}, "R-FOLDS", mr.NEEDS_DATA),
+    ({"wf_wins_effective": INF}, "R-FOLDS", mr.NEEDS_DATA),
+    ({"d_max_dd": NAN}, "R-DRAWDOWN", mr.NEEDS_DATA),
+    ({"d_max_dd": INF}, "R-DRAWDOWN", mr.NEEDS_DATA),
+    ({"base_max_drawdown_r": NAN}, "R-DRAWDOWN", mr.NEEDS_DATA),
+    ({"base_net_total_r": NAN}, "R-DRAWDOWN", mr.NEEDS_DATA),
+    ({"d_net_r": INF}, "R-DRAWDOWN", mr.NEEDS_DATA),
+    ({"d_net_r": NAN}, "R-DRAWDOWN", mr.NEEDS_DATA),
+    ({"gate_is_d_net_r": NAN}, "R-RECORD-MISSING", mr.NEEDS_DATA),
+    ({"gate_oos_d_net_r": INF}, "R-RECORD-MISSING", mr.NEEDS_DATA),
+    ({"capital_oos_d_net_r_per_capital_day": NAN}, "R-RECORD-MISSING", mr.NEEDS_DATA),
+    ({"leverage": {"leverage_multiple": NAN}}, "R-LEVERAGE", mr.NEEDS_DATA),
+    ({"leverage": {"leverage_multiple": INF}}, "R-LEVERAGE", mr.NEEDS_DATA),
+    ({"stop_mult": NAN}, "R-CELL-SHAPE", mr.REFUSE),
 ])
 def test_each_clause_breaks_alone(tmp_path, row, clause, verdict):
     r = _run(tmp_path, row=row)
