@@ -806,7 +806,10 @@ def test_place_bracket_armed_clicks_submit_exactly_once(tpage):
 def test_place_bracket_refuses_a_form_for_another_symbol(tpage):
     p = tpage(html=(TICKET_PAGE % "").replace('<div class="hdr">SOLUSD</div>', '<div class="hdr">SOLUSDX</div>'))
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
-    assert att.stage == "refused" and "does not name" in att.detail
+    # Since the per-ticket symbol switch (PROP-ETH-DOM 2026-09-30): a form for
+    # another symbol first tries to link the ticket's symbol; this page has no
+    # watchlist, so the switch refuses -- still refused, still never submitted.
+    assert att.stage == "refused" and att.detail.startswith("symbol switch:")
     assert p.evaluate("window.__submits") is None
 
 
@@ -1725,7 +1728,8 @@ def test_measured_sidebar_refuses_another_symbol(tpage):
     p = tpage(html=_measured(sym="ETHUSD", symval="ETHUSD"))
     spec = BracketSpec("t3", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
-    assert att.stage == "refused" and "does not name SOLUSD" in att.detail
+    # the per-ticket switch refuses first (no watchlist on this page); never submitted
+    assert att.stage == "refused" and att.detail.startswith("symbol switch:")
     assert p.evaluate("window.__submits") is None
 
 
