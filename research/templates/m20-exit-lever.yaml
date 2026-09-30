@@ -2,6 +2,7 @@ family: m20-exit-lever
 weight: 25
 kind: experiment
 cadence: monthly
+priority: 60
 title: "M20 exit-lever sweep: {leg} (generated, monthly)"
 question: >-
   Which hard exit levers (stale_stop, giveback_stop, trail_geometry,

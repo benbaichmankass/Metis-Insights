@@ -2,6 +2,7 @@ id: RQ-20260929-105
 title: 'Stage-0 backtest: pairs harness on GLD/GDX 1d (pairs family has bybit-crypto history, zero alpaca-ETF history)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

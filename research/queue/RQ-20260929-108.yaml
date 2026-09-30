@@ -2,6 +2,7 @@ id: RQ-20260929-108
 title: 'Stage-0 backtest: orb harness on ETHUSDT 5m (harness with zero live-roster or queue history; fee-only cost stack)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

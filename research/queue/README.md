@@ -115,6 +115,7 @@ title: ...
 question: >-                 # what is being asked, BEFORE it runs
 status: queued               # queued | running | done | blocked | retired
 cadence: once                # once | daily | weekly | monthly
+priority: 100                # OPTIONAL int 0..1000, LOWER fires first; default 100. See "Priority".
 kind: experiment             # experiment | deterministic
 
 # kind: experiment → required
@@ -193,6 +194,23 @@ lands:                       # R2 — a run's deliverable is a LANDED result
 
 last_dispatched_at: null     # stamped by the dispatcher; drives cadence
 ```
+
+## Priority
+
+The dispatcher fires in **`(priority, id)`** order, lower first. Until 2026-09-30
+it was pure FIFO by id (`load_queue` sorts files), and a cycle fires at most 3
+units (`--max-research-inflight 3`; the cron is every 6 h and a firing run takes
+~1-1.5 h, most of it waiting on the stamp/result landing PRs), so the newest ids
+waited behind every older one. `priority:` is optional (default **100**); the
+operator's 2026-09-30 band order is: **10** regime · **20** live-strategy
+improvements · **30** ML health · **40** new strategies / prop fit · **60**
+macro and monthly/weekly re-sweeps (recurring E35/M20/walk-forward units, which
+are re-validation rather than new questions). Replenisher templates
+(`research/templates/*.yaml`) carry `priority:` and pass it to generated units.
+
+A **session-bound** unit (`run.workflow` is prose, not a `*.yml`) is reported
+`not_due` ("session-bound"), never fired: it used to reach `_fire`, fail with
+`dispatch_failed` on every cycle, and turn every firing run red.
 
 ## Running it
 

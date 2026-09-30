@@ -2,6 +2,7 @@ id: RQ-20260927-003
 title: exit-head-for-prop-legs feasibility look (trend_donchian_sol_prop / trend_donchian_eth_prop)
 status: queued
 cadence: once
+priority: 30
 kind: deterministic
 
 question: >-

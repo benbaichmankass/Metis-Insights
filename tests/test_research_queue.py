@@ -1090,3 +1090,54 @@ def test_w4_dispatcher_dry_run_selects_the_unit(unit_id, _wf):
     )
     if row["outcome"] == "would_dispatch":
         assert row["power_state"] == ACCRUING
+
+
+# ── priority: dispatch order is (priority, id), lower first ──────────────────
+def test_priority_orders_dispatch_before_id():
+    from pathlib import Path
+    from scripts.research.research_queue import DEFAULT_PRIORITY, QueueJob, dispatch_order, priority_of
+    def job(i, **kw):
+        return QueueJob(path=Path(f"{i}.yaml"), raw={"id": i, **kw})
+    jobs = [job("RQ-20260901-001"), job("RQ-20260902-001", priority=10),
+            job("RQ-20260903-001", priority=60), job("RQ-20260904-001", priority=10),
+            job("RQ-20260905-001", priority=True), job("RQ-20260906-001", priority="7")]
+    order = [j.id for j in dispatch_order(jobs)]
+    # 10s (by id), then 60, then undeclared/malformed at the default 100 (by id)
+    assert order == ["RQ-20260902-001", "RQ-20260904-001", "RQ-20260903-001",
+                     "RQ-20260901-001", "RQ-20260905-001", "RQ-20260906-001"]
+    assert priority_of({}) == DEFAULT_PRIORITY == 100
+    assert priority_of({"priority": True}) == DEFAULT_PRIORITY  # bool is not an int here
+
+
+@pytest.mark.parametrize("bad", [True, "10", 1.5, -1, 1001])
+def test_validate_rejects_malformed_priority(bad):
+    entry = _entry()
+    entry["priority"] = bad
+    assert any("priority" in e for e in validate(entry))
+
+
+def test_dispatcher_fires_in_priority_order(tmp_path, monkeypatch, capsys):
+    """A priority-10 unit with a LATER id is listed (and so fired) before an
+    earlier-id unit at the default priority."""
+    import yaml
+    from scripts.research import dispatch_queue
+    base = {"status": "queued", "cadence": "once", "title": "t", "question": "q",
+            "run": {"workflow": "x.yml"}, "lands": {"store": "s"}}
+    (tmp_path / "RQ-20260901-001.yaml").write_text(yaml.safe_dump({**base, "id": "RQ-20260901-001"}))
+    (tmp_path / "RQ-20260902-001.yaml").write_text(yaml.safe_dump({**base, "id": "RQ-20260902-001", "priority": 10}))
+    dispatch_queue.main(["--queue-dir", str(tmp_path), "--json"])
+    import json
+    rows = json.loads(capsys.readouterr().out)["decisions"]
+    assert [r["id"] for r in rows] == ["RQ-20260902-001", "RQ-20260901-001"]
+    assert [r["priority"] for r in rows] == [10, 100]
+
+
+def test_session_bound_unit_is_not_a_dispatch_failure(tmp_path, capsys):
+    import json, yaml
+    from scripts.research import dispatch_queue
+    u = {"id": "RQ-20260901-001", "status": "queued", "cadence": "once", "title": "t", "question": "q",
+         "run": {"workflow": "none -- session-local"}, "lands": {"store": "s"}}
+    (tmp_path / "RQ-20260901-001.yaml").write_text(yaml.safe_dump(u))
+    rc = dispatch_queue.main(["--queue-dir", str(tmp_path), "--json"])
+    row = json.loads(capsys.readouterr().out)["decisions"][0]
+    assert row["outcome"] == "not_due" and "session-bound" in row["reason"] and rc == 0

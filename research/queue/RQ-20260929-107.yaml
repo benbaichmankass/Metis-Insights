@@ -2,6 +2,7 @@ id: RQ-20260929-107
 title: 'Stage-0 backtest: chop_scalp harness on BTCUSDT 15m (harness with zero live-roster or queue history)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

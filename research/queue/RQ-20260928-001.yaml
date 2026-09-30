@@ -5,6 +5,7 @@ title: >-
   never receive htf_close/htf_ema (CA-A05-001 / JC-CA-02)?
 status: queued
 cadence: once
+priority: 20
 kind: experiment
 
 question: >-

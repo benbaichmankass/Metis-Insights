@@ -2,6 +2,7 @@ family: roster-walkforward
 weight: 15
 kind: experiment
 cadence: weekly
+priority: 60
 title: "Walk-forward re-run of {leg}'s harness on fresh data (generated, weekly)"
 question: >-
   Does {leg} ({symbol} {timeframe}, {harness} harness) still show net-of-cost

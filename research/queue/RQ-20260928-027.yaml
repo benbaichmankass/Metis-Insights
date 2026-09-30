@@ -5,6 +5,7 @@ id: RQ-20260928-027
 title: 'Breakout prop fit: eth_pullback_2h at sizing flat 1.0% of balance under RULE-B6 V2 (generated)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 question: Does eth_pullback_2h (ETHUSDT 2h, Breakout market ETHUSD) clear the operator's prop bar -- E[net
   $ banked before the account dies] > 0 with P(net>0) >= 0.70 on every seed -- under Breakout's own cost

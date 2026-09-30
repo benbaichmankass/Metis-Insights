@@ -6,6 +6,7 @@ why_not_inferential: >-
   produces rows, not a test statistic, and the grading is the M28 scorecard's
   own calibration read on the refreshed rows.
 cadence: monthly
+priority: 60
 title: "M28 valuation snapshot backfill, cadence {cadence_days}d (generated, monthly)"
 question: >-
   Are the M28 point-in-time valuation snapshots complete and current at a

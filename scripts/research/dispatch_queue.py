@@ -42,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.research.research_queue import (  # noqa: E402
     BLOCKED_POWER, BLOCKED_ROUTE, DISPATCHED, DISPATCH_FAILED, GPU, INVALID,
-    NOT_DUE, grade_power, grade_route, load_queue,
+    NOT_DUE, dispatch_order, grade_power, grade_route, load_queue, priority_of,
 )
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -490,6 +490,12 @@ def main(argv: Optional[List[str]] = None) -> int:
               f"This is NOT an empty queue.", file=sys.stderr)
         return 2
 
+    # Fire order is (priority, id), lower first. load_queue returns files sorted
+    # by id, which made this a pure FIFO: a cycle fires at most
+    # --max-research-inflight (3) units, so the newest ids waited behind every
+    # older one no matter how much the operator wanted them.
+    jobs = dispatch_order(jobs)
+
     decisions: List[Dict[str, Any]] = []
     # Backpressure is read ONCE per cycle, then every successful fire counts
     # against the in-flight cap so one cycle cannot fan the whole queue out.
@@ -506,7 +512,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     fired_by_workflow: Dict[str, int] = {}
     for job in jobs:
         entry = job.raw
-        row: Dict[str, Any] = {"id": job.id, "path": _display_path(job.path)}
+        row: Dict[str, Any] = {"id": job.id, "path": _display_path(job.path),
+                               "priority": priority_of(entry)}
 
         if not job.valid:
             row.update(outcome=INVALID, errors=job.errors)
@@ -524,6 +531,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         due, due_reason = _is_due(entry, now)
         if not due:
             row.update(outcome=NOT_DUE, reason=due_reason)
+            decisions.append(row)
+            continue
+
+        # A session-bound note (`run.workflow` is prose, not a workflow file)
+        # can never be fired. Until 2026-09-30 it reached _fire(), returned
+        # DISPATCH_FAILED on EVERY cycle and turned each firing run red
+        # ("Fail the job if grading reported a problem"), while reading as
+        # would_dispatch in a dry run. It is not due for THIS dispatcher.
+        _wf = str((entry.get("run") or {}).get("workflow") or "")
+        if not _wf.endswith((".yml", ".yaml")) or any(ch.isspace() for ch in _wf):
+            row.update(outcome=NOT_DUE,
+                       reason=f"session-bound: run.workflow {_wf[:40]!r} is not a workflow file "
+                              "(retarget to research-script-run.yml to make it dispatchable)")
             decisions.append(row)
             continue
 

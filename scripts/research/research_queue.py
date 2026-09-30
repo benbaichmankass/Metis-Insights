@@ -201,6 +201,26 @@ NOT_DUE = "not_due"
 INVALID = "invalid"
 DISPATCH_FAILED = "dispatch_failed"
 
+#: Dispatch order is (priority, id); LOWER runs first. A unit that declares no
+#: `priority:` gets this, so an unprioritised unit sorts after every deliberate
+#: high-priority one and before deliberate low-priority ones (> 100).
+DEFAULT_PRIORITY = 100
+
+
+def priority_of(entry: Dict[str, Any]) -> int:
+    """The unit's dispatch priority, or DEFAULT_PRIORITY when undeclared or
+    malformed (``validate`` reports the malformed case; ordering must not crash)."""
+    value = entry.get("priority") if isinstance(entry, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int):
+        return DEFAULT_PRIORITY
+    return value
+
+
+def dispatch_order(jobs: List["QueueJob"]) -> List["QueueJob"]:
+    """Jobs sorted by (priority, id). Stable, so the FIFO-by-id order the queue
+    always had is preserved inside a priority band."""
+    return sorted(jobs, key=lambda j: (priority_of(j.raw), j.id))
+
 #: A GitHub runner is 4 cores / 16 GB (measured, § 2 of the architecture doc).
 #: A job declaring more memory than a runner has cannot go there, whatever else
 #: it declares. The trainer is 1 OCPU / 6 GB, so it is not a fallback for a
@@ -666,6 +686,11 @@ def validate(entry: Dict[str, Any], *, path: Optional[Path] = None) -> List[str]
     cadence = entry.get("cadence")
     if cadence not in _CADENCES:
         errs.append(f"cadence must be one of {_CADENCES}, got {cadence!r}")
+    if "priority" in entry and entry["priority"] is not None:
+        prio = entry["priority"]
+        if isinstance(prio, bool) or not isinstance(prio, int) or not 0 <= prio <= 1000:
+            errs.append(f"priority must be an integer 0..1000 (lower runs first; default "
+                        f"{DEFAULT_PRIORITY}), got {prio!r}")
     status = entry.get("status")
     if status not in _STATUSES:
         errs.append(f"status must be one of {_STATUSES}, got {status!r}")

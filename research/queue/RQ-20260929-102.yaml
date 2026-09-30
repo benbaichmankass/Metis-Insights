@@ -2,6 +2,7 @@ id: RQ-20260929-102
 title: 'Stage-0 backtest: squeeze harness on BNBUSDT 4h (uncovered symbol)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

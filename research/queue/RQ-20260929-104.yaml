@@ -2,6 +2,7 @@ id: RQ-20260929-104
 title: 'Stage-0 backtest: funding_carry harness on BNBUSDT perp (uncovered harness family)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

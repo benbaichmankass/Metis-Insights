@@ -5,6 +5,7 @@ id: RQ-20260929-005
 title: 'E35 bracket-geometry sweep: ict_scalp_eth_15m (generated, monthly)'
 status: queued
 cadence: monthly
+priority: 60
 kind: experiment
 question: Does any bracket cell (tp_r x atr_stop_mult x timeout) beat ict_scalp_eth_15m's shipped geometry
   (ETHUSDT 15m) through the IS/OOS Path A/B gate on the trailing 1830 days -- and is the shipped geometry

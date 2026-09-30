@@ -6,6 +6,7 @@ title: 'Breakout prop fit: squeeze_breakout_4h at sizing cushion-fit room 0.33 a
   (generated)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 question: Does squeeze_breakout_4h (BTCUSDT 4h, Breakout market BTCUSD) clear the operator's prop bar
   -- E[net $ banked before the account dies] > 0 with P(net>0) >= 0.70 on every seed -- under Breakout's

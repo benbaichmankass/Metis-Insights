@@ -2,6 +2,7 @@ id: RQ-20260929-101
 title: 'Stage-0 backtest: pullback harness on BNBUSDT 2h (uncovered symbol)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

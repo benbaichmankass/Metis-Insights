@@ -5,6 +5,7 @@ id: RQ-20260929-055
 title: 'Breakout prop fit: sol_pullback_2h at sizing flat 1.0% of balance under RULE-B6 V2 (generated)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 question: Does sol_pullback_2h (SOLUSDT 2h, Breakout market SOLUSD) clear the operator's prop bar -- E[net
   $ banked before the account dies] > 0 with P(net>0) >= 0.70 on every seed -- under Breakout's own cost

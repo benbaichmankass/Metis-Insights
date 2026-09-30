@@ -2,6 +2,7 @@ id: RQ-20260831-002
 title: Thin-leg bracket-geometry accrual — the five 1d equity legs that cannot reach the power floor
 status: queued
 cadence: monthly
+priority: 60
 kind: experiment
 question: 'Are the shipped bracket-geometry cells on the five LOW-FREQUENCY 1d equity
   legs (iwm, mgc, qqq, scha, spy) still behaving as they did when they shipped? This

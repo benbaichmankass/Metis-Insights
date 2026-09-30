@@ -5,6 +5,7 @@ id: RQ-20260928-031
 title: Walk-forward re-run of eth_pullback_2h's harness on fresh data (generated, weekly)
 status: queued
 cadence: weekly
+priority: 60
 kind: experiment
 question: Does eth_pullback_2h (ETHUSDT 2h, pullback harness) still show net-of-cost OOS edge when its
   harness is re-run on freshly fetched candles this week?

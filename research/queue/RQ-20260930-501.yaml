@@ -2,6 +2,7 @@ id: RQ-20260930-501
 title: 'HyroTrader fit, Stage 0: does the ict_scalp 15m book (ETH+SOL+XRP) clear a pre-registered edge AND rule-fit gate over ~5 years? (lane HYRO-STRATS)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

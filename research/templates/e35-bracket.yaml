@@ -2,6 +2,7 @@ family: e35-bracket
 weight: 20
 kind: experiment
 cadence: monthly
+priority: 60
 title: "E35 bracket-geometry sweep: {leg} (generated, monthly)"
 question: >-
   Does any bracket cell (tp_r x atr_stop_mult x timeout) beat {leg}'s shipped

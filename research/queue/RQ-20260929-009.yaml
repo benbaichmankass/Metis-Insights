@@ -5,6 +5,7 @@ id: RQ-20260929-009
 title: 'M20 exit-lever sweep: ict_scalp_mgc_15m (generated, monthly)'
 status: queued
 cadence: monthly
+priority: 60
 kind: experiment
 question: Which hard exit levers (stale_stop, giveback_stop, trail_geometry, trail_decay, vol_trail) clear
   the exit-refinement P2 gate on ict_scalp_mgc_15m (MGC 15m) on the data available now -- and does last

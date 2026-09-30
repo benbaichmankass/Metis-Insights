@@ -5,6 +5,7 @@ id: RQ-20260928-022
 title: 'M20 exit-lever sweep: gld_pullback_1d (generated, monthly)'
 status: queued
 cadence: monthly
+priority: 60
 kind: experiment
 question: Which hard exit levers (stale_stop, giveback_stop, trail_geometry, trail_decay, vol_trail) clear
   the exit-refinement P2 gate on gld_pullback_1d (GLD 1d) on the data available now -- and does last month's

@@ -2,6 +2,7 @@ id: RQ-20260922-008
 title: Is eth_pullback_prop_2h simply a worse parameterisation of eth_pullback_2h?
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

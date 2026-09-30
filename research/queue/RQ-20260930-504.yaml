@@ -2,6 +2,7 @@ id: RQ-20260930-504
 title: 'Strategy development (general research mandate): is there ANY profitable <=1h crypto-perp strategy in the existing harness families? Two-stage, family-wise-corrected search (blocked on the sweep orchestrator)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 
 question: >-

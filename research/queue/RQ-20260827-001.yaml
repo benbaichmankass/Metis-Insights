@@ -2,6 +2,7 @@ id: RQ-20260827-001
 title: Re-grade every account against the Lane P compat-matrix standard arm
 status: queued
 cadence: once
+priority: 20
 kind: deterministic
 
 question: >-

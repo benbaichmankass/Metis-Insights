@@ -5,6 +5,7 @@ id: RQ-20260928-023
 title: M28 valuation snapshot backfill, cadence 7d (generated, monthly)
 status: queued
 cadence: monthly
+priority: 60
 kind: deterministic
 why_not_inferential: A backfill re-materialises point-in-time valuation snapshots from FRED; it produces
   rows, not a test statistic, and the grading is the M28 scorecard's own calibration read on the refreshed

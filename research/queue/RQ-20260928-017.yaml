@@ -5,6 +5,7 @@ id: RQ-20260928-017
 title: 'E35 bracket-geometry sweep: eth_pullback_2h (generated, monthly)'
 status: queued
 cadence: monthly
+priority: 60
 kind: experiment
 question: Does any bracket cell (tp_r x atr_stop_mult x timeout) beat eth_pullback_2h's shipped geometry
   (ETHUSDT 2h) through the IS/OOS Path A/B gate on the trailing 1830 days -- and is the shipped geometry

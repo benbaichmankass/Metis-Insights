@@ -5,6 +5,7 @@ id: RQ-20260929-042
 title: 'Breakout prop fit: xrp_pullback_2h at sizing cushion-fit room 0.33 at 1.5% under RULE-B6 V2 (generated)'
 status: queued
 cadence: once
+priority: 40
 kind: experiment
 question: Does xrp_pullback_2h (XRPUSDT 2h, Breakout market XRPUSD) clear the operator's prop bar -- E[net
   $ banked before the account dies] > 0 with P(net>0) >= 0.70 on every seed -- under Breakout's own cost
