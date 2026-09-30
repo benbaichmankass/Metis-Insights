@@ -2780,6 +2780,40 @@ INFO_PROBE_NEW_ELEMENTS_JS = r"""
 }
 """
 
+# The target's RAW watchlist quote cells for symbol-switch-dry (price_step
+# decimals). Scoped EXACTLY like INFO_PROBE_RESOLVE_JS -- the watchlist's own
+# widget, refusing when it also holds an Orders / Positions widget menu -- and
+# returning ONLY the Symbol, Bid and Ask cells (manager review of #14885, nit
+# b: the run log is PUBLIC, and a page-wide row scan could capture a position
+# or working-order row's qty / entry / P&L). Read-only; clicks nothing.
+WATCHLIST_QUOTE_RAW_JS = r"""
+([symbol]) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const wl = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
+  }
+  if (wl.length !== 1) return {error: `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`};
+  const hs = wl[0].hs, si = hs.indexOf('symbol'), bi = hs.indexOf('bid'), ai = hs.indexOf('ask');
+  let scope = wl[0].t;
+  for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+    const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+  }
+  if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]'))
+    return {error: 'the watchlist scope also holds an Orders / Positions widget'};
+  const want = String(symbol || '').toUpperCase(), rows = [];
+  for (const r of scope.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    const tds = [...r.querySelectorAll('td')];
+    if (tds.length !== hs.length || txt(tds[si]).toUpperCase() !== want) continue;
+    rows.push([txt(tds[si]), txt(tds[bi]), txt(tds[ai])].map(v => v.slice(0, 24)));
+  }
+  return {headers: ['symbol', 'bid', 'ask'], rows: rows.slice(0, 2)};
+}
+"""
+
 INFO_PROBE_PANEL_GONE_JS = r"""
 () => {
   const p = document.querySelector('[data-metis-info-panel]');
@@ -4120,9 +4154,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             # lost), so the target row's raw watchlist cells are kept too --
             # market data only (symbol, prices), capped per cell.
             out["quote"] = self.read_quote(page, out["target"])
-            wr = self._watchlist_rows(page, out["target"])
-            out["quote_raw"] = {"headers": wr.get("headers"), "error": wr.get("error"),
-                                "rows": [[str(c)[:24] for c in r][:12] for r in (wr.get("rows") or [])[:2]]}
+            out["quote_raw"] = page.evaluate(WATCHLIST_QUOTE_RAW_JS, [out["target"]]) or {"error": "no result"}
             out["switch"] = self.select_linked_symbol(page, out["target"], settle_ms=settle_ms)
             if not out["switch"].get("ok"):
                 out["alerts"].append(f"switch to {out['target']} failed: {out['switch'].get('why')}")

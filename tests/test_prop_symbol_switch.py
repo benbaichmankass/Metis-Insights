@@ -292,3 +292,35 @@ def test_symbol_switch_dry_reads_the_target_quote_click_free_before_any_click(br
     assert got["quote"] and got["quote"]["bid"] == 100.1 and got["quote"]["ask"] == 100.2
     assert "quote_raw" in got and got["alerts"] == [] and st["clicks"] == ["sym", "sym"]
     never_traded(st)
+
+
+POSITION_ROW = ('<div class="widget__container___Ps9 widgetNew__container">'
+                '<button data-test-id="widget_menu_POSITIONS">Positions</button><table>'
+                '<thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead><tbody></tbody></table><table><tbody>'
+                '<tr class="instrument" data-row-id="pos1"><td class="sym">ETHUSD</td><td>0.37</td><td>-48.12</td></tr>'
+                '</tbody></table></div>')
+
+
+def test_review_nit_b_a_positions_row_never_reaches_quote_raw(browser):  # noqa: F811
+    from src.prop.platform.dxtrade import WATCHLIST_QUOTE_RAW_JS
+    # a same-shaped ETHUSD row in a Positions widget (qty / P&L), placed on the page
+    html = page_html(outside_table=POSITION_ROW.replace('<thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>', ''))
+    p = browser.new_page()
+    p.set_content(html)
+    raw = p.evaluate(WATCHLIST_QUOTE_RAW_JS, ["ETHUSD"])
+    got = DXtradeAdapter(timeout_ms=3_000).symbol_switch_dry(p, "ETHUSD", settle_ms=50)
+    p.close()
+    assert raw == {"headers": ["symbol", "bid", "ask"], "rows": [["ETHUSD", "100.1", "100.2"]]}
+    assert got["quote_raw"] == raw
+    assert "0.37" not in str(got) and "-48.12" not in str(got)
+
+
+def test_review_nit_b_quote_raw_keeps_only_symbol_bid_ask(browser):  # noqa: F811
+    from src.prop.platform.dxtrade import WATCHLIST_QUOTE_RAW_JS
+    html = page_html().replace('<th>Ask</th></tr>', '<th>Ask</th><th>Chg</th></tr>').replace(
+        '100.2</button></td></tr>', '100.2</button></td><td>+1.5%</td></tr>')
+    p = browser.new_page()
+    p.set_content(html)
+    raw = p.evaluate(WATCHLIST_QUOTE_RAW_JS, ["ETHUSD"])
+    p.close()
+    assert raw["rows"] == [["ETHUSD", "100.1", "100.2"]]

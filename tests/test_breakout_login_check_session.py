@@ -247,10 +247,21 @@ def test_action_wrapper_never_passes_storage_state():
     appear, and it must never reach breakout_login_check.py's arguments."""
     action = (REPO / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
     login_part = action.split('ARGS=(--account "${ACCOUNT}" --dump-dir', 1)[1]
-    assert "--storage-state" not in login_part and "session_state" not in login_part
+    # TRADEIFY-WIRE (2026-09-30): a NON-breakout_1 account has no feed session
+    # of its own until its feed runs, so its check saves one for the executor
+    # modes to reuse. That is the ONLY storage-state in the login part, and it
+    # sits inside the non-breakout guard: breakout_1's check stays fresh.
+    guard = 'if [ "${ACCOUNT}" != "breakout_1" ]; then'
+    assert guard in login_part
+    before, rest = login_part.split(guard, 1)
+    block, after = rest.split("\nfi\n", 1)
+    assert "--storage-state" not in before and "session_state" not in before
+    assert "--storage-state" not in after and "session_state" not in after
+    assert 'ARGS+=(--storage-state "${FEED_DIR}/session_state.json")' in block
     for line in action.splitlines():
         if "--storage-state" in line or "session_state" in line:
-            assert "EARGS=(" in line or line.strip().startswith("#"), line
+            assert ("EARGS=(" in line or line.strip().startswith("#")
+                    or line.strip() == 'ARGS+=(--storage-state "${FEED_DIR}/session_state.json")'), line
 
 
 def test_login_attempt_is_announced_before_the_submit_even_when_it_fails(harness, tmp_path, capsys):

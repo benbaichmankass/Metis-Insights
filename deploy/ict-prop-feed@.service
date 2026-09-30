@@ -1,0 +1,32 @@
+# Per-account read-only prop account_status feed (TRADEIFY-WIRE, 2026-09-30).
+# Instance name = the prop account id in config/prop_platforms.yaml, e.g.
+# ict-prop-feed@tradeify_1. Same script and same guards as ict-prop-feed.service
+# (breakout_1's, which is NOT templated and is unchanged): session reuse, relogin
+# ceiling, trip-on-feasibility-stop. Its lock is PER ACCOUNT
+# (accounts/<id>/login.lock), never breakout_1's login.lock. The script refuses an
+# account with no platform entry rather than borrow another account's login.
+#
+# TEMPLATE: scripts/install_systemd_units.sh skips *@* files, and
+# deploy_pull_restart.sh never restarts a template instance, so nothing here
+# runs until `breakout-login-check account: <id> apply: feed-enable-timer`
+# installs this file plus deploy/opt-in/ict-prop-feed@.timer and enables the
+# instance. LIVE-TRADER BOX ONLY (needs the VM .env creds and :8001).
+[Unit]
+Description=ICT prop feed — read-only %i account_status snapshot (TRADEIFY-WIRE)
+After=network-online.target ict-web-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=HOME=/home/ubuntu
+Environment=PYTHONUNBUFFERED=1
+Environment=PROP_FEED_ACCOUNT=%i
+TimeoutStartSec=240
+Nice=10
+MemoryMax=1200M
+CPUQuota=100%
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/prop_feed_tick.sh
+StandardOutput=journal
+StandardError=journal

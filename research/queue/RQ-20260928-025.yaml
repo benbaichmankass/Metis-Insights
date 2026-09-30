@@ -90,3 +90,15 @@ generated:
     timeframe: 2h
     trades_file: comms/strategy_evidence/runs/2026-09-25/ada_pullback_2h__trades.jsonl
 last_dispatched_at: '2026-09-30T01:01:49+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-PROP-FIT-B6V2-ada_pullback_2h-bal015
+  evidence:
+  - research/results/RQ-20260928-025/36505264693.jsonl
+  - research/results/RQ-20260928-025/36653152014.jsonl
+  graded_at: '2026-09-30'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'read_state not unanimously measured: [''measured'', ''producer_failed'']'
+  rows: 2
+  verdict: null
