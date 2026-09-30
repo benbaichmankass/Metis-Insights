@@ -3979,7 +3979,7 @@
     },
     {
       "id": "ORDER-AUDIT-2",
-      "title": "Order-path audit leftovers, re-verified unfixed: pairs sleeve ignores halt (CA-A02), safe_place_order guards, order_monitor dry_run cfg (CA-A04), IBClient.close vs resting bracket, reconcile_orphan_history double-attribution, CA-A15 bybit spot category, summarize fabricated zeros, PassthroughAllocator flat 0.5%, stray journal fallback",
+      "title": "Order-path audit leftovers, re-verified unfixed: pairs sleeve ignores halt (CA-A02), safe_place_order guards, order_monitor dry_run cfg (CA-A04), IBClient.close vs resting bracket, reconcile_orphan_history double-attribution, CA-A15 bybit spot category, summarize fabricated zeros, PassthroughAllocator flat risk fraction 0.005 (a code constant, not a measurement), stray journal fallback",
       "phase": "W6",
       "state": "queued",
       "owner": "unassigned",
