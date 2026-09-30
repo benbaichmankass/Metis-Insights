@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Backtest harness only: scripts/backtest_ict_scalp.py gains an opt-in --entry-mode limit (default market, byte-identical, locked by a test that diffs the summary and emitted rows against origin/main's harness on the committed fixture). No execute.py, no live order path, no config, no strategy parameter. Manager-dispatched (lane HYRO-STRATS, task (2) of the 06:09Z instruction); unblocks the held research unit RQ-20260930-502."
+}
