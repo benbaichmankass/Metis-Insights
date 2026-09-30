@@ -1,0 +1,24 @@
+  fetch BTCUSDT|5m: ok
+  fetch BTCUSDT|15m: ok
+  fetch BTCUSDT|30m: ok
+  fetch ETHUSDT|5m: ok
+  fetch ETHUSDT|15m: ok
+  fetch ETHUSDT|30m: ok
+  fetch SOLUSDT|5m: ok
+  fetch SOLUSDT|15m: ok
+  fetch SOLUSDT|30m: ok
+  fetch XRPUSDT|5m: ok
+  fetch XRPUSDT|15m: ok
+  fetch XRPUSDT|30m: ok
+  fetch AVAXUSDT|5m: ok
+  fetch AVAXUSDT|15m: ok
+  fetch AVAXUSDT|30m: ok
+GRID wave=1: 90 cells declared, K=90 runnable
+STAGE A: 90/90 cells produced a result; S=5 survivor(s) at p<0.05, n>=88
+{
+ "verdict": "fail",
+ "read_state": "measured",
+ "population": "SMOKE RUN: K=90 cells, S=5 survivors, 0 confirmed, 0 survivor(s) underpowered or unrun in Stage B",
+ "n": 90,
+ "note": "SMOKE RUN: grid or windows were overridden; not the registered design"
+}

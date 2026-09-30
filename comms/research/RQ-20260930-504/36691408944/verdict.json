@@ -1,0 +1,1844 @@
+{
+ "verdict": "fail",
+ "read_state": "measured",
+ "n": 90,
+ "population": "SMOKE RUN: K=90 cells, S=5 survivors, 0 confirmed, 0 survivor(s) underpowered or unrun in Stage B",
+ "note": "SMOKE RUN: grid or windows were overridden; not the registered design",
+ "sweep": {
+  "wave": 1,
+  "K": 90,
+  "declared": 90,
+  "n_floor": 88,
+  "windows": {
+   "stage_a": [
+    "2021-01-01",
+    "2024-09-30"
+   ],
+   "stage_b": [
+    "2024-10-01",
+    "2026-09-29"
+   ]
+  },
+  "verdict_fee_bps_roundtrip": 7.5,
+  "report_fee_bps_roundtrip": 11.0,
+  "report_arm_note": "11 bps arm is re-priced per row as 3.5e-4*entry/risk (approximation, report-only, never gates)",
+  "cost_policy": "harness default, venue-aware fee+slippage+funding resolved in each harness main()",
+  "read_state": "smoke",
+  "candle_source": "binance_vision futures/um via fetch_backtest_candles.py (PROXY for Bybit linear)",
+  "fetch": {
+   "BTCUSDT|5m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/BTCUSDT_5m.csv"
+   },
+   "BTCUSDT|15m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/BTCUSDT_15m.csv"
+   },
+   "BTCUSDT|30m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/BTCUSDT_30m.csv"
+   },
+   "ETHUSDT|5m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/ETHUSDT_5m.csv"
+   },
+   "ETHUSDT|15m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/ETHUSDT_15m.csv"
+   },
+   "ETHUSDT|30m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/ETHUSDT_30m.csv"
+   },
+   "SOLUSDT|5m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/SOLUSDT_5m.csv"
+   },
+   "SOLUSDT|15m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/SOLUSDT_15m.csv"
+   },
+   "SOLUSDT|30m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/SOLUSDT_30m.csv"
+   },
+   "XRPUSDT|5m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/XRPUSDT_5m.csv"
+   },
+   "XRPUSDT|15m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/XRPUSDT_15m.csv"
+   },
+   "XRPUSDT|30m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/XRPUSDT_30m.csv"
+   },
+   "AVAXUSDT|5m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/AVAXUSDT_5m.csv"
+   },
+   "AVAXUSDT|15m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/AVAXUSDT_15m.csv"
+   },
+   "AVAXUSDT|30m": {
+    "ok": true,
+    "detail": "",
+    "file": "data/AVAXUSDT_30m.csv"
+   }
+  },
+  "report_only_note": "chop_scalp rows carry no entry/sl/exit_time, so its 11 bps arm and venue-fit fields read null; they are report-only and gate nothing",
+  "S": 5,
+  "stage_a_ok": 90,
+  "n_failed_a": 0,
+  "failed_cells": [],
+  "alpha_b": 0.01,
+  "n_failed_b": 0,
+  "clean": true,
+  "verdict": "fail",
+  "confirmed": [],
+  "population": "K=90 cells, S=5 survivors, 0 confirmed, 0 survivor(s) underpowered or unrun in Stage B",
+  "cells": [
+   {
+    "family": "ict_scalp",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": "ict_scalp_5m",
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": true,
+    "stage_a": {
+     "status": "ok",
+     "n": 754,
+     "mean_net_r": -0.0718,
+     "p": 0.973433
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "BTCUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 380,
+     "mean_net_r": -0.0823,
+     "p": 0.970113
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "BTCUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 237,
+     "mean_net_r": -0.0078,
+     "p": 0.555505
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "ETHUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 768,
+     "mean_net_r": 0.024,
+     "p": 0.24401
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "ETHUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": "ict_scalp_eth_15m",
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": true,
+    "stage_a": {
+     "status": "ok",
+     "n": 371,
+     "mean_net_r": 0.045,
+     "p": 0.175494
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "ETHUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 254,
+     "mean_net_r": 0.0594,
+     "p": 0.134223
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "SOLUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": "ict_scalp_sol_5m",
+    "survived_stage_a": true,
+    "confirmed": false,
+    "stage_b_not_fully_oos": true,
+    "stage_a": {
+     "status": "ok",
+     "n": 955,
+     "mean_net_r": 0.0753,
+     "p": 0.009004
+    },
+    "stage_b": {
+     "status": "ok",
+     "n": 521,
+     "mean_net_r": 0.0416,
+     "p": 0.167712,
+     "alpha_b": 0.01,
+     "folds_net_r": [
+      26.88,
+      1.437,
+      -2.729,
+      -3.909
+     ],
+     "folds_positive": 2,
+     "indeterminate_underpowered": false,
+     "mean_net_r_at_report_fee": -0.0029,
+     "venue_fit_reported_not_gating": {
+      "trades_per_month": 21.78,
+      "same_utc_day_share": 0.935,
+      "median_hold_hours": 1.92,
+      "hyro_qualifying_days_per_month_strict": 5.94
+     }
+    }
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "SOLUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": "ict_scalp_sol_15m",
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": true,
+    "stage_a": {
+     "status": "ok",
+     "n": 419,
+     "mean_net_r": 0.0333,
+     "p": 0.22551
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "SOLUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 259,
+     "mean_net_r": -0.0134,
+     "p": 0.602315
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "XRPUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": "ict_scalp_xrp_5m",
+    "survived_stage_a": true,
+    "confirmed": false,
+    "stage_b_not_fully_oos": true,
+    "stage_a": {
+     "status": "ok",
+     "n": 750,
+     "mean_net_r": 0.0876,
+     "p": 0.005877
+    },
+    "stage_b": {
+     "status": "ok",
+     "n": 471,
+     "mean_net_r": 0.0137,
+     "p": 0.377934,
+     "alpha_b": 0.01,
+     "folds_net_r": [
+      6.899,
+      -3.142,
+      -3.066,
+      5.743
+     ],
+     "folds_positive": 2,
+     "indeterminate_underpowered": false,
+     "mean_net_r_at_report_fee": -0.0336,
+     "venue_fit_reported_not_gating": {
+      "trades_per_month": 19.69,
+      "same_utc_day_share": 0.941,
+      "median_hold_hours": 2.08,
+      "hyro_qualifying_days_per_month_strict": 4.52
+     }
+    }
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "XRPUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": "ict_scalp_xrp_15m",
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": true,
+    "stage_a": {
+     "status": "ok",
+     "n": 333,
+     "mean_net_r": 0.0511,
+     "p": 0.13226
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "XRPUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": true,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 208,
+     "mean_net_r": 0.1236,
+     "p": 0.021944
+    },
+    "stage_b": {
+     "status": "ok",
+     "n": 144,
+     "mean_net_r": -0.0869,
+     "p": 0.875991,
+     "alpha_b": 0.01,
+     "folds_net_r": [
+      0.033,
+      -9.769,
+      -0.979,
+      -1.8
+     ],
+     "folds_positive": 1,
+     "indeterminate_underpowered": false,
+     "mean_net_r_at_report_fee": -0.1054,
+     "venue_fit_reported_not_gating": {
+      "trades_per_month": 6.02,
+      "same_utc_day_share": 0.583,
+      "median_hold_hours": 12.5,
+      "hyro_qualifying_days_per_month_strict": 2.8
+     }
+    }
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "AVAXUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": "ict_scalp_avax_5m",
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": true,
+    "stage_a": {
+     "status": "ok",
+     "n": 1080,
+     "mean_net_r": 0.0095,
+     "p": 0.368049
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "AVAXUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": true,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 443,
+     "mean_net_r": 0.0865,
+     "p": 0.021784
+    },
+    "stage_b": {
+     "status": "ok",
+     "n": 267,
+     "mean_net_r": 0.0248,
+     "p": 0.329655,
+     "alpha_b": 0.01,
+     "folds_net_r": [
+      -6.442,
+      -1.319,
+      4.213,
+      10.175
+     ],
+     "folds_positive": 2,
+     "indeterminate_underpowered": false,
+     "mean_net_r_at_report_fee": 0.0044,
+     "venue_fit_reported_not_gating": {
+      "trades_per_month": 11.16,
+      "same_utc_day_share": 0.865,
+      "median_hold_hours": 6.25,
+      "hyro_qualifying_days_per_month_strict": 5.56
+     }
+    }
+   },
+   {
+    "family": "ict_scalp",
+    "symbol": "AVAXUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": true,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 308,
+     "mean_net_r": 0.1146,
+     "p": 0.012076
+    },
+    "stage_b": {
+     "status": "ok",
+     "n": 195,
+     "mean_net_r": -0.0021,
+     "p": 0.513444,
+     "alpha_b": 0.01,
+     "folds_net_r": [
+      -1.876,
+      10.232,
+      -5.783,
+      -2.979
+     ],
+     "folds_positive": 1,
+     "indeterminate_underpowered": false,
+     "mean_net_r_at_report_fee": -0.0158,
+     "venue_fit_reported_not_gating": {
+      "trades_per_month": 8.15,
+      "same_utc_day_share": 0.549,
+      "median_hold_hours": 12.5,
+      "hyro_qualifying_days_per_month_strict": 3.3
+     }
+    }
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 329,
+     "mean_net_r": -0.1341,
+     "p": 0.976263
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "BTCUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 130,
+     "mean_net_r": -0.1958,
+     "p": 0.963312
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "BTCUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 61,
+     "mean_net_r": -0.3563,
+     "p": 0.993139
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "ETHUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 422,
+     "mean_net_r": -0.1689,
+     "p": 0.997058
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "ETHUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 132,
+     "mean_net_r": -0.0687,
+     "p": 0.726435
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "ETHUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 52,
+     "mean_net_r": -0.2108,
+     "p": 0.882722
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "SOLUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 763,
+     "mean_net_r": -0.1711,
+     "p": 0.999861
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "SOLUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 122,
+     "mean_net_r": -0.2075,
+     "p": 0.961601
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "SOLUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 39,
+     "mean_net_r": 0.3091,
+     "p": 0.082149
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "XRPUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 539,
+     "mean_net_r": -0.1413,
+     "p": 0.99474
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "XRPUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 154,
+     "mean_net_r": -0.2517,
+     "p": 0.993347
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "XRPUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 52,
+     "mean_net_r": -0.0815,
+     "p": 0.673989
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "AVAXUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 803,
+     "mean_net_r": -0.1205,
+     "p": 0.995917
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "AVAXUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 158,
+     "mean_net_r": -0.0429,
+     "p": 0.657529
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fvg_range",
+    "symbol": "AVAXUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 53,
+     "mean_net_r": -0.0119,
+     "p": 0.524441
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 14,
+     "mean_net_r": -0.3401,
+     "p": 0.709152
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "BTCUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 10,
+     "mean_net_r": 1.3271,
+     "p": 0.147328
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "BTCUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 6,
+     "mean_net_r": -0.0039,
+     "p": 0.50145
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "ETHUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 10,
+     "mean_net_r": -1.1196,
+     "p": 0.999655
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "ETHUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 3,
+     "mean_net_r": 2.1311,
+     "p": 0.319957
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "ETHUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 6,
+     "mean_net_r": 0.755,
+     "p": 0.286402
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "SOLUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 10,
+     "mean_net_r": -0.5586,
+     "p": 0.828955
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "SOLUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 12,
+     "mean_net_r": -0.3178,
+     "p": 0.726237
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "SOLUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5,
+     "mean_net_r": -1.1435,
+     "p": 0.999999
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "XRPUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 24,
+     "mean_net_r": 0.0802,
+     "p": 0.467344
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "XRPUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 12,
+     "mean_net_r": 0.4116,
+     "p": 0.359132
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "XRPUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 8,
+     "mean_net_r": 0.0771,
+     "p": 0.468447
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "AVAXUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 18,
+     "mean_net_r": -0.7667,
+     "p": 0.988181
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "AVAXUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 16,
+     "mean_net_r": -0.9533,
+     "p": 0.997789
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "chop_scalp",
+    "symbol": "AVAXUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5,
+     "mean_net_r": -1.2353,
+     "p": 0.999997
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5889,
+     "mean_net_r": -0.227,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "BTCUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1856,
+     "mean_net_r": -0.1278,
+     "p": 0.999404
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "BTCUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 909,
+     "mean_net_r": 0.0239,
+     "p": 0.35928
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "ETHUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5990,
+     "mean_net_r": -0.1623,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "ETHUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1917,
+     "mean_net_r": -0.0709,
+     "p": 0.966207
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "ETHUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 976,
+     "mean_net_r": -0.0164,
+     "p": 0.609559
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "SOLUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5657,
+     "mean_net_r": -0.041,
+     "p": 0.956948
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "SOLUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1830,
+     "mean_net_r": 0.0174,
+     "p": 0.332302
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "SOLUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 961,
+     "mean_net_r": 0.0494,
+     "p": 0.181158
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "XRPUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5688,
+     "mean_net_r": -0.1356,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "XRPUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1925,
+     "mean_net_r": -0.0563,
+     "p": 0.91038
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "XRPUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 970,
+     "mean_net_r": -0.0552,
+     "p": 0.85646
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "AVAXUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5683,
+     "mean_net_r": -0.0532,
+     "p": 0.987715
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "AVAXUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1899,
+     "mean_net_r": -0.0048,
+     "p": 0.547746
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "pullback",
+    "symbol": "AVAXUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 997,
+     "mean_net_r": -0.0102,
+     "p": 0.577925
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 8139,
+     "mean_net_r": -0.2566,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "BTCUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2944,
+     "mean_net_r": -0.1396,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "BTCUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1431,
+     "mean_net_r": -0.0726,
+     "p": 0.969449
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "ETHUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 8230,
+     "mean_net_r": -0.199,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "ETHUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2844,
+     "mean_net_r": -0.0903,
+     "p": 0.999889
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "ETHUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1395,
+     "mean_net_r": -0.1049,
+     "p": 0.99886
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "SOLUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 7892,
+     "mean_net_r": -0.0852,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "SOLUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2681,
+     "mean_net_r": -0.035,
+     "p": 0.921508
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "SOLUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1346,
+     "mean_net_r": -0.0064,
+     "p": 0.573404
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "XRPUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 8051,
+     "mean_net_r": -0.1479,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "XRPUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2827,
+     "mean_net_r": -0.1068,
+     "p": 0.999985
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "XRPUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1384,
+     "mean_net_r": -0.0291,
+     "p": 0.762506
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "AVAXUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 7535,
+     "mean_net_r": -0.1373,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "AVAXUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2628,
+     "mean_net_r": -0.0433,
+     "p": 0.951392
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "squeeze",
+    "symbol": "AVAXUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 1348,
+     "mean_net_r": -0.0213,
+     "p": 0.727963
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 14938,
+     "mean_net_r": -0.5646,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "BTCUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 4935,
+     "mean_net_r": -0.3321,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "BTCUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2426,
+     "mean_net_r": -0.2176,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "ETHUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 15001,
+     "mean_net_r": -0.4503,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "ETHUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 4918,
+     "mean_net_r": -0.3176,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "ETHUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2482,
+     "mean_net_r": -0.2325,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "SOLUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 15807,
+     "mean_net_r": -0.2555,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "SOLUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5127,
+     "mean_net_r": -0.1946,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "SOLUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2580,
+     "mean_net_r": -0.1252,
+     "p": 0.99978
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "XRPUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 15626,
+     "mean_net_r": -0.3769,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "XRPUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 4894,
+     "mean_net_r": -0.1901,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "XRPUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2348,
+     "mean_net_r": -0.1797,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "AVAXUSDT",
+    "timeframe": "5m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 16435,
+     "mean_net_r": -0.2631,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "AVAXUSDT",
+    "timeframe": "15m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 5332,
+     "mean_net_r": -0.208,
+     "p": 1.0
+    },
+    "stage_b": {}
+   },
+   {
+    "family": "fade",
+    "symbol": "AVAXUSDT",
+    "timeframe": "30m",
+    "runnable": true,
+    "reason": "",
+    "strategy_name": null,
+    "survived_stage_a": false,
+    "confirmed": false,
+    "stage_b_not_fully_oos": false,
+    "stage_a": {
+     "status": "ok",
+     "n": 2679,
+     "mean_net_r": -0.1865,
+     "p": 1.0
+    },
+    "stage_b": {}
+   }
+  ]
+ }
+}

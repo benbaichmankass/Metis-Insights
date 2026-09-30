@@ -1,0 +1,87 @@
+{
+  "schema_version": 2,
+  "strategy": "ict_scalp_sol_15m",
+  "symbol": "SOLUSDT",
+  "timeframe": "15m",
+  "config_fingerprint": "sha256:8cc491ccd70e0726b7e539c6c20af01c",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 15.9039,
+  "expectancy_r_oos": 0.0277,
+  "n_trades_oos": 575,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 143,
+      "net_r": 8.1118,
+      "expectancy_r": 0.0567,
+      "start": "2021-09-27 00:45:00+00:00",
+      "end": "2023-01-04 17:15:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 143,
+      "net_r": -9.3191,
+      "expectancy_r": -0.0652,
+      "start": "2023-01-11 19:00:00+00:00",
+      "end": "2024-07-02 14:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 143,
+      "net_r": 14.1428,
+      "expectancy_r": 0.0989,
+      "start": "2024-07-04 01:00:00+00:00",
+      "end": "2025-08-10 14:30:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 146,
+      "net_r": 2.9684,
+      "expectancy_r": 0.0203,
+      "start": "2025-08-17 02:30:00+00:00",
+      "end": "2026-09-28 17:00:00+00:00"
+    }
+  ],
+  "folds_positive": 3,
+  "window_days": 1830,
+  "fee_bps_roundtrip": 7.5,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 575,
+    "max_drawdown_r": 19.9444,
+    "max_drawdown_at_trade": 280,
+    "final_equity_r": 15.9039,
+    "max_equity_r": 24.3877,
+    "worst_trade_r": -1.6759,
+    "best_trade_r": 1.4898,
+    "worst_day_r": -2.6231,
+    "worst_day_date": "2025-09-27",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 3.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/research/RQ-20260930-501/36681432113/runs/ict_scalp_sol_15m__bt.json"
+  },
+  "net_r_oos_fee_only": 27.6621,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-09-30T07:11:14.055930+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "comms/research/RQ-20260930-501/36681432113/runs/ict_scalp_sol_15m__trades.jsonl",
+  "error": null,
+  "harness": "ict_scalp"
+}

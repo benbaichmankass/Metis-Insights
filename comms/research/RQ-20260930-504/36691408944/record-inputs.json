@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20260930-504/36691408944/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20260930-504/36691408944",
+  "decision_rule_id": "RULE-RQ0930-504-SHORT-TF-DISCOVERY",
+  "decision_rule_registered_at": "2026-09-30",
+  "measurement_file": "",
+  "min_rows": "1",
+  "n": "90",
+  "note": "SMOKE RUN: grid or windows were overridden; not the registered design",
+  "population": "SMOKE RUN: K=90 cells, S=5 survivors, 0 confirmed, 0 survivor(s) underpowered or unrun in Stage B",
+  "power_state": "",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20260930-504",
+  "tool": "python3 scripts/research/short_tf_discovery_sweep.py",
+  "verdict": "fail"
+}
