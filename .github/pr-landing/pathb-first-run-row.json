@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: edits a scheduled workflow (.github/workflows/exit-cell-mandate.yml) that can open PRs; the manager reviews and merges. The change only makes the run's OUTPUT visible (cat to the job log + an artifact upload); no behaviour, gate, mandate or config changes.",
+  "why": "Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1). Observing the first run of the merged runner workflow (run 36702768407, success, ~14s) showed its per-leg verdicts went ONLY to $GITHUB_STEP_SUMMARY, which the Actions API does not expose, and runner.json was not uploaded, so no session could verify what the run decided. Fix: `cat summary.md` to the job log, plus an `if: always()` actions/upload-artifact of runner.json + summary.md (30d). Also files PI-20260930-39SDYWCO-0008, the observation ledger (what the first run proved, what it did not, and what would clear it). No src/, no config/, no mandate, no order path."
+}

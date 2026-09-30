@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "the 504 record is on main, #14698 is merged, and an append-only dated correction to the record's note is on main",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-HYRO504N-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "research/queue/RQ-20260930-504.yaml",
+    "rerun": "Read the landed 504 record under research/results/ and check whether its note still says SMOKE RUN without a dated correction; read run 36691408944's run-manifest.json to confirm the command was the registered one."
+  },
+  "state": "queued",
+  "what": "RQ-20260930-504's landed record will carry note/population 'SMOKE RUN: grid or windows were overridden; not the registered design'. That is WRONG: run 36691408944 was the registered design (K=90, Stage A 2021-01-01..2024-09-30, Stage B 2024-10-01..2026-09-29, --jobs 3); the sweep mislabelled it because --timeframes 5m,15m,30m differed from its four-timeframe default (fixed in #14698). Verdict FAIL, read_state measured, n=90 are valid. Once #14698 has merged AND the 504 record is on main, append a dated correction to that record as a record UPDATE (never rewrite the record): 'correction 2026-09-30: SMOKE label is wrong; registered design'."
+}

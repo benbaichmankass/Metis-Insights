@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Stamp-only: sets last_dispatched_at on RQ-20260930-501 (manual dispatch run 36687577503 and the first run 36681432113) and RQ-20260930-504 (manual dispatch run 36691408944), so the 12:20Z research-queue-dispatch cycle does not re-run these cadence=once units (manual dispatch writes no stamp; the dispatcher has no result-based idempotence). One added value per file, no other line changed."
+}

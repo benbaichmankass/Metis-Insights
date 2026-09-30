@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline record only: tracks the append-only dated correction owed to RQ-20260930-504's landed record (its SMOKE label is wrong; the run was the registered design). No code or config change."
+}
