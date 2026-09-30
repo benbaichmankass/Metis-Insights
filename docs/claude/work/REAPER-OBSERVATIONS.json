@@ -14,6 +14,70 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-30T09:19:51Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-09-30T09:08:27Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-09-30T09:00:52Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-09-30T08:53:32Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-30T08:46:44Z",
       "rows_graded": 0,
       "by_state": {
@@ -908,75 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T22:34:31Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-09-29T22:28:49Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-09-29T22:21:09Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-09-29T22:14:46Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-30T08:46:44Z",
+  "updated_at": "2026-09-30T09:19:51Z",
   "latest": {
-    "generated_at": "2026-09-30T08:46:44Z",
+    "generated_at": "2026-09-30T09:19:51Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1001,15 +1001,15 @@
         "claude/admin-triage-2026-09-28-workflow-receipts",
         "claude/adoring-pasteur-P60hd",
         "claude/ai-trading-profitability-gaps-ldQCu",
-        "claude/alpaca-wedge-followups",
         "claude/analyst-read-cache-check-yv0nyh",
         "claude/android-overview-page-Ghkyw",
         "claude/audit-B-salvage-stale-backlog",
         "claude/audit-B-vestigial-route-order",
         "claude/audit-B-zombie-bot",
-        "claude/automation-landing-orphans"
+        "claude/automation-landing-orphans",
+        "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 338,
+      "unregistered_but_attributable_sessions": 340,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1042,9 +1042,9 @@
           "claude/promote-slv-trend-1h-alpaca-live"
         ],
         "session_011sppGNJr87nzGbLjf2zFxf": [
-          "claude/hyro-501-annotation",
           "claude/hyro-strategy-feasibility",
-          "claude/ict-scalp-limit-entry"
+          "claude/ict-scalp-limit-entry",
+          "claude/trend-dayflat-flags"
         ],
         "session_011xpvJ2MQgd4jmKkdfg6gzV": [
           "claude/e20-lane-cost-supervision",
@@ -1060,7 +1060,7 @@
           "claude/pr-req-exit-head-9k2p1x"
         ],
         "session_012Q62RPzq1M36Ruk7u61jJu": [
-          "claude/r-afford-hardening"
+          "claude/stage2-mirror-closeout"
         ],
         "session_012TCEVvu215RLhuY5EkAy8k": [
           "claude/m12-s1-followups"
@@ -1132,6 +1132,9 @@
         "session_014SZHZwFb7DiRbfRLBXqdGK": [
           "claude/ca-a15-audit",
           "claude/ca-wave-a-landing"
+        ],
+        "session_014Wu5w92TH73rf2dvZQd9ii": [
+          "claude/candle-refresh-close"
         ],
         "session_014ZKXKoPUbHgANGdDmRRjHz": [
           "claude/mi301-attribute-the-0830-break"
@@ -1403,6 +1406,9 @@
           "claude/mi233-standing-sunset-policy",
           "claude/mi234-sunset-brief-reads-dispositions"
         ],
+        "session_01BBHxEYiMMJtEhnCBhyhmk2": [
+          "claude/tradeify-wire"
+        ],
         "session_01BGcK6MYWNqsX3BZGQPhr3D": [
           "claude/ca-b04-audit"
         ],
@@ -1640,8 +1646,8 @@
         ],
         "session_01HYq6XtfesZ57VyaQrK6CL1": [
           "claude/e44-lane-supervisor-build",
-          "claude/hyro-501-annotation",
-          "claude/mgr-pipeline-14053-needs-data"
+          "claude/mgr-pipeline-14053-needs-data",
+          "claude/mgr-pipeline-asn-decision"
         ],
         "session_01HaWB6g8EsN1x64hKKQHT2B": [
           "claude/mlopt-regime-recency-adopt",
@@ -1776,8 +1782,8 @@
         "session_01LF3eUyxahXxpH7bKnLRhe9": [
           "claude/m16-rescope-2026-09-30"
         ],
-        "session_01LLCqwwDGQM7BZMZifj1rkM": [
-          "claude/alpaca-wedge-followups"
+        "session_01LKkJDVYVLZ6GouLTikn8zV": [
+          "claude/rq-20260930-402-result"
         ],
         "session_01LRLUSvcGqQjPcMByAiggsg": [
           "claude/mi189b-unread-account-venue-audit"
@@ -1979,7 +1985,8 @@
         ],
         "session_01R2PHzyjMvQoNiB39SdYWco": [
           "claude/pathb-exit-cell-runner",
-          "claude/pathb-soak-mandate-proposal"
+          "claude/pathb-soak-mandate-proposal",
+          "claude/spy-timeout-binding-note-fix"
         ],
         "session_01R7aAE9tHCBNNYDW9msbMb2": [
           "claude/e4-checklist-close-out",
@@ -2254,7 +2261,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 0,
-      "origin_head_count": 1560,
+      "origin_head_count": 1562,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",

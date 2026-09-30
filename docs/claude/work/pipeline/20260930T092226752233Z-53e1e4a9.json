@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0009",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, the manager's relay of the round-5 review of #14581",
+    "rerun": "grep -n 'immediate re-read' -A12 src/prop/prop_executor.py and check whether _suspected_partial_fill is called before _contain there"
+  },
+  "state": "queued",
+  "what": "Prop executor, non-blocking note from the round-5 review of #14581 (head 2ddef42af). The confirm read inside the submit cycle itself (src/prop/prop_executor.py run_cycle step 7, ~l.971-982: 'immediate re-read' -> _contain) does not run _suspected_partial_fill, unlike the step-3 reconcile loop. So a partial fill seen on that FIRST read is alerted and halted one cycle late (T+5, not T+0). There is no write-off in between, because unconfirmed_reads >= 3 keeps the row unconfirmed. Fix: call _suspected_partial_fill on that read and trip the halt as step 3 does, with a test in which after_submit shows a 0.2 position plus a 0.3 order on the submit cycle. || KNOWN FALSE-HALT CAUSES, for whoever clears a partial_fill_suspected AUTO-REVERT halt (from the same review). _suspected_partial_fill assumes the busy-symbol guard refused the submit if a position already sat on the symbol. That assumption is bypassed, giving a fail-SAFE false contain+halt, when: (1) the positions table parses EMPTY on selector drift, so the guard saw no position that was there; (2) someone opens a MANUAL position between the read and the click; (3) a leftover round-trip test row in state intended or submitted sits in the ledger. Before clearing such a halt, check the terminal for these three first."
+}

@@ -226,6 +226,14 @@ DECISION_RULE_V2 = (
 # ---------------------------------------------------------------------------
 # Rules + economics
 # ---------------------------------------------------------------------------
+def _hhmm_to_day_fraction(v: Any) -> float:
+    """'HH:MM' -> fraction of a day; None keeps the historical 00:30 UTC default."""
+    if v is None:
+        return _DAY_RESET
+    hh, mm = str(v).split(":")
+    return (int(hh) + int(mm) / 60.0) / 24.0
+
+
 @dataclass
 class PropRules:
     start: float = 5000.0
@@ -242,6 +250,9 @@ class PropRules:
     # to a fresh start balance, and the eval fee is not refunded.
     funded_start: str = "fresh"
     first_payout_refund: bool = False
+    # Daily-loss reset instant as a fraction of a UTC day. Breakout: 00:30 UTC.
+    # A ruleset may declare `limits.daily_loss_reset_utc: "HH:MM"` (Tradeify 247: 22:00).
+    day_reset: float = _DAY_RESET
 
     @classmethod
     def from_yaml(cls, path: Path) -> "PropRules":
@@ -268,6 +279,7 @@ class PropRules:
             withdraw_buffer=float(wp.get("buffer_usd") or 0.0),
             funded_start=str(econ.get("funded_start") or "fresh"),
             first_payout_refund=bool(econ.get("first_payout_fee_refund") or False),
+            day_reset=_hhmm_to_day_fraction(lim.get("daily_loss_reset_utc")),
         )
 
 
@@ -284,6 +296,12 @@ class SimConfig:
     block_days: int = 30
     first_payout_refund: bool = False
     stop_at_pass: bool = False       # positive controls only: end the life at the eval pass
+    # Per-position notional cap as a multiple of the CURRENT balance, per leg
+    # (Tradeify 247: 5x BTC/ETH, 2x alts). Risk is scaled DOWN so notional <= cap x balance.
+    lev_caps: Optional[Dict[str, float]] = None
+    # Refuse an entry that would be simultaneously long and short the SAME symbol
+    # across legs (Tradeify 247: hedging is banned). Needs `symbol`/`direction` on rows.
+    no_hedge: bool = False
 
 
 @dataclass
@@ -307,6 +325,9 @@ class Trade:
     cost_r: float       # total cost in R charged by the cost model (>= 0)
     gross_r: Optional[float]
     mfe_r: Optional[float]
+    stop_frac: Optional[float] = None   # |entry-sl|/entry when the row carries both
+    symbol: Optional[str] = None
+    direction: Optional[str] = None
 
 
 def _parse_ts(v: Any) -> datetime:
@@ -400,6 +421,9 @@ def build_trades(rows_by_leg: Dict[str, List[Dict[str, Any]]], costs: CostConfig
             exit=(b - day0).total_seconds() / 86400.0,
             net_r=net, cost_r=max(0.0, c), gross_r=gross,
             mfe_r=(float(mfe) if mfe is not None else None),
+            stop_frac=(abs(float(r["entry"]) - float(r["sl"])) / float(r["entry"])
+                       if r.get("entry") and r.get("sl") is not None and float(r["entry"]) > 0 else None),
+            symbol=r.get("symbol"), direction=r.get("direction"),
         ))
     out.sort(key=lambda t: (t.entry, t.leg))
     return out, day0, hist_days
@@ -598,12 +622,13 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
     phase = "eval"
     bal = float(cfg.start_balance) if cfg.start_balance is not None else start
     day_start = bal
-    next_reset = _DAY_RESET
+    next_reset = rules.day_reset
     funded_at: Optional[float] = None
     next_payout: Optional[float] = None
     refund_due = cfg.first_payout_refund
     # open positions: leg -> (exit_t, pnl_usd, mark_usd)
     open_pos: Dict[str, Tuple[float, float, float]] = {}
+    open_trades: Dict[str, "Trade"] = {}
     exits: List[Tuple[float, str]] = []
     marks_sum = 0.0
     paths: Dict[str, Tuple[float, np.ndarray, float]] = {}   # `path` mode: leg -> (entry, marks_r, risk_usd)
@@ -697,6 +722,10 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                 counters["skipped_in_approval_gap"] = counters.get("skipped_in_approval_gap", 0) + 1
             elif t.leg in open_pos:
                 life.trades_skipped_leg_busy += 1
+            elif cfg.no_hedge and any(
+                    (o.symbol == t.symbol and o.direction != t.direction) for o in
+                    (open_trades[k] for k in open_pos if k in open_trades)):
+                counters["hedge_blocked"] = counters.get("hedge_blocked", 0) + 1
             else:
                 if cfg.sizing == "room":
                     # Fit the NEW trade inside the binding cushion (static floor or today's
@@ -706,6 +735,11 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                     risk_usd = min(cfg.risk_pct * bal, cfg.room_frac * max(0.0, room))
                 else:
                     risk_usd = cfg.risk_pct * (bal if cfg.sizing == "balance" else start)
+                if cfg.lev_caps and t.stop_frac and t.leg in cfg.lev_caps:
+                    capped = cfg.lev_caps[t.leg] * bal * t.stop_frac
+                    if capped < risk_usd:
+                        counters["lev_capped"] = counters.get("lev_capped", 0) + 1
+                        risk_usd = capped
                 if risk_usd < cfg.min_risk_usd:
                     counters["skipped_no_room"] = counters.get("skipped_no_room", 0) + 1
                     continue
@@ -719,6 +753,7 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                 else:
                     mark = open_mark_r(t, mode, rng, counters) * risk_usd
                 open_pos[t.leg] = (x, pnl, mark)
+                open_trades[t.leg] = t
                 heapq.heappush(exits, (x, t.leg))
                 marks_sum += mark
                 life.trades_taken += 1
@@ -1119,6 +1154,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--sizing", choices=("balance", "start", "room"), default="balance",
                     help="room = min(risk_pct x balance, room_frac x binding cushion), cushion = the "
                          "smaller of equity-to-static-floor and equity-to-today's-daily-limit")
+    ap.add_argument("--no-hedge", action="store_true",
+                    help="skip an entry that would hold long+short in the same symbol across legs")
+    ap.add_argument("--lev-cap", action="append", default=[], metavar="LEG=X",
+                    help="per-position notional cap as a multiple of balance for LEG (repeatable)")
     ap.add_argument("--room-frac", type=float, default=0.45)
     ap.add_argument("--min-risk", type=float, default=1.0, help="skip a trade sized below this many USD of risk")
     ap.add_argument("--start-balance", type=float, default=None,
@@ -1185,6 +1224,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                     block_days=args.block_days,
                     first_payout_refund=(rules.first_payout_refund if args.first_payout_refund is None
                                          else bool(args.first_payout_refund)))
+    cfg.no_hedge = bool(args.no_hedge)
+    for spec in args.lev_cap:
+        if "=" not in spec:
+            ap.error(f"--lev-cap expects LEG=X, got {spec!r}")
+        leg, x = spec.split("=", 1)
+        cfg.lev_caps = {**(cfg.lev_caps or {}), leg: float(x)}
     rows = {leg: load_rows(p) for leg, p in paths.items()}
     trades, day0, hist_days = build_trades(rows, costs)
     hist = History(trades, hist_days)
