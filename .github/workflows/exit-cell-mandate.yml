@@ -178,3 +178,5 @@ jobs:
           gh issue create --label system-action \
             --title "send-ping: exit-cell mandate fired" \
             --body "$(printf 'action: send-ping\npriority: high\nmessage: MD-SOAK-EXIT-CELL-PATHB FIRED for %s. PR opened by run %s; landing HELD for manager review.\nreason: MD-SOAK-EXIT-CELL-PATHB evidence_required names a realtime ping' "$LEGS" "${{ github.run_id }}")"
+
+# no-durable-result: ops mandate runner; its durable outputs are commit-to-main pipeline rows and held PRs, the artifact is kept only so the run verdicts are readable
