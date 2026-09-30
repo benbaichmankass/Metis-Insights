@@ -779,7 +779,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
         verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
-        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
+        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict, now=now)
         if trip:
             halted = halted or _trip(res, state, live, trip)
 
@@ -847,10 +847,19 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         if cfg.enabled_venue_symbols is not None and str(venue or "").upper() not in cfg.enabled_venue_symbols:
             # Skipped BEFORE the form: not a refusal, no latch count (an ETH
             # ticket stays manual via Telegram until symbol switching lands).
+            # The LEDGER records it (so it is never re-decided) but NOTHING is
+            # reported: the ticket is not the executor's, and a `skipped`
+            # report flips it off `emitted`, which removes it from every
+            # manual-bridge path that keys on `emitted` -- the price-
+            # invalidation "do NOT place" warning, the expiry "did you place
+            # this?" prompt, and the one-ticket-per-trade reticket guard.
+            # Measured 2026-09-30 (BREAKOUT-ATTRITION): breakout_1's roster is
+            # ETH + SOL, ETH is ~60% of fresh tickets, and the executor would
+            # have marked every one `skipped` within one 5-min tick while the
+            # operator still held it on Telegram.
             res.log("skipped", ticket_id=t["ticket_id"], reason="symbol_not_enabled", venue=venue)
             if live:
                 ledger.record(t["ticket_id"], "skipped", reason="symbol_not_enabled")
-                _report(res, post, _skip_body(cfg, t, "symbol_not_enabled"))
             continue
         if candidate is None:
             candidate = t
@@ -911,7 +920,8 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         else:
             res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict())
         return res
-    ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts))
+    ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts),
+                  valid_until=candidate.get("valid_until"))
     att: PlaceAttempt = adapter.place_bracket(page, spec, arm=True)
     res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
     st = state.load()
@@ -1250,9 +1260,40 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
             "sl": spec.get("stop_loss"), "tp": spec.get("take_profit"), "source": "prop_executor"}
 
 
+def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledger: IntentLedger,
+                    tid: str, row: Mapping[str, Any], found: Mapping[str, Any],
+                    now: Optional[datetime]) -> None:
+    """Cancel a resting (unfilled) entry once its ticket's ``valid_until`` has
+    passed. The executor types a LIMIT at the ticket's entry; nothing else
+    ever withdraws it, so a breakout that ran away from its entry rested
+    forever: it held the symbol (the one-bracket-per-symbol guard), kept the
+    ticket ``placed`` (which blocks every same-direction reticket with no time
+    window), and could fill days later on a setup that had gone stale -- the
+    automated form of the expiry-prompt wedge (BREAKOUT-ATTRITION 2026-09-30).
+
+    Only the matched working orders are cancelled, only when the ledger row
+    carries a readable ``valid_until`` (a row written before this field
+    existed is never guessed at), and at most once: the row is marked
+    ``cancel_requested`` and the existing ``placed -> not_found`` path (two
+    reads) reports the ticket skipped with the expiry as its reason."""
+    if now is None or row.get("cancel_requested"):
+        return
+    vu = _parse_ts(row.get("valid_until"))
+    if vu is None or vu > now:
+        return
+    orders = list(found.get("orders") or [])
+    if not orders or found.get("positions"):
+        return
+    results = [adapter.cancel_order(page, o, arm=live) for o in orders]
+    res.log("cancel_expired_resting", ticket_id=tid, valid_until=vu.isoformat(),
+            order_ids=[o.order_id for o in orders], results=results)
+    if live:
+        ledger.record(tid, "placed", cancel_requested=vu.isoformat())
+
+
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
-             found: Mapping[str, Any], verdict: str) -> Optional[str]:
+             found: Mapping[str, Any], verdict: str, now: Optional[datetime] = None) -> Optional[str]:
     """§ 3.5 for one submitted ticket. Never resubmits. Returns an
     auto-revert trip reason (a bracket leg missing, a duplicate, or an
     unconfirmed placement), or None."""
@@ -1262,17 +1303,20 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         trip: Optional[str] = f"{tid}: {verdict}"
     else:
         trip = None
+    if verdict == "placed" and prev == "placed" and not trip:
+        _expire_resting(res, adapter, page, live, ledger, tid, row, found, now)
     if verdict == prev:
         return trip  # unchanged since last cycle: nothing to report twice
     if prev == "placed" and verdict == "not_found":
         # A resting order that vanished without a position: cancelled or
         # expired on the terminal. Two reads, then report it skipped.
         n = int(row.get("misses") or 0) + 1
+        why = ("expired: resting entry cancelled at the ticket's valid_until"
+               if row.get("cancel_requested") else "working order gone from the terminal without a fill")
         if live:
             if n >= 2:
-                ledger.record(tid, "skipped", reason="working order gone from the terminal without a fill")
-                _report(res, post, {**_fill_body(cfg, row, spec, "skipped"),
-                                    "reason": "working order gone from the terminal without a fill"})
+                ledger.record(tid, "skipped", reason=why)
+                _report(res, post, {**_fill_body(cfg, row, spec, "skipped"), "reason": why})
             else:
                 ledger.record(tid, "placed", misses=n)
         return trip

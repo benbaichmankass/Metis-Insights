@@ -1764,7 +1764,9 @@ def test_a_non_enabled_symbol_is_skipped_before_the_form_and_counts_nothing(env)
                        state=state, now=NOW)
     assert not any(c[0] == "place_bracket" for c in ad.calls)
     assert ledger.state("prop-eth") == "skipped" and ledger.latest()["prop-eth"]["reason"] == "symbol_not_enabled"
-    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"] == ["symbol_not_enabled"]
+    # The ticket is NOT the executor's: no write-back, so it stays `emitted`
+    # for the manual bridge (invalidation warning, expiry prompt, reticket guard).
+    assert not any(p.get("ticket_id") == "prop-eth" for p in api.posts)
     st1 = state.load()
     assert st1.get("readback_refusals", 0) == st0.get("readback_refusals", 0) and state.halted() is None
     assert res.halted is None
@@ -2898,3 +2900,82 @@ def test_tick_close_position_modes_and_apply_tokens():
     assert 'close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;' in sh
     wf = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "system-actions.yml").read_text()
     assert "|close-position|close-position-live)" in wf
+
+
+def test_a_non_enabled_symbol_is_decided_once_and_never_reported_on_later_cycles(env):
+    ledger, state = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT")
+    api = FakeApi([eth])
+    for _ in range(3):
+        pe.run_cycle(adapter=FakeAdapter(), page=None, api=api, cfg=_sol_only(), mode="live",
+                     ledger=ledger, state=state, now=NOW)
+    assert not any(p.get("ticket_id") == "prop-eth" for p in api.posts)
+    assert [r for r in ledger._rows() if r["ticket_id"] == "prop-eth"] == \
+        [r for r in ledger._rows() if r["ticket_id"] == "prop-eth"][:1]
+
+
+# ── a resting entry is withdrawn at its ticket's valid_until (BREAKOUT-ATTRITION) ──
+
+
+def _placed_then(env, now, valid_until, orders, positions=()):
+    ledger, state = env
+    ad = FakeAdapter(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=valid_until)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    assert ledger.state("prop-manual-aaa") == "placed"
+    ad.orders, ad.positions, ad.calls = list(orders), list(positions), []
+    api._tickets = []
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=now)
+    return ad, api, res
+
+
+def test_a_resting_entry_past_valid_until_is_cancelled_once(env):
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    later = NOW + timedelta(minutes=31)
+    ad, api, res = _placed_then(env, later, vu, [_o()])
+    assert ad.calls == [("cancel_order", "O1", True)]
+    assert env[0].latest()["prop-manual-aaa"]["cancel_requested"]
+    # still showing next cycle (the venue is slow): never cancelled twice
+    ad.calls = []
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=env[0], state=env[1],
+                 now=later + timedelta(minutes=5))
+    assert ad.calls == []
+    # gone on two reads -> reported skipped with the expiry as its reason
+    ad.orders = []
+    for k in (10, 15):
+        pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=env[0], state=env[1],
+                     now=later + timedelta(minutes=k))
+    skips = [p for p in api.posts if p.get("status") == "skipped" and p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and skips[0]["reason"].startswith("expired")
+    assert env[1].halted() is None
+
+
+def test_a_resting_entry_within_valid_until_is_left_alone(env):
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, _, _ = _placed_then(env, NOW + timedelta(minutes=10), vu, [_o()])
+    assert ad.calls == []
+
+
+def test_a_filled_entry_is_never_cancelled_at_valid_until(env):
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, _, _ = _placed_then(env, NOW + timedelta(hours=2), vu, [], positions=[_p()])
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+    assert env[0].state("prop-manual-aaa") == "open"
+
+
+def test_a_ledger_row_without_valid_until_is_never_guessed_at(env):
+    ledger, state = env
+    ledger.record("legacy", "placed", spec=dict(SPEC, ticket_id="legacy"))
+    ad = FakeAdapter(orders=[_o()])
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([]), cfg=cfg(), mode="live", ledger=ledger,
+                 state=state, now=NOW + timedelta(days=3))
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+
+
+def test_read_only_never_cancels_a_resting_entry(env):
+    ledger, state = env
+    ledger.record("t1", "placed", spec=SPEC, valid_until=(NOW - timedelta(hours=1)).isoformat())
+    ad = FakeAdapter(orders=[_o()])
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([]), cfg=cfg(), mode="read_only", ledger=ledger,
+                 state=state, now=NOW)
+    assert all(arm is False for (k, _, arm) in ad.calls if k == "cancel_order")
