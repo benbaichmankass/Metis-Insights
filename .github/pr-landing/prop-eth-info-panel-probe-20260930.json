@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges after independent review; adds CLICKING probe modes (watchlist Symbol cell, instrument info button, the panel's close control) on the funded breakout_1 DXtrade terminal",
+  "why": "PROP-ETH-DOM, pipeline PI-20260929-AQRK6CL1-0014. OPERATOR DECISIONS relayed by the manager 2026-09-30: 'Build an automated probe' (~08:00Z) and 'I'll approve it in the lane' (~08:20Z). New breakout-login-check modes instrument-info-dry (clicks nothing) / instrument-info-probe. Guards: action holds login.lock (executor tick skips); flat guard without a tab click (Used Margin 0 AND a VISIBLE Orders table empty; else refuse); one-click ON refuses; any dialog after a row click aborts; single click on the Symbol cell only (a row double-click opens the order ticket); panel = the ONE new element, must name the symbol and no other, hold no BUY/SELL, differ from earlier panels, be verified closed; linked symbol recorded, restored and verified; watchlist unchanged; exit 3 on any alert. No order control, config, sizing or risk change; nothing joins executor.enabled_venue_symbols."
+}
