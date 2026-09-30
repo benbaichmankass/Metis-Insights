@@ -45,9 +45,8 @@ def _acct(cls, legs):
 
 def _build(tmp_path, *, row=None, rows=None, accounts=None, cur=2.5, granted=False):
     real = yaml.safe_load((REPO / "config/mandates.yaml").read_text())
-    entry = next(m for m in real["proposed"] if m["id"] == MID)
-    if granted:
-        entry = dict(entry, granted_by="operator", granted_at="2026-09-30")
+    entry = next(m for m in real["mandates"] if m["id"] == MID)
+    # `granted=False` re-files the REAL entry under `proposed:` to exercise the dry path.
     doc = {"mandates": [entry] if granted else [], "proposed": [] if granted else [entry]}
     accts = accounts or {"alpaca_paper": _acct("paper", [LEG]),
                          "alpaca_live": _acct("real_money", ["x"])}
@@ -160,12 +159,14 @@ def test_already_declared_is_a_noop(tmp_path):
 def test_the_roster_resolver_refuses_this_id_by_design():
     # direction: exit_geometry is not add_risk|derisk_only -- `_decide()` must never evaluate it.
     real = yaml.safe_load((REPO / "config/mandates.yaml").read_text())
-    entry = next(m for m in real["proposed"] if m["id"] == MID)
+    entry = next(m for m in real["mandates"] if m["id"] == MID)
     assert entry["direction"] == "exit_geometry"
 
 
-def test_committed_entry_is_proposed_only_and_carries_no_autoland():
+def test_committed_entry_is_granted_by_the_operator_with_no_autoland():
     real = yaml.safe_load((REPO / "config/mandates.yaml").read_text())
-    assert MID not in [m["id"] for m in real["mandates"]], "only the operator grants"
-    entry = next(m for m in real["proposed"] if m["id"] == MID)
-    assert "autoland" not in entry and "granted_by" not in entry
+    assert MID not in [m["id"] for m in real.get("proposed") or []]
+    entry = next(m for m in real["mandates"] if m["id"] == MID)
+    assert entry["granted_by"].startswith("operator") and entry["granted_at"] == "2026-09-30"
+    assert "PATHB-MANDATE" in entry["source"]
+    assert "autoland" not in entry  # operator: a fire opens a PR and pings; the manager merges

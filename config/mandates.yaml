@@ -710,11 +710,9 @@ mandates:
       The dry-run issue showing the exact plan, the apply issue's exit 0 with
       its re-read verification.
 
-proposed:
-
-  # ── PROPOSED 2026-09-30 -- NOT GRANTED, AUTHORIZES NOTHING ────────────────────
+  # ── PROPOSED 2026-09-30, GRANTED 2026-09-30 (granted_by / source below) ────────
   # Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1), pipeline row
-  # PI-20260929-AQRK6CL1-0013. Only the operator moves this under `mandates:`.
+  # PI-20260929-AQRK6CL1-0013. Proposed by a session; GRANTED by the operator.
   #
   # THE DECISION HAS ARRIVED TWICE IN THE SAME SHAPE:
   #   1. 2026-08-30, Tier-3 approved in conversation: a batch of `sm*` (atr_stop_mult)
@@ -743,6 +741,16 @@ proposed:
     direction: exit_geometry
     proposed_by: session_01R2PHzyjMvQoNiB39SdYWco
     proposed_at: '2026-09-30'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-30'
+    source: >-
+      Popup in manager session session_01HYq6XtfesZ57VyaQrK6CL1, ~05:15Z
+      2026-09-30, answered verbatim "Grant; firing opens a PR (Recommended)".
+      The popup stated the bounds as written here. Recorded by the manager on
+      checklist row PATHB-MANDATE in docs/claude/work/MANAGER-CHECKLIST.json
+      (PR #14550). Confirmed again directly by the operator in this lane's
+      session, 2026-09-30: "Grant confirmed, proceed with the mandate move".
+      NO auto-land: a fire opens a PR and pings, and the manager merges it.
     recurrence: 2 occurrences (2026-08-30 batch of 8 cells with a computable ratio; 2026-09-29 #14332)
     # `direction: exit_geometry` is NOT add_risk|derisk_only, so `_decide()` (the
     # roster resolver) REFUSES this id by design. It is evaluated by
@@ -826,7 +834,9 @@ proposed:
       # bounds a future cell. It is a bound on a future cell, not a correction of a
       # present one -- strike it if a control that controls nothing is unwanted.
       max_leverage_multiple: 2.0
-    # AUTO-LAND: NOT PROPOSED. See the lane report and the PR body. Short form:
+    # AUTO-LAND: NOT GRANTED (operator, same popup). Short form:
     # scripts/ci/check_mandate_autoland.py clause A1/A2 is built for REMOVALS from
     # accounts.yaml and refuses config/strategies.yaml; this entry ADDS notional
     # per unit risk on paper; and it has never fired once. No `autoland:` field.
+
+proposed: []
