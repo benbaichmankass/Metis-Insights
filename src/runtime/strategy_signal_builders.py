@@ -1693,6 +1693,44 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("trend_donchian_1h", sig)
 
 
+#: Ticks after a bar closes during which a ``decision_bar: closed`` leg still
+#: evaluates it (live tick ~2 min → 3 chances). Later ticks are a no-op so one
+#: closed bar cannot re-fire for the whole next bar.
+_CLOSED_DECISION_FRESH_SECONDS = 360.0
+
+
+def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
+                    now: float | None = None) -> tuple[Any, str | None]:
+    """Frame the leg's entry decision runs on: ``(frame, skip_reason)``.
+
+    ``decision_bar: forming`` (default — unchanged behaviour) evaluates the
+    frame as fetched, whose last row is the still-forming bar. ``closed``
+    trims it (``src.runtime.closed_bars``, FIX-CA-23) so the decision is read
+    on the CLOSED bar exactly as the Stage-0 harness scores it
+    (PI-20260930-QZSE4AMA-0002), and returns a ``skip_reason`` once that closed
+    bar is older than ``decision_bar_fresh_seconds`` (already had its ticks).
+    """
+    mode = str(vcfg.get("decision_bar") or "forming").lower()
+    if mode == "forming":
+        return candles_df, None
+    if mode != "closed":
+        raise ValueError(f"decision_bar={mode!r} (expected closed|forming)")
+    import time as _time
+    from src.runtime.closed_bars import (
+        TF_SECONDS, _epoch_seconds, _last_timestamp, drop_forming_bar,
+    )
+    now_s = _time.time() if now is None else float(now)
+    frame = drop_forming_bar(candles_df, timeframe, now=now_s)
+    tf_s = TF_SECONDS.get(str(timeframe))
+    open_s = _epoch_seconds(_last_timestamp(frame))
+    if tf_s is None or open_s is None:
+        return frame, "closed_bar_unreadable"
+    fresh = float(vcfg.get("decision_bar_fresh_seconds") or _CLOSED_DECISION_FRESH_SECONDS)
+    if now_s - (open_s + tf_s) > fresh:
+        return frame, "closed_bar_already_evaluated"
+    return frame, None
+
+
 def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]:
     """Shared builder for the prop alt variants (trend_donchian_sol/_eth).
 
@@ -1734,6 +1772,13 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
     _publish_liquidity_state(symbol, candles_df)
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **vcfg}
     cfg["strategy_label"] = name
+
+    candles_df, _skip = _decision_frame(candles_df, timeframe, vcfg)
+    if _skip is not None:
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {"strategy_name": name, "reason": _skip},
+        })
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
