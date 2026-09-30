@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Observability only, in the live prop executor (src/prop/prop_executor.py run_cycle intake): a PASSING entry-band check (#14908) now logs band_ok with the quote and band it used, so the first live ticket's pass is observable rather than inferred (manager 2026-09-30 22:06Z). No decision changes. Held because the file is the order path; the manager reviews and merges.",
+  "why": "PI-20260930-KMYJ5XC7-0003 is landed_unproven until a real ticket passes the band check; without this line a pass leaves no record of the quote used."
+}

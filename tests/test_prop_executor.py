@@ -3624,3 +3624,12 @@ def test_a_dry_unreadable_band_alerts_once(env):
                            ledger=ledger, state=state, now=NOW + timedelta(minutes=5 * k))
         alerts += [a for a in res.alerts if "entry band unreadable" in a]
     assert len(alerts) == 1
+
+
+def test_a_passing_band_check_is_logged_with_the_quote_it_used(env):
+    # manager 2026-09-30 22:06Z: a live pass must be observable, not inferred
+    ad = FakeAdapter(quote={"bid": 119.99, "ask": 120.0})
+    res = _band_cycle(ad, FakeApi([ticket()]), env)
+    ok = [a for a in res.actions if a["what"] == "band_ok"]
+    assert len(ok) == 1 and ok[0]["why"] == "ask 120.0 inside the ticket's entry band 119.5..120.5"
+    assert len(_places(ad)) == 1
