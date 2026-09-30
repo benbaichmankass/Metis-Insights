@@ -8,6 +8,11 @@
 > **SCOPE AND DESIGN ONLY. Nothing is bought, installed, changed on the live VM or routed.** Every VM change below is **Tier 2** and waits for the manager's go and the operator's OK.
 > The live VM's address is deliberately not written in this document.
 
+> **STATUS 2026-09-30 16:16Z: DECLINED BY THE OPERATOR. PAUSED.** Verbatim: *"I don't want this solution"*, and asked *"what happened to the proxy ip? Why not that solution?"*
+> **Do not act on §§ 2–5 of this plan:** no device to buy, no Tailscale step for the operator, no VM change. The probe extension (PR #14793) stays a draft, marked
+> "paused: operator declined R2 2026-09-30 16:16Z". What is still open is the question the operator asked back: whether the one failed proxied run was the proxy's
+> network or headless Chromium itself; that is tracked in pipeline row `PI-20260930-3ZFMYYI4-0003`. The rest of this document is kept as the record of what R2 would have needed.
+
 ## 1. Bottom line
 
 - **Why R2 at all.** The one proxied probe (run 36731753995, 14:47Z) was **challenged at `app.breakoutprop.com`** from a rented ISP address (AS42049 Nadejda.Net Ltd), while the operator's own browser
