@@ -16,7 +16,10 @@ It answers, in order, and prints every answer (redacted):
    iframe origins, first 40 text lines), canvas / iframe / input counts, and
    the ORIGINS (scheme + host only) of every request the page made. Nothing
    is typed or clicked. Run 36337076971 hit this URL and only recorded
-   ``unknown_page``; this is the stage that says what the page is.
+   ``unknown_page``; this is the stage that says what the page is. A block
+   page (``asn_blocked`` / ``access_denied``: Cloudflare Error 1005, MEASURED
+   2026-09-29, run 36623749022) or a challenge ends the probe here with
+   ``feasibility: <reason>`` (exit 4).
 2. **Login** (``--login`` only): ONE credential attempt through
    ``BreakoutTerminalAdapter.login`` — fill the one password field and its
    identity field, submit, and if the dashboard shows an "Open Terminal"
@@ -27,8 +30,10 @@ It answers, in order, and prints every answer (redacted):
 3. **Terminal** (after a login that reached it): account metrics as parsed,
    the positions / orders tables as parsed (``None`` = no such table found),
    the redacted structure dump (labels with their ancestor chains, every
-   table's header row), and — passively — whether an order form is already
-   open and whether a one-click-trading control exists.
+   table's header row), ``dump_tables`` (per VIEW tab: every table, how the
+   readers classify it, the first row hovered and its controls' markup with
+   ids masked), and — passively — whether an order form is already open and
+   whether a one-click-trading control exists.
 4. **Ticket** (``--probe-ticket`` only, after 3): ``probe_order_ticket`` —
    opens the order form only if one-click trading reads OFF, records its
    field labels / buttons / canvas counts, types NOTHING, closes it.
@@ -99,8 +104,21 @@ def origins_line(urls: Sequence[str]) -> str:
     return f"probe.request_origins: {sorted(seen)}"
 
 
-def stage_dump(adapter: Any, page: Any, stage: str, secrets: Sequence[str]) -> None:
-    """Classification + counts + redacted page shape of ``page``. Read-only."""
+#: Page classifications that end the probe as a feasibility stop wherever they
+#: appear, the landing included (run 36623749022 read Cloudflare's Error 1005
+#: ASN ban as ``unknown`` and exited 0).
+LANDING_STOPS = ("asn_blocked", "access_denied", "challenge", "captcha")
+
+
+def landing_exit(state: str) -> Optional[int]:
+    """EXIT_FEASIBILITY when the landing classification is a stop, else None
+    (carry on). Pure."""
+    return EXIT_FEASIBILITY if state in LANDING_STOPS else None
+
+
+def stage_dump(adapter: Any, page: Any, stage: str, secrets: Sequence[str]) -> str:
+    """Classification + counts + redacted page shape of ``page``. Read-only.
+    Returns the classification."""
     try:
         state = adapter.page_state(page)
     except FeasibilityError as fe:
@@ -115,6 +133,7 @@ def stage_dump(adapter: Any, page: Any, stage: str, secrets: Sequence[str]) -> N
         _say(f"probe.{stage}.counts: ERROR {type(exc).__name__}")
     for line in adapter.page_shape(page, secrets):
         _say(line, secrets)
+    return state
 
 
 def terminal_dump(adapter: Any, page: Any, secrets: Sequence[str]) -> bool:
@@ -143,6 +162,10 @@ def terminal_dump(adapter: Any, page: Any, secrets: Sequence[str]) -> bool:
          f"fields={sorted((form.get('fields') or {}).keys())} buttons={form.get('buttons') or {}} "
          f"canvases_in_page={form.get('canvases_in_page')} inputs_in_page={form.get('inputs_in_page')}", secrets)
     for line in adapter.structure(page, secrets):
+        _say(line, secrets)
+    # Every table per VIEW tab, with the first row hovered and its controls'
+    # markup (ids masked): what the close / cancel selection will key on.
+    for line in adapter.dump_tables(page, secrets):
         _say(line, secrets)
     return ok
 
@@ -201,12 +224,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             # ── stage 1: landing ──
             try:
                 resp = page.goto(cfg["login_url"], wait_until="domcontentloaded", timeout=args.timeout_s * 1000)
-                _say(f"probe.landing.http_status: {resp.status if resp else None}")
+                # A label of 24+ token-like characters is itself redacted as
+                # a token (#14402 printed "<token>: 403"): keep it short.
+                _say(f"probe.landing.http: {resp.status if resp else None}")
             except Exception as exc:
                 _say(f"probe.landing.goto: ERROR {type(exc).__name__}: {(str(exc).splitlines() or [''])[0][:200]}")
             time.sleep(max(0, args.settle_s))
-            stage_dump(adapter, page, "landing", secrets)
+            state = stage_dump(adapter, page, "landing", secrets)
             _say(origins_line(requested))
+            stop = landing_exit(state)
+            if stop is not None:
+                # Reported, never retried and never routed around: reaching a
+                # site that bans this network needs a different egress, which
+                # is the operator's decision (run 36623749022, Error 1005).
+                print(f"feasibility: {state} (at the landing; nothing further attempted)")
+                return stop
             if not args.login:
                 print("probe: landing only (no credentials used)")
                 return EXIT_OK

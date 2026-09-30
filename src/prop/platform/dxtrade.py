@@ -474,11 +474,18 @@ EXTRACT_TABLES_JS = r"""
   };
   const ctlDesc = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
     (txt(c) || c.getAttribute('title') || c.getAttribute('aria-label') || c.tagName.toLowerCase()).slice(0, 30));
+  // The same controls' markup (whitespace folded, digit runs of 5+ masked):
+  // live test #14191 read the position row's trio as three text-less
+  // buttons, so what they are CALLED is the only way to tell them apart.
+  const ctlHtml = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
+    (c.outerHTML || '').replace(/\s+/g, ' ').replace(/(data-[\w-]*id[\w-]*=")[^"]*(")/gi, '$1#####$2')
+      .replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 220));
   for (const p of paired) {
     const rows = p.trs.map(r => [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt));
     push('table', p.headers, rows, {paired: !!p.body, own_rows: p.own_rows, unpaired_body_rows: p.unpaired_body_rows,
                                     headerless_tables: headerless,
-                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : []});
+                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : [],
+                                    first_row_control_html: p.trs.length ? ctlHtml(p.trs[0]) : []});
   }
   for (const g of document.querySelectorAll('[role=grid], [role=treegrid], [role=table]')) {
     const headers = [...g.querySelectorAll('[role=columnheader]')].map(txt);
@@ -945,6 +952,14 @@ def extract_instrument_specs_from_responses(
 # the probe prints every button name so this list can be fixed from the log.
 TICKET_OPENER_NAMES: Sequence[str] = ("New Order", "New order", "Create Order", "Create order",
                                       "Place Order", "Place order", "Order Entry", "Trade")
+
+# Candidate SEARCH/FILTER input attribute-text substrings (case-insensitive),
+# tried in order by FIND_INSTRUMENT_SEARCH_JS. NOT MEASURED: no run has
+# confirmed any of these yet -- first candidate found wins, none found is
+# reported honestly (probe_instrument_details) rather than guessed.
+INSTRUMENT_SEARCH_CANDIDATES: Sequence[str] = (
+    "search", "find symbol", "find instrument", "symbol search", "instrument search",
+)
 
 # Form-field label patterns (anchored, case-insensitive), matched against the
 # label text the discovery JS derives for each control.
@@ -1413,6 +1428,227 @@ TICKET_PANEL_DUMP_JS = r"""
 }
 """
 
+# Discovery for a symbol SEARCH/FILTER input (PROP-ETH, 2026-09-29; revised
+# 2026-09-29 after live run issue #14437 -- see below). The CANDIDATE TEXT
+# LIST is still NOT MEASURED, no run has confirmed any candidate yet. Tries,
+# in document order, an input whose placeholder/aria-label/data-test-id/title
+# contains one of INSTRUMENT_SEARCH_CANDIDATES (case-insensitive), else a
+# bare ``input[type=search]``. Tags the one match with
+# ``data-metis-search-hit`` for the Python side to locate; reads nothing,
+# types nothing, clicks nothing.
+#
+# ⚠️ THE ANCHOR IS NOW POSITIVE, NOT NEGATIVE, and IS MEASURED. The original
+# version admitted every input EXCEPT what it could prove was inside the
+# order ticket (a BUY/SELL panel) -- which meant with 0 BUY buttons (no
+# ticket open, the terminal's actual landing state) it had nothing to exclude
+# from, so it refused outright. Live run #14437 (2026-09-29, issue #14437,
+# code_sha 4ef6b3340) hit exactly this: all four symbols (BTC/ADA/AVAX/XRP)
+# refused with "0 BUY buttons", correctly (refuse-not-guess held), but the
+# probe can then only ever work while an order ticket happens to be open,
+# which this probe never opens -- so it could never actually run.
+#
+# The fix anchors POSITIVELY on the watchlist panel instead: the same header
+# table (Symbol/Bid/Ask columns) and row selector (``tr.instrument,
+# tr[data-row-id]``) that :data:`WATCHLIST_ROWS_JS` already reads -- MEASURED
+# 2026-09-29, dry run #13898, run 36507086110, and reused verbatim by
+# :meth:`DXtradeAdapter.open_order_ticket`'s watchlist double-click. The
+# watchlist needs no order ticket at all, so this anchor exists on exactly
+# the landing state #14437 measured. A candidate input must be CONTAINED
+# WITHIN that watchlist panel; if no watchlist table+row can be found at
+# all, refuse (the same honest "could not look" this file uses everywhere).
+# The order-ticket exclusion is KEPT as defense in depth (never admit an
+# input inside a BUY+SELL-holding container, whatever the count -- the
+# ORDER TICKET's own presence, not its count, is what matters), but it is no
+# longer a PRECONDITION for the whole probe to run.
+#
+# ⚠️ HARDENED again 2026-09-29 (manager review of #14442, before merge): the
+# first version's ``rows[0]`` was the first ``tr.instrument``/``[data-row-id]``
+# ANYWHERE IN THE DOCUMENT, not necessarily a row of the watchlist's own
+# header table. Whether the Positions/Orders grids ALSO use this same row
+# selector is UNMEASURED -- the one recorded dump-tables run that shows a
+# live Positions row (issue #14198, run 36572236094) prints each row's
+# PARSED CELLS and its hover-control markup (button/title/aria-label
+# elements only), never the ``<tr>`` element's own class or attributes, so
+# it neither confirms nor rules this out. If it turned out true and a
+# Positions/Orders row happened to precede the watchlist in document order,
+# ``rows[0]`` could anchor on a container far wider than the watchlist --
+# possibly the app root -- and containment would then admit almost anything.
+# Three layers now guard against exactly that, refusing rather than trusting
+# an unmeasured assumption:
+#   1. The anchor row must ALIGN with the watchlist's OWN header: the same
+#      cell count, and its cell under the header's own Symbol column index
+#      reads a symbol-shaped token (never just "whatever tr matches first").
+#   2. The resolved panel must hold exactly one Symbol-headed table (itself);
+#      more than one, or any OTHER table in the panel whose headers look
+#      like a positions/orders grid (side/quantity/p&l/profit/order type/
+#      status), refuses -- a watchlist panel holds one quote table.
+#   3. The upward walk excludes ``document.body`` by construction (the loop
+#      never assigns it to ``e``), so the panel can never resolve to it.
+FIND_INSTRUMENT_SEARCH_JS = r"""
+([candidates]) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const symLike = /^[A-Z0-9]{2,15}$/i;
+  const posOrdHeaderRe = /\b(side|quantity|p&l|profit|order type|status)\b/;
+
+  // The watchlist's own header table (Symbol/Bid/Ask). Refuse if more than
+  // one table on the page shares a Symbol header -- which one is "the"
+  // watchlist is then undecidable, never guessed.
+  const symbolTables = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol')) symbolTables.push({t, hs});
+  }
+  const watchlistTables = symbolTables.filter(x => x.hs.includes('bid') && x.hs.includes('ask'));
+  if (watchlistTables.length !== 1) {
+    return {found: false, why: `${watchlistTables.length} tables with Symbol/Bid/Ask headers (need exactly 1)`};
+  }
+  const headerTable = watchlistTables[0].t;
+  const headers = watchlistTables[0].hs;
+  const symbolIdx = headers.indexOf('symbol');
+
+  // The anchor row must ALIGN with that header -- same cell count, symbol-
+  // shaped Symbol cell -- never just the first tr.instrument/[data-row-id]
+  // found anywhere in the document (see the block comment above).
+  let anchorRow = null;
+  for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    const cells = [...r.querySelectorAll('td')].map(txt);
+    if (cells.length !== headers.length) continue;
+    if (symLike.test((cells[symbolIdx] || '').trim())) { anchorRow = r; break; }
+  }
+  if (!anchorRow) {
+    return {found: false, why: 'no measured watchlist row aligned with the header'};
+  }
+
+  let watchlistPanel = null;
+  for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
+    if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+  }
+  if (!watchlistPanel) {
+    return {found: false, why: 'no common ancestor of the watchlist header and its row'};
+  }
+
+  // The panel must hold exactly one Symbol-headed table (itself), and no
+  // OTHER table inside it may look like a positions/orders grid.
+  const tablesInPanel = [...watchlistPanel.querySelectorAll('table')];
+  const symbolTablesInPanel = tablesInPanel.filter(t =>
+    [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).includes('symbol'));
+  if (symbolTablesInPanel.length !== 1) {
+    return {found: false, why: `panel holds ${symbolTablesInPanel.length} Symbol-headed tables (need exactly 1)`};
+  }
+  for (const t of tablesInPanel) {
+    if (t === headerTable) continue;
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).join(' ');
+    if (posOrdHeaderRe.test(hs)) {
+      return {found: false, why: 'panel also contains a positions/orders-shaped table'};
+    }
+  }
+
+  // Defense in depth: never admit an input inside ANY BUY+SELL-holding
+  // container, whatever the count -- an order ticket, open or not, is never
+  // where this probe searches.
+  const orderPanels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]')) {
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]')) { orderPanels.push(e); break; }
+    }
+  }
+  const inAnyOrderPanel = el => orderPanels.some(p => p.contains(el));
+
+  const attrText = el => [el.getAttribute('placeholder'), el.getAttribute('aria-label'),
+                          el.getAttribute('data-test-id'), el.getAttribute('title')]
+      .filter(Boolean).join(' ').toLowerCase();
+  const inputs = [...watchlistPanel.querySelectorAll('input')].filter(el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && el.getAttribute('data-test-id') !== 'symbol_input'
+      && !inAnyOrderPanel(el);
+  });
+  for (const cand of candidates) {
+    const hit = inputs.filter(el => attrText(el).includes(cand));
+    if (hit.length > 1) {
+      // Ambiguous on THIS candidate -- refuse outright rather than fall
+      // through to a later candidate that might match a single (but wrong)
+      // input, which would silently pick a guess over a refusal.
+      return {found: false, why: `${hit.length} inputs match candidate '${cand}' (need exactly 1)`};
+    }
+    if (hit.length === 1) {
+      hit[0].setAttribute('data-metis-search-hit', '1');
+      return {found: true, via: 'text:' + cand};
+    }
+  }
+  const bare = inputs.filter(el => (el.getAttribute('type') || '').toLowerCase() === 'search');
+  if (bare.length > 1) {
+    return {found: false, why: `${bare.length} inputs of type=search (need exactly 1)`};
+  }
+  if (bare.length === 1) {
+    bare[0].setAttribute('data-metis-search-hit', '1');
+    return {found: true, via: 'type=search'};
+  }
+  return {found: false, n_candidate_inputs: inputs.length};
+}
+"""
+
+# Cleanup for FIND_INSTRUMENT_SEARCH_JS's own tag. Strips
+# ``data-metis-search-hit`` from every element that carries it, run
+# unconditionally at the end of probe_instrument_details (success, refusal
+# or exception alike) so a tag from one symbol's probe can never linger and
+# throw off the tag-count check on the NEXT symbol's probe. Clicks nothing,
+# reads nothing, changes no value -- removes only the marker this file adds.
+CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
+() => {
+  document.querySelectorAll('[data-metis-search-hit]').forEach(
+    el => el.removeAttribute('data-metis-search-hit'));
+}
+"""
+
+# Read-only, DIGIT-RUN-masked (runs of 5+ digits only -- deliberately looser
+# than CONTROLS_DUMP_JS's every-digit mask, because the numbers THIS dump
+# exists to surface -- lot size, tick/price step, a venue minimum -- are
+# exactly the short ones an every-digit mask would destroy; a 5+ run catches
+# account numbers, order ids and timestamps instead) dump of controls plus
+# short static text leaves (an Instrument Details panel is plausibly plain
+# label/value divs, not "controls" in the CONTROLS_DUMP_JS sense). Same
+# personal-control exclusion as CONTROLS_DUMP_JS. Reads nothing from an
+# input's VALUE. Bounded to 300 rows.
+INSTRUMENT_DETAILS_DUMP_JS = r"""
+() => {
+  const maskRuns = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80) : null;
+  const personal = /user|profile|account|login|email/i;
+  const out = [];
+  const ctlSel = 'input, select, textarea, button, [role=button], [role=tab], [role=radio], [role=switch], [data-test-id]';
+  for (const el of document.querySelectorAll(ctlSel)) {
+    if (el.closest('tbody')) continue;
+    const cls = typeof el.className === 'string' ? el.className : '';
+    const tid = el.getAttribute('data-test-id') || '';
+    if (personal.test(tid) || personal.test(cls)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    out.push({kind: 'control', tag: el.tagName.toLowerCase(), tid: maskRuns(tid),
+              role: maskRuns(el.getAttribute('role')), ph: maskRuns(el.getAttribute('placeholder')),
+              aria: maskRuns(el.getAttribute('aria-label')),
+              text: (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA' && el.children.length === 0)
+                ? maskRuns(el.innerText || el.textContent || '') : null});
+    if (out.length >= 300) return {found: out.length > 0, n: out.length, rows: out};
+  }
+  for (const el of document.querySelectorAll('div, span, td, dt, dd, li')) {
+    if (el.children.length > 0) continue;
+    if (el.closest('tbody')) continue;
+    const cls = typeof el.className === 'string' ? el.className : '';
+    const tid = el.getAttribute('data-test-id') || '';
+    if (personal.test(cls) || personal.test(tid)) continue;
+    const t = (el.innerText || el.textContent || '').trim();
+    if (!t || t.length > 60) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    out.push({kind: 'text', tag: el.tagName.toLowerCase(), text: maskRuns(t)});
+    if (out.length >= 300) break;
+  }
+  return {found: out.length > 0, n: out.length, rows: out};
+}
+"""
+
 # The ticket's submit control, which on the live sidebar can sit BELOW THE FOLD
 # once the SL / TP rows are switched on (operator 2026-09-28 ~19:55Z). Ops:
 #  "scroll_step": scroll the form's own scroll container (never the page or
@@ -1569,9 +1805,49 @@ CLOSE_ROW_JS = r"""
   const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
   const box = el => { const r = el.getBoundingClientRect();
     return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
-  const hint = el => norm([txt(el), el.getAttribute('title'), el.getAttribute('aria-label'),
-    typeof el.className === 'string' ? el.className : '', el.getAttribute('data-test-id')].filter(Boolean).join(' '));
-  const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i;
+  // What a control SAYS (its own and its descendants' text / title /
+  // aria-label) and what it is CALLED (class, href, data-icon, data-test-id,
+  // name — its own and its descendants', split on - _ . / # : so that
+  // "icon-close" reads as the word close). Live test #14191: the row's icon
+  // trio is three text-less <button>s (no title, no aria-label), so the
+  // name of the icon inside is the only thing that says which one closes.
+  const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
+  // Split on - _ . / # : AND on camelCase (review of #14216, round 5: the
+  // ancestor rule reads by word, so "reverseBtn", "btnReverse",
+  // "Row_reverseButton__a1b2c", "modifyOrder" and "closeAll" hid their
+  // word from it): "reverseBtn" reads as "reverse Btn", "XMLHttp" as "XML Http".
+  const tokens = s => (s || '').replace(/[-_./#:]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  // The attributes an element is CALLED by. data-testid / data-action / id
+  // added in round 5: <div data-action="reverse"> behind a framework
+  // listener names itself in no other attribute.
+  const NAME_ATTRS = ['class', 'href', 'xlink:href', 'data-icon', 'data-test-id', 'data-testid', 'data-action', 'name', 'id'];
+  const names = d => NAME_ATTRS.map(a => attr(d, a)).filter(Boolean);
+  // Kept as PARTS (one per attribute of each element) as well as joined: the
+  // qualified-close rule below reads each part on its own, so a class
+  // "icon-close" followed by an href "#i-close" is not "close i".
+  const labelParts = el => [el, ...el.querySelectorAll('*')].flatMap(d =>
+    [d === el ? txt(el) : '', attr(d, 'title'), attr(d, 'aria-label')].filter(Boolean).map(norm));
+  const calledParts = el => [el, ...el.querySelectorAll('*')].flatMap(d => names(d).map(v => norm(tokens(v))));
+  const label = el => labelParts(el).join(' ');
+  const called = el => calledParts(el).join(' ');
+  const hint = el => norm(label(el) + ' ' + called(el));
+  // Markup for the log: whitespace folded; digit runs of 5+, hex / uuid runs
+  // of 8+ and any data-*id value masked (a position id may be any of those).
+  const snippet = el => (el.outerHTML || '').replace(/\s+/g, ' ')
+    .replace(/(data-[\w-]*id[\w-]*=")[^"]*(")/gi, '$1#####$2').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 200);
+  // The glyph / x spellings count from the LABEL only: a class token such
+  // as "x-small" is not a close. A name says close only as the word close
+  // (or cross); reverse / modify words anywhere disqualify, and so does a
+  // QUALIFIED close (review of #14216: "icon-close-all" tokenised to "icon
+  // close all" and read as a close — a close-all could flatten every
+  // position): the token "all" anywhere, or any word right after "close"
+  // other than icon / btn / button / svg / position / x, disqualifies.
+  const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, CLOSE_NAME_RE = /(^|\s)(close|cross)(\s|$)/i,
+        BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i,
+        QUAL_RE = /(^|\s)all(\s|$)|(^|\s)close\s+(?!(icon|btn|button|svg|position|x|×|✕)(\s|$))\S/i;
+  const isQualified = el => [...labelParts(el), ...calledParts(el)].some(s => QUAL_RE.test(s));
+  const isClose = el => (CLOSE_RE.test(label(el)) || CLOSE_NAME_RE.test(called(el))) && !BAD_RE.test(hint(el)) && !isQualified(el);
   if (op === 'locate') {
     document.querySelectorAll('[data-metis-close-row]').forEach(e => e.removeAttribute('data-metis-close-row'));
     const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
@@ -1598,22 +1874,74 @@ CLOSE_ROW_JS = r"""
     const row = document.querySelector('[data-metis-close-row]');
     if (!row) return {ok: false, why: 'no located row'};
     document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
-    // Clickable-looking things in the row, outermost only (an icon inside its button counts once).
-    const all = [...row.querySelectorAll('button, [role=button], a, [title], [aria-label], svg, [class*=icon], [class*=close], [class*=action]')]
-      .filter(vis);
-    const ctls = all.filter(el => !all.some(o => o !== el && o.contains(el)));
-    const desc = ctls.map(el => ({hint: hint(el).slice(0, 60), box: box(el)}));
-    const closeIdx = ctls.map((el, i) => (CLOSE_RE.test(hint(el)) && !BAD_RE.test(hint(el))) ? i : -1).filter(i => i >= 0);
+    // Clickable-looking things in the row. A CONTAINER — ANY element that
+    // holds a pressable (button / role=button / a), whatever it matches
+    // itself: the "sticky--actions-cell" of live test #14191 (class only),
+    // and equally a <div class="row-icons">, a [title] or a role=button
+    // wrapper around the trio (review of #14216: a wrapper that survived as
+    // the outermost control read "close" from its descendants and its
+    // CENTRE was the modify button) — is descended into and never counted.
+    // Among the rest, outermost only (an icon inside its button counts
+    // once). The control that gets pressed must itself be a pressable.
+    const PRESS = 'button, [role=button], a';
+    const INTERACTIVE = PRESS + ', [title], [aria-label], svg, [class*=icon], [class*=close]';
+    const all = [...row.querySelectorAll(INTERACTIVE + ', [class*=action]')].filter(vis);
+    const presses = all.filter(el => el.matches(PRESS));
+    const isContainer = el => presses.some(p => p !== el && el.contains(p));
+    const cands = all.filter(el => !isContainer(el));
+    const ctls = cands.filter(el => !cands.some(o => o !== el && o.contains(el)));
+    const desc = ctls.map(el => ({hint: hint(el).slice(0, 80), tag: el.tagName.toLowerCase(), pressable: el.matches(PRESS),
+                                  box: box(el), html: snippet(el)}));
+    const closeIdx = ctls.map((el, i) => isClose(el) ? i : -1).filter(i => i >= 0);
     let why = null, chosen = null;
     if (!ctls.length) why = 'the row shows no control';
     else if (closeIdx.length !== 1) why = closeIdx.length + ' close-type controls in the row (need exactly 1)';
     else if (closeIdx[0] !== ctls.length - 1) why = 'the close-type control is not the LAST control of the row';
+    else if (!ctls[closeIdx[0]].matches(PRESS)) why = 'the close-type control is not a button (' + ctls[closeIdx[0]].tagName.toLowerCase() + ')';
     else {
       const c = ctls[closeIdx[0]], rb = row.getBoundingClientRect(), cb = c.getBoundingClientRect();
       const inRow = c.closest('tr') === row && cb.width > 0 && cb.height > 0
         && cb.left >= rb.left - 4 && cb.right <= rb.right + 4 && cb.top >= rb.top - 4 && cb.bottom <= rb.bottom + 4;
       const nearCanvas = !!(c.closest('canvas') || [...(c.parentElement ? c.parentElement.children : [])].some(e => e.tagName === 'CANVAS'));
-      if (!inRow) why = 'the close control is not boxed inside its row';
+      // A close-named pressable NESTED in another pressable (review of
+      // #14216, F3: <button class="btn-reverse"><span role=button
+      // class="icon-close"/></button>): the click bubbles to the outer
+      // control, so it is never pressed. And every ancestor up to the row
+      // is read by its own attributes: a reverse / modify / qualified name
+      // on the way up disqualifies, whatever the chosen element says.
+      // Anything CLICKABLE above the chosen control counts as an outer control
+      // (review of #14216, round 4: a <div onclick>, a role=menuitem with a
+      // tabindex, a role=link span all received the bubbled click): the
+      // pressables plus every attribute-visible way an element takes a
+      // click. A React / framework handler leaves NO attribute, so this
+      // cannot see every clickable ancestor — the ancestor-NAME check below
+      // (a reverse / modify / qualified name anywhere up to the row) stays
+      // the main defence, and the modal read-back the last one.
+      const CLICKY = PRESS + ', [onclick], [tabindex]:not([tabindex="-1"]), [role=link], [role=menuitem], [role=option], '
+        + 'input[type=button], input[type=submit], summary, label';
+      const outer = c.parentElement ? c.parentElement.closest(CLICKY) : null;
+      const ancestors = []; for (let a = c.parentElement; a && a !== row.parentElement; a = a.parentElement) ancestors.push(a);
+      const ownParts = a => [
+        norm([attr(a, 'title'), attr(a, 'aria-label')].filter(Boolean).join(' ')),
+        norm(tokens(names(a).join(' ')))].filter(Boolean);
+      // The ROW itself is read by WORD (a row class such as "editable" or
+      // "swappable" must not refuse every row). Every ancestor BETWEEN the
+      // control and the row is read by SUBSTRING, like the chosen control
+      // (review of #14216, round 5: at the word rule a wrapper "reverseBtn"
+      // or "modifyOrder" behind a framework listener — no onclick, tabindex
+      // or role to see — hid its word and the close under it was pressed).
+      // tokens() now splits camelCase too, so the word rule on the row sees
+      // "reverseButton" as well. A qualified close ("close all", "closeAll")
+      // anywhere on the way up disqualifies.
+      const ANCESTOR_BAD_RE = /(^|\s)(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)(\s|$)/i;
+      const badAncestor = ancestors.flatMap(a => ownParts(a).filter(s =>
+        (a === row ? ANCESTOR_BAD_RE : BAD_RE).test(s) || QUAL_RE.test(s)))[0];
+      // Bound for a public log (round 4: a data-test-id "pos-<id>" on the row
+      // reached `why`): digit runs of 5+ and hex runs of 8+ masked here too.
+      const maskText = s => (s || '').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########');
+      if (outer && row.contains(outer)) why = 'close control nested in another pressable (' + outer.tagName.toLowerCase() + ')';
+      else if (badAncestor) why = 'close control sits under a reverse / modify / qualified ancestor ("' + maskText(badAncestor).slice(0, 40) + '")';
+      else if (!inRow) why = 'the close control is not boxed inside its row';
       else if (nearCanvas) why = 'the close control sits beside a canvas';
       else { c.setAttribute('data-metis-row-action', '1'); chosen = closeIdx[0]; }
     }
@@ -1656,6 +1984,35 @@ CLOSE_ROW_JS = r"""
   return {ok: false, why: 'unknown op'};
 }
 """
+
+
+def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
+    """The row controls' markup, bound for a PUBLIC log: through
+    ``redact_text`` (credential-shaped runs, e-mails), then digit runs of 5+,
+    hex / uuid runs of 8+ and data-*id values masked — a position id may be
+    any of those (review of #14216: a hex or UUID id survives ``\\d{5,}``).
+    The JS already masks; this is the belt on top of it."""
+    out: List[Dict[str, Any]] = []
+    for c in controls or []:
+        c = dict(c) if isinstance(c, Mapping) else {"hint": str(c)}
+        # The hint carries data-test-id / name / href values too (review of
+        # #14216: a data-test-id "close-<positionid>" would reach the log).
+        for key in ("html", "hint"):
+            if c.get(key) is not None:
+                c[key] = _mask_public_text(str(c[key]))
+        out.append(c)
+    return out
+
+
+def _mask_public_text(s: Any) -> str:
+    """Text bound for a PUBLIC log (a refusal reason that quotes a row's
+    attributes, a control's markup or hint): ``redact_text`` first, then
+    ``data-*id`` values, digit runs of 5+ and hex / uuid runs of 8+ masked
+    (review of #14216, round 4: a data-test-id "pos-<id>" on the row reached
+    the ``why`` string unmasked)."""
+    t = redact_text(str(s if s is not None else ""))
+    t = re.sub(r'(data-[\w-]*id[\w-]*=")[^"]*(")', r"\1#####\2", t, flags=re.I)
+    return re.sub(r"[0-9a-f]{8,}", "########", re.sub(r"\d{5,}", "#####", t), flags=re.I)
 
 
 def parse_price(text: Optional[str]) -> Optional[float]:
@@ -2510,6 +2867,107 @@ class DXtradeAdapter(PropPlatformAdapter):
             result["closed"] = self.close_order_ticket(page)
         return result
 
+    # ── instrument-details probe (PROP-ETH, 2026-09-29) ───────────────────
+    #
+    # The passive network capture (extract_instrument_specs_from_responses,
+    # start_response_capture) only sees instrument data for symbols the
+    # terminal's OWN traffic already requested -- MEASURED 2026-09-29 (issue
+    # #14038, run 36550488339): a login-check served fields for ETHUSD/SOLUSD
+    # (breakout_1's routed strategies) and NOTHING for BTCUSD/ADAUSD/XRPUSD,
+    # matching how ADA/XRP's existing lot values were actually obtained (the
+    # operator reading the terminal's Instrument Details panel BY HAND,
+    # 2026-09-28) rather than this passive method. Reaching a symbol outside
+    # the account's own traffic needs an ACTIVE step: search for it.
+    #
+    # ⚠️ THIS IS THE SAME SURFACE THREE EARLIER ROUNDS OF REVIEW REJECTED --
+    # see this module's top-level docstring: "search box, panel click,
+    # label/value scan ... each fix produced a new way for the WRONG symbol's
+    # numbers to be read as the requested one's." This probe does NOT repeat
+    # that mistake by naming and parsing specific fields from an unmeasured
+    # panel. It TYPES the search and DUMPS the resulting structure
+    # (digit-run-masked) -- the same "measure the shape, THEN write the
+    # parser" sequence CONTROLS_DUMP_JS / TICKET_PANEL_DUMP_JS already use
+    # elsewhere in this file. Extracting NAMED fields (lot size, price step,
+    # a venue minimum) from a live run's real dump is deliberately a
+    # FOLLOW-UP once that shape is actually measured against this probe's own
+    # output -- writing a field parser against a panel nobody has seen yet is
+    # exactly how the earlier attempts drifted onto the wrong symbol's
+    # numbers. `symbol_echoed` is reported as a quality signal (does the
+    # dump's own text contain the exact requested symbol as a whole word?)
+    # but is NOT a hard gate: the dump is attached either way, honestly
+    # labelled with whether the echo held.
+    #
+    # Never touches BUY/SELL, a watchlist row double-click, a submit control,
+    # the chart, or TICKET_OPENER_NAMES -- this method never calls
+    # open_order_ticket or anything that reaches the order form. The search
+    # field it types into must lie INSIDE the MEASURED watchlist panel
+    # (FIND_INSTRUMENT_SEARCH_JS's positive containment anchor) and, as
+    # defense in depth, is also excluded from ever being inside a BUY/SELL
+    # order panel, whatever the panel count.
+    def _find_instrument_search(self, page: Any) -> Dict[str, Any]:
+        """Locate a symbol SEARCH/FILTER input. Discovery only: clicks and
+        types nothing. See FIND_INSTRUMENT_SEARCH_JS."""
+        try:
+            return page.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)]) or {}
+        except Exception as exc:
+            return {"found": False, "why": f"probe failed ({type(exc).__name__})"}
+
+    def instrument_details_dump(self, page: Any) -> Dict[str, Any]:
+        """Read-only, digit-run-masked (runs >= 5) dump of controls + short
+        static text leaves on the page (INSTRUMENT_DETAILS_DUMP_JS)."""
+        try:
+            return page.evaluate(INSTRUMENT_DETAILS_DUMP_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
+    def probe_instrument_details(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """READ-ONLY: search for ``venue_symbol`` in a search field found
+        INSIDE the measured watchlist panel (never the order ticket's
+        ``symbol_input``, never anything inside a BUY/SELL panel), dump
+        whatever the search surfaces, then RESET the field so the next
+        symbol probes cleanly. Never opens the order ticket; never clicks
+        BUY/SELL/submit/chart. Needs no order ticket to be open.
+        """
+        loc = self._find_instrument_search(page)
+        if not loc.get("found"):
+            return {"searched": False, "reset": None, **loc}
+        hit = page.locator("[data-metis-search-hit='1']")
+        result: Dict[str, Any] = {"searched": False, "via": loc.get("via"), "reset": None}
+        try:
+            if hit.count() != 1:
+                result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
+                return result
+            hit.first.fill(venue_symbol, timeout=5_000)
+            page.wait_for_timeout(1_000)
+            readback = hit.first.input_value(timeout=5_000)
+            result["searched"] = True
+            result["readback_matches"] = (readback.strip().upper() == venue_symbol.strip().upper())
+            dump = self.instrument_details_dump(page)
+            result["dump"] = dump
+            blob = " ".join((r.get("text") or "") for r in (dump.get("rows") or []))
+            result["symbol_echoed"] = bool(re.search(
+                r"(?<![A-Z0-9])" + re.escape(venue_symbol.upper()) + r"(?![A-Z0-9])", blob.upper()))
+        except Exception as exc:
+            result["error"] = type(exc).__name__
+        finally:
+            # Only reached a real search field when the tag count check
+            # above passed (searched=True) -- an early refusal (ambiguous
+            # or missing tag) must never fall into resetting/filling an
+            # element nobody verified is the intended search input.
+            if result["searched"]:
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                except Exception:
+                    result["reset"] = False
+            # Unconditional: strip our own tag so it can never linger into
+            # the next symbol's probe, whatever happened above.
+            try:
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
+            except Exception:
+                pass
+        return result
+
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
         """One order with SL AND TP attached at entry.
 
@@ -2757,6 +3215,13 @@ class DXtradeAdapter(PropPlatformAdapter):
                                  f"unpaired_body_rows={t.get('unpaired_body_rows')} "
                                  f"headerless_tables_rows={t.get('headerless_tables')} "
                                  f"first_row_controls={[r(c, 30) for c in (t.get('first_row_controls') or [])]}")
+                    # The controls' own markup, for a positions / orders row
+                    # only (a watchlist row's Buy / Sell buttons are not the
+                    # question): text-less icon buttons are told apart by
+                    # what they are called, and that is only visible here.
+                    if reads_as in ("positions", "orders") and t.get("first_row_control_html"):
+                        lines.append(f"dump_tables.table[{i}].first_row_control_html: "
+                                     f"{[r(h, 240) for h in t.get('first_row_control_html')]}")
                 # First 3 rows, and the last 3 when there are more (a history
                 # tab may list the newest fill at either end).
                 shown_rows = rows[:3] + (rows[-3:] if len(rows) > 6 else rows[3:6])
@@ -2927,7 +3392,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"locate failed ({type(exc).__name__})"}
         if not loc.get("ok"):
-            return {"ok": False, "clicked": False, "why": loc.get("why") or "row not located", "rows": loc.get("rows")}
+            return {"ok": False, "clicked": False, "why": _mask_public_text(loc.get("why") or "row not located"), "rows": loc.get("rows")}
         facts = loc.get("facts") or {}
         bad = _row_facts_mismatch(facts, side, quantity, entry_price, rel_tol)
         if bad:
@@ -2939,17 +3404,22 @@ class DXtradeAdapter(PropPlatformAdapter):
             ctl = page.evaluate(CLOSE_ROW_JS, ["controls", symbol]) or {}
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"hover / controls failed ({type(exc).__name__})", "row": facts}
+        # What the row showed and which control was chosen ride EVERY result
+        # from here on, the armed success included (live test #14344: the pass
+        # proved the rules held but its log carried no control markup, so the
+        # trio's names could not be read back from the run — PI-20260929-2PNSPDNU-0004).
+        seen = {"controls": _mask_controls(ctl.get("controls")), "chosen": ctl.get("chosen")}
         if not ctl.get("ok"):
-            return {"ok": False, "clicked": False, "why": f"close control: {ctl.get('why')}", "row": facts,
-                    "controls": ctl.get("controls")}
+            return {"ok": False, "clicked": False, "why": _mask_public_text(f"close control: {ctl.get('why')}"), "row": facts,
+                    **seen}
         if not arm:
             return {"ok": True, "clicked": False, "why": "disarmed: stopped before the row's close control",
-                    "row": facts, "controls": ctl.get("controls"), "chosen": ctl.get("chosen")}
+                    "row": facts, **seen}
         try:
             page.click("[data-metis-row-action]", timeout=5_000)
         except Exception as exc:
             return {"ok": False, "clicked": True, "why": f"close control click raised {type(exc).__name__}; outcome unknown",
-                    "row": facts}
+                    "row": facts, **seen}
         page.wait_for_timeout(800)
         try:
             modal = page.evaluate(CLOSE_ROW_JS, ["modal", symbol]) or {}
@@ -2958,15 +3428,15 @@ class DXtradeAdapter(PropPlatformAdapter):
         bad = _close_modal_mismatch(modal, symbol, side, quantity if quantity is not None else _f_or_none(facts.get("size")))
         if bad:
             discarded = self._discard_modal(page)
-            return {"ok": False, "clicked": True, "why": "close modal refused: " + "; ".join(bad) + (
+            return {"ok": False, "clicked": True, "why": _mask_public_text("close modal refused: " + "; ".join(bad)) + (
                 "; Discard pressed" if discarded else "; no Discard control found (modal may still be open)"),
-                    "row": facts, "modal": modal}
+                    "row": facts, "modal": modal, **seen}
         try:
             page.click("[data-metis-modal-btn=confirm]", timeout=5_000)
         except Exception as exc:
             return {"ok": False, "clicked": True, "why": f"Close Position click raised {type(exc).__name__}; outcome unknown",
-                    "row": facts, "modal": modal}
-        return {"ok": True, "clicked": True, "why": "Close Position confirmed", "row": facts, "modal": modal}
+                    "row": facts, "modal": modal, **seen}
+        return {"ok": True, "clicked": True, "why": "Close Position confirmed", "row": facts, "modal": modal, **seen}
 
     @staticmethod
     def _discard_modal(page: Any) -> bool:

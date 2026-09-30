@@ -58,6 +58,15 @@
 #                        `open`, CLOSE it at market, confirm flat by re-read,
 #                        report `closed`. Refused unless PROP_EXECUTOR_MODE=live.
 #                        Tell the operator before dispatching.
+#     instrument-probe — READ-ONLY (PROP-ETH, 2026-09-29): for each symbol in
+#                        `symbols:` (required, comma-separated venue symbols,
+#                        e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD), searches the
+#                        watchlist/instrument search field and dumps whatever
+#                        surfaces (digit-run-masked), then resets the field.
+#                        Never opens the order ticket; never touches
+#                        BUY/SELL/submit/the chart. See
+#                        DXtradeAdapter.probe_instrument_details's docstring
+#                        for why this reports STRUCTURE, not named fields.
 #     close-position   — locate the ONE existing position for the symbol (add
 #                        `sol` for SOLUSD) and its row close control through
 #                        the terminal's own flow, read back, click nothing.
@@ -101,7 +110,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt; do
     case ",${APPLY}," in *",${m},"*)
@@ -276,6 +285,11 @@ if [ "${WANT_DEPS}" = "1" ]; then
         "${VENV}/bin/python" -m playwright install-deps chromium
 fi
 
+if [ "${EXEC_MODE}" = "instrument-probe" ] && [ -z "${ACTION_SYMBOLS// }" ]; then
+    log "instrument-probe: refused — 'symbols:' is required (comma-separated venue symbols)"
+    exit 1
+fi
+
 if [ -n "${EXEC_MODE}" ]; then
     # Reuse the FEED's saved session, never a second credential login: the
     # served client carries force_logout "You have logged in somewhere else"
@@ -285,11 +299,12 @@ if [ -n "${EXEC_MODE}" ]; then
     EARGS=(--account "${ACCOUNT}" --login reuse --storage-state "${BASE}/feed/session_state.json"
            --state-dir "${BASE}/executor")
     case "${EXEC_MODE}" in
-        probe-ticket)     EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
-        executor-dry-run) EARGS+=(--dry-run) ;;
-        watched-click)    EARGS+=(--watched-click) ;;
-        round-trip-dry)   EARGS+=(--round-trip "${RT_SYMBOL}") ;;
-        round-trip-live)  EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
+        probe-ticket)        EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
+        instrument-probe)    EARGS+=(--instrument-probe "${ACTION_SYMBOLS}") ;;
+        executor-dry-run)    EARGS+=(--dry-run) ;;
+        watched-click)       EARGS+=(--watched-click) ;;
+        round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}") ;;
+        round-trip-live)     EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
         close-position)      EARGS+=(--close-position "${RT_SYMBOL}") ;;
         close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;
     esac

@@ -302,6 +302,14 @@ ESTIMATED_SOURCES = frozenset({
     # Written by order_monitor._sweep_local_pnl_for_unpriced
     # (BL-20260823-EXIT-LABEL-FROZEN-ON-THE-ANCHORED-PRICE-PATH).
     "price_vs_pkg_bracket_est_price",
+    # `exit_reason_source`: the exit REASON set by the Alpaca naked sweep's
+    # re-arm preflight when it closes a row at market itself — `sl` on a
+    # fresh last-trade print at/through the stop, `protection_rearm_exhausted`
+    # when the re-arm budget ran out. The monitor DECIDED the reason from a
+    # quote; the venue never said a stop order filled, so it is a derivation
+    # (ESTIMATED), never `venue_bracket_order`. Written by
+    # order_monitor._exit_alpaca_row (FIX-SA-03 / #14241).
+    "rearm_preflight",
 })
 
 #: `exit_reason_source` value meaning: the classifier was reached, LOOKED, and

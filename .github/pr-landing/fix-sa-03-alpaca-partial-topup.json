@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path change: the Alpaca naked sweep now TOPS UP a detected quantity shortfall with an additive GTC OCO for the uncovered shares only (cancels nothing). Stacked after #14127 (which is stacked after #14123); merge in that order. Held for the manager per the PR6YRTQY-0003 dispatch.",
+  "why": "PI-20260929-PR6YRTQY-0003: partially_naked was alert-only; 6023/6024/6131 (paper) carried uncovered shares overnight while a sibling OCO made the symbol read stop-covered."
+}

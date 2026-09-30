@@ -385,6 +385,13 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*symbol[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ss]ymbol[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # breakout-login-check apply=instrument-probe: comma-separated
+            # venue symbols (e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD). Distinct key
+            # from `symbol:` above (plural) so the two never collide.
+            symbols=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*symbols[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ss]ymbols[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             days=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*days[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Dd]ays[[:space:]]*:[[:space:]]*//' \
@@ -599,6 +606,7 @@ jobs:
           echo "MODE=${mode}" >>"$GITHUB_ENV"
           echo "TRADE_ID=${trade_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_SYMBOL=${symbol:-}" >>"$GITHUB_ENV"
+          echo "ACTION_SYMBOLS=${symbols:-}" >>"$GITHUB_ENV"
           echo "ACTION_DAYS=${days:-}" >>"$GITHUB_ENV"
           echo "ACTION_WINDOWS=${windows:-}" >>"$GITHUB_ENV"
           echo "ACTION_WINDOW_DAYS=${window_days:-}" >>"$GITHUB_ENV"
@@ -1092,10 +1100,24 @@ jobs:
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)){0,10}$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,close-position,close-position-live (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)){0,10}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,close-position,close-position-live (got '${ACTION_APPLY}')."
               exit 1
             fi
+            case ",${ACTION_APPLY:-}," in *",instrument-probe,"*)
+              # instrument-probe needs 'symbols:' -- comma-separated venue
+              # symbols, e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD. Validated here so
+              # a malformed dispatch fails loudly instead of reaching the VM.
+              if [ -z "${ACTION_SYMBOLS// }" ]; then
+                echo "::error::breakout-login-check apply=instrument-probe requires a 'symbols:' line (comma-separated venue symbols)."
+                exit 1
+              fi
+              if ! printf '%s' "${ACTION_SYMBOLS}" | grep -Eq '^[A-Za-z0-9]+(,[A-Za-z0-9]+){0,19}$'; then
+                echo "::error::breakout-login-check symbols '${ACTION_SYMBOLS}' invalid (comma-separated, A-Z a-z 0-9 only, max 20)."
+                exit 1
+              fi
+              ;;
+            esac
           fi
           # breakout-terminal-probe: READ-ONLY measurement of Breakout's
           # proprietary terminal (PROP-TERM). `apply` optional: login or
@@ -1783,7 +1805,7 @@ jobs:
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "breakout-login-check" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_SYMBOLS=$(printf '%q' "${ACTION_SYMBOLS:-}") ${REMOTE_CMD}"
             case ",${ACTION_APPLY:-}," in *",executor-clear-halt,"*)
               # Clearing the executor's AUTO-REVERT latch is a person's
               # decision (manager / operator): the reason text IS the record,

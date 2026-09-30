@@ -1,0 +1,6773 @@
+{
+ "24h": {
+  "bracketOutcome": {
+   "directionUnreadable": 0,
+   "excludedReduceLeg": 0,
+   "gradeable": 0,
+   "midBracket": 0,
+   "noBracketRecord": 0,
+   "noExitPrice": 3,
+   "priceNotMeasurable": 0,
+   "reachedRatio": null,
+   "reachedSl": 0,
+   "reachedTp": 0
+  },
+  "demo": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 2,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": -12.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": -1.0,
+   "expectancyR": -0.1,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 1,
+   "maxDrawdown": -12.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": -1.0,
+     "expectancyR": -0.1,
+     "rTradeCount": 2,
+     "totalPnl": -2.0,
+     "totalR": -0.2,
+     "trades": 2,
+     "winRate": 50.0,
+     "wins": 1
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 1,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -12.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 1,
+     "winRate": 0.0,
+     "wins": 0
+    },
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 1,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 10.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 10.0,
+     "expectancyR": 1.0,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 1
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 1
+     },
+     "rTradeCount": 1,
+     "totalPnl": 10.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 1.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    },
+    {
+     "expectancy": -12.0,
+     "expectancyR": -1.2,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 1
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 1
+     },
+     "rTradeCount": 1,
+     "totalPnl": -12.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": -1.2,
+     "trades": 1,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": -1.0,
+     "symbol": "BTCUSDT",
+     "totalPnl": -2.0,
+     "trades": 2,
+     "winRate": 50.0,
+     "wins": 1
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 2,
+   "profitFactor": 0.8333,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 2
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 2
+   },
+   "rTradeCount": 2,
+   "totalPnl": -2.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": -0.2,
+   "totalTrades": 2,
+   "winRate": 50.0,
+   "wins": 1
+  },
+  "equity": [
+   {
+    "cum": 10.0,
+    "t": "2026-09-28 12:00:00"
+   },
+   {
+    "cum": 20.0,
+    "t": "2026-09-28 23:58:00"
+   },
+   {
+    "cum": 8.0,
+    "t": "2026-09-29 00:00:00"
+   }
+  ],
+  "error": false,
+  "expectancy": 2.6667,
+  "expectancyR": 0.2667,
+  "journalTrust": {
+   "accountsKnownDivergent": [],
+   "accountsUnreadable": [
+    "alpaca_live",
+    "bybit_2"
+   ],
+   "accountsUnrecorded": [],
+   "readState": "ok"
+  },
+  "losses": 1,
+  "maxDrawdown": -12.0,
+  "paper": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 2,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": -12.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": -1.0,
+   "expectancyR": -0.1,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 1,
+   "maxDrawdown": -12.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": -1.0,
+     "expectancyR": -0.1,
+     "rTradeCount": 2,
+     "totalPnl": -2.0,
+     "totalR": -0.2,
+     "trades": 2,
+     "winRate": 50.0,
+     "wins": 1
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 1,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -12.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 1,
+     "winRate": 0.0,
+     "wins": 0
+    },
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 1,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 10.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 10.0,
+     "expectancyR": 1.0,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 1
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 1
+     },
+     "rTradeCount": 1,
+     "totalPnl": 10.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 1.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    },
+    {
+     "expectancy": -12.0,
+     "expectancyR": -1.2,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 1
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 1
+     },
+     "rTradeCount": 1,
+     "totalPnl": -12.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": -1.2,
+     "trades": 1,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": -1.0,
+     "symbol": "BTCUSDT",
+     "totalPnl": -2.0,
+     "trades": 2,
+     "winRate": 50.0,
+     "wins": 1
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 2,
+   "profitFactor": 0.8333,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 2
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 2
+   },
+   "rTradeCount": 2,
+   "totalPnl": -2.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": -0.2,
+   "totalTrades": 2,
+   "winRate": 50.0,
+   "wins": 1
+  },
+  "paperPortfolio": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 1,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": 10.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 10.0,
+   "expectancyR": 1.0,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 0,
+   "maxDrawdown": 0.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 10.0,
+     "expectancyR": 1.0,
+     "rTradeCount": 1,
+     "totalPnl": 10.0,
+     "totalR": 1.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 1,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 10.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 10.0,
+     "expectancyR": 1.0,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 1
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 1
+     },
+     "rTradeCount": 1,
+     "totalPnl": 10.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 1.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 10.0,
+     "symbol": "BTCUSDT",
+     "totalPnl": 10.0,
+     "trades": 1,
+     "winRate": 100.0,
+     "wins": 1
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 1,
+   "profitFactor": null,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 1
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 1
+   },
+   "rTradeCount": 1,
+   "totalPnl": 10.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 1.0,
+   "totalTrades": 1,
+   "winRate": 100.0,
+   "wins": 1
+  },
+  "perAssetClass": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.6667,
+    "expectancyR": 0.2667,
+    "rTradeCount": 3,
+    "totalPnl": 8.0,
+    "totalR": 0.8,
+    "trades": 3,
+    "winRate": 66.7,
+    "wins": 2
+   }
+  ],
+  "perExitPath": [
+   {
+    "exitPath": "tp",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 2,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": 20.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 2,
+    "winRate": 100.0,
+    "wins": 2
+   },
+   {
+    "exitPath": "sl",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 1,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": -12.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 1,
+    "winRate": 0.0,
+    "wins": 0
+   }
+  ],
+  "perStrategy": [
+   {
+    "expectancy": 10.0,
+    "expectancyR": 1.0,
+    "name": "leg_b",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 1
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 1
+    },
+    "rTradeCount": 1,
+    "totalPnl": 10.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": 1.0,
+    "trades": 1,
+    "winRate": 100.0,
+    "wins": 1
+   },
+   {
+    "expectancy": -1.0,
+    "expectancyR": -0.1,
+    "name": "leg_a",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 2
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 2
+    },
+    "rTradeCount": 2,
+    "totalPnl": -2.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": -0.2,
+    "trades": 2,
+    "winRate": 50.0,
+    "wins": 1
+   }
+  ],
+  "perSymbol": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.6667,
+    "symbol": "BTCUSDT",
+    "totalPnl": 8.0,
+    "trades": 3,
+    "winRate": 66.7,
+    "wins": 2
+   }
+  ],
+  "pnlCoverage": 0.0,
+  "pnlEstimatedCount": 0,
+  "pnlFabricatedCount": 0,
+  "pnlMeasuredCount": 0,
+  "pnlUnverifiedCount": 3,
+  "profitFactor": 1.6667,
+  "rBasis": {
+   "declaredInitial": 0,
+   "noBasis": 0,
+   "refusedWrongSide": 0,
+   "storedStop": 3
+  },
+  "rCoverage": 1.0,
+  "rProvenance": {
+   "confirmedInitial": 0,
+   "contaminated": 0,
+   "declaredRiskRecords": 0,
+   "noBasis": 0,
+   "ratioBar": 2.0,
+   "tightenedVsDeclared": 0,
+   "unverified": 3
+  },
+  "rTradeCount": 3,
+  "since": "2026-09-28T12:00:00+00:00",
+  "totalPnl": 8.0,
+  "totalPnlEstimated": 0.0,
+  "totalPnlMeasured": 0.0,
+  "totalPnlMeasuredOnly": 0.0,
+  "totalR": 0.8,
+  "totalTrades": 3,
+  "winRate": 66.7,
+  "window": "24h",
+  "wins": 2
+ },
+ "30d": {
+  "bracketOutcome": {
+   "directionUnreadable": 0,
+   "excludedReduceLeg": 0,
+   "gradeable": 0,
+   "midBracket": 0,
+   "noBracketRecord": 0,
+   "noExitPrice": 119,
+   "priceNotMeasurable": 0,
+   "reachedRatio": null,
+   "reachedSl": 0,
+   "reachedTp": 0
+  },
+  "demo": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 118,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": 10.0,
+     "t": "2026-08-30 23:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-08-30 23:59:00"
+    },
+    {
+     "cum": -14.0,
+     "t": "2026-08-31 11:57:00"
+    },
+    {
+     "cum": -4.0,
+     "t": "2026-08-31 11:59:00"
+    },
+    {
+     "cum": 6.0,
+     "t": "2026-08-31 23:57:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-08-31 23:59:00"
+    },
+    {
+     "cum": 26.0,
+     "t": "2026-09-01 11:57:00"
+    },
+    {
+     "cum": 14.0,
+     "t": "2026-09-01 11:59:00"
+    },
+    {
+     "cum": 2.0,
+     "t": "2026-09-01 23:57:00"
+    },
+    {
+     "cum": 12.0,
+     "t": "2026-09-01 23:59:00"
+    },
+    {
+     "cum": 22.0,
+     "t": "2026-09-02 11:57:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-09-02 11:59:00"
+    },
+    {
+     "cum": 42.0,
+     "t": "2026-09-02 23:57:00"
+    },
+    {
+     "cum": 30.0,
+     "t": "2026-09-02 23:59:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-09-03 11:57:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-09-03 11:59:00"
+    },
+    {
+     "cum": 38.0,
+     "t": "2026-09-03 23:57:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-09-03 23:59:00"
+    },
+    {
+     "cum": 58.0,
+     "t": "2026-09-04 11:57:00"
+    },
+    {
+     "cum": 46.0,
+     "t": "2026-09-04 11:59:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-09-04 23:57:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-09-04 23:59:00"
+    },
+    {
+     "cum": 54.0,
+     "t": "2026-09-05 11:57:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-09-05 11:59:00"
+    },
+    {
+     "cum": 74.0,
+     "t": "2026-09-05 23:57:00"
+    },
+    {
+     "cum": 62.0,
+     "t": "2026-09-05 23:59:00"
+    },
+    {
+     "cum": 50.0,
+     "t": "2026-09-06 11:57:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-09-06 11:59:00"
+    },
+    {
+     "cum": 70.0,
+     "t": "2026-09-06 23:57:00"
+    },
+    {
+     "cum": 80.0,
+     "t": "2026-09-06 23:59:00"
+    },
+    {
+     "cum": 90.0,
+     "t": "2026-09-07 11:57:00"
+    },
+    {
+     "cum": 78.0,
+     "t": "2026-09-07 11:59:00"
+    },
+    {
+     "cum": 66.0,
+     "t": "2026-09-07 23:57:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-09-07 23:59:00"
+    },
+    {
+     "cum": 86.0,
+     "t": "2026-09-08 11:57:00"
+    },
+    {
+     "cum": 96.0,
+     "t": "2026-09-08 11:59:00"
+    },
+    {
+     "cum": 106.0,
+     "t": "2026-09-08 23:57:00"
+    },
+    {
+     "cum": 94.0,
+     "t": "2026-09-08 23:59:00"
+    },
+    {
+     "cum": 82.0,
+     "t": "2026-09-09 11:57:00"
+    },
+    {
+     "cum": 92.0,
+     "t": "2026-09-09 11:59:00"
+    },
+    {
+     "cum": 102.0,
+     "t": "2026-09-09 23:57:00"
+    },
+    {
+     "cum": 112.0,
+     "t": "2026-09-09 23:59:00"
+    },
+    {
+     "cum": 122.0,
+     "t": "2026-09-10 11:57:00"
+    },
+    {
+     "cum": 110.0,
+     "t": "2026-09-10 11:59:00"
+    },
+    {
+     "cum": 98.0,
+     "t": "2026-09-10 23:57:00"
+    },
+    {
+     "cum": 108.0,
+     "t": "2026-09-10 23:59:00"
+    },
+    {
+     "cum": 118.0,
+     "t": "2026-09-11 11:57:00"
+    },
+    {
+     "cum": 128.0,
+     "t": "2026-09-11 11:59:00"
+    },
+    {
+     "cum": 138.0,
+     "t": "2026-09-11 23:57:00"
+    },
+    {
+     "cum": 126.0,
+     "t": "2026-09-11 23:59:00"
+    },
+    {
+     "cum": 114.0,
+     "t": "2026-09-12 11:57:00"
+    },
+    {
+     "cum": 124.0,
+     "t": "2026-09-12 11:59:00"
+    },
+    {
+     "cum": 134.0,
+     "t": "2026-09-12 23:57:00"
+    },
+    {
+     "cum": 144.0,
+     "t": "2026-09-12 23:59:00"
+    },
+    {
+     "cum": 154.0,
+     "t": "2026-09-13 11:57:00"
+    },
+    {
+     "cum": 142.0,
+     "t": "2026-09-13 11:59:00"
+    },
+    {
+     "cum": 130.0,
+     "t": "2026-09-13 23:57:00"
+    },
+    {
+     "cum": 140.0,
+     "t": "2026-09-13 23:59:00"
+    },
+    {
+     "cum": 150.0,
+     "t": "2026-09-14 11:57:00"
+    },
+    {
+     "cum": 160.0,
+     "t": "2026-09-14 11:59:00"
+    },
+    {
+     "cum": 170.0,
+     "t": "2026-09-14 23:57:00"
+    },
+    {
+     "cum": 158.0,
+     "t": "2026-09-14 23:59:00"
+    },
+    {
+     "cum": 146.0,
+     "t": "2026-09-15 11:57:00"
+    },
+    {
+     "cum": 156.0,
+     "t": "2026-09-15 11:59:00"
+    },
+    {
+     "cum": 166.0,
+     "t": "2026-09-15 23:57:00"
+    },
+    {
+     "cum": 176.0,
+     "t": "2026-09-15 23:59:00"
+    },
+    {
+     "cum": 186.0,
+     "t": "2026-09-16 11:57:00"
+    },
+    {
+     "cum": 174.0,
+     "t": "2026-09-16 11:59:00"
+    },
+    {
+     "cum": 162.0,
+     "t": "2026-09-16 23:57:00"
+    },
+    {
+     "cum": 172.0,
+     "t": "2026-09-16 23:59:00"
+    },
+    {
+     "cum": 182.0,
+     "t": "2026-09-17 11:57:00"
+    },
+    {
+     "cum": 192.0,
+     "t": "2026-09-17 11:59:00"
+    },
+    {
+     "cum": 202.0,
+     "t": "2026-09-17 23:57:00"
+    },
+    {
+     "cum": 190.0,
+     "t": "2026-09-17 23:59:00"
+    },
+    {
+     "cum": 178.0,
+     "t": "2026-09-18 11:57:00"
+    },
+    {
+     "cum": 188.0,
+     "t": "2026-09-18 11:59:00"
+    },
+    {
+     "cum": 198.0,
+     "t": "2026-09-18 23:57:00"
+    },
+    {
+     "cum": 208.0,
+     "t": "2026-09-18 23:59:00"
+    },
+    {
+     "cum": 218.0,
+     "t": "2026-09-19 11:57:00"
+    },
+    {
+     "cum": 206.0,
+     "t": "2026-09-19 11:59:00"
+    },
+    {
+     "cum": 194.0,
+     "t": "2026-09-19 23:57:00"
+    },
+    {
+     "cum": 204.0,
+     "t": "2026-09-19 23:59:00"
+    },
+    {
+     "cum": 214.0,
+     "t": "2026-09-20 11:57:00"
+    },
+    {
+     "cum": 224.0,
+     "t": "2026-09-20 11:59:00"
+    },
+    {
+     "cum": 234.0,
+     "t": "2026-09-20 23:57:00"
+    },
+    {
+     "cum": 222.0,
+     "t": "2026-09-20 23:59:00"
+    },
+    {
+     "cum": 210.0,
+     "t": "2026-09-21 11:57:00"
+    },
+    {
+     "cum": 220.0,
+     "t": "2026-09-21 11:59:00"
+    },
+    {
+     "cum": 230.0,
+     "t": "2026-09-21 23:57:00"
+    },
+    {
+     "cum": 240.0,
+     "t": "2026-09-21 23:59:00"
+    },
+    {
+     "cum": 250.0,
+     "t": "2026-09-22 11:57:00"
+    },
+    {
+     "cum": 238.0,
+     "t": "2026-09-22 11:59:00"
+    },
+    {
+     "cum": 226.0,
+     "t": "2026-09-22 23:57:00"
+    },
+    {
+     "cum": 236.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 246.0,
+     "t": "2026-09-23 11:57:00"
+    },
+    {
+     "cum": 256.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 266.0,
+     "t": "2026-09-23 23:57:00"
+    },
+    {
+     "cum": 254.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 242.0,
+     "t": "2026-09-24 11:57:00"
+    },
+    {
+     "cum": 252.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 262.0,
+     "t": "2026-09-24 23:57:00"
+    },
+    {
+     "cum": 272.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 282.0,
+     "t": "2026-09-25 11:57:00"
+    },
+    {
+     "cum": 270.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 258.0,
+     "t": "2026-09-25 23:57:00"
+    },
+    {
+     "cum": 268.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 278.0,
+     "t": "2026-09-26 11:57:00"
+    },
+    {
+     "cum": 288.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 298.0,
+     "t": "2026-09-26 23:57:00"
+    },
+    {
+     "cum": 286.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 274.0,
+     "t": "2026-09-27 11:57:00"
+    },
+    {
+     "cum": 284.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 294.0,
+     "t": "2026-09-27 23:57:00"
+    },
+    {
+     "cum": 304.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 314.0,
+     "t": "2026-09-28 11:57:00"
+    },
+    {
+     "cum": 302.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 290.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": 300.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.5424,
+   "expectancyR": 0.2542,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 40,
+   "maxDrawdown": -24.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "rTradeCount": 118,
+     "totalPnl": 300.0,
+     "totalR": 30.0,
+     "trades": 118,
+     "winRate": 66.1,
+     "wins": 78
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 78,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 780.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 78,
+     "winRate": 100.0,
+     "wins": 78
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 40,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -480.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 40,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 59
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 59
+     },
+     "rTradeCount": 59,
+     "totalPnl": 150.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 15.0,
+     "trades": 59,
+     "winRate": 66.1,
+     "wins": 39
+    },
+    {
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 59
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 59
+     },
+     "rTradeCount": 59,
+     "totalPnl": 150.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 15.0,
+     "trades": 59,
+     "winRate": 66.1,
+     "wins": 39
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.5424,
+     "symbol": "BTCUSDT",
+     "totalPnl": 300.0,
+     "trades": 118,
+     "winRate": 66.1,
+     "wins": 78
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 118,
+   "profitFactor": 1.625,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 118
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 118
+   },
+   "rTradeCount": 118,
+   "totalPnl": 300.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 30.0,
+   "totalTrades": 118,
+   "winRate": 66.1,
+   "wins": 78
+  },
+  "equity": [
+   {
+    "cum": 10.0,
+    "t": "2026-08-30 12:00:00"
+   },
+   {
+    "cum": 20.0,
+    "t": "2026-08-30 23:58:00"
+   },
+   {
+    "cum": 30.0,
+    "t": "2026-08-31 00:00:00"
+   },
+   {
+    "cum": 40.0,
+    "t": "2026-08-31 11:58:00"
+   },
+   {
+    "cum": 28.0,
+    "t": "2026-08-31 12:00:00"
+   },
+   {
+    "cum": 16.0,
+    "t": "2026-08-31 23:58:00"
+   },
+   {
+    "cum": 26.0,
+    "t": "2026-09-01 00:00:00"
+   },
+   {
+    "cum": 36.0,
+    "t": "2026-09-01 11:58:00"
+   },
+   {
+    "cum": 46.0,
+    "t": "2026-09-01 12:00:00"
+   },
+   {
+    "cum": 56.0,
+    "t": "2026-09-01 23:58:00"
+   },
+   {
+    "cum": 44.0,
+    "t": "2026-09-02 00:00:00"
+   },
+   {
+    "cum": 32.0,
+    "t": "2026-09-02 11:58:00"
+   },
+   {
+    "cum": 42.0,
+    "t": "2026-09-02 12:00:00"
+   },
+   {
+    "cum": 52.0,
+    "t": "2026-09-02 23:58:00"
+   },
+   {
+    "cum": 62.0,
+    "t": "2026-09-03 00:00:00"
+   },
+   {
+    "cum": 72.0,
+    "t": "2026-09-03 11:58:00"
+   },
+   {
+    "cum": 60.0,
+    "t": "2026-09-03 12:00:00"
+   },
+   {
+    "cum": 48.0,
+    "t": "2026-09-03 23:58:00"
+   },
+   {
+    "cum": 58.0,
+    "t": "2026-09-04 00:00:00"
+   },
+   {
+    "cum": 68.0,
+    "t": "2026-09-04 11:58:00"
+   },
+   {
+    "cum": 78.0,
+    "t": "2026-09-04 12:00:00"
+   },
+   {
+    "cum": 88.0,
+    "t": "2026-09-04 23:58:00"
+   },
+   {
+    "cum": 76.0,
+    "t": "2026-09-05 00:00:00"
+   },
+   {
+    "cum": 64.0,
+    "t": "2026-09-05 11:58:00"
+   },
+   {
+    "cum": 74.0,
+    "t": "2026-09-05 12:00:00"
+   },
+   {
+    "cum": 84.0,
+    "t": "2026-09-05 23:58:00"
+   },
+   {
+    "cum": 94.0,
+    "t": "2026-09-06 00:00:00"
+   },
+   {
+    "cum": 104.0,
+    "t": "2026-09-06 11:58:00"
+   },
+   {
+    "cum": 92.0,
+    "t": "2026-09-06 12:00:00"
+   },
+   {
+    "cum": 80.0,
+    "t": "2026-09-06 23:58:00"
+   },
+   {
+    "cum": 90.0,
+    "t": "2026-09-07 00:00:00"
+   },
+   {
+    "cum": 100.0,
+    "t": "2026-09-07 11:58:00"
+   },
+   {
+    "cum": 110.0,
+    "t": "2026-09-07 12:00:00"
+   },
+   {
+    "cum": 120.0,
+    "t": "2026-09-07 23:58:00"
+   },
+   {
+    "cum": 108.0,
+    "t": "2026-09-08 00:00:00"
+   },
+   {
+    "cum": 96.0,
+    "t": "2026-09-08 11:58:00"
+   },
+   {
+    "cum": 106.0,
+    "t": "2026-09-08 12:00:00"
+   },
+   {
+    "cum": 116.0,
+    "t": "2026-09-08 23:58:00"
+   },
+   {
+    "cum": 126.0,
+    "t": "2026-09-09 00:00:00"
+   },
+   {
+    "cum": 136.0,
+    "t": "2026-09-09 11:58:00"
+   },
+   {
+    "cum": 124.0,
+    "t": "2026-09-09 12:00:00"
+   },
+   {
+    "cum": 112.0,
+    "t": "2026-09-09 23:58:00"
+   },
+   {
+    "cum": 122.0,
+    "t": "2026-09-10 00:00:00"
+   },
+   {
+    "cum": 132.0,
+    "t": "2026-09-10 11:58:00"
+   },
+   {
+    "cum": 142.0,
+    "t": "2026-09-10 12:00:00"
+   },
+   {
+    "cum": 152.0,
+    "t": "2026-09-10 23:58:00"
+   },
+   {
+    "cum": 140.0,
+    "t": "2026-09-11 00:00:00"
+   },
+   {
+    "cum": 128.0,
+    "t": "2026-09-11 11:58:00"
+   },
+   {
+    "cum": 138.0,
+    "t": "2026-09-11 12:00:00"
+   },
+   {
+    "cum": 148.0,
+    "t": "2026-09-11 23:58:00"
+   },
+   {
+    "cum": 158.0,
+    "t": "2026-09-12 00:00:00"
+   },
+   {
+    "cum": 168.0,
+    "t": "2026-09-12 11:58:00"
+   },
+   {
+    "cum": 156.0,
+    "t": "2026-09-12 12:00:00"
+   },
+   {
+    "cum": 144.0,
+    "t": "2026-09-12 23:58:00"
+   },
+   {
+    "cum": 154.0,
+    "t": "2026-09-13 00:00:00"
+   },
+   {
+    "cum": 164.0,
+    "t": "2026-09-13 11:58:00"
+   },
+   {
+    "cum": 174.0,
+    "t": "2026-09-13 12:00:00"
+   },
+   {
+    "cum": 184.0,
+    "t": "2026-09-13 23:58:00"
+   },
+   {
+    "cum": 172.0,
+    "t": "2026-09-14 00:00:00"
+   },
+   {
+    "cum": 160.0,
+    "t": "2026-09-14 11:58:00"
+   },
+   {
+    "cum": 170.0,
+    "t": "2026-09-14 12:00:00"
+   },
+   {
+    "cum": 180.0,
+    "t": "2026-09-14 23:58:00"
+   },
+   {
+    "cum": 190.0,
+    "t": "2026-09-15 00:00:00"
+   },
+   {
+    "cum": 200.0,
+    "t": "2026-09-15 11:58:00"
+   },
+   {
+    "cum": 188.0,
+    "t": "2026-09-15 12:00:00"
+   },
+   {
+    "cum": 176.0,
+    "t": "2026-09-15 23:58:00"
+   },
+   {
+    "cum": 186.0,
+    "t": "2026-09-16 00:00:00"
+   },
+   {
+    "cum": 196.0,
+    "t": "2026-09-16 11:58:00"
+   },
+   {
+    "cum": 206.0,
+    "t": "2026-09-16 12:00:00"
+   },
+   {
+    "cum": 216.0,
+    "t": "2026-09-16 23:58:00"
+   },
+   {
+    "cum": 204.0,
+    "t": "2026-09-17 00:00:00"
+   },
+   {
+    "cum": 192.0,
+    "t": "2026-09-17 11:58:00"
+   },
+   {
+    "cum": 202.0,
+    "t": "2026-09-17 12:00:00"
+   },
+   {
+    "cum": 212.0,
+    "t": "2026-09-17 23:58:00"
+   },
+   {
+    "cum": 222.0,
+    "t": "2026-09-18 00:00:00"
+   },
+   {
+    "cum": 232.0,
+    "t": "2026-09-18 11:58:00"
+   },
+   {
+    "cum": 220.0,
+    "t": "2026-09-18 12:00:00"
+   },
+   {
+    "cum": 208.0,
+    "t": "2026-09-18 23:58:00"
+   },
+   {
+    "cum": 218.0,
+    "t": "2026-09-19 00:00:00"
+   },
+   {
+    "cum": 228.0,
+    "t": "2026-09-19 11:58:00"
+   },
+   {
+    "cum": 238.0,
+    "t": "2026-09-19 12:00:00"
+   },
+   {
+    "cum": 248.0,
+    "t": "2026-09-19 23:58:00"
+   },
+   {
+    "cum": 236.0,
+    "t": "2026-09-20 00:00:00"
+   },
+   {
+    "cum": 224.0,
+    "t": "2026-09-20 11:58:00"
+   },
+   {
+    "cum": 234.0,
+    "t": "2026-09-20 12:00:00"
+   },
+   {
+    "cum": 244.0,
+    "t": "2026-09-20 23:58:00"
+   },
+   {
+    "cum": 254.0,
+    "t": "2026-09-21 00:00:00"
+   },
+   {
+    "cum": 264.0,
+    "t": "2026-09-21 11:58:00"
+   },
+   {
+    "cum": 252.0,
+    "t": "2026-09-21 12:00:00"
+   },
+   {
+    "cum": 240.0,
+    "t": "2026-09-21 23:58:00"
+   },
+   {
+    "cum": 250.0,
+    "t": "2026-09-22 00:00:00"
+   },
+   {
+    "cum": 260.0,
+    "t": "2026-09-22 11:58:00"
+   },
+   {
+    "cum": 270.0,
+    "t": "2026-09-22 12:00:00"
+   },
+   {
+    "cum": 280.0,
+    "t": "2026-09-22 23:58:00"
+   },
+   {
+    "cum": 268.0,
+    "t": "2026-09-23 00:00:00"
+   },
+   {
+    "cum": 256.0,
+    "t": "2026-09-23 11:58:00"
+   },
+   {
+    "cum": 266.0,
+    "t": "2026-09-23 12:00:00"
+   },
+   {
+    "cum": 276.0,
+    "t": "2026-09-23 23:58:00"
+   },
+   {
+    "cum": 286.0,
+    "t": "2026-09-24 00:00:00"
+   },
+   {
+    "cum": 296.0,
+    "t": "2026-09-24 11:58:00"
+   },
+   {
+    "cum": 284.0,
+    "t": "2026-09-24 12:00:00"
+   },
+   {
+    "cum": 272.0,
+    "t": "2026-09-24 23:58:00"
+   },
+   {
+    "cum": 282.0,
+    "t": "2026-09-25 00:00:00"
+   },
+   {
+    "cum": 292.0,
+    "t": "2026-09-25 11:58:00"
+   },
+   {
+    "cum": 302.0,
+    "t": "2026-09-25 12:00:00"
+   },
+   {
+    "cum": 312.0,
+    "t": "2026-09-25 23:58:00"
+   },
+   {
+    "cum": 300.0,
+    "t": "2026-09-26 00:00:00"
+   },
+   {
+    "cum": 288.0,
+    "t": "2026-09-26 11:58:00"
+   },
+   {
+    "cum": 298.0,
+    "t": "2026-09-26 12:00:00"
+   },
+   {
+    "cum": 308.0,
+    "t": "2026-09-26 23:58:00"
+   },
+   {
+    "cum": 318.0,
+    "t": "2026-09-27 00:00:00"
+   },
+   {
+    "cum": 328.0,
+    "t": "2026-09-27 11:58:00"
+   },
+   {
+    "cum": 316.0,
+    "t": "2026-09-27 12:00:00"
+   },
+   {
+    "cum": 304.0,
+    "t": "2026-09-27 23:58:00"
+   },
+   {
+    "cum": 314.0,
+    "t": "2026-09-28 00:00:00"
+   },
+   {
+    "cum": 324.0,
+    "t": "2026-09-28 11:58:00"
+   },
+   {
+    "cum": 334.0,
+    "t": "2026-09-28 12:00:00"
+   },
+   {
+    "cum": 344.0,
+    "t": "2026-09-28 23:58:00"
+   },
+   {
+    "cum": 332.0,
+    "t": "2026-09-29 00:00:00"
+   }
+  ],
+  "error": false,
+  "expectancy": 2.7899,
+  "expectancyR": 0.279,
+  "journalTrust": {
+   "accountsKnownDivergent": [],
+   "accountsUnreadable": [
+    "alpaca_live",
+    "bybit_2"
+   ],
+   "accountsUnrecorded": [],
+   "readState": "ok"
+  },
+  "losses": 39,
+  "maxDrawdown": -24.0,
+  "paper": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 118,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": 10.0,
+     "t": "2026-08-30 23:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-08-30 23:59:00"
+    },
+    {
+     "cum": -14.0,
+     "t": "2026-08-31 11:57:00"
+    },
+    {
+     "cum": -4.0,
+     "t": "2026-08-31 11:59:00"
+    },
+    {
+     "cum": 6.0,
+     "t": "2026-08-31 23:57:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-08-31 23:59:00"
+    },
+    {
+     "cum": 26.0,
+     "t": "2026-09-01 11:57:00"
+    },
+    {
+     "cum": 14.0,
+     "t": "2026-09-01 11:59:00"
+    },
+    {
+     "cum": 2.0,
+     "t": "2026-09-01 23:57:00"
+    },
+    {
+     "cum": 12.0,
+     "t": "2026-09-01 23:59:00"
+    },
+    {
+     "cum": 22.0,
+     "t": "2026-09-02 11:57:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-09-02 11:59:00"
+    },
+    {
+     "cum": 42.0,
+     "t": "2026-09-02 23:57:00"
+    },
+    {
+     "cum": 30.0,
+     "t": "2026-09-02 23:59:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-09-03 11:57:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-09-03 11:59:00"
+    },
+    {
+     "cum": 38.0,
+     "t": "2026-09-03 23:57:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-09-03 23:59:00"
+    },
+    {
+     "cum": 58.0,
+     "t": "2026-09-04 11:57:00"
+    },
+    {
+     "cum": 46.0,
+     "t": "2026-09-04 11:59:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-09-04 23:57:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-09-04 23:59:00"
+    },
+    {
+     "cum": 54.0,
+     "t": "2026-09-05 11:57:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-09-05 11:59:00"
+    },
+    {
+     "cum": 74.0,
+     "t": "2026-09-05 23:57:00"
+    },
+    {
+     "cum": 62.0,
+     "t": "2026-09-05 23:59:00"
+    },
+    {
+     "cum": 50.0,
+     "t": "2026-09-06 11:57:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-09-06 11:59:00"
+    },
+    {
+     "cum": 70.0,
+     "t": "2026-09-06 23:57:00"
+    },
+    {
+     "cum": 80.0,
+     "t": "2026-09-06 23:59:00"
+    },
+    {
+     "cum": 90.0,
+     "t": "2026-09-07 11:57:00"
+    },
+    {
+     "cum": 78.0,
+     "t": "2026-09-07 11:59:00"
+    },
+    {
+     "cum": 66.0,
+     "t": "2026-09-07 23:57:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-09-07 23:59:00"
+    },
+    {
+     "cum": 86.0,
+     "t": "2026-09-08 11:57:00"
+    },
+    {
+     "cum": 96.0,
+     "t": "2026-09-08 11:59:00"
+    },
+    {
+     "cum": 106.0,
+     "t": "2026-09-08 23:57:00"
+    },
+    {
+     "cum": 94.0,
+     "t": "2026-09-08 23:59:00"
+    },
+    {
+     "cum": 82.0,
+     "t": "2026-09-09 11:57:00"
+    },
+    {
+     "cum": 92.0,
+     "t": "2026-09-09 11:59:00"
+    },
+    {
+     "cum": 102.0,
+     "t": "2026-09-09 23:57:00"
+    },
+    {
+     "cum": 112.0,
+     "t": "2026-09-09 23:59:00"
+    },
+    {
+     "cum": 122.0,
+     "t": "2026-09-10 11:57:00"
+    },
+    {
+     "cum": 110.0,
+     "t": "2026-09-10 11:59:00"
+    },
+    {
+     "cum": 98.0,
+     "t": "2026-09-10 23:57:00"
+    },
+    {
+     "cum": 108.0,
+     "t": "2026-09-10 23:59:00"
+    },
+    {
+     "cum": 118.0,
+     "t": "2026-09-11 11:57:00"
+    },
+    {
+     "cum": 128.0,
+     "t": "2026-09-11 11:59:00"
+    },
+    {
+     "cum": 138.0,
+     "t": "2026-09-11 23:57:00"
+    },
+    {
+     "cum": 126.0,
+     "t": "2026-09-11 23:59:00"
+    },
+    {
+     "cum": 114.0,
+     "t": "2026-09-12 11:57:00"
+    },
+    {
+     "cum": 124.0,
+     "t": "2026-09-12 11:59:00"
+    },
+    {
+     "cum": 134.0,
+     "t": "2026-09-12 23:57:00"
+    },
+    {
+     "cum": 144.0,
+     "t": "2026-09-12 23:59:00"
+    },
+    {
+     "cum": 154.0,
+     "t": "2026-09-13 11:57:00"
+    },
+    {
+     "cum": 142.0,
+     "t": "2026-09-13 11:59:00"
+    },
+    {
+     "cum": 130.0,
+     "t": "2026-09-13 23:57:00"
+    },
+    {
+     "cum": 140.0,
+     "t": "2026-09-13 23:59:00"
+    },
+    {
+     "cum": 150.0,
+     "t": "2026-09-14 11:57:00"
+    },
+    {
+     "cum": 160.0,
+     "t": "2026-09-14 11:59:00"
+    },
+    {
+     "cum": 170.0,
+     "t": "2026-09-14 23:57:00"
+    },
+    {
+     "cum": 158.0,
+     "t": "2026-09-14 23:59:00"
+    },
+    {
+     "cum": 146.0,
+     "t": "2026-09-15 11:57:00"
+    },
+    {
+     "cum": 156.0,
+     "t": "2026-09-15 11:59:00"
+    },
+    {
+     "cum": 166.0,
+     "t": "2026-09-15 23:57:00"
+    },
+    {
+     "cum": 176.0,
+     "t": "2026-09-15 23:59:00"
+    },
+    {
+     "cum": 186.0,
+     "t": "2026-09-16 11:57:00"
+    },
+    {
+     "cum": 174.0,
+     "t": "2026-09-16 11:59:00"
+    },
+    {
+     "cum": 162.0,
+     "t": "2026-09-16 23:57:00"
+    },
+    {
+     "cum": 172.0,
+     "t": "2026-09-16 23:59:00"
+    },
+    {
+     "cum": 182.0,
+     "t": "2026-09-17 11:57:00"
+    },
+    {
+     "cum": 192.0,
+     "t": "2026-09-17 11:59:00"
+    },
+    {
+     "cum": 202.0,
+     "t": "2026-09-17 23:57:00"
+    },
+    {
+     "cum": 190.0,
+     "t": "2026-09-17 23:59:00"
+    },
+    {
+     "cum": 178.0,
+     "t": "2026-09-18 11:57:00"
+    },
+    {
+     "cum": 188.0,
+     "t": "2026-09-18 11:59:00"
+    },
+    {
+     "cum": 198.0,
+     "t": "2026-09-18 23:57:00"
+    },
+    {
+     "cum": 208.0,
+     "t": "2026-09-18 23:59:00"
+    },
+    {
+     "cum": 218.0,
+     "t": "2026-09-19 11:57:00"
+    },
+    {
+     "cum": 206.0,
+     "t": "2026-09-19 11:59:00"
+    },
+    {
+     "cum": 194.0,
+     "t": "2026-09-19 23:57:00"
+    },
+    {
+     "cum": 204.0,
+     "t": "2026-09-19 23:59:00"
+    },
+    {
+     "cum": 214.0,
+     "t": "2026-09-20 11:57:00"
+    },
+    {
+     "cum": 224.0,
+     "t": "2026-09-20 11:59:00"
+    },
+    {
+     "cum": 234.0,
+     "t": "2026-09-20 23:57:00"
+    },
+    {
+     "cum": 222.0,
+     "t": "2026-09-20 23:59:00"
+    },
+    {
+     "cum": 210.0,
+     "t": "2026-09-21 11:57:00"
+    },
+    {
+     "cum": 220.0,
+     "t": "2026-09-21 11:59:00"
+    },
+    {
+     "cum": 230.0,
+     "t": "2026-09-21 23:57:00"
+    },
+    {
+     "cum": 240.0,
+     "t": "2026-09-21 23:59:00"
+    },
+    {
+     "cum": 250.0,
+     "t": "2026-09-22 11:57:00"
+    },
+    {
+     "cum": 238.0,
+     "t": "2026-09-22 11:59:00"
+    },
+    {
+     "cum": 226.0,
+     "t": "2026-09-22 23:57:00"
+    },
+    {
+     "cum": 236.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 246.0,
+     "t": "2026-09-23 11:57:00"
+    },
+    {
+     "cum": 256.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 266.0,
+     "t": "2026-09-23 23:57:00"
+    },
+    {
+     "cum": 254.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 242.0,
+     "t": "2026-09-24 11:57:00"
+    },
+    {
+     "cum": 252.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 262.0,
+     "t": "2026-09-24 23:57:00"
+    },
+    {
+     "cum": 272.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 282.0,
+     "t": "2026-09-25 11:57:00"
+    },
+    {
+     "cum": 270.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 258.0,
+     "t": "2026-09-25 23:57:00"
+    },
+    {
+     "cum": 268.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 278.0,
+     "t": "2026-09-26 11:57:00"
+    },
+    {
+     "cum": 288.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 298.0,
+     "t": "2026-09-26 23:57:00"
+    },
+    {
+     "cum": 286.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 274.0,
+     "t": "2026-09-27 11:57:00"
+    },
+    {
+     "cum": 284.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 294.0,
+     "t": "2026-09-27 23:57:00"
+    },
+    {
+     "cum": 304.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 314.0,
+     "t": "2026-09-28 11:57:00"
+    },
+    {
+     "cum": 302.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 290.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": 300.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.5424,
+   "expectancyR": 0.2542,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 40,
+   "maxDrawdown": -24.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "rTradeCount": 118,
+     "totalPnl": 300.0,
+     "totalR": 30.0,
+     "trades": 118,
+     "winRate": 66.1,
+     "wins": 78
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 78,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 780.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 78,
+     "winRate": 100.0,
+     "wins": 78
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 40,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -480.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 40,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 59
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 59
+     },
+     "rTradeCount": 59,
+     "totalPnl": 150.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 15.0,
+     "trades": 59,
+     "winRate": 66.1,
+     "wins": 39
+    },
+    {
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 59
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 59
+     },
+     "rTradeCount": 59,
+     "totalPnl": 150.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 15.0,
+     "trades": 59,
+     "winRate": 66.1,
+     "wins": 39
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.5424,
+     "symbol": "BTCUSDT",
+     "totalPnl": 300.0,
+     "trades": 118,
+     "winRate": 66.1,
+     "wins": 78
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 118,
+   "profitFactor": 1.625,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 118
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 118
+   },
+   "rTradeCount": 118,
+   "totalPnl": 300.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 30.0,
+   "totalTrades": 118,
+   "winRate": 66.1,
+   "wins": 78
+  },
+  "paperPortfolio": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 59,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": -12.0,
+     "t": "2026-08-30 23:59:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-08-31 11:59:00"
+    },
+    {
+     "cum": 8.0,
+     "t": "2026-08-31 23:59:00"
+    },
+    {
+     "cum": -4.0,
+     "t": "2026-09-01 11:59:00"
+    },
+    {
+     "cum": 6.0,
+     "t": "2026-09-01 23:59:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-09-02 11:59:00"
+    },
+    {
+     "cum": 4.0,
+     "t": "2026-09-02 23:59:00"
+    },
+    {
+     "cum": 14.0,
+     "t": "2026-09-03 11:59:00"
+    },
+    {
+     "cum": 24.0,
+     "t": "2026-09-03 23:59:00"
+    },
+    {
+     "cum": 12.0,
+     "t": "2026-09-04 11:59:00"
+    },
+    {
+     "cum": 22.0,
+     "t": "2026-09-04 23:59:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-09-05 11:59:00"
+    },
+    {
+     "cum": 20.0,
+     "t": "2026-09-05 23:59:00"
+    },
+    {
+     "cum": 30.0,
+     "t": "2026-09-06 11:59:00"
+    },
+    {
+     "cum": 40.0,
+     "t": "2026-09-06 23:59:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-09-07 11:59:00"
+    },
+    {
+     "cum": 38.0,
+     "t": "2026-09-07 23:59:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-09-08 11:59:00"
+    },
+    {
+     "cum": 36.0,
+     "t": "2026-09-08 23:59:00"
+    },
+    {
+     "cum": 46.0,
+     "t": "2026-09-09 11:59:00"
+    },
+    {
+     "cum": 56.0,
+     "t": "2026-09-09 23:59:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-09-10 11:59:00"
+    },
+    {
+     "cum": 54.0,
+     "t": "2026-09-10 23:59:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-09-11 11:59:00"
+    },
+    {
+     "cum": 52.0,
+     "t": "2026-09-11 23:59:00"
+    },
+    {
+     "cum": 62.0,
+     "t": "2026-09-12 11:59:00"
+    },
+    {
+     "cum": 72.0,
+     "t": "2026-09-12 23:59:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-09-13 11:59:00"
+    },
+    {
+     "cum": 70.0,
+     "t": "2026-09-13 23:59:00"
+    },
+    {
+     "cum": 80.0,
+     "t": "2026-09-14 11:59:00"
+    },
+    {
+     "cum": 68.0,
+     "t": "2026-09-14 23:59:00"
+    },
+    {
+     "cum": 78.0,
+     "t": "2026-09-15 11:59:00"
+    },
+    {
+     "cum": 88.0,
+     "t": "2026-09-15 23:59:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-09-16 11:59:00"
+    },
+    {
+     "cum": 86.0,
+     "t": "2026-09-16 23:59:00"
+    },
+    {
+     "cum": 96.0,
+     "t": "2026-09-17 11:59:00"
+    },
+    {
+     "cum": 84.0,
+     "t": "2026-09-17 23:59:00"
+    },
+    {
+     "cum": 94.0,
+     "t": "2026-09-18 11:59:00"
+    },
+    {
+     "cum": 104.0,
+     "t": "2026-09-18 23:59:00"
+    },
+    {
+     "cum": 92.0,
+     "t": "2026-09-19 11:59:00"
+    },
+    {
+     "cum": 102.0,
+     "t": "2026-09-19 23:59:00"
+    },
+    {
+     "cum": 112.0,
+     "t": "2026-09-20 11:59:00"
+    },
+    {
+     "cum": 100.0,
+     "t": "2026-09-20 23:59:00"
+    },
+    {
+     "cum": 110.0,
+     "t": "2026-09-21 11:59:00"
+    },
+    {
+     "cum": 120.0,
+     "t": "2026-09-21 23:59:00"
+    },
+    {
+     "cum": 108.0,
+     "t": "2026-09-22 11:59:00"
+    },
+    {
+     "cum": 118.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 128.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 116.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 126.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 136.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 124.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 134.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 144.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 132.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 142.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 152.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 140.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 150.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.5424,
+   "expectancyR": 0.2542,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 20,
+   "maxDrawdown": -12.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "rTradeCount": 59,
+     "totalPnl": 150.0,
+     "totalR": 15.0,
+     "trades": 59,
+     "winRate": 66.1,
+     "wins": 39
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 39,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 390.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 39,
+     "winRate": 100.0,
+     "wins": 39
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 20,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -240.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 20,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 2.5424,
+     "expectancyR": 0.2542,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 59
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 59
+     },
+     "rTradeCount": 59,
+     "totalPnl": 150.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 15.0,
+     "trades": 59,
+     "winRate": 66.1,
+     "wins": 39
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.5424,
+     "symbol": "BTCUSDT",
+     "totalPnl": 150.0,
+     "trades": 59,
+     "winRate": 66.1,
+     "wins": 39
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 59,
+   "profitFactor": 1.625,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 59
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 59
+   },
+   "rTradeCount": 59,
+   "totalPnl": 150.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 15.0,
+   "totalTrades": 59,
+   "winRate": 66.1,
+   "wins": 39
+  },
+  "perAssetClass": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.7899,
+    "expectancyR": 0.279,
+    "rTradeCount": 119,
+    "totalPnl": 332.0,
+    "totalR": 33.2,
+    "trades": 119,
+    "winRate": 67.2,
+    "wins": 80
+   }
+  ],
+  "perExitPath": [
+   {
+    "exitPath": "tp",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 80,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": 800.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 80,
+    "winRate": 100.0,
+    "wins": 80
+   },
+   {
+    "exitPath": "sl",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 39,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": -468.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 39,
+    "winRate": 0.0,
+    "wins": 0
+   }
+  ],
+  "perStrategy": [
+   {
+    "expectancy": 2.9153,
+    "expectancyR": 0.2915,
+    "name": "leg_b",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 59
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 59
+    },
+    "rTradeCount": 59,
+    "totalPnl": 172.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": 17.2,
+    "trades": 59,
+    "winRate": 67.8,
+    "wins": 40
+   },
+   {
+    "expectancy": 2.6667,
+    "expectancyR": 0.2667,
+    "name": "leg_a",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 60
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 60
+    },
+    "rTradeCount": 60,
+    "totalPnl": 160.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": 16.0,
+    "trades": 60,
+    "winRate": 66.7,
+    "wins": 40
+   }
+  ],
+  "perSymbol": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.7899,
+    "symbol": "BTCUSDT",
+    "totalPnl": 332.0,
+    "trades": 119,
+    "winRate": 67.2,
+    "wins": 80
+   }
+  ],
+  "pnlCoverage": 0.0,
+  "pnlEstimatedCount": 0,
+  "pnlFabricatedCount": 0,
+  "pnlMeasuredCount": 0,
+  "pnlUnverifiedCount": 119,
+  "profitFactor": 1.7094,
+  "rBasis": {
+   "declaredInitial": 0,
+   "noBasis": 0,
+   "refusedWrongSide": 0,
+   "storedStop": 119
+  },
+  "rCoverage": 1.0,
+  "rProvenance": {
+   "confirmedInitial": 0,
+   "contaminated": 0,
+   "declaredRiskRecords": 0,
+   "noBasis": 0,
+   "ratioBar": 2.0,
+   "tightenedVsDeclared": 0,
+   "unverified": 119
+  },
+  "rTradeCount": 119,
+  "since": "2026-08-30T12:00:00+00:00",
+  "totalPnl": 332.0,
+  "totalPnlEstimated": 0.0,
+  "totalPnlMeasured": 0.0,
+  "totalPnlMeasuredOnly": 0.0,
+  "totalR": 33.2,
+  "totalTrades": 119,
+  "winRate": 67.2,
+  "window": "30d",
+  "wins": 80
+ },
+ "7d": {
+  "bracketOutcome": {
+   "directionUnreadable": 0,
+   "excludedReduceLeg": 0,
+   "gradeable": 0,
+   "midBracket": 0,
+   "noBracketRecord": 0,
+   "noExitPrice": 27,
+   "priceNotMeasurable": 0,
+   "reachedRatio": null,
+   "reachedSl": 0,
+   "reachedTp": 0
+  },
+  "demo": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 26,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": -12.0,
+     "t": "2026-09-22 23:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 8.0,
+     "t": "2026-09-23 11:57:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-09-23 23:57:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 4.0,
+     "t": "2026-09-24 11:57:00"
+    },
+    {
+     "cum": 14.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 24.0,
+     "t": "2026-09-24 23:57:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-09-25 11:57:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 20.0,
+     "t": "2026-09-25 23:57:00"
+    },
+    {
+     "cum": 30.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 40.0,
+     "t": "2026-09-26 11:57:00"
+    },
+    {
+     "cum": 50.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-09-26 23:57:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 36.0,
+     "t": "2026-09-27 11:57:00"
+    },
+    {
+     "cum": 46.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 56.0,
+     "t": "2026-09-27 23:57:00"
+    },
+    {
+     "cum": 66.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-09-28 11:57:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 52.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": 62.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.3846,
+   "expectancyR": 0.2385,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 9,
+   "maxDrawdown": -24.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.3846,
+     "expectancyR": 0.2385,
+     "rTradeCount": 26,
+     "totalPnl": 62.0,
+     "totalR": 6.2,
+     "trades": 26,
+     "winRate": 65.4,
+     "wins": 17
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 17,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 170.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 17,
+     "winRate": 100.0,
+     "wins": 17
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 9,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -108.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 9,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 3.2308,
+     "expectancyR": 0.3231,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 13
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 13
+     },
+     "rTradeCount": 13,
+     "totalPnl": 42.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 4.2,
+     "trades": 13,
+     "winRate": 69.2,
+     "wins": 9
+    },
+    {
+     "expectancy": 1.5385,
+     "expectancyR": 0.1538,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 13
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 13
+     },
+     "rTradeCount": 13,
+     "totalPnl": 20.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 2.0,
+     "trades": 13,
+     "winRate": 61.5,
+     "wins": 8
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.3846,
+     "symbol": "BTCUSDT",
+     "totalPnl": 62.0,
+     "trades": 26,
+     "winRate": 65.4,
+     "wins": 17
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 26,
+   "profitFactor": 1.5741,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 26
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 26
+   },
+   "rTradeCount": 26,
+   "totalPnl": 62.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 6.2,
+   "totalTrades": 26,
+   "winRate": 65.4,
+   "wins": 17
+  },
+  "equity": [
+   {
+    "cum": 10.0,
+    "t": "2026-09-22 12:00:00"
+   },
+   {
+    "cum": 20.0,
+    "t": "2026-09-22 23:58:00"
+   },
+   {
+    "cum": 8.0,
+    "t": "2026-09-23 00:00:00"
+   },
+   {
+    "cum": -4.0,
+    "t": "2026-09-23 11:58:00"
+   },
+   {
+    "cum": 6.0,
+    "t": "2026-09-23 12:00:00"
+   },
+   {
+    "cum": 16.0,
+    "t": "2026-09-23 23:58:00"
+   },
+   {
+    "cum": 26.0,
+    "t": "2026-09-24 00:00:00"
+   },
+   {
+    "cum": 36.0,
+    "t": "2026-09-24 11:58:00"
+   },
+   {
+    "cum": 24.0,
+    "t": "2026-09-24 12:00:00"
+   },
+   {
+    "cum": 12.0,
+    "t": "2026-09-24 23:58:00"
+   },
+   {
+    "cum": 22.0,
+    "t": "2026-09-25 00:00:00"
+   },
+   {
+    "cum": 32.0,
+    "t": "2026-09-25 11:58:00"
+   },
+   {
+    "cum": 42.0,
+    "t": "2026-09-25 12:00:00"
+   },
+   {
+    "cum": 52.0,
+    "t": "2026-09-25 23:58:00"
+   },
+   {
+    "cum": 40.0,
+    "t": "2026-09-26 00:00:00"
+   },
+   {
+    "cum": 28.0,
+    "t": "2026-09-26 11:58:00"
+   },
+   {
+    "cum": 38.0,
+    "t": "2026-09-26 12:00:00"
+   },
+   {
+    "cum": 48.0,
+    "t": "2026-09-26 23:58:00"
+   },
+   {
+    "cum": 58.0,
+    "t": "2026-09-27 00:00:00"
+   },
+   {
+    "cum": 68.0,
+    "t": "2026-09-27 11:58:00"
+   },
+   {
+    "cum": 56.0,
+    "t": "2026-09-27 12:00:00"
+   },
+   {
+    "cum": 44.0,
+    "t": "2026-09-27 23:58:00"
+   },
+   {
+    "cum": 54.0,
+    "t": "2026-09-28 00:00:00"
+   },
+   {
+    "cum": 64.0,
+    "t": "2026-09-28 11:58:00"
+   },
+   {
+    "cum": 74.0,
+    "t": "2026-09-28 12:00:00"
+   },
+   {
+    "cum": 84.0,
+    "t": "2026-09-28 23:58:00"
+   },
+   {
+    "cum": 72.0,
+    "t": "2026-09-29 00:00:00"
+   }
+  ],
+  "error": false,
+  "expectancy": 2.6667,
+  "expectancyR": 0.2667,
+  "journalTrust": {
+   "accountsKnownDivergent": [],
+   "accountsUnreadable": [
+    "alpaca_live",
+    "bybit_2"
+   ],
+   "accountsUnrecorded": [],
+   "readState": "ok"
+  },
+  "losses": 9,
+  "maxDrawdown": -24.0,
+  "paper": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 26,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": -12.0,
+     "t": "2026-09-22 23:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 8.0,
+     "t": "2026-09-23 11:57:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-09-23 23:57:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 4.0,
+     "t": "2026-09-24 11:57:00"
+    },
+    {
+     "cum": 14.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 24.0,
+     "t": "2026-09-24 23:57:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-09-25 11:57:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 20.0,
+     "t": "2026-09-25 23:57:00"
+    },
+    {
+     "cum": 30.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 40.0,
+     "t": "2026-09-26 11:57:00"
+    },
+    {
+     "cum": 50.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-09-26 23:57:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 36.0,
+     "t": "2026-09-27 11:57:00"
+    },
+    {
+     "cum": 46.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 56.0,
+     "t": "2026-09-27 23:57:00"
+    },
+    {
+     "cum": 66.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-09-28 11:57:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 52.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": 62.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.3846,
+   "expectancyR": 0.2385,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 9,
+   "maxDrawdown": -24.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.3846,
+     "expectancyR": 0.2385,
+     "rTradeCount": 26,
+     "totalPnl": 62.0,
+     "totalR": 6.2,
+     "trades": 26,
+     "winRate": 65.4,
+     "wins": 17
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 17,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 170.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 17,
+     "winRate": 100.0,
+     "wins": 17
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 9,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -108.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 9,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 3.2308,
+     "expectancyR": 0.3231,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 13
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 13
+     },
+     "rTradeCount": 13,
+     "totalPnl": 42.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 4.2,
+     "trades": 13,
+     "winRate": 69.2,
+     "wins": 9
+    },
+    {
+     "expectancy": 1.5385,
+     "expectancyR": 0.1538,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 13
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 13
+     },
+     "rTradeCount": 13,
+     "totalPnl": 20.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 2.0,
+     "trades": 13,
+     "winRate": 61.5,
+     "wins": 8
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.3846,
+     "symbol": "BTCUSDT",
+     "totalPnl": 62.0,
+     "trades": 26,
+     "winRate": 65.4,
+     "wins": 17
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 26,
+   "profitFactor": 1.5741,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 26
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 26
+   },
+   "rTradeCount": 26,
+   "totalPnl": 62.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 6.2,
+   "totalTrades": 26,
+   "winRate": 65.4,
+   "wins": 17
+  },
+  "paperPortfolio": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 13,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": 10.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 20.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 8.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 26.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 36.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 24.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 42.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 3.2308,
+   "expectancyR": 0.3231,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 4,
+   "maxDrawdown": -12.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 3.2308,
+     "expectancyR": 0.3231,
+     "rTradeCount": 13,
+     "totalPnl": 42.0,
+     "totalR": 4.2,
+     "trades": 13,
+     "winRate": 69.2,
+     "wins": 9
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 9,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 90.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 9,
+     "winRate": 100.0,
+     "wins": 9
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 4,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -48.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 4,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 3.2308,
+     "expectancyR": 0.3231,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 13
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 13
+     },
+     "rTradeCount": 13,
+     "totalPnl": 42.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 4.2,
+     "trades": 13,
+     "winRate": 69.2,
+     "wins": 9
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 3.2308,
+     "symbol": "BTCUSDT",
+     "totalPnl": 42.0,
+     "trades": 13,
+     "winRate": 69.2,
+     "wins": 9
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 13,
+   "profitFactor": 1.875,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 13
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 13
+   },
+   "rTradeCount": 13,
+   "totalPnl": 42.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 4.2,
+   "totalTrades": 13,
+   "winRate": 69.2,
+   "wins": 9
+  },
+  "perAssetClass": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.6667,
+    "expectancyR": 0.2667,
+    "rTradeCount": 27,
+    "totalPnl": 72.0,
+    "totalR": 7.2,
+    "trades": 27,
+    "winRate": 66.7,
+    "wins": 18
+   }
+  ],
+  "perExitPath": [
+   {
+    "exitPath": "tp",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 18,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": 180.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 18,
+    "winRate": 100.0,
+    "wins": 18
+   },
+   {
+    "exitPath": "sl",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 9,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": -108.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 9,
+    "winRate": 0.0,
+    "wins": 0
+   }
+  ],
+  "perStrategy": [
+   {
+    "expectancy": 3.2308,
+    "expectancyR": 0.3231,
+    "name": "leg_b",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 13
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 13
+    },
+    "rTradeCount": 13,
+    "totalPnl": 42.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": 4.2,
+    "trades": 13,
+    "winRate": 69.2,
+    "wins": 9
+   },
+   {
+    "expectancy": 2.1429,
+    "expectancyR": 0.2143,
+    "name": "leg_a",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 14
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 14
+    },
+    "rTradeCount": 14,
+    "totalPnl": 30.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": 3.0,
+    "trades": 14,
+    "winRate": 64.3,
+    "wins": 9
+   }
+  ],
+  "perSymbol": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.6667,
+    "symbol": "BTCUSDT",
+    "totalPnl": 72.0,
+    "trades": 27,
+    "winRate": 66.7,
+    "wins": 18
+   }
+  ],
+  "pnlCoverage": 0.0,
+  "pnlEstimatedCount": 0,
+  "pnlFabricatedCount": 0,
+  "pnlMeasuredCount": 0,
+  "pnlUnverifiedCount": 27,
+  "profitFactor": 1.6667,
+  "rBasis": {
+   "declaredInitial": 0,
+   "noBasis": 0,
+   "refusedWrongSide": 0,
+   "storedStop": 27
+  },
+  "rCoverage": 1.0,
+  "rProvenance": {
+   "confirmedInitial": 0,
+   "contaminated": 0,
+   "declaredRiskRecords": 0,
+   "noBasis": 0,
+   "ratioBar": 2.0,
+   "tightenedVsDeclared": 0,
+   "unverified": 27
+  },
+  "rTradeCount": 27,
+  "since": "2026-09-22T12:00:00+00:00",
+  "totalPnl": 72.0,
+  "totalPnlEstimated": 0.0,
+  "totalPnlMeasured": 0.0,
+  "totalPnlMeasuredOnly": 0.0,
+  "totalR": 7.2,
+  "totalTrades": 27,
+  "winRate": 66.7,
+  "window": "7d",
+  "wins": 18
+ },
+ "all": {
+  "bracketOutcome": {
+   "directionUnreadable": 0,
+   "excludedReduceLeg": 0,
+   "gradeable": 0,
+   "midBracket": 0,
+   "noBracketRecord": 0,
+   "noExitPrice": 140,
+   "priceNotMeasurable": 0,
+   "reachedRatio": null,
+   "reachedSl": 0,
+   "reachedTp": 0
+  },
+  "demo": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 140,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": -12.0,
+     "t": "2026-08-25 11:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-08-25 11:59:00"
+    },
+    {
+     "cum": 8.0,
+     "t": "2026-08-25 23:57:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-08-25 23:59:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-08-26 11:57:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-08-26 11:59:00"
+    },
+    {
+     "cum": 4.0,
+     "t": "2026-08-26 23:57:00"
+    },
+    {
+     "cum": 14.0,
+     "t": "2026-08-26 23:59:00"
+    },
+    {
+     "cum": 24.0,
+     "t": "2026-08-27 11:57:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-08-27 11:59:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-08-27 23:57:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-08-27 23:59:00"
+    },
+    {
+     "cum": 20.0,
+     "t": "2026-08-28 11:57:00"
+    },
+    {
+     "cum": 30.0,
+     "t": "2026-08-28 11:59:00"
+    },
+    {
+     "cum": 40.0,
+     "t": "2026-08-28 23:57:00"
+    },
+    {
+     "cum": 50.0,
+     "t": "2026-08-28 23:59:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-08-29 11:57:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-08-29 11:59:00"
+    },
+    {
+     "cum": 36.0,
+     "t": "2026-08-29 23:57:00"
+    },
+    {
+     "cum": 46.0,
+     "t": "2026-08-29 23:59:00"
+    },
+    {
+     "cum": 56.0,
+     "t": "2026-08-30 11:57:00"
+    },
+    {
+     "cum": 66.0,
+     "t": "2026-08-30 11:59:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-08-30 23:57:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-08-30 23:59:00"
+    },
+    {
+     "cum": 52.0,
+     "t": "2026-08-31 11:57:00"
+    },
+    {
+     "cum": 62.0,
+     "t": "2026-08-31 11:59:00"
+    },
+    {
+     "cum": 72.0,
+     "t": "2026-08-31 23:57:00"
+    },
+    {
+     "cum": 82.0,
+     "t": "2026-08-31 23:59:00"
+    },
+    {
+     "cum": 92.0,
+     "t": "2026-09-01 11:57:00"
+    },
+    {
+     "cum": 80.0,
+     "t": "2026-09-01 11:59:00"
+    },
+    {
+     "cum": 68.0,
+     "t": "2026-09-01 23:57:00"
+    },
+    {
+     "cum": 78.0,
+     "t": "2026-09-01 23:59:00"
+    },
+    {
+     "cum": 88.0,
+     "t": "2026-09-02 11:57:00"
+    },
+    {
+     "cum": 98.0,
+     "t": "2026-09-02 11:59:00"
+    },
+    {
+     "cum": 108.0,
+     "t": "2026-09-02 23:57:00"
+    },
+    {
+     "cum": 96.0,
+     "t": "2026-09-02 23:59:00"
+    },
+    {
+     "cum": 84.0,
+     "t": "2026-09-03 11:57:00"
+    },
+    {
+     "cum": 94.0,
+     "t": "2026-09-03 11:59:00"
+    },
+    {
+     "cum": 104.0,
+     "t": "2026-09-03 23:57:00"
+    },
+    {
+     "cum": 114.0,
+     "t": "2026-09-03 23:59:00"
+    },
+    {
+     "cum": 124.0,
+     "t": "2026-09-04 11:57:00"
+    },
+    {
+     "cum": 112.0,
+     "t": "2026-09-04 11:59:00"
+    },
+    {
+     "cum": 100.0,
+     "t": "2026-09-04 23:57:00"
+    },
+    {
+     "cum": 110.0,
+     "t": "2026-09-04 23:59:00"
+    },
+    {
+     "cum": 120.0,
+     "t": "2026-09-05 11:57:00"
+    },
+    {
+     "cum": 130.0,
+     "t": "2026-09-05 11:59:00"
+    },
+    {
+     "cum": 140.0,
+     "t": "2026-09-05 23:57:00"
+    },
+    {
+     "cum": 128.0,
+     "t": "2026-09-05 23:59:00"
+    },
+    {
+     "cum": 116.0,
+     "t": "2026-09-06 11:57:00"
+    },
+    {
+     "cum": 126.0,
+     "t": "2026-09-06 11:59:00"
+    },
+    {
+     "cum": 136.0,
+     "t": "2026-09-06 23:57:00"
+    },
+    {
+     "cum": 146.0,
+     "t": "2026-09-06 23:59:00"
+    },
+    {
+     "cum": 156.0,
+     "t": "2026-09-07 11:57:00"
+    },
+    {
+     "cum": 144.0,
+     "t": "2026-09-07 11:59:00"
+    },
+    {
+     "cum": 132.0,
+     "t": "2026-09-07 23:57:00"
+    },
+    {
+     "cum": 142.0,
+     "t": "2026-09-07 23:59:00"
+    },
+    {
+     "cum": 152.0,
+     "t": "2026-09-08 11:57:00"
+    },
+    {
+     "cum": 162.0,
+     "t": "2026-09-08 11:59:00"
+    },
+    {
+     "cum": 172.0,
+     "t": "2026-09-08 23:57:00"
+    },
+    {
+     "cum": 160.0,
+     "t": "2026-09-08 23:59:00"
+    },
+    {
+     "cum": 148.0,
+     "t": "2026-09-09 11:57:00"
+    },
+    {
+     "cum": 158.0,
+     "t": "2026-09-09 11:59:00"
+    },
+    {
+     "cum": 168.0,
+     "t": "2026-09-09 23:57:00"
+    },
+    {
+     "cum": 178.0,
+     "t": "2026-09-09 23:59:00"
+    },
+    {
+     "cum": 188.0,
+     "t": "2026-09-10 11:57:00"
+    },
+    {
+     "cum": 176.0,
+     "t": "2026-09-10 11:59:00"
+    },
+    {
+     "cum": 164.0,
+     "t": "2026-09-10 23:57:00"
+    },
+    {
+     "cum": 174.0,
+     "t": "2026-09-10 23:59:00"
+    },
+    {
+     "cum": 184.0,
+     "t": "2026-09-11 11:57:00"
+    },
+    {
+     "cum": 194.0,
+     "t": "2026-09-11 11:59:00"
+    },
+    {
+     "cum": 204.0,
+     "t": "2026-09-11 23:57:00"
+    },
+    {
+     "cum": 192.0,
+     "t": "2026-09-11 23:59:00"
+    },
+    {
+     "cum": 180.0,
+     "t": "2026-09-12 11:57:00"
+    },
+    {
+     "cum": 190.0,
+     "t": "2026-09-12 11:59:00"
+    },
+    {
+     "cum": 200.0,
+     "t": "2026-09-12 23:57:00"
+    },
+    {
+     "cum": 210.0,
+     "t": "2026-09-12 23:59:00"
+    },
+    {
+     "cum": 220.0,
+     "t": "2026-09-13 11:57:00"
+    },
+    {
+     "cum": 208.0,
+     "t": "2026-09-13 11:59:00"
+    },
+    {
+     "cum": 196.0,
+     "t": "2026-09-13 23:57:00"
+    },
+    {
+     "cum": 206.0,
+     "t": "2026-09-13 23:59:00"
+    },
+    {
+     "cum": 216.0,
+     "t": "2026-09-14 11:57:00"
+    },
+    {
+     "cum": 226.0,
+     "t": "2026-09-14 11:59:00"
+    },
+    {
+     "cum": 236.0,
+     "t": "2026-09-14 23:57:00"
+    },
+    {
+     "cum": 224.0,
+     "t": "2026-09-14 23:59:00"
+    },
+    {
+     "cum": 212.0,
+     "t": "2026-09-15 11:57:00"
+    },
+    {
+     "cum": 222.0,
+     "t": "2026-09-15 11:59:00"
+    },
+    {
+     "cum": 232.0,
+     "t": "2026-09-15 23:57:00"
+    },
+    {
+     "cum": 242.0,
+     "t": "2026-09-15 23:59:00"
+    },
+    {
+     "cum": 252.0,
+     "t": "2026-09-16 11:57:00"
+    },
+    {
+     "cum": 240.0,
+     "t": "2026-09-16 11:59:00"
+    },
+    {
+     "cum": 228.0,
+     "t": "2026-09-16 23:57:00"
+    },
+    {
+     "cum": 238.0,
+     "t": "2026-09-16 23:59:00"
+    },
+    {
+     "cum": 248.0,
+     "t": "2026-09-17 11:57:00"
+    },
+    {
+     "cum": 258.0,
+     "t": "2026-09-17 11:59:00"
+    },
+    {
+     "cum": 268.0,
+     "t": "2026-09-17 23:57:00"
+    },
+    {
+     "cum": 256.0,
+     "t": "2026-09-17 23:59:00"
+    },
+    {
+     "cum": 244.0,
+     "t": "2026-09-18 11:57:00"
+    },
+    {
+     "cum": 254.0,
+     "t": "2026-09-18 11:59:00"
+    },
+    {
+     "cum": 264.0,
+     "t": "2026-09-18 23:57:00"
+    },
+    {
+     "cum": 274.0,
+     "t": "2026-09-18 23:59:00"
+    },
+    {
+     "cum": 284.0,
+     "t": "2026-09-19 11:57:00"
+    },
+    {
+     "cum": 272.0,
+     "t": "2026-09-19 11:59:00"
+    },
+    {
+     "cum": 260.0,
+     "t": "2026-09-19 23:57:00"
+    },
+    {
+     "cum": 270.0,
+     "t": "2026-09-19 23:59:00"
+    },
+    {
+     "cum": 280.0,
+     "t": "2026-09-20 11:57:00"
+    },
+    {
+     "cum": 290.0,
+     "t": "2026-09-20 11:59:00"
+    },
+    {
+     "cum": 300.0,
+     "t": "2026-09-20 23:57:00"
+    },
+    {
+     "cum": 288.0,
+     "t": "2026-09-20 23:59:00"
+    },
+    {
+     "cum": 276.0,
+     "t": "2026-09-21 11:57:00"
+    },
+    {
+     "cum": 286.0,
+     "t": "2026-09-21 11:59:00"
+    },
+    {
+     "cum": 296.0,
+     "t": "2026-09-21 23:57:00"
+    },
+    {
+     "cum": 306.0,
+     "t": "2026-09-21 23:59:00"
+    },
+    {
+     "cum": 316.0,
+     "t": "2026-09-22 11:57:00"
+    },
+    {
+     "cum": 304.0,
+     "t": "2026-09-22 11:59:00"
+    },
+    {
+     "cum": 292.0,
+     "t": "2026-09-22 23:57:00"
+    },
+    {
+     "cum": 302.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 312.0,
+     "t": "2026-09-23 11:57:00"
+    },
+    {
+     "cum": 322.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 332.0,
+     "t": "2026-09-23 23:57:00"
+    },
+    {
+     "cum": 320.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 308.0,
+     "t": "2026-09-24 11:57:00"
+    },
+    {
+     "cum": 318.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 328.0,
+     "t": "2026-09-24 23:57:00"
+    },
+    {
+     "cum": 338.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 348.0,
+     "t": "2026-09-25 11:57:00"
+    },
+    {
+     "cum": 336.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 324.0,
+     "t": "2026-09-25 23:57:00"
+    },
+    {
+     "cum": 334.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 344.0,
+     "t": "2026-09-26 11:57:00"
+    },
+    {
+     "cum": 354.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 364.0,
+     "t": "2026-09-26 23:57:00"
+    },
+    {
+     "cum": 352.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 340.0,
+     "t": "2026-09-27 11:57:00"
+    },
+    {
+     "cum": 350.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 360.0,
+     "t": "2026-09-27 23:57:00"
+    },
+    {
+     "cum": 370.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 380.0,
+     "t": "2026-09-28 11:57:00"
+    },
+    {
+     "cum": 368.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 356.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": 366.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.6143,
+   "expectancyR": 0.2614,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 47,
+   "maxDrawdown": -24.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.6143,
+     "expectancyR": 0.2614,
+     "rTradeCount": 140,
+     "totalPnl": 366.0,
+     "totalR": 36.6,
+     "trades": 140,
+     "winRate": 66.4,
+     "wins": 93
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 93,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 930.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 93,
+     "winRate": 100.0,
+     "wins": 93
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 47,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -564.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 47,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 2.7714,
+     "expectancyR": 0.2771,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 70
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 70
+     },
+     "rTradeCount": 70,
+     "totalPnl": 194.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 19.4,
+     "trades": 70,
+     "winRate": 67.1,
+     "wins": 47
+    },
+    {
+     "expectancy": 2.4571,
+     "expectancyR": 0.2457,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 70
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 70
+     },
+     "rTradeCount": 70,
+     "totalPnl": 172.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 17.2,
+     "trades": 70,
+     "winRate": 65.7,
+     "wins": 46
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.6143,
+     "symbol": "BTCUSDT",
+     "totalPnl": 366.0,
+     "trades": 140,
+     "winRate": 66.4,
+     "wins": 93
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 140,
+   "profitFactor": 1.6489,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 140
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 140
+   },
+   "rTradeCount": 140,
+   "totalPnl": 366.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 36.6,
+   "totalTrades": 140,
+   "winRate": 66.4,
+   "wins": 93
+  },
+  "equity": [
+   {
+    "cum": 10.0,
+    "t": "2026-08-25 11:58:00"
+   },
+   {
+    "cum": -2.0,
+    "t": "2026-08-25 12:00:00"
+   },
+   {
+    "cum": -14.0,
+    "t": "2026-08-25 23:58:00"
+   },
+   {
+    "cum": -4.0,
+    "t": "2026-08-26 00:00:00"
+   },
+   {
+    "cum": 6.0,
+    "t": "2026-08-26 11:58:00"
+   },
+   {
+    "cum": 16.0,
+    "t": "2026-08-26 12:00:00"
+   },
+   {
+    "cum": 26.0,
+    "t": "2026-08-26 23:58:00"
+   },
+   {
+    "cum": 14.0,
+    "t": "2026-08-27 00:00:00"
+   },
+   {
+    "cum": 2.0,
+    "t": "2026-08-27 11:58:00"
+   },
+   {
+    "cum": 12.0,
+    "t": "2026-08-27 12:00:00"
+   },
+   {
+    "cum": 22.0,
+    "t": "2026-08-27 23:58:00"
+   },
+   {
+    "cum": 32.0,
+    "t": "2026-08-28 00:00:00"
+   },
+   {
+    "cum": 42.0,
+    "t": "2026-08-28 11:58:00"
+   },
+   {
+    "cum": 30.0,
+    "t": "2026-08-28 12:00:00"
+   },
+   {
+    "cum": 18.0,
+    "t": "2026-08-28 23:58:00"
+   },
+   {
+    "cum": 28.0,
+    "t": "2026-08-29 00:00:00"
+   },
+   {
+    "cum": 38.0,
+    "t": "2026-08-29 11:58:00"
+   },
+   {
+    "cum": 48.0,
+    "t": "2026-08-29 12:00:00"
+   },
+   {
+    "cum": 58.0,
+    "t": "2026-08-29 23:58:00"
+   },
+   {
+    "cum": 46.0,
+    "t": "2026-08-30 00:00:00"
+   },
+   {
+    "cum": 34.0,
+    "t": "2026-08-30 11:58:00"
+   },
+   {
+    "cum": 44.0,
+    "t": "2026-08-30 12:00:00"
+   },
+   {
+    "cum": 54.0,
+    "t": "2026-08-30 23:58:00"
+   },
+   {
+    "cum": 64.0,
+    "t": "2026-08-31 00:00:00"
+   },
+   {
+    "cum": 74.0,
+    "t": "2026-08-31 11:58:00"
+   },
+   {
+    "cum": 62.0,
+    "t": "2026-08-31 12:00:00"
+   },
+   {
+    "cum": 50.0,
+    "t": "2026-08-31 23:58:00"
+   },
+   {
+    "cum": 60.0,
+    "t": "2026-09-01 00:00:00"
+   },
+   {
+    "cum": 70.0,
+    "t": "2026-09-01 11:58:00"
+   },
+   {
+    "cum": 80.0,
+    "t": "2026-09-01 12:00:00"
+   },
+   {
+    "cum": 90.0,
+    "t": "2026-09-01 23:58:00"
+   },
+   {
+    "cum": 78.0,
+    "t": "2026-09-02 00:00:00"
+   },
+   {
+    "cum": 66.0,
+    "t": "2026-09-02 11:58:00"
+   },
+   {
+    "cum": 76.0,
+    "t": "2026-09-02 12:00:00"
+   },
+   {
+    "cum": 86.0,
+    "t": "2026-09-02 23:58:00"
+   },
+   {
+    "cum": 96.0,
+    "t": "2026-09-03 00:00:00"
+   },
+   {
+    "cum": 106.0,
+    "t": "2026-09-03 11:58:00"
+   },
+   {
+    "cum": 94.0,
+    "t": "2026-09-03 12:00:00"
+   },
+   {
+    "cum": 82.0,
+    "t": "2026-09-03 23:58:00"
+   },
+   {
+    "cum": 92.0,
+    "t": "2026-09-04 00:00:00"
+   },
+   {
+    "cum": 102.0,
+    "t": "2026-09-04 11:58:00"
+   },
+   {
+    "cum": 112.0,
+    "t": "2026-09-04 12:00:00"
+   },
+   {
+    "cum": 122.0,
+    "t": "2026-09-04 23:58:00"
+   },
+   {
+    "cum": 110.0,
+    "t": "2026-09-05 00:00:00"
+   },
+   {
+    "cum": 98.0,
+    "t": "2026-09-05 11:58:00"
+   },
+   {
+    "cum": 108.0,
+    "t": "2026-09-05 12:00:00"
+   },
+   {
+    "cum": 118.0,
+    "t": "2026-09-05 23:58:00"
+   },
+   {
+    "cum": 128.0,
+    "t": "2026-09-06 00:00:00"
+   },
+   {
+    "cum": 138.0,
+    "t": "2026-09-06 11:58:00"
+   },
+   {
+    "cum": 126.0,
+    "t": "2026-09-06 12:00:00"
+   },
+   {
+    "cum": 114.0,
+    "t": "2026-09-06 23:58:00"
+   },
+   {
+    "cum": 124.0,
+    "t": "2026-09-07 00:00:00"
+   },
+   {
+    "cum": 134.0,
+    "t": "2026-09-07 11:58:00"
+   },
+   {
+    "cum": 144.0,
+    "t": "2026-09-07 12:00:00"
+   },
+   {
+    "cum": 154.0,
+    "t": "2026-09-07 23:58:00"
+   },
+   {
+    "cum": 142.0,
+    "t": "2026-09-08 00:00:00"
+   },
+   {
+    "cum": 130.0,
+    "t": "2026-09-08 11:58:00"
+   },
+   {
+    "cum": 140.0,
+    "t": "2026-09-08 12:00:00"
+   },
+   {
+    "cum": 150.0,
+    "t": "2026-09-08 23:58:00"
+   },
+   {
+    "cum": 160.0,
+    "t": "2026-09-09 00:00:00"
+   },
+   {
+    "cum": 170.0,
+    "t": "2026-09-09 11:58:00"
+   },
+   {
+    "cum": 158.0,
+    "t": "2026-09-09 12:00:00"
+   },
+   {
+    "cum": 146.0,
+    "t": "2026-09-09 23:58:00"
+   },
+   {
+    "cum": 156.0,
+    "t": "2026-09-10 00:00:00"
+   },
+   {
+    "cum": 166.0,
+    "t": "2026-09-10 11:58:00"
+   },
+   {
+    "cum": 176.0,
+    "t": "2026-09-10 12:00:00"
+   },
+   {
+    "cum": 186.0,
+    "t": "2026-09-10 23:58:00"
+   },
+   {
+    "cum": 174.0,
+    "t": "2026-09-11 00:00:00"
+   },
+   {
+    "cum": 162.0,
+    "t": "2026-09-11 11:58:00"
+   },
+   {
+    "cum": 172.0,
+    "t": "2026-09-11 12:00:00"
+   },
+   {
+    "cum": 182.0,
+    "t": "2026-09-11 23:58:00"
+   },
+   {
+    "cum": 192.0,
+    "t": "2026-09-12 00:00:00"
+   },
+   {
+    "cum": 202.0,
+    "t": "2026-09-12 11:58:00"
+   },
+   {
+    "cum": 190.0,
+    "t": "2026-09-12 12:00:00"
+   },
+   {
+    "cum": 178.0,
+    "t": "2026-09-12 23:58:00"
+   },
+   {
+    "cum": 188.0,
+    "t": "2026-09-13 00:00:00"
+   },
+   {
+    "cum": 198.0,
+    "t": "2026-09-13 11:58:00"
+   },
+   {
+    "cum": 208.0,
+    "t": "2026-09-13 12:00:00"
+   },
+   {
+    "cum": 218.0,
+    "t": "2026-09-13 23:58:00"
+   },
+   {
+    "cum": 206.0,
+    "t": "2026-09-14 00:00:00"
+   },
+   {
+    "cum": 194.0,
+    "t": "2026-09-14 11:58:00"
+   },
+   {
+    "cum": 204.0,
+    "t": "2026-09-14 12:00:00"
+   },
+   {
+    "cum": 214.0,
+    "t": "2026-09-14 23:58:00"
+   },
+   {
+    "cum": 224.0,
+    "t": "2026-09-15 00:00:00"
+   },
+   {
+    "cum": 234.0,
+    "t": "2026-09-15 11:58:00"
+   },
+   {
+    "cum": 222.0,
+    "t": "2026-09-15 12:00:00"
+   },
+   {
+    "cum": 210.0,
+    "t": "2026-09-15 23:58:00"
+   },
+   {
+    "cum": 220.0,
+    "t": "2026-09-16 00:00:00"
+   },
+   {
+    "cum": 230.0,
+    "t": "2026-09-16 11:58:00"
+   },
+   {
+    "cum": 240.0,
+    "t": "2026-09-16 12:00:00"
+   },
+   {
+    "cum": 250.0,
+    "t": "2026-09-16 23:58:00"
+   },
+   {
+    "cum": 238.0,
+    "t": "2026-09-17 00:00:00"
+   },
+   {
+    "cum": 226.0,
+    "t": "2026-09-17 11:58:00"
+   },
+   {
+    "cum": 236.0,
+    "t": "2026-09-17 12:00:00"
+   },
+   {
+    "cum": 246.0,
+    "t": "2026-09-17 23:58:00"
+   },
+   {
+    "cum": 256.0,
+    "t": "2026-09-18 00:00:00"
+   },
+   {
+    "cum": 266.0,
+    "t": "2026-09-18 11:58:00"
+   },
+   {
+    "cum": 254.0,
+    "t": "2026-09-18 12:00:00"
+   },
+   {
+    "cum": 242.0,
+    "t": "2026-09-18 23:58:00"
+   },
+   {
+    "cum": 252.0,
+    "t": "2026-09-19 00:00:00"
+   },
+   {
+    "cum": 262.0,
+    "t": "2026-09-19 11:58:00"
+   },
+   {
+    "cum": 272.0,
+    "t": "2026-09-19 12:00:00"
+   },
+   {
+    "cum": 282.0,
+    "t": "2026-09-19 23:58:00"
+   },
+   {
+    "cum": 270.0,
+    "t": "2026-09-20 00:00:00"
+   },
+   {
+    "cum": 258.0,
+    "t": "2026-09-20 11:58:00"
+   },
+   {
+    "cum": 268.0,
+    "t": "2026-09-20 12:00:00"
+   },
+   {
+    "cum": 278.0,
+    "t": "2026-09-20 23:58:00"
+   },
+   {
+    "cum": 288.0,
+    "t": "2026-09-21 00:00:00"
+   },
+   {
+    "cum": 298.0,
+    "t": "2026-09-21 11:58:00"
+   },
+   {
+    "cum": 286.0,
+    "t": "2026-09-21 12:00:00"
+   },
+   {
+    "cum": 274.0,
+    "t": "2026-09-21 23:58:00"
+   },
+   {
+    "cum": 284.0,
+    "t": "2026-09-22 00:00:00"
+   },
+   {
+    "cum": 294.0,
+    "t": "2026-09-22 11:58:00"
+   },
+   {
+    "cum": 304.0,
+    "t": "2026-09-22 12:00:00"
+   },
+   {
+    "cum": 314.0,
+    "t": "2026-09-22 23:58:00"
+   },
+   {
+    "cum": 302.0,
+    "t": "2026-09-23 00:00:00"
+   },
+   {
+    "cum": 290.0,
+    "t": "2026-09-23 11:58:00"
+   },
+   {
+    "cum": 300.0,
+    "t": "2026-09-23 12:00:00"
+   },
+   {
+    "cum": 310.0,
+    "t": "2026-09-23 23:58:00"
+   },
+   {
+    "cum": 320.0,
+    "t": "2026-09-24 00:00:00"
+   },
+   {
+    "cum": 330.0,
+    "t": "2026-09-24 11:58:00"
+   },
+   {
+    "cum": 318.0,
+    "t": "2026-09-24 12:00:00"
+   },
+   {
+    "cum": 306.0,
+    "t": "2026-09-24 23:58:00"
+   },
+   {
+    "cum": 316.0,
+    "t": "2026-09-25 00:00:00"
+   },
+   {
+    "cum": 326.0,
+    "t": "2026-09-25 11:58:00"
+   },
+   {
+    "cum": 336.0,
+    "t": "2026-09-25 12:00:00"
+   },
+   {
+    "cum": 346.0,
+    "t": "2026-09-25 23:58:00"
+   },
+   {
+    "cum": 334.0,
+    "t": "2026-09-26 00:00:00"
+   },
+   {
+    "cum": 322.0,
+    "t": "2026-09-26 11:58:00"
+   },
+   {
+    "cum": 332.0,
+    "t": "2026-09-26 12:00:00"
+   },
+   {
+    "cum": 342.0,
+    "t": "2026-09-26 23:58:00"
+   },
+   {
+    "cum": 352.0,
+    "t": "2026-09-27 00:00:00"
+   },
+   {
+    "cum": 362.0,
+    "t": "2026-09-27 11:58:00"
+   },
+   {
+    "cum": 350.0,
+    "t": "2026-09-27 12:00:00"
+   },
+   {
+    "cum": 338.0,
+    "t": "2026-09-27 23:58:00"
+   },
+   {
+    "cum": 348.0,
+    "t": "2026-09-28 00:00:00"
+   },
+   {
+    "cum": 358.0,
+    "t": "2026-09-28 11:58:00"
+   },
+   {
+    "cum": 368.0,
+    "t": "2026-09-28 12:00:00"
+   },
+   {
+    "cum": 378.0,
+    "t": "2026-09-28 23:58:00"
+   },
+   {
+    "cum": 366.0,
+    "t": "2026-09-29 00:00:00"
+   }
+  ],
+  "error": false,
+  "expectancy": 2.6143,
+  "expectancyR": 0.2614,
+  "journalTrust": {
+   "accountsKnownDivergent": [],
+   "accountsUnreadable": [
+    "alpaca_live",
+    "bybit_2"
+   ],
+   "accountsUnrecorded": [],
+   "readState": "ok"
+  },
+  "losses": 47,
+  "maxDrawdown": -24.0,
+  "paper": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 140,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": -12.0,
+     "t": "2026-08-25 11:57:00"
+    },
+    {
+     "cum": -2.0,
+     "t": "2026-08-25 11:59:00"
+    },
+    {
+     "cum": 8.0,
+     "t": "2026-08-25 23:57:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-08-25 23:59:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-08-26 11:57:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-08-26 11:59:00"
+    },
+    {
+     "cum": 4.0,
+     "t": "2026-08-26 23:57:00"
+    },
+    {
+     "cum": 14.0,
+     "t": "2026-08-26 23:59:00"
+    },
+    {
+     "cum": 24.0,
+     "t": "2026-08-27 11:57:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-08-27 11:59:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-08-27 23:57:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-08-27 23:59:00"
+    },
+    {
+     "cum": 20.0,
+     "t": "2026-08-28 11:57:00"
+    },
+    {
+     "cum": 30.0,
+     "t": "2026-08-28 11:59:00"
+    },
+    {
+     "cum": 40.0,
+     "t": "2026-08-28 23:57:00"
+    },
+    {
+     "cum": 50.0,
+     "t": "2026-08-28 23:59:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-08-29 11:57:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-08-29 11:59:00"
+    },
+    {
+     "cum": 36.0,
+     "t": "2026-08-29 23:57:00"
+    },
+    {
+     "cum": 46.0,
+     "t": "2026-08-29 23:59:00"
+    },
+    {
+     "cum": 56.0,
+     "t": "2026-08-30 11:57:00"
+    },
+    {
+     "cum": 66.0,
+     "t": "2026-08-30 11:59:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-08-30 23:57:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-08-30 23:59:00"
+    },
+    {
+     "cum": 52.0,
+     "t": "2026-08-31 11:57:00"
+    },
+    {
+     "cum": 62.0,
+     "t": "2026-08-31 11:59:00"
+    },
+    {
+     "cum": 72.0,
+     "t": "2026-08-31 23:57:00"
+    },
+    {
+     "cum": 82.0,
+     "t": "2026-08-31 23:59:00"
+    },
+    {
+     "cum": 92.0,
+     "t": "2026-09-01 11:57:00"
+    },
+    {
+     "cum": 80.0,
+     "t": "2026-09-01 11:59:00"
+    },
+    {
+     "cum": 68.0,
+     "t": "2026-09-01 23:57:00"
+    },
+    {
+     "cum": 78.0,
+     "t": "2026-09-01 23:59:00"
+    },
+    {
+     "cum": 88.0,
+     "t": "2026-09-02 11:57:00"
+    },
+    {
+     "cum": 98.0,
+     "t": "2026-09-02 11:59:00"
+    },
+    {
+     "cum": 108.0,
+     "t": "2026-09-02 23:57:00"
+    },
+    {
+     "cum": 96.0,
+     "t": "2026-09-02 23:59:00"
+    },
+    {
+     "cum": 84.0,
+     "t": "2026-09-03 11:57:00"
+    },
+    {
+     "cum": 94.0,
+     "t": "2026-09-03 11:59:00"
+    },
+    {
+     "cum": 104.0,
+     "t": "2026-09-03 23:57:00"
+    },
+    {
+     "cum": 114.0,
+     "t": "2026-09-03 23:59:00"
+    },
+    {
+     "cum": 124.0,
+     "t": "2026-09-04 11:57:00"
+    },
+    {
+     "cum": 112.0,
+     "t": "2026-09-04 11:59:00"
+    },
+    {
+     "cum": 100.0,
+     "t": "2026-09-04 23:57:00"
+    },
+    {
+     "cum": 110.0,
+     "t": "2026-09-04 23:59:00"
+    },
+    {
+     "cum": 120.0,
+     "t": "2026-09-05 11:57:00"
+    },
+    {
+     "cum": 130.0,
+     "t": "2026-09-05 11:59:00"
+    },
+    {
+     "cum": 140.0,
+     "t": "2026-09-05 23:57:00"
+    },
+    {
+     "cum": 128.0,
+     "t": "2026-09-05 23:59:00"
+    },
+    {
+     "cum": 116.0,
+     "t": "2026-09-06 11:57:00"
+    },
+    {
+     "cum": 126.0,
+     "t": "2026-09-06 11:59:00"
+    },
+    {
+     "cum": 136.0,
+     "t": "2026-09-06 23:57:00"
+    },
+    {
+     "cum": 146.0,
+     "t": "2026-09-06 23:59:00"
+    },
+    {
+     "cum": 156.0,
+     "t": "2026-09-07 11:57:00"
+    },
+    {
+     "cum": 144.0,
+     "t": "2026-09-07 11:59:00"
+    },
+    {
+     "cum": 132.0,
+     "t": "2026-09-07 23:57:00"
+    },
+    {
+     "cum": 142.0,
+     "t": "2026-09-07 23:59:00"
+    },
+    {
+     "cum": 152.0,
+     "t": "2026-09-08 11:57:00"
+    },
+    {
+     "cum": 162.0,
+     "t": "2026-09-08 11:59:00"
+    },
+    {
+     "cum": 172.0,
+     "t": "2026-09-08 23:57:00"
+    },
+    {
+     "cum": 160.0,
+     "t": "2026-09-08 23:59:00"
+    },
+    {
+     "cum": 148.0,
+     "t": "2026-09-09 11:57:00"
+    },
+    {
+     "cum": 158.0,
+     "t": "2026-09-09 11:59:00"
+    },
+    {
+     "cum": 168.0,
+     "t": "2026-09-09 23:57:00"
+    },
+    {
+     "cum": 178.0,
+     "t": "2026-09-09 23:59:00"
+    },
+    {
+     "cum": 188.0,
+     "t": "2026-09-10 11:57:00"
+    },
+    {
+     "cum": 176.0,
+     "t": "2026-09-10 11:59:00"
+    },
+    {
+     "cum": 164.0,
+     "t": "2026-09-10 23:57:00"
+    },
+    {
+     "cum": 174.0,
+     "t": "2026-09-10 23:59:00"
+    },
+    {
+     "cum": 184.0,
+     "t": "2026-09-11 11:57:00"
+    },
+    {
+     "cum": 194.0,
+     "t": "2026-09-11 11:59:00"
+    },
+    {
+     "cum": 204.0,
+     "t": "2026-09-11 23:57:00"
+    },
+    {
+     "cum": 192.0,
+     "t": "2026-09-11 23:59:00"
+    },
+    {
+     "cum": 180.0,
+     "t": "2026-09-12 11:57:00"
+    },
+    {
+     "cum": 190.0,
+     "t": "2026-09-12 11:59:00"
+    },
+    {
+     "cum": 200.0,
+     "t": "2026-09-12 23:57:00"
+    },
+    {
+     "cum": 210.0,
+     "t": "2026-09-12 23:59:00"
+    },
+    {
+     "cum": 220.0,
+     "t": "2026-09-13 11:57:00"
+    },
+    {
+     "cum": 208.0,
+     "t": "2026-09-13 11:59:00"
+    },
+    {
+     "cum": 196.0,
+     "t": "2026-09-13 23:57:00"
+    },
+    {
+     "cum": 206.0,
+     "t": "2026-09-13 23:59:00"
+    },
+    {
+     "cum": 216.0,
+     "t": "2026-09-14 11:57:00"
+    },
+    {
+     "cum": 226.0,
+     "t": "2026-09-14 11:59:00"
+    },
+    {
+     "cum": 236.0,
+     "t": "2026-09-14 23:57:00"
+    },
+    {
+     "cum": 224.0,
+     "t": "2026-09-14 23:59:00"
+    },
+    {
+     "cum": 212.0,
+     "t": "2026-09-15 11:57:00"
+    },
+    {
+     "cum": 222.0,
+     "t": "2026-09-15 11:59:00"
+    },
+    {
+     "cum": 232.0,
+     "t": "2026-09-15 23:57:00"
+    },
+    {
+     "cum": 242.0,
+     "t": "2026-09-15 23:59:00"
+    },
+    {
+     "cum": 252.0,
+     "t": "2026-09-16 11:57:00"
+    },
+    {
+     "cum": 240.0,
+     "t": "2026-09-16 11:59:00"
+    },
+    {
+     "cum": 228.0,
+     "t": "2026-09-16 23:57:00"
+    },
+    {
+     "cum": 238.0,
+     "t": "2026-09-16 23:59:00"
+    },
+    {
+     "cum": 248.0,
+     "t": "2026-09-17 11:57:00"
+    },
+    {
+     "cum": 258.0,
+     "t": "2026-09-17 11:59:00"
+    },
+    {
+     "cum": 268.0,
+     "t": "2026-09-17 23:57:00"
+    },
+    {
+     "cum": 256.0,
+     "t": "2026-09-17 23:59:00"
+    },
+    {
+     "cum": 244.0,
+     "t": "2026-09-18 11:57:00"
+    },
+    {
+     "cum": 254.0,
+     "t": "2026-09-18 11:59:00"
+    },
+    {
+     "cum": 264.0,
+     "t": "2026-09-18 23:57:00"
+    },
+    {
+     "cum": 274.0,
+     "t": "2026-09-18 23:59:00"
+    },
+    {
+     "cum": 284.0,
+     "t": "2026-09-19 11:57:00"
+    },
+    {
+     "cum": 272.0,
+     "t": "2026-09-19 11:59:00"
+    },
+    {
+     "cum": 260.0,
+     "t": "2026-09-19 23:57:00"
+    },
+    {
+     "cum": 270.0,
+     "t": "2026-09-19 23:59:00"
+    },
+    {
+     "cum": 280.0,
+     "t": "2026-09-20 11:57:00"
+    },
+    {
+     "cum": 290.0,
+     "t": "2026-09-20 11:59:00"
+    },
+    {
+     "cum": 300.0,
+     "t": "2026-09-20 23:57:00"
+    },
+    {
+     "cum": 288.0,
+     "t": "2026-09-20 23:59:00"
+    },
+    {
+     "cum": 276.0,
+     "t": "2026-09-21 11:57:00"
+    },
+    {
+     "cum": 286.0,
+     "t": "2026-09-21 11:59:00"
+    },
+    {
+     "cum": 296.0,
+     "t": "2026-09-21 23:57:00"
+    },
+    {
+     "cum": 306.0,
+     "t": "2026-09-21 23:59:00"
+    },
+    {
+     "cum": 316.0,
+     "t": "2026-09-22 11:57:00"
+    },
+    {
+     "cum": 304.0,
+     "t": "2026-09-22 11:59:00"
+    },
+    {
+     "cum": 292.0,
+     "t": "2026-09-22 23:57:00"
+    },
+    {
+     "cum": 302.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 312.0,
+     "t": "2026-09-23 11:57:00"
+    },
+    {
+     "cum": 322.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 332.0,
+     "t": "2026-09-23 23:57:00"
+    },
+    {
+     "cum": 320.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 308.0,
+     "t": "2026-09-24 11:57:00"
+    },
+    {
+     "cum": 318.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 328.0,
+     "t": "2026-09-24 23:57:00"
+    },
+    {
+     "cum": 338.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 348.0,
+     "t": "2026-09-25 11:57:00"
+    },
+    {
+     "cum": 336.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 324.0,
+     "t": "2026-09-25 23:57:00"
+    },
+    {
+     "cum": 334.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 344.0,
+     "t": "2026-09-26 11:57:00"
+    },
+    {
+     "cum": 354.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 364.0,
+     "t": "2026-09-26 23:57:00"
+    },
+    {
+     "cum": 352.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 340.0,
+     "t": "2026-09-27 11:57:00"
+    },
+    {
+     "cum": 350.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 360.0,
+     "t": "2026-09-27 23:57:00"
+    },
+    {
+     "cum": 370.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 380.0,
+     "t": "2026-09-28 11:57:00"
+    },
+    {
+     "cum": 368.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 356.0,
+     "t": "2026-09-28 23:57:00"
+    },
+    {
+     "cum": 366.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.6143,
+   "expectancyR": 0.2614,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_1",
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 47,
+   "maxDrawdown": -24.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.6143,
+     "expectancyR": 0.2614,
+     "rTradeCount": 140,
+     "totalPnl": 366.0,
+     "totalR": 36.6,
+     "trades": 140,
+     "winRate": 66.4,
+     "wins": 93
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 93,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 930.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 93,
+     "winRate": 100.0,
+     "wins": 93
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 47,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -564.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 47,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 2.7714,
+     "expectancyR": 0.2771,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 70
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 70
+     },
+     "rTradeCount": 70,
+     "totalPnl": 194.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 19.4,
+     "trades": 70,
+     "winRate": 67.1,
+     "wins": 47
+    },
+    {
+     "expectancy": 2.4571,
+     "expectancyR": 0.2457,
+     "name": "leg_c",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 70
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 70
+     },
+     "rTradeCount": 70,
+     "totalPnl": 172.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 17.2,
+     "trades": 70,
+     "winRate": 65.7,
+     "wins": 46
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.6143,
+     "symbol": "BTCUSDT",
+     "totalPnl": 366.0,
+     "trades": 140,
+     "winRate": 66.4,
+     "wins": 93
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 140,
+   "profitFactor": 1.6489,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 140
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 140
+   },
+   "rTradeCount": 140,
+   "totalPnl": 366.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 36.6,
+   "totalTrades": 140,
+   "winRate": 66.4,
+   "wins": 93
+  },
+  "paperPortfolio": {
+   "bracketOutcome": {
+    "directionUnreadable": 0,
+    "excludedReduceLeg": 0,
+    "gradeable": 0,
+    "midBracket": 0,
+    "noBracketRecord": 0,
+    "noExitPrice": 70,
+    "priceNotMeasurable": 0,
+    "reachedRatio": null,
+    "reachedSl": 0,
+    "reachedTp": 0
+   },
+   "equity": [
+    {
+     "cum": 10.0,
+     "t": "2026-08-25 11:59:00"
+    },
+    {
+     "cum": 20.0,
+     "t": "2026-08-25 23:59:00"
+    },
+    {
+     "cum": 8.0,
+     "t": "2026-08-26 11:59:00"
+    },
+    {
+     "cum": 18.0,
+     "t": "2026-08-26 23:59:00"
+    },
+    {
+     "cum": 28.0,
+     "t": "2026-08-27 11:59:00"
+    },
+    {
+     "cum": 16.0,
+     "t": "2026-08-27 23:59:00"
+    },
+    {
+     "cum": 26.0,
+     "t": "2026-08-28 11:59:00"
+    },
+    {
+     "cum": 36.0,
+     "t": "2026-08-28 23:59:00"
+    },
+    {
+     "cum": 24.0,
+     "t": "2026-08-29 11:59:00"
+    },
+    {
+     "cum": 34.0,
+     "t": "2026-08-29 23:59:00"
+    },
+    {
+     "cum": 44.0,
+     "t": "2026-08-30 11:59:00"
+    },
+    {
+     "cum": 32.0,
+     "t": "2026-08-30 23:59:00"
+    },
+    {
+     "cum": 42.0,
+     "t": "2026-08-31 11:59:00"
+    },
+    {
+     "cum": 52.0,
+     "t": "2026-08-31 23:59:00"
+    },
+    {
+     "cum": 40.0,
+     "t": "2026-09-01 11:59:00"
+    },
+    {
+     "cum": 50.0,
+     "t": "2026-09-01 23:59:00"
+    },
+    {
+     "cum": 60.0,
+     "t": "2026-09-02 11:59:00"
+    },
+    {
+     "cum": 48.0,
+     "t": "2026-09-02 23:59:00"
+    },
+    {
+     "cum": 58.0,
+     "t": "2026-09-03 11:59:00"
+    },
+    {
+     "cum": 68.0,
+     "t": "2026-09-03 23:59:00"
+    },
+    {
+     "cum": 56.0,
+     "t": "2026-09-04 11:59:00"
+    },
+    {
+     "cum": 66.0,
+     "t": "2026-09-04 23:59:00"
+    },
+    {
+     "cum": 76.0,
+     "t": "2026-09-05 11:59:00"
+    },
+    {
+     "cum": 64.0,
+     "t": "2026-09-05 23:59:00"
+    },
+    {
+     "cum": 74.0,
+     "t": "2026-09-06 11:59:00"
+    },
+    {
+     "cum": 84.0,
+     "t": "2026-09-06 23:59:00"
+    },
+    {
+     "cum": 72.0,
+     "t": "2026-09-07 11:59:00"
+    },
+    {
+     "cum": 82.0,
+     "t": "2026-09-07 23:59:00"
+    },
+    {
+     "cum": 92.0,
+     "t": "2026-09-08 11:59:00"
+    },
+    {
+     "cum": 80.0,
+     "t": "2026-09-08 23:59:00"
+    },
+    {
+     "cum": 90.0,
+     "t": "2026-09-09 11:59:00"
+    },
+    {
+     "cum": 100.0,
+     "t": "2026-09-09 23:59:00"
+    },
+    {
+     "cum": 88.0,
+     "t": "2026-09-10 11:59:00"
+    },
+    {
+     "cum": 98.0,
+     "t": "2026-09-10 23:59:00"
+    },
+    {
+     "cum": 108.0,
+     "t": "2026-09-11 11:59:00"
+    },
+    {
+     "cum": 96.0,
+     "t": "2026-09-11 23:59:00"
+    },
+    {
+     "cum": 106.0,
+     "t": "2026-09-12 11:59:00"
+    },
+    {
+     "cum": 116.0,
+     "t": "2026-09-12 23:59:00"
+    },
+    {
+     "cum": 104.0,
+     "t": "2026-09-13 11:59:00"
+    },
+    {
+     "cum": 114.0,
+     "t": "2026-09-13 23:59:00"
+    },
+    {
+     "cum": 124.0,
+     "t": "2026-09-14 11:59:00"
+    },
+    {
+     "cum": 112.0,
+     "t": "2026-09-14 23:59:00"
+    },
+    {
+     "cum": 122.0,
+     "t": "2026-09-15 11:59:00"
+    },
+    {
+     "cum": 132.0,
+     "t": "2026-09-15 23:59:00"
+    },
+    {
+     "cum": 120.0,
+     "t": "2026-09-16 11:59:00"
+    },
+    {
+     "cum": 130.0,
+     "t": "2026-09-16 23:59:00"
+    },
+    {
+     "cum": 140.0,
+     "t": "2026-09-17 11:59:00"
+    },
+    {
+     "cum": 128.0,
+     "t": "2026-09-17 23:59:00"
+    },
+    {
+     "cum": 138.0,
+     "t": "2026-09-18 11:59:00"
+    },
+    {
+     "cum": 148.0,
+     "t": "2026-09-18 23:59:00"
+    },
+    {
+     "cum": 136.0,
+     "t": "2026-09-19 11:59:00"
+    },
+    {
+     "cum": 146.0,
+     "t": "2026-09-19 23:59:00"
+    },
+    {
+     "cum": 156.0,
+     "t": "2026-09-20 11:59:00"
+    },
+    {
+     "cum": 144.0,
+     "t": "2026-09-20 23:59:00"
+    },
+    {
+     "cum": 154.0,
+     "t": "2026-09-21 11:59:00"
+    },
+    {
+     "cum": 164.0,
+     "t": "2026-09-21 23:59:00"
+    },
+    {
+     "cum": 152.0,
+     "t": "2026-09-22 11:59:00"
+    },
+    {
+     "cum": 162.0,
+     "t": "2026-09-22 23:59:00"
+    },
+    {
+     "cum": 172.0,
+     "t": "2026-09-23 11:59:00"
+    },
+    {
+     "cum": 160.0,
+     "t": "2026-09-23 23:59:00"
+    },
+    {
+     "cum": 170.0,
+     "t": "2026-09-24 11:59:00"
+    },
+    {
+     "cum": 180.0,
+     "t": "2026-09-24 23:59:00"
+    },
+    {
+     "cum": 168.0,
+     "t": "2026-09-25 11:59:00"
+    },
+    {
+     "cum": 178.0,
+     "t": "2026-09-25 23:59:00"
+    },
+    {
+     "cum": 188.0,
+     "t": "2026-09-26 11:59:00"
+    },
+    {
+     "cum": 176.0,
+     "t": "2026-09-26 23:59:00"
+    },
+    {
+     "cum": 186.0,
+     "t": "2026-09-27 11:59:00"
+    },
+    {
+     "cum": 196.0,
+     "t": "2026-09-27 23:59:00"
+    },
+    {
+     "cum": 184.0,
+     "t": "2026-09-28 11:59:00"
+    },
+    {
+     "cum": 194.0,
+     "t": "2026-09-28 23:59:00"
+    }
+   ],
+   "expectancy": 2.7714,
+   "expectancyR": 0.2771,
+   "journalTrust": {
+    "accountsKnownDivergent": [],
+    "accountsUnreadable": [
+     "bybit_portfolio"
+    ],
+    "accountsUnrecorded": [],
+    "readState": "ok"
+   },
+   "losses": 23,
+   "maxDrawdown": -12.0,
+   "perAssetClass": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.7714,
+     "expectancyR": 0.2771,
+     "rTradeCount": 70,
+     "totalPnl": 194.0,
+     "totalR": 19.4,
+     "trades": 70,
+     "winRate": 67.1,
+     "wins": 47
+    }
+   ],
+   "perExitPath": [
+    {
+     "exitPath": "tp",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 47,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": 470.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 47,
+     "winRate": 100.0,
+     "wins": 47
+    },
+    {
+     "exitPath": "sl",
+     "labelAttestedCount": 0,
+     "labelRefusedCount": 0,
+     "labelUnattestedCount": 23,
+     "labelUnresolvedCount": 0,
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "totalPnl": -276.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "trades": 23,
+     "winRate": 0.0,
+     "wins": 0
+    }
+   ],
+   "perStrategy": [
+    {
+     "expectancy": 2.7714,
+     "expectancyR": 0.2771,
+     "name": "leg_a",
+     "pnlCoverage": 0.0,
+     "pnlEstimatedCount": 0,
+     "pnlMeasuredCount": 0,
+     "rBasis": {
+      "declaredInitial": 0,
+      "noBasis": 0,
+      "refusedWrongSide": 0,
+      "storedStop": 70
+     },
+     "rProvenance": {
+      "confirmedInitial": 0,
+      "contaminated": 0,
+      "noBasis": 0,
+      "unverified": 70
+     },
+     "rTradeCount": 70,
+     "totalPnl": 194.0,
+     "totalPnlEstimated": 0.0,
+     "totalPnlMeasured": 0.0,
+     "totalPnlMeasuredOnly": 0.0,
+     "totalR": 19.4,
+     "trades": 70,
+     "winRate": 67.1,
+     "wins": 47
+    }
+   ],
+   "perSymbol": [
+    {
+     "assetClass": "crypto",
+     "expectancy": 2.7714,
+     "symbol": "BTCUSDT",
+     "totalPnl": 194.0,
+     "trades": 70,
+     "winRate": 67.1,
+     "wins": 47
+    }
+   ],
+   "pnlCoverage": 0.0,
+   "pnlEstimatedCount": 0,
+   "pnlFabricatedCount": 0,
+   "pnlMeasuredCount": 0,
+   "pnlUnverifiedCount": 70,
+   "profitFactor": 1.7029,
+   "rBasis": {
+    "declaredInitial": 0,
+    "noBasis": 0,
+    "refusedWrongSide": 0,
+    "storedStop": 70
+   },
+   "rCoverage": 1.0,
+   "rProvenance": {
+    "confirmedInitial": 0,
+    "contaminated": 0,
+    "declaredRiskRecords": 0,
+    "noBasis": 0,
+    "ratioBar": 2.0,
+    "tightenedVsDeclared": 0,
+    "unverified": 70
+   },
+   "rTradeCount": 70,
+   "totalPnl": 194.0,
+   "totalPnlEstimated": 0.0,
+   "totalPnlMeasured": 0.0,
+   "totalPnlMeasuredOnly": 0.0,
+   "totalR": 19.4,
+   "totalTrades": 70,
+   "winRate": 67.1,
+   "wins": 47
+  },
+  "perAssetClass": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.6143,
+    "expectancyR": 0.2614,
+    "rTradeCount": 140,
+    "totalPnl": 366.0,
+    "totalR": 36.6,
+    "trades": 140,
+    "winRate": 66.4,
+    "wins": 93
+   }
+  ],
+  "perExitPath": [
+   {
+    "exitPath": "tp",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 93,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": 930.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 93,
+    "winRate": 100.0,
+    "wins": 93
+   },
+   {
+    "exitPath": "sl",
+    "labelAttestedCount": 0,
+    "labelRefusedCount": 0,
+    "labelUnattestedCount": 47,
+    "labelUnresolvedCount": 0,
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "totalPnl": -564.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "trades": 47,
+    "winRate": 0.0,
+    "wins": 0
+   }
+  ],
+  "perStrategy": [
+   {
+    "expectancy": 2.7714,
+    "expectancyR": 0.2771,
+    "name": "leg_b",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 70
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 70
+    },
+    "rTradeCount": 70,
+    "totalPnl": 194.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": 19.4,
+    "trades": 70,
+    "winRate": 67.1,
+    "wins": 47
+   },
+   {
+    "expectancy": 2.4571,
+    "expectancyR": 0.2457,
+    "name": "leg_a",
+    "pnlCoverage": 0.0,
+    "pnlEstimatedCount": 0,
+    "pnlMeasuredCount": 0,
+    "rBasis": {
+     "declaredInitial": 0,
+     "noBasis": 0,
+     "refusedWrongSide": 0,
+     "storedStop": 70
+    },
+    "rProvenance": {
+     "confirmedInitial": 0,
+     "contaminated": 0,
+     "noBasis": 0,
+     "unverified": 70
+    },
+    "rTradeCount": 70,
+    "totalPnl": 172.0,
+    "totalPnlEstimated": 0.0,
+    "totalPnlMeasured": 0.0,
+    "totalPnlMeasuredOnly": 0.0,
+    "totalR": 17.2,
+    "trades": 70,
+    "winRate": 65.7,
+    "wins": 46
+   }
+  ],
+  "perSymbol": [
+   {
+    "assetClass": "crypto",
+    "expectancy": 2.6143,
+    "symbol": "BTCUSDT",
+    "totalPnl": 366.0,
+    "trades": 140,
+    "winRate": 66.4,
+    "wins": 93
+   }
+  ],
+  "pnlCoverage": 0.0,
+  "pnlEstimatedCount": 0,
+  "pnlFabricatedCount": 0,
+  "pnlMeasuredCount": 0,
+  "pnlUnverifiedCount": 140,
+  "profitFactor": 1.6489,
+  "rBasis": {
+   "declaredInitial": 0,
+   "noBasis": 0,
+   "refusedWrongSide": 0,
+   "storedStop": 140
+  },
+  "rCoverage": 1.0,
+  "rProvenance": {
+   "confirmedInitial": 0,
+   "contaminated": 0,
+   "declaredRiskRecords": 0,
+   "noBasis": 0,
+   "ratioBar": 2.0,
+   "tightenedVsDeclared": 0,
+   "unverified": 140
+  },
+  "rTradeCount": 140,
+  "since": null,
+  "totalPnl": 366.0,
+  "totalPnlEstimated": 0.0,
+  "totalPnlMeasured": 0.0,
+  "totalPnlMeasuredOnly": 0.0,
+  "totalR": 36.6,
+  "totalTrades": 140,
+  "winRate": 66.4,
+  "window": "all",
+  "wins": 93
+ }
+}

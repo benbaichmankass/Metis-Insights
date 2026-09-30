@@ -110,6 +110,10 @@ def test_exit_reason_provenance():
     honest absence and must not read as a finding."""
     assert P.classify("price_vs_pkg_bracket", "exit_reason_source") == P.ESTIMATED
     assert P.classify("unresolved", "exit_reason_source") == P.UNVERIFIED
+    # The Alpaca re-arm preflight's own exit label (FIX-SA-03 / #14241): the
+    # monitor decided the reason from a quote, the venue never said a stop
+    # order filled — a derivation, never a measurement.
+    assert P.classify("rearm_preflight", "exit_reason_source") == P.ESTIMATED
 
 
 def test_unknown_key_falls_back_to_strict_default():

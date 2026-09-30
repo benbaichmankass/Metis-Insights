@@ -977,6 +977,121 @@ class AlpacaClient:
         result = env.get("result")
         return result if isinstance(result, dict) else None
 
+    def latest_trade(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Latest trade ``{"price", "age_s"}`` from Alpaca Data v2, or ``None``.
+
+        The ONLY input allowed to CONFIRM that a stop is already breached and
+        drive a market exit (REVIEW-14241 round 2, blocker 1): a trade that
+        printed, with its age, so a stale print cannot fire an exit. Same host,
+        feed and keys as :meth:`latest_quote`. Never raises.
+        """
+        base = os.environ.get("ALPACA_DATA_URL", "https://data.alpaca.markets").rstrip("/")
+        feed = os.environ.get("ALPACA_DATA_FEED", "iex")
+        try:
+            resp = requests.get(
+                f"{base}/v2/stocks/{str(symbol).upper()}/trades/latest",
+                params={"feed": feed},
+                headers={"APCA-API-KEY-ID": self.api_key,
+                         "APCA-API-SECRET-KEY": self.api_secret},
+                timeout=self.timeout,
+            )
+            if not (200 <= resp.status_code < 300):
+                return None
+            t = (resp.json() or {}).get("trade") or {}
+            px = float(t.get("p"))
+            # Alpaca stamps nanoseconds ("...:10.123456789Z"); trim to the
+            # microseconds every supported Python's fromisoformat accepts.
+            raw_t = re.sub(r"(\.\d{6})\d+", r"\1", str(t.get("t")))
+            ts = datetime.fromisoformat(raw_t.replace("Z", "+00:00"))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("alpaca latest_trade(%s) failed: %s", symbol, exc)
+            return None
+        if not (px > 0 and px == px):
+            return None
+        return {"price": px,
+                "age_s": (datetime.now(timezone.utc) - ts).total_seconds()}
+
+    def latest_quote(self, symbol: str) -> Optional[Dict[str, Optional[float]]]:
+        """Latest ``{"bid", "ask"}`` from the Alpaca Data v2 feed, or ``None``.
+
+        ⚠️ With the default ``iex`` feed this is the IEX top of book, NOT the
+        NBBO, and it carries no staleness check. It may therefore only ever
+        make the re-arm MORE cautious (refuse / defer a stop the quote says
+        would trigger) — never CONFIRM a breach or drive an exit; that takes a
+        fresh :meth:`latest_trade` (REVIEW-14241 round 2, blocker 1). Same
+        host, feed and key pair as ``AlpacaMarketData`` (``ALPACA_DATA_URL``,
+        ``ALPACA_DATA_FEED``). An absent or zero price is ``None``, never
+        ``0.0``. Never raises.
+        """
+        base = os.environ.get("ALPACA_DATA_URL", "https://data.alpaca.markets").rstrip("/")
+        feed = os.environ.get("ALPACA_DATA_FEED", "iex")
+        try:
+            resp = requests.get(
+                f"{base}/v2/stocks/{str(symbol).upper()}/quotes/latest",
+                params={"feed": feed},
+                headers={"APCA-API-KEY-ID": self.api_key,
+                         "APCA-API-SECRET-KEY": self.api_secret},
+                timeout=self.timeout,
+            )
+            if not (200 <= resp.status_code < 300):
+                return None
+            q = (resp.json() or {}).get("quote") or {}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("alpaca latest_quote(%s) failed: %s", symbol, exc)
+            return None
+
+        def _p(v: Any) -> Optional[float]:
+            try:
+                f = float(v)
+            except (TypeError, ValueError):
+                return None
+            return f if f > 0 and f == f else None
+
+        return {"bid": _p(q.get("bp")), "ask": _p(q.get("ap"))}
+
+    def position_quote(self, symbol: str) -> Dict[str, Any]:
+        """ONE fresh ``GET /v2/positions/{symbol}``: size, side and last price.
+
+        PI-20260929-PR6YRTQY-0005. The re-arm pre-flight needs, from the same
+        instant, whether a position is still there, how big, on which side,
+        and where the market is — so it never re-arms a row whose shares are
+        gone and never posts a stop that is already through the price.
+
+        Returns ``{"state", "qty", "side", "current_price"}`` where ``state``
+        is ``open`` / ``flat`` (a POSITIVE 404, as :meth:`position_present`) /
+        ``could_not_look`` (anything else — never treated as flat).
+        ``current_price`` is ``None`` when unpublished, never ``0.0``.
+        """
+        out: Dict[str, Any] = {"state": "could_not_look", "qty": None,
+                               "side": None, "current_price": None}
+        try:
+            self._require_creds("position_quote")
+        except MissingCredentialsError as exc:
+            logger.warning("%s", exc)
+            return out
+        env = self._request("GET", f"/v2/positions/{str(symbol).upper()}")
+        rc = env.get("retCode")
+        if rc == 404:
+            return {"state": "flat", "qty": 0.0, "side": None, "current_price": None}
+        res = env.get("result")
+        if rc != 0 or not isinstance(res, dict):
+            return out
+        try:
+            qty = abs(float(res.get("qty")))
+        except (TypeError, ValueError):
+            return out
+        raw_side = str(res.get("side") or "").lower()
+        side = "long" if raw_side in ("long", "buy") else (
+            "short" if raw_side in ("short", "sell") else None)
+        try:
+            px = float(res.get("current_price"))
+            px = px if px > 0 and px == px else None
+        except (TypeError, ValueError):
+            px = None
+        if qty <= 0:
+            return {"state": "flat", "qty": 0.0, "side": side, "current_price": px}
+        return {"state": "open", "qty": qty, "side": side, "current_price": px}
+
     def position_present(self, symbol: str) -> Optional[bool]:
         """POSITIVE per-symbol open/flat confirmation via ``GET /v2/positions/{symbol}``.
 
@@ -2131,6 +2246,7 @@ class AlpacaClient:
         reducing = self._reducing_side_for(pos_side)
         stop_qty = 0.0
         target_qty = 0.0
+        stop_leg_qtys: List[float] = []
         unknown = 0
         for o in legs:
             kind = self._leg_protective_side(
@@ -2159,12 +2275,17 @@ class AlpacaClient:
                 continue
             if kind == "stop":
                 stop_qty += q
+                stop_leg_qtys.append(q)
             else:
                 target_qty += q
         return {
             "size": size,
             "side": pos_side,
             "stop_qty": stop_qty,
+            # Each resting reducing-side stop leg's own size — what lets the
+            # sweep attribute a shortfall to the ONE row no leg accounts for
+            # (PI-20260929-PR6YRTQY-0003). Additive; `stop_qty` is their sum.
+            "stop_leg_qtys": sorted(stop_leg_qtys),
             "target_qty": target_qty,
             "legs": len(legs),
             "unknown_qty_legs": unknown,
@@ -2375,9 +2496,16 @@ class AlpacaClient:
         # OCO/bracket cancel). It also cancelled opening-side ENTRY orders a
         # strategy had resting. Now only reducing-side protective legs sized to
         # THIS row's qty are cleared; see `_scoped_rearm_cancel`.
-        refusal, kept_targets = self._scoped_rearm_cancel(
-            sym, close_side, qty, order.get("sibling_qtys"),
-        )
+        if order.get("additive"):
+            # QUANTITY TOP-UP (PI-20260929-PR6YRTQY-0003): protection for the
+            # UNCOVERED shares only, placed BESIDE the legs that already rest.
+            # Nothing is cancelled and nothing is released — every resting leg
+            # belongs to a sibling row that is still covered.
+            refusal, kept_targets = None, []
+        else:
+            refusal, kept_targets = self._scoped_rearm_cancel(
+                sym, close_side, qty, order.get("sibling_qtys"),
+            )
         if refusal:
             return {"retCode": -3, "retMsg": refusal}
         body: Dict[str, Any] = {

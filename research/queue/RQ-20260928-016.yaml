@@ -66,10 +66,10 @@ grading:
   decision_rule_id: RULE-TPL-E35-BRACKET-IS-OOS-GATE
   evidence:
   - docs/research/e35-bracket-corpus.jsonl
-  graded_at: '2026-09-29'
+  graded_at: '2026-09-30'
   grader: scripts/research/queue_grade.py
   latest: true
   needs_review: false
-  reason: 0 of 199 cells is_oos_pass at base_oos_trades 50
-  rows: 199
+  reason: 0 of 7 cells is_oos_pass at base_oos_trades 50
+  rows: 7
   verdict: no_action_warranted

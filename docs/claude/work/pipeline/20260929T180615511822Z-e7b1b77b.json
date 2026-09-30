@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "operator decides the minimum Stage-0 source-trade floor for the T3 threshold and #14272 (or a follow-up) carries it",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-AQRK6CL1-0004",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "manager-local independent review of PR #14272 (head f2a351d2), 2026-09-29 ~16:05Z, finding N1",
+    "rerun": "grep -n 'T3_MIN_SOURCE_TRADES' scripts/ops/mandate_resolver.py"
+  },
+  "state": "done",
+  "terminal_reason": "Operator popup 2026-09-29 ~16:49Z verbatim 'Keep as built (2 trades) (Recommended)': T3_MIN_SOURCE_TRADES stays 2 (merged in #14272, e3207cf).",
+  "what": "[mandate][evidence-threshold][operator-preference] MD-DEMOTE-S2-S1 T3 gate (#14272) derives a per-leg p10 threshold from Stage-0 records as thin as 2 source trades (T3_MIN_SOURCE_TRADES = 2, scripts/ops/mandate_resolver.py:310 on PR head f2a351d2). Measured on that head: 4 of 7 Stage-2 legs have < 20 Stage-0 source trades (ief 3, iaum 7, slv 11, trend_donchian_xrp_4h 16); ief's own evidence record says n_trades_oos=3 'is not a basis for a verdict' yet yields p10 = +12.06R. For the 3 positive-p10 legs the rule collapses to 'both 20-trade windows < 0'. Raising the floor makes those legs abstain (no T3 demotion path) until more Stage-0 data exists; leaving it keeps a weak-threshold demotion path. Goes to the operator with the #14272 mandate-text approval popup."
+}

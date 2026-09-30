@@ -512,9 +512,29 @@ class IntentLedger:
     States: ``intended`` (written BEFORE the click) → ``submitted`` →
     ``placed`` / ``open`` (confirmed by re-read) | ``unconfirmed`` →
     ``skipped`` / ``contained``. ``refused`` / ``expired`` record tickets the
-    executor decided not to place, so it never re-decides them."""
+    executor decided not to place, so it never re-decides them.
+
+    ``close_unconfirmed`` is a watched close that did not confirm flat
+    (round trip or close-out): the position may still be open under its
+    bracket, and the JOURNAL row for it is what the reconcile consults. It
+    is NOT an unresolved submit — go-live 2026-09-29 18:44Z: two such rows,
+    written ``unconfirmed`` by the day's test round trips whose positions
+    the venue had long since closed, were read as unconfirmed SUBMITS, hit
+    three misses and latched AUTO-REVERT on nothing (PI-20260929-AQRK6CL1-0009)."""
 
     UNRESOLVED = ("intended", "submitted", "unconfirmed")
+    #: A close that did not confirm: linkable by a later close-out, never
+    #: reconciled as a submit.
+    CLOSE_UNRESOLVED = ("close_unconfirmed",)
+    #: The purposes under which the pre-fix code wrote such a close as
+    #: "unconfirmed" (ledgers on disk keep those rows forever): read as a
+    #: close, not a submit, so a legacy row can never trip the reconcile again.
+    CLOSE_PURPOSES = ("round_trip_close", "close_position")
+
+    @classmethod
+    def is_close_row(cls, row: Mapping[str, Any]) -> bool:
+        return row.get("state") in cls.CLOSE_UNRESOLVED or (
+            row.get("state") == "unconfirmed" and row.get("purpose") in cls.CLOSE_PURPOSES)
 
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
@@ -542,11 +562,21 @@ class IntentLedger:
         return (self.latest().get(ticket_id) or {}).get("state")
 
     def unresolved(self) -> Dict[str, Dict[str, Any]]:
-        return {k: v for k, v in self.latest().items() if v.get("state") in self.UNRESOLVED}
+        return {k: v for k, v in self.latest().items()
+                if v.get("state") in self.UNRESOLVED and not self.is_close_row(v)}
 
     def watched(self) -> Dict[str, Dict[str, Any]]:
-        """Unresolved submits plus resting ``placed`` orders (waiting to fill)."""
-        return {k: v for k, v in self.latest().items() if v.get("state") in self.UNRESOLVED + ("placed",)}
+        """Unresolved submits plus resting ``placed`` orders (waiting to fill).
+        A close that did not confirm (new state, or a legacy "unconfirmed"
+        row with a close purpose) is never a submit and is never watched."""
+        return {k: v for k, v in self.latest().items()
+                if v.get("state") in self.UNRESOLVED + ("placed",) and not self.is_close_row(v)}
+
+    def close_unresolved(self) -> Dict[str, Dict[str, Any]]:
+        """Closes that did not confirm flat. Each HOLDS new entries (the
+        position may still be live under its bracket) until a clean terminal
+        read shows no position for its symbol — ``run_cycle`` step 3b."""
+        return {k: v for k, v in self.latest().items() if self.is_close_row(v)}
 
     def record(self, ticket_id: str, state: str, **extra: Any) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -665,6 +695,21 @@ class CycleResult:
         self.actions.append({"what": what, **kw})
 
 
+def _close_row_key(tid: str, row: Mapping[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """(venue symbol, side) of a close row: from its spec when the row carries
+    one, else the venue spelled in a ``roundtrip-<venue>-`` / ``closeout-<venue>-``
+    id (a legacy close-out row recorded no spec). ``(None, None)`` when neither
+    says — the caller then keeps holding rather than resolving blindly."""
+    spec = row.get("spec") or {}
+    venue = str(spec.get("venue_symbol") or "").upper() or None
+    side = spec.get("side")
+    if venue is None:
+        parts = str(tid or "").split("-")
+        if len(parts) >= 3 and parts[0] in ("roundtrip", "closeout") and parts[1]:
+            venue = parts[1].upper()
+    return venue, side
+
+
 def _report(res: CycleResult, post: Optional[Callable[[Dict[str, Any]], Any]], body: Dict[str, Any]) -> None:
     """Every write-back goes through POST /api/bot/prop/report. In read_only
     (``post is None``) it is recorded as would-post and not sent."""
@@ -738,6 +783,31 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         if trip:
             halted = halted or _trip(res, state, live, trip)
 
+    # 3b. resolve the closes that did not confirm (review of #14388): the
+    #     position may still be live under its bracket, so the row HOLDS new
+    #     entries (step 5) but never trips the unconfirmed_submit latch. It
+    #     resolves only on a CLEAN read that shows no position for its symbol
+    #     (a failed read returned above and is never "flat"); while the
+    #     position is still found, one line per tick names the ticket.
+    for tid, row in ledger.close_unresolved().items():
+        venue, side = _close_row_key(tid, row)
+        if not venue:
+            res.log("close_pending", ticket_id=tid, why="symbol unknown for this close; holding new entries")
+            continue
+        # A legacy close-out row recorded no side: the venue is claimed both
+        # ways so the journal reconcile does not read the still-open position
+        # as an orphan while this close holds it.
+        for s in ((side,) if side else ("long", "short")):
+            claimed_keys.add((venue, s))
+        still = [p for p in positions if p.symbol.upper() == venue and (side is None or p.side == side)]
+        if still:
+            res.log("close_pending", ticket_id=tid, venue=venue, side=side,
+                    why="position still on the terminal after an unconfirmed close; new entries held")
+            continue
+        res.log("close_resolved", ticket_id=tid, venue=venue, side=side, reason="flat_on_terminal")
+        if live:
+            ledger.record(tid, "close_confirmed", reason="flat_on_terminal")
+
     # 4. reconcile the journal against the terminal
     if journal_open is not None:
         halted = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post) or halted
@@ -789,6 +859,11 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         return res
     if ledger.unresolved():
         res.log("hold", ticket_id=candidate["ticket_id"], why="an earlier submit is still unresolved")
+        return res
+    pending_close = ledger.close_unresolved()
+    if pending_close:
+        res.log("hold", ticket_id=candidate["ticket_id"],
+                why=f"an earlier close did not confirm and its position may still be live: {sorted(pending_close)}")
         return res
 
     # 6. guards
@@ -996,7 +1071,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     if not closed:
         res.alerts.append(f"{tid}: {why}")
         res.halted = "round trip: close not confirmed"
-        ledger.record(tid, "unconfirmed", purpose="round_trip_close")
+        ledger.record(tid, "close_unconfirmed", purpose="round_trip_close")
         return res
     ledger.record(tid, "closed")
     _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec.as_dict(), "closed", entry=pos.entry_price),
@@ -1096,7 +1171,8 @@ def run_close_position(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig
     # The ledger's own unresolved round-trip ticket for this symbol keeps the
     # journal linked to the click that placed it; else a fresh close-out id.
     tid = next((k for k, v in sorted(ledger.latest().items(), key=lambda kv: str(kv[1].get("ts") or ""))
-                if k.startswith(f"roundtrip-{venue.lower()}-") and v.get("state") in IntentLedger.UNRESOLVED), None)
+                if k.startswith(f"roundtrip-{venue.lower()}-")
+                and v.get("state") in IntentLedger.UNRESOLVED + IntentLedger.CLOSE_UNRESOLVED), None)
     if tid is None:
         tid = f"closeout-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
     spec = {"ticket_id": tid, "venue_symbol": venue, "side": pos.side, "quantity": pos.quantity,
@@ -1115,7 +1191,7 @@ def run_close_position(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig
     if not closed:
         res.alerts.append(f"{tid}: {why}")
         res.halted = f"close_position: {why}"
-        ledger.record(tid, "unconfirmed", purpose="close_position")
+        ledger.record(tid, "close_unconfirmed", purpose="close_position", spec=spec)
         return res
     ledger.record(tid, "closed", purpose="close_position")
     _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec, "closed", entry=pos.entry_price),
