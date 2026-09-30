@@ -270,6 +270,7 @@ uniqueness-weighted**. That is stricter than the plain harnesses in §1.
 | Cross-symbol allocator backtest | `scripts/research/allocator_multisymbol_backtest.py` |
 | Per-candidate (features → forward net-R) dataset | `scripts/research/allocator_candidate_dataset.py` |
 | Walk-forward ranker quality | `scripts/research/allocator_ranker_eval.py` |
+| Within-leg confidence → full-cost R (M16 re-scope, RQ-20260930-601) | `scripts/research/m16_within_leg_confidence.py` |
 | Within-cell veto information in a meta-model over costed harness trades (M19 S1-v0: walk-forward, purge + embargo, permutation null, confidence-only baseline; `--census` for the population, `--self-test`) | `scripts/research/meta_veto_walkforward.py` |
 | Cost of directional conflict between legs | `scripts/research/m26_p0_conflict_bleed.py` |
 | Net-R re-grade scorecard | `scripts/research/net_r_regrade.py` |
@@ -355,7 +356,7 @@ verify-the-source-before-you-build.
 
 | Question | Tool |
 |---|---|
-| **Is a real headless Chromium SERVED, CHALLENGED or BANNED at Breakout's terminal hosts from a GitHub-hosted runner's egress?** Landing only: fixed host allowlist, no credentials, nothing clicked or typed, prints the egress ORGANISATION (never an address), main-document status, `server`, `cf-mitigated`, page title, Cloudflare markers and whether the login form rendered. A plain `curl` and a browser can be scored differently, so curl-only results do not settle it. Runs via `.github/workflows/egress-chromium-landing-probe.yml`, triggered by a PR touching `.github/egress-probe/run-request.txt` (sessions cannot `workflow_dispatch`). | `scripts/research/egress_chromium_landing_probe.py` |
+| **Is a real headless Chromium SERVED, CHALLENGED or BANNED at Breakout's terminal hosts from a GitHub-hosted runner's egress?** Landing only: fixed host allowlist, no credentials, nothing clicked or typed, prints the egress ORGANISATION (never an address), main-document status, `server`, `cf-mitigated`, page title, Cloudflare markers and whether the login form rendered. A plain `curl` and a browser can be scored differently, so curl-only results do not settle it. Runs via `.github/workflows/egress-chromium-landing-probe.yml`, triggered by a PR touching `.github/egress-probe/run-request.txt` (sessions cannot `workflow_dispatch`). **Optional proxy** (secret `EGRESS_PROBE_PROXY`): fail-closed, nothing about the proxy printed, and `--evaluate` applies the route PASS rule (three passing runs at least an hour apart, same egress organisation). **Levers** (dispatch input `variants`): `baseline`, `wait` (keep watching a challenge page up to 30 s; records first-load and `cleared_after_s`), `newheadless` (Chromium's own new headless), `headed` (real window under xvfb), each with challenge kind, clearance-cookie presence (name only) and the proxy's exit country; diagnostics only, nothing that hides automation. | `scripts/research/egress_chromium_landing_probe.py` |
 
 ---
 

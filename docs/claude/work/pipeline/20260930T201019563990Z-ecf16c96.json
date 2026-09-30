@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either (a) fetch_candles/decision_bar closed is changed so a decision_bar: closed leg never evaluates a row fetched before its bar closed, observed as identical close values across the in-window audit rows of one 4h close in diag audit_query for trend_donchian_xrp_4h, or (b) a census over >= 20 closes shows the first in-window close differs from the later ones in fewer than 1 in 20 closes and that is dispositioned as negligible.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-GQPT6PQF-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane DONCHIAN-PARITY (session_01KjACh47AwiaCPSgQPT6PQF), dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30",
+    "rerun": "scripts/ops/diag_fetch.sh 'audit_query?strategy=trend_donchian_xrp_4h&limit=400'; for each 4h close, compare the close= value in the reason text across the rows logged in the 6 minutes after the close."
+  },
+  "state": "done",
+  "terminal_reason": "FIXED AND OBSERVED ON ONE CLOSE (n=1, caveat stated). Merged #14800 (98ba6c30, 2026-09-30T17:01Z, with the 9a568827 next-bar-confirmation) and DEPLOYED (diag version 2026-09-30T20:08:54Z: running sha 322ba19a3 contains 98ba6c30, restart_pending false). OBSERVED at the 20:00Z 4h close via diag audit_query for trend_donchian_xrp_4h: rows at 20:02:07Z and 20:04:04Z, first 127 s after the close (bound: <= ~190 s), both read close=1.489 within channel [1.4658,1.5609], none after 20:04:04Z as of 20:09Z, no order package for the leg (newest package in the last 20: 17:54Z). CORRECTION to this row's 'what': the live CANDLE_CACHE_TTL_MAX_S is 300 s (get-env #14797), not 60 s, which is why a 4h frame could predate the close by up to 5 min. CAVEATS: one clean close is weak evidence because the defect showed on 1 of the 3 prior closes (12:00Z), so about a two-in-three chance of a clean close without any fix; the closed_bar_settling / closed_bar_unconfirmed skips write no audit row, so those paths are not directly observable; STRATEGY_BAR_DEBOUNCE_DISABLED read back unset (armed) on #14833. The 00:00Z and 04:00Z closes will add to the tally; PI-20260930-GQPT6PQF-0004 carries the general defect for the other drop_forming_bar consumers.",
+  "what": "[live] fetch_candles serves a cached frame for up to 60 s (src/runtime/market_data.py ~L383). A frame fetched just before a 4h close and reused just after it has a PARTIAL last row that decision_bar: closed (src/runtime/strategy_signal_builders.py::_decision_frame -> closed_bars.drop_forming_bar) treats as CLOSED, because drop_forming_bar tests the bar's open time against the clock, not the row's completeness. OBSERVED once in the field, n=1 close: trend_donchian_xrp_4h audit rows (diag audit_query, leg trend_donchian_xrp_4h, 2026-09-30) at 12:01:30Z read the 08:00-12:00 bar's close=1.5143, then 12:03:29Z and 12:05:07Z read close=1.5161 for the same bar (no breakout either time, so no trade was affected). Population: the one 12:00Z close observed since the 07:49Z merge; the 08:00Z close showed 1.5006 on both ticks. Proposed fix (Tier-2/3, order path): for decision_bar: closed legs bypass the cache or require the last row's completeness before evaluating (e.g. re-fetch once when the frame was fetched before open+tf).",
+  "why_it_matters": "A closed-bar leg (trend_donchian_xrp_4h, REAL MONEY on bybit_2 + bybit_portfolio) can decide and price an entry off a partial bar, the very thing decision_bar: closed exists to prevent; the debounce caps it at one entry per bar."
+}

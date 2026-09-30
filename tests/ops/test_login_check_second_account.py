@@ -6,7 +6,6 @@ executor kill switch, state and feed are breakout_1's until PR A #14663).
 breakout_1's key list is unchanged.
 """
 import pathlib
-import re
 import subprocess
 import sys
 
@@ -22,28 +21,36 @@ def test_breakout_key_list_is_unchanged():
 
 
 def test_other_account_keys_come_from_its_platform_entry():
-    m = re.search(r"python3 -c '([^']+)' \"\$\{ACCOUNT\}\"", CODE)
-    assert m, "key derivation one-liner not found"
-    one_liner = m.group(1)
-    ok = subprocess.run([sys.executable, "-c", one_liner, "tradeify_1"],
+    # PR A (#14663): the names come from scripts/prop/prop_env_keys.py, which
+    # reads the account's prop_platforms.yaml entry (no entry = exit 1, refused).
+    assert 'python3 scripts/prop/prop_env_keys.py "${ACCOUNT}"' in CODE
+    ok = subprocess.run([sys.executable, "scripts/prop/prop_env_keys.py", "tradeify_1"],
                         capture_output=True, text=True, cwd=str(REPO))
-    assert ok.returncode == 0 and ok.stdout.split() == ["TRADEIFY_DX_USERNAME", "TRADEIFY_DX_PASSWORD"]
-    bad = subprocess.run([sys.executable, "-c", one_liner, "no_such_account"],
+    assert ok.returncode == 0
+    assert ok.stdout.split() == ["TRADEIFY_DX_USERNAME", "TRADEIFY_DX_PASSWORD", "PROP_EXECUTOR_MODE_TRADEIFY_1"]
+    bad = subprocess.run([sys.executable, "scripts/prop/prop_env_keys.py", "no_such_account"],
                          capture_output=True, text=True, cwd=str(REPO))
     assert bad.returncode != 0 and bad.stdout == ""
-    # the other-account branch exports no executor kill switch
+    # the other-account branch never exports breakout_1's GLOBAL kill switch
     other = CODE.split('CHECK_KEYS="${ACCT_KEYS} DASHBOARD_API_TOKEN"')[0].rsplit("else", 1)[1]
-    assert "PROP_EXECUTOR_MODE" not in other
+    assert "PROP_EXECUTOR_MODE " not in other and '"PROP_EXECUTOR_MODE"' not in other
 
 
-def test_executor_modes_and_reset_feed_refused_for_other_accounts_before_anything_runs():
-    refuse_exec = CODE.index('if [ -n "${EXEC_MODE}" ] && [ "${ACCOUNT}" != "breakout_1" ]; then')
-    refuse_reset = CODE.index('if [ "${WANT_RESET}" = "1" ] && [ "${ACCOUNT}" != "breakout_1" ]; then')
-    first_action = min(CODE.index('if [ "${EXEC_MODE}" = "executor-clear-halt" ]'),
-                       CODE.index("TIMER_SRC="),
-                       CODE.index("scripts/prop/prop_executor_tick.py"),
-                       CODE.index("scripts/prop/breakout_login_check.py"))
-    assert refuse_reset < first_action and refuse_exec < first_action
+def test_other_accounts_never_touch_breakout_1_state():
+    """PR A replaces #14682's blanket refusal with PER-ACCOUNT state: another
+    account's feed, executor ledger/latch and kill switch are its own, and the
+    executor TIMER (breakout_1's) still refuses any other account."""
+    assert 'FEED_DIR="${BASE}/feed"' in CODE and 'X_STATE_DIR="${BASE}/executor"' in CODE
+    assert 'FEED_DIR="${BASE}/accounts/${ACCOUNT}/feed"' in CODE
+    assert 'X_STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"' in CODE
+    assert 'MODE_KEY="PROP_EXECUTOR_MODE_' in CODE
+    # reset-feed clears the ACCOUNT's own feed dir, never a hardcoded ${BASE}/feed
+    assert 'rm -f "${FEED_DIR}/tripped"' in CODE and 'rm -f "${BASE}/feed/tripped"' not in CODE
+    # executor modes reuse the account's own session + state dir
+    assert '--storage-state "${FEED_DIR}/session_state.json"' in CODE
+    assert '--state-dir "${X_STATE_DIR}"' in CODE
+    # the breakout_1 executor timer refuses every other account
+    assert "the executor timer is breakout_1's" in CODE
 
 
 def test_tradeify_platform_entry_is_explicit_and_disarmed():
@@ -67,3 +74,20 @@ def test_tradeify_credentials_are_optional_secrets():
                 assert env.get("TRADEIFY_DX_USERNAME") == "${{ secrets.TRADEIFY_DX_USERNAME }}"
                 assert env.get("TRADEIFY_DX_PASSWORD") == "${{ secrets.TRADEIFY_DX_PASSWORD }}"
     assert found >= 2
+
+
+def test_other_account_run_switches_to_its_own_lock_after_the_shared_bootstrap():
+    shared = CODE.index('exec 9>"${BASE}/login.lock"')
+    install = CODE.index("-m playwright install chromium")
+    own = CODE.index('exec 9>"${ACCT_LOCK_DIR}/login.lock"')
+    run = CODE.index("scripts/prop/breakout_login_check.py")
+    execu = CODE.index("scripts/prop/prop_executor_tick.py")
+    assert shared < install < own < min(run, execu)
+    assert 'ACCT_LOCK_DIR="${BASE}/accounts/${ACCOUNT}"' in CODE
+
+
+def test_dump_dir_is_per_account_and_breakout_keeps_its_own():
+    assert 'DUMP_DIR="${BASE}/last-run"' in CODE
+    assert 'DUMP_DIR="${BASE}/accounts/${ACCOUNT}/last-run"' in CODE
+    assert 'ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")' in CODE
+    assert '--dump-dir "${BASE}/last-run"' not in CODE

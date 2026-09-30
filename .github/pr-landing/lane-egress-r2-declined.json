@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs and pipeline records only: marks the R2 home-device plan as declined/paused by the operator (2026-09-30 16:16Z) and files one pipeline row for the open question the operator asked back (was the one failed proxied run the proxy's network or headless Chromium). No src/, config/, workflow or runtime file touched."
+}

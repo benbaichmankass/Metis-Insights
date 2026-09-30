@@ -532,12 +532,15 @@ def test_write_back_failure_is_an_alert_not_a_crash(env):
     assert any("write-back failed" in a for a in res.alerts)
 
 
-def test_not_submitted_attempt_is_skipped_not_confirmed(env):
+def test_not_submitted_attempt_is_retryable_not_confirmed(env):
+    # A refusal before any submit click is never confirmed and never written
+    # off on the first attempt: it is retry_pending, and nothing is reported.
     ad = FakeAdapter(attempt=PlaceAttempt(stage="refused", detail="one-click trading is on"))
     api = FakeApi([ticket()])
     run(ad, api, env)
-    assert env[0].state("prop-manual-aaa") == "refused"
-    assert "one-click" in [p for p in api.posts if p.get("status") == "skipped"][0]["reason"]
+    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+    assert env[0].latest()["prop-manual-aaa"]["attempts"] == 1
+    assert not any(p.get("ticket_id") == "prop-manual-aaa" for p in api.posts)
 
 
 def test_ledger_survives_a_torn_last_line(tmp_path):
@@ -1442,6 +1445,78 @@ def test_a_tripped_latch_refuses_the_next_ticket(env):
     ad = FakeAdapter()
     run(ad, FakeApi([ticket()]), env)
     assert not any(c[0] == "place_bracket" for c in ad.calls)
+
+
+class JournalDownApi(FakeApi):
+    """open_fills raises URLError-like for the first ``down`` calls (an
+    ict-web-api restart by the deploy, 2026-09-30 16:05:05-07Z)."""
+    def __init__(self, *a, down=1, **kw):
+        super().__init__(*a, **kw)
+        self.down = down
+
+    def open_fills(self, account_id):
+        if self.down > 0:
+            self.down -= 1
+            raise OSError("[Errno 111] Connection refused")
+        return super().open_fills(account_id)
+
+
+def test_one_journal_read_failure_blocks_entries_but_does_not_latch(env):
+    # PI-20260930-KMYJ5XC7-0011: one refused journal read latched the executor
+    ledger, state = env
+    ad = FakeAdapter()
+    res = run(ad, JournalDownApi([ticket()], down=1), env)
+    assert state.halted() is None
+    assert res.halted and "journal read failed" in res.halted
+    assert any("journal read failed" in a and "no entries this cycle" in a for a in res.alerts)
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+    assert ledger.latest() == {}                       # the ticket is not refused: next cycle takes it in
+    res = run(ad, JournalDownApi([ticket()], down=0), env)
+    assert state.halted() is None and not (res.halted or "").startswith("journal read failed")
+
+
+def test_two_consecutive_journal_read_failures_latch(env):
+    _, state = env
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() is None
+    res = run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() and "2 consecutive ticks" in state.halted() and "journal read failed" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+
+
+def test_a_terminal_error_then_a_journal_error_share_the_count(env):
+    _, state = env
+    run(FakeAdapter(read_error="x"), FakeApi(), env)
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() and "2 consecutive ticks" in state.halted()
+
+
+def test_a_clean_tick_resets_the_journal_error_count(env):
+    _, state = env
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    run(FakeAdapter(), FakeApi(), env)
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() is None
+
+
+def test_a_failed_journal_read_never_counts_as_flat(env):
+    # A journal-open fill with the terminal flat is reported closed only after
+    # two CLEAN reads; a failed read in between is not one of them.
+    fills = [{"id": 1, "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+              "status": "open", "ticket_id": "tx", "sl": 118, "tp": 126}]
+    api = JournalDownApi([], fills, down=1)
+    run(FakeAdapter(), api, env)                        # failed read
+    run(FakeAdapter(), api, env)                        # first clean read
+    assert not [p for p in api.posts if p.get("status") == "closed"]
+    run(FakeAdapter(), api, env)                        # second clean read
+    assert [p["ticket_id"] for p in api.posts if p.get("status") == "closed"] == ["tx"]
+
+
+def test_journal_read_failures_never_write_the_latch_in_read_only(env):
+    _, state = env
+    for _ in range(3):
+        run(FakeAdapter(), JournalDownApi(down=1), env, mode="read_only")
+    assert state.halted() is None
 
 
 def test_record_tick_error_trips_on_the_second(tmp_path):
@@ -3177,3 +3252,211 @@ def test_a_partial_fill_before_the_first_confirm_read_is_never_written_off_uncon
                      now=NOW + timedelta(minutes=k))
     assert not any(p.get("status") == "skipped" for p in api.posts)
     assert not any("unconfirmed_submit" in str(p.get("reason")) for p in api.posts)
+
+
+
+# ── the live form opens in MARKET mode: the price field only exists after
+#    LIMIT is selected (2026-09-30 12:44Z, ticket prop-manual-b573aecb5d47,
+#    prop_fills #73 "not submitted: form fields not found: ['price']") ──────
+
+MARKET_DEFAULT_PAGE = (TICKET_PAGE
+    .replace('onclick="window.__type=\'market\';sel(this)">Market</button>',
+             'aria-pressed="true" onclick="window.__type=\'market\';sel(this);'
+             'document.getElementById(\'pxrow\').style.display=\'none\'">Market</button>')
+    .replace('onclick="window.__type=\'limit\';sel(this)">Limit</button>',
+             'onclick="window.__type=\'limit\';sel(this);'
+             'document.getElementById(\'pxrow\').style.display=\'block\'">Limit</button>')
+    .replace('<div><span>Price</span><input id="px"></div>',
+             '<div id="pxrow" style="display:none"><span>Price</span><input id="px"></div>'))
+
+
+def test_the_market_default_fixture_really_hides_price_until_limit(tpage):
+    assert MARKET_DEFAULT_PAGE.count('id="pxrow" style="display:none"') == 1
+    got = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(tpage(html=MARKET_DEFAULT_PAGE), "SOLUSD")
+    assert "price" not in got["fields"] and {"quantity", "stop_loss", "take_profit"} <= set(got["fields"])
+
+
+def test_a_limit_bracket_selects_limit_before_requiring_the_price_field(tpage):
+    p = tpage(html=MARKET_DEFAULT_PAGE)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=False)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("window.__type") == "limit"
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_limit_bracket_refuses_when_limit_shows_no_price_field(tpage):
+    html = MARKET_DEFAULT_PAGE.replace("document.getElementById('pxrow').style.display='block'", "0")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and not att.submitted
+    assert "price" in att.detail and "LIMIT" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_market_bracket_never_needs_a_price_field(tpage):
+    from dataclasses import replace
+    p = tpage(html=MARKET_DEFAULT_PAGE)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, replace(SOL, order_type="market", limit_price=None), arm=False)
+    assert att.stage == "form_verified", att.detail
+
+
+
+def test_a_ticket_the_form_refuses_raises_a_not_placed_alert(env):
+    ad = FakeAdapter(attempt=PlaceAttempt(stage="refused", submitted=False,
+                                          detail="form fields not found: ['price']"))
+    api = FakeApi([ticket()])
+    res = run(ad, api, env)
+    assert any("NOT PLACED yet" in a and "prop-manual-aaa" in a and "price" in a and "1/3" in a
+               and "do NOT place by hand" in a for a in res.alerts)
+    assert not any("place by hand or it is lost" in a for a in res.alerts)
+    assert not any(p.get("ticket_id") == "prop-manual-aaa" for p in api.posts)
+
+
+
+def test_a_limit_round_trip_is_dry_only(env):
+    ledger, _ = env
+    c = cfg(watched_click_max_lots={"SOLUSD": 0.01})
+    res = pe.run_round_trip(adapter=FakeAdapter(), page=None, api=FakeApi([]), cfg=c, ledger=ledger,
+                            venue_symbol="SOLUSD", lots=0.01, arm=True, order_type="limit", now=NOW)
+    assert res.halted and "dry-only" in res.halted
+
+
+def test_a_dry_limit_round_trip_walks_a_limit_spec_at_the_resting_quote(env):
+    ledger, _ = env
+    c = cfg(watched_click_max_lots={"SOLUSD": 0.01})
+
+    class Q(FakeAdapter):
+        def read_quote(self, page, venue):
+            return {"bid": 120.0, "ask": 120.1}
+
+    ad = Q()
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi([]), cfg=c, ledger=ledger,
+                            venue_symbol="SOLUSD", lots=0.01, arm=False, order_type="limit", now=NOW)
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]["spec"]
+    assert spec["order_type"] == "limit" and spec["limit_price"] == 120.0
+    assert ad.calls == [("place_bracket", spec["ticket_id"], False), ("flatten", "SOLUSD", False)]
+
+
+
+# ── retry exception (operator directive 2026-09-30 ~13:12Z): a ticket whose
+#    placement failed BEFORE any submit click is retried until valid_until ──
+
+class QuoteAdapter(FakeAdapter):
+    """A retry must never read a quote (manager 2026-09-30 13:21Z: the same
+    guard set as a first attempt); any read_quote call fails the test."""
+    def read_quote(self, page, venue):
+        raise AssertionError("a retry must not add a quote read")
+
+
+PRE = PlaceAttempt(stage="refused", submitted=False, detail="form fields not found: ['price']")
+
+
+def _rcycle(ad, api, env, k):
+    ledger, state = env
+    return pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
+                        state=state, now=NOW + timedelta(minutes=5 * k))
+
+
+def _places(ad):
+    return [c for c in ad.calls if c[0] == "place_bracket"]
+
+
+def test_retry_places_the_same_ticket_again_once_the_form_works(env):
+    # (5) the idempotency key is unchanged: same ticket id, one order
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+    ad.attempt, ad.after_submit = None, ([], [_o()])
+    _rcycle(ad, api, env, 1)
+    assert [c[1] for c in _places(ad)] == ["prop-manual-aaa", "prop-manual-aaa"]
+    assert env[0].state("prop-manual-aaa") == "placed"
+    assert [p.get("status") for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["placed"]
+
+
+def test_a_failure_after_the_submit_click_is_never_retried(env):
+    # (1) planted negative: the submit click raised -> submitted=True ->
+    # the unconfirmed/containment path, never retry_pending, never a 2nd click
+    ad = QuoteAdapter(
+                      attempt=PlaceAttempt(stage="submitted", submitted=True,
+                                           detail="submit click raised TimeoutError; outcome unknown"),
+                      after_submit=([], []))
+    api = FakeApi([ticket()])
+    for k in range(4):
+        _rcycle(ad, api, env, k)
+    assert env[0].state("prop-manual-aaa") != pe.RETRY_STATE
+    assert len(_places(ad)) == 1
+
+
+def test_a_retry_is_refused_when_the_symbol_already_has_a_position_or_order(env):
+    # (2) the terminal is re-read THIS cycle; anything on the symbol -> no click
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    ad.attempt = None
+    ad.orders = [_o(order_id="MANUAL")]
+    _rcycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1  # only the original attempt
+    assert env[0].state("prop-manual-aaa") == "refused"
+
+
+def test_retries_are_bounded_then_terminal_skipped_with_one_alert(env):
+    # (4) RETRY_MAX_ATTEMPTS attempts, then terminal skipped with the real reason
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    alerts = []
+    for k in range(pe.RETRY_MAX_ATTEMPTS + 2):
+        alerts.append(_rcycle(ad, api, env, k).alerts)
+    assert len(_places(ad)) == pe.RETRY_MAX_ATTEMPTS
+    assert env[0].state("prop-manual-aaa") == "refused"
+    skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and "price" in skips[0]["reason"] and f"{pe.RETRY_MAX_ATTEMPTS} attempts" in skips[0]["reason"]
+    assert sum("place by hand or it is lost" in a for al in alerts for a in al) == 1
+    assert sum("do NOT place by hand" in a for al in alerts for a in al) == pe.RETRY_MAX_ATTEMPTS - 1
+
+
+def test_a_retry_pending_ticket_goes_terminal_at_valid_until(env):
+    # (6) at valid_until the ticket is expired as today, never attempted again
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket(valid_until=(NOW + timedelta(minutes=7)).isoformat())])
+    _rcycle(ad, api, env, 0)
+    ad.attempt = None
+    _rcycle(ad, api, env, 2)  # NOW+10 > valid_until
+    assert len(_places(ad)) == 1
+    assert env[0].state("prop-manual-aaa") == "expired"
+    assert [p["reason"] for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["expired"]
+
+
+def test_a_retry_runs_the_same_guards_as_a_first_attempt(env):
+    # manager 2026-09-30 13:21Z: no retry-only price rule. A retry whose
+    # ticket no longer fits the § 3.3 guards is refused like a first attempt.
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    ad.attempt = None
+    ad.account = acct(4724.0, 4724.0)
+    env[1].save({**env[1].load(), "day": pe.trading_day(NOW), "day_start_captured": 4724.0})
+    api._tickets = [ticket(qty=37.5)]
+    _rcycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    assert env[0].state("prop-manual-aaa") == "refused"
+
+
+
+def test_a_watched_click_ticket_is_never_retried(env):
+    # review of #14737: an unattended retry would place it at FULL size, not
+    # the watched cap -> terminal at once, with the give-up alert
+    ledger, state = env
+    c = cfg()
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger, state=state,
+                       now=NOW, max_lots=0.5)
+    assert ledger.state("prop-manual-aaa") == "refused"
+    assert any("place by hand or it is lost" in a and "watched click" in a for a in res.alerts)
+    skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and "watched click: not retried" in skips[0]["reason"]
+    ad.attempt = None
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=5))
+    assert len(_places(ad)) == 1

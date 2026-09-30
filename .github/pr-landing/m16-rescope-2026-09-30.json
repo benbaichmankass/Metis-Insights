@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager dispatch M16-RESCOPE (operator decision 'Re-scope it', 2026-09-30, pipeline PI-20260928-NLANEM16-0001): 'Register the MOST promising one as a research-queue unit ... Use a HELD PR that the manager merges before the run.'",
+  "why": "Docs (re-scope memo, ROADMAP M16 status line, DOCUMENT-INDEX row, research capability index row), one research-queue unit, one read-only research script under scripts/research/ with its synthetic tests, and one pipeline record closing PI-20260928-NLANEM16-0001. No runtime, order path, config, sizing or risk code touched -- Tier-1 by path, held because the manager merges it before the unit runs."
+}

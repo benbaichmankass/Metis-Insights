@@ -61,4 +61,16 @@ generated:
     leg: gld_pullback_1h
     symbol: GLD
     timeframe: 1h
-last_dispatched_at: null
+last_dispatched_at: '2026-09-30T11:59:38+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE
+  evidence:
+  - research/results/RQ-20260929-006/36711955249.jsonl
+  graded_at: '2026-09-30'
+  grader: scripts/research/queue_grade.py
+  latest: true
+  needs_review: false
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

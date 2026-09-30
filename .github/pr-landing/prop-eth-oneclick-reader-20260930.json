@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges after review; changes the one-click reading the instrument INFO-PANEL probe gates on, for the funded breakout_1 DXtrade terminal",
+  "why": "PROP-ETH-DOM, pipeline PI-20260929-AQRK6CL1-0014. The dry run (issue #14714) measured the one-click toggle as [data-test-id=one_click_trading] data-value=false; ONE_CLICK_JS now reads it (fail-closed on anything else). Adds a read-only Orders-widget ancestor dump to -dry because the same run found the Orders widget unreadable. One-click stays a diagnostic for every order path (operator 2026-09-28); only the info probe gates on it. No order control, config, sizing or risk change."
+}
