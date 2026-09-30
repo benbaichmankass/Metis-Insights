@@ -3982,7 +3982,12 @@ class DXtradeAdapter(PropPlatformAdapter):
         # into a ticket for the wrong symbol is the worst silent failure here.
         if not form_names_symbol(form, spec.venue_symbol):
             return refuse(f"the open form does not name {spec.venue_symbol}")
-        need = ["quantity", "stop_loss", "take_profit"] + (["price"] if spec.order_type == "limit" else [])
+        # The PRICE field is not required here: the live Breakout form opens in
+        # MARKET mode and shows no price input until LIMIT is selected
+        # (2026-09-30 12:44Z, ticket prop-manual-b573aecb5d47 refused
+        # "form fields not found: ['price']" before the order-type click ever
+        # ran). It is required right after that click, below.
+        need = ["quantity", "stop_loss", "take_profit"]
         missing = [k for k in need if k not in (form.get("fields") or {})]
         if missing:
             return refuse(f"form fields not found: {missing}")
@@ -4020,7 +4025,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                 pass
             elif type_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
+                page.wait_for_timeout(300)
             form = self._find_form(page)
+            if spec.order_type == "limit" and "price" not in (form.get("fields") or {}):
+                return refuse("form fields not found after selecting LIMIT: ['price']", form)
             # Switch each leg's enabling toggle ON (the live sidebar's SL / TP
             # toggles read "false" by default): the operator's flow sets the
             # brackets BEFORE execution. Never switched off; read back below.
