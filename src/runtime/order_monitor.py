@@ -8631,7 +8631,9 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
 
     *trace*, when given, is filled with ``sent`` (True once the broker
     client's placement call was made; absent for every ``return False`` that
-    fails before it: no account, no client, unusable qty/levels) and
+    fails before it: no account, no client, unusable qty/levels),
+    ``responded`` (True only once that call RETURNED an envelope — absent when
+    it raised, so a raise is never read as a venue rejection) and
     ``ret_code`` (the client's envelope code). The Alpaca sweep uses it to tell
     a venue rejection from a post that never left the process
     (PI-20260929-K1XNYYAQ-0003 (b)).
@@ -8789,6 +8791,7 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
             }
         )
         if trace is not None:
+            trace["responded"] = True
             trace["ret_code"] = (resp or {}).get("retCode")
         if not resp or resp.get("retCode") != 0:
             logger.warning(
@@ -9779,11 +9782,12 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                 # nothing rests, and the cap is what bounds the row's way to
                 # the close. The COUNTER is split (K1XNYYAQ-0003 (b)):
                 # `escalated_post_rejected` = the venue refused it;
-                # `escalated_post_not_sent` = it failed before any venue call
-                # (no account/client, or the client's own local refusal,
-                # retCode -2/-3, e.g. a same-size sibling).
+                # `escalated_post_not_sent` = no venue answer: it failed before
+                # any venue call (no account/client), the client refused it
+                # locally (retCode -2/-3, e.g. a same-size sibling), or the
+                # call RAISED (no envelope came back to read as a rejection).
                 _record_rearm_attempt(account_id, row["id"])
-                if _trace.get("sent") and _trace.get("ret_code") not in (-2, -3):
+                if _trace.get("responded") and _trace.get("ret_code") not in (-2, -3):
                     summary["escalated_post_rejected"] += 1
                 else:
                     summary["escalated_post_not_sent"] += 1

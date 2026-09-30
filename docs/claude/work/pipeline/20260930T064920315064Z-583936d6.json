@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the writer behind the 2026-07-25..07-30 bybit_1 rows is identified (or shown unidentifiable, with a stated reason) and the 14 rows are corrected, relabelled or explicitly accepted as UNVERIFIED",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-HXO9WPVH-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "PR #14172 manager decision 2026-09-29 13:20Z",
+    "rerun": "pull /api/diag/journal?table=trades (offset paging, 1000/page); for bybit_1 rows with notes.exit_price_source=exchange_fill and pnl_source=local_compute compare pnl with (exit-entry)*size*side; count sign-inconsistent rows by closed_at date; expect 10 in 2026-07-25..07-30 and 0 after 2026-07-31; a new one after 07-31 means the defect is live again"
+  },
+  "routed_to": "PROV-IB",
+  "state": "routed",
+  "what": "bybit_1 sign-inconsistent MEASURED rows (FIX-SA-04 finding; manager asked: one systematic producer bug or noise?). 14 rows in TWO clusters, neither ongoing. (A) 10 bybit_1 (paper) rows closed 2026-07-25..07-30 (ids 3637, 3869, 4042, 4052, 4053, 4096, 4210, 4212, 4218, 4161), exit_price_source=exchange_fill, pnl_source=local_compute, closed_by monitor_reconciler (9) / exit_coverage_resolver (1): 10 of the 24 exchange_fill+local_compute rows closed in that window (42%) and 0 of the 169 after 2026-07-31. pnl is NOT a scaled copy of (exit-entry)*size: pnl/expected ranges -0.9 to -7.1, always opposite sign (e.g. #4218 expected -922.79, pnl +834.91; #4212 expected -114.02, pnl +588.10), so one arithmetic bug is not established; ROOT CAUSE NOT FOUND (git history here is shallow; the writer change in that window was not identified). (B) 4 older rows whose pnl source is bybit_closed_pnl: bybit_1 #2568 (06-14) and #2699 (06-19), bybit_2 #1287 (05-14) and #1453 (05-15, adopted_orphan_disappeared via reverse_reconciler): a closed-pnl record attributed to the wrong trade, the FIX-CA-19 family; all pre-date 2026-06-20, and FIX-CA-19's sign guard sits only on the backfill_orphan_pnl path, not the live writers. Effect today: FIX-SA-04's sign test demotes all 14 to UNVERIFIED. Owed: identify what wrote cluster A on 07-25..07-30 (order_monitor local-compute path on a netting account is the first suspect: compare row position_size with the netted position at close), then decide whether to correct or relabel the 14 rows (a journal writeback is Tier-2)."
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The netting-attribution reconciler (or an equivalent detector) runs on a schedule against interactive_brokers accounts and reports journal-vs-venue quantity agreement/divergence for IB positions the same way broker-bracket-reconcile.yml already does for protective-leg coverage — i.e. a scheduled, unattended IB quantity-divergence check exists and has run at least once.",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-DEUTUJ78-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "operator",
+    "ref": "operator popup to manager 2026-09-28~11:45Z on OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED, relayed to lane MGC-FIX",
+    "rerun": "grep -n 'ib_paper\\|ib_live' scripts/ops/reconcile_netting_rows.py scripts/ops/reconcile_netting_rows_action.sh; ls .github/workflows/broker-bracket-reconcile.yml"
+  },
+  "routed_to": "PROV-IB",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "Build an IB-side journal-vs-venue quantity divergence detector: extend the netting-attribution reconciler (scripts/ops/reconcile_netting_rows.py, dispatched via the reconcile-netting-rows system-action) — currently exercised on bybit one-way-netting — to also cover interactive_brokers accounts (ib_paper, ib_live), and wire a scheduled caller mirroring .github/workflows/broker-bracket-reconcile.yml's pattern (fixed-cadence GET against /api/diag/ib_open_orders + /api/bot/positions, a tracking issue rewritten every run, a comment only on fingerprint change) so a journal-declared MGC/MHG/MES quantity that diverges from the live IB position/order state is caught automatically instead of only being found when a session happens to look. Raised from OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED clause (b), which this item does NOT itself clear — filed per the operator's instruction to QUEUE the detector, not build it, in this lane (MGC-FIX)."
+}
