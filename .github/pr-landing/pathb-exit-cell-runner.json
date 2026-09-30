@@ -1,8 +1,7 @@
 {
   "tier": 2,
   "landing": "hold",
-  "hold_reason": "depends_on_unmerged_pr",
-  "depends_on": "#14520",
-  "why": "Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1), pipeline row PI-20260930-39SDYWCO-0001. The runner for the granted MD-SOAK-EXIT-CELL-PATHB: scripts/ops/exit_cell_runner.py, .github/workflows/exit-cell-mandate.yml (daily schedule + dispatch; opens a HELD PR and a ping on a FIRE, never merges) and one schedule_keeper TARGETS entry. Tier-2 automation that opens PRs and can edit config/strategies.yaml on a FIRE; it changes no order path, roster, risk cap or strategy param by itself being merged. Stacked on #14520 (it calls resolve_exit_cell, which #14520 adds).",
-  "hold_text": "Held on #14520: this branch is cut from it and calls resolve_exit_cell(), which is not on main until #14520 merges. Also Tier-2 (a workflow that opens PRs): the manager reviews and merges after #14520."
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1), pipeline row PI-20260930-39SDYWCO-0001. The runner for the granted MD-SOAK-EXIT-CELL-PATHB: scripts/ops/exit_cell_runner.py, .github/workflows/exit-cell-mandate.yml (daily schedule + dispatch; opens a HELD PR and a ping on a FIRE, never merges) and one schedule_keeper TARGETS entry. Tier-2 automation that opens PRs and can edit config/strategies.yaml on a FIRE; it changes no order path, roster, risk cap or strategy param by itself being merged. Builds on the merged #14520 (it calls resolve_exit_cell).",
+  "hold_text": "Tier-2: a scheduled workflow that opens PRs and, on a FIRE, edits config/strategies.yaml. #14520 (the granted mandate and resolve_exit_cell) is now merged, so this no longer depends on an unmerged PR; the manager reviews and merges."
 }
