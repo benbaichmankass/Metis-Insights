@@ -527,6 +527,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             decisions.append(row)
             continue
 
+        # A session-bound note (`run.workflow` is prose, not a workflow file)
+        # can never be fired. Until 2026-09-30 it reached _fire(), returned
+        # DISPATCH_FAILED on EVERY cycle and turned each firing run red
+        # ("Fail the job if grading reported a problem"), while reading as
+        # would_dispatch in a dry run. It is not due for THIS dispatcher.
+        _wf = str((entry.get("run") or {}).get("workflow") or "")
+        if not _wf.endswith((".yml", ".yaml")) or any(ch.isspace() for ch in _wf):
+            row.update(outcome=NOT_DUE,
+                       reason=f"session-bound: run.workflow {_wf[:40]!r} is not a workflow file "
+                              "(retarget to research-script-run.yml to make it dispatchable)")
+            decisions.append(row)
+            continue
+
         power = grade_power(entry)
         route = grade_route(entry)
         row.update(power_state=power.state, power_reason=power.reason,
