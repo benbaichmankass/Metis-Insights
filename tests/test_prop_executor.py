@@ -3155,3 +3155,25 @@ def test_a_manual_position_on_the_symbol_side_does_not_hide_behind_a_resting_cla
     r = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
                      now=NOW + timedelta(minutes=10))
     assert any("orphan" in a for a in r.alerts)
+
+
+def test_a_partial_fill_before_the_first_confirm_read_is_never_written_off_unconfirmed(env):
+    # Round-4 review: 0.2 of 0.5 fills before the first re-read; the orders
+    # table shows the remaining 0.3, so the verdict is not_found on an
+    # `unconfirmed` row. It must alert and halt at once and never post
+    # `skipped: unconfirmed_submit`.
+    ledger, state = env
+    ad = FakeAdapter(after_submit=([_p(quantity=0.2)], [_o(quantity=0.3)]))
+    api = FakeApi([ticket()])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    assert ledger.state("prop-manual-aaa") == "unconfirmed"
+    api._tickets = []
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                       now=NOW + timedelta(minutes=5))
+    assert any("partial_fill_suspected" in a for a in res.alerts)
+    assert state.halted() and ledger.state("prop-manual-aaa") == "contained"
+    for k in (10, 15, 20):
+        pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                     now=NOW + timedelta(minutes=k))
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+    assert not any("unconfirmed_submit" in str(p.get("reason")) for p in api.posts)

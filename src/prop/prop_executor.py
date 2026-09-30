@@ -780,7 +780,13 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
         verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
-        if row.get("state") == "placed" and verdict in ("placed", "not_found"):
+        # A partial fill can land before the first confirm re-read, on a row
+        # still `submitted`/`unconfirmed` (round-4 review): the same check
+        # must run there, or the unconfirmed_submit path writes the live
+        # position off as `skipped`. The busy-symbol guard refused the submit
+        # if a position already sat on the symbol, so one found now is new.
+        if (row.get("state") in ("placed",) + IntentLedger.UNRESOLVED
+                and verdict in ("placed", "not_found")):
             why = _suspected_partial_fill(res, ledger, live, tid, spec, found, positions)
             if why:
                 halted = halted or _trip(res, state, live, why)
