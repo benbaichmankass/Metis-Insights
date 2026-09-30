@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; changes the live-credentialed instrument-probe locator (types into one terminal search field on the live VM)",
+  "why": "PROP-ETH-DOM step 3, pipeline PI-20260929-AQRK6CL1-0014. Derived from the MEASURED dump (issue #14551, run 36675129051, code 2058a2f1b): the symbol search is ONE input placeholder 'Symbol...' data-test-id 'watchlist_public...' in the watchlist WIDGET header, 6 levels above the grid panel the old anchor scoped to (hence n_candidate_inputs 0 on #14457). Containment widens to the nearest widget__container/widgetNew__container ancestor (<=8 up) which must pass the panel's checks plus hold/sit-in no BUY+SELL panel; candidates become ('symbol...', 'watchlist_public'); exactly one match or refuse. Also carries manager review notes a-c from #14527 (off-exception documented + tested, workflow comment, token-like runs dropped whole). Still never opens the ticket or clicks; no config/sizing/risk change; nothing joins executor.enabled_venue_symbols."
+}
