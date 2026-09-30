@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "An alpaca close by a venue stop/target leg is journaled sl/tp with the venue fill price (observed on a live close after deploy), or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-PR6YRTQY-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "JC-SA-08 evidence docs/research/evidence/jc-sa-08-alpaca-mirror-exit-divergence-2026-09-29.md; lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ for manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "diag_fetch 'journal?table=trades' for alpaca_live/alpaca_portfolio rows with exit_reason=exchange_flat_reconciled, then alpaca_order_history?account_id=<acc>&symbols=<SYM>&after=<closed_at-1d>&until=<closed_at> — a filled OCO/bracket stop leg in the window means the label is wrong."
+  },
+  "routed_to": "EXIT-CLUSTER",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "Alpaca half of FIX-SA-02: alpaca_live venue STOP fills are journaled exchange_flat_reconciled. MEASURED 2026-09-29 via /api/diag/alpaca_order_history: 5875 (SLV) and 6097 (IAUM) were closed 2026-09-28T13:30:03Z/13:30:02Z by their GTC OCO stop legs (filled @55.3132 vs stop 55.41, @41.2732 vs stop 41.98), yet both rows read exit_reason=exchange_flat_reconciled. Alpaca rows carry no sl_order_id (NULL on 20/20 alpaca rows since 09-15), so the reconciler cannot attribute the close. Fix: at reconcile time, look up the symbol's order history (status=closed, nested) for a filled reducing-side stop/limit leg in the close window and stamp sl/tp + exit_price from its fill. PI-20260929-TWEW1FZJ-0002 (FIX-SA-02) names bybit_2 only."
+}
