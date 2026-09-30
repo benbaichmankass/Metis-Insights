@@ -110,9 +110,8 @@ def test_a_failing_toggle_is_never_outvoted_by_an_aria_state(browser):  # noqa: 
 
 
 def measured_page(**kw):
-    html = page_html(**kw)
-    return re.sub(r"<label><input type=\"checkbox\" ?><span>One-click trading</span></label>",
-                  toggle_row("false"), html)
+    # page_html renders the MEASURED toggle itself since the 2nd live dry run.
+    return page_html(**kw)
 
 
 def test_the_info_probe_dry_run_passes_the_one_click_gate_on_the_measured_toggle(browser):  # noqa: F811
@@ -124,7 +123,7 @@ def test_the_info_probe_dry_run_passes_the_one_click_gate_on_the_measured_toggle
 
 
 def test_the_measured_toggle_reading_on_still_refuses(browser):  # noqa: F811
-    html = measured_page().replace(toggle_row("false"), toggle_row("true"))
+    html = measured_page(one_click="checked")
     assert 'data-value="true"' in html
     got, st = run(browser, html, click=False)
     assert "does not read OFF (reads 'on')" in got["refused"] and st["clicks"] == []
@@ -173,3 +172,60 @@ def test_other_order_paths_still_only_record_one_click(browser):  # noqa: F811
     p.set_content(f"<html><body>{toggle_row('true')}</body></html>")
     assert DXtradeAdapter(timeout_ms=1_000).read_one_click(p)["state"] == "on"
     p.close()
+
+
+# ── 2nd live dry run (issue #14754): Orders container at ancestor level 10 ─
+
+
+def test_the_orders_container_ten_levels_up_is_found(browser):  # noqa: F811
+    # MEASURED: widget_menu_ORDERS sits 9 wrappers below its visible
+    # widgetNew__container (level 10); the original 8-level walk missed it.
+    got, st = run(browser, page_html(orders_depth=10), click=False)
+    assert got["working_orders"]["found"] is True and got["working_orders"]["n_rows"] == 0
+    assert got["refused"] is None and "orders_dump" not in got and st["clicks"] == []
+
+
+def test_a_container_beyond_twelve_levels_is_still_could_not_look(browser):  # noqa: F811
+    got, _ = run(browser, page_html(orders_depth=14), click=False)
+    assert got["working_orders"]["found"] is False and "working Orders not readable" in got["refused"]
+
+
+def test_a_working_order_ten_levels_deep_still_refuses(browser):  # noqa: F811
+    got, st = run(browser, page_html(orders_depth=10,
+                                     order_rows="<tr><td>SOLUSD</td><td>Buy</td><td>Limit</td><td>77</td></tr>"),
+                  click=False)
+    assert "1 working order" in got["refused"] and st["clicks"] == []
+
+
+# ── manager notes on #14723 (a), (b) ───────────────────────────────────────
+
+
+def test_two_one_click_labels_read_unknown(browser):  # noqa: F811
+    got = read(browser, toggle_row("false") + "<div>One-click trading</div>")
+    assert got["state"] == "unknown" and "2 one-click labels" in got["why"]
+
+
+def test_the_checkbox_fallback_ignores_hidden_controls(browser):  # noqa: F811
+    hidden = '<label><input type="checkbox" style="display:none"><span>One-click trading</span></label>'
+    assert read(browser, hidden)["state"] == "unknown"
+    shown_ = '<label><input type="checkbox"><span>One-click trading</span></label>'
+    got = read(browser, shown_)
+    assert got["state"] == "off" and got["via"] == "aria"
+    two = '<label><input type="checkbox"><input type="checkbox"><span>One-click trading</span></label>'
+    assert read(browser, two)["state"] == "unknown"
+
+
+def test_the_info_probe_gate_accepts_only_the_measured_toggle(browser):  # noqa: F811
+    from src.prop.platform.dxtrade import info_probe_one_click_off
+    assert info_probe_one_click_off({"state": "off", "via": "data-value+knob"})
+    assert info_probe_one_click_off({"state": "off", "via": "data-value+knob+aria"})
+    assert not info_probe_one_click_off({"state": "off", "via": "aria"})
+    assert not info_probe_one_click_off({"state": "on", "via": "data-value+knob"})
+    assert not info_probe_one_click_off(None)
+    # a checkbox-only terminal reads 'off' via aria, and the probe still refuses
+    html = re.sub(r'<div style="position:relative;height:17px">.*?One-click trading</div></div>',
+                  '<label><input type="checkbox"><span>One-click trading</span></label>', page_html(), flags=re.S)
+    assert 'data-test-id="one_click_trading"' not in html
+    got, st = run(browser, html, click=False)
+    assert got["one_click"]["state"] == "off" and got["one_click"]["via"] == "aria"
+    assert "from the measured toggle" in got["refused"] and st["clicks"] == []
