@@ -709,9 +709,9 @@ def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, 
         # ``pipeline_result`` write, and the intent layer emits a leg at most
         # once per bar — so a blocked emission left NOTHING in ``signals``: a
         # directional eval followed by silence, indistinguishable from a lost
-        # dispatch. Measured 2026-09-30 (LIVE-NO-TRADES): ~110 such silent
-        # emissions on the live legs since 09-15, every one inside an open
-        # package's lifetime, but only provable by joining order_packages.
+        # dispatch. Measured 2026-09-30 (LIVE-NO-TRADES): of 121 live-leg
+        # intent emissions 09-15..09-30, 92 left no row at all; every one fell
+        # inside an open package's lifetime, provable only via order_packages.
         # Best-effort — an audit failure never bypasses the gate.
         try:
             log_signal({
