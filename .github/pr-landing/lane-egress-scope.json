@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: a scoping document for Breakout terminal egress options, plus landing metadata. Nothing is built, routed or deployed; no src/, config/, workflow or runtime file is touched. Measurements were landing-only GETs (no credentials, no login)."
+}

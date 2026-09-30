@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A replacement/leg-count research unit is committed under research/queue/ with a decision rule registered before its run and graded on the canonical feed, OR the manager kills this with a stated reason.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-2SKAFUF5-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/w6-prop-shaped-search-2026-09-27.md",
+    "rerun": "python3 scripts/research/w6_prop_shaped_search.py --work /tmp/w6r3 && python3 scripts/research/w6_prop_shaped_search.py --work /tmp/w6r3 --phase perfold,posthoc  (candles: see the doc's Reproduce block)"
+  },
+  "routed_to": "P2",
+  "state": "routed",
+  "what": "[W6-PROP-R3 follow-up] RQ-20260927-005 (prop-shaped walk-forward search) returned NULL under its pre-registered ADDITION rule, but trend_donchian ETHUSDT re-tuned in-sample to donchian 40 / atr_stop 2.5 / trail 3.5 / tp_r 3 / stale_exit 12 cleared B6 V2 ALONE OOS on 5/5 seeds (p5 +41..+146, multiplicity-robust), while EVERY one of 6 additions lowered the two-leg baseline's point EV on 30/30 seed-cells. Post-hoc (not a verdict): replacing trend_donchian_eth_prop with it gave p5 +49..+98 / EV ~$253 vs baseline p5 -7..+14 / EV ~$134. NEXT: pre-register a REPLACEMENT + leg-count question (1 vs 2 vs 3 legs) on the canonical Bybit feed with a holdout not used here (e.g. forward data after 2026-09-24, or a shadow soak), and note the weak 2026 fold (F4 p5 -39.6). Nothing is proposed until that clears."
+}
