@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 research only: two new pre-registered research/queue units (RQ-20260930-701 regime impact scoping on the trend axis; RQ-20260930-702 pooled trend_donchian E38 follow-up, PI-20260925-7P3VZ7EJ-0001), their two harness scripts under scripts/research/ with tests, and one pipeline row. Both units carry a decision_rule registered_before_run and state in their text that they are scoping/feature-level instruments, not promotion cases. Nothing touches src/, config/, deploy/, workflows, order paths, strategy, sizing or risk. Units are only RUN by the dispatcher/runner after this lands."
+}
