@@ -270,6 +270,7 @@ uniqueness-weighted**. That is stricter than the plain harnesses in §1.
 | Cross-symbol allocator backtest | `scripts/research/allocator_multisymbol_backtest.py` |
 | Per-candidate (features → forward net-R) dataset | `scripts/research/allocator_candidate_dataset.py` |
 | Walk-forward ranker quality | `scripts/research/allocator_ranker_eval.py` |
+| Within-leg confidence → full-cost R (M16 re-scope, RQ-20260930-601) | `scripts/research/m16_within_leg_confidence.py` |
 | Within-cell veto information in a meta-model over costed harness trades (M19 S1-v0: walk-forward, purge + embargo, permutation null, confidence-only baseline; `--census` for the population, `--self-test`) | `scripts/research/meta_veto_walkforward.py` |
 | Cost of directional conflict between legs | `scripts/research/m26_p0_conflict_bleed.py` |
 | Net-R re-grade scorecard | `scripts/research/net_r_regrade.py` |
