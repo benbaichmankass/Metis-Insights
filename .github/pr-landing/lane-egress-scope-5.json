@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Docs only: a short scoping report for the Raspberry Pi home-box egress option (requirements from the code, bill of materials with sourced prices, setup, alternatives, recommendation) plus its document-index row. Nothing bought, built, deployed or routed; no src/, config/, workflow or runtime file touched. The VM address is not written in it."
+  "why": "Docs only: the Raspberry Pi scoping report (updated with the 2026-09-30 proxy result and the operator's 'Home device (R2)' decision) and the R2 home-device plan (shopping list, phone-followable steps, Tier-2 route design PROPOSED, probe design, terms risk), plus their document-index rows and one pipeline row (PI-20260930-3ZFMYYI4-0002). Nothing bought, built, deployed or routed; no src/, config/, workflow or runtime file touched. The VM address is not written in any of it."
 }

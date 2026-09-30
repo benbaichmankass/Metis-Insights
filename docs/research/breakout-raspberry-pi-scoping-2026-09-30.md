@@ -8,6 +8,22 @@
 > **SCOPE ONLY: nothing is bought, built, deployed or routed.** Prices were read from vendor pages on **2026-09-30**;
 > the live VM's address is deliberately not written in this document.
 
+## 0. Update 2026-09-30 ~16:00Z: what happened since this was written, and the operator's decision
+
+- **The $2 proxy test ran and FAILED for that proxy.** Run 36731753995 (14:47Z, `workflow_dispatch` on `main`): `via_proxy=yes`, `proxy_state=ok`,
+  egress organisation **AS42049 Nadejda.Net Ltd**; `app.breakoutprop.com` **403, `cf-mitigated: challenge`, "Just a moment...", login form not rendered**;
+  `wss.breakoutprop.com` 200, "Breakout Terminal", login form rendered; `--evaluate` verdict **FAIL, route ended.** (Read from the manager's relay of the run log, not re-read here.)
+- **What that does and does not establish.** It shows one rented ISP proxy address is challenged at `app.breakoutprop.com` by a headless Chromium. It does **not** show
+  the operator's *home* address would be: the operator's own browser loaded the login on home Wi-Fi and on mobile data (one visit each). Two things differ between that
+  browser and the probe, and one run cannot separate them: **the address's organisation** and **the browser** (headless Chromium vs a person's browser). The next test
+  therefore has to be headless Chromium **from the home address**: that is what separates them.
+- **Operator decision (popup, verbatim): "Home device (R2)."** So the Pi in this memo is now the leading candidate device, not a purchase to make blind.
+- **The tunnel design changed.** § 4's SSH reverse SOCKS (`ssh -N -R 1080`) was the L3 design here; the R2 plan uses **Tailscale exit-node routing instead** and adds a
+  **cheaper first test with a device the operator already owns.** The shopping list, phone-followable steps, the Tier-2 route design, the probe extension and the
+  terms risk are in [breakout-r2-home-device-plan-2026-09-30.md](breakout-r2-home-device-plan-2026-09-30.md). Where this memo and that one differ on the tunnel, that one wins.
+- **The rest of this memo stands** (BOM and prices as of the morning of 2026-09-30; § 5 alternatives; § 7 unverified list), except that the "step zero" curl in § 1 has
+  effectively been superseded by the operator's own two browser loads plus the proxy result above.
+
 ## 1. Bottom line
 
 **Do not buy yet. Run the $0 step-zero command from the home network first (part 3 § 4).** If it returns `200` or a Cloudflare
