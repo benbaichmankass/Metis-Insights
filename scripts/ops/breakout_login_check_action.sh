@@ -433,7 +433,15 @@ if [ -n "${EXEC_MODE}" ]; then
     exit "${rc}"
 fi
 
-ARGS=(--account "${ACCOUNT}" --dump-dir "${BASE}/last-run")
+# breakout_1 keeps its dump dir; another account gets its own, so a Tradeify
+# check can never overwrite breakout_1's last-run page_text.txt / tables.json
+# mid-write (manager review of #14663).
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    DUMP_DIR="${BASE}/last-run"
+else
+    DUMP_DIR="${BASE}/accounts/${ACCOUNT}/last-run"
+fi
+ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")
 if [ "${ACCOUNT}" != "breakout_1" ]; then
     # A non-breakout account has no feed session until its feed runs, and the
     # executor modes above REUSE a saved session (never a second credential

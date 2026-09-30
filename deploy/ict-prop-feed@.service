@@ -2,7 +2,8 @@
 # Instance name = the prop account id in config/prop_platforms.yaml, e.g.
 # ict-prop-feed@tradeify_1. Same script and same guards as ict-prop-feed.service
 # (breakout_1's, which is NOT templated and is unchanged): session reuse, relogin
-# ceiling, trip-on-feasibility-stop, shared login.lock. The script refuses an
+# ceiling, trip-on-feasibility-stop. Its lock is PER ACCOUNT
+# (accounts/<id>/login.lock), never breakout_1's login.lock. The script refuses an
 # account with no platform entry rather than borrow another account's login.
 #
 # TEMPLATE: scripts/install_systemd_units.sh skips *@* files, and

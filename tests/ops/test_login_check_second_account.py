@@ -84,3 +84,10 @@ def test_other_account_run_switches_to_its_own_lock_after_the_shared_bootstrap()
     execu = CODE.index("scripts/prop/prop_executor_tick.py")
     assert shared < install < own < min(run, execu)
     assert 'ACCT_LOCK_DIR="${BASE}/accounts/${ACCOUNT}"' in CODE
+
+
+def test_dump_dir_is_per_account_and_breakout_keeps_its_own():
+    assert 'DUMP_DIR="${BASE}/last-run"' in CODE
+    assert 'DUMP_DIR="${BASE}/accounts/${ACCOUNT}/last-run"' in CODE
+    assert 'ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")' in CODE
+    assert '--dump-dir "${BASE}/last-run"' not in CODE
