@@ -1,0 +1,1 @@
+hyro-results-close (records and pipeline rows only)
