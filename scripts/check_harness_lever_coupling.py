@@ -104,10 +104,7 @@ _spec.loader.exec_module(_rdm)
 # BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES
 # Write-up: docs/research/timeout-bars-harness-vs-live-2026-08-29.md
 _TREND_UNMODELLED: Set[str] = {
-    # decision_bar: closed|forming live-builder frame (PI-20260930-QZSE4AMA-0002);
-    # Stage 0 IS the closed bar, so the default harness replay already matches
-    # `closed`; the forming mode is the separate --decision-bar harness flag.
-    "decision_bar", "atr_stop_buffer", "confirm_bars", "giveback_min_mfe_r", "giveback_r",
+    "atr_stop_buffer", "confirm_bars", "giveback_min_mfe_r", "giveback_r",
     "pierce_min", "skip_hours", "timeout_bars",
     "trail_decay_arm_r", "trail_decay_stall_bars", "trail_decay_tight_mult",
     "trail_vol_below_pctl", "trail_vol_tight_mult", "vol_pctl_window",
