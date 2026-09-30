@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "The diff touches scripts/prop/run_real_validation.sh (adds --allow-window-replace to its candle fetch), which is outside the Tier-1 surface. Manager reviewed the diff and merges; nothing here self-lands.",
+  "why": "Offline tooling + tests + a doc: a shrink guard in fetch_backtest_candles.py, an extend-only refresh script, a feed-comparison tool, and the opt-out flag added to three rolling-window callers (vwap sweep script, vwap-backtest.yml, prop run_real_validation.sh). No order path, no live trader file."
+}

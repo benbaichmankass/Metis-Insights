@@ -235,6 +235,21 @@ def _forming_bar_entries():
     return mod
 
 
+def _parse_hhmm(s: Optional[str]) -> Optional[int]:
+    """'HH:MM' -> minutes after UTC midnight; empty/None -> None (lever off). Refuses garbage."""
+    s = str(s or "").strip()
+    if not s:
+        return None
+    try:
+        hh, mm = s.split(":")
+        v = int(hh) * 60 + int(mm)
+    except ValueError as exc:
+        raise ValueError(f"expected HH:MM, got {s!r}") from exc
+    if not 0 <= v < 1440:
+        raise ValueError(f"HH:MM out of range: {s!r}")
+    return v
+
+
 def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_mult: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
@@ -264,6 +279,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  rr_floor: float = 0.0,
                  confirm_bars: int = 0,
                  skip_hours: str = "",
+                 flat_at_utc: str = "",
+                 no_entry_after_utc: str = "",
                  vol_skip_above_pctl: float = 0.0,
                  vol_skip_below_pctl: float = 0.0,
                  vol_pctl_window: int = 200,
@@ -356,6 +373,23 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any NEW
     # entry whose SIGNAL bar's UTC hour is in the CSV set. Exits are never touched.
     skip_hour_set = {int(h) for h in str(skip_hours or "").split(",") if str(h).strip() != ""}
+    # SAME-UTC-DAY-FLAT levers (RQ-20260930-503; both empty = off, byte-identical).
+    # `no_entry_after_utc` "HH:MM": skip a NEW entry whose ENTRY MOMENT (the close of the
+    # entry bar, which is when this harness fills) falls later than HH:MM UTC of its own day.
+    # `flat_at_utc` "HH:MM": force-close any open position at the CLOSE of the last bar that
+    # ends at or before HH:MM UTC of the entry moment's day, reason `day_flat`. On 1h bars a
+    # 23:45 flatten therefore happens at 23:00, up to one bar EARLY -- the safe side of the
+    # rule, never late. Ordering is stop -> target -> the other levers -> flatten, so the
+    # flatten never pre-empts a stop that the same bar hit. A position with no bar left to
+    # flatten on (the entry bar is already at or past the flatten bar) is NOT entered.
+    _flat_min = _parse_hhmm(flat_at_utc)
+    _nea_min = _parse_hhmm(no_entry_after_utc)
+    _close_idx = None
+    if _flat_min is not None or _nea_min is not None:
+        _bar = pd.Series(pd.DatetimeIndex(df["timestamp"])).diff().median()
+        if pd.isna(_bar) or _bar >= pd.Timedelta(days=1):
+            raise ValueError("flat_at_utc / no_entry_after_utc need intraday bars (< 1d)")
+        _close_idx = pd.DatetimeIndex(df["timestamp"]) + _bar
     # M21 E-2 vol-at-entry + M20-X vol-conditional-trail levers share ONE trailing
     # ATR-percentile series: rank of ATR[j] within the previous `vol_pctl_window`
     # bars (causal, includes the bar itself; NaN until the window fills → never
@@ -571,6 +605,19 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 i += 1
                 continue
             c = float(df["close"].iloc[entry_i])
+        _flat_jf = None
+        if _close_idx is not None:
+            _em = _close_idx[entry_i]
+            _day0 = _em.normalize()
+            if _nea_min is not None and (_em - _day0) > pd.Timedelta(minutes=_nea_min):
+                i += 1
+                continue
+            if _flat_min is not None:
+                _flat_jf = int(_close_idx.searchsorted(_day0 + pd.Timedelta(minutes=_flat_min),
+                                                       side="right")) - 1
+                if _flat_jf <= entry_i:      # no bar left to flatten on: not entered
+                    i += 1
+                    continue
         entry = c
         sl = entry - atr_stop_mult * atr if direction == "long" else entry + atr_stop_mult * atr
         risk = abs(entry - sl)
@@ -752,6 +799,12 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                         exit_price, exit_idx = _bc, j
                         exit_reason = "rr_floor_exit"
                         break
+            # SAME-UTC-DAY FLATTEN (off unless flat_at_utc is set): LAST in the precedence
+            # chain, so it can never pre-empt a stop, target or lever the same bar hit.
+            if _flat_jf is not None and j >= _flat_jf:
+                exit_price, exit_idx = float(df["close"].iloc[j]), j
+                exit_reason = "day_flat"
+                break
         if _rest_hit is not None:
             exit_price, exit_reason = _rest_hit
             exit_idx = entry_i
@@ -895,6 +948,10 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["confirm_bars"] = confirm_bars
     if skip_hour_set:
         params["skip_hours"] = skip_hours
+    if _flat_min is not None:
+        params["flat_at_utc"] = flat_at_utc
+    if _nea_min is not None:
+        params["no_entry_after_utc"] = no_entry_after_utc
     if vol_skip_above_pctl or vol_skip_below_pctl:
         params["vol_skip_above_pctl"] = vol_skip_above_pctl
         params["vol_skip_below_pctl"] = vol_skip_below_pctl
@@ -1276,6 +1333,13 @@ def main(argv: List[str]) -> int:
     p.add_argument("--skip-hours", default="",
                    help="M21 E-2 time-of-day entry lever (empty=off): CSV of UTC "
                         "hours whose SIGNAL bars never enter.")
+    p.add_argument("--flat-at-utc", default="", metavar="HH:MM",
+                   help="RQ-20260930-503 same-day-flat lever (empty=off): force-close an open "
+                        "position at the close of the last bar ending at or before HH:MM UTC of "
+                        "its entry day (reason day_flat; on 1h bars up to one bar early).")
+    p.add_argument("--no-entry-after-utc", default="", metavar="HH:MM",
+                   help="RQ-20260930-503 (empty=off): skip entries whose entry moment (close of "
+                        "the entry bar) is later than HH:MM UTC of its own day.")
     p.add_argument("--vol-skip-above-pctl", type=float, default=0.0,
                    help="M21 E-2 vol-at-entry (0=off): skip entries whose "
                         "signal-bar ATR trailing percentile exceeds this.")
@@ -1392,6 +1456,8 @@ def main(argv: List[str]) -> int:
                      be_floor_r=args.be_floor_r,
                      confirm_bars=args.confirm_bars,
                      skip_hours=args.skip_hours,
+                     flat_at_utc=args.flat_at_utc,
+                     no_entry_after_utc=args.no_entry_after_utc,
                      vol_skip_above_pctl=args.vol_skip_above_pctl,
                      vol_skip_below_pctl=args.vol_skip_below_pctl,
                      vol_pctl_window=args.vol_pctl_window,

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, for manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "read src/prop/prop_executor.py evaluate_guards for any current-price vs SL/TP check; journalctl of ict-prop-executor + ict-trader-live around a ticket's created_at for which ran first"
+  },
+  "state": "queued",
+  "what": "QUESTION: can the prop executor place a ticket whose price has already left [SL,TP]? It types a LIMIT at entry with no price-band check; only prop_invalidation_prompt (trader tick, scans `emitted`) removes such a ticket from executor intake. If the executor's 5-min tick reads the ticket before the trader's invalidation scan flips it, a long whose price is already below SL gets a marketable buy limit with a stop above market. INFERRED from code (prop_executor.evaluate_guards has no price check); not observed. Answer: measure the ordering of trader tick vs executor tick, and whether dxtrade rejects a bracket whose SL is on the wrong side of market."
+}

@@ -1,0 +1,14 @@
+# Daily extend-only candle refresh from Bybit linear (the venue of the history;
+# see docs/research/candle-feed-canonical-2026-09-30.md). Daily keeps the files
+# within ~1 day of now, well inside the 7-day freshness bar.
+# Install: sudo bash scripts/ops/install_trainer_candle_refresh.sh
+[Unit]
+Description=Daily trainer candle refresh
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

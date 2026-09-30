@@ -972,15 +972,19 @@ def test_modify_bracket_records_an_unknown_one_click_and_does_not_gate_on_it():
 
 # A measured-shape watchlist panel (header table naming Symbol/Bid/Ask, one
 # ``tr.instrument`` row -- the same selectors WATCHLIST_ROWS_JS/open_order_ticket
-# use) that FIND_INSTRUMENT_SEARCH_JS anchors on; the search input lives
-# inside it, same as the terminal's actual landing state (no order ticket).
+# use) that FIND_INSTRUMENT_SEARCH_JS anchors on, wrapped in the watchlist
+# WIDGET (``widget__container... widgetNew__container``) whose header holds
+# the ``placeholder="Symbol..."`` search input -- the shape MEASURED on the
+# live terminal 2026-09-30 (issue #14551). No order ticket, as on landing.
 INSTRUMENT_SEARCH_PAGE = """<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
-  <input id="watchlist-search" placeholder="Search instruments" type="text">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_1" type="text">
+</div>
 </div>
 <div id="details" style="display:none">
   <div>Symbol</div><div id="details-symbol"></div>
@@ -1029,12 +1033,14 @@ def test_probe_instrument_details_never_touches_the_order_ticket_symbol_input(ch
     # (BUY/SELL + its own symbol_input). The probe must find the search box
     # and must NEVER type into, or even tag, the ticket's symbol_input.
     chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
-  <input id="watchlist-search" placeholder="Search instruments" type="text">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_2" type="text">
+</div>
 </div>
 <div class="ticket">
   <input data-test-id="symbol_input" value="">
@@ -1045,7 +1051,7 @@ def test_probe_instrument_details_never_touches_the_order_ticket_symbol_input(ch
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "ETHUSD")
     assert res["searched"] is True
-    assert res["via"] == "text:search"
+    assert res["via"] == "placeholder+data-test-id"
     assert chromium_page.input_value("[data-test-id=symbol_input]") == ""
     assert chromium_page.evaluate(
         "document.querySelector('[data-test-id=symbol_input]').hasAttribute('data-metis-search-hit')") is False
@@ -1064,21 +1070,24 @@ def test_probe_instrument_details_reports_not_found_rather_than_guessing(chromiu
 
 
 def test_probe_instrument_details_refuses_an_ambiguous_search_field(chromium_page):
-    # Two candidates both matching "search": never guess which one.
+    # Two inputs both carrying the measured placeholder AND test-id: never guess which one.
     chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
-  <input id="s1" placeholder="Search instruments">
-  <input id="s2" placeholder="Search account history">
+  <input id="s1" placeholder="Symbol..." data-test-id="watchlist_public_search_3">
+  <input id="s2" placeholder="Symbol..." data-test-id="watchlist_public_search_4">
+</div>
 </div>
 </body></html>""")
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is False
     assert res["found"] is False
+    assert "need exactly 1" in res.get("why", "")     # refused for ambiguity, not a missing anchor
     assert chromium_page.input_value("#s1") == "" and chromium_page.input_value("#s2") == ""
     chromium_page.set_content(DIVGRID.read_text())
 
@@ -1119,24 +1128,27 @@ def test_instrument_details_dump_masks_only_digit_runs_of_five_or_more():
 
 
 def test_find_instrument_search_refuses_on_the_first_ambiguous_candidate_rather_than_falling_through(chromium_page):
-    # Two inputs both match the FIRST candidate ("search"); a third input
-    # uniquely matches a LATER candidate ("find symbol"). The ambiguity on
+    # Two inputs both match the FIRST candidate ("symbol..."); a third input
+    # uniquely matches a LATER candidate ("watchlist_public"). The ambiguity on
     # the first candidate must refuse outright -- never fall through to the
     # later, unambiguous candidate and guess that one instead.
     chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
-  <input id="s1" placeholder="Search instruments" type="text">
-  <input id="s2" placeholder="Search account history" type="text">
-  <input id="s3" aria-label="find symbol" type="text">
+  <input id="s1" placeholder="Symbol..." data-test-id="watchlist_public_search_5" type="text">
+  <input id="s2" placeholder="Symbol..." data-test-id="watchlist_public_search_6" type="text">
+  <input id="s3" data-test-id="watchlist_public_s3" type="text">
+</div>
 </div>
 </body></html>""")
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is False and res["found"] is False
+    assert "2 inputs have placeholder 'symbol...'" in res.get("why", "")
     assert chromium_page.input_value("#s1") == ""
     assert chromium_page.input_value("#s2") == ""
     assert chromium_page.input_value("#s3") == ""
@@ -1165,18 +1177,20 @@ def test_find_instrument_search_succeeds_with_zero_buy_buttons_when_the_watchlis
     # ticket, so 0 BUY buttons) must not block the probe when a measured
     # watchlist panel is present -- this is exactly what #14437 measured live.
     chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
-  <input id="watchlist-search" placeholder="Search instruments" type="text">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_7" type="text">
+</div>
 </div>
 </body></html>""")
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is True
-    assert res["via"] == "text:search"
+    assert res["via"] == "placeholder+data-test-id"
     chromium_page.set_content(DIVGRID.read_text())
 
 
@@ -1186,7 +1200,7 @@ def test_find_instrument_search_refuses_when_no_watchlist_table_is_measured(chro
     # admitting every input (the earlier BUY-count rule's own mistake, just
     # inverted: the fix must not become "admit everything when unsure").
     chromium_page.set_content("""<html><body>
-<input id="only-search" placeholder="Search instruments" type="text">
+<input id="only-search" placeholder="Symbol..." data-test-id="watchlist_public_search_8" type="text">
 </body></html>""")
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
@@ -1204,17 +1218,20 @@ def test_find_instrument_search_never_admits_an_input_outside_the_watchlist_pane
     # Containment must actually restrict, not just prove a matching string
     # exists somewhere on the page.
     chromium_page.set_content("""<html><body>
-<input id="global-search" placeholder="Search everything" type="text">
+<input id="global-search" placeholder="Symbol..." data-test-id="watchlist_public_search_9" type="text">
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
 </div>
+</div>
 </body></html>""")
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is False and res["found"] is False
+    assert res.get("n_candidate_inputs") == 0      # anchors resolved; the outside input is not eligible
     assert chromium_page.input_value("#global-search") == ""
     assert chromium_page.evaluate(
         "document.querySelector('#global-search').hasAttribute('data-metis-search-hit')") is False
@@ -1228,13 +1245,14 @@ def test_find_instrument_search_excludes_inputs_inside_any_order_panel_defense_i
     # though the "exactly 1 BUY button" precondition the earlier version
     # needed for this exclusion to work at all is gone.
     chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
   <div class="ticket-a">
-    <input id="ticket-search-a" placeholder="Search instruments" type="text">
+    <input id="ticket-search-a" placeholder="Symbol..." data-test-id="watchlist_public_search_10" type="text">
     <button data-test-id="BUY">Buy</button>
     <button data-test-id="SELL">Sell</button>
   </div>
@@ -1243,10 +1261,12 @@ def test_find_instrument_search_excludes_inputs_inside_any_order_panel_defense_i
     <button data-test-id="SELL">Sell</button>
   </div>
 </div>
+</div>
 </body></html>""")
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is False and res["found"] is False
+    assert "order" in res.get("why", "")
     assert chromium_page.input_value("#ticket-search-a") == ""
     assert chromium_page.evaluate(
         "document.querySelector('#ticket-search-a').hasAttribute('data-metis-search-hit')") is False
@@ -1282,14 +1302,16 @@ def test_find_instrument_search_resolves_the_true_watchlist_panel_even_when_a_po
       <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open P&L</th></tr></thead>
       <tbody><tr data-row-id="pos-1"><td>SOLUSD</td><td>Buy</td><td>0.01</td><td>-0.01</td></tr></tbody>
     </table>
-    <input id="wrong-search" placeholder="Search instruments" type="text">
+    <input id="wrong-search" placeholder="Symbol..." data-test-id="watchlist_public_search_11" type="text">
   </div>
+  <div class="widget__container___Ab1 widgetNew__container">
   <div class="watchlist-panel">
     <table>
       <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
       <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
     </table>
-    <input id="watchlist-search" placeholder="Search instruments" type="text">
+    <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_12" type="text">
+  </div>
   </div>
 </div>
 </body></html>""")
@@ -1300,7 +1322,7 @@ def test_find_instrument_search_resolves_the_true_watchlist_panel_even_when_a_po
     # not found. Succeeding, with exactly this one candidate, IS the proof
     # the panel resolved narrow.
     assert res["searched"] is True
-    assert res["via"] == "text:search"
+    assert res["via"] == "placeholder+data-test-id"
     assert chromium_page.input_value("#wrong-search") == ""
     chromium_page.set_content(DIVGRID.read_text())
 
@@ -1318,7 +1340,7 @@ def test_find_instrument_search_refuses_when_the_panel_also_holds_a_positions_or
     <thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Status</th></tr></thead>
     <tbody><tr><td>SOLUSD</td><td>Buy</td><td>0.01</td><td>Open</td></tr></tbody>
   </table>
-  <input id="watchlist-search" placeholder="Search instruments" type="text">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_13" type="text">
 </div>
 </body></html>""")
     a = DXtradeAdapter()
@@ -1340,7 +1362,7 @@ def test_find_instrument_search_refuses_when_the_panel_also_holds_a_positions_or
     <thead><tr><th>Side</th><th>Quantity</th><th>Status</th></tr></thead>
     <tbody><tr><td>Buy</td><td>0.01</td><td>Open</td></tr></tbody>
   </table>
-  <input id="watchlist-search" placeholder="Search instruments" type="text">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_14" type="text">
 </div>
 </body></html>""")
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
@@ -1350,18 +1372,43 @@ def test_find_instrument_search_refuses_when_the_panel_also_holds_a_positions_or
     chromium_page.set_content(DIVGRID.read_text())
 
 
+def test_find_instrument_search_refuses_when_the_widget_also_holds_a_positions_shaped_table(chromium_page):
+    # 2026-09-30 (PROP-ETH-DOM): containment widened from the grid panel to
+    # the watchlist WIDGET, so the widget gets the panel's own checks -- a
+    # positions/orders-shaped table anywhere in it refuses.
+    chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_15" type="text">
+  <div class="watchlist-panel">
+    <table>
+      <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
+      <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
+    </table>
+  </div>
+  <div class="other"><table><thead><tr><th>Side</th><th>Quantity</th><th>Status</th></tr></thead>
+    <tbody><tr><td>Buy</td><td>0.01</td><td>Open</td></tr></tbody></table></div>
+</div>
+</body></html>""")
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "BTCUSD")
+    assert res["searched"] is False and "widget also contains a positions/orders-shaped table" in res.get("why", "")
+    assert chromium_page.input_value("#watchlist-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
 def test_probe_instrument_details_never_fills_when_the_tag_count_is_not_exactly_one(chromium_page):
     # A stale data-metis-search-hit tag (as findings 3/5 describe) makes the
     # post-search tag count 2. Must refuse -- and must never reach the
     # .fill("") reset call on an element nobody verified as the search field.
     chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
-  <input id="watchlist-search" placeholder="Search instruments" type="text">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_16" type="text">
   <input id="stale" data-metis-search-hit="1" value="leftover">
+</div>
 </div>
 </body></html>""")
     a = DXtradeAdapter()
@@ -1378,12 +1425,14 @@ def test_probe_instrument_details_never_fills_when_the_tag_count_is_not_exactly_
 
 def test_probe_instrument_details_clears_its_tag_so_a_later_probe_is_not_blocked_by_a_stale_one(chromium_page):
     chromium_page.set_content("""<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
 <div class="watchlist-panel">
   <table>
     <thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>
     <tbody><tr class="instrument"><td>ETHUSD</td><td>2950.00</td><td>2950.50</td></tr></tbody>
   </table>
-  <input id="watchlist-search" placeholder="Search instruments" type="text">
+  <input id="watchlist-search" placeholder="Symbol..." data-test-id="watchlist_public_search_17" type="text">
+</div>
 </div>
 </body></html>""")
     a = DXtradeAdapter()

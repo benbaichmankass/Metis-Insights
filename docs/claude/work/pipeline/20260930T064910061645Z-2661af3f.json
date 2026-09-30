@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either scripts/sprint047/spot_margin_smoke.py is deleted and docs/runbooks/spot-margin.md section 6 is updated to remove the dead pointer, or the smoke test is repointed at whichever account (if any) actually carries market_type: spot-margin",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-EJ89Y6IE-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B08",
+    "rerun": "grep -n 'market_type' config/accounts.yaml | grep -A2 -B2 bybit_2 && sed -n '60,90p' scripts/sprint047/spot_margin_smoke.py"
+  },
+  "routed_to": "DOCS-DRIFT",
+  "state": "routed",
+  "what": "scripts/sprint047/spot_margin_smoke.py hard-requires accounts['bybit_2'].market_type == 'spot-margin' and SystemExits otherwise; config/accounts.yaml's own comment records bybit_2 migrated to market_type: linear on 2026-05-10, so the script has aborted at its first config-load step for every run since that date, yet docs/runbooks/spot-margin.md section 6 still cites it uncorrected as 'the testnet rehearsal', and the abort message ('Run T1 first') misleadingly implies a skipped setup step rather than a retired account topology."
+}
