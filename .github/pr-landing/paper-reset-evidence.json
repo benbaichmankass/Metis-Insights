@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only, no code, config or order-path change. It appends the pre-swap evidence to PI-20260930-3QNHBGND-0001: the old account's SPY stop fill 9fe49151 (8 @ 763.70, 2026-09-29T15:12:34Z), which is unreadable after the key swap, plus the last measurement of the 6 positions and 7 open rows. It also files the manager's non-blocking #14600 review follow-ups as a new pipeline item."
+}

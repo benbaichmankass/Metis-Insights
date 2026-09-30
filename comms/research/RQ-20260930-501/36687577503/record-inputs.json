@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20260930-501/36687577503/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20260930-501/36687577503",
+  "decision_rule_id": "RULE-RQ0930-501-HYRO-15M-BOOK-STAGE0",
+  "decision_rule_registered_at": "2026-09-30",
+  "measurement_file": "",
+  "min_rows": "1",
+  "n": "1597",
+  "note": "",
+  "population": "ict_scalp_eth_15m+ict_scalp_sol_15m+ict_scalp_xrp_15m ledger, 1828d, n=1597",
+  "power_state": "",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20260930-501",
+  "tool": "python3 scripts/research/hyro_fit_verdict.py",
+  "verdict": "pass"
+}

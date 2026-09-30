@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A committed evidence record for trend_donchian_eth_4h reports A_live_anchor vs B_forming net R with a bootstrap CI on Bybit 1m data (or >= 30 days of live closed-bar shadow decisions vs forming fills), and the leg is either flipped to decision_bar: closed or the flip is killed with the number.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-GQPT6PQF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane DONCHIAN-PARITY (session_01KjACh47AwiaCPSgQPT6PQF), dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30",
+    "rerun": "python3 scripts/research/donchian_closed_vs_forming_parity.py --fetch --klines-dir <dir> --out <json> --leg trend_donchian_eth_4h; compare arms A_live_anchor vs B_forming in the output."
+  },
+  "state": "queued",
+  "what": "[parity] trend_donchian_eth_4h stays on FORMING-bar evaluation (manager decision 2026-09-30, PR #14577). Population for every figure: Binance USD-M ETHUSDT 1m proxy for Bybit, 4h bars 2020-02..2026-09-28, config-exact leg, full cost stack (fee 7.5 + slippage 3.0 bps rt + funding 1.0/window), bars with a 200-bar live frame; single history, no bootstrap of these arms vs each other. Stage-0 closed n260 +63.00R; forming n383 +57.74R; closed-bar A_impl n255 +54.90R (stop re-anchored on the LATER fill, which live does not do); closed-bar A_live_anchor n263 +68.13R (SL/TP anchored on the signal close as live does; dR vs Stage-0 +5.13, 90% CI [-3.97,+15.52]). The hold rested on A_impl; on live semantics the closed arm leads forming by ~10R, unproven. Evidence: docs/research/evidence/donchian-live-stop-anchor-2026-09-30.json. Owed before any flip: (1) log-only shadow of the closed-bar decision beside live, (2) Bybit-1m re-replay, (3) direct bootstrap of A_live_anchor vs forming with a 2026 split. UPDATE 2026-09-30 (bootstrap DONE, same proxy/population; evidence docs/research/evidence/donchian-anchor-vs-forming-bootstrap-2026-09-30.json): A_live_anchor minus B_forming on eth_4h = +10.39R, month-block bootstrap 90% CI [-27.08,+45.91], MDE 55.4R (underpowered), ex-max-year (2022) -1.73R; 2026 only: anchor n33 +8.13R vs forming n37 +13.65R. Sign flips on the year filter and forming leads 2026, so no evidence to flip; the hold stands. Still owed: Bybit-1m re-replay and the log-only closed-bar shadow.",
+  "why_it_matters": "eth_4h is REAL MONEY on bybit_2 + bybit_portfolio; the closed-vs-forming answer for it is currently inside the noise (dR CI [-40,+32])."
+}

@@ -596,6 +596,11 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*exit_price[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ee]xit_price[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # close-stranded-journal-row: optional sl|tp — the row's own leg filled at the venue.
+            exit_kind=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*exit_kind[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ee]xit_kind[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -675,6 +680,7 @@ jobs:
           echo "ACTION_EQUAL_ONLY=${equal_only:-}" >>"$GITHUB_ENV"
           echo "ACTION_EXIT_PRICE=${exit_price:-}" >>"$GITHUB_ENV"
           echo "ACTION_ROW=${row_id:-}" >>"$GITHUB_ENV"
+          echo "ACTION_EXIT_KIND=${exit_kind:-}" >>"$GITHUB_ENV"
           echo ">>> Resolved ACTION=${action:-} REASON=${reason:-} ACCOUNT_ID=${account_id:-} MODE=${mode:-} TRADE_ID=${trade_id:-} SYMBOL=${symbol:-} DAYS=${days:-} WINDOWS=${windows:-} WINDOW_DAYS=${window_days:-} BT_MODE=${bt_mode:-} RECENT_ONLY_FRAC=${recent_only_frac:-} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
@@ -1218,6 +1224,17 @@ jobs:
               echo "::error::close-stranded-journal-row exit_price '${ACTION_EXIT_PRICE}' must be a non-negative number."
               exit 1
             fi
+            if [ -n "${ACTION_ROW:-}" ] && ! printf '%s' "${ACTION_ROW}" | grep -Eq '^[0-9]+$'; then
+              echo "::error::close-stranded-journal-row row '${ACTION_ROW}' must be a journal trade id (digits only)."
+              exit 1
+            fi
+            case "${ACTION_EXIT_KIND:-}" in
+              ""|sl|tp) ;;
+              *)
+                echo "::error::close-stranded-journal-row exit_kind must be sl or tp (got '${ACTION_EXIT_KIND}')."
+                exit 1
+                ;;
+            esac
           fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
@@ -1755,7 +1772,7 @@ jobs:
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_ROW=$(printf '%q' "${ACTION_ROW:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "close-stranded-journal-row" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ACTION_ROW=$(printf '%q' "${ACTION_ROW:-}") ACTION_EXIT_KIND=$(printf '%q' "${ACTION_EXIT_KIND:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reconcile-orphan-history" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
