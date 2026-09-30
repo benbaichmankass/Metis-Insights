@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/runtime/order_monitor.py and src/runtime/close_wedge_standing.py are the live order monitor's close and re-arm paths, including for the real-money alpaca_live account. Dispatched by the manager (session_01HYq6XtfesZ57VyaQrK6CL1) to lane ALPACA-CLOSE-WEDGE as a HELD PR, independently reviewed and merged by the manager. What changes on the order path: (1) PI-20260930-ZIFJ1RKM-0004: when the equity sweep's breach exit gets 'extended-hours limit close working' back, _exit_alpaca_row now returns 'working' instead of 'deferred'. The sweep and the top-up then place NOTHING over the working close-limit (before, the re-arm's _scoped_rearm_cancel cancelled it and POSTed an OCO), and the key is marked actively closing. (2) PI-20260930-ZIFJ1RKM-0005: a close failure that re-evidences an already-standing unclearable wedge refreshes the ledger's last_seen via the new close_wedge_standing.touch_standing, so wedge suppression resumes after 1 re-probe instead of 3. touch_standing never classifies a transition and never pages; paging stays on the unchanged alert path. No new order type; nothing new is placed or cancelled. Revert: git revert of the merge commit.",
+  "why": "PI-20260930-ZIFJ1RKM-0004 (the sweep's breach exit re-arms over its own working extended-hours close-limit) and -0005 (wedge-ledger refresh coupled to the alert streak: 3 cancel-and-place rounds per closed-session exit). Both root-caused from code and live journals on 2026-09-30."
+}

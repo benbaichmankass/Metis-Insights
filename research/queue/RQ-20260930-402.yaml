@@ -1,6 +1,6 @@
 id: RQ-20260930-402
 title: M19 S2-exit REFINE re-run — is XRP's positive exit-head result (RQ-20260929-401, 2026 fold) persistent on the 2025 fold?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -162,3 +162,26 @@ related:
   - RQ-20260927-001 (the one prior out-of-sample exit-head pass, trend_donchian BTC 1h)
   - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S2-exit)
   - checklist row M19-S2EXIT
+last_dispatched_at: '2026-09-30T09:02:07+00:00'
+grading:
+  graded_at: '2026-09-30'
+  graded_by: lane M19-S2EXIT-XRP3 (session_01LKkJDVYVLZ6GouLTikn8zV, manager session_01HYq6XtfesZ57VyaQrK6CL1)
+  verdict: fail
+  record: research/results/RQ-20260930-402/session_01LKkJDVYVLZ6GouLTikn8zV-rq20260930-402.jsonl
+  disposition: >-
+    REGISTERED-RULE VERDICT, as printed by the committed grader (exit_head_final_fold_grade.py
+    --rule single-leg --expect-year 2025, unmodified, floor 64): FAIL. XRP 2025 fold n_oos 108
+    (>= 64, n_cost_checked 108, replay reproduced the trainer's fold, worst cost gap 5.0e-06 R);
+    recovered_R_oos -6.1584 R (<= 0). Per the unit's rule, XRP's 2026 positive (+0.2102 R,
+    RQ-20260929-401) is NOT persistent, so the S2-exit lever narrows to trend_donchian
+    (post-mortem section 4). No threshold, window, floor or statistic was changed, and no
+    consequence beyond the unit's own text is drawn: this flips no exit and promotes no head.
+    Family status: RQ-20260929-401 stays indeterminate (REFINE) as graded; this re-run resolves
+    its REFINE for the one positive leg, and SOL/ETH (negative in 2026) were not re-scored.
+  read_with_care: >-
+    The two folds differ in shape. 2025: baseline +4.77 R, head net -1.39 R (head gives up 6.16 R;
+    gross recovered -1.18 R, and 69 early exits paid 4.98 R of round-trip cost plus exit fee).
+    2026: both arms negative and the head lost less. So the head has not been positive on this leg
+    on either fold on a like-for-like basis. The 2025 booster trains on fewer years than 2026
+    (known limitation, stated at registration), so part of a FAIL is a smaller-training-set result.
+  evidence: 'trainer-vm-diag issues #14652 (preflight), #14659 (round-dir copy + stale-file delete + replay + grade)'

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "#5912 reads closed with a TP/SL/strategy close reason, OR the alpaca_portfolio broker positions read (diag broker positions / alpaca connector) shows no TLT position and the row is reconciled.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-K7U61JJU-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane STAGE2-MIRROR session_012Q62RPzq1M36Ruk7u61jJu, 2026-09-30, while measuring PI-20260930-K7U61JJU-0001",
+    "rerun": "scripts/ops/diag_fetch.sh 'journal?table=trades&limit=1000' | python3 -c \"import json,sys;[print(r['id'],r['status'],r['exit_reason']) for r in json.load(sys.stdin) if r['id']==5912]\""
+  },
+  "routed_to": "lane ALPACA-CLOSE-WEDGE (session_01LLCqwwDGQM7BZMZifj1rkM) — measured, disposition (b); confirms the terminal_reason",
+  "state": "killed",
+  "terminal_reason": "not a bug: LIVE-NO-TRADES (session_01XEHP2RTP24AZWSQZSE4AMA) established on 2026-09-30 that the alpaca_portfolio TLT 738 and IEF shorts are managed positions with broker-side protection, not orphans; the roster cut ends new entries, not management of open ones | CONFIRMED by measurement 2026-09-30 ~09:55Z (lane ALPACA-CLOSE-WEDGE): broker short 738 TLT with resting OCO stop 81.18 / TP 73.38; order monitor manages pkg-dfe2ec1e82fd46c8; naked sweep covers it (stop_resting 9/9).",
+  "what": "alpaca_portfolio journal row #5912 tlt_pullback_1d TLT SHORT 738 sh @81.445, opened 2026-09-18T13:31Z, reads status=open on /api/diag/journal at 2026-09-30 ~05:55Z. That is 8 days after tlt_pullback_1d was cut from alpaca_portfolio's roster (#12687, 2026-09-22), and the leg also left alpaca_live (A6, 2026-09-21). Unverified: whether the broker still holds it and whether the order monitor still manages its exit for a leg on no roster. If it is open, it carries short P&L in the mirror's account-level aggregate (paperPortfolio block). It does NOT enter any roster leg's Gate-2 per-leg read. | MEASURED 2026-09-30 09:53–09:56Z by lane ALPACA-CLOSE-WEDGE (session_01LLCqwwDGQM7BZMZifj1rkM, routed by the manager): DISPOSITION (b), broker HOLDS the short WITH a resting stop; not an orphan, not journal drift. diag alpaca_open_orders?account_id=alpaca_portfolio: position TLT sell 738 @81.428238, unrealised +$2,124.14 (mark ~78.55). Resting GTC OCO: TP buy-limit d40cf5b0 @73.38 (new, 2026-09-18T13:37Z) + stop buy df5eb64d @81.18 (held, re-submitted 2026-09-29T17:07Z, i.e. trailed below the 81.445 entry); the stop is ~2.6 above the mark, not breached. Journal trades #5912: status open, 738 sh short @81.445, stop_loss 81.18035714 (= the broker stop), take_profit_1 73.381945, order_package_id pkg-dfe2ec1e82fd46c8, strategy tlt_pullback_1d. MANAGED BY: the order monitor still evaluates tlt_pullback_1d on pkg-dfe2ec1e82fd46c8 every ~30 s (journalctl 09:45–09:53Z: verdict={'sl': 81.14535714}); the roster cut ends new entries, not management of open packages. SWEEP: _check_broker_naked_equity_positions selects every open Alpaca trade regardless of roster (SELECT … FROM trades WHERE status='open'), so #5912 is in its population; last summaries read checked=9, stop_resting=9, broker_naked=0. Minor, not a defect claim: the live verdict sl 81.145 is 3.5c tighter than the resting 81.18 and has not been amended in the window read; unexplained, not investigated.",
+  "why_it_matters": "A position the journal marks open with no roster leg behind it is either an orphan the exit path no longer manages, or journal drift from broker truth. Either way it distorts the mirror's account-level P&L."
+}

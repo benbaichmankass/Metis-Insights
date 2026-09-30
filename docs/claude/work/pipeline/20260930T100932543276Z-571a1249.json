@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "An evidenced-unclearable close failure refreshes the wedge ledger on the first failure, whatever the alert streak, with a test pinning it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-ZIFJ1RKM-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ALPACA-CLOSE-WEDGE session_01LLCqwwDGQM7BZMZifj1rkM; follow-up to #14585 deploy observation (manager session_01HYq6XtfesZ57VyaQrK6CL1)",
+    "rerun": "grep -n 'observe(Observation' src/runtime/execution_diagnostics.py; grep -n 'if _should_alert_close_failure(_close_key, _streak):' -A12 src/runtime/order_monitor.py | grep -c enqueue_close_failure  # observe only in route_close_failure AND enqueue only under the alert gate = still coupled. Live check: journalctl?unit=ict-trader-live since 08:00Z on a pre-market day: >1 'close RE-PROBE of a standing wedge' for one key before the first 'SUPPRESSED' = still churning"
+  },
+  "state": "done",
+  "terminal_reason": "Fixed by #14643 (b721524f) and OBSERVED on the live trader 2026-09-30 10:04:42–10:05:10Z: one re-probe then SUPPRESSED with the ledger refreshed on the first failure (streak 1), 0 alerts.",
+  "what": "[money-path, churn] The standing-wedge ledger refresh is coupled to the operator-ALERT streak, so suppression resumes only after 3 broker-hitting close attempts in a row. Code: close_wedge_standing.observe() is called only from execution_diagnostics.route_close_failure. That is reached only via enqueue_close_failure, which order_monitor._apply_update calls only when _should_alert_close_failure(_close_key, streak) is true: first at MONITOR_CLOSE_FAIL_ALERT_AFTER (default 3), then on its backoff. A market-session defer calls _clear_close_fail_alert_state, which resets the streak, so every closed session restarts the count. MEASURED 2026-09-30 on the live trader (pid 878425, alpaca_paper/GLD pkg-6a8e3fb325464be3), at the 08:00Z pre-market transition. Re-probes at 08:02:06, 08:02:22 and 08:02:51 each still read 'last observed 519 min ago'. Each ran _close_extended_hours: cancel the OCO, POST a 39-share limit, a ~6 s wait, then fail with share_hold broker_cancel_wedged / cancel_accepted_ineffective. Only after the 3rd did 08:03:21 read 'SUPPRESSED … observed 0.3min ago; next probe in 59.7min'. Cost: 2 extra cancel-and-place rounds per closed-session exit on every evidenced wedge. The re-arm sweep also saw 'active close in flight' at 08:02:59. Fix direction: call observe() for every close failure that carries an unclearable share_hold, independent of the alert gate. Keep PAGING on the streak; decouple the LEDGER refresh from it. Tier-2 order-path, to be a HELD PR with a test. | FIXED by #14643 (merged b721524f ~09:16Z; deployed: VM git_sha d2632c873 contains b721524f). OBSERVED 2026-09-30 on alpaca_paper GLD pkg-6a8e3fb325464be3 (account not swapped; position 39 long + OCO 2e843e04/891ddff0 unchanged): the hourly re-probe at 10:04:42Z ran the extended-hours close, failed at 10:04:52Z (share_hold=cancel_accepted_ineffective), and the NEXT tick 10:05:10Z read 'SUPPRESSED … observed 0.3min ago' — ONE attempt, 0 alert lines. DISCRIMINATING: the probing process started after the 09:22:46Z restart and made no GLD re-probe between 09:20 and 10:03Z, so its in-memory streak was 1 at this failure; the old code refreshed the ledger only via the alert gate (first at streak 3) and would have re-probed at 10:05:10Z."
+}

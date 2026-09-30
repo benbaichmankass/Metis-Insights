@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager: the smallest change that lets the existing READ-ONLY breakout-login-check run against Tradeify 247 (manager routine 09:25Z; operator: \"tradeify account purchased and secretes added - lets verify the login\"). Touches a system-action wrapper and the secrets propagation list. breakout_1 unchanged.",
+  "why": "Adds TRADEIFY_DX_USERNAME/PASSWORD to sync-vm-secrets (optional), a tradeify_1 entry in prop_platforms.yaml (explicit login_url https://dx.tradeify247.co/, nothing enabled), and lets breakout-login-check export a non-breakout account's OWN credential names from that entry. For any account but breakout_1 every executor mode and reset-feed are refused, so the only thing it can do is the read-only login check."
+}

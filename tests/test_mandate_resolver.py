@@ -930,3 +930,31 @@ def test_snapshot_writer_round_trips_the_diag_shape(tmp_path):
     bad["accounts"][0]["available_margin"] = {"could_not_look": True}
     with pytest.raises(SystemExit):
         snapw.build(bad, "alpaca_live")   # never writes a number it did not read
+
+
+def test_afford_rejects_a_future_dated_snapshot(repo):
+    """A captured_at ahead of now would have a negative age and never go stale."""
+    snap = _snapshot("alpaca_live", 1e6, age_days=-2)
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")
+    assert "future" in res["detail"]
+    # Within the 1h skew allowance it is still a reading (positive control).
+    ok = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                    snapshots={"bybit_2": 100_000.0,
+                               "alpaca_live": _snapshot("alpaca_live", 1e6, age_days=-0.5 / 24)}),
+               leg=EQ_LEG, account="alpaca_live")
+    assert ok["verdict"] == "FIRE", ok
+
+
+@pytest.mark.parametrize("field", ["equity_usd", "buying_power_usd"])
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_afford_rejects_non_finite_equity(repo, field, bad):
+    """json accepts NaN/Infinity; an infinite equity would size anything."""
+    snap = _snapshot("alpaca_live", 1e6)
+    snap[field] = bad
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")

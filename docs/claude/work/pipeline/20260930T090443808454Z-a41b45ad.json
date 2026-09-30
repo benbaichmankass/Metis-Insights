@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "journalctl -u ict-candle-refresh.service shows a run at ~03:2x UTC on 2026-10-01 with Result=success, and the SOL/XRP/ETH 15m files' last bar is within 1 day of that run with row counts >= the 2026-09-30 counts (173892 / 188734 / 194436)",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-DVZQD9II-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "lane CANDLE-REFRESH, close of PI-20260929-FCJRWVAK-0002",
+    "rerun": "trainer-vm-diag: `systemctl list-timers ict-candle-refresh.timer --no-pager; journalctl -u ict-candle-refresh.service --since -30h --no-pager | tail -20; cd /home/ubuntu/ict-trading-bot; for S in SOLUSDT XRPUSDT ETHUSDT; do echo $S $(($(wc -l < data/${S}_15m.csv)-1)) $(tail -1 data/${S}_15m.csv | cut -d, -f1); done`"
+  },
+  "routed_to": null,
+  "state": "queued",
+  "what": "OBSERVE the first UNATTENDED fire of ict-candle-refresh.timer on the trainer. Installed 2026-09-30; both fires so far were manual `systemctl start` (trainer-vm-diag #14653, #14656). Next scheduled fire 2026-10-01 03:28:50 UTC."
+}
