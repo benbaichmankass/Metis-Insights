@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Follow-up to #14543 from the manager's independent review: R-AFFORD rejects a future-dated or non-finite equity snapshot (NEEDS-DATA). Tightens only. Stacked on #14543; restarted onto main once it lands.",
+  "why": "Manager review of #14543 (2026-09-30 05:53Z): a future captured_at never went stale (negative age), and NaN/Infinity passed _num."
+}
