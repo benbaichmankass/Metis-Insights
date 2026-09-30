@@ -20,6 +20,13 @@ test_deploy_pull_restart_enumeration.py) and pin:
 5. watchdog timer active     -> ict-liveness-watchdog.service restarted.
 6. the marker path in deploy_pull_restart.sh equals _lib.sh's, and each
    lifecycle script writes / clears it.
+
+GITSYNC-REVIVE (second half): the marker only covers a stop made THROUGH
+stop_bot.sh. A long-running unit (Type != oneshot) that is ``inactive`` or
+``deactivating`` after having run since boot was stopped by someone, marker or
+not, and is now held with a logged cause. Pinned below with the three states
+that must still be (re)started: ``failed`` (crash recovery), never-active-
+since-boot (a newly installed unit), and any unreadable ``systemctl show``.
 """
 from __future__ import annotations
 
@@ -96,6 +103,8 @@ esac
     # Per-unit is-active answers; a missing file means "active".
     state_dir = tmp_path / "state"
     state_dir.mkdir()
+    show_dir = tmp_path / "show"
+    show_dir.mkdir()
     restart_log = tmp_path / "restart.log"
     _make_stub(
         bindir / "systemctl",
@@ -110,6 +119,9 @@ case "$1" in
   is-active)
     if [ -f "{state_dir}/$2" ]; then s=$(cat "{state_dir}/$2"); else s=active; fi
     echo "$s"; [ "$s" = active ] ;;
+  show)
+    # show -p <Prop> <unit>; a missing file prints nothing (unreadable).
+    [ -f "{show_dir}/$4.$3" ] && echo "$3=$(cat "{show_dir}/$4.$3")" ;;
   *) exit 0 ;;
 esac
 """,
@@ -120,6 +132,9 @@ esac
     def set_state(unit: str, state: str) -> None:
         (state_dir / unit).write_text(state)
 
+    def set_show(unit: str, prop: str, value: str) -> None:
+        (show_dir / f"{unit}.{prop}").write_text(value)
+
     return {
         "repo": repo,
         "deploy": deploy_copy,
@@ -127,6 +142,7 @@ esac
         "restart_log": restart_log,
         "marker": repo / "runtime_logs" / "trader_operator_stop.json",
         "set_state": set_state,
+        "set_show": set_show,
     }
 
 
@@ -340,3 +356,78 @@ def test_pull_and_deploy_does_not_start_an_already_active_trader(wrapper):
     res = _run_wrapper(wrapper)
     assert res.returncode == 0, res.stdout + res.stderr
     assert not wrapper["starts"].exists()
+
+
+# ---------------------------------------------------------------------------
+# GITSYNC-REVIVE: generic hold for a stopped long-running unit (no marker).
+# ---------------------------------------------------------------------------
+
+def _long_running(fake, unit: str, state: str, entered: str = "123456789") -> None:
+    fake["set_state"](unit, state)
+    fake["set_show"](unit, "Type", "simple")
+    fake["set_show"](unit, "ActiveEnterTimestampMonotonic", entered)
+
+
+def test_raw_systemctl_stop_of_trader_without_marker_is_held(fake):
+    """The measured 2026-09-27 revive, reached without stop_bot.sh's marker."""
+    _long_running(fake, TRADER, "inactive")
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    restarted = _restarted(fake)
+    assert TRADER not in restarted, res.stdout
+    assert "ict-web-api.service" in restarted
+    assert f"hold {TRADER} (unit is 'inactive' after running since boot" in res.stdout
+
+
+def test_any_stopped_long_running_unit_is_held_and_the_rest_still_deploy(fake):
+    _long_running(fake, "ict-web-api.service", "inactive")
+    fake["set_show"](TRADER, "Type", "simple")
+    fake["set_show"](TRADER, "ActiveEnterTimestampMonotonic", "5")
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    restarted = _restarted(fake)
+    assert "ict-web-api.service" not in restarted, res.stdout
+    assert TRADER in restarted  # active: still redeployed onto new code (BL-20260714)
+    assert "hold ict-web-api.service" in res.stdout
+
+
+def test_a_stop_in_progress_is_held(fake):
+    _long_running(fake, TRADER, "deactivating")
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert TRADER not in _restarted(fake), res.stdout
+    assert "unit is 'deactivating'" in res.stdout
+
+
+def test_failed_long_running_unit_is_still_revived(fake):
+    """A crash is not a stop: crash recovery is kept."""
+    _long_running(fake, TRADER, "failed")
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert TRADER in _restarted(fake)
+
+
+def test_never_active_since_boot_unit_is_started(fake):
+    """install_systemd_units.sh never starts services; this loop is what first
+    brings a newly installed long-running unit up. That must not be lost."""
+    _long_running(fake, "ict-web-api.service", "inactive", entered="0")
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "ict-web-api.service" in _restarted(fake)
+
+
+def test_oneshot_behaviour_is_unchanged(fake):
+    fake["set_state"](WATCHDOG, "inactive")
+    fake["set_show"](WATCHDOG, "Type", "oneshot")
+    fake["set_show"](WATCHDOG, "ActiveEnterTimestampMonotonic", "99")
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert WATCHDOG in _restarted(fake)
+
+
+def test_unreadable_show_falls_back_to_restart(fake):
+    """A flaky systemctl read must never strand a unit on stale code."""
+    fake["set_state"](TRADER, "inactive")  # no show files at all
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert TRADER in _restarted(fake)

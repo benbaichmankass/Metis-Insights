@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Deploy-script change (scripts/deploy_pull_restart.sh, run by ict-git-sync every ~5 min on the live VM). Tier 2 by the lane brief: landed as a HELD PR; the manager has it reviewed and merges. Deliberately not armed for auto-merge.",
+  "why": "GITSYNC-REVIVE / PI-20260927-YDVVYLKH-0002 second half: the deploy restart loop no longer STARTS a long-running ict-* unit that someone stopped (inactive/deactivating after running since boot), marker or not. Crash recovery (failed), new-unit bring-up (never active since boot), oneshots and unreadable reads keep the historical restart. Adds no stop of any kind."
+}

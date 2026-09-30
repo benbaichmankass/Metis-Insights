@@ -490,6 +490,47 @@ WATCHDOG_ONESHOT="ict-liveness-watchdog.service"
 WATCHDOG_TIMER="ict-liveness-watchdog.timer"
 
 # ---------------------------------------------------------------------------
+# GITSYNC-REVIVE (PI-20260927-YDVVYLKH-0002, second half): the marker above only
+# covers a trader stopped THROUGH stop_bot.sh. A raw `systemctl stop` of the
+# trader, or of any other long-running unit (ict-web-api, ict-telegram-bot, ...),
+# left no marker, and the `systemctl restart` below still started it within
+# ~5 min. `systemctl try-restart` alone would also stop this script starting a
+# NEW long-running unit (install_systemd_units.sh never starts services; this
+# loop is what first brings one up) and would drop crash recovery, so the hold
+# is narrower than that. A unit is held -- skipped, with the cause logged --
+# only when ALL of these read true:
+#   - it is long-running (Type is not oneshot). Oneshots read "inactive" after
+#     every clean run, so their state says nothing about a stop; their
+#     behaviour here is unchanged.
+#   - it is "inactive" (cleanly stopped) or "deactivating" (a stop in
+#     progress). "failed" is NOT held: that is a crash, revived as before.
+#     With Restart=always a clean exit reads "activating", not "inactive".
+#   - it has been active since boot (ActiveEnterTimestampMonotonic != 0). A
+#     unit that never ran since boot is newly installed (or failed at boot),
+#     and is started as before.
+# Any unreadable field falls back to the historical restart, so a flaky
+# systemctl read never strands a unit on stale code. This adds no stop of any
+# kind (Prime Directive): it only stops the DEPLOY overriding a human stop.
+# ---------------------------------------------------------------------------
+deliberate_stop_cause() {
+    local unit="$1" state utype entered
+    state="$("${SYSTEMCTL[@]}" is-active "${unit}" 2>/dev/null || true)"
+    case "${state}" in
+        inactive|deactivating) ;;
+        *) return 1;;
+    esac
+    utype="$("${SYSTEMCTL[@]}" show -p Type "${unit}" 2>/dev/null | cut -d= -f2- || true)"
+    if [ -z "${utype}" ] || [ "${utype}" = "oneshot" ]; then
+        return 1
+    fi
+    entered="$("${SYSTEMCTL[@]}" show -p ActiveEnterTimestampMonotonic "${unit}" 2>/dev/null | cut -d= -f2- || true)"
+    case "${entered}" in
+        ''|0|*[!0-9]*) return 1;;
+    esac
+    printf "unit is '%s' after running since boot (Type=%s) — stopped by someone, not crashed" "${state}" "${utype}"
+}
+
+# ---------------------------------------------------------------------------
 # JC-CA-05 (docs/audits/code-audit-2026-09-27.md §6, `CA-A10-300`, operator
 # decision 2026-09-28: "Loud alert, manual" — option B only).
 #
@@ -593,6 +634,10 @@ for unit in "${ICT_UNITS[@]}"; do
             echo ">>>   skip ${unit} (${WATCHDOG_TIMER} is '${wd_timer_state:-unknown}' — autoheal paused; not re-running the watchdog)"
             continue
         fi
+    fi
+    if stop_cause="$(deliberate_stop_cause "${unit}")"; then
+        echo ">>>   hold ${unit} (${stop_cause}) — a deploy never starts a stopped unit; start it explicitly (start/restart-bot-service, pull-and-deploy, or systemctl start)."
+        continue
     fi
     if "${SYSTEMCTL[@]}" restart "${unit}"; then
         echo ">>>   restarted ${unit}"
