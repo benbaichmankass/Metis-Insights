@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager dispatch 2026-09-30 09:25Z: 'Build ONLY the Tier-1 probe extension ... on a new branch with its own held PR.' The manager reviews the head SHA and merges; the operator buys the proxy only AFTER it is merged.",
+  "why": "CI-only measurement tooling: an optional, fail-closed proxy for the landing-only Chromium probe (secret EGRESS_PROBE_PROXY, never printed), the PASS rule evaluated by the script, and tests proving the secret never reaches stdout or the result file and that a failed proxy never falls back to the direct route. No VM, no live path, no trading credential, nothing typed or clicked. Workflow permissions: contents read, actions read."
+}
