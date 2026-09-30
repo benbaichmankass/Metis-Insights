@@ -89,10 +89,13 @@ class _Ctx:
         self.w = world
 
     def new_page(self):
+        if self.w.new_page_error:
+            raise self.w.new_page_error
         return _Page(self.w)
 
     def close(self):
-        pass
+        if self.w.ctx_close_error:
+            raise self.w.ctx_close_error
 
 
 class _Browser:
@@ -100,10 +103,13 @@ class _Browser:
         self.w = world
 
     def new_context(self, **kw):
+        if self.w.new_context_error:
+            raise self.w.new_context_error
         return _Ctx(self.w)
 
     def close(self):
-        pass
+        if self.w.browser_close_error:
+            raise self.w.browser_close_error
 
 
 class _Chromium:
@@ -131,6 +137,7 @@ class _PW:
 class World:
     def __init__(self):
         self.launches, self.navigations, self.routes, self.launch_error = [], [], {}, None
+        self.new_context_error = self.new_page_error = self.ctx_close_error = self.browser_close_error = None
 
 
 def served():
@@ -240,13 +247,17 @@ def test_a_page_title_that_echoes_the_proxy_is_masked(world, monkeypatch, tmp_pa
 
 
 @pytest.mark.parametrize("bad", ["garbage-value-xyz", f"socks5://{USER}:{PW}@{HOST}:{PORT}"])
-def test_malformed_secret_never_runs_and_is_not_echoed(world, monkeypatch, tmp_path, capsys, bad):
+def test_malformed_secret_never_runs_is_not_echoed_and_leaves_a_failing_result(world, monkeypatch, tmp_path, capsys, bad):
     code, text, out = run_main(monkeypatch, tmp_path, capsys, bad)
     assert code == 2
     assert "proxy_format_invalid:" in text
     assert "garbage-value-xyz" not in text
     assert_clean(text)
-    assert world.launches == [] and world.navigations == [] and not out.exists()
+    assert world.launches == [] and world.navigations == []
+    r = json.loads(out.read_text())  # a malformed secret must not read as "no run happened"
+    assert r["via_proxy"] is True and r["proxy_state"] == "format_invalid" and r["app_pass"] is False
+    assert "garbage-value-xyz" not in out.read_text()
+    assert_clean(out.read_text())
 
 
 def test_success_through_the_proxy_records_org_and_passes(world, monkeypatch, tmp_path, capsys):
@@ -292,6 +303,57 @@ def test_schedule_is_gated(world, monkeypatch, tmp_path, capsys):
     code = probe.main(["--out", str(tmp_path / "r.json")])
     text = capsys.readouterr().out
     assert code == 0 and "schedule_expired" in text and world.launches == []
+
+
+# ---------------------------------------------------------------- review findings (uncaught errors, org lookup)
+@pytest.mark.parametrize("where", ["new_context_error", "new_page_error", "ctx_close_error", "browser_close_error"])
+def test_errors_outside_the_try_blocks_never_print_the_proxy(world, monkeypatch, tmp_path, capsys, where):
+    """A Chromium crash surfaces outside the PlaywrightError handlers; the raw traceback would echo
+    --proxy-server=host:port. Host is shouted in UPPER case on purpose (scrub is case-insensitive)."""
+    world.routes["https://ipinfo.io/org"] = {"body": ORG}
+    world.routes[APP] = served()
+    world.routes[WSS] = served()
+    setattr(world, where, RuntimeError(f"Chromium crashed: --proxy-server={HOST.upper()}:{PORT} user={USER.upper()} pw={PW}"))
+    code, text, out = run_main(monkeypatch, tmp_path, capsys, RAW_URL)
+    assert code == 1, text
+    assert "error: unexpected failure (RuntimeError)" in text
+    assert "Traceback" not in text
+    for bit in (HOST, HOST.upper(), USER, USER.upper(), PW, RAW_URL):
+        assert bit not in text and bit not in out.read_text()
+    r = json.loads(out.read_text())  # the crash leaves a FAILING proxy-mode result, never nothing
+    assert r["via_proxy"] is True and r["proxy_state"] == "error" and r["app_pass"] is False
+
+
+def test_scrub_is_case_insensitive():
+    spec = probe.parse_proxy(RAW_URL)
+    assert probe.scrub(f"{HOST.upper()} {USER.upper()} {PW.upper()} {HOST.title()}", spec.secrets()).count(probe.MASK) == 4
+
+
+def test_launch_failure_in_proxy_mode_stores_an_error_result(world, monkeypatch, tmp_path, capsys):
+    world.launch_error = FakeError(f"launch failed for {RAW_URL}")
+    code, text, out = run_main(monkeypatch, tmp_path, capsys, RAW_URL)
+    r = json.loads(out.read_text())
+    assert code == 1 and r["proxy_state"] == "error" and r["via_proxy"] is True
+    assert_clean(out.read_text())
+
+
+def test_a_429_from_the_org_lookup_is_org_unreadable_not_ok(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = {"status": 429, "body": "Too Many Requests"}
+    world.routes[APP] = served()
+    world.routes[WSS] = served()
+    code, text, out = run_main(monkeypatch, tmp_path, capsys, RAW_URL)
+    r = json.loads(out.read_text())
+    assert code == 0 and r["proxy_state"] == "org_unreadable" and r["egress_org"] == "unknown" and r["app_pass"] is False
+    assert "org_lookup_http_429" in text
+    assert world.navigations.count("https://ipinfo.io/org") == 2  # one retry, then give up
+
+
+def test_an_org_lookup_that_returns_an_error_page_is_org_unreadable(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = {"status": 200, "body": "<html>Access denied</html>"}
+    world.routes[APP] = served()
+    world.routes[WSS] = served()
+    _, _, out = run_main(monkeypatch, tmp_path, capsys, RAW_URL)
+    assert json.loads(out.read_text())["proxy_state"] == "org_unreadable"
 
 
 # ---------------------------------------------------------------- the PASS rule
@@ -354,6 +416,46 @@ def test_evaluate_cli_reads_a_directory(tmp_path, capsys):
     assert probe.main(["--evaluate", str(tmp_path / "nope")]) == 2
 
 
+def test_a_failed_workflow_run_between_passes_is_a_fail():
+    """A crash writes no result file, so three passes AROUND it must not read as PASS."""
+    crash = (T0 + timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert probe.evaluate([rec(0), rec(61), rec(125)], now=NOW, failed_runs=[crash])[0] == "FAIL"
+    assert probe.evaluate([rec(0), rec(61), rec(125)], now=NOW)[0] == "PASS"
+    late = (T0 + timedelta(minutes=300)).strftime("%Y-%m-%dT%H:%M:%SZ")  # after the PASS was reached
+    assert probe.evaluate([rec(0), rec(61), rec(125)], now=T0 + timedelta(hours=6), failed_runs=[late])[0] == "PASS"
+
+
+@pytest.mark.parametrize("state", ["error", "format_invalid", "proxy_unreachable", "run_failed"])
+def test_any_non_ok_state_ends_the_route(state):
+    assert probe.evaluate([rec(0), rec(61, state=state, ok=False), rec(125)], now=NOW)[0] == "FAIL"
+
+
+def test_org_unreadable_is_inconclusive_not_a_pass_and_not_a_fail():
+    v, why = probe.evaluate([rec(0), rec(61, state="org_unreadable", ok=False, org="unknown"), rec(125), rec(190)], now=NOW)
+    assert v == "PASS"  # passes at 0, 125, 190 (all >= 1 h apart); the unreadable run did not count either way
+    v, why = probe.evaluate([rec(0), rec(61, state="org_unreadable", ok=False, org="unknown")], now=NOW)
+    assert v == "PENDING" and "inconclusive" in why[0]
+
+
+def test_evaluate_cli_counts_failed_runs_and_refuses_an_unreadable_failed_file(tmp_path, capsys):
+    now = datetime.now(timezone.utc)
+    for i, m in enumerate((300, 200, 100)):
+        d = tmp_path / f"run{i}"
+        d.mkdir()
+        r = rec(0)
+        r["ts"] = (now - timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (d / "probe-result.json").write_text(json.dumps(r))
+    ok = tmp_path / "failed-ok.json"
+    ok.write_text("[]")
+    assert probe.main(["--evaluate", str(tmp_path), "--failed-runs", str(ok)]) == 0
+    assert "verdict=PASS" in capsys.readouterr().out
+    crash = tmp_path / "failed-crash.json"
+    crash.write_text(json.dumps([(now - timedelta(minutes=150)).strftime("%Y-%m-%dT%H:%M:%SZ")]))
+    assert probe.main(["--evaluate", str(tmp_path), "--failed-runs", str(crash)]) == 0
+    assert "verdict=FAIL" in capsys.readouterr().out
+    assert probe.main(["--evaluate", str(tmp_path), "--failed-runs", str(tmp_path / "nope.json")]) == 2
+
+
 # ---------------------------------------------------------------- the workflow
 def test_workflow_handles_the_secret_safely():
     import yaml
@@ -377,3 +479,26 @@ def test_workflow_handles_the_secret_safely():
     assert any("egress_chromium_landing_probe.py" in s["run"] for s in holders)
     assert "cron" in json.dumps(wf.get(True, wf.get("on", {})))  # the temporary hourly schedule exists...
     assert "2026-10-04" in text  # ...and is bounded
+
+
+def test_workflow_withholds_the_secret_from_pull_requests_and_only_reads_main():
+    """Review findings 3 and 4: no secret on pull_request / non-main refs; only schedule and dispatch
+    runs on main are trusted as evidence, so a fork or PR run cannot plant a result."""
+    import yaml
+    text = (ROOT / ".github" / "workflows" / "egress-chromium-landing-probe.yml").read_text()
+    wf = yaml.safe_load(text)
+    for job in wf["jobs"].values():
+        for step in job["steps"]:
+            expr = step.get("env", {}).get("EGRESS_PROBE_PROXY")
+            if expr is None:
+                continue
+            assert "github.ref == 'refs/heads/main'" in expr
+            assert "github.event_name == 'schedule'" in expr and "github.event_name == 'workflow_dispatch'" in expr
+            assert "pull_request" not in expr  # a pull_request event can never satisfy the expression
+            assert expr.rstrip().endswith("|| '' }}")  # falls back to the empty string, i.e. direct mode
+    ev = [s for j in wf["jobs"].values() for s in j["steps"] if "--evaluate" in s.get("run", "")]
+    assert len(ev) == 1
+    run = ev[0]["run"]
+    assert '--event "${ev}"' in run and "--branch main" in run and "for ev in schedule workflow_dispatch" in run
+    assert "--failed-runs failed-runs.json" in run and '"failure"' in run and '"cancelled"' in run
+

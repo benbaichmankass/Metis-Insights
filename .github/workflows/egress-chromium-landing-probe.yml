@@ -7,15 +7,23 @@
 #   proxied (secret set): the browser goes ONLY through that proxy. FAIL-CLOSED: an unusable
 #           proxy reports `proxy_unreachable`; the run never falls back to the direct route.
 #
-# THE SECRET. It is passed to exactly two steps through `env:`, never interpolated into a
-# command line, never echoed, never masked by a workflow command, never posted to an issue or
-# comment (this workflow has no write permission). The script prints no part of it: not the
-# string, host, port, user, password or address. tests/research/test_egress_chromium_landing_probe.py
-# proves that on every failure path.
+# THE SECRET. It reaches the job ONLY on `schedule` or `workflow_dispatch` runs on refs/heads/main
+# (the expression below yields '' for a pull_request or any other ref), and only in two steps,
+# through `env:`; never interpolated into a command line, never echoed, never masked by a workflow
+# command, never posted to an issue or comment (this workflow has no write permission). The script
+# prints no part of it: not the string, host, port, user, password or address. A crash prints a
+# scrubbed token, not a traceback. tests/research/test_egress_chromium_landing_probe.py proves that
+# on every failure path.
+# RESIDUAL, stated plainly: this gate lives in the workflow FILE, and a pull request runs its own
+# copy of the file. The complete control is a GitHub Environment restricted to `main` holding the
+# secret as an environment secret; that is a manager decision (it adds two clicks for the operator).
 #
 # THE PASS RULE is evaluated by the script (`--evaluate`) over the result artifacts of the last
-# 72 h: three passing proxied runs at least an hour apart with an identical, known egress
-# organisation. The first failing run, or an organisation change, is FAIL (route ended).
+# 72 h of `schedule` / `workflow_dispatch` runs ON MAIN ONLY (a fork or PR run cannot plant a result):
+# three passing proxied runs at least an hour apart with an identical, known egress organisation.
+# The first failing run, an errored run, a WORKFLOW RUN THAT FAILED (a crash leaves no result file, so
+# failed runs are listed here and handed to the evaluator) or an organisation change is FAIL (route
+# ended). The 72 h window is intended: the manager records the verdict on the PROP-TERM checklist row.
 #
 # TRIGGERS. A PR touching the request file (sessions cannot workflow_dispatch); manual dispatch;
 # and an hourly schedule that is a TEMPORARY measurement aid: it does nothing unless the secret is
@@ -49,7 +57,7 @@ jobs:
       - name: Gate (scheduled runs need the secret and the window)
         id: gate
         env:
-          EGRESS_PROBE_PROXY: ${{ secrets.EGRESS_PROBE_PROXY }}
+          EGRESS_PROBE_PROXY: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && secrets.EGRESS_PROBE_PROXY || '' }}
         run: |
           set -euo pipefail
           run=true
@@ -73,7 +81,7 @@ jobs:
       - name: Landing-only probe (no credentials, nothing clicked)
         if: steps.gate.outputs.run == 'true'
         env:
-          EGRESS_PROBE_PROXY: ${{ secrets.EGRESS_PROBE_PROXY }}
+          EGRESS_PROBE_PROXY: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && secrets.EGRESS_PROBE_PROXY || '' }}
         run: python3 scripts/research/egress_chromium_landing_probe.py --out probe-out/probe-result.json
       - name: Keep this run's result (contains no secret, no address)
         if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/probe-result.json') != ''
@@ -88,15 +96,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "NOTE: not on main, so this verdict is NOT authoritative (only main's schedule/dispatch runs count)."
+          fi
           mkdir -p prior
           since="$(date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
-          ids="$(gh run list --workflow egress-chromium-landing-probe.yml --limit 100 \
-                   --json databaseId,createdAt -q ".[] | select(.createdAt > \"${since}\") | .databaseId")"
-          for id in ${ids}; do
-            [ "${id}" = "${{ github.run_id }}" ] && continue
+          # ONLY schedule / workflow_dispatch runs on main: a fork or pull-request run cannot plant a result.
+          : > runs.jsonl
+          for ev in schedule workflow_dispatch; do
+            gh run list --workflow egress-chromium-landing-probe.yml --event "${ev}" --branch main --limit 100 \
+              --json databaseId,createdAt,conclusion >> runs.jsonl
+          done
+          jq -s --arg since "${since}" --arg me "${{ github.run_id }}" \
+            'add | map(select(.createdAt > $since and (.databaseId|tostring) != $me))' runs.jsonl > runs.json
+          # A run that FAILED, was cancelled or timed out leaves no result file; list it so it counts as a failure.
+          jq '[.[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | .createdAt]' \
+            runs.json > failed-runs.json
+          for id in $(jq -r '.[] | select(.conclusion == "success") | .databaseId' runs.json); do
             if ! gh run download "${id}" --pattern 'probe-result-*' --dir "prior/${id}" >/dev/null 2>&1; then
               echo "run ${id}: no result artifact (skipped run or expired)"
             fi
           done
           mkdir -p prior/current && cp probe-out/probe-result.json prior/current/
-          python3 scripts/research/egress_chromium_landing_probe.py --evaluate prior
+          python3 scripts/research/egress_chromium_landing_probe.py --evaluate prior --failed-runs failed-runs.json

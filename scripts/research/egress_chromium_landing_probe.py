@@ -34,11 +34,25 @@ PASS RULE (``--evaluate``), evaluated here and not by a reader
   ``app_pass``: app.breakoutprop.com HTTP 200, empty ``cf-mitigated``, title not
   "Just a moment...", login form rendered, no Cloudflare marker) with a KNOWN
   egress organisation identical across every run. Three such runs at least one
-  hour apart is PASS. The first failing run, or an organisation change, is FAIL
-  (the route is ended). Fewer than three spaced passes and no failure is PENDING.
+  hour apart is PASS. The first failing run, an organisation change, a run that
+  ended in an error, or a workflow run that FAILED (``--failed-runs``: a crash
+  writes no result file, so the workflow lists such runs itself) is FAIL (the
+  route is ended). A run whose organisation lookup was unreadable (``org_unreadable``,
+  e.g. a 429) is INCONCLUSIVE: it neither passes nor ends the route. Fewer than
+  three spaced passes and no failure is PENDING.
+  THE WINDOW IS INTENDED: only the last 72 h are considered. A FAIL therefore
+  ages out of this verdict after 72 h; that is by design (the proxy lasts 24 h,
+  the hourly schedule ends 2026-10-04, and the manager records the verdict on
+  the PROP-TERM checklist row, which is the durable record).
 
-Exit: 0 for any measurement outcome; 1 the browser cannot start; 2 a malformed
-proxy value, or an unreadable results directory.
+EVERY PROXY-MODE EXIT WRITES A RESULT (``proxy_state`` ok / proxy_unreachable /
+org_unreadable / error / format_invalid), so a crash can never be mistaken for a
+quiet success. ``main`` also catches everything except ``SystemExit`` and prints
+only a scrubbed token, so no traceback (which could echo Chromium's launch
+arguments, i.e. ``--proxy-server=host:port``) is ever emitted.
+
+Exit: 0 for any measurement outcome; 1 the browser cannot start or an unexpected
+failure; 2 a malformed proxy value, or an unreadable results directory.
 """
 from __future__ import annotations
 
@@ -50,7 +64,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import quote, unquote
+from urllib.parse import quote, quote_plus, unquote
 
 URLS = (
     "https://app.breakoutprop.com/",
@@ -94,7 +108,8 @@ class ProxySpec:
 
     def secrets(self) -> list:
         parts = [self.raw, self.host, self.username, self.password,
-                 f"{self.host}:{self.port}", quote(self.username, safe=""), quote(self.password, safe="")]
+                 f"{self.host}:{self.port}", quote(self.username, safe=""), quote(self.password, safe=""),
+                 quote_plus(self.username), quote_plus(self.password)]
         return sorted({p for p in parts if p and len(p) >= 3}, key=len, reverse=True)
 
 
@@ -143,10 +158,10 @@ def parse_proxy(raw: str) -> ProxySpec:
 
 
 def scrub(text: str, secrets) -> str:
+    """Remove every secret fragment, CASE-INSENSITIVELY (a host is often echoed upper- or lower-cased)."""
     out = str(text)
-    for s in secrets or ():
-        if s:
-            out = out.replace(s, MASK)
+    for frag in sorted({f for f in (secrets or ()) if f}, key=len, reverse=True):
+        out = re.sub(re.escape(frag), MASK, out, flags=re.IGNORECASE)
     return out
 
 
@@ -191,18 +206,49 @@ def _load_playwright():
     return sync_playwright, PlaywrightError
 
 
+def _new_result(spec, now=None) -> dict:
+    return {
+        "ts": (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "via_proxy": bool(spec), "proxy_state": "none", "egress_org": "unknown", "hosts": {}, "app_pass": False,
+    }
+
+
+def _lookup_org(page, PlaywrightError, secrets):
+    """Read the egress ORGANISATION through the proxy. Returns (state, org, token).
+
+    ``ok`` only when the lookup answered HTTP 200 with an organisation-shaped body. A 429 or an error
+    page is ``org_unreadable`` (one retry first); a transport failure is ``proxy_unreachable``.
+    """
+    token = ""
+    for attempt in (1, 2):
+        try:
+            resp = page.goto("https://ipinfo.io/org", wait_until="domcontentloaded", timeout=30_000)
+        except PlaywrightError as exc:
+            return "proxy_unreachable", "unknown", error_token(exc, secrets)
+        status = resp.status if resp is not None else None
+        text = (page.inner_text("body") or "").strip()[:80]
+        if status == 200 and ORG_RX.match(text):
+            return "ok", text, ""
+        token = f"org_lookup_http_{status}"
+        if attempt == 1:
+            page.wait_for_timeout(2_000)
+    return "org_unreadable", "unknown", token
+
+
 def run_probe(spec, now=None, urls=URLS):
-    """Returns (result_dict, exit_code). ``spec`` is a ProxySpec or None (direct)."""
+    """Returns (result_dict, exit_code). ``spec`` is a ProxySpec or None (direct).
+
+    Never returns None: every path yields a result, so the caller can always store one.
+    """
+    result = _new_result(spec, now)
+    secrets = spec.secrets() if spec else []
     try:
         sync_playwright, PlaywrightError = _load_playwright()
     except ImportError as exc:
         print(f"environment: playwright not importable ({type(exc).__name__})")
-        return None, 1
-    secrets = spec.secrets() if spec else []
-    result = {
-        "ts": (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "via_proxy": bool(spec), "proxy_state": "none", "egress_org": "unknown", "hosts": {}, "app_pass": False,
-    }
+        result["proxy_state"] = "error" if spec else "none"
+        result["proxy_error"] = "playwright_not_importable"
+        return result, 1
     with sync_playwright() as p:
         try:
             launch_kw = {"headless": True}
@@ -210,23 +256,22 @@ def run_probe(spec, now=None, urls=URLS):
                 launch_kw["proxy"] = spec.playwright_proxy()  # explicit proxy: Chromium has no direct fallback
             browser = p.chromium.launch(**launch_kw)
         except PlaywrightError as exc:
-            print(f"environment: chromium failed to launch ({error_token(exc, secrets)})")
-            return None, 1
+            token = error_token(exc, secrets)
+            print(f"environment: chromium failed to launch ({token})")
+            result["proxy_state"] = "error" if spec else "none"
+            result["proxy_error"] = token
+            return result, 1
         if spec:
             ctx = browser.new_context()
             page = ctx.new_page()
             try:
-                page.goto("https://ipinfo.io/org", wait_until="domcontentloaded", timeout=30_000)
-                org = (page.inner_text("body") or "").strip()[:80]
-                result["egress_org"] = org if ORG_RX.match(org) else "unknown"
-                result["proxy_state"] = "ok"
-            except PlaywrightError as exc:
-                token = error_token(exc, secrets)
-                result["proxy_state"] = "proxy_unreachable"
-                result["proxy_error"] = token
+                state, org, token = _lookup_org(page, PlaywrightError, secrets)
             finally:
                 ctx.close()
-            if result["proxy_state"] != "ok":
+            result["proxy_state"], result["egress_org"] = state, org
+            if token:
+                result["proxy_error"] = token
+            if state == "proxy_unreachable":
                 browser.close()
                 return result, 0  # fail-closed: no navigation to the targets, no direct fallback
         else:
@@ -260,8 +305,7 @@ def run_probe(spec, now=None, urls=URLS):
                 ctx.close()
             result["hosts"][host_key] = rec
         browser.close()
-    result["app_pass"] = app_pass(result["hosts"].get(APP_HOST)) and (
-        not spec or (result["proxy_state"] == "ok" and result["egress_org"] != "unknown"))
+    result["app_pass"] = app_pass(result["hosts"].get(APP_HOST)) and (not spec or result["proxy_state"] == "ok")
     return result, 0
 
 
@@ -286,18 +330,29 @@ def _ts(r: dict) -> datetime:
     return datetime.strptime(r["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
-def evaluate(results, now=None):
-    """(verdict, reasons). Verdict is PASS, FAIL, PENDING or NO_PROXY_RUNS. See the module docstring."""
+def evaluate(results, now=None, failed_runs=()):
+    """(verdict, reasons). Verdict is PASS, FAIL, PENDING or NO_PROXY_RUNS. See the module docstring.
+
+    ``failed_runs`` are ISO timestamps of workflow runs that FAILED (a crash writes no result file). Each
+    counts as a proxy-mode failure at that instant, so three passes around a crash are not a PASS.
+    """
     now = now or datetime.now(timezone.utc)
-    proxy = sorted((r for r in results if r.get("via_proxy") and now - _ts(r) <= timedelta(hours=WINDOW_H)), key=_ts)
+    pool = [r for r in results if r.get("via_proxy")]
+    for stamp in failed_runs or ():
+        pool.append({"ts": stamp, "via_proxy": True, "proxy_state": "run_failed", "egress_org": "unknown"})
+    proxy = sorted((r for r in pool if now - _ts(r) <= timedelta(hours=WINDOW_H)), key=_ts)
     if not proxy:
         return "NO_PROXY_RUNS", ["no proxy-mode result in the last %d h" % WINDOW_H]
     org = None
     passes = []
+    inconclusive = 0
     for r in proxy:
-        stamp = r["ts"]
-        if r.get("proxy_state") != "ok":
-            return "FAIL", [f"{stamp}: {r.get('proxy_state')} (route ended)"]
+        stamp, state = r["ts"], r.get("proxy_state")
+        if state == "org_unreadable":
+            inconclusive += 1  # the organisation lookup failed (e.g. 429): says nothing about the route
+            continue
+        if state != "ok":
+            return "FAIL", [f"{stamp}: {state} (route ended)"]
         if r.get("egress_org", "unknown") == "unknown":
             return "FAIL", [f"{stamp}: egress organisation unknown, so 'same organisation' cannot be shown"]
         if not r.get("app_pass"):
@@ -313,10 +368,11 @@ def evaluate(results, now=None):
             passes.append(_ts(r))
         if len(passes) >= NEEDED_PASSES:
             return "PASS", [f"{NEEDED_PASSES} passing runs at least {MIN_SPACING_S // 60} min apart, same egress organisation"]
-    return "PENDING", [f"{len(passes)} of {NEEDED_PASSES} spaced passing runs so far, no failure"]
+    note = f"; {inconclusive} run(s) inconclusive (organisation lookup unreadable)" if inconclusive else ""
+    return "PENDING", [f"{len(passes)} of {NEEDED_PASSES} spaced passing runs so far, no failure{note}"]
 
 
-def cmd_evaluate(directory: str) -> int:
+def cmd_evaluate(directory: str, failed_file: str = "") -> int:
     root = Path(directory)
     if not root.is_dir():
         print("evaluate: results directory not found")
@@ -328,23 +384,43 @@ def cmd_evaluate(directory: str) -> int:
         except (OSError, ValueError):
             print(f"evaluate: skipped an unreadable file ({f.name})")
     results = [r for r in results if isinstance(r, dict) and "ts" in r]
-    verdict, reasons = evaluate(results)
-    print(f"results_read={len(results)} proxy_runs={sum(1 for r in results if r.get('via_proxy'))}")
+    failed = []
+    if failed_file:
+        try:
+            failed = [x for x in json.loads(Path(failed_file).read_text()) if isinstance(x, str)]
+        except (OSError, ValueError):
+            print("evaluate: the failed-runs file is unreadable; refusing to evaluate without it")
+            return 2
+    verdict, reasons = evaluate(results, failed_runs=failed)
+    print(f"results_read={len(results)} proxy_runs={sum(1 for r in results if r.get('via_proxy'))} failed_runs={len(failed)}")
     print(f"verdict={verdict}")
     for why in reasons:
         print(f"  {why}")
     return 0
 
 
-def main(argv=None) -> int:
+#: What the last-resort handler in ``main`` may use to scrub and to store. Filled in as soon as it is known.
+_STATE: dict = {"spec": None, "raw_set": False, "out": None, "now": None}
+
+
+def _store(result: dict, out) -> None:
+    if out:
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        Path(out).write_text(json.dumps(result, sort_keys=True))
+
+
+def _main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--evaluate", metavar="DIR", help="evaluate stored probe-result JSON files instead of probing")
+    ap.add_argument("--failed-runs", metavar="FILE", default="",
+                    help="with --evaluate: JSON list of ISO timestamps of workflow runs that failed")
     ap.add_argument("--out", default="probe-out/probe-result.json")
     args = ap.parse_args(argv)
     if args.evaluate:
-        return cmd_evaluate(args.evaluate)
+        return cmd_evaluate(args.evaluate, args.failed_runs)
     raw = os.environ.get("EGRESS_PROBE_PROXY", "").strip()
     now = datetime.now(timezone.utc)
+    _STATE.update(spec=None, raw_set=bool(raw), out=args.out, now=now)
     if os.environ.get("GITHUB_EVENT_NAME") == "schedule":
         if now >= SCHEDULE_ACTIVE_UNTIL:
             print("schedule_expired: the hourly measurement window has ended")
@@ -358,14 +434,34 @@ def main(argv=None) -> int:
             spec = parse_proxy(raw)
         except ProxyFormatError as exc:
             print(f"proxy_format_invalid: {exc.reason}")
+            bad = _new_result(None, now)
+            bad.update(via_proxy=True, proxy_state="format_invalid", proxy_error=exc.reason)
+            _store(bad, args.out)  # a malformed secret must not read as "no run happened"
             return 2
+        _STATE["spec"] = spec
     result, code = run_probe(spec, now=now)
-    if result is None:
-        return code
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(result, sort_keys=True))
+    _store(result, args.out)
     print_result(result)
     return code
+
+
+def main(argv=None) -> int:
+    """Last-resort wrapper: no traceback is ever printed, because one could echo Chromium's launch
+    arguments (``--proxy-server=host:port``). Anything unexpected becomes a scrubbed token, an ``error``
+    result on disk (proxy mode) and exit 1."""
+    try:
+        return _main(argv)
+    except SystemExit:
+        raise
+    except BaseException as exc:  # allow-silent: prints a scrubbed token, stores an error result, returns 1; the traceback is withheld on purpose  # noqa: BLE001
+        spec = _STATE.get("spec")
+        token = error_token(exc, spec.secrets() if spec else [])
+        print(f"error: unexpected failure ({token})")
+        if _STATE.get("raw_set") and _STATE.get("out"):
+            fail = _new_result(spec, _STATE.get("now"))
+            fail.update(via_proxy=True, proxy_state="error", proxy_error=token)
+            _store(fail, _STATE["out"])
+        return 1
 
 
 if __name__ == "__main__":
