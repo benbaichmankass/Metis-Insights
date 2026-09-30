@@ -1051,7 +1051,7 @@ def test_probe_instrument_details_never_touches_the_order_ticket_symbol_input(ch
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "ETHUSD")
     assert res["searched"] is True
-    assert res["via"] == "placeholder+data-test-id"
+    assert res["via"] == "placeholder+tid"
     assert chromium_page.input_value("[data-test-id=symbol_input]") == ""
     assert chromium_page.evaluate(
         "document.querySelector('[data-test-id=symbol_input]').hasAttribute('data-metis-search-hit')") is False
@@ -1190,7 +1190,7 @@ def test_find_instrument_search_succeeds_with_zero_buy_buttons_when_the_watchlis
     a = DXtradeAdapter()
     res = a.probe_instrument_details(chromium_page, "BTCUSD")
     assert res["searched"] is True
-    assert res["via"] == "placeholder+data-test-id"
+    assert res["via"] == "placeholder+tid"
     chromium_page.set_content(DIVGRID.read_text())
 
 
@@ -1322,7 +1322,7 @@ def test_find_instrument_search_resolves_the_true_watchlist_panel_even_when_a_po
     # not found. Succeeding, with exactly this one candidate, IS the proof
     # the panel resolved narrow.
     assert res["searched"] is True
-    assert res["via"] == "placeholder+data-test-id"
+    assert res["via"] == "placeholder+tid"
     assert chromium_page.input_value("#wrong-search") == ""
     chromium_page.set_content(DIVGRID.read_text())
 

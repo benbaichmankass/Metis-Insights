@@ -281,6 +281,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  skip_hours: str = "",
                  flat_at_utc: str = "",
                  no_entry_after_utc: str = "",
+                 bar_label: str = "open",
                  vol_skip_above_pctl: float = 0.0,
                  vol_skip_below_pctl: float = 0.0,
                  vol_pctl_window: int = 200,
@@ -382,14 +383,25 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # rule, never late. Ordering is stop -> target -> the other levers -> flatten, so the
     # flatten never pre-empts a stop that the same bar hit. A position with no bar left to
     # flatten on (the entry bar is already at or past the flatten bar) is NOT entered.
+    #
+    # `bar_label` says what a row's timestamp MEANS: "open" (native exchange candles: the bar starts at the
+    # stamp, so it closes one bar later) or "close" (this harness's own `_resample`, which stamps each bar at
+    # its CLOSE: label="right"). main() sets "close" whenever --resample is used. Reading a close-stamped bar
+    # as open-stamped would add one bar and flatten/cut EARLY by a whole bar (never late, but biased).
+    # The day is always the UTC day: a tz-aware column in another zone is converted first.
     _flat_min = _parse_hhmm(flat_at_utc)
     _nea_min = _parse_hhmm(no_entry_after_utc)
+    if bar_label not in ("open", "close"):
+        raise ValueError(f"bar_label must be 'open' or 'close', got {bar_label!r}")
     _close_idx = None
     if _flat_min is not None or _nea_min is not None:
-        _bar = pd.Series(pd.DatetimeIndex(df["timestamp"])).diff().median()
+        _ts_idx = pd.DatetimeIndex(df["timestamp"])
+        if _ts_idx.tz is not None:
+            _ts_idx = _ts_idx.tz_convert("UTC")
+        _bar = pd.Series(_ts_idx).diff().median()
         if pd.isna(_bar) or _bar >= pd.Timedelta(days=1):
             raise ValueError("flat_at_utc / no_entry_after_utc need intraday bars (< 1d)")
-        _close_idx = pd.DatetimeIndex(df["timestamp"]) + _bar
+        _close_idx = _ts_idx if bar_label == "close" else _ts_idx + _bar
     # M21 E-2 vol-at-entry + M20-X vol-conditional-trail levers share ONE trailing
     # ATR-percentile series: rank of ATR[j] within the previous `vol_pctl_window`
     # bars (causal, includes the bar itself; NaN until the window fills → never
@@ -619,9 +631,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     i += 1
                     continue
         entry = c
-        sl = entry - atr_stop_mult * atr if direction == "long" else entry + atr_stop_mult * atr
-        risk = abs(entry - sl)
-        if risk <= 0:
+        # entry_override only, optional ``sl_anchor`` (None = byte-identical):
+        # live places a Market order whose SL/TP were computed from the SIGNAL
+        # price (order_package entry = the decision bar's close) and does not
+        # re-anchor them to the fill (src/units/accounts/execute.py sends
+        # order["sl"]/order["tp"] as-is), so the stop/target/risk anchor is the
+        # signal price while the position, trail and P&L run from the fill.
+        _anc = entry
+        if _ov is not None and _ov.get("sl_anchor") is not None:
+            _anc = float(_ov["sl_anchor"])
+        sl = _anc - atr_stop_mult * atr if direction == "long" else _anc + atr_stop_mult * atr
+        risk = abs(_anc - sl)
+        if risk <= 0 or (direction == "long" and entry <= sl) or (direction == "short" and entry >= sl):
+            # a fill already through the stop is refused by the venue (Bybit
+            # 10001 SL-side guard); with no anchor entry==_anc so never trips.
             i += 1
             continue
         # LIVE-PARITY TAKE-PROFIT. Tracking id on its own line, never wrapped:
@@ -637,9 +660,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         tp_price: Optional[float] = None
         if tp_cap_pct > 0.0:
             if direction == "long":
-                tp_price = min(entry * (1.0 + tp_cap_pct), entry + tp_r * risk)
+                tp_price = min(_anc * (1.0 + tp_cap_pct), _anc + tp_r * risk)
             else:
-                tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
+                tp_price = max(_anc * (1.0 - tp_cap_pct), _anc - tp_r * risk)
         # Distance of the live TP in R — the measurement that says whether the
         # clamp binds on THIS leg's own frame instead of an assumed ATR%.
         if tp_price is not None:
@@ -1458,6 +1481,7 @@ def main(argv: List[str]) -> int:
                      skip_hours=args.skip_hours,
                      flat_at_utc=args.flat_at_utc,
                      no_entry_after_utc=args.no_entry_after_utc,
+                     bar_label=("close" if args.resample else "open"),
                      vol_skip_above_pctl=args.vol_skip_above_pctl,
                      vol_skip_below_pctl=args.vol_skip_below_pctl,
                      vol_pctl_window=args.vol_pctl_window,

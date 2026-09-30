@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "awaiting_evidence",
+  "hold_text": "Promotes RQ-20260930-503 (same-UTC-day-flat variant of the 1h trend_donchian ETH prop leg, pre-registered, nothing run) out of blocked/ into the queue and adds hyro_fit_verdict.py --mode dayflat with 3 tests. Its blocker cleared: the day-flat levers and the bar_label/UTC-day fixes are on main (#14583, #14618). The registered design is unchanged: native 1h candles, no --resample, flatten 23:45 UTC (realized at the 23:00 bar boundary), last entry 20:00 UTC, rule PASS iff n>=300, net R>0, same-day share>=0.95 and 501's gates B and C. The run command builds the leg's live-parameter argv via regime_debt_matrix.build_harness_cmd (levers_not_modelled is reported; it was empty for this leg) and strips the --resample it always adds. A 400-day smoke against real Binance candles ran end to end (n=180, net +14.3R, same-day share 0.967, underpowered so indeterminate; not the registered run). Held: a promoted unit must be merged before any run.",
+  "why": "Manager instruction 2026-09-30 11:01Z: open 503's promotion on a held branch, as for 502."
+}

@@ -74,6 +74,18 @@
 #                        watchlist first, so the search control's locator is
 #                        derived from a measurement. Types, clicks and reads
 #                        no value; skips the order ticket. No `symbols:`.
+#     instrument-info-dry / instrument-info-probe — the INFO-PANEL probe
+#                        (PROP-ETH-DOM, operator decision 2026-09-30 "Build an
+#                        automated probe"; requires `symbols:`). -dry resolves
+#                        every target and runs every guard, CLICKING NOTHING.
+#                        -probe single-clicks each symbol's watchlist Symbol
+#                        cell, the instrument info button and the panel's
+#                        close control ONLY, dumps the panel's own text, then
+#                        restores + verifies the originally linked symbol.
+#                        Refuses unless the account reads flat (Used Margin 0,
+#                        visible Orders table empty; no tab click). Exit 3 on
+#                        any alert (failed restore, unexpected dialog, panel
+#                        not closed, watchlist changed).
 #     close-position   — locate the ONE existing position for the symbol (add
 #                        `sol` for SOLUSD) and its row close control through
 #                        the terminal's own flow, read back, click nothing.
@@ -117,7 +129,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt; do
     case ",${APPLY}," in *",${m},"*)
@@ -129,6 +141,29 @@ for m in probe-ticket instrument-probe instrument-search-dump executor-dry-run w
     esac
 done
 case ",${APPLY}," in *",sol,"*) RT_SYMBOL="SOLUSD" ;; *) RT_SYMBOL="ETHUSD" ;; esac
+# `limit` is honoured ONLY by round-trip-dry (a dry-only LIMIT form walk). With
+# any other mode it would be silently ignored -- `round-trip-live,sol,limit`
+# would run a LIVE MARKET round trip -- so it is refused before anything runs
+# (review of #14737, 2026-09-30).
+case ",${APPLY}," in *",limit,"*)
+    if [ "${EXEC_MODE}" != "round-trip-dry" ]; then
+        log "limit: refused — 'limit' is valid only with round-trip-dry (got mode '${EXEC_MODE:-none}')"
+        exit 1
+    fi ;;
+esac
+if [ "${WANT_RESET}" = "1" ] && [ "${ACCOUNT}" != "breakout_1" ]; then
+    # reset-feed clears ${BASE}/feed, which is breakout_1's feed: a check of
+    # another account must never re-arm it.
+    log "reset-feed: refused for ${ACCOUNT} — the scheduled feed is breakout_1's"
+    exit 1
+fi
+if [ -n "${EXEC_MODE}" ] && [ "${ACCOUNT}" != "breakout_1" ]; then
+    # The executor's kill switch (PROP_EXECUTOR_MODE), state dir and saved
+    # session are breakout_1's. Until they are per account (TRADEIFY-WIRE PR A,
+    # #14663), a second account gets the READ-ONLY login check and nothing else.
+    log "${EXEC_MODE}: refused for ${ACCOUNT} — executor modes run for breakout_1 only (login check only for other accounts)"
+    exit 1
+fi
 if [ "${EXEC_MODE}" = "executor-clear-halt" ]; then
     # Clear the executor's AUTO-REVERT latch (manager / operator decision,
     # 2026-09-28). Never cleared from inside the executor. Refuses without a
@@ -186,7 +221,19 @@ fi
 
 # Export exactly the keys the check needs from the VM .env. Values are never
 # echoed (no `set -x`, no print); the python side prints set/MISSING only.
-CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN PROP_EXECUTOR_MODE"
+# breakout_1's list is unchanged. Any other account (TRADEIFY-WIRE, 2026-09-30)
+# exports the credential NAMES its config/prop_platforms.yaml entry declares
+# (no entry = refused; never another account's login), and no executor key.
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN PROP_EXECUTOR_MODE"
+else
+    if ! ACCT_KEYS="$(cd "${REPO_DIR}" && python3 -c 'import sys; from src.prop.platform import load_platform_config as l; c = l(sys.argv[1]); u, p = c.get("username_env"), c.get("password_env"); assert u and p; print(u, p)' "${ACCOUNT}")" \
+            || [ -z "${ACCT_KEYS// }" ]; then
+        log "account ${ACCOUNT}: no usable entry in config/prop_platforms.yaml — refusing (no login borrowed from another account)"
+        exit 1
+    fi
+    CHECK_KEYS="${ACCT_KEYS} DASHBOARD_API_TOKEN"
+fi
 if [ -f "${REPO_DIR}/.env" ]; then
     for ckey in ${CHECK_KEYS}; do
         cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
@@ -292,8 +339,9 @@ if [ "${WANT_DEPS}" = "1" ]; then
         "${VENV}/bin/python" -m playwright install-deps chromium
 fi
 
-if [ "${EXEC_MODE}" = "instrument-probe" ] && [ -z "${ACTION_SYMBOLS// }" ]; then
-    log "instrument-probe: refused — 'symbols:' is required (comma-separated venue symbols)"
+if { [ "${EXEC_MODE}" = "instrument-probe" ] || [ "${EXEC_MODE}" = "instrument-info-dry" ] \
+     || [ "${EXEC_MODE}" = "instrument-info-probe" ]; } && [ -z "${ACTION_SYMBOLS// }" ]; then
+    log "${EXEC_MODE}: refused — 'symbols:' is required (comma-separated venue symbols)"
     exit 1
 fi
 
@@ -309,9 +357,13 @@ if [ -n "${EXEC_MODE}" ]; then
         probe-ticket)        EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
         instrument-probe)    EARGS+=(--instrument-probe "${ACTION_SYMBOLS}") ;;
         instrument-search-dump) EARGS+=(--instrument-search-dump) ;;
+        instrument-info-dry)    EARGS+=(--instrument-info-dry "${ACTION_SYMBOLS}") ;;
+        instrument-info-probe)  EARGS+=(--instrument-info-probe "${ACTION_SYMBOLS}") ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
-        round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}") ;;
+        round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")
+                             # `limit` in apply: walk the ticket path's LIMIT form (dry only).
+                             case ",${APPLY}," in *",limit,"*) EARGS+=(--order-type limit) ;; esac ;;
         round-trip-live)     EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
         close-position)      EARGS+=(--close-position "${RT_SYMBOL}") ;;
         close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;

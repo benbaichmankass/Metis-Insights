@@ -532,12 +532,15 @@ def test_write_back_failure_is_an_alert_not_a_crash(env):
     assert any("write-back failed" in a for a in res.alerts)
 
 
-def test_not_submitted_attempt_is_skipped_not_confirmed(env):
+def test_not_submitted_attempt_is_retryable_not_confirmed(env):
+    # A refusal before any submit click is never confirmed and never written
+    # off on the first attempt: it is retry_pending, and nothing is reported.
     ad = FakeAdapter(attempt=PlaceAttempt(stage="refused", detail="one-click trading is on"))
     api = FakeApi([ticket()])
     run(ad, api, env)
-    assert env[0].state("prop-manual-aaa") == "refused"
-    assert "one-click" in [p for p in api.posts if p.get("status") == "skipped"][0]["reason"]
+    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+    assert env[0].latest()["prop-manual-aaa"]["attempts"] == 1
+    assert not any(p.get("ticket_id") == "prop-manual-aaa" for p in api.posts)
 
 
 def test_ledger_survives_a_torn_last_line(tmp_path):
@@ -1764,7 +1767,9 @@ def test_a_non_enabled_symbol_is_skipped_before_the_form_and_counts_nothing(env)
                        state=state, now=NOW)
     assert not any(c[0] == "place_bracket" for c in ad.calls)
     assert ledger.state("prop-eth") == "skipped" and ledger.latest()["prop-eth"]["reason"] == "symbol_not_enabled"
-    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"] == ["symbol_not_enabled"]
+    # The ticket is NOT the executor's: no write-back, so it stays `emitted`
+    # for the manual bridge (invalidation warning, expiry prompt, reticket guard).
+    assert not any(p.get("ticket_id") == "prop-eth" for p in api.posts)
     st1 = state.load()
     assert st1.get("readback_refusals", 0) == st0.get("readback_refusals", 0) and state.halted() is None
     assert res.halted is None
@@ -2898,3 +2903,488 @@ def test_tick_close_position_modes_and_apply_tokens():
     assert 'close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;' in sh
     wf = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "system-actions.yml").read_text()
     assert "|close-position|close-position-live)" in wf
+
+
+def test_a_non_enabled_symbol_is_decided_once_and_never_reported_on_later_cycles(env):
+    ledger, state = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT")
+    api = FakeApi([eth])
+    for _ in range(3):
+        pe.run_cycle(adapter=FakeAdapter(), page=None, api=api, cfg=_sol_only(), mode="live",
+                     ledger=ledger, state=state, now=NOW)
+    assert not any(p.get("ticket_id") == "prop-eth" for p in api.posts)
+    assert [r for r in ledger._rows() if r["ticket_id"] == "prop-eth"] == \
+        [r for r in ledger._rows() if r["ticket_id"] == "prop-eth"][:1]
+
+
+# ── a resting entry is withdrawn at its ticket's valid_until (BREAKOUT-ATTRITION) ──
+
+
+def _placed_then(env, now, valid_until, orders, positions=()):
+    ledger, state = env
+    ad = FakeAdapter(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=valid_until)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    assert ledger.state("prop-manual-aaa") == "placed"
+    ad.orders, ad.positions, ad.calls = list(orders), list(positions), []
+    api._tickets = []
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=now)
+    return ad, api, res
+
+
+def test_a_resting_entry_past_valid_until_is_cancelled_and_confirmed_by_reread(env):
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    later = NOW + timedelta(minutes=31)
+    ad, api, res = _placed_then(env, later, vu, [_o()])
+    assert ad.calls == [("cancel_order", "O1", True)]
+    assert env[0].latest()["prop-manual-aaa"]["cancel_requested"]
+    # gone on two reads -> reported skipped with the expiry as its reason
+    ad.orders = []
+    ad.calls = []
+    for k in (10, 15):
+        pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=env[0], state=env[1],
+                     now=later + timedelta(minutes=k))
+    skips = [p for p in api.posts if p.get("status") == "skipped" and p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and skips[0]["reason"].startswith("expired")
+    assert env[1].halted() is None
+
+
+def test_a_resting_entry_within_valid_until_is_left_alone(env):
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, _, _ = _placed_then(env, NOW + timedelta(minutes=10), vu, [_o()])
+    assert ad.calls == []
+
+
+def test_a_filled_entry_is_never_cancelled_at_valid_until(env):
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, _, _ = _placed_then(env, NOW + timedelta(hours=2), vu, [], positions=[_p()])
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+    assert env[0].state("prop-manual-aaa") == "open"
+
+
+def test_a_ledger_row_without_valid_until_is_never_guessed_at(env):
+    ledger, state = env
+    ledger.record("legacy", "placed", spec=dict(SPEC, ticket_id="legacy"))
+    ad = FakeAdapter(orders=[_o()])
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([]), cfg=cfg(), mode="live", ledger=ledger,
+                 state=state, now=NOW + timedelta(days=3))
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+
+
+def test_read_only_never_cancels_a_resting_entry(env):
+    ledger, state = env
+    ledger.record("t1", "placed", spec=SPEC, valid_until=(NOW - timedelta(hours=1)).isoformat())
+    ad = FakeAdapter(orders=[_o()])
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([]), cfg=cfg(), mode="read_only", ledger=ledger,
+                 state=state, now=NOW)
+    assert all(arm is False for (k, _, arm) in ad.calls if k == "cancel_order")
+
+
+# ── review of #14581 (manager, 2026-09-30 06:55Z) ─────────────────────────
+
+
+def test_an_expired_non_enabled_ticket_is_not_reported_expired_either(env):
+    # A ticket first seen after its valid_until (tick outage > TTL, or the
+    # first live cycle after read_only) must stay with the manual bridge.
+    ledger, state = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT", valid_until=(NOW - timedelta(minutes=5)).isoformat())
+    api = FakeApi([eth])
+    pe.run_cycle(adapter=FakeAdapter(), page=None, api=api, cfg=_sol_only(), mode="live",
+                 ledger=ledger, state=state, now=NOW)
+    assert not any(p.get("ticket_id") == "prop-eth" for p in api.posts)
+    assert ledger.latest()["prop-eth"]["reason"] == "symbol_not_enabled"
+
+
+class _FailingCancel(FakeAdapter):
+    def cancel_order(self, page, order, *, arm=False):
+        self.calls.append(("cancel_order", order.order_id, arm))
+        return {"ok": False, "clicked": False, "why": "need exactly 1 row"}
+
+
+def test_a_failed_cancel_is_not_recorded_as_requested_and_retries_then_gives_up_loudly(env):
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad = _FailingCancel(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=vu)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    api._tickets = []
+    alerts = []
+    for k in range(pe.CANCEL_EXPIRED_MAX_ATTEMPTS + 2):
+        ad.calls = []
+        res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
+                           state=state, now=NOW + timedelta(minutes=31 + 5 * k))
+        alerts.append(res.alerts)
+        row = ledger.latest()["prop-manual-aaa"]
+        assert not row.get("cancel_requested")
+        if k < pe.CANCEL_EXPIRED_MAX_ATTEMPTS:
+            assert [c[0] for c in ad.calls] == ["cancel_order"]
+        else:
+            assert ad.calls == []  # exhausted: no more clicks
+    assert all(any("retrying" in a for a in al) for al in alerts[:pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
+    assert any("STILL RESTING" in a for a in alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
+    assert not any(a for a in alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS:])  # one alert at exhaustion
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+
+
+def test_a_partial_fill_showing_the_full_order_size_is_contained_and_halts(env):
+    # 0.2 of 0.5 filled while the order row still reads its full 0.5: the
+    # order matches, the 0.2 position does not.
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, api, res = _placed_then(env, NOW + timedelta(minutes=31), vu, [_o()],
+                                positions=[_p(quantity=0.2)])
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+    assert env[0].state("prop-manual-aaa") == "contained"
+    assert env[1].halted() and "partial_fill_suspected" in env[1].halted()
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+
+
+def test_an_earlier_transient_miss_does_not_shorten_the_post_cancel_skip(env):
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad = FakeAdapter(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=vu)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    api._tickets = []
+    ad.orders = []  # one transient miss before expiry
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=5))
+    assert ledger.latest()["prop-manual-aaa"]["misses"] == 1
+    ad.orders = [_o()]
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=31))
+    assert ledger.latest()["prop-manual-aaa"]["cancel_requested"]
+    ad.orders = []
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=36))
+    assert not any(p.get("status") == "skipped" for p in api.posts)  # 1 read, not yet 2
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=41))
+    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"][0].startswith("expired")
+
+
+def test_a_new_ticket_in_the_cancel_cycle_is_held_not_refused(env):
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad = FakeAdapter(after_submit=([], [_o()]))
+    api = FakeApi([ticket(valid_until=vu)])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    later = NOW + timedelta(minutes=31)
+    api._tickets = [ticket(ticket_id="prop-new", created_at=later.isoformat(),
+                           valid_until=(later + timedelta(hours=1)).isoformat())]
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                       now=later)
+    assert "prop-new" not in ledger.latest()  # not refused, not recorded: decided on the next read
+    assert any(a["what"] == "hold" and a.get("ticket_id") == "prop-new" for a in res.actions)
+    assert not any(p.get("ticket_id") == "prop-new" for p in api.posts)
+
+
+# ── round-2 review of #14581 (manager, 2026-09-30 07:15Z) ─────────────────
+
+
+def test_a_clicked_cancel_whose_order_is_still_there_is_a_failed_attempt_and_retries(env):
+    # _row_action returns ok/clicked with "outcome unknown" when the click
+    # raised: the next read, not the click, decides.
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    later = NOW + timedelta(minutes=31)
+    ad, api, _ = _placed_then(env, later, vu, [_o()])  # attempt 1 clicked, order stays
+    alerts = []
+    for k in range(1, pe.CANCEL_EXPIRED_MAX_ATTEMPTS + 2):
+        ad.calls = []
+        res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
+                           state=state, now=later + timedelta(minutes=5 * k))
+        alerts.append((len([c for c in ad.calls if c[0] == "cancel_order"]), res.alerts))
+    # attempts 2..MAX are retried with an alert each; the MAX-th read exhausts
+    assert [n for n, _ in alerts[:pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1]] == [1] * (pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1)
+    assert all(any("did not take" in a for a in al) for _, al in alerts[:pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
+    n_ex, al_ex = alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1]
+    assert n_ex == 0 and any("STILL RESTING" in a for a in al_ex)
+    assert ledger.latest()["prop-manual-aaa"]["cancel_exhausted"] is True
+    assert alerts[-1] == (0, [])  # 5 min later: no click, and no re-alert yet
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+
+
+def test_an_exhausted_cancel_re_alerts_hourly_while_the_order_rests(env):
+    ledger, state = env
+    ledger.record("t1", "placed", spec=SPEC, valid_until=(NOW - timedelta(hours=2)).isoformat(),
+                  cancel_attempts=3, cancel_exhausted=True, exhausted_alert_at=(NOW - timedelta(minutes=30)).isoformat())
+    ad, api = FakeAdapter(orders=[_o()]), FakeApi([])
+    r1 = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    assert not any("STILL RESTING" in a for a in r1.alerts)
+    r2 = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                      now=NOW + timedelta(minutes=31))
+    assert any("STILL RESTING" in a for a in r2.alerts)
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+
+
+def test_reviewer_scenario_partial_fill_with_no_stop_fails_closed_end_to_end(env):
+    # Round-3 review: a 0.3 remainder order + a 0.2 position with NO SL/TP,
+    # cycles every 5 min to T+300 (valid_until T+30), the position closes at
+    # T+305. It must never be silent, never cancel on a guess, and never be
+    # written off as "gone without a fill".
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, api, res = _placed_then(env, NOW + timedelta(minutes=5), vu, [_o(quantity=0.3)],
+                                positions=[_p(quantity=0.2, stop_loss=None, take_profit=None)])
+    first = res.alerts
+    assert any("partial_fill_suspected" in a and "halted" in a for a in first)
+    assert any("NO STOP OR TARGET" in a for a in first)
+    assert ledger.state("prop-manual-aaa") == "contained"
+    assert state.halted()
+    later_alerts = []
+    for k in range(10, 305, 5):
+        r = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                         now=NOW + timedelta(minutes=k))
+        later_alerts += r.alerts
+    # the claim is released: the unjournaled position is flagged as an orphan
+    assert any("orphan" in a for a in later_alerts)
+    ad.positions = []  # the position closes; the remainder still rests
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=305))
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=310))
+    assert not any(c[0] == "cancel_order" for c in ad.calls)  # nothing cancelled on a guess
+    assert not any(p.get("status") == "skipped" for p in api.posts)  # never written off
+    assert state.halted()  # still halted until a person clears it
+
+
+def test_a_manual_position_on_the_symbol_side_does_not_hide_behind_a_resting_claim(env):
+    # (d): an unrelated position must not be absorbed by the resting row's
+    # claim; the row is contained and the orphan check sees the position.
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, api, res = _placed_then(env, NOW + timedelta(minutes=5), vu, [_o()], positions=[_p(quantity=3.0)])
+    assert ledger.state("prop-manual-aaa") == "contained" and state.halted()
+    r = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                     now=NOW + timedelta(minutes=10))
+    assert any("orphan" in a for a in r.alerts)
+
+
+def test_a_partial_fill_before_the_first_confirm_read_is_never_written_off_unconfirmed(env):
+    # Round-4 review: 0.2 of 0.5 fills before the first re-read; the orders
+    # table shows the remaining 0.3, so the verdict is not_found on an
+    # `unconfirmed` row. It must alert and halt at once and never post
+    # `skipped: unconfirmed_submit`.
+    ledger, state = env
+    ad = FakeAdapter(after_submit=([_p(quantity=0.2)], [_o(quantity=0.3)]))
+    api = FakeApi([ticket()])
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    assert ledger.state("prop-manual-aaa") == "unconfirmed"
+    api._tickets = []
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                       now=NOW + timedelta(minutes=5))
+    assert any("partial_fill_suspected" in a for a in res.alerts)
+    assert state.halted() and ledger.state("prop-manual-aaa") == "contained"
+    for k in (10, 15, 20):
+        pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                     now=NOW + timedelta(minutes=k))
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+    assert not any("unconfirmed_submit" in str(p.get("reason")) for p in api.posts)
+
+
+
+# ── the live form opens in MARKET mode: the price field only exists after
+#    LIMIT is selected (2026-09-30 12:44Z, ticket prop-manual-b573aecb5d47,
+#    prop_fills #73 "not submitted: form fields not found: ['price']") ──────
+
+MARKET_DEFAULT_PAGE = (TICKET_PAGE
+    .replace('onclick="window.__type=\'market\';sel(this)">Market</button>',
+             'aria-pressed="true" onclick="window.__type=\'market\';sel(this);'
+             'document.getElementById(\'pxrow\').style.display=\'none\'">Market</button>')
+    .replace('onclick="window.__type=\'limit\';sel(this)">Limit</button>',
+             'onclick="window.__type=\'limit\';sel(this);'
+             'document.getElementById(\'pxrow\').style.display=\'block\'">Limit</button>')
+    .replace('<div><span>Price</span><input id="px"></div>',
+             '<div id="pxrow" style="display:none"><span>Price</span><input id="px"></div>'))
+
+
+def test_the_market_default_fixture_really_hides_price_until_limit(tpage):
+    assert MARKET_DEFAULT_PAGE.count('id="pxrow" style="display:none"') == 1
+    got = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(tpage(html=MARKET_DEFAULT_PAGE), "SOLUSD")
+    assert "price" not in got["fields"] and {"quantity", "stop_loss", "take_profit"} <= set(got["fields"])
+
+
+def test_a_limit_bracket_selects_limit_before_requiring_the_price_field(tpage):
+    p = tpage(html=MARKET_DEFAULT_PAGE)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=False)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("window.__type") == "limit"
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_limit_bracket_refuses_when_limit_shows_no_price_field(tpage):
+    html = MARKET_DEFAULT_PAGE.replace("document.getElementById('pxrow').style.display='block'", "0")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and not att.submitted
+    assert "price" in att.detail and "LIMIT" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_market_bracket_never_needs_a_price_field(tpage):
+    from dataclasses import replace
+    p = tpage(html=MARKET_DEFAULT_PAGE)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, replace(SOL, order_type="market", limit_price=None), arm=False)
+    assert att.stage == "form_verified", att.detail
+
+
+
+def test_a_ticket_the_form_refuses_raises_a_not_placed_alert(env):
+    ad = FakeAdapter(attempt=PlaceAttempt(stage="refused", submitted=False,
+                                          detail="form fields not found: ['price']"))
+    api = FakeApi([ticket()])
+    res = run(ad, api, env)
+    assert any("NOT PLACED yet" in a and "prop-manual-aaa" in a and "price" in a and "1/3" in a
+               and "do NOT place by hand" in a for a in res.alerts)
+    assert not any("place by hand or it is lost" in a for a in res.alerts)
+    assert not any(p.get("ticket_id") == "prop-manual-aaa" for p in api.posts)
+
+
+
+def test_a_limit_round_trip_is_dry_only(env):
+    ledger, _ = env
+    c = cfg(watched_click_max_lots={"SOLUSD": 0.01})
+    res = pe.run_round_trip(adapter=FakeAdapter(), page=None, api=FakeApi([]), cfg=c, ledger=ledger,
+                            venue_symbol="SOLUSD", lots=0.01, arm=True, order_type="limit", now=NOW)
+    assert res.halted and "dry-only" in res.halted
+
+
+def test_a_dry_limit_round_trip_walks_a_limit_spec_at_the_resting_quote(env):
+    ledger, _ = env
+    c = cfg(watched_click_max_lots={"SOLUSD": 0.01})
+
+    class Q(FakeAdapter):
+        def read_quote(self, page, venue):
+            return {"bid": 120.0, "ask": 120.1}
+
+    ad = Q()
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi([]), cfg=c, ledger=ledger,
+                            venue_symbol="SOLUSD", lots=0.01, arm=False, order_type="limit", now=NOW)
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]["spec"]
+    assert spec["order_type"] == "limit" and spec["limit_price"] == 120.0
+    assert ad.calls == [("place_bracket", spec["ticket_id"], False), ("flatten", "SOLUSD", False)]
+
+
+
+# ── retry exception (operator directive 2026-09-30 ~13:12Z): a ticket whose
+#    placement failed BEFORE any submit click is retried until valid_until ──
+
+class QuoteAdapter(FakeAdapter):
+    """A retry must never read a quote (manager 2026-09-30 13:21Z: the same
+    guard set as a first attempt); any read_quote call fails the test."""
+    def read_quote(self, page, venue):
+        raise AssertionError("a retry must not add a quote read")
+
+
+PRE = PlaceAttempt(stage="refused", submitted=False, detail="form fields not found: ['price']")
+
+
+def _rcycle(ad, api, env, k):
+    ledger, state = env
+    return pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
+                        state=state, now=NOW + timedelta(minutes=5 * k))
+
+
+def _places(ad):
+    return [c for c in ad.calls if c[0] == "place_bracket"]
+
+
+def test_retry_places_the_same_ticket_again_once_the_form_works(env):
+    # (5) the idempotency key is unchanged: same ticket id, one order
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+    ad.attempt, ad.after_submit = None, ([], [_o()])
+    _rcycle(ad, api, env, 1)
+    assert [c[1] for c in _places(ad)] == ["prop-manual-aaa", "prop-manual-aaa"]
+    assert env[0].state("prop-manual-aaa") == "placed"
+    assert [p.get("status") for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["placed"]
+
+
+def test_a_failure_after_the_submit_click_is_never_retried(env):
+    # (1) planted negative: the submit click raised -> submitted=True ->
+    # the unconfirmed/containment path, never retry_pending, never a 2nd click
+    ad = QuoteAdapter(
+                      attempt=PlaceAttempt(stage="submitted", submitted=True,
+                                           detail="submit click raised TimeoutError; outcome unknown"),
+                      after_submit=([], []))
+    api = FakeApi([ticket()])
+    for k in range(4):
+        _rcycle(ad, api, env, k)
+    assert env[0].state("prop-manual-aaa") != pe.RETRY_STATE
+    assert len(_places(ad)) == 1
+
+
+def test_a_retry_is_refused_when_the_symbol_already_has_a_position_or_order(env):
+    # (2) the terminal is re-read THIS cycle; anything on the symbol -> no click
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    ad.attempt = None
+    ad.orders = [_o(order_id="MANUAL")]
+    _rcycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1  # only the original attempt
+    assert env[0].state("prop-manual-aaa") == "refused"
+
+
+def test_retries_are_bounded_then_terminal_skipped_with_one_alert(env):
+    # (4) RETRY_MAX_ATTEMPTS attempts, then terminal skipped with the real reason
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    alerts = []
+    for k in range(pe.RETRY_MAX_ATTEMPTS + 2):
+        alerts.append(_rcycle(ad, api, env, k).alerts)
+    assert len(_places(ad)) == pe.RETRY_MAX_ATTEMPTS
+    assert env[0].state("prop-manual-aaa") == "refused"
+    skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and "price" in skips[0]["reason"] and f"{pe.RETRY_MAX_ATTEMPTS} attempts" in skips[0]["reason"]
+    assert sum("place by hand or it is lost" in a for al in alerts for a in al) == 1
+    assert sum("do NOT place by hand" in a for al in alerts for a in al) == pe.RETRY_MAX_ATTEMPTS - 1
+
+
+def test_a_retry_pending_ticket_goes_terminal_at_valid_until(env):
+    # (6) at valid_until the ticket is expired as today, never attempted again
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket(valid_until=(NOW + timedelta(minutes=7)).isoformat())])
+    _rcycle(ad, api, env, 0)
+    ad.attempt = None
+    _rcycle(ad, api, env, 2)  # NOW+10 > valid_until
+    assert len(_places(ad)) == 1
+    assert env[0].state("prop-manual-aaa") == "expired"
+    assert [p["reason"] for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["expired"]
+
+
+def test_a_retry_runs_the_same_guards_as_a_first_attempt(env):
+    # manager 2026-09-30 13:21Z: no retry-only price rule. A retry whose
+    # ticket no longer fits the § 3.3 guards is refused like a first attempt.
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    ad.attempt = None
+    ad.account = acct(4724.0, 4724.0)
+    env[1].save({**env[1].load(), "day": pe.trading_day(NOW), "day_start_captured": 4724.0})
+    api._tickets = [ticket(qty=37.5)]
+    _rcycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    assert env[0].state("prop-manual-aaa") == "refused"
+
+
+
+def test_a_watched_click_ticket_is_never_retried(env):
+    # review of #14737: an unattended retry would place it at FULL size, not
+    # the watched cap -> terminal at once, with the give-up alert
+    ledger, state = env
+    c = cfg()
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger, state=state,
+                       now=NOW, max_lots=0.5)
+    assert ledger.state("prop-manual-aaa") == "refused"
+    assert any("place by hand or it is lost" in a and "watched click" in a for a in res.alerts)
+    skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and "watched click: not retried" in skips[0]["reason"]
+    ad.attempt = None
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=5))
+    assert len(_places(ad)) == 1

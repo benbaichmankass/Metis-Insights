@@ -774,11 +774,27 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
 
     # 3. reconcile the ledger (confirm by re-read, contain per § 3.5)
     claimed_keys = set()
+    cancelled_this_cycle = False
     for tid, row in ledger.watched().items():
         spec = row.get("spec") or {}
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
         verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
+        # A partial fill can land before the first confirm re-read, on a row
+        # still `submitted`/`unconfirmed` (round-4 review): the same check
+        # must run there, or the unconfirmed_submit path writes the live
+        # position off as `skipped`. The busy-symbol guard refused the submit
+        # if a position already sat on the symbol, so one found now is new.
+        if (row.get("state") in ("placed",) + IntentLedger.UNRESOLVED
+                and verdict in ("placed", "not_found")):
+            why = _suspected_partial_fill(res, ledger, live, tid, spec, found, positions)
+            if why:
+                halted = halted or _trip(res, state, live, why)
+                continue
+        if verdict == "placed" and row.get("state") == "placed":
+            if _expire_resting(res, adapter, page, live, ledger, tid, row, spec, found, positions, now):
+                cancelled_this_cycle = True
+            row = ledger.latest().get(tid, row)
         trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
         if trip:
             halted = halted or _trip(res, state, live, trip)
@@ -830,12 +846,43 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         res.alerts.append(f"ticket intake failed ({type(exc).__name__}); no entries this cycle")
         return res
     seen = ledger.latest()
-    fresh = [t for t in tickets if t.get("ticket_id") and t["ticket_id"] not in seen]
+    # A ticket whose placement failed BEFORE any submit click is `retry_pending`
+    # in the ledger and is taken in again until its valid_until (operator
+    # directive 2026-09-30 ~13:12Z). Every other ledger state is final. A retry
+    # runs EXACTLY the guards a first attempt runs (manager 2026-09-30 13:21Z):
+    # this cycle's terminal read + the busy-symbol guard, valid_until, the
+    # § 3.3 guards, the LIMIT at entry. No retry-only price rule.
+    fresh = [t for t in tickets if t.get("ticket_id")
+             and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") == RETRY_STATE)]
     if only_ticket_id:
         fresh = [t for t in fresh if t["ticket_id"] == only_ticket_id]
     fresh.sort(key=lambda t: str(t.get("created_at") or ""))
     candidate = None
     for t in fresh:
+        # The enabled-symbol filter runs FIRST: a ticket the executor does not
+        # act on is never reported at all, not even `expired` (a ticket first
+        # seen after its valid_until -- a tick outage longer than the TTL, or
+        # the first live cycle after read_only -- would otherwise be POSTed
+        # `skipped: expired` and pulled off `emitted` before the manual
+        # bridge's own expiry prompt asks about it).
+        venue = (cfg.symbols.get(str(t.get("symbol") or "").upper()) or {}).get("venue")
+        if cfg.enabled_venue_symbols is not None and str(venue or "").upper() not in cfg.enabled_venue_symbols:
+            # Skipped BEFORE the form: not a refusal, no latch count (an ETH
+            # ticket stays manual via Telegram until symbol switching lands).
+            # The LEDGER records it (so it is never re-decided) but NOTHING is
+            # reported: the ticket is not the executor's, and a `skipped`
+            # report flips it off `emitted`, which removes it from every
+            # manual-bridge path that keys on `emitted` -- the price-
+            # invalidation "do NOT place" warning, the expiry "did you place
+            # this?" prompt, and the one-ticket-per-trade reticket guard.
+            # Measured 2026-09-30 (BREAKOUT-ATTRITION): breakout_1's roster is
+            # ETH + SOL, ETH is ~60% of fresh tickets, and the executor would
+            # have marked every one `skipped` within one 5-min tick while the
+            # operator still held it on Telegram.
+            res.log("skipped", ticket_id=t["ticket_id"], reason="symbol_not_enabled", venue=venue)
+            if live:
+                ledger.record(t["ticket_id"], "skipped", reason="symbol_not_enabled")
+            continue
         vu = _parse_ts(t.get("valid_until"))
         if vu is not None and vu <= now:
             res.log("expired", ticket_id=t["ticket_id"])
@@ -843,19 +890,18 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
             continue
-        venue = (cfg.symbols.get(str(t.get("symbol") or "").upper()) or {}).get("venue")
-        if cfg.enabled_venue_symbols is not None and str(venue or "").upper() not in cfg.enabled_venue_symbols:
-            # Skipped BEFORE the form: not a refusal, no latch count (an ETH
-            # ticket stays manual via Telegram until symbol switching lands).
-            res.log("skipped", ticket_id=t["ticket_id"], reason="symbol_not_enabled", venue=venue)
-            if live:
-                ledger.record(t["ticket_id"], "skipped", reason="symbol_not_enabled")
-                _report(res, post, _skip_body(cfg, t, "symbol_not_enabled"))
-            continue
         if candidate is None:
             candidate = t
     if candidate is None:
         res.log("no_ticket")
+        return res
+    if cancelled_this_cycle:
+        # The positions/orders read above predates this cycle's cancel, so
+        # the busy-symbol guard would refuse (and finalise) a fresh ticket on
+        # an order that is already being withdrawn. Nothing is recorded: the
+        # ticket is decided next cycle on a fresh read.
+        res.log("hold", ticket_id=candidate["ticket_id"],
+                why="a resting entry was cancelled this cycle; deciding on the next read")
         return res
     if ledger.unresolved():
         res.log("hold", ticket_id=candidate["ticket_id"], why="an earlier submit is still unresolved")
@@ -911,13 +957,38 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         else:
             res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict())
         return res
-    ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts))
+    ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts),
+                  valid_until=candidate.get("valid_until"))
     att: PlaceAttempt = adapter.place_bracket(page, spec, arm=True)
     res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
     st = state.load()
     if not att.submitted:
-        ledger.record(spec.ticket_id, "refused", reasons=[att.detail])
-        _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail}"))
+        # The guards said FITS and the form refused BEFORE any submit click
+        # (place_bracket reports submitted=True the moment the submit click is
+        # attempted, even if it raised), so no order can exist: the ticket
+        # stays RETRYABLE until its valid_until (operator directive
+        # 2026-09-30 ~13:12Z), up to RETRY_MAX_ATTEMPTS, and is not written
+        # off: nothing is reported, the ticket stays `emitted`. It was silent
+        # on 2026-09-30 12:44Z (only the two breach reports alerted), so each
+        # failure alerts.
+        n = int((seen.get(spec.ticket_id) or {}).get("attempts") or 0) + 1
+        # A WATCHED click (max_lots / only_ticket_id: the minimum-size test) is
+        # never retried: an unattended retry would place the ticket at its FULL
+        # size, not the watched cap (review of #14737, 2026-09-30).
+        watched = max_lots is not None or bool(only_ticket_id)
+        if n < RETRY_MAX_ATTEMPTS and not watched:
+            ledger.record(spec.ticket_id, RETRY_STATE, attempts=n, last_detail=att.detail)
+            # The ticket is still `emitted` and the executor WILL try again:
+            # say so, so nobody places it by hand in a race with the retry.
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED yet ({att.detail}); executor will retry until "
+                              f"{candidate.get('valid_until')} (attempt {n}/{RETRY_MAX_ATTEMPTS}) "
+                              f"— do NOT place by hand")
+        else:
+            why = "watched click: not retried" if watched else f"after {n} attempts"
+            ledger.record(spec.ticket_id, "refused", reasons=[att.detail], attempts=n)
+            _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail} ({why})"))
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED — place by hand or it is lost ({why}: {att.detail}); "
+                              f"valid until {candidate.get('valid_until')}")
         if "read-back" in str(att.detail or ""):
             n = int(st.get("readback_refusals") or 0) + 1
             st["readback_refusals"] = n
@@ -949,7 +1020,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
                    venue_symbol: str, side: str = "long", lots: Optional[float] = None,
                    bracket_pct: float = 0.01, arm: bool = False, reads: int = 20,
                    sleep: Callable[[float], None] = lambda s: None,
-                   now: Optional[datetime] = None) -> CycleResult:
+                   now: Optional[datetime] = None, order_type: str = "market") -> CycleResult:
     """The end-to-end test (operator 2026-09-28 ~13:40Z, relayed by the
     manager, approved by the operator in this lane's popup): place ONE
     minimum-size MARKET bracket with SL and TP attached → confirm the position
@@ -993,6 +1064,13 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         return stop(f"lots {lots} is not a valid venue size ({why or f'nearest step is {stepped}'})")
     if side not in ("long", "short"):
         return stop(f"side {side!r} is not long/short")
+    # LIMIT is walked DRY only: it proves the ticket path's order form (select
+    # LIMIT, then find and fill the price field) on the live terminal without
+    # an emitted ticket. A live limit round trip would rest, not fill.
+    if order_type not in ("market", "limit"):
+        return stop(f"order_type {order_type!r} is not market/limit")
+    if order_type == "limit" and arm:
+        return stop("a LIMIT round trip is dry-only (walk the form; never armed)")
     try:
         acct = adapter.read_account(page)
         positions = adapter.read_positions(page)
@@ -1019,8 +1097,14 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     ps = _f(sym.get("price_step"))
     sl, tp = round_to_step(round(sl, 6), ps), round_to_step(round(tp, 6), ps)
     tid = f"roundtrip-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    limit_px = None
+    if order_type == "limit":
+        # Resting side of the book (a long bids at the bid), as a ticket's
+        # entry usually sits away from the touch.
+        limit_px = round_to_step(round(quote["bid"] if side == "long" else quote["ask"], 6), ps)
     spec = BracketSpec(ticket_id=tid, venue_symbol=venue, side=side, quantity=float(lots),
-                       stop_loss=sl, take_profit=tp, order_type="market", price_step=ps)
+                       stop_loss=sl, take_profit=tp, order_type=order_type, limit_price=limit_px,
+                       price_step=ps)
     risk = float(lots) * float(sym["lot_units"]) * float(_f(sym.get("cvpp")) or 1.0) * abs(ref - sl)
     res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2))
 
@@ -1250,6 +1334,156 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
             "sl": spec.get("stop_loss"), "tp": spec.get("take_profit"), "source": "prop_executor"}
 
 
+#: A ticket whose placement failed before any submit click (retryable).
+RETRY_STATE = "retry_pending"
+#: Placement attempts per ticket before the pre-submit failure is final.
+RETRY_MAX_ATTEMPTS = 3
+
+#: Cancel attempts on one expired resting entry before the executor stops
+#: retrying and says so (an alert at exhaustion; later cycles only log).
+CANCEL_EXPIRED_MAX_ATTEMPTS = 3
+#: While an exhausted cancel's order still rests, re-alert at most this often.
+CANCEL_EXHAUSTED_REALERT = timedelta(hours=1)
+
+
+def _suspected_partial_fill(res: CycleResult, ledger: IntentLedger, live: bool, tid: str,
+                           spec: Mapping[str, Any], found: Mapping[str, Any],
+                           positions: Sequence[Position]) -> Optional[str]:
+    """A resting entry (``placed``) with a position open on its symbol+side
+    that does NOT size-match the ticket: a possible PARTIAL FILL, or an
+    unrelated / manual position. Returns a trip reason, or None.
+
+    The executor does not manage partial fills (no bracket repair on the
+    filled part, no ``open`` report of the filled qty, no attribution of a
+    position to a ticket) -- that is filed as its own build. Until it does,
+    this case FAILS CLOSED instead of being handled silently: the row is
+    ``contained`` (so it no longer claims the symbol+side and the orphan
+    check sees the position), new entries halt through the AUTO-REVERT latch,
+    and the alert names the position sizes, whether each carries a stop and
+    a target, and that any remaining entry order is NOT cancelled. Nothing
+    is reported to the journal: it is never written off as ``skipped``.
+    (#14581 round-3 review, 2026-09-30.)"""
+    if found.get("positions"):
+        return None
+    venue = str(spec.get("venue_symbol") or "").upper()
+    side = spec.get("side")
+    held = [p for p in positions if p.symbol.upper() == venue and p.side == side]
+    if not held:
+        return None
+    desc = "; ".join(
+        f"size {p.quantity} SL {p.stop_loss if p.stop_loss is not None else 'NONE'} "
+        f"TP {p.take_profit if p.take_profit is not None else 'NONE'}" for p in held)
+    naked = any(p.stop_loss is None or p.take_profit is None for p in held)
+    res.alerts.append(
+        f"{tid}: {len(held)} position(s) open on {venue} {side} that do not match the ticket's size "
+        f"{spec.get('quantity')} ({desc}): possible PARTIAL FILL or a manual position. "
+        + ("⚠️ A POSITION HAS NO STOP OR TARGET. " if naked else "")
+        + "Not journaled, not written off; any remaining entry order is NOT cancelled. "
+          "Check the terminal, protect/close the position and cancel the remainder by hand.")
+    if live:
+        ledger.record(tid, "contained", verdict="partial_fill_suspected",
+                      positions=[{"qty": p.quantity, "sl": p.stop_loss, "tp": p.take_profit} for p in held])
+    return f"{tid}: partial_fill_suspected on {venue} {side}"
+
+
+def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledger: IntentLedger,
+                    tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
+                    found: Mapping[str, Any], positions: Sequence[Position],
+                    now: Optional[datetime]) -> bool:
+    """Cancel a resting (unfilled) entry once its ticket's ``valid_until`` has
+    passed. Returns True when a cancel was confirmed clicked this cycle.
+
+    The executor types a LIMIT at the ticket's entry; nothing else ever
+    withdrew it, so a breakout that ran away from its entry rested forever:
+    it held the symbol (the one-bracket-per-symbol guard), kept the ticket
+    ``placed`` (which blocks every same-direction reticket with no time
+    window), and could fill days later on a setup that had gone stale -- the
+    automated form of the expiry-prompt wedge (BREAKOUT-ATTRITION 2026-09-30).
+
+    Narrow on purpose:
+    - only when the ledger row carries a readable ``valid_until`` (a row
+      written before this field existed is never guessed at);
+    - never when ANY position is open on the ticket's venue symbol and side:
+      ``match_terminal`` matches positions by size, so a PARTIAL fill is not
+      in ``found`` and would otherwise have its remainder cancelled and the
+      ticket reported skipped with a position open;
+    - ``cancel_requested`` is recorded only when every matched order's cancel
+      returned ``ok`` and ``clicked``, and it is a REQUEST, not a confirmation:
+      if the order is still on the next read, that attempt counts as failed.
+      A failed cancel alerts and retries, up to
+      :data:`CANCEL_EXPIRED_MAX_ATTEMPTS`, then alerts that it gave up and
+      re-alerts every :data:`CANCEL_EXHAUSTED_REALERT` while the order rests;
+    - ``misses`` is reset with ``cancel_requested`` so the existing
+      ``placed -> not_found`` path takes its full two reads before reporting
+      the ticket skipped with the expiry as its reason."""
+    if now is None:
+        return False
+    vu = _parse_ts(row.get("valid_until"))
+    if vu is None or vu > now:
+        return False
+    orders = list(found.get("orders") or [])
+    if not orders:
+        return False
+    if row.get("cancel_exhausted"):
+        # Still resting after the attempts ran out: the busy-symbol guard
+        # refuses every new ticket on this symbol meanwhile, so say so again
+        # on a slow cadence rather than once.
+        last = _parse_ts(row.get("exhausted_alert_at"))
+        if live and (last is None or now - last >= CANCEL_EXHAUSTED_REALERT):
+            ledger.record(tid, "placed", exhausted_alert_at=now.isoformat())
+            res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} is STILL RESTING "
+                              f"(cancel attempts exhausted); cancel it on the terminal -- new tickets on "
+                              f"{spec.get('venue_symbol')} are refused while it rests")
+        return False
+    n_prior = int(row.get("cancel_attempts") or 0)
+    if row.get("cancel_requested"):
+        # A click is not a confirmed cancel: _row_action reports ok/clicked
+        # with "outcome unknown" when the click itself raised. The order is
+        # still on this read, so that request FAILED: count it and retry.
+        n_prior += 1
+        if live:
+            ledger.record(tid, "placed", cancel_requested=None, cancel_attempts=n_prior)
+        if n_prior >= CANCEL_EXPIRED_MAX_ATTEMPTS:
+            if live:
+                ledger.record(tid, "placed", cancel_exhausted=True, exhausted_alert_at=now.isoformat())
+            res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} is still on the "
+                              f"terminal after {n_prior} cancel attempts; it is STILL RESTING, cancel it "
+                              f"on the terminal")
+            return False
+        res.alerts.append(f"{tid}: cancel of resting entry past valid_until did not take (order still "
+                          f"present; attempt {n_prior}/{CANCEL_EXPIRED_MAX_ATTEMPTS}); retrying")
+    venue = str(spec.get("venue_symbol") or "").upper()
+    side = spec.get("side")
+    held = [p for p in positions if p.symbol.upper() == venue and p.side == side]
+    if held or found.get("positions"):
+        res.log("expired_resting_not_cancelled", ticket_id=tid,
+                why=f"{len(held)} position(s) open on {venue} {side}: possible partial fill")
+        return False
+    results = [adapter.cancel_order(page, o, arm=live) for o in orders]
+    res.log("cancel_expired_resting", ticket_id=tid, valid_until=vu.isoformat(),
+            order_ids=[o.order_id for o in orders], results=results)
+    if not live:
+        return False
+    if all(bool(r.get("ok")) and bool(r.get("clicked")) for r in results):
+        # Requested, NOT confirmed: the next read decides (gone -> the
+        # placed->not_found path; still there -> a failed attempt above).
+        ledger.record(tid, "placed", cancel_requested=vu.isoformat(), misses=0)
+        return True
+    n = n_prior + 1
+    whys = "; ".join(str(r.get("why") or "not clicked") for r in results
+                     if not (r.get("ok") and r.get("clicked")))
+    if n >= CANCEL_EXPIRED_MAX_ATTEMPTS:
+        ledger.record(tid, "placed", cancel_attempts=n, cancel_exhausted=True,
+                      exhausted_alert_at=now.isoformat())
+        res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} could not be cancelled "
+                          f"after {n} attempts ({whys}); it is STILL RESTING, cancel it on the terminal")
+    else:
+        ledger.record(tid, "placed", cancel_attempts=n)
+        res.alerts.append(f"{tid}: cancel of resting entry past valid_until failed "
+                          f"(attempt {n}/{CANCEL_EXPIRED_MAX_ATTEMPTS}: {whys}); retrying next cycle")
+    return False
+
+
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
              found: Mapping[str, Any], verdict: str) -> Optional[str]:
@@ -1268,11 +1502,12 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         # A resting order that vanished without a position: cancelled or
         # expired on the terminal. Two reads, then report it skipped.
         n = int(row.get("misses") or 0) + 1
+        why = ("expired: resting entry cancelled at the ticket's valid_until"
+               if row.get("cancel_requested") else "working order gone from the terminal without a fill")
         if live:
             if n >= 2:
-                ledger.record(tid, "skipped", reason="working order gone from the terminal without a fill")
-                _report(res, post, {**_fill_body(cfg, row, spec, "skipped"),
-                                    "reason": "working order gone from the terminal without a fill"})
+                ledger.record(tid, "skipped", reason=why)
+                _report(res, post, {**_fill_body(cfg, row, spec, "skipped"), "reason": why})
             else:
                 ledger.record(tid, "placed", misses=n)
         return trip

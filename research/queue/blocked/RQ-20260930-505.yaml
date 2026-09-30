@@ -1,0 +1,84 @@
+id: RQ-20260930-505
+title: 'Strategy development (general research mandate): the 1m arm of the short-timeframe discovery grid -- same design as RQ-20260930-504, 1m only (blocked on trainer-resident 1m candles and a run that fits)'
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  Operator, 2026-09-30, asked that the short-timeframe discovery grid include 1m. RQ-20260930-504 covers 5m, 15m
+  and 30m on a GitHub runner. Does any 1m (family x symbol) cell in the wave-1 universe (BTC, ETH, SOL, XRP, AVAX)
+  show a net-of-full-cost edge that survives the same two-stage, family-wise correction on data it was not
+  screened on?
+
+why_this_matters: >-
+  1m is the shortest frame the harnesses accept and the one where fees and slippage bite hardest, so it is the
+  frame most likely to be empty; that is worth knowing rather than assuming. It is a SEPARATE grid from 504
+  because (1) K, and therefore the Bonferroni denominator S, differs, and merging grids after seeing either result
+  would be a different, unregistered design; and (2) a 1m frame is about 3 million bars per symbol over
+  2021-2026, which the per-bar harness loops cannot cover inside the runner's 330-minute cap.
+
+power:
+  expected_n: 600
+  min_detectable_effect: 0.2
+  effect_units: sd
+  design: one_sample
+  alpha: 0.01
+  power: 0.8
+  basis: >-
+    Same construction as RQ-20260930-504: Stage B at alpha = 0.05 / S with S about 5 gives z = 3.17 and
+    n = (3.17 / d)^2 = 251 at d = 0.2. expected_n = 600 is an INFERENCE: 1m scalp cells trade more often than 5m
+    ones (5m legs made 193-259 trades per 365 days), so the ~2-year Stage B window should clear the floor easily.
+  feasibility:
+    source: none
+    accrual_basis: Historical re-run on staged candles; nothing accrues.
+
+decision_rule:
+  id: RULE-RQ0930-505-SHORT-TF-DISCOVERY-1M
+  registered_at: '2026-09-30'
+  registered_before_run: true
+  statistic: >-
+    Identical to RULE-RQ0930-504-SHORT-TF-DISCOVERY in every respect (families, live-config parameters,
+    windows, screen, Bonferroni confirmation over the survivors, folds, verdict vocabulary, failed-cell
+    accounting, PASS_CAVEATED, reported-only venue fit, 7.5 bps verdict arm with the 11 bps arm reported)
+    EXCEPT the grid, which is timeframe 1m only: up to 6 families x 5 symbols = 30 cells, with K counted the same
+    way. scripts/research/short_tf_discovery_sweep.py --timeframes 1m.
+  rule: >-
+    As RULE-RQ0930-504, applied to the 1m grid alone. Nothing here may be pooled with 504's cells; a 1m PASS and a
+    5m-30m PASS are separate findings, each with its own S.
+  what_it_does_not_do: >-
+    Does not change or pool with RQ-20260930-504; does not touch config or any strategy parameter.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 12.0
+  est_minutes: 720
+  basis: >-
+    INFERRED: 30 cells over a ~3M-bar frame each; the per-bar order_package loops (ict_scalp, fvg_range, chop_scalp)
+    are the slow part. Exceeds the 330-minute research-script-run cap, so it needs the trainer or a per-family
+    split.
+
+blocked_on:
+  - what: >-
+      A run that fits. The runner's 330-minute cap (research-script-run-guard R1) is too short for 30 cells over
+      ~3M bars, and 1m candles for 5 symbols x 5.8 years are heavy to fetch. Needs either trainer-resident 1m
+      candles plus a trainer-routed run, or a per-family split. A per-family split changes S (each shard would have
+      its own denominator), so it must be registered as a design change BEFORE any run, not improvised after 504.
+    ref: RQ-20260930-504
+    clears_when: >-
+      RQ-20260930-504 has run (so the sweep is proven on real harness output at a smaller scale) and a run route
+      for 1m is chosen and registered.
+
+run:
+  workflow: null
+  note: Deliberately null until the run route exists.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - RQ-20260930-504
+  - scripts/research/short_tf_discovery_sweep.py
+last_dispatched_at: null

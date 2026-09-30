@@ -151,6 +151,7 @@ on:
           - repair-prop-fill-direction
           - breakout-login-check
           - breakout-terminal-probe
+          - egress-landing-probe
           - reset-daily-risk-state
           - repair-malformed-notes
           - repair-netted-rows
@@ -595,6 +596,11 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*exit_price[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ee]xit_price[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # close-stranded-journal-row: optional sl|tp — the row's own leg filled at the venue.
+            exit_kind=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*exit_kind[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ee]xit_kind[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -674,6 +680,7 @@ jobs:
           echo "ACTION_EQUAL_ONLY=${equal_only:-}" >>"$GITHUB_ENV"
           echo "ACTION_EXIT_PRICE=${exit_price:-}" >>"$GITHUB_ENV"
           echo "ACTION_ROW=${row_id:-}" >>"$GITHUB_ENV"
+          echo "ACTION_EXIT_KIND=${exit_kind:-}" >>"$GITHUB_ENV"
           echo ">>> Resolved ACTION=${action:-} REASON=${reason:-} ACCOUNT_ID=${account_id:-} MODE=${mode:-} TRADE_ID=${trade_id:-} SYMBOL=${symbol:-} DAYS=${days:-} WINDOWS=${windows:-} WINDOW_DAYS=${window_days:-} BT_MODE=${bt_mode:-} RECENT_ONLY_FRAC=${recent_only_frac:-} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
@@ -683,7 +690,7 @@ jobs:
             status-check|verify-account-mode|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|breakout-terminal-probe|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
+            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|breakout-terminal-probe|egress-landing-probe|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -1090,8 +1097,11 @@ jobs:
           # comma-separated subset of install-deps,emit-status,reset-feed,
           # probe-ticket,instrument-probe (needs `symbols:`),
           # instrument-search-dump (read-only search-control measurement),
+          # instrument-info-dry / instrument-info-probe (info-panel probe, needs
+          # `symbols:`; -dry clicks nothing, -probe clicks a watchlist Symbol
+          # cell, the info button and the panel's close control),
           # executor-dry-run,watched-click,round-trip-dry,
-          # round-trip-live,sol,executor-enable-timer,executor-disable-timer,
+          # round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,
           # executor-clear-halt,
           # dump-tables (read-only table dump of the positions / orders read path)
           # close-position / close-position-live (locate / CLOSE the one existing position; live needs PROP_EXECUTOR_MODE=live)
@@ -1103,16 +1113,16 @@ jobs:
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)){0,10}$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,close-position,close-position-live (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)){0,10}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,instrument-info-dry,instrument-info-probe,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,close-position,close-position-live (got '${ACTION_APPLY}')."
               exit 1
             fi
-            case ",${ACTION_APPLY:-}," in *",instrument-probe,"*)
+            case ",${ACTION_APPLY:-}," in *",instrument-probe,"*|*",instrument-info-dry,"*|*",instrument-info-probe,"*)
               # instrument-probe needs 'symbols:' -- comma-separated venue
               # symbols, e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD. Validated here so
               # a malformed dispatch fails loudly instead of reaching the VM.
               if [ -z "${ACTION_SYMBOLS// }" ]; then
-                echo "::error::breakout-login-check apply=instrument-probe requires a 'symbols:' line (comma-separated venue symbols)."
+                echo "::error::breakout-login-check apply=${ACTION_APPLY} requires a 'symbols:' line (comma-separated venue symbols)."
                 exit 1
               fi
               if ! printf '%s' "${ACTION_SYMBOLS}" | grep -Eq '^[A-Za-z0-9]+(,[A-Za-z0-9]+){0,19}$'; then
@@ -1214,6 +1224,17 @@ jobs:
               echo "::error::close-stranded-journal-row exit_price '${ACTION_EXIT_PRICE}' must be a non-negative number."
               exit 1
             fi
+            if [ -n "${ACTION_ROW:-}" ] && ! printf '%s' "${ACTION_ROW}" | grep -Eq '^[0-9]+$'; then
+              echo "::error::close-stranded-journal-row row '${ACTION_ROW}' must be a journal trade id (digits only)."
+              exit 1
+            fi
+            case "${ACTION_EXIT_KIND:-}" in
+              ""|sl|tp) ;;
+              *)
+                echo "::error::close-stranded-journal-row exit_kind must be sl or tp (got '${ACTION_EXIT_KIND}')."
+                exit 1
+                ;;
+            esac
           fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
@@ -1525,6 +1546,7 @@ jobs:
             repair-prop-fill-direction)         SCRIPT="repair_prop_fill_direction_action.sh" ;;
             breakout-login-check)               SCRIPT="breakout_login_check_action.sh" ;;
             breakout-terminal-probe)            SCRIPT="breakout_terminal_probe_action.sh" ;;
+            egress-landing-probe)               SCRIPT="egress_landing_probe_action.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -1750,7 +1772,7 @@ jobs:
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_ROW=$(printf '%q' "${ACTION_ROW:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "close-stranded-journal-row" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ACTION_ROW=$(printf '%q' "${ACTION_ROW:-}") ACTION_EXIT_KIND=$(printf '%q' "${ACTION_EXIT_KIND:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reconcile-orphan-history" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"

@@ -37,6 +37,10 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # PROP-TERM (2026-09-30): the egress landing probe's hourly measurement aid. A red run
+      # here is a script/format/environment fault (a proxy that fails is a RESULT, exit 0), and
+      # the operator is waiting on the answer, so it must not die silently.
+      - "egress-chromium-landing-probe"
       # E57 (2026-09-24): the research loss detector. It FAILS DELIBERATELY when
       # a question could not be read, and its death is otherwise silent until
       # its receipt goes stale in CI 36h later.
@@ -48,6 +52,7 @@ on:
       # silently means the Stage-2 demotion signal is not being read at all,
       # which looks exactly like "nothing needed demoting".
       - r4-demotion-gate
+      - exit-cell-mandate
       # W6-OPS-R (2026-09-27): the keeper that dispatches r4-demotion-gate and
       # the other critical validators near their slot, and pages on silence.
       - schedule-keeper

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-03",
+    "kind": "date"
+  },
+  "id": "PI-20260930-3QNHBGND-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PAPER-RESET session_01JjPRfAYQKaocTX3QnHBgnD; dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "scripts/ops/diag_fetch.sh 'alpaca_order_history?account_id=alpaca_paper&symbols=SPY&after=2026-09-26T00:00:00Z'  # stop leg 9fe49151 filled while trades row 6131 still open = still present"
+  },
+  "state": "queued",
+  "what": "[money-path/reconciler] A NETTED row whose OWN protective leg fills at the venue stays status=open forever while a sibling row keeps the symbol non-flat. MEASURED 2026-09-30 on alpaca_paper SPY row 6131 (spy_pullback_1h, 8 sh): it got its own GTC OCO on 2026-09-27 (#13115). Alpaca order history shows stop leg 9fe49151 FILLED 8 @ 763.70 at 2026-09-29T15:12:34Z (parent e21f6ca9 canceled). The broker now holds 11 SPY, which is row 4347 alone, yet row 6131 and pkg-51f1eff527d44b2e are still open. The snapshot reconciler keys on (symbol, side) ABSENCE, so it cannot see one of two netted rows go, and nothing reads the row's own leg fill. On alpaca_live the same shape would leave a real-money row open with no position behind it. The one-off repair for 6131 is the PAPER-RESET close (exit_kind sl). This item is the root cause: a fill-attribution pass that closes a row when ITS OWN sl/tp order (or its OCO child) reads filled."
+}
