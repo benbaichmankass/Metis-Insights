@@ -47,6 +47,13 @@ _EXT_WORKING = {
 _VERDICT = {"action": "close", "reason": "sl_cross"}
 
 
+@pytest.fixture(autouse=True)
+def _outside_rth(monkeypatch):
+    """These are closed/extended-session defers; pin the clock so a CI run
+    during regular hours does not escalate them (#14899 review item 3)."""
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: "closed")
+
+
 class _FakeDB:
     def __init__(self, trade):
         self._trade = dict(trade)

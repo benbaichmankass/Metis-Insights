@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline update record re-opening PI-20260930-GQPT6PQF-0002 (closed too early on n=1) with a due_when on the 00:00Z and 04:00Z closes, per the manager. Pipeline record only; no runtime, order path, strategy or config touched."
+}
