@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-29T19:00:00Z",
+  "updated_at": "2026-09-30T06:50:00Z",
   "updated_by": "session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -3673,7 +3673,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): queued behind SA-DOCS's section-0 cap. Most archived rows should be killed explicitly, not carried. || E75 dispositions (manager, 11:55Z) #14108 MERGED 2e6ae44 (consolidated report). Dispositions: FIX-SA-01->SA-DATA; FIX-SA-02->EXIT-CLUSTER (#14106); FIX-SA-03->FIX-SA-03 lane; FIX-SA-04/05/06->SA-PROV; FIX-SA-07/13->SA-SEC; FIX-SA-08/11/12->SA-INFRA (WEBAPI-RESTART lane closed); FIX-SA-09/10->SA-DOCS (JC-GIT/EXEC-FIX/EXIT-OPS/ADMIN already corrected off in_flight). JC-SA-01 (a)->GRADE; JC-SA-02 (a)->ML-DEMOTE; JC-SA-03 (b) = status quo, no change beyond FIX-SA-05; JC-SA-06 cap+alarm->SA-DOCS, routing lane queued (SA-ROUTE); JC-SA-07 (a)->GUARD-PROOF; JC-SA-08 -> data task on the FIX-SA-03 lane (mirror-vs-live exit divergence census) before any choice. JC-SA-04 (revoke the leaked Telegram token + testnet key) and JC-SA-05 (split the PAT) are OPERATOR-ONLY credential actions: raised to the operator. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane SA-ROUTE session_01TS7BCzqWEkmwLXESEmZ6fg (claude-sonnet-5-5, ceiling $25): route or kill the due unrouted pipeline items (212 unrouted / 241 due at 04:55Z per pipeline.py --check), batches of ~40, a per-item reason, money-path items routed and never killed."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): queued behind SA-DOCS's section-0 cap. Most archived rows should be killed explicitly, not carried. || E75 dispositions (manager, 11:55Z) #14108 MERGED 2e6ae44 (consolidated report). Dispositions: FIX-SA-01->SA-DATA; FIX-SA-02->EXIT-CLUSTER (#14106); FIX-SA-03->FIX-SA-03 lane; FIX-SA-04/05/06->SA-PROV; FIX-SA-07/13->SA-SEC; FIX-SA-08/11/12->SA-INFRA (WEBAPI-RESTART lane closed); FIX-SA-09/10->SA-DOCS (JC-GIT/EXEC-FIX/EXIT-OPS/ADMIN already corrected off in_flight). JC-SA-01 (a)->GRADE; JC-SA-02 (a)->ML-DEMOTE; JC-SA-03 (b) = status quo, no change beyond FIX-SA-05; JC-SA-06 cap+alarm->SA-DOCS, routing lane queued (SA-ROUTE); JC-SA-07 (a)->GUARD-PROOF; JC-SA-08 -> data task on the FIX-SA-03 lane (mirror-vs-live exit divergence census) before any choice. JC-SA-04 (revoke the leaked Telegram token + testnet key) and JC-SA-05 (split the PAT) are OPERATOR-ONLY credential actions: raised to the operator. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane SA-ROUTE session_01TS7BCzqWEkmwLXESEmZ6fg (claude-sonnet-5-5, ceiling $25): route or kill the due unrouted pipeline items (212 unrouted / 241 due at 04:55Z per pipeline.py --check), batches of ~40, a per-item reason, money-path items routed and never killed. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the rows it was blocked on landed with #14550. Mapping sent for its 29 unmapped items (each routed to an existing row after its rerun still reproduces, else killed with a reason); M16 and Phase-H are killed if stale, queued if data-settleable, else surfaced."
     },
     {
       "id": "RQ-ID-ALLOCATOR",
@@ -3907,7 +3907,7 @@
         14520
       ],
       "blocked_on": [],
-      "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_01R2PHzyjMvQoNiB39SdYWco (claude-sonnet-5-5, ceiling $15). Writes proposed: only, never mandates:. Held Tier-3 PR, then the manager puts grant/decline to the operator. || 2026-09-30 ~05:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane opened #14520 (proposed MD-SOAK-EXIT-CELL-PATHB; resolve_exit_cell and --exit-cell/--dry-proposed in mandate_resolver.py; 32 tests). The dry run returns FIRE on #14332's cell. OPERATOR POPUP ~05:15Z; bounds stated: soak-only by Stage-1 membership, never on a Stage-2 roster; folds >=5/6; maxDD worsening <=0.35x base; leverage <=2.0; pullback/donchian only; no runner exists yet. Answer verbatim: \"Grant; firing opens a PR (Recommended)\". GRANTED AS WRITTEN, NO autoland: a fire opens a PR and pings, and the manager merges it. Relayed to the lane: move the entry into mandates: on #14520 (Tier-3 hold, the manager merges on green), then build the runner PI-20260930-39SDYWCO-0001 as a held Tier-2 PR. Ceiling $15 -> $35. The lane found (not blocking): trend_donchian_eth_4h / trend_donchian_xrp_4h were in the 08-30 batch and are now on bybit_2, so the entry refuses them; skill Path-B text vs the shipped path_b_wf_pass differ (-0003); corpus rows lack a cost-stack stamp (-0002)."
+      "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_01R2PHzyjMvQoNiB39SdYWco (claude-sonnet-5-5, ceiling $15). Writes proposed: only, never mandates:. Held Tier-3 PR, then the manager puts grant/decline to the operator. || 2026-09-30 ~05:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane opened #14520 (proposed MD-SOAK-EXIT-CELL-PATHB; resolve_exit_cell and --exit-cell/--dry-proposed in mandate_resolver.py; 32 tests). The dry run returns FIRE on #14332's cell. OPERATOR POPUP ~05:15Z; bounds stated: soak-only by Stage-1 membership, never on a Stage-2 roster; folds >=5/6; maxDD worsening <=0.35x base; leverage <=2.0; pullback/donchian only; no runner exists yet. Answer verbatim: \"Grant; firing opens a PR (Recommended)\". GRANTED AS WRITTEN, NO autoland: a fire opens a PR and pings, and the manager merges it. Relayed to the lane: move the entry into mandates: on #14520 (Tier-3 hold, the manager merges on green), then build the runner PI-20260930-39SDYWCO-0001 as a held Tier-2 PR. Ceiling $15 -> $35. The lane found (not blocking): trend_donchian_eth_4h / trend_donchian_xrp_4h were in the 08-30 batch and are now on bybit_2, so the entry refuses them; skill Path-B text vs the shipped path_b_wf_pass differ (-0003); corpus rows lack a cost-stack stamp (-0002). || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the grant record is on main (#14550); lane told to move the entry into mandates: on #14520 (no autoland, landing hold) and then build the runner."
     },
     {
       "id": "PROP-PLATFORMS",
@@ -3931,7 +3931,7 @@
       "id": "ALPACA-REARM",
       "title": "Harden the Alpaca naked-position re-arm: never strip sibling protection; position-presence + marketable-stop guard; re-arm coverage gaps; bound repeat re-arms (real money: alpaca_live)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01FWD56p45DUf3cUzpDiPmDA",
       "model": "claude-opus-5-5",
@@ -3939,10 +3939,12 @@
       "spend_usd": null,
       "tier": 2,
       "prs": [
-        14545
+        14545,
+        14569,
+        14576
       ],
       "blocked_on": [],
-      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Money path, priority 1. Items PI-20260929-PR6YRTQY-0001/-0003/-0005 and K1XNYYAQ-0003. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): 4 of 5 brief items were ALREADY fixed on main (#14127, #14177, #14241, #14347), re-verified by mutation. #14545 (sweep counters for every early exit, unaccounted==0, the cap pinned at 3 by a replay test; NO order-path change) passed independent review with MERGE (206+417 tests, ruff clean, no consumer of the renamed keys). Un-drafted, auto-merge armed. The lane observes the live sweep line after deploy."
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Money path, priority 1. Items PI-20260929-PR6YRTQY-0001/-0003/-0005 and K1XNYYAQ-0003. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): 4 of 5 brief items were ALREADY fixed on main (#14127, #14177, #14241, #14347), re-verified by mutation. #14545 (sweep counters for every early exit, unaccounted==0, the cap pinned at 3 by a replay test; NO order-path change) passed independent review with MERGE (206+417 tests, ruff clean, no consumer of the renamed keys). Un-drafted, auto-merge armed. The lane observes the live sweep line after deploy. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14545, #14569, #14576 MERGED; #14545 deployed and observed on the live sweep line (unaccounted=0). Lane ARCHIVED."
     },
     {
       "id": "STAGE2-MIRROR",
@@ -3966,7 +3968,7 @@
       "id": "GITSYNC-REVIVE",
       "title": "ict-git-sync restarts every ict-* unit, reviving a deliberately stopped ict-trader-live: restart only active units",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_014hPP8CTfoZ8y3kfDt5QsCC",
       "model": "claude-opus-5-5",
@@ -3975,7 +3977,7 @@
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Item PI-20260927-YDVVYLKH-0002. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Item PI-20260927-YDVVYLKH-0002. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14534 MERGED, deployed 06:19Z and the live VM confirmed running the new script; #14579 closed PI-20260927-YDVVYLKH-0002. Lane ARCHIVED."
     },
     {
       "id": "ORDER-AUDIT-2",
@@ -4161,6 +4163,125 @@
       "prs": [],
       "blocked_on": [],
       "note": "2026-09-30 ~05:47Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR, verbatim: \"the Tradeify option sounds like it uh, might be good, even if they don't serve the API docs, if we can at least reuse the info where we already build, and that's also uh, a step up. Uh, so let's see there also if like uh, we think we can get a portfolio that would uh, be reasonably profitable within their limits.\" Lane dispatched (claude-sonnet-5-5, $35), carrying the operator's trade-frequency worthwhileness requirement."
+    },
+    {
+      "id": "BREAKOUT-ATTRITION",
+      "title": "Why do most Breakout tickets never become trades under the automated executor, and fix what still applies (real money: breakout_1)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01KMYJ5xC7gtPjGVf6Nwywoq",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        14581,
+        14584
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): 152 of 170 Breakout tickets never became trades; most of that attrition is manual-bridge history, not the automated executor. Two live executor bugs found and fixed in HELD Tier-2 PR #14581: (1) the symbol_not_enabled branch POSTs status 'skipped' for ETH tickets, which disables the manual-path guards; (2) a resting LIMIT entry is never cancelled at valid_until. #14581 is under independent review; merge only on a MERGE verdict. Pipeline records #14584 MERGED (PI-20260930-KMYJ5XC7-0001..0003). Open: disposition of the wedge item BL-20260911-ONE-UNANSWERED. Model opus: order path on a funded account."
+    },
+    {
+      "id": "GATE-SCOPE",
+      "title": "Open-package gate is strategy-wide across accounts: a paper IEF package blocks the live IEF leg (PI-20260930-QZSE4AMA-0001); scope it per account",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01C4qod5gogYDwASmek2XMWT",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        14590
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:45Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): found by LIVE-NO-TRADES. Fix PR #14590 (open-package gate per ACCOUNT, landing hold, Tier-3) is open as a draft; awaiting the lane's report, then independent review, then the manager decides under the data-backed Tier-3 authorization and notifies the operator. Model opus: live order path."
+    },
+    {
+      "id": "DONCHIAN-PARITY",
+      "title": "Live trend_donchian evaluates the forming bar while the backtest uses the closed bar (PI-20260930-QZSE4AMA-0002): measure and fix",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01KjACh47AwiaCPSgQPT6PQF",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        14577
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:30Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager decision relayed, data-backed: flip trend_donchian_xrp_4h ONLY to decision_bar: closed; trend_donchian_eth_4h and the eth prop leg are held pending an eth follow-up. Required before merge: 5 red guards fixed, xrp re-run with the live stop anchor, a distinct log reason for a missed stale window, the eth yaml line reverted. #14577 held Tier-3; the manager merges on green after review and notifies the operator with the revert (delete one config line)."
+    },
+    {
+      "id": "ALPACA-CLOSE-WEDGE",
+      "title": "A standing close wedge re-marks active-close every tick, so the naked sweep skips the position; could it strand alpaca_live overnight? (PI-20260930-ZPDIPMDA-0001)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01LLCqwwDGQM7BZMZifj1rkM",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        14585,
+        14587
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): VERDICT a bug. On alpaca_live, per the code (not observed): an after-hours sl_cross cancels the OCO and places a DAY extended-hours limit; after it expires at the close, each tick returns 'deferred (bracket left armed)' and re-marks active-close, so the sweep skips a position with nothing resting at the venue overnight. Fix HELD Tier-2 #14585: mark active-close only when a close is sent; a bracket-left-armed defer clears the marker; a session-deferred re-probe is held 300 s with a logged cause. 11 new tests, 6 fail on old code. Under independent review. Pipeline #14587 (landing added by the manager, auto-merge). Paper GLD zombie OCO -> PAPER-RESET."
+    },
+    {
+      "id": "PAPER-RESET",
+      "title": "Reset the alpaca_paper account to clear the GLD zombie OCO (PI-20260930-ZIFJ1RKM-0001), closing journal rows with an operational reason",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01JjPRfAYQKaocTX3QnHBgnD",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:44Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP (Alpaca ticket / reset the paper account / leave and exclude), answer verbatim: \"Reset the paper account\". Lane dispatched to establish what the reset does (dashboard-only? new keys?), list the open positions and packages, close the journal rows with an operational reason so the reconciler does not book strategy exits, and hand the manager the minimal operator steps. Model opus: broker and credential handling."
+    },
+    {
+      "id": "LIVE-NO-TRADES",
+      "title": "Why have the real-money rosters (bybit_2, alpaca_live and mirrors) not traded since 09-28? Trace signal to dispatch",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01XEHP2RTP24AZWSQZSE4AMA",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14565
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): VERDICT (A): no qualifying setups. All 7 live legs evaluate each bar and are live and enabled; the VM sha matches main; a bar-by-bar replay reproduces past trades and finds no setup since 09-28. Of 121 emissions since 09-15, 22 were dispatched and 99 fell inside an open package. Silences this long are normal (gaps up to 7.7 days since 08-01). Bugs spun out: GATE-SCOPE and DONCHIAN-PARITY. #14565 (open_package_blocked audit row) MERGED. Lane ARCHIVED."
+    },
+    {
+      "id": "FIX-14356",
+      "title": "Repin test_corpus_fold_coverage for #14356's new corpus rows",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01WJKF5ZpAgsF3BTsq5JJYwo",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 5,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14356
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:35Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): repinned EXPECTED_UNCOVERED with the qqq_trend_long_1d vt_hot90_t2 fold years; #14356 MERGED. Lane ARCHIVED."
     }
   ]
 }
