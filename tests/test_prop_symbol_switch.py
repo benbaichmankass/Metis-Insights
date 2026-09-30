@@ -38,7 +38,8 @@ def switch(browser, html, target):  # noqa: F811
 
 def test_switches_the_linked_symbol_with_one_verified_symbol_cell_click(browser):  # noqa: F811
     got, st = switch(browser, page_html(), "ETHUSD")
-    assert got == {"target": "ETHUSD", "ok": True, "clicked": True, "before": "SOLUSD", "after": "ETHUSD"}
+    assert got == {"target": "ETHUSD", "ok": True, "clicked": True, "before": "SOLUSD", "after": "ETHUSD",
+                   "one_click": {"state": "off", "via": "data-value+knob"}}
     assert st["clicks"] == ["sym"] and st["linked"] == "ETHUSD" and st["tags"] == 0
     never_traded(st)                                   # no Bid/Ask, no double-click ticket
 
@@ -163,3 +164,107 @@ def test_the_tick_decides_symbol_switch_dry_before_the_kill_switch():
                 instrument_probe="", instrument_search_dump=False, instrument_info_dry="",
                 instrument_info_probe="", symbol_switch_dry="ETHUSD")
     assert resolve_mode(SimpleNamespace(**base), {"PROP_EXECUTOR_MODE": "off"}) == "symbol_switch_dry"
+
+
+# ── independent review of #14885 (manager 20:17Z) ─────────────────────────
+
+
+def test_review_the_switch_click_refuses_when_one_click_reads_on(browser):  # noqa: F811
+    got, st = switch(browser, page_html(one_click="checked"), "ETHUSD")
+    assert got["ok"] is False and got["clicked"] is False
+    assert got["why"].startswith("symbol switch refused: one-click not confirmed OFF (reads 'on'")
+    assert st["clicks"] == [] and st["linked"] == "SOLUSD"
+
+
+def test_review_the_switch_click_refuses_when_one_click_is_unknown(browser):  # noqa: F811
+    got, st = switch(browser, page_html(one_click_unreadable=True), "ETHUSD")
+    assert got["ok"] is False and "one-click not confirmed OFF (reads 'unknown'" in got["why"]
+    assert st["clicks"] == []
+
+
+def test_review_one_click_off_lets_the_switch_click(browser):  # noqa: F811
+    got, _ = switch(browser, page_html(), "ETHUSD")
+    assert got["ok"] is True and got["one_click"]["state"] == "off"
+
+
+def test_review_an_already_linked_symbol_reads_no_one_click_and_clicks_nothing(browser):  # noqa: F811
+    class Counting(DXtradeAdapter):
+        reads = 0
+
+        def read_one_click(self, page):
+            Counting.reads += 1
+            return super().read_one_click(page)
+
+    p = browser.new_page()
+    p.set_content(page_html(one_click="checked"))              # even with one-click ON
+    got = Counting(timeout_ms=3_000).select_linked_symbol(p, "SOLUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert got["ok"] is True and got["clicked"] is False and Counting.reads == 0 and st["clicks"] == []
+
+
+ORDER_ROW_OUTSIDE = ('<div class="widget__container___Or2 widgetNew__container">'
+                     '<button data-test-id="widget_menu_POSITIONS">Positions</button><table><tbody>'
+                     '<tr class="instrument" data-row-id="p1"><td class="sym">ETHUSD</td><td>Buy</td><td>1</td></tr>'
+                     '</tbody></table></div>')
+
+
+def test_review_a_positions_row_outside_the_watchlist_is_never_a_target(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html(outside_table=ORDER_ROW_OUTSIDE))
+    from src.prop.platform.dxtrade import INFO_PROBE_RESOLVE_JS
+    res = p.evaluate(INFO_PROBE_RESOLVE_JS, [["ETHUSD"]])
+    p.close()
+    assert res["ok"] is True and res["targets"]["ETHUSD"]["n_rows"] == 1 and res["targets"]["ETHUSD"]["clean"]
+    got, st = switch(browser, page_html(outside_table=ORDER_ROW_OUTSIDE), "ETHUSD")
+    assert got["ok"] is True and st["clicks"] == ["sym"]
+
+
+def test_review_a_watchlist_scope_holding_the_orders_widget_refuses(browser):  # noqa: F811
+    html = page_html().replace('<table><thead><tr><th>Symbol</th><th>Bid</th>',
+                               '<button data-test-id="widget_menu_ORDERS">x</button>'
+                               '<table><thead><tr><th>Symbol</th><th>Bid</th>', 1)
+    got, st = switch(browser, html, "ETHUSD")
+    assert got["ok"] is False and "Orders / Positions widget" in got["why"] and st["clicks"] == []
+
+
+def test_review_a_failed_live_switch_that_clicked_restores_the_prior_symbol_once():
+    calls = []
+
+    class Restore(_Stub):
+        def select_linked_symbol(self, page, venue_symbol, *, settle_ms=1_500):
+            calls.append(venue_symbol)
+            if venue_symbol == "ETHUSD":
+                return {"ok": False, "clicked": True, "before": "SOLUSD", "why": "link did not follow"}
+            return {"ok": False, "clicked": False, "why": "1 dialog(s) open"}
+
+    ad = Restore({"found": True, "symbol_value": "SOLUSD", "fields": {}}, {})
+    att = ad.place_bracket(object(), SPEC, arm=False)
+    assert calls == ["ETHUSD", "SOLUSD"]                                  # exactly one restore attempt
+    assert att.stage == "refused" and "RESTORE to SOLUSD FAILED: 1 dialog(s) open" in att.detail
+    assert att.form["symbol_switch"]["restore"]["ok"] is False and ad.calls[-1] == "close"
+
+
+def test_review_a_failed_switch_that_never_clicked_attempts_no_restore():
+    calls = []
+
+    class NoClick(_Stub):
+        def select_linked_symbol(self, page, venue_symbol, *, settle_ms=1_500):
+            calls.append(venue_symbol)
+            return {"ok": False, "clicked": False, "before": "SOLUSD", "why": "symbol switch refused: one-click"}
+
+    att = NoClick({"found": True, "symbol_value": "SOLUSD", "fields": {}}, {}).place_bracket(object(), SPEC, arm=False)
+    assert calls == ["ETHUSD"] and "RESTORE" not in att.detail
+
+
+def test_review_symbol_switch_dry_never_raises():
+    class Boom:
+        def evaluate(self, *a, **k):
+            raise RuntimeError("page gone")
+
+    class OffThenBoom(DXtradeAdapter):
+        def read_one_click(self, page):
+            return {"state": "off", "via": "data-value+knob"}
+
+    got = OffThenBoom(timeout_ms=1_000).symbol_switch_dry(Boom(), "ETHUSD", settle_ms=1)
+    assert got["alerts"] == ["symbol-switch-dry raised RuntimeError (code=switch_dry_exception)"]
