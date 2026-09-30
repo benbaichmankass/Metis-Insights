@@ -129,6 +129,19 @@ for m in probe-ticket instrument-probe instrument-search-dump executor-dry-run w
     esac
 done
 case ",${APPLY}," in *",sol,"*) RT_SYMBOL="SOLUSD" ;; *) RT_SYMBOL="ETHUSD" ;; esac
+if [ "${WANT_RESET}" = "1" ] && [ "${ACCOUNT}" != "breakout_1" ]; then
+    # reset-feed clears ${BASE}/feed, which is breakout_1's feed: a check of
+    # another account must never re-arm it.
+    log "reset-feed: refused for ${ACCOUNT} — the scheduled feed is breakout_1's"
+    exit 1
+fi
+if [ -n "${EXEC_MODE}" ] && [ "${ACCOUNT}" != "breakout_1" ]; then
+    # The executor's kill switch (PROP_EXECUTOR_MODE), state dir and saved
+    # session are breakout_1's. Until they are per account (TRADEIFY-WIRE PR A,
+    # #14663), a second account gets the READ-ONLY login check and nothing else.
+    log "${EXEC_MODE}: refused for ${ACCOUNT} — executor modes run for breakout_1 only (login check only for other accounts)"
+    exit 1
+fi
 if [ "${EXEC_MODE}" = "executor-clear-halt" ]; then
     # Clear the executor's AUTO-REVERT latch (manager / operator decision,
     # 2026-09-28). Never cleared from inside the executor. Refuses without a
@@ -186,7 +199,19 @@ fi
 
 # Export exactly the keys the check needs from the VM .env. Values are never
 # echoed (no `set -x`, no print); the python side prints set/MISSING only.
-CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN PROP_EXECUTOR_MODE"
+# breakout_1's list is unchanged. Any other account (TRADEIFY-WIRE, 2026-09-30)
+# exports the credential NAMES its config/prop_platforms.yaml entry declares
+# (no entry = refused; never another account's login), and no executor key.
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN PROP_EXECUTOR_MODE"
+else
+    if ! ACCT_KEYS="$(cd "${REPO_DIR}" && python3 -c 'import sys; from src.prop.platform import load_platform_config as l; c = l(sys.argv[1]); u, p = c.get("username_env"), c.get("password_env"); assert u and p; print(u, p)' "${ACCOUNT}")" \
+            || [ -z "${ACCT_KEYS// }" ]; then
+        log "account ${ACCOUNT}: no usable entry in config/prop_platforms.yaml — refusing (no login borrowed from another account)"
+        exit 1
+    fi
+    CHECK_KEYS="${ACCT_KEYS} DASHBOARD_API_TOKEN"
+fi
 if [ -f "${REPO_DIR}/.env" ]; then
     for ckey in ${CHECK_KEYS}; do
         cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true

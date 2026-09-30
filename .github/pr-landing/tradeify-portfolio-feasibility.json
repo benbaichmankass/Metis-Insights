@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "The diff adds config/prop_rulesets/tradeify_247_1step.yaml, which the landing guard treats as Tier-3 by name. It is read only by research tools (prop_ev_sim.py, load_ruleset); no runtime loads it and no account references it, so a human can merge it after a read without a Tier-3 decision.",
+  "why": "Research memo docs/research/tradeify-portfolio-feasibility-2026-09-30.md, one prop ruleset YAML, result JSONs, a DOCUMENT-INDEX row, and default-off flags on the research CLI scripts/research/prop_ev_sim.py (self-test and tests/test_prop_ev_sim.py pass; Breakout runs unchanged). No src/ runtime, order path, strategy config, risk cap or account mode. Dispatched by the manager as lane TRADEIFY-PORTFOLIO."
+}

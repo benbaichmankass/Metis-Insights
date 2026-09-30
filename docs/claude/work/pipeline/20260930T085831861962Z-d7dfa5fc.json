@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A dry journal row written for a side_filter-suppressed package names side_filter as its cause (e.g. notes.dry_cause='side_filter:long'), pinned by a test that runs a short through multi_account_execute on a side_filter:long account and reads the cause off the row -- OR an operator decision records that the logger line is sufficient.",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-SVBNZOVH-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "manager independent review of PR #13603, 2026-09-28 13:02Z (session_01KAQRJxRbRwpYTkPgBjNVyQ); filed by lane EXEC-FIX session_01C7mgVNtBDmoVSQSvBNzoVh",
+    "rerun": "Read src/core/coordinator.py's 'Per-ACCOUNT directional gate (accounts.yaml::side_filter)' block and src/units/accounts/execute.py::execute_pkg's dry branch; check whether the dry journal row for a side_filter-suppressed package carries any field naming side_filter as the cause."
+  },
+  "state": "done",
+  "terminal_reason": "MERGED 2026-09-30 06:17Z in #14539: a side_filter-suppressed dry row now carries notes.dry_cause='side_filter:<x>' (also execution:shadow / process_override), pinned by tests/test_side_filter_dry_cause.py which runs a short through multi_account_execute and the real execute_pkg into a tmp journal and reads the cause off the row. Merged, not yet observed live: the first side_filter-suppressed row on alpaca_live or alpaca_portfolio after ict-git-sync + trader restart should carry the field.",
+  "what": "accounts.yaml::side_filter demotes a suppressed direction to dry (Coordinator.multi_account_execute, the 'Per-ACCOUNT directional gate' block) and its cause lives ONLY in a logger.info line. execute_pkg has no reason field, so the journal row is an ordinary dry would-be trade: on alpaca_live (mode: live, side_filter: long) a suppressed short is indistinguishable in the DB from a shadow / account_state / process-dry demotion, and journald keeps ~30 min. Found by the manager's independent review of #13603 (2026-09-28), which fixed the same gap for the new broker shorting gate by refusing with a log_rejection_to_journal row (reason=broker_shorting_disabled). side_filter was deliberately left as a dry demotion because its design keeps the would-be trade as a counterfactual row ('what did long-only cost or save us?'), so the fix is to STAMP the cause on that dry row, not to convert it to a refusal.",
+  "why_it_matters": "alpaca_live is a real-money account; 'why did this short not send?' must be answerable from the trades table, and today it is only answerable within ~30 minutes from journalctl."
+}

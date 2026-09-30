@@ -101,6 +101,41 @@ accounts:
       # passes the D1-D7 dry run. Env override: PROP_EXECUTOR_SYMBOLS.
       enabled_venue_symbols: [SOLUSD]
 
+  # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's
+  # DXtrade white-label (TRADEIFY-WIRE, 2026-09-30; operator decision ~08:24Z
+  # "Buy the $10k pilot (Recommended)"). Memo:
+  # docs/research/tradeify-portfolio-feasibility-2026-09-30.md (PR #14580).
+  #
+  # login_url MUST be explicit: the dxtrade DEFAULT is Breakout's host, so an
+  # omitted URL would type Tradeify's login into Breakout's terminal.
+  # MEASURED 2026-09-30 (docs/research/prop-dxtrade-firms-2026-09-30.md § 4.1,
+  # issue #14635, run 36687556587, one GET per URL from the live VM egress):
+  # GET https://dx.tradeify247.co/ -> 200, the DXtrade terminal page with
+  # loginForm-main / #username / #password, no Cloudflare challenge and no
+  # Error 1005. NOT measured: a login, the post-login DOM, symbol names, lots.
+  tradeify_1:
+    platform: dxtrade
+    login_url: https://dx.tradeify247.co/
+    username_env: TRADEIFY_DX_USERNAME
+    password_env: TRADEIFY_DX_PASSWORD
+    # LOGIN CHECK ONLY for now: breakout-login-check REFUSES every executor
+    # mode for any account but breakout_1 (the executor's kill switch is the
+    # global PROP_EXECUTOR_MODE until a per-account one exists — TRADEIFY-WIRE
+    # PR A #14663), so nothing here can reach an order control.
+    executor:
+      safety_margin_usd: 5
+      unconfirmed_reads: 3
+      confirm_rel_tol: 0.02
+      # EMPTY ON PURPOSE: no Tradeify lot size, step, minimum or price step is
+      # measured. A symbol with no entry is REFUSED by the structure guard.
+      # Fill from the login check's passive instrument-spec read (default
+      # --symbols includes ETHUSD, SOLUSD, XRPUSD) once it has run.
+      lots: {}
+      watched_click_max_lots: {}
+      # Nothing enabled: every ticket is SKIPPED `symbol_not_enabled` before
+      # the form is touched. Set in the go-live PR only, after the dry evidence.
+      enabled_venue_symbols: []
+
 # Read-only terminal PROBES (not traded accounts): run by the
 # `breakout-terminal-probe` system-action (scripts/prop/breakout_terminal_probe.py)
 # to MEASURE a terminal before any account runs on it. PROP-TERM 2026-09-28:
