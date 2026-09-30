@@ -37,7 +37,7 @@ def page_html(*, margin="$0", order_rows="", one_click="", panel_names=None, dia
               close_btn=True, no_close=False, sym_cell_extra="", link_breaks_for="",
               panel_role="", orders_hidden=False, one_click_unreadable=False, panel_extra="",
               hover_button_for="", outside_table="", orders_headers=None, no_panel_for="",
-              toggle_attrs="", orders_depth=1):
+              toggle_attrs="", orders_depth=1, stray_for="", late_ms=0):
     rows = "".join(
         f'<tr class="instrument" data-row-id="{i}"><td class="sym">{s}{sym_cell_extra if s == "SOLUSD" else ""}</td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.1</button></td>'
@@ -106,6 +106,12 @@ document.querySelector('[data-test-id=instrument_info_button]').addEventListener
   const open = document.querySelector('.info-panel');
   if (open) {{ if (!{json.dumps(no_close)}) open.remove(); return; }}
   const s = document.querySelector('[data-test-id=symbol_input]').value;
+  if (s === {json.dumps(stray_for)}) {{
+    // a small new element that is NOT panel-sized and ignores Escape (a
+    // tooltip-like stand-in for the one live #14831 recorded)
+    const t = document.createElement('div'); t.className = 'stray'; t.textContent = 'Info';
+    t.style.cssText = 'width:60px;height:20px'; document.body.appendChild(t); return;
+  }}
   if (s === {json.dumps(no_panel_for)}) return;
   const name = PANEL_NAMES ? PANEL_NAMES : s;
   const p = document.createElement('div'); p.className = 'info-panel';
@@ -116,7 +122,7 @@ document.querySelector('[data-test-id=instrument_info_button]').addEventListener
     + ({json.dumps(close_btn)} ? '<button class="close" aria-label="Close">x</button>' : '');
   const btn = p.querySelector('button.close');
   if (btn) btn.addEventListener('click', () => {{ if (!{json.dumps(no_close)}) p.remove(); }});
-  document.body.appendChild(p);
+  if ({late_ms}) setTimeout(() => document.body.appendChild(p), {late_ms}); else document.body.appendChild(p);
 }});
 // Escape dismisses an open info panel (a refused panel is closed this way,
 // never by a click).
@@ -338,16 +344,52 @@ def _no_restore_click(st):
     assert st["clicks"].count("sym") == 1, st["clicks"]
 
 
-def test_r3a_a_not_found_panel_gets_no_restore_click_and_latches(browser, tmp_path):
+def test_r3a_a_not_found_panel_with_a_new_element_left_gets_no_restore_click_and_latches(browser, tmp_path):
     # Round-3 review: found:false after the info click can mean unidentified
-    # new elements -- an open panel. No further click; the latch is written.
+    # new elements -- an open panel. When one is STILL VISIBLE after the one
+    # Escape, no further click; the latch is written.
     from scripts.prop.prop_executor_tick import latch_info_probe
-    got, st = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    got, st = run(browser, page_html(stray_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
     assert any("aborted before any close click" in a for a in got["alerts"])
-    assert got["results"]["BTCUSD"]["panel_open"] is True
+    r = got["results"]["BTCUSD"]
+    assert r["panel_open"] is True and r["panel_retry"] is True
+    assert r["after_escape"] == {"readable": True, "n_visible": 1} and st["keys"] == ["Escape"]
     assert got["restore"]["attempted"] is False and "unverified" in got["restore"]["why"]
     _no_restore_click(st)
+    never_traded(st)
     assert latch_info_probe(got, tmp_path) and (tmp_path / "halted").exists()
+
+
+def test_step5_a_not_found_panel_with_nothing_left_restores_and_does_not_latch(browser, tmp_path):
+    # Live -probe #14831 (manager step 5): the restore was skipped with no way
+    # back. When the one Escape leaves NO unidentified new element visible,
+    # the measured Symbol-cell restore runs and verifies; nothing latches.
+    from scripts.prop.prop_executor_tick import latch_info_probe
+    got, st = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    r = got["results"]["BTCUSD"]
+    assert r["panel_open"] is False and r["closed_via"] == "escape_nothing_left"
+    assert r["new_elements"]["readable"] is True and r["new_elements"]["n_visible"] == 0
+    assert "ETHUSD" not in got["results"]                         # still aborts the run
+    assert got["restore"] == {"original": "SOLUSD", "attempted": True, "clicked": True, "verified": True}
+    assert st["linked"] == "SOLUSD" and st["clicks"].count("sym") == 2 and st["keys"] == ["Escape"]
+    never_traded(st)
+    assert latch_info_probe(got, tmp_path) is None and not (tmp_path / "halted").exists()
+
+
+def test_step5_the_new_element_dump_is_masked_and_clicks_nothing(browser):
+    got, st = run(browser, page_html(stray_for="BTCUSD"), symbols=("BTCUSD",))
+    el = got["results"]["BTCUSD"]["new_elements"]["elements"]
+    assert el == [{"tag": "div", "role": "", "cls": ["stray"], "w": 60, "h": 20, "visible": True,
+                   "n_leaves": 1, "leaves": ["Info"]}]
+    assert st["clicks"] == ["sym", "instrument_info_button"]      # the Escape is a key, not a click
+
+
+def test_step5_a_panel_that_renders_late_is_found_on_the_retry(browser):
+    got, st = run(browser, page_html(late_ms=90), symbols=("BTCUSD",))
+    r = got["results"]["BTCUSD"]
+    assert r["panel_retry"] is True and r["panel"]["found"] is True and r["closed"] is True
+    assert any("0.001" in leaf for leaf in r["leaves"]) and got["restore"]["verified"] is True
+    assert got["alerts"] == []
 
 
 def test_r3b_an_exception_in_the_close_step_gets_no_restore_click_and_latches(browser, tmp_path):
@@ -558,3 +600,95 @@ def test_action_and_workflow_accept_the_modes():
     wf = (REPO / ".github" / "workflows" / "system-actions.yml").read_text()
     assert wf.count("|instrument-info-dry|instrument-info-probe|") == 2
     assert '*",instrument-info-dry,"*|*",instrument-info-probe,"*)' in wf
+
+
+# ── manager 2026-09-30 18:00Z: re-check on a FRESH page before latching ────
+
+
+def _unverified(original="SOLUSD", **fp):
+    got = {"mode": "click", "alerts": [], "restore": {"original": original, "attempted": False, "verified": False}}
+    if fp:
+        got["fresh_page_check"] = fp
+    return got
+
+
+@pytest.mark.parametrize("fp,latches", [
+    ({}, True),                                                                        # no check -> latch
+    ({"readable": True, "linked_symbol": "SOLUSD", "dialogs": 0}, False),              # original -> alert only
+    ({"readable": True, "linked_symbol": "BTCUSD", "dialogs": 0}, True),               # changed
+    ({"readable": True, "linked_symbol": "SOLUSD", "dialogs": 1}, True),               # a dialog open
+    ({"readable": False, "why": "session relogin_needed"}, True),                      # could not look
+    ({"readable": True, "linked_symbol": "SOLUSD"}, True),                             # dialogs unread
+])
+def test_fresh_page_check_decides_the_latch(fp, latches):
+    assert bool(info_probe_restore_latch_reason(_unverified(**fp))) is latches
+
+
+class _FakeAdapter:
+    def __init__(self, chk):
+        self.chk, self.calls = chk, []
+
+    def fresh_page_linked_check(self, context, login_url, original):
+        self.calls.append((login_url, original))
+        return dict(self.chk)
+
+
+class _FakePage:
+    closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_fresh_page_recheck_reading_the_original_alerts_and_writes_no_latch(tmp_path):
+    from scripts.prop.prop_executor_tick import fresh_page_recheck, latch_info_probe
+    got, ad, pg = _unverified(), _FakeAdapter({"readable": True, "linked_symbol": "SOLUSD", "dialogs": 0}), _FakePage()
+    fresh_page_recheck(got, ad, object(), pg, "https://x/")
+    assert pg.closed and ad.calls == [("https://x/", "SOLUSD")]
+    assert any("fresh page reads the original linked symbol 'SOLUSD'" in a for a in got["alerts"])
+    assert latch_info_probe(got, tmp_path) is None and not (tmp_path / "halted").exists()
+
+
+def test_fresh_page_recheck_reading_another_symbol_still_latches(tmp_path):
+    from scripts.prop.prop_executor_tick import fresh_page_recheck, latch_info_probe
+    got = _unverified()
+    fresh_page_recheck(got, _FakeAdapter({"readable": True, "linked_symbol": "BTCUSD", "dialogs": 0}),
+                       object(), _FakePage(), "https://x/")
+    assert latch_info_probe(got, tmp_path).startswith("AUTO-REVERT") and (tmp_path / "halted").exists()
+
+
+def test_fresh_page_recheck_is_skipped_after_a_verified_restore():
+    from scripts.prop.prop_executor_tick import fresh_page_recheck
+    got = {"mode": "click", "restore": {"original": "SOLUSD", "verified": True}}
+    ad, pg = _FakeAdapter({}), _FakePage()
+    fresh_page_recheck(got, ad, object(), pg, "https://x/")
+    assert ad.calls == [] and not pg.closed and "fresh_page_check" not in got
+
+
+def test_fresh_page_linked_check_reads_the_linked_symbol_and_clicks_nothing(browser):
+    html = page_html()
+
+    class Fresh(DXtradeAdapter):
+        def resume_session(self, page, login_url, login_form_grace_ms=5_000):
+            page.set_content(html)
+            return "logged_in"
+
+        def wait_ready(self, page, timeout_ms=None):
+            return True
+
+    ctx = browser.new_context()
+    chk = Fresh(timeout_ms=3_000).fresh_page_linked_check(ctx, "https://x/", "SOLUSD")
+    assert chk == {"readable": True, "original": "SOLUSD", "linked_symbol": "SOLUSD", "dialogs": 0, "why": None}
+    assert ctx.pages == []                                             # the fresh page was closed
+    ctx.close()
+
+
+def test_fresh_page_linked_check_is_unreadable_when_the_session_is_not_accepted(browser):
+    class NoSession(DXtradeAdapter):
+        def resume_session(self, page, login_url, login_form_grace_ms=5_000):
+            return "login_form"
+
+    ctx = browser.new_context()
+    chk = NoSession(timeout_ms=3_000).fresh_page_linked_check(ctx, "https://x/", "SOLUSD")
+    assert chk["readable"] is False and chk["why"] == "session login_form" and ctx.pages == []
+    ctx.close()
