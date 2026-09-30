@@ -528,3 +528,149 @@ def test_only_the_main_job_references_the_environment_and_pr_runs_never_do():
     assert pr["if"] == "github.event_name == 'pull_request'"
     assert "EGRESS_PROBE_PROXY" not in json.dumps(pr) and "secrets." not in json.dumps(pr)
     assert "--evaluate" not in json.dumps(pr)
+
+
+# ---------------------------------------------------------------- route check (R2: a home exit node via a local SOCKS port)
+SOCKS = "socks5://127.0.0.1:1055"
+RUNNER_ORG = "AS8075 Microsoft Corporation"
+
+
+def run_route(monkeypatch, tmp_path, capsys, *, own_org=RUNNER_ORG, secret=SOCKS, route="tailscale"):
+    monkeypatch.setenv("EGRESS_PROBE_PROXY", secret)
+    monkeypatch.setenv("EGRESS_PROBE_ROUTE", route)
+    monkeypatch.setattr(probe, "direct_egress_org", lambda: own_org)
+    out = tmp_path / "r.json"
+    code = probe.main(["--route-check", "--out", str(out)])
+    cap = capsys.readouterr()
+    return code, cap.out + cap.err, out
+
+
+def test_route_check_passes_when_the_exit_is_a_different_organisation(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = {"body": ORG}
+    world.routes[APP] = served()
+    world.routes[WSS] = served()
+    code, text, out = run_route(monkeypatch, tmp_path, capsys)
+    r = json.loads(out.read_text())
+    assert code == 0 and r["route"] == "tailscale" and r["proxy_state"] == "ok" and r["egress_org"] == ORG and r["app_pass"]
+    assert world.launches[0]["proxy"] == {"server": SOCKS}
+    assert RUNNER_ORG not in text and RUNNER_ORG not in out.read_text()  # the own organisation is never printed or stored
+
+
+def test_route_leak_is_fail_closed_and_never_navigates(world, monkeypatch, tmp_path, capsys):
+    """Traffic through the SOCKS port that did NOT leave through the exit node shows the runner's own organisation."""
+    world.routes["https://ipinfo.io/org"] = {"body": RUNNER_ORG}
+    world.routes[APP] = served()
+    world.routes[WSS] = served()
+    code, text, out = run_route(monkeypatch, tmp_path, capsys)
+    r = json.loads(out.read_text())
+    assert code == 0 and r["proxy_state"] == "route_leak" and r["app_pass"] is False
+    assert "route_leak" in text
+    assert APP not in world.navigations and WSS not in world.navigations
+    assert probe.evaluate([r], now=datetime.now(timezone.utc), route="tailscale")[0] == "FAIL"
+
+
+def test_route_check_without_the_own_organisation_fails_closed(world, monkeypatch, tmp_path, capsys):
+    code, text, out = run_route(monkeypatch, tmp_path, capsys, own_org="unknown")
+    r = json.loads(out.read_text())
+    assert code == 0 and r["proxy_state"] == "route_check_unavailable"
+    assert world.launches == [] and world.navigations == []  # nothing ran without the comparison
+    assert probe.evaluate([r], now=datetime.now(timezone.utc), route="tailscale")[0] == "FAIL"
+
+
+def test_route_check_needs_a_proxy(world, monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("EGRESS_PROBE_PROXY", raising=False)
+    monkeypatch.setattr(probe, "direct_egress_org", lambda: RUNNER_ORG)
+    code = probe.main(["--route-check", "--out", str(tmp_path / "r.json")])
+    assert code == 2 and "route_check_needs_proxy" in capsys.readouterr().out
+    assert world.launches == []
+
+
+def test_an_unreachable_local_socks_port_is_proxy_unreachable(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = FakeError("page.goto: net::ERR_PROXY_CONNECTION_FAILED at socks5://127.0.0.1:1055")
+    code, text, out = run_route(monkeypatch, tmp_path, capsys)
+    r = json.loads(out.read_text())
+    assert r["proxy_state"] == "proxy_unreachable" and "127.0.0.1" not in text
+    assert APP not in world.navigations
+
+
+def test_evaluate_judges_one_route_at_a_time():
+    """A proxy-route FAIL must not end the tailscale route, and vice versa."""
+    proxy_fail = rec(0, ok=False)                       # route defaults to "proxy"
+    ts = [dict(rec(m), route="tailscale") for m in (0, 61, 125)]
+    assert probe.evaluate([proxy_fail] + ts, now=NOW, route="tailscale")[0] == "PASS"
+    assert probe.evaluate([proxy_fail] + ts, now=NOW)[0] == "FAIL"        # default route is still the proxy
+    assert probe.evaluate(ts, now=NOW)[0] == "NO_PROXY_RUNS"              # tailscale results are invisible to it
+
+
+def test_route_label_is_sanitised(monkeypatch):
+    monkeypatch.setenv("EGRESS_PROBE_ROUTE", "Tail scale; rm -rf")
+    assert probe._route_label() == "proxy"
+    monkeypatch.setenv("EGRESS_PROBE_ROUTE", "TailScale")
+    assert probe._route_label() == "tailscale"
+
+
+def test_evaluate_cli_takes_a_route(tmp_path, capsys):
+    now = datetime.now(timezone.utc)
+    for i, m in enumerate((300, 200, 100)):
+        d = tmp_path / f"run{i}"
+        d.mkdir()
+        r = dict(rec(0), route="tailscale")
+        r["ts"] = (now - timedelta(minutes=m)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (d / "probe-result.json").write_text(json.dumps(r))
+    assert probe.main(["--evaluate", str(tmp_path), "--route", "tailscale"]) == 0
+    assert "verdict=PASS" in capsys.readouterr().out
+    assert probe.main(["--evaluate", str(tmp_path)]) == 0
+    assert "verdict=NO_PROXY_RUNS" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------- the route workflow (R2)
+def _route_wf():
+    import yaml
+    text = (ROOT / ".github" / "workflows" / "egress-route-landing-probe.yml").read_text()
+    return text, yaml.safe_load(text)
+
+
+def test_route_workflow_is_dispatch_only_main_only_and_read_only():
+    text, wf = _route_wf()
+    on = wf.get(True, wf.get("on"))
+    assert set(on) == {"workflow_dispatch"}                      # no pull_request, no schedule
+    perms = wf["permissions"]
+    assert perms.get("contents") == "read" and perms.get("actions") == "read"
+    assert not [k for k, v in perms.items() if v == "write"]
+    (job,) = wf["jobs"].values()
+    assert job["environment"] == "egress-probe" and job["if"] == "github.ref == 'refs/heads/main'"
+
+
+def test_route_workflow_secret_only_through_env_and_never_echoed():
+    text, wf = _route_wf()
+    (job,) = wf["jobs"].values()
+    holders = []
+    for step in job["steps"]:
+        run = step.get("run", "")
+        assert "secrets." not in run and "vars." not in run, "secret/variable text must not be interpolated into a command"
+        assert "issues" not in step.get("uses", "") and "gh issue" not in run and "gh pr comment" not in run
+        assert "add-mask" not in run
+        env = json.dumps(step.get("env", {}))
+        if "secrets.TS_AUTHKEY_PROBE" in env:
+            holders.append(step.get("name", ""))
+        for var in ("$TS_AUTHKEY_PROBE", "$EGRESS_EXIT_NODE", "${TS_AUTHKEY_PROBE}", "${EGRESS_EXIT_NODE}"):
+            for line in run.splitlines():
+                if var in line:
+                    assert "echo" not in line.split(var)[0][-60:] or "-z" in line, f"a line may echo the value: {line.strip()}"
+    assert len(holders) == 2  # the gate (tests emptiness) and the join step
+    join = next(s for s in job["steps"] if s.get("name", "").startswith("Join the tailnet"))
+    assert ">/dev/null 2>up.err" in join["run"]        # tailscale's own output is never shown
+    assert "--tun=userspace-networking" in join["run"] and "--exit-node=" in join["run"]
+    assert "sha256sum -c" in next(s for s in job["steps"] if s.get("name", "").startswith("Install a pinned"))["run"]
+
+
+def test_route_workflow_probes_the_local_socks_port_and_judges_only_its_own_route():
+    text, wf = _route_wf()
+    (job,) = wf["jobs"].values()
+    probe_step = next(s for s in job["steps"] if s.get("name", "").startswith("Landing-only probe"))
+    assert probe_step["env"]["EGRESS_PROBE_PROXY"] == "socks5://127.0.0.1:1055"
+    assert probe_step["env"]["EGRESS_PROBE_ROUTE"] == "tailscale" and probe_step["env"]["EGRESS_PROBE_ROUTE_CHECK"] == "1"
+    assert "secrets." not in json.dumps(probe_step)      # the probe step holds no secret at all
+    ev = next(s for s in job["steps"] if "--evaluate prior" in s.get("run", ""))["run"]
+    assert "--route tailscale" in ev and "--event workflow_dispatch" in ev and "--branch main" in ev
+    assert "--failed-runs failed-runs.json" in ev and "probe-result-tailscale-*" in ev

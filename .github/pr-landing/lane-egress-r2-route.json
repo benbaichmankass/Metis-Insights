@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "why": "Tier-1 probe extension for the operator's 'Home device (R2)' decision: a credential-less SOCKS5 route check (route_leak / route_check_unavailable fail-closed states, a per-route evaluator) and a dispatch-only workflow that reaches the operator's home device through a pinned userspace Tailscale. No VM, live path, trading credential or runtime file touched; the workflow reads its key and exit-node name only from the main-restricted egress-probe environment. Held for the manager's review.",
+  "hold_text": "Manager brief 2026-09-30T15:54Z, item (4): 'Extend the egress probe so it can test the route (e.g. a Tailscale-authenticated runner or the VM itself), fail-closed like the proxy mode.' Held for the manager's review; the operator's device and Tailscale steps come first."
+}

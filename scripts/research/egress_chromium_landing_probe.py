@@ -46,8 +46,18 @@ PASS RULE (``--evaluate``), evaluated here and not by a reader
   the hourly schedule ends 2026-10-04, and the manager records the verdict on
   the PROP-TERM checklist row, which is the durable record).
 
+ROUTE CHECK (``--route-check`` or ``EGRESS_PROBE_ROUTE_CHECK=1``; the home-device route, R2)
+  Same landing-only probe, for a LOCAL credential-less SOCKS5 proxy that a Tailscale
+  userspace daemon exposes (``socks5://127.0.0.1:1055``). Whether that port really exits through
+  the chosen exit node is UNPROVEN in Tailscale's docs, so every run proves it: the machine's OWN
+  direct organisation is read once (ipinfo only, never a Breakout host, never printed or stored) and,
+  if the organisation seen THROUGH the proxy equals it, the state is ``route_leak`` and no target is
+  navigated. If the own organisation cannot be read the state is ``route_check_unavailable``.
+  Both are fail-closed FAILs. Results carry ``route`` (``EGRESS_PROBE_ROUTE``, default ``proxy``) and
+  ``--evaluate --route NAME`` judges only that route, so two routes never mix into one PASS.
+
 EVERY PROXY-MODE EXIT WRITES A RESULT (``proxy_state`` ok / proxy_unreachable /
-org_unreadable / error / format_invalid), so a crash can never be mistaken for a
+org_unreadable / route_leak / route_check_unavailable / error / format_invalid), so a crash can never be mistaken for a
 quiet success. ``main`` also catches everything except ``SystemExit`` and prints
 only a scrubbed token, so no traceback (which could echo Chromium's launch
 arguments, i.e. ``--proxy-server=host:port``) is ever emitted.
@@ -207,10 +217,19 @@ def _load_playwright():
     return sync_playwright, PlaywrightError
 
 
+def _route_label() -> str:
+    """Which route this result measures: ``proxy`` (the default, a rented proxy) or e.g. ``tailscale``
+    (a home exit node). ``--evaluate`` only ever judges results of ONE route, so two routes' results can
+    never be mixed into one PASS."""
+    raw = os.environ.get("EGRESS_PROBE_ROUTE", "proxy").strip().lower()
+    return raw if re.fullmatch(r"[a-z0-9_-]{1,20}", raw) else "proxy"
+
+
 def _new_result(spec, now=None) -> dict:
     return {
         "ts": (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "via_proxy": bool(spec), "proxy_state": "none", "egress_org": "unknown", "hosts": {}, "app_pass": False,
+        "via_proxy": bool(spec), "route": _route_label(),
+        "proxy_state": "none", "egress_org": "unknown", "hosts": {}, "app_pass": False,
     }
 
 
@@ -236,10 +255,14 @@ def _lookup_org(page, PlaywrightError, secrets):
     return "org_unreadable", "unknown", token
 
 
-def run_probe(spec, now=None, urls=URLS):
+def run_probe(spec, now=None, urls=URLS, forbid_org=""):
     """Returns (result_dict, exit_code). ``spec`` is a ProxySpec or None (direct).
 
     Never returns None: every path yields a result, so the caller can always store one.
+
+    ``forbid_org`` (route check): the organisation of the machine's OWN direct route. If the organisation seen
+    THROUGH the proxy equals it, the traffic never left through the intended exit (``route_leak``): fail-closed,
+    no navigation to any target.
     """
     result = _new_result(spec, now)
     secrets = spec.secrets() if spec else []
@@ -272,7 +295,9 @@ def run_probe(spec, now=None, urls=URLS):
             result["proxy_state"], result["egress_org"] = state, org
             if token:
                 result["proxy_error"] = token
-            if state == "proxy_unreachable":
+            if state == "ok" and forbid_org and org == forbid_org:
+                result["proxy_state"], result["proxy_error"] = "route_leak", "egress_org_equals_own_direct_org"
+            if result["proxy_state"] in ("proxy_unreachable", "route_leak"):
                 browser.close()
                 return result, 0  # fail-closed: no navigation to the targets, no direct fallback
         else:
@@ -331,14 +356,14 @@ def _ts(r: dict) -> datetime:
     return datetime.strptime(r["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
-def evaluate(results, now=None, failed_runs=()):
+def evaluate(results, now=None, failed_runs=(), route="proxy"):
     """(verdict, reasons). Verdict is PASS, FAIL, PENDING or NO_PROXY_RUNS. See the module docstring.
 
     ``failed_runs`` are ISO timestamps of workflow runs that FAILED (a crash writes no result file). Each
     counts as a proxy-mode failure at that instant, so three passes around a crash are not a PASS.
     """
     now = now or datetime.now(timezone.utc)
-    pool = [r for r in results if r.get("via_proxy")]
+    pool = [r for r in results if r.get("via_proxy") and r.get("route", "proxy") == route]
     for stamp in failed_runs or ():
         pool.append({"ts": stamp, "via_proxy": True, "proxy_state": "run_failed", "egress_org": "unknown"})
     proxy = sorted((r for r in pool if now - _ts(r) <= timedelta(hours=WINDOW_H)), key=_ts)
@@ -379,7 +404,7 @@ def evaluate(results, now=None, failed_runs=()):
     return "PENDING", [f"{len(passes)} of {NEEDED_PASSES} spaced passing runs so far, no failure{note}"]
 
 
-def cmd_evaluate(directory: str, failed_file: str = "") -> int:
+def cmd_evaluate(directory: str, failed_file: str = "", route: str = "proxy") -> int:
     root = Path(directory)
     if not root.is_dir():
         print("evaluate: results directory not found")
@@ -398,8 +423,9 @@ def cmd_evaluate(directory: str, failed_file: str = "") -> int:
         except (OSError, ValueError):
             print("evaluate: the failed-runs file is unreadable; refusing to evaluate without it")
             return 2
-    verdict, reasons = evaluate(results, failed_runs=failed)
-    print(f"results_read={len(results)} proxy_runs={sum(1 for r in results if r.get('via_proxy'))} failed_runs={len(failed)}")
+    verdict, reasons = evaluate(results, failed_runs=failed, route=route)
+    print(f"route={route} results_read={len(results)} "
+          f"route_runs={sum(1 for r in results if r.get('via_proxy') and r.get('route', 'proxy') == route)} failed_runs={len(failed)}")
     print(f"verdict={verdict}")
     for why in reasons:
         print(f"  {why}")
@@ -421,10 +447,13 @@ def _main(argv=None) -> int:
     ap.add_argument("--evaluate", metavar="DIR", help="evaluate stored probe-result JSON files instead of probing")
     ap.add_argument("--failed-runs", metavar="FILE", default="",
                     help="with --evaluate: JSON list of ISO timestamps of workflow runs that failed")
+    ap.add_argument("--route", default="proxy", help="with --evaluate: judge only results of this route label")
+    ap.add_argument("--route-check", action="store_true",
+                    help="require a proxy AND that its egress organisation differs from this machine's own direct one")
     ap.add_argument("--out", default="probe-out/probe-result.json")
     args = ap.parse_args(argv)
     if args.evaluate:
-        return cmd_evaluate(args.evaluate, args.failed_runs)
+        return cmd_evaluate(args.evaluate, args.failed_runs, args.route)
     raw = os.environ.get("EGRESS_PROBE_PROXY", "").strip()
     now = datetime.now(timezone.utc)
     _STATE.update(spec=None, raw_set=bool(raw), out=args.out, now=now)
@@ -446,7 +475,20 @@ def _main(argv=None) -> int:
             _store(bad, args.out)  # a malformed secret must not read as "no run happened"
             return 2
         _STATE["spec"] = spec
-    result, code = run_probe(spec, now=now)
+    forbid_org = ""
+    if args.route_check or os.environ.get("EGRESS_PROBE_ROUTE_CHECK") == "1":
+        if not spec:
+            print("route_check_needs_proxy: --route-check requires EGRESS_PROBE_PROXY")
+            return 2
+        # The ONE deliberate direct lookup: ipinfo (never a Breakout host), organisation only, never printed or stored.
+        forbid_org = direct_egress_org()
+        if forbid_org.startswith("unknown"):
+            print("proxy_state=route_check_unavailable (own direct organisation unreadable)")
+            bad = _new_result(spec, now)
+            bad.update(via_proxy=True, proxy_state="route_check_unavailable", proxy_error="own_direct_org_unreadable")
+            _store(bad, args.out)  # fail-closed: without it a leak could read as PASS
+            return 0
+    result, code = run_probe(spec, now=now, forbid_org=forbid_org)
     _store(result, args.out)
     print_result(result)
     return code

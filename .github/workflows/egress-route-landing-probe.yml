@@ -1,0 +1,157 @@
+# Landing-only Chromium probe THROUGH A HOME DEVICE (PROP-TERM egress, route R2, 2026-09-30).
+# Tier-1: no VM, no trading credential, nothing typed or clicked. It answers one question: does a
+# headless Chromium that exits through the operator's home device (a Tailscale exit node) get SERVED at
+# app.breakoutprop.com? Design and the operator's steps: docs/research/breakout-r2-home-device-plan-2026-09-30.md.
+#
+# HOW. The job starts a pinned Tailscale `tailscaled` in USERSPACE-NETWORKING mode (no interface, route or DNS
+# change on the runner; the artifact upload and the rest of the job do NOT go through the home connection) with a
+# local credential-less SOCKS5 port, joins the tailnet as an EPHEMERAL node, selects the home device as its exit
+# node, and runs scripts/research/egress_chromium_landing_probe.py --route-check against socks5://127.0.0.1:1055.
+# Whether that SOCKS port really exits through the exit node is UNPROVEN in Tailscale's docs, so the probe proves it
+# every run: if the organisation seen through the proxy equals the runner's own, the state is `route_leak`, a FAIL.
+#
+# THE SECRETS. `TS_AUTHKEY_PROBE` (environment secret) and `EGRESS_EXIT_NODE` (environment variable) live in the
+# GitHub Environment `egress-probe`, whose deployment branches are restricted to `main`. This job is the only one
+# here that references the environment and it runs only on `workflow_dispatch` from refs/heads/main, so a pull
+# request never sees them. The key is passed only through `env:`; never interpolated into a command line, never
+# echoed, never posted (no write permission, no issue or comment path). The exit node's name and any tailnet address
+# are never printed. If either value is missing the job no-ops cleanly (exit 0).
+#
+# THE PASS RULE is evaluated by the script (`--evaluate --route tailscale`): three passing runs at least an hour
+# apart with an identical KNOWN egress organisation; the first failure (a `route_leak`, an unavailable own-organisation
+# reading, a challenged app page, an errored run or a failed workflow run) ends the route. `rounds: 3` does the three
+# spaced probes inside ONE dispatch (61 minutes apart) so a person does not have to dispatch by hand; a runner loss
+# mid-run fails the run, which the evaluator counts as a failure (conservative).
+# no-durable-result: temporary measurement aid; the verdict is read from the run log by the manager and recorded on the PROP-TERM checklist row, and the per-run result files are 7-day working artifacts, not research results
+name: egress-route-landing-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: "1 = one probe; 3 = three probes 61 minutes apart in this one run"
+        type: choice
+        options: ["1", "3"]
+        default: "1"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: egress-route-landing-probe
+  cancel-in-progress: false
+
+jobs:
+  route-probe:
+    if: github.ref == 'refs/heads/main'
+    environment: egress-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Gate (needs the key and the exit node)
+        id: gate
+        env:
+          TS_AUTHKEY_PROBE: ${{ secrets.TS_AUTHKEY_PROBE }}
+          EGRESS_EXIT_NODE: ${{ vars.EGRESS_EXIT_NODE }}
+        run: |
+          set -euo pipefail
+          run=true
+          if [ -z "$TS_AUTHKEY_PROBE" ] || [ -z "$EGRESS_EXIT_NODE" ]; then
+            run=false
+            echo "route probe skipped: TS_AUTHKEY_PROBE and/or EGRESS_EXIT_NODE not configured in the egress-probe environment"
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.11"
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          pip install playwright
+          playwright install --with-deps chromium
+      - name: Install a pinned Tailscale (static binaries, checksum verified)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          V=1.102.4
+          curl -fsSL "https://pkgs.tailscale.com/stable/tailscale_${V}_amd64.tgz" -o ts.tgz
+          echo "50748df1045e60b5b695f19f4c56b0da36c019948b440fb456b6584a50f0d8b9  ts.tgz" | sha256sum -c -
+          tar xzf ts.tgz
+          sudo install -m 0755 "tailscale_${V}_amd64/tailscale" "tailscale_${V}_amd64/tailscaled" /usr/local/bin/
+      - name: Join the tailnet in userspace mode and select the home exit node
+        if: steps.gate.outputs.run == 'true'
+        env:
+          TS_AUTHKEY_PROBE: ${{ secrets.TS_AUTHKEY_PROBE }}
+          EGRESS_EXIT_NODE: ${{ vars.EGRESS_EXIT_NODE }}
+        run: |
+          set -euo pipefail
+          sudo sh -c 'nohup tailscaled --tun=userspace-networking --socks5-server=127.0.0.1:1055 --state=mem: >/tmp/tailscaled.log 2>&1 &'
+          for _ in $(seq 1 30); do [ -S /var/run/tailscale/tailscaled.sock ] && break; sleep 1; done
+          if ! sudo tailscale up --auth-key="$TS_AUTHKEY_PROBE" --hostname=egress-probe-ci --exit-node="$EGRESS_EXIT_NODE" \
+               --accept-dns=false --timeout=90s >/dev/null 2>up.err; then
+            echo "tailscale up FAILED (key rejected, or the exit node is unknown, offline or not approved); no probe was run"
+            exit 1
+          fi
+          for _ in $(seq 1 30); do (exec 3<>/dev/tcp/127.0.0.1/1055) 2>/dev/null && break; sleep 1; done
+          echo "tailnet joined; the local SOCKS port is up"
+      - name: Landing-only probe(s) through the home device (no credentials, nothing clicked)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          EGRESS_PROBE_PROXY: socks5://127.0.0.1:1055
+          EGRESS_PROBE_ROUTE: tailscale
+          EGRESS_PROBE_ROUTE_CHECK: "1"
+          ROUNDS: ${{ inputs.rounds }}
+        run: |
+          set -euo pipefail
+          mkdir -p probe-out
+          n="${ROUNDS:-1}"
+          for i in $(seq 1 "$n"); do
+            echo "=== round $i of $n ==="
+            python3 scripts/research/egress_chromium_landing_probe.py --route-check --out "probe-out/probe-result-$i.json"
+            if [ "$i" -lt "$n" ]; then
+              # stop early once this dispatch's own results already read FAIL: more rounds add nothing
+              verdict_out="$(python3 scripts/research/egress_chromium_landing_probe.py --evaluate probe-out --route tailscale)"
+              case "$verdict_out" in
+                *verdict=FAIL*) echo "verdict already FAIL; remaining rounds skipped"; break ;;
+              esac
+              sleep 3660
+            fi
+          done
+      - name: Leave the tailnet
+        if: always() && steps.gate.outputs.run == 'true'
+        run: sudo tailscale logout >/dev/null 2>&1 || true
+      - name: Keep this run's results (no key, no address, no exit-node name)
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/*.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-result-tailscale-${{ github.run_id }}
+          path: probe-out/*.json
+          retention-days: 7
+      - name: Evaluate the PASS rule over the last 72 h (route tailscale)
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/*.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p prior
+          since="$(date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          # ONLY workflow_dispatch runs on main: a fork or pull-request run cannot plant a result.
+          gh run list --workflow egress-route-landing-probe.yml --event workflow_dispatch --branch main --limit 100 \
+            --json databaseId,createdAt,conclusion > runs.raw.json
+          jq --arg since "${since}" --arg me "${{ github.run_id }}" \
+            'map(select(.createdAt > $since and (.databaseId|tostring) != $me))' runs.raw.json > runs.json
+          # A run that FAILED, was cancelled or timed out leaves no result file; list it so it counts as a failure.
+          jq '[.[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | .createdAt]' \
+            runs.json > failed-runs.json
+          for id in $(jq -r '.[] | select(.conclusion == "success") | .databaseId' runs.json); do
+            if ! gh run download "${id}" --pattern 'probe-result-tailscale-*' --dir "prior/${id}" >/dev/null 2>&1; then
+              echo "run ${id}: no result artifact (skipped run or expired)"
+            fi
+          done
+          mkdir -p prior/current && cp probe-out/*.json prior/current/
+          python3 scripts/research/egress_chromium_landing_probe.py --evaluate prior --route tailscale --failed-runs failed-runs.json
