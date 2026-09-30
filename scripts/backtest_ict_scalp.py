@@ -71,6 +71,16 @@ SLIPPAGE_BPS_ROUNDTRIP = 0.0
 FUNDING_BPS_PER_WINDOW = 0.0
 FUNDING_WINDOW_HOURS = execution_costs.FUNDING_WINDOW_HOURS
 
+# LIMIT-ENTRY mode (RQ-20260930-502, registered 2026-09-30 BEFORE any run). Bybit's
+# published schedule quoted on HyroTrader's fee FAQ: maker 0.0200%, taker 0.0550% per
+# side. A limit entry pays maker on entry and taker on the exit/stop; the venue slippage
+# applies to the taker exit only (half the round-trip figure, the RQ-20260929-401
+# convention). Market mode is untouched and still charges FEE_BPS_ROUNDTRIP above.
+# NOTE the default 7.5 bps round-trip is this account's taker figure; HyroTrader's
+# published taker-taker round trip would be 11 bps, which is NOT what market mode charges.
+LIMIT_MAKER_FEE_BPS = 2.0
+LIMIT_TAKER_FEE_BPS = 5.5
+
 
 @dataclass
 class Trade:
@@ -216,6 +226,7 @@ def _simulate_exit(
     giveback_r: float = 1.0,
     bank_frac: float = 0.0,
     bank_at_r: float = 1.0,
+    first_bar_no_tp: bool = False,
 ) -> Dict[str, Any]:
     """Walk forward from start_idx checking SL/TP hits against bar
     extremes. Assumes intra-bar SL/TP fills are at the level (no slippage).
@@ -226,6 +237,12 @@ def _simulate_exit(
     MFE/MAE on the exit bar itself uses the full bar range, which slightly
     overstates excursion past the exit level — acceptable for
     distribution-level diagnosis.
+
+    ``first_bar_no_tp`` (default off, byte-identical): the LIMIT-ENTRY fill bar. A
+    limit order fills somewhere inside its fill bar and the bar's high/low ordering is
+    unknown, so a take-profit touch on that same bar cannot be credited (the price may
+    have reached the target BEFORE it dipped through the limit). The stop IS still
+    checked on that bar (pessimistic). See RQ-20260930-502.
 
     ``banked`` is reported on EVERY return path (asserted structurally by
     tests/test_ict_scalp_exit_levers.py) so the caller can read it strictly
@@ -284,7 +301,8 @@ def _simulate_exit(
                         "exit_index": j, "exit_price": cur_sl,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
-            if tp is not None and bar_high >= tp:
+            if (tp is not None and bar_high >= tp
+                    and not (first_bar_no_tp and j == start_idx)):
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
@@ -294,7 +312,8 @@ def _simulate_exit(
                         "exit_index": j, "exit_price": cur_sl,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
-            if tp is not None and bar_low <= tp:
+            if (tp is not None and bar_low <= tp
+                    and not (first_bar_no_tp and j == start_idx)):
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
                         "mfe_price": best, "mae_price": worst, "banked": banked,
                         "banked_index": banked_index}
@@ -475,7 +494,16 @@ def run_backtest(
     strategy_name: str = "ict_scalp_5m",
     tp_cap_pct: float = 0.0,
     no_tp: bool = False,
+    entry_mode: str = "market",
+    limit_expire_bars: int = 3,
+    maker_fee_bps: float = LIMIT_MAKER_FEE_BPS,
+    taker_fee_bps: float = LIMIT_TAKER_FEE_BPS,
 ) -> Dict[str, Any]:
+    if entry_mode not in ("market", "limit"):
+        raise ValueError(f"entry_mode must be 'market' or 'limit', got {entry_mode!r}")
+    if entry_mode == "limit" and int(limit_expire_bars) < 1:
+        raise ValueError("limit_expire_bars must be >= 1")
+    n_signals = 0
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
     # Align the HTF series onto the base index ONCE via merge_asof (most
@@ -558,10 +586,35 @@ def run_backtest(
         tp, tp_basis = target_basis.resolve_target(
             entry=entry, direction=direction, unit_tp=unit_tp,
             cap_pct=tp_cap_pct, disabled=no_tp)
-        # Fill simulation starts on the next bar.
+        # ENTRY MODE. `market` (default, byte-identical): filled at `entry` and the
+        # exit walk starts on the next bar. `limit` (RQ-20260930-502): a post-only limit
+        # at `entry` rests for `limit_expire_bars` bars and fills ONLY if a bar's LOW is
+        # strictly below it (long) / HIGH strictly above it (short) -- price trading
+        # THROUGH the level, not merely touching it. A signal price never trades through
+        # is a MISSED trade and is counted, never dropped silently: that is the adverse
+        # selection (the winners that run away without a dip never fill).
+        ref_idx = i
+        sim_start = i + 1
+        if entry_mode == "limit":
+            n_signals += 1
+            fill_idx = None
+            for jj in range(i + 1, min(i + 1 + int(limit_expire_bars), n)):
+                if direction == "long":
+                    thru = float(df["low"].iloc[jj]) < entry
+                else:
+                    thru = float(df["high"].iloc[jj]) > entry
+                if thru:
+                    fill_idx = jj
+                    break
+            if fill_idx is None:
+                next_eligible_idx = i + 1 + int(limit_expire_bars)
+                continue
+            ref_idx = fill_idx
+            sim_start = fill_idx
+        # Fill simulation starts on the next bar (limit mode: on the fill bar itself).
         result = _simulate_exit(
             df,
-            start_idx=i + 1,
+            start_idx=sim_start,
             direction=direction,
             sl=sl,
             tp=tp,
@@ -578,6 +631,7 @@ def run_backtest(
             giveback_r=giveback_r,
             bank_frac=bank_frac,
             bank_at_r=bank_at_r,
+            first_bar_no_tp=(entry_mode == "limit"),
         )
         exit_price = float(result["exit_price"])
         if direction == "long":
@@ -594,7 +648,7 @@ def run_backtest(
         # Fee note: banking splits ONE exit into two partial exits whose sizes
         # sum to the original position, so round-trip notional — and therefore
         # the bps cost model in _cost_breakdown — is unchanged to first order.
-        ts = df["timestamp"].iloc[i] if "timestamp" in df.columns else i
+        ts = df["timestamp"].iloc[ref_idx] if "timestamp" in df.columns else ref_idx
         exit_ts = (
             df["timestamp"].iloc[result["exit_index"]] if "timestamp" in df.columns else result["exit_index"]
         )
@@ -612,7 +666,7 @@ def run_backtest(
             sign = 1.0 if direction == "long" else -1.0
             meta["mfe_r"] = round(sign * (float(mfe_price) - entry) / risk, 4)
             meta["mae_r"] = round(sign * (float(mae_price) - entry) / risk, 4)
-        bars_held = int(result["exit_index"]) - i
+        bars_held = int(result["exit_index"]) - ref_idx
         meta["bars_held"] = bars_held
         # CAPITAL-WEIGHTED hold — the axis a net_R-only gate cannot see.
         # Banking does not close the trade; it releases `bank_frac` of the
@@ -624,7 +678,7 @@ def run_backtest(
         # chop with nothing to show for it).
         bi = result.get("banked_index")
         if banked and bi is not None:
-            cap_bars = (bank_frac * (int(bi) - i)
+            cap_bars = (bank_frac * (int(bi) - ref_idx)
                         + (1.0 - bank_frac) * bars_held)
         else:
             cap_bars = float(bars_held)
@@ -633,6 +687,12 @@ def run_backtest(
             # Rung-fill rate is the denominator a ladder verdict is read over:
             # a cell where almost nothing banks is inert, not a fair negative.
             meta["banked"] = banked
+        if entry_mode == "limit":
+            # Provenance per trade: which entry model produced this row, how long the
+            # order rested, and the fee it was charged (read by _cost_breakdown).
+            meta["limit_entry"] = True
+            meta["limit_fill_bars_after_signal"] = int(ref_idx - i)
+            meta["limit_fee_bps_roundtrip"] = float(maker_fee_bps) + float(taker_fee_bps)
         meta["exit_time"] = str(exit_ts)
         meta["exit_price"] = exit_price
         meta["tp"] = tp
@@ -649,7 +709,7 @@ def run_backtest(
                 entry=entry, risk=risk, cap_pct=tp_cap_pct)
         trades.append(
             Trade(
-                entry_index=i,
+                entry_index=ref_idx,
                 entry_time=ts,
                 direction=direction,
                 entry=entry,
@@ -736,6 +796,29 @@ def run_backtest(
 
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                          bank_frac=bank_frac, bank_at_r=bank_at_r)
+    if entry_mode == "limit":
+        # The denominators a limit verdict is read over. `net_total_r` is over FILLED
+        # trades only; a book that fills 40% of its signals and wins on those is not the
+        # same book as one that fills 90%, so the per-SIGNAL figure sits beside it.
+        n_filled = len(trades)
+        net_total = float(summary.get("net_total_r") or 0.0)
+        summary["limit_entry"] = {
+            "entry_mode": "limit",
+            "limit_expire_bars": int(limit_expire_bars),
+            "n_signals": int(n_signals),
+            "n_filled": int(n_filled),
+            "n_missed": int(n_signals - n_filled),
+            "fill_rate": (round(n_filled / n_signals, 4) if n_signals else None),
+            "net_total_r_filled": round(net_total, 4),
+            "net_r_per_signal": (round(net_total / n_signals, 5) if n_signals else None),
+            "maker_fee_bps": float(maker_fee_bps),
+            "taker_fee_bps": float(taker_fee_bps),
+            "fee_bps_roundtrip_charged": float(maker_fee_bps) + float(taker_fee_bps),
+            "slippage_bps_roundtrip_charged": float(SLIPPAGE_BPS_ROUNDTRIP) / 2.0,
+            "fill_model": "post-only limit at the signal bar close; fills only when a later "
+                          "bar's low is strictly below (long) / high strictly above (short) "
+                          "the limit within limit_expire_bars; fill bar: stop checked, TP not",
+        }
     if _collect_trades:
         # (confidence, r_multiple) per trade — lets the sweep filter by
         # threshold without re-walking the (expensive) 5m frame N times.
@@ -759,11 +842,18 @@ def _cost_breakdown(t: Trade) -> Dict[str, float]:
     if not t.exit_price or t.risk <= 0:
         return {"fee_r": 0.0, "slippage_r": 0.0, "funding_r": 0.0,
                 "total_cost_r": 0.0, "funding_windows": 0.0}
+    fee_bps = FEE_BPS_ROUNDTRIP
+    slip_bps = SLIPPAGE_BPS_ROUNDTRIP
+    if t.meta.get("limit_entry"):
+        # Limit entry: maker on the entry side + taker on the exit side, slippage on the
+        # taker exit only (half the round-trip figure). Market trades never carry the key.
+        fee_bps = float(t.meta["limit_fee_bps_roundtrip"])
+        slip_bps = SLIPPAGE_BPS_ROUNDTRIP / 2.0
     return execution_costs.roundtrip_cost_r(
         entry=t.entry, exit_price=t.exit_price, risk=t.risk,
         entry_time=t.entry_time, exit_time=t.exit_time,
-        fee_bps_roundtrip=FEE_BPS_ROUNDTRIP,
-        slippage_bps_roundtrip=SLIPPAGE_BPS_ROUNDTRIP,
+        fee_bps_roundtrip=fee_bps,
+        slippage_bps_roundtrip=slip_bps,
         funding_bps_per_window=FUNDING_BPS_PER_WINDOW,
         funding_window_hours=FUNDING_WINDOW_HOURS,
     )
@@ -1155,6 +1245,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--giveback-r", type=float, default=1.0, metavar="R",
                    help="Once armed, exit when >= this many R has been surrendered "
                         "from the peak (default 1.0).")
+    p.add_argument("--entry-mode", choices=("market", "limit"), default="market",
+                   help="Entry model (default market = byte-identical to before this flag). "
+                        "`limit` = RQ-20260930-502: a post-only limit at the signal bar close "
+                        "that fills only when price trades THROUGH it within "
+                        "--limit-expire-bars; charges maker+taker fees and half the "
+                        "round-trip slippage (taker exit only); ignores --fee-bps-roundtrip.")
+    p.add_argument("--limit-expire-bars", type=int, default=3, metavar="N",
+                   help="Bars a limit order rests before it is cancelled unfilled (default 3; "
+                        "the RQ-20260930-502 registration).")
+    p.add_argument("--maker-fee-bps", type=float, default=LIMIT_MAKER_FEE_BPS,
+                   help="Limit-entry maker fee per side in bps (default 2.0 = Bybit 0.0200%%).")
+    p.add_argument("--taker-fee-bps", type=float, default=LIMIT_TAKER_FEE_BPS,
+                   help="Limit-entry taker fee per side in bps, paid on the exit/stop "
+                        "(default 5.5 = Bybit 0.0550%%).")
     return p
 
 
@@ -1254,6 +1358,10 @@ def main(argv: List[str]) -> int:
         bank_at_r=float(args.bank_at_r),
         tp_cap_pct=float(args.tp_cap_pct),
         no_tp=bool(args.no_tp),
+        entry_mode=str(args.entry_mode),
+        limit_expire_bars=int(args.limit_expire_bars),
+        maker_fee_bps=float(args.maker_fee_bps),
+        taker_fee_bps=float(args.taker_fee_bps),
     )
 
     try:
