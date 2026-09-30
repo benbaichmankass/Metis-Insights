@@ -101,6 +101,9 @@ jobs:
             --run-ref "${{ github.run_id }}" > runner.json
           python3 scripts/ops/exit_cell_runner.py > summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          # ALSO to the job LOG: the step summary is not readable through the Actions API, so
+          # without this a session cannot verify what the run decided (found on the first run).
+          cat summary.md
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           d = json.load(open("runner.json"))
@@ -109,6 +112,17 @@ jobs:
           print("legs=" + ", ".join(f"{e['leg']} ({e['cell']})" for e in d["result"]["fire"]))
           print("fired_legs=" + " ".join(e["leg"] for e in d["result"]["fire"]))
           PY
+
+      - name: Keep the run's verdicts (readable through the API)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-cell-mandate-run
+          path: |
+            runner.json
+            summary.md
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Land NEEDS-DATA pipeline rows (no FIRE)
         if: steps.run.outputs.fired == '0' && steps.run.outputs.filed != '0' && env.APPLY == 'true'
