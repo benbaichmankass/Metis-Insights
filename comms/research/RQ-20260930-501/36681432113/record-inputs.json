@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20260930-501/36681432113/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20260930-501/36681432113",
+  "decision_rule_id": "RULE-RQ0930-501-HYRO-15M-BOOK-STAGE0",
+  "decision_rule_registered_at": "2026-09-30",
+  "measurement_file": "",
+  "min_rows": "1",
+  "n": "null",
+  "note": "producer_failed: verdict.json malformed: read_state 'graded' not in ('measured', 'no_data', 'producer_failed', 'not_attempted')",
+  "population": "RQ-20260930-501: verdict.json is malformed \u2014 NOT GRADED",
+  "power_state": "",
+  "read_state": "producer_failed",
+  "records_file": "",
+  "research_unit": "RQ-20260930-501",
+  "tool": "python3 scripts/research/hyro_fit_verdict.py",
+  "verdict": "not_applicable"
+}
