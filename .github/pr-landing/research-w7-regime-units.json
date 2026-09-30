@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Tier-1 research only: two new pre-registered research/queue units (RQ-20260930-701 regime impact scoping on the trend axis; RQ-20260930-702 pooled trend_donchian E38 follow-up, PI-20260925-7P3VZ7EJ-0001), their two harness scripts under scripts/research/ with tests, and one pipeline row. Both units carry a decision_rule registered_before_run and state in their text that they are scoping/feature-level instruments, not promotion cases. Nothing touches src/, config/, deploy/, workflows, order paths, strategy, sizing or risk. Units are only RUN by the dispatcher/runner after this lands."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 research only, but the PR adds two NEW research/queue units (RQ-20260930-701, -702), which the landing guard never vouches for beyond a dispatch stamp (R5), so a human reads them. Each carries a decision_rule registered_before_run and says in its own text that it is a scoping / feature-level instrument and NOT a promotion case. Also adds two scripts under scripts/research/ with tests and one pipeline row. No src/, config/, deploy/, workflow, order-path, strategy, sizing or risk change. The units only RUN after this lands.",
+  "why": "Lane RESEARCH-W7 deliverables B and C (operator popup 2026-09-30 'Regime first'). B: RQ-20260930-701 measures how much a classifier of accuracy 0.55 / 0.60 / 0.70 / oracle could add by gating each leg's losing ADX-14 trend cells, selection on training blocks only, >=300 seeds, upper-bound scoping, vol axis not covered. C: RQ-20260930-702 is the pooled trend_donchian E38 follow-up (PI-20260925-7P3VZ7EJ-0001) that can detect |rho| ~0.10 where 22 single-leg tests could not."
 }
