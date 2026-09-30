@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "an ict_scalp_mgc_15m m20 sweep row with cells_swept > 0 exists on main AND docs/research/e35-bracket-corpus.jsonl carries rows tagged RQ-20260922-008 for BOTH eth_pullback_2h and eth_pullback_prop_2h",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-HK3BKCKE-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane RQ-RUN session_0179hCBVrY5PJMaHhK3BKcKe (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28, grading of the ran-but-ungraded queue units; runs 36434144288 job 108967691991 and 35996186685 job 107634790214",
+    "rerun": "python3 scripts/research/dispatch_queue.py --only RQ-20260922-008 (dry) ; and gh run view 36434144288 --job 108967691991 --log | tail -40"
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "routed",
+  "what": "Two sweep producers dropped a leg silently on 2026-09-28/24: (a) m20-exit-lever-sweep run 36434144288 -- the ict_scalp_mgc_15m shard failed in 1 s ('1 row(s) but none is a gradeable cell'; the MGC frames on /home/ubuntu/m27_data yielded no base book) so RQ-20260928-007 is graded indeterminate on that leg; (b) e35-bracket-sweep run 35996186685 -- the planner received `--only eth_pullback_2h` although RQ-20260922-008's run.inputs.only names two legs, and the corpus landing then failed at commit-to-main, so the unit produced nothing (re-queued). Both need a root cause before the next fire: read the plan step / the MGC frame resolver, fix, re-dispatch."
+}

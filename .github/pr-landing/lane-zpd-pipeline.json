@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only (two new files under docs/claude/work/pipeline/) from lane ALPACA-CLOSE-WEDGE: the alpaca_paper GLD zombie-OCO disposition item and the regular-hours breached-resting-stop sweep finding. No code, config or order-path change; the code fix is the separate held PR #14585."
+}

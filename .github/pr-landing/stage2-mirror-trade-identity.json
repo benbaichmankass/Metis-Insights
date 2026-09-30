@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 account config: alpaca_portfolio gains side_filter: long and its risk caps rise 0.05 -> 0.10 to equal alpaca_live, per B2 (operator 2026-09-21: the mirror takes IDENTICAL trades). Supersedes, for the mirror only, the 2026-08-23 scoping that kept alpaca_portfolio two-sided. Plus a Tier-2 journal-only stamp (notes.dry_cause) in the order path. Held for the manager.",
+  "why": "PI-20260928-E8Y3BGBS-0002 / PI-20260928-SVBNZOVH-0002 (mirror not trade-identical: alpaca_portfolio had no side_filter and half alpaca_live's daily-loss / max-DD caps) and PI-20260928-SVBNZOVH-0001 (side_filter-suppressed dry row carried no cause)."
+}

@@ -184,7 +184,11 @@ live account carry the same strategies and take the same trades at all times.
 Both halves are enforced by strict equality in
 `tests/test_paper_portfolio_accounts.py` —
 `test_bybit_portfolio_mirrors_bybit_2_exactly` and
-`test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. The Alpaca
+`test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. Roster
+equality is not trade equality: since 2026-09-30 every trade-shaping account
+field (`side_filter`, `risk`, `mode`, …) must also be equal, fail-closed, in
+`test_mirror_trade_shaping_fields_equal_live`. Before then `alpaca_portfolio`
+traded the shorts `alpaca_live`'s `side_filter: long` suppresses. The Alpaca
 one carries the only sanctioned divergence: the two declared affordability
 proxies (`splg_trend_long_1d`, `iaum_pullback_1d`) are dropped, because
 mirroring a sub-$100 proxy on a ~$98k paper book doubles the exposure its

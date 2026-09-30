@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Adds one best-effort audit row to the open-package dispatch gate in src/runtime/pipeline.py (runs every live tick). Gate decision unchanged; manager decides merge and deploy.",
+  "why": "a gated emission was invisible in the signals table (LIVE-NO-TRADES lane, 2026-09-30)"
+}

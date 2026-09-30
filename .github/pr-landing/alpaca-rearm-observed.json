@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane ALPACA-REARM (manager session_01HYq6XtfesZ57VyaQrK6CL1): pipeline state-change records only. Closes PI-20260929-K1XNYYAQ-0003 as done: #14545 merged, deployed as 83cdae6b9, and its sweep line observed live with unaccounted=0. Appends observation notes to PR6YRTQY-0003 and PR6YRTQY-0005, which stay routed because their clears_when needs an observation not yet available. Files a new item, PI-20260930-ZPDIPMDA-0001, for the alpaca_paper GLD standing wedge. No src/, no config/, no order path, no deploy."
+}

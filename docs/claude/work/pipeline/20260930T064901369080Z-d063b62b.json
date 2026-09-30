@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "scripts/print_runtime_profile.py calls build_settings_from_env()/validate_startup() with the current zero-arg signature and running it exits 0 (or with a real validation failure, not a TypeError)",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-EJ89Y6IE-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B08",
+    "rerun": "python3 scripts/print_runtime_profile.py"
+  },
+  "routed_to": "DOCS-DRIFT",
+  "state": "routed",
+  "what": "scripts/print_runtime_profile.py calls build_settings_from_env(os.environ)/validate_startup(settings) but both functions in src/runtime/validation.py now take zero arguments, so the script raises TypeError on every invocation; this regression was already documented in docs/sprint-summaries/sprint-012-summary.md and sprint-013-summary.md (whose fix was to delete the covering test, not fix the script) and README.md still instructs operators to run this script 3x as the live-trading pre-flight check."
+}

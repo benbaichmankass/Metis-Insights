@@ -241,3 +241,56 @@ def test_symbol_none_keeps_global_scope(tmp_journal):
                 linked_trade_id=2, symbol="MES")
     # No symbol → any open package for the strategy blocks (legacy).
     assert _has_open_package_for_strategy("vwap") == "pkg-mes"
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-30 — the open-package gate leaves an audit row
+# ---------------------------------------------------------------------------
+#
+# It was the only one of ``_monocle_gate``'s four gates with no ``log_signal``
+# row, and a fully gated tick returns before ``pipeline_result`` is written,
+# so a blocked emission was invisible in ``signals`` (LIVE-NO-TRADES lane).
+
+
+def _gate_signal():
+    return {
+        "symbol": "XRPUSDT",
+        "side": "buy",
+        "meta": {"strategy_name": "xrp_pullback_2h"},
+    }
+
+
+def test_open_package_block_writes_audit_row(monkeypatch):
+    import src.runtime.pipeline as pl
+
+    rows = []
+    monkeypatch.setattr(pl, "_has_open_package_for_strategy",
+                        lambda strategy, symbol=None: "pkg-open-1")
+    monkeypatch.setattr(pl, "log_signal", rows.append)
+
+    result = pl._monocle_gate(_gate_signal(), {})
+
+    assert result["reason"] == "open_package_exists"
+    assert rows == [{
+        "event": "open_package_blocked",
+        "strategy": "xrp_pullback_2h",
+        "symbol": "XRPUSDT",
+        "side": "buy",
+        "open_package_id": "pkg-open-1",
+    }]
+
+
+def test_open_package_audit_failure_still_blocks(monkeypatch):
+    import src.runtime.pipeline as pl
+
+    def _boom(_row):
+        raise RuntimeError("audit sink down")
+
+    monkeypatch.setattr(pl, "_has_open_package_for_strategy",
+                        lambda strategy, symbol=None: "pkg-open-1")
+    monkeypatch.setattr(pl, "log_signal", _boom)
+
+    result = pl._monocle_gate(_gate_signal(), {})
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "open_package_exists"
