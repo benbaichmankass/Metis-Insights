@@ -380,7 +380,7 @@ def test_step5_the_new_element_dump_is_masked_and_clicks_nothing(browser):
     got, st = run(browser, page_html(stray_for="BTCUSD"), symbols=("BTCUSD",))
     el = got["results"]["BTCUSD"]["new_elements"]["elements"]
     assert el == [{"tag": "div", "role": "", "cls": ["stray"], "w": 60, "h": 20, "visible": True,
-                   "n_leaves": 1, "leaves": ["Info"]}]
+                   "n_leaves": 1}]
     assert st["clicks"] == ["sym", "instrument_info_button"]      # the Escape is a key, not a click
 
 
@@ -692,3 +692,30 @@ def test_fresh_page_linked_check_is_unreadable_when_the_session_is_not_accepted(
     chk = NoSession(timeout_ms=3_000).fresh_page_linked_check(ctx, "https://x/", "SOLUSD")
     assert chk["readable"] is False and chk["why"] == "session login_form" and ctx.pages == []
     ctx.close()
+
+
+# ── independent review of #14841: nits (b) and (d) ─────────────────────────
+
+
+def test_review_d_the_new_element_dump_emits_no_text_even_for_a_balance(browser):
+    from src.prop.platform.dxtrade import INFO_PROBE_NEW_ELEMENTS_JS, INFO_PROBE_SNAPSHOT_JS
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate(INFO_PROBE_SNAPSHOT_JS)
+    p.evaluate("() => { const d = document.createElement('div'); d.className = 'acct-4724 tip';"
+               " d.innerHTML = '<span>Balance</span><span>$4,724.00</span><span>ID 5821</span>';"
+               " d.style.cssText = 'width:80px;height:30px'; document.body.appendChild(d); }")
+    got = p.evaluate(INFO_PROBE_NEW_ELEMENTS_JS)
+    p.close()
+    dump = json.dumps(got)
+    assert got["n_visible"] == 1 and got["elements"][0]["n_leaves"] == 3
+    assert got["elements"][0]["cls"] == ["acct-####", "tip"]
+    for leak in ("Balance", "4724", "4,724", "5821", "$"):
+        assert leak not in dump, leak
+
+
+def test_review_b_the_not_found_alert_says_recovered_or_not(browser):
+    got, _ = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD",))
+    assert any("Escape pressed, recovered: nothing unidentified left visible" in a for a in got["alerts"])
+    got, _ = run(browser, page_html(stray_for="BTCUSD"), symbols=("BTCUSD",))
+    assert any("Escape pressed, NOT recovered: unidentified element(s) still visible: 1" in a for a in got["alerts"])
