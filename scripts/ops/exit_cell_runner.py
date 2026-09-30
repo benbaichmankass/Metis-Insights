@@ -52,7 +52,6 @@ from typing import Any, Dict, List, Optional
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "ops"))
 import mandate_resolver as mr  # noqa: E402
-import pipeline  # noqa: E402
 
 MATRIX_REL = "docs/research/exit-refinement-coverage.json"
 FIRINGS_REL = mr.FIRINGS_DIR_REL
@@ -77,24 +76,10 @@ def _corpus(root: Path) -> List[Dict[str, Any]]:
 
 
 def pick_cells(root: Path) -> Dict[str, Dict[str, Any]]:
-    """leg -> the ONE newest corpus row of its B4-selected cell."""
-    newest: Dict[tuple, Dict[str, Any]] = {}
-    for r in _corpus(root):
-        if (r.get("gate_verdict") != mr.PATHB_VERDICT or r.get("axis") != "stop"
-                or r.get("timeout") is not None or r.get("tp_r") is not None):
-            continue
-        k = (r.get("leg"), r.get("cell"))
-        if k not in newest or str(r.get("sweep_generated_at") or "") > str(
-                newest[k].get("sweep_generated_at") or ""):
-            newest[k] = r
-    best: Dict[str, Dict[str, Any]] = {}
-    for (leg, _cell), r in newest.items():
-        key = (float(r.get("wf_wins_effective") or 0), float(r.get("d_net_r") or 0))
-        cur = best.get(leg)
-        if cur is None or key > (float(cur.get("wf_wins_effective") or 0),
-                                 float(cur.get("d_net_r") or 0)):
-            best[leg] = r
-    return best
+    """leg -> the ONE top-ranked cell. The rule lives in the resolver
+    (mr.select_cells) so this and the resolver's R-NOT-TOP-CELL clause cannot
+    disagree; non-finite evidence ranks last there."""
+    return mr.select_cells(_corpus(root))
 
 
 # --------------------------------------------------------------------------
@@ -181,27 +166,8 @@ def apply_fire(entry: Dict[str, Any], root: Path, today: str, run_ref: str) -> L
     return [mr.STRATEGIES_REL, MATRIX_REL, str(fp.relative_to(root))]
 
 
-def file_needs_data(entries: List[Dict[str, Any]], clause: str, session_ref: str,
-                    store: Path = pipeline.STORE) -> Optional[str]:
-    """ONE pipeline row per NEEDS-DATA *clause* (not per leg: 9 legs sharing
-    R-BASE-N is one cause), skipped when an OPEN row already names this mandate
-    and that clause -- PI-20260930-39SDYWCO-0002 covers R-BASE-N today."""
-    for it in pipeline.load(store).items.values():
-        w = str(it.get("what") or "")
-        if it.get("state") in pipeline.OPEN_STATES and MID in w and clause in w:
-            return None
-    legs = ", ".join(f"{e['leg']}:{e['cell']}" for e in entries)
-    task = entries[0]["result"].get("data_task") or {}
-    rerun = "python3 scripts/ops/exit_cell_runner.py --json"
-    item = {"id": pipeline.mint_id(session_ref, store=store),
-            "what": f"{MID}: {len(entries)} cell(s) are NEEDS-DATA at {clause} -- "
-                    f"{task.get('what') or entries[0]['detail']} [{legs}]",
-            "origin": {"kind": "session", "ref": session_ref, "rerun": rerun},
-            "due_when": {"kind": "observation",
-                         "clears_when": f"{rerun} lists no cell NEEDS-DATA at {clause}",
-                         "check_every_days": task.get("check_every_days", 7)},
-            "next_action": task.get("next_action", "dispatch_lane"), "state": "queued"}
-    return pipeline.append(item, store, intent="new")["id"]
+# One row per NEEDS-DATA clause, deduped -- single-homed in the resolver (the CLI uses it too).
+file_needs_data = mr.file_exit_cell_needs_data
 
 
 def render(out: Dict[str, List[Dict[str, Any]]]) -> str:

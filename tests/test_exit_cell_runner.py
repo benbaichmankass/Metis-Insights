@@ -58,6 +58,12 @@ def test_pick_cells_follows_the_b4_rule_and_ignores_tp_and_timeout_cells(tmp_pat
     assert er.pick_cells(root)[LEG]["cell"] == "sm1.5"   # wf ties -> higher d_net_r
 
 
+def test_a_nan_ranked_cell_never_becomes_the_pick(tmp_path):
+    rows = [dict(base.ROW, cell="sm1.5", wf_wins_effective=5, d_net_r=28.0),
+            dict(base.ROW, cell="sm2", wf_wins_effective=float("nan"), d_net_r=float("inf"))]
+    assert er.pick_cells(_root(tmp_path, rows=rows))[LEG]["cell"] == "sm1.5"
+
+
 def test_a_fire_edits_exactly_one_key_and_nothing_else(tmp_path):
     root = _root(tmp_path)
     out = er.run(root)
