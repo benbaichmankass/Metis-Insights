@@ -205,3 +205,31 @@ def test_dayflat_same_day_share_below_0_95_fails_and_underpowered_stays_indeterm
     assert v["verdict"] == "fail" and v["gates"]["same_day_share_ge_0_95"] is False
     small = dict(spec, n=120, r_samples=spec["r_samples"][:120])
     assert hfv.grade_dayflat(small, {"window": []}, "config/prop_rulesets/hyrotrader.yaml")["verdict"] == "indeterminate"
+
+
+def test_dayflat_same_day_counts_the_fill_moment_not_the_bar_open_stamp(tmp_path):
+    """A 23:00-stamped entry fills at 00:00 the NEXT day (stamp = bar open, fill = close) and is flattened
+    within that day; comparing the raw stamp's date with the exit's date called it a midnight crossing."""
+    rows = []
+    for d in range(1, 21):          # entry stamped 23:00 on day d, flattened 22:00 on day d+1 (exit stamp)
+        rows.append({"entry_time": f"2026-01-{d:02d}T23:00:00+00:00", "exit_time": f"2026-01-{d + 1:02d}T22:00:00+00:00",
+                     "net_r": 0.1, "entry": 100.0, "sl": 99.0})
+    for d in range(1, 21):          # a plain intraday trade
+        rows.append({"entry_time": f"2026-02-{d:02d}T10:00:00+00:00", "exit_time": f"2026-02-{d:02d}T14:00:00+00:00",
+                     "net_r": 0.1, "entry": 100.0, "sl": 99.0})
+    p = tmp_path / "l.jsonl"
+    p.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    raw = hfv.spec_from_ledgers("x", [str(p)])
+    fixed = hfv.spec_from_ledgers("x", [str(p)], entry_offset=hfv.DAYFLAT_BAR)
+    assert raw["same_day_frac"] == 0.5 and fixed["same_day_frac"] == 1.0
+
+
+def test_dayflat_main_applies_the_fill_moment_offset(tmp_path, monkeypatch):
+    rows = [{"entry_time": f"2026-01-{d:02d}T23:00:00+00:00", "exit_time": f"2026-01-{d + 1:02d}T22:00:00+00:00",
+             "net_r": 0.1, "entry": 100.0, "sl": 99.0} for d in range(1, 21)]
+    led = tmp_path / "l.jsonl"
+    led.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    monkeypatch.setattr(hfv, "run_dayflat", lambda *a, **k: {"ledgers": [str(led)], "failed": None, "window": []})
+    monkeypatch.setattr(sys, "argv", ["x", "--mode", "dayflat", "--leg", "L", "--out", str(tmp_path / "o")])
+    assert hfv.main() == 0
+    assert json.loads((tmp_path / "o" / "verdict.json").read_text())["same_utc_day_share"] == 1.0

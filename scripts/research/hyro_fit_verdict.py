@@ -47,7 +47,7 @@ import json
 import statistics as st
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -66,7 +66,10 @@ def _ts(x: Any) -> datetime:
     return datetime.fromisoformat(str(x).replace("Z", "+00:00"))
 
 
-def spec_from_ledgers(name: str, paths: List[str]) -> Dict[str, Any]:
+def spec_from_ledgers(name: str, paths: List[str], entry_offset: "timedelta | None" = None) -> Dict[str, Any]:
+    """``entry_offset`` shifts the ENTRY MOMENT used for the same-UTC-day share only. Native-candle ledgers
+    stamp entry_time with the signal bar's OPEN, but the fill is that bar's close (open + one bar), which is
+    the entry moment the day-flat rule is written against (RQ-20260930-503)."""
     rows: List[Dict[str, Any]] = []
     for p in paths:
         rows += [json.loads(x) for x in Path(p).read_text().splitlines() if x.strip()]
@@ -74,11 +77,12 @@ def spec_from_ledgers(name: str, paths: List[str]) -> Dict[str, Any]:
     e = [_ts(r["entry_time"]) for r in rows]
     x = [_ts(r["exit_time"]) for r in rows]
     span = max((max(x) - min(e)).days, 1)
+    e_fill = [t + entry_offset for t in e] if entry_offset else e
     return dict(
         name=name, n=len(rows), span_days=span, block_len=4,
         r_samples=[float(r["net_r"]) for r in rows],
         trades_per_day=len(rows) / span,
-        same_day_frac=sum(a.date() == b.date() for a, b in zip(e, x)) / len(rows),
+        same_day_frac=sum(a.date() == b.date() for a, b in zip(e_fill, x)) / len(rows),
         stop_pct=st.median(abs(r["entry"] - r["sl"]) / r["entry"] * 100 for r in rows),
     )
 
@@ -167,7 +171,7 @@ def run_limit_legs(legs: List[str], days: int, out: Path, *, run=subprocess.run,
                    today: "datetime | None" = None,
                    strategies: Dict[str, Any] | None = None) -> Dict[str, Any]:
     """Run each leg in limit mode (the verdict arm) and in market mode at 11 bps (report only)."""
-    from datetime import timedelta, timezone
+    from datetime import timezone
     end_d = (today or datetime.now(timezone.utc)).date() - timedelta(days=1)
     start = (end_d - timedelta(days=days)).isoformat()
     end = end_d.isoformat()
@@ -203,6 +207,7 @@ def run_limit_legs(legs: List[str], days: int, out: Path, *, run=subprocess.run,
 
 DAYFLAT_SAME_DAY_MIN = 0.95
 DAYFLAT_FLAT_AT, DAYFLAT_NO_ENTRY_AFTER = "23:45", "20:00"
+DAYFLAT_BAR = timedelta(hours=1)          # registered: NATIVE 1h candles, bar_label open
 
 
 def _load_rdm():
@@ -227,7 +232,7 @@ def dayflat_cmd(leg: str, cfg: Dict[str, Any], csv: str, emit: str, js: str, sta
 
 def run_dayflat(leg: str, days: int, out: Path, *, run=subprocess.run, today: "datetime | None" = None,
                 strategies: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    from datetime import timedelta, timezone
+    from datetime import timezone
     if strategies is None:
         import yaml
         strategies = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())["strategies"]
@@ -303,7 +308,7 @@ def main() -> int:
             v = dict(verdict="not_applicable", read_state="producer_failed", n=None,
                      population=f"dayflat harness run failed: {stats['failed']}")
         else:
-            v = grade_dayflat(spec_from_ledgers(a.leg[0], stats["ledgers"]), stats, a.ruleset)
+            v = grade_dayflat(spec_from_ledgers(a.leg[0], stats["ledgers"], entry_offset=DAYFLAT_BAR), stats, a.ruleset)
         (out / "verdict.json").write_text(json.dumps(v, indent=1) + "\n")
         print(json.dumps(v, indent=1))
         return 0

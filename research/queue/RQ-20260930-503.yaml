@@ -66,7 +66,7 @@ run:
   inputs:
     research_unit: RQ-20260930-503
   note: >-
-    The harness levers (--flat-at-utc, --no-entry-after-utc, bar_label) are merged on main (#14583, #14618).
+    The harness levers (--flat-at-utc, --no-entry-after-utc, bar_label) are merged on main (#14583, #14618, #14630).
     --mode dayflat runs the leg at its live config parameters on native 1h candles, WITHOUT --resample, and
     grades the ledger with 501's gates plus the same-UTC-day share.
 
