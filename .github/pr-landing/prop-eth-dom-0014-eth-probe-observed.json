@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: PROP-ETH-DOM ETH instrument-info-probe observed on PI-20260929-AQRK6CL1-0014 (issue #14870: no specs, no latch, restore verified; panel measured). No code, config or runtime change."
+}

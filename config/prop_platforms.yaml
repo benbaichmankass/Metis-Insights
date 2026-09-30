@@ -99,6 +99,11 @@ accounts:
       # touched (never a refusal, never an AUTO-REVERT count) and stays manual
       # via Telegram. A symbol joins only after symbol switching lands AND it
       # passes the D1-D7 dry run. Env override: PROP_EXECUTOR_SYMBOLS.
+      # 2026-09-30 (PROP-ETH-DOM): per-ticket symbol switching is BUILT
+      # (DXtradeAdapter.select_linked_symbol, called by place_bracket).
+      # ETHUSD stays OUT: its price_step is UNMEASURED (lots/lot_step/cvpp are
+      # measured, #13500); measure it (watchlist quote decimals via
+      # dump-tables, then the ETH round-trip-dry D1-D7 walk) before it joins.
       enabled_venue_symbols: [SOLUSD]
 
   # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's
@@ -118,10 +123,10 @@ accounts:
     login_url: https://dx.tradeify247.co/
     username_env: TRADEIFY_DX_USERNAME
     password_env: TRADEIFY_DX_PASSWORD
-    # LOGIN CHECK ONLY for now: breakout-login-check REFUSES every executor
-    # mode for any account but breakout_1 (the executor's kill switch is the
-    # global PROP_EXECUTOR_MODE until a per-account one exists — TRADEIFY-WIRE
-    # PR A #14663), so nothing here can reach an order control.
+    # Kill switch: PROP_EXECUTOR_MODE_TRADEIFY_1 (off | read_only | live,
+    # default read_only). It NEVER reads breakout_1's PROP_EXECUTOR_MODE.
+    # Ruleset + routing: accounts.yaml::tradeify_1.backtest_ruleset and that
+    # ruleset's `routing:` key (src/prop/prop_executor.py::rule_paths_for).
     executor:
       safety_margin_usd: 5
       unconfirmed_reads: 3

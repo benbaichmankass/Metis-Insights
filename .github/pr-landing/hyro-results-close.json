@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only, no code or config: (1) a dated append-only correction record for RQ-20260930-504 (its SMOKE label was wrong; original record untouched); (2) pipeline updates closing PI-20260930-HYRO501A-0001 (killed, superseded by the landed measured 501 record) and PI-20260930-HYRO504N-0001 (done); (3) one new pipeline row PI-20260930-HYRO502R-0001 carrying the HyroTrader outcome for the operator after 501 PASS, 502/503/504 FAIL."
+}

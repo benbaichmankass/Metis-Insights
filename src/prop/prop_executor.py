@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -60,13 +61,31 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 RULESET_PATH = _REPO_ROOT / "config" / "prop_rulesets" / "breakout.yaml"
 ROUTING_PATH = _REPO_ROOT / "config" / "prop_rulesets" / "breakout_routing.yaml"
 PLATFORMS_PATH = _REPO_ROOT / "config" / "prop_platforms.yaml"
+ACCOUNTS_PATH = _REPO_ROOT / "config" / "accounts.yaml"
+
+# The account the executor was built for. Its kill switch, symbol override,
+# ruleset and routing keep the names and paths they had before a second prop
+# account existed (TRADEIFY-WIRE, 2026-09-30), so nothing about it changes.
+PRIMARY_ACCOUNT = "breakout_1"
 
 
-def executor_mode(env: Optional[Mapping[str, str]] = None) -> str:
+def _env_suffix(account_id: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in str(account_id)).upper()
+
+
+def mode_env_for(account_id: str = PRIMARY_ACCOUNT) -> str:
+    """The kill-switch env var for ``account_id``. ``breakout_1`` keeps
+    ``PROP_EXECUTOR_MODE``; every other account has its OWN
+    (``PROP_EXECUTOR_MODE_<ACCOUNT>``) and never inherits the global one, so
+    arming Breakout can never arm a second account's clicks."""
+    return MODE_ENV if account_id == PRIMARY_ACCOUNT else f"{MODE_ENV}_{_env_suffix(account_id)}"
+
+
+def executor_mode(env: Optional[Mapping[str, str]] = None, account_id: str = PRIMARY_ACCOUNT) -> str:
     """``off`` / ``read_only`` / ``live``. Unset or unparseable → ``read_only``:
     falling back to ``live`` would let a typo arm real clicks, and falling back
     to ``off`` would hide a misconfiguration behind silence."""
-    raw = ((env if env is not None else os.environ).get(MODE_ENV) or "").strip().lower()
+    raw = ((env if env is not None else os.environ).get(mode_env_for(account_id)) or "").strip().lower()
     return raw if raw in MODES else DEFAULT_MODE
 
 
@@ -102,12 +121,50 @@ class ExecutorConfig:
 SYMBOLS_ENV = "PROP_EXECUTOR_SYMBOLS"
 
 
-def enabled_venues(ex: Mapping[str, Any], env: Optional[Mapping[str, str]] = None) -> List[str]:
-    """``PROP_EXECUTOR_SYMBOLS`` (comma-separated) when set, else
-    ``executor.enabled_venue_symbols``; missing = [] (fail closed)."""
-    raw = (env if env is not None else os.environ).get(SYMBOLS_ENV)
+def symbols_env_for(account_id: str = PRIMARY_ACCOUNT) -> str:
+    """Per-account like :func:`mode_env_for`: ``PROP_EXECUTOR_SYMBOLS`` for
+    ``breakout_1``, ``PROP_EXECUTOR_SYMBOLS_<ACCOUNT>`` for any other."""
+    return SYMBOLS_ENV if account_id == PRIMARY_ACCOUNT else f"{SYMBOLS_ENV}_{_env_suffix(account_id)}"
+
+
+def enabled_venues(ex: Mapping[str, Any], env: Optional[Mapping[str, str]] = None,
+                   account_id: str = PRIMARY_ACCOUNT) -> List[str]:
+    """``PROP_EXECUTOR_SYMBOLS`` (comma-separated; per account, see
+    :func:`symbols_env_for`) when set, else ``executor.enabled_venue_symbols``;
+    missing = [] (fail closed)."""
+    raw = (env if env is not None else os.environ).get(symbols_env_for(account_id))
     vals = raw.split(",") if raw is not None and raw.strip() else (ex.get("enabled_venue_symbols") or [])
     return sorted({str(v).strip().upper() for v in vals if str(v).strip()})
+
+
+def rule_paths_for(account_id: str) -> Tuple[Path, Path]:
+    """``(ruleset, routing)`` files for ``account_id``.
+
+    ``breakout_1`` → :data:`RULESET_PATH` / :data:`ROUTING_PATH`, exactly as
+    before a second account existed. Any other account → its
+    ``config/accounts.yaml::backtest_ruleset`` (the SAME key the ticket
+    emitter and the rule-distance guard resolve) and that ruleset's
+    ``routing:`` key. Either missing RAISES: an executor sized off another
+    firm's rules would type a number nobody computed for this account."""
+    from src.config.accounts_loader import load_accounts_dict
+
+    if account_id == PRIMARY_ACCOUNT:
+        return RULESET_PATH, ROUTING_PATH
+    spec = (load_accounts_dict(ACCOUNTS_PATH).get(account_id) or {}).get("backtest_ruleset")
+    if not spec or spec == "standard":
+        raise KeyError(f"{account_id!r}: no prop backtest_ruleset in {ACCOUNTS_PATH.name}")
+    ruleset = _REPO_ROOT / "config" / str(spec)
+    routing_spec = _ruleset_routing_spec(ruleset)
+    if not routing_spec:
+        raise KeyError(f"{account_id!r}: ruleset {ruleset.name} declares no `routing:` file")
+    return ruleset, _REPO_ROOT / "config" / str(routing_spec)
+
+
+def _ruleset_routing_spec(ruleset: Path) -> Optional[str]:
+    """The ruleset file's ``routing:`` key (``config/``-relative), or None."""
+    import yaml
+
+    return (yaml.safe_load(ruleset.read_text()) or {}).get("routing")
 
 
 def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
@@ -115,8 +172,9 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
     a second copy of a rule."""
     import yaml
 
-    rules = yaml.safe_load(RULESET_PATH.read_text()) or {}
-    routing = yaml.safe_load(ROUTING_PATH.read_text()) or {}
+    ruleset_path, routing_path = rule_paths_for(account_id)
+    rules = yaml.safe_load(ruleset_path.read_text()) or {}
+    routing = yaml.safe_load(routing_path.read_text()) or {}
     plat = (yaml.safe_load(PLATFORMS_PATH.read_text()) or {}).get("accounts", {}).get(account_id) or {}
     ex = plat.get("executor") or {}
     lim = rules.get("limits") or {}
@@ -157,7 +215,7 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         watched_click_max_lots={str(k): float(v) for k, v in (ex.get("watched_click_max_lots") or {}).items()
                                 if v is not None},
         breach_guards=_breach_guards_for(account_id),
-        enabled_venue_symbols=enabled_venues(ex),
+        enabled_venue_symbols=enabled_venues(ex, account_id=account_id),
     )
 
 
@@ -871,7 +929,8 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     # directive 2026-09-30 ~13:12Z). Every other ledger state is final. A retry
     # runs EXACTLY the guards a first attempt runs (manager 2026-09-30 13:21Z):
     # this cycle's terminal read + the busy-symbol guard, valid_until, the
-    # § 3.3 guards, the LIMIT at entry. No retry-only price rule.
+    # § 3.3 guards, the LIMIT at entry, and the entry-band check below, which
+    # applies to both attempt kinds alike (no retry-only price rule).
     fresh = [t for t in tickets if t.get("ticket_id")
              and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") == RETRY_STATE)]
     if only_ticket_id:
@@ -910,6 +969,37 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
             continue
+        if candidate is None and venue:
+            # The entry-band check, identical for a first attempt and a
+            # retry. A WAIT is not an attempt: nothing is recorded, so the
+            # ticket is looked at again next cycle and still expires at
+            # valid_until. A ticket with no venue is left to the guards,
+            # which refuse it.
+            verdict, why = _entry_band_check(adapter, page, t, venue)
+            if verdict in ("wait", "blind"):
+                res.log("band_wait", ticket_id=t["ticket_id"], why=why)
+                # A quote we could not read would otherwise let the ticket
+                # expire with only a log line (manager review of #14908): one
+                # alert per ticket, on its first blind wait.
+                if verdict == "blind" and _first_time(state, st, f"band_blind_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: live price unreadable, NOT placed yet; will retry "
+                                      f"until {t.get('valid_until')}, place by hand if needed")
+                continue
+            if verdict == "ok":
+                # Logged with the quote it used, so a live pass is observable
+                # (manager 2026-09-30 22:06Z), not inferred from a guards line.
+                res.log("band_ok", ticket_id=t["ticket_id"], why=why)
+            if verdict == "refuse":
+                res.log("band_refused", ticket_id=t["ticket_id"], why=why)
+                if live:
+                    ledger.record(t["ticket_id"], "refused", reasons=[why])
+                    _report(res, post, _skip_body(cfg, t, f"not submitted: {why}"))
+                # Live records the refusal, so the ticket is never seen again;
+                # a dry mode records nothing, so it is de-duplicated here.
+                if live or _first_time(state, st, f"band_refused_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: NOT PLACED — {why}; place it by hand by "
+                                      f"{t.get('valid_until')} or it is lost")
+                continue
         if candidate is None:
             candidate = t
     if candidate is None:
@@ -1358,6 +1448,59 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
 RETRY_STATE = "retry_pending"
 #: Placement attempts per ticket before the pre-submit failure is final.
 RETRY_MAX_ATTEMPTS = 3
+
+#: The ticket's own entry band as ``breakout_ticket`` renders it in the
+#: message: "(only if live price is within <min> … <max>)".
+_BAND_RE = re.compile(r"within\s+([0-9]+(?:\.[0-9]+)?)\s*(?:…|\.\.\.)\s*([0-9]+(?:\.[0-9]+)?)")
+
+
+def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
+    """The ticket's own entry band, parsed from its message, or None when it
+    cannot be read. Never recomputed here: a second copy of the rule could
+    disagree with the ticket the operator saw."""
+    m = _BAND_RE.search(str(ticket.get("message") or ""))
+    if not m:
+        return None
+    lo, hi = float(m.group(1)), float(m.group(2))
+    return (lo, hi) if lo <= hi else None
+
+
+def _first_time(state: "ExecutorState", st: Dict[str, Any], key: str, ticket_id: str,
+                keep: int = 50) -> bool:
+    """True the first time ``ticket_id`` is seen under ``key`` (the last
+    ``keep`` ids are remembered in the executor state), False after."""
+    seen = list(st.get(key) or [])
+    if ticket_id in seen:
+        return False
+    st[key] = (seen + [ticket_id])[-keep:]
+    state.save(st)
+    return True
+
+
+def _entry_band_check(adapter: Any, page: Any, ticket: Mapping[str, Any],
+                      venue: str) -> Tuple[str, str]:
+    """Before ANY placement, a first attempt or a retry (PI-20260930-KMYJ5XC7-0003,
+    manager 2026-09-30 13:29Z): this cycle's quote -- the ask for a long, the
+    bid for a short -- must lie inside the ticket's own entry band. The band
+    is clipped at the stop, so a price outside it includes a price beyond the
+    SL, where a LIMIT at entry would be marketable and fill straight into its
+    own stop. Returns ``("ok"|"wait"|"blind"|"refuse", why)``. Fails closed:
+    an unreadable quote is ``blind`` and waits like ``wait`` (we could not
+    look), an unreadable band REFUSES."""
+    band = _entry_band(ticket)
+    if band is None:
+        return "refuse", "entry band unreadable in the ticket message"
+    try:
+        q = adapter.read_quote(page, venue)
+    except Exception as exc:
+        return "blind", f"no quote for the entry-band check ({type(exc).__name__}; could not look)"
+    long_side = _dir(ticket.get("direction")) == "long"
+    px = _f((q or {}).get("ask" if long_side else "bid"))
+    if px is None:
+        return "blind", "no quote for the entry-band check (could not look)"
+    if not (band[0] <= px <= band[1]):
+        return "wait", f"{'ask' if long_side else 'bid'} {px} outside the ticket's entry band {band[0]}..{band[1]}"
+    return "ok", f"{'ask' if long_side else 'bid'} {px} inside the ticket's entry band {band[0]}..{band[1]}"
 
 #: Cancel attempts on one expired resting entry before the executor stops
 #: retrying and says so (an alert at exhaustion; later cycles only log).

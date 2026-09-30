@@ -206,6 +206,10 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # for it is inert and reading one back would suggest an effect it lacks
     # (the enabled symbols come from config/prop_platforms.yaml).
     "PROP_EXECUTOR_MODE",
+    # tradeify_1's OWN kill switch (TRADEIFY-WIRE 2026-09-30): a non-breakout
+    # prop account never reads PROP_EXECUTOR_MODE, so its mode needs its own
+    # reader for the same L8-style "mode back to read_only, confirmed" check.
+    "PROP_EXECUTOR_MODE_TRADEIFY_1",
     # PROTECTION_STRAY_GROUP_* cancels a live position's resting protective
     # legs. Its EMPTY `..._ACCOUNTS` means NONE (inverted from its
     # CONVICTION_SIZING_/NETTING_ATTRIBUTION_ siblings, where empty means ALL),

@@ -63,3 +63,15 @@ generated:
     symbol: GLD
     timeframe: 1h
 last_dispatched_at: '2026-09-30T13:22:53+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-E35-BRACKET-IS-OOS-GATE
+  evidence:
+  - docs/research/e35-bracket-corpus.jsonl
+  graded_at: '2026-09-30'
+  grader: scripts/research/queue_grade.py
+  latest: true
+  needs_review: false
+  reason: 0 of 199 cells is_oos_pass at base_oos_trades 46
+  rows: 199
+  verdict: no_action_warranted
