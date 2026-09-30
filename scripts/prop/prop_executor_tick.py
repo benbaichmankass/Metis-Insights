@@ -94,7 +94,19 @@ def emit(obj: Dict[str, Any], *secrets: str) -> None:
 
 
 def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None) -> str:
-    """The mode this run executes in. Pure; tested."""
+    """The mode this run executes in. Pure; tested.
+
+    ⚠️ The three PROBE modes (``probe``, ``instrument_probe``,
+    ``instrument_search_dump``) are decided BEFORE ``PROP_EXECUTOR_MODE`` and
+    so run even when it reads ``off``. That is a deliberate exception to
+    "off — nothing read, nothing clicked" (manager review of #14527,
+    2026-09-30): ``off`` is the EXECUTOR's kill switch (no cycle, no ticket,
+    no submit, no reconcile), while a probe is a manual, one-shot,
+    operator/manager-dispatched measurement that places nothing and writes
+    nothing to the API or the executor's state dir. Blocking it under
+    ``off`` would block measurement exactly when the executor has been
+    reverted. ``probe`` opens and closes the order form but types nothing;
+    the other two never reach the order form."""
     base = pe.executor_mode(env)
     if args.probe_ticket:
         return "probe"

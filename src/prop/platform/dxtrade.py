@@ -953,13 +953,16 @@ def extract_instrument_specs_from_responses(
 TICKET_OPENER_NAMES: Sequence[str] = ("New Order", "New order", "Create Order", "Create order",
                                       "Place Order", "Place order", "Order Entry", "Trade")
 
-# Candidate SEARCH/FILTER input attribute-text substrings (case-insensitive),
-# tried in order by FIND_INSTRUMENT_SEARCH_JS. NOT MEASURED: no run has
-# confirmed any of these yet -- first candidate found wins, none found is
-# reported honestly (probe_instrument_details) rather than guessed.
-INSTRUMENT_SEARCH_CANDIDATES: Sequence[str] = (
-    "search", "find symbol", "find instrument", "symbol search", "instrument search",
-)
+# Candidate SEARCH input attribute-text substrings (case-insensitive), tried
+# in order by FIND_INSTRUMENT_SEARCH_JS. MEASURED 2026-09-30 (PROP-ETH-DOM,
+# instrument-search-dump run 36675129051, issue #14551, code 2058a2f1b): the
+# live terminal's watchlist symbol search is ONE
+# ``<input type=text placeholder="Symbol..." data-test-id="watchlist_public...">``
+# inside a ``multiasset-suggest`` control in the watchlist widget's header
+# toolbar. The five earlier guesses ("search", "find symbol", ...) matched
+# nothing there and are gone. Exactly one input must match a candidate, or
+# the probe refuses.
+INSTRUMENT_SEARCH_CANDIDATES: Sequence[str] = ("symbol...", "watchlist_public")
 
 # Form-field label patterns (anchored, case-insensitive), matched against the
 # label text the discovery JS derives for each control.
@@ -1484,6 +1487,14 @@ TICKET_PANEL_DUMP_JS = r"""
 #      status), refuses -- a watchlist panel holds one quote table.
 #   3. The upward walk excludes ``document.body`` by construction (the loop
 #      never assigns it to ``e``), so the panel can never resolve to it.
+#   4. (2026-09-30, PROP-ETH-DOM, MEASURED on issue #14551) The search input
+#      is in the watchlist WIDGET's header, 6 levels above that panel, so the
+#      containment scope is the nearest ``widget__container`` /
+#      ``widgetNew__container`` ancestor (at most 8 levels up). That widget
+#      must itself hold exactly one Symbol-headed table, no
+#      positions/orders-shaped table, and no BUY+SELL order panel, and must
+#      sit inside none -- otherwise refuse. Live run #14457 (pre-change)
+#      found 0 inputs because it searched only inside the grid panel.
 FIND_INSTRUMENT_SEARCH_JS = r"""
 ([candidates]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
@@ -1555,10 +1566,47 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   }
   const inAnyOrderPanel = el => orderPanels.some(p => p.contains(el));
 
+  // The search input lives in the watchlist WIDGET's header, not inside the
+  // grid panel above (MEASURED 2026-09-30, issue #14551: wl_level 6 -- the
+  // panel's 6th ancestor, ``div .widget__container... .widgetNew__container``).
+  // So containment widens to that ONE widget: the nearest ancestor of the
+  // panel, at most WIDGET_MAX_UP levels up, carrying a class token that
+  // starts ``widget__container`` or ``widgetNew__container``. It must pass
+  // the same checks the panel did (exactly one Symbol-headed table, no
+  // positions/orders-shaped table) and must hold NO BUY+SELL order panel and
+  // sit inside none -- otherwise refuse.
+  const WIDGET_MAX_UP = 8;
+  const clsTokens = e => (typeof e.className === 'string' ? e.className : '').split(/\s+/);
+  let widget = null;
+  let up = 0;
+  for (let e = watchlistPanel.parentElement; e && e !== document.body && up < WIDGET_MAX_UP;
+       e = e.parentElement, up++) {
+    if (clsTokens(e).some(c => /^widget(New)?__container/.test(c))) { widget = e; break; }
+  }
+  if (!widget) {
+    return {found: false, why: `no widget__container ancestor within ${WIDGET_MAX_UP} levels of the watchlist panel`};
+  }
+  const tablesInWidget = [...widget.querySelectorAll('table')];
+  const symbolTablesInWidget = tablesInWidget.filter(t =>
+    [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).includes('symbol'));
+  if (symbolTablesInWidget.length !== 1) {
+    return {found: false, why: `widget holds ${symbolTablesInWidget.length} Symbol-headed tables (need exactly 1)`};
+  }
+  for (const t of tablesInWidget) {
+    if (t === headerTable) continue;
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).join(' ');
+    if (posOrdHeaderRe.test(hs)) {
+      return {found: false, why: 'widget also contains a positions/orders-shaped table'};
+    }
+  }
+  if (orderPanels.some(p => widget.contains(p) || p.contains(widget))) {
+    return {found: false, why: 'watchlist widget overlaps an order (BUY+SELL) panel'};
+  }
+
   const attrText = el => [el.getAttribute('placeholder'), el.getAttribute('aria-label'),
                           el.getAttribute('data-test-id'), el.getAttribute('title')]
       .filter(Boolean).join(' ').toLowerCase();
-  const inputs = [...watchlistPanel.querySelectorAll('input')].filter(el => {
+  const inputs = [...widget.querySelectorAll('input')].filter(el => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && el.getAttribute('data-test-id') !== 'symbol_input'
       && !inAnyOrderPanel(el);
@@ -1629,15 +1677,21 @@ CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 INSTRUMENT_SEARCH_DUMP_JS = r"""
 () => {
   const MAX = 50, CHAIN = 6;
-  // Any 24+ run of [A-Za-z0-9_-.=+/] is cut to a 16-char prefix + an
-  // ellipsis HERE, because the run-log redactor (redact_text's
-  // _TOKENISH_RE) would otherwise replace a long CSS class name with
-  // "<token>" and erase the very measurement this dump exists for. A real
-  // token never survives whole; the redactor itself is left unchanged.
+  // Any 24+ run of [A-Za-z0-9_-.=+/] is handled HERE, because the run-log
+  // redactor (redact_text's _TOKENISH_RE) would otherwise replace a long CSS
+  // class name with "<token>" and erase the very measurement this dump
+  // exists for. A run that LOOKS like a token (3+ digits, or upper AND lower
+  // case with no -_. word separators: base64 / JWT / hex-ish) is dropped
+  // WHOLE as "<tok>" -- no prefix of it is published (manager review of
+  // #14527, note c). A readable identifier (a kebab/snake/dotted class name)
+  // keeps a 16-char prefix + an ellipsis. The redactor itself is unchanged.
+  const tokenLike = m => (m.match(/\d/g) || []).length >= 3
+    || (/[a-z]/.test(m) && /[A-Z]/.test(m) && !/[-_.]/.test(m));
   const mask = (v, n) => (typeof v === 'string' && v.trim())
     ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
         .replace(/\d{5,}/g, m => '#'.repeat(m.length))
-        .replace(/[A-Za-z0-9_\-.=+\/]{24,}/g, m => m.slice(0, 16) + '\u2026').slice(0, n || 60) : null;
+        .replace(/[A-Za-z0-9_\-.=+\/#]{24,}/g, m => tokenLike(m) ? '<tok>' : m.slice(0, 16) + '\u2026')
+        .slice(0, n || 60) : null;
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const clsOf = el => (typeof el.className === 'string' ? el.className
