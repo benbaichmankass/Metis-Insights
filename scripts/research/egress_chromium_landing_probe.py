@@ -38,7 +38,8 @@ PASS RULE (``--evaluate``), evaluated here and not by a reader
   ended in an error, or a workflow run that FAILED (``--failed-runs``: a crash
   writes no result file, so the workflow lists such runs itself) is FAIL (the
   route is ended). A run whose organisation lookup was unreadable (``org_unreadable``,
-  e.g. a 429) is INCONCLUSIVE: it neither passes nor ends the route. Fewer than
+  e.g. a 429) is INCONCLUSIVE (it neither passes nor ends the route) ONLY if the app landing page was itself served; if
+  it was challenged, blocked or missing, the run is a FAIL. Fewer than
   three spaced passes and no failure is PENDING.
   THE WINDOW IS INTENDED: only the last 72 h are considered. A FAIL therefore
   ages out of this verdict after 72 h; that is by design (the proxy lasts 24 h,
@@ -349,7 +350,13 @@ def evaluate(results, now=None, failed_runs=()):
     for r in proxy:
         stamp, state = r["ts"], r.get("proxy_state")
         if state == "org_unreadable":
-            inconclusive += 1  # the organisation lookup failed (e.g. 429): says nothing about the route
+            # The organisation lookup failed (e.g. 429). That is inconclusive ONLY when the app itself was
+            # served; a challenged/blocked/missing landing page is a failure whatever the lookup said.
+            if not app_pass((r.get("hosts") or {}).get(APP_HOST)):
+                h = (r.get("hosts") or {}).get(APP_HOST) or {}
+                return "FAIL", [f"{stamp}: organisation lookup unreadable AND app.breakoutprop.com not served "
+                                f"(http_status={h.get('http_status') or 'none'}, cf-mitigated={h.get('cf_mitigated') or 'none'}); route ended"]
+            inconclusive += 1
             continue
         if state != "ok":
             return "FAIL", [f"{stamp}: {state} (route ended)"]

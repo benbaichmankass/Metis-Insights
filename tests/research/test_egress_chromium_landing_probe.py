@@ -431,10 +431,20 @@ def test_any_non_ok_state_ends_the_route(state):
 
 
 def test_org_unreadable_is_inconclusive_not_a_pass_and_not_a_fail():
-    v, why = probe.evaluate([rec(0), rec(61, state="org_unreadable", ok=False, org="unknown"), rec(125), rec(190)], now=NOW)
+    """Inconclusive ONLY when the app itself was served (ok=True hosts)."""
+    v, why = probe.evaluate([rec(0), rec(61, state="org_unreadable", org="unknown"), rec(125), rec(190)], now=NOW)
     assert v == "PASS"  # passes at 0, 125, 190 (all >= 1 h apart); the unreadable run did not count either way
-    v, why = probe.evaluate([rec(0), rec(61, state="org_unreadable", ok=False, org="unknown")], now=NOW)
+    v, why = probe.evaluate([rec(0), rec(61, state="org_unreadable", org="unknown")], now=NOW)
     assert v == "PENDING" and "inconclusive" in why[0]
+
+
+def test_org_unreadable_with_a_challenged_app_is_a_fail_not_a_skipped_run():
+    """False-PASS gap: a challenged/blocked landing page must not be hidden by a failed org lookup."""
+    v, why = probe.evaluate([rec(0), rec(61, state="org_unreadable", ok=False, org="unknown"), rec(125), rec(190)], now=NOW)
+    assert v == "FAIL" and "not served" in why[0]
+    lone = rec(0, state="org_unreadable", ok=False, org="unknown")
+    lone["hosts"] = {}  # no host record at all is also not a served app
+    assert probe.evaluate([lone], now=NOW)[0] == "FAIL"
 
 
 def test_evaluate_cli_counts_failed_runs_and_refuses_an_unreadable_failed_file(tmp_path, capsys):
