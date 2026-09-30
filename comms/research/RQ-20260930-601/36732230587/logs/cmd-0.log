@@ -1,0 +1,6 @@
+{
+ "verdict": "fail",
+ "read_state": "measured",
+ "n": 2328,
+ "population": "28 measured legs with >= 40 usable trades (21 thinner legs excluded); 2328 trades after the 20-trade per-leg warm-up; full-cost net_r from each leg's committed source_run ledger"
+}

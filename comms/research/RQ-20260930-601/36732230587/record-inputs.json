@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20260930-601/36732230587/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20260930-601/36732230587",
+  "decision_rule_id": "RULE-RQ0930-601-M16-WITHIN-LEG-CONFIDENCE",
+  "decision_rule_registered_at": "2026-09-30",
+  "measurement_file": "comms/research/RQ-20260930-601/36732230587/measurement.json",
+  "min_rows": "1",
+  "n": "2328",
+  "note": "Stage-0 mechanism test on committed full-cost ledgers. A PASS authorises a budget-matched path A/B, never a config change.",
+  "population": "28 measured legs with >= 40 usable trades (21 thinner legs excluded); 2328 trades after the 20-trade per-leg warm-up; full-cost net_r from each leg's committed source_run ledger",
+  "power_state": "",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20260930-601",
+  "tool": "python3 scripts/research/m16_within_leg_confidence.py",
+  "verdict": "fail"
+}

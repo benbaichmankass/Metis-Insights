@@ -1,0 +1,31 @@
+{
+ "n": 870,
+ "net_r": 16.17,
+ "span_days": 1824,
+ "population": "trend_donchian_eth_prop ledger, 1824d, n=870",
+ "p_both_gateB": [
+  0.134,
+  0.1307,
+  0.1193
+ ],
+ "p_both_gateC": [
+  0.0593,
+  0.06,
+  0.0553
+ ],
+ "info_p_both_if_half_of_fills_flagged": 0.002,
+ "verdict": "fail",
+ "read_state": "measured",
+ "gates": {
+  "A_net_r_positive": true,
+  "B_all_seeds_ge_0_25": false,
+  "C_all_seeds_ge_0_10": false,
+  "same_day_share_ge_0_95": true
+ },
+ "same_utc_day_share": 1.0,
+ "window": [
+  "2021-09-25",
+  "2026-09-29"
+ ],
+ "levers_not_modelled_by_harness": []
+}
