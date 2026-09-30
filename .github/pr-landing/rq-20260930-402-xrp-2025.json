@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Lane M19-S2EXIT-XRP3 (manager session_01HYq6XtfesZ57VyaQrK6CL1, checklist row M19-S2EXIT): registers research unit RQ-20260930-402 (XRP-only re-run of the RQ-20260929-401 REFINE on the 2025 fold) BEFORE any run, and adds a --rule single-leg option to the committed grader (default family rule unchanged) with tests. Research/tooling only: no src/, config/, order path or deploy. The manager merges this before any run is dispatched."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "A new research-queue unit is a registration, not a stamp, so the landing guard cannot vouch for research/queue/RQ-20260930-402.yaml. The manager merges this registration BEFORE any run (brief from manager session_01HYq6XtfesZ57VyaQrK6CL1).",
+  "why": "Lane M19-S2EXIT-XRP3 (checklist row M19-S2EXIT): registers RQ-20260930-402 (XRP-only re-run of the RQ-20260929-401 REFINE on the 2025 fold) before any run, and adds a --rule single-leg option to the committed grader (default family rule unchanged) with a test. Research/tooling only: no src/, config/, order path or deploy."
 }
