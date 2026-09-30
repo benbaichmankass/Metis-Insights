@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "the self-test disables git auto-gc/maintenance in its temp repos, or 20 consecutive CI runs pass without this OSError",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-4UNXYJIA-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane W6-PROP-FEED session_016Np9Ac9hgbbV4g4UnXYjia 2026-09-28",
+    "rerun": "python3 -m pytest -q tests/test_mandate_autoland.py -k planted_defect --count 20 (or loop 20x); any 'Directory not empty' reproduces it"
+  },
+  "state": "killed",
+  "terminal_reason": "Duplicate of PI-20260926-96NDZSOD-0003 and fixed by the same change: scripts/ci/check_mandate_autoland.py passes ignore_cleanup_errors=True at both TemporaryDirectory sites and sets gc.auto 0 on the scratch repo (checked 2026-09-30).",
+  "what": "tests/test_mandate_autoland.py::test_planted_defect_suite_passes failed on PR #13543 head 813de3f2 (CI run 36409566135) with OSError: [Errno 39] Directory not empty: 'objects'. The crash is in scripts/ci/check_mandate_autoland.py _case(), where tempfile.TemporaryDirectory().__exit__ cleans up the throwaway git repo for NEGATIVE 3. It passed on the previous head and passes locally (8/8), so it is intermittent. INFERRED cause: a git process (detached gc --auto or maintenance) still writing into .git/objects during rmtree. Proposed fix: run the self-test's git calls with -c gc.auto=0 -c maintenance.auto=false (_git/_run). A guard that fails intermittently on unrelated PRs costs every lane a re-run."
+}
