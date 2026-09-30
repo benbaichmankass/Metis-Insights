@@ -159,3 +159,36 @@ def test_dry_account_emits_nothing():
     assert str(tid).startswith("dry-")
     from src.prop import prop_journal
     assert prop_journal.list_tickets(account_id="tradeify_1", limit=10) == []
+
+
+# ── a bare Telegram report still resolves to the LIVE prop account ───────────
+
+
+def test_bare_prop_report_defaults_to_breakout_1_while_tradeify_is_dry(monkeypatch):
+    """Manager review B-1: with tradeify_1 declared (dry_run), a bare fill
+    report / screenshot must still resolve to the live breakout_1, from the
+    accounts file alone (no env pin)."""
+    from src.prop import telegram_report_handler as h
+
+    monkeypatch.delenv("PROP_DEFAULT_ACCOUNT", raising=False)
+    assert h.default_prop_account() == "breakout_1"
+
+
+def test_default_prop_account_rules(monkeypatch):
+    from src.config import accounts_loader
+    from src.prop import telegram_report_handler as h
+
+    monkeypatch.delenv("PROP_DEFAULT_ACCOUNT", raising=False)
+    prop = {"exchange": "breakout", "type": "prop", "account_class": "prop"}
+
+    def use(accts):
+        monkeypatch.setattr(accounts_loader, "load_accounts_dict", lambda *a, **k: accts)
+
+    use({"a": {**prop, "mode": "live"}, "b": {**prop, "mode": "dry_run"}})
+    assert h.default_prop_account() == "a"
+    use({"a": {**prop, "mode": "live"}, "b": {**prop}})       # mode missing = live
+    assert h.default_prop_account() is None                   # two live: ask, never guess
+    use({"a": {**prop, "mode": "dry_run"}, "b": {**prop, "mode": "dry_run"}})
+    assert h.default_prop_account() is None
+    use({"a": {**prop, "mode": "dry_run"}})                   # the only prop account
+    assert h.default_prop_account() == "a"
