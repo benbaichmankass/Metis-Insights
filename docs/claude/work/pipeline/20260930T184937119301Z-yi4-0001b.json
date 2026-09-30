@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260930-3ZFMYYI4-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01KY4jjUa6FUhBRT3zfMyyi4 (lane EGRESS-SCOPE, review of PR #14680)",
+    "rerun": "grep -n 'cron' .github/workflows/egress-chromium-landing-probe.yml; grep -n 'egress-chromium-landing-probe' scripts/ci/check_cadence_liveness.py .github/workflows/claude-run-failure-alert.yml  # any hit dated after 2026-10-04 means the cleanup is still owed"
+  },
+  "severity": "low",
+  "state": "done",
+  "terminal_reason": "The hourly `17 * * * *` schedule, its CADENCE_REGISTRY entry, its claude-run-failure-alert watch entry and the 'hourly schedule' wording were removed by the Tier-1 PR that carries this record. VERIFY after merge: `grep -n cron .github/workflows/egress-chromium-landing-probe.yml` returns nothing on main.",
+  "tier": 1,
+  "what": "REMOVE the temporary hourly egress-probe schedule after 2026-10-04: (1) the `schedule:` cron in .github/workflows/egress-chromium-landing-probe.yml (and its gate-step date check), (2) the `egress-chromium-landing-probe.yml` entry in CADENCE_REGISTRY in scripts/ci/check_cadence_liveness.py, (3) the `- \"egress-chromium-landing-probe\"` watch entry in .github/workflows/claude-run-failure-alert.yml, and (4) the 'hourly schedule' wording in docs/github-actions-workflows.md and docs/research/RESEARCH-CAPABILITY-INDEX.md. Added by the PROP-TERM $2 proxy test (PR #14680). The schedule already stops itself on 2026-10-04 (the script and the gate step both refuse past that date), so this is cleanup of dead governance entries, not a safety fix. If the route PASSED and the proxy is being adopted, keep the workflow but replace the schedule with the adopted design instead of deleting it. CLOSED 2026-09-30 (manager 18:45Z: PROP-TERM egress parked). The hourly `17 * * * *` schedule, its CADENCE_REGISTRY entry, its claude-run-failure-alert watch entry and the 'hourly schedule' wording were removed by the Tier-1 PR that carries this record. VERIFY after merge: `grep -n cron .github/workflows/egress-chromium-landing-probe.yml` returns nothing on main."
+}

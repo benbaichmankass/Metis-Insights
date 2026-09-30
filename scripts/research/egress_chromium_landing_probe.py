@@ -43,7 +43,7 @@ PASS RULE (``--evaluate``), evaluated here and not by a reader
   three spaced passes and no failure is PENDING.
   THE WINDOW IS INTENDED: only the last 72 h are considered. A FAIL therefore
   ages out of this verdict after 72 h; that is by design (the proxy lasts 24 h,
-  the hourly schedule ends 2026-10-04, and the manager records the verdict on
+  the hourly schedule was removed 2026-09-30, and the manager records the verdict on
   the PROP-TERM checklist row, which is the durable record).
 
 LEVERS (``--variants a,b,c --out-dir DIR``; diagnostics for choosing how the browser is run through the SAME proxy)
@@ -107,8 +107,8 @@ MARKERS = {
 ORG_RX = re.compile(r"^AS\d+\s+\S")
 MASK = "<masked>"
 
-#: The hourly schedule is a temporary measurement aid, not a standing cron: past
-#: this instant a scheduled run exits at once. (A 24-hour proxy has long expired.)
+#: The hourly schedule was REMOVED 2026-09-30 (PROP-TERM egress parked); a scheduled run, if one is ever
+#: re-added, exits at once past this instant. Kept so a re-dispatch behaves exactly as before.
 SCHEDULE_ACTIVE_UNTIL = datetime(2026, 10, 4, tzinfo=timezone.utc)
 MIN_SPACING_S = 3600
 NEEDED_PASSES = 3

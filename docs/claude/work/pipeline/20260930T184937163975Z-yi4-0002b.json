@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-01",
+    "kind": "date"
+  },
+  "id": "PI-20260930-3ZFMYYI4-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01KY4jjUa6FUhBRT3zfMyyi4 (lane EGRESS-SCOPE R2, manager brief 2026-09-30T15:54Z)",
+    "rerun": "gh run list --workflow egress-chromium-landing-probe.yml --event schedule --limit 5  # (or mcp__github__actions_list list_workflow_runs on that workflow) an empty list on 2026-10-01 means the cron has still never fired"
+  },
+  "severity": "low",
+  "state": "killed",
+  "terminal_reason": "WITHDRAWN as a finding: the cron DID fire later (schedule run 36755391216 at 2026-09-30T18:00Z, per the manager's relay; first observed schedule run, about 6.7 h after the merge), so 'never fires' was wrong as a standing claim: GitHub's first scheduled run on a newly merged workflow can be late. The cron is also removed now (PROP-TERM egress parked), so no further cause-hunt is needed.",
+  "tier": 1,
+  "what": "The egress probe's hourly cron (`17 * * * *` in .github/workflows/egress-chromium-landing-probe.yml, on main since PR #14680 merged 2026-09-30T11:18Z) has NEVER fired: at 2026-09-30T15:58Z the workflow (state active) had 7 runs, all `pull_request` or `workflow_dispatch`, zero `schedule`, while other schedules ran. CAUSE NOT ESTABLISHED. Candidates (unchecked): GitHub delays/drops `schedule` events on a newly merged workflow; the hourly minute :17 is dropped under load; something specific to this file. To close: either observe a `schedule` run on main, or (if none by 2026-10-01) move the measurement to a manually dispatched or `workflow_run`-driven cadence, or change the minute. Until then every probe run is a manual `workflow_dispatch`, so the 3-runs-1h-apart PASS rule is only reachable by dispatching by hand. CLOSED 2026-09-30 (manager 18:45Z: PROP-TERM egress parked). WITHDRAWN as a finding: the cron DID fire later (schedule run 36755391216 at 2026-09-30T18:00Z, per the manager's relay; first observed schedule run, about 6.7 h after the merge), so 'never fires' was wrong as a standing claim: GitHub's first scheduled run on a newly merged workflow can be late. The cron is also removed now (PROP-TERM egress parked), so no further cause-hunt is needed."
+}
