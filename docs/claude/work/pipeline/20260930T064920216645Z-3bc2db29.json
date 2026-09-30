@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the discovery scan exists and lists unregistered *_state keys in run_guards.py output, and items (1)-(3) are each fixed or marked display-only with a reason",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-HXO9WPVH-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#fix-sa-06",
+    "rerun": "python3 scripts/ci/check_collapsed_states.py --verbose (7 new contracts 'ok'); python3 -m pytest tests/test_collapsed_state_fix_sa06_registrations.py; count emitted *_state keys: grep -rhoE '\"[a-z_]+_(state|basis|status)\"\\s*:' src --include=*.py | sort -u | wc -l, vs CONTRACTS names"
+  },
+  "routed_to": "PROV-IB",
+  "state": "routed",
+  "what": "Collapsed-state guard leftovers after FIX-SA-06 (#14200): (1) prop_reconcile.day_pnl_state has NO production consumer in src/ (only its test) and ib_client.verify_state's not_attempted is read by nothing outside tests: give each a production reader or say they are display-only; (2) diag_venue.read_state declares only states with an in-repo comparator, so order_history_read / raw_read / session_read / unknown_account are emitted but unguarded; (3) removing ONE route's could_not_look ternary arm in diag.py is still undetected because the arms are shared (only total removal is); (4) the audit's discovery scan (list every emitted *_state key with no CONTRACTS row and no allow-list entry) is not built: ~80 of 102 emitted *_state/*_basis/*_status keys are unregistered by name match."
+}

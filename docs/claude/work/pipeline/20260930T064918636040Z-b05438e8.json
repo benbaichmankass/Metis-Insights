@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the route returns a non-null read_state or error for an account whose venue it does not read, with a test",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-PGBJNVYQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ 2026-09-27 (MES 907 check)",
+    "rerun": "open a vm-diag-request issue with body `/api/diag/exchange_positions?account_id=ib_paper` and check whether positions/count/error are all null"
+  },
+  "routed_to": "GUARD-FIDELITY",
+  "state": "routed",
+  "what": "GET /api/diag/exchange_positions?account_id=ib_paper (issue #13364, 22:22Z, live VM on main after FIX-CA-12 #13246) returned {positions: null, count: null, error: null} for ib_paper -- no read_state and no error, so 'we could not look' is indistinguishable from 'nothing there'. The same account's LIVE position read via flatten-ib-position DRY-RUN (#13366) succeeded (noop_already_flat), so the venue was readable; the diag route simply does not read IB (likely the single-socket / clientId constraint) and says nothing. FIX-CA-12 covered unreadable ACCOUNTS (503) and unknown account_id (404) but not a known account whose venue this route does not read. Fix: return an explicit read_state (e.g. 'not_read_by_this_route' with the reason) or an error string for IB accounts, and add it to scripts/ci/check_collapsed_states.py."
+}

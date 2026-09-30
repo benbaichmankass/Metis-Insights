@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "alpaca_live and alpaca_portfolio declare the same side_filter AND the mirror-equality test asserts it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-E8Y3BGBS-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROMOTE (session_011h6MApXzTAY91VE8y3bgbs), 2026-09-28, read of config/accounts.yaml",
+    "rerun": "python3 -c \"import yaml;a=yaml.safe_load(open('config/accounts.yaml'));a=a.get('accounts',a);print(a['alpaca_live'].get('side_filter'),a['alpaca_portfolio'].get('side_filter'))\" -- holds while the two differ."
+  },
+  "routed_to": "STAGE2-MIRROR",
+  "state": "routed",
+  "what": "Stage-2 mirror is NOT trade-identical on Alpaca: alpaca_live declares side_filter: long, alpaca_portfolio declares none, and the rostered legs ief_pullback_1d / slv_pullback_1d are bidirectional (no long_only), so the mirror takes shorts live refuses. test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies compares rosters only, so it stays green. Any bidirectional promotion (gld_pullback_1h, slv_trend_1h) widens the gap. Fix candidates: add side_filter: long to alpaca_portfolio (Tier 2/3, account config), and extend the mirror test to compare side_filter."
+}
