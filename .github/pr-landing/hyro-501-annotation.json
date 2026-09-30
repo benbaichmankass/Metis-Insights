@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline record only (PI-20260930-HYRO501A-0001): annotates RQ-20260930-501 run 36681432113's producer_failed record as a landing-contract bug (fixed in #14619), not a FAIL, pointing at the canonical measured re-run 36687577503. No code or config change."
+}
