@@ -1,0 +1,39 @@
+# Landing-only Chromium reachability probe from a GitHub-hosted runner's egress
+# (PROP-TERM egress scoping, 2026-09-30). Tier-1: no secrets, no VM, no credentials,
+# nothing clicked. It answers: is a real headless Chromium SERVED, CHALLENGED or BANNED
+# at Breakout's terminal hosts from this runner's (Microsoft/Azure) address?
+#
+# Trigger: a pull request that touches `.github/egress-probe/run-request.txt` (a session
+# bumps that file to ask for a fresh measurement; the log is the result), or a manual
+# dispatch. Sessions cannot `workflow_dispatch`, hence the file trigger.
+#
+# The script prints the egress ORGANISATION only, never an address.
+name: egress-chromium-landing-probe
+
+on:
+  pull_request:
+    paths:
+      - ".github/egress-probe/run-request.txt"
+      - "scripts/research/egress_chromium_landing_probe.py"
+      - ".github/workflows/egress-chromium-landing-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          pip install playwright
+          playwright install --with-deps chromium
+      - name: Landing-only probe (no credentials, nothing clicked)
+        run: python3 scripts/research/egress_chromium_landing_probe.py
