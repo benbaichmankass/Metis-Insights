@@ -13,8 +13,8 @@
 #     content-type, body size, a Cloudflare error code if the body carries one
 #     ("Error 1005" etc.), login-form markers, and (for /specs only) whether the
 #     body looks like API docs. Never prints set-cookie or any header value
-#     beyond that list, and never dumps a body except the first 160 chars of a
-#     small JSON body.
+#     beyond that list, and never dumps a body: for a small JSON body it prints
+#     the key NAMES only (values can echo the client IP).
 #   - No anti-detection: default curl User-Agent-less request with an honest UA.
 #
 # Dispatched by the system-actions workflow (issue body):
@@ -48,7 +48,7 @@ log "landing-only probe from this VM's egress (no credentials, GET only)"
 for url in "${URLS[@]}"; do
     hdr="${TMP}/h.txt"; body="${TMP}/b.bin"; : >"${hdr}"; : >"${body}"
     set +e
-    code="$(curl -sS -m 25 --max-redirs 3 -L -A "${UA}" -D "${hdr}" -o "${body}" \
+    code="$(curl -q -sS --proto =https --proto-redir =https -m 25 --max-redirs 3 -L -A "${UA}" -D "${hdr}" -o "${body}" \
         -w '%{http_code}' "${url}" 2>"${TMP}/err.txt")"
     rc=$?
     set -e
@@ -59,7 +59,9 @@ for url in "${URLS[@]}"; do
     fi
     # Last response block only (after any redirect).
     last="$(awk 'BEGIN{RS="\r?\n\r?\n"} {b=$0} END{print b}' "${hdr}")"
-    getv() { printf '%s\n' "${last}" | tr -d '\r' | grep -i "^$1:" | head -n1 | cut -d: -f2- | sed 's/^ *//' | cut -c1-80; }
+    # `|| true`: a header that is absent is a MEASUREMENT (empty), never an abort
+    # under `set -e -o pipefail` (grep exits 1 on no match).
+    getv() { { printf '%s\n' "${last}" | tr -d '\r' | grep -i "^$1:" | head -n1 | cut -d: -f2- | sed 's/^ *//' | cut -c1-80; } || true; }
     size="$(wc -c <"${body}" | tr -d ' ')"
     echo "  http_status=${code}"
     echo "  server=$(getv server)"
@@ -77,7 +79,8 @@ for url in "${URLS[@]}"; do
         */specs)
             ct="$(getv content-type)"
             if [ "${size}" -lt 600 ] && printf '%s' "${ct}" | grep -qi json; then
-                echo "  small_json_body=$(head -c 160 "${body}" | tr -d '\r\n')"
+                # Keys only, never values: an error body can echo the client IP.
+                echo "  small_json_keys=$( { grep -aoE '"[A-Za-z_][A-Za-z0-9_]*"[[:space:]]*:' "${body}" | tr -d ' :"' | sort -u | tr '\n' ' '; } || true )"
             fi
             echo "  looks_like_api_docs=$(grep -aciE 'openapi|swagger|dxsca-web|<title>[^<]*(spec|api)' "${body}" || true) matching lines"
             ;;
