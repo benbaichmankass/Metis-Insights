@@ -56,9 +56,11 @@ def test_match_keeps_explicit_ticket_of_same_account(isolated_db: Path) -> None:
     _ticket("prop-b1", "breakout_1")
     fill = {"account_id": "breakout_1", "ticket_id": "prop-b1", "status": "filled"}
     assert prop_reconcile.match_fill_to_ticket(fill) == "prop-b1"
-    # an explicit id with no ticket row behaves exactly as before
+    # an explicit id with no ticket row belongs to no account: kept (fill dedup)
     assert prop_reconcile.match_fill_to_ticket(
         {"account_id": "breakout_1", "ticket_id": "prop-unknown"}) == "prop-unknown"
+    # a blank reporting account cannot be shown to own the ticket
+    assert prop_reconcile.match_fill_to_ticket({"account_id": "", "ticket_id": "prop-b1"}) is None
 
 
 def test_set_ticket_status_scoped_by_account(isolated_db: Path) -> None:
@@ -101,3 +103,23 @@ def test_same_account_report_still_advances_ticket(
     })
     assert out["ok"] and out["ticket_id"] == "prop-b1"
     assert _status("prop-b1") == "filled"
+
+
+def test_a_failed_match_links_nothing(isolated_db: Path, no_notify: list, monkeypatch) -> None:
+    """Manager review F1-1: when matching raises (e.g. get_ticket's read-only
+    connection fails), the report's own ticket_id must NOT be kept."""
+    from src.prop import prop_reconcile, prop_report
+
+    _ticket("prop-b1", "breakout_1")
+
+    def boom(fill):
+        raise RuntimeError("read-only connect failed")
+
+    monkeypatch.setattr(prop_reconcile, "match_fill_to_ticket", boom)
+    out = prop_report.ingest_report({
+        "account_id": "tradeify_1", "ticket_id": "prop-b1",
+        "symbol": "ETHUSDT", "direction": "long", "status": "filled",
+        "entry_price": 2500.0, "qty": 0.1,
+    })
+    assert out["ok"] and out["ticket_id"] is None
+    assert _status("prop-b1") == "emitted"
