@@ -18,8 +18,9 @@ Wants=network-online.target
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
-# A hung Bybit call must not wedge the unit (10 min ceiling; fetch itself is bounded).
-TimeoutStartSec=900
+# Worst case: 3 symbols x (20 rate-limit retries x 30s = 10 min) = 30 min, plus paging.
+# 2400s covers that; a timeout loses nothing anyway (atomic write, original untouched).
+TimeoutStartSec=2400
 ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/ops/refresh_candle_history.py --data-dir data SOLUSDT:15 XRPUSDT:15 ETHUSDT:15
 StandardOutput=journal
 StandardError=journal
