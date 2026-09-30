@@ -1,7 +1,7 @@
 {
   "tier": 1,
   "landing": "hold",
-  "hold_reason": "depends_on_unmerged_pr",
-  "hold_text": "One NEW research-queue unit (RQ-20260930-501, runnable) and two blocked units (502, 503), all registration only, nothing run. 501 runs scripts/research/hyro_fit_verdict.py, which lives in the companion memo PR (branch claude/hyro-strategy-feasibility) and must merge first; the manager then merges this PR before any run. No config or runtime change.",
+  "hold_reason": "awaiting_evidence",
+  "hold_text": "Registers NEW research-queue unit RQ-20260930-501 (runnable) plus blocked units 502 and 503, and carries the HyroTrader ruleset YAMLs, the Monte Carlo/verdict scripts and their test. Held for the manager to merge before any run; nothing has been run. Companion docs-only memo PR #14559 holds the evidence these units follow from. No strategies.yaml/accounts.yaml/runtime change.",
   "why": "Pre-registered research-queue units for lane HYRO-STRATS (operator request ~05:40Z 2026-09-30). A new unit is a registration, so it is held for the manager. No strategy or account config touched."
 }
