@@ -54,7 +54,7 @@ DECIDED. Every external fact carries a source row (§ Sources).
    lands on the proprietary terminal (S3), and non-crypto instruments exist
    only there (S7). So the build sits behind a **platform adapter** (§ 2):
    one interface, a `dxtrade` adapter built now, and a `breakout_terminal`
-   adapter that is scoped only.
+   adapter built 2026-09-28 against an UNMEASURED layout (§ 2.4).
 4. **Slice 1 (this PR) is read-only:** a login check that logs in, reads
    balance, positions and working orders, prints them, and touches no order
    control. Order placement is the next slice, after the login check is
@@ -92,7 +92,7 @@ config value; nothing above changes.
                                                   │  PropPlatformAdapter (one interface)
                         ┌─────────────────────────┴──────────────────────────┐
                         │                                                    │
-          dxtrade  (BUILT: read path in slice 1)          breakout_terminal  (SCOPED ONLY)
+          dxtrade  (BUILT: read path in slice 1)          breakout_terminal  (BUILT, UNMEASURED)
           app.breakoutprop.com                            dashboard → "Open Terminal"
 ```
 
@@ -115,6 +115,24 @@ In slice 1 the four slice-2 methods exist on the interface and **raise
 `NotImplementedError`** on both adapters. There is no code path that clicks an
 order control.
 
+**Step 3 update (lane PROP-EXEC, 2026-09-28; held PR `claude/prop-exec-step3`):**
+the four methods, plus a read-only `probe_order_ticket`, are now built on the
+`dxtrade` adapter. Each takes `arm=False` by default and stops before the
+final control. Only `src/prop/prop_executor.py` in `live` mode arms them.
+Until lane PROP-GATE (2026-09-28) they refused unless **one-click trading**
+read OFF; the live probe read `unknown` (custom-styled toggle, issue #13711)
+and the operator DECIDED, verbatim: *"As long we know we're placing trades
+correctly on the sidebar ticket, we don't need to consider the one click
+toggle at all - that's only relevant for placing trades on the chart itself"*.
+The toggle's reading is now recorded as a diagnostic on every result and
+gates nothing; the order path never touches a chart price button (ticket
+opened by a named control or the watchlist row, submitted by the ticket's own
+unique submit button), and all six fields — symbol, side, order type,
+quantity, SL, TP — are read back before submit. The order-ticket DOM is **NOT MEASURED**: the
+`breakout-login-check` `apply: probe-ticket` run measures it
+(`PI-20260928-K3GZXIAV-0001`). `breakout_terminal` implements the same
+controls against an UNMEASURED layout, with two extra refusals (§ 2.4).
+
 ### 2.2 Selection by config
 
 `config/prop_platforms.yaml` holds one entry per prop account:
@@ -123,11 +141,14 @@ order control.
 accounts:
   breakout_1:
     platform: dxtrade          # dxtrade | breakout_terminal
-    login_url: https://app.breakoutprop.com/
+    # login_url omitted: the per-platform default applies
+    # (dxtrade → https://wss.breakoutprop.com/,
+    #  breakout_terminal → https://app.breakoutprop.com/)
 ```
 
 `src.prop.platform.get_adapter(account_id)` reads it and returns the adapter.
-An unknown platform value raises; it never falls back silently.
+An unknown platform value raises; it never falls back silently. So does a
+`login_url` that is the OTHER platform's default (a half-done switch).
 
 ### 2.3 `dxtrade` adapter (built, read path)
 
@@ -151,10 +172,38 @@ Code: `src/prop/platform/dxtrade.py`. All DXtrade selectors live in its
   the live VM passes is exactly what the login check measures. If it gets a
   challenge, that is a feasibility finding (§ 4), not a design task.
 
-### 2.4 `breakout_terminal` adapter (scoped only; no login)
+### 2.4 `breakout_terminal` adapter (built to UNMEASURED DOM, 2026-09-28)
 
-Code: `src/prop/platform/breakout_terminal.py`: every method raises
-`NotImplementedError`. What first-party material says, and nothing more:
+> **Update, lane PROP-TERM (2026-09-28).** Operator, verbatim: *"that's
+> definitely a high priority because that is where the next account will be
+> and we want to be ready for that in any case."* The adapter is now **built**
+> behind the same interface as `dxtrade`, including the step-3 order controls
+> (`arm=False` by default). **Nothing about this terminal is measured yet.**
+>
+> - **Login → dashboard → "Open Terminal"** (a new tab is adopted), classified
+>   by generic markers; feasibility stops `challenge`, `captcha`,
+>   `email_code`, `2fa`, `login_rejected`, `no_account`, `unknown_page`.
+> - **Read path** by visible labels and column-header text (Balance / Equity /
+>   Unrealized PnL…; Market / Size / Entry Price / TP/SL…). Unread = `None`,
+>   no table = `LookupError`, never `0`.
+> - **Orders:** `place_bracket` with the dxtrade adapter's six safety rules plus two:
+>   a side button that is also the submit is refused, and a missing
+>   one-click-trading control reads `unknown` and refuses. `cancel_order`
+>   and `flatten` use exactly-one-row / exactly-one-control matching.
+>   `modify_bracket` is an explicit refusal (edit flow unmeasured).
+> - **Selection:** `platform: breakout_terminal` is the whole switch; the
+>   login URL defaults per platform (§ 2.2). The executor maps symbols via
+>   `<platform>_symbol` in `breakout_routing.yaml`, and no
+>   `breakout_terminal_symbol` rows exist, so every ticket is refused until
+>   the venue names are measured.
+> - **Measurement:** system-action `breakout-terminal-probe` (read-only;
+>   landing shape, then optionally ONE login + Open Terminal + read-only
+>   ticket probe). The unmeasured parts are the login flow, the DOM and
+>   ticket kind (DOM or canvas); until an account exists on this terminal,
+>   everything past the landing page stays fixture-only (synthetic fixtures,
+>   `tests/fixtures/prop_breakout_terminal/`).
+
+What first-party material says, and nothing more:
 
 - Reached from the Breakout dashboard by clicking **"Open Terminal"** (S23);
   the dashboard is `portal.breakoutprop.com`, behind a Cloudflare challenge to
@@ -169,7 +218,8 @@ Code: `src/prop/platform/breakout_terminal.py`: every method raises
   sign-in; if that happens on every login the adapter is infeasible), the DOM,
   and whether the order ticket is DOM or canvas.
 
-**Scoping verdict:** buildable in principle behind the same interface, but
+**Scoping verdict (2026-09-27; superseded by the PROP-TERM update above):**
+buildable in principle behind the same interface, but
 **unbuildable today**: breakout_1 is DXtrade, so there is no proprietary-terminal
 login to measure, and the one login-flow signal we have (emailed code) would
 kill it if it holds.
@@ -263,9 +313,9 @@ screenshots or reports. Playwright tracing and screenshots are off.
 
 | step | what | "works" means | tier |
 |---|---|---|---|
-| **1: read-only login check (this PR)** | system-action `breakout-login-check` runs `scripts/prop/breakout_login_check.py` on the live VM: default headless Chromium opens `app.breakoutprop.com`, logs in, reads balance, equity, positions and working orders, prints them (no secrets). `emit_status: true` additionally posts one `account_status` through `POST /api/bot/prop/report`; default off. | exit 0 with `login: ok` and the values matching the operator's screen | Tier-2 held PR |
+| **1: read-only login check (this PR)** | system-action `breakout-login-check` runs `scripts/prop/breakout_login_check.py` on the live VM: default headless Chromium opens the DXtrade terminal at `wss.breakoutprop.com` (the dxtrade default `login_url`; corrected 2026-09-30, this line said `app.breakoutprop.com`, which is the separate proprietary-terminal dashboard), logs in, reads balance, equity, positions and working orders, prints them (no secrets). `emit_status: true` additionally posts one `account_status` through `POST /api/bot/prop/report`; default off. | exit 0 with `login: ok` and the values matching the operator's screen | Tier-2 held PR |
 | 2: keep-alive | repeat step 1 every 5 min for 72 h | unattended re-login; selector stability measured | Tier-2 |
-| 3: one minimum-size bracket, operator watching | `place_bracket` on the dxtrade adapter, plus the § 3.3 guards | entry, SL and TP all rest, confirmed by re-read; the report lands | Tier-2, separate held PR |
+| 3: one minimum-size bracket, operator watching | `place_bracket` on the dxtrade adapter, plus the § 3.3 guards. **BUILT, held** (2026-09-28): `src/prop/prop_executor.py`, `scripts/prop/prop_executor_tick.py`, unit `ict-prop-executor` (not enabled; timer in `deploy/opt-in/`), `PROP_EXECUTOR_MODE` default `read_only`. The executor shares the feed's `login.lock` and saved session and never logs in itself. The watched click is `breakout-login-check` `apply: watched-click` | entry, SL and TP all rest, confirmed by re-read; the report lands | Tier-2, separate held PR |
 | 4: soak | executor live on breakout_1's roster, manual bridge still emitting | 14 days, zero unconfirmed submits, orphans or naked positions | Tier-2 |
 
 **Feasibility stops** (each is reported as `feasibility: <reason>`, never

@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Tier-3 -- the remedy is a funding or risk/sizing decision and the operator makes it. Clears when EITHER the account is funded or its sizing basis changed such that a placement becomes arithmetically possible and one is OBSERVED, OR the operator RECORDS the decision not to, at which point OI-20260831 must be restated as closed-by-decision rather than left open as a soak. PLUS an invariant asserting that a mode:live, account_class:real_money account whose every routed signal refuses for the SAME cause over N days is reported as STRUCTURALLY UNABLE TO TRADE, distinct from signalled_never_placed. NOT SUFFICIENT: waiting -- 40 of 40 over 27 days with a deterministic cause is not a soak accruing, it is a condition standing.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/accounts.yaml MEASURED today: alpaca_live's roster no longer includes tlt_pullback_1d/tlt_pullback_1h (the TLT-priced-~82 leg the finding's sizing-infeasibility math was built on) -- current roster is ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d (IEF/SLV/IAUM, all cheaper per-share than TLT). CLAUDE.md's own A6 note confirms tlt_pullback_1h/1d were pulled from live the same day this roster changed. Could not check alpaca_live's current account balance (no live diag/DB access attempted for this specific figure) so cannot confirm sizing now succeeds.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "The root cause named in the finding (TLT priced too high for a ~$200 balance under whole-share rounding) is gone from the current roster, but whether the three current legs (IEF/SLV/IAUM) now size successfully at whatever alpaca_live's balance actually is has not been checked. This is a mechanical data check, not a judgment call: check_observation -- pull alpaca_live's current balance + recent signal sizing outcomes via diag before treating OI-20260831 as still blocked. Only escalate to the operator (funding/sizing decision) if that pull still shows sized_qty=0 on every signal.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] alpaca_live's only routed real-money leg is refused at sizing on every signal -- sized_qty=0 at a 200.10 balance under whole-share rounding, with TLT trading near 82 -- so OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED is waiting for a first placement that cannot occur. That row should be re-stated as blocked on a funding or sizing decision rather than left looking like a soak in progress.\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — The root cause named in the finding (TLT priced too high for a ~$200 balance under whole-share rounding) is gone from the current roster, but whether the three current legs (IEF/SLV/IAUM) now size successfully at whatever alpaca_live's balance actually is has not been checked. This is a mechanical data check, not a judgment call: check_observation -- pull alpaca_live's current balance + recent signal sizing outcomes via diag before treating OI-20260831 as still blocked. Only escalate to the operator (funding/sizing decision) if that pull still shows sized_qty=0 on every signal."
+}

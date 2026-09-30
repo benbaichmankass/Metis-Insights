@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 60,
+    "clears_when": "A fresh, pre-registered walk-forward or live-trade sample on exit-head-donchian-1h-v1 (or its retrained successor) that clears the same GATE E1→E2 (docs/research/M20-exit-head-PROGRAM.md lines 72-75) reverses this FAIL, OR the operator formally accepts the FAIL as the standing disposition and closes this row without further rechecking.",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-HIANGATE-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/exit-refinement/exit-head-donchian-1h-v1-gate-check-2026-09-29.md; research/results/RQ-20260927-001/36298075573.jsonl; research/results/RQ-20260927-002/36302273043.jsonl; docs/research/exit-refinement-coverage.json (trend_donchian/BTCUSDT/1h row)",
+    "rerun": "Re-read docs/research/exit-refinement-coverage.json's trend_donchian/BTCUSDT/1h exit_head_ml field and check whether a NEWER walk-forward or live-trade record exists past this gate-check's landed evidence (RQ-20260927-002, 2026-09-27); if the artifact's runtime_logs/trainer_mirror/exit_head/exit-head-donchian-1h-v1.json stage has changed from shadow, re-verify against this row's FAIL verdict before treating that as settled."
+  },
+  "state": "done",
+  "tier": 1,
+  "terminal_reason": "Gate-check complete and landed as evidence (docs/research/exit-refinement/exit-head-donchian-1h-v1-gate-check-2026-09-29.md). No config/artifact-stage/model-registry change made -- Tier-3 promotion decision is not this row's to take, and the evidence recommends against it. This row stays open (state stays checkable via due_when) rather than closing outright, since a future session could reverse the verdict with new evidence; the manager/operator disposition (accept FAIL as standing, or commission a retrain) is theirs to make.",
+  "what": "Manager-dispatched gate-check (checklist row EXITHEAD-DONCHIAN-GATE): does exit-head-donchian-1h-v1 pass the exit-refinement skill's GATE E1→E2 net of the full cost stack? ANSWER: FAIL, all three sub-conditions (docs/research/M20-exit-head-PROGRAM.md lines 72-75) -- (1) OOS AUC 0.5403 < 0.55 (docs/research/exit-refinement-coverage.json, live-parity re-sweep 2026-08-14, n_oos=311); (2) 3-fold embargoed walk-forward net_R: RQ-20260927-002 pooled recovered_R_oos=-14.6597 (n=1041, mean -0.01408R/trade, 1/3 folds positive), REVERSING RQ-20260927-001's single-split PASS (+1.3127R, n=119) which this gate-check's own dispatch note cited as 'the existing OOS re-grade... a marginal pass' without RQ-20260927-002's later, decisive reversal (a RULE ONE gap in the dispatch framing, corrected here); (3) live-trade sign: 11 historical exit_head closes total, sum -1.13 USD on bybit_2, none since 2026-09-15. Twin-dedup precondition (PI-20260926-96NDZSOD-0001) independently re-verified merged on origin/main (dbb1b7b19) this session via direct code read of src/runtime/exit_head_shadow.py's dict-based _SEEN cache -- moot, since the gate fails regardless of that precondition. Live-parity scope: exit_head_model=exit-head-donchian-1h-v1 is declared on three legs (trend_donchian/BTCUSDT real-money bybit_2+bybit_portfolio mirror, trend_donchian_sol, trend_donchian_eth via the prop bridge) sharing one model_id -- a promotion would arm all three at once; the artifact is stage=shadow (inert) today and this gate-check does not recommend flipping it to advisory. No promotion/demotion action taken; that stays Tier-3 and operator-gated."
+}

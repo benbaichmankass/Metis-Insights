@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "PR #14167 is merged to main AND the three relay requests above have been run on main and behaved as stated (traversal refused with the named reason; normal path answered; redaction marker present in a trainer-vm-diag comment).",
+    "kind": "event"
+  },
+  "id": "PI-20260929-SASEC-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/14167",
+    "rerun": "open a vm-diag-request issue with title `[diag-request] version` -> expect the usual comment; open one with title `[diag-request] ../status` -> expect a 'path traversal refused' rejection comment and no VM contact; open a trainer-vm-diag-request issue with cmd `echo AKIA`+`ABCDEFGHIJKLMNOP` -> expect [REDACTED:aws_access_key] in the comment. Then python3 -m pytest tests/test_diag_path_guard.py tests/test_redact_diag_output.py -q"
+  },
+  "state": "queued",
+  "what": "[FIX-SA-07 observation] PR #14167 (diag-relay `..` refusal + pre-post redaction) is proven only by unit tests and a differential over 195 documented paths; it has NOT run on a live relay. Unobserved: the trainer-vm-diag sparse checkout + redaction step on GitHub's runner, the vm-diag-snapshot dispatch and issues paths, and a real `../` request being refused with the rejection comment."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: a short non-technical decision page (VPN over the VM vs another cloud vs residential address) built on today's Chromium-from-a-GitHub-runner landing measurement, plus its document-index row. Nothing bought, built, deployed or routed; the VM address is not written in it."
+}

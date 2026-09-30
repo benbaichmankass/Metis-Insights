@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs + CI-adjacent tooling only: a new push:main workflow (.github/workflows/pr-landing-hold-merge-alarm.yml), a pure decision-logic script (scripts/ops/pr_landing_hold_alarm.py, read-only GitHub API calls made by the workflow, no order path, no runtime, no config), its pytest suite (tests/test_pr_landing_hold_alarm.py), and the mandatory docs/github-actions-workflows.md catalog row. All within TIER1_SURFACE. JC-CA-04 (docs/audits/code-audit-2026-09-27.md §6, operator decision 2026-09-28: Post-merge alarm, option B only); manager dispatch to lane JC-OPS said 'Tier-1 CI; self-land per the repo's landing rules.'"
+}

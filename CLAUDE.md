@@ -126,19 +126,23 @@ the condition says so, whether or not anyone chose to look. `killed` is a
 first-class outcome: closing a dead row *with a stated reason* is worth more
 than carrying it.
 
-⚠️ **THE PULL IS BUILT BUT NOT YET CONNECTED, AND THAT DISTINCTION IS THE
-WHOLE POINT.** `render_section_0()` and `unrouted_count()` exist, are tested,
-and are what the brief consumes. **Nothing runs them on a schedule yet, because
-the brief that displays them is `A3` and is not built.** So today the pipeline
-will hold what you put in it and correctly tell you what is due *when asked* —
-and asking is still voluntary, which is reason (5), the one that killed
-`DUE.md`. **A7 is not finished until A3 renders section 0 on the operator's own
-page.** Do not read "the pipeline exists" as "things no longer get dropped".
+⚠️ **THE PULL IS CONNECTED** (corrected 2026-09-29, FIX-SA-09; this paragraph
+read "built but not yet connected … `A3` … is not built" after both were
+`done`). `GET /api/bot/work/brief` (`src/web/api/routers/work.py`) calls
+`render_daily_brief.py`, which renders `pipeline.render_section_0()` and
+`unrouted_count()` on the operator's own Workflow page **on every request** —
+there is no file to go stale. Checklist rows `A3` and `A7` are `done`. What
+that establishes: a due item *reaches the page*. What it does **not**: that
+anyone routes it — the unrouted count is a number the page shows, and
+JC-SA-06 tracks it growing. *Field beats comment.*
 
-⚠️ **The 1,065 archived backlog rows and 91 monitoring rows are NOT imported.**
-The store is seeded empty on purpose; importing them is `A8`, and most of them
-should be *killed explicitly* rather than carried. Until A8 runs, those rows are
-still in git history with nothing reading them.
+⚠️ **The 1,065 archived backlog rows and 91 monitoring rows ARE imported** (corrected
+2026-09-30, SA-ROUTE; this paragraph read "NOT imported … until A8 runs" after A8
+merged in #12679). MEASURED by folding `docs/claude/work/pipeline/` and grouping on
+`origin.ref`: 91 rows from `OPEN-ITEMS.json` (5 done · 73 killed · 4 queued · 9
+routed) and 1,065 from the archived backlogs (5 done · 476 killed · 577 queued · 7
+routed). A8 is `landed_unproven`, not `done` — the open remainder is being driven to a
+disposition by `SA-ROUTE`. Re-run the grouping rather than quoting these numbers.
 
 **If you are filing something that needs picking up later, it goes in the
 pipeline** — not into a new register, and not into a memo.
@@ -180,7 +184,11 @@ live account carry the same strategies and take the same trades at all times.
 Both halves are enforced by strict equality in
 `tests/test_paper_portfolio_accounts.py` —
 `test_bybit_portfolio_mirrors_bybit_2_exactly` and
-`test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. The Alpaca
+`test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. Roster
+equality is not trade equality: since 2026-09-30 every trade-shaping account
+field (`side_filter`, `risk`, `mode`, …) must also be equal, fail-closed, in
+`test_mirror_trade_shaping_fields_equal_live`. Before then `alpaca_portfolio`
+traded the shorts `alpaca_live`'s `side_filter: long` suppresses. The Alpaca
 one carries the only sanctioned divergence: the two declared affordability
 proxies (`splg_trend_long_1d`, `iaum_pullback_1d`) are dropped, because
 mirroring a sub-$100 proxy on a ~$98k paper book doubles the exposure its
@@ -226,11 +234,18 @@ performance."* **Do not report session length as a metric.**
 
 **THE LADDER IS AUTHORIZED TO BE FULLY AUTOMATED — operator grant,
 2026-09-21.** ⚠️ **Read `config/mandates.yaml` for what is granted; this
-paragraph is not the source.** As of 2026-09-27 it holds **13 granted
+paragraph is not the source.** As of 2026-09-28 it holds **13 granted
 mandates** (10 on 2026-09-24, "Grant all 10 as written"; 3 process mandates on
-2026-09-27), `MD-PROMOTE-S1-S2` is still `blocked_until` its clause (a) (clause
-(b) cleared by operator reaffirmation 2026-09-27), and **exactly one entry is
-armed for auto-land: `MD-DEMOTE-S2-S1`, operator, 2026-09-27**. Until
+2026-09-27). `MD-PROMOTE-S1-S2`'s `blocked_until` was **REMOVED 2026-09-28**
+(PR #13582) after both clauses cleared (clause (a) re-measured on that branch:
+0 of 27 re-priceable Bybit-perp evidence records differ from
+`execution_costs.slippage_bps_roundtrip_for(symbol)`; clause (b) cleared by
+operator reaffirmation 2026-09-27) — it is now armed, with `bar.cost_tolerance_bps`
+set to **2.0** (operator decision, verbatim "Arm, tolerance 2 bps", checklist
+row MANDATE-ARM), superseding the prior 0.0 INFERRED placeholder. Armed is
+distinct from auto-land: `MD-PROMOTE-S1-S2` carries no `autoland` field, so a
+fire still opens a human-merge PR, and **exactly one entry is armed for
+auto-land: `MD-DEMOTE-S2-S1`, operator, 2026-09-27**. Until
 2026-09-27 this paragraph said "AS OF 2026-09-24 NOT ONE MANDATE IS GRANTED",
 three days after the grant, and a manager session repeated it to the operator
 as fact before reading the file. *Field beats comment.* A **mandate** is an
@@ -262,11 +277,22 @@ is in the path: a committed evidence record, named harness, stated n, **net of
 the full cost stack**, clearing a rule registered before the run. A claim in a
 PR body is not a record. **B1** makes it checkable; **B5** builds the mechanism.
 
-⚠️ **The real-money promotion mandate does not arm until D1 lands** — the
-harnesses default slippage and funding to `0.0`, so today's corpus is fee-only
-and optimistic by an unknown amount (+0.57R on the one leg measured). Arming
-against it would route real money on numbers already known to be wrong in the
-favourable direction. The `derisk_only` mandates carry no such block.
+⚠️ **The real-money promotion mandate's D1 block is CLEARED (2026-09-28, PR
+#13582)** — the CLI paths backing the current promotion corpus (the
+trend/pullback/squeeze/ict_scalp/fvg_range/chop_scalp/pairs/fade/funding_carry/
+run_backtest_vwap harnesses) resolve slippage and funding through
+`execution_costs.resolve_cost_policy()`'s venue-aware non-zero defaults, not a
+silent `0.0` — verified in
+[`docs/research/d1-cost-stack-verification-2026-09-25.md`](docs/research/d1-cost-stack-verification-2026-09-25.md).
+`MD-PROMOTE-S1-S2` is armed at `cost_tolerance_bps: 2.0`. **Four harness
+families still lack a full cost stack and stay out of scope for any promotion
+corpus until fixed:** `scripts/backtest_orb.py` (fee only, in points; no
+slippage or funding term), `src/backtest/backtester.py` (its own hardcoded
+cost dict, disconnected from the canonical venue decisions; no funding term),
+`scripts/backtest_xsec_momentum.py` (slippage wired, but no funding term for a
+held perp leg), and `scripts/backtest_vol_target.py` (turnover-bps drag only,
+no fee/slippage/funding split — currently backs no scored leg). The
+`derisk_only` mandates carry no such block.
 
 ⚠️ **A mandate is not a third execution gate** — see § "The two execution
 gates", which is unchanged. It does not decide what RUNS; it decides what may
@@ -342,6 +368,21 @@ have happened."* The rules are:
   cannot be reverted.
 - **A real-money promotion on the fee-only corpus stays blocked until D1.**
 
+⚠️ **"The data leaves the question open" is not itself a reason to ask**
+(operator directive, 2026-09-29, on PR #13698 — a promotion popup for a leg
+that was `execution: shadow` with an `insufficient_n` cost-fidelity verdict,
+which should never have reached the operator): *"either we have enough data
+to decide, or we don't and then getting that data becomes a task which needs
+to happen so that a decision can be made."* So before asking: is getting the
+missing data itself a well-defined task (a research-queue unit, a Stage-1
+soak placement, a longer accrual window)? If yes, **file it** — no popup —
+and only ask when the choice is genuinely a preference no data would settle.
+`scripts/ops/mandate_resolver.py` returns a third verdict, `NEEDS_DATA` (never
+`FIRE`, never a decisive `REFUSE`), naming the exact clause lacking evidence
+and auto-filing the pipeline row that gets it. Full classification:
+[`.claude/skills/manager/SKILL.md`](.claude/skills/manager/SKILL.md) §
+"Before any operator popup: classify the decision".
+
 Full terms: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
 § "Data-backed Tier-2/3 decisions".
 
@@ -367,22 +408,11 @@ no third gate**: never hide a capability behind a default-off `*_ENABLED` flag
 (the pattern that stranded MES). What `accounts.yaml` / `strategies.yaml`
 declare, runs.
 
-⚠️ **A third, DRY-ONLY input exists and this section previously omitted it
-(FIX-CA-32, 2026-09-27, `CA-B09-third-execution-gate-undocumented`).**
-`config/account_state.yaml` is folded into `effective_dry` in
-`Coordinator.multi_account_execute` (`src/core/coordinator.py`, via
-`account_state_dry_run()` in `src/runtime/orders.py`): when it declares
-`dry_run: true` for an account, that account trades dry regardless of what
-`accounts.yaml::mode` / `strategies.yaml::execution` say. It can only ever
-**force dry, never force live**, and a missing file or a missing account
-entry is a no-op (fail-open) — the opposite shape from the MES pattern above
-(a default-off flag **stranding** a required capability), so it does not
-violate "no third gate" as that rule is scoped. It is a belt-and-suspenders
-safety input, not a capability gate, and it is now surfaced per-account on
-`/api/bot/config` (`account_state_dry_run`). Today `bybit_1` / `bybit_2` both
-read `dry_run: false` there, so it changes nothing in practice. **Whether to
-keep it or retire it is `JC-CA-06`, undecided as of 2026-09-27** — do not
-remove the fold before that lands.
+⚠️ **The `config/account_state.yaml` dry-only fold was retired on 2026-09-29 by operator decision JC-CA-06** ("Retire it").
+- **What it was:** a third, dry-only input to `effective_dry` in `Coordinator.multi_account_execute`, read through `account_state_dry_run()`. FIX-CA-32 had documented it and surfaced it on `/api/bot/config`.
+- **What was removed:** the fold, its reader, the file and the API field.
+- **Why no account changed mode:** every entry read `dry_run: false` on main and on the VM at retirement.
+- **Guard:** `canonical-doc-coherence` requires both gate sections to name any such fold if it returns. Do not re-add one; a dry switch is `set-account-mode`, which is visible in git.
 
 ⚠️ **`accounts.yaml::symbols` IS NOT A GATE, and it was one until 2026-09-22.**
 The `strategies:` roster is the single source of truth for what an account

@@ -1,0 +1,1 @@
+arm: claude/m19-s2exit-foldmode-passthrough

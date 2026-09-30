@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the audit and the coverage-matrix note agree on spy_pullback_1h (both clean or both contaminated) and the write-up's fleet count matches the audit, or the manager kills this row with a stated reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-39SDYWCO-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/research');import timeout_binding_audit as t;a=t.audit(t.load_rows());print(a['spy_pullback_1h']['verdict'],a['spy_pullback_1h']['binding'],a['spy_pullback_1h']['graded_pairs'])\"; grep -c 'leg CONTAMINATED' docs/research/exit-refinement-coverage.json"
+  },
+  "severity": "low",
+  "state": "done",
+  "terminal_reason": "DONE 2026-09-30, observed on main: the coverage-matrix note for spy_pullback_1h now reads leg CLEAN (0 of 39 pairs), matching timeout_binding_audit.audit() -- #14651 merged; verified by reading origin/main's docs/research/exit-refinement-coverage.json, not the PR. The other half of this row's clears_when (the 08-29 write-up's fleet count) is NOT fixed: split into PI-20260930-39SDYWCO-0007 with the measured numbers, rather than closing over it.",
+  "tier": 1,
+  "what": "RECONCILE the timeout-binding readings for spy_pullback_1h (and the fleet count). The coverage matrix note (bracket_geometry.timeout_binding, 2026-08-29, and docs/research/e35-passed-unshipped-proposal-2026-08-31.md:124) says the leg is CONTAMINATED: the harness's 200-bar force-close 'bound on 17 of 39 graded geometry pairs'. Re-running scripts/research/timeout_binding_audit.py audit() over docs/research/e35-bracket-corpus.jsonl NOW, and over the 08-29 and 08-31 sweeps separately (docs/research/e35-bracket-corpus-history.jsonl), reads spy_pullback_1h CLEAN: 0 binding of 39 (35 on the 08-29 rows). The write-up docs/research/timeout-bars-harness-vs-live-2026-08-29.md also counts 18 of 41 legs contaminated (naming qqq/spy_pullback_1h) where the current audit counts 15 of 41 (crypto donchian legs, none of qqq/spy_pullback_1h). MD-SOAK-EXIT-CELL-PATHB clause 8 (operator-added 2026-09-30) trips on EITHER source, so spy_pullback_1h is refused via the note. One of the two is stale or wrong; find which (the script's null-coercion fix per its docstring is one suspect), then correct the note/write-up or the script. CONSEQUENCE ALREADY LIVE: the audit also refuses trend_donchian, trend_donchian_ada_4h, trend_donchian_avax_4h, trend_donchian_sol_4h (all in the operator's 2026-08-30 batch)."
+}

@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01G2SwTpGGacwEKLHukpTp3w",
+  "branch": "claude/rq-ops-2-dispatcher-fix",
+  "claimed_at": "2026-09-28T11:02:36Z",
+  "purpose": "RQ-OPS-2: root-cause + fix research-queue-dispatch.yml cancellations, add liveness alarm"
+}

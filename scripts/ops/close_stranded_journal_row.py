@@ -32,6 +32,19 @@ What it does
    ``--apply`` writes ``status='closed'`` with the exit price / realised pnl and
    an audit stamp in ``notes``.
 
+Closing ONE row at its own venue fill (``--row`` + ``--exit-kind``)
+------------------------------------------------------------------
+Added 2026-09-30 (PAPER-RESET, alpaca_paper). A netted symbol can hold one row
+whose own protective leg already FILLED at the venue while a sibling row keeps
+the symbol non-flat, so the reconciler never sees it go (SPY row 6131: its
+8-share stop filled 2026-09-29 @ 763.70 while row 4347's 11 shares stayed).
+When the symbol later reads flat, closing every row as an operator flatten at
+entry would book a real strategy stop as an operational close with pnl 0.
+``--row <id>`` restricts the close to that one open row; ``--exit-kind sl|tp``
+(requires ``--row`` and ``--exit-price``) stamps ``exit_reason`` = the kind and
+``exit_price_source='exchange_fill'``: the price is the venue fill, read from
+Alpaca order history by the caller. The broker-flat gate is unchanged.
+
 Exit price / pnl
 ----------------
 Alpaca is a local-compute PnL venue (no broker-truth reader), so realised pnl is
@@ -116,7 +129,11 @@ def _now_ms() -> int:
     return int(datetime.now(timezone.utc).timestamp() * 1000)
 
 
-def _plan_close(row: sqlite3.Row, *, exit_price: Optional[float], reason: str) -> Dict[str, Any]:
+EXIT_KINDS = ("sl", "tp")
+
+
+def _plan_close(row: sqlite3.Row, *, exit_price: Optional[float], reason: str,
+                exit_kind: Optional[str] = None) -> Dict[str, Any]:
     """Build the UPDATE dict that closes *row*. Local-compute realised pnl from
     the (optional) exit price; fall back to entry (pnl 0) when no fill captured."""
     direction = str(row["direction"] or "").lower()
@@ -130,7 +147,12 @@ def _plan_close(row: sqlite3.Row, *, exit_price: Optional[float], reason: str) -
     except (TypeError, ValueError):
         size = None
 
-    if exit_price is not None:
+    if exit_kind is not None and exit_price is not None:
+        # The row's own protective leg filled at the venue: a strategy exit.
+        eff_exit = float(exit_price)
+        exit_source = "exchange_fill"
+        reason = exit_kind
+    elif exit_price is not None:
         eff_exit = float(exit_price)
         exit_source = "operator_flatten_fill"
     else:
@@ -161,6 +183,8 @@ def _plan_close(row: sqlite3.Row, *, exit_price: Optional[float], reason: str) -
         "exit_price_source": exit_source,
         "pnl_source": "local_compute",
     })
+    if exit_kind is not None:
+        notes["closed_by_venue_leg"] = exit_kind
 
     updates: Dict[str, Any] = {
         "status": "closed",
@@ -196,6 +220,7 @@ def _apply_updates(conn: sqlite3.Connection, plans: List[Tuple[int, Dict[str, An
 def close_stranded(
     account_id: str, symbol: str, *, apply: bool,
     exit_price: Optional[float], reason: str, db_path: Optional[str] = None,
+    row_id: Optional[int] = None, exit_kind: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Core routine. Returns a structured result dict (never raises)."""
     symbol = symbol.upper()
@@ -203,6 +228,13 @@ def close_stranded(
         "account_id": account_id, "symbol": symbol, "apply": apply,
         "action": None, "ok": False, "detail": None,
     }
+
+    if exit_kind is not None and (exit_kind not in EXIT_KINDS or row_id is None
+                                  or exit_price is None):
+        out["action"] = "refused_exit_kind"
+        out["detail"] = (f"exit_kind must be one of {EXIT_KINDS} and needs both row and "
+                         "exit_price (the venue fill) — refusing")
+        return out
 
     account_cfg = _load_account(account_id)
     if not account_cfg:
@@ -254,6 +286,15 @@ def close_stranded(
         conn.close()
         return out
 
+    if row_id is not None:
+        rows = [r for r in rows if int(r["id"]) == int(row_id)]
+        if not rows:
+            out["action"] = "refused_row_not_open"
+            out["detail"] = (f"row {row_id} is not an open, non-backtest {symbol} row on "
+                             f"{account_id} — nothing written")
+            conn.close()
+            return out
+
     if not rows:
         out["action"] = "noop_no_open_row"
         out["ok"] = True
@@ -265,7 +306,8 @@ def close_stranded(
     plans: List[Tuple[int, Dict[str, Any]]] = []
     preview: List[Dict[str, Any]] = []
     for row in rows:
-        updates = _plan_close(row, exit_price=exit_price, reason=reason)
+        updates = _plan_close(row, exit_price=exit_price, reason=reason,
+                              exit_kind=exit_kind)
         plans.append((row["id"], updates))
         preview.append({
             "id": row["id"], "direction": row["direction"], "symbol": row["symbol"],
@@ -310,6 +352,12 @@ def main() -> int:
                         help="the flatten fill price for local-compute pnl (default: entry → pnl 0)")
     parser.add_argument("--reason", default="operator_flatten_reconciled",
                         help="exit_reason to stamp (default: operator_flatten_reconciled)")
+    parser.add_argument("--row", type=int, default=None,
+                        help="close only this open trade id (default: every open row)")
+    parser.add_argument("--exit-kind", choices=EXIT_KINDS, default=None,
+                        help="the row's own protective leg filled at the venue: stamp "
+                             "exit_reason=<kind>, exit_price_source=exchange_fill "
+                             "(needs --row and --exit-price)")
     parser.add_argument("--db", default=None,
                         help="Path to trade_journal.db (default: resolver)")
     args = parser.parse_args()
@@ -317,6 +365,7 @@ def main() -> int:
     result = close_stranded(
         args.account, args.symbol, apply=args.apply,
         exit_price=args.exit_price, reason=args.reason, db_path=args.db,
+        row_id=args.row, exit_kind=args.exit_kind,
     )
     print(json.dumps(result, indent=2, ensure_ascii=False))
     # exit non-zero on a refusal/abort so the wrapper surfaces it as FAILED.

@@ -1,0 +1,150 @@
+# Landing-only Chromium reachability probe (PROP-TERM egress scoping, 2026-09-30).
+# Tier-1: no VM, no trading credential, nothing typed or clicked. It answers: is a real
+# headless Chromium SERVED, CHALLENGED or BANNED at Breakout's terminal hosts?
+#
+# TWO MODES
+#   direct  (secret EGRESS_PROBE_PROXY unset or empty): the runner's own Microsoft/Azure egress.
+#   proxied (secret set): the browser goes ONLY through that proxy. FAIL-CLOSED: an unusable
+#           proxy reports `proxy_unreachable`; the run never falls back to the direct route.
+#
+# THE SECRET. It is an ENVIRONMENT secret in the GitHub Environment `egress-probe`, whose deployment
+# branches are restricted to `main`. Only the job `probe-main` references that environment, and that
+# job runs ONLY on `schedule` / `workflow_dispatch` (`if:`), so a pull_request run never references
+# the environment (no pending deployment, no red check) and a PR-modified copy of this file cannot
+# reach the secret: GitHub itself refuses the environment to any ref but main. Inside `probe-main`
+# the secret also passes the event/ref expression (defence in depth), only in two steps, through `env:`; never interpolated into a command line, never echoed, never masked by a workflow
+# command, never posted to an issue or comment (this workflow has no write permission). The script
+# prints no part of it: not the string, host, port, user, password or address. A crash prints a
+# scrubbed token, not a traceback. tests/research/test_egress_chromium_landing_probe.py proves that
+# on every failure path.
+# The job `probe` (pull_request only) is the DIRECT measurement: no environment, no secret, no evaluate.
+# If the environment or the secret is absent, `probe-main` no-ops cleanly (scheduled: skipped by the
+# gate; dispatch: direct mode).
+#
+# THE PASS RULE is evaluated by the script (`--evaluate`) over the result artifacts of the last
+# 72 h of `schedule` / `workflow_dispatch` runs ON MAIN ONLY (a fork or PR run cannot plant a result):
+# three passing proxied runs at least an hour apart with an identical, known egress organisation.
+# The first failing run, an errored run, a WORKFLOW RUN THAT FAILED (a crash leaves no result file, so
+# failed runs are listed here and handed to the evaluator) or an organisation change is FAIL (route
+# ended). The 72 h window is intended: the manager records the verdict on the PROP-TERM checklist row.
+#
+# TRIGGERS. A PR touching the request file (sessions cannot workflow_dispatch) and manual dispatch.
+# The temporary hourly schedule was REMOVED on 2026-09-30: PROP-TERM egress is PARKED (pipeline row
+# PI-20260930-3ZFMYYI4-0004); the `schedule` branches below are inert and kept only so a re-dispatch
+# behaves exactly as before. Reopen conditions are in that row.
+# no-durable-result: temporary measurement aid; the verdict is read from the run log by the manager and recorded on the PROP-TERM checklist row, and the per-run result files are 7-day working artifacts, not research results
+name: egress-chromium-landing-probe
+
+on:
+  pull_request:
+    paths:
+      - ".github/egress-probe/run-request.txt"
+      - "scripts/research/egress_chromium_landing_probe.py"
+      - ".github/workflows/egress-chromium-landing-probe.yml"
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: "Comma-separated levers to try on the SAME proxy in this one run: baseline, wait, newheadless, headed (see the script). The PASS rule counts only `baseline`; the others are diagnostics."
+        type: string
+        default: "baseline"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: egress-chromium-landing-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          pip install playwright
+          playwright install --with-deps chromium
+      - name: Landing-only DIRECT probe (no environment, no secret, nothing clicked)
+        run: python3 scripts/research/egress_chromium_landing_probe.py --out probe-out/probe-result.json
+
+  probe-main:
+    if: github.event_name != 'pull_request'
+    environment: egress-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Gate (scheduled runs need the secret and the window)
+        id: gate
+        env:
+          EGRESS_PROBE_PROXY: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && secrets.EGRESS_PROBE_PROXY || '' }}
+        run: |
+          set -euo pipefail
+          run=true
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ -z "$EGRESS_PROBE_PROXY" ]; then run=false; echo "scheduled run skipped: no proxy configured"; fi
+            if [ "$(date -u +%s)" -ge "$(date -u -d '2026-10-04' +%s)" ]; then run=false; echo "scheduled run skipped: measurement window ended"; fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.11"
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          pip install playwright
+          playwright install --with-deps chromium
+          command -v xvfb-run >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }   # the `headed` lever needs a display
+      - name: Landing-only probe (no credentials, nothing clicked)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          EGRESS_PROBE_PROXY: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && secrets.EGRESS_PROBE_PROXY || '' }}
+          VARIANTS: ${{ inputs.variants }}
+        run: xvfb-run -a python3 scripts/research/egress_chromium_landing_probe.py --variants "${VARIANTS:-baseline}" --out-dir probe-out
+      - name: Keep this run's results (contain no secret, no address, no cookie value)
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/*.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-result-${{ github.run_id }}
+          path: probe-out/*.json
+          retention-days: 7
+      - name: Evaluate the PASS rule over the last 72 h
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/*.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          eval_variant=baseline   # the PASS rule counts ONLY the default variant; the other levers are diagnostics
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "NOTE: not on main, so this verdict is NOT authoritative (only main's schedule/dispatch runs count)."
+          fi
+          mkdir -p prior
+          since="$(date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%SZ)"
+          # ONLY schedule / workflow_dispatch runs on main: a fork or pull-request run cannot plant a result.
+          : > runs.jsonl
+          for ev in schedule workflow_dispatch; do
+            gh run list --workflow egress-chromium-landing-probe.yml --event "${ev}" --branch main --limit 100 \
+              --json databaseId,createdAt,conclusion >> runs.jsonl
+          done
+          jq -s --arg since "${since}" --arg me "${{ github.run_id }}" \
+            'add | map(select(.createdAt > $since and (.databaseId|tostring) != $me))' runs.jsonl > runs.json
+          # A run that FAILED, was cancelled or timed out leaves no result file; list it so it counts as a failure.
+          jq '[.[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | .createdAt]' \
+            runs.json > failed-runs.json
+          for id in $(jq -r '.[] | select(.conclusion == "success") | .databaseId' runs.json); do
+            if ! gh run download "${id}" --pattern 'probe-result-*' --dir "prior/${id}" >/dev/null 2>&1; then
+              echo "run ${id}: no result artifact (skipped run or expired)"
+            fi
+          done
+          mkdir -p prior/current && cp probe-out/*.json prior/current/
+          python3 scripts/research/egress_chromium_landing_probe.py --evaluate prior --variant "${eval_variant}" --failed-runs failed-runs.json

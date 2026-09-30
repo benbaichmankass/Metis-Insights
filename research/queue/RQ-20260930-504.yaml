@@ -1,0 +1,160 @@
+id: RQ-20260930-504
+title: 'Strategy development (general research mandate): is there ANY profitable <=1h crypto-perp strategy in the existing harness families? Two-stage, family-wise-corrected search (blocked on the sweep orchestrator)'
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Operator, 2026-09-30: "add a research unit to strategy development to look for some profitable
+  shorter time frame strategies", and, clarifying, that short-timeframe strategy search "isn't
+  HyroTrader-specific, that's a general research mandate". So: across a FIXED, pre-declared grid of
+  (family x symbol x timeframe) cells drawn from the cost-complete harnesses, run at each family's
+  LIVE-CONFIG parameters with no tuning, does any cell show a net-of-full-cost edge that survives a
+  family-wise multiple-testing correction on data it was not screened on? Short timeframes matter to
+  the whole system for reasons of their own (more trades per unit of calendar time, faster evidence,
+  shorter capital lock-up); the venue-specific fit of any winner (HyroTrader's same-day and qualifying-day
+  rules today, others later) is REPORTED for every confirmed cell but is not part of the verdict.
+
+why_this_matters: >-
+  The committed evidence (docs/research/hyro-strategy-feasibility-2026-09-30.md, which is where the gap
+  was first measured) has 15m ict_scalp legs at +0.03 to +0.08 R a trade after cost, every other <=1h
+  family at or below zero, and no evidence at all for session-open, funding-window or VWAP-at-current-cost
+  ideas. The roster is mostly 1h-1d, so each new leg costs weeks of calendar time to evidence. Searching
+  many cells and reporting the best is the classic way to manufacture an edge (the repo's own
+  param_selection_provenance: not_established caveat), so the design is fixed here, before any run: a
+  screen on the early window, a Bonferroni-corrected confirmation on the late window that the screen never
+  saw, and a result of "nothing found" is a first-class outcome.
+
+power:
+  expected_n: 350
+  min_detectable_effect: 0.2
+  effect_units: sd
+  design: one_sample
+  alpha: 0.01
+  power: 0.8
+  basis: >-
+    Stage B confirms at most S survivors of the Stage A screen at alpha = 0.05 / S one-sided; with S about 5
+    that is 0.01, so z = 2.326 + 0.8416 = 3.17 and n = (3.17 / d)^2 = 251 for d = 0.2 and 113 for d = 0.3.
+    expected_n = 350 is an INFERENCE: a 5m leg produced 193-259 trades per 365 days in the committed
+    ledgers, so the 2-year confirmation window holds about 400-520 for 5m cells and about 240-260 for 15m
+    cells. What this design CAN see is stated plainly: an edge of 0.2 sd of per-trade R (about 0.2 R at
+    the observed spread of R) is detectable, while the 0.03-0.08 R edges observed on the 15m legs
+    (about 0.05-0.1 sd) are NOT detectable individually at this n after correction. A "nothing survives"
+    result therefore means "no LARGE edge", not "no edge"; it must not be quoted as the latter.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Historical re-run on staged candles (2021-01 to the latest complete day); nothing accrues. Cells whose
+      candle history is shorter than the Stage A window are reported as not_applicable, never dropped.
+
+decision_rule:
+  id: RULE-RQ0930-504-SHORT-TF-DISCOVERY
+  registered_at: '2026-09-30'
+  registered_before_run: true
+  statistic: >-
+    GRID (fixed now, not extended after a run). WAVE 1 symbols BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT,
+    AVAXUSDT (operator, 2026-09-30: "1 for first wave, but then the roster needs to continue expanding":
+    later symbols are later WAVES, each a separately registered unit, because K and therefore the
+    correction change). Timeframes 5m, 15m and 30m in THIS unit. The operator also asked for 1m (2026-09-30); 1m is registered as its own
+    grid, RQ-20260930-505, because a 1m frame is ~3 million bars per symbol over the window, which the harnesses'
+    per-bar loops cannot cover inside this runner's 330-minute cap, and because K (and so the correction) differs. Families, each at its LIVE
+    config/strategies.yaml parameters for that symbol where a leg exists, else the family's shared default:
+    ict_scalp (scripts/backtest_ict_scalp.py), fvg_range, chop_scalp, pullback, squeeze, fade
+    (scripts/backtest_*.py, all resolving venue-aware slippage and funding). Excluded until a cost-complete
+    harness exists: scripts/backtest_orb.py (fee-only, points), src/backtest/backtester.py,
+    scripts/backtest_xsec_momentum.py, scripts/backtest_vol_target.py (CLAUDE.md's four), and any
+    session-open / funding-window / VWAP variant. K = the number of (family, symbol, timeframe) cells the
+    orchestrator reports as runnable (harness script present AND candles resolve for that exact
+    symbol and timeframe AND the file is not a PROXY for another instrument); at most 6 x 5 x 3 = 90;
+    K and every unrunnable cell with its reason are printed before any cell is graded.
+    CANDLES: fetched on the runner by the sweep's own --fetch from Binance-vision futures/um (keyless; Bybit
+    403s GitHub runners) into data/{SYMBOL}_{tf}.csv through scripts/ops/fetch_backtest_candles.py; the Binance
+    USD-M series is a PROXY for Bybit linear (prices track within a few bps) and the verdict says so. A cell whose
+    fetch fails is unrunnable and listed with the reason; if fewer than half the declared cells are runnable the
+    verdict is NOT_APPLICABLE.
+    PARAMETERS: cells for ict_scalp and pullback run at the LIVE leg's parameters for that symbol and timeframe,
+    which were probably chosen on history overlapping Stage B (2024-10 onward); such cells are flagged
+    stage_b_not_fully_oos, and a PASS carried ONLY by flagged cells is reported as PASS_CAVEATED, never plain PASS.
+    The other families run at harness defaults whose provenance is not established either (not asserted clean).
+    COSTS: the verdict arm is the harness default (fee 7.5 bps round trip + venue slippage + funding);
+    every confirmed cell also reports its mean net R re-priced at 11 bps (HyroTrader's published
+    taker-taker round trip), which gates nothing (operator, 2026-09-30).
+    STAGE A (screen) window 2021-01-01 to 2024-09-30: per cell, n_A, mean full-cost net R, one-sided
+    t-test p_A. A cell SURVIVES if n_A >= 88 and mean > 0 and p_A < 0.05. S = number of survivors.
+    STAGE B (confirm) window 2024-10-01 to the latest complete day, run ONCE with the identical
+    parameters: per surviving cell, n_B, mean full-cost net R, one-sided p_B, folds positive of 4 equal
+    time-folds, and the REPORTED (never gating) venue-fit attributes: same-UTC-day share, median hold,
+    trades per month, and HyroTrader qualifying days per month (strict reading A of its +-1% test, as in
+    hyro_passprob_mc.py / the feasibility memo) so any venue can be checked against the same table later.
+  rule: >-
+    NOT_APPLICABLE (producer_failed) IF the orchestrator cannot run at least half of the K cells.
+    Otherwise a cell is CONFIRMED IF n_B >= 88 AND mean net R_B > 0 AND p_B < 0.05 / S AND folds positive
+    >= 3 of 4. VERDICT: PASS IF at least one cell is CONFIRMED. FAIL IF S >= 1 and no cell is CONFIRMED
+    (the screen produced only candidates the late window rejects) AND every survivor had n_B >= 88.
+    INDETERMINATE IF S >= 1, none is CONFIRMED and at least one survivor had n_B < 88 or no Stage B result
+    (an underpowered or missing answer is not a rejection; this refines the FAIL clause above BEFORE any
+    run). NULL IF S = 0. VERDICT VOCABULARY (the research-result collector's closed set, learned when RQ-20260930-501
+    was mis-landed as producer_failed): PASS and PASS_CAVEATED are recorded as verdict pass (the caveat is the first
+    thing in `note`), FAIL as fail, NULL as no_action_warranted, INDETERMINATE as indeterminate, NOT_APPLICABLE as
+    not_applicable with read_state producer_failed and n null; every graded outcome has read_state measured and n = K
+    (cells graded), and the sweep's full detail rides in verdict.json under `sweep`. FAILED CELLS (refined BEFORE any run, at the manager's review): a cell whose harness
+    run raises is recorded on its own block, counted in n_failed_a / n_failed_b / failed_cells, and makes the
+    run clean=false. NULL and FAIL are claims about all K cells, so with any Stage A failure they are
+    downgraded to INDETERMINATE; an all-failed or partly-failed sweep can never read as "no edge found". A PASS
+    stands but is reported unclean. SHARDING is deliberately NOT done: the Bonferroni denominator S spans all
+    K cells, so splitting the grid across units would need a two-phase combine that does not exist; if the
+    330-minute run times out the workflow fails visibly (no verdict.json), which is a producer failure, never a
+    null. Venue fit (same-day share, trades a month, HyroTrader qualifying days a
+    month) is printed for every CONFIRMED cell and changes no verdict. chop_scalp rows carry no entry/sl/exit_time, so its 11 bps arm and venue-fit fields read null (report-only). A PASS
+    or PASS_CAVEATED cell is a candidate for a
+    separately registered unit (its own cost-complete ledger, a venue-fit grade, then Gate 1 soak
+    placement), NOT a roster proposal. The grid, both windows, the thresholds and the survivor rule are
+    not to be changed after seeing any Stage A output; a different grid is a different, separately
+    registered unit.
+  what_it_does_not_do: >-
+    Does not tune any parameter, so it cannot find an edge by fitting one; it also therefore cannot
+    find an edge that only exists after tuning. Does not test session-open, funding-window or VWAP ideas
+    (no cost-complete harness). Does not touch config/strategies.yaml or accounts.yaml. Applies no
+    venue-specific rule (HyroTrader's demo-realism flag haircut included) to the verdict; the maker-entry
+    unit RQ-20260930-502 is the HyroTrader-specific follow-up.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 6.0
+  est_minutes: 330
+  basis: >-
+    Up to 90 cells at --jobs 3, after a Binance-vision candle fetch on the runner (5 symbols x 3 timeframes over ~5.8 years), Stage A over 3.75 years plus Stage B for the survivors only; the 1m and 5m
+    frames are the heavy part (RQ-20260929-401's census ran three 15m legs on the trainer). Estimate is
+    INFERRED and is sized to the runner's 330-minute cap (research-script-run-guard R1), at --jobs 3; --list-grid prints K without running anything.
+
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 330
+  command:
+  - python3
+  - scripts/research/short_tf_discovery_sweep.py
+  - --wave
+  - '1'
+  - --fetch
+  - --timeframes
+  - 5m,15m,30m
+  - --jobs
+  - '3'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20260930-504
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - scripts/research/short_tf_discovery_sweep.py
+  - RQ-20260930-501
+  - RQ-20260930-502
+  - RQ-20260930-503
+  - docs/research/hyro-strategy-feasibility-2026-09-30.md
+last_dispatched_at: '2026-09-30T08:42:40+00:00'

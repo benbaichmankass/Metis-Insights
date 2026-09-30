@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-only detector + its CI caller only: scripts/ops/account_broker_reconcile.py (no order, cancel or DB write), .github/workflows/account-broker-reconcile.yml (one extra best-effort diag READ), tests. No src/ change, no route, order path, strategy, risk, sizing or account mode. Fixes bybit_2 realized-P&L could_not_look from the first live run (#14113, run 36557738060): the tool read 'pnl' where /api/bot/trades/closed emits 'realizedPnl' (all 20 rows read None), and could not tell the by-design NULL-pnl intent_reduce leg 5702 from a real unknown. Reduce legs are now classified by src.runtime.bracket_outcome.is_reduce_leg (row-level mirror of _clean_trades.exclude_reduce_leg_predicate) over raw /api/diag/journal?table=trades rows, by id. Manager lane RECON-REDUCE."
+}

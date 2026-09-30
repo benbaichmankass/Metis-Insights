@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "REOPEN when EITHER (a) an account exists on Breakout's proprietary terminal (an `accounts:` entry with platform: breakout_terminal in config/prop_platforms.yaml), OR (b) Breakout answers an allowlist / expected-egress question. Until then the route is parked.",
+    "kind": "event",
+    "last_checked": "2026-09-30"
+  },
+  "id": "PI-20260930-3ZFMYYI4-0004",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01KY4jjUa6FUhBRT3zfMyyi4 (lane EGRESS-SCOPE; manager 2026-09-30T18:45Z accepted the recommendation to park)",
+    "rerun": "python3 - <<'X'\nimport yaml;d=yaml.safe_load(open('config/prop_platforms.yaml'));print([k for k,v in d['accounts'].items() if v.get('platform')=='breakout_terminal'])\nX\n# non-empty => condition (a) is met; condition (b): read the PROP-TERM checklist row notes for a Breakout reply to the allowlist / expected-egress question"
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "PROP-TERM EGRESS PARKED (manager 2026-09-30T18:45Z). Why: the live executor (breakout_1, platform dxtrade) runs on wss.breakoutprop.com (config/prop_platforms.yaml:48-50, src/prop/platform/__init__.py:31) and needs no egress change. app.breakoutprop.com is needed only by the `breakout_terminal` platform, which no account uses yet, and it gave an interactive Turnstile to automated Chromium from EVERY exit tried (Oracle VM: Cloudflare 1005 ASN ban; GitHub Azure runners; a BG ISP proxy AS42049; a US ISP proxy AS7849): so country and ASN were not the cause and another proxy is NOT the next step. Standing rules: no stealth or challenge-solving patches; no more probe dispatches, proxy work or R2 (home device declined by the operator 16:16Z). workflow_dispatch on egress-chromium-landing-probe.yml stays so a re-run is possible after a reopen. The one un-tried non-technical route is asking Breakout support for an allowlist or 'what egress do you expect' (the operator dropped that question 2026-09-27, PI-20260927-R6FQK6DS-0003); asking it again is an operator call. A PASS on wss would be vacuous (wss is served from every address tried), so no wss probe is proposed."
+}

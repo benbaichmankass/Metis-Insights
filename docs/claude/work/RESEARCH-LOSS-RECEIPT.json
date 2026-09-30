@@ -1,38 +1,92 @@
 {
-  "generated_at": "2026-09-28T05:35:54Z",
+  "generated_at": "2026-09-30T18:02:41Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": "36382561555",
+    "run_id": "36755652354",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
       "findings": [
         {
-          "age_hours": 42.0,
+          "age_hours": 102.5,
           "branch": "automation/research-queue-stamp-36239222079-1",
           "pr": 12989,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 36.5,
+          "age_hours": 96.9,
           "branch": "automation/research-queue-stamp-36257853974-1",
           "pr": 13012,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 20.4,
+          "age_hours": 80.8,
           "branch": "automation/research-result-36308457855-1",
           "pr": 13105,
           "title": "research result: unattributed (run 36308457855)"
+        },
+        {
+          "age_hours": 45.2,
+          "branch": "automation/research-queue-stamp-36477235568-1",
+          "pr": 13792,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        },
+        {
+          "age_hours": 28.0,
+          "branch": "automation/e35-bracket-corpus-36571462010-1",
+          "pr": 14228,
+          "title": "corpus: e35 bracket sweep (run 36571462010)"
+        },
+        {
+          "age_hours": 10.7,
+          "branch": "automation/research-queue-grade-36683285620-1",
+          "pr": 14614,
+          "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 9.7,
+          "branch": "automation/research-results-batch-36683756944-1",
+          "pr": 14644,
+          "title": "research results: batch of 6 runner run(s) (dispatcher run 36683756944)"
         }
       ],
-      "population": "71 open PRs; 57 automation/*; 3 carry research; 54 automation/* carry none (not graded here)",
+      "population": "98 open PRs; 74 automation/*; 8 carry research; 66 automation/* carry none (not graded here)",
       "state": "findings",
       "threshold_hours": 6.0
     },
     "B_unlanded_result_runs": {
       "findings": [
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-29T18:52:24Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36615157916",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615157916",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-29T18:52:22Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36615154335",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615154335",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-29T18:52:17Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36615144815",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615144815",
+          "workflow": "research-exit-head-build.yml"
+        },
         {
           "conclusion": "failure",
           "created_at": "2026-09-24T14:07:30Z",
@@ -187,6 +241,36 @@
       "lost": [
         {
           "conclusion": "failure",
+          "created_at": "2026-09-29T18:52:24Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36615157916",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615157916",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-29T18:52:22Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36615154335",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615154335",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-29T18:52:17Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36615144815",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615144815",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
           "created_at": "2026-09-24T14:07:30Z",
           "result_job": [
             "failure"
@@ -337,12 +421,12 @@
         }
       ],
       "pending_merge": [],
-      "population": "34 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-14 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 400 produced no result by design (skipped); 26 result file(s) on origin/main",
+      "population": "51 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-16 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1048 produced no result by design (skipped); 69 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "1104 artifact(s) listed, 1104 unexpired, 968 expire within 72.0h across 968 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "2975 artifact(s) listed, 2975 unexpired, 2682 expire within 72.0h across 2682 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "touches .github/workflows/set-diag-token.yml, a live-VM secret path (DT-FIX dispatch: manager session_01KAQRJxRbRwpYTkPgBjNVyQ said landing is a hold and the manager reviews independently before merge)",
+  "why": "fixes a live-VM .env/legacy-file shadowing bug in the set-diag-token remote script (issue #13506, run 36387625918); Tier-2 by path"
+}

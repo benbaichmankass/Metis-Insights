@@ -315,6 +315,23 @@ mandates:
       "Grant all 10 as written"; recorded on checklist row B5. The underlying
       grant is the operator's 2026-09-21 ladder mandate, quoted in
       docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    # ⚠️ CORRECTED 2026-09-28 (PI-20260922-R5-CLAUDE-MD-FEE-ONLY-CORPUS-CLAIM-
+    # IS-STALE-FOR-FOUR-HARNESS-FAMILIES, ADMIN lane triage, operator-approved
+    # "Apply my recommendations (Recommended)"; comment-only, no field
+    # changed here). The paragraph immediately below was written when this
+    # entry carried a `blocked_until` field and read as a standing, present-
+    # tense description -- "THIS ENTRY IS GRANTED BUT NOT ARMED". That is no
+    # longer the CURRENT state: PR #13582 (2026-09-28, operator decision "Arm,
+    # tolerance 2 bps", checklist row MANDATE-ARM) REMOVED `blocked_until`
+    # from this entry entirely -- see the dated note lower in this block
+    # ("2026-09-28: both clauses cleared... Armed...") and `bar.cost_tolerance_bps`
+    # below, now `2.0`. The mechanism the paragraph describes (a truthy
+    # `blocked_until` makes the resolver REFUSE, and clearing it is the
+    # operator's act) is kept for its history and because it is still an
+    # accurate description of how the field worked while present -- but read
+    # "GRANTED BUT NOT ARMED" below as the STATE AS OF 2026-09-24 through
+    # 2026-09-27, not today's.
+    #
     # ⚠️ CARRIED VERBATIM FROM § 5.3, WHICH IS WHY THIS ENTRY IS GRANTED BUT NOT
     # ARMED. The plan's words: "AND THE PROMOTION MANDATE MUST NOT ARM UNTIL D1
     # LANDS. THIS IS NOT CAUTION, IT IS ARITHMETIC." The same block is stated in
@@ -335,12 +352,15 @@ mandates:
     # OPERATOR (Ben), 2026-09-25, popup answered in the manager session
     # session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: **"Adopt text + fix the 24"**
     # -- adopt that memo's § 4 replacement text, correcting its counts to the
-    # read-time measurement. THE MANDATE STAYS BLOCKED: `blocked_until` remains
-    # truthy, the resolver still REFUSES, and clearing it is still the
-    # operator's act. What changed is that the condition is now CHECKABLE --
-    # two artifacts a session can read (a pipeline item's `state`, and a
-    # checklist row's own done-when observation) instead of a row id that can
-    # be `dropped` out from under it.
+    # read-time measurement. THE MANDATE STAYS BLOCKED (AS OF 2026-09-25; SEE
+    # THE 2026-09-28 CORRECTION AT THE TOP OF THIS BLOCK -- `blocked_until`
+    # was removed 2026-09-28 and this clause is no longer truthy today):
+    # `blocked_until` remains truthy, the resolver still REFUSES, and
+    # clearing it is still the operator's act. What changed is that the
+    # condition is now CHECKABLE -- two artifacts a session can read (a
+    # pipeline item's `state`, and a checklist row's own done-when
+    # observation) instead of a row id that can be `dropped` out from under
+    # it.
     #
     # ⚠️ AND IT DISTINGUISHES STALE FROM DANGEROUS, deliberately. The original
     # text was written when the number in question was 0.0 -- a silently
@@ -364,27 +384,11 @@ mandates:
     # 24 was already stale when the memo merged. This is exactly why the
     # clause's OPERATIVE condition is "zero records differ" / the pipeline
     # item's `state`, and the count is only context.
-    blocked_until: >-
-      BOTH of the following are checkable, not this row id. (a) Zero
-      comms/strategy_evidence/*.json records for a Bybit-perp leg (symbol
-      matching execution_costs.is_perp) carry a cost_stack.slippage that
-      differs from execution_costs.slippage_bps_roundtrip_for(symbol) at read
-      time -- equivalently, pipeline item PI-20260924-JCVFRWEA-0001 (or
-      whatever id supersedes it) reads state done or killed, not queued. TODAY
-      (2026-09-25, re-measured -- see the note above): 22 of 27 re-priceable
-      perp records still carry the pre-E60 flat 5.0bps default against the
-      decided 3.0bps (conservative, not optimistic, but unchecked). (b) A
-      committed realized-slippage record exists for Alpaca equities and/or
-      IBKR futures -- i.e. checklist row E62's own done-when has fired at
-      least once (an Alpaca sl-family close carries
-      exit_price_source=exchange_fill) -- so the 5.0bps basis those legs'
-      records carry is either confirmed by a measurement or explicitly
-      reaffirmed as the working assumption by the operator, not merely
-      unexamined. TODAY: E62 is landed_unproven; no such close has been
-      observed yet. Until both (a) and (b) hold, MD-PROMOTE-S1-S2's
-      cost-tolerance clause (bar.cost_tolerance_bps: 0.0, "realized may not
-      exceed modelled") is being evaluated against a modelled number nobody
-      has re-checked is still current, on at least one venue in play.
+    # 2026-09-28: both clauses cleared. (a) PI-20260924-JCVFRWEA-0001 is done,
+    # and 0 of the 27 Bybit-perp cost-stacked evidence records differ from
+    # execution_costs.slippage_bps_roundtrip_for(symbol). (b) Operator
+    # reaffirmation, 2026-09-27. Armed by the operator's decision 'Arm,
+    # tolerance 2 bps' (checklist row MANDATE-ARM).
     # CLAUSE (b) CLEARED 2026-09-27 by OPERATOR REAFFIRMATION, the second route
     # clause (b) itself names ("explicitly reaffirmed as the working assumption
     # by the operator"). Popup in manager session
@@ -396,6 +400,15 @@ mandates:
     # ASSUMPTION for Alpaca equities and IBKR futures, pending measurement;
     # checklist row E62 carries the monitoring task. Clause (a) (Bybit-perp
     # records at 3.0 bps, lane W6-U1) STILL BLOCKS, so blocked_until stays set.
+    # ⚠️ CORRECTED 2026-09-28 (PI-20260922-R5-CLAUDE-MD-FEE-ONLY-CORPUS-CLAIM-
+    # IS-STALE-FOR-FOUR-HARNESS-FAMILIES, ADMIN lane triage; comment-only, no
+    # field changed here): the "STILL BLOCKS" sentence immediately above is
+    # the 2026-09-27 state, WRITTEN BEFORE the 2026-09-28 "both clauses
+    # cleared" note earlier in this block (which is chronologically NEWER
+    # despite appearing above it on the page). Clause (a) is no longer
+    # blocking as of 2026-09-28 -- re-measured at 0 of 27 differing records --
+    # and `blocked_until` was removed from this entry the same day (PR
+    # #13582). Do not read this sentence as the current state.
     # ⚠️ CLAUSE 3 NAMES A PER-LEG VERDICT, NOT A VENUE POINT ESTIMATE
     # (2026-09-25, checklist row R3). It previously read "whose venue's realized
     # round-trip cost is within bar.cost_tolerance_bps of what the record
@@ -405,7 +418,10 @@ mandates:
     # and "we have not measured enough of THIS leg". Of the 55 legs in the first
     # committed R3 record, 51 are in the second of those. The wording changes;
     # the bar does not -- cost_tolerance_bps is untouched, and the arming block
-    # (`blocked_until`) is untouched.
+    # (`blocked_until`) is untouched. [BY THIS R3 EDIT, 2026-09-25 -- not by
+    # the file as a whole: PR #13582 (2026-09-28) later changed BOTH --
+    # `cost_tolerance_bps` is now `2.0` and `blocked_until` was removed. See
+    # the 2026-09-28 correction note near the top of this entry.]
     fires_when: >-
       A leg already on the Stage-1 soak roster for its exchange has a committed
       Stage-0 evidence record that passes B1's four clauses and its identity
@@ -454,7 +470,11 @@ mandates:
       # PROVISIONAL 5.0 bps basis instead (operator, 2026-09-24: "the 5.0
       # assumption is a working artifact until we get evidence backed numbers").
       # Checklist row E62 replaces that placeholder.
-      cost_tolerance_bps: 0.0
+      #
+      # DECIDED (operator, 2026-09-28): 2.0 bps. Popup from the manager
+      # session, answered verbatim "Arm, tolerance 2 bps"; recorded on
+      # checklist row MANDATE-ARM. This supersedes the INFERRED 0.0 above.
+      cost_tolerance_bps: 2.0
     cap:
       basis: uniform_account_risk_pct_share_of_roster
       max_auto_share: 0.25
@@ -477,14 +497,32 @@ mandates:
       "Grant all 10 as written"; recorded on checklist row B5. The underlying
       grant is the operator's 2026-09-21 ladder mandate, quoted in
       docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    # fires_when REWRITTEN 2026-09-29 to the T3 AND net<0 rule. OPERATOR (Ben),
+    # 2026-09-29 ~14:17Z, popup in manager session
+    # session_01HYq6XtfesZ57VyaQrK6CL1, answered verbatim "Last 20 + strict
+    # test (Recommended)" (pipeline row PI-20260929-VOLSKIP-SIGNAL-0007; priced
+    # in scripts/research/r4_trigger_pricing_sim.py / SIGNAL-0005: false
+    # demotion of a healthy frequent leg within a year ~5-12%; a zero-edge leg
+    # caught with P 0.79-0.97 within 5 years). The previous wording fired on
+    # any negative net over a declared calendar window (30d). id, direction,
+    # autoland, granted_by and the never-on-a-non-negative-window clause are
+    # unchanged. Evaluated by scripts/ops/mandate_resolver.py (_demote_s2,
+    # stage0_block_p10, T3_*) and produced by scripts/ops/r4_demotion_gate.py.
     fires_when: >-
       A committed mirror-window record at
       comms/mandate_evidence/mirror_window/<leg>.json, whose source_run is a
-      committed file in the repo, states net_r_net_of_full_cost < 0 over the
-      window the record declares. The edit REMOVES the leg from the Stage-2
-      account and its mirror and returns it to the Stage-1 soak book. This
-      mandate carries no block: it reads live measurement, not the backtest
-      corpus, and its worst case removes exposure.
+      committed file in the repo, reads the leg's LAST 40 closed trades as two
+      non-overlapping 20-trade windows and shows BOTH windows' net R below
+      that leg's own p10 of the 20-trade bootstrap from its Stage-0 evidence
+      record (comms/strategy_evidence/<leg>.json source_run, fixed seed; the
+      threshold, the seed and the record path are stated in the mirror-window
+      record and re-derived on every evaluation) AND below 0, with
+      net_r_net_of_full_cost over the 40 < 0. A leg with fewer than 40 closed
+      trades, or with no usable Stage-0 evidence, abstains. The edit REMOVES
+      the leg from the Stage-2 account and its mirror and returns it to the
+      Stage-1 soak book. This mandate carries no block: it reads live
+      measurement, not the backtest corpus, and its worst case removes
+      exposure.
     never: >-
       Never on a missing or unreadable record, and never on one citing a
       source_run absent from the repo -- "we could not look" is not a demotion
@@ -671,5 +709,162 @@ mandates:
     evidence_required: >-
       The dry-run issue showing the exact plan, the apply issue's exit 0 with
       its re-read verification.
+
+  # ── PROPOSED 2026-09-30, GRANTED 2026-09-30 (granted_by / source below) ────────
+  # Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1), pipeline row
+  # PI-20260929-AQRK6CL1-0013. Proposed by a session; GRANTED by the operator.
+  #
+  # THE DECISION HAS ARRIVED TWICE IN THE SAME SHAPE:
+  #   1. 2026-08-30, Tier-3 approved in conversation: a batch of `sm*` (atr_stop_mult)
+  #      Path-B cells -- trend_donchian sm2, htf_pullback_trend_2h sm3,
+  #      avax_pullback_2h sm2, trend_donchian_{eth,sol,xrp,ada,avax}_4h.
+  #      (docs/research/exit-refinement-coverage.json bracket_geometry refs.)
+  #   2. 2026-09-29 ~21:05Z, operator popup "Ship it": spy_pullback_1h sm1.5, #14332.
+  #
+  # ⚠️ THE PRECEDENT IS WIDER THAN THIS MANDATE, ON PURPOSE. Read from
+  # config/accounts.yaml on 2026-09-30, trend_donchian_eth_4h and
+  # trend_donchian_xrp_4h -- both in the 2026-08-30 batch -- sit on bybit_2 and
+  # bybit_portfolio, i.e. REAL MONEY. This entry would NOT have covered them
+  # (R-SOAK-ONLY). Their shipping was the operator's decision and stays one.
+  #
+  # ⚠️ "PATH B" HERE MEANS THE SWEEP VERDICT `path_b_wf_pass`, NOT THE SKILL'S TEXT.
+  # .claude/skills/exit-refinement/SKILL.md defines Path B as capital-efficiency
+  # up AND maxDD not worse, and says its two thresholds are NOT SET. The corpus
+  # verdict is looser: net_R up in BOTH windows, capital/day up, yearly
+  # walk-forward >= 4 usable and 2/3 wins; drawdown is RECORDED, not gated
+  # (m20_fleet_exit_sweep.py ~L2986-3015). Every occurrence above was a cell the
+  # gate marked `maxdd_worse`. So the drawdown bound below is THIS MANDATE'S
+  # OWN, and it does not set the skill's two thresholds -- that remains the
+  # operator's.
+  - id: MD-SOAK-EXIT-CELL-PATHB
+    grants: declare a passing stop-multiplier (atr_stop_mult) cell on a leg that sits ONLY on Stage-1 soak rosters
+    direction: exit_geometry
+    proposed_by: session_01R2PHzyjMvQoNiB39SdYWco
+    proposed_at: '2026-09-30'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-30'
+    amended_by: operator (Ben)
+    amended_at: '2026-09-30'
+    amendment: >-
+      Bound ADDED by the operator in the PATHB-MANDATE lane session, verbatim
+      "Yes, make spy_pullback_1h's contamination a bound", in answer to the lane's
+      question whether the coverage matrix's `timeout_binding: CONTAMINATED` flag
+      (the harness force-closes at 200 bars; live has no such exit) should become
+      a bound. Clause (8) below. The grant otherwise stands as written.
+      CONSEQUENCE, stated for the record: the bound also refuses four legs from the
+      operator's 2026-08-30 approved batch -- trend_donchian, trend_donchian_ada_4h,
+      trend_donchian_avax_4h, trend_donchian_sol_4h -- because the audit reads them
+      contaminated (binding 20/38, 17/38, 2/39, 2/38).
+    source: >-
+      Popup in manager session session_01HYq6XtfesZ57VyaQrK6CL1, ~05:15Z
+      2026-09-30, answered verbatim "Grant; firing opens a PR (Recommended)".
+      The popup stated the bounds as written here. Recorded by the manager on
+      checklist row PATHB-MANDATE in docs/claude/work/MANAGER-CHECKLIST.json
+      (PR #14550). Confirmed again directly by the operator in this lane's
+      session, 2026-09-30: "Grant confirmed, proceed with the mandate move".
+      NO auto-land: a fire opens a PR and pings, and the manager merges it.
+    recurrence: 2 occurrences (2026-08-30 batch of 8 cells with a computable ratio; 2026-09-29 #14332)
+    # `direction: exit_geometry` is NOT add_risk|derisk_only, so `_decide()` (the
+    # roster resolver) REFUSES this id by design. It is evaluated by
+    # mandate_resolver.resolve_exit_cell() -- `python3 scripts/ops/mandate_resolver.py
+    # --leg <leg> --exit-cell <cell> [--dry-proposed]`. A tighter stop raises
+    # notional per unit risk (1.24x-1.93x over the measured population), so it is
+    # NOT filed as derisk_only.
+    fires_when: >-
+      For ONE (leg, cell) in docs/research/e35-bracket-corpus.jsonl, read at
+      fire time: (1) EVERY account roster in config/accounts.yaml that lists the
+      leg is a Stage-1 paper soak account (bybit_1, alpaca_paper, ib_paper) --
+      Stage-1 MEMBERSHIP, never `account_class`, because bybit_portfolio and
+      alpaca_portfolio are class `paper` and are Stage-2 mirrors; a leg on any
+      other account, including a mirror, a prop account or alpaca_options_paper,
+      is out of scope; (2) every graded corpus row for the cell says
+      `path_b_wf_pass`, and the newest is `state: measured`, `axis: stop`,
+      `gate_path: B`, with no `tp_r` and no `timeout` (no live unit implements a
+      bar-count exit), from a `family` in {pullback, donchian}; (3) net_R rises in
+      BOTH the IS and OOS windows and capital/day rises; (4) base OOS trades >=
+      bar.min_oos_trades; (5) wf_wins_effective / wf_usable clears
+      bar.min_wf_win_fraction with wf_usable >= bar.min_wf_usable; (6) the
+      cell's full-history d_max_dd is within the sweep's own exchange-rate
+      allowance min(D_b x dN/N_b, D_b) AND within
+      bar.max_dd_worsening_frac_of_base of the base drawdown; (7) the cell's
+      leverage_multiple <= bar.max_leverage_multiple; (8) the leg's verdicts are
+      not CONTAMINATED by the harness timeout force-close: EITHER
+      scripts/research/timeout_binding_audit.audit() re-run over the corpus reads
+      `contaminated` OR the coverage matrix's own `timeout_binding` note reads
+      `leg CONTAMINATED` refuses (fail closed), and an audit that cannot run or
+      reads `no_power` is NEEDS-DATA, never a pass. ⚠️ THE TWO READINGS DISAGREE ON
+      spy_pullback_1h AT ADOPTION: the matrix note says CONTAMINATED (17 of 39
+      pairs), the audit over both the 08-29 and 08-31 sweeps says clean (0 of 39).
+      RE-DERIVED 2026-09-30 from the RAW rows (base arm vs the 400-bar arm per
+      geometry, no audit() code): 0 of 39 (08-31) and 0 of 35 (08-29) differ, no
+      null arms; no leg in any sweep has exactly 17 of 39 (the only 17-binding
+      leg is trend_donchian_ada_4h, 17 of 38). So the NOTE is the stale reading
+      and the audit the reliable one; it is refused through the note only because
+      the bound fails closed until the note is corrected (PI-20260930-39SDYWCO-0004). The edit changes ONE key,
+      `atr_stop_mult`, on that one leg in config/strategies.yaml, and nothing
+      else. One cell per leg per fire, chosen by the rule B4 stated in advance:
+      highest wf_wins_effective, tie-break d_net_r, over the leg's gate-passing
+      cells.
+    never: >-
+      Never a leg present on ANY of bybit_2, bybit_portfolio, alpaca_live,
+      alpaca_portfolio, ib_live, breakout_1, or any account not listed as
+      Stage-1 above. Never a row that is missing, unmeasured, or whose
+      base_oos_trades is null -- "could not look" is not a pass. Never a cell
+      any graded corpus row disagrees with. Never a cell carrying a `timeout` or
+      a `tp_r`. Never a harness family outside {pullback, donchian}; in
+      particular never scripts/backtest_orb.py, src/backtest/backtester.py,
+      scripts/backtest_xsec_momentum.py or scripts/backtest_vol_target.py.
+      Never touches config/accounts.yaml, config/mandates.yaml, a roster, a risk
+      cap, `mode:` or `execution:`. Never lands itself: the PR declares
+      `landing: hold`.
+    evidence_required: >-
+      The corpus row (measurement_key and source run), the leg's regenerated
+      comms/strategy_evidence/<leg>.json produced by the harness rather than
+      hand-edited, the exit-refinement-coverage.json cell flipped in the same PR,
+      the realtime ping, and the section-1 evidence review in the next daily
+      brief. The regenerated record's net_r_oos must not be WORSE than the
+      committed one it replaces (#14332: -14.07 -> -8.55; both read
+      decision_rule.verdict=fail on a harness that omits skip_hours -- so this
+      mandate ships exit geometry on a soak leg, it does not certify the leg).
+    # Every number below is either taken from the sweep/skill, or PROPOSED with
+    # its reasoning stated here -- none is a fitted constant. INFERRED entries
+    # say so, and the operator may move any of them.
+    bar:
+      # skill § "MIN-OOS-TRADES FLOOR", operator-set 2026-08-11 -- a denominator
+      # requirement, carried unchanged.
+      min_oos_trades: 25
+      # PROPOSED TIGHTENING of the sweep's "wf_usable >= 4 and wins x 3 >= usable x 2"
+      # (=> 4/6 passes). Arithmetic, not evidence: under a coin-flip null with
+      # independent folds P(>=4 of 6) = 22/64 = 34%, P(>=5 of 6) = 7/64 = 11%. The
+      # sweep grades ~10 cells per leg across ~44 legs, so a 4/6 gate is close to no
+      # filter, and an unattended fire has no human to catch a selection artifact.
+      # (Folds are NOT independent, so read 11% as an order of magnitude.) 5/6
+      # keeps 6 of the 8 batch cells with a computable ratio and drops
+      # htf_pullback_trend_2h and avax_pullback_2h (4/6; their maxDD ask was <= 0).
+      # Those two go to the operator, as they did before.
+      min_wf_usable: 5
+      min_wf_win_fraction: 0.8
+      # PROPOSED. The largest maxDD-worsening (d_max_dd / base maxDD, full history)
+      # in the 2026-08-30 batch is 0.35 (trend_donchian_avax_4h sm1.5); #14332 is
+      # 0.24. The mandate is meant to REPEAT what the operator already accepted,
+      # not extend it, so the cap is that batch's own maximum. The 2026-08-29 batch
+      # went further (mgc_pullback_1d 0.94, slv_trend_1h 0.76) -- the operator
+      # approved those individually, and this cap deliberately routes cells like
+      # them back to a person. The sweep's exchange-rate test (clause 6) is
+      # enforced BESIDE it and is NOT redundant: it would let gld_pullback_1h
+      # sm1.5 (0.39) and slv_trend_1h sm1.5 (0.76) through; this cap does not.
+      max_dd_worsening_frac_of_base: 0.35
+      # INFERRED, PROPHYLACTIC, BINDS ON 0 OF THE 46 MEASURED path_b_wf_pass ROWS
+      # (max 1.93x). A tighter stop raises notional per unit of risk; this only
+      # bounds a future cell. It is a bound on a future cell, not a correction of a
+      # present one -- strike it if a control that controls nothing is unwanted.
+      max_leverage_multiple: 2.0
+      # OPERATOR-ADDED 2026-09-30 (see `amendment`). true = clause (8) is part of the
+      # grant; the resolver REFUSES the whole mandate if this is not stated.
+      refuse_timeout_contaminated: true
+    # AUTO-LAND: NOT GRANTED (operator, same popup). Short form:
+    # scripts/ci/check_mandate_autoland.py clause A1/A2 is built for REMOVALS from
+    # accounts.yaml and refuses config/strategies.yaml; this entry ADDS notional
+    # per unit risk on paper; and it has never fired once. No `autoland:` field.
 
 proposed: []

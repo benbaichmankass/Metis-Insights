@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-01",
+    "kind": "date"
+  },
+  "id": "PI-20260930-3ZFMYYI4-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01KY4jjUa6FUhBRT3zfMyyi4 (lane EGRESS-SCOPE R2; manager 2026-09-30T16:16Z: operator declined R2)",
+    "rerun": "gh run view 36731753995 --log  # (or the actions API) the one proxied probe: via_proxy=yes, proxy_state=ok, egress_org AS42049, app.breakoutprop.com 403 cf-mitigated=challenge, wss 200; then list any later runs of egress-chromium-landing-probe.yml event=workflow_dispatch to see whether a re-run, a headed/new-headless run or the operator's real browser through the same proxy has separated the two causes"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "PROP-TERM: the ONE failed proxied run cannot say WHY app.breakoutprop.com was challenged: (a) the proxy's network (AS42049 Nadejda.Net Ltd, registered in the RIPE region; not shown to be residential or US) or (b) headless Chromium itself. Evidence that does NOT separate them: the direct GitHub-runner run (Azure, same headless Chromium) shows the SAME pattern (app challenged, wss served), and wss served proves nothing because it is served from datacenter addresses too. The operator's own real browser loaded app from home and mobile, which says nothing about headless. Cheapest separating tests, none run: re-run once through the same proxy (supported today, one dispatch); the operator's real browser through the same proxy (decisive for (a), needs a proxy set in a browser); a new-headless/headed unmodified Chromium through the same proxy (needs a small Tier-1 flag + xvfb, NOT stealth); read the proxy address's country (cloudflare cdn-cgi/trace loc, needs a tiny probe addition). The 24 h proxy expires about a day after purchase (purchase time not known to this lane), so tests must run first. Manager decides; the operator declined R2 (home device) at 2026-09-30 16:16Z and asked why not the proxy."
+}

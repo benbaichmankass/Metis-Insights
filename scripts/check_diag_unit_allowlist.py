@@ -58,6 +58,7 @@ EXEMPT: dict[str, str] = {
     "ict-trainer-git-sync.service": "trainer-VM unit — the live diag surface cannot see the trainer; trainer state rides the mirror + trainer-vm-diag relay",
     "ict-trainer-git-sync.timer": "trainer-VM unit — see ict-trainer-git-sync.service",
     "ict-env-check.service": "one-shot deploy-time env validation, not a recurring monitored unit (no timer)",
+    "ict-notify-failure@.service": "systemd TEMPLATE (FIX-SA-08) fired only via OnFailure= as ict-notify-failure@<unit>.service; it has no bare instance to report state for, and its output is the pushed ping + runtime_logs/unit_failures.jsonl",
     "ict-smoke-once.service": "one-shot smoke test fired manually/at deploy, not a recurring monitored unit (no timer)",
 }
 

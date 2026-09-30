@@ -133,6 +133,29 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # BL-20260909-UNKNOWN-STRATEGY-PRIORITY — the arbitration fallback must
+        # sit strictly BELOW every mapped priority (R1) and every enabled
+        # execution:live leg must have a DEFAULT_PRIORITIES row (R2). Until
+        # 2026-09-28 the fallback was 10 against a 0-floor, so an unmapped leg
+        # WON the per-symbol election. Wired with --strict the day the table
+        # went clean (operator "Fix both + wire guard", 2026-09-28); R3 fails
+        # any regression against the committed (empty) baseline too.
+        "name": "priority-fallback-distribution",
+        "when": {"globs": [
+            "src/runtime/intents.py",
+            "config/strategies.yaml",
+            "config/accounts.yaml",
+            "docs/claude/work/PRIORITY-FALLBACK-BASELINE.json",
+            "scripts/ci/check_priority_fallback_distribution.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--strict"],
+        ],
+    },
+    {
         # E42 — ONE definition of "which symbols does this account concern".
         # Five sites derived it privately; four were known and the fifth
         # (`account_ib_venue_session`) was found by this very self-test's
@@ -201,6 +224,38 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_workflow_actor_guard.py",
                    "--self-test"],
                   ["python3", "scripts/ci/check_workflow_actor_guard.py"]],
+    },
+    {
+        # PI-20260929-SASEC-0003: a workflow on unfiltered `push` that git-pushes
+        # back to the triggering ref fires on every PR branch that touches it.
+        "name": "push-back-trigger",
+        "when": {"globs": [".github/workflows/*.yml", ".github/workflows/*.yaml",
+                            "scripts/ci/check_push_back_trigger.py"]},
+        "steps": [["python3", "scripts/ci/check_push_back_trigger.py", "--self-test"],
+                  ["python3", "scripts/ci/check_push_back_trigger.py"]],
+    },
+    {
+        # FIX-SA-10, 2026-09-29: re-armed (removed in the 2026-09-21 reset, which
+        # is why four in_flight rows naming archived lanes went unflagged). CI
+        # cannot read session state, so the archived-lane check prints COULD NOT
+        # LOOK unless given `--lane-states FILE`; the census still runs.
+        "name": "stale-in-flight",
+        "when": {"globs": ["docs/claude/work/MANAGER-CHECKLIST.json",
+                            "scripts/ci/check_stale_in_flight.py",
+                            "scripts/ops/owner_liveness.py"]},
+        "steps": [["python3", "scripts/ci/check_stale_in_flight.py", "--self-test"],
+                  ["python3", "scripts/ci/check_stale_in_flight.py"]],
+    },
+    {
+        # FIX-SA-09, 2026-09-29: the SessionStart hook, three slash commands and
+        # four skills told sessions to drain review backlogs archived on
+        # 2026-09-21. This is the detector: no live `.claude/` line may name a
+        # retired register without a retirement note beside it.
+        "name": "retired-backlog-paths",
+        "when": {"globs": [".claude/**", "scripts/ci/check_retired_backlog_paths.py"]},
+        "steps": [["python3", "scripts/ci/check_retired_backlog_paths.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_retired_backlog_paths.py"]],
     },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
@@ -399,6 +454,8 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/bracket_reachability_audit.py", "--selftest"],
             # C2 — the dukascopy-span-probe.yml -> research-result mapper.
             ["python3", "scripts/research/dukascopy_span_probe_result.py", "--self-test"],
+            # R-M19 (2026-09-28) -- the S1-v0 within-cell veto harness; planted positive + null + base-rate-only control.
+            ["python3", "scripts/research/meta_veto_walkforward.py", "--self-test"],
             ["python3", "-m", "pytest", "tests/test_check_research_index.py", "-q"],
         ],
     },
@@ -1152,6 +1209,37 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # RQ-RUN (2026-09-28): the token-free research runner
+        # (.github/workflows/research-script-run.yml) executes a command it
+        # reads from the queue unit's YAML. This guard fails the PR that lands
+        # a unit naming a script outside scripts/research/ or
+        # scripts/backtest*.py, and the PR that adds any workflow_dispatch
+        # input beyond the unit id and the pass-through label (a command
+        # surface the
+        # allowlist cannot see). The runner refuses the same at run time;
+        # the guard makes it a PR failure instead of a spent dispatch.
+        "name": "research-script-run-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/research/script_run.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_script_run.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_script_run.py"],
+        ],
+    },
+    {
+        # RQ-RUN (2026-09-28): the queue's self-replenishment + mechanical
+        # grading + health alarm. Self-tests only: the live health read is
+        # the DISPATCHER's alarm (it pages), not a PR gate -- a PR must not go
+        # red because the queue happens to be short today.
+        "name": "research-queue-autonomy-selftests",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/research/queue_replenish.py", "--self-test"],
+            ["python3", "scripts/research/queue_grade.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_queue_health.py", "--self-test"],
+        ],
+    },
+    {
         # MANAGER-CHECKLIST.json row E7. Nine of the thirteen scripts/backtest_*.py
         # harnesses had NO WORKFLOW AT ALL, so nothing could regress their data
         # source -- there was no runner to regress. research-harness-dispatch.yml
@@ -1528,11 +1616,42 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # JC-SA-01 (2026-09-29): the GRADED hop went 21 days silent (max
+        # reviewed_at 2026-09-08) because grading only ever ran by hand inside
+        # /system-review. Now scheduled (grade-closed-trades.yml); this is the
+        # detector that makes a stopped schedule loud: max(reviewed_at) older
+        # than 3 days. ALERT-ONLY since 2026-09-29 (operator, "let's do b"): here
+        # it prints a ::warning:: and exits 0 so a stale grade never reds
+        # unrelated PRs; the daily grading-freshness-alert.yml sends the ping.
+        # Unreadable also warns — never read as fresh.
+        "name": "grading-freshness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_grading_freshness.py", "--self-test"],
+            ["python3", "scripts/ci/check_grading_freshness.py"],
+        ],
+    },
+    {
         "name": "guard-liveness",
         "when": None,
         "steps": [
             ["python3", "scripts/ci/check_guard_liveness.py", "--self-test"],
             ["python3", "scripts/ci/check_guard_liveness.py"],
+        ],
+    },
+    {
+        # RQ-OPS-2 (PI-20260928-RQOPS2-0001): research-queue-dispatch.yml
+        # writes a receipt on every successful run (fired or dry) via
+        # commit-to-main; this grades that receipt's freshness the same way
+        # cadence-liveness grades its own registry, so a silently-stopped
+        # research-queue cron surfaces on every push rather than needing
+        # its own working cron to report on itself. `when: None`: its
+        # subject is a committed receipt file, not this PR's diff.
+        "name": "research-queue-dispatch-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py"],
         ],
     },
     {

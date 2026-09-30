@@ -1,0 +1,169 @@
+{
+  "verdict": "indeterminate",
+  "read_state": "measured",
+  "population": "3 leg(s) [ict_scalp_eth_15m, ict_scalp_sol_15m, ict_scalp_sol_5m], 508 committed trades in total; grade=pass_all_seeds, overall=any",
+  "n": 508,
+  "measurement": {
+    "leg_verdicts": {
+      "ict_scalp_eth_15m": "indeterminate",
+      "ict_scalp_sol_15m": "indeterminate",
+      "ict_scalp_sol_5m": "fail"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "any",
+    "cells": 15
+  },
+  "note": "ict_scalp_eth_15m: NULL: ev > 0 on all seeds but P(net>0) < 0.7 on at least one; ict_scalp_sol_15m: NULL: ev > 0 on all seeds but P(net>0) < 0.7 on at least one; ict_scalp_sol_5m: FAIL: ev_net_usd_per_life <= 0 on at least one seed",
+  "records": [
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "ict_scalp_eth_15m: 117 committed trades from comms/strategy_evidence/runs/2026-09-25/ict_scalp_eth_15m__trades.jsonl (evidence record comms/strategy_evidence/ict_scalp_eth_15m.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 117,
+      "measurement": {
+        "leg": "ict_scalp_eth_15m",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_eth_15m__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 203.96,
+              "ev_se": 6.62,
+              "p_net_positive": 0.463,
+              "p_alive_at_horizon": 0.0022,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 210.63,
+              "ev_se": 6.67,
+              "p_net_positive": 0.4587,
+              "p_alive_at_horizon": 0.0027,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 214.7,
+              "ev_se": 6.92,
+              "p_net_positive": 0.462,
+              "p_alive_at_horizon": 0.0027,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 211.81,
+              "ev_se": 6.86,
+              "p_net_positive": 0.4522,
+              "p_alive_at_horizon": 0.0025,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 196.71,
+              "ev_se": 6.68,
+              "p_net_positive": 0.435,
+              "p_alive_at_horizon": 0.0025,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "NULL: ev > 0 on all seeds but P(net>0) < 0.7 on at least one"
+    },
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "ict_scalp_sol_15m: 132 committed trades from comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_15m__trades.jsonl (evidence record comms/strategy_evidence/ict_scalp_sol_15m.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 132,
+      "measurement": {
+        "leg": "ict_scalp_sol_15m",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_15m__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 129.2,
+              "ev_se": 5.34,
+              "p_net_positive": 0.3658,
+              "p_alive_at_horizon": 0.0005,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 138.02,
+              "ev_se": 5.61,
+              "p_net_positive": 0.3673,
+              "p_alive_at_horizon": 0.001,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 132.61,
+              "ev_se": 5.58,
+              "p_net_positive": 0.3575,
+              "p_alive_at_horizon": 0.0008,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 137.57,
+              "ev_se": 5.6,
+              "p_net_positive": 0.3668,
+              "p_alive_at_horizon": 0.001,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 135.4,
+              "ev_se": 5.57,
+              "p_net_positive": 0.3623,
+              "p_alive_at_horizon": 0.001,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "NULL: ev > 0 on all seeds but P(net>0) < 0.7 on at least one"
+    },
+    {
+      "verdict": "fail",
+      "read_state": "measured",
+      "population": "ict_scalp_sol_5m: 259 committed trades from comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_5m__trades.jsonl (evidence record comms/strategy_evidence/ict_scalp_sol_5m.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 259,
+      "measurement": {
+        "leg": "ict_scalp_sol_5m",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_5m__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -26.39,
+              "ev_se": 1.36,
+              "p_net_positive": 0.0663,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -28.39,
+              "ev_se": 1.23,
+              "p_net_positive": 0.0622,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -28.56,
+              "ev_se": 1.23,
+              "p_net_positive": 0.063,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -26.29,
+              "ev_se": 1.37,
+              "p_net_positive": 0.067,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -24.63,
+              "ev_se": 1.49,
+              "p_net_positive": 0.0683,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "FAIL: ev_net_usd_per_life <= 0 on at least one seed"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a human-reviewed PR lands (or the operator explicitly declines) declaring vol_trail(hot90, t2.5) for ada_pullback_2h in config/strategies.yaml",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-YGGMZWK7-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "research/queue/RQ-20260928-019.yaml + research/results/RQ-20260928-019/36505251734.jsonl",
+    "rerun": "gh workflow run m20-exit-lever-sweep.yml --ref main -f legs=ada_pullback_2h -f tp_cap_pct=0.099 -f split_mode=oos-trades -f research_unit=RQ-20260928-019 (same inputs as the landed run; the unit also re-fires automatically next month per its own cadence)"
+  },
+  "routed_to": "M20-EXITS",
+  "state": "routed",
+  "what": "RQ-20260928-019 (M20 exit-lever monthly sweep, ada_pullback_2h / ADAUSDT 2h) PASSED RULE-EXIT-REFINEMENT-P2-GATE: cell vt_hot90_t2.5 (vol_trail lever) clears the P2 gate net of the full cost stack, base_oos_trades=49 (>= the 25-trade floor). MEASURED research/results/RQ-20260928-019/36505251734.jsonl (verdict=pass, read_state=measured, generated_at 2026-09-29T01:39:28Z), corpus rows docs/research/m20-sweep-corpus.jsonl (sweep_generated_at 2026-09-29T02:01:46Z / leg=ada_pullback_2h). ada_pullback_2h is a LIVE leg (config/strategies.yaml:2923). Per this repo's own convention (a passing cell is not a passing lever disposition; a live-leg exit-geometry change is Tier-3), this is a CANDIDATE to declare vol_trail(hot90, t2.5) for ada_pullback_2h -- NOT applied by this unit. Proposed next step: a human-reviewed PR to config/strategies.yaml adding the lever, with docs/research/exit-refinement-coverage.json updated to reflect the declare. This agent is NOT filing that PR (config/strategies.yaml is out of this session's scope) -- filed here so the candidate is not lost."
+}

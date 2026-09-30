@@ -1,0 +1,109 @@
+name: oci-retire-orphan-volume
+
+# Back up, then delete, the ONE orphaned block volume `ict-bot-data-vol`
+# (100 GB; no attachment in any state; the live /data/bot-data is a directory on
+# the boot volume). Operator decision 2026-09-29 ~16:46Z, verbatim: "Back up,
+# then delete (Recommended)", relayed by the manager. PI-20260929-CMXYTHSP-0002.
+#
+# All the guards live in scripts/ops/oci_retire_orphan_volume.py: pinned
+# identity (name + size + immutable time_created, exactly one match), OCID
+# echo-back, no attachment in any state (a listing error refuses), a FULL
+# backup that must reach AVAILABLE before the delete, and an attachment re-check
+# right before the delete. Tests: tests/ops/test_oci_retire_orphan_volume.py.
+#
+# Trigger: issues.opened with label `oci-retire-orphan-volume`. Body fields:
+#   mode: plan               # read-only (default): resolves + prints the OCID
+#   mode: execute            # needs volume_id: <the OCID plan printed> and confirm: yes
+#   volume_id: ocid1.volume...
+#   confirm: yes
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode: { description: "plan | execute", required: true, default: "plan" }
+      volume_id: { description: "OCID printed by plan (execute only)", required: false, default: "" }
+      confirm: { description: "'yes' required for execute", required: false, default: "" }
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: oci-retire-orphan-volume
+  cancel-in-progress: false
+
+jobs:
+  retire:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'oci-retire-orphan-volume'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse request
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body || '' }}
+          IN_MODE: ${{ inputs.mode || '' }}
+          IN_VID: ${{ inputs.volume_id || '' }}
+          IN_CONFIRM: ${{ inputs.confirm || '' }}
+        run: |
+          set -euo pipefail
+          fld() { printf '%s' "${ISSUE_BODY}" | awk -F: -v k="$1" '$1 ~ "^[[:space:]]*"k"[[:space:]]*$"{sub(/^[^:]*:/,"");gsub(/^[[:space:]]+|[[:space:]]+$/,"");print;exit}'; }
+          mode="${IN_MODE:-$(fld mode)}"; mode="$(printf '%s' "${mode:-plan}" | tr '[:upper:]' '[:lower:]')"
+          vid="${IN_VID:-$(fld volume_id)}"
+          confirm="${IN_CONFIRM:-$(fld confirm)}"
+          case "$mode" in plan|execute) ;; *) echo "::error::mode must be plan|execute"; exit 1 ;; esac
+          if [ "$mode" = "execute" ]; then
+            [ "$confirm" = "yes" ] || { echo "::error::mode: execute requires 'confirm: yes'"; exit 1; }
+            [[ "$vid" =~ ^ocid1\.volume\.[a-z0-9.-]+$ ]] || { echo "::error::execute requires volume_id: <ocid1.volume...>"; exit 1; }
+          fi
+          { echo "mode=$mode"; echo "vid=$vid"; } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
+      - name: Install oci sdk
+        run: python3 -m pip install --quiet 'oci>=2.119,<3'
+
+      - name: Plan / execute
+        id: run
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          MODE: ${{ steps.parse.outputs.mode }}
+          VID: ${{ steps.parse.outputs.vid }}
+        run: |
+          set -uo pipefail
+          set +e
+          python3 scripts/ops/oci_retire_orphan_volume.py --mode "$MODE" --volume-id "$VID" 2>&1 | tee report.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: Comment result on the issue
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const out = fs.existsSync('report.txt') ? fs.readFileSync('report.txt', 'utf8') : '(no report produced)';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `**oci-retire-orphan-volume** — job status: \`${{ job.status }}\` · rc: \`${{ steps.run.outputs.rc || 'n/a' }}\`\nRun: ${runUrl}\n\n\`\`\`\n${out.slice(-60000)}\n\`\`\``,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed',
+            });

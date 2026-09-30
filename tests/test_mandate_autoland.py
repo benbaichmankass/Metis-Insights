@@ -65,20 +65,31 @@ def _git(root: Path, *args: str, env: dict | None = None) -> str:
     return p.stdout
 
 
-def _perf_payload(leg: str) -> dict:
-    """A `/api/bot/performance` body R4 reads as `would_block` with negative R.
+def _recent_payload(leg: str) -> dict:
+    """A `/api/bot/performance/recent?n=40` body the gate reads as a T3 DEMOTE.
 
-    Shaped against `src/runtime/research_results_gate.source_verdict`: trades
-    above `MIN_TRADES`, `pnlCoverage` above `COVERAGE_FLOOR`, and a NEGATIVE
-    `totalPnlMeasured` — plus `totalR < 0`, which `r4_demotion_gate` requires
-    separately so the dollar read and the R read must agree in sign.
+    Shaped against `src/runtime/research_results_gate.source_verdict` over the
+    last 40 (trades >= 40, `pnlCoverage` above `COVERAGE_FLOOR`, NEGATIVE
+    `totalPnlMeasured`, `totalR < 0`) and against MD-DEMOTE-S2-S1's T3 rule:
+    both 20-trade windows at -0.3R/trade (-6R), below the leg's REAL Stage-0
+    p10 (asserted in `_fixture`, not assumed).
     """
-    row = {"name": leg, "trades": gate.MIN_TRADES + 21,
-           "totalPnlMeasured": -412.50, "totalPnl": -430.0,
-           "pnlCoverage": 0.92, "pnlMeasuredCount": 56,
-           "totalR": -3.1400, "rTradeCount": 41}
-    return {"window": "30d", "since": "2026-08-26T00:00:00Z",
-            "perStrategy": [row], "paperPortfolio": {"perStrategy": [dict(row)]}}
+    def row(n, r):
+        return {"name": leg, "trades": n, "totalPnlMeasured": -412.50 * n / 40,
+                "totalPnl": -430.0 * n / 40, "pnlCoverage": 0.92,
+                "pnlMeasuredCount": int(n * 0.92), "totalR": r, "rTradeCount": n}
+    ent = {"closedAvailable": 55, "nUsed": 40, "complete": True,
+           "last": {"perStrategy": [row(40, -12.0)]},
+           "blocks": [{"perStrategy": [row(20, -6.0)], "closedFrom": "2026-09-01T00:00:00",
+                       "closedTo": "2026-09-12T00:00:00"},
+                      {"perStrategy": [row(20, -6.0)], "closedFrom": "2026-09-13T00:00:00",
+                       "closedTo": "2026-09-27T00:00:00"}]}
+    import datetime as dt
+    fresh = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    return {"n": 40, "block": 20, "error": False,
+            "realMoney": {"readState": "ok", "newestClosedAt": fresh, "perStrategy": {leg: ent}},
+            "mirror": {"readState": "ok", "accountIds": [MIRROR_ACCOUNT], "newestClosedAt": fresh,
+                       "perStrategy": {leg: json.loads(json.dumps(ent))}}}
 
 
 def _fixture(tmp_path: Path, *, armed: bool) -> Path:
@@ -87,6 +98,15 @@ def _fixture(tmp_path: Path, *, armed: bool) -> Path:
     (root / "config").mkdir(parents=True)
     for rel in (mr.ACCOUNTS_REL, mr.MANDATES_REL, mr.STRATEGIES_REL):
         shutil.copy2(REPO / rel, root / rel)
+    # The T3 threshold is the leg's REAL Stage-0 record and its committed
+    # source_run -- copied, so the resolver replay re-derives the real p10.
+    ev_rel = f"{mr.EVIDENCE_DIR_REL}/{LEG}.json"
+    src_rel = json.loads((REPO / ev_rel).read_text(encoding="utf-8"))["source_run"]
+    for rel in (ev_rel, src_rel):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO / rel, root / rel)
+    p10 = mr.stage0_block_p10(LEG, REPO)["p10"]
+    assert p10 is not None and -6.0 < p10, f"{LEG}'s real p10 {p10} no longer sits above -6R"
     # The real store has been ARMED on MD-DEMOTE-S2-S1 since 2026-09-27
     # (operator). Normalise to the requested state either way, so the fixture
     # tests the route rather than whatever the live store happens to hold.
@@ -108,7 +128,7 @@ def _fixture(tmp_path: Path, *, armed: bool) -> Path:
 def _produce(root: Path) -> dict:
     """Run the REAL producer, then write the paperwork the workflow writes."""
     _git(root, "checkout", "-q", "-b", BRANCH)
-    out = gate.run(_perf_payload(LEG), root=root, window="30d", apply=True)
+    out = gate.run(_recent_payload(LEG), root=root, window=gate.WINDOW_LABEL, apply=True)
     assert [d["leg"] for d in out["demoted"]] == [LEG], out
     decl = {"tier": 3, "landing": autoland.LANDING_VALUE, "mandate": "MD-DEMOTE-S2-S1",
             "run_id": RUN_ID, "workflow": autoland.WORKFLOW_REL,
@@ -232,3 +252,82 @@ def test_the_landing_machinery_self_tests_still_pass(script):
     p = subprocess.run([sys.executable, script, "--self-test"],
                        cwd=REPO, capture_output=True, text=True)
     assert p.returncode == 0, p.stdout + p.stderr
+
+
+# ── the two network reads A7 now depends on (review of #13609) ─────────────
+# Mocked urlopen only: these prove the READERS fail closed and parse what the
+# real API returns. They never touch the network.
+import io as _io  # noqa: E402
+import urllib.error as _ue  # noqa: E402
+import zipfile as _zf  # noqa: E402
+
+
+class _Resp:
+    def __init__(self, body: bytes):
+        self._b = body
+
+    def read(self):
+        return self._b
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_fetch_run_without_a_repository_could_not_look(monkeypatch):
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    run, how = autoland.fetch_run("1")
+    assert run is None and "GITHUB_REPOSITORY" in how
+
+
+def test_fetch_run_http_error_is_could_not_look_never_a_run(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+
+    def boom(req, timeout=0):
+        raise _ue.HTTPError(req.full_url, 404, "nope", {}, None)
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    run, how = autoland.fetch_run("1")
+    assert run is None and "404" in how
+
+
+def test_fetch_run_returns_the_parsed_run(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    payload = {"path": autoland.WORKFLOW_REL, "head_branch": "main"}
+    monkeypatch.setattr("urllib.request.urlopen",
+                        lambda req, timeout=0: _Resp(json.dumps(payload).encode()))
+    run, _ = autoland.fetch_run("1")
+    assert run == payload
+
+
+def test_fetch_provenance_with_no_artifact_refuses(monkeypatch):
+    """A dry (apply=false) dispatch uploads nothing: its genuine id buys nothing."""
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setattr("urllib.request.urlopen",
+                        lambda req, timeout=0: _Resp(b'{"artifacts": []}'))
+    rec, how = autoland.fetch_provenance("1")
+    assert rec is None and "uploaded no" in how
+
+
+def test_fetch_provenance_reads_the_record_and_never_forwards_the_token(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setenv("GITHUB_TOKEN", "t0ken")
+    buf = _io.BytesIO()
+    with _zf.ZipFile(buf, "w") as z:
+        z.writestr(autoland.PROVENANCE_FILE, json.dumps({"run_id": "1", "head_sha": "abc"}))
+    seen = []
+
+    def fake(req, timeout=0):
+        seen.append(req)
+        if "/artifacts?" in req.full_url:
+            return _Resp(json.dumps({"artifacts": [
+                {"id": 9, "name": autoland.PROVENANCE_ARTIFACT, "expired": False,
+                 "created_at": "2026-09-28T00:00:00Z"}]}).encode())
+        return _Resp(buf.getvalue())
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    rec, _ = autoland.fetch_provenance("1")
+    assert rec == {"run_id": "1", "head_sha": "abc"}
+    # The Authorization header is UNREDIRECTED, so the 302 to blob storage never carries it.
+    assert all("Authorization" not in r.headers and "Authorization" in r.unredirected_hdrs
+               for r in seen)

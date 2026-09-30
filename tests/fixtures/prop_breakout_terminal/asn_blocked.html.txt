@@ -1,0 +1,12 @@
+<html><head><title>Access denied | app.breakoutprop.com used Cloudflare to restrict access</title></head><body>
+<!-- Rebuilt from the REDACTED page shape the live VM recorded on 2026-09-29
+     (issue #14402, run 36623749022): title, and the 7 visible text lines.
+     Ray id and IP are placeholders; the markup around them is invented. -->
+<div><span>Error 1005</span> Ray ID: 0000000000000000 &bull; 2026-09-29 20:04:53 UTC</div>
+<h1>Access denied</h1>
+<h2>What happened?</h2>
+<p>The owner of this website (app.breakoutprop.com) has banned the autonomous system number (ASN) your IP address is in (0000) from accessing this website.</p>
+<p>Please see <a href="https://developers.cloudflare.com/support/">the docs</a> for more details.</p>
+<div>Was this page helpful? <button>Yes</button> <button>No</button></div>
+<div>Cloudflare Ray ID: 0000000000000000 &bull; Your IP: <button>Click to reveal</button> &bull; Performance &amp; security by Cloudflare</div>
+</body></html>

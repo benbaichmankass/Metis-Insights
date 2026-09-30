@@ -10,21 +10,31 @@ name: training-rerun-5m
 # Public market data only — no API keys required.
 #
 # Triggers:
-#   * push to `experiments/2026-05-07-vwap-accuracy/run_5m.py` or this
+#   * push to `main` touching `experiments/2026-05-07-vwap-accuracy/run_5m.py` or this
 #     workflow file (so editing either re-triggers a run).
 #   * workflow_dispatch (manual button in the Actions UI).
 #
-# Auto-commits results back to the same branch as the triggering push,
-# tagging the commit message with `[skip ci]` to prevent re-trigger
+# Auto-commits results back to the triggering push's branch (main only, see
+# the `branches:` filter below), tagging the commit message with `[skip ci]` to prevent re-trigger
 # loops.
 
 on:
   push:
+    # main only: the last step git-pushes results back to the triggering ref, so
+    # a push filter without `branches:` fires on every PR branch that edits this
+    # file (PI-20260929-SASEC-0003) and lands unreviewed results commits there.
+    branches: [main]
     paths:
       - "experiments/2026-05-07-vwap-accuracy/run_5m.py"
       - "experiments/2026-05-07-vwap-accuracy/fetch_data.py"
       - ".github/workflows/training-rerun-5m.yml"
   workflow_dispatch:
+
+# FIX-SA-13: workflow-level default is read-only. The `run` job below keeps its
+# own `contents: write` on purpose — its last step `git push`es the results back
+# to the triggering branch, which a read-only token cannot do.
+permissions:
+  contents: read
 
 concurrency:
   group: training-rerun-5m-${{ github.ref }}

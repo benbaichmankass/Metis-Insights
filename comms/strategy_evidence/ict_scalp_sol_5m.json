@@ -3,7 +3,7 @@
   "strategy": "ict_scalp_sol_5m",
   "symbol": "SOLUSDT",
   "timeframe": "5m",
-  "config_fingerprint": "sha256:3ae4fefab6dcb01e989664cf32048e36",
+  "config_fingerprint": "sha256:afd756a7a935d995e7c018fe3dd52e65",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

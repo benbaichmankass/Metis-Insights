@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager brief 2026-09-30T16:19Z: 'build the probe changes as ONE PR (Tier-1, probe only) ... I will review, merge and DISPATCH it myself ... Report the PR number, and the finding on levers 4 and 5, before any dispatch.'",
+  "why": "CI-only measurement tooling: per-lever diagnostics for the existing proxy route (wait out a challenge, Chromium new headless, headed under xvfb), challenge-kind and exit-country reads, and a per-variant evaluator. Keeps the fail-closed, never-print-the-secret properties and their tests. No VM, live path, trading credential, click or typed input. Nothing that hides automation is included."
+}

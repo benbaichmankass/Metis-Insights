@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane ALPACA-CLOSE-WEDGE pipeline update records only (append-only, pipeline.py --check exit 0); landing added by the manager as with #14587/#14611/#14633."
+}

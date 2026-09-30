@@ -45,8 +45,10 @@ name: system-actions
 #   * DIAG_READ_TOKEN   — bearer for the read-only diag surface
 #                         (used for post-action /api/diag/services
 #                         verification; init-diag-token ROTATES it)
-#   * BRANCH_PROTECTION_TOKEN — repo PAT; read ONLY by init-diag-token, to
-#                         write the rotated value back to DIAG_READ_TOKEN
+#   * BRANCH_PROTECTION_TOKEN — repo PAT; read by TWO actions:
+#                         init-diag-token (writes the rotated value back to
+#                         DIAG_READ_TOKEN) and set-account-mode (pushes the
+#                         mode-change branch and opens its PR, JC-CA-01)
 #
 # Optional repo variables:
 #   * VM_SSH_HOST       — defaults to 141.145.193.91 (Ampere live trader; was the
@@ -116,6 +118,7 @@ on:
           - pull-mes-ibkr-history-daily
           - pull-ibkr-history
           - set-account-mode
+          - verify-account-mode
           - fix-data-dir
           - rotate-account-keys
           - init-diag-token
@@ -147,6 +150,8 @@ on:
           - fix-prop-mislinked-close
           - repair-prop-fill-direction
           - breakout-login-check
+          - breakout-terminal-probe
+          - egress-landing-probe
           - reset-daily-risk-state
           - repair-malformed-notes
           - repair-netted-rows
@@ -256,8 +261,18 @@ permissions:
 
 # Serialise. Two system-actions on the same VM at the same time is
 # never desired and likely buggy.
+#
+# ⚠️ EXCEPT verify-account-mode, which gets its OWN group per account
+# (review finding on #13508, 2026-09-28). It is read-only and polls for up to
+# 600 s. In the shared group it would (a) hold an emergency flatten/stop behind
+# it for up to 10 min, and (b) lose verifies: GitHub keeps only ONE pending run
+# per group, so a newer dispatch silently CANCELS the older pending one. A
+# merge that changes 3+ accounts dispatches 3+ verifies in a loop. Per-account
+# groups mean only a newer verify of the SAME account can replace a pending
+# one, and that newer one is the verify worth having. Issue-triggered runs have
+# empty `inputs` and always land in the shared group.
 concurrency:
-  group: system-actions
+  group: ${{ inputs.action == 'verify-account-mode' && format('system-actions-verify-account-mode-{0}', inputs.account_id) || 'system-actions' }}
   cancel-in-progress: false
 
 jobs:
@@ -370,6 +385,13 @@ jobs:
             symbol=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*symbol[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ss]ymbol[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
+            # breakout-login-check apply=instrument-probe: comma-separated
+            # venue symbols (e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD). Distinct key
+            # from `symbol:` above (plural) so the two never collide.
+            symbols=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*symbols[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ss]ymbols[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
             days=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*days[[:space:]]*:' \
@@ -574,6 +596,11 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*exit_price[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ee]xit_price[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # close-stranded-journal-row: optional sl|tp — the row's own leg filled at the venue.
+            exit_kind=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*exit_kind[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ee]xit_kind[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -585,6 +612,7 @@ jobs:
           echo "MODE=${mode}" >>"$GITHUB_ENV"
           echo "TRADE_ID=${trade_id:-}" >>"$GITHUB_ENV"
           echo "ACTION_SYMBOL=${symbol:-}" >>"$GITHUB_ENV"
+          echo "ACTION_SYMBOLS=${symbols:-}" >>"$GITHUB_ENV"
           echo "ACTION_DAYS=${days:-}" >>"$GITHUB_ENV"
           echo "ACTION_WINDOWS=${windows:-}" >>"$GITHUB_ENV"
           echo "ACTION_WINDOW_DAYS=${window_days:-}" >>"$GITHUB_ENV"
@@ -652,16 +680,17 @@ jobs:
           echo "ACTION_EQUAL_ONLY=${equal_only:-}" >>"$GITHUB_ENV"
           echo "ACTION_EXIT_PRICE=${exit_price:-}" >>"$GITHUB_ENV"
           echo "ACTION_ROW=${row_id:-}" >>"$GITHUB_ENV"
+          echo "ACTION_EXIT_KIND=${exit_kind:-}" >>"$GITHUB_ENV"
           echo ">>> Resolved ACTION=${action:-} REASON=${reason:-} ACCOUNT_ID=${account_id:-} MODE=${mode:-} TRADE_ID=${trade_id:-} SYMBOL=${symbol:-} DAYS=${days:-} WINDOWS=${windows:-} WINDOW_DAYS=${window_days:-} BT_MODE=${bt_mode:-} RECENT_ONLY_FRAC=${recent_only_frac:-} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
+            status-check|verify-account-mode|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
+            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|breakout-terminal-probe|egress-landing-probe|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -674,7 +703,7 @@ jobs:
               ;;
           esac
           # set-account-mode requires account_id + mode; validate both.
-          if [ "${ACTION}" = "set-account-mode" ]; then
+          if [ "${ACTION}" = "set-account-mode" ] || [ "${ACTION}" = "verify-account-mode" ]; then
             if [ -z "${ACCOUNT_ID// }" ]; then
               echo "::error::set-account-mode requires 'account_id' (workflow_dispatch input) or 'account: <name>' (issue body)."
               exit 1
@@ -1065,14 +1094,54 @@ jobs:
           # breakout-login-check: READ-ONLY prop-terminal login check (Tier-2:
           # it logs in to a live prop account with the operator's credentials).
           # `account` optional (default breakout_1); `apply` is an optional
-          # comma-separated subset of install-deps,emit-status.
+          # comma-separated subset of install-deps,emit-status,reset-feed,
+          # probe-ticket,instrument-probe (needs `symbols:`),
+          # instrument-search-dump (read-only search-control measurement),
+          # instrument-info-dry / instrument-info-probe (info-panel probe, needs
+          # `symbols:`; -dry clicks nothing, -probe clicks a watchlist Symbol
+          # cell, the info button and the panel's close control),
+          # executor-dry-run,watched-click,round-trip-dry,
+          # round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,
+          # executor-clear-halt,
+          # dump-tables (read-only table dump of the positions / orders read path)
+          # close-position / close-position-live (locate / CLOSE the one existing position; live needs PROP_EXECUTOR_MODE=live)
+          # (the step-3 executor; the wrapper allows at most one mode per
+          # dispatch; watched-click and round-trip-live place real orders and
+          # are dispatched only with the operator informed).
           if [ "${ACTION}" = "breakout-login-check" ]; then
             if [ -n "${ACCOUNT_ID// }" ] && ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status)(,(install-deps|emit-status))?$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|close-position|close-position-live)){0,10}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,instrument-info-dry,instrument-info-probe,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,close-position,close-position-live (got '${ACTION_APPLY}')."
+              exit 1
+            fi
+            case ",${ACTION_APPLY:-}," in *",instrument-probe,"*|*",instrument-info-dry,"*|*",instrument-info-probe,"*)
+              # instrument-probe needs 'symbols:' -- comma-separated venue
+              # symbols, e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD. Validated here so
+              # a malformed dispatch fails loudly instead of reaching the VM.
+              if [ -z "${ACTION_SYMBOLS// }" ]; then
+                echo "::error::breakout-login-check apply=${ACTION_APPLY} requires a 'symbols:' line (comma-separated venue symbols)."
+                exit 1
+              fi
+              if ! printf '%s' "${ACTION_SYMBOLS}" | grep -Eq '^[A-Za-z0-9]+(,[A-Za-z0-9]+){0,19}$'; then
+                echo "::error::breakout-login-check symbols '${ACTION_SYMBOLS}' invalid (comma-separated, A-Z a-z 0-9 only, max 20)."
+                exit 1
+              fi
+              ;;
+            esac
+          fi
+          # breakout-terminal-probe: READ-ONLY measurement of Breakout's
+          # proprietary terminal (PROP-TERM). `apply` optional: login or
+          # login,probe-ticket; `symbol` optional (probe-ticket only).
+          if [ "${ACTION}" = "breakout-terminal-probe" ]; then
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^login(,probe-ticket)?$'; then
+              echo "::error::breakout-terminal-probe apply must be 'login' or 'login,probe-ticket' (got '${ACTION_APPLY}')."
+              exit 1
+            fi
+            if [ -n "${ACTION_SYMBOL// }" ] && ! printf '%s' "${ACTION_SYMBOL}" | grep -Eq '^[A-Za-z0-9._-]{1,20}$'; then
+              echo "::error::breakout-terminal-probe symbol '${ACTION_SYMBOL}' invalid (allowed: A-Z a-z 0-9 . _ -)."
               exit 1
             fi
           fi
@@ -1155,8 +1224,88 @@ jobs:
               echo "::error::close-stranded-journal-row exit_price '${ACTION_EXIT_PRICE}' must be a non-negative number."
               exit 1
             fi
+            if [ -n "${ACTION_ROW:-}" ] && ! printf '%s' "${ACTION_ROW}" | grep -Eq '^[0-9]+$'; then
+              echo "::error::close-stranded-journal-row row '${ACTION_ROW}' must be a journal trade id (digits only)."
+              exit 1
+            fi
+            case "${ACTION_EXIT_KIND:-}" in
+              ""|sl|tp) ;;
+              *)
+                echo "::error::close-stranded-journal-row exit_kind must be sl or tp (got '${ACTION_EXIT_KIND}')."
+                exit 1
+                ;;
+            esac
           fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
+
+      - name: Commit the mode change to main (set-account-mode, Tier-3 hold PR)
+        # JC-CA-01, operator decision 2026-09-28 ("Commit to main"). A flip used to
+        # edit only the VM working tree, and ict-git-sync's `git reset --hard
+        # origin/main` reverted it within ~5 min (load_accounts() re-reads the file
+        # on every dispatch, so the running trader reverted with it). Now the
+        # one-line `mode:` change is a PR against main, carrying the
+        # check_dry_run_in_diff operator marker on a demotion. It is opened with
+        # BRANCH_PROTECTION_TOKEN, the same PAT .github/actions/commit-to-main
+        # uses, because a PR opened with GITHUB_TOKEN gets no required checks.
+        # ⚠️ IT DOES NOT LAND ITSELF: accounts.yaml is TIER3_PATHS and Tier-3
+        # never self-lands (check_pr_landing.py), so the declaration is
+        # `landing: hold` and the manager merges on the operator's recorded
+        # approval. After the merge, account-mode-verify.yml dispatches
+        # verify-account-mode, which checks the running trader over SSH.
+        if: env.ACTION == 'set-account-mode'
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::BRANCH_PROTECTION_TOKEN is unset, so the mode change cannot be committed to main. Nothing was changed."
+            exit 1
+          fi
+          branch="automation/set-account-mode-${GITHUB_RUN_ID}"
+          rm -rf mode-pr
+          git clone -q --depth 1 --branch main \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" mode-pr
+          cd mode-pr
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b "${branch}"
+          # An earlier set-account-mode PR for this account that is still OPEN
+          # would conflict with this one, or would silently undo it if it merged
+          # later. It is reported, never auto-closed: closing a Tier-3 PR is a
+          # human's call.
+          older="$(gh pr list --state open --search "\"set-account-mode: ${ACCOUNT_ID} ->\" in:title" \
+                     --json number,title,url --jq '.[] | "#\(.number) \(.title) \(.url)"' 2>/dev/null || echo "(could not list open PRs)")"
+          if [ -n "${older}" ]; then
+            printf '⚠️ OPEN set-account-mode PR(s) for %s already exist. Merge or close them deliberately, because merging an older one after this would undo it:\n%s\n\n' "${ACCOUNT_ID}" "${older}" | tee ../mode-older.txt
+          fi
+          set +e
+          python3 scripts/ops/account_mode_commit.py --root . prepare \
+            --account "${ACCOUNT_ID}" --mode "${MODE}" --run-id "${GITHUB_RUN_ID}" \
+            --branch "${branch}" --reason "${REASON}" --issue "${ISSUE_NUMBER:-}" > ../mode-prepare.json
+          rc=$?
+          set -e
+          if [ "${rc}" = "3" ]; then
+            { cat ../mode-older.txt 2>/dev/null || true
+              printf 'main already reads %s.mode=%s — no PR opened.\n' "${ACCOUNT_ID}" "${MODE}"; } | tee ../mode-pr.txt
+            exit 0
+          fi
+          [ "${rc}" = "0" ] || { echo "::error::account_mode_commit.py prepare exited ${rc}"; exit 1; }
+          git add config/accounts.yaml .github/pr-landing
+          git diff --cached --stat
+          git diff --cached -- config/accounts.yaml > ../mode.diff
+          python3 scripts/check_dry_run_in_diff.py ../mode.diff
+          git commit -q -m "set-account-mode: ${ACCOUNT_ID} -> ${MODE} (system-actions run ${GITHUB_RUN_ID})" \
+            -m "Reason: ${REASON}"
+          git push -q origin "HEAD:refs/heads/${branch}"
+          body="$(printf '**set-account-mode** \`%s\` -> \`%s\`, requested via system-actions run %s/%s/actions/runs/%s%s.\n\nReason: %s\n\n**Tier 3 · landing: hold.** \`config/accounts.yaml\` is in TIER3_PATHS, so this waits for a merge on the operator'"'"'s recorded approval. **The account does NOT change mode until this merges.** Once it merges, ict-git-sync converges the VM (<= ~5 min) and \`account-mode-verify.yml\` dispatches \`verify-account-mode\` to confirm the running trader reads the new mode.\n\n\`\`\`diff\n%s\n\`\`\`\n' \
+            "${ACCOUNT_ID}" "${MODE}" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}" \
+            "$([ -n "${ISSUE_NUMBER:-}" ] && printf ' (issue #%s)' "${ISSUE_NUMBER}")" "${REASON}" "$(cat ../mode.diff)")"
+          url="$(gh pr create --base main --head "${branch}" \
+                   --title "set-account-mode: ${ACCOUNT_ID} -> ${MODE} (Tier 3, hold)" --body "${body}")"
+          { cat ../mode-older.txt 2>/dev/null || true
+            printf 'Mode-change PR opened: %s\nThe account keeps its current mode until that PR merges; verify-account-mode runs after the merge.\n' "${url}"; } | tee ../mode-pr.txt
+          echo "MODE_PR_URL=${url}" >> "$GITHUB_ENV"
 
       - name: Set up SSH key
         env:
@@ -1196,6 +1345,13 @@ jobs:
       - name: Execute action wrapper on VM
         id: exec
         env:
+          # executor-clear-halt's record (who asked, which issue). Passed as
+          # env, NEVER as `${{ }}` inside this step's run: script: that script
+          # is ~32k chars and any expression in it turns the whole script into
+          # one expression template, over GitHub's 21,000-char limit, which
+          # invalidates the entire workflow (2026-09-28, #13805 → fixed here).
+          CLEAR_HALT_ACTOR: ${{ github.event.issue.user.login || github.actor }}
+          CLEAR_HALT_ISSUE: ${{ github.event.issue.number }}
           # BYBIT key/secret pairs — only consumed by rotate-account-keys.
           # Ride through SSH env (via REMOTE_CMD prefix), never in run logs.
           BYBIT_API_KEY_1: ${{ secrets.BYBIT_API_KEY_1 }}
@@ -1344,7 +1500,11 @@ jobs:
             pull-mes-ibkr-history)              SCRIPT="pull_mes_ibkr_history.sh" ;;
             pull-mes-ibkr-history-daily)        SCRIPT="pull_mes_ibkr_history.sh" ;;
             pull-ibkr-history)                  SCRIPT="pull_mes_ibkr_history.sh" ;;
-            set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
+            # JC-CA-01 (2026-09-28): set-account-mode no longer edits the VM tree.
+            # The flip is the PR opened by "Commit the mode change to main"
+            # below; on the VM it only RECORDS the pre-merge state (pending).
+            set-account-mode)                   SCRIPT="verify_account_mode.sh" ;;
+            verify-account-mode)                SCRIPT="verify_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             rotate-account-keys)                SCRIPT="rotate_account_keys.sh" ;;
             init-diag-token)                    SCRIPT="init_diag_token.sh" ;;
@@ -1385,6 +1545,8 @@ jobs:
             reattach-stranded-package-legs) SCRIPT="reattach_stranded_package_legs_action.sh" ;;
             repair-prop-fill-direction)         SCRIPT="repair_prop_fill_direction_action.sh" ;;
             breakout-login-check)               SCRIPT="breakout_login_check_action.sh" ;;
+            breakout-terminal-probe)            SCRIPT="breakout_terminal_probe_action.sh" ;;
+            egress-landing-probe)               SCRIPT="egress_landing_probe_action.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2
@@ -1400,7 +1562,11 @@ jobs:
           # We pipe through `printf %q` to keep substitutions shell-safe.
           REMOTE_CMD="bash /home/ubuntu/ict-trading-bot/scripts/ops/${SCRIPT}"
           if [ "${ACTION}" = "set-account-mode" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") VERIFY_WAIT_SECONDS=0 VERIFY_PENDING_OK=1 ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "verify-account-mode" ]; then
+            # 600s poll for git-sync (~5 min tick) plus one trader tick.
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") VERIFY_WAIT_SECONDS=600 ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "rotate-account-keys" ]; then
             case "${ACCOUNT_ID}" in
@@ -1606,7 +1772,7 @@ jobs:
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_ROW=$(printf '%q' "${ACTION_ROW:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "close-stranded-journal-row" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ACTION_ROW=$(printf '%q' "${ACTION_ROW:-}") ACTION_EXIT_KIND=$(printf '%q' "${ACTION_EXIT_KIND:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reconcile-orphan-history" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
@@ -1664,7 +1830,21 @@ jobs:
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "breakout-login-check" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_SYMBOLS=$(printf '%q' "${ACTION_SYMBOLS:-}") ${REMOTE_CMD}"
+            case ",${ACTION_APPLY:-}," in *",executor-clear-halt,"*)
+              # Clearing the executor's AUTO-REVERT latch is a person's
+              # decision (manager / operator): the reason text IS the record,
+              # so it is required and forwarded with who asked and where.
+              if [ -z "${REASON// }" ]; then
+                echo "::error::executor-clear-halt requires a 'reason:' line (who clears the latch and why)."
+                exit 1
+              fi
+              REMOTE_CMD="ACTION_REASON=$(printf '%q' "${REASON}") ACTION_ACTOR=$(printf '%q' "${CLEAR_HALT_ACTOR:-}") ACTION_ISSUE=$(printf '%q' "${CLEAR_HALT_ISSUE:-}") ${REMOTE_CMD}"
+              ;;
+            esac
+          fi
+          if [ "${ACTION}" = "breakout-terminal-probe" ]; then
+            REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reset-daily-risk-state" ]; then
             if [ -z "${ACCOUNT_ID// }" ]; then
@@ -2010,6 +2190,11 @@ jobs:
                 ? '(no action-output.txt — unexpected; check the run page)'
                 : '(no action-output.txt — failure happened before SSH ran)';
             }
+            // set-account-mode: the durable change is a PR, so say where it is.
+            try {
+              const modePr = fs.readFileSync('mode-pr.txt', 'utf8');
+              output = `${modePr}\n${output}`;
+            } catch (_) { /* not a set-account-mode run, or it failed before the PR */ }
             const MAX_BODY = 50_000;
             const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;

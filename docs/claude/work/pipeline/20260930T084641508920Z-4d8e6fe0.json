@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "dispatch_queue skips a unit whose precondition is unmet, proven by a test, and RQ-20260930-502 is switched to the structured field",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-HYRO501A-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "scripts/ops/dispatch_queue.py",
+    "rerun": "grep dispatch_queue.py for dispatch_precondition; construct a queued unit with an unmet precondition and confirm whether it is selected."
+  },
+  "state": "queued",
+  "what": "dispatch_queue.py never reads research-unit `dispatch_precondition` (RQ-20260930-502 carries one in prose: dispatch only after RQ-501's MEASURED PASS record is on main). A queued unit with such a field would dispatch within ~6h of merge regardless. Make dispatch_queue honour dispatch_precondition (or an equivalent structured field, e.g. a `requires_record: RQ-...` naming the unit whose measured pass record must be on main), skipping the unit until it holds, with a test that a unit with an unmet precondition is not dispatched and one with a met precondition is."
+}

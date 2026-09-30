@@ -1,0 +1,63 @@
+name: grading-freshness-alert
+
+# ALERT-ONLY replacement for the old "stale grades red every PR" gate
+# (operator, 2026-09-29 ~13:50Z, "let's do b"). The grading-freshness guard in
+# run_guards.py now only WARNS on a PR. This is the alarm: once a day, after the
+# 03:10Z grade-closed-trades slot has run and landed, read the score file on
+# main and, if max(reviewed_at) is >3 days old OR the file is unreadable, send
+# ONE Telegram ping via the send-ping system-action. One run a day = at most
+# one ping a day while stale, never one per PR. Fresh is silent.
+
+on:
+  schedule:
+    # 04:10 UTC — after grade-closed-trades (03:10) and its commit-to-main
+    # merge wait; clear of strategy-review-packets (04:40).
+    - cron: "10 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # `gh workflow run system-actions.yml`
+
+concurrency:
+  group: grading-freshness-alert
+  cancel-in-progress: false
+
+jobs:
+  # schedule-keeper dispatches this near its slot when GitHub's cron is late or
+  # dropped; this job skips the late duplicate. Fails open: an error means "run".
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
+  alert:
+    needs: dedupe
+    if: "!cancelled() && needs.dedupe.outputs.skip != 'true'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Ping once if grading is stale or unreadable
+        run: python3 scripts/ci/check_grading_freshness.py --alert

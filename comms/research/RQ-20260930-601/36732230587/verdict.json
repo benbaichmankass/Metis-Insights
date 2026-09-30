@@ -1,0 +1,401 @@
+{
+ "rule_id": "RULE-RQ0930-601-M16-WITHIN-LEG-CONFIDENCE",
+ "census": {
+  "summaries": 52,
+  "not_measured": 3,
+  "no_ledger": 0,
+  "unreadable": 0,
+  "rows_dropped_non_numeric": 0,
+  "rows_dropped_bad_time": 0
+ },
+ "legs_excluded_thin": [
+  "fade_breakout_4h",
+  "fvg_range_15m",
+  "gdx_pullback_1d",
+  "gld_pullback_1d",
+  "iaum_pullback_1d",
+  "ief_pullback_1d",
+  "iwm_trend_long_1d",
+  "mes_trend_long_1d",
+  "mgc_pullback_1d",
+  "mhg_pullback_1d",
+  "qld_trend_long_1d",
+  "qqq_trend_long_1d",
+  "scha_trend_long_1d",
+  "slv_pullback_1d",
+  "sol_pullback_2h",
+  "spy_trend_long_1d",
+  "squeeze_breakout_4h",
+  "tlt_pullback_1d",
+  "tqqq_trend_long_1d",
+  "trend_donchian_sol_4h",
+  "trend_donchian_xrp_4h"
+ ],
+ "verdict": "fail",
+ "read_state": "measured",
+ "n": 2328,
+ "population": "28 measured legs with >= 40 usable trades (21 thinner legs excluded); 2328 trades after the 20-trade per-leg warm-up; full-cost net_r from each leg's committed source_run ledger",
+ "measurement": {
+  "rho": 0.01922400940007419,
+  "perm_p_one_sided": 0.19718028197180282,
+  "lofo": {
+   "ict_scalp": 0.07552476194817326,
+   "other": 0.007346627762177227,
+   "pullback": 0.020088005645075964,
+   "trend_donchian": -0.009691282328421086
+  },
+  "informational": {
+   "raw_tilt_weight_mean_by_leg": {
+    "ada_pullback_2h": 0.9255587906691086,
+    "avax_pullback_2h": 0.9618465816611806,
+    "eth_pullback_2h": 0.9238215743369865,
+    "eth_pullback_prop_2h": 0.9420185357741395,
+    "gld_pullback_1h": 1.0369767460091328,
+    "htf_pullback_trend_2h": 1.0220964579306058,
+    "ict_scalp_5m": 1.0341208755708022,
+    "ict_scalp_avax_5m": 0.9949933786645618,
+    "ict_scalp_eth_15m": 0.9691053598229497,
+    "ict_scalp_sol_15m": 1.0220560496529518,
+    "ict_scalp_sol_5m": 1.0216827262219277,
+    "ict_scalp_xrp_15m": 0.9968644350930157,
+    "ict_scalp_xrp_5m": 1.0196509375908218,
+    "mgc_trend_1h": 1.0070955199847405,
+    "qqq_pullback_1h": 1.0324900270231427,
+    "slv_trend_1h": 0.9999318460995489,
+    "spy_pullback_1h": 1.0035275998637654,
+    "tlt_pullback_1h": 0.9606228920311911,
+    "trend_donchian": 0.9940342585329875,
+    "trend_donchian_ada_4h": 0.9739516156880168,
+    "trend_donchian_avax_4h": 0.9810593161147054,
+    "trend_donchian_eth": 1.0142145142144756,
+    "trend_donchian_eth_4h": 1.0115772711647872,
+    "trend_donchian_eth_prop": 1.030784839004297,
+    "trend_donchian_sol": 1.0050262147328906,
+    "trend_donchian_sol_prop": 1.0240056801092643,
+    "uso_trend_1h": 1.0597872178407473,
+    "xrp_pullback_2h": 0.970134735273846
+   },
+   "delta_net_r_total": 24.375168376158435,
+   "delta_net_r_per_trade": 0.010470433151270804,
+   "bottom_decile_n": 232,
+   "bottom_decile_mean_net_r": -0.07016767241379313,
+   "rest_mean_net_r": 0.0464781965648855,
+   "per_family": {
+    "ict_scalp": {
+     "n": 1190,
+     "rho": -0.04670526967171667
+    },
+    "other": {
+     "n": 182,
+     "rho": 0.15293071152362842
+    },
+    "pullback": {
+     "n": 503,
+     "rho": -0.034110415461741934
+    },
+    "trend_donchian": {
+     "n": 453,
+     "rho": 0.12563728827587872
+    }
+   },
+   "per_leg": {
+    "ada_pullback_2h": {
+     "n": 37,
+     "rho": -0.110682775126259
+    },
+    "avax_pullback_2h": {
+     "n": 37,
+     "rho": -0.3619803559358915
+    },
+    "eth_pullback_2h": {
+     "n": 42,
+     "rho": 0.13803447026075727
+    },
+    "eth_pullback_prop_2h": {
+     "n": 50,
+     "rho": -0.09567365470869867
+    },
+    "gld_pullback_1h": {
+     "n": 70,
+     "rho": -0.10411567340620592
+    },
+    "htf_pullback_trend_2h": {
+     "n": 66,
+     "rho": 0.10169981382155822
+    },
+    "ict_scalp_5m": {
+     "n": 173,
+     "rho": -0.10055406634970543
+    },
+    "ict_scalp_avax_5m": {
+     "n": 237,
+     "rho": 0.04451751538581478
+    },
+    "ict_scalp_eth_15m": {
+     "n": 97,
+     "rho": -0.10718348959665418
+    },
+    "ict_scalp_sol_15m": {
+     "n": 112,
+     "rho": -0.02882802843748106
+    },
+    "ict_scalp_sol_5m": {
+     "n": 239,
+     "rho": -0.035007952992423624
+    },
+    "ict_scalp_xrp_15m": {
+     "n": 109,
+     "rho": -0.023983960254625354
+    },
+    "ict_scalp_xrp_5m": {
+     "n": 223,
+     "rho": -0.08984197373127072
+    },
+    "mgc_trend_1h": {
+     "n": 98,
+     "rho": 0.12156643587792881
+    },
+    "qqq_pullback_1h": {
+     "n": 35,
+     "rho": -0.1774591557986615
+    },
+    "slv_trend_1h": {
+     "n": 48,
+     "rho": 0.03545623592592791
+    },
+    "spy_pullback_1h": {
+     "n": 55,
+     "rho": -0.22387885065202434
+    },
+    "tlt_pullback_1h": {
+     "n": 74,
+     "rho": 0.04943956227008769
+    },
+    "trend_donchian": {
+     "n": 53,
+     "rho": 0.2476814998531994
+    },
+    "trend_donchian_ada_4h": {
+     "n": 26,
+     "rho": -0.17919460593271722
+    },
+    "trend_donchian_avax_4h": {
+     "n": 30,
+     "rho": 0.05540695530519714
+    },
+    "trend_donchian_eth": {
+     "n": 87,
+     "rho": 0.22179465100853765
+    },
+    "trend_donchian_eth_4h": {
+     "n": 24,
+     "rho": 0.29075141504135465
+    },
+    "trend_donchian_eth_prop": {
+     "n": 149,
+     "rho": 0.13734596933746784
+    },
+    "trend_donchian_sol": {
+     "n": 39,
+     "rho": -0.1661788635213025
+    },
+    "trend_donchian_sol_prop": {
+     "n": 45,
+     "rho": -0.22359994954082563
+    },
+    "uso_trend_1h": {
+     "n": 36,
+     "rho": 0.41645788722538923
+    },
+    "xrp_pullback_2h": {
+     "n": 37,
+     "rho": -0.12311670809454704
+    }
+   }
+  },
+  "conditions": {
+   "A_n_eval>=N_FLOOR": true,
+   "B_rho>=RHO_BAR": false,
+   "C_p<=P_BAR": false,
+   "D_min_lofo>=LOFO_BAR": false,
+   "E_delta>0": true
+  },
+  "bars": {
+   "N_FLOOR": 1500,
+   "RHO_BAR": 0.08,
+   "P_BAR": 0.05,
+   "LOFO_BAR": 0.04,
+   "PERM_N": 10000
+  }
+ },
+ "informational": {
+  "raw_tilt_weight_mean_by_leg": {
+   "ada_pullback_2h": 0.9255587906691086,
+   "avax_pullback_2h": 0.9618465816611806,
+   "eth_pullback_2h": 0.9238215743369865,
+   "eth_pullback_prop_2h": 0.9420185357741395,
+   "gld_pullback_1h": 1.0369767460091328,
+   "htf_pullback_trend_2h": 1.0220964579306058,
+   "ict_scalp_5m": 1.0341208755708022,
+   "ict_scalp_avax_5m": 0.9949933786645618,
+   "ict_scalp_eth_15m": 0.9691053598229497,
+   "ict_scalp_sol_15m": 1.0220560496529518,
+   "ict_scalp_sol_5m": 1.0216827262219277,
+   "ict_scalp_xrp_15m": 0.9968644350930157,
+   "ict_scalp_xrp_5m": 1.0196509375908218,
+   "mgc_trend_1h": 1.0070955199847405,
+   "qqq_pullback_1h": 1.0324900270231427,
+   "slv_trend_1h": 0.9999318460995489,
+   "spy_pullback_1h": 1.0035275998637654,
+   "tlt_pullback_1h": 0.9606228920311911,
+   "trend_donchian": 0.9940342585329875,
+   "trend_donchian_ada_4h": 0.9739516156880168,
+   "trend_donchian_avax_4h": 0.9810593161147054,
+   "trend_donchian_eth": 1.0142145142144756,
+   "trend_donchian_eth_4h": 1.0115772711647872,
+   "trend_donchian_eth_prop": 1.030784839004297,
+   "trend_donchian_sol": 1.0050262147328906,
+   "trend_donchian_sol_prop": 1.0240056801092643,
+   "uso_trend_1h": 1.0597872178407473,
+   "xrp_pullback_2h": 0.970134735273846
+  },
+  "delta_net_r_total": 24.375168376158435,
+  "delta_net_r_per_trade": 0.010470433151270804,
+  "bottom_decile_n": 232,
+  "bottom_decile_mean_net_r": -0.07016767241379313,
+  "rest_mean_net_r": 0.0464781965648855,
+  "per_family": {
+   "ict_scalp": {
+    "n": 1190,
+    "rho": -0.04670526967171667
+   },
+   "other": {
+    "n": 182,
+    "rho": 0.15293071152362842
+   },
+   "pullback": {
+    "n": 503,
+    "rho": -0.034110415461741934
+   },
+   "trend_donchian": {
+    "n": 453,
+    "rho": 0.12563728827587872
+   }
+  },
+  "per_leg": {
+   "ada_pullback_2h": {
+    "n": 37,
+    "rho": -0.110682775126259
+   },
+   "avax_pullback_2h": {
+    "n": 37,
+    "rho": -0.3619803559358915
+   },
+   "eth_pullback_2h": {
+    "n": 42,
+    "rho": 0.13803447026075727
+   },
+   "eth_pullback_prop_2h": {
+    "n": 50,
+    "rho": -0.09567365470869867
+   },
+   "gld_pullback_1h": {
+    "n": 70,
+    "rho": -0.10411567340620592
+   },
+   "htf_pullback_trend_2h": {
+    "n": 66,
+    "rho": 0.10169981382155822
+   },
+   "ict_scalp_5m": {
+    "n": 173,
+    "rho": -0.10055406634970543
+   },
+   "ict_scalp_avax_5m": {
+    "n": 237,
+    "rho": 0.04451751538581478
+   },
+   "ict_scalp_eth_15m": {
+    "n": 97,
+    "rho": -0.10718348959665418
+   },
+   "ict_scalp_sol_15m": {
+    "n": 112,
+    "rho": -0.02882802843748106
+   },
+   "ict_scalp_sol_5m": {
+    "n": 239,
+    "rho": -0.035007952992423624
+   },
+   "ict_scalp_xrp_15m": {
+    "n": 109,
+    "rho": -0.023983960254625354
+   },
+   "ict_scalp_xrp_5m": {
+    "n": 223,
+    "rho": -0.08984197373127072
+   },
+   "mgc_trend_1h": {
+    "n": 98,
+    "rho": 0.12156643587792881
+   },
+   "qqq_pullback_1h": {
+    "n": 35,
+    "rho": -0.1774591557986615
+   },
+   "slv_trend_1h": {
+    "n": 48,
+    "rho": 0.03545623592592791
+   },
+   "spy_pullback_1h": {
+    "n": 55,
+    "rho": -0.22387885065202434
+   },
+   "tlt_pullback_1h": {
+    "n": 74,
+    "rho": 0.04943956227008769
+   },
+   "trend_donchian": {
+    "n": 53,
+    "rho": 0.2476814998531994
+   },
+   "trend_donchian_ada_4h": {
+    "n": 26,
+    "rho": -0.17919460593271722
+   },
+   "trend_donchian_avax_4h": {
+    "n": 30,
+    "rho": 0.05540695530519714
+   },
+   "trend_donchian_eth": {
+    "n": 87,
+    "rho": 0.22179465100853765
+   },
+   "trend_donchian_eth_4h": {
+    "n": 24,
+    "rho": 0.29075141504135465
+   },
+   "trend_donchian_eth_prop": {
+    "n": 149,
+    "rho": 0.13734596933746784
+   },
+   "trend_donchian_sol": {
+    "n": 39,
+    "rho": -0.1661788635213025
+   },
+   "trend_donchian_sol_prop": {
+    "n": 45,
+    "rho": -0.22359994954082563
+   },
+   "uso_trend_1h": {
+    "n": 36,
+    "rho": 0.41645788722538923
+   },
+   "xrp_pullback_2h": {
+    "n": 37,
+    "rho": -0.12311670809454704
+   }
+  }
+ },
+ "note": "Stage-0 mechanism test on committed full-cost ledgers. A PASS authorises a budget-matched path A/B, never a config change."
+}

@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. ANSWER THE BROKER QUESTION FIRST, from IBKR documentation or a live experiment on ib_paper -- do NOT infer it from this repo, which contains no evidence either way. Arm a stop on an ib_paper futures position with `outsideRth=False`, move price through it outside RTH, and observe whether it fires.\n2. If stops ARE inert outside RTH: set `outsideRth=True` on the protective legs (Tier-3, operator-approved), and treat the interim as a known exposure window rather than a covered one.\n3. EITHER WAY, make `protection_coverage` report trigger-eligibility, not just restingness -- a boolean that cannot distinguish 'a leg exists' from 'a leg can fire' is the collapsed state here.\n4. Check the ENTRY bracket in `_locked_place` on the same axis while in there.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "grep -rn outsideRth across src/ — only the CLOSE path (a market order to flatten, in the same close method) now sets outsideRth=True, scoped deliberately per its own comment ('ENTRIES are untouched... widening this to the entry path is a separate decision'). place_protective (the actual SL/TP protective legs, _locked_place_protective) and the entry bracket in _locked_place both still create StopOrder/LimitOrder objects with no outsideRth reference anywhere in that code. So the finding's core claim — protective STOPs are RTH-trigger-only — is still true today; only an unrelated verb (the emergency close) got fixed.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane — first run the broker-fact experiment (arm a stop on ib_paper with outsideRth=False, move price through it outside RTH, observe whether it fires) since the repo has no evidence either way; then, if confirmed inert, a Tier-3 proposal to set outsideRth=True on protective legs and to make protection_coverage report trigger-eligibility rather than mere restingness. The experiment and the coverage-reporting fix are buildable without operator judgment; only the resulting Tier-3 flip (if any) goes to the operator.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] Every IB protective STOP is RTH-trigger-only: place_protective never sets outsideRth either, so a GTC stop on a ~23h futures contract may be inert for most of the day\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane — first run the broker-fact experiment (arm a stop on ib_paper with outsideRth=False, move price through it outside RTH, observe whether it fires) since the repo has no evidence either way; then, if confirmed inert, a Tier-3 proposal to set outsideRth=True on protective legs and to make protection_coverage report trigger-eligibility rather than mere restingness. The experiment and the coverage-reporting fix are buildable without operator judgment; only the resulting Tier-3 flip (if any) goes to the operator."
+}

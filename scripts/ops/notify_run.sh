@@ -166,6 +166,27 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    breakout-terminal-probe)
+        # READ-ONLY measurement of Breakout's proprietary terminal (PROP-TERM).
+        # Exit 4 is a FEASIBILITY finding, not a crash.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — probe completed (see run log)"; priority="normal" ;;
+            3) result="reached the terminal, read path partly unparsed"; priority="normal" ;;
+            4) result="feasibility stop (see run log)"; priority="high" ;;
+            5) result="environment — browser venv/Chromium unusable on the VM"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
+        esac
+        ;;
+    egress-landing-probe)
+        # READ-ONLY landing-page reachability probe of a fixed host allowlist.
+        # Any HTTP outcome is a measurement; only an environment fault fails.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — probe completed (see run log)"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
+        esac
+        ;;
     breakout-login-check)
         # READ-ONLY prop-terminal login check. Exit 4 is a FEASIBILITY finding
         # (challenge / CAPTCHA / 2FA / login rejected), not a crash.
@@ -179,11 +200,21 @@ case "${action}" in
         esac
         ;;
     set-account-mode)
+        # JC-CA-01 (2026-09-28): exit 0 means the mode-change PR was OPENED (or
+        # main already read that mode). The account has NOT changed mode until
+        # that PR merges; verify-account-mode reports the post-state.
         tier=2
         case "${exit_code}" in
-            0) result="ok"; priority="normal" ;;
-            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            0) result="PR opened — mode changes when it merges"; priority="normal" ;;
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    verify-account-mode)
+        tier=1
+        case "${exit_code}" in
+            0) result="converged — the running trader reads the new mode"; priority="normal" ;;
+            4) result="NOT CONVERGED — the VM does not run the mode main declares"; priority="urgent" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
         esac
         ;;
     set-env)

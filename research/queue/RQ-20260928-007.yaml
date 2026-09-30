@@ -1,0 +1,122 @@
+id: RQ-20260928-007
+title: M20 hard-lever sweep for the ict_scalp + 2h/1h pullback legs (BL-20260821 re-measure)
+status: done
+cadence: once
+kind: deterministic
+
+question: >-
+  BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON was re-measured
+  2026-09-28 (see origin below). Every scalp/pullback leg's p90 hold time and
+  declared-bracket exit share improved substantially since 2026-08-21, but
+  the family-wide declared-bracket share (41.0%) is still below the row's own
+  50% clears_when threshold, and several legs remain low outliers
+  (qqq_pullback_1h 12.5%, ada_pullback_2h 23.8%, xrp_pullback_2h 23.8%). Which
+  hard exit levers pass the exit-refinement gate for the twelve legs below
+  that are NOT already covered by RQ-20260928-006 (the BL-20260818 sweep)?
+
+why_not_inferential: >-
+  Same harness and same already-registered rule as RQ-20260928-006
+  (m20_fleet_exit_sweep.py / m20-exit-lever-sweep.yml, graded against
+  .claude/skills/exit-refinement/SKILL.md's Path A/Path B gate,
+  MIN_OOS_TRADES=25 floor, drawdown grant cap) — not a rule invented for
+  this unit. See that unit for the full rule text; not repeated here.
+
+origin:
+  pipeline_item: BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON
+  remeasured_by: exit-refinement lane, 2026-09-28
+  remeasured_how: >-
+    /api/diag/journal?table=trades&limit=1000 (Transport A, served by
+    https://ict-bot.duckdns.org, read 2026-09-28T11:59Z UTC), filtered to
+    status=closed, is_backtest=false, strategy matching ict_scalp_* or
+    *_pullback_*, n>=3 closes per leg (same floor the 2026-08-23 re-measure
+    used). bars_held = (closed_at - created_at) / the leg's own declared bar
+    length (parsed from its name suffix: 5m=300s, 15m=900s, 1h=3600s,
+    2h=7200s). declared-bracket share = closes whose exit_reason in
+    {tp, tp_cross, sl, sl_cross, tp2, tp2_cross} / all closes, per leg and
+    pooled.
+  population: >-
+    273 closed non-backtest scalp/pullback trades among the 1000 most recent
+    journal rows (ids 5252-6251), across 14 legs with n>=3 (7 legs excluded,
+    n<3 each: mgc_pullback_1d, sol_pullback_2h, iaum_pullback_1d,
+    gld_pullback_1d, slv_pullback_1d, tlt_pullback_1d, mhg_pullback_1d).
+    This is a recent-window population (most recent ~1000 journal rows), not
+    the full journal history the 2026-08-21/23 measurements used — a
+    different population, stated rather than implied.
+  p90_bars_held_by_leg: >-
+    ada_pullback_2h n=17 median=8.3 p90=36.7; eth_pullback_2h n=12 median=5.0
+    p90=47.5; ict_scalp_5m n=22 median=29.0 p90=83.5; ict_scalp_avax_5m n=54
+    median=17.1 p90=61.1; ict_scalp_eth_15m n=15 median=6.9 p90=13.0;
+    ict_scalp_mgc_15m n=12 median=45.2 p90=208.3; ict_scalp_sol_15m n=24
+    median=9.6 p90=72.6; ict_scalp_sol_5m n=32 median=19.2 p90=79.3;
+    ict_scalp_xrp_15m n=11 median=22.2 p90=44.9; ict_scalp_xrp_5m n=14
+    median=20.4 p90=55.9; qqq_pullback_1h n=8 median=107.1 p90=142.0;
+    spy_pullback_1h n=4 median=121.4 p90=142.0; tlt_pullback_1h n=7
+    median=47.0 p90=107.3; xrp_pullback_2h n=19 median=11.5 p90=53.5.
+    IMPROVEMENT NOTED, NOT YET CLEARED: every leg's p90 is now single- to
+    low-triple-digit bars versus the 2026-08-21 reading's 41.7h-11.3-day p90
+    holds; a committed per-leg "backtested horizon" artifact to compute the
+    row's own literal "3x backtested horizon" ratio was not found in this
+    lane's time budget (no such field exists in
+    comms/strategy_evidence/*.json or elsewhere checked) — flagged as a gap
+    rather than fabricated, see note below.
+  declared_bracket_share: >-
+    pooled 112/273 = 41.0% (row's own clears_when floor is 50%, NOT yet
+    met). Lowest per-leg: qqq_pullback_1h 12.5% (n=8), ada_pullback_2h 23.8%
+    (n=17), xrp_pullback_2h 23.8% (n=19).
+  horizon_artifact_gap: >-
+    No stored "backtested/design horizon" field per leg was found (checked
+    comms/strategy_evidence/*.json schema and config/strategies.yaml). The
+    row's clears_when as inherited names a ratio this lane cannot compute
+    without inventing a denominator. Filed as a fresh gap rather than
+    silently substituted — a follow-up unit to derive/backfill a per-leg
+    design-horizon field (e.g. from each harness's own median trade
+    duration) is needed before this row's clears_when can be graded
+    literally; until then this row is judged on the declared-bracket-share
+    half of its own clears_when, which IS computable and NOT yet met.
+
+decision_rule:
+  id: RULE-EXIT-REFINEMENT-P2-GATE
+  registered_at: '2026-08-10'
+  registered_before_run: true
+  statistic: 'net_R, maxDD, net_r_per_capital_day per cell — see .claude/skills/exit-refinement/SKILL.md "Gate"'
+  rule: >-
+    Same rule as RQ-20260928-006 (Path A / Path B, MIN_OOS_TRADES=25,
+    drawdown grant cap) — see that unit for full text. No cell here is
+    shipped by this unit; config/strategies.yaml is untouched.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 90
+  basis: >-
+    Same free-runner harness as RQ-20260928-006, 12 legs at the workflow's
+    own documented per-leg wall-clock.
+
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: 'ada_pullback_2h,eth_pullback_2h,ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m,tlt_pullback_1h,xrp_pullback_2h'
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+  note: >-
+    Same defaults as RQ-20260928-006 for the same reasons (live-parity TP
+    geometry, OOS-trades-targeted split so lower-frequency legs are
+    gradeable).
+
+lands:
+  store: runtime_logs/m20_fleet
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    Also update docs/research/exit-refinement-coverage.json in the SAME PR
+    as any verdict-producing cell, per that file's own contract.
+
+related:
+  - BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON
+  - RQ-20260928-006
+  - .claude/skills/exit-refinement/SKILL.md
+last_dispatched_at: '2026-09-28T14:11:42+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  VERDICT per leg (RULE-EXIT-REFINEMENT-P2-GATE, m20-exit-lever-sweep run 36434144288, 2026-09-28, research/results/_unattributed/36434144288.jsonl on main -- unattributed because run.inputs never carried research_unit): PASS ada_pullback_2h (n_OOS=49, base +19.6559, 1 of 17: vt_hot90_t2.5); PASS tlt_pullback_1h (46, -9.377, 2 of 17: trail2, trail4 -- a pass on a NEGATIVE base book: the cells beat the base, the leg itself still loses OOS); no_action_warranted eth_pullback_2h (48, +8.0729, 0/17), xrp_pullback_2h (49, +16.7031, 0/17), ict_scalp_5m (52, -2.2644, 0/4), ict_scalp_avax_5m (49, +5.7936, 0/4), ict_scalp_eth_15m (49, -4.559, 0/4), ict_scalp_sol_15m (50, +2.9858, 0/4), ict_scalp_sol_5m (50, +8.991, 0/4), ict_scalp_xrp_15m (50, -0.2867, 0/4), ict_scalp_xrp_5m (261, -17.6192, 0/4); INDETERMINATE ict_scalp_mgc_15m -- its sweep job failed in 1 s (no gradeable cell; the MGC frames on /home/ubuntu/m27_data did not yield a base book), re-run needed (pipeline item). No cell is shipped here. DELIVERABLE: ada_pullback_2h and tlt_pullback_1h passing cells are evidence for a Tier-3 declare proposal each (pipeline item, ask_operator). Coverage matrix updated in this PR. Net of the harness fee default only, stated.

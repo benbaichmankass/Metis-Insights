@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "kind": "event",
+    "clears_when": "RQ-20260928-011 is actually dispatched with args reconciled to the 2026-08-13 graduation run (trainer relay #8975), and either reproduces ETH ev_net_usd ~$883 / P(net>0) ~0.8477 (confirming the discrepancy was an arg/population mismatch this note explains) or documents a genuine drift since graduation."
+  },
+  "id": "PI-20260928-PEVRECON-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "research lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28 (Breakout-fit refill turn), while validating RQ-20260928-011 before dispatch",
+    "rerun": "python3 scripts/research/prop_ev_sim.py --trades trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl --ruleset config/prop_rulesets/breakout.yaml --costs breakout --sizing balance --risk-pct 0.015 --funded-start fresh --swap-model dxtrade --seed 1 (then read the 'path' mode's p_net_positive/ev_net_usd_per_life)"
+  },
+  "state": "queued",
+  "what": "A single exploratory prop_ev_sim.py run against the currently-committed trend_donchian_eth_prop trade evidence (comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl, n=169 trades, default --modes realized,bridge,stop,path, --sizing balance --risk-pct 0.015 --funded-start fresh --swap-model dxtrade, seed 1) gave p_net_positive of 0.336 / 0.2003 / 0.043 / 0.3115 across the four marking modes and ev_net_usd_per_life of 162.2 / 44.43 / -31.5 / 128.04 -- ALL well below the leg's own committed graduation figures (2026-08-13, trainer relay #8975: ev_net_usd +$883, P(net>0)=0.8477, n=1110 trades). This is a real, unreconciled discrepancy, not yet explained: candidate causes include (a) the graduation run used a DIFFERENT, larger trade population (n=1110 vs this file's n=169 -- the 2026-09-26 file may be a recent slice, not the full graduation-era history), (b) different account_size_usd or other ruleset/CLI args not recorded verbatim in the config comment, (c) a different --modes selection or MC settings, (d) genuine performance drift in the live geometry since 2026-08-13. NOT investigated further this session (time-boxed) rather than guessed at. Flagging BEFORE dispatching RQ-20260928-011 (the sizing-scheme comparison unit), which depends on correctly reproducing the baseline before comparing sizing arms against it -- a sizing comparison run against the wrong baseline would produce a confidently wrong verdict.",
+  "note_on_incident": "While investigating, this session ran `rm -rf research/results/_unattributed/` intending to remove only its own stray exploratory output file and instead deleted 13 pre-existing TRACKED files in that directory. Caught immediately (git status showed 13 unexpected deletions) and restored via `git checkout -- research/results/_unattributed/` before anything was committed or pushed -- verified clean afterward (14 files present, matching the pre-incident count, no diff). No data was lost; recorded here as a caution for the next session running prop_ev_sim.py locally: its --emit-result/--out default auto-lands into research/results/_unattributed/ alongside pre-existing files, so clean up with `rm` on the SPECIFIC new filename, never `rm -rf` the directory."
+}

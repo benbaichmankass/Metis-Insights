@@ -37,6 +37,19 @@ What it does, in order:
 7. Only with ``--emit-status``: posts ONE ``account_status`` to the local
    ``POST /api/bot/prop/report`` (the existing ingest chokepoint). Default OFF.
 
+``--storage-state PATH`` (used ONLY by the scheduled feed,
+``scripts/ops/prop_feed_tick.sh``; operator decision 2026-09-28 "Reuse saved
+session"): step 4 first opens the terminal with the Playwright storage_state
+saved at PATH and accepts it only on the same POSITIVE terminal marker a login
+needs (``DXtradeAdapter.resume_session`` -- which fills and clicks nothing).
+Anything else deletes the file and falls through to ONE normal credential
+login; there is no second attempt, so it can never loop. After a good session
+either way, the state is re-saved to PATH (mode 0600, atomic replace).
+Prints ``session: reused`` or ``session: relogin``. Without the flag
+(the ``breakout-login-check`` action) every run is a fresh login and prints
+``session: fresh``. The state file is a credential equivalent: this script
+never prints, dumps or posts its content -- only whether it was used.
+
 What it can NOT do: click any order control. The adapter's order methods
 raise ``NotImplementedError`` and this script never calls them.
 
@@ -70,13 +83,56 @@ EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV = 0, 1, 3, 4, 5
 # config/prop_rulesets/breakout_routing.yaml (2026-06-23). ADAUSD/XRPUSD are
 # CANDIDATE names only — the venue's convention of dropping the perp "T"
 # suffix, unconfirmed (PI-20260927-ODDTM5QY-0002) — this read either
-# confirms or refutes them, it does not assume them.
-DEFAULT_INSTRUMENT_SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD", "ADAUSD", "XRPUSD")
+# confirms or refutes them, it does not assume them. AVAXUSD (PROP-ETH,
+# 2026-09-29) is the SAME kind of candidate, added here so this passive read
+# at least reports whatever the terminal's own traffic happens to carry for
+# it; MEASURED 2026-09-29 (issue #14038) that this passive path reports
+# fields ONLY for symbols the terminal's own traffic already requests
+# (ETHUSD/SOLUSD, the routed strategies) — BTCUSD/ADAUSD/XRPUSD already
+# report nothing here, and AVAXUSD is expected to do the same until it is
+# reached by the active `instrument-probe` step (prop_executor_tick.py
+# --instrument-probe) instead.
+DEFAULT_INSTRUMENT_SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD", "ADAUSD", "XRPUSD", "AVAXUSD")
 
 
-def build_status_report(account_id: str, snapshot: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _strip_raw(items: list) -> list:
+    """Drop each row's vendor ``raw`` blob before it leaves this process —
+    same redaction the stdout print already applies (main(), the ``positions``/
+    ``orders`` loop); a report posted to a Tier-1 API is not the place to
+    forward whatever the terminal's DOM happened to carry."""
+    out = []
+    for it in items:
+        d = dict(it)
+        d.pop("raw", None)
+        out.append(d)
+    return out
+
+
+def build_status_report(
+    account_id: str, snapshot: Dict[str, Any],
+    positions: Optional[list] = None, orders: Optional[list] = None,
+) -> Optional[Dict[str, Any]]:
     """The ``account_status`` body for ``ingest_report``; None if balance AND
-    equity are both unread (never post a snapshot of nothing)."""
+    equity are both unread (never post a snapshot of nothing).
+
+    ``positions`` / ``orders`` are three-state, matching the read loop in
+    ``main()`` that produces them: ``None`` — the terminal read raised
+    (``LookupError``, e.g. an unparsed table), so this is "we did not look",
+    never "flat"; ``[]`` — a confirmed clean read of nothing resting; a
+    non-empty list — the rows themselves (``Position``/``WorkingOrder``
+    ``as_dict()``, ``raw`` stripped).
+
+    Before this, ``main()`` already read positions/orders off the terminal
+    every ``ict-prop-feed`` tick (5 min) and printed them to the unit's own
+    journal, but never forwarded them here — so ``prop_account_status`` (and
+    therefore ``GET /api/bot/prop/status``) carried balance/equity only, with
+    no durable broker-side record of open positions or their protective
+    levels at that same read. ``ingest_report`` (``src/prop/prop_report.py``)
+    already stores the WHOLE posted report verbatim in the ``raw`` column, so
+    adding these keys here is what it takes for that already-scheduled,
+    already-read-only tick to actually carry them forward — no schema change,
+    no new login, no new read.
+    """
     if snapshot.get("balance") is None and snapshot.get("equity") is None:
         return None
     return {
@@ -87,6 +143,8 @@ def build_status_report(account_id: str, snapshot: Dict[str, Any]) -> Optional[D
         "unrealized": snapshot.get("unrealized"),
         "realized_today": snapshot.get("realized_today"),
         "source": "breakout_login_check",
+        "open_positions": None if positions is None else _strip_raw(positions),
+        "open_orders": None if orders is None else _strip_raw(orders),
     }
 
 
@@ -102,6 +160,50 @@ def post_status(report: Dict[str, Any], api_base: str) -> Dict[str, Any]:
         req.add_header("Authorization", f"Bearer {token}")
     with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 (localhost)
         return json.loads(resp.read().decode() or "{}")
+
+
+def load_storage_state(path: str) -> Optional[Dict[str, Any]]:
+    """The saved session at ``path``, or None. A file that is not a JSON
+    object with a ``cookies`` list is corrupt: it is DELETED (so the next tick
+    cannot trip on it again) and None is returned. Never prints its content."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        state = json.loads(p.read_text())
+        if not isinstance(state, dict) or not isinstance(state.get("cookies"), list):
+            raise ValueError("not a storage_state object")
+        return state
+    except Exception as exc:
+        print(f"session: saved state unusable ({type(exc).__name__}); deleted", flush=True)
+        discard_storage_state(path)
+        return None
+
+
+def discard_storage_state(path: str) -> None:
+    try:
+        Path(path).unlink()
+    except FileNotFoundError:
+        pass
+
+
+def save_storage_state(context: Any, path: str) -> None:
+    """Write the context's storage_state to ``path``: created 0600 from the
+    first byte (never world-readable, even briefly), then atomically moved into
+    place. Prints only that it saved, never the content."""
+    state = context.storage_state()
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(f".{p.name}.tmp")
+    try:
+        tmp.unlink()
+    except FileNotFoundError:
+        pass
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(state, fh)
+    os.replace(tmp, p)
+    print("session: state saved", flush=True)
 
 
 def _redact(text: str, *secrets: str, limit: int = 0) -> str:
@@ -121,9 +223,15 @@ def main(argv: Optional[list] = None) -> int:
                     help="post ONE account_status through POST /api/bot/prop/report (default: off)")
     ap.add_argument("--api-base", default="http://127.0.0.1:8001")
     ap.add_argument("--timeout-s", type=int, default=45)
+    ap.add_argument("--dump-tables", action="store_true",
+                    help="print every table the read path extracts (kind, headers, row count, first rows, "
+                         "ids masked) and how the positions / orders readers classify it (read-only diagnostic)")
     ap.add_argument("--dump-dir", default="",
                     help="write the post-login page text + extracted tables here (on the VM, "
                          "never to stdout) so selectors can be fixed from the first live run")
+    ap.add_argument("--storage-state", default="",
+                    help="reuse/save the Playwright session at this path (the scheduled feed "
+                         "only; a credential equivalent -- never printed)")
     ap.add_argument("--symbols", default=None,
                     help="comma-separated symbols to read instrument specs for, from captured "
                          f"network responses (default: {','.join(DEFAULT_INSTRUMENT_SYMBOLS)}); "
@@ -167,22 +275,69 @@ def main(argv: Optional[list] = None) -> int:
                           f"{(str(exc).splitlines() or [''])[0]})", username, password, limit=400))
             return EXIT_ENV
         try:
-            context = browser.new_context()
-            page = context.new_page()
             if hasattr(adapter, "timeout_ms"):
                 adapter.timeout_ms = args.timeout_s * 1000
-            # Passive: attached BEFORE login so it also sees whatever the
-            # login/account flow itself triggers. Never clicks, fills or
-            # navigates anything.
+
+            def open_page(state: Optional[Dict[str, Any]]):
+                ctx = browser.new_context(storage_state=state) if state else browser.new_context()
+                pg = ctx.new_page()
+                # Passive: attached BEFORE login so it also sees whatever the
+                # login/account flow itself triggers. Never clicks, fills or
+                # navigates anything.
+                cap = []
+                if symbols and hasattr(adapter, "start_response_capture"):
+                    try:
+                        cap = adapter.start_response_capture(pg)
+                    except Exception as exc:
+                        print(_redact(f"instruments: capture ERROR ({type(exc).__name__}: {exc})",
+                                      username, password, limit=300))
+                return ctx, pg, cap
+
+            saved = load_storage_state(args.storage_state) if args.storage_state else None
+            reused = False
+            context = page = None
             captured_responses = []
-            if symbols and hasattr(adapter, "start_response_capture"):
+            if saved is not None and hasattr(adapter, "resume_session"):
                 try:
-                    captured_responses = adapter.start_response_capture(page)
+                    context, page, captured_responses = open_page(saved)
                 except Exception as exc:
-                    print(_redact(f"instruments: capture ERROR ({type(exc).__name__}: {exc})",
-                                  username, password, limit=300))
+                    print(f"session: saved state rejected by the browser ({type(exc).__name__}); deleted", flush=True)
+                    discard_storage_state(args.storage_state)
+                    context = None
+                if context is not None:
+                    try:
+                        st = adapter.resume_session(page, cfg["login_url"])
+                    except FeasibilityError as fe:
+                        # A challenge on the saved session: stop, never answer
+                        # it with a credential login.
+                        discard_storage_state(args.storage_state)
+                        print(_redact(f"feasibility: {fe.reason}" + (f" ({fe.detail})" if fe.detail else ""),
+                                      username, password))
+                        return EXIT_FEASIBILITY
+                    except Exception as exc:
+                        st = f"error {type(exc).__name__}"
+                    if st == "logged_in":
+                        reused = True
+                        print("session: reused", flush=True)
+                    else:
+                        print(f"session: saved state not accepted ({st}); deleted, logging in", flush=True)
+                        discard_storage_state(args.storage_state)
+                        try:
+                            context.close()
+                        except Exception:
+                            pass
+                        context = None
+            if context is None:
+                context, page, captured_responses = open_page(None)
             try:
-                adapter.login(page, cfg["login_url"], username, password)
+                if not reused:
+                    if args.storage_state:
+                        # Printed BEFORE the attempt so the feed counts every
+                        # credential submission, including rejected or
+                        # timed-out ones (its per-day relogin ceiling).
+                        print("session: login_attempt", flush=True)
+                    adapter.login(page, cfg["login_url"], username, password)
+                    print("session: relogin" if args.storage_state else "session: fresh", flush=True)
             except FeasibilityError as fe:
                 print(_redact(f"feasibility: {fe.reason}" + (f" ({fe.detail})" if fe.detail else ""),
                               username, password))
@@ -202,6 +357,12 @@ def main(argv: Optional[list] = None) -> int:
                               username, password, limit=600))
                 return EXIT_ERROR
             print("login: ok")
+            if args.storage_state:
+                try:
+                    save_storage_state(context, args.storage_state)
+                except Exception as exc:
+                    # Not fatal: the next tick simply logs in again.
+                    print(f"session: state NOT saved ({type(exc).__name__})", flush=True)
             try:
                 print(f"landed: {_redact(page.url, username, password)}")
             except Exception:
@@ -218,10 +379,15 @@ def main(argv: Optional[list] = None) -> int:
             if snap.get("balance") is None or snap.get("equity") is None:
                 rc = EXIT_UNPARSED
 
+            # None = the read raised (UNPARSED below) = "we did not look";
+            # kept distinct from `[]` all the way into the posted report
+            # (build_status_report / --emit-status), not just this printout.
+            read_rows: Dict[str, Optional[list]] = {"positions": None, "orders": None}
             for label, reader in (("positions", adapter.read_positions),
                                   ("orders", adapter.read_orders)):
                 try:
                     items = [i.as_dict() for i in reader(page)]
+                    read_rows[label] = items
                     print(f"{label}: {len(items)}")
                     for it in items:
                         it.pop("raw", None)
@@ -229,6 +395,14 @@ def main(argv: Optional[list] = None) -> int:
                 except LookupError as le:
                     print(_redact(f"{label}: UNPARSED ({le})", username, password))
                     rc = EXIT_UNPARSED
+
+            if args.dump_tables and hasattr(adapter, "dump_tables"):
+                try:
+                    for line in adapter.dump_tables(page, (username, password)):
+                        print(_redact(line, username, password))
+                except Exception as exc:
+                    print(_redact(f"dump_tables: FAILED ({type(exc).__name__}: {exc})",
+                                  username, password, limit=300))
 
             if rc == EXIT_UNPARSED and hasattr(adapter, "structure"):
                 try:
@@ -271,7 +445,9 @@ def main(argv: Optional[list] = None) -> int:
                     print("instruments: SKIPPED (adapter has no start_response_capture)")
 
             if args.emit_status:
-                report = build_status_report(args.account, snap)
+                report = build_status_report(
+                    args.account, snap,
+                    positions=read_rows["positions"], orders=read_rows["orders"])
                 if report is None:
                     print("emit_status: SKIPPED (balance and equity both unread)")
                 else:

@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "alpaca_portfolio's strategy list is a superset of alpaca_live's, verified by a check that compares the two rosters (so the drift cannot recur silently), and the two added legs have accrued a stated soak before any live-promotion decision cites the mirror.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-PORTFOLIO-MIRROR-MISSING-TWO-LIVE-LEGS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "Superseded by the 2026-09-21 operator decision (checklist row B2, cited in CLAUDE.md): alpaca_portfolio's mirror invariant moved from a SUBSET assertion to STRICT EQUALITY, and the roster was cut the same day (alpaca_live 16->3 legs, alpaca_portfolio 14->2 legs). Verified directly against config/accounts.yaml: alpaca_live strategies = [iaum_pullback_1d, ief_pullback_1d, slv_pullback_1d]; alpaca_portfolio = [ief_pullback_1d, slv_pullback_1d] — exactly alpaca_live minus the one sanctioned affordability-proxy carve-out (iaum_pullback_1d), matching tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies's expectation verbatim. The 'missing 2 of 16' framing no longer applies to the current (much smaller) roster.",
+  "triage_2026_09_28": {
+    "checked": "Loaded config/accounts.yaml with PyYAML and diffed alpaca_live vs alpaca_portfolio strategy lists; read tests/test_paper_portfolio_accounts.py's docstring and assertion logic (_ALPACA_PROXY_STRATEGIES, _expected_mirror_roster) confirming strict-equality-minus-proxies is now the enforced contract, DECIDED 2026-09-21 per its own comments.",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "Superseded by the 2026-09-21 operator decision (checklist row B2, cited in CLAUDE.md): alpaca_portfolio's mirror invariant moved from a SUBSET assertion to STRICT EQUALITY, and the roster was cut the same day (alpaca_live 16->3 legs, alpaca_portfolio 14->2 legs). Verified directly against config/accounts.yaml: alpaca_live strategies = [iaum_pullback_1d, ief_pullback_1d, slv_pullback_1d]; alpaca_portfolio = [ief_pullback_1d, slv_pullback_1d] — exactly alpaca_live minus the one sanctioned affordability-proxy carve-out (iaum_pullback_1d), matching tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies's expectation verbatim. The 'missing 2 of 16' framing no longer applies to the current (much smaller) roster."
+  },
+  "what": "[health] `alpaca_portfolio` does not mirror the `alpaca_live` roster — 2 of 16 live legs have no forward paper record at all\n\n[TRIAGE 2026-09-28] KILL — Superseded by the 2026-09-21 operator decision (checklist row B2, cited in CLAUDE.md): alpaca_portfolio's mirror invariant moved from a SUBSET assertion to STRICT EQUALITY, and the roster was cut the same day (alpaca_live 16->3 legs, alpaca_portfolio 14->2 legs). Verified directly against config/accounts.yaml: alpaca_live strategies = [iaum_pullback_1d, ief_pullback_1d, slv_pullback_1d]; alpaca_portfolio = [ief_pullback_1d, slv_pullback_1d] — exactly alpaca_live minus the one sanctioned affordability-proxy carve-out (iaum_pullback_1d), matching tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies's expectation verbatim. The 'missing 2 of 16' framing no longer applies to the current (much smaller) roster."
+}

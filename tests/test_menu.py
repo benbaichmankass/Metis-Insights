@@ -136,6 +136,84 @@ def test_accounts_view_empty():
     assert "No accounts" in out
 
 
+# ── gross exposure (BL-20260808) ─────────────────────────────────────────────
+# Two accounts, known position notionals, planted-control style: account A is
+# measured with a declared cap, account B is measured with no cap declared,
+# and a third is unmeasurable. Only the measured accounts' numbers should
+# appear; the unmeasurable one must render "—", never "0" or "0.0x".
+
+
+def test_accounts_view_gross_exposure_measured_with_cap():
+    out = menu.render_accounts_view([
+        {"account_id": "bybit_1", "exchange": "bybit",
+         "exposure": {
+             "measured": True, "policy_declared": True,
+             "max_gross_exposure_pct": 150.0,
+             "open_gross_notional": 5000.0, "exposure_multiple": 0.5,
+         }},
+    ])
+    assert "$5,000.00" in out
+    assert "0.50x" in out
+    assert "cap 150.0%" in out
+
+
+def test_accounts_view_gross_exposure_measured_no_cap():
+    out = menu.render_accounts_view([
+        {"account_id": "bybit_2", "exchange": "bybit",
+         "exposure": {
+             "measured": True, "policy_declared": False,
+             "max_gross_exposure_pct": None,
+             "open_gross_notional": 1250.75, "exposure_multiple": 0.125,
+         }},
+    ])
+    assert "$1,250.75" in out
+    assert "0.12x" in out
+    assert "no cap set" in out
+
+
+def test_accounts_view_gross_exposure_unmeasurable_renders_dash_not_zero():
+    out = menu.render_accounts_view([
+        {"account_id": "alpaca_live", "exchange": "alpaca",
+         "exposure": {
+             "measured": False, "policy_declared": False,
+             "unmeasured_reason": "equity_unavailable",
+         }},
+    ])
+    # The "Gross exposure" row must show em-dash, and the per-account
+    # unmeasurable exposure must never be confused with a flat ($0 / 0.0x)
+    # account — the collapsed-states rule this repo enforces.
+    assert "Gross exposure" in out
+    assert "$0.00" not in out
+    assert "0.00x" not in out
+
+
+def test_accounts_view_gross_exposure_missing_block_renders_dash():
+    # No 'exposure' key at all (e.g. an older status dict / no risk_manager).
+    out = menu.render_accounts_view([{"account_id": "x"}])
+    assert "Gross exposure" in out
+    assert "$0.00" not in out
+
+
+def test_exposure_str_two_accounts_distinguishes_measured_from_unmeasurable():
+    """Direct unit coverage of the formatter with two synthetic accounts."""
+    measured = menu._exposure_str({
+        "measured": True, "policy_declared": True,
+        "max_gross_exposure_pct": 200.0,
+        "open_gross_notional": 9999.99, "exposure_multiple": 1.0,
+    })
+    unmeasurable = menu._exposure_str({
+        "measured": False, "policy_declared": False,
+    })
+    flat = menu._exposure_str({
+        "measured": True, "policy_declared": False,
+        "open_gross_notional": 0.0, "exposure_multiple": 0.0,
+    })
+    assert measured == "$9,999.99 (1.00x) / cap 200.0%"
+    assert unmeasurable == "—"
+    assert flat == "$0.00 (0.00x) (no cap set)"
+    assert unmeasurable != flat  # unmeasured must never collapse into flat
+
+
 def test_strategies_view_renders_execution_and_running():
     out = menu.render_strategies_view([
         {"name": "vwap", "label": "VWAP", "execution": "shadow",

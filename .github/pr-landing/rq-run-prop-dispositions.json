@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Edits status:/result: on four research/queue units (RQ-20260928-011/-012/-013/-015) to record their gradings against their PRE-REGISTERED rules from the E5 records their token-free runner runs landed on main, and drops the undeclared run.inputs.script key from each; decision_rule blocks untouched. pr-landing-guard R5/E57 cannot vouch a non-stamp queue edit, so the manager reads it.",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH): the four prop units the lane retargeted to the runner have run end to end; landing their dispositions is the grading half of the lane's brief. Tier-1 by path: research/queue/*.yaml only. No src/, config/, order path, deploy or live-VM file; no strategy or sizing change (the -011 PASS is explicitly gated on the -015 escalation and files no Tier-3 proposal)."
+}

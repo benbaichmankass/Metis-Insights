@@ -1,0 +1,109 @@
+id: RQ-20260928-006
+title: M20 hard-lever sweep for the seven worst-covered price-only open legs (BL-20260818 re-measure)
+status: done
+cadence: once
+kind: deterministic
+
+question: >-
+  BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT was re-measured
+  2026-09-28 (see origin below). Of 20 open non-backtest trades, 0 have a
+  CONFIRMED live decision-driven exit path (worse than the 2026-08-18 reading
+  of 2/34); 11 (55%) are price_only; 9 (45%) are unknown (4 of those are the
+  M22 pairs sleeve, which runs an isolated order path this audit's resolver
+  does not cover — not evidence either way, and out of scope here). Which
+  hard exit levers (stale_stop, giveback_stop, trail_geometry, trail_decay)
+  pass the exit-refinement gate for the seven distinct legs carrying the 11
+  price_only trades, so a Tier-3 declare proposal can follow with evidence
+  instead of a config edit with none?
+
+why_not_inferential: >-
+  This runs the existing IS/OOS walk-forward lever sweep
+  (m20_fleet_exit_sweep.py, dispatched via m20-exit-lever-sweep.yml) over a
+  fixed set of legs and grades each cell against the ALREADY-REGISTERED gate
+  in .claude/skills/exit-refinement/SKILL.md (Path A: beats baseline on
+  net_R AND maxDD in both IS and OOS; Path B: improves net_r_per_capital_day
+  in both IS and OOS with maxDD non-worsening; MIN_OOS_TRADES=25 floor;
+  drawdown grant cap dN/N_b<=1.0) — the same deterministic rule every other
+  M20 sweep in this repo is graded against, not a rule invented for this
+  unit. A power/n analysis is the sweep's own MIN_OOS_TRADES floor, already
+  enforced inside the harness per cell.
+
+origin:
+  pipeline_item: BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT
+  remeasured_by: exit-refinement lane, 2026-09-28
+  remeasured_how: >-
+    scripts/ops/exit_path_coverage.py --self-test (19/19 passed) then
+    --journal-json /api/diag/journal?table=trades&limit=1000 (Transport A,
+    served by https://ict-bot.duckdns.org, read 2026-09-28T11:59Z)
+    --telemetry-json /api/diag/position_telemetry?limit=200
+    --broker-json /api/diag/ib_open_orders
+    --bybit-broker-json /api/diag/bybit_open_orders
+    --alpaca-broker-json /api/diag/alpaca_open_orders
+  population: 20 open, non-backtest trades (status=open, is_backtest=false), all three broker payloads supplied.
+  verdicts_measured: 'decision_exit_live=0, price_only=11 (55.0%), unknown=9 (45.0%), no_exit_path=0'
+  price_only_legs_and_counts: >-
+    trend_donchian_eth_4h=3, tlt_pullback_1d=2, gdx_pullback_1d=2,
+    qld_trend_long_1d=1, qqq_pullback_1h=1, spy_pullback_1h=1,
+    trend_donchian_ada_4h=1
+  price_only_causes: 'all_undeclared=5 (trend_donchian_eth_4h x3, qld_trend_long_1d, qqq_pullback_1h), mixed=6 (tlt_pullback_1d x2, gdx_pullback_1d x2, spy_pullback_1h, trend_donchian_ada_4h)'
+
+decision_rule:
+  id: RULE-EXIT-REFINEMENT-P2-GATE
+  registered_at: '2026-08-10'
+  registered_before_run: true
+  statistic: 'net_R, maxDD, net_r_per_capital_day per cell — see .claude/skills/exit-refinement/SKILL.md "Gate"'
+  rule: >-
+    A cell PASSES iff it clears Path A (beats baseline on net_R AND maxDD in
+    BOTH IS and OOS) OR Path B (improves net_r_per_capital_day in BOTH IS and
+    OOS with maxDD not worsening and net_R not falling more than the
+    declared floor), AND the base book holds >=25 OOS trades
+    (MIN_OOS_TRADES), AND the drawdown grant is capped at the base book's own
+    D_b. A cell below the OOS floor grades insufficient_base, not fail. No
+    cell here is shipped by this unit — the sweep result is evidence for a
+    separate Tier-3 declare proposal per leg, per the exit-refinement
+    pipeline's P6.
+  what_it_does_not_do: >-
+    Changes no config. config/strategies.yaml is untouched by this unit;
+    a passing cell becomes a Tier-3 declare PR only after this result lands.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 60
+  basis: >-
+    m20-exit-lever-sweep.yml already runs this exact harness (config-exact
+    IS/OOS lever sweep, live-parity TP geometry) on free GitHub-hosted
+    runners, one job per leg — verified by reading the workflow file. 7 legs
+    at its own documented per-leg wall-clock.
+
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: 'trend_donchian_eth_4h,tlt_pullback_1d,gdx_pullback_1d,qld_trend_long_1d,qqq_pullback_1h,spy_pullback_1h,trend_donchian_ada_4h'
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+  note: >-
+    tp_cap_pct left at the workflow's own live-parity default (0.099) per
+    BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP; split_mode left
+    at the workflow's own default (oos-trades, DEFAULT_SPLIT_TARGET_OOS=50)
+    so low-frequency legs (tlt_pullback_1d, gdx_pullback_1d,
+    qld_trend_long_1d are all 1d-timeframe, low trade count) are gradeable
+    rather than falling below MIN_OOS_TRADES on a fixed calendar split.
+
+lands:
+  store: runtime_logs/m20_fleet
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    Also update docs/research/exit-refinement-coverage.json in the SAME PR
+    as any verdict-producing cell, per that file's own contract
+    ("Update it in the SAME PR as any verdict-producing work").
+
+related:
+  - BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT
+  - .claude/skills/exit-refinement/SKILL.md
+last_dispatched_at: '2026-09-28T14:11:42+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  VERDICT per leg (RULE-EXIT-REFINEMENT-P2-GATE, m20-exit-lever-sweep run 36434140504, 2026-09-28; per-leg E5 rows in research/results/_unattributed/36434140504.jsonl, landing via PR #13653 -- unattributed because this unit's run.inputs never carried research_unit; split_mode oos-trades, tp_cap_pct 0.099): PASS gdx_pullback_1d (n_OOS=42, base +12.1294, 1 of 16 cells: vt_hot90_t2); PASS spy_pullback_1h (n_OOS=54, base +15.1456, 2 of 17: rrfloor1, vt_hot80_t2.5); no_action_warranted trend_donchian_eth_4h (49, +10.1061, 0/17), tlt_pullback_1d (48, +7.7486, 0/16), qld_trend_long_1d (28, +10.11, 0/16; 28 >= the 25-trade OOS floor, so graded), qqq_pullback_1h (48, +26.7453, 0/17), trend_donchian_ada_4h (48, -6.0401, 0/17). No cell is shipped here. DELIVERABLE: the two passing legs are evidence for a Tier-3 declare proposal each (pipeline item, ask_operator, in this PR). docs/research/exit-refinement-coverage.json updated in this PR for every swept lever column (passed_unshipped on the passing cells; honest_negative refs refreshed elsewhere; shipped/n/a cells untouched). Net of the m20 harness's own fee default only -- no slippage/funding term in this sweep, stated.

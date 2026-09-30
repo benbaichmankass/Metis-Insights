@@ -1,0 +1,106 @@
+name: research-queue-grade
+
+# RESULTS GET GRADED WITHOUT A SESSION (operator, 2026-09-28, relayed by the
+# manager). Runs scripts/research/queue_grade.py: for every queued unit that
+# has run and is mechanically gradable (template-generated, or opted in with
+# `grading: {auto: true}`), reads its committed E5 rows / corpus rows, applies
+# the unit's own pre-registered rule mechanically (unanimity over the rows),
+# and lands the disposition as line-level edits: done on pass /
+# no_action_warranted; a first FAIL re-queues for a confirmatory run (never a
+# kill on one pass); anything ambiguous gets `grading.needs_review: true` for a
+# session. Recurring units are never closed, only their `grading.latest` is
+# refreshed.
+#
+# The landing PR self-lands ONLY because check_pr_landing.py re-runs
+# `queue_grade.py --verify` at the merge-base and demands the same bytes.
+#
+# Every 6 h at :50 -- 30 min after the dispatcher's :20 slot, so a unit that
+# landed its result during the previous window is graded before the next
+# dispatch decides what is due.
+#
+# Tier-1: reads research/results + corpora, writes research/queue/RQ-*.yaml
+# only. No live path, no order path, no VM.
+
+on:
+  schedule:
+    - cron: "50 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: research-queue-grade
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
+  grade:
+    needs: dedupe
+    if: |
+      !cancelled() && needs.dedupe.outputs.skip != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pyyaml
+        run: pip install --quiet pyyaml
+      - name: Grade every ran, mechanically-gradable unit
+        id: grade
+        run: |
+          set -euo pipefail
+          python3 scripts/research/queue_grade.py --self-test
+          python3 scripts/research/queue_grade.py --write | tee /tmp/grade.txt
+          echo "count=$(git status --porcelain research/queue | wc -l | tr -d ' ')" >> "$GITHUB_OUTPUT"
+      - name: Land the dispositions on main
+        if: steps.grade.outputs.count != '0'
+        uses: ./.github/actions/commit-to-main
+        with:
+          verify-merged: "true"
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: research/queue
+          message: "research-queue: mechanical grading (run ${{ github.run_id }})"
+          pr-title: "research-queue: mechanical grading (auto)"
+          pr-body: >-
+            Dispositions written by scripts/research/queue_grade.py from the
+            committed results, against each unit's pre-registered rule.
+            Self-lands only while `queue_grade.py --verify` reproduces every
+            edit at the merge-base (check_pr_landing.py E58).
+          branch-prefix: automation/research-queue-grade
+      - name: Summarize
+        if: always()
+        run: |
+          { echo "### research-queue grade"; echo; echo '```'; cat /tmp/grade.txt 2>/dev/null || echo "(no output)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

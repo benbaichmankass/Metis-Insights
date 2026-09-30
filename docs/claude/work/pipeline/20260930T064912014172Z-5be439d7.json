@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A proposed: entry for the soak Path-B mandate is merged to config/mandates.yaml and put to the operator, who grants or declines it; or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-AQRK6CL1-0013",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "operator",
+    "ref": "Operator popup 2026-09-29 (manager session_01HYq6XtfesZ57VyaQrK6CL1) on #14332: chose 'Ship it (Recommended)', which included drafting this mandate proposal",
+    "rerun": "grep -n 'soak' config/mandates.yaml for a Path-B soak mandate under proposed: or mandates:; absent = still open."
+  },
+  "routed_to": "PATHB-MANDATE",
+  "severity": "low",
+  "state": "routed",
+  "tier": 3,
+  "what": "PROPOSE a mandate (operator grants, never a session) for a decision that has now arrived twice in the same shape: shipping an exit-refinement cell that passes the P2 gate's Path B (walk-forward pass, net R up, maxDD worse) on a leg that sits ONLY on soak rosters (bybit_1 / alpaca_paper, no real money). Occurrences: operator approved ~10 sibling legs' sm* cells on 2026-08-30; operator popup 2026-09-29 ~21:05Z 'Ship it' on #14332 (spy_pullback_1h sm1.5), with the manager's popup stating a mandate would be drafted. Draft a `proposed:` entry in config/mandates.yaml. Bounds: soak-only rosters, verified at fire time from config/accounts.yaml; a walk-forward pass per the skill's fold rule; a committed corpus row, net of the full cost stack, from a cost-complete harness; never on a leg present on any Stage-2 roster. Firing opens a PR and pings. Also say whether Path B's thresholds (exit-refinement SKILL.md ~L151-158, 'NOT yet set') must be set first; if so, that is part of this task. The manager reviews and puts it to the operator."
+}

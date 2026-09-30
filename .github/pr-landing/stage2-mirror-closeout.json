@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: closes four pipeline items (E8Y3BGBS-0002/-0003, SVBNZOVH-0001/-0002) whose clears_when conditions are met on main by merged PRs #14539, #14543, #14558. No code, config, order path or risk change."
+}

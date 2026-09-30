@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a landing-only breakout-terminal-probe from the production egress reaches the dashboard login page (no Error 1005 / feasibility: asn_blocked), OR the manager kills this row with a stated reason",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-FRJ7NMPU-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-TERM session_01DRfUhAJ93tkSDcfRj7nmpu, for manager session_01HYq6XtfesZ57VyaQrK6CL1; issue #14402 run 36623749022",
+    "rerun": "open a system-action issue: action: breakout-terminal-probe / reason: <why> (landing only, no apply:), then read the run log for 'Error 1005' or 'feasibility: asn_blocked'"
+  },
+  "state": "queued",
+  "what": "[PROP-TERM BLOCKER] Breakout's proprietary terminal (app.breakoutprop.com) is ASN-BLOCKED from the Oracle live VM. MEASURED 2026-09-29 20:04:53Z, breakout-terminal-probe landing only (issue #14402, run 36623749022): HTTP 403, Cloudflare Error 1005 'Access denied ... The owner of this website (app.breakoutprop.com) has banned the autonomous system number (ASN) your IP address is in' (the ASN number is truncated in the log); page counts iframes 1, inputs 0, canvases 0. Population: one landing load from the production egress; no credentials used, nothing clicked. It blocks every item in PI-20260928-DRBVUUDJ-0001 (A1)-(A12) that needs the terminal reached from the VM: the dashboard login, the Open Terminal hand-off, account/table/quote/ticket layouts, venue names and lots, and every dry or armed action. The DXtrade terminal (wss.breakoutprop.com, breakout_1, live since ~18:24Z) is a different host and is NOT affected. Reaching this terminal would need a different egress; that is an OPERATOR DECISION and nothing here designs or builds one (no proxy, no residential IP, no routing around the ban). Since this PR the probe reports it as 'feasibility: asn_blocked' (exit 4), not 'unknown' / exit 0."
+}

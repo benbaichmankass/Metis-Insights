@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "clears_when": "check_operator_owed.py exits 0 against main -- i.e. the four named rows are acted on, moved, deferred, or killed",
+    "kind": "event"
+  },
+  "id": "PI-20260927-EPMBGUYB-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/claude/work/MANAGER-CHECKLIST.json row E7 / PR #13090",
+    "rerun": "python3 scripts/ci/check_operator_owed.py"
+  },
+  "state": "killed",
+  "terminal_reason": "Ran python3 scripts/ci/check_operator_owed.py directly against current main: it now exits 0 ('OK — 124 owed row(s), none past twice its own declared cadence'). Checked the pipeline store for the four specifically-named rows' latest records: OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED... latest state 'routed', PI-20260924-GIGNEYV1-0001 latest state 'done', PI-20260924-MQ3CDMU6-0001 latest state 'routed', PI-20260924-MQ3CDMU6-0002 latest state 'routed'. All four have been acted on/moved since this row was filed (PR #13090 era), satisfying the row's own clears_when exactly.",
+  "triage_2026_09_28": {
+    "checked": "See terminal_reason - verified by actually running the rerun command and by reading the four named rows' current states directly from docs/claude/work/pipeline/.",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "Ran python3 scripts/ci/check_operator_owed.py directly against current main: it now exits 0 ('OK — 124 owed row(s), none past twice its own declared cadence'). Checked the pipeline store for the four specifically-named rows' latest records: OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED... latest state 'routed', PI-20260924-GIGNEYV1-0001 latest state 'done', PI-20260924-MQ3CDMU6-0001 latest state 'routed', PI-20260924-MQ3CDMU6-0002 latest state 'routed'. All four have been acted on/moved since this row was filed (PR #13090 era), satisfying the row's own clears_when exactly."
+  },
+  "what": "operator-owed-guard (scripts/ci/check_operator_owed.py), a REQUIRED 'guards' check on every PR, is FAILING on current main tip (reproduced directly against origin/main, no diff applied) because four rows are past their declared check_every_days: OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE, PI-20260924-GIGNEYV1-0001, PI-20260924-MQ3CDMU6-0001, PI-20260924-MQ3CDMU6-0002. Since this is a required check on every PR (not diff-scoped), it blocks EVERY Tier-1 self-land repo-wide, not just the one PR (#13090) that surfaced it to this lane -- e.g. PR #13090 (E7 yfinance dependency fix) has auto-merge enabled and every other check green but cannot land while this one stays red. Found while landing checklist row E7; not fixed here because dispositioning those four specific rows (act/move/defer/kill) needs domain engagement on unrelated matters (a bybit hedge-book gap, two unspecified PI items) that this lane has no basis to judge.\n\n[TRIAGE 2026-09-28] KILL — Ran python3 scripts/ci/check_operator_owed.py directly against current main: it now exits 0 ('OK — 124 owed row(s), none past twice its own declared cadence'). Checked the pipeline store for the four specifically-named rows' latest records: OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED... latest state 'routed', PI-20260924-GIGNEYV1-0001 latest state 'done', PI-20260924-MQ3CDMU6-0001 latest state 'routed', PI-20260924-MQ3CDMU6-0002 latest state 'routed'. All four have been acted on/moved since this row was filed (PR #13090 era), satisfying the row's own clears_when exactly."
+}

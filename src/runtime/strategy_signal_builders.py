@@ -1693,6 +1693,113 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("trend_donchian_1h", sig)
 
 
+#: Ticks after a bar closes during which a ``decision_bar: closed`` leg still
+#: evaluates it (live tick ~2 min → 3 chances). Later ticks are a no-op so one
+#: closed bar cannot re-fire for the whole next bar.
+_CLOSED_DECISION_FRESH_SECONDS = 360.0
+#: A tick landing this soon after the boundary waits for the next tick: the
+#: venue may not have folded the bar's last trades into it yet. (One observed
+#: point: the 16:00Z close read final at +3 s. Not a guarantee.)
+_CLOSED_DECISION_SETTLE_SECONDS = 5.0
+
+
+#: leg -> open time (epoch s) of the last closed bar it evaluated in-window /
+#: whose missed window it already warned about. Process-local by design.
+_CLOSED_BAR_EVALUATED: dict[str, float] = {}
+_CLOSED_BAR_MISS_LOGGED: dict[str, float] = {}
+
+
+def _closed_window_skip(timeframe: str, vcfg: dict, *, name: str = "",
+                        now: float | None = None) -> str | None:
+    """Skip reason for a ``decision_bar: closed`` leg BEFORE any candle fetch.
+
+    A closed-bar leg only has work to do in the first ``decision_bar_fresh_seconds``
+    after a bar boundary, so outside that window it must not fetch at all (which
+    also removes a venue round-trip per tick), and inside it the caller fetches
+    with the cache bypassed so the closed bar is read from a frame fetched AFTER
+    the close (PI-20260930-GQPT6PQF-0002: a cached frame can predate the close
+    and hand back the still-forming bar as if it had closed). Returns ``None``
+    when the leg should evaluate; ``forming`` legs always return ``None``.
+    """
+    if str(vcfg.get("decision_bar") or "forming").lower() != "closed":
+        return None
+    import time as _time
+    from src.runtime.closed_bars import TF_SECONDS
+    tf_s = TF_SECONDS.get(str(timeframe))
+    if not tf_s:
+        return "closed_bar_unreadable"
+    now_s = _time.time() if now is None else float(now)
+    fresh = float(vcfg.get("decision_bar_fresh_seconds") or _CLOSED_DECISION_FRESH_SECONDS)
+    boundary = (now_s // tf_s) * tf_s
+    if now_s - boundary < _CLOSED_DECISION_SETTLE_SECONDS:
+        return "closed_bar_settling"
+    if now_s - boundary <= fresh:
+        return None
+    closed_open = boundary - tf_s
+    if _CLOSED_BAR_EVALUATED.get(name) == closed_open:
+        return "closed_bar_already_evaluated"
+    if _CLOSED_BAR_MISS_LOGGED.get(name) != closed_open:
+        _CLOSED_BAR_MISS_LOGGED[name] = closed_open
+        logger.warning(
+            "%s: closed bar opened %s was never evaluated inside its %.0fs window "
+            "(tick gap or restart) — that bar's entry is skipped",
+            name, closed_open, fresh)
+    return "closed_bar_stale_window_missed"
+
+
+def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
+                    name: str = "", now: float | None = None) -> tuple[Any, str | None]:
+    """Frame the leg's entry decision runs on: ``(frame, skip_reason)``.
+
+    ``decision_bar: forming`` (default — unchanged behaviour) evaluates the
+    frame as fetched, whose last row is the still-forming bar. ``closed``
+    trims it (``src.runtime.closed_bars``, FIX-CA-23) so the decision is read
+    on the CLOSED bar exactly as the Stage-0 harness scores it
+    (PI-20260930-QZSE4AMA-0002), and returns a ``skip_reason`` once that closed
+    bar is older than ``decision_bar_fresh_seconds`` (already had its ticks).
+    """
+    mode = str(vcfg.get("decision_bar") or "forming").lower()
+    if mode == "forming":
+        return candles_df, None
+    if mode != "closed":
+        raise ValueError(f"decision_bar={mode!r} (expected closed|forming)")
+    import time as _time
+    from src.runtime.closed_bars import (
+        TF_SECONDS, _epoch_seconds, _last_timestamp, drop_forming_bar,
+        last_bar_is_forming,
+    )
+    now_s = _time.time() if now is None else float(now)
+    frame = drop_forming_bar(candles_df, timeframe, now=now_s)
+    tf_s = TF_SECONDS.get(str(timeframe))
+    open_s = _epoch_seconds(_last_timestamp(frame))
+    if tf_s is None or open_s is None:
+        return frame, "closed_bar_unreadable"
+    fresh = float(vcfg.get("decision_bar_fresh_seconds") or _CLOSED_DECISION_FRESH_SECONDS)
+    if now_s - (open_s + tf_s) > fresh:
+        # Two different stories that must not read alike: this process evaluated
+        # the bar inside its window (normal, quiet) vs. never saw it in-window
+        # (tick gap / restart: the trade for that bar is LOST, so say so once).
+        if _CLOSED_BAR_EVALUATED.get(name) == open_s:
+            return frame, "closed_bar_already_evaluated"
+        if _CLOSED_BAR_MISS_LOGGED.get(name) != open_s:
+            _CLOSED_BAR_MISS_LOGGED[name] = open_s
+            logger.warning(
+                "%s: closed bar opened %s was never evaluated inside its %.0fs window "
+                "(tick gap or restart) — that bar's entry is skipped",
+                name, open_s, fresh)
+        return frame, "closed_bar_stale_window_missed"
+    # The bar may only be decided on once the VENUE has opened the next one: a
+    # frame whose last row is not forming (no next bar yet — a fresh response a
+    # few seconds after the boundary, a pre-close frame, or a venue/VM clock
+    # skew) ends in the just-closed bar, possibly without its final trades, and
+    # drop_forming_bar (which reads only the clock) would keep it. Not marked
+    # evaluated: the next tick in the window retries.
+    if not last_bar_is_forming(candles_df, timeframe, now=now_s):
+        return frame, "closed_bar_unconfirmed"
+    _CLOSED_BAR_EVALUATED[name] = open_s
+    return frame, None
+
+
 def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]:
     """Shared builder for the prop alt variants (trend_donchian_sol/_eth).
 
@@ -1725,8 +1832,18 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
         })
 
     timeframe = str(vcfg.get("timeframe") or "1h")
+    _closed = str(vcfg.get("decision_bar") or "forming").lower() == "closed"
+    if _closed:
+        _skip = _closed_window_skip(timeframe, vcfg, name=name)
+        if _skip is not None:
+            return _with_signal_package(name, {
+                "symbol": symbol, "side": "none",
+                "meta": {"strategy_name": name, "reason": _skip},
+            })
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    # closed legs bypass the candle cache: the frame must be fetched AFTER the close
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200,
+                               **({"bypass_cache": True} if _closed else {}))
     if candles_df is None:
         raise RuntimeError(
             f"{name}: no candle data for symbol={symbol} timeframe={timeframe}.")
@@ -1734,6 +1851,13 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
     _publish_liquidity_state(symbol, candles_df)
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **vcfg}
     cfg["strategy_label"] = name
+
+    candles_df, _skip = _decision_frame(candles_df, timeframe, vcfg, name=name)
+    if _skip is not None:
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {"strategy_name": name, "reason": _skip},
+        })
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)

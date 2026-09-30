@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "JC-CA-01, operator decision 2026-09-28 ~06:25Z relayed by manager session_01KAQRJxRbRwpYTkPgBjNVyQ ('Commit to main'). This changes the set-account-mode system-action, the only sanctioned writer of an account's mode, so it is Tier 2. The manager's dispatch says: 'Tier 2: landing hold; the manager reviews independently before merge.' Approval is sought from the manager, acting on that operator decision.",
+  "why": "set-account-mode edited only the VM working tree, and ict-git-sync reverted it within ~5 min (CA-A12-set-account-mode-not-durable). Now the action opens a Tier-3 hold PR that changes the one mode: line on main (with the dry-run-guard operator marker), and account-mode-verify.yml dispatches a read-only verify-account-mode after the merge to check the running trader over SSH."
+}

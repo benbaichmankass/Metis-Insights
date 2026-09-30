@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "an unknown window token on /api/bot/performance is refused or reported instead of silently mapped to 'all'",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-VOLSKIP-SIGNAL-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLSKIP-SIGNAL (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, SIGNAL-0005 pricing",
+    "rerun": "grep -n 'window = window if window in _WINDOWS else' src/web/api/routers/performance.py  # finding holds while this silent mapping line exists"
+  },
+  "state": "queued",
+  "what": "[api][collapsed-state] GET /api/bot/performance silently answers an UNKNOWN window token with ALL-TIME data: src/web/api/routers/performance.py:135 _WINDOWS accepts exactly 4 tokens (24h, 7d, 30d, all) and line 1202 `window = window if window in _WINDOWS else \"all\"` maps anything else (e.g. '90d', '180d', a typo) to all-time with no error and no read-state field saying so. Consumer at risk measured 2026-09-29: .github/workflows/r4-demotion-gate.yml passes its workflow_dispatch `window` input straight through as ?window=, so a dispatch with window=90d would grade every Stage-2 leg on all-time data under MD-DEMOTE-S2-S1 (an auto-landing mandate) while its record says 90d. Fix: reject an unknown token (HTTP 400 naming the accepted set) or echo the window actually applied; do not map silently."
+}

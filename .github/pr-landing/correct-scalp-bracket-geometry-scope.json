@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "coverage-matrix status correction + pinned-test-count fix + pipeline finding record; no runtime, order path, or live config touched"
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: PROP-ETH-DOM latch clean-up after -probe #14831 on PI-20260929-AQRK6CL1-0014 (SOLUSD verified click-free, halt cleared, halted:null observed). No code, config or runtime change."
+}

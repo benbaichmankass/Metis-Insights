@@ -40,7 +40,7 @@ ANYTHING** — the run succeeds because the agent correctly reports that it cann
 do the work.
 
 THE POPULATION IS DERIVED FROM WHAT EXISTS, NEVER HAND-MAINTAINED
------------------------------------------------------------------
+-------------------------------------------------------------------
 ⚠️ **A HAND-MAINTAINED LIST REINTRODUCES THE BUG IN NEW CLOTHES**: a check that
 never registers is invisible again. So the population is DERIVED — from
 `.github/workflows/*.yml` carrying `on.schedule.cron` and from `deploy/*.timer`
@@ -185,6 +185,15 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    by the detector itself on every run and landed through commit-to-main,
     #    so a detector that stops firing goes STALE here and reds CI rather
     #    than leaving "no alert" to be read as "nothing lost".
+    # ── JC-SA-01 (2026-09-29): the daily grader appends to the score file
+    #    and lands it through commit-to-main, so the last commit touching it
+    #    IS the receipt. (Its reviewed_at age is ALSO graded, more tightly,
+    #    by check_grading_freshness.py.)
+    "grade-closed-trades.yml": {
+        "receipt": "comms/claude_strategy_scores.jsonl",
+        "why": "the workflow appends and commits the score file itself via "
+               "commit-to-main; the last commit touching it IS the receipt",
+    },
     "research-loss-detector.yml": {
         "receipt": "docs/claude/work/RESEARCH-LOSS-RECEIPT.json",
         "why": "the detector writes the receipt on every run and commits it "
@@ -195,20 +204,114 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    just has not been declared yet. Measured 2026-09-22: 9 of the 18
     #    scheduled workflows contain a commit-to-main / git push step. Naming
     #    the output path for each is the obvious next shrink of this file.
+    "grading-freshness-alert.yml": {"receipt": None, "why": "quiet by design when grading is fresh: it commits nothing and its only output is a Telegram ping on stale/unreadable; a dead run is caught by claude-run-failure-alert (GRADE-ALERT 2026-09-29)"},
     "schedule-keeper.yml": {"receipt": None, "why": "no in-repo trace by design: it reads the Actions API and dispatches; it also fires on every push to main, so its own cron is only the night-time floor (W6-OPS-R 2026-09-27)"},
+    "exit-cell-mandate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch) or a NEEDS-DATA row that no open row already names; a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
     "r4-demotion-gate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch); a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
-    "econ-calendar-produce.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
-    "econ-event-study.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
-    "macro-producer-liveness.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
-    "macro-valuation-snapshot.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
-    "replay-pregate-nightly.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
-    "soak-book-grade-weekly.yml": {"receipt": None, "why": "commits back (comms/research/soak_book_grade/<date>.json, a new filename per run, plus research/results/_unattributed/); no fixed path yet — a future latest.json pointer would make this gradeable"},
-    "research-queue-dispatch.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
-    "stale-automation-sweep.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
-    "strategy-review-packets.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
+    # RQ-RUN (2026-09-28): the queue's own replenisher and grader. Both commit
+    # ONLY when they changed a unit (a full queue / nothing new to grade is a
+    # clean no-op), so no unconditional receipt path exists; a dead scheduled
+    # run is caught by claude-run-failure-alert (both are on its list) and a
+    # queue that is not being refilled pages through research-queue-dispatch's
+    # queue-health alarm (scripts/ci/check_research_queue_health.py).
+    # FIX-SA-13 (2026-09-29): weekly full-history gitleaks. A scan that finds nothing
+    # writes nothing on purpose -- its report is deleted so no artifact can carry a
+    # matched value on this PUBLIC repo -- so there is no receipt path to name. A dead
+    # run is caught by claude-run-failure-alert (it is on that list).
+    "gitleaks-history-weekly.yml": {"receipt": None, "why": "writes nothing by design (report deleted; public repo); outcome is the run's pass/fail + job summary, and a dead run is caught by claude-run-failure-alert"},
+    "research-queue-replenish.yml": {"receipt": None, "why": "commits only when it generated units; a full queue is a no-op by design -- a dead run is caught by claude-run-failure-alert, a dry queue by the dispatcher's queue-health alarm"},
+    "research-queue-grade.yml": {"receipt": None, "why": "commits only when a unit's grade changed; nothing-to-grade is a no-op by design -- a dead run is caught by claude-run-failure-alert"},
+    # ── PI-20260922-ONLY-1-OF-38 triage (2026-09-28): the 6 below were
+    #    re-measured by reading each workflow file rather than trusting the
+    #    "commits back" label above. Field beats comment: `git grep` for
+    #    `commit-to-main` inside macro-producer-liveness.yml and
+    #    stale-automation-sweep.yml (below) hits only PROSE COMMENTS about
+    #    *other* workflows -- neither one actually calls the action -- so
+    #    they keep `receipt: None` with a corrected `why` instead of gaining
+    #    a fabricated path. The other 6 do commit a FIXED, overwritten (or
+    #    append-only) path every run and are declared here; one
+    #    (strategy-review-packets.yml) needed one new `cp` line to a fixed
+    #    sibling file because its own committed output was date-keyed.
+    "econ-calendar-produce.yml": {
+        "receipt": "comms/macro/econ_calendar_upcoming.json",
+        "why": "full-regenerated from ALL committed captures every run and "
+               "committed via commit-to-main -- a fixed, overwritten path",
+    },
+    "econ-event-study.yml": {
+        "receipt": "comms/macro/econ_event_study_scorecard.json",
+        "why": "the eia_natgas_storage scorecard is rewritten every run and "
+               "committed via commit-to-main -- a fixed, overwritten path "
+               "(the workflow also writes per-event scorecards at other "
+               "paths; this one alone is enough to grade liveness)",
+    },
+    "macro-producer-liveness.yml": {
+        "receipt": None,
+        "why": "CORRECTED 2026-09-28 (was mislabelled 'commits back'): this "
+               "workflow reads OTHER producers' commit history to grade "
+               "them and mentions commit-to-main only in a comment about "
+               "that -- it does not itself commit to main, so no receipt "
+               "path exists to declare",
+    },
+    "macro-valuation-snapshot.yml": {
+        "receipt": "comms/macro/valuation_snapshots.jsonl",
+        "why": "appended every run and committed via commit-to-main -- a "
+               "fixed path whose mtime (last-commit date) advances on "
+               "every successful run",
+    },
+    "replay-pregate-nightly.yml": {
+        "receipt": "runtime_logs/replay_pregate/latest.json",
+        "why": "a COMPLETE run copies its report to this fixed sibling "
+               "path (alongside the dated runtime_logs/replay_pregate/"
+               "<ts>.json) and commits it via commit-to-main; a PARTIAL "
+               "run deliberately does NOT touch latest.json, so this path "
+               "only advances on a run that reached a real verdict",
+    },
+    "soak-book-grade-weekly.yml": {
+        "receipt": None,
+        "why": "CORRECTED 2026-09-28: the dated measurement file "
+               "(comms/research/soak_book_grade/<date>.json) is written "
+               "to the runner's checkout but this workflow's own steps "
+               "never commit it -- only the research-result composite "
+               "action's pointer record lands, at a run_id-keyed path "
+               "under research/results/_unattributed/ that is new every "
+               "run and so cannot serve as a fixed receipt either. The "
+               "2026-09-26 measurement file that IS in git history landed "
+               "through an unrelated stray-file sweep commit (#13553), not "
+               "through this workflow. Adding a real commit step for the "
+               "measurement file is a workflow-behavior change, not a "
+               "registry declaration, and is left as a follow-up rather "
+               "than rushed here.",
+    },
+    "research-queue-dispatch.yml": {
+        "receipt": "docs/claude/work/research-queue-dispatch-receipt.json",
+        "why": "CORRECTED 2026-09-28: this workflow already has a "
+               "dedicated 'Write the liveness receipt' step that writes "
+               "this exact path unconditionally every run and lands it "
+               "via commit-to-main with verify-merged: true -- the "
+               "registry simply had not been told about it",
+    },
+    "stale-automation-sweep.yml": {
+        "receipt": None,
+        "why": "CORRECTED 2026-09-28 (was mislabelled 'commits back'): "
+               "this workflow's commit-to-main mentions are prose about "
+               "the callers whose stranded automation PRs it sweeps -- it "
+               "does not itself commit to main, so no receipt path exists "
+               "to declare",
+    },
+    "strategy-review-packets.yml": {
+        "receipt": "comms/strategy_reviews/latest.json",
+        "why": "as of 2026-09-28 the 'Select what to commit' step also "
+               "copies each run's INDEX.json to this fixed sibling path, "
+               "committed under the same already-declared "
+               "'paths: comms/strategy_reviews' -- the per-day INDEX.json "
+               "alone was not gradeable (a new directory name every day)",
+    },
     # ── workflows that leave NO in-repo trace. Their run history lives in the
     #    Actions API, which this guard does not call (a guard that needs the
     #    network is a guard that reds on an outage). Declared, not graded.
+    "account-broker-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only "
+                                     "-- same record-every-run/comment-on-change tracking-issue "
+                                     "design as broker-bracket-reconcile.yml below"},
     "alpaca-settlement-soak-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "broker-bracket-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "dashboard-edge-watch.yml": {
@@ -238,6 +341,8 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "ict-heartbeat.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-hourly-snapshot.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-executions-pull.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
+    "ict-trainer-disk-alarm.timer": {"receipt": None, "why": "VM-side (FIX-SA-12); it writes runtime_logs/trainer_disk_alarm_state.json on the live VM, which is not in the repo; the surface is the diag relay (unit state + journal)"},
+    "ict-prop-feed.timer": {"receipt": None, "why": "VM-side; its receipt is prop_account_status rows (source=breakout_login_check) read via GET /api/bot/prop/status"},
     "ict-ib-gateway-reset.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-gateway-watchdog.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-insights-generator-strategies.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
@@ -265,6 +370,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
 #: that "may only shrink" grew with every addition. Name every later entry here.
 REGISTERED_AFTER_BASELINE: frozenset[str] = frozenset({
     "research-loss-detector.yml",   # E57, 2026-09-24
+    "account-broker-reconcile.yml",  # RECON, 2026-09-29
 })
 
 BASELINE_2026_09_22: dict[str, str] = {

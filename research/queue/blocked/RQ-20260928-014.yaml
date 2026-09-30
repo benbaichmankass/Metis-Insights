@@ -1,0 +1,149 @@
+id: RQ-20260928-014
+title: >-
+  ict_scalp_avax_5m confirming walk-forward — accrual-gated: the disjoint OOS
+  window the operator wants does not exist yet (evidence already extends to
+  2026-09-26, 2 days before this registration) — pre-registered rule, waiting
+  on real new data, not a same-window re-run
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  Manager direction 2026-09-28 14:15Z: #13617 widened atr_sl_buffer_mult
+  0.20->0.50 for ict_scalp_avax_5m; the regenerated Stage-0 evidence
+  (comms/strategy_evidence/ict_scalp_avax_5m.json, verified this session)
+  now reads net_r_oos +6.4895 / n=257 / folds_positive 2/4 (was -9.1340 /
+  1/4 at 0.20). "But 0.50 was chosen after seeing the data and the leg is
+  in shadow (#13607). Pre-register a confirming run on a later/disjoint
+  window, like GLD's today: if it passes, the leg returns to bybit_1 paper
+  under the operator's data-backed authority." Question, once genuinely
+  new (post-selection) data exists: does the SAME atr_sl_buffer_mult=0.50
+  config clear RULE-D1-STAGE0-NET-OF-FULL-COST on a window that could not
+  have influenced the 0.20->0.50 choice?
+
+why_this_matters: >-
+  ⚠️ VERIFIED THIS SESSION, and it changes what "today" can do: the
+  committed evidence's own fold 4 already ends 2026-09-26 13:50 UTC — TWO
+  DAYS before this registration (2026-09-28). #13617's sizing comparison and
+  the Stage-0 regen both drew on the SAME 365-day rolling window ending
+  there. There is therefore NO disjoint OOS data available right now to
+  confirm against -- running the harness today would re-measure the same
+  history the parameter was already chosen and regenerated on, which is
+  exactly the in-sample leakage the operator's own caution names, not a
+  fix for it. GLD's confirming run worked because meaningful fresh data
+  had genuinely accrued past its original evidence cutoff; AVAX's has not.
+  Registering this as ACCRUING (not queued-and-immediately-runnable) is the
+  honest version of "pre-register a confirming run" -- the alternative
+  (running it today) would produce a result that LOOKS like a confirmation
+  but tests nothing new, which is worse than waiting.
+
+power:
+  expected_n: 88
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Standard d=0.3 floor (~87-90 obs), same convention as this repo's other
+    confirming-walkforward units (RQ-20260928-... GLD result, landed
+    2026-09-28). AVAXUSDT 5m trade density: each ~91-day fold in the
+    committed evidence carries ~64 trades (257/4), so ~88 fresh OOS trades
+    needs roughly one fold-width (~3 months) of NEW bars past 2026-09-26 --
+    stated here as the accrual target, not assumed available.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      NOT YET FEASIBLE. Needs ~3 months of AVAXUSDT 5m bars to accrue past
+      2026-09-26 (the committed evidence's own cutoff) before ~88 genuinely
+      post-selection trades exist to grade. Re-check accrual via
+      `origin.rerun` below; do not dispatch early on partial data (an
+      underpowered partial read would itself become a new in-sample peek).
+
+design:
+  method: >-
+    Once accrual clears: scripts/ops/build_strategy_evidence.py
+    --strategy ict_scalp_avax_5m --days <N, covering ONLY the new span> --folds 1
+    (a single fresh OOS block, not the 4-fold rolling design, since the
+    point is one clean post-selection read, not a re-derivation of the
+    walk-forward). Compare against the SAME atr_sl_buffer_mult=0.50 config
+    already live in config/strategies.yaml (no parameter re-tuning here --
+    that would reopen the same leakage question this unit exists to close).
+  data_gap_measured: >-
+    This session confirmed (git show origin/main:comms/strategy_evidence/
+    ict_scalp_avax_5m.json): fold 4 spans 2026-06-11 17:30 -> 2026-09-26
+    13:50 UTC. Registration timestamp 2026-09-28 -- a 2-day, not 3-month,
+    gap.
+
+decision_rule:
+  id: RULE-RQ0928-014-AVAX-SCALP-CONFIRM
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    net_r_oos and folds_positive (here: pass/fail on the single fresh block,
+    since n=1 "fold" -- report net_r and expectancy_r directly) from the
+    fresh, strictly-post-2026-09-26 OOS block, at atr_sl_buffer_mult=0.50,
+    net of the full cost stack (fee 7.5bps / slippage 3.0bps / funding
+    1.0bps, matching #13617's own stack).
+  rule: >-
+    PASS (return to bybit_1 paper, operator's data-backed authority per the
+    2026-09-28 direction) IF net_r > 0 AND n_trades >= 88 (the power floor)
+    on the fresh block.
+    UNDERPOWERED IF n_trades < 88 -- wait for more accrual, do not grade.
+    FAIL IF net_r <= 0 on a powered fresh block -- leg stays in shadow;
+    per the operator's standing rule, not a permanent kill, re-checked on
+    the NEXT accrual window rather than closed.
+  what_it_does_not_do: >-
+    Does not re-tune atr_sl_buffer_mult or any other lever -- confirms or
+    disconfirms the ALREADY-CHOSEN 0.50 value only. Does not touch
+    config/strategies.yaml (leg stays `execution: shadow` until a human
+    reads a PASS and flips it, per the operator's own "if it passes ...
+    ships" framing, mirroring how the GLD unit was handled).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 15
+  basis: >-
+    scripts/backtest_ict_scalp.py on a single ~3-month AVAXUSDT 5m window is
+    fast (#13617's own 365d/251-trade run was well under a minute per its
+    own test-plan evidence).
+
+blocked_on:
+  - what: >-
+      No disjoint OOS data exists yet. The committed Stage-0 evidence's own
+      fold 4 (the population #13617's atr_sl_buffer_mult 0.20->0.50
+      comparison and this leg's regenerated Stage-0 grade both drew on)
+      already runs through 2026-09-26 13:50 UTC -- two days before this
+      unit's registration (2026-09-28). Dispatching today would re-measure
+      the SAME history the parameter was chosen on, not confirm it.
+    ref: null
+    clears_when: >-
+      ~3 months of fresh AVAXUSDT 5m candle history accrue past
+      2026-09-26 (enough for ~88 new trades at this leg's measured density
+      of ~64 trades/91-day fold, the d=0.3 power floor). Re-check via
+      `git show origin/main:comms/strategy_evidence/ict_scalp_avax_5m.json`
+      and confirm a fresher fold exists before dispatching.
+
+run:
+  workflow: 'none — session-local, scripts/ops/build_strategy_evidence.py, once accrual clears'
+  inputs:
+    research_unit: RQ-20260928-014
+    note: >-
+      Do not dispatch before checking accrual (see design.data_gap_measured)
+      -- re-run `git show origin/main:comms/strategy_evidence/ict_scalp_avax_5m.json`
+      and confirm at least ~3 months of new candle history exists past its
+      current fold-4 end date before firing.
+
+lands:
+  store: docs/research/avax-scalp-confirm/confirming-walkforward.json
+  assert_field: net_r
+  min_rows: 1
+
+related:
+  - 'config/strategies.yaml:ict_scalp_avax_5m (shadow, atr_sl_buffer_mult 0.50)'
+  - '#13617 (the sizing-widening PR this confirms)'
+  - 'PI-20260922-UTN353OZ-0001 (the demotion-to-shadow record this unit could reverse)'
+  - 'docs/research/gld-1h-stop-confirm/2026-09-28-confirming-walkforward.md (the precedent this mirrors)'
+last_dispatched_at: null

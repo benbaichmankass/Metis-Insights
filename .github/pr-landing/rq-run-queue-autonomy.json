@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Adds E58 to scripts/ci/check_pr_landing.py: a research-queue PR from the two automation producers (research-queue-replenish / research-queue-grade) self-lands ONLY when the producer's own --verify reproduces every queue change byte-for-byte at the merge-base. Landing machinery by the guard's own list, so a human (the manager) reads it. Also stacks on #13728 and #13730 (both must land first).",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), operator widening 2026-09-28: the queue must run 24/7 without Claude. Adds research/templates/ (five pre-registered families), scripts/research/queue_replenish.py + queue_grade.py, research-queue-replenish.yml + research-queue-grade.yml, the queue-health alarm in the dispatcher, keeper targets, tests and docs. Tier-1 by path (CI/tooling/research files); no config/, src/ or live path."
+}

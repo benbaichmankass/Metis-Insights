@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: requirements document for the free local egress agent (operator provisions, what we build, failure modes, step-zero command) plus its document-index row. Nothing built, bought, deployed or routed; no src/, config/, workflow or runtime file touched. Nothing was run on any home or candidate egress."
+}

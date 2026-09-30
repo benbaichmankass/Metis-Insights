@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01QLcLE9ogmHJziMbtg1yDoi",
+  "branch": "sa-infra/fix-sa-08-12-onfailure-disk-alarm",
+  "claimed_at": "2026-09-29T12:06:48Z",
+  "purpose": "FIX-SA-08/12 OnFailure alerting + trainer disk alarm"
+}

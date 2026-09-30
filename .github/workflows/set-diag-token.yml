@@ -137,7 +137,9 @@ jobs:
           template="$(cat <<'REMOTE'
           set -euo pipefail
           NEW_TOKEN='__TOKEN__'
-          ENVFILE=/etc/ict-trader/web-api.env
+          ENVFILE="${DIAG_SYSTEM_ENV:-/etc/ict-trader/web-api.env}"
+          DOTENV="${DIAG_ENV_FILE:-/home/ubuntu/ict-trading-bot/.env}"
+          LEGACY_TOKEN_FILE="${DIAG_LEGACY_TOKEN_FILE:-/etc/ict-trading-bot/diag_token}"
           UNIT=ict-web-api.service
 
           # 0. FINGERPRINT WHAT THE VM SERVES, BEFORE WE TOUCH ANYTHING.
@@ -204,6 +206,42 @@ jobs:
           sudo install -m 600 -o root -g root "$tmp" "$ENVFILE"
           rm -f "$tmp"
           echo ">>> DIAG_READ_TOKEN updated in $ENVFILE (mode 600 root:root)"
+
+          # 2b. Mirror scripts/ops/init_diag_token.sh's file handling
+          #     (2026-09-27, SEC-DT): systemd applies web-api.env FIRST and
+          #     .env LAST, so a stale DIAG_READ_TOKEN line in .env silently
+          #     SHADOWS whatever step 2 just wrote to $ENVFILE -- root cause
+          #     of issue #13506 / run 36387625918 (2026-09-28), where this
+          #     run reported success while the VM kept serving the old
+          #     token. Update $DOTENV ONLY WHEN it already carries the key
+          #     (never ADDING a new shadowing line), preserving its ubuntu
+          #     ownership by writing through the existing inode (cp onto an
+          #     existing file keeps owner+mode, unlike `install -o -g`), and
+          #     back it up first exactly like $ENVFILE above. Also refresh
+          #     the legacy $LEGACY_TOKEN_FILE that
+          #     scripts/deploy_pull_restart.sh falls back to, if present.
+          if sudo test -f "$DOTENV" && sudo grep -q '^DIAG_READ_TOKEN=' "$DOTENV" 2>/dev/null; then
+            sudo cp -a "$DOTENV" "$DOTENV.bak.$(date +%s)"
+            tmp2="$(mktemp)"; chmod 600 "$tmp2"
+            sudo grep -v '^DIAG_READ_TOKEN=' "$DOTENV" > "$tmp2" 2>/dev/null || true
+            printf 'DIAG_READ_TOKEN=%s\n' "$NEW_TOKEN" >> "$tmp2"
+            sudo cp "$tmp2" "$DOTENV"
+            rm -f "$tmp2"
+            echo ">>> DIAG_READ_TOKEN updated in $DOTENV (existing owner/mode preserved)"
+          else
+            echo ">>> $DOTENV absent or does not carry DIAG_READ_TOKEN — left untouched (never adding a new shadowing line)"
+          fi
+
+          if sudo test -f "$LEGACY_TOKEN_FILE"; then
+            sudo cp -a "$LEGACY_TOKEN_FILE" "$LEGACY_TOKEN_FILE.bak.$(date +%s)"
+            tmp3="$(mktemp)"; chmod 600 "$tmp3"
+            printf '%s\n' "$NEW_TOKEN" > "$tmp3"
+            sudo cp "$tmp3" "$LEGACY_TOKEN_FILE"
+            rm -f "$tmp3"
+            echo ">>> DIAG_READ_TOKEN updated in $LEGACY_TOKEN_FILE"
+          else
+            echo ">>> $LEGACY_TOKEN_FILE absent — left untouched"
+          fi
 
           # 3. Restart web-api so the new EnvironmentFile is read.
           WRAPPER=/home/ubuntu/ict-trading-bot/scripts/ops/restart_web_api.sh

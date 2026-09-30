@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Both donchian evidence JSON files carry top-level harness, git_sha and rerun fields, and the strategies.yaml decision_bar comment cites the file holding the +16.36R live-anchor number, observed by reading those files on main.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-GQPT6PQF-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane DONCHIAN-PARITY (session_01KjACh47AwiaCPSgQPT6PQF), dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30",
+    "rerun": "python3 -c \"import json;d=json.load(open('docs/research/evidence/donchian-live-stop-anchor-2026-09-30.json'));print([k for k in ('harness','git_sha','rerun') if k not in d])\" -- non-empty output means still open."
+  },
+  "state": "queued",
+  "what": "[hygiene] docs/research/evidence/donchian-live-stop-anchor-2026-09-30.json (PR #14577) has no top-level harness name, git sha or rerun command, so the record cannot be reproduced from its own fields; and the strategies.yaml comment on trend_donchian_xrp_4h decision_bar cites donchian-closed-vs-forming-parity-2026-09-30.json while the +16.36R live-anchor figure lives in the live-stop-anchor file. Fix: add harness/sha/rerun to both evidence JSON writers (scripts/research/donchian_closed_vs_forming_parity.py) and point the yaml comment at the right file.",
+  "why_it_matters": "An evidence record for a real-money leg that cannot name the code that produced it is a claim, not a record."
+}

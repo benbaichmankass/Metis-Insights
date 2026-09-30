@@ -108,3 +108,20 @@ def test_a_partial_failure_still_reports_the_denominator() -> None:
     """1 of 3 ran and emitted nothing: honest, but the reader needs the count."""
     msg = R.empty_round_reason(3, 1, 0)
     assert "1 of 3" in msg
+
+
+def test_fold_mode_is_forwarded_preflighted_and_stamped():
+    """`--fold-mode years` must reach train_exit_head, be pre-flighted like
+    `--fold-offset`, and be stamped in BOTH `_round_meta` and each evidence row.
+
+    RQ-20260928-005's per-year re-registration needs the trainer's `years` cut;
+    the driver did not forward it, so the only way to run it was by hand.
+    """
+    src = (REPO / "scripts/research/m20_exit_head_round.py").read_text()
+    assert '"--fold-mode"' in src and 'choices=["trades", "years"]' in src
+    assert 'train_cmd += ["--fold-mode", a.fold_mode]' in src
+    assert '["--fold-mode"] if a.fold_mode' in src, "pre-flight must cover the flag"
+    assert src.count('"fold_mode": a.fold_mode') == 2, (
+        "fold_mode must be stamped on _round_meta AND on every evidence row")
+    trainer = (REPO / "scripts/ml/train_exit_head.py").read_text()
+    assert '"--fold-mode"' in trainer and '"years"' in trainer

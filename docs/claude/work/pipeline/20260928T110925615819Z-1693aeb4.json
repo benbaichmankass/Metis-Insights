@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "When an options strategy meets the promotion bar (adequate n, positive expectancy net of debit, healthy lifecycle handling), propose the Tier-3 alpaca_live+alpaca_portfolio options wiring for operator approval. If the soak stays negative or thin, it stays paper-only and the portfolio carries no options.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed config/accounts.yaml alpaca_options_paper (L1637+) still runs the SLV/GDX debit_vertical soak (options.express_as: debit_vertical, symbols [SLV, GDX]), still paper-only. Confirmed alpaca_live/alpaca_portfolio carry no options strategies — alpaca_live's only strategy is the unrelated tlt_pullback_1h plumbing-test leg. Whether the soak now clears the promotion bar (adequate n, positive expectancy net of debit) requires live P&L data this repo-only session cannot read.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — this is a standing 'assess the soak when it matures' item; the promotion bar is already well-defined (adequate n, positive expectancy net of debit, healthy lifecycle handling), so what's needed is a live P&L pull on the alpaca_options_paper soak, not a new judgment call.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] Options in the Alpaca portfolio: ONLY real-money-graduated options strategies (operator decision 2026-07-20) — assess SLV/GDX debit-vertical soak for graduation\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — this is a standing 'assess the soak when it matures' item; the promotion bar is already well-defined (adequate n, positive expectancy net of debit, healthy lifecycle handling), so what's needed is a live P&L pull on the alpaca_options_paper soak, not a new judgment call."
+}

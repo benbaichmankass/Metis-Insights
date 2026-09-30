@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260929-301.yaml is a new queue unit (a registration), outside TIER1_SURFACE; the manager merges after reading it.",
+  "why": "research tooling + evidence only: a default-off entry_override hook in scripts/backtest_pullback.py and scripts/backtest_trend.py (verified byte-identical when unused on both legs), the RQ-20260929-301 replay script and its evidence record, the queue unit, pipeline records. Verdict HARNESS_MODELS_FORMING: no runtime, order path, strategy or config touched."
+}

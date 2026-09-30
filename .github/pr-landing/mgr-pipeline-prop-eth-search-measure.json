@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: PROP-ETH instrument probe needs a read-only DOM measurement of the search control (run #14457: n_candidate_inputs 0)."
+}

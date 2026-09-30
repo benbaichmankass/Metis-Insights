@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "coverage-matrix status correction + corpus row commit + pinned-test-count fix + pipeline update; no runtime, order path, or live config touched"
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260929-302.yaml is a new queue unit (a registration), outside TIER1_SURFACE; the manager merges after reading it.",
+  "why": "research tooling + evidence only: a default-closed decision_bar=forming mode in scripts/backtest_pullback.py and scripts/backtest_trend.py (byte-identical when closed, verified on both RQ-301 legs), the shared scripts/research/forming_bar_entries.py, the RQ-20260929-302 pooled re-grade script and evidence, the queue unit, pipeline records. Verdict INCONCLUSIVE: no runtime, order path, strategy or config touched."
+}

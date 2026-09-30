@@ -85,8 +85,17 @@ on:
 # NEVER be cancelled by a `pull_request` run on the same ref, or the merge queue
 # stalls on a required check that reports `cancelled`. Same shape as guards.yml.
 concurrency:
+#
+# PUSH TO MAIN IS NOT CANCELLED (2026-09-29, PI-20260929-AQRK6CL1-0003). The
+# group is per-ref, so with `cancel-in-progress: true` every merge cancelled the
+# previous main run: measured 15 of the last 19 completed push-to-main runs were
+# `cancelled`, so main rarely finished a post-merge run and a semantic break
+# between two PRs each green on an older base went uncaught. Cancellation stays
+# for pull_request/merge_group/dispatch; for push the running run finishes and
+# GitHub keeps at most ONE pending run in the group (a newer push replaces the
+# pending one), bounding cost at one running + one pending instead of one per merge.
   group: pytest-run-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read
@@ -249,6 +258,13 @@ jobs:
           #     ongoing cost — this tree is frozen by convention — but a future PR that
           #     moved or deleted it would otherwise falsify the test's premise on a
           #     green tick from a run that executed nothing.
+          #   .gitleaks-baseline.json, docs/security/gitleaks-baseline.md
+          #     tests/test_gitleaks_baseline.py (PI-20260929-SASEC-0001) reads BOTH: the
+          #     baseline is the accepted-findings list the weekly secret scan trusts, and
+          #     the test pins that the four known-revoked entries stay baselined AND named
+          #     in the notes doc and that no vendor-token shape hides in the file. A PR
+          #     touching only them would otherwise pass having run none of that. Cost:
+          #     the baseline changes only when someone re-baselines on purpose.
           #
           # THE COST IS REAL AND IS BEING PAID DELIBERATELY. ARCHITECTURE-
           # CANONICAL.md is edited by many docs-only PRs, and each now pays a
@@ -262,7 +278,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^docs/claude/work/SESSIONS\.json$|^docs/archive/2026-09-21-operating-reset/work/SESSIONS\.json$|^docs/claude/session-board\.json$|^docs/claude/work/objects/WO-20260901-PHASE-G\.yaml$|^docs/research/e35-bracket-corpus\.jsonl$|^docs/research/research-disposition-ledger\.jsonl$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$|^docs/claude/soak-doctrine-exceptions\.json$|^docs/claude/system-review-checklist\.json$|^docs/research/data/backtest-mfe-reference-2026-09-07\.json$|^docs/claude/work/objects/|^docs/api-tier-policy\.md$|^docs/CLAUDE-RULES-CANONICAL\.md$|^docs/sprint-logs|^docs/claude/health-review-backlog\.json$|^docs/claude/OPEN-ITEMS\.json$|^docs/claude/work/MANAGER-CHECKLIST\.json$|^docs/claude/work/PIPELINE\.jsonl$|^docs/claude/work/OPEN-PRS\.json$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^docs/claude/work/SESSIONS\.json$|^docs/archive/2026-09-21-operating-reset/work/SESSIONS\.json$|^docs/claude/session-board\.json$|^docs/claude/work/objects/WO-20260901-PHASE-G\.yaml$|^docs/research/e35-bracket-corpus\.jsonl$|^docs/research/research-disposition-ledger\.jsonl$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$|^docs/claude/soak-doctrine-exceptions\.json$|^docs/claude/system-review-checklist\.json$|^docs/research/data/backtest-mfe-reference-2026-09-07\.json$|^docs/claude/work/objects/|^docs/api-tier-policy\.md$|^docs/CLAUDE-RULES-CANONICAL\.md$|^docs/sprint-logs|^docs/claude/health-review-backlog\.json$|^docs/claude/OPEN-ITEMS\.json$|^docs/claude/work/MANAGER-CHECKLIST\.json$|^docs/claude/work/PIPELINE\.jsonl$|^docs/claude/work/OPEN-PRS\.json$|^\.gitleaks-baseline\.json$|^docs/security/gitleaks-baseline\.md$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"

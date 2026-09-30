@@ -1,0 +1,153 @@
+name: research-script-run
+
+# THE TOKEN-FREE RESEARCH RUNNER (lane RQ-RUN, 2026-09-28).
+#
+# WHY. MEASURED on origin/main at 17:45Z the same day: the dispatcher's dry run
+# over 27 queue units gave would_dispatch=7, and five of the seven declared
+# `run.workflow: "none — session-local ..."`. `_fire` then ran
+# `gh workflow run "none — ..."`, which fails — research-queue-dispatch run
+# 36434038723 ended red on exactly that. Every session-local unit was waiting
+# on a Claude session, i.e. on tokens, while Claude usage was capped and
+# 4-core runners sat idle. Operator, 2026-09-28: "keep the research queue
+# moving through the slowdown, even if we're out of tokens we should still be
+# making the most of the other resources available."
+#
+# WHAT IT DOES. Takes ONE input that names a queue unit, reads that unit's
+# `run.command`/`run.commands` FROM THE CHECKED-OUT REF, runs it on the
+# runner, lands the outputs under comms/research/<unit>/<run_id>/ and then an
+# E5 result record via the shared research-result action. The command is
+# never a dispatch input: the only way to make this runner execute something
+# is to land a YAML change on main through the same review everything else
+# gets. scripts/research/script_run.py owns the contract and refuses:
+#   * any script not under scripts/research/ or scripts/backtest*.py,
+#   * any argv[0] other than python3/python (no shell, no -c, no -m),
+#   * any token carrying `..`, a newline or NUL.
+# scripts/ci/check_research_script_run.py re-checks every unit that targets
+# this file on every PR, and checks that this file still declares ONLY the
+# two inputs below.
+#
+# SECRETS. This workflow holds nothing beyond the ambient GITHUB_TOKEN and
+# checks out with persist-credentials: false — the unit's script cannot reach
+# a PAT. NO PAT IS USED HERE AT ALL: the run only UPLOADS its outputs (plus
+# `record-inputs.json`, the E5 record's inputs derived from what it wrote) as
+# an artifact.
+#
+# LANDING IS BATCHED (manager review, 2026-09-29 01:27Z). Until then a `land`
+# job here opened TWO auto-merge PRs per unit (outputs, then the record), each
+# with a 30-min verify-merged wait and a full CI fan-out; sixteen units fired in
+# one cycle put ~130 CI jobs in the same runner pool every system-action
+# (set-env, flatten, the Breakout AUTO-REVERT) waits in. Now
+# scripts/research/collect_runner_results.py, run at the top of every
+# research-queue-dispatch cycle, downloads every completed run's artifact that
+# is not yet on main, emits the records through research-result's own emitter,
+# and the dispatcher lands the whole batch in ONE commit-to-main PR and asserts
+# every record landed. Artifacts are kept 14 days, i.e. 56 cycles of slack.
+#
+# `power_state` is the dispatcher's COMPUTED R4 safety label, passed through
+# verbatim to the record (see .github/actions/research-result): `accruing`
+# means "do not read this run's output as a test result". It is a label, not
+# a command, and the runner never branches on it.
+#
+# landed-by: scripts/research/collect_runner_results.py
+#
+# Tier-1: runs on the GitHub-hosted runner, reads the repo, writes only
+# comms/research/** and research/results/**. No live path, no order path,
+# no VM.
+
+on:
+  workflow_dispatch:
+    inputs:
+      research_unit:
+        description: "The queue unit to run (RQ-YYYYMMDD-NNN). Its run.command is read from research/queue/<id>.yaml on this ref."
+        required: true
+      power_state:
+        description: "Pass-through dispatcher power-state label, if any (never a command)"
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  # One run per unit at a time: two runs of the same unit would race on the
+  # same comms/research/<unit>/ landing PR. Different units run in parallel.
+  group: research-script-run-${{ github.event.inputs.research_unit }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # 360 = the runner brain's MAX_TIMEOUT_MIN (330) + install/checkout/upload.
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The unit's script must not be able to reach any credential.
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyyaml requests
+      - name: Check the unit's declared command against the allowlist
+        env:
+          UNIT: ${{ inputs.research_unit }}
+        run: |
+          set -euo pipefail
+          python3 scripts/research/script_run.py --self-test
+          python3 scripts/research/script_run.py --unit "${UNIT}" --run-id "${GITHUB_RUN_ID}" --check
+      - name: Run the unit's command(s)
+        id: run
+        # continue-on-error so a failing script still uploads its manifest and
+        # logs and derives a `producer_failed` record — a run that exits red
+        # having produced nothing is the invisible failure this runner exists
+        # to end. The last step re-asserts the failure.
+        continue-on-error: true
+        env:
+          UNIT: ${{ inputs.research_unit }}
+        run: |
+          set -euo pipefail
+          python3 scripts/research/script_run.py --unit "${UNIT}" --run-id "${GITHUB_RUN_ID}" --run
+      - name: Derive the result record into the artifact
+        if: always()
+        env:
+          UNIT: ${{ inputs.research_unit }}
+          POWER_STATE: ${{ inputs.power_state }}
+        run: |
+          set -euo pipefail
+          python3 scripts/research/script_run.py --unit "${UNIT}" --run-id "${GITHUB_RUN_ID}" \
+            --derive-record --power-state "${POWER_STATE}" > /dev/null
+          test -s "comms/research/${UNIT}/${GITHUB_RUN_ID}/record-inputs.json"
+      - name: Upload the run outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-script-run-${{ inputs.research_unit }}-${{ github.run_id }}
+          path: comms/research/${{ inputs.research_unit }}/${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+      - name: Summarize
+        if: always()
+        env:
+          UNIT: ${{ inputs.research_unit }}
+        run: |
+          {
+            echo "### research-script-run — ${UNIT}"
+            echo
+            echo "* command(s): \`${{ steps.run.outcome }}\`"
+            echo "* outputs + record-inputs.json uploaded as artifact; landed in one batch by the next research-queue-dispatch cycle"
+            echo
+            echo '```'
+            cat "comms/research/${UNIT}/${GITHUB_RUN_ID}/run-manifest.json" 2>/dev/null || echo "(no run-manifest.json)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Re-assert the failure the run step swallowed with continue-on-error,
+      # now that the manifest, logs and the producer_failed record inputs are
+      # in the artifact.
+      - name: Fail if the unit's command failed
+        if: always() && steps.run.outcome != 'success'
+        run: |
+          echo "::error::the unit's command did not complete (run step: ${{ steps.run.outcome }}) — its manifest/logs and a producer_failed record are in the artifact and land with the next cycle."
+          exit 1
+

@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import yaml
 
-from src.runtime.orders import account_state_dry_run
 
 if TYPE_CHECKING:
     from typing import Sequence
@@ -1029,12 +1028,45 @@ class Coordinator:
             except Exception:  # noqa: BLE001 — never break sizing on a probe
                 return str(getattr(acc, "exchange", "")).lower() == "breakout"
 
+        def _prop_sizing_balance_or_refuse(acc) -> float:
+            """A declared prop account's sizing basis — or a refusal.
+
+            PROP ACCOUNTS HAVE NO BROKER SOCKET BY DESIGN. Their sizing basis
+            is the operator's reported account status (the same snapshot the
+            rule-distance guard reads). Only a FRESH snapshot yields a number;
+            stale / absent / error refuse, each with a true cause.
+            Measured 2026-08-13: the old socket-shaped raise was 5 of the 7
+            lifetime rejections on trend_donchian_sol.
+
+            ⚠️ The refusal is OPERATOR-FACING (BL-20260909-PROP-SIZING-
+            REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED): the raise
+            lands in the `sizing_failed` branch, which pages nobody, so
+            `note_refusal` pages once per account per occurrence. It is
+            best-effort, swallows its own exceptions, and de-duplicates, so it
+            can neither strand a trade nor become a per-tick pager. On `ok` it
+            clears the refusal cadence so the next refusal after a recovery
+            pages as a fresh occurrence.
+            """
+            from src.prop.prop_balance import (
+                note_refusal, prop_sizing_balance, refusal_message)
+            state, bal, meta = prop_sizing_balance(acc.name)
+            note_refusal(state, acc.name, meta)
+            if state == "ok" and bal is not None:
+                return float(bal)
+            raise RuntimeError(refusal_message(state, acc.name, meta))
+
         def _default_balance_fetcher(acc) -> float:
-            # 1. Per-tick override stashed on pkg.meta — tests + the
-            #    bot's per-tick balance refresh use this.
+            # 1. Per-tick override stashed on pkg.meta — an explicit caller
+            #    injection (tests; no src/ writer as of 2026-09-28), honoured
+            #    for every account class exactly like the `balance_fetcher`
+            #    argument, which bypasses this function entirely.
             pkg_balances = (pkg.meta or {}).get("account_balances_usd") or {}
             if acc.name in pkg_balances:
                 return float(pkg_balances[acc.name])
+            # ⚠️ A DECLARED PROP ACCOUNT NEVER REACHES THIS FUNCTION (since
+            #    2026-09-28): the sizing site consults
+            #    `_prop_sizing_balance_or_refuse` for it instead, on every
+            #    path. See the comment there.
             # 2. Live lookup, cached at the top of this dispatch round.
             #    live_balances distinguishes three states:
             #      - acc.name NOT in dict: balance fetch was not attempted
@@ -1053,46 +1085,7 @@ class Coordinator:
                 cached = getattr(acc, "cached_balance_usd", None)
                 if cached is not None:
                     return float(cached)
-                # PROP ACCOUNTS HAVE NO BROKER SOCKET BY DESIGN. A None here is
-                # not an API failure — there is no API. Their sizing basis is
-                # the operator's reported account status (the same snapshot the
-                # rule-distance guard reads), so consult that BEFORE raising,
-                # and raise with a cause that is actually true otherwise.
-                # Measured 2026-08-13: this raise was 5 of the 7 lifetime
-                # rejections on trend_donchian_sol and is why the leg had never
-                # emitted a prop ticket.
-                if _is_prop_account_obj(acc):
-                    from src.prop.prop_balance import (
-                        note_refusal, prop_sizing_balance, refusal_message)
-                    state, bal, meta = prop_sizing_balance(acc.name)
-                    if state == "ok" and bal is not None:
-                        # Clears the refusal cadence state, so the NEXT refusal
-                        # after a recovery pages as a fresh occurrence instead
-                        # of being swallowed by the previous one's re-ping timer.
-                        note_refusal(state, acc.name, meta)
-                        return float(bal)
-                    # ⚠️ THE ONLY CHANGE HERE IS THAT THE REFUSAL IS NOW
-                    # OPERATOR-FACING. The gate is untouched: it still refuses,
-                    # still never sizes off a guess, still raises the same
-                    # message. What was missing is that the raise lands in the
-                    # `sizing_failed` branch below, which writes a journal row
-                    # and a logger line and nothing the operator ever sees —
-                    # `_emit_execution_failure_ping` is on the LATER
-                    # `execute_pkg` branch and is not reached from here. So a
-                    # funded prop account could stop trading indefinitely with
-                    # the only evidence being a journalctl line in a unit whose
-                    # journald retention is ~30 minutes
-                    # (BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-
-                    # JOURNALED-BUT-NEVER-PINGED).
-                    #
-                    # `note_refusal` is best-effort and swallows every one of
-                    # its own exceptions — a diagnostic must never be able to
-                    # strand a trade — and it de-duplicates to one page per
-                    # account per occurrence, so it cannot become the per-tick
-                    # pager this repo files as its own P1 bug class.
-                    note_refusal(state, acc.name, meta)
-                    raise RuntimeError(refusal_message(state, acc.name, meta))
-                # Non-prop sibling of the prop refusal above: still refuses,
+                # Non-prop sibling of the prop refusal: still refuses,
                 # still never sizes off a guess — only the message changes, and
                 # it now states what this branch actually knows instead of
                 # asserting a cause nothing tested. Full account + the live
@@ -1405,18 +1398,27 @@ class Coordinator:
                 effective_dry = bool(dry_run)
             else:
                 effective_dry = account_dry
-
-            # account_state.yaml belt-and-suspenders gate (PR-3 / M2).
-            # Only enforces dryness — never forces live. A missing file
-            # or missing account entry is a no-op (fail-open).
-            state_dry = account_state_dry_run(account.name)
-            if state_dry is True and not effective_dry:
-                logger.warning(
-                    "[coordinator] account_state.yaml overrides %s to dry_run "
-                    "(accounts.yaml said live, state file says dry)",
-                    account.name,
+            # WHICH gate made this dispatch dry, stamped onto the dry journal
+            # row as ``notes.dry_cause`` (PI-20260928-SVBNZOVH-0001). Before
+            # this, a side_filter-suppressed short on a ``mode: live`` account
+            # wrote an ordinary ``dry_run_no_order_placed`` row whose cause
+            # lived only in a logger line (journald keeps ~30 min), so it was
+            # indistinguishable in the DB from a shadow or mode demotion.
+            # Journal-only: nothing below branches on it.
+            _dry_cause: Optional[str] = None
+            if effective_dry:
+                _dry_cause = (
+                    "process_override" if dry_run is not None
+                    else "account_mode:dry_run"
                 )
-                effective_dry = True
+
+            # The config/account_state.yaml dry-only fold that sat here
+            # (PR-3 / M2) was RETIRED 2026-09-29 by operator decision
+            # JC-CA-06 ("Retire it"): effective_dry is decided by the two
+            # declared execution gates only — accounts.yaml::mode (above)
+            # and strategies.yaml::execution (below). At retirement the file
+            # read dry_run: false for every entry on main and on the VM, so
+            # no account's mode changed.
 
             # Strategy-level execution gate (S9, operator-approved
             # 2026-05-24). A strategy marked ``execution: shadow`` in
@@ -1444,6 +1446,7 @@ class Coordinator:
                             pkg.strategy, account.name,
                         )
                         effective_dry = True
+                        _dry_cause = "execution:shadow"
                 except Exception as exc:  # noqa: BLE001
                     # Fail-open to the account's own mode — never let a
                     # registry read error block a live strategy.
@@ -1496,12 +1499,112 @@ class Coordinator:
                             getattr(pkg, "symbol", "?"),
                         )
                         effective_dry = True
+                        _dry_cause = f"side_filter:{_sf_resolved}"
                 except Exception as exc:  # noqa: BLE001
                     # Fail-open to the account's own mode — a resolver error
                     # must never block a permitted direction.
                     logger.warning(
                         "[coordinator] account side_filter lookup failed for "
                         "'%s' (%s); leaving direction ungated",
+                        account.name, exc,
+                    )
+
+            # Per-ACCOUNT BROKER short gate — the venue's own
+            # ``shorting_enabled`` (BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-
+            # CONSUMED; operator "Build the gate now", 2026-09-28: "Refuse short
+            # signals, with a logged reason, on any account whose broker reports
+            # shorting disabled"). ``side_filter`` above is a CONFIG policy
+            # covering only the accounts it is declared on; this reads what the
+            # broker says for every flagged exchange (src/runtime/
+            # broker_shorting_gate.py — cached CACHE_TTL_S=600s per account,
+            # fail-permissive on an unreadable flag).
+            #
+            # ⚠️ IT REFUSES WITH A JOURNAL ROW, IT DOES NOT DEMOTE TO DRY. A
+            # dry demotion writes an ordinary dry would-be row whose cause lives
+            # only in a logger line (journald keeps ~30 min), so on a live-mode
+            # account it is indistinguishable from a shadow / side_filter
+            # demotion. The refusal row carries
+            # reason=broker_shorting_disabled, so "why didn't it send?" is
+            # answerable from the DB. No order path is added — this only ever
+            # removes one.
+            #
+            # ⚠️ A CLOSE IS NEVER BLOCKED BY THIS GATE. Under FLIP_POLICY=flat a
+            # short package on an account HOLDING A LONG resolves to a
+            # ``flip_flat_policy`` close, flattened via close_open_position —
+            # and that only runs when the account is not dry. So the gate is
+            # skipped whenever the journal shows a long (or is unreadable —
+            # the intent path refuses an unreadable read on its own with
+            # net_position_unreadable). It only refuses a short that would
+            # OPEN or ADD to short exposure. An options-expressing account is
+            # skipped entirely (a bearish signal there is a debit spread).
+            if not effective_dry:
+                try:
+                    from src.runtime.broker_shorting_gate import (
+                        REFUSAL_TOKEN, refusal_reason, refuses_short,
+                    )
+
+                    def _shorting_client():
+                        # The SAME resolved account_cfg the order client is
+                        # built from below, so the flag is read on the same
+                        # credentials + environment the order would use.
+                        return alpaca_client_for(account_cfg)
+
+                    # An OPTIONS-expressing account (options.express_as:
+                    # debit_vertical, e.g. alpaca_options_paper) turns a bearish
+                    # signal into a bear put DEBIT spread — it BUYS premium and
+                    # is not a short sale, so shorting_enabled does not apply.
+                    # Same canonical predicate the execution path uses.
+                    from src.units.accounts.options_overlay import (
+                        account_expresses_options,
+                    )
+                    if account_expresses_options(account_cfg) is not None:
+                        _bs_refused, _bs_state = False, "not_applicable"
+                    else:
+                        _bs_refused, _bs_state = refuses_short(
+                            account.name, account.exchange,
+                            getattr(pkg, "direction", None), _shorting_client,
+                        )
+                    if _bs_refused:
+                        from src.runtime.positions import current_net_position_qty
+                        _bs_net = current_net_position_qty(account.name, pkg.symbol)
+                        if _bs_net is None or _bs_net > 0:
+                            logger.info(
+                                "[coordinator] broker shorting gate: %s holds "
+                                "net=%s on %s — short may close it; not refused",
+                                account.name, _bs_net, pkg.symbol,
+                            )
+                            _bs_refused = False
+                    if _bs_refused:
+                        logger.warning(
+                            "[coordinator] %s (%s) — refused",
+                            refusal_reason(account.name),
+                            getattr(pkg, "symbol", "?"),
+                        )
+                        from src.units.accounts.execute import (
+                            log_rejection_to_journal,
+                        )
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason=REFUSAL_TOKEN,
+                            status="rejected",
+                            sized_qty=0.0,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": REFUSAL_TOKEN,
+                        })
+                        # Recorded so an all-refused round's empty sizing map
+                        # names this rule instead of "cause unattributed".
+                        excluded_by_account[account.name] = REFUSAL_TOKEN
+                        continue
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "[coordinator] broker shorting gate lookup failed for "
+                        "'%s' (%s); leaving short ungated by it",
                         account.name, exc,
                     )
 
@@ -1590,10 +1693,30 @@ class Coordinator:
             # an UnboundLocalError on exactly the failure path the row exists to
             # record. Line-order alone does not establish this; the assignment
             # has to be unconditionally REACHED.
+            # DECLARED PROP ACCOUNT → the stale-balance refusal applies on EVERY
+            # path (PI-20260921-E16-BALANCE-FETCHER-PROP-BRANCH-RARELY-REACHED;
+            # operator "Fix it", 2026-09-28). ⚠️ Until 2026-09-28 the refusal
+            # lived inside `_default_balance_fetcher`, reached only when the live
+            # lookup was attempted AND returned None AND no `cached_balance_usd`
+            # was set — and the bridge line below never called the fetcher at
+            # all, so for `breakout_1` (the one declared prop account, measured
+            # 2026-09-28 via `is_prop_account` over config/accounts.yaml) it was
+            # reached on ZERO paths: tickets emitted off a snapshot nobody had
+            # checked for freshness. Checked here, before any balance source
+            # (cached, live, fallback, a caller `balance_fetcher`, a
+            # `pkg.meta` override), so none of them can pre-empt it. Only the
+            # REFUSAL is new: a fresh snapshot leaves bridge sizing exactly as
+            # it was (0.0 basis → ruleset sentinel below); a non-bridge prop
+            # account sizes off the snapshot.
+            _is_declared_prop = _is_prop_account_obj(account)
             available_basis_kind = None
             margin_basis: dict = {}
             try:
-                balance = 0.0 if _is_prop_bridge else float(fetcher(account))
+                if _is_declared_prop:
+                    _prop_balance = _prop_sizing_balance_or_refuse(account)
+                    balance = 0.0 if _is_prop_bridge else _prop_balance
+                else:
+                    balance = float(fetcher(account))
                 # Direction-aware balance override for cash spot.
                 #
                 # Cash spot (``market_type: spot``): the account holds
@@ -2531,6 +2654,8 @@ class Coordinator:
                 # the dry-run-guard CI regex (which conservatively flags
                 # any new `dry_run=<truthy-token>` text as a flag flip).
                 exec_dry_run = bool(effective_dry)
+                if exec_dry_run and _dry_cause:
+                    account_cfg["dry_cause"] = _dry_cause
                 # Legacy / single-leg path: build a one-entry legs list
                 # so the same loop below handles both modes uniformly.
                 # ``intent_legs`` is set above only for intent-mode
@@ -2745,6 +2870,10 @@ class Coordinator:
                 # every leg is one of these must NOT fire the "all accounts
                 # failed" roll-up (operator directive 2026-07-15).
                 or is_expected_dispatch_skip(err)
+                # The venue reported shorting_enabled=false and the short was
+                # refused on purpose, with its own journal row — a declared
+                # policy refusal, not a dispatch failure (2026-09-28).
+                or err == "broker_shorting_disabled"
             )
 
         any_trade_placed = any(r.get("trade_id") is not None for r in results)

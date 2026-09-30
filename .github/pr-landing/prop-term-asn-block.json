@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path only (src/prop/platform/**): a page-classification change, with no order control touched. The manager merges (dispatch 2026-09-29 ~20:08Z, lane session_01DRfUhAJ93tkSDcfRj7nmpu).",
+  "why": "The breakout-terminal-probe read Cloudflare's Error 1005 ASN ban at app.breakoutprop.com (issue #14402, run 36623749022) as 'unknown' and exited 0. Such a page is now a feasibility stop: 'asn_blocked', plus 'access_denied' for Cloudflare's other ban pages. It is classified in the adapter, so login and resume name it too, and the probe ends at the landing with exit 4. The probe's http-status label is shortened so the 24+-char token redactor no longer eats it. Files blocker row PI-20260929-FRJ7NMPU-0001 and points PI-20260928-DRBVUUDJ-0001 at it. No egress workaround is designed or built: that is an operator decision."
+}

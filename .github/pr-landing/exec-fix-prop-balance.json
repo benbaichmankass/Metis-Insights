@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Operator answered the manager's AskUserQuestion 2026-09-28 ~11:45Z on PI-20260921-E16-BALANCE-FETCHER-PROP-BRANCH-RARELY-REACHED: 'Fix it (Recommended)' -- 'A Tier-2 lane makes every declared prop account always check the prop balance, with tests covering all 3 paths and an independent review before merge.' Manager (session_01KAQRJxRbRwpYTkPgBjNVyQ) dispatched lane EXEC-FIX with 'landing: hold (Tier 2); the manager merges after an independent review.'",
+  "why": "order-path change in src/core/coordinator.py::multi_account_execute: every declared prop account (is_prop_account) now consults prop_balance.prop_sizing_balance before any balance source, so a stale/absent/unreadable operator snapshot refuses sizing on every path; previously breakout_1 (bridge) never reached it at all"
+}

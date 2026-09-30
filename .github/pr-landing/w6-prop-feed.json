@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "W6-PROP-FEED: a new systemd timer on the live VM (deploy/ict-prop-feed.timer). Every 5 min it opens the live breakout_1 prop terminal and writes account_status rows through POST /api/bot/prop/report. install_systemd_units.sh auto-enables every deploy/*.timer, so merging IS enabling. Held because the dispatch declares it Tier-2 with a landing hold, and the manager reviews independently before merge. The concurrent-session question was MEASURED 2026-09-28 (issue #13525, run 08:14:42-08:15:05Z): the operator stayed logged in on the Breakout MOBILE app while the server-side login ran. The desktop terminal was NOT tested. Per the operator decision 'Reuse saved session', ticks reuse a saved Playwright session (0600, never printed) and do a credential login only when it is no longer accepted. Deliberately NOT armed: an automerge-request file would land it.",
+  "why": "5-min read-only breakout_1 account_status feed: a new VM oneshot timer + wrapper (flock, hard timeout, trip-on-failure backoff) around the existing read-only breakout_login_check.py; the action gains a shared lock + apply: reset-feed. No order path, no strategy/risk/config change."
+}

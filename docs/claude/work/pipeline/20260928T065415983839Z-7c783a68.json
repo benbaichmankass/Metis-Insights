@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the fix lands and no recurrence over the next 20 pytest-run runs on main, or the cause is shown to be something else",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-TURC5MJC-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28; JC-CA-03 dispatch-check probe PR #13502",
+    "rerun": "for i in 1 2 3 4 5 6 7 8 9 10; do python3 scripts/ci/check_mandate_autoland.py --self-test >/dev/null 2>&1 || echo FAIL $i; done; and read the Actions job log for pytest-run run 36386970912"
+  },
+  "state": "queued",
+  "what": "FLAKE (measured once): tests/test_mandate_autoland.py::test_planted_defect_suite_passes failed on pytest-run run 36386970912 (workflow_dispatch on probe SHA 7e82396a, an EMPTY commit off main, so the diff is not the cause). The failure: scripts/ci/check_mandate_autoland.py --self-test crashed in TemporaryDirectory cleanup (_case, line 876) with OSError: [Errno 39] Directory not empty: 'pack', after NEGATIVE 2 and before NEGATIVE 3 finished. Likely cause (INFERRED, not reproduced): git's background auto-gc/auto-pack in the scratch repo writes objects/pack while rmtree runs. A likely fix is `-c gc.auto=0` (or `gc.autoDetach=false`) in _run()'s git invocations. It is the self-test of the ARMED MD-DEMOTE-S2-S1 route's checker, and it is also a mandate-autoland-guard step, so a flake here can red the required `guards` and `pytest-run` on any PR. n=1 over 1 run observed by this lane."
+}

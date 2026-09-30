@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1), pipeline row PI-20260930-39SDYWCO-0004, routed by the manager as 'Tier-1 data, small self-land PR'. One JSON string edited in docs/research/exit-refinement-coverage.json: spy_pullback_1h's bracket_geometry.timeout_binding note, which said the leg was CONTAMINATED (force-close bound on 17 of 39 pairs), is corrected to CLEAN (0 of 39, re-derived from the raw corpus rows and timeout_binding_audit.audit(); the 17 of 39 is not reproducible from any committed sweep). No src/, no config/, no order path, no strategy change, no roster; the cell's shipped status is untouched. The matrix guards were run directly against the diff."
+}

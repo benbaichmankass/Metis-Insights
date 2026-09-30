@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Extends scripts/research/meta_veto_walkforward.py only -- an as-of candle join, --arms, --size-by-score, --scores-file and --emit-result. scripts/research/** is on TIER1_SURFACE. Offline/stdlib-only, reads committed data plus locally-resolved candle files via the existing canonical resolver; --self-test extended (24/24 pass) and wired unchanged into scripts/ci/run_guards.py's research-tooling-selftests. No config/, src/, deploy/ or order-path file touched, no roster/mode/registry/VM change, and nothing that decides what trades."
+}

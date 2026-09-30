@@ -1,9 +1,10 @@
-"""scripts/ops/mandate_resolver.py — every refusal clause, plus FIRE controls.
+"""scripts/ops/mandate_resolver.py — every clause, across all THREE verdicts.
 
-Each refusal test starts from the SAME passing fixture and breaks exactly one
-thing, so a test that goes red names the clause that broke. The FIRE tests are
-the positive controls: without them, a resolver that refused everything would
-pass every refusal test.
+Each REFUSE/NEEDS_DATA test starts from the SAME passing fixture and breaks
+exactly one thing, so a test that goes red names the clause that broke. The
+FIRE tests are the positive controls: without them, a resolver that refused
+everything would pass every REFUSE test, and a resolver that answered
+NEEDS_DATA to everything would pass every NEEDS_DATA test.
 """
 from __future__ import annotations
 
@@ -18,12 +19,15 @@ import yaml
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts" / "ops"))
 import mandate_resolver as mr  # noqa: E402
+import pipeline  # noqa: E402
 
 LEG = "ada_pullback_2h"
 LEG_CFG = {"enabled": True, "execution": "live", "timeframe": "2h",
            "symbols": ["ADAUSDT"], "atr_stop_mult": 1.5}
 EQ_LEG = "spy_trend_long_1d"
 EQ_CFG = {"enabled": True, "execution": "live", "timeframe": "1d", "symbols": ["SPY"]}
+SLV_LEG = "slv_trend_1h"
+SLV_CFG = {"enabled": True, "execution": "shadow", "timeframe": "1h", "symbols": ["SLV"]}
 
 BAR = {"min_n_closed": 30, "expectancy_gt": 0, "fold_majority": True, "cost_tolerance_bps": 0.0}
 CAP = {"basis": mr.CAP_BASIS, "max_auto_share": 0.25}
@@ -102,6 +106,30 @@ def _r3(verdicts=None, *, modelled=5.0, as_of="2026-09-25T13:23:21+00:00"):
 
 R3_DATED = f"{mr.R3_DIR_REL}/2026-09-25.json"
 
+#: Committed setups per leg, in the shape build_strategy_evidence.py's
+#: source_run carries. Both directions, so the side_filter population is real.
+SETUPS = {
+    LEG: [{"symbol": "ADAUSDT", "entry_time": f"2026-09-{d:02d} 00:00:00+00:00",
+           "direction": "long" if d % 2 else "short", "entry": 0.70,
+           "sl": 0.68 if d % 2 else 0.72, "confidence": 1.0} for d in range(1, 11)],
+    EQ_LEG: [{"symbol": "SPY", "entry_time": f"2026-09-{d:02d} 00:00:00+00:00",
+              "direction": "long" if d % 2 else "short", "entry": 500.0,
+              "sl": 490.0 if d % 2 else 510.0, "confidence": 1.0} for d in range(1, 11)],
+}
+
+
+def _snapshot(account, equity, *, age_days=0.0, buying_power=None):
+    from datetime import datetime, timedelta, timezone
+    ts = datetime.now(timezone.utc) - timedelta(days=age_days)
+    return {"account_id": account, "captured_at": ts.isoformat(), "equity_usd": equity,
+            "buying_power_usd": equity if buying_power is None else buying_power,
+            "source": "test"}
+
+
+#: Default: both Stage-2 accounts richly funded, so R-AFFORD passes and every
+#: pre-existing test keeps meaning what it meant. Affordability tests override.
+SNAPSHOTS = {"bybit_2": 100_000.0, "alpaca_live": 100_000.0}
+
 
 def _w(root: Path, rel: str, data, as_yaml=False):
     p = root / rel
@@ -111,7 +139,8 @@ def _w(root: Path, rel: str, data, as_yaml=False):
 
 @pytest.fixture
 def repo(tmp_path):
-    def build(mandates=None, accounts=None, records=None, r3=..., firings=(), mirror=None):
+    def build(mandates=None, accounts=None, records=None, r3=..., firings=(), mirror=None,
+              snapshots=None, setups=None):
         if r3 is ...:
             r3 = _r3()
         _w(tmp_path, mr.MANDATES_REL, mandates or MANDATES, as_yaml=True)
@@ -123,7 +152,12 @@ def repo(tmp_path):
             _w(tmp_path, f"{mr.EVIDENCE_DIR_REL}/{leg}.json", rec)
             if rec.get("source_run"):
                 (tmp_path / rec["source_run"]).parent.mkdir(parents=True, exist_ok=True)
-                (tmp_path / rec["source_run"]).write_text("{}\n")
+                rows = (setups or SETUPS).get(leg, [])
+                (tmp_path / rec["source_run"]).write_text(
+                    "".join(json.dumps(r) + "\n" for r in rows) or "{}\n")
+        for acct, snap in (SNAPSHOTS if snapshots is None else snapshots).items():
+            _w(tmp_path, f"{mr.ACCOUNT_SNAPSHOT_DIR_REL}/{acct}.json",
+               snap if isinstance(snap, dict) else _snapshot(acct, snap))
         if r3 is not None:
             _w(tmp_path, R3_DATED, r3)
         for i, f in enumerate(firings):
@@ -158,17 +192,21 @@ def test_fire_s1_to_s2_proposes_live_and_mirror(repo):
     assert res["evidence"]["cap"]["roster_after"] == 5
 
 
-def test_fire_equity_leg_carries_the_provisional_cost_caveat(repo):
+def test_equity_leg_with_no_decisive_verdict_is_needs_data_not_fire(repo):
+    # ⚠️ CORRECTED 2026-09-29 (operator directive, PR #13698): before this
+    # change, a provisional-venue leg with an `insufficient_n` R3 verdict
+    # FIRED, carrying two caveats instead of blocking. That is the exact shape
+    # of the #13698 near-miss (slv_trend_1h, alpaca_equities, insufficient_n)
+    # -- a caveat is not a substitute for a decision. It must be NEEDS_DATA.
     res = _s1s2(repo(), leg=EQ_LEG, account="alpaca_live")
-    assert res["verdict"] == "FIRE", res
-    assert "E62" in res["caveats"][0] and "PLACEHOLDER" in res["caveats"][0]
-    assert res["caveats"][0] == mr.PROVISIONAL_CAVEAT
-    # ...and a SECOND caveat naming the state R3 is actually in, so a reader is
-    # never told "provisional" without being told there is no verdict either.
-    assert len(res["caveats"]) == 2
-    assert "insufficient_n" in res["caveats"][1]
-    assert "NO DECISIVE COST-FIDELITY VERDICT" in res["caveats"][1]
+    _needs_data(res, "R-COST-FIDELITY")
+    assert "insufficient_n" in res["detail"]
     assert res["evidence"]["cost_fidelity"]["basis_of_comparison"] == "PROVISIONAL"
+    # The provisional-venue caveat still rides the result -- it is set in
+    # `_decide()` before the cost-fidelity clause runs -- but it is no longer
+    # the ONLY thing standing between this leg and real money.
+    assert res["caveats"] == [mr.PROVISIONAL_CAVEAT]
+    assert "insufficient_n" in res["data_task"]["what"]
 
 
 def test_fire_s0_to_s1(repo):
@@ -179,16 +217,100 @@ def test_fire_s0_to_s1(repo):
     assert res["proposal"]["roster_add"] == {"bybit_1": [LEG]}
 
 
-def test_fire_demote_s2_to_s1_on_a_negative_mirror_window(repo):
+def _stage2_accts():
     accts = copy.deepcopy(ACCOUNTS)
     accts["accounts"]["bybit_2"]["strategies"].append(LEG)
     accts["accounts"]["bybit_portfolio"]["strategies"].append(LEG)
-    root = repo(accounts=accts, mirror={"leg": LEG, "n_closed": 40, "net_r_net_of_full_cost": -3.2,
-                                        "source_run": "comms/mandate_evidence/runs/m.jsonl"})
+    return accts
+
+
+def _t3_mirror(root, windows=(-6.0, -6.0), stage0=(1.0, -0.8, 0.6, -1.0, 1.2), **over):
+    """Give LEG a Stage-0 per-trade stream and write the T3 mirror-window record
+    the gate would write for `windows` (oldest first)."""
+    src = (mr._json(root / f"{mr.EVIDENCE_DIR_REL}/{LEG}.json") or {})["source_run"]
+    (root / src).write_text("".join(json.dumps({"net_r": x}) + "\n" for x in stage0))
+    p = mr.stage0_block_p10(LEG, root)
+    rec = {"leg": LEG, "rule": mr.T3_RULE_ID, "n_closed": 40,
+           "net_r_net_of_full_cost": round(sum(windows), 4),
+           "windows": [{"n_closed": 20, "net_r": w} for w in windows],
+           "p10_threshold": p["p10"], "bootstrap_seed": mr.T3_BOOTSTRAP_SEED,
+           "evidence_record": p["evidence_record"],
+           "source_run": "comms/mandate_evidence/runs/m.jsonl", **over}
+    _w(root, f"{mr.MIRROR_DIR_REL}/{LEG}.json", rec)
+    (root / rec["source_run"]).parent.mkdir(parents=True, exist_ok=True)
+    (root / rec["source_run"]).write_text("{}\n")
+    return p
+
+
+def test_fire_demote_s2_to_s1_when_both_t3_windows_are_below_p10(repo):
+    root = repo(accounts=_stage2_accts())
+    p = _t3_mirror(root)
+    assert -6.0 < p["p10"] < 0, p
     res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
     assert res["verdict"] == "FIRE", res
     assert res["proposal"]["roster_remove"] == {"bybit_2": [LEG], "bybit_portfolio": [LEG]}
     assert res["proposal"]["roster_add"] == {}
+    assert res["evidence"]["t3_p10"] == p["p10"]
+
+
+@pytest.mark.parametrize("windows,clause", [
+    ((+2.0, -6.0), "R-T3"),              # only one window bad: T3 not met
+    ((-1.0, -6.0), "R-T3"),              # both negative, one above p10
+    ((-6.0, +7.0), "R-EXPECTANCY"),      # 40-trade net non-negative: never-clause
+])
+def test_refuse_demotion_when_t3_is_not_met(repo, windows, clause):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root, windows=windows)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), clause)
+
+
+def test_positive_p10_never_fires_on_a_positive_window(repo):
+    root = repo(accounts=_stage2_accts())
+    p = _t3_mirror(root, windows=(0.5, 0.5), stage0=(1.5, 0.9, 1.1, -0.2, 1.3))
+    assert p["p10"] > 1.0
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-EXPECTANCY")
+
+
+def test_needs_data_on_a_pre_t3_record_or_short_windows_or_no_stage0(repo):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root, rule=None)
+    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
+    assert res["verdict"] == mr.NEEDS_DATA and res["clause"] == "R-T3-WINDOWS"
+    _t3_mirror(root, n_closed=39)
+    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
+    assert res["verdict"] == mr.NEEDS_DATA and res["clause"] == "R-N"
+    _t3_mirror(root, stage0=(0.4,))
+    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
+    assert res["verdict"] == mr.NEEDS_DATA and res["clause"] == "R-T3-NO-EVIDENCE"
+    assert res["data_task"]["what"]
+
+
+def test_refuse_a_record_that_contradicts_itself_or_its_threshold(repo):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root, net_r_net_of_full_cost=-20.0)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-T3-WINDOWS")
+    _t3_mirror(root, p10_threshold=5.0)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-T3-THRESHOLD")
+
+
+def test_stage0_p10_is_deterministic_and_seeded(repo):
+    root = repo(accounts=_stage2_accts())
+    _t3_mirror(root)
+    a, b = mr.stage0_block_p10(LEG, root), mr.stage0_block_p10(LEG, root)
+    assert a == b and a["seed"] == mr.T3_BOOTSTRAP_SEED
+    assert mr.stage0_block_p10(LEG, root, seed=1)["p10"] != a["p10"]
+
+
+def test_real_stage2_thresholds_match_the_operators_pricing():
+    """The operator was told xrp_4h, ief and iaum have POSITIVE p10 and the
+    other Stage-2 legs negative (SIGNAL-0005). Pin that on the real records."""
+    for leg, positive in (("trend_donchian_xrp_4h", True), ("ief_pullback_1d", True),
+                          ("iaum_pullback_1d", True), ("xrp_pullback_2h", False),
+                          ("ada_pullback_2h", False), ("trend_donchian_eth_4h", False),
+                          ("slv_pullback_1d", False)):
+        p = mr.stage0_block_p10(leg, REPO)
+        assert p["p10"] is not None, (leg, p["why"])
+        assert (p["p10"] > 0) == positive, (leg, p["p10"])
 
 
 def test_proposal_never_writes(repo):
@@ -203,10 +325,22 @@ def _refused(res, clause):
     assert res["verdict"] == "REFUSE", res
     assert res["clause"] == clause, res
     assert res["proposal"] is None
+    assert res["data_task"] is None, res  # collapsed-state check: never both
 
 
-def test_refuse_missing_record(repo):
-    _refused(_s1s2(repo(records={EQ_LEG: _record(EQ_LEG, EQ_CFG)})), "R-RECORD-MISSING")
+def _needs_data(res, clause):
+    assert res["verdict"] == mr.NEEDS_DATA, res
+    assert res["clause"] == clause, res
+    assert res["proposal"] is None
+    task = res["data_task"]
+    assert isinstance(task, dict) and task.get("clears_when") and task.get("what"), res
+    assert task.get("next_action") in pipeline.NEXT_ACTIONS, res
+
+
+def test_needs_data_missing_record(repo):
+    # No Stage-0 backtest exists for this leg at all -- that is an absent
+    # measurement, not a decisive one, so it is NEEDS_DATA, never REFUSE.
+    _needs_data(_s1s2(repo(records={EQ_LEG: _record(EQ_LEG, EQ_CFG)})), "R-RECORD-MISSING")
 
 
 def test_refuse_source_run_absent_from_repo(repo):
@@ -222,9 +356,11 @@ def test_refuse_source_run_outside_the_repo(repo):
     _refused(_s1s2(rec_root), "R-SOURCE-RUN-ABSENT")
 
 
-def test_refuse_n_below_30(repo):
+def test_needs_data_n_below_30(repo):
+    # Below the mandate's own floor is "not enough closed trades yet", the
+    # same shape as R3's insufficient_n -- NEEDS_DATA, never REFUSE.
     rec = _record(LEG, LEG_CFG, n=29)
-    _refused(_s1s2(repo(records={LEG: rec})), "R-N")
+    _needs_data(_s1s2(repo(records={LEG: rec})), "R-N")
 
 
 def test_n_of_exactly_30_passes(repo):
@@ -329,10 +465,25 @@ def test_refuse_blocked_mandate(repo):
     _refused(_s1s2(repo(mandates=m)), "R-MANDATE-BLOCKED")
 
 
-def test_refuse_not_soaked(repo):
+def test_needs_data_not_soaked(repo):
+    # Never been on the Stage-1 soak roster at all -- absent evidence, not
+    # decisive evidence.
     accts = copy.deepcopy(ACCOUNTS)
     accts["accounts"]["bybit_1"]["strategies"].remove(LEG)
-    _refused(_s1s2(repo(accounts=accts)), "R-NOT-SOAKED")
+    _needs_data(_s1s2(repo(accounts=accts)), "R-NOT-SOAKED")
+
+
+def test_needs_data_execution_shadow(repo):
+    # #13698: ON the Stage-1 soak roster, but `execution: shadow` -- it logs
+    # order packages and places no real order, so roster membership there is
+    # not a soak. Must NEVER fire on this alone.
+    root = repo()
+    strat = yaml.safe_load((root / mr.STRATEGIES_REL).read_text())
+    strat["strategies"][LEG]["execution"] = "shadow"
+    (root / mr.STRATEGIES_REL).write_text(yaml.safe_dump(strat))
+    res = _s1s2(root)
+    _needs_data(res, "R-EXECUTION-SHADOW")
+    assert "shadow" in res["detail"]
 
 
 def test_refuse_promotion_on_a_divergent_r3_verdict(repo):
@@ -342,66 +493,74 @@ def test_refuse_promotion_on_a_divergent_r3_verdict(repo):
     assert res["evidence"]["cost_fidelity"]["verdict"] == "divergent"
 
 
-def test_refuse_promotion_on_an_inconclusive_r3_verdict(repo):
-    # The CI straddles the threshold: the measurement exists and cannot decide.
+def test_needs_data_promotion_on_an_inconclusive_r3_verdict(repo):
+    # The CI straddles the threshold: the measurement exists and cannot decide
+    # -- that is an absent decision, never a refusal.
     res = _s1s2(repo(r3=_r3({LEG: "inconclusive"})))
-    _refused(res, "R-COST-FIDELITY")
+    _needs_data(res, "R-COST-FIDELITY")
     assert "inconclusive" in res["detail"]
 
 
-def test_insufficient_n_does_not_fire_and_consistent_does(repo):
+def test_insufficient_n_needs_data_and_consistent_fires(repo):
     """The negative control: ONE field differs between these two runs.
 
-    Without the FIRE half, a resolver that refused every promotion outright
-    would pass the refusal half, which is the whole reason this is one test.
+    Without the FIRE half, a resolver that answered NEEDS_DATA to every
+    promotion would pass the NEEDS_DATA half, which is the whole reason this
+    is one test. This is also the directive's headline correction: before
+    2026-09-29 `insufficient_n` FIRED on a provisional venue (see the caveat
+    tests below); it must never fire on ANY venue.
     """
     assert _s1s2(repo(r3=_r3({LEG: "consistent"})))["verdict"] == "FIRE"
     res = _s1s2(repo(r3=_r3({LEG: "insufficient_n"})))
-    _refused(res, "R-COST-FIDELITY")
+    _needs_data(res, "R-COST-FIDELITY")
     assert "insufficient_n" in res["detail"]
 
 
-def test_refuse_promotion_on_a_no_record_r3_verdict(repo):
-    _refused(_s1s2(repo(r3=_r3({LEG: "no_record"}))), "R-COST-FIDELITY")
+def test_needs_data_promotion_on_a_no_record_r3_verdict(repo):
+    _needs_data(_s1s2(repo(r3=_r3({LEG: "no_record"}))), "R-COST-FIDELITY")
 
 
-def test_refuse_promotion_when_the_leg_is_absent_from_the_r3_record(repo):
+def test_needs_data_promotion_when_the_leg_is_absent_from_the_r3_record(repo):
     # "graded and found too few fills" and "never graded" are different facts;
-    # both refuse, and the detail says which.
+    # neither is decisive, and the detail says which.
     res = _s1s2(repo(r3=_r3({EQ_LEG: "consistent"})))
-    _refused(res, "R-COST-FIDELITY")
+    _needs_data(res, "R-COST-FIDELITY")
     assert "carries no entry" in res["detail"]
 
 
-def test_refuse_promotion_when_a_verdict_is_outside_the_rules_vocabulary(repo):
+def test_needs_data_promotion_when_a_verdict_is_outside_the_rules_vocabulary(repo):
     res = _s1s2(repo(r3=_r3({LEG: "probably_fine"})))
-    _refused(res, "R-COST-FIDELITY")
+    _needs_data(res, "R-COST-FIDELITY")
     assert "not one of" in res["detail"]
 
 
-def test_refuse_promotion_when_no_r3_record_is_committed(repo):
+def test_needs_data_promotion_when_no_r3_record_is_committed(repo):
     res = _s1s2(repo(r3=None))
-    _refused(res, "R-COST-FIDELITY")
+    _needs_data(res, "R-COST-FIDELITY")
     assert mr.R3_DIR_REL in res["detail"]
 
 
-def test_refuse_promotion_on_a_verdict_graded_against_a_different_record(repo):
+def test_needs_data_promotion_on_a_verdict_graded_against_a_different_record(repo):
     # The record was regenerated at 5.0 bps; R3 graded it at 3.0. The verdict
-    # answers a question about a record that no longer exists.
+    # answers a question about a record that no longer exists -- not decisive.
     res = _s1s2(repo(r3=_r3({LEG: "consistent"}, modelled=3.0)))
-    _refused(res, "R-COST-FIDELITY")
+    _needs_data(res, "R-COST-FIDELITY")
     assert "has since changed" in res["detail"]
     assert res["evidence"]["cost_fidelity"]["stale"]
 
 
-def test_a_stale_verdict_on_a_provisional_venue_still_names_itself_in_a_caveat(repo):
-    # A stale verdict folds into the same "no decisive measurement" state as a
-    # missing one, so the promotion rests on the placeholder -- and SAYS so.
+def test_a_stale_verdict_on_a_provisional_venue_is_needs_data_not_fire(repo):
+    # ⚠️ CORRECTED 2026-09-29 (operator directive, PR #13698): this used to
+    # assert FIRE-with-a-caveat. A stale verdict is "no decisive measurement",
+    # exactly like insufficient_n, and it must never fire either.
     res = _s1s2(repo(r3=_r3({EQ_LEG: "consistent"}, modelled=3.0)),
                 leg=EQ_LEG, account="alpaca_live")
-    assert res["verdict"] == "FIRE", res
-    assert len(res["caveats"]) == 2 and "has since changed" in res["caveats"][1]
+    _needs_data(res, "R-COST-FIDELITY")
+    assert "has since changed" in res["detail"]
     assert res["evidence"]["cost_fidelity"]["stale"]
+    # The provisional-venue caveat is set unconditionally in `_decide()` before
+    # the cost-fidelity clause runs, so it still rides a NEEDS_DATA result.
+    assert res["caveats"] == [mr.PROVISIONAL_CAVEAT]
 
 
 def test_a_divergent_verdict_bites_on_a_provisional_venue_too(repo):
@@ -471,10 +630,12 @@ def test_refuse_demotion_on_a_positive_mirror_window(repo):
     _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-EXPECTANCY")
 
 
-def test_refuse_demotion_without_a_mirror_record(repo):
+def test_needs_data_demotion_without_a_mirror_record(repo):
+    # The mirror window has not accrued yet -- absent evidence, not decisive.
     accts = copy.deepcopy(ACCOUNTS)
     accts["accounts"]["bybit_2"]["strategies"].append(LEG)
-    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=repo(accounts=accts)), "R-RECORD-MISSING")
+    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=repo(accounts=accts))
+    _needs_data(res, "R-RECORD-MISSING")
 
 
 def test_s1_off_fires_on_a_divergent_verdict(repo):
@@ -485,30 +646,37 @@ def test_s1_off_fires_on_a_divergent_verdict(repo):
 
 
 def test_s1_off_refuses_on_a_consistent_verdict(repo):
-    _refused(mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo()), "R-COST-FIDELITY")
+    # `consistent` is DECISIVE: realized cost matches what was modelled, so
+    # the evidence affirmatively does not support a demotion. REFUSE, not
+    # NEEDS_DATA.
+    res = mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo())
+    _refused(res, "R-COST-FIDELITY")
+    assert "consistent" in res["detail"]
 
 
 @pytest.mark.parametrize("verdict", ["insufficient_n", "inconclusive", "no_record"])
-def test_s1_off_refuses_on_anything_that_is_not_divergent(repo, verdict):
+def test_s1_off_needs_data_on_anything_that_is_not_divergent_or_consistent(repo, verdict):
     """The mandate's own `never:`: "could not measure" must not read as
-    "diverged". Under a per-leg rule those words ARE `insufficient_n` and
-    `inconclusive`, and demoting on either takes a leg off its soak book on the
-    strength of a measurement that said it could not decide."""
+    "diverged" -- and, symmetrically, must not read as "does not diverge"
+    either. Under a per-leg rule "could not measure" IS `insufficient_n` /
+    `inconclusive` / `no_record`, and DECIDING either way on it takes a leg
+    off (or keeps it on) its soak book on the strength of a measurement that
+    said it could not decide. NEEDS_DATA, never REFUSE or FIRE."""
     res = mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo(r3=_r3({LEG: verdict})))
-    _refused(res, "R-COST-FIDELITY")
-    assert verdict in res["detail"] and "does not support a demotion" in res["detail"]
+    _needs_data(res, "R-COST-FIDELITY")
+    assert verdict in res["detail"]
 
 
-def test_s1_off_refuses_when_there_is_no_verdict_to_read(repo):
+def test_s1_off_needs_data_when_there_is_no_verdict_to_read(repo):
     res = mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo(r3=None))
-    _refused(res, "R-RECORD-MISSING")
+    _needs_data(res, "R-RECORD-MISSING")
     assert "not 'diverged'" in res["detail"]
 
 
-def test_s1_off_refuses_on_a_stale_verdict(repo):
+def test_s1_off_needs_data_on_a_stale_verdict(repo):
     res = mr.resolve(LEG, "S1", "OFF", "bybit_1",
                      root=repo(r3=_r3({LEG: "divergent"}, modelled=3.0)))
-    _refused(res, "R-COST-FIDELITY")
+    _needs_data(res, "R-COST-FIDELITY")
     assert "has since changed" in res["detail"]
 
 
@@ -518,6 +686,11 @@ def test_cli_exit_codes(repo):
                     "--root", str(root)]) == 0
     assert mr.main(["--leg", LEG, "--from", "S1", "--to", "S2", "--account", "bybit_1",
                     "--root", str(root)]) == 1
+    accts = copy.deepcopy(ACCOUNTS)
+    accts["accounts"]["bybit_1"]["strategies"].remove(LEG)
+    root2 = repo(accounts=accts)
+    assert mr.main(["--leg", LEG, "--from", "S1", "--to", "S2", "--account", "bybit_2",
+                    "--root", str(root2)]) == 3
 
 
 def test_the_verdict_vocabulary_matches_the_producer_that_owns_it():
@@ -560,4 +733,228 @@ def test_real_repo_refuses_rather_than_crashing():
     # Against the committed tree the answer depends on what is granted; it must
     # always be a verdict with a clause, never an exception.
     res = mr.resolve(LEG, "S1", "S2", "bybit_2", root=REPO)
-    assert res["verdict"] in (mr.FIRE, mr.REFUSE) and res["clause"]
+    assert res["verdict"] in (mr.FIRE, mr.REFUSE, mr.NEEDS_DATA) and res["clause"]
+    # collapsed-state check on the real tree, not just the fixtures: data_task
+    # is present-and-a-dict on NEEDS_DATA only, never on the other two.
+    if res["verdict"] == mr.NEEDS_DATA:
+        assert isinstance(res["data_task"], dict)
+    else:
+        assert res["data_task"] is None
+
+
+# ── #13698: the real regression this change was written for ────────────────
+def test_real_slv_trend_1h_never_fires_while_execution_is_shadow():
+    """Regression pin, read from the ACTUAL committed tree, not a fixture.
+
+    This session ran the PRE-FIX resolver against `slv_trend_1h -> alpaca_live`
+    and it answered FIRE: the leg is `execution: shadow` (zero real exits ever)
+    and R3 grades its Stage-1 cost fidelity `insufficient_n`, resting the whole
+    promotion on the provisional placeholder. This is exactly what PR #13698
+    exposed. The premise is asserted explicitly so this test fails LOUDLY,
+    by name, the day it stops describing the real leg -- a silently-vacuous
+    pin is worse than no pin (RULE ONE: prove the probe can find a positive).
+    """
+    strategies = (mr._yaml(REPO, mr.STRATEGIES_REL) or {}).get("strategies") or {}
+    cfg = strategies.get("slv_trend_1h") or {}
+    assert str(cfg.get("execution", "live")).strip().lower() == "shadow", (
+        "slv_trend_1h is no longer execution: shadow on main -- this pin's "
+        "premise has changed; re-verify #13698 is actually resolved before "
+        "updating or retiring this test")
+    res = mr.resolve("slv_trend_1h", "S1", "S2", "alpaca_live", root=REPO)
+    assert res["verdict"] == mr.NEEDS_DATA, res
+    assert res["clause"] == "R-EXECUTION-SHADOW", res
+    assert res["verdict"] != mr.FIRE
+
+
+def test_the_slv_shape_reproduced_in_a_fixture(repo):
+    """The same case as above, but hermetic -- pinned to a fixture rather than
+    to live repo state, so it survives whatever happens to the real roster."""
+    root = repo(records={LEG: _record(LEG, LEG_CFG), EQ_LEG: _record(EQ_LEG, EQ_CFG),
+                         SLV_LEG: _record(SLV_LEG, SLV_CFG)})
+    strat = yaml.safe_load((root / mr.STRATEGIES_REL).read_text())
+    strat["strategies"][SLV_LEG] = SLV_CFG
+    (root / mr.STRATEGIES_REL).write_text(yaml.safe_dump(strat))
+    accts = yaml.safe_load((root / mr.ACCOUNTS_REL).read_text())
+    accts["accounts"]["alpaca_paper"]["strategies"].append(SLV_LEG)
+    (root / mr.ACCOUNTS_REL).write_text(yaml.safe_dump(accts))
+    res = mr.resolve(SLV_LEG, "S1", "S2", "alpaca_live", root=root)
+    _needs_data(res, "R-EXECUTION-SHADOW")
+
+
+# ── needs_data_pipeline_item() / file_needs_data() ──────────────────────────
+def test_needs_data_pipeline_item_validates(repo):
+    res = _s1s2(repo(), leg=EQ_LEG, account="alpaca_live")  # insufficient_n
+    assert res["verdict"] == mr.NEEDS_DATA
+    item = mr.needs_data_pipeline_item(res, "session_TESTFIXTURE")
+    pipeline.validate(item)  # raises PipelineError if malformed
+    assert item["due_when"]["kind"] == "observation"
+    assert "insufficient_n" in item["what"]
+    assert res["clause"] in item["what"] and res["mandate"] in item["what"]
+    assert item["origin"]["rerun"].startswith("python3 scripts/ops/mandate_resolver.py")
+    assert item["state"] == "queued"
+
+
+def test_needs_data_pipeline_item_refuses_a_fire_result(repo):
+    res = _s1s2(repo())
+    assert res["verdict"] == mr.FIRE
+    with pytest.raises(ValueError, match="not a NEEDS_DATA result"):
+        mr.needs_data_pipeline_item(res, "session_TESTFIXTURE")
+
+
+def test_file_needs_data_appends_a_readable_item(tmp_path, repo):
+    res = _s1s2(repo(accounts={**ACCOUNTS, "accounts": {
+        **ACCOUNTS["accounts"],
+        "bybit_1": _acct("paper", "bybit", ["l1", "l2"]),  # LEG removed -> not soaked
+    }}))
+    _needs_data(res, "R-NOT-SOAKED")
+    store = tmp_path / "pipeline"
+    filed = mr.file_needs_data(res, "session_TESTFIXTURE", store=store)
+    log = pipeline.read_log(store)
+    assert filed["id"] in log.items
+    assert log.items[filed["id"]]["what"] == filed["what"]
+
+
+# ── R-AFFORD: can the Stage-2 account size the leg at all? ──────────────────
+# PI-20260928-E8Y3BGBS-0003. On 2026-09-28 the armed MD-PROMOTE-S1-S2 FIREd
+# gld_pullback_1h onto alpaca_live, a ~$194 whole-share cash book, with one GLD
+# share at ~$393. The clause re-sizes the leg's committed setups through the
+# live sizer (RiskManager.position_size) at the account's measured equity.
+
+GLD_LIKE = {EQ_LEG: [{"symbol": "GLD", "entry_time": f"2026-09-{d:02d} 17:00:00+00:00",
+                      "direction": "long" if d % 2 else "short", "entry": 393.01,
+                      "sl": 390.23 if d % 2 else 395.79, "confidence": 1.0}
+                     for d in range(1, 11)]}
+EQ_R3 = {EQ_LEG: {"verdict": "consistent", "from_account": "alpaca_live", "basis": "market"}}
+
+
+def test_afford_refuses_a_leg_whose_one_share_exceeds_the_account(repo):
+    """The 2026-09-28 fire, reproduced: FIRE on a funded book (control), REFUSE
+    at the $193.56 measured on alpaca_live 2026-09-30T05:36Z. One field differs."""
+    ok = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3)), leg=EQ_LEG, account="alpaca_live")
+    assert ok["verdict"] == "FIRE", ok
+    assert ok["evidence"]["affordability"]["setups_sized"] == 10
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": 193.56}),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+    assert "0 of 10" in res["detail"] and "whole-unit" in res["detail"]
+    assert res["evidence"]["affordability"]["ref_price"] == 393.01
+
+
+def test_afford_is_decided_before_cost_fidelity(repo):
+    """An unaffordable leg must not come back NEEDS_DATA "collect more fills"."""
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3({EQ_LEG: "insufficient_n"}),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": 193.56}),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+
+
+def test_afford_counts_only_directions_the_account_permits(repo):
+    """side_filter: long on alpaca_live -- an all-short leg never trades there."""
+    accts = copy.deepcopy(ACCOUNTS)
+    accts["accounts"]["alpaca_live"]["side_filter"] = "long"
+    shorts = {EQ_LEG: [dict(r, direction="short", sl=510.0) for r in SETUPS[EQ_LEG]]}
+    res = _s1s2(repo(accounts=accts, setups=shorts, r3=_r3(EQ_R3)),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+    assert "side_filter:long" in res["detail"]
+    mixed = _s1s2(repo(accounts=accts, r3=_r3(EQ_R3)), leg=EQ_LEG, account="alpaca_live")
+    assert mixed["verdict"] == "FIRE", mixed
+    assert mixed["evidence"]["affordability"]["setups_permitted"] == 5
+
+
+def test_afford_reprices_old_setups_to_the_latest_committed_price(repo):
+    """A cheap 2025 setup is not evidence the leg is affordable today."""
+    old_cheap = [dict(r, entry=150.0, sl=148.0 if r["direction"] == "long" else 152.0,
+                      entry_time="2025-01-01 00:00:00+00:00") for r in GLD_LIKE[EQ_LEG][:-1]]
+    rows = {EQ_LEG: old_cheap + GLD_LIKE[EQ_LEG][-1:]}
+    res = _s1s2(repo(setups=rows, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": 193.56}),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+
+
+@pytest.mark.parametrize("snap", [
+    None,                                              # never measured
+    {"account_id": "alpaca_live", "captured_at": "2026-01-01T00:00:00+00:00",
+     "equity_usd": 1e6},                               # stale
+    {"account_id": "alpaca_live", "captured_at": None, "equity_usd": 1e6},
+    {"account_id": "bybit_2", "captured_at": "2099-01-01T00:00:00+00:00",
+     "equity_usd": 1e6},                               # another account's reading
+])
+def test_afford_needs_data_when_equity_is_not_measured(repo, snap):
+    snaps = {"bybit_2": 100_000.0}
+    if snap is not None:
+        snaps["alpaca_live"] = snap
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3), snapshots=snaps),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")
+    assert "broker_account_status?account_id=alpaca_live" in res["data_task"]["what"]
+
+
+def test_afford_on_the_real_committed_gld_record(tmp_path):
+    """The real 2026-09-28 gld_pullback_1h record, source_run, mandates and
+    accounts from THIS tree, with alpaca_live at its measured $193.56 (fresh
+    timestamp, so the test does not rot as the committed snapshot ages)."""
+    import shutil
+    leg = "gld_pullback_1h"
+    rec = json.loads((REPO / mr.EVIDENCE_DIR_REL / f"{leg}.json").read_text())
+    for rel in (mr.MANDATES_REL, mr.ACCOUNTS_REL, mr.STRATEGIES_REL,
+                f"{mr.EVIDENCE_DIR_REL}/{leg}.json", rec["source_run"]):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(REPO / rel, tmp_path / rel)
+    _w(tmp_path, f"{mr.ACCOUNT_SNAPSHOT_DIR_REL}/alpaca_live.json",
+       _snapshot("alpaca_live", 193.56))
+    res = mr.resolve(leg, "S1", "S2", "alpaca_live", root=tmp_path)
+    _refused(res, "R-AFFORD")
+    aff = res["evidence"]["affordability"]
+    assert aff["setups_sized"] == 0 and aff["setups_permitted"] > 0
+    assert aff["ref_price"] > 193.56
+
+
+def test_snapshot_writer_round_trips_the_diag_shape(tmp_path):
+    import snapshot_account_for_mandate as snapw
+    diag = {"captured_at": "2026-09-30T05:36:08.978715+00:00",
+            "requested_account_id": "alpaca_live",
+            "accounts": [{"account_id": "alpaca_live", "exchange": "alpaca", "error": None,
+                          "status_flags": {"shorting_enabled": False, "capacity": {
+                              "multiplier": "1", "buying_power": "193.56",
+                              "cash": "193.56", "equity": "193.56"}}}]}
+    snap = snapw.build(diag, "alpaca_live")
+    assert snap["equity_usd"] == 193.56 and snap["buying_power_usd"] == 193.56
+    assert snap["captured_at"] == diag["captured_at"]
+    _w(tmp_path, f"{mr.ACCOUNT_SNAPSHOT_DIR_REL}/alpaca_live.json", snap)
+    assert mr._json(tmp_path / mr.ACCOUNT_SNAPSHOT_DIR_REL / "alpaca_live.json") == snap
+    bad = copy.deepcopy(diag)
+    bad["accounts"][0]["status_flags"]["capacity"] = {}
+    bad["accounts"][0]["available_margin"] = {"could_not_look": True}
+    with pytest.raises(SystemExit):
+        snapw.build(bad, "alpaca_live")   # never writes a number it did not read
+
+
+def test_afford_rejects_a_future_dated_snapshot(repo):
+    """A captured_at ahead of now would have a negative age and never go stale."""
+    snap = _snapshot("alpaca_live", 1e6, age_days=-2)
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")
+    assert "future" in res["detail"]
+    # Within the 1h skew allowance it is still a reading (positive control).
+    ok = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                    snapshots={"bybit_2": 100_000.0,
+                               "alpaca_live": _snapshot("alpaca_live", 1e6, age_days=-0.5 / 24)}),
+               leg=EQ_LEG, account="alpaca_live")
+    assert ok["verdict"] == "FIRE", ok
+
+
+@pytest.mark.parametrize("field", ["equity_usd", "buying_power_usd"])
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_afford_rejects_non_finite_equity(repo, field, bad):
+    """json accepts NaN/Infinity; an infinite equity would size anything."""
+    snap = _snapshot("alpaca_live", 1e6)
+    snap[field] = bad
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")

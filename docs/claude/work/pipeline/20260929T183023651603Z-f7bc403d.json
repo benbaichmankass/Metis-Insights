@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "research/results/RQ-20260928-002/*.jsonl exists on main. Then the same day: both blocked units either moved, or their blocked_on updated to name what is still missing, or killed with terminal_reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260928-VNMMNBJH-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane R-M19 session_01SQtJGs52hkSe2xVnMmnbJh (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28); docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md",
+    "rerun": "ls research/results/RQ-20260928-002/ 2>/dev/null; ls research/queue/blocked/ | grep 'RQ-20260928-00[23]'; grep -l 'RQ-20260928-002' research/queue/*.yaml research/queue/blocked/*.yaml"
+  },
+  "state": "done",
+  "terminal_reason": "Both branches of the follow-through completed 2026-09-29 by lane session_01TR74tvLR2AjCzrJMeBs47A (manager session_01HYq6XtfesZ57VyaQrK6CL1). RQ-20260928-002 (S1-v0) landed verdict fail (research/results/RQ-20260928-002/session_01TR74tvLR2AjCzrJMeBs47A-rq20260928-002-20260929.jsonl). RQ-20260928-003 (S1, market-state) was promoted blocked/ -> queue/ (PR #14292), dispatched for real on the trainer, and landed verdict fail (research/results/RQ-20260928-003/36605776035.jsonl) -- the third rule branch, two-null exhaustion (both -002 and -003 null at declared power; market-state coverage was 100%, not a coverage-limited null). RQ-20260928-004 (S2-sizing) was KILLED, status retired, with terminal_reason \"S1 line exhausted 2026-09-29\" recorded in its own note (research/queue/blocked/RQ-20260928-004.yaml). RQ-20260928-002/-003 are declared `feasibility.source: none` and are explicitly NOT one of research_disposition.py's three registered corpora (e35/gld_compat/m20), so this item's \"record 001's disposition with research_disposition.py --record\" clause does not apply to these units -- noted rather than silently skipped. Per the original M19-S1 dispatch: since S1 did not clear its bar, no S2 (sizing) proposal is written; the path proceeds on S2-exit/S3 only, which is future lane work outside this item's scope.",
+  "what": "FOLLOW-THROUGH (M19 staged path): when research/results/RQ-20260928-002/ lands a row, apply its registered rule (RULE-RQ0928-002-WITHIN-CELL-VETO-V0) to the two units waiting in research/queue/blocked/: RQ-20260928-003 (S1 market-state; runs on EVERY branch of 001, its arm-(1) reference is 001's veto_delta_r) and RQ-20260928-004 (S2-sizing; unblocks ONLY on a PASS, otherwise stays blocked until 002 lands, and is KILLED with a stated terminal_reason only on 002's two-null exhaustion branch). Promote = git mv into research/queue/ + fill run.workflow/lands.store; kill = status retired with the reason. Also record 001's disposition with scripts/research/research_disposition.py --record (never a hand-rolled ledger write). research/queue/README.md § blocked/ says keeping the waiting room from becoming a graveyard is not yet mechanical; this row is the clock for these two. DONE 2026-09-29: both units resolved, see terminal_reason."
+}

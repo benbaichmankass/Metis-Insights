@@ -204,6 +204,28 @@ GRANDFATHERED_COLLISIONS = {
     "PI-20260921-0002",
 }
 
+#: Single RECORD FILES (not ids) whose collision is already in append-only
+#: history. Narrower than GRANDFATHERED_COLLISIONS on purpose: a later
+#: collision on the SAME id, at any other record, still fails the guard.
+#: Same rules: a dated debt list, reported LOUDLY every run, never `clean`.
+#:
+#: 20260930T080938782595Z-98f85ccf.json (PI-20260929-AQRK6CL1-0014), added
+#: 2026-09-30 by lane PROP-ETH-DOM (session_01HS7ws2n8c57QMUquRobE9z): two
+#: update records for 0014 were appended from two different bases 90 s apart
+#: (#14615 from a main without #14638's record, #14638 from a main without
+#: #14615's) and merged 07:24Z/08:09Z-stamped; the later one is therefore not
+#: an append-only extension of the earlier. Nothing is lost: record
+#: 20260930T081547130622Z-18fc31c5.json restores the displaced text verbatim.
+#: Cause, for the next caller: append a pipeline update from a FRESH
+#: origin/main, after your previous update to the same id has merged.
+GRANDFATHERED_COLLISION_RECORDS = {
+    "20260930T080938782595Z-98f85ccf.json",
+}
+
+
+def _is_grandfathered_collision(c: dict) -> bool:
+    return c.get("id") in GRANDFATHERED_COLLISIONS or c.get("at") in GRANDFATHERED_COLLISION_RECORDS
+
 
 @dataclass
 class LoadResult:
@@ -676,6 +698,57 @@ def unrouted(items: Iterable[dict], today: date | None = None) -> list[dict]:
     return [i for i in due(items, today) if i.get("state") != "routed"]
 
 
+# ── JC-SA-06 (2026-09-29): section 0 cap + the routing alarm ─────────────────
+# MEASURED 2026-09-29 over the store (1,554 items, 177 due, 153 unrouted): the
+# unrouted count was 85 when A10 closed and 153 now; filing dates (the date
+# embedded in the id — items carry no created field) put 30 on 09-24, 16 on
+# 09-25, 4 on 09-26, 53 on 09-27, 36 on 09-28, 11 on 09-29, with three older
+# (09-21, 09-18, 09-09 → oldest 20 days). Section 0 rendered all 177 in full
+# prose: 301,617 bytes, 35% of an 868,265-byte brief.
+#
+# BOUNDS, chosen from that distribution:
+#   count  > 100 — 85 is the level A10 closed at and the operator accepted; 100
+#                  is that level plus ~one day of the 09-27/28 filing rate
+#                  (36-53/day). Firing today (153) is correct, not noise.
+#   oldest > 7 d — 5 of the 6 filing days are <= 5 days old (median ~2 d); a
+#                  week is longer than any healthy routing turnaround and shorter
+#                  than the 20-day tail that is there now.
+# Both are constants so moving one is a reviewed diff, not a tuning knob.
+SECTION0_CAP = 25
+UNROUTED_COUNT_BOUND = 100
+UNROUTED_OLDEST_DAYS_BOUND = 7
+_ID_DATE = re.compile(r"(?<!\d)(20\d{6})(?!\d)")
+
+
+def filed_date(item: dict) -> date | None:
+    """Filing date = the YYYYMMDD in the id (no created field exists). None if absent."""
+    m = _ID_DATE.search(str(item.get("id", "")))
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), "%Y%m%d").date()
+    except ValueError:
+        return None
+
+
+def unrouted_alarm(items: Iterable[dict], today: date | None = None) -> dict:
+    """Bound check on the unrouted backlog. ``undated`` is reported, never dropped:
+    an item whose age could not be read is *we could not look*, not *young*."""
+    today = _today(today)
+    rows = unrouted(items, today)
+    dated = [(filed_date(i), i) for i in rows]
+    ages = [((today - d).days, i["id"]) for d, i in dated if d is not None]
+    oldest_days, oldest_id = max(ages) if ages else (None, None)
+    breached = []
+    if len(rows) > UNROUTED_COUNT_BOUND:
+        breached.append(f"unrouted count {len(rows)} > {UNROUTED_COUNT_BOUND}")
+    if oldest_days is not None and oldest_days > UNROUTED_OLDEST_DAYS_BOUND:
+        breached.append(f"oldest unrouted {oldest_days}d ({oldest_id}) > "
+                        f"{UNROUTED_OLDEST_DAYS_BOUND}d")
+    return {"count": len(rows), "oldest_days": oldest_days, "oldest_id": oldest_id,
+            "undated": sum(1 for d, _ in dated if d is None), "breached": breached}
+
+
 def unrouted_count(items: Iterable[dict], today: date | None = None) -> int:
     return len(unrouted(items, today))
 
@@ -690,6 +763,7 @@ def stats(res: LoadResult, today: date | None = None) -> dict:
         "open": sum(by_state[s] for s in OPEN_STATES),
         "due": len(due(items, today)),
         "unrouted": unrouted_count(items, today),
+        "unrouted_alarm": unrouted_alarm(items, today),
         # ⚠️ Reported ALWAYS, including as 0, so "we could not read the store"
         # is never rendered as a clean bill of health.
         "unreadable": len(res.unreadable),
@@ -701,13 +775,18 @@ def stats(res: LoadResult, today: date | None = None) -> dict:
     }
 
 
-def render_section_0(res: LoadResult, today: date | None = None) -> list[str]:
+def render_section_0(res: LoadResult, today: date | None = None,
+                     limit: int | None = SECTION0_CAP) -> list[str]:
     """Brief section 0 — WHAT CAME DUE. Consumed by A3.
 
     ⚠️ Renders the unreadable count FIRST when non-zero. A brief that opened
     with a tidy due-list while half the store failed to parse would be the
     frozen-board failure this repo already paid for: a valid-looking read of a
     broken source is indistinguishable from a healthy one unless it says so.
+
+    JC-SA-06: lists at most ``limit`` items — unrouted before routed, oldest
+    filed first — and SAYS how many it left out. ``limit=None`` renders all
+    (``--due --all``). The alarm banner precedes the list.
     """
     L = ["## §0 — WHAT CAME DUE", ""]
     if not res.healthy:
@@ -719,18 +798,36 @@ def render_section_0(res: LoadResult, today: date | None = None) -> list[str]:
         for loc, why in res.unreadable[:10]:
             L.append(f"> - {loc}: {why}")
         L.append("")
+    alarm = unrouted_alarm(res.items.values(), today)
+    if alarm["breached"]:
+        L += ["> 🚨 **ROUTING ALARM** — " + "; ".join(alarm["breached"]) +
+              ". Due items are reaching this page faster than they are routed.", ""]
+    if alarm["undated"]:
+        L += [f"> {alarm['undated']} unrouted item(s) carry no date in their id — "
+              f"their age could not be read and is not in the oldest-age figure.", ""]
     rows = due(res.items.values(), today)
     if not rows:
         L += ["Nothing came due." if res.healthy else
               "Nothing came due **among the records that parsed**.", ""]
         return L
     L += [f"**{len(rows)} item(s) due. Each needs a disposition today.**", ""]
-    for i in sorted(rows, key=lambda r: r.get("id", "")):
+    far = date.max
+    ordered = sorted(rows, key=lambda r: (r.get("state") == "routed",
+                                          filed_date(r) or far, r.get("id", "")))
+    shown = ordered if limit is None else ordered[:limit]
+    for i in shown:
         owner = f" → `{i['routed_to']}`" if i.get("routed_to") else ""
+        what = str(i.get("what"))
+        if limit is not None and len(what) > 300:
+            what = what[:300].rstrip() + "…"
         L.append(
-            f"- **{i.get('id')}** [{i.get('state')}{owner}] {i.get('what')} "
+            f"- **{i.get('id')}** [{i.get('state')}{owner}] {what} "
             f"· next: `{i.get('next_action')}` · rerun: `{(i.get('origin') or {}).get('rerun')}`"
         )
+    if len(ordered) > len(shown):
+        L += ["", f"**{len(ordered) - len(shown)} more due, not shown** (oldest-first "
+              f"cap of {limit}; unrouted listed before routed). All of them: "
+              f"`python3 scripts/ops/pipeline.py --due --all`."]
     L.append("")
     return L
 
@@ -1159,10 +1256,8 @@ def _check(store: Path) -> int:
     # is invisible behind another record wearing its id. See the module
     # docstring's "SIXTH FAILURE MODE". Reported here, loudly, whether or not
     # it is grandfathered -- "clean" is never printed over any of them.
-    new_collisions = [c for c in res.collisions
-                       if c["id"] not in GRANDFATHERED_COLLISIONS]
-    known_collisions = [c for c in res.collisions
-                          if c["id"] in GRANDFATHERED_COLLISIONS]
+    new_collisions = [c for c in res.collisions if not _is_grandfathered_collision(c)]
+    known_collisions = [c for c in res.collisions if _is_grandfathered_collision(c)]
     if res.collisions:
         print(f"\n::warning::pipeline: {len(res.collisions)} id(s) with a "
               f"DISPLACED/SHADOWED record — two records share an id without "
@@ -1171,7 +1266,8 @@ def _check(store: Path) -> int:
               f"to due()/render_section_0() even though nothing above failed.")
         for c in res.collisions:
             tag = ("GRANDFATHERED -- pre-existing, see GRANDFATHERED_COLLISIONS"
-                   if c["id"] in GRANDFATHERED_COLLISIONS else "NEW")
+                   "/GRANDFATHERED_COLLISION_RECORDS"
+                   if _is_grandfathered_collision(c) else "NEW")
             print(f"  {c['id']} at {c['at']}: {c['reason']} [{tag}]")
 
     if res.unreadable or bad or new_collisions:
@@ -1201,6 +1297,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--check", action="store_true",
                     help="validate every item in the store")
     ap.add_argument("--due", action="store_true", help="render brief section 0")
+    ap.add_argument("--all", action="store_true",
+                    help="with --due: render every due item (no cap, no truncation)")
     ap.add_argument("--stats", action="store_true")
     ap.add_argument("--mint-id", metavar="SESSION_REF",
                     help="print a fresh, session-scoped id and exit -- see "
@@ -1220,7 +1318,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.stats:
         print(json.dumps(stats(res), indent=2, sort_keys=True))
         return 0 if res.healthy else 1
-    print("\n".join(render_section_0(res)))
+    print("\n".join(render_section_0(res, limit=None if args.all else SECTION0_CAP)))
     return 0 if res.healthy else 1
 
 

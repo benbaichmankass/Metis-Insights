@@ -230,7 +230,7 @@ The operator decides when to run each session type. Three options:
   > Read `CLAUDE.md` and `docs/sprints/recurring-hardening-prompt.md`. Begin a recurring hardening session.
 - Bot commands `/improve_strategy`, `/train_model`, `/roadmap` follow the same pattern.
 
-**B. Cron via systemd timer** (autonomous):
+**B. Cron via systemd timer** (autonomous) — *PROPOSED, NOT BUILT: no `ict-recurring-audit.timer` exists in `deploy/` or on either VM (verified 2026-09-29, FIX-SA-09):*
 - Add `deploy/ict-recurring-audit.timer` firing every 48h
 - Timer invokes `scripts/dispatch_recurring_session.sh audit` which appends a request to `comms/requests/`
 - Operator sees a Telegram nudge: "Audit session due — open: [Claude Code link]"

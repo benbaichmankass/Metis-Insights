@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -86,6 +87,17 @@ def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
     if now - when >= gap:
         return True, f"last ran {when.isoformat()}, cadence {cadence} elapsed"
     return False, f"last ran {when.isoformat()}, cadence {cadence} not yet elapsed"
+
+
+def due_within(entry: Dict[str, Any], now: datetime, hours: float = 0.0) -> bool:
+    """Would the dispatcher fire this unit at ``now + hours``? The ONE due rule
+    (`_is_due`), exposed so the refill (`queue_replenish.runnable`) and the alarm
+    (`queue_grade.health`) count exactly what this dispatcher would fire and
+    never a looser notion of "runnable". A `once` unit that already ran and a
+    monthly unit that ran yesterday both carry `status: queued` and are NOT due;
+    measured 2026-09-29 04:35Z on main they were 18 of the 21 "runnable" units,
+    so the refill never fired and the alarm stayed quiet while the runners idled."""
+    return bool(_is_due(entry, now + timedelta(hours=hours))[0])
 
 
 def _stamp(path: Path, when: datetime) -> Optional[str]:
@@ -164,12 +176,244 @@ def _stamp(path: Path, when: datetime) -> Optional[str]:
         return f"{type(exc).__name__}: {exc}"
 
 
+
+def declared_inputs(workflow: str, *, repo: Path = _REPO) -> Optional[List[str]]:
+    """The ``workflow_dispatch.inputs`` keys ``<repo>/.github/workflows/<workflow>``
+    declares, or ``None`` when the file cannot be read (not "no inputs" — the
+    two are different claims, and only the second is a reason to filter)."""
+    path = repo / ".github" / "workflows" / workflow
+    try:
+        import yaml  # noqa: PLC0415 — optional at import time, required here
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, UnicodeDecodeError, ValueError, ImportError):
+        return None
+    # PyYAML parses the bare `on:` key as boolean True.
+    on = doc.get("on") if isinstance(doc.get("on"), dict) else doc.get(True)
+    if not isinstance(on, dict):
+        return None
+    wd = on.get("workflow_dispatch")
+    inputs = wd.get("inputs") if isinstance(wd, dict) else None
+    return sorted(inputs.keys()) if isinstance(inputs, dict) else []
+
+
+def dispatch_inputs(entry: Dict[str, Any], *, power_state: str = "",
+                    repo: Path = _REPO) -> tuple:
+    """``(inputs, dropped)`` — what ``gh workflow run -f`` will carry.
+
+    RQ-RUN (2026-09-28), MEASURED on research-queue-dispatch run 36476810004:
+    GitHub refuses the whole dispatch with ``HTTP 422: Unexpected inputs
+    provided: ["script"]`` when a unit's ``run.inputs`` names a key the
+    workflow does not declare — four token-free-runner units carried a
+    leftover ``script:`` key from their retarget and none of them fired, while
+    the dry run (which never builds the command) said ``would_dispatch``. The
+    runner reads the command from the unit FILE, so for it every key beyond
+    ``research_unit``/``power_state`` is provably noise: drop it, and NAME it.
+    Any other workflow keeps its inputs verbatim — an undeclared key there is
+    a unit bug, refused by ``_fire`` before gh is called, in those words.
+    """
+    run = entry.get("run") or {}
+    inputs = dict(run.get("inputs") or {})
+    if inputs.get("research_unit") and power_state:
+        inputs["power_state"] = power_state
+    workflow = str(run.get("workflow"))
+    declared = declared_inputs(workflow, repo=repo)
+    if declared is None or workflow != "research-script-run.yml":
+        return inputs, []
+    dropped = sorted(k for k in inputs if k not in declared)
+    return {k: v for k, v in inputs.items() if k in declared}, dropped
+
+
+
+# ── backpressure (manager review 2026-09-29, 01:27Z) ────────────────────────
+# MEASURED at 01:27Z on 2026-09-29: 67 runs queued repo-wide and 12 research
+# compute runs in progress at once (6 research-script-run, 2 harness, 2 m20,
+# 1 e35, 1 macro backfill) after the dispatcher fanned the whole queue out in
+# one cycle. Every system-action -- set-env, flatten, the Breakout AUTO-REVERT
+# -- waited in the same runner pool. Research must never starve a safety
+# action, so a fire is DEFERRED (not failed, not stamped) when research
+# compute already holds `--max-research-inflight` runs or the repo already has
+# more than `--max-repo-queued` runs waiting. A deferred unit is due again on
+# the next cycle exactly as if it had never been looked at.
+DEFERRED = "deferred"
+
+# ── same-workflow serialization (PI-20260929-RQRUN-E35CORPUS-0001) ─────────
+# MEASURED 2026-09-29 00:53Z: one cycle fired three e35-bracket-sweep units.
+# e35-bracket-sweep.yml declares `concurrency: {group: e35-bracket-sweep,
+# cancel-in-progress: false}`, and GitHub keeps ONE pending run per group, so
+# the third dispatch CANCELLED the second (RQ-20260928-017 ran nothing, stayed
+# stamped, and would never have re-fired). The two survivors then each
+# rewrote docs/research/e35-bracket-corpus.jsonl from their own checkout and
+# their landing PRs (#13910, #13801) stranded CONFLICTING. m20-exit-lever-
+# sweep has no group but the same whole-file corpus rewrite. So a cycle fires
+# at most `--max-fires-per-workflow` unit(s) per workflow FILE; the rest are
+# DEFERRED to the next cycle, unstamped. Only workflows that can collide are
+# serialized (see serialized_workflow()): a per-run or per-unit concurrency
+# group -- the harness dispatcher, the exit-head build, the token-free runner
+# whose results land in ONE batch PR -- fans out as before.
+#: Workflows whose runs collide even without a constant concurrency group:
+#: they rewrite a whole corpus file and land it via commit-to-main.
+SERIALIZED_WORKFLOWS = frozenset({"e35-bracket-sweep.yml", "m20-exit-lever-sweep.yml",
+                                  "macro-valuation-backfill.yml"})
+_CONCURRENCY_GROUP_RE = re.compile(r"^concurrency:\s*\n(?:[ \t]+.*\n)*?[ \t]+group:[ \t]*(.+?)[ \t]*$", re.M)
+
+
+def serialized_workflow(wf_file: str, repo: Path = _REPO) -> bool:
+    """Should the dispatcher fire at most one unit of this workflow per cycle?
+    Yes when it is a known corpus rewriter (SERIALIZED_WORKFLOWS) or its file
+    declares a CONSTANT `concurrency.group` (no `${{ ... }}`), because GitHub
+    keeps one pending run per group and cancels the rest. A per-run group
+    (`${{ github.run_id }}`, a per-unit input) never cancels, so those
+    workflows -- the harness dispatcher, the exit-head build, the token-free
+    runner -- fan out as before."""
+    name = wf_file.split("/")[-1]
+    if name in SERIALIZED_WORKFLOWS:
+        return True
+    try:
+        text = (repo / ".github" / "workflows" / name).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    m = _CONCURRENCY_GROUP_RE.search(text)
+    return bool(m) and "${{" not in m.group(1)
+
+
+def research_workflow_names(jobs: List[Any], repo: Path = _REPO) -> Dict[str, str]:
+    """{workflow file -> its `name:`} for every real workflow the queue routes
+    to, plus the token-free runner. A run counts as research compute when its
+    workflowName is one of these names (gh run list reports names, not files)."""
+    files = {"research-script-run.yml"}
+    for job in jobs:
+        wf = str(((getattr(job, "raw", None) or {}).get("run") or {}).get("workflow") or "")
+        if wf.endswith((".yml", ".yaml")) and not any(ch.isspace() for ch in wf):
+            files.add(wf.split("/")[-1])
+    out: Dict[str, str] = {}
+    for f in sorted(files):
+        path = repo / ".github" / "workflows" / f
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            if line.startswith("name:"):
+                out[f] = line.split(":", 1)[1].strip().strip("\"'")
+                break
+    return out
+
+
+def gh_runs(status: str, *, limit: int = 200) -> Optional[List[Dict[str, Any]]]:
+    """`gh run list` rows for one status, or None when gh could not answer --
+    a count we could not take is reported as such, never as zero."""
+    cmd = ["gh", "run", "list", "--status", status, "--limit", str(limit),
+           "--json", "databaseId,workflowName,status,createdAt"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        rows = json.loads(proc.stdout or "[]")
+    except ValueError:
+        return None
+    return rows if isinstance(rows, list) else None
+
+
+#: A run still `queued` or `in_progress` this long after it was created is not
+#: waiting for a hosted runner -- it is STUCK (an `issues`-triggered job whose
+#: label no runner serves, a lost runner) and adds nothing to the pool's load.
+#: MEASURED 2026-09-29 06:56Z on the first fired cycle after #13907: every one
+#: of the 36 "queued" runs was created on 2026-05-15, and the "3 research runs
+#: in flight" were three `trainer-vm-diag` issue dispatches from the same
+#: morning. Counting them deferred every fire, and would have forever.
+STALE_PRESSURE_HOURS = 24.0
+
+
+def _run_age_hours(row: Dict[str, Any], now: datetime) -> Optional[float]:
+    """Hours since the run was created, or None when createdAt is unreadable."""
+    raw = row.get("createdAt")
+    if not raw:
+        return None
+    try:
+        when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (now - when).total_seconds() / 3600.0
+
+
+def backpressure(research_names: Dict[str, str], *, max_inflight: int, max_queued: int,
+                 runs_by_status: Optional[Dict[str, Optional[List[Dict[str, Any]]]]] = None,
+                 now: Optional[datetime] = None, stale_after_hours: float = STALE_PRESSURE_HOURS
+                 ) -> Dict[str, Any]:
+    """What the runner pool looks like before this cycle fires anything.
+
+    Returns {inflight_research, repo_queued, stale_ignored, block, detail}.
+    `block` is None when firing may proceed (subject to the per-fire count),
+    else a reason. A status gh could not list is a BLOCK with that reason: the
+    conservative direction for research spend is to wait one cycle.
+
+    A run created more than `stale_after_hours` ago and still queued / in
+    progress is STUCK, not load (see STALE_PRESSURE_HOURS): it is reported in
+    `stale_ignored` and counted against neither cap. A run whose `createdAt`
+    cannot be read counts as fresh -- the conservative direction."""
+    if runs_by_status is None:
+        runs_by_status = {st: gh_runs(st) for st in ("queued", "in_progress")}
+    now = now or datetime.now(timezone.utc)
+    names = set(research_names.values())
+    unreadable = [st for st, rows in runs_by_status.items() if rows is None]
+    if unreadable:
+        return {"inflight_research": None, "repo_queued": None, "stale_ignored": None,
+                "block": f"could not count {'/'.join(unreadable)} runs via gh -- deferring every fire this cycle"}
+
+    def fresh(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out = []
+        for r in rows:
+            age = _run_age_hours(r, now)
+            if age is None or age <= stale_after_hours:
+                out.append(r)
+        return out
+
+    queued_all = list(runs_by_status.get("queued") or [])
+    inprog_all = list(runs_by_status.get("in_progress") or [])
+    queued, inprog = fresh(queued_all), fresh(inprog_all)
+    stale = (len(queued_all) - len(queued)) + (len(inprog_all) - len(inprog))
+    inflight = sum(1 for r in queued + inprog if str(r.get("workflowName")) in names)
+    out = {"inflight_research": inflight, "repo_queued": len(queued), "stale_ignored": stale, "block": None,
+           "detail": f"research compute in flight {inflight} (cap {max_inflight}); repo runs queued "
+                     f"{len(queued)} (cap {max_queued}); {stale} stuck run(s) older than "
+                     f"{stale_after_hours:g} h ignored"}
+    if len(queued) > max_queued:
+        out["block"] = (f"{len(queued)} workflow runs are queued repo-wide (> {max_queued}): research "
+                        "must not add to a saturated runner pool -- deferring every fire this cycle")
+    elif inflight >= max_inflight:
+        out["block"] = (f"{inflight} research compute run(s) already queued/in progress (cap "
+                        f"{max_inflight}) -- deferring every fire this cycle")
+    return out
+
+
 def _fire(entry: Dict[str, Any], *, route: str, ref: str,
           power_state: str = "") -> tuple:
     """Dispatch via `gh workflow run`. Returns (ok, detail)."""
     run = entry.get("run") or {}
     workflow = str(run.get("workflow"))
-    inputs = dict(run.get("inputs") or {})
+    # ⚠️ A `run.workflow` that is not a workflow FILE is a note to a human, not
+    # a dispatch target (research/queue/README.md § "DECLARED vs. actually
+    # dispatchable"). Until 2026-09-28 this ran `gh workflow run "none — ..."`
+    # and reported gh's own error; the outcome is the same DISPATCH_FAILED,
+    # but the reason now says what the unit needs (a real runner — see
+    # research-script-run.yml) instead of quoting a gh usage message.
+    if not workflow.endswith((".yml", ".yaml")) or any(ch.isspace() for ch in workflow):
+        return False, (f"run.workflow {workflow[:60]!r} is not a workflow file — a "
+                       "session-bound note; retarget it to research-script-run.yml "
+                       "(scripts/research/script_run.py) or a real *.yml")
+    # RQ-RUN (2026-09-28): the token-free runner reads the unit's command from
+    # its YAML. Refuse here what the runner would refuse there, so a bad unit
+    # is a DISPATCH_FAILED row instead of a spent runner + a stamped unit.
+    if workflow == "research-script-run.yml":
+        from scripts.research import script_run
+        preflight = script_run.plan(str(entry.get("id")), run_id="preflight")
+        if not preflight.ok:
+            return False, "research-script-run preflight refused: " + "; ".join(preflight.errors)[:400]
     # ⚠️ THE UNIT DECLARES ITS IDENTITY; THE DISPATCHER SUPPLIES THE VERDICT.
     # `power_state` is deliberately NOT hand-written in the YAML: it is a SAFETY
     # label ("do not read this run's output as a test result"), and a
@@ -180,8 +424,18 @@ def _fire(entry: Dict[str, Any], *, route: str, ref: str,
     # Injected only when the unit already declares `research_unit`, because
     # `gh workflow run -f <input-the-workflow-never-declared>` ERRORS. Opting in
     # by declaring the identity is the unit asserting its workflow accepts both.
-    if inputs.get("research_unit") and power_state:
-        inputs["power_state"] = power_state
+    inputs, dropped = dispatch_inputs(entry, power_state=power_state)
+    if dropped:
+        print(f"::notice::{entry.get('id')}: run.inputs {dropped} are not declared by "
+              f"{workflow} and were not sent — the runner reads the command from the "
+              "unit file; drop them from the unit on its next edit", file=sys.stderr)
+    declared = declared_inputs(workflow)
+    if declared is not None:
+        unknown = sorted(k for k in inputs if k not in declared)
+        if unknown:
+            return False, (f"run.inputs {unknown} are not declared by {workflow} "
+                           f"(declared: {declared}) — GitHub would refuse the dispatch "
+                           "with HTTP 422; fix the unit's run.inputs")
     cmd = ["gh", "workflow", "run", workflow, "--ref", ref]
     for key, value in inputs.items():
         cmd += ["-f", f"{key}={value}"]
@@ -201,6 +455,20 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="actually dispatch; default is a dry run that only reports")
     ap.add_argument("--ref", default=os.environ.get("GITHUB_REF_NAME") or "main")
     ap.add_argument("--only", default=None, help="dispatch just this job id")
+    ap.add_argument("--max-research-inflight", type=int, default=3,
+                    help="defer every fire while this many research compute runs are already "
+                         "queued or in progress (counted via gh; see backpressure())")
+    ap.add_argument("--pressure-stale-hours", type=float, default=STALE_PRESSURE_HOURS,
+                    help="a run still queued/in progress this many hours after creation is stuck, "
+                         "not load, and counts against neither cap (see STALE_PRESSURE_HOURS)")
+    ap.add_argument("--max-repo-queued", type=int, default=10,
+                    help="defer every fire while more than this many workflow runs are queued "
+                         "repo-wide (research must never starve a system-action)")
+    ap.add_argument("--max-fires-per-workflow", type=int, default=1,
+                    help="fire at most this many units per workflow FILE per cycle; the rest are "
+                         "deferred (same-workflow runs cancel each other in a concurrency group "
+                         "and collide on whole-file corpus rewrites). research-script-run.yml "
+                         "is exempt: per-unit concurrency, batch-landed results")
     ap.add_argument("--max-gpu-dispatches-per-run", type=int, default=1,
                     help="per-RUN cap on GPU bursts; the ledger cap is monthly and "
                          "cannot bound a loop inside one run")
@@ -223,7 +491,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     decisions: List[Dict[str, Any]] = []
+    # Backpressure is read ONCE per cycle, then every successful fire counts
+    # against the in-flight cap so one cycle cannot fan the whole queue out.
+    pressure: Dict[str, Any] = {"block": None, "inflight_research": 0, "detail": "dry run: not counted"}
+    if args.fire:
+        pressure = backpressure(research_workflow_names(jobs), max_inflight=args.max_research_inflight,
+                                max_queued=args.max_repo_queued,
+                                stale_after_hours=args.pressure_stale_hours)
+        print(f"backpressure: {pressure.get('detail') or pressure.get('block')}", file=sys.stderr)
+        if pressure["block"]:
+            print(f"::notice::research-queue-dispatch deferred every fire: {pressure['block']}", file=sys.stderr)
+    inflight = int(pressure.get("inflight_research") or 0)
     gpu_fired = 0
+    fired_by_workflow: Dict[str, int] = {}
     for job in jobs:
         entry = job.raw
         row: Dict[str, Any] = {"id": job.id, "path": _display_path(job.path)}
@@ -271,9 +551,30 @@ def main(argv: Optional[List[str]] = None) -> int:
             row.update(outcome="would_dispatch", detail=f"route={route.state} (dry run)")
             decisions.append(row)
             continue
+        if pressure["block"]:
+            row.update(outcome=DEFERRED, reason=pressure["block"])
+            decisions.append(row)
+            continue
+        if inflight >= args.max_research_inflight:
+            row.update(outcome=DEFERRED,
+                       reason=f"research compute cap {args.max_research_inflight} reached this cycle "
+                              f"({inflight} in flight incl. fires above) -- due again next cycle")
+            decisions.append(row)
+            continue
+        wf_file = str((entry.get("run") or {}).get("workflow") or "").split("/")[-1]
+        if serialized_workflow(wf_file) and fired_by_workflow.get(wf_file, 0) >= args.max_fires_per_workflow:
+            row.update(outcome=DEFERRED,
+                       reason=f"{wf_file} already fired {fired_by_workflow[wf_file]} unit(s) this cycle "
+                              f"(cap {args.max_fires_per_workflow}): same-workflow runs cancel each other "
+                              "in its concurrency group and collide on the corpus landing -- due again next cycle")
+            decisions.append(row)
+            continue
 
         ok, detail = _fire(entry, route=route.state, ref=args.ref,
                            power_state=power.state)
+        if ok:
+            inflight += 1
+            fired_by_workflow[wf_file] = fired_by_workflow.get(wf_file, 0) + 1
         row.update(outcome=DISPATCHED if ok else DISPATCH_FAILED, detail=detail)
         if ok:
             # Stamp only a SUCCESSFUL fire. Stamping a failed one would mark the

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "SCAN_GLOBS in scripts/check_impossibility_claims.py is re-pointed at the current review-backlog location (or the guard fails loudly when a declared source glob matches 0 files) and a re-run's population no longer silently excludes the 3 backlog registers",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-EJ89Y6IE-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B08",
+    "rerun": "python3 scripts/check_impossibility_claims.py --all --ratchet"
+  },
+  "routed_to": "GUARD-FIDELITY",
+  "state": "routed",
+  "what": "check_impossibility_claims.py silently scans 0 of its 3 declared backlog registers (docs/claude/{health,performance,ml}-review-backlog.json, all archived 2026-09-21) and reports a false clean pass -- the same defect class already found and fixed on the sibling claim-basis-guard."
+}

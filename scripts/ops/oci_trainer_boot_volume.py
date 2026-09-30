@@ -1,0 +1,322 @@
+#!/usr/bin/env python3
+"""Measure tenancy block storage, and (optionally) grow the TRAINER's boot volume.
+
+Built for PI-20260929-BTG1YDOI-0002 (trainer root disk at 92%, 2026-09-29;
+operator Tier-2 OK "All three (Recommended)", relayed by the manager). Driven by
+`.github/workflows/trainer-boot-volume.yml`.
+
+Why the total is measured FIRST, every run: OCI Always Free covers 200 GB of
+block storage in total, BOOT VOLUMES AND BLOCK VOLUMES COMBINED. Growing one boot
+volume past that ceiling starts a monthly bill silently. So the resize is refused
+unless the projected total (current total - trainer's current size + target) is
+<= the free ceiling. Over the ceiling, the run prints the overage and a list-price
+estimate and exits 3 without touching anything.
+
+The target instance is identified from the TRAINER's own IMDS document (passed in
+as a file), never by display name and never via the live VM: this tool can only
+ever resize the boot volume attached to the instance whose IMDS it was handed.
+
+Modes:
+  measure  read-only. Prints the per-volume table, the total, and the verdict.
+  resize   measure, then grow the trainer boot volume to --size-gb if (and only
+           if) the projected total stays within the free ceiling. Shrinking is
+           never attempted (OCI cannot shrink a volume); a volume already at or
+           above the target is a no-op.
+
+Exit codes: 0 ok / no-op, 2 bad input or API failure, 3 refused (would exceed the
+free ceiling), 4 resize issued but the volume did not reach the target size.
+
+Env: OCI_CLI_USER, OCI_CLI_FINGERPRINT, OCI_CLI_TENANCY, OCI_CLI_KEY_CONTENT,
+     OCI_CLI_REGION (the standard OCI_CLI_* secrets the other oci-* workflows use).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+
+FREE_CEILING_GB = 200
+# The ONLY instance this tool may resize. Both must match the IMDS document it is
+# handed, so a mis-set TRAINER_VM_IP (e.g. pointing at the live VM) is refused
+# before any OCI call is made rather than growing the wrong volume.
+EXPECTED_DISPLAY_NAME = "ict-trainer-vm"
+# ⚠️ INFERRED list price, not read from any bill: OCI Block Volume storage
+# $0.0255/GB-month + Balanced performance (10 VPU/GB x $0.0017) = $0.0425/GB-month.
+# Printed only to size an overage for the operator; nothing is spent on it.
+LIST_PRICE_PER_GB_MONTH = 0.0425
+LIVE_STATES = {"PROVISIONING", "RESTORING", "AVAILABLE", "FAULTY"}
+
+
+def _config() -> dict:
+    missing = [k for k in ("OCI_CLI_USER", "OCI_CLI_FINGERPRINT", "OCI_CLI_TENANCY",
+                           "OCI_CLI_KEY_CONTENT") if not os.environ.get(k)]
+    if missing:
+        print(f"ERROR: missing env: {', '.join(missing)}", file=sys.stderr)
+        sys.exit(2)
+    return {
+        "user": os.environ["OCI_CLI_USER"],
+        "fingerprint": os.environ["OCI_CLI_FINGERPRINT"],
+        "tenancy": os.environ["OCI_CLI_TENANCY"],
+        "key_content": os.environ["OCI_CLI_KEY_CONTENT"],
+        "region": os.environ.get("OCI_CLI_REGION") or "eu-paris-1",
+    }
+
+
+def _compartments(identity, tenancy: str, strict: bool) -> tuple[list[str], str]:
+    """Every ACTIVE compartment in the tenancy plus the root, and the scope read.
+
+    ``strict`` (resize mode): a failed sub-compartment listing is fatal, because a
+    root-only total UNDERCOUNTS and would let the 200 GB gate pass wrongly. The
+    root-only fallback survives only in measure mode, where it is reported.
+    """
+    import oci  # noqa: PLC0415
+
+    try:
+        subs = oci.pagination.list_call_get_all_results(
+            identity.list_compartments, tenancy,
+            compartment_id_in_subtree=True, access_level="ACCESSIBLE",
+            lifecycle_state="ACTIVE").data
+        return [tenancy] + [c.id for c in subs], "tenancy root + all accessible sub-compartments"
+    except Exception as exc:  # noqa: BLE001 — scope is reported, never hidden
+        if strict:
+            print(f"ERROR: could not list sub-compartments ({exc}); refusing to resize on "
+                  "a possibly-undercounted total", file=sys.stderr)
+            sys.exit(2)
+        print(f"WARNING: could not list sub-compartments ({exc}); measuring the root only",
+              file=sys.stderr)
+        return [tenancy], "tenancy root ONLY (sub-compartment listing failed)"
+
+
+def check_identity(imds: dict, expected_ocid: str) -> None:
+    """Refuse anything that is not the pinned trainer instance."""
+    name, iid = imds.get("displayName"), imds.get("id")
+    if name != EXPECTED_DISPLAY_NAME:
+        print(f"ERROR: IMDS displayName is {name!r}, expected {EXPECTED_DISPLAY_NAME!r}; "
+              "refusing", file=sys.stderr)
+        sys.exit(2)
+    if not expected_ocid or iid != expected_ocid:
+        print("ERROR: IMDS instance id does not match the pinned TRAINER_INSTANCE_OCID; "
+              "refusing", file=sys.stderr)
+        sys.exit(2)
+
+
+def _size(obj) -> int:
+    if obj.size_in_gbs is None:
+        print(f"ERROR: {obj.display_name} ({obj.id}) reports size_in_gbs=None; the total "
+              "cannot be trusted", file=sys.stderr)
+        sys.exit(2)
+    return int(obj.size_in_gbs)
+
+
+def _block_detail(compute, bs, comp: str, vol_id: str) -> dict:
+    """READ-ONLY: who a block volume is attached to, and its backup policy.
+
+    Answers "is this volume used?" before anyone proposes deleting it
+    (PI-20260929-CMXYTHSP-0002). Every lookup failure is reported as a string,
+    never silently dropped, so "no attachments" stays distinguishable from
+    "could not read attachments".
+    """
+    import oci  # noqa: PLC0415
+
+    out: dict = {}
+    try:
+        atts = oci.pagination.list_call_get_all_results(
+            compute.list_volume_attachments, compartment_id=comp, volume_id=vol_id).data
+        rows = []
+        for a in atts:
+            try:
+                inst = compute.get_instance(a.instance_id).data.display_name
+            except Exception as exc:  # noqa: BLE001
+                inst = f"<get_instance failed: {exc}>"
+            rows.append({"instance": inst, "instance_id": a.instance_id,
+                         "state": a.lifecycle_state, "type": a.attachment_type,
+                         "device": getattr(a, "device", None),
+                         "read_only": getattr(a, "is_read_only", None),
+                         "time_created": str(a.time_created)})
+        out["attachments"] = rows
+    except Exception as exc:  # noqa: BLE001
+        out["attachments_error"] = str(exc)
+    try:
+        asg = bs.get_volume_backup_policy_asset_assignment(vol_id).data
+        out["backup_policy_ids"] = [x.policy_id for x in asg]
+    except Exception as exc:  # noqa: BLE001
+        out["backup_policy_error"] = str(exc)
+    return out
+
+
+def measure(cfg: dict, imds: dict, strict: bool) -> dict:
+    import oci  # noqa: PLC0415
+
+    identity = oci.identity.IdentityClient(cfg)
+    bs = oci.core.BlockstorageClient(cfg)
+    compute = oci.core.ComputeClient(cfg)
+    tenancy = cfg["tenancy"]
+
+    ads = [a.name for a in identity.list_availability_domains(tenancy).data]
+    comps, scope = _compartments(identity, tenancy, strict)
+
+    rows = []
+    for comp in comps:
+        for ad in ads:
+            for bv in oci.pagination.list_call_get_all_results(
+                    bs.list_boot_volumes, availability_domain=ad, compartment_id=comp).data:
+                if bv.lifecycle_state in LIVE_STATES:
+                    rows.append({"kind": "boot", "name": bv.display_name, "id": bv.id,
+                                 "size_gb": _size(bv), "state": bv.lifecycle_state,
+                                 "vpus_per_gb": bv.vpus_per_gb})
+        for v in oci.pagination.list_call_get_all_results(
+                bs.list_volumes, compartment_id=comp).data:
+            if v.lifecycle_state in LIVE_STATES:
+                rows.append({"kind": "block", "name": v.display_name, "id": v.id,
+                             "size_gb": _size(v), "state": v.lifecycle_state,
+                             "vpus_per_gb": v.vpus_per_gb,
+                             "time_created": str(v.time_created),
+                             "volume_group_id": v.volume_group_id,
+                             "detail": _block_detail(compute, bs, comp, v.id)})
+
+    # Backups are reported (not summed): Always Free counts them separately
+    # (5 backups), but an operator reading the total should see them.
+    backups = []
+    for comp in comps:
+        for b in oci.pagination.list_call_get_all_results(
+                bs.list_boot_volume_backups, compartment_id=comp).data:
+            if b.lifecycle_state in ("CREATING", "AVAILABLE"):
+                backups.append({"kind": "boot_backup", "name": b.display_name,
+                                "size_gb": b.size_in_gbs, "state": b.lifecycle_state})
+        for b in oci.pagination.list_call_get_all_results(
+                bs.list_volume_backups, compartment_id=comp).data:
+            if b.lifecycle_state in ("CREATING", "AVAILABLE"):
+                backups.append({"kind": "volume_backup", "name": b.display_name,
+                                "size_gb": b.size_in_gbs, "state": b.lifecycle_state})
+
+    # The trainer's boot volume, resolved from ITS OWN instance id.
+    inst_id = imds["id"]
+    atts = compute.list_boot_volume_attachments(
+        availability_domain=imds["availabilityDomain"],
+        compartment_id=imds["compartmentId"], instance_id=inst_id).data
+    atts = [a for a in atts if a.lifecycle_state == "ATTACHED"]
+    if len(atts) != 1:
+        print(f"ERROR: expected exactly 1 ATTACHED boot volume on {inst_id}, found {len(atts)}",
+              file=sys.stderr)
+        sys.exit(2)
+    trainer_bv = bs.get_boot_volume(atts[0].boot_volume_id).data
+
+    total = sum(r["size_gb"] for r in rows)
+    ids = {r["id"] for r in rows}
+    if trainer_bv.id not in ids:
+        # Denominator check: the enumeration must be able to see the one volume
+        # we KNOW exists. If it cannot, the total is not trustworthy.
+        print("ERROR: the trainer's boot volume is not in the enumerated set — "
+              "the tenancy total cannot be trusted", file=sys.stderr)
+        sys.exit(2)
+    return {"scope": scope, "availability_domains": ads, "compartments_read": len(comps),
+            "volumes": rows, "total_gb": total,
+            "trainer": {"instance_id": inst_id, "display_name": imds.get("displayName"),
+                        "boot_volume_id": trainer_bv.id,
+                        "boot_volume_name": trainer_bv.display_name,
+                        "size_gb": _size(trainer_bv)},
+            "backups": backups}
+
+
+def verdict(m: dict, target: int) -> dict:
+    cur = m["trainer"]["size_gb"]
+    projected = m["total_gb"] - cur + max(cur, target)
+    over = max(0, projected - FREE_CEILING_GB)
+    return {"target_gb": target, "current_gb": cur, "projected_total_gb": projected,
+            "free_ceiling_gb": FREE_CEILING_GB, "within_free": over == 0,
+            "overage_gb": over,
+            "est_monthly_cost_usd_list_price": round(over * LIST_PRICE_PER_GB_MONTH, 2)}
+
+
+def resize(cfg: dict, bv_id: str, target: int, timeout_s: int = 900) -> int:
+    import oci  # noqa: PLC0415
+
+    bs = oci.core.BlockstorageClient(cfg)
+    bs.update_boot_volume(bv_id, oci.core.models.UpdateBootVolumeDetails(size_in_gbs=target))
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        bv = bs.get_boot_volume(bv_id).data
+        print(f"  poll: state={bv.lifecycle_state} size_gb={bv.size_in_gbs}")
+        if bv.lifecycle_state == "AVAILABLE" and int(bv.size_in_gbs) >= target:
+            return int(bv.size_in_gbs)
+        time.sleep(15)
+    print(f"ERROR: boot volume did not reach AVAILABLE at >= {target} GB within {timeout_s}s",
+          file=sys.stderr)
+    return -1
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--mode", choices=["measure", "resize"], default="measure")
+    ap.add_argument("--size-gb", type=int, default=100)
+    ap.add_argument("--imds", required=True, help="trainer IMDS /opc/v2/instance/ JSON file")
+    ap.add_argument("--out", default="boot_volume_report.json")
+    ap.add_argument("--expected-ocid", default=os.environ.get("TRAINER_INSTANCE_OCID", ""),
+                    help="pinned trainer instance OCID (env TRAINER_INSTANCE_OCID)")
+    a = ap.parse_args(argv)
+    if not 50 <= a.size_gb <= FREE_CEILING_GB:
+        print("ERROR: --size-gb must be within [50, 200]", file=sys.stderr)
+        return 2
+
+    cfg = _config()
+    with open(a.imds, encoding="utf-8") as fh:
+        imds = json.load(fh)
+    check_identity(imds, a.expected_ocid)
+    m = measure(cfg, imds, strict=(a.mode == "resize"))
+    v = verdict(m, a.size_gb)
+    report = {"mode": a.mode, "measure": m, "verdict": v, "resized_to_gb": None}
+
+    print(f"scope: {m['scope']} ({m['compartments_read']} compartments, ADs {m['availability_domains']})")
+    for r in sorted(m["volumes"], key=lambda r: (r["kind"], r["name"] or "")):
+        print(f"  {r['kind']:5} {r['size_gb']:>4} GB  {r['state']:<11} vpus={r['vpus_per_gb']}  {r['name']}")
+    print(f"TENANCY BLOCK TOTAL: {m['total_gb']} GB of {FREE_CEILING_GB} GB free "
+          f"({len(m['volumes'])} volumes)")
+    for r in m["volumes"]:
+        if r["kind"] != "block":
+            continue
+        d = r["detail"]
+        print(f"  block detail: {r['name']} created={r['time_created']} "
+              f"volume_group={r['volume_group_id']}")
+        if "attachments_error" in d:
+            print(f"    attachments: COULD NOT READ ({d['attachments_error']})")
+        elif not d["attachments"]:
+            print("    attachments: NONE (no attachment record of any state)")
+        for at in d.get("attachments", []):
+            print(f"    attachment: {at['state']} -> {at['instance']} ({at['type']}, "
+                  f"device={at['device']}, read_only={at['read_only']}, since {at['time_created']})")
+        if "backup_policy_error" in d:
+            print(f"    backup policy: COULD NOT READ ({d['backup_policy_error']})")
+        else:
+            print(f"    backup policy: {d['backup_policy_ids'] or 'none'}")
+    for b in m["backups"]:
+        print(f"  {b['kind']:13} {b['size_gb']} GB  {b['state']:<9} {b['name']}  (not summed)")
+    print(f"backups: {len(m['backups'])} (Always Free allows 5; not part of the 200 GB total)")
+    print(f"trainer boot volume: {m['trainer']['boot_volume_name']} = {v['current_gb']} GB")
+    print(f"projected total at {a.size_gb} GB: {v['projected_total_gb']} GB -> "
+          + ("WITHIN free tier" if v["within_free"] else
+             f"EXCEEDS by {v['overage_gb']} GB (~${v['est_monthly_cost_usd_list_price']}/month, list-price estimate)"))
+
+    rc = 0
+    if a.mode == "resize":
+        if v["current_gb"] >= a.size_gb:
+            print(f"no-op: boot volume already {v['current_gb']} GB >= {a.size_gb} GB")
+            report["resized_to_gb"] = v["current_gb"]
+        elif not v["within_free"]:
+            print("REFUSED: resize would exceed the Always Free block-storage ceiling; nothing changed")
+            rc = 3
+        else:
+            print(f"resizing {m['trainer']['boot_volume_id']} {v['current_gb']} -> {a.size_gb} GB (online)")
+            got = resize(cfg, m["trainer"]["boot_volume_id"], a.size_gb)
+            report["resized_to_gb"] = got
+            print(f"boot volume now {got} GB")
+            rc = 0 if got >= a.size_gb else 4
+
+    with open(a.out, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2)
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "m20_trail_resweep.py::run_cell uses a unique per-call temp path (tempfile.mkstemp, unlinked in a finally block), matching the fixed sibling m20_fleet_exit_sweep.py::run_cell, so two concurrent invocations cannot silently read each other's cell result.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-4RNJRRFS-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B03 / docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl#AUD-20260927-CA-B03-trail-resweep-shared-tmp-race",
+    "rerun": "cd /home/user/Metis-Insights && grep -n 'tmp = \\|mkstemp' scripts/research/m20_trail_resweep.py (expect: tempfile.mkstemp once fixed; today: tmp = \"/tmp/m20_trail_cell.json\" literal, line 104)"
+  },
+  "state": "killed",
+  "terminal_reason": "Fixed on main: scripts/research/m20_trail_resweep.py::run_cell now uses tempfile.mkstemp(prefix='m20_trail_cell_') (L109) instead of the fixed /tmp/m20_trail_cell.json. Checked 2026-09-30.",
+  "what": "[trading-correctness] m20_trail_resweep.py::run_cell (line 104) writes every harness cell's --json output to a single hardcoded shared path (/tmp/m20_trail_cell.json) and reads it back with no tempfile.mkstemp/PID/uuid salt -- the identical BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH defect class already measured and fixed in the sibling m20_fleet_exit_sweep.py::run_cell (which now uses tempfile.mkstemp), but the fix never reached this file. Reproduced the cross-contamination mechanism with a planted-input thread race showing one worker silently reading another's result off the shared path. No test exercises run_cell's temp-path behavior. Filed by code-audit lane CA-B03 (docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl, finding AUD-20260927-CA-B03-trail-resweep-shared-tmp-race)."
+}

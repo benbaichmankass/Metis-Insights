@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The row closes when ALL of these hold:\n1. A DIRECT answer for FUT, sourced from IBKR documentation quoted verbatim with a URL, or from a paired live experiment with both arms recorded, or both.\n2. The answer explicitly states whether it covers STK as well, or says it does not.\n3. `BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH` is updated with the finding and moved to either a proposed Tier-3 change (if stops ARE inert) or a documented close (if they are not). A close needs the rationale written down, or the next session re-opens it.\n4. EITHER WAY, `protection_coverage` is assessed against the answer: today it reports RESTING quantity and says nothing about trigger eligibility. If eligibility turns out to be a real axis, that is a collapsed state in the coverage verdict and belongs in the collapsed-state registry.\n5. If neither line produces an answer, say so plainly and record WHICH line failed and why. 'Could not establish' is an acceptable outcome; a confident guess is not.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "RS-20260817-DOES-OUTSIDERTH-FALSE-MAKE-A-FUTURES-STOP-INERT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#RS-20260817-DOES-OUTSIDERTH-FALSE-MAKE-A-FUTURES-STOP-INERT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='RS-20260817-DOES-OUTSIDERTH-FALSE-MAKE-A-FUTURES-STOP-INERT'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed the live pipeline record (docs/claude/work/pipeline/20260924T160412099458Z-MIGR-00276.json) is byte-identical to the archived one — no progress since filing. Read src/runtime/ib_trading_hours.py and the S-IB-VENUE-SESSION-GATE-2026-08-16.md sprint log: the outsideRth/tradingHours split was built for the CLOSE path, but the specific question (does outsideRth=False make a GTC protective STOP ineligible to trigger outside RTH) was explicitly identified there as a Tier-3 item 'found and deliberately NOT actioned,' i.e. never researched.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "research/queue (or dispatch_lane to look it up) — this is a pure research question answerable from IBKR API documentation or a paired ib_paper live experiment per the item's own closure spec; it is not a judgment call for the operator, and per the standing rule it must not be killed for having zero attempts yet.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] RESEARCH: does outsideRth=False make a GTC futures STOP ineligible to TRIGGER outside RTH? Answer this before anyone changes protective-order geometry\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — research/queue (or dispatch_lane to look it up) — this is a pure research question answerable from IBKR API documentation or a paired ib_paper live experiment per the item's own closure spec; it is not a judgment call for the operator, and per the standing rule it must not be killed for having zero attempts yet."
+}

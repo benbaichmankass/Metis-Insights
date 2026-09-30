@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A read-only DOM dump of the watchlist-adjacent inputs is recorded from the live terminal and the locator is updated from it (merged), and the instrument-probe returns found:true with a spec dump for at least one symbol; or the manager kills it with a stated reason (e.g. the symbol expansion is dropped).",
+    "kind": "event"
+  },
+  "id": "PI-20260929-AQRK6CL1-0014",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29 23:18Z; probe runs #14437 and #14457; PRs #14134, #14442; lane PROP-ETH session_01RPz6PpXuDjaKkKxYNrXCUH (archived)",
+    "rerun": "Dispatch breakout-login-check apply: instrument-probe symbols: BTCUSD; read n_candidate_inputs / found in the run log."
+  },
+  "routed_to": "PROP-ETH",
+  "severity": "low",
+  "state": "routed",
+  "tier": 2,
+  "what": "PROP-ETH instrument-spec probe (goal: lot size / tick step / venue minimum for candidate Breakout symbols BTCUSD, ADAUSD, AVAXUSD, XRPUSD before any is added to executor.enabled_venue_symbols) is blocked on an UNMEASURED search-field location. MEASURED 2026-09-29: run #14437 (pre-#14442) refused all 4 with '0 BUY buttons'. Run #14457 at 23:17Z (code bd340d6ae, which contains #14442 c897f0e's positive watchlist anchor) resolved the watchlist panel without refusal, but found n_candidate_inputs: 0 for all 4. No input inside the measured watchlist panel matches INSTRUMENT_SEARCH_CANDIDATES (placeholder / aria-label / data-test-id / title) or type=search. Nothing was typed or clicked. Either the symbol search/add control sits outside the watchlist panel, is not an <input>, or uses unmeasured labels. Next step is a MEASUREMENT, not a guess: a read-only dump of every visible input / combobox / contenteditable near the watchlist (tag, type, role, placeholder, aria-label, data-test-id, title, ancestor chain; never values). Candidate labels and the containment anchor must come from that dump. Refuse-not-guess stays binding: never the order ticket."
+}

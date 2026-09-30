@@ -145,7 +145,10 @@ EXPECTED_ACTIONS = {
     # 2026-07-07 — generalized symbol-parameterized sibling so MGC/MHG (metals
     # sleeve) can be backfilled from native IBKR history, not just MES (#5851).
     "pull-ibkr-history": "pull_mes_ibkr_history.sh",
-    "set-account-mode": "set_account_mode.sh",
+    # JC-CA-01 (2026-09-28): the flip is a PR to main; on the VM both actions
+    # only READ the converged state (set-account-mode records it as pending).
+    "set-account-mode": "verify_account_mode.sh",
+    "verify-account-mode": "verify_account_mode.sh",
     # enable-mes / disable-mes removed 2026-05-22 — they flipped a
     # forbidden second gate (MULTI_SYMBOL_ENABLED). The traded-symbol set
     # is now derived from accounts.yaml; MES gating is the account `mode:`.
@@ -276,6 +279,13 @@ EXPECTED_ACTIONS = {
     # Breakout DXtrade automation, docs/research/prop-automation-options-2026-09-27.md).
     # Logs in to breakout_1 and reads balance/positions/orders; no order control.
     "breakout-login-check": "breakout_login_check_action.sh",
+    # 2026-09-28 — READ-ONLY measurement of Breakout's proprietary terminal
+    # (lane PROP-TERM): landing shape, optional ONE login + Open Terminal,
+    # optional read-only ticket probe. No order control in its code path.
+    "breakout-terminal-probe": "breakout_terminal_probe_action.sh",
+    # 2026-09-30 — READ-ONLY landing-page reachability probe of a FIXED host
+    # allowlist from the VM egress (PROP-DXTRADE-FIRMS). GET only, no creds.
+    "egress-landing-probe": "egress_landing_probe_action.sh",
     # 2026-06-30 — clear the daily_risk_state row for one account so
     # INTRADAY_DRAWDOWN counters reset without a full service restart.
     "reset-daily-risk-state": "reset_daily_risk_state.sh",
@@ -404,6 +414,8 @@ TIER_2_ACTIONS = {
     "fix-prop-mislinked-close",
     "repair-prop-fill-direction",
     "breakout-login-check",
+    "breakout-terminal-probe",
+    "egress-landing-probe",
     "reset-daily-risk-state",
     "repair-malformed-notes",
     "repair-netted-rows",

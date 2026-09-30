@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-02",
+    "kind": "date"
+  },
+  "id": "PI-20260929-LEUUWHQC-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29/GUARD-PROOF.md (lane GUARD-PROOF, JC-SA-07 option a)",
+    "rerun": "python3 scripts/ops/guard_plant.py --guard <name> --claim <claim> --plant-sh <shell> --out docs/audits/system-audit-2026-09-29/GUARD-PROOF.findings.jsonl  (one per guard; see GUARD-PROOF.md)"
+  },
+  "state": "queued",
+  "what": "GUARD-PROOF: 10 guards have NO plant evidence because the plant worker's Bash was denied by the permission classifier: account-class-guard, priority-fallback-distribution, workflow-actor-guard, api-tier-policy-guard, arch-doc-guard, async-route-blocking-guard, canonical-config-loaders, canonical-db-resolver, exit-coverage-matrix-guard, canonical-doc-coherence. Plant worker's intended plant for account-class-guard: bybit_1 account_class paper->real_money in config/accounts.yaml (bybit_1 has demo: true, rejected by check 3)."
+}

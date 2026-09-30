@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the guard's AST walk covers module-level yaml.safe_load calls (not just function-scoped ones) and a planted top-level hand-rolled config/accounts.yaml parser trips it",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-EJ89Y6IE-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B08",
+    "rerun": "python3 scripts/check_canonical_config_loaders.py --list"
+  },
+  "routed_to": "GUARD-FIDELITY",
+  "state": "routed",
+  "what": "check_canonical_config_loaders.py only AST-walks FunctionDef/AsyncFunctionDef bodies for hand-rolled yaml.safe_load of config/accounts.yaml, so a module-level (top-of-script) hand-rolled parser is invisible -- reproducing the exact '10th private parser' bug class (2026-05-16 backfill bug) the guard exists to prevent."
+}

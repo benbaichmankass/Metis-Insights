@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-LEUUWHQC-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29/GUARD-PROOF.findings.jsonl (verdict unplantable)",
+    "rerun": "python3 scripts/ci/run_guards.py --list; python3 - <<< 'import scripts.ci.run_guards as m; [print(g[\"name\"],g[\"steps\"]) for g in m.GUARDS if g[\"name\"] in (\"research-queue-autonomy-selftests\",\"mfe-parity-instrument-guard\")]'"
+  },
+  "state": "queued",
+  "what": "GUARD-PROOF: research-queue-autonomy-selftests and mfe-parity-instrument-guard have only --self-test steps in CI, so nothing plantable exists in the whole-tree/diff path; their real checks (check_research_queue_health.py, m31 parity) are not in run_guards. Decide: add a real step, or accept self-test-only."
+}

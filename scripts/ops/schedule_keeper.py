@@ -62,9 +62,28 @@ KEEPER_ACTOR = "github-actions[bot]"
 #: (tests/test_schedule_keeper.py enforces both halves).
 TARGETS: dict[str, dict] = {
     "r4-demotion-gate.yml": {"stale_hours": 26},
+    # PATHB-MANDATE (2026-09-30): the runner for the granted MD-SOAK-EXIT-CELL-PATHB.
+    "exit-cell-mandate.yml": {"stale_hours": 26},
     "replay-pregate-nightly.yml": {"stale_hours": 26},
     "strategy-review-packets.yml": {"stale_hours": 26},
+    # JC-SA-01 (2026-09-29): the graded hop of the trade pipeline, daily.
+    "grade-closed-trades.yml": {"stale_hours": 26},
     "soak-book-grade-weekly.yml": {"stale_hours": 170},
+    # GRADE-ALERT (2026-09-30): the alarm for the grading hop had 0 runs ever;
+    # its first 04:10Z slot never fired. An alarm that can be dropped is silent.
+    "grading-freshness-alert.yml": {"stale_hours": 26},
+    # RQ-OPS-2 (2026-09-28): added after the SAME lag/drop this module exists
+    # for stranded a full day of research-queue-dispatch's own cron — its
+    # 06:20 UTC slot had not fired by 13:14Z (measured: every other schedule-
+    # triggered workflow in the repo fired normally that morning, so this was
+    # not a repo-wide GitHub incident). It predates this fix by definition:
+    # the keeper was built 2026-09-27 and this workflow was never added.
+    "research-queue-dispatch.yml": {"stale_hours": 26},
+    # RQ-RUN (2026-09-28): the queue's own replenisher (daily) and mechanical
+    # grader (every 6 h) are what make it run without a session; a dropped
+    # slot on either is exactly the silence this keeper exists to cover.
+    "research-queue-replenish.yml": {"stale_hours": 26},
+    "research-queue-grade.yml": {"stale_hours": 26},
 }
 
 #: A slot younger than this is left to GitHub's own scheduler.

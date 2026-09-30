@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a second walk-forward split (or embargoed CV) is run and read, and either a human-reviewed promotion decision for exit-head-donchian-1h-v1 is made or the operator declines to pursue it further",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-YGGMZWK7-0004",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "research/queue/RQ-20260927-001.yaml + research/results/RQ-20260927-001/36298075573.jsonl",
+    "rerun": "scripts/ml/exit_head_replay.py (replay_trade) + scripts/ml/train_exit_head.py (train_model), walk-forward retrain on rows.jsonl bar_t <= 2024-12-30T16:00:00Z, tested on the n=119 baseline trades with entry_time strictly after the embargoed split 2025-01-06T16:00:00Z -- see research/results/RQ-20260927-001/36298075573.jsonl for the exact one-off driver parameters (not committed as a standalone script; see that record's own artifact.locator note)"
+  },
+  "state": "queued",
+  "what": "RQ-20260927-001 (trend_donchian BTCUSDT 1h exit-head walk-forward OOS attribution) PASSED RULE-RQ0927-001-EXIT-HEAD-OOS-ATTRIBUTION: recovered_R_oos +1.3127 over n=119 genuinely out-of-sample trades (embargoed 7-day split at 2025-01-06), clearing the pre-registered n>=64 floor, net-of-full-cost by construction. MEASURED research/results/RQ-20260927-001/36298075573.jsonl (verdict=pass, read_state=measured, generated_at 2026-09-27T05:49:05Z). The unit's OWN note reads this as directionally positive but a SMALL effect (+0.011R/trade) on a SINGLE walk-forward split -- marginal support for omitted_exit_head, not decisive, and it explicitly does NOT by itself license shadow->advisory promotion of exit-head-donchian-1h-v1. The independent precondition it named (PI-20260926-96NDZSOD-0001, the Stage-2 twin-dedup mirror-divergence bug) is now RESOLVED: PR #13076 merged 2026-09-27T09:37:52Z (verified on main via git merge-base), so that blocker is cleared. It also supersedes RQ-20260922-007's invalid cross-population +3.7796 reading (PI-20260926-96NDZSOD-0002, already dispositioned done) as the figure to cite. Net position: precondition clear, but the evidence itself is marginal/single-split -- proposed next step is an /ml-review look at whether a SECOND walk-forward split (or embargoed cross-validation) should be run before any shadow-> advisory promotion decision for exit-head-donchian-1h-v1 is put to the operator. This agent is NOT proposing promotion and is NOT filing any config/ml-registry change -- that decision needs human review."
+}

@@ -200,6 +200,11 @@ def _row_to_wire(row: sqlite3.Row,
         # never collapsed; a consumer that renders anything but
         # `known_divergent` as a clean bill of health has reintroduced the
         # bug (BL-20260826-JOURNAL-READS-DO-NOT-CONSULT-THE-BROKER-TRUTH-LEDGER).
+        # collapsed-state: unreadable — this route only SYNTHESISES the
+        # `unreadable` fallback map when the ledger read raised (trust_map is
+        # None); every real read_state is produced by
+        # broker_truth.journal_trust_map and graded per account by
+        # journal_trust_for, which is where read/absent are told apart.
         "journalTrust": journal_trust_for(
             row["account_id"], trust_map if trust_map is not None
             else {"read_state": "unreadable", "accounts": {}},

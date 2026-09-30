@@ -1,0 +1,196 @@
+id: RQ-20260928-005
+title: M19 S2-exit — does the walk-forward exit head recover net R on the ict_scalp 15m family, or only on trend_donchian?
+status: done
+cadence: once
+kind: experiment
+
+question: >-
+  The exit-head pipeline is the one model family in this repo that already
+  produces a walk-forward, net-of-cost R attribution on harness trades, and it
+  has exactly one genuinely out-of-sample pass on record: RQ-20260927-001,
+  trend_donchian BTCUSDT 1h, recovered_R_oos +1.3127 over n=119 (small,
+  single split). Stage S2 of the staged path
+  (docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md § 4)
+  needs an exit policy that is a per-FAMILY property, not a donchian artefact.
+  Does the same recipe (LightGBM P(holding pays) on the in-trade panel, purged
+  per-year walk-forward, 7-day embargo, below_half_r policy) recover positive
+  net R on the three ict_scalp 15m legs with the most costed trades — SOL, XRP,
+  ETH — each graded on its own out-of-sample trades?
+
+why_this_matters: >-
+  S2 composes a veto (S1) with a sizing and exit policy. If the exit head only
+  works on donchian, S2 is "veto + fixed exits" and the exit line narrows to one
+  family; if it works on ict_scalp too, the exit head is a reusable policy
+  layer and the AI-trader path has a second proven component. ict_scalp is
+  chosen because it is the family with the largest costed trade counts
+  (MEASURED from comms/strategy_evidence/*.json n_trades_oos: ict_scalp_sol_15m
+  132, ict_scalp_xrp_15m 129, ict_scalp_eth_15m 117, 365-day windows) and a
+  real-money roster presence (bybit_2), so a verdict here is decision-relevant
+  rather than academic. Operator rule 2026-09-27: refinement before kill — a
+  failure on one leg is not a family verdict, which is why three legs are
+  registered.
+
+power:
+  expected_n: 117
+  min_detectable_effect: 0.35
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Paired design, identical to RQ-20260927-001's registered floor: the head-on
+    and head-off arms score the SAME trades, so the unit is the per-trade
+    difference (replayed_r_i - baseline_r_i) and the test is one-sample on its
+    mean. Floor = (1.96 + 0.8416)^2 / 0.35^2 = 64.07. expected_n = 117 is the
+    SMALLEST of the three legs' out-of-sample trade counts in the current
+    evidence records (ict_scalp_eth_15m, MEASURED this session from
+    comms/strategy_evidence/ict_scalp_eth_15m.json n_trades_oos over its
+    365-day window; sol 132, xrp 129). Each leg is graded on its own n, so the
+    floor must clear on the smallest, which it does by 52.9. The
+    research-exit-head-build workflow fetches its own candles (`days` input)
+    and replays the ict_scalp harness over them; a 365-day window reproduces
+    the evidence records' population, and the per-year walk-forward's LAST
+    fold is the out-of-sample slice the statistic is read from.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      `source: none` because the three n values are read from the evidence
+      records (one JSON per leg under comms/strategy_evidence/), which are not
+      one of research_disposition.CORPORA's registered JSONL corpora. The
+      population is fixed by history over the declared window; nothing
+      accrues. If the workflow's own fetch returns fewer trades than the
+      records (venue geoblock, shorter history) the rule's n-floor branch
+      applies rather than a silently smaller population.
+
+decision_rule:
+  id: RULE-RQ0928-005-EXIT-HEAD-FAMILY-TRANSFER
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Per leg L in {ict_scalp_sol_15m (SOLUSDT), ict_scalp_xrp_15m (XRPUSDT),
+    ict_scalp_eth_15m (ETHUSDT)}, timeframe 15m: recovered_R_oos(L) =
+    sum(replayed_r_i) - sum(baseline_r_i) over the trades in the FINAL
+    walk-forward fold (the fold whose head was trained only on earlier years,
+    7-day embargo), where replayed_r_i is the ict_scalp trade re-exited by the
+    fold's exit head under the below_half_r @ tau=0.10 policy (the same shape
+    as the live donchian artifact) and baseline_r_i is the harness's own exit.
+    Both arms are charged the identical per-trade fee + slippage + funding via
+    src.runtime.execution_costs (the harness's default cost policy since E3),
+    so the paired delta is cost-neutral and the gross paired sum equals the
+    net figure. n_oos(L) = number of trades in that fold. Produced by
+    .github/workflows/research-exit-head-build.yml (harness: ict_scalp), one
+    dispatch per leg, each landing its own research/results row tagged with
+    this unit id and the symbol.
+  rule: >-
+    IF recovered_R_oos(L) > 0 AND n_oos(L) >= 64 on at least 2 of the 3 legs:
+    PASS — the exit head transfers across families; S2 is "veto + learned
+    exit", and the ict_scalp exit heads are candidates for the exit-refinement
+    pipeline's E1 step (exit-refinement skill; Tier-3 to flip live, NOT this
+    unit's act).
+    IF recovered_R_oos(L) > 0 on exactly 1 of 3 legs (n >= 64): REFINE —
+    record `indeterminate`; re-run that leg on a second split (the fold before
+    the last) before reading it as a family property, exactly as
+    RQ-20260927-001's single-split caveat demands. Not a kill.
+    IF recovered_R_oos(L) <= 0 on all three legs with n >= 64: FAIL — the exit
+    head is donchian-specific on current evidence; S2 is "veto + fixed exits"
+    and the exit line is exhausted for ict_scalp UNLESS the donchian pass
+    replicates on a second split (that replication is the remaining stated
+    refinement of the exit line, post-mortem § 4).
+    IF n_oos(L) < 64 on a leg: that leg reads `indeterminate` (underpowered),
+    is excluded from the 2-of-3 count, and the rule is applied over the
+    remaining legs; if fewer than 2 legs clear the floor the unit records
+    `indeterminate` overall. Never lower the floor.
+    IF the workflow lands read_state producer_failed / no_data: record it as
+    such with verdict not_applicable.
+  what_it_does_not_do: >-
+    Declares no exit_head_model in config/strategies.yaml, promotes no head,
+    writes nothing under runtime_logs/trainer_mirror/, changes no live exit.
+    Exit logic stays Tier-3 (exit-refinement skill); a PASS here is evidence
+    for a later Tier-3 proposal, not the proposal. It does not grade S1 or
+    depend on it.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 25
+  basis: >-
+    research-exit-head-build.yml runs on ubuntu-latest (MEASURED: `runs-on:
+    ubuntu-latest` at lines 115 and 401), fetches public candles itself and
+    lands its result through .github/actions/research-result (line 462). No
+    trainer-resident input. 25 min is the 365-day 15m fetch + per-year
+    walk-forward on one leg; three dispatches run independently.
+
+run:
+  workflow: research-exit-head-build.yml
+  inputs:
+    harness: ict_scalp
+    symbol: SOLUSDT
+    timeframe: 15m
+    days: '365'
+    time_stop_bars: '12'
+    tp_r: '2.0'
+    exit_threshold: '0.5'
+    research_unit: RQ-20260928-005
+  note: >-
+    The dispatcher fires ONE inputs block; this one is the SOL leg (largest
+    n). The XRP and ETH legs are dispatched by hand with identical inputs
+    except `symbol` (XRPUSDT, ETHUSDT), the same research_unit, so all three
+    land under research/results/RQ-20260928-005/. The rule counts legs, so a
+    partial landing (1 or 2 of 3 rows) is graded as `indeterminate` until all
+    three rows exist — a missing row is never read as a failing leg.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: >-
+    research/results/RQ-20260928-005/<run_id>.jsonl per dispatch (E5
+    contract). min_rows 1 per run; the rule needs three rows in total.
+
+related:
+  - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S2-exit)
+  - RQ-20260927-001 (the one prior out-of-sample exit-head pass, trend_donchian BTC 1h)
+  - docs/research/M20-exit-refinement-2026-07-12.md § 8-9 (the walk-forward recipe and the below_half_r policy)
+  - blocked/RQ-20260928-004 (S2-sizing, the other half of S2)
+last_dispatched_at: '2026-09-28T11:06:10+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  DISPOSITION: stays queued -- 1 of 3 legs landed; the other two were dispatched token-free on 2026-09-28 ~18:18Z. Landed: research/results/RQ-20260928-005/36413623634.jsonl, ict_scalp/SOLUSDT 15m, n_oos=108: FAIL on RULE-EXIT-HEAD-CLEARS-BAR (OOS AUC 0.5348, mean net-R improvement -0.0963/trade, cost_basis net_venue_bps 10.5). Under this unit's own rule that is recovered_R_oos <= 0 on one leg with n >= 64. XRPUSDT (research-exit-head-build run 36464183831) and ETHUSDT (run 36464257723) were dispatched by lane RQ-RUN with research_unit=RQ-20260928-005; their records land under research/results/RQ-20260928-005/ and the rule (2 of 3 / 1 of 3 / 0 of 3) is graded once all three rows exist.
+grading:
+  graded_at: '2026-09-29'
+  graded_by: lane M19-S2EXIT (session_01Um3DdFoaFgrhnEfcJRwVAK, manager session_01HYq6XtfesZ57VyaQrK6CL1)
+  verdict: indeterminate
+  record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-20260929.jsonl
+  supplementary_record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-supplementary-2200d-non-verdict.jsonl
+  disposition: >-
+    REGISTERED VERDICT: indeterminate. At the registered 365d window the final
+    fold holds ~20 trades per leg (5 contiguous blocks over 97-108 pooled
+    trades), so the n_oos >= 64 floor is unreachable; the rule's n-floor branch
+    applies and the floor is not lowered (manager decision 2026-09-29). Pooled
+    5-fold figures (0 of 3 legs positive; -10.40 / -13.69 / -3.42 R) are
+    descriptive and non-deciding.
+  supplementary_evidence: >-
+    NOT A VERDICT. A trailing-2200d re-run (runs 36615144815 SOL, 36615154335
+    XRP, 36615157916 ETH) after per-fold emission was added to
+    analyze_exit_head.py: final-block n_oos 120 / 96 / 104, recovered R
+    -11.25 / -12.22 / -14.43, 0 of 3 legs > 0. Four deviations from the
+    registration: window 2200d (registered 365d); 5 contiguous blocks
+    (registered per-year folds); 12-bar embargo (registered 7 days; biases
+    toward PASS); exit_threshold 0.5 (registered below_half_r tau 0.10 - a
+    different parameter). Changing the window after the 365d run without
+    re-registering is a post-hoc substitution, so it does not stand as this
+    unit's verdict. No consequence is drawn for the ict_scalp exit line.
+    The sample-size fix is registered as a NEW unit before any run.
+  follow_up: >-
+    PI-20260929-FCJRWVAK-0001. The per-year re-registration is power-limited
+    today: final fold (2026 YTD) holds 60 / 62 / 55 harness trades (SOL / XRP /
+    ETH) vs the 64 floor because the trainer's 15m candles end 2026-06-18
+    (MEASURED, trainer census #14398). Floor not lowered. Reachable after a
+    candle refresh plus a --fold-mode passthrough in m20_exit_head_round.py.
+  follow_up_registered: >-
+    Registered as RQ-20260929-401 (PR #14438): per-year final fold, 7-day embargo,
+    the shipped below_half_r tau 0.10 policy with the head arm charged its
+    round-trip cost + exit fee; MEASURED final-fold (2026 to 09-28) harness
+    trades SOL 100 / XRP 98 / ETH 84, all >= 64. That unit, not this one,
+    carries the sample-size fix; nothing here is re-graded.
