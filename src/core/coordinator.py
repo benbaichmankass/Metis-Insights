@@ -1398,6 +1398,19 @@ class Coordinator:
                 effective_dry = bool(dry_run)
             else:
                 effective_dry = account_dry
+            # WHICH gate made this dispatch dry, stamped onto the dry journal
+            # row as ``notes.dry_cause`` (PI-20260928-SVBNZOVH-0001). Before
+            # this, a side_filter-suppressed short on a ``mode: live`` account
+            # wrote an ordinary ``dry_run_no_order_placed`` row whose cause
+            # lived only in a logger line (journald keeps ~30 min), so it was
+            # indistinguishable in the DB from a shadow or mode demotion.
+            # Journal-only: nothing below branches on it.
+            _dry_cause: Optional[str] = None
+            if effective_dry:
+                _dry_cause = (
+                    "process_override" if dry_run is not None
+                    else "account_mode:dry_run"
+                )
 
             # The config/account_state.yaml dry-only fold that sat here
             # (PR-3 / M2) was RETIRED 2026-09-29 by operator decision
@@ -1433,6 +1446,7 @@ class Coordinator:
                             pkg.strategy, account.name,
                         )
                         effective_dry = True
+                        _dry_cause = "execution:shadow"
                 except Exception as exc:  # noqa: BLE001
                     # Fail-open to the account's own mode — never let a
                     # registry read error block a live strategy.
@@ -1485,6 +1499,7 @@ class Coordinator:
                             getattr(pkg, "symbol", "?"),
                         )
                         effective_dry = True
+                        _dry_cause = f"side_filter:{_sf_resolved}"
                 except Exception as exc:  # noqa: BLE001
                     # Fail-open to the account's own mode — a resolver error
                     # must never block a permitted direction.
@@ -2639,6 +2654,8 @@ class Coordinator:
                 # the dry-run-guard CI regex (which conservatively flags
                 # any new `dry_run=<truthy-token>` text as a flag flip).
                 exec_dry_run = bool(effective_dry)
+                if exec_dry_run and _dry_cause:
+                    account_cfg["dry_cause"] = _dry_cause
                 # Legacy / single-leg path: build a one-entry legs list
                 # so the same loop below handles both modes uniformly.
                 # ``intent_legs`` is set above only for intent-mode
