@@ -582,6 +582,40 @@ def _cell_dict(c: Cell) -> Dict[str, Any]:
             "stage_a": c.stage_a, "stage_b": c.stage_b}
 
 
+#: The sweep's own verdict names -> the research-result contract's CLOSED verdict set
+#: (pass / fail / no_action_warranted / indeterminate / not_applicable). A verdict.json outside it, or a
+#: read_state outside (measured / no_data / producer_failed / not_attempted), makes the collector land the whole
+#: run as producer_failed -- which is exactly what happened to RQ-20260930-501 on 2026-09-30.
+_CONTRACT_VERDICT = {"pass": "pass", "pass_caveated": "pass", "fail": "fail", "null": "no_action_warranted",
+                     "indeterminate": "indeterminate", "not_applicable": "not_applicable"}
+
+
+def to_result_verdict(res: Dict[str, Any]) -> Dict[str, Any]:
+    """Project the sweep result onto the collector's verdict.json contract. The sweep's own detail rides along
+    under `sweep`; nothing is dropped, nothing is renamed inside it."""
+    internal = str(res.get("verdict"))
+    verdict = _CONTRACT_VERDICT[internal]
+    smoke = res.get("read_state") == "smoke"
+    if verdict == "not_applicable":
+        return {"verdict": verdict, "read_state": "producer_failed", "n": None,
+                "population": str(res.get("population") or "producer failed"),
+                "note": "producer_failed: " + str(res.get("population") or ""), "sweep": res}
+    notes = []
+    if internal == "pass_caveated":
+        notes.append("CAVEATED PASS: every confirmed cell runs at a live leg's parameters, so Stage B is not fully "
+                     "out-of-sample for it")
+    if internal == "null":
+        notes.append("clean NULL: no cell survived the Stage A screen (a null over all K cells; detects only "
+                     "large edges, ~0.2 sd)")
+    if res.get("clean") is False:
+        notes.append(f"UNCLEAN: {len(res.get('failed_cells') or [])} cell(s) failed to run")
+    if smoke:
+        notes.append("SMOKE RUN: grid or windows were overridden; not the registered design")
+    return {"verdict": verdict, "read_state": "measured", "n": int(res["K"]),
+            "population": ("SMOKE RUN: " if smoke else "") + str(res.get("population") or ""),
+            "note": "; ".join(notes), "sweep": res}
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--out", required=True, help="directory for verdict.json")
@@ -624,8 +658,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 runner=subprocess_runner(a.cell_timeout_s), data_check=default_data_check,
                 jobs=a.jobs, stage_a=(a.stage_a_start, a.stage_a_end),
                 stage_b_start=a.stage_b_start, stage_b_end=a.stage_b_end, smoke=overridden)
-    (out / "verdict.json").write_text(json.dumps(res, indent=1, default=str) + "\n")
-    print(json.dumps({k: res.get(k) for k in ("verdict", "read_state", "population", "K", "S")}, indent=1))
+    contract = to_result_verdict(res)
+    (out / "verdict.json").write_text(json.dumps(contract, indent=1, default=str) + "\n")
+    print(json.dumps({k: contract.get(k) for k in ("verdict", "read_state", "population", "n", "note")}, indent=1))
     return 0
 
 

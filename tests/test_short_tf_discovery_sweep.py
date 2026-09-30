@@ -296,9 +296,62 @@ def test_a_pass_on_a_default_parameter_cell_is_a_plain_pass():
 
 def test_a_shortened_stage_b_is_a_smoke_run(tmp_path, monkeypatch):
     seen = {}
-    monkeypatch.setattr(sw, "sweep", lambda **kw: seen.update(kw) or {"verdict": "null", "read_state": "x"})
+    monkeypatch.setattr(sw, "sweep", lambda **kw: seen.update(kw) or {"verdict": "null", "read_state": "measured", "K": 3, "population": "p"})
     sw.main(["--out", str(tmp_path), "--stage-b-end", "2025-06-30"])
     assert seen["smoke"] is True
     seen.clear()
     sw.main(["--out", str(tmp_path)])
     assert seen["smoke"] is False
+
+
+# ---- the collector contract (RQ-20260930-501 was mislabelled producer_failed by exactly this class of bug) ----
+_sr_spec = importlib.util.spec_from_file_location("script_run_sweep_contract", REPO / "scripts/research/script_run.py")
+sr = importlib.util.module_from_spec(_sr_spec)
+sys.modules["script_run_sweep_contract"] = sr
+_sr_spec.loader.exec_module(sr)
+
+
+def _derive(tmp_path, verdict):
+    from types import SimpleNamespace
+    out = Path("out")
+    (tmp_path / out).mkdir(parents=True, exist_ok=True)
+    (tmp_path / out / "verdict.json").write_text(json.dumps(verdict, default=str))
+    (tmp_path / out / "run-manifest.json").write_text(json.dumps(
+        {"all_ok": True, "commands": [{"index": 0, "argv": ["python3", "x.py"], "exit_code": 0}]}))
+    plan = SimpleNamespace(unit="RQ-20260930-504", out_dir=out, rule_id="RULE-X", rule_registered_at="2026-09-30")
+    return sr.derive_record(plan, repo=tmp_path)
+
+
+@pytest.mark.parametrize("name,runner_mus,kw,want_verdict,want_state", [
+    ("pass", {"fvg_range|BTCUSDT|15m": (0.35, 0.35)}, {}, "pass", "measured"),
+    ("pass_caveated", {GOOD: (0.35, 0.35)}, {"strategies": {"ict_scalp_btc_15m": {"timeframe": "15m",
+                                                                                   "symbols": ["BTCUSDT"]}}},
+     "pass", "measured"),
+    ("fail", {GOOD: (0.35, -0.3)}, {}, "fail", "measured"),
+    ("null", {}, {}, "no_action_warranted", "measured"),
+])
+def test_every_verdict_lands_in_the_collectors_closed_vocabulary(tmp_path, name, runner_mus, kw, want_verdict,
+                                                                  want_state):
+    res = _sweep(_runner(runner_mus), **kw)
+    rec = _derive(tmp_path, sw.to_result_verdict(res))
+    assert rec["read_state"] == want_state and rec["verdict"] == want_verdict, (name, rec)
+    assert rec["n"] == "10" and "malformed" not in rec.get("note", "")
+    if name == "pass_caveated":
+        assert "CAVEATED" in rec["note"]
+
+
+def test_indeterminate_and_not_applicable_land_correctly(tmp_path):
+    ind = _derive(tmp_path, sw.to_result_verdict(_sweep(_runner({GOOD: (0.35, -0.3)}, n_b=40))))
+    assert (ind["read_state"], ind["verdict"]) == ("measured", "indeterminate")
+    bad = tuple(f"{f}|{s}|15m" for f in FAMS for s in sw.WAVES[1][:6])
+    na = _derive(tmp_path / "na", sw.to_result_verdict(_sweep(_runner({}, fail=bad))))
+    assert (na["read_state"], na["verdict"], na["n"]) == ("producer_failed", "not_applicable", "null")
+
+
+def test_an_unclean_or_smoke_result_says_so_in_the_note(tmp_path):
+    res = _sweep(_runner({}, fail=("ict_scalp|BTCUSDT|15m",)))
+    v = sw.to_result_verdict(res)
+    assert v["verdict"] == "indeterminate" and "UNCLEAN" in v["note"]
+    res["read_state"] = "smoke"
+    v = sw.to_result_verdict(res)
+    assert v["population"].startswith("SMOKE RUN") and "SMOKE RUN" in v["note"]

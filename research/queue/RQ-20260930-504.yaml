@@ -93,7 +93,11 @@ decision_rule:
     (the screen produced only candidates the late window rejects) AND every survivor had n_B >= 88.
     INDETERMINATE IF S >= 1, none is CONFIRMED and at least one survivor had n_B < 88 or no Stage B result
     (an underpowered or missing answer is not a rejection; this refines the FAIL clause above BEFORE any
-    run). NULL IF S = 0. FAILED CELLS (refined BEFORE any run, at the manager's review): a cell whose harness
+    run). NULL IF S = 0. VERDICT VOCABULARY (the research-result collector's closed set, learned when RQ-20260930-501
+    was mis-landed as producer_failed): PASS and PASS_CAVEATED are recorded as verdict pass (the caveat is the first
+    thing in `note`), FAIL as fail, NULL as no_action_warranted, INDETERMINATE as indeterminate, NOT_APPLICABLE as
+    not_applicable with read_state producer_failed and n null; every graded outcome has read_state measured and n = K
+    (cells graded), and the sweep's full detail rides in verdict.json under `sweep`. FAILED CELLS (refined BEFORE any run, at the manager's review): a cell whose harness
     run raises is recorded on its own block, counted in n_failed_a / n_failed_b / failed_cells, and makes the
     run clean=false. NULL and FAIL are claims about all K cells, so with any Stage A failure they are
     downgraded to INDETERMINATE; an all-failed or partly-failed sweep can never read as "no edge found". A PASS
