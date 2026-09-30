@@ -1766,6 +1766,7 @@ def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
     import time as _time
     from src.runtime.closed_bars import (
         TF_SECONDS, _epoch_seconds, _last_timestamp, drop_forming_bar,
+        last_bar_is_forming,
     )
     now_s = _time.time() if now is None else float(now)
     frame = drop_forming_bar(candles_df, timeframe, now=now_s)
@@ -1787,6 +1788,14 @@ def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
                 "(tick gap or restart) — that bar's entry is skipped",
                 name, open_s, fresh)
         return frame, "closed_bar_stale_window_missed"
+    # The bar may only be decided on once the VENUE has opened the next one: a
+    # frame whose last row is not forming (no next bar yet — a fresh response a
+    # few seconds after the boundary, a pre-close frame, or a venue/VM clock
+    # skew) ends in the just-closed bar, possibly without its final trades, and
+    # drop_forming_bar (which reads only the clock) would keep it. Not marked
+    # evaluated: the next tick in the window retries.
+    if not last_bar_is_forming(candles_df, timeframe, now=now_s):
+        return frame, "closed_bar_unconfirmed"
     _CLOSED_BAR_EVALUATED[name] = open_s
     return frame, None
 

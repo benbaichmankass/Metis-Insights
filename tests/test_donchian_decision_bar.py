@@ -148,3 +148,34 @@ def test_builder_closed_leg_waits_out_the_settle_seconds(monkeypatch):
     assert calls == [] and out["meta"]["reason"] == "closed_bar_settling"
     # not recorded as evaluated: the next tick in the window still evaluates
     assert "legX" not in sb._CLOSED_BAR_EVALUATED
+
+
+def test_no_next_bar_in_the_frame_is_unconfirmed_not_evaluated():
+    # B+6 s: the venue responded but has not opened the next bar, so the frame
+    # ends in the just-closed bar (possibly without its final trades).
+    # drop_forming_bar (clock only) keeps it — the fix must refuse it.
+    from src.runtime.closed_bars import drop_forming_bar
+    df = _frame(last_open=T0 + 9 * H4)
+    now = T0 + 10 * H4 + 6
+    assert len(drop_forming_bar(df, TF, now=now)) == len(df)   # the clock-only defect
+    cfg = {"decision_bar": "closed"}
+    out, skip = _decision_frame(df, TF, cfg, name="legC", now=now)
+    assert skip == "closed_bar_unconfirmed"
+    from src.runtime.strategy_signal_builders import _CLOSED_BAR_EVALUATED
+    assert "legC" not in _CLOSED_BAR_EVALUATED                 # retried next tick
+    # the next tick, venue has now opened the next bar: decided and recorded
+    df2 = _frame(last_open=T0 + 10 * H4)
+    out2, skip2 = _decision_frame(df2, TF, cfg, name="legC", now=T0 + 10 * H4 + 150)
+    assert skip2 is None and len(out2) == len(df2) - 1
+    assert _CLOSED_BAR_EVALUATED["legC"] == T0 + 9 * H4
+
+
+def test_pre_close_cached_frame_is_accepted_by_drop_forming_bar_but_refused_here():
+    # A frame cached at 11:58 ends in the 08:00 bar, then forming. At 12:01:30
+    # the clock says that bar closed, so drop_forming_bar keeps its partial row.
+    from src.runtime.closed_bars import drop_forming_bar
+    df = _frame(last_open=T0 + 9 * H4)
+    now = T0 + 10 * H4 + 90
+    assert len(drop_forming_bar(df, TF, now=now)) == len(df)
+    _, skip = _decision_frame(df, TF, {"decision_bar": "closed"}, name="legD", now=now)
+    assert skip == "closed_bar_unconfirmed"
