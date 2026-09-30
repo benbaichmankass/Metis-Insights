@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only (docs/claude/work/pipeline/*.json): PI-20260930-MEK2XMWT-0001, tests/test_smoke_test_pipeline.py failing on main (4 tests), filed by the GATE-SCOPE lane, plus merge-slot/pr-landing/automerge bookkeeping. No runtime, order path, strategy config, risk caps or VM code touched."
+}
