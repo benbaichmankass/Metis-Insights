@@ -19,7 +19,12 @@ The grading numbers are constants HERE and in the queue unit, fixed BEFORE any r
 ``--from-ledger`` skips the builder and grades committed ledgers (used by the tests; it is a
 smoke path, NOT a pre-registered run).
 
-Writes ``<out>/verdict.json`` = {verdict, read_state, population, n, ...}.
+Writes ``<out>/verdict.json`` = {verdict, read_state, population, n, ...} in the research-result contract
+(scripts/research/script_run.py::derive_record): verdict in {pass, fail, no_action_warranted, indeterminate,
+not_applicable}; read_state in {measured, no_data, producer_failed, not_attempted}; `measured` needs an integer n,
+the other three need n null and verdict not_applicable. (A first version wrote read_state "graded" and the collector
+landed the RQ-20260930-501 PASS as producer_failed; tests/test_hyro_verdict_contract.py now runs the real
+derive_record over what this script writes.)
 """
 from __future__ import annotations
 
@@ -73,7 +78,11 @@ def grade(spec: Dict[str, Any], ruleset_path: str) -> Dict[str, Any]:
     out: Dict[str, Any] = dict(n=n, net_r=round(net, 3), span_days=spec["span_days"],
                                population=f"{spec['name']} ledger, {spec['span_days']}d, n={n}")
     if n < N_FLOOR:
-        out.update(verdict="indeterminate", read_state="underpowered")
+        # `read_state` is the research-result contract's closed set (measured / no_data / producer_failed /
+        # not_attempted). An underpowered run DID measure something (n is an integer), so it is `measured`
+        # with verdict `indeterminate`; the word "underpowered" lives in `note`.
+        out.update(verdict="indeterminate", read_state="measured",
+                   note=f"underpowered: n={n} < N_FLOOR={N_FLOOR}; the floor is never lowered")
         return out
     kw = dict(n_paths=1500, risk_pct=RISK, reading="A", leverage=10.0, winner_mae_r=0.3,
               loser_mfe_r=0.3, flag_frac=FLAG)
@@ -84,7 +93,7 @@ def grade(spec: Dict[str, Any], ruleset_path: str) -> Dict[str, Any]:
     info = mc.run(dict(spec), rs, seed=1, **dict(kw, flag_frac=0.5))["p_pass_both_phases"]
     out.update(p_both_gateB=b, p_both_gateC=c, info_p_both_if_half_of_fills_flagged=info)
     ok = net > 0 and min(b) >= P_B and min(c) >= P_C
-    out.update(verdict="pass" if ok else "fail", read_state="graded",
+    out.update(verdict="pass" if ok else "fail", read_state="measured",
                gates=dict(A_net_r_positive=net > 0, B_all_seeds_ge_0_25=min(b) >= P_B,
                           C_all_seeds_ge_0_10=min(c) >= P_C))
     return out
@@ -115,7 +124,7 @@ def main() -> int:
             rec = out / "records" / f"{leg}.json"
             src = json.loads(rec.read_text()).get("source_run") if rec.exists() else None
             if not src or not Path(src).exists():
-                v = dict(verdict="not_applicable", read_state="producer_failed", leg=leg,
+                v = dict(verdict="not_applicable", read_state="producer_failed", n=None, leg=leg,
                          population=f"{leg}: no ledger emitted (builder rc={r.returncode})")
                 (out / "verdict.json").write_text(json.dumps(v, indent=1) + "\n")
                 print(json.dumps(v))
