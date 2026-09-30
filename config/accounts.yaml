@@ -1900,7 +1900,7 @@ accounts:
   # tradeify_1 (own login TRADEIFY_DX_*, own kill switch
   # PROP_EXECUTOR_MODE_TRADEIFY_1, nothing enabled).
   #
-  # DRY FIRST: mode dry_run -> execute_pkg's breakout branch emits NO ticket and
+  # WAS DRY FIRST (PR B): mode dry_run -> execute_pkg's breakout branch emits NO ticket and
   # NO ping; the order package is journaled with status=shadow /
   # close_reason=prop_shadow_no_emit. That is the dry evidence the go-live PR
   # (C) waits on. dry_run is excluded from the prop status-request and
@@ -1909,7 +1909,12 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    mode: dry_run                      # dry-run-guard: allow — TRADEIFY-WIRE: new prop account ships DRY; go-live is the separate held PR C after the dry evidence (operator "Buy the $10k pilot (Recommended)", 2026-09-30)
+    mode: live                         # TRADEIFY-WIRE PR C (Tier-3 go-live, HELD): tickets
+                                       # emit to the prop Telegram channel like breakout_1's.
+                                       # Merge ONLY after: login check exit 0 from the VM,
+                                       # a fresh ict-prop-feed@tradeify_1 snapshot, and shadow
+                                       # order packages observed for the legs (dry evidence).
+                                       # Rollback: set-account-mode tradeify_1 dry_run.
     account_state: evaluation
     phase_requirements:                # Tradeify 247 1-Step terms (first-party summary, unconfirmed).
       target_profit_pct: 0.12          # +12% to pass.

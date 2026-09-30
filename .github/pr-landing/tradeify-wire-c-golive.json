@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD Tier-3 GO-LIVE (account-mode flip dry_run -> live for tradeify_1). Merge ONLY after PR A (#14663) and PR B (#14672) are merged + deployed AND the dry evidence is observed: read-only login check exit 0 from the VM, a fresh ict-prop-feed@tradeify_1 account_status, and shadow order packages (status=shadow, close_reason=prop_shadow_no_emit) for the tradeify_1 legs. Operator-visible: the operator decides the merge.",
+  "why": "Flips tradeify_1 to mode: live so its prop tickets emit to the prop Telegram channel (manual bridge, like breakout_1). The automated executor stays OFF for tradeify_1: PROP_EXECUTOR_MODE_TRADEIFY_1 unset = read_only, no lot table, no enabled symbol; enabling clicks is a later, separate change after the venue lots are measured and symbol switching exists."
+}

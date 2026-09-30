@@ -30,7 +30,7 @@ def _isolated_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_tradeify_ships_dry_with_the_b3_roster_at_half_percent():
     t = ACCOUNTS["tradeify_1"]
-    assert t["mode"] == "dry_run"
+    assert t["mode"] == "live"   # PR C go-live; PR B shipped dry_run
     assert t["exchange"] == "breakout" and t["type"] == "prop" and t["account_class"] == "prop"
     assert t["strategies"] == ["trend_donchian_eth_prop", "trend_donchian_sol_prop", "ict_scalp_xrp_15m"]
     assert t["risk"]["risk_pct"] == 0.005
