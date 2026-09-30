@@ -780,12 +780,16 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
         verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
+        if row.get("state") == "placed" and verdict in ("placed", "not_found"):
+            why = _suspected_partial_fill(res, ledger, live, tid, spec, found, positions)
+            if why:
+                halted = halted or _trip(res, state, live, why)
+                continue
         if verdict == "placed" and row.get("state") == "placed":
             if _expire_resting(res, adapter, page, live, ledger, tid, row, spec, found, positions, now):
                 cancelled_this_cycle = True
             row = ledger.latest().get(tid, row)
-        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict,
-                        positions=positions)
+        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
         if trip:
             halted = halted or _trip(res, state, live, trip)
 
@@ -1287,6 +1291,46 @@ CANCEL_EXPIRED_MAX_ATTEMPTS = 3
 CANCEL_EXHAUSTED_REALERT = timedelta(hours=1)
 
 
+def _suspected_partial_fill(res: CycleResult, ledger: IntentLedger, live: bool, tid: str,
+                           spec: Mapping[str, Any], found: Mapping[str, Any],
+                           positions: Sequence[Position]) -> Optional[str]:
+    """A resting entry (``placed``) with a position open on its symbol+side
+    that does NOT size-match the ticket: a possible PARTIAL FILL, or an
+    unrelated / manual position. Returns a trip reason, or None.
+
+    The executor does not manage partial fills (no bracket repair on the
+    filled part, no ``open`` report of the filled qty, no attribution of a
+    position to a ticket) -- that is filed as its own build. Until it does,
+    this case FAILS CLOSED instead of being handled silently: the row is
+    ``contained`` (so it no longer claims the symbol+side and the orphan
+    check sees the position), new entries halt through the AUTO-REVERT latch,
+    and the alert names the position sizes, whether each carries a stop and
+    a target, and that any remaining entry order is NOT cancelled. Nothing
+    is reported to the journal: it is never written off as ``skipped``.
+    (#14581 round-3 review, 2026-09-30.)"""
+    if found.get("positions"):
+        return None
+    venue = str(spec.get("venue_symbol") or "").upper()
+    side = spec.get("side")
+    held = [p for p in positions if p.symbol.upper() == venue and p.side == side]
+    if not held:
+        return None
+    desc = "; ".join(
+        f"size {p.quantity} SL {p.stop_loss if p.stop_loss is not None else 'NONE'} "
+        f"TP {p.take_profit if p.take_profit is not None else 'NONE'}" for p in held)
+    naked = any(p.stop_loss is None or p.take_profit is None for p in held)
+    res.alerts.append(
+        f"{tid}: {len(held)} position(s) open on {venue} {side} that do not match the ticket's size "
+        f"{spec.get('quantity')} ({desc}): possible PARTIAL FILL or a manual position. "
+        + ("⚠️ A POSITION HAS NO STOP OR TARGET. " if naked else "")
+        + "Not journaled, not written off; any remaining entry order is NOT cancelled. "
+          "Check the terminal, protect/close the position and cancel the remainder by hand.")
+    if live:
+        ledger.record(tid, "contained", verdict="partial_fill_suspected",
+                      positions=[{"qty": p.quantity, "sl": p.stop_loss, "tp": p.take_profit} for p in held])
+    return f"{tid}: partial_fill_suspected on {venue} {side}"
+
+
 def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledger: IntentLedger,
                     tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
                     found: Mapping[str, Any], positions: Sequence[Position],
@@ -1387,8 +1431,7 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
 
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
-             found: Mapping[str, Any], verdict: str,
-             positions: Sequence[Position] = ()) -> Optional[str]:
+             found: Mapping[str, Any], verdict: str) -> Optional[str]:
     """§ 3.5 for one submitted ticket. Never resubmits. Returns an
     auto-revert trip reason (a bracket leg missing, a duplicate, or an
     unconfirmed placement), or None."""
@@ -1403,27 +1446,6 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
     if prev == "placed" and verdict == "not_found":
         # A resting order that vanished without a position: cancelled or
         # expired on the terminal. Two reads, then report it skipped.
-        #
-        # ...unless ANY position is open on the ticket's symbol+side. A
-        # partial fill does not size-match the ticket (and if the orders
-        # table's "Size" is the REMAINING quantity -- unverified -- the
-        # remainder does not match either), so "not_found" here may be a
-        # partly-filled entry. Reporting it skipped would leave a position
-        # the journal does not know about (the orphan check then halts) and
-        # an unwatched remainder. So no miss is counted: the row stays
-        # `placed` (its symbol+side stays claimed) and a human is told once.
-        venue = str(spec.get("venue_symbol") or "").upper()
-        held = [p for p in positions if p.symbol.upper() == venue and p.side == spec.get("side")]
-        if held:
-            if not row.get("partial_fill_alerted"):
-                res.alerts.append(
-                    f"{tid}: working order no longer matches but {len(held)} position(s) are open on "
-                    f"{venue} {spec.get('side')} (size {[p.quantity for p in held]} vs ticket "
-                    f"{spec.get('quantity')}): possible PARTIAL FILL; not reported skipped, check the terminal")
-                if live:
-                    ledger.record(tid, "placed", partial_fill_alerted=True)
-            res.log("placed_not_found_position_open", ticket_id=tid, venue=venue)
-            return trip
         n = int(row.get("misses") or 0) + 1
         why = ("expired: resting entry cancelled at the ticket's valid_until"
                if row.get("cancel_requested") else "working order gone from the terminal without a fill")

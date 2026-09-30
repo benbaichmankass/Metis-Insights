@@ -3023,16 +3023,15 @@ def test_a_failed_cancel_is_not_recorded_as_requested_and_retries_then_gives_up_
     assert not any(p.get("status") == "skipped" for p in api.posts)
 
 
-def test_a_partial_fill_is_never_cancelled_or_reported_skipped(env):
-    # 0.2 of 0.5 filled while the order row still reads its full 0.5 (a
-    # "Size" column, not "Left Qty"): the order matches, the 0.2 position
-    # does not match the ticket's size, so found["positions"] is empty --
-    # the guard must look at ANY position on the symbol+side.
+def test_a_partial_fill_showing_the_full_order_size_is_contained_and_halts(env):
+    # 0.2 of 0.5 filled while the order row still reads its full 0.5: the
+    # order matches, the 0.2 position does not.
     vu = (NOW + timedelta(minutes=30)).isoformat()
     ad, api, res = _placed_then(env, NOW + timedelta(minutes=31), vu, [_o()],
                                 positions=[_p(quantity=0.2)])
     assert not any(c[0] == "cancel_order" for c in ad.calls)
-    assert not env[0].latest()["prop-manual-aaa"].get("cancel_requested")
+    assert env[0].state("prop-manual-aaa") == "contained"
+    assert env[1].halted() and "partial_fill_suspected" in env[1].halted()
     assert not any(p.get("status") == "skipped" for p in api.posts)
 
 
@@ -3115,20 +3114,44 @@ def test_an_exhausted_cancel_re_alerts_hourly_while_the_order_rests(env):
     assert not any(c[0] == "cancel_order" for c in ad.calls)
 
 
-def test_a_partial_fill_showing_the_remaining_size_is_not_reported_skipped(env):
-    # If the orders table's "Size" is the REMAINING quantity (unverified), a
-    # 0.2-of-0.5 fill leaves a 0.3 order and a 0.2 position: neither matches
-    # the ticket, the verdict is not_found. No miss may be counted.
+def test_reviewer_scenario_partial_fill_with_no_stop_fails_closed_end_to_end(env):
+    # Round-3 review: a 0.3 remainder order + a 0.2 position with NO SL/TP,
+    # cycles every 5 min to T+300 (valid_until T+30), the position closes at
+    # T+305. It must never be silent, never cancel on a guess, and never be
+    # written off as "gone without a fill".
     ledger, state = env
     vu = (NOW + timedelta(minutes=30)).isoformat()
-    ad, api, res = _placed_then(env, NOW + timedelta(minutes=10), vu, [_o(quantity=0.3)],
-                                positions=[_p(quantity=0.2)])
-    alerts = list(res.alerts)
-    for k in (15, 20, 25):
+    ad, api, res = _placed_then(env, NOW + timedelta(minutes=5), vu, [_o(quantity=0.3)],
+                                positions=[_p(quantity=0.2, stop_loss=None, take_profit=None)])
+    first = res.alerts
+    assert any("partial_fill_suspected" in a and "halted" in a for a in first)
+    assert any("NO STOP OR TARGET" in a for a in first)
+    assert ledger.state("prop-manual-aaa") == "contained"
+    assert state.halted()
+    later_alerts = []
+    for k in range(10, 305, 5):
         r = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
                          now=NOW + timedelta(minutes=k))
-        alerts += r.alerts
-    assert ledger.state("prop-manual-aaa") == "placed"
-    assert not any(p.get("status") == "skipped" for p in api.posts)
-    assert sum("PARTIAL FILL" in a for a in alerts) == 1  # told once
-    assert not any("orphan" in a for a in alerts) and state.halted() is None
+        later_alerts += r.alerts
+    # the claim is released: the unjournaled position is flagged as an orphan
+    assert any("orphan" in a for a in later_alerts)
+    ad.positions = []  # the position closes; the remainder still rests
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=305))
+    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                 now=NOW + timedelta(minutes=310))
+    assert not any(c[0] == "cancel_order" for c in ad.calls)  # nothing cancelled on a guess
+    assert not any(p.get("status") == "skipped" for p in api.posts)  # never written off
+    assert state.halted()  # still halted until a person clears it
+
+
+def test_a_manual_position_on_the_symbol_side_does_not_hide_behind_a_resting_claim(env):
+    # (d): an unrelated position must not be absorbed by the resting row's
+    # claim; the row is contained and the orphan check sees the position.
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, api, res = _placed_then(env, NOW + timedelta(minutes=5), vu, [_o()], positions=[_p(quantity=3.0)])
+    assert ledger.state("prop-manual-aaa") == "contained" and state.halted()
+    r = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                     now=NOW + timedelta(minutes=10))
+    assert any("orphan" in a for a in r.alerts)
