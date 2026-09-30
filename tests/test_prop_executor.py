@@ -3283,7 +3283,7 @@ class QuoteAdapter(FakeAdapter):
 PRE = PlaceAttempt(stage="refused", submitted=False, detail="form fields not found: ['price']")
 
 
-def _cycle(ad, api, env, k):
+def _rcycle(ad, api, env, k):
     ledger, state = env
     return pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
                         state=state, now=NOW + timedelta(minutes=5 * k))
@@ -3297,10 +3297,10 @@ def test_retry_places_the_same_ticket_again_once_the_form_works(env):
     # (5) the idempotency key is unchanged: same ticket id, one order
     ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
     api = FakeApi([ticket(message=BAND_MSG)])
-    _cycle(ad, api, env, 0)
+    _rcycle(ad, api, env, 0)
     assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
     ad.attempt, ad.after_submit = None, ([], [_o()])
-    _cycle(ad, api, env, 1)
+    _rcycle(ad, api, env, 1)
     assert [c[1] for c in _places(ad)] == ["prop-manual-aaa", "prop-manual-aaa"]
     assert env[0].state("prop-manual-aaa") == "placed"
     assert [p.get("status") for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["placed"]
@@ -3315,7 +3315,7 @@ def test_a_failure_after_the_submit_click_is_never_retried(env):
                       after_submit=([], []))
     api = FakeApi([ticket(message=BAND_MSG)])
     for k in range(4):
-        _cycle(ad, api, env, k)
+        _rcycle(ad, api, env, k)
     assert env[0].state("prop-manual-aaa") != pe.RETRY_STATE
     assert len(_places(ad)) == 1
 
@@ -3324,10 +3324,10 @@ def test_a_retry_is_refused_when_the_symbol_already_has_a_position_or_order(env)
     # (2) the terminal is re-read THIS cycle; anything on the symbol -> no click
     ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
     api = FakeApi([ticket(message=BAND_MSG)])
-    _cycle(ad, api, env, 0)
+    _rcycle(ad, api, env, 0)
     ad.attempt = None
     ad.orders = [_o(order_id="MANUAL")]
-    _cycle(ad, api, env, 1)
+    _rcycle(ad, api, env, 1)
     assert len(_places(ad)) == 1  # only the original attempt
     assert env[0].state("prop-manual-aaa") == "refused"
 
@@ -3336,9 +3336,9 @@ def test_a_retry_waits_while_the_price_is_outside_the_entry_band(env):
     # (3) the band is re-checked on every attempt; outside -> no attempt
     ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
     api = FakeApi([ticket(message=BAND_MSG)])
-    _cycle(ad, api, env, 0)
+    _rcycle(ad, api, env, 0)
     ad.attempt, ad.quote = None, {"bid": 121.0, "ask": 121.1}
-    res = _cycle(ad, api, env, 1)
+    res = _rcycle(ad, api, env, 1)
     assert len(_places(ad)) == 1
     assert any(a["what"] == "retry_wait" and "outside entry band" in a["why"] for a in res.actions)
     assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
@@ -3348,9 +3348,9 @@ def test_a_retry_waits_while_the_price_is_outside_the_entry_band(env):
 def test_a_retry_waits_when_the_quote_cannot_be_read(env):
     ad = QuoteAdapter(quote=None, attempt=PRE)
     api = FakeApi([ticket(message=BAND_MSG)])
-    _cycle(ad, api, env, 0)
+    _rcycle(ad, api, env, 0)
     ad.attempt = None
-    _cycle(ad, api, env, 1)
+    _rcycle(ad, api, env, 1)
     assert len(_places(ad)) == 1 and env[0].state("prop-manual-aaa") == pe.RETRY_STATE
 
 
@@ -3358,9 +3358,9 @@ def test_a_retry_is_refused_when_the_entry_band_is_unreadable(env):
     # planted negative: no band in the message -> never retried, terminal + alert
     ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
     api = FakeApi([ticket(message="no band here")])
-    _cycle(ad, api, env, 0)
+    _rcycle(ad, api, env, 0)
     ad.attempt = None
-    res = _cycle(ad, api, env, 1)
+    res = _rcycle(ad, api, env, 1)
     assert len(_places(ad)) == 1
     assert env[0].state("prop-manual-aaa") == "refused"
     assert any("no retry" in a for a in res.alerts)
@@ -3373,7 +3373,7 @@ def test_retries_are_bounded_then_terminal_skipped_with_one_alert(env):
     api = FakeApi([ticket(message=BAND_MSG)])
     alerts = []
     for k in range(pe.RETRY_MAX_ATTEMPTS + 2):
-        alerts.append(_cycle(ad, api, env, k).alerts)
+        alerts.append(_rcycle(ad, api, env, k).alerts)
     assert len(_places(ad)) == pe.RETRY_MAX_ATTEMPTS
     assert env[0].state("prop-manual-aaa") == "refused"
     skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
@@ -3385,9 +3385,9 @@ def test_a_retry_pending_ticket_goes_terminal_at_valid_until(env):
     # (6) at valid_until the ticket is expired as today, never attempted again
     ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
     api = FakeApi([ticket(message=BAND_MSG, valid_until=(NOW + timedelta(minutes=7)).isoformat())])
-    _cycle(ad, api, env, 0)
+    _rcycle(ad, api, env, 0)
     ad.attempt = None
-    _cycle(ad, api, env, 2)  # NOW+10 > valid_until
+    _rcycle(ad, api, env, 2)  # NOW+10 > valid_until
     assert len(_places(ad)) == 1
     assert env[0].state("prop-manual-aaa") == "expired"
     assert [p["reason"] for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["expired"]
