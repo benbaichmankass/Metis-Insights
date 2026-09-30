@@ -1212,6 +1212,11 @@ accounts:
                                        # "alpaca_paper / alpaca_portfolio / ib_paper keep trading
                                        # both sides": that scope existed so the soak keeps accruing
                                        # short-side data, and alpaca_paper (the soak) still does.
+                                       # CONFIRMED 2026-09-30 05:41Z by the manager
+                                       # (session_01HYq6XtfesZ57VyaQrK6CL1), relaying the operator's
+                                       # authority: "B2 ... is the later decision and wins for
+                                       # alpaca_portfolio. The 2026-08-23 scoping still holds for
+                                       # alpaca_paper and ib_paper, which stay two-sided."
                                        # Asserted by tests/test_paper_portfolio_accounts.py::
                                        # test_alpaca_portfolio_trade_shaping_fields_equal_alpaca_live.
                                        # ROLLBACK: delete this key (and that test's side_filter row).
