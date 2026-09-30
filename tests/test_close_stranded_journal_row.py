@@ -279,3 +279,78 @@ def test_netted_exception_refused_with_no_sibling(monkeypatch, db):
                            row_id=1, exit_kind="sl")
     assert r["action"] == "refused_position_open"
     assert _row(db, 1)["status"] == "open"
+
+
+# ── provenance of the netted path (manager review of #14777) ─────────────────
+# On the netted path the symbol is still HELD, so the closed row must not claim
+# broker_flat_confirmed. It records that siblings accounted for the position.
+
+def test_netted_close_does_not_claim_broker_flat(monkeypatch, db):
+    _add_sibling(db)
+    _patch_live(monkeypatch, {"side": "long", "size": 1.0})
+    dry = mod.close_stranded("alpaca_live", "IEF", apply=False, exit_price=93.0,
+                             reason="operator_flatten_reconciled", db_path=db,
+                             row_id=2, exit_kind="sl")
+    assert dry["broker_flat_confirmed"] is False
+    assert "broker is flat" not in dry["detail"]
+    assert "accounted for by sibling rows" in dry["detail"]
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=2, exit_kind="sl")
+    assert r["broker_flat_confirmed"] is False
+    assert "accounted for by sibling rows" in r["detail"]
+    notes = json.loads(_row(db, 2)["notes"])
+    assert notes["broker_flat_confirmed"] is False
+    assert notes["broker_position_accounted_by_siblings"] is True
+    assert "sibling rows [1]" in notes["netted_check"]
+
+
+def test_flat_close_still_claims_broker_flat(monkeypatch, db):
+    _patch_live(monkeypatch, {})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db)
+    assert r["broker_flat_confirmed"] is True
+    notes = json.loads(_row(db)["notes"])
+    assert notes["broker_flat_confirmed"] is True
+    assert "broker_position_accounted_by_siblings" not in notes
+
+
+def test_netted_path_unreadable_broker_aborts(monkeypatch, db):
+    _add_sibling(db)
+    _patch_live(monkeypatch, None)
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=2, exit_kind="sl")
+    assert r["action"] == "abort_unreadable"
+    assert _row(db, 2)["status"] == "open"
+
+
+def test_netted_path_null_size_sibling_refused(monkeypatch, db):
+    _add_sibling(db)
+    conn = sqlite3.connect(db)
+    conn.execute("UPDATE trades SET position_size = NULL WHERE id = 1")
+    conn.commit()
+    conn.close()
+    _patch_live(monkeypatch, {"side": "long", "size": 1.0})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=2, exit_kind="sl")
+    assert r["action"] == "refused_position_open"
+    assert "unreadable" in r["netted_check"]
+    assert _row(db, 2)["status"] == "open"
+
+
+def test_netted_path_sibling_on_other_account_not_counted(monkeypatch, db):
+    # Row 1 moved to another account: it must not count toward alpaca_live's
+    # position, so row 2 has no sibling on alpaca_live and is refused.
+    _add_sibling(db)
+    conn = sqlite3.connect(db)
+    conn.execute("UPDATE trades SET account_id = 'alpaca_portfolio' WHERE id = 1")
+    conn.commit()
+    conn.close()
+    _patch_live(monkeypatch, {"side": "long", "size": 1.0})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=2, exit_kind="sl")
+    assert r["action"] == "refused_position_open"
+    assert _row(db, 2)["status"] == "open"

@@ -143,7 +143,8 @@ EXIT_KINDS = ("sl", "tp")
 
 
 def _plan_close(row: sqlite3.Row, *, exit_price: Optional[float], reason: str,
-                exit_kind: Optional[str] = None) -> Dict[str, Any]:
+                exit_kind: Optional[str] = None,
+                netted_check: Optional[str] = None) -> Dict[str, Any]:
     """Build the UPDATE dict that closes *row*. Local-compute realised pnl from
     the (optional) exit price; fall back to entry (pnl 0) when no fill captured."""
     direction = str(row["direction"] or "").lower()
@@ -188,13 +189,19 @@ def _plan_close(row: sqlite3.Row, *, exit_price: Optional[float], reason: str,
     notes.update({
         "closed_by": "close_stranded_journal_row_script",
         "closed_at_iso": datetime.now(timezone.utc).isoformat(),
-        "broker_flat_confirmed": True,
+        # The broker is flat ONLY when the netted exception was not used. On the
+        # netted path the symbol is still held (by sibling rows), and saying
+        # "flat" here would be a false provenance claim in the money DB.
+        "broker_flat_confirmed": netted_check is None,
         "original_status": "open",
         "exit_price_source": exit_source,
         "pnl_source": "local_compute",
     })
     if exit_kind is not None:
         notes["closed_by_venue_leg"] = exit_kind
+    if netted_check is not None:
+        notes["broker_position_accounted_by_siblings"] = True
+        notes["netted_check"] = netted_check
 
     updates: Dict[str, Any] = {
         "status": "closed",
@@ -329,8 +336,11 @@ def close_stranded(
         return out
     # pos == {} → broker confirmed FLAT, or (netted_ok) the broker position is
     # exactly the siblings' — either way closing this row orphans no live share.
+    netted_check = out.get("netted_check") if pos else None
     if pos:
         out["broker_position_accounted_by_siblings"] = True
+    broker_state = ("broker position accounted for by sibling rows" if pos
+                    else "broker is flat")
 
     resolved_db = db_path
     if not resolved_db:
@@ -363,7 +373,7 @@ def close_stranded(
     if not rows:
         out["action"] = "noop_no_open_row"
         out["ok"] = True
-        out["detail"] = (f"broker is flat and no open {symbol} journal row exists for "
+        out["detail"] = (f"{broker_state} and no open {symbol} journal row exists for "
                          f"{account_id} — nothing to close")
         conn.close()
         return out
@@ -372,7 +382,7 @@ def close_stranded(
     preview: List[Dict[str, Any]] = []
     for row in rows:
         updates = _plan_close(row, exit_price=exit_price, reason=reason,
-                              exit_kind=exit_kind)
+                              exit_kind=exit_kind, netted_check=netted_check)
         plans.append((row["id"], updates))
         preview.append({
             "id": row["id"], "direction": row["direction"], "symbol": row["symbol"],
@@ -381,12 +391,12 @@ def close_stranded(
             "pnl": updates.get("pnl"), "exit_reason": updates["exit_reason"],
         })
     out["rows"] = preview
-    out["broker_flat_confirmed"] = True
+    out["broker_flat_confirmed"] = not pos
 
     if not apply:
         out["action"] = "dry_run"
         out["ok"] = True
-        out["detail"] = (f"DRY-RUN — broker is flat; would close {len(plans)} open {symbol} "
+        out["detail"] = (f"DRY-RUN — {broker_state}; would close {len(plans)} open {symbol} "
                          f"row(s) on {account_id}. Re-run with --apply to write.")
         conn.close()
         return out
@@ -403,7 +413,7 @@ def close_stranded(
     out["ok"] = True
     out["rows_closed"] = n
     out["detail"] = (f"closed {n} stranded {symbol} journal row(s) on {account_id} "
-                     f"(broker-confirmed flat). They now leave /positions and appear in "
+                     f"({broker_state}). They now leave /positions and appear in "
                      f"/trades/closed.")
     return out
 
