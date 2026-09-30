@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-30T19:22:00Z",
+  "updated_at": "2026-09-30T19:40:00Z",
   "updated_by": "session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -4422,6 +4422,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR (chat 19:13Z): continuous research is second only to the live trader; the queue must always have work running, not necessarily an active session. The previous standing RESEARCH row is done (2026-09-28). Priority themes named by the operator: strategy improvement, ML in general, the overall AI trader, the regime classifier (REGIME-SCOPE). Dispatch after the survey lands and the operator agrees the priorities."
+    },
+    {
+      "id": "SIGNAL-CATALOG",
+      "title": "Catalog of every variable/signal/feature the system reads (strategies, ML heads, regime, macro): source, definition, where used, and live health/quality metrics; plus a recurring research review to expand/optimise it",
+      "phase": "W7",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~19:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): SOURCE: operator ideas inbox (docs/claude/work/IDEAS.md row 2026-09-30, verbatim there); the first end-to-end test of the inbox flow, requested by the operator. TRIAGE: a BUILD (the catalog is a maintained artifact) with a research tail. Theme ml_health. PLACED, not chased: queued behind the live pipeline, the prop go-live work and RESEARCH-W7 A0/A/A2 (queue liveness and weights), per PACE-W40. Scope when dispatched: (1) inventory every input the live strategies, ML heads (ml/configs), regime router and macro producers consume, with file:line; (2) per input, record definition, source/feed, freshness, null rate, and where it is used (which legs/models); (3) a committed catalog file plus a guard that fails when a new input appears in code without a catalog entry; (4) hand the research-planning session a standing 'catalog review' item: which signals are unused, redundant or unmeasured, and candidate additions, each becoming a registered unit. Sonnet, ceiling ~$25."
     }
   ]
 }
