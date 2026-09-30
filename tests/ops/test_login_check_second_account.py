@@ -6,7 +6,6 @@ executor kill switch, state and feed are breakout_1's until PR A #14663).
 breakout_1's key list is unchanged.
 """
 import pathlib
-import re
 import subprocess
 import sys
 
