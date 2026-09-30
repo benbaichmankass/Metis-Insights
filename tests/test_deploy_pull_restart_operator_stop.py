@@ -21,12 +21,11 @@ test_deploy_pull_restart_enumeration.py) and pin:
 6. the marker path in deploy_pull_restart.sh equals _lib.sh's, and each
    lifecycle script writes / clears it.
 
-GITSYNC-REVIVE (second half): the marker only covers a stop made THROUGH
-stop_bot.sh. A long-running unit (Type != oneshot) that is ``inactive`` or
-``deactivating`` after having run since boot was stopped by someone, marker or
-not, and is now held with a logged cause. Pinned below with the three states
-that must still be (re)started: ``failed`` (crash recovery), never-active-
-since-boot (a newly installed unit), and any unreadable ``systemctl show``.
+GITSYNC-REVIVE (second half): systemd cannot tell a raw ``systemctl stop``
+from its own stops (a mount drop, a reset-failed crash), so the marker stays
+the ONLY hold and every other stopped long-running unit is still started --
+now with a logged cause naming it. Pinned below, including both review
+regressions.
 """
 from __future__ import annotations
 
@@ -359,75 +358,78 @@ def test_pull_and_deploy_does_not_start_an_already_active_trader(wrapper):
 
 
 # ---------------------------------------------------------------------------
-# GITSYNC-REVIVE: generic hold for a stopped long-running unit (no marker).
+# GITSYNC-REVIVE: only an explicit operator signal holds a unit. Review
+# 2026-09-30: a mount drop (RequiresMountsFor=/data/bot-data) and a
+# reset-failed start-limit crash both leave the trader `inactive` with a
+# non-zero ActiveEnterTimestamp -- identical to a raw `systemctl stop` -- and
+# both must still be revived. The deploy now NAMES such a start instead.
 # ---------------------------------------------------------------------------
 
-def _long_running(fake, unit: str, state: str, entered: str = "123456789") -> None:
+def _stopped_long_running(fake, unit: str, state: str = "inactive", entered: str = "123456789") -> None:
     fake["set_state"](unit, state)
     fake["set_show"](unit, "Type", "simple")
     fake["set_show"](unit, "ActiveEnterTimestampMonotonic", entered)
 
 
-def test_raw_systemctl_stop_of_trader_without_marker_is_held(fake):
-    """The measured 2026-09-27 revive, reached without stop_bot.sh's marker."""
-    _long_running(fake, TRADER, "inactive")
+def test_regression_mount_drop_stop_is_still_revived_and_named(fake):
+    """(B) systemd stopped the trader for a dropped mount: inactive, ran since boot, no marker."""
+    _stopped_long_running(fake, TRADER)
     res = _run(fake)
     assert res.returncode == 0, res.stdout + res.stderr
-    restarted = _restarted(fake)
-    assert TRADER not in restarted, res.stdout
-    assert "ict-web-api.service" in restarted
-    assert f"hold {TRADER} (unit is 'inactive' after running since boot" in res.stdout
+    assert TRADER in _restarted(fake), res.stdout
+    assert f"starting stopped {TRADER} (unit is 'inactive' after running since boot" in res.stdout
 
 
-def test_any_stopped_long_running_unit_is_held_and_the_rest_still_deploy(fake):
-    _long_running(fake, "ict-web-api.service", "inactive")
-    fake["set_show"](TRADER, "Type", "simple")
-    fake["set_show"](TRADER, "ActiveEnterTimestampMonotonic", "5")
+def test_regression_reset_failed_crash_is_still_revived(fake):
+    """(A) a start-limit `failed` trader cleared to `inactive` by reset-failed."""
+    _stopped_long_running(fake, TRADER, entered="987654321")
     res = _run(fake)
     assert res.returncode == 0, res.stdout + res.stderr
-    restarted = _restarted(fake)
-    assert "ict-web-api.service" not in restarted, res.stdout
-    assert TRADER in restarted  # active: still redeployed onto new code (BL-20260714)
-    assert "hold ict-web-api.service" in res.stdout
+    assert TRADER in _restarted(fake), res.stdout
 
 
-def test_a_stop_in_progress_is_held(fake):
-    _long_running(fake, TRADER, "deactivating")
+def test_marker_is_the_only_hold_even_with_the_note_inputs_present(fake):
+    fake["marker"].write_text('{"action": "stop-bot-service"}\n')
+    _stopped_long_running(fake, TRADER)
     res = _run(fake)
     assert res.returncode == 0, res.stdout + res.stderr
     assert TRADER not in _restarted(fake), res.stdout
-    assert "unit is 'deactivating'" in res.stdout
+    assert "operator stop marker present" in res.stdout
+    assert f"starting stopped {TRADER}" not in res.stdout
 
 
-def test_failed_long_running_unit_is_still_revived(fake):
-    """A crash is not a stop: crash recovery is kept."""
-    _long_running(fake, TRADER, "failed")
-    res = _run(fake)
-    assert res.returncode == 0, res.stdout + res.stderr
-    assert TRADER in _restarted(fake)
-
-
-def test_never_active_since_boot_unit_is_started(fake):
-    """install_systemd_units.sh never starts services; this loop is what first
-    brings a newly installed long-running unit up. That must not be lost."""
-    _long_running(fake, "ict-web-api.service", "inactive", entered="0")
+def test_other_stopped_long_running_unit_is_started_and_named(fake):
+    _stopped_long_running(fake, "ict-web-api.service", state="deactivating")
     res = _run(fake)
     assert res.returncode == 0, res.stdout + res.stderr
     assert "ict-web-api.service" in _restarted(fake)
+    assert "starting stopped ict-web-api.service (unit is 'deactivating'" in res.stdout
 
 
-def test_oneshot_behaviour_is_unchanged(fake):
+def test_no_note_for_failed_never_started_oneshot_or_unreadable(fake):
+    fake["set_state"](TRADER, "failed")
+    fake["set_show"](TRADER, "Type", "simple")
+    fake["set_show"](TRADER, "ActiveEnterTimestampMonotonic", "5")
+    _stopped_long_running(fake, "ict-web-api.service", entered="0")
     fake["set_state"](WATCHDOG, "inactive")
     fake["set_show"](WATCHDOG, "Type", "oneshot")
     fake["set_show"](WATCHDOG, "ActiveEnterTimestampMonotonic", "99")
     res = _run(fake)
     assert res.returncode == 0, res.stdout + res.stderr
-    assert WATCHDOG in _restarted(fake)
+    assert {TRADER, "ict-web-api.service", WATCHDOG} <= set(_restarted(fake))
+    assert "starting stopped" not in res.stdout
 
 
-def test_unreadable_show_falls_back_to_restart(fake):
-    """A flaky systemctl read must never strand a unit on stale code."""
-    fake["set_state"](TRADER, "inactive")  # no show files at all
-    res = _run(fake)
-    assert res.returncode == 0, res.stdout + res.stderr
-    assert TRADER in _restarted(fake)
+def test_purge_vm_runner_reset_failed_is_scoped():
+    """(A) a bare `systemctl reset-failed` also clears a failed trader."""
+    src = (OPS / "purge_vm_runner.sh").read_text()
+    calls = [ln.strip() for ln in src.splitlines()
+             if "reset-failed" in ln and not ln.strip().startswith("#")]
+    assert calls, "probe found no reset-failed call to check"
+    for ln in calls:
+        assert "reset-failed 'claude-vm-runner@*.service'" in ln, ln
+
+
+def test_deploy_script_header_does_not_break_shellcheck():
+    for ln in DEPLOY_SCRIPT.read_text().splitlines()[:30]:
+        assert not re.match(r"^#\s*shellcheck\s+(?!\w+=)", ln), ln

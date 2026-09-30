@@ -12,7 +12,8 @@
 #
 # Verify locally before merging:
 #   bash -n scripts/deploy_pull_restart.sh
-#   shellcheck scripts/deploy_pull_restart.sh
+#   run shellcheck on this file (the bare word at the start of a comment
+#   is parsed as a shellcheck directive and aborts the run)
 # ============================================
 
 set -euo pipefail
@@ -490,29 +491,29 @@ WATCHDOG_ONESHOT="ict-liveness-watchdog.service"
 WATCHDOG_TIMER="ict-liveness-watchdog.timer"
 
 # ---------------------------------------------------------------------------
-# GITSYNC-REVIVE (PI-20260927-YDVVYLKH-0002, second half): the marker above only
-# covers a trader stopped THROUGH stop_bot.sh. A raw `systemctl stop` of the
-# trader, or of any other long-running unit (ict-web-api, ict-telegram-bot, ...),
-# left no marker, and the `systemctl restart` below still started it within
-# ~5 min. `systemctl try-restart` alone would also stop this script starting a
-# NEW long-running unit (install_systemd_units.sh never starts services; this
-# loop is what first brings one up) and would drop crash recovery, so the hold
-# is narrower than that. A unit is held -- skipped, with the cause logged --
-# only when ALL of these read true:
-#   - it is long-running (Type is not oneshot). Oneshots read "inactive" after
-#     every clean run, so their state says nothing about a stop; their
-#     behaviour here is unchanged.
-#   - it is "inactive" (cleanly stopped) or "deactivating" (a stop in
-#     progress). "failed" is NOT held: that is a crash, revived as before.
-#     With Restart=always a clean exit reads "activating", not "inactive".
-#   - it has been active since boot (ActiveEnterTimestampMonotonic != 0). A
-#     unit that never ran since boot is newly installed (or failed at boot),
-#     and is started as before.
-# Any unreadable field falls back to the historical restart, so a flaky
-# systemctl read never strands a unit on stale code. This adds no stop of any
-# kind (Prime Directive): it only stops the DEPLOY overriding a human stop.
+# GITSYNC-REVIVE (PI-20260927-YDVVYLKH-0002, second half): a first version held
+# EVERY long-running unit that read inactive/deactivating after running since
+# boot. Review (2026-09-30) found that systemd cannot tell a human's raw
+# `systemctl stop` from its OWN stops, and that holding on state alone
+# regressed the Prime Directive in two measured paths:
+#   - a RequiresMountsFor=/data/bot-data drop stops the trader cleanly
+#     (inactive, Result=success -- identical to a manual stop);
+#   - a `systemctl reset-failed` turns a start-limit-`failed` trader into
+#     `inactive` with a non-zero ActiveEnterTimestamp.
+# Both used to be revived here and must still be. Result= does not separate
+# them (a manual stop is Result=success too), and a paused autoheal is not a
+# stop signal (pause_autoheal.sh is for a trader that keeps RUNNING).
+# So the ONLY hold is an explicit operator signal: TRADER_STOP_MARKER above,
+# written by stop-bot-service (which also pauses the liveness watchdog -- that
+# watchdog restarts a raw-stopped trader within minutes on its own, so a raw
+# stop never stayed stopped regardless of this script).
+# What this adds for every other case is the logged CAUSE: a stopped
+# long-running unit that this deploy is about to START is named, with its
+# state, so a revive is visible in the ict-git-sync journal instead of
+# reading as an ordinary restart.
+# Read-only; any unreadable field just means no note. Adds no stop.
 # ---------------------------------------------------------------------------
-deliberate_stop_cause() {
+stopped_unit_note() {
     local unit="$1" state utype entered
     state="$("${SYSTEMCTL[@]}" is-active "${unit}" 2>/dev/null || true)"
     case "${state}" in
@@ -527,7 +528,7 @@ deliberate_stop_cause() {
     case "${entered}" in
         ''|0|*[!0-9]*) return 1;;
     esac
-    printf "unit is '%s' after running since boot (Type=%s) — stopped by someone, not crashed" "${state}" "${utype}"
+    printf "unit is '%s' after running since boot (Type=%s) and carries no operator-stop signal; a raw stop, a mount drop and a reset-failed crash look identical, so it is STARTED as before" "${state}" "${utype}"
 }
 
 # ---------------------------------------------------------------------------
@@ -635,9 +636,8 @@ for unit in "${ICT_UNITS[@]}"; do
             continue
         fi
     fi
-    if stop_cause="$(deliberate_stop_cause "${unit}")"; then
-        echo ">>>   hold ${unit} (${stop_cause}) — a deploy never starts a stopped unit; start it explicitly (start/restart-bot-service, pull-and-deploy, or systemctl start)."
-        continue
+    if stop_note="$(stopped_unit_note "${unit}")"; then
+        echo ">>>   starting stopped ${unit} (${stop_note}). To keep the trader stopped use stop-bot-service."
     fi
     if "${SYSTEMCTL[@]}" restart "${unit}"; then
         echo ">>>   restarted ${unit}"
