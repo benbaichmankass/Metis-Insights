@@ -36,7 +36,7 @@ def test_session_bound_unit_is_not_a_dispatch_failure(tmp_path, capsys):
     import json
     import yaml
     from scripts.research import dispatch_queue
-    u = {"id": "RQ-20260901-001", "status": "queued", "cadence": "once", "title": "t", "question": "q",
+    u = {"id": "RQ-20260901-001", "status": "queued", "cadence": "once", "theme": "infra", "priority": 2, "title": "t", "question": "q",
          "run": {"workflow": "none -- session-local"}, "lands": {"store": "s"}}
     (tmp_path / "RQ-20260901-001.yaml").write_text(yaml.safe_dump(u))
     rc = dispatch_queue.main(["--queue-dir", str(tmp_path), "--json"])

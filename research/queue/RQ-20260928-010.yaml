@@ -5,6 +5,8 @@ title: >-
   carry_frac_per_day stop being the zero-cost placeholder CAA05-0003 flagged?
 status: queued
 cadence: once
+theme: macro
+priority: 2
 kind: experiment
 
 question: >-

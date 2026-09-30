@@ -2,6 +2,8 @@ id: RQ-20260922-010
 title: Can fvg_range_15m be given a Stage-0 number at all, and what is the minimum change that does it?
 status: blocked
 cadence: once
+theme: new_strategy_prop
+priority: 2
 kind: deterministic
 
 question: >-
