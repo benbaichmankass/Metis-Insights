@@ -64,7 +64,8 @@ def test_fit_verdict_underpowered_below_floor_and_grades_committed_ledger():
         return
     spec = hfv.spec_from_ledgers("eth15", [str(led)])
     v = hfv.grade(spec, "config/prop_rulesets/hyrotrader.yaml")
-    assert v["verdict"] == "indeterminate" and v["read_state"] == "underpowered" and v["n"] == 117
+    assert v["verdict"] == "indeterminate" and v["read_state"] == "measured" and v["n"] == 117
+    assert "underpowered" in v["note"]
 
 
 def test_funded_payouts_reported_and_positive_for_big_edge():
