@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling and a test only. scripts/research/hyro_fit_verdict.py wrote read_state 'graded' / 'underpowered', which the research-result collector rejects (closed set: measured / no_data / producer_failed / not_attempted), so the RQ-20260930-501 PASS was recorded by the run as producer_failed / not_applicable. It now writes 'measured' (an underpowered run is measured + indeterminate with the reason in note) and n=null on the producer_failed path. tests/test_hyro_verdict_contract.py runs the real script_run.derive_record over the script's output (negative control: the two graded-path tests fail against the old script). No config, runtime, order path or strategy parameter."
+}
