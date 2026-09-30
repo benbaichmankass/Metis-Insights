@@ -351,7 +351,9 @@ if [ -n "${EXEC_MODE}" ]; then
         instrument-info-probe)  EARGS+=(--instrument-info-probe "${ACTION_SYMBOLS}") ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
-        round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}") ;;
+        round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")
+                             # `limit` in apply: walk the ticket path's LIMIT form (dry only).
+                             case ",${APPLY}," in *",limit,"*) EARGS+=(--order-type limit) ;; esac ;;
         round-trip-live)     EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
         close-position)      EARGS+=(--close-position "${RT_SYMBOL}") ;;
         close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;

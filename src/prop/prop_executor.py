@@ -958,6 +958,11 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     if not att.submitted:
         ledger.record(spec.ticket_id, "refused", reasons=[att.detail])
         _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail}"))
+        # The guards said FITS and the form refused: a mechanical failure on a
+        # ticket that was meant to be placed. Say so (it was silent on
+        # 2026-09-30 12:44Z: only the two breach reports alerted).
+        res.alerts.append(f"{spec.ticket_id}: NOT PLACED ({att.detail}); valid until "
+                          f"{candidate.get('valid_until')}. Place it by hand or it is lost")
         if "read-back" in str(att.detail or ""):
             n = int(st.get("readback_refusals") or 0) + 1
             st["readback_refusals"] = n
@@ -989,7 +994,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
                    venue_symbol: str, side: str = "long", lots: Optional[float] = None,
                    bracket_pct: float = 0.01, arm: bool = False, reads: int = 20,
                    sleep: Callable[[float], None] = lambda s: None,
-                   now: Optional[datetime] = None) -> CycleResult:
+                   now: Optional[datetime] = None, order_type: str = "market") -> CycleResult:
     """The end-to-end test (operator 2026-09-28 ~13:40Z, relayed by the
     manager, approved by the operator in this lane's popup): place ONE
     minimum-size MARKET bracket with SL and TP attached → confirm the position
@@ -1033,6 +1038,13 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         return stop(f"lots {lots} is not a valid venue size ({why or f'nearest step is {stepped}'})")
     if side not in ("long", "short"):
         return stop(f"side {side!r} is not long/short")
+    # LIMIT is walked DRY only: it proves the ticket path's order form (select
+    # LIMIT, then find and fill the price field) on the live terminal without
+    # an emitted ticket. A live limit round trip would rest, not fill.
+    if order_type not in ("market", "limit"):
+        return stop(f"order_type {order_type!r} is not market/limit")
+    if order_type == "limit" and arm:
+        return stop("a LIMIT round trip is dry-only (walk the form; never armed)")
     try:
         acct = adapter.read_account(page)
         positions = adapter.read_positions(page)
@@ -1059,8 +1071,14 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     ps = _f(sym.get("price_step"))
     sl, tp = round_to_step(round(sl, 6), ps), round_to_step(round(tp, 6), ps)
     tid = f"roundtrip-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    limit_px = None
+    if order_type == "limit":
+        # Resting side of the book (a long bids at the bid), as a ticket's
+        # entry usually sits away from the touch.
+        limit_px = round_to_step(round(quote["bid"] if side == "long" else quote["ask"], 6), ps)
     spec = BracketSpec(ticket_id=tid, venue_symbol=venue, side=side, quantity=float(lots),
-                       stop_loss=sl, take_profit=tp, order_type="market", price_step=ps)
+                       stop_loss=sl, take_profit=tp, order_type=order_type, limit_price=limit_px,
+                       price_step=ps)
     risk = float(lots) * float(sym["lot_units"]) * float(_f(sym.get("cvpp")) or 1.0) * abs(ref - sl)
     res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2))
 

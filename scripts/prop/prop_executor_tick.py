@@ -262,6 +262,8 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--live", action="store_true",
                     help="round trip: actually click (refused unless PROP_EXECUTOR_MODE=live); default is a dry walk")
     ap.add_argument("--ticket-id", default="", help="watched click: act on this ticket only")
+    ap.add_argument("--order-type", choices=("market", "limit"), default="market",
+                    help="round trip only: 'limit' walks the ticket path's LIMIT form, DRY only")
     args = ap.parse_args(argv)
 
     mode = resolve_mode(args)
@@ -396,7 +398,7 @@ def main(argv: Optional[list] = None) -> int:
                         adapter=adapter, page=page, api=api, cfg=cfg,
                         ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
                         venue_symbol=args.round_trip, side=args.side, lots=args.lots,
-                        arm=(mode == "round_trip_live"),
+                        arm=(mode == "round_trip_live"), order_type=args.order_type,
                         sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
                 emit({"reads": res.reads}, *secrets)
                 for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):

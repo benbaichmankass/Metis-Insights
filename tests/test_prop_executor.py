@@ -3177,3 +3177,85 @@ def test_a_partial_fill_before_the_first_confirm_read_is_never_written_off_uncon
                      now=NOW + timedelta(minutes=k))
     assert not any(p.get("status") == "skipped" for p in api.posts)
     assert not any("unconfirmed_submit" in str(p.get("reason")) for p in api.posts)
+
+
+
+# ── the live form opens in MARKET mode: the price field only exists after
+#    LIMIT is selected (2026-09-30 12:44Z, ticket prop-manual-b573aecb5d47,
+#    prop_fills #73 "not submitted: form fields not found: ['price']") ──────
+
+MARKET_DEFAULT_PAGE = (TICKET_PAGE
+    .replace('onclick="window.__type=\'market\';sel(this)">Market</button>',
+             'aria-pressed="true" onclick="window.__type=\'market\';sel(this);'
+             'document.getElementById(\'pxrow\').style.display=\'none\'">Market</button>')
+    .replace('onclick="window.__type=\'limit\';sel(this)">Limit</button>',
+             'onclick="window.__type=\'limit\';sel(this);'
+             'document.getElementById(\'pxrow\').style.display=\'block\'">Limit</button>')
+    .replace('<div><span>Price</span><input id="px"></div>',
+             '<div id="pxrow" style="display:none"><span>Price</span><input id="px"></div>'))
+
+
+def test_the_market_default_fixture_really_hides_price_until_limit(tpage):
+    assert MARKET_DEFAULT_PAGE.count('id="pxrow" style="display:none"') == 1
+    got = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(tpage(html=MARKET_DEFAULT_PAGE), "SOLUSD")
+    assert "price" not in got["fields"] and {"quantity", "stop_loss", "take_profit"} <= set(got["fields"])
+
+
+def test_a_limit_bracket_selects_limit_before_requiring_the_price_field(tpage):
+    p = tpage(html=MARKET_DEFAULT_PAGE)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=False)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("window.__type") == "limit"
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_limit_bracket_refuses_when_limit_shows_no_price_field(tpage):
+    html = MARKET_DEFAULT_PAGE.replace("document.getElementById('pxrow').style.display='block'", "0")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and not att.submitted
+    assert "price" in att.detail and "LIMIT" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_market_bracket_never_needs_a_price_field(tpage):
+    from dataclasses import replace
+    p = tpage(html=MARKET_DEFAULT_PAGE)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, replace(SOL, order_type="market", limit_price=None), arm=False)
+    assert att.stage == "form_verified", att.detail
+
+
+
+def test_a_ticket_the_form_refuses_raises_a_not_placed_alert(env):
+    ad = FakeAdapter(attempt=PlaceAttempt(stage="refused", submitted=False,
+                                          detail="form fields not found: ['price']"))
+    api = FakeApi([ticket()])
+    res = run(ad, api, env)
+    assert any("NOT PLACED" in a and "prop-manual-aaa" in a and "price" in a for a in res.alerts)
+    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"] == [
+        "not submitted: form fields not found: ['price']"]
+
+
+
+def test_a_limit_round_trip_is_dry_only(env):
+    ledger, _ = env
+    c = cfg(watched_click_max_lots={"SOLUSD": 0.01})
+    res = pe.run_round_trip(adapter=FakeAdapter(), page=None, api=FakeApi([]), cfg=c, ledger=ledger,
+                            venue_symbol="SOLUSD", lots=0.01, arm=True, order_type="limit", now=NOW)
+    assert res.halted and "dry-only" in res.halted
+
+
+def test_a_dry_limit_round_trip_walks_a_limit_spec_at_the_resting_quote(env):
+    ledger, _ = env
+    c = cfg(watched_click_max_lots={"SOLUSD": 0.01})
+
+    class Q(FakeAdapter):
+        def read_quote(self, page, venue):
+            return {"bid": 120.0, "ask": 120.1}
+
+    ad = Q()
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi([]), cfg=c, ledger=ledger,
+                            venue_symbol="SOLUSD", lots=0.01, arm=False, order_type="limit", now=NOW)
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]["spec"]
+    assert spec["order_type"] == "limit" and spec["limit_price"] == 120.0
+    assert ad.calls == [("place_bracket", spec["ticket_id"], False), ("flatten", "SOLUSD", False)]
