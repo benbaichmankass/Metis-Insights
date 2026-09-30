@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Backtest harness only: scripts/backtest_trend.py gains two opt-in levers, --flat-at-utc and --no-entry-after-utc (default off, byte-identical, locked by a test that diffs the summary and emitted rows against origin/main's harness on the committed fixture). No execute.py, no live order path, no config, no strategy parameter. Instrument for the held research unit RQ-20260930-503. Lane HYRO-STRATS, operator instruction 2026-09-30."
+}
