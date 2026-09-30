@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager: non-blocking follow-ups from the manager's review of #14682 (a, c, e) touching the breakout-login-check wrapper; plus one pipeline record. breakout_1 unchanged.",
+  "why": "(c) per-account --dump-dir so a non-breakout login check no longer overwrites breakout_1's last-run dump (it did on run 36702582805); (e) no_credentials names the account's own env vars; (a) sync-vm-secrets comments say 'login check only'. Files PI-20260930-BHYHMK2C-0001 (pre-existing sed delimiter in sync_vm_secrets.sh _patch_env_var)."
+}
