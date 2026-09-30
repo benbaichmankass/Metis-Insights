@@ -846,7 +846,11 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         res.alerts.append(f"ticket intake failed ({type(exc).__name__}); no entries this cycle")
         return res
     seen = ledger.latest()
-    fresh = [t for t in tickets if t.get("ticket_id") and t["ticket_id"] not in seen]
+    # A ticket whose placement failed BEFORE any submit click is `retry_pending`
+    # in the ledger and is taken in again until its valid_until (operator
+    # directive 2026-09-30 ~13:12Z). Every other ledger state is final.
+    fresh = [t for t in tickets if t.get("ticket_id")
+             and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") == RETRY_STATE)]
     if only_ticket_id:
         fresh = [t for t in fresh if t["ticket_id"] == only_ticket_id]
     fresh.sort(key=lambda t: str(t.get("created_at") or ""))
@@ -883,6 +887,19 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
             continue
+        if (seen.get(t["ticket_id"]) or {}).get("state") == RETRY_STATE:
+            ok, why = _retry_entry_ok(adapter, page, t, venue)
+            if not ok:
+                # Not an attempt: the price is outside the ticket's own entry
+                # band, or could not be read. Waits (still retryable) until
+                # valid_until; an unparseable band never retries.
+                res.log("retry_wait", ticket_id=t["ticket_id"], why=why)
+                if live and why.startswith("entry band unreadable"):
+                    ledger.record(t["ticket_id"], "refused", reasons=[f"retry refused: {why}"])
+                    _report(res, post, _skip_body(cfg, t, f"not submitted (retry refused: {why})"))
+                    res.alerts.append(f"{t['ticket_id']}: NOT PLACED, no retry ({why}); place it by hand "
+                                      f"by {t.get('valid_until')} or it is lost")
+                continue
         if candidate is None:
             candidate = t
     if candidate is None:
@@ -956,13 +973,24 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
     st = state.load()
     if not att.submitted:
-        ledger.record(spec.ticket_id, "refused", reasons=[att.detail])
-        _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail}"))
-        # The guards said FITS and the form refused: a mechanical failure on a
-        # ticket that was meant to be placed. Say so (it was silent on
-        # 2026-09-30 12:44Z: only the two breach reports alerted).
-        res.alerts.append(f"{spec.ticket_id}: NOT PLACED ({att.detail}); valid until "
-                          f"{candidate.get('valid_until')}. Place it by hand or it is lost")
+        # The guards said FITS and the form refused BEFORE any submit click
+        # (place_bracket reports submitted=True the moment the submit click is
+        # attempted, even if it raised), so no order can exist: the ticket
+        # stays RETRYABLE until its valid_until (operator directive
+        # 2026-09-30 ~13:12Z), up to RETRY_MAX_ATTEMPTS, and is not written
+        # off: nothing is reported, the ticket stays `emitted`. It was silent
+        # on 2026-09-30 12:44Z (only the two breach reports alerted), so each
+        # failure alerts.
+        n = int((seen.get(spec.ticket_id) or {}).get("attempts") or 0) + 1
+        if n < RETRY_MAX_ATTEMPTS:
+            ledger.record(spec.ticket_id, RETRY_STATE, attempts=n, last_detail=att.detail)
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED ({att.detail}); attempt {n}/{RETRY_MAX_ATTEMPTS}, "
+                              f"will retry until {candidate.get('valid_until')}")
+        else:
+            ledger.record(spec.ticket_id, "refused", reasons=[att.detail], attempts=n)
+            _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail} (after {n} attempts)"))
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED after {n} attempts ({att.detail}); valid until "
+                              f"{candidate.get('valid_until')}. Place it by hand or it is lost")
         if "read-back" in str(att.detail or ""):
             n = int(st.get("readback_refusals") or 0) + 1
             st["readback_refusals"] = n
@@ -1306,6 +1334,51 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
             "direction": spec.get("side"), "qty": spec.get("quantity"),
             "entry_price": entry if entry is not None else spec.get("limit_price"),
             "sl": spec.get("stop_loss"), "tp": spec.get("take_profit"), "source": "prop_executor"}
+
+
+#: A ticket whose placement failed before any submit click (retryable).
+RETRY_STATE = "retry_pending"
+#: Placement attempts per ticket before the pre-submit failure is final.
+RETRY_MAX_ATTEMPTS = 3
+
+_BAND_RE = None
+
+
+def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
+    """The ticket's own entry band, as rendered in its message by
+    ``breakout_ticket`` ("only if live price is within <min> … <max>"), or
+    None when it cannot be read (never recomputed here: a second copy of the
+    rule could disagree with the ticket the operator saw)."""
+    import re
+    global _BAND_RE
+    if _BAND_RE is None:
+        _BAND_RE = re.compile(r"within\s+([0-9]+(?:\.[0-9]+)?)\s*(?:…|\.\.\.)\s*([0-9]+(?:\.[0-9]+)?)")
+    m = _BAND_RE.search(str(ticket.get("message") or ""))
+    if not m:
+        return None
+    lo, hi = float(m.group(1)), float(m.group(2))
+    return (lo, hi) if lo <= hi else None
+
+
+def _retry_entry_ok(adapter: Any, page: Any, ticket: Mapping[str, Any], venue: Optional[str]) -> Tuple[bool, str]:
+    """Before a RETRY: the live price must be inside the ticket's entry band,
+    read THIS cycle. Fail closed: no band, no quote, or a quote outside it
+    means no attempt."""
+    band = _entry_band(ticket)
+    if band is None:
+        return False, "entry band unreadable in the ticket message"
+    try:
+        q = adapter.read_quote(page, str(venue or "")) if venue else None
+    except Exception as exc:
+        q, _ = None, exc
+    if not q:
+        return False, "no quote for the entry-band check (could not look)"
+    px = _f(q.get("ask") if _dir(ticket.get("direction")) == "long" else q.get("bid"))
+    if px is None:
+        return False, "no quote for the entry-band check (could not look)"
+    if not (band[0] <= px <= band[1]):
+        return False, f"price {px} outside entry band {band[0]}..{band[1]}"
+    return True, ""
 
 
 #: Cancel attempts on one expired resting entry before the executor stops

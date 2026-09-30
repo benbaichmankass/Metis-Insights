@@ -532,12 +532,15 @@ def test_write_back_failure_is_an_alert_not_a_crash(env):
     assert any("write-back failed" in a for a in res.alerts)
 
 
-def test_not_submitted_attempt_is_skipped_not_confirmed(env):
+def test_not_submitted_attempt_is_retryable_not_confirmed(env):
+    # A refusal before any submit click is never confirmed and never written
+    # off on the first attempt: it is retry_pending, and nothing is reported.
     ad = FakeAdapter(attempt=PlaceAttempt(stage="refused", detail="one-click trading is on"))
     api = FakeApi([ticket()])
     run(ad, api, env)
-    assert env[0].state("prop-manual-aaa") == "refused"
-    assert "one-click" in [p for p in api.posts if p.get("status") == "skipped"][0]["reason"]
+    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+    assert env[0].latest()["prop-manual-aaa"]["attempts"] == 1
+    assert not any(p.get("ticket_id") == "prop-manual-aaa" for p in api.posts)
 
 
 def test_ledger_survives_a_torn_last_line(tmp_path):
@@ -3231,9 +3234,8 @@ def test_a_ticket_the_form_refuses_raises_a_not_placed_alert(env):
                                           detail="form fields not found: ['price']"))
     api = FakeApi([ticket()])
     res = run(ad, api, env)
-    assert any("NOT PLACED" in a and "prop-manual-aaa" in a and "price" in a for a in res.alerts)
-    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"] == [
-        "not submitted: form fields not found: ['price']"]
+    assert any("NOT PLACED" in a and "prop-manual-aaa" in a and "price" in a and "1/3" in a for a in res.alerts)
+    assert not any(p.get("ticket_id") == "prop-manual-aaa" for p in api.posts)
 
 
 
@@ -3259,3 +3261,140 @@ def test_a_dry_limit_round_trip_walks_a_limit_spec_at_the_resting_quote(env):
     spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]["spec"]
     assert spec["order_type"] == "limit" and spec["limit_price"] == 120.0
     assert ad.calls == [("place_bracket", spec["ticket_id"], False), ("flatten", "SOLUSD", False)]
+
+
+
+# ── retry exception (operator directive 2026-09-30 ~13:12Z): a ticket whose
+#    placement failed BEFORE any submit click is retried until valid_until ──
+
+BAND_MSG = "BREAKOUT TRADE SETUP\n  Entry    : 120.0   (only if live price is within 119.5 … 120.5)"
+
+
+class QuoteAdapter(FakeAdapter):
+    def __init__(self, quote=None, **kw):
+        super().__init__(**kw)
+        self.quote = quote
+
+    def read_quote(self, page, venue):
+        self.calls.append(("read_quote", venue))
+        return self.quote
+
+
+PRE = PlaceAttempt(stage="refused", submitted=False, detail="form fields not found: ['price']")
+
+
+def _cycle(ad, api, env, k):
+    ledger, state = env
+    return pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
+                        state=state, now=NOW + timedelta(minutes=5 * k))
+
+
+def _places(ad):
+    return [c for c in ad.calls if c[0] == "place_bracket"]
+
+
+def test_retry_places_the_same_ticket_again_once_the_form_works(env):
+    # (5) the idempotency key is unchanged: same ticket id, one order
+    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
+    api = FakeApi([ticket(message=BAND_MSG)])
+    _cycle(ad, api, env, 0)
+    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+    ad.attempt, ad.after_submit = None, ([], [_o()])
+    _cycle(ad, api, env, 1)
+    assert [c[1] for c in _places(ad)] == ["prop-manual-aaa", "prop-manual-aaa"]
+    assert env[0].state("prop-manual-aaa") == "placed"
+    assert [p.get("status") for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["placed"]
+
+
+def test_a_failure_after_the_submit_click_is_never_retried(env):
+    # (1) planted negative: the submit click raised -> submitted=True ->
+    # the unconfirmed/containment path, never retry_pending, never a 2nd click
+    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0},
+                      attempt=PlaceAttempt(stage="submitted", submitted=True,
+                                           detail="submit click raised TimeoutError; outcome unknown"),
+                      after_submit=([], []))
+    api = FakeApi([ticket(message=BAND_MSG)])
+    for k in range(4):
+        _cycle(ad, api, env, k)
+    assert env[0].state("prop-manual-aaa") != pe.RETRY_STATE
+    assert len(_places(ad)) == 1
+
+
+def test_a_retry_is_refused_when_the_symbol_already_has_a_position_or_order(env):
+    # (2) the terminal is re-read THIS cycle; anything on the symbol -> no click
+    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
+    api = FakeApi([ticket(message=BAND_MSG)])
+    _cycle(ad, api, env, 0)
+    ad.attempt = None
+    ad.orders = [_o(order_id="MANUAL")]
+    _cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1  # only the original attempt
+    assert env[0].state("prop-manual-aaa") == "refused"
+
+
+def test_a_retry_waits_while_the_price_is_outside_the_entry_band(env):
+    # (3) the band is re-checked on every attempt; outside -> no attempt
+    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
+    api = FakeApi([ticket(message=BAND_MSG)])
+    _cycle(ad, api, env, 0)
+    ad.attempt, ad.quote = None, {"bid": 121.0, "ask": 121.1}
+    res = _cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    assert any(a["what"] == "retry_wait" and "outside entry band" in a["why"] for a in res.actions)
+    assert env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+    assert env[0].latest()["prop-manual-aaa"]["attempts"] == 1  # a wait is not an attempt
+
+
+def test_a_retry_waits_when_the_quote_cannot_be_read(env):
+    ad = QuoteAdapter(quote=None, attempt=PRE)
+    api = FakeApi([ticket(message=BAND_MSG)])
+    _cycle(ad, api, env, 0)
+    ad.attempt = None
+    _cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1 and env[0].state("prop-manual-aaa") == pe.RETRY_STATE
+
+
+def test_a_retry_is_refused_when_the_entry_band_is_unreadable(env):
+    # planted negative: no band in the message -> never retried, terminal + alert
+    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
+    api = FakeApi([ticket(message="no band here")])
+    _cycle(ad, api, env, 0)
+    ad.attempt = None
+    res = _cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    assert env[0].state("prop-manual-aaa") == "refused"
+    assert any("no retry" in a for a in res.alerts)
+    assert [p["status"] for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["skipped"]
+
+
+def test_retries_are_bounded_then_terminal_skipped_with_one_alert(env):
+    # (4) RETRY_MAX_ATTEMPTS attempts, then terminal skipped with the real reason
+    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
+    api = FakeApi([ticket(message=BAND_MSG)])
+    alerts = []
+    for k in range(pe.RETRY_MAX_ATTEMPTS + 2):
+        alerts.append(_cycle(ad, api, env, k).alerts)
+    assert len(_places(ad)) == pe.RETRY_MAX_ATTEMPTS
+    assert env[0].state("prop-manual-aaa") == "refused"
+    skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and "price" in skips[0]["reason"] and f"{pe.RETRY_MAX_ATTEMPTS} attempts" in skips[0]["reason"]
+    assert sum("after" in a and "attempts" in a for al in alerts for a in al) == 1
+
+
+def test_a_retry_pending_ticket_goes_terminal_at_valid_until(env):
+    # (6) at valid_until the ticket is expired as today, never attempted again
+    ad = QuoteAdapter(quote={"bid": 119.9, "ask": 120.0}, attempt=PRE)
+    api = FakeApi([ticket(message=BAND_MSG, valid_until=(NOW + timedelta(minutes=7)).isoformat())])
+    _cycle(ad, api, env, 0)
+    ad.attempt = None
+    _cycle(ad, api, env, 2)  # NOW+10 > valid_until
+    assert len(_places(ad)) == 1
+    assert env[0].state("prop-manual-aaa") == "expired"
+    assert [p["reason"] for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"] == ["expired"]
+
+
+def test_the_entry_band_parser_reads_the_rendered_ticket():
+    assert pe._entry_band({"message": "  Entry    : 121.34   (only if live price is within 120.691 … 121.989)"}) \
+        == (120.691, 121.989)
+    assert pe._entry_band({"message": "within 1.0 ... 2.0"}) == (1.0, 2.0)
+    assert pe._entry_band({"message": ""}) is None and pe._entry_band({}) is None
