@@ -1079,6 +1079,237 @@ def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path
 
 
 # --------------------------------------------------------------------------
+# MD-SOAK-EXIT-CELL-PATHB -- a CONFIG edit, not a roster move (proposed
+# 2026-09-30, pipeline row PI-20260929-AQRK6CL1-0013).
+#
+# It lives beside `resolve()` rather than inside `_decide()` on purpose: `_decide`
+# is the ladder's roster-edit evaluator (adds/removes, stages, cost fidelity) and
+# this mandate edits ONE key of `config/strategies.yaml` on a leg that stays
+# where it is. Folding it in would have meant a fifth transition that is not a
+# transition. `resolve()`, `TRANSITION_MANDATE` and every existing consumer
+# (r4_demotion_gate, check_mandate_autoland) are untouched.
+#
+# ⚠️ A PROPOSED entry never authorizes. `granted()` reads only `mandates:`, so
+# without `allow_proposed` this REFUSEs R-MANDATE-NOT-GRANTED exactly like every
+# other mandate. `allow_proposed=True` is the DRY evaluation the operator needs
+# to see what a grant would have done; it stamps `authorized: False` and the
+# caveat into the result so a FIRE it returns cannot be read as a grant.
+# --------------------------------------------------------------------------
+EXIT_CELL_MANDATE_ID = "MD-SOAK-EXIT-CELL-PATHB"
+BRACKET_CORPUS_REL = "docs/research/e35-bracket-corpus.jsonl"
+#: The corpus `family` -> harness map that carries a venue-aware slippage
+#: resolution (docs/research/d1-cost-stack-verification-2026-09-25.md). Anything
+#: else -- and above all the four families that lack a full stack
+#: (backtest_orb.py, src/backtest/backtester.py, backtest_xsec_momentum.py,
+#: backtest_vol_target.py), none of which is reachable from a bracket-corpus
+#: family today -- is REFUSEd, so a harness added later starts OUT of scope.
+EXIT_CELL_COST_COMPLETE_FAMILIES = frozenset({"pullback", "donchian"})
+PATHB_VERDICT = "path_b_wf_pass"
+
+
+def _load_corpus_rows(root: Path, leg: str, cell: str) -> List[Dict[str, Any]]:
+    p = root / BRACKET_CORPUS_REL
+    if not p.is_file():
+        return []
+    rows = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or leg not in line:  # cheap prefilter; exact match below
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if r.get("leg") == leg and r.get("cell") == cell:
+            rows.append(r)
+    return rows
+
+
+def resolve_exit_cell(leg: str, cell: str, *, root: Path = REPO,
+                      mandate_id: str = EXIT_CELL_MANDATE_ID,
+                      allow_proposed: bool = False) -> Dict[str, Any]:
+    ctx: Dict[str, Any] = {"leg": leg, "cell": cell, "mandate": mandate_id,
+                           "from_stage": None, "to_stage": None, "account": None,
+                           "authorized": None, "evidence": {}, "caveats": [], "proposal": None}
+    try:
+        _decide_exit_cell(leg, cell, root, mandate_id, allow_proposed, ctx)
+    except _NeedsData as nd:
+        ctx["proposal"] = None
+        return _result(NEEDS_DATA, nd.clause, nd.detail, ctx, data_task=nd.data_task)
+    except _Refuse as r:
+        ctx["proposal"] = None
+        return _result(REFUSE, r.clause, r.detail, ctx)
+    return _result(FIRE, "ALL-CLAUSES-PASS", "every clause of the mandate held", ctx)
+
+
+def _exit_cell_data_task(leg: str, cell: str, what: str, clears: str) -> Dict[str, Any]:
+    return {"what": f"{leg} cell {cell}: {what}", "clears_when": clears,
+            "check_every_days": 7, "next_action": "dispatch_lane"}
+
+
+def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed: bool,
+                      ctx: Dict[str, Any]) -> None:
+    ev = ctx["evidence"]
+    # -- which mandate, and is it granted -----------------------------------
+    mdoc = _yaml(root, MANDATES_REL)
+    if mdoc is None:
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{MANDATES_REL} is absent or unreadable -- "
+                                               "could not look, so nothing is authorized")
+    m = granted(mdoc, mid)
+    ctx["authorized"] = m is not None
+    if m is None and allow_proposed:
+        m = next((x for x in (mdoc.get("proposed") or [])
+                  if isinstance(x, dict) and x.get("id") == mid), None)
+        if m is not None:
+            ctx["caveats"].append(
+                f"DRY EVALUATION under a PROPOSED entry: {mid} sits under `proposed:` and "
+                "authorizes NOTHING. A FIRE here is what a grant WOULD have done.")
+    if m is None:
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} is not in the granted `mandates:` list "
+                                               "(`proposed:` never authorizes)")
+    if ctx["authorized"] and (not m.get("granted_by") or not m.get("granted_at")):
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} lacks granted_by/granted_at")
+    if m.get("blocked_until"):
+        raise _Refuse("R-MANDATE-BLOCKED", f"{mid} blocked_until: {m['blocked_until']}")
+    bar = m.get("bar")
+    need = ("min_oos_trades", "min_wf_usable", "min_wf_win_fraction",
+            "max_dd_worsening_frac_of_base", "max_leverage_multiple")
+    if not isinstance(bar, dict) or any(not _num(bar.get(k)) for k in need):
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} does not state a numeric bar.{{{', '.join(need)}}}")
+
+    # -- clause 1: soak-only, read from accounts.yaml NOW --------------------
+    accounts_text = (root / ACCOUNTS_REL).read_text(encoding="utf-8") \
+        if (root / ACCOUNTS_REL).is_file() else None
+    if accounts_text is None:
+        raise _Refuse("R-SOAK-ONLY", f"{ACCOUNTS_REL} is absent -- could not look")
+    rosters = b1.rosters(accounts_text)
+    on = sorted(a for a, r in rosters.items() if leg in r["legs"])
+    ev["rosters"] = on
+    if not on:
+        raise _Refuse("R-SOAK-ONLY", f"{leg} is on no account roster -- nothing soaks it")
+    # ⚠️ NOT `account_class == paper`: bybit_portfolio and alpaca_portfolio are
+    # class `paper` AND are the Stage-2 mirrors. The test is Stage-1 MEMBERSHIP.
+    outside = [a for a in on if STAGE_OF_ACCOUNT.get(a) != "S1"
+               or rosters[a]["class"] != STAGE_CLASS["S1"]]
+    if outside:
+        raise _Refuse("R-SOAK-ONLY", f"{leg} is also on {outside}, which is not a Stage-1 "
+                                     f"paper soak account (Stage-1: bybit_1, alpaca_paper, ib_paper). "
+                                     "This mandate never touches a leg present on a Stage-2 roster, "
+                                     "a mirror, a prop account or any other account.")
+
+    # -- clause 2: the corpus row -------------------------------------------
+    rows = _load_corpus_rows(root, leg, cell)
+    if not rows:
+        raise _NeedsData("R-RECORD-MISSING", f"no {BRACKET_CORPUS_REL} row for {leg} cell {cell}",
+                         _exit_cell_data_task(leg, cell, "no bracket-corpus row",
+                                              f"a graded row for ({leg}, {cell}) is committed to {BRACKET_CORPUS_REL}"))
+    graded = [r for r in rows if r.get("gate_verdict") is not None]
+    bad = sorted({str(r.get("gate_verdict")) for r in graded} - {PATHB_VERDICT})
+    if bad:  # reproducibility: any run that graded this cell differently vetoes it
+        raise _Refuse("R-CORPUS-DISAGREES", f"{len(graded)} graded corpus rows for ({leg}, {cell}); "
+                                            f"verdicts other than {PATHB_VERDICT}: {bad}")
+    if not graded:
+        raise _NeedsData("R-RECORD-MISSING", f"({leg}, {cell}) has {len(rows)} corpus rows and none was graded",
+                         _exit_cell_data_task(leg, cell, "never reached the gate",
+                                              f"a graded {PATHB_VERDICT} row exists"))
+    row = max(graded, key=lambda r: str(r.get("sweep_generated_at") or ""))
+    ev["record"] = BRACKET_CORPUS_REL
+    ev["measurement_key"] = row.get("measurement_key")
+    ev["source_run"] = row.get("source")
+    ev["graded_rows"] = len(graded)
+    if row.get("state") != "measured":
+        raise _NeedsData("R-RECORD-MISSING", f"row state is {row.get('state')!r}, not 'measured'",
+                         _exit_cell_data_task(leg, cell, "unmeasured row", "state == measured"))
+    if row.get("family") not in EXIT_CELL_COST_COMPLETE_FAMILIES:
+        raise _Refuse("R-COST-STACK", f"family {row.get('family')!r} is not in "
+                                      f"{sorted(EXIT_CELL_COST_COMPLETE_FAMILIES)}, the harnesses verified to "
+                                      "resolve slippage/funding through the venue-aware policy")
+    if row.get("gate_path") != "B" or row.get("axis") != "stop" or row.get("timeout") is not None \
+            or row.get("tp_r") is not None or row.get("stop_mult") is None:
+        raise _Refuse("R-CELL-SHAPE", "the mandate covers a pure stop-multiplier cell "
+                                      "(axis=stop, gate_path=B, no tp_r, no timeout -- no live unit "
+                                      f"implements a bar-count exit); got axis={row.get('axis')!r} "
+                                      f"path={row.get('gate_path')!r} tp_r={row.get('tp_r')!r} "
+                                      f"timeout={row.get('timeout')!r}")
+
+    # -- clause 3: both windows, net R and capital efficiency ---------------
+    try:
+        d_is, d_oos = float(row["gate_is_d_net_r"]), float(row["gate_oos_d_net_r"])
+        cap_pd = float(row["capital_oos_d_net_r_per_capital_day"])
+    except (KeyError, TypeError, ValueError):
+        raise _NeedsData("R-RECORD-MISSING", "IS/OOS d_net_r or capital_oos d_net_r_per_capital_day unreadable",
+                         _exit_cell_data_task(leg, cell, "window deltas unreadable", "all three fields present"))
+    if not (d_is > 0 and d_oos > 0 and cap_pd > 0):
+        raise _Refuse("R-NET-R", f"needs d_net_r > 0 in BOTH windows and capital/day > 0; got "
+                                 f"IS {d_is}, OOS {d_oos}, capital/day {cap_pd}")
+    n_oos = row.get("base_oos_trades")
+    if not _num(n_oos):
+        raise _NeedsData("R-BASE-N", "base_oos_trades is null on the newest graded row -- the MIN_OOS_TRADES "
+                                     "denominator cannot be read",
+                         _exit_cell_data_task(leg, cell, "base_oos_trades null",
+                                              "re-swept row carries base_oos_trades"))
+    if n_oos < bar["min_oos_trades"]:
+        raise _Refuse("R-BASE-N", f"base_oos_trades {n_oos} < {bar['min_oos_trades']}")
+
+    # -- clause 4: the fold rule --------------------------------------------
+    usable, wins = row.get("wf_usable"), row.get("wf_wins_effective")
+    if not (row.get("wf_ran") and _num(usable) and _num(wins)):
+        raise _NeedsData("R-FOLDS", "walk-forward did not run or its tallies are unreadable",
+                         _exit_cell_data_task(leg, cell, "no walk-forward", "wf_ran with usable/wins present"))
+    ev["walkforward"] = f"{wins}/{usable} (wf_wins_effective/wf_usable)"
+    if usable < bar["min_wf_usable"] or wins < bar["min_wf_win_fraction"] * usable:
+        raise _Refuse("R-FOLDS", f"{wins}/{usable} folds; need usable >= {bar['min_wf_usable']} and "
+                                 f"wins >= {bar['min_wf_win_fraction']} x usable")
+
+    # -- clause 5: drawdown --------------------------------------------------
+    try:
+        n_b, d_b = float(row["base_net_total_r"]), float(row["base_max_drawdown_r"])
+        dn, dd = float(row["d_net_r"]), float(row["d_max_dd"])
+    except (KeyError, TypeError, ValueError):
+        raise _NeedsData("R-DRAWDOWN", "base/cell net_R or maxDD unreadable",
+                         _exit_cell_data_task(leg, cell, "drawdown fields unreadable", "fields present"))
+    if n_b <= 0 or d_b <= 0:
+        raise _Refuse("R-DRAWDOWN", f"base net_R {n_b} / base maxDD {d_b}: the exchange rate is ungradeable "
+                                    "on a losing or drawdown-free base, and ungradeable is not a pass")
+    allowed = min(d_b * dn / n_b, d_b)  # m20_fleet_exit_sweep.drawdown_exchange_rate, incl. the grant cap
+    frac = dd / d_b
+    ev["drawdown"] = {"d_max_dd": dd, "base_max_dd": d_b, "frac_of_base": round(frac, 4),
+                      "rate_allowance": round(allowed, 4)}
+    if dd > allowed:
+        raise _Refuse("R-DRAWDOWN", f"d_max_dd {dd} exceeds the exchange-rate allowance {allowed:.4f}")
+    if frac > bar["max_dd_worsening_frac_of_base"]:
+        raise _Refuse("R-DRAWDOWN", f"maxDD worsens by {frac:.3f} of the base drawdown; cap "
+                                    f"{bar['max_dd_worsening_frac_of_base']} -- route to the operator")
+    lev = (row.get("leverage") or {}).get("leverage_multiple")
+    if not _num(lev):
+        raise _NeedsData("R-LEVERAGE", "leverage_multiple unmeasured",
+                         _exit_cell_data_task(leg, cell, "leverage unmeasured", "leverage.state == measured"))
+    ev["leverage_multiple"] = lev
+    if lev > bar["max_leverage_multiple"]:
+        raise _Refuse("R-LEVERAGE", f"a tighter stop raises notional per unit risk by {lev}x; cap "
+                                    f"{bar['max_leverage_multiple']}x")
+
+    # -- the edit ------------------------------------------------------------
+    strategies = (_yaml(root, STRATEGIES_REL) or {}).get("strategies") or {}
+    cfg = strategies.get(leg) if isinstance(strategies, dict) else None
+    if not isinstance(cfg, dict):
+        raise _Refuse("R-NO-LEG", f"{leg} is not in {STRATEGIES_REL}")
+    cur = cfg.get("atr_stop_mult")
+    ev["current_atr_stop_mult"] = cur
+    if _num(cur) and float(cur) == float(row["stop_mult"]):
+        raise _Refuse("R-NO-OP", f"{leg} already declares atr_stop_mult {cur}")
+    ctx["proposal"] = {
+        "writes_nothing": True,
+        "config_edit": {"file": STRATEGIES_REL, "leg": leg, "key": "atr_stop_mult",
+                        "from": cur, "to": float(row["stop_mult"])},
+        "also": ["docs/research/exit-refinement-coverage.json bracket_geometry cell -> shipped",
+                 f"comms/strategy_evidence/{leg}.json regenerated by the harness, never hand-edited"],
+        "landing": "hold",
+        "pr_title": f"{mid}: {leg} atr_stop_mult {cur} -> {row['stop_mult']} (cell {cell})",
+        "then": "ping in realtime; show the evidence in §1 of the next daily brief",
+    }
+
+
+# --------------------------------------------------------------------------
 # NEEDS_DATA -> the pipeline (operator directive, 2026-09-29): "getting that
 # data becomes a task which needs to happen so that a decision can be made".
 # --------------------------------------------------------------------------
@@ -1128,9 +1359,14 @@ def file_needs_data(result: Dict[str, Any], session_ref: str, *,
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--leg", required=True)
-    ap.add_argument("--from", dest="frm", required=True, choices=STAGES)
-    ap.add_argument("--to", required=True, choices=STAGES)
-    ap.add_argument("--account", required=True)
+    ap.add_argument("--from", dest="frm", choices=STAGES)
+    ap.add_argument("--to", choices=STAGES)
+    ap.add_argument("--account")
+    ap.add_argument("--exit-cell", metavar="CELL", default=None,
+                    help=f"evaluate {EXIT_CELL_MANDATE_ID} for this bracket-corpus cell (a config "
+                         "edit, not a roster move); --from/--to/--account are not used")
+    ap.add_argument("--dry-proposed", action="store_true",
+                    help="with --exit-cell: evaluate a `proposed:` entry (authorizes nothing)")
     ap.add_argument("--mandate", default=None, help="evaluate under this mandate id instead of "
                                                      "the one the transition implies")
     ap.add_argument("--root", default=str(REPO))
@@ -1139,9 +1375,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="on a NEEDS-DATA verdict, file the data task into "
                          "scripts/ops/pipeline.py under this session ref")
     a = ap.parse_args(argv)
-    res = resolve(a.leg, a.frm, a.to, a.account, root=Path(a.root), mandate_id=a.mandate)
+    if a.exit_cell:
+        res = resolve_exit_cell(a.leg, a.exit_cell, root=Path(a.root),
+                                mandate_id=a.mandate or EXIT_CELL_MANDATE_ID,
+                                allow_proposed=a.dry_proposed)
+    elif not (a.frm and a.to and a.account):
+        ap.error("--from, --to and --account are required unless --exit-cell is given")
+    else:
+        res = resolve(a.leg, a.frm, a.to, a.account, root=Path(a.root), mandate_id=a.mandate)
     filed = None
-    if res["verdict"] == NEEDS_DATA and a.file_needs_data:
+    if res["verdict"] == NEEDS_DATA and a.file_needs_data and not a.exit_cell:
         filed = file_needs_data(res, a.file_needs_data)
     if a.json:
         out = dict(res)
