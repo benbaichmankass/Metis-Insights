@@ -721,6 +721,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/broker-truth-ib-flex-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/bybit-close-qty-legalization-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/c-reg-lens-enablement-2026-07-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/candle-feed-canonical-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/capital-allocation-ai-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/capital-allocation-ai-PROMPT.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/chop-scalp-capital-efficiency-2026-07-15.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
