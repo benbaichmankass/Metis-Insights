@@ -82,7 +82,14 @@ decision_rule:
     (the screen produced only candidates the late window rejects) AND every survivor had n_B >= 88.
     INDETERMINATE IF S >= 1, none is CONFIRMED and at least one survivor had n_B < 88 or no Stage B result
     (an underpowered or missing answer is not a rejection; this refines the FAIL clause above BEFORE any
-    run). NULL IF S = 0. Venue fit (same-day share, trades a month, HyroTrader qualifying days a
+    run). NULL IF S = 0. FAILED CELLS (refined BEFORE any run, at the manager's review): a cell whose harness
+    run raises is recorded on its own block, counted in n_failed_a / n_failed_b / failed_cells, and makes the
+    run clean=false. NULL and FAIL are claims about all K cells, so with any Stage A failure they are
+    downgraded to INDETERMINATE; an all-failed or partly-failed sweep can never read as "no edge found". A PASS
+    stands but is reported unclean. SHARDING is deliberately NOT done: the Bonferroni denominator S spans all
+    K cells, so splitting the grid across units would need a two-phase combine that does not exist; if the
+    330-minute run times out the workflow fails visibly (no verdict.json), which is a producer failure, never a
+    null. Venue fit (same-day share, trades a month, HyroTrader qualifying days a
     month) is printed for every CONFIRMED cell and changes no verdict. A PASS cell is a candidate for a
     separately registered unit (its own cost-complete ledger, a venue-fit grade, then Gate 1 soak
     placement), NOT a roster proposal. The grid, both windows, the thresholds and the survivor rule are
@@ -99,22 +106,22 @@ routing:
   needs_trainer_resident_data: true
   needs_gpu: false
   peak_memory_gb: 6.0
-  est_minutes: 360
+  est_minutes: 330
   basis: >-
     Up to 120 cells at 2 jobs, Stage A over 3.75 years plus Stage B for the survivors only; the 1m and 5m
     frames are the heavy part (RQ-20260929-401's census ran three 15m legs on the trainer). Estimate is
-    INFERRED and is the workflow's own 360-minute ceiling; --list-grid prints K without running anything.
+    INFERRED and is sized to the runner's 330-minute cap (research-script-run-guard R1), at --jobs 3; --list-grid prints K without running anything.
 
 run:
   workflow: research-script-run.yml
-  timeout_minutes: 360
+  timeout_minutes: 330
   command:
   - python3
   - scripts/research/short_tf_discovery_sweep.py
   - --wave
   - '1'
   - --jobs
-  - '2'
+  - '3'
   - --out
   - '{out_dir}'
   inputs:

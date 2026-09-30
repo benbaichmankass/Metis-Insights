@@ -204,3 +204,39 @@ def test_live_leg_lookup_picks_the_configured_leg_for_that_symbol_and_timeframe(
     assert sw.live_leg_for("ict_scalp", "ETHUSDT", "15m", strategies) == "ict_scalp_eth_15m"
     assert sw.live_leg_for("ict_scalp", "ETHUSDT", "5m", strategies) is None
     assert sw.live_leg_for("pullback", "ETHUSDT", "2h", strategies) == "eth_pullback_2h"
+
+
+def test_a_null_over_a_partly_failed_grid_is_indeterminate_not_null():
+    res = _sweep(_runner({}, fail=("ict_scalp|BTCUSDT|15m",)))
+    assert res["S"] == 0 and res["verdict"] == "indeterminate" and res["clean"] is False
+    assert res["n_failed_a"] == 1 and res["failed_cells"] == ["ict_scalp|BTCUSDT|15m"]
+    assert "NOT a null over K" in res["population"]
+
+
+def test_a_clean_null_reports_clean_true():
+    res = _sweep(_runner({}))
+    assert res["verdict"] == "null" and res["clean"] is True and res["failed_cells"] == []
+
+
+def test_fail_downgrades_to_indeterminate_when_any_stage_a_cell_failed():
+    res = _sweep(_runner({GOOD: (0.35, -0.3)}, fail=("fvg_range|BTCUSDT|15m",)))
+    assert res["verdict"] == "indeterminate" and res["clean"] is False
+
+
+def test_a_pass_survives_a_failed_cell_but_is_marked_unclean():
+    res = _sweep(_runner({GOOD: (0.35, 0.35)}, fail=("fvg_range|BTCUSDT|15m",)))
+    assert res["verdict"] == "pass" and res["clean"] is False and res["n_failed_a"] == 1
+
+
+def test_stage_b_failure_of_a_survivor_is_counted():
+    calls = {"n": 0}
+    base = _runner({GOOD: (0.35, 0.35)})
+
+    def run(cell, start, end):
+        if cell.key == GOOD and start == sw.STAGE_B_START:
+            calls["n"] += 1
+            raise RuntimeError("late failure")
+        return base(cell, start, end)
+
+    res = _sweep(run)
+    assert res["n_failed_b"] == 1 and res["clean"] is False and res["verdict"] == "indeterminate"

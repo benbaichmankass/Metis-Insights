@@ -24,6 +24,11 @@ Design, fixed before any run (the unit's decision_rule is the authority; this fi
            INDETERMINATE if S >= 1, none confirmed, and at least one survivor had n_B < 88 (an
            underpowered rejection is not evidence of absence -- refined from the unit text BEFORE any
            run so a run of thin cells cannot read as a FAIL).
+           FAILED CELLS: every cell that raised is recorded on its stage_a/stage_b block, counted in
+           n_failed_a / n_failed_b / failed_cells, and makes clean=false. A NULL or FAIL is a claim about
+           all K cells, so with any Stage A failure it is downgraded to INDETERMINATE; an all-failed sweep
+           can therefore never read as "no edge found". A PASS stands (a confirmed cell is positive
+           evidence) but is reported with clean=false.
   REPORTED (never gating): same-UTC-day share, median hold, trades a month, HyroTrader qualifying
            days a month (strict +-1% reading, from |net R| x stop%), and the same cell's mean net R at
            the HyroTrader taker-taker fee (11 bps round trip) beside the 7.5 bps verdict arm.
@@ -375,7 +380,7 @@ def _run_cells(cells: Sequence[Cell], runner: Runner, start: str, end: str,
     def one(c: Cell):
         try:
             return c.key, ("ok", parse_rows(runner(c, start, end), c.timeframe))
-        except Exception as exc:  # noqa: BLE001 -- recorded per cell, never swallowed
+        except Exception as exc:  # allow-silent: NOT swallowed -- the failure is returned as ("producer_failed", detail), stored on the cell as stage_a/stage_b status, counted in the output as n_failed_a / n_failed_b / failed_cells, and any failure makes clean=false and downgrades NULL/FAIL to INDETERMINATE  # noqa: BLE001
             return c.key, ("producer_failed", str(exc)[:300])
 
     with cf.ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
@@ -428,16 +433,22 @@ def sweep(*, wave: int, families: Sequence[str], timeframes: Sequence[str], runn
         c.survived = bool(t["n"] >= N_FLOOR and t["mean"] is not None and t["mean"] > 0
                           and t["p"] is not None and t["p"] < ALPHA_A)
     S = sum(c.survived for c in runnable)
-    out.update(S=S, stage_a_ok=ok_a)
+    failed_a = [c.key for c in runnable if c.stage_a.get("status") == "producer_failed"]
+    out.update(S=S, stage_a_ok=ok_a, n_failed_a=len(failed_a), failed_cells=list(failed_a))
     log(f"STAGE A: {ok_a}/{K} cells produced a result; S={S} survivor(s) at p<{ALPHA_A}, n>={N_FLOOR}")
 
     if K == 0 or ok_a < K / 2:
-        out.update(verdict="not_applicable", read_state="producer_failed" if not smoke else "smoke",
+        out.update(verdict="not_applicable", clean=False,
+                   read_state="producer_failed" if not smoke else "smoke",
                    population=f"{ok_a} of {K} runnable cells produced a Stage A result",
                    cells=[_cell_dict(c) for c in cells])
         return out
     if S == 0:
-        out.update(verdict="null", population=f"K={K} cells, S=0 survivors of the Stage A screen",
+        # A NULL is a statement about ALL K cells. If any cell failed to run it is not one.
+        out.update(verdict=("null" if not failed_a else "indeterminate"), clean=(not failed_a),
+                   population=f"K={K} cells, S=0 survivors of the Stage A screen"
+                              + (f"; {len(failed_a)} cell(s) failed to run, so this is NOT a null over K"
+                                 if failed_a else ""),
                    cells=[_cell_dict(c) for c in cells])
         return out
 
@@ -470,9 +481,13 @@ def sweep(*, wave: int, families: Sequence[str], timeframes: Sequence[str], runn
             "venue_fit_reported_not_gating": venue_fit(rows, stage_b_start, stage_b_end),
         }
     confirmed = [c for c in survivors if c.confirmed]
+    failed_b = [c.key for c in survivors if c.stage_b.get("status") == "producer_failed"]
+    out.update(n_failed_b=len(failed_b), failed_cells=list(failed_a) + failed_b,
+               clean=not (failed_a or failed_b))
     if confirmed:
-        verdict = "pass"
-    elif underpowered:
+        verdict = "pass"          # a confirmed cell is a positive finding even if others failed to run
+    elif underpowered or failed_a:
+        # ...but "nothing confirmed" is only a FAIL if every one of the K cells actually ran.
         verdict = "indeterminate"
     else:
         verdict = "fail"
