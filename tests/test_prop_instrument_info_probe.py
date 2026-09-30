@@ -37,7 +37,7 @@ def page_html(*, margin="$0", order_rows="", one_click="", panel_names=None, dia
               close_btn=True, no_close=False, sym_cell_extra="", link_breaks_for="",
               panel_role="", orders_hidden=False, one_click_unreadable=False, panel_extra="",
               hover_button_for="", outside_table="", orders_headers=None, no_panel_for="",
-              toggle_attrs="", orders_depth=1):
+              toggle_attrs="", orders_depth=1, stray_for="", late_ms=0):
     rows = "".join(
         f'<tr class="instrument" data-row-id="{i}"><td class="sym">{s}{sym_cell_extra if s == "SOLUSD" else ""}</td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.1</button></td>'
@@ -106,6 +106,12 @@ document.querySelector('[data-test-id=instrument_info_button]').addEventListener
   const open = document.querySelector('.info-panel');
   if (open) {{ if (!{json.dumps(no_close)}) open.remove(); return; }}
   const s = document.querySelector('[data-test-id=symbol_input]').value;
+  if (s === {json.dumps(stray_for)}) {{
+    // a small new element that is NOT panel-sized and ignores Escape (a
+    // tooltip-like stand-in for the one live #14831 recorded)
+    const t = document.createElement('div'); t.className = 'stray'; t.textContent = 'Info';
+    t.style.cssText = 'width:60px;height:20px'; document.body.appendChild(t); return;
+  }}
   if (s === {json.dumps(no_panel_for)}) return;
   const name = PANEL_NAMES ? PANEL_NAMES : s;
   const p = document.createElement('div'); p.className = 'info-panel';
@@ -116,7 +122,7 @@ document.querySelector('[data-test-id=instrument_info_button]').addEventListener
     + ({json.dumps(close_btn)} ? '<button class="close" aria-label="Close">x</button>' : '');
   const btn = p.querySelector('button.close');
   if (btn) btn.addEventListener('click', () => {{ if (!{json.dumps(no_close)}) p.remove(); }});
-  document.body.appendChild(p);
+  if ({late_ms}) setTimeout(() => document.body.appendChild(p), {late_ms}); else document.body.appendChild(p);
 }});
 // Escape dismisses an open info panel (a refused panel is closed this way,
 // never by a click).
@@ -338,16 +344,52 @@ def _no_restore_click(st):
     assert st["clicks"].count("sym") == 1, st["clicks"]
 
 
-def test_r3a_a_not_found_panel_gets_no_restore_click_and_latches(browser, tmp_path):
+def test_r3a_a_not_found_panel_with_a_new_element_left_gets_no_restore_click_and_latches(browser, tmp_path):
     # Round-3 review: found:false after the info click can mean unidentified
-    # new elements -- an open panel. No further click; the latch is written.
+    # new elements -- an open panel. When one is STILL VISIBLE after the one
+    # Escape, no further click; the latch is written.
     from scripts.prop.prop_executor_tick import latch_info_probe
-    got, st = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    got, st = run(browser, page_html(stray_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
     assert any("aborted before any close click" in a for a in got["alerts"])
-    assert got["results"]["BTCUSD"]["panel_open"] is True
+    r = got["results"]["BTCUSD"]
+    assert r["panel_open"] is True and r["panel_retry"] is True
+    assert r["after_escape"] == {"readable": True, "n_visible": 1} and st["keys"] == ["Escape"]
     assert got["restore"]["attempted"] is False and "unverified" in got["restore"]["why"]
     _no_restore_click(st)
+    never_traded(st)
     assert latch_info_probe(got, tmp_path) and (tmp_path / "halted").exists()
+
+
+def test_step5_a_not_found_panel_with_nothing_left_restores_and_does_not_latch(browser, tmp_path):
+    # Live -probe #14831 (manager step 5): the restore was skipped with no way
+    # back. When the one Escape leaves NO unidentified new element visible,
+    # the measured Symbol-cell restore runs and verifies; nothing latches.
+    from scripts.prop.prop_executor_tick import latch_info_probe
+    got, st = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    r = got["results"]["BTCUSD"]
+    assert r["panel_open"] is False and r["closed_via"] == "escape_nothing_left"
+    assert r["new_elements"]["readable"] is True and r["new_elements"]["n_visible"] == 0
+    assert "ETHUSD" not in got["results"]                         # still aborts the run
+    assert got["restore"] == {"original": "SOLUSD", "attempted": True, "clicked": True, "verified": True}
+    assert st["linked"] == "SOLUSD" and st["clicks"].count("sym") == 2 and st["keys"] == ["Escape"]
+    never_traded(st)
+    assert latch_info_probe(got, tmp_path) is None and not (tmp_path / "halted").exists()
+
+
+def test_step5_the_new_element_dump_is_masked_and_clicks_nothing(browser):
+    got, st = run(browser, page_html(stray_for="BTCUSD"), symbols=("BTCUSD",))
+    el = got["results"]["BTCUSD"]["new_elements"]["elements"]
+    assert el == [{"tag": "div", "role": "", "cls": ["stray"], "w": 60, "h": 20, "visible": True,
+                   "n_leaves": 1, "leaves": ["Info"]}]
+    assert st["clicks"] == ["sym", "instrument_info_button"]      # the Escape is a key, not a click
+
+
+def test_step5_a_panel_that_renders_late_is_found_on_the_retry(browser):
+    got, st = run(browser, page_html(late_ms=90), symbols=("BTCUSD",))
+    r = got["results"]["BTCUSD"]
+    assert r["panel_retry"] is True and r["panel"]["found"] is True and r["closed"] is True
+    assert any("0.001" in leaf for leaf in r["leaves"]) and got["restore"]["verified"] is True
+    assert got["alerts"] == []
 
 
 def test_r3b_an_exception_in_the_close_step_gets_no_restore_click_and_latches(browser, tmp_path):

@@ -2733,6 +2733,41 @@ INFO_PROBE_ORDERS_DUMP_JS = r"""
 }
 """
 
+# READ-ONLY, after a not-found panel (live -probe issue #14831: the info
+# click left ONE new top-level element that was not panel-sized, n_panels 0,
+# so the run aborted and could not restore). Lists the NEW top-level elements
+# still in the page -- the same "new" test as INFO_PROBE_PANEL_JS -- with tag,
+# role, masked class tokens, size, whether it is visible, its text-leaf count
+# and its first 5 text leaves under the panel mask, so the info view's real
+# shape is MEASURED from the run log instead of guessed. ``n_visible`` is
+# what the recovery reads: 0 means nothing unidentified is still on screen.
+# Clicks, focuses and tags nothing.
+INFO_PROBE_NEW_ELEMENTS_JS = r"""
+() => {
+  const pre = window.__metisPre;
+  if (!pre) return {readable: false, why: 'no pre-click snapshot'};
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+                     .replace(/(?<![0-9a-f.])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/(?<![.\d])\d(?:[\s-]?\d){7,}/g, m => '#'.repeat(m.length))
+                     .replace(/(?<![.\d])\d{7,}(?![.\d])/g, m => '#'.repeat(m.length)).slice(0, 40);
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const fresh = [...document.querySelectorAll('body *')]
+    .filter(el => !pre.has(el) && !(el.parentElement && !pre.has(el.parentElement)));
+  const leaves = el => [...el.querySelectorAll('*')].concat([el])
+    .filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
+  return {readable: true, n_new_top: fresh.length, n_visible: fresh.filter(vis).length,
+          elements: fresh.slice(0, 10).map(el => {
+            const r = el.getBoundingClientRect(), lv = leaves(el);
+            return {tag: el.tagName.toLowerCase(), role: el.getAttribute('role') || '',
+                    cls: (typeof el.className === 'string' ? el.className : '').split(/\s+/)
+                           .filter(t => t && t.length < 24).map(mask).slice(0, 6),
+                    w: Math.round(r.width), h: Math.round(r.height), visible: vis(el),
+                    n_leaves: lv.length, leaves: lv.slice(0, 5)};
+          })};
+}
+"""
+
 INFO_PROBE_PANEL_GONE_JS = r"""
 () => {
   const p = document.querySelector('[data-metis-info-panel]');
@@ -3818,12 +3853,36 @@ class DXtradeAdapter(PropPlatformAdapter):
                 self._info_click(page, "[data-metis-info-btn='1']")
                 page.wait_for_timeout(settle_ms)
                 panel = page.evaluate(INFO_PROBE_PANEL_JS, [sym, [o for o in others if o != sym]]) or {}
+                if not panel.get("found"):
+                    # Live -probe #14831: n_new_top 1, n_panels 0 after the
+                    # settle. The panel may render late, so read ONCE more
+                    # after a longer wait before giving up (recorded).
+                    page.wait_for_timeout(settle_ms * 3)
+                    panel = page.evaluate(INFO_PROBE_PANEL_JS, [sym, [o for o in others if o != sym]]) or {}
+                    r["panel_retry"] = True
                 r["panel"] = {k: v for k, v in panel.items() if k != "leaves"}
                 if not panel.get("found"):
                     # Nothing verified opened, so nothing is clicked to close
-                    # it, and no further symbol is attempted.
+                    # it, and no further symbol is attempted. RECOVERY (manager
+                    # step 5 after #14831, whose restore was skipped with no
+                    # way back): record what DID appear (read-only, masked),
+                    # press ONE Escape -- never a click, the refused-panel
+                    # precedent -- and re-read. Only when no unidentified new
+                    # element is still VISIBLE is the panel treated as closed,
+                    # so the restore (the measured Symbol-cell click) may run;
+                    # otherwise panel_open stays set and the run latches as
+                    # before (round-3 review of #14645).
+                    r["new_elements"] = page.evaluate(INFO_PROBE_NEW_ELEMENTS_JS) or {"readable": False}
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(settle_ms)
+                    left = page.evaluate(INFO_PROBE_NEW_ELEMENTS_JS) or {"readable": False}
+                    r["after_escape"] = {"readable": left.get("readable"), "n_visible": left.get("n_visible")}
+                    if left.get("readable") is True and left.get("n_visible") == 0:
+                        r["panel_open"] = False
+                        r["closed_via"] = "escape_nothing_left"
                     out["alerts"].append(f"{sym}: {panel.get('why') or 'no panel'}; aborted before any "
-                                         f"close click")
+                                         f"close click; Escape pressed (unidentified element(s) still "
+                                         f"visible: {left.get('n_visible')})")
                     return out
                 # A dialog-typed panel is accepted only when it passes the
                 # identity checks AND reads nothing like an order
