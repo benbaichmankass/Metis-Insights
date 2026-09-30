@@ -74,12 +74,17 @@ CORPUS = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
 # written) both grow the SAME baseline independently -- whichever merges
 # second needs a rebase and a re-measured total, not a naive sum of the two
 # deltas, since a merge can itself deduplicate or reorder rows.
+#
+# RE-MEASURED 2026-09-30 on merging main into #14053: the ada_pullback_2h
+# row (1376 -> 1377 on that branch) lands on top of the spy_pullback_1h
+# rows above -> 1380 rows total, `lever_absent_from_baseline` 477 -> 478
+# (the ada row declares no vol_trail); other buckets unmoved.
 EXPECTED_PARTITION = {
     "lever_in_baseline": 61,
-    "lever_absent_from_baseline": 477,
+    "lever_absent_from_baseline": 478,
     "unknown": 841,
 }
-EXPECTED_TOTAL = 1379
+EXPECTED_TOTAL = 1380
 # Rows where the row's own lever was DROPPED — the population the naive
 # predicate gets wrong, and the reason `dropped` is consulted first.
 EXPECTED_OWN_LEVER_DROPPED = 41

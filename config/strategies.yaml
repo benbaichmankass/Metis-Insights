@@ -2947,6 +2947,25 @@ strategies:
     # ROLLBACK: set back to 2.5.
     atr_stop_mult: 1.5
     trail_mult: 5.0
+    # vol_trail declare (Tier-3 PROPOSED, HELD — exit-refinement lane, checklist row
+    # EXIT-OPS, 2026-09-29). Cell vt_hot90_t2.5: on a managed bar whose trailing-200
+    # ATR percentile is HOT (> 0.9), tighten the chandelier trail to 2.5 (from 5.0).
+    # RE-MEASURED 2026-09-28 (RQ-20260928-007, m20-exit-lever-sweep run 36434144288,
+    # research/results/_unattributed/36434144288.jsonl; corpus row on branch
+    # claude/m20-sweep-corpus, sweep_generated_at 2026-09-29T00:56:49Z) at LIVE PARITY
+    # (tp_cap_pct=0.099 applied): base n IS=235 OOS=49; d_net_r IS +2.2949 / OOS +1.7239;
+    # d_max_dd IS -2.6062 / OOS -0.6524 (drawdown IMPROVES both windows); gate PASS
+    # (IS/OOS beat on net_R AND maxDD) + yearly walk-forward 4/6 (2021/2022/2023/2026 ok,
+    # 2024/2025 not — no inert folds, all six years carry a real, non-degenerate effect).
+    # Wired via htf_pullback_trend_2h.monitor -> src.runtime.trail_vol.resolve_vol_trail_mult
+    # (already live on the qqq/htf_pullback_trend_2h siblings' unit — same code path).
+    # REAL MONEY leg (bybit_2). NOT the same cell as the fleet-wide 2026-07-15 sweep's
+    # honest_negative (that was pre-TP-cap, no-take-profit evidence); this is the
+    # re-measurement at the geometry production actually places. ROLLBACK: delete the
+    # next 3 lines.
+    trail_vol_above_pctl: 0.9
+    trail_vol_tight_mult: 2.5
+    vol_pctl_window: 200
     tp_r: 4  # M20 e35 re-check 2026-08-29: cell tp4 (wf_pass, wf 4/6, d_net_r +12.8231); was 50.0
     min_confidence: 0.0
     vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R 31.0 -> 32.3 (dd 16.1 -> 15.1), OOS 5.4 -> 7.4 (dd 12.0 -> 10.9). Rollback = delete this line.
