@@ -1160,13 +1160,6 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     # Window elapsed → drop the stale marker and retry the close.
                     _PENDING_CLOSE_RETRY_COOLDOWN.pop(_cand_key, None)
 
-            # Mark this (account, symbol) as actively-closing THIS tick so the
-            # broker-naked equity re-arm (which runs later in the same tick) does
-            # not re-place a protective OCO on a position we're trying to flatten
-            # — that fight is BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT (see the
-            # set's comment).
-            mark_active_close(_cand.get("account_id"), _cand.get("symbol"))
-
             # DO NOT RE-ATTEMPT A CLOSE WE HAVE ALREADY PROVED CANNOT WORK.
             # `classify_share_hold`'s own constant says of `broker_cancel_wedged`:
             # "NO app-level retry can clear it" — and this loop re-attempted the
@@ -1194,6 +1187,34 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     _cand_retry.reason,
                 )
                 continue
+            # A standing-wedge RE-PROBE that the market session already
+            # deferred proves nothing: the client returned before any broker
+            # call, so the ledger's `last_seen` is not refreshed and the probe
+            # stays "due" — which re-attempted it EVERY tick (alpaca_paper GLD,
+            # 2026-09-30: every 30 s for 7 h overnight, PI-20260930-ZPDIPMDA-0001).
+            # Bound it to one probe per `_deferred_reprobe_seconds()`, logged.
+            if _cand_retry.state == "reprobe_due":
+                _dq = _WEDGE_REPROBE_SESSION_DEFERRED.get(_cand_key)
+                if _dq is not None:
+                    _dq_age = time.monotonic() - _dq
+                    if _dq_age < _deferred_reprobe_seconds():
+                        logger.info(
+                            "order_monitor: close RE-PROBE held pkg=%s "
+                            "account=%s symbol=%s — the last re-probe %.0fs ago "
+                            "was deferred by the market session (nothing "
+                            "observed); next probe in %.0fs",
+                            pkg_id, _cand.get("account_id"), _cand.get("symbol"),
+                            _dq_age, _deferred_reprobe_seconds() - _dq_age,
+                        )
+                        continue
+            # Mark this (account, symbol) as actively-closing so the broker-naked
+            # re-arm does not re-place a protective OCO on a position we're
+            # trying to flatten — BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT. Marked
+            # only HERE, once a close will actually be sent: a wedge-suppressed
+            # close sends nothing, and marking it blinded the re-arm sweep to a
+            # position no close was touching (PI-20260930-ZPDIPMDA-0001). (The
+            # cooldown `continue` above already preceded the mark.)
+            mark_active_close(_cand.get("account_id"), _cand.get("symbol"))
             matched_trade, _retry, _close_key = _cand, _cand_retry, _cand_key
             break
 
@@ -1216,6 +1237,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             "order_monitor: exchange close for pkg=%s account=%s → %s",
             pkg_id, matched_trade.get("account_id"), ex_result,
         )
+        _WEDGE_REPROBE_SESSION_DEFERRED.pop(_close_key, None)
         if not ex_result.get("ok"):
             err_str = ex_result.get("error") or "unknown"
             # Market-session DEFER (BL-20260716-ALPACA-MARKET-HOURS-EXIT).
@@ -1236,6 +1258,27 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     pkg_id, matched_trade.get("account_id"), err_str,
                 )
                 _clear_close_fail_alert_state(_close_key)  # a defer clears the streak
+                # A defer that says the bracket was LEFT ARMED sent nothing and
+                # holds no shares, so there is no close in flight to protect
+                # from a re-arm. Keeping the marker made the naked sweep skip
+                # this position on every tick for the whole closed session, so
+                # it never checked that a stop actually rests — and after an
+                # extended-hours attempt has cancelled the bracket and its DAY
+                # limit has expired, none does (PI-20260930-ZPDIPMDA-0001).
+                # Clearing it lets the sweep verify, and re-arm if naked:
+                # "never leave the row naked overnight".
+                #
+                # ⚠️ ONLY this nothing-sent defer may hold a wedge re-probe. A
+                # "limit close working" defer DID reach the broker: holding the
+                # re-probe there would stop re-marking, the marker would lapse
+                # after ACTIVE_CLOSE_WINDOW_S with the close-limit still working,
+                # and the sweep would cancel that limit to re-arm an OCO —
+                # REARM-VS-CLOSE-FIGHT on a 5-minute cycle (#14585 review F1).
+                if "bracket left armed" in err_str.lower():
+                    clear_active_close(
+                        matched_trade.get("account_id"), matched_trade.get("symbol"))
+                    if _retry is not None and _retry.state == "reprobe_due":
+                        _WEDGE_REPROBE_SESSION_DEFERRED[_close_key] = time.monotonic()
                 _PACKAGE_CLOSE_SKIP[pkg_id] = matched_trade.get("id")
                 summary.no_change_count += 1
                 return
@@ -2630,6 +2673,38 @@ def mark_active_close(account_id: str, symbol: str) -> None:
     key = (str(account_id or ""), str(symbol or "").upper())
     with _ACTIVE_CLOSE_LOCK:
         _TICK_ACTIVE_CLOSE_AT[key] = time.monotonic()
+
+
+def clear_active_close(account_id: str, symbol: str) -> None:
+    """Drop the marker: the attempt sent nothing and nothing is in flight.
+
+    Called on a market-session defer that left the protective bracket armed
+    (PI-20260930-ZPDIPMDA-0001). Without it the per-tick re-mark kept the
+    naked re-arm sweep blind to the position for the whole closed session.
+    """
+    key = (str(account_id or ""), str(symbol or "").upper())
+    with _ACTIVE_CLOSE_LOCK:
+        _TICK_ACTIVE_CLOSE_AT.pop(key, None)
+
+
+# Standing-wedge re-probes the market session deferred, keyed like the close
+# streak: (account, symbol, direction) -> monotonic time of that defer. A
+# deferred probe observed nothing, so the ledger still says "due"; this bounds
+# the re-attempt to one per `_deferred_reprobe_seconds()` (ZPDIPMDA-0001).
+_WEDGE_REPROBE_SESSION_DEFERRED: Dict[tuple, float] = {}
+_DEFERRED_REPROBE_S_DEFAULT = 300.0
+
+
+def _deferred_reprobe_seconds() -> float:
+    """``CLOSE_WEDGE_DEFERRED_REPROBE_S`` — read at call time; garbage or a
+    non-positive value falls back to the default (a typo must not restore the
+    every-tick loop)."""
+    try:
+        v = float(os.environ.get("CLOSE_WEDGE_DEFERRED_REPROBE_S", "")
+                  or _DEFERRED_REPROBE_S_DEFAULT)
+    except (TypeError, ValueError):
+        return _DEFERRED_REPROBE_S_DEFAULT
+    return v if v > 0 else _DEFERRED_REPROBE_S_DEFAULT
 
 
 def is_active_close(account_id: str, symbol: str) -> bool:
