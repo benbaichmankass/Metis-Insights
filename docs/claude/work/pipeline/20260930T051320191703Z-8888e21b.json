@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a real-money venue SL fill closed after the fix merges is journaled exit_reason=sl with a venue-sourced reason, and the count of real-money closes with exit_reason_source unresolved/NULL over 7 days is 0",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#fix-sa-02",
+    "rerun": "curl -sS -H \"Authorization: Bearer $DIAG_READ_TOKEN\" 'https://ict-bot.duckdns.org/api/diag/journal?table=trades&limit=1000&envelope=true' | python3 -c \"import sys,json;r=json.load(sys.stdin)['rows'];print(sum(1 for x in r if x['account_id'] in ('bybit_2','alpaca_live') and x['status']=='closed' and x['exit_reason'] in ('reconciler_filled','netting_attributed','exchange_flat_reconciled')))\""
+  },
+  "routed_to": "EXIT-CLUSTER",
+  "state": "routed",
+  "what": "FIX-SA-02 (HIGH, AUD-2+AUD-1): real-money venue stop-loss fills journaled as reconciler_filled/netting_attributed with exit_reason_source=unresolved although sl_order_id is on the row: bybit_2 6091,6143,6186,6209,6136 were SL Filled per Bybit order history; 7 of 11 real-money closes since 09-15 carry no TP/SL/strategy-close reason. Tier 2 order path; route to the manager's EXIT-CLUSTER lane session_01XpKxKGrnBP9u4xwL2hiWVs as a second evidence set."
+}

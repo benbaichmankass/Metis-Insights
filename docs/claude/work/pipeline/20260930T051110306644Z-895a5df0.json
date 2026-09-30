@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "trend_donchian_eth's evidence window grows materially past n=107 AND a re-run's alone evidence-CI p5 is positive across at least 4 of 5 seeds, OR the leg is dropped as not clearing.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-NLMC4E9Z-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/w6-candidates-v2-2026-09-27.md",
+    "rerun": "python3 scripts/research/prop_ev_sim.py --trades trend_donchian_eth=comms/strategy_evidence/runs/<latest>/trend_donchian_eth__trades.jsonl [--trades trend_donchian_sol_prop=... --trades trend_donchian_eth_prop=... for the +baseline check] --sizing room --room-frac 0.33 --min-risk 10 --risk-pct 0.015 --modes path --lives 1000 --outer 30 --lives-per-outer 100 --seed <try 5+ seeds>"
+  },
+  "routed_to": "P2",
+  "state": "routed",
+  "what": "[W6/B6 round 2] trend_donchian_eth (ETHUSDT trend_donchian, 1h, n=107 oos) is the only one of 20 breakout_1 crypto candidates checked this round whose single-seed evidence-p5 cleared 0 under the canonical fresh-account room sizing (PR #13154, k=0.33). At 5 seeds it clears alone on 2/5 (+1.05, +6.30; the other 3 negative: -12.67, -23.02, -6.02) and on 0/5 added to the current trend_donchian_sol_prop + trend_donchian_eth_prop baseline (all 5 seeds negative: -35.31, -35.44, -28.44, -39.04, -39.10). Not robust alone, and actively worse as a portfolio addition -- likely because it concentrates ETH-symbol/trend-family risk the account already carries via trend_donchian_eth_prop, sharing one drawdown budget. Not proposed; filed so a future window-growth or portfolio-composition re-check has something to re-verify against rather than re-deriving this finding from scratch. | UPDATE 2026-09-27 (W6-PROP-R3, RQ-20260927-005 §3): re-run at prop_ev_sim's FULL default MC (4000/100/200), same inputs, room k=0.33, 5 seeds: alone p5 -29.56/-29.33/-26.79/-6.08/-12.69 = 0/5 positive (round 2's 2/5 was a 30-outer-draw p5 artifact); +baseline 0/5 (unchanged). Read weakens; still indeterminate (p95>0), leaning not-clearing."
+}
