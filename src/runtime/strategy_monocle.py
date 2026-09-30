@@ -214,15 +214,17 @@ def _accounts_declaring(strategy_name: str) -> Optional[frozenset]:
     ``None`` on a read failure (caller falls back to the strategy-wide block).
     """
     try:
-        import yaml
-        path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "..", "..",
-            "config", "accounts.yaml",
-        )
-        with open(path, "r", encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh) or {}
+        from src.config.accounts_loader import load_accounts_dict
+        errors: list = []
+        accounts = load_accounts_dict(errors=errors)
+        if errors or not accounts:
+            # The loader returns {} on a read failure; "could not read" must
+            # not look like "no account declares it".
+            logger.warning("_accounts_declaring(%s): accounts.yaml unreadable — %s",
+                           strategy_name, errors or "empty")
+            return None
         out = set()
-        for name, cfg in (raw.get("accounts") or {}).items():
+        for name, cfg in accounts.items():
             cfg = cfg or {}
             if cfg.get("enabled") is False:
                 continue
