@@ -178,6 +178,9 @@ def test_wedge_suppressed_close_sends_nothing_and_marks_nothing(monkeypatch):
 
 
 def test_cooling_down_close_marks_nothing(monkeypatch):
+    """REGRESSION PIN, not a fix: on main the cooldown `continue` already ran
+    before the mark (this passes on main too). Kept so a future move of the
+    mark above the cooldown check is caught."""
     from datetime import datetime, timezone
     monkeypatch.setenv("IB_CLOSE_RETRY_COOLDOWN_S", "300")
     calls = _sends(monkeypatch, _CLOSED_DEFER)
@@ -223,3 +226,34 @@ def test_deferred_reprobe_seconds_falls_back_on_garbage(monkeypatch):
     assert om._deferred_reprobe_seconds() == om._DEFERRED_REPROBE_S_DEFAULT
     monkeypatch.setenv("CLOSE_WEDGE_DEFERRED_REPROBE_S", "0")
     assert om._deferred_reprobe_seconds() == om._DEFERRED_REPROBE_S_DEFAULT
+
+
+def test_reprobe_with_a_working_extended_limit_keeps_marking(world, monkeypatch):  # noqa: F811
+    """#14585 review F1. A re-probe whose close-limit IS working reached the
+    broker, so it must NOT be held: the marker has to stay set across ticks or
+    it lapses after ACTIVE_CLOSE_WINDOW_S and the sweep cancels the working
+    limit to re-arm an OCO (REARM-VS-CLOSE-FIGHT on a 5-minute cycle)."""
+    db, _pages, mp = world
+    mp.setattr(om, "is_active_close", _REAL_IS_ACTIVE_CLOSE)
+    _close_row(db, 5928)
+    _use(mp, _Venue(qty=56.0, price=710.0))
+    monkeypatch.setenv("ACTIVE_CLOSE_WINDOW_S", "90")
+    t = [1000.0]
+    mp.setattr(om.time, "monotonic", lambda: t[0])
+    calls = _sends(mp, _EXT_WORKING)
+    mp.setattr(om, "_close_retry_decision_for",
+               lambda tr: _D(True, "reprobe_due", "last observed 61min", "x"))
+    rearms = []
+    mp.setattr(om, "_attempt_naked_autoprotect",
+               lambda row, sl, tp, db=None, trace=None: rearms.append(row) or True)
+    fdb = _FakeDB(_row())
+    for _ in range(4):                        # four 30 s ticks
+        om._apply_update(fdb, _pkg(), _VERDICT, om._StrategyTickSummary())
+        t[0] += 30.0
+        assert om.is_active_close("alpaca_portfolio", "QQQ"), (
+            "marker lapsed while the extended-hours close-limit was working")
+        s = om._check_broker_naked_equity_positions(db)
+        assert s["active_close_skipped"] == 1
+    assert calls["n"] == 4, "a broker-reaching re-probe was held"
+    assert rearms == [], "the sweep re-armed over a working close-limit"
+    assert om._WEDGE_REPROBE_SESSION_DEFERRED == {}

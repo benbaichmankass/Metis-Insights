@@ -1210,10 +1210,10 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             # Mark this (account, symbol) as actively-closing so the broker-naked
             # re-arm does not re-place a protective OCO on a position we're
             # trying to flatten — BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT. Marked
-            # only HERE, once a close will actually be sent: a cooled-down or
-            # wedge-suppressed close sends nothing, so marking it blinded the
-            # re-arm sweep to a position no close was touching
-            # (PI-20260930-ZPDIPMDA-0001).
+            # only HERE, once a close will actually be sent: a wedge-suppressed
+            # close sends nothing, and marking it blinded the re-arm sweep to a
+            # position no close was touching (PI-20260930-ZPDIPMDA-0001). (The
+            # cooldown `continue` above already preceded the mark.)
             mark_active_close(_cand.get("account_id"), _cand.get("symbol"))
             matched_trade, _retry, _close_key = _cand, _cand_retry, _cand_key
             break
@@ -1258,8 +1258,6 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     pkg_id, matched_trade.get("account_id"), err_str,
                 )
                 _clear_close_fail_alert_state(_close_key)  # a defer clears the streak
-                if _retry is not None and _retry.state == "reprobe_due":
-                    _WEDGE_REPROBE_SESSION_DEFERRED[_close_key] = time.monotonic()
                 # A defer that says the bracket was LEFT ARMED sent nothing and
                 # holds no shares, so there is no close in flight to protect
                 # from a re-arm. Keeping the marker made the naked sweep skip
@@ -1269,9 +1267,18 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 # limit has expired, none does (PI-20260930-ZPDIPMDA-0001).
                 # Clearing it lets the sweep verify, and re-arm if naked:
                 # "never leave the row naked overnight".
+                #
+                # ⚠️ ONLY this nothing-sent defer may hold a wedge re-probe. A
+                # "limit close working" defer DID reach the broker: holding the
+                # re-probe there would stop re-marking, the marker would lapse
+                # after ACTIVE_CLOSE_WINDOW_S with the close-limit still working,
+                # and the sweep would cancel that limit to re-arm an OCO —
+                # REARM-VS-CLOSE-FIGHT on a 5-minute cycle (#14585 review F1).
                 if "bracket left armed" in err_str.lower():
                     clear_active_close(
                         matched_trade.get("account_id"), matched_trade.get("symbol"))
+                    if _retry is not None and _retry.state == "reprobe_due":
+                        _WEDGE_REPROBE_SESSION_DEFERRED[_close_key] = time.monotonic()
                 _PACKAGE_CLOSE_SKIP[pkg_id] = matched_trade.get("id")
                 summary.no_change_count += 1
                 return

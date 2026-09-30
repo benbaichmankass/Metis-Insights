@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "order_monitor treats the extended-hours trade-scoped defer as a defer (no failure streak), with a test pinning it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-ZIFJ1RKM-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "#14585 independent review F2 (manager session_01HYq6XtfesZ57VyaQrK6CL1); lane ALPACA-CLOSE-WEDGE session_01LLCqwwDGQM7BZMZifj1rkM",
+    "rerun": "python3 -c \"import re;s=open('src/units/accounts/alpaca_client.py').read();m=re.search(r'trade-scoped exit of.*?nothing placed\\)', s, re.S);t=m.group(0).lower();print([k for k in ('exit deferred','deferring','market closed') if k in t])\"  # [] = still misclassified (also re-read the defer test in order_monitor._apply_update)"
+  },
+  "state": "queued",
+  "what": "[money-path] AlpacaClient._close_extended_hours' trade-scoped defer (retCode 2, '\u2026 trade-scoped exit of N of M on SYM DEFERRED to the regular session \u2026 (protective bracket left armed; nothing placed)') matches NONE of order_monitor._apply_update's defer phrases ('exit deferred' / 'deferring' / 'market closed'). It is therefore booked as a close FAILURE: _CLOSE_FAIL_STREAK increments, the 'won't flatten' alert can page, and the close is retried every tick through a whole extended session, for a venue that was merely asked to wait. Found by the #14585 review (F2) and verified 2026-09-30 by string check. Fix: key the defer on retCode 2 or add the phrase, with a test; Tier-2 order-path, to be a HELD PR."
+}
