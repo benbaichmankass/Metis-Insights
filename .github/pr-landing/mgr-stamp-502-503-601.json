@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Stamp-only: sets last_dispatched_at on RQ-20260930-502 (manual dispatch run 36732222189), RQ-20260930-503 (run 36732226552) and RQ-20260930-601 (run 36732230587), dispatched by the manager at 14:51Z after ~4h queued, so the next research-queue-dispatch cycle does not re-run these units (a manual dispatch writes no stamp). One changed value per file, no other line changed. Same pattern as #14702."
+}

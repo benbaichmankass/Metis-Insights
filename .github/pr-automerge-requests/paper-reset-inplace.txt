@@ -1,0 +1,1 @@
+PAPER-RESET corrected operator decision (pipeline record only, Tier 1)
