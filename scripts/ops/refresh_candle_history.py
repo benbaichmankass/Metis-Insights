@@ -5,8 +5,10 @@ OWNER of the refresh for ``data/<SYM>_<tf>.csv`` (PI-20260929-FCJRWVAK-0002):
 before this, nothing fetched candles on the trainer and every study reading
 those files ended on the day of one manual batch (2026-06-18).
 
-Behaviour: read the file's last bar, fetch Binance USD-M (same feed the corpus
-fetcher uses) from the next bar to now, append bars strictly after the last
+Behaviour: read the file's last bar, fetch Bybit linear perp klines (the SAME venue as
+the history: MEASURED trainer diag #14515, old SOL/ETH/XRP 15m files match Bybit at median
+0.000 bps, volume ratio 1.000; Binance USD-M differs 0.5-1.4 bps median with 2.6-4.5x volume,
+so it is deliberately NOT a fallback -- a venue swap changes the population) from the next bar to now, append bars strictly after the last
 existing timestamp (dedupe on timestamp), write atomically. Existing rows are
 never modified or dropped; the write is refused if the result would be shorter.
 
@@ -47,7 +49,7 @@ def refresh_one(path: Path, symbol: str, interval: str, now: datetime) -> str:
     last = pd.to_datetime(old["timestamp"], utc=True, format="mixed").max()
     start_ms = int(last.timestamp() * 1000) + fbc._interval_ms(interval)
     end_ms = int(now.timestamp() * 1000)
-    rows = fbc.fetch_klines_binance_vision(symbol, interval, start_ms, end_ms)
+    rows = fbc.fetch_klines(symbol, interval, start_ms, end_ms)  # Bybit only; raises, never falls back
     if not rows:
         return f"{path.name}: no new bars after {last}"
     new = pd.DataFrame(rows)
