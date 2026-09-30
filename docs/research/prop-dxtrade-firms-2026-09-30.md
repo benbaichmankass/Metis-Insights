@@ -185,7 +185,7 @@ our crypto legs, (d) reuse of what we built, (e) price. **Confidence is low on
 ### #1 Tradeify 247 (crypto), via its DXtrade API, browser adapter as fallback
 
 - **Why.** Only firm with a first-party "own bot via DXtrade API" statement;
-  VPS allowed; bots allowed if owned; BTC/ETH/SOL/XRP named; static 6% max loss
+  VPS allowed; bots allowed if owned; BTC/ETH/SOL/XRP named; static 6% max loss (a firm rule stated as a share of account size, not a measured rate) <!-- population-ok: rule limit from the firm rules page, not a measurement -->
   option; 3% daily; 20 s hold clears every leg of ours (1h+ bars); the same
   Devexperts platform family as breakout_1, so the shared executor layer applies.
 - **Open, and each one can kill it.** (i) Is `dx.tradeify247.co/specs` served and
