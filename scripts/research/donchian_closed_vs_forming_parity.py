@@ -106,6 +106,14 @@ def run_leg(leg: str, block: dict, klines_dir: str, workers: int) -> dict:
                                         "by_direction": by_dir, **ds,
                                         "grade": ws.grade(c["jaccard"], ds)}
         out[f"A_closed_vs_{other}"]["closed_only_last10"] = c["only_closed_entries"][-10:]
+    # The number that decides a flip: what the closed-bar live change trades
+    # (A_live_anchor) MINUS what live trades today (B_forming), with the same
+    # month-block bootstrap. delta_net_r > 0 favours the closed bar.
+    ds_af = ws.delta_stats(trades["B_forming"], trades["A_live_anchor"], first, last)
+    out["B_forming_vs_A_live_anchor"] = {**ds_af, "grade": ws.grade(None, ds_af),
+                                          "cmp": {k: v for k, v in ws.compare(
+                                              trades["B_forming"], trades["A_live_anchor"]).items()
+                                              if not k.endswith("_entries")}}
     out["oos_2026"] = {n: ws._summ([t for t in ts if t["entry_time"] >= "2026-01-01"]) for n, ts in trades.items()}
     return out
 

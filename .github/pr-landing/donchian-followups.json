@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs/tooling/pipeline only: two pipeline rows (candle-cache partial bar, evidence-file hygiene) plus an update record for the eth_4h follow-up, one evidence JSON (eth_4h/xrp_4h anchor-vs-forming bootstrap), and one additive block in the research-only parity script. No runtime, order path, strategy or config touched; the manager asked for this as a small self-land Tier-1 PR."
+}
