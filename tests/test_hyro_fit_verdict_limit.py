@@ -148,3 +148,60 @@ def test_a_failed_candle_fetch_is_producer_failed_not_a_grade(tmp_path):
     stats = hfv.run_limit_legs(["ict_scalp_eth_15m"], 1830, tmp_path, run=_fake_run(200, fail_on="fetch"),
                                today=datetime(2026, 9, 30, tzinfo=timezone.utc), strategies=STRATS)
     assert stats["failed"] and "fetch" in stats["failed"] and not stats["ledgers"]
+
+
+# ---- `--mode dayflat` (RQ-20260930-503) ----
+DF_LEDGER = REPO / "comms/strategy_evidence/runs/2026-09-25/trend_donchian_eth_prop__trades.jsonl"
+DF_STRATS = {"trend_donchian_eth_prop": {
+    "symbols": ["ETHUSDT"], "timeframe": "1h", "donchian": 20, "atr_period": 14, "atr_stop_mult": 2.5,
+    "trail_mult": 3.5, "min_confidence": 0.6}}
+_TODAY = datetime(2026, 9, 30, tzinfo=timezone.utc)
+
+
+def _df_run(fail_fetch=False, rc=0):
+    calls = []
+
+    def run(cmd, **kw):
+        if "fetch_backtest_candles.py" in " ".join(map(str, cmd)):
+            class F:
+                returncode = 1 if fail_fetch else 0
+                stderr, stdout = "no network", ""
+            if not fail_fetch:
+                Path(cmd[cmd.index("--output") + 1]).write_text("timestamp,open,high,low,close,volume\n")
+            return F()
+        calls.append(cmd)
+        shutil.copy(DF_LEDGER, cmd[cmd.index("--emit-trades") + 1])
+
+        class P:
+            returncode = rc
+            stderr = "boom"
+        return P()
+    run.calls = calls
+    return run
+
+
+@pytest.mark.skipif(not DF_LEDGER.exists(), reason="committed ledger unavailable")
+def test_dayflat_runs_native_candles_with_the_two_registered_levers(tmp_path):
+    run = _df_run()
+    stats = hfv.run_dayflat("trend_donchian_eth_prop", 1830, tmp_path, run=run, today=_TODAY, strategies=DF_STRATS)
+    (cmd,) = run.calls
+    assert "--resample" not in cmd                       # registered: NATIVE 1h, bar_label open
+    assert cmd[cmd.index("--flat-at-utc") + 1] == "23:45" and cmd[cmd.index("--no-entry-after-utc") + 1] == "20:00"
+    assert cmd[cmd.index("--data") + 1].endswith("ETHUSDT_1h.csv")
+    assert cmd[cmd.index("--start") + 1] == "2021-09-25" and stats["failed"] is None and stats["ledgers"]
+
+
+def test_dayflat_fetch_failure_is_reported_not_graded(tmp_path):
+    stats = hfv.run_dayflat("trend_donchian_eth_prop", 1830, tmp_path, run=_df_run(fail_fetch=True),
+                            today=_TODAY, strategies=DF_STRATS)
+    assert stats["failed"] and "fetch" in stats["failed"] and not stats["ledgers"]
+
+
+@pytest.mark.skipif(not DF_LEDGER.exists(), reason="committed ledger unavailable")
+def test_dayflat_same_day_share_below_0_95_fails_and_underpowered_stays_indeterminate(tmp_path):
+    spec = hfv.spec_from_ledgers("x", [str(DF_LEDGER)])
+    spec = dict(spec, n=400, same_day_frac=0.90, r_samples=(spec["r_samples"] * 4)[:400])
+    v = hfv.grade_dayflat(spec, {"window": []}, "config/prop_rulesets/hyrotrader.yaml")
+    assert v["verdict"] == "fail" and v["gates"]["same_day_share_ge_0_95"] is False
+    small = dict(spec, n=120, r_samples=spec["r_samples"][:120])
+    assert hfv.grade_dayflat(small, {"window": []}, "config/prop_rulesets/hyrotrader.yaml")["verdict"] == "indeterminate"
