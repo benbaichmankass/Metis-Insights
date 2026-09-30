@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a grade-closed-trades.yml run with appending>0 completes green AND its chore(grading) commit is on origin/main",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EA899ZCS-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "PI-20260929-EA899ZCS-0002 (closed); .github/workflows/grade-closed-trades.yml",
+    "rerun": "git log -3 --format='%h %ad %s' origin/main -- comms/claude_strategy_scores.jsonl  # expect a 'chore(grading)' commit; mcp__github__actions_list(list_workflow_runs, grade-closed-trades.yml) -> latest run with 'Land on main' step success"
+  },
+  "routed_to": "GRADE",
+  "state": "routed",
+  "what": "[landed_unproven] grade-closed-trades.yml append + commit-to-main leg has never run: the first runs (36569023025 dry, 36569374411 real, 2026-09-29) had a zero delta, so the 'Land on main' step was skipped. The first run with a non-zero delta must open and MERGE an automation/grade-closed-trades PR (verify-merged). If it fails, the grading-freshness guard reds every PR within 3 days."
+}
