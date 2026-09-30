@@ -4114,6 +4114,15 @@ class DXtradeAdapter(PropPlatformAdapter):
             if not res.get("ok") or not original:
                 out["refused"] = res.get("why") or "linked symbol not readable"
                 return out
+            # CLICK-FREE quote read of the target BEFORE any click (manager
+            # 2026-09-30 20:39Z): its bid/ask DECIMALS measure the price_step
+            # ETHUSD still lacks. read_quote parses floats (a trailing zero is
+            # lost), so the target row's raw watchlist cells are kept too --
+            # market data only (symbol, prices), capped per cell.
+            out["quote"] = self.read_quote(page, out["target"])
+            wr = self._watchlist_rows(page, out["target"])
+            out["quote_raw"] = {"headers": wr.get("headers"), "error": wr.get("error"),
+                                "rows": [[str(c)[:24] for c in r][:12] for r in (wr.get("rows") or [])[:2]]}
             out["switch"] = self.select_linked_symbol(page, out["target"], settle_ms=settle_ms)
             if not out["switch"].get("ok"):
                 out["alerts"].append(f"switch to {out['target']} failed: {out['switch'].get('why')}")

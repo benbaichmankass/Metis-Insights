@@ -268,3 +268,27 @@ def test_review_symbol_switch_dry_never_raises():
 
     got = OffThenBoom(timeout_ms=1_000).symbol_switch_dry(Boom(), "ETHUSD", settle_ms=1)
     assert got["alerts"] == ["symbol-switch-dry raised RuntimeError (code=switch_dry_exception)"]
+
+
+def test_symbol_switch_dry_reads_the_target_quote_click_free_before_any_click(browser):  # noqa: F811
+    # Manager 2026-09-30 20:39Z (option A): the quote's decimals measure ETHUSD's price_step.
+    order = []
+
+    class Recording(DXtradeAdapter):
+        def read_quote(self, page, venue_symbol):
+            order.append(("quote", venue_symbol, page.evaluate("window.__clicks.length")))
+            return super().read_quote(page, venue_symbol)
+
+        def select_linked_symbol(self, page, venue_symbol, *, settle_ms=1_500):
+            order.append(("switch", venue_symbol))
+            return super().select_linked_symbol(page, venue_symbol, settle_ms=settle_ms)
+
+    p = browser.new_page()
+    p.set_content(page_html())
+    got = Recording(timeout_ms=3_000).symbol_switch_dry(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert order[0] == ("quote", "ETHUSD", 0)                      # first, with zero clicks so far
+    assert got["quote"] and got["quote"]["bid"] == 100.1 and got["quote"]["ask"] == 100.2
+    assert "quote_raw" in got and got["alerts"] == [] and st["clicks"] == ["sym", "sym"]
+    never_traded(st)
