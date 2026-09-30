@@ -83,6 +83,10 @@ WAVES: Dict[int, Tuple[str, ...]] = {
     1: ("BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "AVAXUSDT"),
 }
 TIMEFRAMES: Tuple[str, ...] = ("1m", "5m", "15m", "30m")
+#: The timeframe sets that are REGISTERED DESIGNS, not overrides: RQ-20260930-504 (5m,15m,30m) and its 1m
+#: split RQ-20260930-505 (1m). Anything else is a smoke run. Comparing against the full default made the
+#: registered 504 command look like an override (run 36691408944 was mislabelled SMOKE).
+REGISTERED_TIMEFRAME_SETS = (frozenset({"5m", "15m", "30m"}), frozenset({"1m"}), frozenset(TIMEFRAMES))
 
 #: family -> harness script, whether it takes --strategy-name (live-config lookup), extra flags.
 #: fvg_range / chop_scalp run the FAR target because the live fvg_range unit targets the opposite
@@ -642,7 +646,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"unknown families {unknown}", file=sys.stderr)
         return 2
     tfs = [t for t in a.timeframes.split(",") if t]
-    overridden = (a.families != ",".join(FAMILIES) or a.timeframes != ",".join(TIMEFRAMES)
+    overridden = (a.families != ",".join(FAMILIES) or frozenset(tfs) not in REGISTERED_TIMEFRAME_SETS
                   or (a.stage_a_start, a.stage_a_end) != STAGE_A or a.stage_b_start != STAGE_B_START
                   or a.stage_b_end is not None or a.wave != 1)
     out = Path(a.out)
