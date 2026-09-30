@@ -1032,3 +1032,21 @@ def test_every_wrapper_that_reads_ACTION_DAYS_has_it_FORWARDED() -> None:
         f"(preferred), or forward it in its own if-branch alongside whatever "
         f"else it needs."
     )
+
+
+def test_every_breakout_executor_mode_is_in_the_workflow_apply_allowlist():
+    # PROP-ETH-DOM 2026-09-30: #14885 wired apply: symbol-switch-dry into the
+    # action script but not into this workflow's allowlist, so the first
+    # operator-approved dispatch (issue #14944) died in validation. Every mode
+    # the wrapper accepts must also pass the workflow's gate.
+    root = Path(__file__).resolve().parents[2]
+    sh = (root / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
+    loop = re.search(r"for m in (.*?); do", sh, re.S)
+    assert loop, "the wrapper's executor-mode loop moved"
+    modes = [m for m in loop.group(1).replace("\\\n", " ").split() if m]
+    wf = (root / ".github" / "workflows" / "system-actions.yml").read_text()
+    gate = re.search(r"grep -Eq '\^\((install-deps\|[^)]*)\)", wf)
+    assert gate, "the breakout-login-check apply gate moved"
+    allowed = set(gate.group(1).split("|"))
+    missing = [m for m in modes if m not in allowed]
+    assert not missing, f"executor modes missing from the workflow apply allowlist: {missing}"
