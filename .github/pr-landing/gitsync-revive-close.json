@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: it closes PI-20260927-YDVVYLKH-0002 as done with a terminal_reason, plus its own merge-slot/pr-landing/automerge-request bookkeeping. No runtime, deploy, order-path or config change. Evidence: #14534 merged at b00d9dc3; the ict-git-sync run at 06:19:06Z executed the new script (pre-sync HEAD 37598c5 contains the merge) and restarted all long-running units with no hold or starting-stopped line; /api/diag/status shows git_sha_running 02b19ea12, bot_uptime 413 s and heartbeat age 11 s."
+}
