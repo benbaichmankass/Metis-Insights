@@ -24,7 +24,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # schedule-keeper dispatches this near its slot when GitHub's cron is late or
+  # dropped; this job skips the late duplicate. Fails open: an error means "run".
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
   alert:
+    needs: dedupe
+    if: "!cancelled() && needs.dedupe.outputs.skip != 'true'"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
