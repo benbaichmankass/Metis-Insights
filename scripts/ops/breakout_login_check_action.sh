@@ -109,7 +109,9 @@
 # the login check SAVES a session there (--storage-state) for the executor
 # modes to reuse, and executor-enable/disable-timer refuse.
 #
-# Takes the same flock as the scheduled feed (${BASE}/login.lock), waiting up
+# Takes the same flock as the scheduled feed (${BASE}/login.lock; for a
+# non-breakout account only around the venv/Chromium bootstrap, then its own
+# ${BASE}/accounts/<account>/login.lock for the run), waiting up
 # to 200 s, so a manual check never logs in while a scheduled tick is.
 #
 # Exit codes pass through from the python script: 0 ok, 3 login ok but part of
@@ -363,6 +365,22 @@ if [ "${WANT_DEPS}" = "1" ]; then
     log "Installing Chromium system libraries (apt, via playwright install-deps)"
     sudo -n env PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH}" \
         "${VENV}/bin/python" -m playwright install-deps chromium
+fi
+
+# A non-breakout account (TRADEIFY-WIRE) held the SHARED lock only for the
+# venv/Chromium bootstrap above (the browser build is shared, so an install must
+# never swap it under a running breakout_1 tick). Its terminal run now switches
+# to its OWN lock, so a Tradeify check can never make breakout_1's feed or
+# real-money executor (both flock -n on ${BASE}/login.lock) skip a tick.
+if [ "${ACCOUNT}" != "breakout_1" ]; then
+    ACCT_LOCK_DIR="${BASE}/accounts/${ACCOUNT}"
+    mkdir -p "${ACCT_LOCK_DIR}" && chmod 700 "${ACCT_LOCK_DIR}"
+    exec 9>&-
+    exec 9>"${ACCT_LOCK_DIR}/login.lock"
+    if ! flock -w 200 9; then
+        log "environment: a ${ACCOUNT} feed tick still holds ${ACCT_LOCK_DIR}/login.lock after 200s"
+        exit 5
+    fi
 fi
 
 if [ "${EXEC_MODE}" = "instrument-probe" ] && [ -z "${ACTION_SYMBOLS// }" ]; then

@@ -74,3 +74,13 @@ def test_tradeify_credentials_are_optional_secrets():
                 assert env.get("TRADEIFY_DX_USERNAME") == "${{ secrets.TRADEIFY_DX_USERNAME }}"
                 assert env.get("TRADEIFY_DX_PASSWORD") == "${{ secrets.TRADEIFY_DX_PASSWORD }}"
     assert found >= 2
+
+
+def test_other_account_run_switches_to_its_own_lock_after_the_shared_bootstrap():
+    shared = CODE.index('exec 9>"${BASE}/login.lock"')
+    install = CODE.index("-m playwright install chromium")
+    own = CODE.index('exec 9>"${ACCT_LOCK_DIR}/login.lock"')
+    run = CODE.index("scripts/prop/breakout_login_check.py")
+    execu = CODE.index("scripts/prop/prop_executor_tick.py")
+    assert shared < install < own < min(run, execu)
+    assert 'ACCT_LOCK_DIR="${BASE}/accounts/${ACCOUNT}"' in CODE

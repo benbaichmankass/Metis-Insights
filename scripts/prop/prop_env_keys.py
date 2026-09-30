@@ -13,7 +13,7 @@ wrapper fails closed instead of exporting another account's login.
 TRADEIFY-WIRE (2026-09-30): before this the two wrappers hardcoded
 ``BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD``, so a second prop account's login
 could never reach its check. For ``breakout_1`` this prints exactly the keys
-the wrappers hardcoded (``tests/test_prop_env_keys.py``).
+the wrappers hardcoded (``tests/test_prop_second_account_wiring.py``).
 """
 from __future__ import annotations
 

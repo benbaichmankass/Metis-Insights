@@ -89,7 +89,14 @@ fi
 SESSION_STATE="${STATE_DIR}/session_state.json"
 TRIP_FILE="${STATE_DIR}/tripped"
 FAILS_FILE="${STATE_DIR}/consecutive_failures"
-LOCK_FILE="${BASE}/login.lock"
+# breakout_1 keeps the shared lock (its executor flock -n's the same file).
+# Any other account locks its OWN file, so its feed can never make breakout_1's
+# feed or real-money executor skip a tick (manager review of #14663).
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    LOCK_FILE="${BASE}/login.lock"
+else
+    LOCK_FILE="${BASE}/accounts/${ACCOUNT}/login.lock"
+fi
 MAX_FAILURES="${PROP_FEED_MAX_FAILURES:-3}"
 MAX_RELOGINS="${PROP_FEED_MAX_RELOGINS_PER_DAY:-12}"
 TIMEOUT_S="${PROP_FEED_TIMEOUT_S:-150}"

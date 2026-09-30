@@ -443,3 +443,32 @@ def test_template_unit_passes_the_instance_as_the_account():
     assert "Environment=PROP_FEED_ACCOUNT=%i" in svc
     assert "ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/prop_feed_tick.sh" in svc
     assert "Unit=ict-prop-feed@%i.service" in tmr
+
+
+def test_second_account_feed_never_contends_for_breakout_lock(tmp_path):
+    """Manager review of #14663: a tradeify_1 feed tick must not take
+    ${BASE}/login.lock, which breakout_1's real-money executor flock -n's."""
+    repo, base, calls, pings = _setup(tmp_path)
+    base.mkdir(parents=True, exist_ok=True)
+    with open(base / "login.lock", "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)   # breakout_1 busy
+        r = _tick_account(tmp_path, repo, base, "tradeify_1")
+    assert r.returncode == 0, r.stderr
+    assert len(_lines(calls)) == 1                       # it still ran
+    # and its own lock blocks only itself
+    own = base / "accounts" / "tradeify_1" / "login.lock"
+    with open(own, "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        r2 = _tick_account(tmp_path, repo, base, "tradeify_1")
+        r3 = _tick(tmp_path, repo, base, rc=0)            # breakout_1 unaffected
+    assert "skipping this tick" in r2.stderr
+    assert r3.returncode == 0 and len(_lines(calls)) == 2
+
+
+def test_feed_template_timer_is_off_breakout_slots():
+    tmr = (REPO / "deploy" / "opt-in" / "ict-prop-feed@.timer").read_text()
+    feed = (REPO / "deploy" / "ict-prop-feed.timer").read_text()
+    execu = (REPO / "deploy" / "opt-in" / "ict-prop-executor.timer").read_text()
+    import re as _re
+    slot = lambda t: _re.search(r"OnCalendar=\S+ \*:(\d\d)/5", t).group(1)  # noqa: E731
+    assert slot(tmr) not in {slot(feed), slot(execu)}
