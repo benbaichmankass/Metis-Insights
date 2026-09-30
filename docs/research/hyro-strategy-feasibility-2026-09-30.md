@@ -28,7 +28,7 @@ Rules come from [`hyrotrader-bybit-deep-dive-2026-09-30.md`](hyrotrader-bybit-de
 | Demo realism | "Only 40% of profits from flagged trades count toward profit targets"; flagged = market orders "filled at exact levels ... with no slippage" | `flag_frac` × profit credit 0.4 |
 | Targets | 10% phase 1, 5% phase 2, no time limit, 30-day inactivity disables | 720-day horizon per phase |
 
-Rulesets written for this lane: [`config/prop_rulesets/hyrotrader.yaml`](../../config/prop_rulesets/hyrotrader.yaml) (strict) and [`hyrotrader_lenient.yaml`](../../config/prop_rulesets/hyrotrader_lenient.yaml) (4/6), both `unconfirmed: true` (the firm's own pages conflict; § 5 of the deep dive).
+Rulesets written for this lane (they, the scripts and the test ride the companion HELD PR, not this docs-only PR): `config/prop_rulesets/hyrotrader.yaml` (strict) and `hyrotrader_lenient.yaml` (4/6), both `unconfirmed: true` (the firm's own pages conflict; § 5 of the deep dive).
 
 ## 2. Rule-fit table and evidence: every family on timeframe ≤ 1h
 
@@ -80,7 +80,7 @@ Caveats on hold time: the 5m/15m harness force-closes at `--timeout-bars` 24 (2 
 
 ### 3.1 Method, and why it is a lane script
 
-`src/prop/montecarlo.py::run_montecarlo` (read this session) models a static drawdown floor and a **realised-only** daily loss on a per-trade block bootstrap. It cannot express HyroTrader's trailing daily drawdown on floating equity, the 5 qualifying days, the 40% day cap or the flag haircut. [`scripts/research/hyro_passprob_mc.py`](../../scripts/research/hyro_passprob_mc.py) adds those, block-bootstraps the committed ledgers (block 4, exit order), and is tested (`tests/test_hyro_passprob_mc.py`, 6 tests: huge edge passes, zero edge rarely does, breach rises with risk, the qualifying-day gate can block a pass, a big winner is not mis-read as a drawdown). **One bug was caught by that test and fixed before any number here**: a winner's peak was credited before its adverse excursion, so a +5R trade counted as a 5% intraday drawdown.
+`src/prop/montecarlo.py::run_montecarlo` (read this session) models a static drawdown floor and a **realised-only** daily loss on a per-trade block bootstrap. It cannot express HyroTrader's trailing daily drawdown on floating equity, the 5 qualifying days, the 40% day cap or the flag haircut. `scripts/research/hyro_passprob_mc.py` adds those, block-bootstraps the committed ledgers (block 4, exit order), and is tested (`tests/test_hyro_passprob_mc.py`, 6 tests: huge edge passes, zero edge rarely does, breach rises with risk, the qualifying-day gate can block a pass, a big winner is not mis-read as a drawdown). **One bug was caught by that test and fixed before any number here**: a winner's peak was credited before its adverse excursion, so a +5R trade counted as a 5% intraday drawdown.
 
 **What is not modelled (all bias the result optimistic unless noted):** overlap between legs (the "book" ledger is treated as one sequential stream — simultaneous losses across ETH/SOL/XRP, which are highly correlated, are ignored); intratrade excursion is **assumed** (winners draw an adverse excursion of 0.3R × U(0,2); sensitivity 0–1.0 below), not measured, because the ledgers hold MFE but no MAE; funded-phase payouts are not simulated, only survival and mean return over 90 days; one trade's 3%-per-position rule is not enforced.
 
@@ -134,11 +134,11 @@ The binding constraints, in order: (1) **edge per trade** (0.03–0.08 R after c
 
 ## 5. Pre-registered research units (HELD; nothing was run)
 
-Opened with this PR; **the manager merges before any run** (a new research-queue unit is `hold`).
+Opened in the companion HELD PR (with the ruleset, scripts and test); **the manager merges it before any run** (a new research-queue unit is `hold`).
 
 | id | file | what | state |
 |---|---|---|---|
-| **RQ-20260930-501** | `research/queue/` | 15m book, 1830 d, cost-complete ledgers via `build_strategy_evidence.py`, graded by [`scripts/research/hyro_fit_verdict.py`](../../scripts/research/hyro_fit_verdict.py): PASS iff pooled n ≥ 300, net R > 0, P(both) ≥ 0.25 on all seeds, and ≥ 0.10 with R shifted −0.03. Informational: P(both) if half the fills are flagged. | queued, runnable (`research-script-run.yml`, trainer-resident data) |
+| **RQ-20260930-501** | `research/queue/` | 15m book, 1830 d, cost-complete ledgers via `build_strategy_evidence.py`, graded by `scripts/research/hyro_fit_verdict.py`: PASS iff pooled n ≥ 300, net R > 0, P(both) ≥ 0.25 on all seeds, and ≥ 0.10 with R shifted −0.03. Informational: P(both) if half the fills are flagged. | queued, runnable (`research-script-run.yml`, trainer-resident data) |
 | RQ-20260930-502 | `research/queue/blocked/` | maker-limit entries (fill model registered now) | blocked on a `backtest_ict_scalp.py` flag; clears when 501 PASSes |
 | RQ-20260930-503 | `research/queue/blocked/` | same-day-flat ETH trend | blocked on `backtest_trend.py` flags |
 
