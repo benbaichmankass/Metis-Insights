@@ -2825,6 +2825,17 @@ def info_probe_restore_latch_reason(got: Mapping[str, Any]) -> Optional[str]:
         return None
     if rest.get("verified") is True:
         return None
+    # MEASURED after #14831 (click-free dry #14836): the terminal's linked
+    # symbol lives in the run's own PAGE -- a fresh page loads with the
+    # original linked again. So when a CLICK-FREE read on a FRESH page (the
+    # tick's ``fresh_page_check``, manager-approved 2026-09-30 18:00Z) reads
+    # the original symbol with no dialog open, the run alerts only and no
+    # latch is written. Anything else -- no check, unreadable, another
+    # symbol, a dialog -- latches as before.
+    fp = got.get("fresh_page_check") or {}
+    if (fp.get("readable") is True and rest.get("original")
+            and fp.get("linked_symbol") == rest.get("original") and fp.get("dialogs") == 0):
+        return None
     return ("AUTO-REVERT: instrument-info-probe left the linked symbol unverified "
             f"(should be {rest.get('original')!r}; restore attempted={rest.get('attempted')}); "
             "re-select it on the terminal, then executor-clear-halt")
@@ -3971,6 +3982,39 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.evaluate(INFO_PROBE_CLEANUP_JS)
             except Exception:
                 pass
+
+    def fresh_page_linked_check(self, context: Any, login_url: str, original: Optional[str]) -> Dict[str, Any]:
+        """CLICK-FREE read of the linked symbol on a FRESH page of the same
+        browser context (manager 2026-09-30 18:00Z): the terminal's linked
+        symbol does not survive the page (#14831 / #14836), so an unverified
+        in-run restore is re-checked here before the tick latches. Loads the
+        terminal through ``resume_session`` (the saved session, never a
+        credential login), waits for it, and reads INFO_PROBE_RESOLVE_JS --
+        which clicks nothing -- for the linked symbol and open dialogs.
+        ``readable`` is False on any failure; that latches."""
+        out: Dict[str, Any] = {"readable": False, "original": original}
+        page = None
+        try:
+            page = context.new_page()
+            st = self.resume_session(page, login_url)
+            if st != "logged_in":
+                out["why"] = f"session {st}"
+                return out
+            page.wait_for_timeout(5_000)
+            self.wait_ready(page, timeout_ms=20_000)
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[original] if original else []]) or {}
+            out.update(readable=bool(res.get("ok")), linked_symbol=res.get("linked_symbol"),
+                       dialogs=res.get("dialogs"), why=res.get("why"))
+            page.evaluate(INFO_PROBE_CLEANUP_JS)
+        except Exception as exc:
+            out["why"] = f"{type(exc).__name__} (code=fresh_page_exception)"
+        finally:
+            if page is not None:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+        return out
 
     def _info_restore(self, page: Any, out: Dict[str, Any]) -> None:
         """Re-select the ORIGINALLY linked symbol and verify it reads back.
