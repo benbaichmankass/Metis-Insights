@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CLAUDE.md, CLAUDE-RULES-CANONICAL.md and the manager skill describe the pipeline store as the directory docs/claude/work/pipeline/ (one file per record) rather than a flat PIPELINE.jsonl, state that A8 has run with the measured counts, and either a documented one-line CLI recipe or a new --file/--append CLI verb exists for filing a new finding.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-MJX1ZKYC-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A11 / docs/audits/code-audit-2026-09-27/CA-A11.findings.jsonl#AUD-20260927-CA-A11-pipeline-store-desc-stale",
+    "rerun": "ls docs/claude/work/PIPELINE.jsonl (expect: No such file or directory); ls docs/claude/work/pipeline | wc -l (expect: a large, nonzero count); grep -n \"PIPELINE.jsonl\" CLAUDE.md docs/CLAUDE-RULES-CANONICAL.md .claude/skills/manager/SKILL.md; python3 scripts/ops/pipeline.py --help (expect: no append/file verb)"
+  },
+  "routed_to": "DOCS-DRIFT",
+  "state": "routed",
+  "what": "[operating-model] CLAUDE.md's \"The follow-through pipeline\" section (RULE-ONE-priority doc, last verified 2026-09-21) makes two claims that are false against the field TODAY: (1) it says the store is 'docs/claude/work/PIPELINE.jsonl', 'Append-only JSONL, never a JSON array' -- that file does not exist on disk at all; the real store since lane E64 (2026-09-24) is the directory docs/claude/work/pipeline/, one immutable JSON file per record (confirmed: scripts/ops/pipeline.py's STORE constant, and `ls docs/claude/work/pipeline/` shows 1687+ record files). (2) it says 'The 1,065 archived backlog rows and 91 monitoring rows are NOT imported. The store is seeded empty on purpose; importing them is A8 ... Until A8 runs, those rows are still in git history with nothing reading them' -- A8 (scripts/ops/import_archived_registers.py) has ALREADY run: `python3 scripts/ops/import_archived_registers.py --dry-run` reproduces the exact historical counts (open=1065, monitoring=91) and matching records already exist in docs/claude/work/pipeline/ with origin.ref pointing at the archived register files (e.g. BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB, origin.ref=docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#...). The same stale flat-file description also appears in docs/CLAUDE-RULES-CANONICAL.md (lines ~464,629,1156,1807,1844,1860) and .claude/skills/manager/SKILL.md (lines ~86,185,451). Separately, scripts/ops/pipeline.py's CLI (`main()`) exposes no verb to append a new finding -- only --self-test/--check/--due/--stats/--mint-id -- so 'file it in the pipeline' is not literally runnable as a documented command; filing requires calling the Python function pipeline.append(item, intent=...) directly, which no doc spells out. Filed by code-audit lane CA-A11 (docs/audits/code-audit-2026-09-27/CA-A11.findings.jsonl, findings AUD-20260927-CA-A11-pipeline-store-desc-stale and AUD-20260927-CA-A11-a8-already-ran)."
+}

@@ -1089,8 +1089,11 @@ jobs:
           # it logs in to a live prop account with the operator's credentials).
           # `account` optional (default breakout_1); `apply` is an optional
           # comma-separated subset of install-deps,emit-status,reset-feed,
-          # probe-ticket,executor-dry-run,watched-click,round-trip-dry,
+          # probe-ticket,instrument-probe (needs `symbols:`),
+          # instrument-search-dump (read-only search-control measurement),
+          # executor-dry-run,watched-click,round-trip-dry,
           # round-trip-live,sol,executor-enable-timer,executor-disable-timer,
+          # executor-clear-halt,
           # dump-tables (read-only table dump of the positions / orders read path)
           # close-position / close-position-live (locate / CLOSE the one existing position; live needs PROP_EXECUTOR_MODE=live)
           # (the step-3 executor; the wrapper allows at most one mode per

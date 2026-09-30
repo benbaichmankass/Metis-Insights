@@ -245,7 +245,7 @@ jobs:
               "cd /home/ubuntu/ict-trading-bot && \
                source .venv/bin/activate && \
                python scripts/ops/fetch_backtest_candles.py ${FETCH_ARGS} \
-                 --output /tmp/backtest_fresh.csv 2>&1"
+                 --allow-window-replace --output /tmp/backtest_fresh.csv 2>&1"
 
       - name: Run VWAP backtest on trainer VM
         env:

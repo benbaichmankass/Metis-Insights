@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-29T19:00:00Z",
+  "updated_at": "2026-09-30T06:50:00Z",
   "updated_by": "session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -3198,7 +3198,7 @@
       "owner": "build lane",
       "lane": "session_01KY4jjUa6FUhBRT3zfMyyi4",
       "model": "claude-sonnet-5-5",
-      "ceiling_usd": 35,
+      "ceiling_usd": 50,
       "spend_usd": null,
       "tier": 2,
       "prs": [
@@ -3206,7 +3206,7 @@
         14366
       ],
       "blocked_on": [],
-      "note": "2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR, verbatim: \"we don't need to start building the new terminal just yet if, uh, if we don't have capacity at the moment, but that's definitely a high priority because that is where the next account will be and we want to be ready for that in any case.\" Context: breach-and-re-buy is accepted, and Breakout sells no new DXtrade accounts, so the next account lands on the proprietary terminal (docs/research/prop-automation-options-2026-09-27.md \u00a7 0.3, \u00a7 2.4, scoped only). Dispatch order: first free lane slot, ahead of RECON. || 2026-09-28 (lane session_01SV1yBAgdryVBNEdrbVUUdJ): PR #13658 open, draft, HELD (tier_2_3_needs_approval), stacked on PROP-EXEC #13647 (merge that first, then rebase). Built: breakout_terminal adapter behind the same interface (login -> dashboard -> Open Terminal; label-based reads; disarmed place_bracket/cancel/flatten; modify_bracket refuses), one-line platform switch (per-platform default login_url), executor venue key <platform>_symbol (fail closed), read-only system-action breakout-terminal-probe. Everything past the landing page is FIXTURE-ONLY (synthetic). Measurement = pipeline PI-20260928-DRBVUUDJ-0001 after merge.\n[2026-09-29T09:40Z manager] Starts after PROP-EXEC go-live, on a NEW Breakout-platform account the operator will open (operator 09:35Z). Previous lane session archived. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): fresh lane dispatched 18:22Z after Breakout go-live; rebasing #13658 onto hardened main, fixture-only, ceiling $45. || 2026-09-29 ~20:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #13658 was already merged 09-28. #14366 (adapter hardened to the DXtrade posture) passed independent review with APPROVE and merged (16e73fe). Review notes N1-N4 are filed as PI-20260929-AQRK6CL1-0010 (#14390). First landing-only probe (#14402, run 36623749022): Cloudflare Error 1005, the site bans the VM's ASN, so the terminal is UNREACHABLE from the live VM. The probe reported it as state unknown / exit 0, which is a bug; the lane is fixing it and filing the ASN blocker row. Any egress workaround is an operator decision and is not being built. || 2026-09-29 ~22:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR DECISION on the ASN block (PI-20260929-FRJ7NMPU-0001): 'Explore another egress'. This means scope only, nothing built or routed until the operator decides on the scoping; recorded via #14447. Lane archived ($12.22). || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane EGRESS-SCOPE session_01KY4jjUa6FUhBRT3zfMyyi4 (claude-sonnet-5-5, ceiling $20): SCOPE ONLY per the operator's 'Explore another egress'. It produces an options doc with cost, security and ToS per option and landing-only reachability measurements; nothing is built or routed. The decision goes to the operator. || 2026-09-30 ~05:11Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~05:10Z on EGRESS-SCOPE's options (#14516: 1 ask support / 2 ask + terms / 3 other-cloud VM / 4 drop), verbatim: \"Let's scope out 3, as well as looking for other options for running a local agent that can be free, as well as researching other prop platforms to see if any have an API or other better solution for automated trading\". Still SCOPE ONLY. EGRESS-SCOPE session_01KY4jjUa6FUhBRT3zfMyyi4 takes (3) in depth plus free local-agent options (ceiling raised $20 -> $35). A new lane, PROP-PLATFORMS session_01LE7AmRWZNqGrbSoi5ocig8, surveys prop platforms with API or automation support. Measured by EGRESS-SCOPE: the trainer VM (AS31898) also gets 1005 (issue #14513); a Google-ASN sandbox gets a managed challenge, not 1005.",
+      "note": "2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR, verbatim: \"we don't need to start building the new terminal just yet if, uh, if we don't have capacity at the moment, but that's definitely a high priority because that is where the next account will be and we want to be ready for that in any case.\" Context: breach-and-re-buy is accepted, and Breakout sells no new DXtrade accounts, so the next account lands on the proprietary terminal (docs/research/prop-automation-options-2026-09-27.md \u00a7 0.3, \u00a7 2.4, scoped only). Dispatch order: first free lane slot, ahead of RECON. || 2026-09-28 (lane session_01SV1yBAgdryVBNEdrbVUUdJ): PR #13658 open, draft, HELD (tier_2_3_needs_approval), stacked on PROP-EXEC #13647 (merge that first, then rebase). Built: breakout_terminal adapter behind the same interface (login -> dashboard -> Open Terminal; label-based reads; disarmed place_bracket/cancel/flatten; modify_bracket refuses), one-line platform switch (per-platform default login_url), executor venue key <platform>_symbol (fail closed), read-only system-action breakout-terminal-probe. Everything past the landing page is FIXTURE-ONLY (synthetic). Measurement = pipeline PI-20260928-DRBVUUDJ-0001 after merge.\n[2026-09-29T09:40Z manager] Starts after PROP-EXEC go-live, on a NEW Breakout-platform account the operator will open (operator 09:35Z). Previous lane session archived. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): fresh lane dispatched 18:22Z after Breakout go-live; rebasing #13658 onto hardened main, fixture-only, ceiling $45. || 2026-09-29 ~20:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #13658 was already merged 09-28. #14366 (adapter hardened to the DXtrade posture) passed independent review with APPROVE and merged (16e73fe). Review notes N1-N4 are filed as PI-20260929-AQRK6CL1-0010 (#14390). First landing-only probe (#14402, run 36623749022): Cloudflare Error 1005, the site bans the VM's ASN, so the terminal is UNREACHABLE from the live VM. The probe reported it as state unknown / exit 0, which is a bug; the lane is fixing it and filing the ASN blocker row. Any egress workaround is an operator decision and is not being built. || 2026-09-29 ~22:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR DECISION on the ASN block (PI-20260929-FRJ7NMPU-0001): 'Explore another egress'. This means scope only, nothing built or routed until the operator decides on the scoping; recorded via #14447. Lane archived ($12.22). || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane EGRESS-SCOPE session_01KY4jjUa6FUhBRT3zfMyyi4 (claude-sonnet-5-5, ceiling $20): SCOPE ONLY per the operator's 'Explore another egress'. It produces an options doc with cost, security and ToS per option and landing-only reachability measurements; nothing is built or routed. The decision goes to the operator. || 2026-09-30 ~05:11Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~05:10Z on EGRESS-SCOPE's options (#14516: 1 ask support / 2 ask + terms / 3 other-cloud VM / 4 drop), verbatim: \"Let's scope out 3, as well as looking for other options for running a local agent that can be free, as well as researching other prop platforms to see if any have an API or other better solution for automated trading\". Still SCOPE ONLY. EGRESS-SCOPE session_01KY4jjUa6FUhBRT3zfMyyi4 takes (3) in depth plus free local-agent options (ceiling raised $20 -> $35). A new lane, PROP-PLATFORMS session_01LE7AmRWZNqGrbSoi5ocig8, surveys prop platforms with API or automation support. Measured by EGRESS-SCOPE: the trainer VM (AS31898) also gets 1005 (issue #14513); a Google-ASN sandbox gets a managed challenge, not 1005. || 2026-09-30 ~05:28Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): EGRESS-SCOPE part 2 #14528 (other-cloud VM in depth plus free local options) is on auto-merge; #14516 MERGED 26beefc. OPERATOR POPUP ~05:26Z (prop route; options: ask HyroTrader + buy 5k / ask Breakout + home curl / free local agent / other-cloud VM), verbatim: \"So here's what I want to do The third option of building a free local agent. I want to understand what that would entail like what they're requirements are, what I would need to provide that and then for. I also want to look into the hydro trader and we're not going to ask them specifically. That's not how how problems work. But like if there is an option to work through a bike it's up account and that's definitely something we know we can do cuz we already do that. So I don't need to give me a link hydrator so I can check it out. For my side. I want you to do the research to understand like what the rules are and what kind of framework we would need for making that option and making a trade if what it means for the evaluation side of things like is that also on bybit or is there another platform that we're still going to have to be able to manage? And then the last thing that I would say is other platforms that use DX trader And that like where we could reuse some of that infrastructure that we've already built out here\". See PROP-PLATFORMS for the three follow-ups. || 2026-09-30 ~05:37Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): EGRESS-SCOPE part 3 #14536 (local-agent requirements; recommends L3, home box as egress only) is on auto-merge. OPERATOR, verbatim: \"I do want to keep the our own VM's IP address masked. Like, it's not about anti-detection, it's just about like the privacy and security of the system itself. There's no need to expose that.\" -> the WebRTC/DNS leak controls are a design REQUIREMENT. And verbatim: \"if we're just using the internet connection and not anything else, then what about the option of using my phone and maybe even setting it up through the existing app that we already built? ... it'll always be on and we'll almost always have internet.\" -> EGRESS-SCOPE scopes the phone-as-egress variant: a data-per-day estimate (the whole terminal traffic, not only trades), whether the existing Android app can host the tunnel vs a stock app, Android background limits, carrier CGNAT/Cloudflare, and a comparison with the home box. The operator will run the step-zero curl when they can. || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): EGRESS-SCOPE part 4 #14547 (on auto-merge): 11 leak paths, each with a control; the phone egress MEASURED 7.55 MB per cold load of the DXtrade login page, so ~4.3 GB/day as coded (576 fresh launches per day) and a persistent cache is needed for any metered link; the Android app (ict-trader-android) is on ice and not suited; a stock Termux app is simpler; carrier CGNAT address churn would drop sessions. Recommends the home box L3 as primary, the phone as a later failover. The lane flagged that the VM IPs are already in the public repo (CLAUDE.md plus today's docs and issue #14513). OPERATOR POPUP ~05:50Z (scrub + guard / scrub + rotate / leave), answer verbatim: \"Leave as is\". No scrub.",
       "id": "PROP-TERM"
     },
     {
@@ -3228,7 +3228,7 @@
         14086
       ],
       "blocked_on": [],
-      "note": "[2026-09-29T09:40Z manager] Operator 09:30Z: push more lanes while capacity is reset. Priority 2. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane report (relayed): #14053 Tier-3 held (ada_pullback_2h vol_trail vt_hot90_t2.5 on bybit_2; claims OOS n=49 +1.72R net, maxDD -0.65R improved, WF 4/6) -> independent review lane REVIEW-14053 session_016n1xbvVMBqn4EeFZkZ5KiT (Opus, real money, ceiling $30). #14051 Tier-3 held (strip xrp_pullback_2h trail_decay_arm_r=4.49, unreachable since tp_r 3.0) -> REVIEW-14051 session_01WDyyBSwmo2Hy9BoCwgMqnw (Sonnet, $15). #14060 Tier-1 pipeline correction. Not proposed: spy rr_floor (no live consumer), tlt trail_mult (operator declined twice; base OOS -9.38R), gdx vol_trail (4/6 folds inert). Decision on #14053/#14051 is the manager's under the 2026-09-27 data-backed authorization, once review says MERGE. || 2026-09-29 ~10:03Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14053 SENT BACK by REVIEW-14053 (archived, $1.74 final): evidence not on main under a matching run id (cell row only on unmerged claude/m20-sweep-corpus, 9h newer than the record); fee-only cost fields; false 'already live on qqq_pullback_1h' claim (removed 2026-08-13); P5 parity never run; latent trail_vol risk (200-bar fetch == window -> inert on a short return; no forming-bar drop at trail_vol.py:108); OOS delta unstable across reruns (3.08/0.91/1.72). Relayed to the lane to fix; trail_vol fix goes first as its own held PR. || 2026-09-29 ~10:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14051 CLOSED unmerged. REVIEW-14051 (archived, $2.74 final) verified the arm is unreachable by construction (TP is a resting Bybit order at min(entry*1.099, entry+3.0R), htf_pullback_trend_2h.py:351) BUT the operator already decided this exact question on 2026-09-24 (PI-20260922-E41-0004, killed: keep the arm) with the same argument already on record (config/lever_reachability.json strip_CONSIDERED_AND_HELD_2026_09_22). No new evidence -> decision stands; reopen only with evidence new relative to 2026-09-24. The lane must not re-propose it. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14101 (trail_vol forming-bar fix, zero live behaviour -- vol_trail undeclared on every leg) reviewed by manager, auto-merge armed. It surfaced a LIVE finding: M21 entry vol-skip gate reads a forming bar on real-money ada_pullback_2h (PI-20260929-EXITOPS-0005) -> row VOLSKIP-FORMING. Running $33.26 at 10:50Z. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14086 (44eca37) and #14060 (452729c) merged by manager (non-claude branch, relay never attached). #14076 red (rollup test pins the old count), #14087 red (autoland tempdir race) -- sent back. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ~$97 spent with no ceiling set; told to wind down 18:51Z, final report on #14053 evidence + remaining legs requested. || 2026-09-29 ~22:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14332 (spy_pullback_1h sm1.5, paper) MERGED 21:23Z on the operator popup 'Ship it'. #14053 is NEEDS-DATA (PI-20260929-AQRK6CL1-0012: P5 parity + fresh-holdout re-grade). Lane session_01113oMBNikT5uJanU16K3yq ARCHIVED ($102.67). Its open #14053 and #14356 were handed to a fresh lane, M20-EXITS-2 session_013ZEZNYunZEQ3vwGwioERGL (sonnet, ceiling $60), which also takes the next coverage-matrix legs. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". M20-EXITS-2 session_013ZEZNYunZEQ3vwGwioERGL ARCHIVED ($0.59, never started; misread its task as merging #14053/#14356). Re-dispatched as M20-EXITS-3 session_012sUFUwazYENjW2KZwVN6mg (claude-sonnet-5-5, ceiling $40): #14053 evidence (P5 log-only parity + pre-registered fresh holdout, PI-20260929-AQRK6CL1-0012), #14356 to green, then the next coverage legs. It merges nothing Tier-3."
+      "note": "[2026-09-29T09:40Z manager] Operator 09:30Z: push more lanes while capacity is reset. Priority 2. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane report (relayed): #14053 Tier-3 held (ada_pullback_2h vol_trail vt_hot90_t2.5 on bybit_2; claims OOS n=49 +1.72R net, maxDD -0.65R improved, WF 4/6) -> independent review lane REVIEW-14053 session_016n1xbvVMBqn4EeFZkZ5KiT (Opus, real money, ceiling $30). #14051 Tier-3 held (strip xrp_pullback_2h trail_decay_arm_r=4.49, unreachable since tp_r 3.0) -> REVIEW-14051 session_01WDyyBSwmo2Hy9BoCwgMqnw (Sonnet, $15). #14060 Tier-1 pipeline correction. Not proposed: spy rr_floor (no live consumer), tlt trail_mult (operator declined twice; base OOS -9.38R), gdx vol_trail (4/6 folds inert). Decision on #14053/#14051 is the manager's under the 2026-09-27 data-backed authorization, once review says MERGE. || 2026-09-29 ~10:03Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14053 SENT BACK by REVIEW-14053 (archived, $1.74 final): evidence not on main under a matching run id (cell row only on unmerged claude/m20-sweep-corpus, 9h newer than the record); fee-only cost fields; false 'already live on qqq_pullback_1h' claim (removed 2026-08-13); P5 parity never run; latent trail_vol risk (200-bar fetch == window -> inert on a short return; no forming-bar drop at trail_vol.py:108); OOS delta unstable across reruns (3.08/0.91/1.72). Relayed to the lane to fix; trail_vol fix goes first as its own held PR. || 2026-09-29 ~10:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14051 CLOSED unmerged. REVIEW-14051 (archived, $2.74 final) verified the arm is unreachable by construction (TP is a resting Bybit order at min(entry*1.099, entry+3.0R), htf_pullback_trend_2h.py:351) BUT the operator already decided this exact question on 2026-09-24 (PI-20260922-E41-0004, killed: keep the arm) with the same argument already on record (config/lever_reachability.json strip_CONSIDERED_AND_HELD_2026_09_22). No new evidence -> decision stands; reopen only with evidence new relative to 2026-09-24. The lane must not re-propose it. || 2026-09-29 ~10:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14101 (trail_vol forming-bar fix, zero live behaviour -- vol_trail undeclared on every leg) reviewed by manager, auto-merge armed. It surfaced a LIVE finding: M21 entry vol-skip gate reads a forming bar on real-money ada_pullback_2h (PI-20260929-EXITOPS-0005) -> row VOLSKIP-FORMING. Running $33.26 at 10:50Z. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14086 (44eca37) and #14060 (452729c) merged by manager (non-claude branch, relay never attached). #14076 red (rollup test pins the old count), #14087 red (autoland tempdir race) -- sent back. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): ~$97 spent with no ceiling set; told to wind down 18:51Z, final report on #14053 evidence + remaining legs requested. || 2026-09-29 ~22:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14332 (spy_pullback_1h sm1.5, paper) MERGED 21:23Z on the operator popup 'Ship it'. #14053 is NEEDS-DATA (PI-20260929-AQRK6CL1-0012: P5 parity + fresh-holdout re-grade). Lane session_01113oMBNikT5uJanU16K3yq ARCHIVED ($102.67). Its open #14053 and #14356 were handed to a fresh lane, M20-EXITS-2 session_013ZEZNYunZEQ3vwGwioERGL (sonnet, ceiling $60), which also takes the next coverage-matrix legs. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". M20-EXITS-2 session_013ZEZNYunZEQ3vwGwioERGL ARCHIVED ($0.59, never started; misread its task as merging #14053/#14356). Re-dispatched as M20-EXITS-3 session_012sUFUwazYENjW2KZwVN6mg (claude-sonnet-5-5, ceiling $40): #14053 evidence (P5 log-only parity + pre-registered fresh holdout, PI-20260929-AQRK6CL1-0012), #14356 to green, then the next coverage legs. It merges nothing Tier-3. || 2026-09-30 ~05:35Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): M20-EXITS-3 FINAL. #14356 auto-merge armed. #14053 is merged with main and still HELD. #14533 (the LOG-ONLY P5 vol_trail shadow for ada_pullback_2h plus the pre-registered holdout RQ-20260930-901, n>=25 OOS after 2026-09-29, net_R AND maxDD better) passed independent review with MERGE: one try/except'd call site (htf_pullback_trend_2h.py:740-750); its return is discarded; stop/close/sizing are byte-identical; no extra fetch; 24 tests pass. Un-drafted and auto-merge armed under the data-backed authorization (observability only; revert = revert the squash). Review notes to amend in the unit BEFORE its run: (a) the power block is inconsistent (n=25 detects 0.56 sd, not 0.45); (b) the rule must say the FIRST sweep with n>=25 is the graded one. Arithmetic checked: 49 trades / 493 d = 0.0994/d; n=25 is reached ~2027-06-08, so #14053 is effectively parked. The next evidence is the shadow log itself (runtime_logs/vol_trail_shadow.jsonl) once deployed. Task 3 was a survey only: the 7 real-money legs have no pending hard-lever cell; the 10 pending cells are shadow legs (PI-20260930-KZWVN6MG-0002). The lane's ownership of #14053 passes to the manager, so the lane can be archived. || 2026-09-30 ~05:52Z: #14533 (log-only P5 vol_trail shadow + holdout RQ-20260930-901) MERGED; the shadow log is observable once ict-git-sync deploys it."
     },
     {
       "id": "M19-S1",
@@ -3280,10 +3280,11 @@
       "spend_usd": null,
       "tier": 2,
       "prs": [
-        14134
+        14134,
+        14527
       ],
       "blocked_on": [],
-      "note": "[2026-09-29T09:45Z manager] Lane session_01RPz6PpXuDjaKkKxYNrXCUH was first briefed on P1b+E65; both are already settled (P1b: operator 'Keep flat $75' 09-28; E65 done, honest_negative). Redirected here. Measured specs only; nothing joins executor.enabled_venue_symbols until SOL is live and that symbol passes its own D1-D7. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): instrument probe built on claude/prop-eth-instrument-probe-20260929 (structure dump, not a field parser -- correct: measure the panel shape first); PR held until #14013 merges (same 6 files). Resolve step would be 18,535/21,000 chars. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14134 (Tier 2, hold) reviewed: MERGE, SEQUENCED -- merged only after PROP-EXEC-F's live round trip, because it edits breakout_login_check_action.sh / the allowlist the go-live sequence runs next. Probe fills one tagged search field, never clicks/Enter. Lane keeps it green; no dispatch of instrument-probe until merged. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): CORRECTION: #14134 CI ran green at 11:42Z; the earlier 'CI never attached' was the lane's own tool misuse, not a BL-20260730 recurrence. Held until PROP-EXEC's live round trip. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane PROP-ETH-DOM session_01HS7ws2n8c57QMUquRobE9z (claude-opus-5-5, live terminal; ceiling $30): read-only DOM dump of the watchlist search control, then locator update from the measurement, then the instrument-probe re-run (PI-20260929-AQRK6CL1-0014). It must check coexistence with the live executor's login before any run."
+      "note": "[2026-09-29T09:45Z manager] Lane session_01RPz6PpXuDjaKkKxYNrXCUH was first briefed on P1b+E65; both are already settled (P1b: operator 'Keep flat $75' 09-28; E65 done, honest_negative). Redirected here. Measured specs only; nothing joins executor.enabled_venue_symbols until SOL is live and that symbol passes its own D1-D7. || 2026-09-29 ~09:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager handoff from session_01KAQRJxRbRwpYTkPgBjNVyQ (operator instruction); lane sent the new-manager trigger and the fire returned its own cse_ id. Lane unchanged. || 2026-09-29 ~10:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): instrument probe built on claude/prop-eth-instrument-probe-20260929 (structure dump, not a field parser -- correct: measure the panel shape first); PR held until #14013 merges (same 6 files). Resolve step would be 18,535/21,000 chars. || 2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14134 (Tier 2, hold) reviewed: MERGE, SEQUENCED -- merged only after PROP-EXEC-F's live round trip, because it edits breakout_login_check_action.sh / the allowlist the go-live sequence runs next. Probe fills one tagged search field, never clicks/Enter. Lane keeps it green; no dispatch of instrument-probe until merged. || 2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): CORRECTION: #14134 CI ran green at 11:42Z; the earlier 'CI never attached' was the lane's own tool misuse, not a BL-20260730 recurrence. Held until PROP-EXEC's live round trip. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane PROP-ETH-DOM session_01HS7ws2n8c57QMUquRobE9z (claude-opus-5-5, live terminal; ceiling $30): read-only DOM dump of the watchlist search control, then locator update from the measurement, then the instrument-probe re-run (PI-20260929-AQRK6CL1-0014). It must check coexistence with the live executor's login before any run. || 2026-09-30 ~05:28Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14527 (read-only instrument-search-dump) passed independent review (all 6 claims verified, 473 tests pass); un-drafted, auto-merge armed. Non-blocking notes relayed for STEP 3."
     },
     {
       "id": "JC-CA-06",
@@ -3672,7 +3673,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): queued behind SA-DOCS's section-0 cap. Most archived rows should be killed explicitly, not carried. || E75 dispositions (manager, 11:55Z) #14108 MERGED 2e6ae44 (consolidated report). Dispositions: FIX-SA-01->SA-DATA; FIX-SA-02->EXIT-CLUSTER (#14106); FIX-SA-03->FIX-SA-03 lane; FIX-SA-04/05/06->SA-PROV; FIX-SA-07/13->SA-SEC; FIX-SA-08/11/12->SA-INFRA (WEBAPI-RESTART lane closed); FIX-SA-09/10->SA-DOCS (JC-GIT/EXEC-FIX/EXIT-OPS/ADMIN already corrected off in_flight). JC-SA-01 (a)->GRADE; JC-SA-02 (a)->ML-DEMOTE; JC-SA-03 (b) = status quo, no change beyond FIX-SA-05; JC-SA-06 cap+alarm->SA-DOCS, routing lane queued (SA-ROUTE); JC-SA-07 (a)->GUARD-PROOF; JC-SA-08 -> data task on the FIX-SA-03 lane (mirror-vs-live exit divergence census) before any choice. JC-SA-04 (revoke the leaked Telegram token + testnet key) and JC-SA-05 (split the PAT) are OPERATOR-ONLY credential actions: raised to the operator. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane SA-ROUTE session_01TS7BCzqWEkmwLXESEmZ6fg (claude-sonnet-5-5, ceiling $25): route or kill the due unrouted pipeline items (212 unrouted / 241 due at 04:55Z per pipeline.py --check), batches of ~40, a per-item reason, money-path items routed and never killed."
+      "note": "2026-09-29 ~11:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): queued behind SA-DOCS's section-0 cap. Most archived rows should be killed explicitly, not carried. || E75 dispositions (manager, 11:55Z) #14108 MERGED 2e6ae44 (consolidated report). Dispositions: FIX-SA-01->SA-DATA; FIX-SA-02->EXIT-CLUSTER (#14106); FIX-SA-03->FIX-SA-03 lane; FIX-SA-04/05/06->SA-PROV; FIX-SA-07/13->SA-SEC; FIX-SA-08/11/12->SA-INFRA (WEBAPI-RESTART lane closed); FIX-SA-09/10->SA-DOCS (JC-GIT/EXEC-FIX/EXIT-OPS/ADMIN already corrected off in_flight). JC-SA-01 (a)->GRADE; JC-SA-02 (a)->ML-DEMOTE; JC-SA-03 (b) = status quo, no change beyond FIX-SA-05; JC-SA-06 cap+alarm->SA-DOCS, routing lane queued (SA-ROUTE); JC-SA-07 (a)->GUARD-PROOF; JC-SA-08 -> data task on the FIX-SA-03 lane (mirror-vs-live exit divergence census) before any choice. JC-SA-04 (revoke the leaked Telegram token + testnet key) and JC-SA-05 (split the PAT) are OPERATOR-ONLY credential actions: raised to the operator. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane SA-ROUTE session_01TS7BCzqWEkmwLXESEmZ6fg (claude-sonnet-5-5, ceiling $25): route or kill the due unrouted pipeline items (212 unrouted / 241 due at 04:55Z per pipeline.py --check), batches of ~40, a per-item reason, money-path items routed and never killed. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the rows it was blocked on landed with #14550. Mapping sent for its 29 unmapped items (each routed to an existing row after its rerun still reproduces, else killed with a reason); M16 and Phase-H are killed if stale, queued if data-settleable, else surfaced."
     },
     {
       "id": "RQ-ID-ALLOCATOR",
@@ -3720,10 +3721,8 @@
       "prs": [
         14230
       ],
-      "blocked_on": [
-        "PI-20260930-AQRK6CL1-0001"
-      ],
-      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z 'let's do b'. Sonnet: bounded CI/tooling change. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14230 on main as 0b566cbb (adds .github/workflows/grading-freshness-alert.yml and alert-only scripts/ci/check_grading_freshness.py). No record observes it firing. Closes on the first stale-grading run of grading-freshness-alert.yml that sends exactly one Telegram ping, or a PR run that warns without failing. || 2026-09-30 ~04:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): NOT OBSERVED. Actions API: grading-freshness-alert.yml is active (id 370239814) with 0 runs ever, ~45 min past its first 04:10Z slot. It is not a schedule_keeper target, and GitHub cron here runs 4-6h late or drops slots (schedule_keeper.py docstring). Filed PI-20260930-AQRK6CL1-0001: make it a keeper target. Still landed_unproven. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane GRADE-KEEPER session_01GWrrhKT1wx6eYBvjTN54AS (claude-sonnet-5-5, ceiling $10): add grading-freshness-alert.yml to schedule_keeper TARGETS plus its dedupe job, then observe the first run (PI-20260930-AQRK6CL1-0001)."
+      "blocked_on": [],
+      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z 'let's do b'. Sonnet: bounded CI/tooling change. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14230 on main as 0b566cbb (adds .github/workflows/grading-freshness-alert.yml and alert-only scripts/ci/check_grading_freshness.py). No record observes it firing. Closes on the first stale-grading run of grading-freshness-alert.yml that sends exactly one Telegram ping, or a PR run that warns without failing. || 2026-09-30 ~04:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): NOT OBSERVED. Actions API: grading-freshness-alert.yml is active (id 370239814) with 0 runs ever, ~45 min past its first 04:10Z slot. It is not a schedule_keeper target, and GitHub cron here runs 4-6h late or drops slots (schedule_keeper.py docstring). Filed PI-20260930-AQRK6CL1-0001: make it a keeper target. Still landed_unproven. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane GRADE-KEEPER session_01GWrrhKT1wx6eYBvjTN54AS (claude-sonnet-5-5, ceiling $10): add grading-freshness-alert.yml to schedule_keeper TARGETS plus its dedupe job, then observe the first run (PI-20260930-AQRK6CL1-0001). || 2026-09-30 ~05:52Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): GRADE-KEEPER #14512 MERGED 82c7973. OBSERVED: the keeper dispatched run 36673584794 (workflow_dispatch by github-actions[bot], 05:28:44Z) -> success; the dedupe job was skipped (correct); the alert logged 'fresh - max(reviewed_at)=2026-09-29T11:58:51Z over 3937 graded rows; age 0.7d vs limit 3d'; no ping (fresh is silent by design). The schedule half is PROVEN. The ping path is still unexercised end to end, so the row stays landed_unproven until a stale-grading run pings. Lane session_01GWrrhKT1wx6eYBvjTN54AS ARCHIVED. PI-20260930-AQRK6CL1-0001 closed."
     },
     {
       "id": "REVIEW-14216",
@@ -3876,7 +3875,7 @@
         14362
       ],
       "blocked_on": [],
-      "note": " 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict INDETERMINATE under the registered final-fold n_oos>=64 floor (pooled 5-fold descriptive only: recovered R -10.40/-13.69/-3.42, 0 of 3 legs positive). Manager refused post-hoc substitution of pooled CV; lane makes analyze_exit_head.py emit per-fold stats and measures whether history can reach the floor. || 2026-09-29 ~20:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane's 2200d runs (0/3 legs > 0; recovered_R -11.25/-12.22/-14.43) were NOT accepted as RQ-005's verdict: the window was changed after an indeterminate result without re-registering, and the embargo, folds and tau also deviate. RQ-005 stays indeterminate; the 2200d runs are recorded as supplementary evidence. Ordered: register a new unit (2200d, per-year folds, 7-day embargo, tau resolved from code) and merge it BEFORE running, then grade. Pooled-row PRs #14373/#14375/#14376 closed. Ceiling set to $30. || 2026-09-29 ~22:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-005 recorded as indeterminate (#14362 merged). Successor unit RQ-20260929-401 is registered in #14438 (per-year folds, 7-day embargo, the shipped below_half_r tau 0.10 policy, final-fold n SOL 100 / XRP 98 / ETH 84 on refreshed candles). The independent review found and the lane fixed a cost asymmetry that favoured PASS; three last items are pending, then the manager merges BEFORE any run. Ceiling raised to $45. || 2026-09-30 ~00:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260929-401 GRADED INDETERMINATE (REFINE) by the committed grader: n 99/95/83; net recovered R SOL -4.2971, XRP +0.2102, ETH -1.1634. XRP's positive is baseline-driven. Results PR #14468 (records only). Lane session_01Um3DdFoaFgrhnEfcJRwVAK is done (~$40) and gets archived after #14468 merges. REFINE step (XRP re-run on the 2025 fold) DISPATCHED to lane M19-S2EXIT-XRP2 session_01TNzsuheQ7kSaaWJwt2FMhJ (sonnet, ceiling $25). It must register a unit and have the manager merge it before any run. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". XRP2 session_01TNzsuheQ7kSaaWJwt2FMhJ ARCHIVED ($0.38, never started: waited for an operator confirmation). Re-dispatched as M19-S2EXIT-XRP3 session_01LKkJDVYVLZ6GouLTikn8zV (claude-sonnet-5-5, ceiling $25): register the XRP 2025-fold REFINE unit, manager merges it BEFORE any run, then run and grade."
+      "note": " 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): verdict INDETERMINATE under the registered final-fold n_oos>=64 floor (pooled 5-fold descriptive only: recovered R -10.40/-13.69/-3.42, 0 of 3 legs positive). Manager refused post-hoc substitution of pooled CV; lane makes analyze_exit_head.py emit per-fold stats and measures whether history can reach the floor. || 2026-09-29 ~20:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane's 2200d runs (0/3 legs > 0; recovered_R -11.25/-12.22/-14.43) were NOT accepted as RQ-005's verdict: the window was changed after an indeterminate result without re-registering, and the embargo, folds and tau also deviate. RQ-005 stays indeterminate; the 2200d runs are recorded as supplementary evidence. Ordered: register a new unit (2200d, per-year folds, 7-day embargo, tau resolved from code) and merge it BEFORE running, then grade. Pooled-row PRs #14373/#14375/#14376 closed. Ceiling set to $30. || 2026-09-29 ~22:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-005 recorded as indeterminate (#14362 merged). Successor unit RQ-20260929-401 is registered in #14438 (per-year folds, 7-day embargo, the shipped below_half_r tau 0.10 policy, final-fold n SOL 100 / XRP 98 / ETH 84 on refreshed candles). The independent review found and the lane fixed a cost asymmetry that favoured PASS; three last items are pending, then the manager merges BEFORE any run. Ceiling raised to $45. || 2026-09-30 ~00:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-20260929-401 GRADED INDETERMINATE (REFINE) by the committed grader: n 99/95/83; net recovered R SOL -4.2971, XRP +0.2102, ETH -1.1634. XRP's positive is baseline-driven. Results PR #14468 (records only). Lane session_01Um3DdFoaFgrhnEfcJRwVAK is done (~$40) and gets archived after #14468 merges. REFINE step (XRP re-run on the 2025 fold) DISPATCHED to lane M19-S2EXIT-XRP2 session_01TNzsuheQ7kSaaWJwt2FMhJ (sonnet, ceiling $25). It must register a unit and have the manager merge it before any run. || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". XRP2 session_01TNzsuheQ7kSaaWJwt2FMhJ ARCHIVED ($0.38, never started: waited for an operator confirmation). Re-dispatched as M19-S2EXIT-XRP3 session_01LKkJDVYVLZ6GouLTikn8zV (claude-sonnet-5-5, ceiling $25): register the XRP 2025-fold REFINE unit, manager merges it BEFORE any run, then run and grade. || 2026-09-30 ~06:05Z: registration #14514 (RQ-20260930-402) MERGED after two review rounds (stale-file false-PASS fixed; pre-run amendment on a missing fold). Lane M19-S2EXIT-XRP3 dispatches the run now."
     },
     {
       "id": "CANDLE-REFRESH",
@@ -3908,7 +3907,7 @@
         14520
       ],
       "blocked_on": [],
-      "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_01R2PHzyjMvQoNiB39SdYWco (claude-sonnet-5-5, ceiling $15). Writes proposed: only, never mandates:. Held Tier-3 PR, then the manager puts grant/decline to the operator. || 2026-09-30 ~05:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane opened #14520 (proposed MD-SOAK-EXIT-CELL-PATHB; resolve_exit_cell and --exit-cell/--dry-proposed in mandate_resolver.py; 32 tests). The dry run returns FIRE on #14332's cell. OPERATOR POPUP ~05:15Z; bounds stated: soak-only by Stage-1 membership, never on a Stage-2 roster; folds >=5/6; maxDD worsening <=0.35x base; leverage <=2.0; pullback/donchian only; no runner exists yet. Answer verbatim: \"Grant; firing opens a PR (Recommended)\". GRANTED AS WRITTEN, NO autoland: a fire opens a PR and pings, and the manager merges it. Relayed to the lane: move the entry into mandates: on #14520 (Tier-3 hold, the manager merges on green), then build the runner PI-20260930-39SDYWCO-0001 as a held Tier-2 PR. Ceiling $15 -> $35. The lane found (not blocking): trend_donchian_eth_4h / trend_donchian_xrp_4h were in the 08-30 batch and are now on bybit_2, so the entry refuses them; skill Path-B text vs the shipped path_b_wf_pass differ (-0003); corpus rows lack a cost-stack stamp (-0002)."
+      "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_01R2PHzyjMvQoNiB39SdYWco (claude-sonnet-5-5, ceiling $15). Writes proposed: only, never mandates:. Held Tier-3 PR, then the manager puts grant/decline to the operator. || 2026-09-30 ~05:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane opened #14520 (proposed MD-SOAK-EXIT-CELL-PATHB; resolve_exit_cell and --exit-cell/--dry-proposed in mandate_resolver.py; 32 tests). The dry run returns FIRE on #14332's cell. OPERATOR POPUP ~05:15Z; bounds stated: soak-only by Stage-1 membership, never on a Stage-2 roster; folds >=5/6; maxDD worsening <=0.35x base; leverage <=2.0; pullback/donchian only; no runner exists yet. Answer verbatim: \"Grant; firing opens a PR (Recommended)\". GRANTED AS WRITTEN, NO autoland: a fire opens a PR and pings, and the manager merges it. Relayed to the lane: move the entry into mandates: on #14520 (Tier-3 hold, the manager merges on green), then build the runner PI-20260930-39SDYWCO-0001 as a held Tier-2 PR. Ceiling $15 -> $35. The lane found (not blocking): trend_donchian_eth_4h / trend_donchian_xrp_4h were in the 08-30 batch and are now on bybit_2, so the entry refuses them; skill Path-B text vs the shipped path_b_wf_pass differ (-0003); corpus rows lack a cost-stack stamp (-0002). || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the grant record is on main (#14550); lane told to move the entry into mandates: on #14520 (no autoland, landing hold) and then build the runner."
     },
     {
       "id": "PROP-PLATFORMS",
@@ -3918,12 +3917,371 @@
       "owner": "build lane",
       "lane": "session_01LE7AmRWZNqGrbSoi5ocig8",
       "model": "claude-sonnet-5-5",
-      "ceiling_usd": 20,
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14529,
+        14538
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:11Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~05:10Z on EGRESS-SCOPE's options (#14516: 1 ask support / 2 ask + terms / 3 other-cloud VM / 4 drop), verbatim: \"Let's scope out 3, as well as looking for other options for running a local agent that can be free, as well as researching other prop platforms to see if any have an API or other better solution for automated trading\". Lane dispatched (claude-sonnet-5-5, ceiling $20). It buys and opens nothing; it ends in an operator decision. || 2026-09-30 ~05:28Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14529 (survey; shortlist HyroTrader / CryptoFundTrader / TradeLocker props) MERGED 6398bea. OPERATOR POPUP ~05:26Z (prop route; options: ask HyroTrader + buy 5k / ask Breakout + home curl / free local agent / other-cloud VM), verbatim: \"So here's what I want to do The third option of building a free local agent. I want to understand what that would entail like what they're requirements are, what I would need to provide that and then for. I also want to look into the hydro trader and we're not going to ask them specifically. That's not how how problems work. But like if there is an option to work through a bike it's up account and that's definitely something we know we can do cuz we already do that. So I don't need to give me a link hydrator so I can check it out. For my side. I want you to do the research to understand like what the rules are and what kind of framework we would need for making that option and making a trade if what it means for the evaluation side of things like is that also on bybit or is there another platform that we're still going to have to be able to manage? And then the last thing that I would say is other platforms that use DX trader And that like where we could reuse some of that infrastructure that we've already built out here\". Applied: NO contact with any firm. PROP-PLATFORMS writes a HyroTrader deep-dive (rules, whether the evaluation phase is also Bybit, framework mapped to our code, a trade end to end, links first); ceiling $20 -> $35. EGRESS-SCOPE writes the local-agent requirements (what the operator provides, what we build, failure modes, the home-curl step zero); ceiling $35 -> $50. New lane PROP-DXTRADE-FIRMS session_01Qq1du5HtYn9wnaWStCe9fh ($20) surveys DXtrade-based firms for adapter reuse. || 2026-09-30 ~05:37Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): HyroTrader deep-dive #14538 on auto-merge (not contacted). Findings: the CHALLENGE runs on the Bybit DEMO API (simulated); the funded phase is reportedly also simulated until a further +15% gives real capital (unresolved); this corrects #14529's 'real order books'. The key is user-created Read/Write Unified with NO IP restriction, and no VPS ban was found. Binding bot rule: exact-fill/no-slippage market orders can be flagged, and only 40% of profit from flagged trades counts. The firm's own pages conflict on drawdown figures (4%/6% vs 5%); 40% single-day rule; the qualifying-day rule (a same-day open+close >=5% of balance and >=1% P&L) fits our 1h+ legs poorly. Terms 10.2(e) reportedly conflicts with the bots FAQ (section text unread). Framework: reuse bybit_client_for demo:true, a hyro_1 account, a hyrotrader.yaml ruleset and API status poller, est. 4-6 lane-days (inferred)."
+    },
+    {
+      "id": "ALPACA-REARM",
+      "title": "Harden the Alpaca naked-position re-arm: never strip sibling protection; position-presence + marketable-stop guard; re-arm coverage gaps; bound repeat re-arms (real money: alpaca_live)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01FWD56p45DUf3cUzpDiPmDA",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        14545,
+        14569,
+        14576
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Money path, priority 1. Items PI-20260929-PR6YRTQY-0001/-0003/-0005 and K1XNYYAQ-0003. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): 4 of 5 brief items were ALREADY fixed on main (#14127, #14177, #14241, #14347), re-verified by mutation. #14545 (sweep counters for every early exit, unaccounted==0, the cap pinned at 3 by a replay test; NO order-path change) passed independent review with MERGE (206+417 tests, ruff clean, no consumer of the renamed keys). Un-drafted, auto-merge armed. The lane observes the live sweep line after deploy. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14545, #14569, #14576 MERGED; #14545 deployed and observed on the live sweep line (unaccounted=0). Lane ARCHIVED."
+    },
+    {
+      "id": "STAGE2-MIRROR",
+      "title": "Stage-2 Alpaca mirror is not trade-identical (side_filter long vs none) + MD-PROMOTE-S1-S2 has no affordability clause (fired gld_pullback_1h onto alpaca_live)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_012Q62RPzq1M36Ruk7u61jJu",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        14539,
+        14543
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Money path. Items PI-20260928-E8Y3BGBS-0002/-0003 and SVBNZOVH-0001/-0002. The mirror fix follows the operator's recorded strict-equality decision (B2, 2026-09-21). Lane dispatched: held Tier-3 PRs. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~05:41Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Q1 #14539 (alpaca_portfolio side_filter: long; risk max_dd_pct/daily_loss_pct 0.05 -> 0.10 to equal alpaca_live; a fail-closed trade-shaping equality test for both pairs; notes.dry_cause on dry rows) passed independent review with MERGE: only 3 config lines; allowlist keys are identity-only; risk caps refuse per trade and never flip mode; effective_dry is unchanged; 56/56 targeted tests pass; the Bybit pair was already equal. DATA/DECISION-BACKED TIER-3 under the standing authorization: operator decision B2 (2026-09-21, strict equality) supersedes the 2026-08-23 scoping for alpaca_portfolio only; alpaca_paper/ib_paper stay two-sided. Un-drafted, auto-merge armed; operator notified. REVERT: revert the squash commit (restores side_filter absent and caps 0.05). || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Q2 #14543 (R-AFFORD in mandate_resolver.py for MD-PROMOTE-S1-S2; committed equity snapshots) passed independent review with MERGE: it can never turn REFUSE/NEEDS_DATA into FIRE; no secrets; 93 tests pass including the real gld record -> REFUSE (0/54 setups at $393.01 vs $193.56 equity). Un-drafted, auto-merge armed. Follow-ups relayed: a future captured_at never goes stale, and NaN/Inf equity. The 2026-09-28 gld fire never reached a real-money roster (no roster PR; gld_pullback_1h is on alpaca_paper only), so nothing to revert. The lane is measuring PI-20260930-K7U61JJU-0001 (mirror trades live could not size) instead of asking the operator."
+    },
+    {
+      "id": "GITSYNC-REVIVE",
+      "title": "ict-git-sync restarts every ict-* unit, reviving a deliberately stopped ict-trader-live: restart only active units",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_014hPP8CTfoZ8y3kfDt5QsCC",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Item PI-20260927-YDVVYLKH-0002. Lane dispatched. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. || 2026-09-30 ~06:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14534 MERGED, deployed 06:19Z and the live VM confirmed running the new script; #14579 closed PI-20260927-YDVVYLKH-0002. Lane ARCHIVED."
+    },
+    {
+      "id": "ORDER-AUDIT-2",
+      "title": "Order-path audit leftovers, re-verified unfixed: pairs sleeve ignores halt (CA-A02), safe_place_order guards, order_monitor dry_run cfg (CA-A04), IBClient.close vs resting bracket, reconcile_orphan_history double-attribution, CA-A15 bybit spot category, summarize fabricated zeros, PassthroughAllocator flat risk fraction 0.005 (a code constant, not a measurement), stray journal fallback",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "ICT-SCALP-HTF",
+      "title": "CA-A05-001: _ict_scalp_variant_builder never fetches HTF candles for 7 ict_scalp legs that declare htf_trend_filter_enabled (paper: bybit_1, ib_paper)",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-09-30 ~05:11Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~05:10Z on EGRESS-SCOPE's options (#14516: 1 ask support / 2 ask + terms / 3 other-cloud VM / 4 drop), verbatim: \"Let's scope out 3, as well as looking for other options for running a local agent that can be free, as well as researching other prop platforms to see if any have an API or other better solution for automated trading\". Lane dispatched (claude-sonnet-5-5, ceiling $20). It buys and opens nothing; it ends in an operator decision."
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "PROV-IB",
+      "title": "ib_paper trades attached to a June order package (5830/5852/5853/5856); IB realizedPNL 0.0 on closing fills; SA-PROV follow-ups",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "PROP-JOURNAL",
+      "title": "Prop journal truth: fill #44 stop/observation, breakout_1 baseline residual -68.70, PROP-EVIDENCE-BRACKET (prop records model stale_stop/trail, n=169), ETH-prop cost headroom",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "LEDGER-REFRESH",
+      "title": "broker_truth_ledger ~77 days stale (bybit_2 SUB is CSV-only); bybit_1/bybit_portfolio daily journal-vs-wallet delta",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "ML-HYGIENE",
+      "title": "ML hygiene: constant-score baselines, registry count reconcile, exit-head demote observation, conviction-meta drift, regime-model demote proposal, 4 demoted-head producers, 4 quarantined manifests",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "GUARD-FIDELITY",
+      "title": "Guards that scan archived or partial populations silently (artifact_caveats, impossibility_claims, canonical-config-loaders, soak-registered); symbol-data-binding census failing and unwired; harness cost stacks (vol_target, chop_scalp_study, orb)",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "DOCS-DRIFT",
+      "title": "Docs/skills drift: skills naming retired system-review / board #6927, ml-review count_untriaged, manager skill missing the merge-slot step, stop-micro-zombie.yml nonexistent, ARCHITECTURE:460 stub, CLAUDE.md PIPELINE.jsonl wording, two dead scripts",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "AUTOMERGE-GAPS",
+      "title": "claude-pr-automerge fires only on claude/** (lane/* branches never auto-land); autoland PR identity (PAT owner vs github-actions[bot]); LANDING_MACHINERY lacks mandate_resolver; pr-opener action_required workaround undocumented",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "unassigned",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+    },
+    {
+      "id": "PROP-DXTRADE-FIRMS",
+      "title": "Survey prop firms on DXtrade where our DXtrade executor can be reused; ranked top 3 by reuse and fit (scope only)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01Qq1du5HtYn9wnaWStCe9fh",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14540
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:28Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~05:26Z (prop route; options: ask HyroTrader + buy 5k / ask Breakout + home curl / free local agent / other-cloud VM), verbatim: \"So here's what I want to do The third option of building a free local agent. I want to understand what that would entail like what they're requirements are, what I would need to provide that and then for. I also want to look into the hydro trader and we're not going to ask them specifically. That's not how how problems work. But like if there is an option to work through a bike it's up account and that's definitely something we know we can do cuz we already do that. So I don't need to give me a link hydrator so I can check it out. For my side. I want you to do the research to understand like what the rules are and what kind of framework we would need for making that option and making a trade if what it means for the evaluation side of things like is that also on bybit or is there another platform that we're still going to have to be able to manage? And then the last thing that I would say is other platforms that use DX trader And that like where we could reuse some of that infrastructure that we've already built out here\". Lane dispatched (claude-sonnet-5-5, $20). No firm contacted; nothing bought. || 2026-09-30 ~05:42Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): memo #14540 (self-land armed). #1 Tradeify 247: crypto, DXtrade-only for US traders; its help center says DXtrade API access is allowed for owned bots, VPN/VPS allowed; BTC/ETH/SOL/XRP; 3% daily / 6% max; 20 s min hold; no hedging; host dx.tradeify247.co; price ~$100 for 10k (3P only). The rest of the DXtrade field is a poor fit (FTMO dropped DXtrade; FXIFY/BrightFunded say no bots on DXtrade; Alpha Capital prohibits autonomous EAs). Adapter reuse ~70% (judgement). Manager decision: a landing-only GET is data, not contacting the firm, so the lane measures dx.tradeify247.co / /specs / the main site from its sandbox AND from our live VM egress (smallest held Tier-2 probe change if none exists). Ceiling $20 -> $30. Pipeline PI-20260930-WSTCE9FH-0001."
+    },
+    {
+      "id": "HYRO-STRATS",
+      "title": "Feasibility of intraday crypto-perp strategies that fit HyroTrader's rules AND are profitable net of the full cost stack; pre-register the best candidates",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_011sppGNJr87nzGbLjf2zFxf",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14559,
+        14560
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR, verbatim: \"regarding the hydro option, in general, that's looking better. Uh, it is an issue that we don't have a lot of strategies that are geared towards it, but maybe we can scope out like the feasibility of getting of building a few strategies that are shorter time frames so that they fit within that framework, but also, you know, like are also profitable.\" Lane dispatched: a rule-fit table for the <=1h families, committed net-of-cost evidence, prop Monte Carlo pass probability with a HyroTrader ruleset, candidate new designs, and 1-3 pre-registered units (held; the manager merges them before any run). Nothing live. || 2026-09-30 ~05:44Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR added a requirement (trading propensity), verbatim: \"we do need to make sure that like if we only figure out, you know, let's say one or two strategies and they only trade once or twice a month, then it's not necessarily going to be a worthwhile path as opposed to building some sort of local option for breakout.\" Relayed to the lane: whether trading-day rules apply to the FUNDED phase too; measured trades/month and qualifying days/month per candidate and portfolio; Monte Carlo time-to-pass; a worthwhileness test (EV/month net of fees vs build effort) against the Breakout L3 route and Breakout's measured ticket rate; the bottom line must say plainly if it trades only 1-2x/month. || 2026-09-30 ~06:06Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): memo #14559 (self-land) says MARGINAL, leaning NOT FEASIBLE. Best case P(pass both eval phases) ~0.27 for the ict_scalp 15m book (n=378), ~0.47 for eth_15m alone (n=117), vs break-even ~0.23 at the $59 deposit; with half the fills flagged by the demo-realism rule (all our entries are market orders) it falls to 0.03-0.05. Same-day closing is NOT binding (92-97% same-UTC-day, ~2.4 qualifying days/week). Binding: thin edge (0.03-0.08 R/trade), market-order flag exposure, 4% trailing daily / 5% static. #14560 (rulesets, MC scripts, RQ-20260930-501 queued, -502/-503 blocked) reviewed (additions only) and merged-on-green; the lane runs 501 on the trainer and builds the maker-entry harness flag (unblocks 502). Ceiling $40 -> $70. Operator buy/park decision after 501/502 grade."
+    },
+    {
+      "id": "TRADEIFY-PORTFOLIO",
+      "title": "Can we field a reasonably profitable portfolio within Tradeify 247's rules (DXtrade, crypto)? Rule set, Monte Carlo ruleset, portfolio, trade frequency, adapter reuse",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01CwrESbNXfhSLrXX9scjQLY",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~05:47Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR, verbatim: \"the Tradeify option sounds like it uh, might be good, even if they don't serve the API docs, if we can at least reuse the info where we already build, and that's also uh, a step up. Uh, so let's see there also if like uh, we think we can get a portfolio that would uh, be reasonably profitable within their limits.\" Lane dispatched (claude-sonnet-5-5, $35), carrying the operator's trade-frequency worthwhileness requirement."
+    },
+    {
+      "id": "BREAKOUT-ATTRITION",
+      "title": "Why do most Breakout tickets never become trades under the automated executor, and fix what still applies (real money: breakout_1)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01KMYJ5xC7gtPjGVf6Nwywoq",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        14581,
+        14584
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): 152 of 170 Breakout tickets never became trades; most of that attrition is manual-bridge history, not the automated executor. Two live executor bugs found and fixed in HELD Tier-2 PR #14581: (1) the symbol_not_enabled branch POSTs status 'skipped' for ETH tickets, which disables the manual-path guards; (2) a resting LIMIT entry is never cancelled at valid_until. #14581 is under independent review; merge only on a MERGE verdict. Pipeline records #14584 MERGED (PI-20260930-KMYJ5XC7-0001..0003). Open: disposition of the wedge item BL-20260911-ONE-UNANSWERED. Model opus: order path on a funded account."
+    },
+    {
+      "id": "GATE-SCOPE",
+      "title": "Open-package gate is strategy-wide across accounts: a paper IEF package blocks the live IEF leg (PI-20260930-QZSE4AMA-0001); scope it per account",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01C4qod5gogYDwASmek2XMWT",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        14590
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:45Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): found by LIVE-NO-TRADES. Fix PR #14590 (open-package gate per ACCOUNT, landing hold, Tier-3) is open as a draft; awaiting the lane's report, then independent review, then the manager decides under the data-backed Tier-3 authorization and notifies the operator. Model opus: live order path."
+    },
+    {
+      "id": "DONCHIAN-PARITY",
+      "title": "Live trend_donchian evaluates the forming bar while the backtest uses the closed bar (PI-20260930-QZSE4AMA-0002): measure and fix",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01KjACh47AwiaCPSgQPT6PQF",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        14577
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:30Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): manager decision relayed, data-backed: flip trend_donchian_xrp_4h ONLY to decision_bar: closed; trend_donchian_eth_4h and the eth prop leg are held pending an eth follow-up. Required before merge: 5 red guards fixed, xrp re-run with the live stop anchor, a distinct log reason for a missed stale window, the eth yaml line reverted. #14577 held Tier-3; the manager merges on green after review and notifies the operator with the revert (delete one config line)."
+    },
+    {
+      "id": "ALPACA-CLOSE-WEDGE",
+      "title": "A standing close wedge re-marks active-close every tick, so the naked sweep skips the position; could it strand alpaca_live overnight? (PI-20260930-ZPDIPMDA-0001)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01LLCqwwDGQM7BZMZifj1rkM",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        14585,
+        14587
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): VERDICT a bug. On alpaca_live, per the code (not observed): an after-hours sl_cross cancels the OCO and places a DAY extended-hours limit; after it expires at the close, each tick returns 'deferred (bracket left armed)' and re-marks active-close, so the sweep skips a position with nothing resting at the venue overnight. Fix HELD Tier-2 #14585: mark active-close only when a close is sent; a bracket-left-armed defer clears the marker; a session-deferred re-probe is held 300 s with a logged cause. 11 new tests, 6 fail on old code. Under independent review. Pipeline #14587 (landing added by the manager, auto-merge). Paper GLD zombie OCO -> PAPER-RESET."
+    },
+    {
+      "id": "PAPER-RESET",
+      "title": "Reset the alpaca_paper account to clear the GLD zombie OCO (PI-20260930-ZIFJ1RKM-0001), closing journal rows with an operational reason",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01JjPRfAYQKaocTX3QnHBgnD",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:44Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP (Alpaca ticket / reset the paper account / leave and exclude), answer verbatim: \"Reset the paper account\". Lane dispatched to establish what the reset does (dashboard-only? new keys?), list the open positions and packages, close the journal rows with an operational reason so the reconciler does not book strategy exits, and hand the manager the minimal operator steps. Model opus: broker and credential handling."
+    },
+    {
+      "id": "LIVE-NO-TRADES",
+      "title": "Why have the real-money rosters (bybit_2, alpaca_live and mirrors) not traded since 09-28? Trace signal to dispatch",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01XEHP2RTP24AZWSQZSE4AMA",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14565
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): VERDICT (A): no qualifying setups. All 7 live legs evaluate each bar and are live and enabled; the VM sha matches main; a bar-by-bar replay reproduces past trades and finds no setup since 09-28. Of 121 emissions since 09-15, 22 were dispatched and 99 fell inside an open package. Silences this long are normal (gaps up to 7.7 days since 08-01). Bugs spun out: GATE-SCOPE and DONCHIAN-PARITY. #14565 (open_package_blocked audit row) MERGED. Lane ARCHIVED."
+    },
+    {
+      "id": "FIX-14356",
+      "title": "Repin test_corpus_fold_coverage for #14356's new corpus rows",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01WJKF5ZpAgsF3BTsq5JJYwo",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 5,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        14356
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~06:35Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): repinned EXPECTED_UNCOVERED with the qqq_trend_long_1d vt_hot90_t2 fold years; #14356 MERGED. Lane ARCHIVED."
     }
   ]
 }

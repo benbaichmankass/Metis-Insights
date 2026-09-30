@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only (docs/claude/work/pipeline/*.json): two new findings from the LIVE-NO-TRADES lane (PI-20260930-QZSE4AMA-0001 IEF cross-account monocle lock, PI-20260930-QZSE4AMA-0002 donchian forming-bar parity) and an append-only evidence update to the prop expiry-prompt wedge row, plus merge-slot/pr-landing/automerge bookkeeping. No runtime, order path, strategy config, risk caps or VM code touched."
+}

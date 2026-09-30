@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "An operator decision records how Gate 2 treats trades the mirror sized that alpaca_live's sizer would refuse (e.g. mirror sizes at live's equity basis, or the Gate-2 read filters to live-sizeable trades) -- OR a measurement over the mirror's closed trades shows none that live's sizer would have refused.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-K7U61JJU-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane STAGE2-MIRROR session_012Q62RPzq1M36Ruk7u61jJu, 2026-09-30, reading Coordinator.multi_account_execute for PR #14539",
+    "rerun": "Read tests/test_paper_portfolio_accounts.py's _MIRROR_IDENTITY_KEYS comment block (the NOT-config list) and src/core/coordinator.py's cash_settlement / buying_power basis block; scripts/ops/diag_fetch.sh 'broker_account_status?account_id=alpaca_portfolio' vs alpaca_live for multiplier/equity. Holds while any of the three still differs."
+  },
+  "state": "queued",
+  "what": "Stage-2 Alpaca mirror still is not trade-identical after #14539 makes every CONFIG trade-shaping field equal. Three NON-config inputs to Coordinator.multi_account_execute differ between alpaca_live and alpaca_portfolio: (1) ALPACA_CASH_SETTLEMENT_ACCOUNTS (env) binds the T+1 sizing basis on alpaca_live only (accounts.yaml alpaca_live comment: the mirror measured negative venue_cash and would halt under `apply`); (2) cash vs margin buying power: alpaca_live is multiplier 1, $193.56 equity (diag broker_account_status 2026-09-30T05:36Z), so the whole-share cash wall refuses on live what the paper book sizes; (3) the venue shorting_enabled flag (false on live) -- moot for opens while both carry side_filter: long. Gate 2 reads the mirror's net-of-cost window as the demotion signal, so (1)-(2) mean it can include trades live could not size.",
+  "why_it_matters": "B2 (operator 2026-09-21) requires IDENTICAL trades; a demotion signal read off trades the live book could not take is a different book's P&L."
+}

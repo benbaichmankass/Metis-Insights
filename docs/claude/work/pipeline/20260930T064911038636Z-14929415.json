@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "(a) a research/queue unit exists that pre-registers a test of trend_donchian_eth_prop's net edge after 2026-03-27 at Breakout's cost stack (8 bps commission + DXtrade swap + a stated spread) and has run on a regenerated evidence record; AND (b) a measured spread+slippage figure for ETH/SOL fills on breakout_1 exists (R3/D3), replacing the 3 bps assumption in prop_ev_sim.py --slippage-bps-rt. Kill if breakout_1's roster no longer carries either leg.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-W6PROPO1-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/cost-headroom-2026-09-27.md § 3 and § 6 (RQ-20260922-003, lane W6-PROP-O1)",
+    "rerun": "python3 scripts/research/prop_cost_headroom.py --leg trend_donchian_eth_prop --leg trend_donchian_sol_prop  # then read per-fold gross R off the record's fold_detail windows"
+  },
+  "routed_to": "PROP-JOURNAL",
+  "state": "routed",
+  "what": "trend_donchian_eth_prop's pooled cost headroom (flat all-in break-even 26.6 bps over n=169 OOS trades, 2025-09-28..2026-09-23; Breakout stack ~12.6 bps at an ASSUMED 3 bps spread+slip) is carried by folds 1-2: its last two folds (n=85, 2026-03-27..09-23) break even at 3.4 bps flat, below Breakout's 8 bps commission alone. Descriptive split, read after the pooled result, below the 126-trade power floor, so it is not a verdict. Two measurements: (1) pre-register and run a test of the post-2026-03-27 net edge at Breakout costs; (2) measure the real breakout_1 ETH/SOL spread+slippage. B6 fresh-account EV (room k=0.33) is the most sensitive to this input: at 10 bps vs 3 bps, EV per life falls ~50% (book +$112 -> +$56, 5/3 seeds)."
+}

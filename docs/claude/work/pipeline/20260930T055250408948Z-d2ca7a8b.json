@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "#5912 reads closed with a TP/SL/strategy close reason, OR the alpaca_portfolio broker positions read (diag broker positions / alpaca connector) shows no TLT position and the row is reconciled.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-K7U61JJU-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane STAGE2-MIRROR session_012Q62RPzq1M36Ruk7u61jJu, 2026-09-30, while measuring PI-20260930-K7U61JJU-0001",
+    "rerun": "scripts/ops/diag_fetch.sh 'journal?table=trades&limit=1000' | python3 -c \"import json,sys;[print(r['id'],r['status'],r['exit_reason']) for r in json.load(sys.stdin) if r['id']==5912]\""
+  },
+  "state": "queued",
+  "what": "alpaca_portfolio journal row #5912 tlt_pullback_1d TLT SHORT 738 sh @81.445, opened 2026-09-18T13:31Z, reads status=open on /api/diag/journal at 2026-09-30 ~05:55Z. That is 8 days after tlt_pullback_1d was cut from alpaca_portfolio's roster (#12687, 2026-09-22), and the leg also left alpaca_live (A6, 2026-09-21). Unverified: whether the broker still holds it and whether the order monitor still manages its exit for a leg on no roster. If it is open, it carries short P&L in the mirror's account-level aggregate (paperPortfolio block). It does NOT enter any roster leg's Gate-2 per-leg read.",
+  "why_it_matters": "A position the journal marks open with no roster leg behind it is either an orphan the exit path no longer manages, or journal drift from broker truth. Either way it distorts the mirror's account-level P&L."
+}

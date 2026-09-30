@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: part 4 of the Breakout terminal egress scoping (VM-address leak controls, phone-as-egress variant with measured DXtrade login-page weight, comparison and recommendation) plus its document-index row. Nothing built, bought, deployed or routed; no src/, config/, workflow or runtime file touched. Measurements were credential-free static fetches of a public page."
+}

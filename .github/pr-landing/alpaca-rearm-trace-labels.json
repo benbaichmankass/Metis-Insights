@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path (src/runtime/order_monitor.py, the live alpaca_live re-arm sweep). This is the follow-up to #14545 that the manager (session_01HYq6XtfesZ57VyaQrK6CL1) asked for, covering the two label-only notes from its independent review. The manager reviews and merges it. What changes: counter labels only. A re-arm call that raises now counts as escalated_post_not_sent instead of escalated_post_rejected, via a new trace['responded'] flag. Nothing about placement, cancellation or closing changes. Revert: git revert of the merge commit.",
+  "why": "Manager review of #14545, note (a): trace['sent'] is set before place_protective, so a raising call was counted as a venue rejection. Note (b): the cap test docstring overstated its 28-sweep loop, which is only an upper bound."
+}

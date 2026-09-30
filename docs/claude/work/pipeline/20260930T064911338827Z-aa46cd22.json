@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "comms/strategy_evidence/trend_donchian.json carries a net_r_oos produced with the exit head simulated (its cost_stack/source names the head), or a queue unit exists that will produce it",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-HK3BKCKE-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane RQ-RUN session_0179hCBVrY5PJMaHhK3BKcKe (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28, grading of the ran-but-ungraded queue units; research/results/RQ-20260922-007/36257896539.jsonl + 36318264512.jsonl",
+    "rerun": "python3 -c \"import json; [print(json.loads(l)['measurement'].get('head_simulated_net_r_oos')) for l in open('research/results/RQ-20260922-007/36318264512.jsonl')]\""
+  },
+  "routed_to": "M19-S2EXIT",
+  "state": "routed",
+  "what": "RQ-20260922-007 DELIVERABLE: re-run trend_donchian's evidence record with the published exit head SIMULATED, so comms/strategy_evidence/trend_donchian.json stops misgrading the leg (head-simulated net_r_oos +8.38/+8.49 vs the record's +4.60, two replay runs, full cost stack). Needs a queue unit or a producer flag on the evidence harness; NOT a promotion. Caveat to carry: the head-BUILD run (research/results/RQ-20260922-007/36239257289.jsonl, backtest_system BTCUSDT 1h, grouped purged WF-CV, 5 folds, n=300 OOS policy trades) failed its own per-trade bar with a mean net-R improvement of -0.196R/trade over those 300 trades, so the two harnesses disagree."
+}
