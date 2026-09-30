@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane PATHB-MANDATE. Appends one pipeline record (state update of PI-20260930-39SDYWCO-0008): the observed result of read-only exit-cell-mandate run 36708412880 (16 candidate legs: fire 0, needs-data 5, refuse 10, already-declared 1) and what remains unexercised. Data only under docs/claude/work/pipeline/; no code, config, workflow or order path."
+}

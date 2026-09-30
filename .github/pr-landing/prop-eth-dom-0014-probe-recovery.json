@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Changes the click-mode instrument-info-probe's abort path on the live breakout_1 terminal (Escape + restore after a not-found panel). Manager review and merge required; -probe stays suspended until then.",
+  "why": "Manager step 5 after live -probe #14831 latched the executor: a not-found info panel skipped the restore with no recovery path."
+}

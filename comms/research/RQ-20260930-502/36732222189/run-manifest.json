@@ -1,0 +1,32 @@
+{
+  "unit": "RQ-20260930-502",
+  "run_id": "36732222189",
+  "commit_sha": "bcc5c756597a7c073d350f85c58301b18ed16182",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36732222189",
+  "timeout_minutes": 240,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/hyro_fit_verdict.py",
+        "--mode",
+        "limit",
+        "--leg",
+        "ict_scalp_eth_15m",
+        "--leg",
+        "ict_scalp_sol_15m",
+        "--leg",
+        "ict_scalp_xrp_15m",
+        "--days",
+        "1830",
+        "--out",
+        "comms/research/RQ-20260930-502/36732222189"
+      ],
+      "log": "comms/research/RQ-20260930-502/36732222189/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 2095.9
+    }
+  ],
+  "all_ok": true
+}

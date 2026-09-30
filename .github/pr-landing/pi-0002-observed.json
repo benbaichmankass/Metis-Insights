@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline update record: PI-20260930-GQPT6PQF-0002 closed as fixed-and-observed (20:00Z close, one clean close, caveats stated). Pipeline record only; no runtime, order path, strategy or config touched."
+}

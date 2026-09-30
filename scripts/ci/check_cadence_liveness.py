@@ -206,6 +206,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    the output path for each is the obvious next shrink of this file.
     "grading-freshness-alert.yml": {"receipt": None, "why": "quiet by design when grading is fresh: it commits nothing and its only output is a Telegram ping on stale/unreadable; a dead run is caught by claude-run-failure-alert (GRADE-ALERT 2026-09-29)"},
     "schedule-keeper.yml": {"receipt": None, "why": "no in-repo trace by design: it reads the Actions API and dispatches; it also fires on every push to main, so its own cron is only the night-time floor (W6-OPS-R 2026-09-27)"},
+    "exit-cell-mandate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch) or a NEEDS-DATA row that no open row already names; a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
     "r4-demotion-gate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch); a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
     # RQ-RUN (2026-09-28): the queue's own replenisher and grader. Both commit
     # ONLY when they changed a unit (a full queue / nothing new to grade is a

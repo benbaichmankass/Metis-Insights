@@ -217,6 +217,7 @@ def build(*, today: date | None = None, root: Path | None = None) -> dict[str, A
         "schemaVersion": 1,
         "forDate": today.isoformat(),
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "researchThroughput": _research_throughput(root),
         "pipeline": {"stats": pipe_stats, "section0Lines": section0_lines,
                      "healthy": pipe_res.healthy},
         "checklistState": checklist_state,
@@ -325,10 +326,28 @@ def _section3(b: dict) -> list[str]:
     return L
 
 
+def _research_throughput(root: Path | None) -> dict | None:
+    """The research queue's 24 h throughput, or None when it could not be read
+    (rendered as a declared hole, never as zeros)."""
+    try:
+        from scripts.research.queue_throughput import throughput
+        return throughput(root or REPO_ROOT)
+    except Exception:  # noqa: BLE001 -- a hole, declared in §4, not a crash of the whole brief
+        return None
+
+
+def _research_lines(b: dict) -> list[str]:
+    t = b.get("researchThroughput")
+    if t is None:
+        return ["### 🔬 Research queue — COULD NOT BE READ (we did not look; this is not zero)", ""]
+    from scripts.research.queue_throughput import summary_line
+    return [f"### 🔬 {summary_line(t)}", ""]
+
+
 def _section4(b: dict) -> list[str]:
     if b["checklistState"] != "read":
         return ["---", "", "## §4 — WHAT IS RUNNING", "",
-                f"{_HOLE[b['checklistState']]} — `docs/claude/work/MANAGER-CHECKLIST.json`.", ""]
+                f"{_HOLE[b['checklistState']]} — `docs/claude/work/MANAGER-CHECKLIST.json`.", ""] + _research_lines(b)
     ck = b["checklist"]
     running_total = sum(len(ck["byState"].get(s, [])) for s in _RUNNING_STATES)
     L = ["---", "", f"## §4 — WHAT IS RUNNING ({running_total})", ""]
@@ -359,7 +378,7 @@ def _section4(b: dict) -> list[str]:
         L += ["_Everything else, by count only (nothing here needs your eyes "
               "this morning): " + ", ".join(f"`{k}` {v}" for k, v in other.items())
               + "._", ""]
-    return L
+    return L + _research_lines(b)
 
 
 def _section5(b: dict) -> list[str]:

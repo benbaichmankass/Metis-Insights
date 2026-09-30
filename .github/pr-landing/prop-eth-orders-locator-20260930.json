@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges after review; changes the flat and one-click guards the clicking instrument INFO-PANEL probe gates on, for the funded breakout_1 DXtrade terminal",
+  "why": "PROP-ETH-DOM, pipeline PI-20260929-AQRK6CL1-0014. The 2nd dry run (issue #14754) measured the Orders widget container 10 ancestors above widget_menu_ORDERS (the walk was 8); the walk is now 12. The info probe now accepts one-click OFF only via data-value+knob; the shared checkbox/aria fallback requires exactly one really-visible control and exactly one label (manager notes on #14723). Stale read_one_click docstring fixed. No order control, config, sizing or risk change."
+}

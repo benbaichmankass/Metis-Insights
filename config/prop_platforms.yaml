@@ -118,10 +118,10 @@ accounts:
     login_url: https://dx.tradeify247.co/
     username_env: TRADEIFY_DX_USERNAME
     password_env: TRADEIFY_DX_PASSWORD
-    # LOGIN CHECK ONLY for now: breakout-login-check REFUSES every executor
-    # mode for any account but breakout_1 (the executor's kill switch is the
-    # global PROP_EXECUTOR_MODE until a per-account one exists — TRADEIFY-WIRE
-    # PR A #14663), so nothing here can reach an order control.
+    # Kill switch: PROP_EXECUTOR_MODE_TRADEIFY_1 (off | read_only | live,
+    # default read_only). It NEVER reads breakout_1's PROP_EXECUTOR_MODE.
+    # Ruleset + routing: accounts.yaml::tradeify_1.backtest_ruleset and that
+    # ruleset's `routing:` key (src/prop/prop_executor.py::rule_paths_for).
     executor:
       safety_margin_usd: 5
       unconfirmed_reads: 3

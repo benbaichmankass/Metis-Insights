@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the manager routes it: PI-20260930-39SDYWCO-0004 reconciled and the clause-8 source decision made, or an unbounded (no force-close) re-run of spy_pullback_1h sm1.5 is committed, or the manager kills this row with a stated reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-39SDYWCO-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "python3 -c \"import json;r=[json.loads(l) for l in open('docs/research/e35-bracket-corpus.jsonl') if '\\\"spy_pullback_1h\\\"' in l];k=('net_total_r','max_drawdown_r','d_net_r','gate_is_d_net_r','gate_oos_d_net_r','wf_wins_effective','gate_verdict');a=[tuple(x.get(f) for f in k) for x in r if x['cell']=='sm1.5'];b=[tuple(x.get(f) for f in k) for x in r if x['cell']=='sm1.5_to400'];print(sorted(a)==sorted(b),len(a),len(b))\""
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "DATA TASK (manager, 2026-09-30): does spy_pullback_1h's shipped cell sm1.5 (#14332) survive with the harness's 200-bar force-close made non-binding, matching live (no such exit)? ANSWERED FROM THE COMMITTED CORPUS, no new run: docs/research/e35-bracket-corpus.jsonl holds the control -- `sm1.5` (harness default 200) and `sm1.5_to400` (400-bar cap) are IDENTICAL on every field in BOTH sweeps (2026-08-29 and 2026-08-31): net_total_r 40.3243, max_drawdown_r 18.8501, d_net_r +28.1569, d_max_dd +3.6421, IS/OOS deltas (23.64/8.84 on 08-29, 23.45/4.46 on 08-31), capital/day, wf 5/6, gate_verdict path_b_wf_pass. timeout_binding_audit.audit() reads the leg clean (0 of 39 geometry pairs bind). So path_b_wf_pass SURVIVES and the contamination is cosmetic for this cell on the committed data. RESIDUAL, NOT DONE: 400 is a cap, not 'disabled' -- a trade held >400 bars would differ; audit bounds max trade duration only to (96, 200]. A genuinely unbounded re-run needs the harness + candle data (trainer VM / e35-bracket-sweep.yml) and was NOT run. NEXT ACTION for the manager: (a) reconcile the matrix note vs the audit (row PI-20260930-39SDYWCO-0004) -- the note's '17 of 39' is not reproducible; (b) decide whether the operator's clause-8 bound should stay OR-of-both-sources or key on the audit only; (c) NO revert of #14332's key is indicated by this data. If the bound is kept, the wording 'never a cell whose evidence is timeout_binding contaminated' is ALREADY in MD-SOAK-EXIT-CELL-PATHB clause 8 (operator-added 2026-09-30)."
+}

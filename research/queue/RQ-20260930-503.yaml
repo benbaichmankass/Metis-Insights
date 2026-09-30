@@ -1,6 +1,6 @@
 id: RQ-20260930-503
-title: 'HyroTrader fit: same-UTC-day-flat variant of the 1h trend_donchian ETH prop leg -- does forcing an intraday close keep the edge? (lane HYRO-STRATS, blocked on a harness flag)'
-status: blocked
+title: 'HyroTrader fit: same-UTC-day-flat variant of the 1h trend_donchian ETH prop leg -- does forcing an intraday close keep the edge? (lane HYRO-STRATS)'
+status: queued
 cadence: once
 kind: experiment
 
@@ -43,32 +43,32 @@ decision_rule:
   what_it_does_not_do: Does not change config/strategies.yaml or the live trend legs.
 
 routing:
-  needs_trainer_resident_data: true
+  needs_trainer_resident_data: false
   needs_gpu: false
   peak_memory_gb: 2.0
   est_minutes: 30
-  basis: One leg, one window.
-
-blocked_on:
-  - what: >-
-      scripts/backtest_trend.py had no session-flat option. BUILT 2026-09-30 on branch
-      claude/trend-dayflat-flags (harness only): --flat-at-utc HH:MM and --no-entry-after-utc HH:MM, default
-      off and byte-identical (a test diffs summary and emitted rows against origin/main on the committed
-      fixture), 10 tests. REALIZATION FOR THIS UNIT: on 1h bars the flatten happens at the CLOSE of the last bar
-      ending at or before HH:MM, i.e. 23:00 for 23:45 (up to one bar EARLY, never late); "no entry after 20:00"
-      means the entry moment (the entry bar's close) is not later than 20:00. A unit-level flag would be a
-      separate Tier-3 step if a result ever justified going live.
-      FOLLOW-UP (manager review of #14583, 2026-09-30): the levers as first merged read a --resample bar's
-      close-stamp as an open-stamp (a whole bar early) and normalized the day on a local clock for a non-UTC
-      column. claude/trend-dayflat-fixes adds bar_label (main() passes "close" only with --resample), converts
-      to UTC first, and replaces a byte-identity test that skipped forever with a stored pre-lever baseline. This
-      unit uses native candles, so the resample case does not arise, but the fix must be merged first.
-    ref: RQ-20260930-501
-    clears_when: the follow-up branch claude/trend-dayflat-fixes is merged (then this unit may be promoted out of blocked/ by a held PR).
+  basis: One leg, one window. Candles are fetched from Binance-vision on the runner (no resident data needed).
 
 run:
-  workflow: null
-  note: Deliberately null until the flags exist.
+  workflow: research-script-run.yml
+  timeout_minutes: 120
+  command:
+  - python3
+  - scripts/research/hyro_fit_verdict.py
+  - --mode
+  - dayflat
+  - --leg
+  - trend_donchian_eth_prop
+  - --days
+  - '1830'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20260930-503
+  note: >-
+    The harness levers (--flat-at-utc, --no-entry-after-utc, bar_label) are merged on main (#14583, #14618, #14630).
+    --mode dayflat runs the leg at its live config parameters on native 1h candles, WITHOUT --resample, and
+    grades the ledger with 501's gates plus the same-UTC-day share.
 
 lands:
   store: research/results/
@@ -78,4 +78,4 @@ lands:
 related:
   - RQ-20260930-501
   - docs/research/hyro-strategy-feasibility-2026-09-30.md
-last_dispatched_at: null
+last_dispatched_at: '2026-09-30T14:51:18+00:00'

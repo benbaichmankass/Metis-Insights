@@ -26,6 +26,9 @@ and grades the FILLED ledger with the same gates B and C plus two more, all regi
 Reported beside it, never gating: the same legs in MARKET mode charged HyroTrader's 11 bps taker-taker round trip
 (``--fee-bps-roundtrip 11``), so the question "does maker entry beat what HyroTrader would charge a market fill"
 is answered from the same window.
+``--mode dayflat`` (RQ-20260930-503): runs ``scripts/backtest_trend.py`` on the native 1h candles of one
+configured trend leg (no ``--resample``) with ``--flat-at-utc 23:45 --no-entry-after-utc 20:00``, then
+grades that ledger with the base gates plus a same-UTC-day share >= 0.95 (the registered rule).
 ``--from-ledger`` skips the builder and grades committed ledgers (used by the tests; it is a
 smoke path, NOT a pre-registered run).
 
@@ -44,7 +47,7 @@ import json
 import statistics as st
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -63,7 +66,10 @@ def _ts(x: Any) -> datetime:
     return datetime.fromisoformat(str(x).replace("Z", "+00:00"))
 
 
-def spec_from_ledgers(name: str, paths: List[str]) -> Dict[str, Any]:
+def spec_from_ledgers(name: str, paths: List[str], entry_offset: "timedelta | None" = None) -> Dict[str, Any]:
+    """``entry_offset`` shifts the ENTRY MOMENT used for the same-UTC-day share only. Native-candle ledgers
+    stamp entry_time with the signal bar's OPEN, but the fill is that bar's close (open + one bar), which is
+    the entry moment the day-flat rule is written against (RQ-20260930-503)."""
     rows: List[Dict[str, Any]] = []
     for p in paths:
         rows += [json.loads(x) for x in Path(p).read_text().splitlines() if x.strip()]
@@ -71,11 +77,12 @@ def spec_from_ledgers(name: str, paths: List[str]) -> Dict[str, Any]:
     e = [_ts(r["entry_time"]) for r in rows]
     x = [_ts(r["exit_time"]) for r in rows]
     span = max((max(x) - min(e)).days, 1)
+    e_fill = [t + entry_offset for t in e] if entry_offset else e
     return dict(
         name=name, n=len(rows), span_days=span, block_len=4,
         r_samples=[float(r["net_r"]) for r in rows],
         trades_per_day=len(rows) / span,
-        same_day_frac=sum(a.date() == b.date() for a, b in zip(e, x)) / len(rows),
+        same_day_frac=sum(a.date() == b.date() for a, b in zip(e_fill, x)) / len(rows),
         stop_pct=st.median(abs(r["entry"] - r["sl"]) / r["entry"] * 100 for r in rows),
     )
 
@@ -164,7 +171,7 @@ def run_limit_legs(legs: List[str], days: int, out: Path, *, run=subprocess.run,
                    today: "datetime | None" = None,
                    strategies: Dict[str, Any] | None = None) -> Dict[str, Any]:
     """Run each leg in limit mode (the verdict arm) and in market mode at 11 bps (report only)."""
-    from datetime import timedelta, timezone
+    from datetime import timezone
     end_d = (today or datetime.now(timezone.utc)).date() - timedelta(days=1)
     start = (end_d - timedelta(days=days)).isoformat()
     end = end_d.isoformat()
@@ -198,6 +205,70 @@ def run_limit_legs(legs: List[str], days: int, out: Path, *, run=subprocess.run,
     return res
 
 
+DAYFLAT_SAME_DAY_MIN = 0.95
+DAYFLAT_FLAT_AT, DAYFLAT_NO_ENTRY_AFTER = "23:45", "20:00"
+DAYFLAT_BAR = timedelta(hours=1)          # registered: NATIVE 1h candles, bar_label open
+
+
+def _load_rdm():
+    sys.path.insert(0, str(REPO / "scripts" / "research"))
+    import regime_debt_matrix
+    return regime_debt_matrix
+
+
+def dayflat_cmd(leg: str, cfg: Dict[str, Any], csv: str, emit: str, js: str, start: str, end: str):
+    """Returns (argv, levers the harness does not model). The leg's live-parameter trend argv (regime_debt_matrix.build_harness_cmd) on NATIVE candles: the
+    ``--resample`` pair it always adds is removed (RQ-503 registers native 1h, bar_label open), and the two
+    day-flat levers are appended."""
+    rdm = _load_rdm()
+    argv, _faithful, omitted = rdm.build_harness_cmd(leg, cfg, "trend", csv, cfg["timeframe"], emit, js)
+    if "--resample" in argv:
+        i = argv.index("--resample")
+        del argv[i:i + 2]
+    argv += ["--strategy-name", leg, "--start", start, "--end", end,
+             "--flat-at-utc", DAYFLAT_FLAT_AT, "--no-entry-after-utc", DAYFLAT_NO_ENTRY_AFTER]
+    return argv, omitted
+
+
+def run_dayflat(leg: str, days: int, out: Path, *, run=subprocess.run, today: "datetime | None" = None,
+                strategies: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    from datetime import timezone
+    if strategies is None:
+        import yaml
+        strategies = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())["strategies"]
+    cfg = strategies[leg]
+    end_d = (today or datetime.now(timezone.utc)).date() - timedelta(days=1)
+    start, end = (end_d - timedelta(days=days)).isoformat(), end_d.isoformat()
+    res: Dict[str, Any] = {"ledgers": [], "failed": None, "window": [start, end], "leg": leg}
+    csv, why = fetch_candle_file(str(cfg["symbols"][0]), str(cfg["timeframe"]), out / "data", run=run)
+    if csv is None:
+        res["failed"] = f"{leg}: {why}"
+        return res
+    emit, js = str(out / f"{leg}__dayflat.jsonl"), str(out / f"{leg}__dayflat.json")
+    argv, omitted = dayflat_cmd(leg, cfg, str(csv), emit, js, start, end)
+    p = run(argv, capture_output=True, text=True, cwd=str(REPO))
+    if p.returncode != 0 or not Path(emit).exists():
+        res["failed"] = f"{leg} dayflat: rc={p.returncode} {(p.stderr or '')[-300:]}"
+        return res
+    res["ledgers"].append(emit)
+    res["levers_not_modelled_by_harness"] = omitted
+    return res
+
+
+def grade_dayflat(spec: Dict[str, Any], stats: Dict[str, Any], ruleset_path: str) -> Dict[str, Any]:
+    """RQ-20260930-503 rule: base gates (n floor, net R > 0, B, C) + same-UTC-day share >= 0.95."""
+    v = grade(spec, ruleset_path)
+    share = float(spec["same_day_frac"])
+    v.update(same_utc_day_share=round(share, 4), window=stats.get("window"),
+             levers_not_modelled_by_harness=stats.get("levers_not_modelled_by_harness"))
+    if v["verdict"] == "indeterminate":          # underpowered: never flipped to FAIL
+        return v
+    ok = v["verdict"] == "pass" and share >= DAYFLAT_SAME_DAY_MIN
+    v["verdict"] = "pass" if ok else "fail"
+    v.setdefault("gates", {}).update(same_day_share_ge_0_95=share >= DAYFLAT_SAME_DAY_MIN)
+    return v
+
+
 def grade_limit(spec: Dict[str, Any], stats: Dict[str, Any], ruleset_path: str) -> Dict[str, Any]:
     """RQ-20260930-502 rule: base gates (n floor, net R > 0, B, C) + fill rate + edge per signal."""
     v = grade(spec, ruleset_path)
@@ -224,13 +295,23 @@ def main() -> int:
     ap.add_argument("--days", type=int, default=1830)
     ap.add_argument("--out", required=True)
     ap.add_argument("--ruleset", default="config/prop_rulesets/hyrotrader.yaml")
-    ap.add_argument("--mode", choices=("evidence", "limit"), default="evidence",
+    ap.add_argument("--mode", choices=("evidence", "limit", "dayflat"), default="evidence",
                     help="evidence = RQ-20260930-501 (default); limit = RQ-20260930-502 maker-entry rule")
     ap.add_argument("--from-ledger", action="append", default=None,
                     help="SMOKE PATH: grade these committed ledgers instead of running the builder")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
+    if a.mode == "dayflat":
+        stats = run_dayflat(a.leg[0], a.days, out)
+        if stats["failed"] or not stats["ledgers"]:
+            v = dict(verdict="not_applicable", read_state="producer_failed", n=None,
+                     population=f"dayflat harness run failed: {stats['failed']}")
+        else:
+            v = grade_dayflat(spec_from_ledgers(a.leg[0], stats["ledgers"], entry_offset=DAYFLAT_BAR), stats, a.ruleset)
+        (out / "verdict.json").write_text(json.dumps(v, indent=1) + "\n")
+        print(json.dumps(v, indent=1))
+        return 0
     if a.mode == "limit":
         stats = run_limit_legs(a.leg, a.days, out)
         if stats["failed"] or not stats["ledgers"]:
