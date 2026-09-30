@@ -1133,7 +1133,8 @@ def test_dispatcher_fires_in_priority_order(tmp_path, monkeypatch, capsys):
 
 
 def test_session_bound_unit_is_not_a_dispatch_failure(tmp_path, capsys):
-    import json, yaml
+    import json
+    import yaml
     from scripts.research import dispatch_queue
     u = {"id": "RQ-20260901-001", "status": "queued", "cadence": "once", "title": "t", "question": "q",
          "run": {"workflow": "none -- session-local"}, "lands": {"store": "s"}}

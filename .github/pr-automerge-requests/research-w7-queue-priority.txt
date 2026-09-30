@@ -1,1 +1,0 @@
-RESEARCH-W7: research-queue priority field, priority-ordered dispatch, session-bound not_due.
