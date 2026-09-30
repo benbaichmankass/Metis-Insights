@@ -1447,6 +1447,78 @@ def test_a_tripped_latch_refuses_the_next_ticket(env):
     assert not any(c[0] == "place_bracket" for c in ad.calls)
 
 
+class JournalDownApi(FakeApi):
+    """open_fills raises URLError-like for the first ``down`` calls (an
+    ict-web-api restart by the deploy, 2026-09-30 16:05:05-07Z)."""
+    def __init__(self, *a, down=1, **kw):
+        super().__init__(*a, **kw)
+        self.down = down
+
+    def open_fills(self, account_id):
+        if self.down > 0:
+            self.down -= 1
+            raise OSError("[Errno 111] Connection refused")
+        return super().open_fills(account_id)
+
+
+def test_one_journal_read_failure_blocks_entries_but_does_not_latch(env):
+    # PI-20260930-KMYJ5XC7-0011: one refused journal read latched the executor
+    ledger, state = env
+    ad = FakeAdapter()
+    res = run(ad, JournalDownApi([ticket()], down=1), env)
+    assert state.halted() is None
+    assert res.halted and "journal read failed" in res.halted
+    assert any("journal read failed" in a and "no entries this cycle" in a for a in res.alerts)
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+    assert ledger.latest() == {}                       # the ticket is not refused: next cycle takes it in
+    res = run(ad, JournalDownApi([ticket()], down=0), env)
+    assert state.halted() is None and not (res.halted or "").startswith("journal read failed")
+
+
+def test_two_consecutive_journal_read_failures_latch(env):
+    _, state = env
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() is None
+    res = run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() and "2 consecutive ticks" in state.halted() and "journal read failed" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+
+
+def test_a_terminal_error_then_a_journal_error_share_the_count(env):
+    _, state = env
+    run(FakeAdapter(read_error="x"), FakeApi(), env)
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() and "2 consecutive ticks" in state.halted()
+
+
+def test_a_clean_tick_resets_the_journal_error_count(env):
+    _, state = env
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    run(FakeAdapter(), FakeApi(), env)
+    run(FakeAdapter(), JournalDownApi(down=1), env)
+    assert state.halted() is None
+
+
+def test_a_failed_journal_read_never_counts_as_flat(env):
+    # A journal-open fill with the terminal flat is reported closed only after
+    # two CLEAN reads; a failed read in between is not one of them.
+    fills = [{"id": 1, "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+              "status": "open", "ticket_id": "tx", "sl": 118, "tp": 126}]
+    api = JournalDownApi([], fills, down=1)
+    run(FakeAdapter(), api, env)                        # failed read
+    run(FakeAdapter(), api, env)                        # first clean read
+    assert not [p for p in api.posts if p.get("status") == "closed"]
+    run(FakeAdapter(), api, env)                        # second clean read
+    assert [p["ticket_id"] for p in api.posts if p.get("status") == "closed"] == ["tx"]
+
+
+def test_journal_read_failures_never_write_the_latch_in_read_only(env):
+    _, state = env
+    for _ in range(3):
+        run(FakeAdapter(), JournalDownApi(down=1), env, mode="read_only")
+    assert state.halted() is None
+
+
 def test_record_tick_error_trips_on_the_second(tmp_path):
     assert pe.record_tick_error(tmp_path, True, "TimeoutError") is None
     trip = pe.record_tick_error(tmp_path, True, "TimeoutError")

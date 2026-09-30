@@ -289,6 +289,13 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # inference from the code rather than an observation of the fleet — and the
     # .env says only what the NEXT restart picks up.
     "EXIT_LOOP_IB_BREAKER_DISABLED",
+    # Added 2026-09-30 (DONCHIAN-PARITY, PI-20260930-GQPT6PQF-0002). The one-entry-
+    # per-bar debounce (strategy_monocle._same_bar_entry_for_strategy) is what stops
+    # a decision_bar: closed leg taking a SECOND position on the same bar across the
+    # post-close window; any non-empty value DISABLES it, and nothing could read the
+    # live value back (the review of #14800 could only say "unverified"). A boolean
+    # kill-switch: safe to publish.
+    "STRATEGY_BAR_DEBOUNCE_DISABLED",
     # --- Cadence / budget knobs (an unparseable one changes behaviour) ---
     "TICK_INTERVAL_SECONDS",
     "HEARTBEAT_INTERVAL_SECONDS",

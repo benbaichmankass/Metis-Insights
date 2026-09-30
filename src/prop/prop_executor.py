@@ -817,17 +817,31 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             res.halted = _trip(res, state, live, f"executor errors on {n} consecutive ticks ({why})")
         res.log("halt_no_entries", why=res.halted)
         return res
+    prior_errors = int(st.get("consecutive_errors") or 0)
     st["consecutive_errors"] = 0
     res.reads = {"account": acct.as_dict(), "positions": len(positions), "orders": len(orders)}
     if acct.balance is None or acct.equity is None:
         res.alerts.append("balance/equity did not parse this cycle")
 
     halted = state.halted()
+    # A failed journal read is an executor error like a failed terminal read
+    # (PI-20260930-KMYJ5XC7-0011): it counts toward TRIP_CONSECUTIVE_ERRORS and
+    # blocks entries THIS cycle only. It used to latch on the first failure, so
+    # one ict-web-api restart by the deploy (16:05:05-07Z on 2026-09-30) halted
+    # the executor until a person cleared it. The terminal-side containment in
+    # step 3 still runs; the journal reconcile (step 4) is skipped, so a failed
+    # read never counts as "flat".
+    journal_error = None
     try:
         journal_open = api.open_fills(cfg.account_id)
     except Exception as exc:
         journal_open = None
-        halted = halted or f"journal read failed ({type(exc).__name__})"
+        journal_error = f"journal read failed ({type(exc).__name__})"
+        n = prior_errors + 1
+        st["consecutive_errors"] = n
+        res.alerts.append(f"{journal_error}; no entries this cycle")
+        if n >= TRIP_CONSECUTIVE_ERRORS:
+            halted = halted or _trip(res, state, live, f"executor errors on {n} consecutive ticks ({journal_error})")
 
     # 3. reconcile the ledger (confirm by re-read, contain per § 3.5)
     claimed_keys = set()
@@ -895,6 +909,12 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                             "balance": acct.balance, "equity": acct.equity,
                             "unrealized": acct.unrealized, "realized_today": acct.realized_today,
                             "day_start_balance": ds, "source": "prop_executor"})
+    if journal_error:
+        # Before intake, so no ticket reaches the guards and is refused: it is
+        # taken in by the next clean cycle.
+        res.halted = res.halted or journal_error
+        res.log("halt_no_entries", why=journal_error)
+        return res
 
     # 5. intake
     try:
