@@ -629,6 +629,59 @@ def observe(
     return Decision(transition, page, reason, entry)
 
 
+def touch_standing(
+    account: object,
+    symbol: object,
+    side: object,
+    share_hold: Optional[str],
+    now: Optional[datetime] = None,
+    path: Optional[Path] = None,
+) -> bool:
+    """Refresh ``last_seen`` of an ALREADY-STANDING wedge re-evidenced by a close.
+
+    PI-20260930-ZIFJ1RKM-0005. :func:`observe` is reached only on the alert
+    path, gated by the close-failure streak, and a market-session defer resets
+    that streak. So after every closed session a re-probe that re-evidenced the
+    wedge left ``last_seen`` stale, :func:`decide_close_retry` kept answering
+    ``reprobe_due``, and the close was re-attempted on every tick until the
+    streak re-reached the alert threshold. MEASURED 2026-09-30 on alpaca_paper
+    GLD: three cancel-and-place rounds (08:02:06 / 08:02:22 / 08:02:51) before
+    suppression resumed at 08:03:21.
+
+    ⚠️ **This is NOT :func:`observe`, and must not grow into one.** It never
+    classifies a transition, never touches ``share_hold`` / ``evidence`` /
+    ``first_seen`` / the paging fields, and never decides a page. Those stay on
+    the alert path, whose cadence is unchanged. The GLD wedge alternates between
+    the two unclearable readings, and :func:`classify_transition` calls that
+    ``evidence_changed``, which pages; routing every re-probe through
+    :func:`observe` would page about every hour.
+
+    Refreshes only when ALL hold: the reading is unclearable
+    (:func:`is_unclearable`), the store reads cleanly, and an entry already
+    stands for the key. A first sighting is not this function's business: it
+    still reaches the ledger through :func:`observe` and pages as newly wedged.
+
+    Returns True only when the refresh was written. Never raises.
+    """
+    try:
+        if not is_unclearable(share_hold):
+            return False
+        store = _load(path)
+        if store["read_state"] != "read":
+            return False
+        key = wedge_key(account, symbol, side)
+        entry = store["wedges"].get(key)
+        if not isinstance(entry, dict):
+            return False
+        now = now or datetime.now(timezone.utc)
+        entry["last_seen"] = now.isoformat()
+        store["wedges"][key] = entry
+        return _save(store, path, now=now)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("close_wedge_standing: touch_standing failed (%s)", exc)
+        return False
+
+
 def resolve_confirmed(
     account: object, symbol: object, side: object,
     attribution: str = "monitor observed a confirmed close",

@@ -1,0 +1,166 @@
+# MD-SOAK-EXIT-CELL-PATHB -- the runner (pipeline PI-20260930-39SDYWCO-0001).
+#
+# Once a day, read docs/research/e35-bracket-corpus.jsonl, pick ONE pure-stop
+# `path_b_wf_pass` cell per leg by the B4 rule, and ask
+# scripts/ops/mandate_resolver.py::resolve_exit_cell whether the GRANTED mandate
+# (config/mandates.yaml, operator 2026-09-30, "Grant; firing opens a PR") lets it
+# ship. See scripts/ops/exit_cell_runner.py for what a FIRE writes: ONE key,
+# `atr_stop_mult`, on ONE soak-only leg, plus its coverage-matrix cell and a
+# firing record. Nothing else.
+#
+# ⚠️ IT NEVER MERGES. The mandate carries no `autoland` field, so a FIRE opens a
+# NON-draft PR declared `landing: hold` (Tier-3) and a realtime ping; the manager
+# merges after review. That is the grant as written, not a temporary fallback.
+#
+# ⚠️ WHAT THIS CANNOT DO AND SAYS SO. It cannot regenerate the leg's Stage-0
+# evidence record without the harness and candle data, so a FIRE runs
+# scripts/ops/build_strategy_evidence.py for the fired leg and FAILS THE JOB (no
+# PR) if that fails -- a stale record would be a PR that reads as complete and is
+# not. That step has NOT been observed on a runner: merged is not observed. A
+# config edit can also ripple into a test that pins the old value (#14332 touched
+# tests/test_etf_intraday_rollout2b_wiring.py); that PR goes red and a person
+# fixes the pin.
+#
+# On a run where nothing fires it changes nothing but, at most, one pipeline row
+# for a NEEDS-DATA cause no open row already names (landed via commit-to-main).
+name: exit-cell-mandate
+
+on:
+  schedule:
+    - cron: "23 8 * * *"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "true = enforce (open the PR on a FIRE, file NEEDS-DATA rows); false = dry run"
+        default: "true"
+
+concurrency:
+  group: exit-cell-mandate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # schedule-keeper: GitHub creates this repo's scheduled runs hours late, so
+  # schedule-keeper.yml dispatches this workflow near its slot and this job
+  # skips the LATE scheduled run of a slot the keeper already ran.
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
+  runner:
+    needs: dedupe
+    if: ${{ !cancelled() && needs.dedupe.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    # >= the commit-to-main merge wait (30m, .github/actions/commit-to-main) + 5m slack:
+    # tests/test_commit_to_main_callers.py enforces it.
+    timeout-minutes: 45
+    env:
+      APPLY: ${{ github.event.inputs.apply || 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          # The PAT: a GITHUB_TOKEN PR gets no required checks (PI-20260928-TURC5MJC-0004).
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -q pyyaml
+
+      - name: Run the runner
+        id: run
+        run: |
+          set -euo pipefail
+          flag=""; [ "$APPLY" = "true" ] && flag="--apply"
+          python3 scripts/ops/exit_cell_runner.py $flag --json \
+            --session-ref "github_actions_${{ github.run_id }}" \
+            --run-ref "${{ github.run_id }}" > runner.json
+          python3 scripts/ops/exit_cell_runner.py > summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          d = json.load(open("runner.json"))
+          print("fired=" + str(len(d["result"]["fire"])))
+          print("filed=" + str(len(d["filed"])))
+          print("legs=" + ", ".join(f"{e['leg']} ({e['cell']})" for e in d["result"]["fire"]))
+          print("fired_legs=" + " ".join(e["leg"] for e in d["result"]["fire"]))
+          PY
+
+      - name: Land NEEDS-DATA pipeline rows (no FIRE)
+        if: steps.run.outputs.fired == '0' && steps.run.outputs.filed != '0' && env.APPLY == 'true'
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/pipeline
+          message: "exit-cell-mandate: file NEEDS-DATA pipeline row(s)"
+          pr-title: "exit-cell-mandate: NEEDS-DATA pipeline row(s)"
+          pr-body: "Filed by .github/workflows/exit-cell-mandate.yml run ${{ github.run_id }}. Pipeline register data only."
+          # Without this the step exits 0 the moment the PR OPENS, so a row that never merges reads as success.
+          verify-merged: "true"
+
+      - name: Rebuild the Stage-0 evidence for each fired leg (fails the job, no PR)
+        if: steps.run.outputs.fired != '0' && env.APPLY == 'true'
+        run: |
+          set -euo pipefail
+          pip install -q -r requirements-backtest.txt
+          for leg in ${{ steps.run.outputs.fired_legs }}; do
+            PYTHONPATH=. python3 scripts/ops/build_strategy_evidence.py --strategy "$leg"
+          done
+
+      - name: Push the branch, open the HELD PR and the realtime ping
+        if: steps.run.outputs.fired != '0' && env.APPLY == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          LEGS: ${{ steps.run.outputs.legs }}
+        run: |
+          set -euo pipefail
+          branch="automation/exit-cell-${{ github.run_id }}"
+          slug="${branch//\//-}"
+          mkdir -p .github/pr-landing
+          python3 - "$slug" "$LEGS" <<'PY'
+          import json, sys
+          slug, legs = sys.argv[1], sys.argv[2]
+          json.dump({"tier": 3, "landing": "hold", "hold_reason": "tier_2_3_needs_approval",
+                     "hold_text": f"MD-SOAK-EXIT-CELL-PATHB FIRED for {legs}. The grant is 'firing opens a PR' "
+                                  "and carries no autoland field, so the manager reviews and merges.",
+                     "why": "automated soak-only atr_stop_mult declare under the granted mandate "
+                            "MD-SOAK-EXIT-CELL-PATHB; one key on the fired leg(s), its coverage-matrix "
+                            "cell, a firing record and the regenerated Stage-0 evidence"},
+                    open(f".github/pr-landing/{slug}.json", "w"), indent=2)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -A -- config/strategies.yaml docs/research/exit-refinement-coverage.json \
+            comms/mandate_firings comms/strategy_evidence docs/claude/work/pipeline .github/pr-landing
+          git commit -m "MD-SOAK-EXIT-CELL-PATHB: declare ${LEGS}"
+          git push -u origin "$branch"
+          body="$(printf 'MD-SOAK-EXIT-CELL-PATHB FIRED (run %s) for: %s\n\nEvidence: comms/mandate_firings/ and the regenerated comms/strategy_evidence/ in this diff. Resolver report:\n\n%s\n\nLanding: HELD (Tier-3, no autoland). If a test pins the old value this PR is red until a person fixes the pin. Roll back by restoring the prior atr_stop_mult recorded in the firing record.\n' "${{ github.run_id }}" "$LEGS" "$(cat summary.md)")"
+          gh pr create --base main --head "$branch" --title "MD-SOAK-EXIT-CELL-PATHB: declare ${LEGS}" --body "$body"
+          gh issue create --label system-action \
+            --title "send-ping: exit-cell mandate fired" \
+            --body "$(printf 'action: send-ping\npriority: high\nmessage: MD-SOAK-EXIT-CELL-PATHB FIRED for %s. PR opened by run %s; landing HELD for manager review.\nreason: MD-SOAK-EXIT-CELL-PATHB evidence_required names a realtime ping' "$LEGS" "${{ github.run_id }}")"

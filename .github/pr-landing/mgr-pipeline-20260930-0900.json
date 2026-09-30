@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pipeline filing only: two new queued items (NaN-confidence default in R-AFFORD; pipeline self-test non-determinism). Data under docs/claude/work/pipeline/, no code."
+}

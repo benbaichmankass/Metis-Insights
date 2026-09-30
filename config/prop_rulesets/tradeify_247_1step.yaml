@@ -10,8 +10,9 @@
 # PROVENANCE: this file is byte-identical to PR #14580's (lane
 # TRADEIFY-PORTFOLIO) up to `economics:`; lane TRADEIFY-WIRE (2026-09-30) added
 # the `routing:` and `sizing:` blocks at the end so the live account
-# `tradeify_1` (config/accounts.yaml) can use it. If #14580 lands first, keep
-# this superset.
+# `tradeify_1` (config/accounts.yaml) can use it. #14580 landed first; this
+# is a strict superset of it (additions only). scripts/research/prop_ev_sim.py
+# takes sizing from its own --risk-pct/--sizing flags, never from `sizing:`.
 #
 # UNCONFIRMED (not first-party-verified, strictest reading chosen): commission
 # per side; leverage cap per position; max-loss on live equity; funded start
