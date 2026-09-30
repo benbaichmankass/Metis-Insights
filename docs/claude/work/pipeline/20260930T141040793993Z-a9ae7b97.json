@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "a test pins the dispatch order, or the shadow-status guard is made order-independent, and it is merged before PR #14673 merges; or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-BHYHMK2G-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "src/database.py::mark_order_package_shadow_if_untouched (PR #14672)",
+    "rerun": "Dispatch one ict_scalp_xrp_15m package with tradeify_1 ahead of bybit_1 in the account iteration order, and check whether the package ends status=shadow while bybit_1 holds a live linked trade."
+  },
+  "state": "queued",
+  "what": "TRADEIFY-WIRE F2, from the manager's re-review at 13:32Z 2026-09-30. PR #14672's overwrite guard (a shadow-status write only while status='open' AND linked_trade_id IS NULL) depends on dispatch order. It holds only if tradeify_1 dispatches after bybit_1, and ict_scalp_xrp_15m is shared with bybit_1, which sets only linked_trade_id. Need either a test that pins that order or a guard that does not depend on order. PR C (#14673) stays held until this is closed."
+}

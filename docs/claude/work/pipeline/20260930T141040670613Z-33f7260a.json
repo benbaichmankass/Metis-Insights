@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "PR #14756 merged, before PR #14673 (tradeify_1 go-live) merges; or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-BHYHMK2F-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "src/prop/prop_reconcile.py::match_fill_to_ticket; src/prop/prop_journal.py::set_ticket_status",
+    "rerun": "Record a breakout_1 ticket, then prop_report.ingest_report a tradeify_1 fill carrying that ticket_id; check the fill's ticket_id is None and the breakout_1 ticket's status is unchanged (tests/test_prop_ticket_account_scope.py)."
+  },
+  "routed_to": "PR #14756 (lane TRADEIFY-WIRE, held for manager review)",
+  "state": "routed",
+  "what": "TRADEIFY-WIRE F1, from the manager's re-review at 13:32Z 2026-09-30. On main, a prop report can write to another account's ticket: match_fill_to_ticket accepts an explicit ticket_id without checking it belongs to the reporting account, and set_ticket_status's UPDATE is keyed on ticket_id alone. Fix is in PR #14756: an account_id check in both places, with tests. PR C (#14673) stays held until this is closed."
+}
