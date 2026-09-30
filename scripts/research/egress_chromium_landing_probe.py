@@ -42,21 +42,22 @@ def egress_org() -> str:
         out = subprocess.run(["curl", "-sS", "-m", "15", "https://ipinfo.io/org"],
                              capture_output=True, text=True, timeout=20).stdout.strip()
         return out[:80] or "unknown"
-    except Exception as exc:  # noqa: BLE001 - a measurement tool reports, never raises
+    except (subprocess.SubprocessError, OSError) as exc:
         return f"unknown ({type(exc).__name__})"
 
 
 def main() -> int:
     try:
+        from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
-    except Exception as exc:  # noqa: BLE001
+    except ImportError as exc:
         print(f"environment: playwright not importable ({type(exc).__name__})")
         return 1
     print(f"egress_org={egress_org()}")
     with sync_playwright() as p:
         try:
             browser = p.chromium.launch(headless=True)
-        except Exception as exc:  # noqa: BLE001
+        except PlaywrightError as exc:
             print(f"environment: chromium failed to launch ({type(exc).__name__})")
             return 1
         for url in URLS:
@@ -84,7 +85,7 @@ def main() -> int:
                 print(f"  title={title!r}")
                 print(f"  cloudflare_markers={','.join(found) or 'none'}")
                 print(f"  login_form_rendered={'yes' if (has_pw and has_user) else 'no'} (password_input={has_pw})")
-            except Exception as exc:  # noqa: BLE001
+            except PlaywrightError as exc:
                 print(f"  navigation_error={type(exc).__name__}: {str(exc)[:120]}")
             finally:
                 ctx.close()
