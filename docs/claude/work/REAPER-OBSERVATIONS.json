@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-30T09:36:17Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-30T09:19:51Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T22:41:40Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-30T09:19:51Z",
+  "updated_at": "2026-09-30T09:36:17Z",
   "latest": {
-    "generated_at": "2026-09-30T09:19:51Z",
+    "generated_at": "2026-09-30T09:36:17Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1210,
+      "unregistered_claude_branches": 1212,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 340,
+      "unregistered_but_attributable_sessions": 339,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1407,7 +1407,9 @@
           "claude/mi234-sunset-brief-reads-dispositions"
         ],
         "session_01BBHxEYiMMJtEhnCBhyhmk2": [
-          "claude/tradeify-wire"
+          "claude/tradeify-wire",
+          "claude/tradeify-wire-account",
+          "claude/tradeify-wire-closeout"
         ],
         "session_01BGcK6MYWNqsX3BZGQPhr3D": [
           "claude/ca-b04-audit"
@@ -1482,9 +1484,6 @@
           "claude/mgr-hb-20260909T1826",
           "claude/mi-221-bybit2-eth-phantom-close",
           "claude/mi-221-correct-s12"
-        ],
-        "session_01CwrESbNXfhSLrXX9scjQLY": [
-          "claude/tradeify-portfolio-feasibility"
         ],
         "session_01DMQJewWwFDbMsUEFq98j7J": [
           "claude/mgr-route-audit-20260909T2020"
@@ -1749,7 +1748,7 @@
           "claude/perf-rolling-vol-reverse-scan"
         ],
         "session_01KMYJ5xC7gtPjGVf6Nwywoq": [
-          "claude/breakout-attrition-executor",
+          "claude/breakout-attrition-followup",
           "claude/breakout-attrition-pipeline"
         ],
         "session_01KSZCUtFKze3k7ZvxnTnD4T": [
@@ -1984,8 +1983,8 @@
           "claude/ca-a06-audit"
         ],
         "session_01R2PHzyjMvQoNiB39SdYWco": [
+          "claude/pathb-bound-follows-audit",
           "claude/pathb-exit-cell-runner",
-          "claude/pathb-soak-mandate-proposal",
           "claude/spy-timeout-binding-note-fix"
         ],
         "session_01R7aAE9tHCBNNYDW9msbMb2": [
