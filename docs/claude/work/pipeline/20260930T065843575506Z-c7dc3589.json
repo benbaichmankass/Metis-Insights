@@ -4,7 +4,7 @@
     "clears_when": "at #14581's deploy: the executor's intent ledger on the VM, read by a trainer/vm relay or an executor tick log, lists no row with state 'placed' and no 'valid_until'; OR one is found and cancelled on the terminal by hand, with the ticket_id named. Killed if #14581 is rejected.",
     "kind": "observation"
   },
-  "id": "PI-20260930-KMYJ5XC7-0001",
+  "id": "PI-20260930-KMYJ5XC7-0004",
   "next_action": "dispatch_lane",
   "origin": {
     "kind": "session",

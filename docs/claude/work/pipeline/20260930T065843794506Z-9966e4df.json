@@ -4,7 +4,7 @@
     "clears_when": "a read-only orders-table dump taken right after a resting entry is cancelled (the first real _expire_resting cancel, or a watched test the manager approved) shows no remaining SL/TP rows for that symbol; OR it shows leftovers, and a fix is filed.",
     "kind": "observation"
   },
-  "id": "PI-20260930-KMYJ5XC7-0002",
+  "id": "PI-20260930-KMYJ5XC7-0005",
   "next_action": "dispatch_lane",
   "origin": {
     "kind": "session",
