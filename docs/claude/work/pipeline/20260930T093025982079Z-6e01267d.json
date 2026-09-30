@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "the login-only result for tradeify_1 from the VM is recorded (breakout-login-check account: tradeify_1: login accepted, or a Cloudflare/2FA/CAPTCHA feasibility stop). Operator ANSWERED the buy question 2026-09-30 ~08:24Z: 'Buy the $10k pilot (Recommended)'; wiring is lane TRADEIFY-WIRE (PRs #14663/#14672/#14673).",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-WSTCE9FH-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-dxtrade-firms-2026-09-30.md",
+    "rerun": "Re-read help.tradeify247.co articles 13393256 (DXtrade guide), 13393249 (FAQ), 13393254 (rules) and re-check that dx.tradeify247.co is still the login host; then run a labelled read-only probe shaped like breakout-terminal-probe against / and /specs."
+  },
+  "routed_to": "lane TRADEIFY-WIRE (session_01BBHxEYiMMJtEhnCBhyhmk2); follow-through item PI-20260930-CBHYHMK2-0001",
+  "state": "routed",
+  "what": "PROP-DXTRADE-FIRMS: Tradeify 247 (crypto, DXtrade-only for US) says in its own help center that own bots may use the DXtrade API and VPS is allowed (docs/research/prop-dxtrade-firms-2026-09-30.md). Unmeasured: whether dx.tradeify247.co is behind a Cloudflare/ASN block from our VM (the Breakout Error 1005 precedent, PI-20260929-FRJ7NMPU-0001) and whether https://dx.tradeify247.co/specs (REST API) is served. Decision for operator: approve a $0 read-only landing+specs probe, then optionally a ~$100 (3P price) account for a login-only trial."
+}

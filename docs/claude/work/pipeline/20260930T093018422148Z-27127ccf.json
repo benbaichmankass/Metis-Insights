@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "the rerun passes on main, or CI is shown to run these two files in one process and pass (then the local failure is environment-only; kill with that reason)",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-BHYHMK2B-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "tests/test_smoke_test_pipeline.py",
+    "rerun": "git checkout origin/main && python3 -m pytest -q -p no:cacheprovider tests/test_smoke_test_pipeline.py tests/test_spot_category_routing.py"
+  },
+  "state": "queued",
+  "what": "Pre-existing on origin/main 9f0cee99 (MEASURED 2026-09-30 by lane TRADEIFY-WIRE, python 3.11 with requirements-test.txt): tests/test_smoke_test_pipeline.py fails 4 tests standalone (test_live_path_with_mocked_rejection, test_bybit_exception_returned_in_band, test_bybit_rejection_via_retcode_returned_in_band, test_unexpected_acceptance_returns_real_order_id) with 'conversion from MagicMock to Decimal is not supported' logged from execute.py:1669 _submit_order(bybit); tests/test_spot_category_routing.py passes alone but fails 2 when run after it (order coupling). Not caused by TRADEIFY-WIRE; passed under pytest-xdist distribution on main."
+}
