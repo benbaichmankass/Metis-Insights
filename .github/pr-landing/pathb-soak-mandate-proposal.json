@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1), pipeline row PI-20260929-AQRK6CL1-0013. Records the operator's GRANT of MD-SOAK-EXIT-CELL-PATHB in config/mandates.yaml (Tier-3 path): moved from `proposed:` to `mandates:` with granted_by operator (Ben), the verbatim popup answer and the checklist row PATHB-MANDATE (PR #14550) as source; no `autoland` field. Also a resolve_exit_cell() evaluator in scripts/ops/mandate_resolver.py that no existing consumer calls, tests, and three pipeline rows. No order path, roster, risk cap or strategy param is changed; nothing fires until a runner exists. AMENDED same day: the operator added bound (8), refuse a leg the timeout-binding audit OR the coverage matrix calls CONTAMINATED (bar.refuse_timeout_contaminated), recorded verbatim under `amendment`. FOR THE RECORD: bound (8) now refuses four legs from the operator's 2026-08-30 approved batch (trend_donchian, trend_donchian_ada_4h, trend_donchian_avax_4h, trend_donchian_sol_4h; the audit reads them contaminated), and refuses spy_pullback_1h only via the coverage-matrix note, which re-derivation from the raw rows shows is stale (0 of 39 pairs bind, not 17 of 39).",
+  "hold_text": "Tier-3 by path (config/mandates.yaml). The operator granted the mandate (popup ~05:15Z 2026-09-30, and confirmed in-lane); a Tier-3 change still lands only when the manager merges it on green after review."
+}
