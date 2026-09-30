@@ -19,13 +19,19 @@ from src.prop.platform.dxtrade import INFO_PROBE_ORDERS_DUMP_JS, ONE_CLICK_JS, D
 from tests.test_prop_instrument_info_probe import browser, page_html, run  # noqa: F401  (fixture reuse)
 
 
-def toggle_row(value="false", test_id="one_click_trading", extra=""):
-    """The measured row: toggle div + knob div + label div, as siblings."""
-    return (f'<div class="sc-geoRQH cnXJbC"><div class="sc-jlHfjz brrBxs">'
+def toggle_row(value="false", test_id="one_click_trading", extra="", knob=None, toggle_style=""):
+    """The measured row: toggle div + knob div + label div, as siblings. The
+    knob sits at left:2px when off (MEASURED) and, by construction here, at
+    the right end when on (ON is UNMEASURED on the live terminal)."""
+    knob = knob or ("left" if value == "false" else "right")
+    kx = {"left": "2px", "right": "12px", "none": None}[knob]
+    knob_div = (f'<div class="sc-ikngxL fUCwLL" style="position:absolute;left:{kx};top:2px;'
+                f'width:12px;height:12px"></div>') if kx else ""
+    return (f'<div class="sc-geoRQH cnXJbC"><div class="sc-jlHfjz brrBxs" style="position:relative;height:17px">'
             f'<div class="sc-gFtjaa gXkbVK" data-value="{value}" data-test-id="{test_id}" '
-            f'style="width:26px;height:16px"></div>'
-            f'<div class="sc-ikngxL fUCwLL" style="width:12px;height:12px"></div>'
-            f'<div class="sc-jwaPLR gXSbnX">One-click trading</div>{extra}</div></div>')
+            f'style="position:absolute;left:0;top:0;width:26px;height:16px;{toggle_style}"></div>'
+            f'{knob_div}'
+            f'<div class="sc-jwaPLR gXSbnX" style="margin-left:30px">One-click trading</div>{extra}</div></div>')
 
 
 def read(browser, body):  # noqa: F811
@@ -39,7 +45,7 @@ def read(browser, body):  # noqa: F811
 @pytest.mark.parametrize("value,state", [("false", "off"), ("true", "on")])
 def test_the_measured_toggle_reads_from_its_data_value(browser, value, state):  # noqa: F811
     got = read(browser, toggle_row(value))
-    assert got["state"] == state and got["via"] == "data-value" and got["n_toggles"] == 1
+    assert got["state"] == state and got["via"] == "data-value+knob" and got["n_toggles"] == 1
 
 
 @pytest.mark.parametrize("body,why", [
@@ -57,13 +63,47 @@ def test_anything_but_one_clean_toggle_reads_unknown(browser, body, why):  # noq
 
 
 def test_a_hidden_toggle_is_not_read(browser):  # noqa: F811
-    got = read(browser, toggle_row("false").replace("width:26px;height:16px", "display:none"))
-    assert got["state"] == "unknown" and got["n_toggles"] == 0
+    got = read(browser, toggle_row("false", toggle_style="display:none"))
+    assert got["state"] == "unknown" and got["n_toggles"] == 1 and "not really visible" in got["why"]
 
 
 def test_an_agreeing_aria_state_still_reads(browser):  # noqa: F811
     got = read(browser, toggle_row("false", extra='<span role="switch" aria-checked="false">x</span>'))
-    assert got["state"] == "off" and got["via"] == "data-value+aria"
+    assert got["state"] == "off" and got["via"] == "data-value+knob+aria"
+
+
+# ── manager review of #14723: no false 'off' ───────────────────────────
+
+
+def test_a_hidden_true_duplicate_beside_a_visible_false_reads_unknown(browser):  # noqa: F811
+    hidden_true = ('<div data-test-id="one_click_trading" data-value="true" style="display:none"></div>')
+    got = read(browser, toggle_row("false") + hidden_true)
+    assert got["state"] == "unknown" and got["n_toggles"] == 2 and "need exactly 1" in got["why"]
+
+
+@pytest.mark.parametrize("style", ["opacity:0", "visibility:hidden"])
+def test_a_toggle_that_has_a_size_but_is_not_really_visible_reads_unknown(browser, style):  # noqa: F811
+    got = read(browser, toggle_row("false", toggle_style=style))
+    assert got["state"] == "unknown" and "not really visible" in got["why"]
+
+
+def test_an_invisible_ancestor_also_hides_the_toggle(browser):  # noqa: F811
+    got = read(browser, f'<div style="opacity:0">{toggle_row("false")}</div>')
+    assert got["state"] == "unknown"
+
+
+@pytest.mark.parametrize("value,knob", [("false", "right"), ("true", "left"), ("false", "none"), ("true", "none")])
+def test_the_knob_must_agree_with_data_value(browser, value, knob):  # noqa: F811
+    # Only OFF has ever been observed (#14714); an inverted attribute is not
+    # ruled out, so a disagreeing or missing knob reads unknown.
+    got = read(browser, toggle_row(value, knob=knob))
+    assert got["state"] == "unknown", got
+    assert ("disagrees" in got["why"]) if knob != "none" else ("0 knob candidates" in got["why"])
+
+
+def test_a_failing_toggle_is_never_outvoted_by_an_aria_state(browser):  # noqa: F811
+    got = read(browser, toggle_row("false", knob="right", extra='<span role="switch" aria-checked="false">x</span>'))
+    assert got["state"] == "unknown" and "disagrees" in got["why"]
 
 
 # ── the info probe now passes its one-click gate on the measured shape ─────
@@ -79,12 +119,14 @@ def test_the_info_probe_dry_run_passes_the_one_click_gate_on_the_measured_toggle
     html = measured_page()
     assert 'data-test-id="one_click_trading"' in html and 'type="checkbox"' not in html
     got, st = run(browser, html, click=False)
-    assert got["one_click"]["state"] == "off" and got["one_click"]["via"] == "data-value"
+    assert got["one_click"]["state"] == "off" and got["one_click"]["via"] == "data-value+knob"
     assert got["refused"] is None and "one_click_dump" not in got and st["clicks"] == []
 
 
 def test_the_measured_toggle_reading_on_still_refuses(browser):  # noqa: F811
-    got, st = run(browser, measured_page().replace('data-value="false"', 'data-value="true"'), click=False)
+    html = measured_page().replace(toggle_row("false"), toggle_row("true"))
+    assert 'data-value="true"' in html
+    got, st = run(browser, html, click=False)
     assert "does not read OFF (reads 'on')" in got["refused"] and st["clicks"] == []
 
 

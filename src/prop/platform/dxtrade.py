@@ -1225,11 +1225,17 @@ ORDER_FORM_JS = r"""
 # ``data-test-id="one_click_trading"`` and ``data-value="false"`` (knob at
 # left:2px), a sibling of the label -- no checkbox, switch or aria state, which
 # is why this read ``unknown`` (#13711). It is now read from that attribute:
-# exactly ONE visible ``[data-test-id=one_click_trading]`` INSIDE the label's
-# nearest 3 ancestors, whose ``data-value`` is exactly ``true`` / ``false``.
-# Any other count, value or placement adds nothing, and every reading found
-# (this one plus any checkbox / aria state) must agree, else ``unknown`` --
-# the info probe gates on a positive ``off`` and fails closed on ``unknown``.
+# exactly ONE ``[data-test-id=one_click_trading]`` in the whole document
+# (hidden ones COUNT), really visible (size, and no display:none /
+# visibility:hidden / opacity 0 up the tree), INSIDE the label's nearest 3
+# ancestors, ``data-value`` exactly ``true`` / ``false``, AND exactly one
+# knob whose position agrees (false = knob left, true = knob right). ⚠️ Only
+# the OFF state has ever been observed; ON is UNMEASURED, so the knob check
+# guards against an inverted attribute -- nobody toggles one-click to observe
+# it. A toggle that is present but fails any check makes the whole reading
+# ``unknown`` (it is never out-voted by an aria state), and every reading
+# found must agree -- the info probe gates on a positive ``off`` and fails
+# closed on ``unknown`` (manager reviews of #14723).
 ONE_CLICK_JS = r"""
 () => {
   const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
@@ -1239,12 +1245,53 @@ ONE_CLICK_JS = r"""
   if (!lab) return {state: 'unknown', why: 'label not found'};
   const states = [];
   let via = null;
-  const toggles = [...document.querySelectorAll('[data-test-id=one_click_trading]')].filter(vis);
-  if (toggles.length === 1) {
+  // REALLY visible: a size, and no display:none / visibility:hidden /
+  // opacity 0 on the element or any ancestor (a size-only check passes an
+  // opacity:0 element -- manager review of #14723).
+  const shown = el => {
+    if (!vis(el)) return false;
+    for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse'
+          || parseFloat(cs.opacity) === 0) return false;
+    }
+    return true;
+  };
+  // EVERY toggle counts, visible or not: a hidden duplicate is not filtered
+  // away before the exactly-one check (a hidden 'true' beside a visible
+  // 'false' must not read 'off'). A toggle that is present but fails any
+  // check blocks every other reading too.
+  const toggles = [...document.querySelectorAll('[data-test-id=one_click_trading]')];
+  let toggleWhy = null, knob = null;
+  if (toggles.length > 1) toggleWhy = `${toggles.length} one_click_trading toggles (need exactly 1)`;
+  else if (toggles.length === 1) {
+    const t = toggles[0];
     let near = false;
-    for (let e = lab.parentElement, i = 0; e && i < 3; e = e.parentElement, i++) if (e.contains(toggles[0])) { near = true; break; }
-    const dv = toggles[0].getAttribute('data-value');
-    if (near && (dv === 'true' || dv === 'false')) { states.push(dv === 'true' ? 'on' : 'off'); via = 'data-value'; }
+    for (let e = lab.parentElement, i = 0; e && i < 3; e = e.parentElement, i++) if (e.contains(t)) { near = true; break; }
+    const dv = t.getAttribute('data-value');
+    // The KNOB must agree with data-value: only ONE state (false, knob left)
+    // has ever been MEASURED (#14714) -- ON never was, so an inverted
+    // attribute is not ruled out. Knob = the one really-visible element in
+    // the toggle's parent subtree, smaller than the toggle, horizontally
+    // inside it. Its centre left of the toggle's centre = left.
+    const tr = t.getBoundingClientRect();
+    const knobs = t.parentElement ? [...t.parentElement.querySelectorAll('*')].filter(k => {
+      if (k === t || k.contains(t) || !shown(k)) return false;
+      const r = k.getBoundingClientRect();
+      return r.width >= 4 && r.height >= 4 && r.width < tr.width && r.height <= tr.height + 1
+          && r.left >= tr.left - 1 && r.right <= tr.right + 1 && r.bottom > tr.top && r.top < tr.bottom;
+    }) : [];
+    if (knobs.length === 1) {
+      const r = knobs[0].getBoundingClientRect(), kc = r.left + r.width / 2, tc = tr.left + tr.width / 2;
+      knob = kc < tc ? 'left' : kc > tc ? 'right' : 'centre';
+    }
+    if (!shown(t)) toggleWhy = 'the one_click_trading toggle is not really visible';
+    else if (!near) toggleWhy = "the toggle is not within the label's nearest 3 ancestors";
+    else if (dv !== 'true' && dv !== 'false') toggleWhy = 'data-value is not exactly true/false';
+    else if (knobs.length !== 1) toggleWhy = `${knobs.length} knob candidates (need exactly 1)`;
+    else if (!((dv === 'false' && knob === 'left') || (dv === 'true' && knob === 'right')))
+      toggleWhy = `data-value ${dv} disagrees with the knob (${knob})`;
+    else { states.push(dv === 'true' ? 'on' : 'off'); via = 'data-value+knob'; }
   }
   for (let e = lab, i = 0; e && i < 4; e = e.parentElement, i++) {
     const before = states.length;
@@ -1257,8 +1304,9 @@ ONE_CLICK_JS = r"""
     if (states.length > before) { via = via ? via + '+aria' : 'aria'; break; }
   }
   const uniq = [...new Set(states)];
-  return {state: uniq.length === 1 ? uniq[0] : 'unknown', via, n_toggles: toggles.length,
-          why: uniq.length === 1 ? 'read' : (uniq.length ? 'conflicting controls' : 'no data-value toggle or checkbox/switch/aria state near the label'),
+  const ok = uniq.length === 1 && !toggleWhy;
+  return {state: ok ? uniq[0] : 'unknown', via, n_toggles: toggles.length, knob,
+          why: ok ? 'read' : toggleWhy || (uniq.length ? 'conflicting controls' : 'no data-value toggle or checkbox/switch/aria state near the label'),
           chain: (() => { const c = []; for (let e = lab, i = 0; e && e.tagName && i < 4; e = e.parentElement, i++)
             c.push(e.tagName.toLowerCase() + ((typeof e.className === 'string' && e.className) ? '.' + e.className.trim().split(/\s+/).join('.') : '')
                    + [...e.attributes].map(a => a.name).filter(n => n.startsWith('aria-') || n.startsWith('data-')).map(n => '[' + n + ']').join(''));
