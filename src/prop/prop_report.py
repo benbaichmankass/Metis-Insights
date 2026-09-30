@@ -193,7 +193,8 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
                 else "skipped" if status == "skipped"
                 else "placed" if status == "placed"
                 else "filled")
-            prop_journal.set_ticket_status(fill["ticket_id"], new_status)
+            prop_journal.set_ticket_status(
+                fill["ticket_id"], new_status, account_id=account_id or None)
         except Exception as exc:  # noqa: BLE001
             logger.warning("prop_report: ticket status update failed: %s", exc)
 

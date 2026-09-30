@@ -91,9 +91,20 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
       operator-confirmed/prompted ticket whose later fill/close must link back.
     """
     explicit = fill.get("ticket_id")
-    if explicit:
-        return str(explicit)
     account_id = str(fill.get("account_id") or "").strip()
+    if explicit:
+        # An explicit id is honoured only when it belongs to the reporting
+        # account (TRADEIFY-WIRE F1): with two prop accounts a report from one
+        # must never link to — and so advance — the other's ticket. A mismatch
+        # returns None, so the fill is journaled unlinked, never cross-linked.
+        ticket = prop_journal.get_ticket(str(explicit))
+        owner = str((ticket or {}).get("account_id") or "").strip()
+        if ticket is not None and account_id and owner and owner != account_id:
+            logger.warning(
+                "prop_reconcile: ticket %s belongs to %s, not reporting account "
+                "%s — fill left unlinked", explicit, owner, account_id)
+            return None
+        return str(explicit)
     if not account_id:
         return None
     symbol = str(fill.get("symbol") or "").upper()

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's review (TRADEIFY-WIRE F1, manager re-review 13:32Z 2026-09-30: 'Build it as its own small PR; I'll review it'). Tier-2: prop report ingest writes to the money DB's prop_tickets. Places no order.",
+  "why": "With a second prop account (tradeify_1) a report from one account carrying an explicit ticket_id could link to and advance the OTHER account's ticket: prop_reconcile.match_fill_to_ticket returned any explicit id unchecked and prop_journal.set_ticket_status updated by ticket_id alone. Now an explicit id owned by a different account is left unlinked, and the ingest-path status update is scoped by account_id. Same-account behaviour and the unscoped prompt callers are unchanged (tests)."
+}
