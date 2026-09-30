@@ -29,12 +29,9 @@ TWO THINGS A READER SHOULD KNOW BEFORE TRUSTING A FIRE
   * If the lowest-ranked cell is REFUSEd the leg is NOT retried with its
     second-best: "one cell per leg, chosen by the stated rule" is the grant. The
     report says so, so a stranded leg is visible rather than silent.
-  * `contamination` in the report is the coverage matrix's own `timeout_binding`
-    text for the leg (the harness force-closes at 200 bars and live does not).
-    It is SURFACED, not gated -- the granted bounds do not name it, and adding a
-    bound is the operator's act. As of 2026-09-30 exactly one leg reads
-    CONTAMINATED, `spy_pullback_1h`, which is the cell the operator approved by
-    hand on 2026-09-29.
+  * The timeout-binding bound (operator, 2026-09-30) is enforced by the RESOLVER
+    (clause 2b), not here: a leg the audit OR the coverage matrix calls
+    CONTAMINATED never reaches FIRE. The report prints both readings.
 
 Nothing here regenerates comms/strategy_evidence/<leg>.json: that needs the
 harness and candle data, so the workflow runs build_strategy_evidence.py after
@@ -100,18 +97,6 @@ def pick_cells(root: Path) -> Dict[str, Dict[str, Any]]:
     return best
 
 
-def contamination(root: Path, leg: str) -> Optional[str]:
-    """The matrix's `timeout_binding` text for the leg, or None if it has none."""
-    p = root / MATRIX_REL
-    if not p.is_file():
-        return None
-    for row in json.loads(p.read_text(encoding="utf-8")).get("rows", []):
-        if row.get("strategy") == leg:
-            tb = (row.get("bracket_geometry") or {}).get("timeout_binding")
-            return tb if isinstance(tb, str) and tb.strip() else None
-    return None
-
-
 # --------------------------------------------------------------------------
 # the run
 # --------------------------------------------------------------------------
@@ -122,9 +107,8 @@ def run(root: Path = REPO) -> Dict[str, List[Dict[str, Any]]]:
         res = mr.resolve_exit_cell(leg, cell, root=root)
         entry = {"leg": leg, "cell": cell, "verdict": res["verdict"], "clause": res["clause"],
                  "detail": res["detail"], "evidence": res["evidence"], "row": row,
-                 "contamination": None, "result": res}
+                 "timeout_binding": res["evidence"].get("timeout_binding"), "result": res}
         if res["verdict"] == mr.FIRE:
-            entry["contamination"] = contamination(root, leg)
             out["fire"].append(entry)
         elif res["verdict"] == mr.NEEDS_DATA:
             out["needs_data"].append(entry)
@@ -190,7 +174,7 @@ def apply_fire(entry: Dict[str, Any], root: Path, today: str, run_ref: str) -> L
     fp.parent.mkdir(parents=True, exist_ok=True)
     fp.write_text(json.dumps({
         "mandate": MID, "leg": leg, "cell": cell, "fired_on": today, "run": run_ref,
-        "config_edit": edit, "evidence": entry["evidence"], "contamination": entry["contamination"],
+        "config_edit": edit, "evidence": entry["evidence"], "timeout_binding": entry["timeout_binding"],
         "corpus_row": {k: row.get(k) for k in ("measurement_key", "source", "sweep_generated_at",
                                                "d_net_r", "d_max_dd", "wf_wins_effective", "wf_usable")},
     }, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
@@ -227,8 +211,10 @@ def render(out: Dict[str, List[Dict[str, Any]]]) -> str:
     for k, title in (("fire", "FIRE"), ("needs_data", "NEEDS-DATA"), ("refuse", "REFUSE")):
         for e in out[k]:
             lines.append(f"- **{title}** `{e['leg']}` `{e['cell']}` [{e['clause']}] {e['detail']}")
-            if e.get("contamination"):
-                lines.append(f"  - ⚠️ matrix `timeout_binding`: {e['contamination'][:300]}")
+            if e.get("timeout_binding"):
+                tb = e["timeout_binding"]
+                lines.append(f"  - timeout-binding: audit {tb.get('audit')} "
+                             f"({tb.get('binding')}/{tb.get('graded_pairs')} binding), matrix {tb.get('matrix')}")
     return "\n".join(lines)
 
 
@@ -256,7 +242,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             if pid:
                 filed.append(pid)
     if a.json:
-        slim = {k: [{f: e[f] for f in ("leg", "cell", "verdict", "clause", "detail", "contamination")}
+        slim = {k: [{f: e[f] for f in ("leg", "cell", "verdict", "clause", "detail", "timeout_binding")}
                     for e in v] for k, v in out.items()}
         print(json.dumps({"result": slim, "written": written, "filed": filed}, indent=2))
     else:

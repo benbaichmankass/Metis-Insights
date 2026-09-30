@@ -37,13 +37,13 @@ STRATEGIES = """strategies:
 """
 
 
-def _root(tmp_path, rows=None, cur_text=STRATEGIES):
-    root = base._build(tmp_path, rows=rows, granted=True)
+def _root(tmp_path, rows=None, cur_text=STRATEGIES, **kw):
+    root = base._build(tmp_path, rows=rows, granted=True, **kw)
     (root / "config/strategies.yaml").write_text(cur_text)
     (root / er.MATRIX_REL).parent.mkdir(parents=True, exist_ok=True)
     matrix = {"rows": [{"strategy": LEG, "bracket_geometry": {
         "status": "passed_unshipped", "ref": "old ref", "base_is": None, "base_oos": None,
-        "timeout_binding": "CONTAMINATED: harness force-close bound on 17 of 39 pairs"}}]}
+        "timeout_binding": "MEASURED 2026-08-29: leg CLEAN -- the force-close is inert here"}}]}
     (root / er.MATRIX_REL).write_text(json.dumps(matrix, indent=1, ensure_ascii=False) + "\n")
     return root
 
@@ -62,7 +62,7 @@ def test_a_fire_edits_exactly_one_key_and_nothing_else(tmp_path):
     root = _root(tmp_path)
     out = er.run(root)
     assert [e["cell"] for e in out["fire"]] == ["sm1.5"] and not out["refuse"]
-    assert "CONTAMINATED" in out["fire"][0]["contamination"]   # surfaced, not gated
+    assert out["fire"][0]["timeout_binding"]["audit"] == "clean"
     written = er.apply_fire(out["fire"][0], root, "2026-10-01", "run-1")
     text = (root / "config/strategies.yaml").read_text()
     assert "atr_stop_mult: 1.5  # MD-SOAK-EXIT-CELL-PATHB 2026-10-01: cell sm1.5" in text
@@ -76,6 +76,12 @@ def test_a_fire_edits_exactly_one_key_and_nothing_else(tmp_path):
     fr = json.loads((root / written[2]).read_text())
     assert fr["mandate"] == mr.EXIT_CELL_MANDATE_ID and fr["config_edit"]["to"] == 1.5
     assert sorted(written) == sorted([mr.STRATEGIES_REL, er.MATRIX_REL, written[2]])
+
+
+def test_a_contaminated_leg_never_fires_even_when_it_is_the_best_cell(tmp_path):
+    root = _root(tmp_path, binding=True)
+    out = er.run(root)
+    assert not out["fire"] and out["refuse"][0]["clause"] == "R-TIMEOUT-BINDING"
 
 
 def test_already_declared_is_a_noop_and_writes_nothing(tmp_path):
