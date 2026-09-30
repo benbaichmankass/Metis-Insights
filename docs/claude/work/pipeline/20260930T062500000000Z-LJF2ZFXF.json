@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "scripts/research/short_tf_discovery_sweep.py exists on main with a test on the committed fixture AND RQ-20260930-501 has graded (so a PASS here has a reference book); otherwise re-check RQ-20260930-504's blocked_on block",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-LJF2ZFXF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "HYRO-STRATS lane, session_011sppGNJr87nzGbLjf2zFxf, operator request 2026-09-30 'add a research unit to strategy development to look for some profitable shorter time frame strategies'",
+    "rerun": "test -f scripts/research/short_tf_discovery_sweep.py && echo built || echo not_built; git ls-tree --name-only origin/main research/queue/blocked/RQ-20260930-504.yaml research/queue/RQ-20260930-504.yaml"
+  },
+  "state": "queued",
+  "what": "Build scripts/research/short_tf_discovery_sweep.py so the pre-registered short-timeframe discovery unit RQ-20260930-504 (research/queue/blocked/) can run: enumerate the fixed (family x symbol x timeframe) grid and print K, run each cell through the harness CLI with --emit-trades, compute the Stage A screen (2021-01..2024-09, p<0.05) and the Stage B Bonferroni confirmation (2024-10..latest, p<0.05/S), grade the HyroTrader rule-fit gates (same-day >=0.85, >=10 trades/mo, >=4 qualifying days/mo), write verdict.json with every cell's n and p (survivors and non-survivors). About 1-1.5 lane-days (INFERRED). Then git mv the unit out of blocked/ via a held PR the manager merges before its run."
+}

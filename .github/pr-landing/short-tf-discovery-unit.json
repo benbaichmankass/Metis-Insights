@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "awaiting_evidence",
+  "hold_text": "Registers ONE pre-registered research unit RQ-20260930-504 in research/queue/blocked/ (blocked on an orchestrator script that does not exist yet) plus its pipeline row PI-20260930-LJF2ZFXF-0001. Registration only; nothing run, no config or runtime change. Held for the manager because a new research-queue unit is a registration; it is inert until promoted out of blocked/ by a later held PR. Related evidence: PR #14559 (merged) and held PR #14560.",
+  "why": "Operator request 2026-09-30: add a research unit to strategy development to look for profitable shorter-timeframe strategies. Lane HYRO-STRATS."
+}
