@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "pkg-5e636e3adddf4a83 reads status=closed, OR the operator decides the monocle gate's scope. Proposed: count only open packages with an open trade on an account in the dispatch round's own scope (the E35 round), so a paper-only holding no longer gates a live account. That is a Tier-3 reversal of the 2026-05-03 directive.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-QZSE4AMA-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane LIVE-NO-TRADES (session_01XEHP2RTP24AZWSQZSE4AMA), dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30",
+    "rerun": "scripts/ops/diag_fetch.sh '../bot/order-packages?strategy=ief_pullback_1d&include_paper=true&include_demo=true&limit=3' ; scripts/ops/diag_fetch.sh 'exchange_positions'  # open while status=open and alpaca_paper/alpaca_portfolio hold IEF"
+  },
+  "state": "queued",
+  "what": "[order-path] ief_pullback_1d on alpaca_live (real money) is locked out by a PAPER position. MEASURED 2026-09-30 ~06:00Z: order package pkg-5e636e3adddf4a83 (IEF short, created 2026-07-29 18:50Z) is still status=open because trade 4194 (alpaca_paper, 141 sh) and trade 4195 (alpaca_portfolio, 152 sh) are still open, and /api/diag/exchange_positions confirms both shorts at the broker. The alpaca_live leg on that package was rejected on 07-29 (trade 4196) and alpaca_live is flat. The strategy-monocle gate (_has_open_package_for_strategy, src/runtime/strategy_monocle.py:44) is keyed per strategy+symbol ACROSS ALL ACCOUNTS and ignores direction. So the next ief_pullback_1d signal (long, which alpaca_live's side_filter: long would take) is skipped for alpaca_live until the paper and mirror short exits. The package has tp_r 50 and a 5-ATR trail, so that could take months. It has not cost a trade yet: ief_pullback_1d has had zero directional evals since 2026-08-28 (signals census 09-15..09-30). The operator directive of 2026-05-03 (one open package per strategy globally) predates the Stage-1/Stage-2 split, so a Stage-1 paper position can now veto a Stage-2 real-money entry.",
+  "why_it_matters": "A real-money leg can be silently unable to trade for as long as a paper account holds an old position on the same strategy. The skipped tick leaves no audit row until PR #14565 lands."
+}
