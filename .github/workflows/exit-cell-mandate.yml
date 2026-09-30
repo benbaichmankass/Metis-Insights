@@ -71,7 +71,9 @@ jobs:
     needs: dedupe
     if: ${{ !cancelled() && needs.dedupe.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # >= the commit-to-main merge wait (30m, .github/actions/commit-to-main) + 5m slack:
+    # tests/test_commit_to_main_callers.py enforces it.
+    timeout-minutes: 45
     env:
       APPLY: ${{ github.event.inputs.apply || 'true' }}
     steps:
@@ -117,6 +119,8 @@ jobs:
           message: "exit-cell-mandate: file NEEDS-DATA pipeline row(s)"
           pr-title: "exit-cell-mandate: NEEDS-DATA pipeline row(s)"
           pr-body: "Filed by .github/workflows/exit-cell-mandate.yml run ${{ github.run_id }}. Pipeline register data only."
+          # Without this the step exits 0 the moment the PR OPENS, so a row that never merges reads as success.
+          verify-merged: "true"
 
       - name: Rebuild the Stage-0 evidence for each fired leg (fails the job, no PR)
         if: steps.run.outputs.fired != '0' && env.APPLY == 'true'
