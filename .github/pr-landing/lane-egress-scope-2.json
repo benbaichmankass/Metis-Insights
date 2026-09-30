@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: part 2 of the Breakout terminal egress scoping (other-cloud VM in depth, free local-agent options) plus its document-index row. Nothing built, bought, deployed or routed; no src/, config/, workflow or runtime file touched. No egress was measured or created for it."
+}
