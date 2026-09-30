@@ -1,0 +1,24 @@
+{
+ "n": 1597,
+ "net_r": 62.835,
+ "span_days": 1828,
+ "population": "ict_scalp_eth_15m+ict_scalp_sol_15m+ict_scalp_xrp_15m ledger, 1828d, n=1597",
+ "p_both_gateB": [
+  0.2687,
+  0.2673,
+  0.272
+ ],
+ "p_both_gateC": [
+  0.1713,
+  0.1613,
+  0.174
+ ],
+ "info_p_both_if_half_of_fills_flagged": 0.0167,
+ "verdict": "pass",
+ "read_state": "measured",
+ "gates": {
+  "A_net_r_positive": true,
+  "B_all_seeds_ge_0_25": true,
+  "C_all_seeds_ge_0_10": true
+ }
+}

@@ -17,6 +17,9 @@
 #   ACTION_SYMBOL    - bot symbol whose stranded row to close (e.g. IEF) [required]
 #   ACTION_APPLY     - "true" to write; anything else = dry-run         [optional]
 #   ACTION_EXIT_PRICE- the flatten fill price for local-compute pnl     [optional]
+#   ACTION_ROW       - close only this open trade id                    [optional]
+#   ACTION_EXIT_KIND - sl|tp: the row's own leg filled at the venue     [optional]
+#                      (needs ACTION_ROW + ACTION_EXIT_PRICE)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,6 +62,8 @@ ACCOUNT_ID="${ACCOUNT_ID:?ACCOUNT_ID required}"
 ACTION_SYMBOL="${ACTION_SYMBOL:?ACTION_SYMBOL required}"
 ACTION_APPLY="${ACTION_APPLY:-}"
 ACTION_EXIT_PRICE="${ACTION_EXIT_PRICE:-}"
+ACTION_ROW="${ACTION_ROW:-}"
+ACTION_EXIT_KIND="${ACTION_EXIT_KIND:-}"
 
 PY="${REPO_DIR}/.venv/bin/python3"
 [ -x "${PY}" ] || PY="python3"
@@ -66,6 +71,12 @@ PY="${REPO_DIR}/.venv/bin/python3"
 ARGS=(--account "${ACCOUNT_ID}" --symbol "${ACTION_SYMBOL}")
 if [ -n "${ACTION_EXIT_PRICE// }" ]; then
   ARGS+=(--exit-price "${ACTION_EXIT_PRICE}")
+fi
+if [ -n "${ACTION_ROW// }" ]; then
+  ARGS+=(--row "${ACTION_ROW}")
+fi
+if [ -n "${ACTION_EXIT_KIND// }" ]; then
+  ARGS+=(--exit-kind "${ACTION_EXIT_KIND}")
 fi
 case "${ACTION_APPLY}" in
   true|True)

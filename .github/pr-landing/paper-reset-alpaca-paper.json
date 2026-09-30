@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier 2: extends an operator-gated money-DB writeback action (close-stranded-journal-row) and the system-actions workflow that dispatches it. Approval sought from the manager, who holds the operator's decision on this task (\"Reset the paper account\", manager popup ~06:44Z 2026-09-30, recorded verbatim in PI-20260930-3QNHBGND-0001). The manager reviews and merges; it must be merged AND deployed (pull-and-deploy, or the 5-min git-sync) before the post-reset close of SPY row 6131 can use row:/exit_kind:.",
+  "why": "PAPER-RESET (PI-20260930-ZIFJ1RKM-0001). After the operator swaps alpaca_paper to a new Alpaca paper account, 7 open journal rows must be closed with an honest reason. Six are operator-caused and use the existing action unchanged. One, SPY row 6131, was already stopped out at the venue on 2026-09-29 (8 @ 763.70, MEASURED via alpaca_order_history) while sibling row 4347 kept SPY non-flat, so the existing per-symbol close would book a real strategy stop as an operator close at pnl 0. This adds an optional row: filter and an exit_kind: sl|tp (which needs row: and exit_price:) so that row closes as the sl it was. Without the new keys the action is byte-for-byte unchanged. The broker-flat gate is unchanged. No order path, no strategy, risk or mode change."
+}

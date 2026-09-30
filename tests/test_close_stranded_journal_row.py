@@ -164,3 +164,68 @@ def test_apply_is_idempotent(monkeypatch, db):
                                 reason="operator_flatten_reconciled", db_path=db)
     # row is already closed → no open row remains → clean noop
     assert second["ok"] is True and second["action"] == "noop_no_open_row"
+
+
+# ── row + exit_kind (PAPER-RESET, 2026-09-30) ─────────────────────────────────
+# A netted symbol held one row whose own stop filled at the venue while a
+# sibling row kept the symbol non-flat (alpaca_paper SPY 6131 vs 4347). The two
+# must close differently: the filled row as a strategy `sl` at its venue fill,
+# the sibling as an operator close. These pin that the row filter isolates one
+# row and that exit_kind cannot be used without a row and a price.
+
+def _add_sibling(db_path):
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO trades (id, symbol, direction, entry_price, position_size, "
+        "status, is_backtest, strategy_name, account_id, notes) "
+        "VALUES (2, 'IEF', 'long', 95.0, 2.0, 'open', 0, 'other_leg', "
+        "'alpaca_live', '{}')"
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_row_with_exit_kind_closes_only_that_row_as_venue_fill(monkeypatch, db):
+    _add_sibling(db)
+    _patch_live(monkeypatch, {})  # flat
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=2, exit_kind="sl")
+    assert r["ok"] is True and r["rows_closed"] == 1
+    closed, sibling = _row(db, 2), _row(db, 1)
+    assert closed["status"] == "closed" and closed["exit_reason"] == "sl"
+    assert abs(closed["pnl"] - (93.0 - 95.0) * 2.0) < 1e-9
+    notes = json.loads(closed["notes"])
+    assert notes["exit_price_source"] == "exchange_fill"
+    assert notes["closed_by_venue_leg"] == "sl"
+    assert sibling["status"] == "open"  # the other row is untouched
+
+
+def test_row_not_open_is_refused_and_writes_nothing(monkeypatch, db):
+    _patch_live(monkeypatch, {})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=None,
+                           reason="operator_flatten_reconciled", db_path=db, row_id=99)
+    assert r["ok"] is False and r["action"] == "refused_row_not_open"
+    assert _row(db)["status"] == "open"
+
+
+@pytest.mark.parametrize("kw", [
+    {"row_id": None, "exit_price": 93.0, "exit_kind": "sl"},   # no row
+    {"row_id": 1, "exit_price": None, "exit_kind": "sl"},      # no venue price
+    {"row_id": 1, "exit_price": 93.0, "exit_kind": "trail"},   # not in vocabulary
+])
+def test_exit_kind_needs_row_and_price(monkeypatch, db, kw):
+    _patch_live(monkeypatch, {})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True,
+                           reason="operator_flatten_reconciled", db_path=db, **kw)
+    assert r["ok"] is False and r["action"] == "refused_exit_kind"
+    assert _row(db)["status"] == "open"
+
+
+def test_exit_kind_still_requires_broker_flat(monkeypatch, db):
+    _patch_live(monkeypatch, {"side": "long", "size": 1.0})
+    r = mod.close_stranded("alpaca_live", "IEF", apply=True, exit_price=93.0,
+                           reason="operator_flatten_reconciled", db_path=db,
+                           row_id=1, exit_kind="sl")
+    assert r["action"] == "refused_position_open"
+    assert _row(db)["status"] == "open"

@@ -1219,25 +1219,94 @@ ORDER_FORM_JS = r"""
 
 # Reads the "One-click trading" control. Returns "on" / "off" / "unknown" plus
 # the redacted shape of what it looked at.
+#
+# MEASURED 2026-09-30 (instrument-info-dry, issue #14714, run 36710165302,
+# its one_click_dump): the live toggle is a custom ``div`` with
+# ``data-test-id="one_click_trading"`` and ``data-value="false"`` (knob at
+# left:2px), a sibling of the label -- no checkbox, switch or aria state, which
+# is why this read ``unknown`` (#13711). It is now read from that attribute:
+# exactly ONE ``[data-test-id=one_click_trading]`` in the whole document
+# (hidden ones COUNT), really visible (size, and no display:none /
+# visibility:hidden / opacity 0 up the tree), INSIDE the label's nearest 3
+# ancestors, ``data-value`` exactly ``true`` / ``false``, AND exactly one
+# knob whose position agrees (false = knob left, true = knob right). ⚠️ Only
+# the OFF state has ever been observed; ON is UNMEASURED, so the knob check
+# guards against an inverted attribute -- nobody toggles one-click to observe
+# it. A toggle that is present but fails any check makes the whole reading
+# ``unknown`` (it is never out-voted by an aria state), and every reading
+# found must agree -- the info probe gates on a positive ``off`` and fails
+# closed on ``unknown`` (manager reviews of #14723).
 ONE_CLICK_JS = r"""
 () => {
   const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const lab = [...document.querySelectorAll('body *')].find(el =>
     el.children.length === 0 && /^one[- ]click trading$/i.test(txt(el)));
   if (!lab) return {state: 'unknown', why: 'label not found'};
   const states = [];
+  let via = null;
+  // REALLY visible: a size, and no display:none / visibility:hidden /
+  // opacity 0 on the element or any ancestor (a size-only check passes an
+  // opacity:0 element -- manager review of #14723).
+  const shown = el => {
+    if (!vis(el)) return false;
+    for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse'
+          || parseFloat(cs.opacity) === 0) return false;
+    }
+    return true;
+  };
+  // EVERY toggle counts, visible or not: a hidden duplicate is not filtered
+  // away before the exactly-one check (a hidden 'true' beside a visible
+  // 'false' must not read 'off'). A toggle that is present but fails any
+  // check blocks every other reading too.
+  const toggles = [...document.querySelectorAll('[data-test-id=one_click_trading]')];
+  let toggleWhy = null, knob = null;
+  if (toggles.length > 1) toggleWhy = `${toggles.length} one_click_trading toggles (need exactly 1)`;
+  else if (toggles.length === 1) {
+    const t = toggles[0];
+    let near = false;
+    for (let e = lab.parentElement, i = 0; e && i < 3; e = e.parentElement, i++) if (e.contains(t)) { near = true; break; }
+    const dv = t.getAttribute('data-value');
+    // The KNOB must agree with data-value: only ONE state (false, knob left)
+    // has ever been MEASURED (#14714) -- ON never was, so an inverted
+    // attribute is not ruled out. Knob = the one really-visible element in
+    // the toggle's parent subtree, smaller than the toggle, horizontally
+    // inside it. Its centre left of the toggle's centre = left.
+    const tr = t.getBoundingClientRect();
+    const knobs = t.parentElement ? [...t.parentElement.querySelectorAll('*')].filter(k => {
+      if (k === t || k.contains(t) || !shown(k)) return false;
+      const r = k.getBoundingClientRect();
+      return r.width >= 4 && r.height >= 4 && r.width < tr.width && r.height <= tr.height + 1
+          && r.left >= tr.left - 1 && r.right <= tr.right + 1 && r.bottom > tr.top && r.top < tr.bottom;
+    }) : [];
+    if (knobs.length === 1) {
+      const r = knobs[0].getBoundingClientRect(), kc = r.left + r.width / 2, tc = tr.left + tr.width / 2;
+      knob = kc < tc ? 'left' : kc > tc ? 'right' : 'centre';
+    }
+    if (!shown(t)) toggleWhy = 'the one_click_trading toggle is not really visible';
+    else if (!near) toggleWhy = "the toggle is not within the label's nearest 3 ancestors";
+    else if (dv !== 'true' && dv !== 'false') toggleWhy = 'data-value is not exactly true/false';
+    else if (knobs.length !== 1) toggleWhy = `${knobs.length} knob candidates (need exactly 1)`;
+    else if (!((dv === 'false' && knob === 'left') || (dv === 'true' && knob === 'right')))
+      toggleWhy = `data-value ${dv} disagrees with the knob (${knob})`;
+    else { states.push(dv === 'true' ? 'on' : 'off'); via = 'data-value+knob'; }
+  }
   for (let e = lab, i = 0; e && i < 4; e = e.parentElement, i++) {
+    const before = states.length;
     const cands = [e, ...e.querySelectorAll('input[type=checkbox], [role=switch], [role=checkbox], [aria-pressed], [aria-checked]')];
     for (const c of cands) {
       if (c.type === 'checkbox') states.push(c.checked ? 'on' : 'off');
       const ac = c.getAttribute && (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'));
       if (ac === 'true') states.push('on'); else if (ac === 'false') states.push('off');
     }
-    if (states.length) break;
+    if (states.length > before) { via = via ? via + '+aria' : 'aria'; break; }
   }
   const uniq = [...new Set(states)];
-  return {state: uniq.length === 1 ? uniq[0] : 'unknown',
-          why: uniq.length === 1 ? 'read' : (uniq.length ? 'conflicting controls' : 'no checkbox/switch/aria state near the label'),
+  const ok = uniq.length === 1 && !toggleWhy;
+  return {state: ok ? uniq[0] : 'unknown', via, n_toggles: toggles.length, knob,
+          why: ok ? 'read' : toggleWhy || (uniq.length ? 'conflicting controls' : 'no data-value toggle or checkbox/switch/aria state near the label'),
           chain: (() => { const c = []; for (let e = lab, i = 0; e && e.tagName && i < 4; e = e.parentElement, i++)
             c.push(e.tagName.toLowerCase() + ((typeof e.className === 'string' && e.className) ? '.' + e.className.trim().split(/\s+/).join('.') : '')
                    + [...e.attributes].map(a => a.name).filter(n => n.startsWith('aria-') || n.startsWith('data-')).map(n => '[' + n + ']').join(''));
@@ -2590,6 +2659,42 @@ INFO_PROBE_ORDERS_JS = r"""
 }
 """
 
+# READ-ONLY measurement behind INFO_PROBE_ORDERS_JS. MEASURED 2026-09-30
+# (instrument-info-dry, issue #14714): exactly one visible
+# ``widget_menu_ORDERS`` was found but "no visible widget container around"
+# it -- the Orders widget's own container has never been dumped. For each
+# ``widget_menu_*`` button (visible or not) it walks 12 ancestors and records,
+# per level: tag, class tokens (5+ digit runs, separated 8+ digit groups and
+# 8+ hex runs with a digit masked; 24+ char tokens dropped), whether it is
+# visible, its size, how many tables it holds and whether any header row
+# names Symbol / Order ID / Order Type / a close-type time column. Header
+# words only -- never a cell, never a value. Clicks, focuses and tags nothing.
+INFO_PROBE_ORDERS_DUMP_JS = r"""
+() => {
+  const txt = el => (el.innerText || el.textContent || '').trim().toLowerCase();
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const mask = v => v.replace(/(?<![0-9a-f])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/\d(?:[\s,.-]?\d){7,}/g, m => '#'.repeat(m.length))
+                     .replace(/\d{5,}/g, m => '#'.repeat(m.length));
+  const cls = e => (typeof e.className === 'string' ? e.className : '').split(/\s+/)
+                     .filter(t => t && t.length < 24).map(mask).slice(0, 8);
+  const heads = e => [...e.querySelectorAll('tr')].map(r => [...r.querySelectorAll('th')].map(txt)).filter(h => h.length);
+  const menus = [...document.querySelectorAll('[data-test-id^=widget_menu_]')];
+  return {n_menus: menus.length, menus: menus.slice(0, 12).map(m => {
+    const chain = [];
+    for (let e = m.parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+      const r = e.getBoundingClientRect(), hs = heads(e);
+      chain.push({level: i + 1, tag: e.tagName.toLowerCase(), cls: cls(e), visible: vis(e),
+                  w: Math.round(r.width), h: Math.round(r.height), n_tables: e.querySelectorAll('table').length,
+                  symbol_header: hs.some(h => h.includes('symbol')),
+                  order_header: hs.some(h => h.includes('order id') || h.includes('order type')),
+                  history_header: hs.some(h => h.some(x => /\b(close|closed|execution|filled)\b.*\btime\b/.test(x)))});
+    }
+    return {menu: mask(m.getAttribute('data-test-id') || '').slice(0, 40), visible: vis(m), chain};
+  })};
+}
+"""
+
 INFO_PROBE_PANEL_GONE_JS = r"""
 () => {
   const p = document.querySelector('[data-metis-info-panel]');
@@ -3595,6 +3700,13 @@ class DXtradeAdapter(PropPlatformAdapter):
             out["account_margin_used"] = acct.margin_used
             orders = page.evaluate(INFO_PROBE_ORDERS_JS) or {"found": False, "why": "no result"}
             out["working_orders"] = orders
+            if not orders.get("found"):
+                # Read-only measurement so the Orders locator can be fixed
+                # from the public run log (issue #14714).
+                try:
+                    out["orders_dump"] = page.evaluate(INFO_PROBE_ORDERS_DUMP_JS)
+                except Exception as exc:
+                    out["orders_dump"] = {"error": type(exc).__name__}
             res = page.evaluate(INFO_PROBE_RESOLVE_JS, [want]) or {}
             out["resolve"] = {k: v for k, v in res.items() if k != "ok"}
             original = res.get("linked_symbol")
