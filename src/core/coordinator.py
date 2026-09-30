@@ -1381,6 +1381,12 @@ class Coordinator:
                 "alpaca_env": getattr(account, "alpaca_env", None),
                 "base_url": getattr(account, "base_url", None),
                 "oanda_env": getattr(account, "oanda_env", None),
+                # The prop ruleset (accounts.yaml::backtest_ruleset) so the prop
+                # ticket bridge sizes and routes against THIS account's rules;
+                # absent, unit_for_account defaults a prop account to
+                # prop_rulesets/breakout.yaml. None for non-prop accounts.
+                # TRADEIFY-WIRE 2026-09-30.
+                "backtest_ruleset": getattr(account, "backtest_ruleset", None),
             }
 
             # Per-account live/dry resolution. The caller-supplied

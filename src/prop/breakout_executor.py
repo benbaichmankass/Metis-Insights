@@ -46,10 +46,24 @@ def is_manual_fill_id(trade_id: Any) -> bool:
     return isinstance(trade_id, str) and trade_id.startswith(MANUAL_FILL_PREFIX)
 
 
-def _load_routing() -> Dict[str, Any]:
+def routing_path_for(ruleset_path: Optional[str] = None) -> Path:
+    """The routing file for an account's ruleset: the ruleset's own
+    ``routing:`` key (``config/``-relative) when it declares one, else
+    ``breakout_routing.yaml`` — which is what every account read before a
+    second prop account existed, and what ``breakout.yaml`` (no ``routing:``
+    key) still resolves to (TRADEIFY-WIRE 2026-09-30)."""
+    if not ruleset_path:
+        return _ROUTING_PATH
+    import yaml
+    with open(ruleset_path) as fh:
+        spec = (yaml.safe_load(fh) or {}).get("routing")
+    return (_REPO_ROOT / "config" / str(spec)) if spec else _ROUTING_PATH
+
+
+def _load_routing(ruleset_path: Optional[str] = None) -> Dict[str, Any]:
     try:
         import yaml
-        with open(_ROUTING_PATH) as fh:
+        with open(routing_path_for(ruleset_path)) as fh:
             return yaml.safe_load(fh) or {}
     except Exception as exc:  # noqa: BLE001 — fall back to defaults, never raise
         logger.warning("breakout_executor: routing load failed (%s); using defaults", exc)
@@ -260,7 +274,6 @@ def emit_prop_ticket(
                 "breakout_executor: suppressed-ticket journal write failed: %s", exc)
         return trade_id
 
-    routing = _load_routing()
     sig = BreakoutSignal(
         strategy=strategy, symbol=symbol, direction=direction,
         entry=entry, sl=sl, tp=tp,
@@ -268,6 +281,9 @@ def emit_prop_ticket(
         signal_time=datetime.now(timezone.utc),
     )
     unit = unit_for_account(account_id, account_cfg)
+    # Routing follows the account's ruleset (its `routing:` key); breakout.yaml
+    # declares none, so breakout_1 reads breakout_routing.yaml exactly as before.
+    routing = _load_routing(unit.source)
 
     # SIZING MODE (operator 2026-09-27 ~11:12Z, declared in the ruleset's
     # `sizing:` block): `flat` returns no override and reads nothing, so the

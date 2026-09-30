@@ -1,0 +1,92 @@
+# config/prop_rulesets/tradeify_247_1step.yaml
+# Tradeify 247 (crypto) "1-Step Evaluation", $10k tier, modelled on the STRICTEST
+# reading wherever the firm's own pages differ or are silent.
+# Every number is FIRST-PARTY (help.tradeify247.co), read 2026-09-30 by WebFetch
+# (a small-model summary: re-read the page before relying on exact wording). Full
+# sourcing, the conflicts, and the strictest-reading choices are in
+# docs/research/tradeify-portfolio-feasibility-2026-09-30.md section 1 and 2.
+# NOT verified by buying an account or contacting the firm.
+#
+# PROVENANCE: this file is byte-identical to PR #14580's (lane
+# TRADEIFY-PORTFOLIO) up to `economics:`; lane TRADEIFY-WIRE (2026-09-30) added
+# the `routing:` and `sizing:` blocks at the end so the live account
+# `tradeify_1` (config/accounts.yaml) can use it. If #14580 lands first, keep
+# this superset.
+#
+# UNCONFIRMED (not first-party-verified, strictest reading chosen): commission
+# per side; leverage cap per position; max-loss on live equity; funded start
+# balance. See the memo § 1.6 and § 7.
+ruleset: tradeify_247
+plan: 1-step-10k
+account_size_usd: 10000           # other tiers (1-Step): $25k $231, $50k $431, $100k $838
+profit_split: 0.80                # "You keep 80% of every payout"
+unconfirmed: true                 # desk research only; nothing bought, no firm contacted
+
+phases:
+  evaluation:
+    profit_target_pct: 0.12       # 1-Step: 12% of account size
+    min_trading_days: 0           # none, "no minimum trading days and no minimum profitable days"
+    max_eval_days: null           # "Unlimited"
+  funded:                         # the 1-Step funded account keeps the same limits for life
+    profit_target_pct: null
+    min_trading_days: 0           # 1-Step: none. (2-Step funded needs 3 profitable days before a first payout)
+
+limits:
+  daily_loss_pct: 0.03            # 3% of account size; breach on LIVE EQUITY incl. unrealized
+  # Reset 22:00 UTC. Limit = previous day's CLOSING BALANCE minus 3%.
+  daily_loss_reset_utc: "22:00"
+  daily_loss_basis: equity_vs_daystart_balance
+  max_drawdown_pct: 0.06          # 6% STATIC on 1-Step: floor = start - 6%, never moves, not locked on payout
+  drawdown_type: static
+  max_position_pct: null
+
+consistency:
+  enabled: false                  # none on 1-Step / 2-Step. (Instant Funding: 20% consistency score.)
+  max_single_day_profit_share: null
+
+restrictions:
+  weekend_flat: false             # "You can hold positions as long as you want"
+  overnight_flat: false
+  # NOT expressible in this schema, but binding on any portfolio built for it:
+  #   min_hold_seconds: 20        # "All trades must be held for at least 20 seconds"
+  #   no_hedging: true            # no simultaneous long+short in the SAME instrument (and no cross-account hedge)
+  #   leverage_fixed: BTC/ETH 5:1, altcoins/indices/stocks 2:1 (Instant Funding: 2:1 on everything)
+  #   bots: allowed only if you OWN the bot; shared bots and signal services are not
+  #   inactivity: 30 consecutive days without a trade closes the account as breached
+  #   costs: commission 0.04% per trade; swap/funding 0.033% of position value per day
+
+funded_soak_days: 30
+
+economics:
+  account_fee_usd: 120            # 1-Step $10k
+  rebuy_fee_usd: 120              # no reset discount stated; no reset product found
+  funded_start: fresh             # STRICTEST: the funded account starts at the start balance, no carried profit.
+                                  # Not stated on any page read.
+  first_payout_fee_refund: false  # none stated ("Refund of Fee: N/A")
+  payout:
+    first_payout_after_days: 1    # 1-Step: "no minimum trading days ... no waiting period between payouts"
+    payout_frequency_days: 1      # on demand; only one open request at a time (daily is the modelling grain)
+    min_withdrawal_usd: 100       # "at least $100 in withdrawable profit"
+    min_trading_days_before_payout: 0
+    processing_hours: 48          # "1-2 business days" bank; Confirmo USDC quicker
+  withdrawal_policy:
+    mode: above_start
+    buffer_usd: 0
+    bank_asap: true               # same policy as breakout.yaml: the floor is static and not raised on payout
+    cadence_days: 1
+
+# ── live-account wiring (TRADEIFY-WIRE, 2026-09-30) ─────────────────────────
+# Venue symbol map + ticket band/TTL for tradeify_1. Read by
+# src/prop/breakout_executor.emit_prop_ticket and
+# src/prop/prop_executor.rule_paths_for. Without it both fall back to /
+# refuse, never to Breakout's map by accident.
+routing: prop_rulesets/tradeify_routing.yaml
+
+# Ticket sizing (src/prop/prop_sizing.py). FLAT at the memo's recommended
+# 0.5% risk: 0.5% x $10,000 = $50 per ticket (B3 book, § 3.2-3.3: 0.5% is the
+# only risk at which the pessimistic `stop` bound stays positive). The cap is
+# what PROP_TICKET_RISK_GATE_MODE=enforce resizes a ticket down to.
+sizing:
+  mode: flat
+  flat:
+    max_risk_usd: 50
