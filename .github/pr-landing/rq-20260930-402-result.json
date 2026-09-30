@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Edits an existing research-queue unit (research/queue/RQ-20260930-402.yaml: status + grading block) and adds a research/results record; the landing guard cannot vouch for queue paths. Result landing for the manager to merge.",
+  "why": "Lane M19-S2EXIT-XRP3 (checklist row M19-S2EXIT): lands the RQ-20260930-402 result record (verdict FAIL, n_oos 108, recovered_R_oos -6.1584) and writes the verdict + disposition into the unit. Research record only: no src/, config/, order path or deploy."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "BREAKOUT-ATTRITION: two changes to the live prop executor's order path (src/prop/prop_executor.py), dispatched as HELD PRs; the manager has them independently reviewed and merges under the standing data-backed authorization. (1) A ticket for a symbol the executor does not act on (ETH today) is ledger-recorded but no longer POSTed as `skipped`, so it stays `emitted` for the manual bridge (invalidation warning, expiry prompt, reticket guard). (2) A resting entry limit whose ticket's valid_until has passed is cancelled once (only the matched working orders, only when the ledger row carries valid_until, never a filled position). Deliberately NOT armed: an automerge-request file would land it.",
+  "why": "Stops the executor falsifying manual ETH tickets as skipped and stops an unfilled SOL limit resting past its ticket's validity, where it held the symbol and blocked every same-direction reticket with no time window."
+}

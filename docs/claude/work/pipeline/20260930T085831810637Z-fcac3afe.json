@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "alpaca_portfolio and alpaca_live resolve to the same directional policy (account_side_filter() equal for both) AND the strict-mirror test asserts it, so the two can never diverge on direction again -- OR an operator decision records that the mirror deliberately trades both sides and says how Gate 2 reads it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-SVBNZOVH-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "manager (session_01KAQRJxRbRwpYTkPgBjNVyQ) re-review of PR #13603, 2026-09-28 14:18Z; filed by lane EXEC-FIX session_01C7mgVNtBDmoVSQSvBNzoVh",
+    "rerun": "python3 -c \"import yaml;a=yaml.safe_load(open('config/accounts.yaml'));a=a.get('accounts',a);[print(n,a[n].get('side_filter'),a[n].get('strategies')) for n in ('alpaca_live','alpaca_portfolio')]\""
+  },
+  "state": "done",
+  "terminal_reason": "MERGED 2026-09-30 06:17Z in #14539 (55f3e0d07): alpaca_portfolio and alpaca_live resolve to the same directional policy (side_filter: long), and test_mirror_trade_shaping_fields_equal_live asserts it, so they cannot diverge on direction again without CI going red. The residual non-config divergences were measured and closed under PI-20260930-K7U61JJU-0001 (0 of 1 roster-leg mirror trades live would refuse).",
+  "what": "The Stage-2 mirror takes bearish trades its live account cannot. config/accounts.yaml (measured 2026-09-28 on origin/main): alpaca_live (L1249) carries `side_filter: long` (L1273) with strategies ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d (L1294); its mirror alpaca_portfolio (L1196) carries strategies ief_pullback_1d, slv_pullback_1d (L1204-1206) and NO side_filter key. So a short signal on ief/slv_pullback_1d is suppressed to dry on alpaca_live but TRADED on alpaca_portfolio. tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies (L122) asserts roster equality only, not directional policy, so it passes. CLAUDE.md: 'the mirror and the live account carry the same strategies and take the same trades at all times' and the mirror's net-of-cost window is the Gate-2 DEMOTION signal -- which today includes short-side P&L the live book never takes.",
+  "why_it_matters": "Gate 2 demotion reads the mirror; a mirror carrying trades the live book cannot take can demote (or keep) a live leg on P&L the live account never had."
+}

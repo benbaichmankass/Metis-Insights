@@ -214,6 +214,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import subprocess
 import sys
@@ -1141,7 +1142,21 @@ def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
 
 
 def _num(v: Any) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool)
+    """A real, FINITE number. ⚠️ NaN and inf are rejected on purpose: every bar
+    comparison in this module is written `x < cap` / `x > cap`, which is False
+    for NaN, so a NaN that reached one would PASS it. json round-trips NaN, so a
+    corpus row can carry one. Non-finite is "we could not read it", never a pass."""
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _fin(v: Any) -> float:
+    """float(v), or ValueError if it is not a finite real number."""
+    if isinstance(v, bool):
+        raise ValueError("bool is not a number")
+    f = float(v)
+    if not math.isfinite(f):
+        raise ValueError(f"non-finite: {v!r}")
+    return f
 
 
 def _finite(v: Any) -> bool:
@@ -1279,6 +1294,370 @@ def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path
 
 
 # --------------------------------------------------------------------------
+# MD-SOAK-EXIT-CELL-PATHB -- a CONFIG edit, not a roster move (proposed
+# 2026-09-30, pipeline row PI-20260929-AQRK6CL1-0013).
+#
+# It lives beside `resolve()` rather than inside `_decide()` on purpose: `_decide`
+# is the ladder's roster-edit evaluator (adds/removes, stages, cost fidelity) and
+# this mandate edits ONE key of `config/strategies.yaml` on a leg that stays
+# where it is. Folding it in would have meant a fifth transition that is not a
+# transition. `resolve()`, `TRANSITION_MANDATE` and every existing consumer
+# (r4_demotion_gate, check_mandate_autoland) are untouched.
+#
+# ⚠️ A PROPOSED entry never authorizes. `granted()` reads only `mandates:`, so
+# without `allow_proposed` this REFUSEs R-MANDATE-NOT-GRANTED exactly like every
+# other mandate. `allow_proposed=True` is the DRY evaluation the operator needs
+# to see what a grant would have done; it stamps `authorized: False` and the
+# caveat into the result so a FIRE it returns cannot be read as a grant.
+# --------------------------------------------------------------------------
+EXIT_CELL_MANDATE_ID = "MD-SOAK-EXIT-CELL-PATHB"
+BRACKET_CORPUS_REL = "docs/research/e35-bracket-corpus.jsonl"
+#: The corpus `family` -> harness map that carries a venue-aware slippage
+#: resolution (docs/research/d1-cost-stack-verification-2026-09-25.md). Anything
+#: else -- and above all the four families that lack a full stack
+#: (backtest_orb.py, src/backtest/backtester.py, backtest_xsec_momentum.py,
+#: backtest_vol_target.py), none of which is reachable from a bracket-corpus
+#: family today -- is REFUSEd, so a harness added later starts OUT of scope.
+EXIT_CELL_COST_COMPLETE_FAMILIES = frozenset({"pullback", "donchian"})
+PATHB_VERDICT = "path_b_wf_pass"
+COVERAGE_MATRIX_REL = "docs/research/exit-refinement-coverage.json"
+
+
+def _leg_rows(root: Path, leg: str) -> List[Dict[str, Any]]:
+    """EVERY corpus row for `leg` (the audit needs the base and to400 arms)."""
+    p = root / BRACKET_CORPUS_REL
+    if not p.is_file():
+        return []
+    rows = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or leg not in line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if r.get("leg") == leg:
+            rows.append(r)
+    return rows
+
+
+def _rank_key(r: Dict[str, Any]) -> tuple:
+    """B4's rule, stated in advance and carried by the mandate: highest
+    `wf_wins_effective`, tie-break `d_net_r`. A non-finite value ranks LAST (it is
+    "could not read", not a big number), and a residual tie goes to the
+    lexicographically smallest cell name so the choice is a total order, not an
+    accident of file order."""
+    def f(v: Any) -> float:
+        return float(v) if _num(v) else float("-inf")
+    return (-f(r.get("wf_wins_effective")), -f(r.get("d_net_r")), str(r.get("cell")))
+
+
+def select_cells(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """leg -> the ONE top-ranked pure-stop `path_b_wf_pass` cell (its newest row).
+    Single-homed here so the resolver and the runner cannot disagree."""
+    newest: Dict[tuple, Dict[str, Any]] = {}
+    for r in rows:
+        if (r.get("gate_verdict") != PATHB_VERDICT or r.get("axis") != "stop"
+                or r.get("timeout") is not None or r.get("tp_r") is not None):
+            continue
+        k = (r.get("leg"), r.get("cell"))
+        if k not in newest or str(r.get("sweep_generated_at") or "") > str(
+                newest[k].get("sweep_generated_at") or ""):
+            newest[k] = r
+    best: Dict[str, Dict[str, Any]] = {}
+    for (leg, _cell), r in newest.items():
+        if leg not in best or _rank_key(r) < _rank_key(best[leg]):
+            best[leg] = r
+    return best
+
+
+def timeout_binding(root: Path, leg: str) -> Dict[str, Any]:
+    """Does the harness's timeout force-close CONTAMINATE this leg's verdicts?
+
+    TWO INDEPENDENT READINGS, and the bound trips on EITHER (fail closed):
+      * `audit`  -- scripts/research/timeout_binding_audit.audit() re-run over the
+                    corpus rows NOW (the field): `contaminated` / `clean` /
+                    `no_power`, or None if it could not run.
+      * `matrix` -- the coverage matrix's own per-leg `timeout_binding` note
+                    (a claim about the field): `CONTAMINATED` / `CLEAN` / None.
+    ⚠️ THEY DISAGREE ON spy_pullback_1h (2026-09-30): the note says CONTAMINATED
+    ("bound on 17 of 39 pairs"); audit() over BOTH the 08-29 and 08-31 sweeps says
+    clean, 0 of 39. Neither is silently preferred: the union refuses.
+    """
+    out: Dict[str, Any] = {"audit": None, "binding": None, "graded_pairs": None, "matrix": None}
+    try:
+        sys.path.insert(0, str(REPO / "scripts" / "research"))
+        import timeout_binding_audit as tba  # noqa: WPS433 (local: research module)
+        per = tba.audit(_leg_rows(root, leg)).get(leg)
+        if per:
+            out.update(audit=per["verdict"], binding=per["binding"], graded_pairs=per["graded_pairs"])
+    except Exception:  # noqa: BLE001 -- "could not audit" is its own answer, never a pass
+        pass
+    mp = root / COVERAGE_MATRIX_REL
+    if mp.is_file():
+        try:
+            for row in json.loads(mp.read_text(encoding="utf-8")).get("rows", []):
+                if row.get("strategy") == leg:
+                    note = (row.get("bracket_geometry") or {}).get("timeout_binding")
+                    m = re.search(r"leg (CONTAMINATED|CLEAN)", note) if isinstance(note, str) else None
+                    out["matrix"] = m.group(1) if m else None
+        except (OSError, json.JSONDecodeError):
+            pass
+    return out
+
+
+def _load_corpus_rows(root: Path, leg: str, cell: str) -> List[Dict[str, Any]]:
+    p = root / BRACKET_CORPUS_REL
+    if not p.is_file():
+        return []
+    rows = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or leg not in line:  # cheap prefilter; exact match below
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if r.get("leg") == leg and r.get("cell") == cell:
+            rows.append(r)
+    return rows
+
+
+def resolve_exit_cell(leg: str, cell: str, *, root: Path = REPO,
+                      mandate_id: str = EXIT_CELL_MANDATE_ID,
+                      allow_proposed: bool = False) -> Dict[str, Any]:
+    ctx: Dict[str, Any] = {"leg": leg, "cell": cell, "mandate": mandate_id,
+                           "from_stage": None, "to_stage": None, "account": None,
+                           "authorized": None, "evidence": {}, "caveats": [], "proposal": None}
+    try:
+        _decide_exit_cell(leg, cell, root, mandate_id, allow_proposed, ctx)
+    except _NeedsData as nd:
+        ctx["proposal"] = None
+        return _result(NEEDS_DATA, nd.clause, nd.detail, ctx, data_task=nd.data_task)
+    except _Refuse as r:
+        ctx["proposal"] = None
+        return _result(REFUSE, r.clause, r.detail, ctx)
+    return _result(FIRE, "ALL-CLAUSES-PASS", "every clause of the mandate held", ctx)
+
+
+def _exit_cell_data_task(leg: str, cell: str, what: str, clears: str) -> Dict[str, Any]:
+    return {"what": f"{leg} cell {cell}: {what}", "clears_when": clears,
+            "check_every_days": 7, "next_action": "dispatch_lane"}
+
+
+def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed: bool,
+                      ctx: Dict[str, Any]) -> None:
+    ev = ctx["evidence"]
+    # -- which mandate, and is it granted -----------------------------------
+    mdoc = _yaml(root, MANDATES_REL)
+    if mdoc is None:
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{MANDATES_REL} is absent or unreadable -- "
+                                               "could not look, so nothing is authorized")
+    m = granted(mdoc, mid)
+    ctx["authorized"] = m is not None
+    if m is None and allow_proposed:
+        m = next((x for x in (mdoc.get("proposed") or [])
+                  if isinstance(x, dict) and x.get("id") == mid), None)
+        if m is not None:
+            ctx["caveats"].append(
+                f"DRY EVALUATION under a PROPOSED entry: {mid} sits under `proposed:` and "
+                "authorizes NOTHING. A FIRE here is what a grant WOULD have done.")
+    if m is None:
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} is not in the granted `mandates:` list "
+                                               "(`proposed:` never authorizes)")
+    if ctx["authorized"] and (not m.get("granted_by") or not m.get("granted_at")):
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} lacks granted_by/granted_at")
+    if m.get("blocked_until"):
+        raise _Refuse("R-MANDATE-BLOCKED", f"{mid} blocked_until: {m['blocked_until']}")
+    bar = m.get("bar")
+    need = ("min_oos_trades", "min_wf_usable", "min_wf_win_fraction",
+            "max_dd_worsening_frac_of_base", "max_leverage_multiple")
+    if not isinstance(bar, dict) or any(not _num(bar.get(k)) for k in need):
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} does not state a numeric bar.{{{', '.join(need)}}}")
+    if bar.get("refuse_timeout_contaminated") is not True:
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} does not state bar.refuse_timeout_contaminated: true "
+                                               "-- the timeout-binding bound is part of the grant")
+
+    # -- clause 1: soak-only, read from accounts.yaml NOW --------------------
+    accounts_text = (root / ACCOUNTS_REL).read_text(encoding="utf-8") \
+        if (root / ACCOUNTS_REL).is_file() else None
+    if accounts_text is None:
+        raise _Refuse("R-SOAK-ONLY", f"{ACCOUNTS_REL} is absent -- could not look")
+    rosters = b1.rosters(accounts_text)
+    on = sorted(a for a, r in rosters.items() if leg in r["legs"])
+    ev["rosters"] = on
+    if not on:
+        raise _Refuse("R-SOAK-ONLY", f"{leg} is on no account roster -- nothing soaks it")
+    # ⚠️ NOT `account_class == paper`: bybit_portfolio and alpaca_portfolio are
+    # class `paper` AND are the Stage-2 mirrors. The test is Stage-1 MEMBERSHIP.
+    outside = [a for a in on if STAGE_OF_ACCOUNT.get(a) != "S1"
+               or rosters[a]["class"] != STAGE_CLASS["S1"]]
+    if outside:
+        raise _Refuse("R-SOAK-ONLY", f"{leg} is also on {outside}, which is not a Stage-1 "
+                                     f"paper soak account (Stage-1: bybit_1, alpaca_paper, ib_paper). "
+                                     "This mandate never touches a leg present on a Stage-2 roster, "
+                                     "a mirror, a prop account or any other account.")
+
+    # -- clause 2: the corpus row -------------------------------------------
+    rows = _load_corpus_rows(root, leg, cell)
+    if not rows:
+        raise _NeedsData("R-RECORD-MISSING", f"no {BRACKET_CORPUS_REL} row for {leg} cell {cell}",
+                         _exit_cell_data_task(leg, cell, "no bracket-corpus row",
+                                              f"a graded row for ({leg}, {cell}) is committed to {BRACKET_CORPUS_REL}"))
+    graded = [r for r in rows if r.get("gate_verdict") is not None]
+    bad = sorted({str(r.get("gate_verdict")) for r in graded} - {PATHB_VERDICT})
+    if bad:  # reproducibility: any run that graded this cell differently vetoes it
+        raise _Refuse("R-CORPUS-DISAGREES", f"{len(graded)} graded corpus rows for ({leg}, {cell}); "
+                                            f"verdicts other than {PATHB_VERDICT}: {bad}")
+    if not graded:
+        raise _NeedsData("R-RECORD-MISSING", f"({leg}, {cell}) has {len(rows)} corpus rows and none was graded",
+                         _exit_cell_data_task(leg, cell, "never reached the gate",
+                                              f"a graded {PATHB_VERDICT} row exists"))
+    row = max(graded, key=lambda r: str(r.get("sweep_generated_at") or ""))
+    ev["record"] = BRACKET_CORPUS_REL
+    ev["measurement_key"] = row.get("measurement_key")
+    ev["source_run"] = row.get("source")
+    ev["graded_rows"] = len(graded)
+    if row.get("state") != "measured":
+        raise _NeedsData("R-RECORD-MISSING", f"row state is {row.get('state')!r}, not 'measured'",
+                         _exit_cell_data_task(leg, cell, "unmeasured row", "state == measured"))
+    if row.get("family") not in EXIT_CELL_COST_COMPLETE_FAMILIES:
+        raise _Refuse("R-COST-STACK", f"family {row.get('family')!r} is not in "
+                                      f"{sorted(EXIT_CELL_COST_COMPLETE_FAMILIES)}, the harnesses verified to "
+                                      "resolve slippage/funding through the venue-aware policy")
+    if row.get("gate_path") != "B" or row.get("axis") != "stop" or row.get("timeout") is not None \
+            or row.get("tp_r") is not None or not _num(row.get("stop_mult")):
+        raise _Refuse("R-CELL-SHAPE", "the mandate covers a pure stop-multiplier cell "
+                                      "(axis=stop, gate_path=B, no tp_r, no timeout -- no live unit "
+                                      f"implements a bar-count exit); got axis={row.get('axis')!r} "
+                                      f"path={row.get('gate_path')!r} tp_r={row.get('tp_r')!r} "
+                                      f"timeout={row.get('timeout')!r}")
+
+    # -- clause 2a: ONE cell per leg per fire, the top-ranked (B4, as granted) ----
+    top = select_cells(_leg_rows(root, leg)).get(leg)
+    ev["top_cell"] = top.get("cell") if top else None
+    if top is None or top.get("cell") != cell:
+        raise _Refuse("R-NOT-TOP-CELL", f"{cell} is not this leg's top-ranked gate-passing cell "
+                                        f"({ev['top_cell']!r}; highest wf_wins_effective, tie-break d_net_r): "
+                                        "one cell per leg per fire, chosen by the stated rule")
+
+    # -- clause 2b: timeout-binding contamination (operator bound, 2026-09-30) --
+    tb = timeout_binding(root, leg)
+    ev["timeout_binding"] = tb
+    if tb["audit"] == "contaminated" or tb["matrix"] == "CONTAMINATED":
+        raise _Refuse("R-TIMEOUT-BINDING",
+                      f"the harness's timeout force-close CONTAMINATES this leg's verdicts (audit "
+                      f"{tb['audit']}, binding {tb['binding']}/{tb['graded_pairs']}; matrix note "
+                      f"{tb['matrix']}); the cell was measured under an exit production does not have")
+    if tb["audit"] != "clean":
+        raise _NeedsData("R-TIMEOUT-BINDING", f"timeout-binding audit reads {tb['audit']!r} (matrix "
+                                              f"{tb['matrix']}); 'could not look' is not 'clean'",
+                         _exit_cell_data_task(leg, cell, "timeout-binding audit not gradeable",
+                                              "timeout_binding_audit.audit() returns `clean` for the leg"))
+
+    # -- clause 3: both windows, net R and capital efficiency ---------------
+    try:
+        d_is, d_oos = _fin(row["gate_is_d_net_r"]), _fin(row["gate_oos_d_net_r"])
+        cap_pd = _fin(row["capital_oos_d_net_r_per_capital_day"])
+    except (KeyError, TypeError, ValueError):
+        raise _NeedsData("R-RECORD-MISSING", "IS/OOS d_net_r or capital_oos d_net_r_per_capital_day unreadable",
+                         _exit_cell_data_task(leg, cell, "window deltas unreadable", "all three fields present"))
+    if not (d_is > 0 and d_oos > 0 and cap_pd > 0):
+        raise _Refuse("R-NET-R", f"needs d_net_r > 0 in BOTH windows and capital/day > 0; got "
+                                 f"IS {d_is}, OOS {d_oos}, capital/day {cap_pd}")
+    n_oos = row.get("base_oos_trades")
+    if not _num(n_oos):
+        raise _NeedsData("R-BASE-N", "base_oos_trades is null on the newest graded row -- the MIN_OOS_TRADES "
+                                     "denominator cannot be read",
+                         _exit_cell_data_task(leg, cell, "base_oos_trades null",
+                                              "re-swept row carries base_oos_trades"))
+    if n_oos < bar["min_oos_trades"]:
+        raise _Refuse("R-BASE-N", f"base_oos_trades {n_oos} < {bar['min_oos_trades']}")
+
+    # -- clause 4: the fold rule --------------------------------------------
+    usable, wins = row.get("wf_usable"), row.get("wf_wins_effective")
+    if not (row.get("wf_ran") and _num(usable) and _num(wins)):
+        raise _NeedsData("R-FOLDS", "walk-forward did not run or its tallies are unreadable",
+                         _exit_cell_data_task(leg, cell, "no walk-forward", "wf_ran with usable/wins present"))
+    ev["walkforward"] = f"{wins}/{usable} (wf_wins_effective/wf_usable)"
+    if usable < bar["min_wf_usable"] or wins < bar["min_wf_win_fraction"] * usable:
+        raise _Refuse("R-FOLDS", f"{wins}/{usable} folds; need usable >= {bar['min_wf_usable']} and "
+                                 f"wins >= {bar['min_wf_win_fraction']} x usable")
+
+    # -- clause 5: drawdown --------------------------------------------------
+    try:
+        n_b, d_b = _fin(row["base_net_total_r"]), _fin(row["base_max_drawdown_r"])
+        dn, dd = _fin(row["d_net_r"]), _fin(row["d_max_dd"])
+    except (KeyError, TypeError, ValueError):
+        raise _NeedsData("R-DRAWDOWN", "base/cell net_R or maxDD unreadable",
+                         _exit_cell_data_task(leg, cell, "drawdown fields unreadable", "fields present"))
+    if n_b <= 0 or d_b <= 0:
+        raise _Refuse("R-DRAWDOWN", f"base net_R {n_b} / base maxDD {d_b}: the exchange rate is ungradeable "
+                                    "on a losing or drawdown-free base, and ungradeable is not a pass")
+    allowed = min(d_b * dn / n_b, d_b)  # m20_fleet_exit_sweep.drawdown_exchange_rate, incl. the grant cap
+    frac = dd / d_b
+    ev["drawdown"] = {"d_max_dd": dd, "base_max_dd": d_b, "frac_of_base": round(frac, 4),
+                      "rate_allowance": round(allowed, 4)}
+    if dd > allowed:
+        raise _Refuse("R-DRAWDOWN", f"d_max_dd {dd} exceeds the exchange-rate allowance {allowed:.4f}")
+    if frac > bar["max_dd_worsening_frac_of_base"]:
+        raise _Refuse("R-DRAWDOWN", f"maxDD worsens by {frac:.3f} of the base drawdown; cap "
+                                    f"{bar['max_dd_worsening_frac_of_base']} -- route to the operator")
+    lev = (row.get("leverage") or {}).get("leverage_multiple")
+    if not _num(lev):
+        raise _NeedsData("R-LEVERAGE", "leverage_multiple unmeasured",
+                         _exit_cell_data_task(leg, cell, "leverage unmeasured", "leverage.state == measured"))
+    ev["leverage_multiple"] = lev
+    if lev > bar["max_leverage_multiple"]:
+        raise _Refuse("R-LEVERAGE", f"a tighter stop raises notional per unit risk by {lev}x; cap "
+                                    f"{bar['max_leverage_multiple']}x")
+
+    # -- the edit ------------------------------------------------------------
+    strategies = (_yaml(root, STRATEGIES_REL) or {}).get("strategies") or {}
+    cfg = strategies.get(leg) if isinstance(strategies, dict) else None
+    if not isinstance(cfg, dict):
+        raise _Refuse("R-NO-LEG", f"{leg} is not in {STRATEGIES_REL}")
+    cur = cfg.get("atr_stop_mult")
+    ev["current_atr_stop_mult"] = cur
+    if _num(cur) and float(cur) == float(row["stop_mult"]):
+        raise _Refuse("R-NO-OP", f"{leg} already declares atr_stop_mult {cur}")
+    ctx["proposal"] = {
+        "writes_nothing": True,
+        "config_edit": {"file": STRATEGIES_REL, "leg": leg, "key": "atr_stop_mult",
+                        "from": cur, "to": float(row["stop_mult"])},
+        "also": ["docs/research/exit-refinement-coverage.json bracket_geometry cell -> shipped",
+                 f"comms/strategy_evidence/{leg}.json regenerated by the harness, never hand-edited"],
+        "landing": "hold",
+        "pr_title": f"{mid}: {leg} atr_stop_mult {cur} -> {row['stop_mult']} (cell {cell})",
+        "then": "ping in realtime; show the evidence in §1 of the next daily brief",
+    }
+
+
+def file_exit_cell_needs_data(entries: List[Dict[str, Any]], clause: str, session_ref: str,
+                              store: Path = pipeline.STORE) -> Optional[str]:
+    """ONE pipeline row per NEEDS-DATA *clause* (not per leg: nine legs sharing
+    R-BASE-N are one cause), skipped when an OPEN row already names this mandate
+    and that clause -- PI-20260930-39SDYWCO-0002 covers R-BASE-N today. Single-homed
+    here; the CLI and scripts/ops/exit_cell_runner.py both call it."""
+    for it in pipeline.load(store).items.values():
+        w = str(it.get("what") or "")
+        if it.get("state") in pipeline.OPEN_STATES and EXIT_CELL_MANDATE_ID in w and clause in w:
+            return None
+    legs = ", ".join(f"{e['leg']}:{e['cell']}" for e in entries)
+    task = entries[0]["result"].get("data_task") or {}
+    rerun = "python3 scripts/ops/exit_cell_runner.py --json"
+    item = {"id": pipeline.mint_id(session_ref, store=store),
+            "what": f"{EXIT_CELL_MANDATE_ID}: {len(entries)} cell(s) are NEEDS-DATA at {clause} -- "
+                    f"{task.get('what') or entries[0]['detail']} [{legs}]",
+            "origin": {"kind": "session", "ref": session_ref, "rerun": rerun},
+            "due_when": {"kind": "observation",
+                         "clears_when": f"{rerun} lists no cell NEEDS-DATA at {clause}",
+                         "check_every_days": task.get("check_every_days", 7)},
+            "next_action": task.get("next_action", "dispatch_lane"), "state": "queued"}
+    return pipeline.append(item, store, intent="new")["id"]
+
+
+# --------------------------------------------------------------------------
 # NEEDS_DATA -> the pipeline (operator directive, 2026-09-29): "getting that
 # data becomes a task which needs to happen so that a decision can be made".
 # --------------------------------------------------------------------------
@@ -1328,9 +1707,14 @@ def file_needs_data(result: Dict[str, Any], session_ref: str, *,
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--leg", required=True)
-    ap.add_argument("--from", dest="frm", required=True, choices=STAGES)
-    ap.add_argument("--to", required=True, choices=STAGES)
-    ap.add_argument("--account", required=True)
+    ap.add_argument("--from", dest="frm", choices=STAGES)
+    ap.add_argument("--to", choices=STAGES)
+    ap.add_argument("--account")
+    ap.add_argument("--exit-cell", metavar="CELL", default=None,
+                    help=f"evaluate {EXIT_CELL_MANDATE_ID} for this bracket-corpus cell (a config "
+                         "edit, not a roster move); --from/--to/--account are not used")
+    ap.add_argument("--dry-proposed", action="store_true",
+                    help="with --exit-cell: evaluate a `proposed:` entry (authorizes nothing)")
     ap.add_argument("--mandate", default=None, help="evaluate under this mandate id instead of "
                                                      "the one the transition implies")
     ap.add_argument("--root", default=str(REPO))
@@ -1339,9 +1723,22 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="on a NEEDS-DATA verdict, file the data task into "
                          "scripts/ops/pipeline.py under this session ref")
     a = ap.parse_args(argv)
-    res = resolve(a.leg, a.frm, a.to, a.account, root=Path(a.root), mandate_id=a.mandate)
+    if a.exit_cell:
+        res = resolve_exit_cell(a.leg, a.exit_cell, root=Path(a.root),
+                                mandate_id=a.mandate or EXIT_CELL_MANDATE_ID,
+                                allow_proposed=a.dry_proposed)
+        if res["verdict"] == NEEDS_DATA and a.file_needs_data:
+            pid = file_exit_cell_needs_data(
+                [{"leg": a.leg, "cell": a.exit_cell, "detail": res["detail"], "result": res}],
+                res["clause"], a.file_needs_data)
+            print(f"needs-data row: {pid or 'none filed (an open row already names this clause)'}",
+                  file=sys.stderr)
+    elif not (a.frm and a.to and a.account):
+        ap.error("--from, --to and --account are required unless --exit-cell is given")
+    else:
+        res = resolve(a.leg, a.frm, a.to, a.account, root=Path(a.root), mandate_id=a.mandate)
     filed = None
-    if res["verdict"] == NEEDS_DATA and a.file_needs_data:
+    if res["verdict"] == NEEDS_DATA and a.file_needs_data and not a.exit_cell:  # exit-cell files above
         filed = file_needs_data(res, a.file_needs_data)
     if a.json:
         out = dict(res)

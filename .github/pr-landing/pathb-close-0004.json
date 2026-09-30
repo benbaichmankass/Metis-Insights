@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane PATHB-MANDATE (manager session_01HYq6XtfesZ57VyaQrK6CL1). Pipeline register only: closes PI-20260930-39SDYWCO-0004 (state done, with a terminal_reason naming what was OBSERVED on main: the spy_pullback_1h coverage-matrix note now reads CLEAN, from #14651) and files PI-20260930-39SDYWCO-0007 for the half that is NOT fixed (the 2026-08-29 write-up's fleet count, with the measured numbers and a rerun command). Two new record files in docs/claude/work/pipeline/. No src/, no config/, no order path, no strategy change. The new id 0007 was chosen to avoid the -0005/-0006 rows that the runner PR (#14626) carries; a simulated merge of both branches passes pipeline.py --check."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager dispatch 2026-09-30 09:08Z: 'Deliver one short decision memo on a branch (landing: hold) plus a report to me.' The manager reviews and merges.",
+  "why": "Docs only: a decision memo on non-datacenter egress routes (managed static ISP proxy, a device the operator already owns as a Tailscale exit node, mobile proxy), Breakout's first-party FAQ rules, and a read-only probe plan, plus its document-index row. Nothing bought, built, deployed or routed; the VM address is not written in it."
+}
