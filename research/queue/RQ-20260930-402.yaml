@@ -1,0 +1,164 @@
+id: RQ-20260930-402
+title: M19 S2-exit REFINE re-run — is XRP's positive exit-head result (RQ-20260929-401, 2026 fold) persistent on the 2025 fold?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  RQ-20260929-401 graded indeterminate (REFINE): of Q = {SOL, XRP, ETH}, only XRP
+  had recovered_R_oos > 0 on the 2026 fold (SOL -4.2971, ETH -1.1634, XRP +0.2102).
+  That unit's own rule says: "re-run that leg on the fold before the last before
+  reading it as a family property; not a kill." This unit is that re-run and nothing
+  else: the SAME shipped {below_half_r, tau 0.10, below_r 0.5} exit head on
+  ict_scalp_xrp_15m (XRPUSDT), scored on its OWN out-of-sample trades in calendar
+  year 2025, the fold before the last. Is XRP's 2026 positive persistent?
+
+why_this_matters: >-
+  Decides whether XRP's positive is a leg property worth carrying to the
+  exit-refinement E1 step or a one-fold artefact, so the S2-exit lever
+  (docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md § 4) is
+  either kept for ict_scalp XRP or narrowed to trend_donchian. Operator rule
+  2026-09-27: refinement before kill — this is the refinement RQ-20260929-401 called for.
+
+power:
+  expected_n: 108
+  min_detectable_effect: 0.35
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Paired design identical to RQ-20260929-401: head-on and head-off arms score the
+    SAME trades, unit = per-trade difference, one-sample on its mean. Floor =
+    (1.96 + 0.8416)^2 / 0.35^2 = 64.07, i.e. n_oos >= 64 (never lowered).
+    expected_n = 108 is XRP's 2025 HARNESS trade count from the RQ-20260929-401
+    census (XRP 2021..2026 = 78/109/77/98/108/98; scripts/research/exit_head_leg_trade_census.py).
+    Harness trades emitted, not fold n: the dataset build can drop some, so n_oos is
+    read from the replay itself and the floor is applied to THAT.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      `source: none`: history is fixed (XRP candles 2021-05-13 -> 2026-09-29 on the
+      trainer staging dir); nothing accrues. The 2025 fold already exists in the
+      RQ-20260929-401 round (years mode trains every year but the first as a test fold).
+
+decision_rule:
+  id: RULE-RQ0930-402-XRP-EXIT-HEAD-2025-PERSISTENCE
+  registered_at: '2026-09-30'
+  registered_before_run: true
+  statistic: >-
+    recovered_R_oos(XRP, 2025) = head_net_r - baseline_net_r over the trades of the
+    calendar-2025 walk-forward test fold of ict_scalp_xrp_15m, UNROUNDED, on the SAME
+    trades. EVERYTHING ELSE IS IDENTICAL to RQ-20260929-401 (see its statistic block,
+    not re-derived here): same producer (m20_exit_head_round.py -> train_exit_head.py
+    --fold-mode years, then exit_head_final_fold_replay.py), same harness parameters
+    (config-exact, m20_fleet_exit_sweep.base_args) and --tp-cap-pct 0.099, same
+    candles (/home/ubuntu/refresh_15m_20260929), 7-day embargo (672 bars), booster
+    train_model() with random_state 7, single fixed arm {below_half_r, tau 0.10,
+    below_r 0.5} (not the best-of-arms, not selected_tau), same cost method (harness
+    net_r baseline; each truncated trade charged round-trip cost via
+    execution_costs.roundtrip_cost_r + one-side exit fee; n_cost_checked == n_oos;
+    cost gap <= 1e-3R on every fold trade; replay must reproduce the trainer's own
+    fold within 0.011R), same n floor 64, same strict > 0. The ONLY differences: the
+    test fold is 2025 (replay --expect-year 2025) and the leg set is XRP alone.
+  rule: >-
+    Let n = n_oos of the 2025 XRP fold and R = recovered_R_oos. IF a PRODUCER problem
+    (no report, unreadable report, replay crashed, replay_mismatch,
+    cost_policy_mismatch, cost_policy_unverified, join_incomplete, wrong fold mode,
+    malformed): verdict not_applicable, read_state producer_failed. ELSE IF the 2025
+    fold was replayed and n < 64: verdict indeterminate (underpowered) — the floor is never
+    lowered, no other year stands in. AMENDMENT (pre-run, 2026-09-30, manager review of
+    #14514): if the 2025 fold does not exist (< 50 test trades), the replay returns
+    final_fold_missing WITHOUT writing final_fold_net.json, so the grader reads no_report and
+    the verdict is not_applicable / producer_failed, NOT indeterminate. This is stated here
+    rather than changing the replay; a missing fold is not expected (XRP 2025 harness
+    trades = 108) and would be reported as such. ELSE IF
+    R > 0 (strictly): PASS — XRP's 2026 positive is read as persistent across two
+    consecutive folds; the XRP exit head goes to the exit-refinement pipeline's E1
+    step as a candidate (Tier-3 to flip live, NOT this unit's act). ELSE (R <= 0):
+    FAIL — XRP's 2026 positive is not persistent; the S2-exit lever narrows to
+    trend_donchian (post-mortem § 4). PASS is a statement about ONE leg on TWO folds;
+    it is not a family transfer (SOL and ETH were negative in 2026 and are not
+    re-scored here).
+  read_with_care: >-
+    XRP's 2026 positive is baseline-driven: baseline -4.556 R and head net -4.346 R
+    (RQ-20260929-401 grading record) — the head lost less than the harness exit; it
+    was not a positive arm. Gross recovered R was positive on all three legs, net on
+    one. A 2025 PASS with a similar shape (both arms negative, head less so) must be
+    reported with both arm sums beside R, never as "the head makes money".
+  grader: >-
+    scripts/research/exit_head_final_fold_grade.py --rule single-leg (grade_single_leg,
+    with --expect-year 2025, which refuses any per-leg file from another fold; committed with
+    this unit, tested). The default `family` rule is unchanged, so
+    RQ-20260929-401's grade is reproducible. The family rule cannot PASS or FAIL on
+    one leg (|Q| < 2 -> indeterminate), which is why the single-leg rule is part of
+    this registration and not added after the run.
+  visible_before_registration: >-
+    Disclosed, not hidden: trainer-vm-diag issue #14466 (2026-09-30 ~00:16Z, before this
+    registration) printed XRP's 2025 fold from the RQ-20260929-401 round: baseline actual
+    net_R +4.77, AUC 0.551, best_tau 0.25. The tau-0.10 head net statistic that this
+    unit grades was NOT shown, and no design choice here is free (arm, fold, floor, cost
+    method are all inherited from RQ-20260929-401), so it cannot have steered the design.
+    Stated so the reader can weigh it.
+  what_it_does_not_do: >-
+    Declares no exit_head_model in config/strategies.yaml, promotes no head, changes
+    no live exit, writes nothing under runtime_logs/trainer_mirror/, and does NOT
+    overwrite data/. Any flip is Tier-3.
+  known_limitations: >-
+    Same as RQ-20260929-401 (close-mark truncation, modelled costs, Binance USD-M feed).
+    One further: the 2025 fold trains on fewer years (2021..2024 minus embargo) than
+    the 2026 fold, so its booster is weaker by construction; a FAIL is partly a
+    smaller-training-set result.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 10
+  basis: >-
+    Estimate, not a measurement. If /home/ubuntu/rq20260929_401_round (XRP leg,
+    e1_report.json fold_mode years, emit/, rows.jsonl) is still on the trainer, only
+    the replay and grade run (minutes). If it is gone, re-run the driver for XRP alone
+    (~13 min harness on the 1-OCPU box per RQ-20260929-401); the driver is
+    deterministic and the replay refuses to grade unless it reproduces the trainer's
+    own fold, so a re-run cannot silently differ.
+
+run:
+  workflow: 'trainer-vm-diag (issue label trainer-vm-diag-request)'
+  inputs:
+    legs: ict_scalp_xrp_15m
+    tf: 15m
+    data_dir: /home/ubuntu/refresh_15m_20260929
+    fold_mode: years
+    expect_year: 2025
+    research_unit: RQ-20260930-402
+  note: >-
+    DO NOT DISPATCH BEFORE THIS UNIT IS MERGED. Step 0: copy the round dir if present
+    (`cp -a /home/ubuntu/rq20260929_401_round /home/ubuntu/rq20260930_402_round`) so the
+    2026 final_fold_net.json is not overwritten, THEN DELETE the stale per-leg output in the
+    copy (`rm -f /home/ubuntu/rq20260930_402_round/ict_scalp_xrp_15m/final_fold_net.json`) so a
+    crashed or early-returning replay leaves nothing to grade (the grader also refuses any file
+    whose fold_year is not 2025); if the round dir is absent, run m20_exit_head_round.py
+    --legs ict_scalp_xrp_15m --tf 15m --data-dir /home/ubuntu/refresh_15m_20260929 --out
+    /home/ubuntu/rq20260930_402_round --fold-mode years (detached, nohup, flat command).
+    Step 1: `python scripts/research/exit_head_final_fold_replay.py --round-dir
+    /home/ubuntu/rq20260930_402_round --tf 15m --expect-year 2025 --legs ict_scalp_xrp_15m`.
+    Step 2: `python scripts/research/exit_head_final_fold_grade.py --round-dir
+    /home/ubuntu/rq20260930_402_round --legs ict_scalp_xrp_15m --rule single-leg --expect-year 2025`.
+    Step 3: land with scripts/research/research_result.py under
+    research/results/RQ-20260930-402/, carrying n_oos, baseline_net_r, head_net_r,
+    recovered_R (net and gross), early exits and charged cost in the measurement block
+    (the trainer's files are not durable), and the issue numbers in artifact.locator.
+    Apply the rule mechanically; no substitution of statistic, window or floor.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - RQ-20260929-401 (the parent: REFINE verdict; this is its named re-run)
+  - RQ-20260928-005 (the original registered question)
+  - RQ-20260927-001 (the one prior out-of-sample exit-head pass, trend_donchian BTC 1h)
+  - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S2-exit)
+  - checklist row M19-S2EXIT

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "deploy_pull_restart.sh no longer starts an inactive ict-trader-live (try-restart or stop-marker), with a test",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-YDVVYLKH-0002",
+  "next_action": "check_observation",
+  "note": "2026-09-30 GITSYNC-REVIVE (session_014hPP8CTfoZ8y3kfDt5QsCC), PR #14534, revised after the manager's review: a generic state-based hold was REJECTED. A mount drop and a reset-failed start-limit crash both read inactive after running since boot, identical to a raw stop, and must be revived (Prime Directive). The marker (#13241) stays the only hold. A raw-stopped trader is also restarted by the liveness watchdog unless autoheal is paused, so stop-bot-service is the one coherent stop path. The PR adds: a named log line whenever the deploy STARTS a stopped long-running unit; purge_vm_runner reset-failed scoped to claude-vm-runner@*; a shellcheck header fix. Closes on: merged + one ict-git-sync run on the live VM (journalctl -u ict-git-sync) showing the active units restarted and no unexpected 'starting stopped' / 'hold' line.",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A01-001",
+    "rerun": "grep -n 'restart \"\\${unit}\"' scripts/deploy_pull_restart.sh ; journalctl -u ict-git-sync around any stop-bot-service window shows 'restart ict-trader-live.service'"
+  },
+  "routed_to": "GITSYNC-REVIVE",
+  "state": "routed",
+  "what": "ict-git-sync (scripts/deploy_pull_restart.sh) runs `systemctl restart` on every ict-*.service when main advances, which STARTS a deliberately stopped ict-trader-live. MEASURED: stop-bot-service #13194 stopped the trader 14:15:23Z; git-sync restarted it 14:16:59Z and 14:22:27Z, so the forced cancels #13203/#13204 at 14:39Z hit Error 326 (clientId 497 in use by the revived trader). stop_bot.sh guards only the liveness watchdog. git-sync also restarts ict-liveness-watchdog.service (the oneshot) while its timer is paused. Proposed Tier-2 fix: deploy_pull_restart.sh should `try-restart` (restart only if active) for ict-trader-live, or skip units whose last stop was an operator stop (stop_bot writes a marker; start_bot clears it)."
+}

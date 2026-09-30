@@ -8623,10 +8623,18 @@ def _open_sibling_qtys(db, row, account_id: str, symbol: str) -> Optional[List[f
 
 
 def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
-                               bybit_position_idx: Optional[int] = None) -> bool:
+                               bybit_position_idx: Optional[int] = None,
+                               trace: Optional[Dict[str, Any]] = None) -> bool:
     """Re-arm a broker-side GTC protective bracket on a naked position.
 
     Returns True on a placed protective bracket. Never raises.
+
+    *trace*, when given, is filled with ``sent`` (True once the broker
+    client's placement call was made; absent for every ``return False`` that
+    fails before it: no account, no client, unusable qty/levels) and
+    ``ret_code`` (the client's envelope code). The Alpaca sweep uses it to tell
+    a venue rejection from a post that never left the process
+    (PI-20260929-K1XNYYAQ-0003 (b)).
 
     Per-broker (BL-20260629-ALPACA-NAKED-BRACKET extended this beyond IB):
       * **IB** — a GTC OCA bracket via ``IBClient.place_protective`` (futures
@@ -8718,6 +8726,8 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
                 # configured allowlist (a venue holding two live books IS in
                 # hedge mode whatever the config says).
                 _pidx = int(bybit_position_idx)
+            if trace is not None:
+                trace["sent"] = True
             resp = client.set_trading_stop(
                 category=category,
                 symbol=symbol,
@@ -8753,6 +8763,8 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
             # position's (REVIEW-14127). `None` = could not read them; the
             # client then cancels nothing rather than guess.
             extra["sibling_qtys"] = _open_sibling_qtys(db, row, account_id, symbol)
+        if trace is not None:
+            trace["sent"] = True
         resp = client.place_protective(
             {
                 **extra,
@@ -8776,6 +8788,8 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
                 "account_id": account_id,
             }
         )
+        if trace is not None:
+            trace["ret_code"] = (resp or {}).get("retCode")
         if not resp or resp.get("retCode") != 0:
             logger.warning(
                 "_attempt_naked_autoprotect: place_protective refused for "
@@ -9349,6 +9363,32 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "exit_deferred": 0,
         "escalated_post_rejected": 0,
         "exit_failed": 0,
+        # ── Every early exit is counted (PI-20260929-K1XNYYAQ-0003 (c)). MEASURED
+        # 2026-09-29 18:55:56Z: checked=9, covered=7, every other counter 0 —
+        # two rows were in no counter, so a skipped row and a lost row read
+        # the same. Each `checked` row now lands in EXACTLY ONE per-row outcome
+        # counter (every key not in _EQUITY_SWEEP_NON_OUTCOME_KEYS), and
+        # `unaccounted` = checked - their sum is published beside them: 0 on a
+        # healthy sweep; anything else is a path nobody counted.
+        "grace_skipped": 0,
+        "no_symbol": 0,
+        "active_close_skipped": 0,
+        "no_client": 0,
+        "stop_resting": 0,
+        "no_levels": 0,
+        "venue_holding_duplicate": 0,
+        "rearm_failed": 0,
+        "escalated_post_not_sent": 0,
+        # Symbol-level top-up results, kept OUT of the per-row outcome keys
+        # (a top-up runs inside some row's iteration, which still ends in its
+        # own outcome). Before K1XNYYAQ-0003 they shared breach_exits /
+        # exit_failed / exit_deferred with the per-row path.
+        "topup_breach_exits": 0,
+        "topup_exit_failed": 0,
+        "topup_exit_deferred": 0,
+        # Sub-count of exit_deferred: a stop was put back to rest.
+        "exit_deferred_rearmed": 0,
+        "unaccounted": 0,
     }
     try:
         from src.bot import data_loaders
@@ -9413,9 +9453,12 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             created is not None
             and (now - created).total_seconds() < _NAKED_POSITION_GRACE_SECONDS
         ):
-            continue  # fresh fill may not have propagated; let the entry settle
+            # fresh fill may not have propagated; let the entry settle
+            summary["grace_skipped"] += 1
+            continue
         symbol = str(row["symbol"] or "")
         if not symbol:
+            summary["no_symbol"] += 1
             continue
         # Skip a position the monitor is ACTIVELY CLOSING this tick
         # (BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT). Re-arming a protective OCO
@@ -9427,12 +9470,14 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                 "%s/%s — an active close is in flight this tick (let it flatten)",
                 account_id, symbol,
             )
+            summary["active_close_skipped"] += 1
             continue
         try:
             if account_id not in clients:
                 clients[account_id] = alpaca_client_for(acc_by_id[account_id])
             client = clients[account_id]
             if client is None:
+                summary["no_client"] += 1
                 continue
             # Sides graded SEPARATELY. `has_protective_orders` returns True for
             # a stop-only book, so consuming it here read "protected" over a
@@ -9549,19 +9594,23 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                             if _topup == "topped_up":
                                 summary["topped_up"] += 1
                             elif _topup == "exited_breached_stop":
-                                summary["breach_exits"] += 1
+                                summary["topup_breach_exits"] += 1
                             elif _topup == "exit_failed":
-                                summary["exit_failed"] += 1
+                                summary["topup_exit_failed"] += 1
                             elif _topup == "exit_deferred_topped_up":
                                 # the venue deferred the breach exit, so the
                                 # uncovered shares got a RESTING top-up stop
                                 # this same sweep (K1XNYYAQ-0002 (1))
-                                summary["exit_deferred"] += 1
+                                summary["topup_exit_deferred"] += 1
                                 summary["topped_up"] += 1
                             elif _topup == "exit_deferred":
-                                # deferred AND the resting top-up was refused:
-                                # no cooldown was left, so the next sweep retries
-                                summary["exit_deferred"] += 1
+                                # deferred AND the resting top-up was refused by
+                                # the venue. The refused POST DID set the 900 s
+                                # top-up cooldown (_alpaca_top_up_uncovered sets
+                                # it before placing), so the retry comes after
+                                # _ALPACA_TOPUP_COOLDOWN_S, NOT on the next sweep
+                                # (K1XNYYAQ-0003 (a) corrected this comment).
+                                summary["topup_exit_deferred"] += 1
                             else:
                                 summary["topup_refused"] += 1
                     elif _size > 0:
@@ -9599,6 +9648,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                 # A confirmed resting stop refills this row's re-arm budget
                 # (REVIEW-14241 item 4).
                 _reset_rearm_attempts(account_id, row["id"])
+                summary["stop_resting"] += 1
                 continue  # stop side is armed — nothing for THIS pass to do
             summary["broker_naked"] += 1
             sl = row["stop_loss"]
@@ -9617,6 +9667,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     "broker-naked but no SL/TP resolvable — leaving for alert",
                     row["id"], symbol,
                 )
+                summary["no_levels"] += 1
                 continue
             # PRE-FLIGHT (PI-20260929-PR6YRTQY-0005): a FRESH position read
             # and price, never the sweep snapshot. Refuses a row whose shares
@@ -9658,13 +9709,18 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     # at the open), never leave the row naked overnight.
                     summary["exit_deferred"] += 1
                     if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
-                        summary["rearmed"] += 1
+                        # a sub-count of exit_deferred, not a second outcome
+                        # for this row (K1XNYYAQ-0003 (c))
+                        summary["exit_deferred_rearmed"] += 1
                 else:
                     summary["exit_failed"] += 1
                 continue
             if _pf == "protect_venue_holding":
                 _key = (account_id, symbol.upper())
                 if _key in _venue_protected:
+                    # another row on this symbol already handled the venue
+                    # holding this sweep
+                    summary["venue_holding_duplicate"] += 1
                     continue
                 _venue_protected.add(_key)
                 # One attempt per symbol per cooldown: a refused additive OCO
@@ -9713,13 +9769,29 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             if _pf != "ok":
                 summary[f"rearm_refused_{_pf}"] = summary.get(f"rearm_refused_{_pf}", 0) + 1
                 continue
-            _placed = _attempt_naked_autoprotect(row, a_sl, a_tp, db=db)
+            _trace: Dict[str, Any] = {}
+            _placed = _attempt_naked_autoprotect(row, a_sl, a_tp, db=db, trace=_trace)
             if not _placed and _pf_info.get("escalated"):
-                # A REJECTED escalated stop still spends one unit of the cap
+                # A failed escalated stop still spends one unit of the cap
                 # (K1XNYYAQ-0002 (2)) — otherwise it is re-posted every sweep.
                 # Once the cap is spent the row escalates to the close path.
+                # That holds whether or not the venue saw it: either way
+                # nothing rests, and the cap is what bounds the row's way to
+                # the close. The COUNTER is split (K1XNYYAQ-0003 (b)):
+                # `escalated_post_rejected` = the venue refused it;
+                # `escalated_post_not_sent` = it failed before any venue call
+                # (no account/client, or the client's own local refusal,
+                # retCode -2/-3, e.g. a same-size sibling).
                 _record_rearm_attempt(account_id, row["id"])
-                summary["escalated_post_rejected"] += 1
+                if _trace.get("sent") and _trace.get("ret_code") not in (-2, -3):
+                    summary["escalated_post_rejected"] += 1
+                else:
+                    summary["escalated_post_not_sent"] += 1
+            elif not _placed:
+                # An ordinary re-arm that did not rest (venue or local refusal,
+                # already logged by _attempt_naked_autoprotect). Counted so the
+                # row is not in no counter; the next sweep retries.
+                summary["rearm_failed"] += 1
             if _placed:
                 _record_rearm_attempt(account_id, row["id"])
                 summary["rearmed"] += 1
@@ -9734,7 +9806,33 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                 "_check_broker_naked_equity_positions: failed for trade_id=%s: %s",
                 row["id"], exc,
             )
+    summary["unaccounted"] = summary["checked"] - _equity_sweep_row_outcomes(summary)
+    if summary["unaccounted"]:
+        logger.warning(
+            "_check_broker_naked_equity_positions: %d checked row(s) ended in "
+            "no outcome counter (or in more than one) — an uncounted path",
+            summary["unaccounted"],
+        )
     return summary
+
+
+#: Summary keys that are NOT a per-row outcome: the row count itself,
+#: intermediate grades a row passes through (broker_naked, target_naked),
+#: per-SYMBOL coverage/top-up results, sub-counts, and the invariant. Every
+#: OTHER key of the equity sweep's summary is a per-row outcome, and each
+#: checked row increments exactly one (K1XNYYAQ-0003 (c)).
+_EQUITY_SWEEP_NON_OUTCOME_KEYS = frozenset({
+    "checked", "broker_naked", "target_naked",
+    "covered", "partially_naked", "coverage_ungradeable", "coverage_read_failed",
+    "topped_up", "topup_refused", "topup_breach_exits", "topup_exit_failed",
+    "topup_exit_deferred", "exit_deferred_rearmed", "unaccounted",
+})
+
+
+def _equity_sweep_row_outcomes(summary: Dict[str, Any]) -> int:
+    return sum(int(v) for k, v in summary.items()
+               if k not in _EQUITY_SWEEP_NON_OUTCOME_KEYS
+               and isinstance(v, (int, float)))
 
 
 #: In-process re-assert state per ``(account_id, protect_symbol)``:
@@ -13985,7 +14083,8 @@ def run_reconciliation_tick(
         # Also kept in the tick's summaries whenever ANY outcome counter is
         # non-zero, for callers that do read them (REVIEW round 2; #14241).
         if any(v for k, v in broker_naked_summary.items()
-               if k not in ("checked", "covered") and isinstance(v, (int, float))):
+               if k not in ("checked", "covered", "stop_resting", "grace_skipped")
+               and isinstance(v, (int, float))):
             summaries["__broker_naked_equity__"] = broker_naked_summary
     except Exception as exc:  # noqa: BLE001
         logger.warning(
