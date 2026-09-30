@@ -111,7 +111,7 @@ The requested 2-5 legs is met (3 and 5); BTC is absent for the reason above.
 
 ### 3.2 Sizing under the limits
 
-Risk per trade is a fraction of the *current* balance. At 0.5% the median position notional is about 0.3 times balance, so the 5:1 and 2:1 caps rarely bind: 0 of 169, 0 of 65 for the two donchian legs and 3 of 129, 1 of 117, 1 of 132 for the scalp legs (stops as tight as 0.02% to 0.2%; the simulator scales those trades down). Peak simultaneous notional after the per-position caps, from the trade rows, is 2.4 times balance for B3 and 5.4 for B5; this exceeds 2:1 only if the cap is read as an *account-total* limit, which no page says **[INFERRED: per position]**. All 378 scalp and donchian minimum holds are at least 15 minutes, so the 20-second rule cannot bind.
+Risk per trade is a fraction of the *current* balance. At 0.5% the median position notional is about 0.3 times balance, so the 5:1 and 2:1 caps rarely bind: 0 of 169, 0 of 65 for the two donchian legs and 3 of 129, 1 of 117, 1 of 132 for the scalp legs (stops as tight as 0.02% to 0.2%; the simulator scales those trades down). Peak simultaneous notional after the per-position caps, from the trade rows, is 2.4 times balance for B3 and 5.4 for B5; this exceeds 2:1 only if the cap is read as an *account-total* limit, which no page says **[INFERRED: per position]**. The shortest hold across all 612 trades of the five legs is 15 minutes (900 s), so the 20-second rule cannot bind.
 
 Sweep of risk per trade (reduced-size Monte Carlo, 1000 lives + 30×100 bootstrap, seed 7, $10k, prorated swap):
 
