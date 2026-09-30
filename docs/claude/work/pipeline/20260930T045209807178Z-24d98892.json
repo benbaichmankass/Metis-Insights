@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "grading-freshness-alert.yml is a schedule_keeper TARGET with its dedupe job (merged), and one run of it (keeper-dispatched or scheduled) has completed on main; or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260930-AQRK6CL1-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30 04:55Z check-in; GRADE-ALERT row; PR #14230",
+    "rerun": "curl https://api.github.com/repos/benbaichmankass/Metis-Insights/actions/workflows/grading-freshness-alert.yml/runs?per_page=5 (count and created_at vs the 04:10Z slot); grep grading-freshness scripts/ops/schedule_keeper.py"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "grading-freshness-alert.yml (#14230, GRADE-ALERT) relies on GitHub's native cron ('10 4 * * *') alone and is NOT a schedule-keeper target. schedule_keeper.py documents GitHub cron here as 4-6h late with most slots DROPPED since 2026-08-27. MEASURED 2026-09-30 04:5xZ (Actions API): the workflow is registered and active (id 370239814) but has 0 runs ever, so its first 04:10Z slot had not fired ~45 min late. The latest event=schedule run in the whole repo was 02:03Z. A staleness ALERT that can silently not run is the collapsed-state failure: no ping reads the same as 'grading is fresh'. The fix is Tier-1 CI: add 'grading-freshness-alert.yml' to schedule_keeper.TARGETS with a stale_hours window and add the dedupe job to the workflow. tests/test_schedule_keeper.py enforces both halves."
+}

@@ -3720,8 +3720,10 @@
       "prs": [
         14230
       ],
-      "blocked_on": [],
-      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z 'let's do b'. Sonnet: bounded CI/tooling change. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14230 on main as 0b566cbb (adds .github/workflows/grading-freshness-alert.yml and alert-only scripts/ci/check_grading_freshness.py). No record observes it firing. Closes on the first stale-grading run of grading-freshness-alert.yml that sends exactly one Telegram ping, or a PR run that warns without failing."
+      "blocked_on": [
+        "PI-20260930-AQRK6CL1-0001"
+      ],
+      "note": "2026-09-29 ~13:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): operator 13:50Z 'let's do b'. Sonnet: bounded CI/tooling change. 2026-09-29 ~17:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): lane archived. #14230 on main as 0b566cbb (adds .github/workflows/grading-freshness-alert.yml and alert-only scripts/ci/check_grading_freshness.py). No record observes it firing. Closes on the first stale-grading run of grading-freshness-alert.yml that sends exactly one Telegram ping, or a PR run that warns without failing. || 2026-09-30 ~04:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): NOT OBSERVED. Actions API: grading-freshness-alert.yml is active (id 370239814) with 0 runs ever, ~45 min past its first 04:10Z slot. It is not a schedule_keeper target, and GitHub cron here runs 4-6h late or drops slots (schedule_keeper.py docstring). Filed PI-20260930-AQRK6CL1-0001: make it a keeper target. Still landed_unproven."
     },
     {
       "id": "REVIEW-14216",
