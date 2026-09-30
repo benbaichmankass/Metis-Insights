@@ -63,7 +63,7 @@ import glob
 import json
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -310,8 +310,8 @@ def build_legs(glob_pat: str, strategies: dict, candle_source: Callable[..., Opt
             skipped[leg] = f"no candles for {symbol} {tf} — no_data"
             continue
         labs = trend_labels(candles, df["entry_time"], tf)
-        idx = {l: i for i, l in enumerate(LABELS)}
-        true_lab = np.array([idx.get(l, -1) for l in labs])
+        idx = {name: i for i, name in enumerate(LABELS)}
+        true_lab = np.array([idx.get(x, -1) for x in labs])
         if (true_lab >= 0).sum() < MIN_LEG_N:
             skipped[leg] = f"only {(true_lab >= 0).sum()} trades labelled — no_data"
             continue
@@ -319,7 +319,7 @@ def build_legs(glob_pat: str, strategies: dict, candle_source: Callable[..., Opt
                      "net_r": df["net_r"].astype(float).to_numpy(),
                      "meta": {"ledger": path.relative_to(REPO).as_posix() if path.is_absolute() and REPO in path.parents else str(path),
                               "symbol": symbol, "timeframe": tf, "n": int(len(df)),
-                              "label_counts": {l: int((true_lab == i).sum()) for i, l in enumerate(LABELS)},
+                              "label_counts": {name: int((true_lab == i).sum()) for i, name in enumerate(LABELS)},
                               "unlabelled": int((true_lab < 0).sum())}}
     return legs, skipped
 

@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
