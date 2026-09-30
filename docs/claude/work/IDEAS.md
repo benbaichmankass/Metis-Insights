@@ -1,5 +1,7 @@
 # Operator ideas inbox
 
+> **Doc status:** `live` · category `register` · last verified `2026-09-30` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+
 The operator's scratch pad is a Google Doc titled "Metis — Ideas inbox", which the manager reads with the Google Drive connector. The manager copies each new bullet here **verbatim**, at most once a day during a regular check-in. It then triages every row into exactly one of:
 - a `research/queue` unit (theme and priority per `research/queue/PLANNING.md`; an idea too vague to test gets a scoping unit);
 - a `MANAGER-CHECKLIST.json` row (a build);
