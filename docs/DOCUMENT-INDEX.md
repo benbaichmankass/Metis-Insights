@@ -720,6 +720,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/bracket-target-reachability-2026-08-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/breakout-local-agent-requirements-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/breakout-terminal-egress-scoping-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/breakout-terminal-egress-scoping-part2-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/broker-truth-ib-flex-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/bybit-close-qty-legalization-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/c-reg-lens-enablement-2026-07-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
