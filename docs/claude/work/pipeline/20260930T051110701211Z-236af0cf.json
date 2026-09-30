@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "scripts/ci/check_mandate_autoland.py _case() cleans up its scratch git repo without raising (e.g. TemporaryDirectory(ignore_cleanup_errors=True) or git gc --auto disabled in the scratch repo), and the guard passes on 10 consecutive CI runs; kill if the self-test no longer builds a scratch git repo.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-W6PROPO1-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #13223 guards run 36328369358 job 108645413580 (2026-09-27T15:08Z): OSError [Errno 39] Directory not empty: '.git' at check_mandate_autoland.py:876",
+    "rerun": "for i in $(seq 20); do python3 scripts/ci/check_mandate_autoland.py --self-test >/dev/null 2>&1 || echo FAIL $i; done"
+  },
+  "state": "killed",
+  "terminal_reason": "Duplicate of PI-20260926-96NDZSOD-0003 and fixed by the same change: scripts/ci/check_mandate_autoland.py passes ignore_cleanup_errors=True at both TemporaryDirectory sites (2 of 2 counted 2026-09-30) and sets gc.auto 0 on the scratch repo.",
+  "what": "mandate-autoland-guard --self-test crashes intermittently in CI during TemporaryDirectory cleanup of its scratch git repo (a process still writing into .git during rmtree), failing the required `guards` job on PRs that do not touch it (seen once on PR #13223 head cc11de0; it passed on that PR's previous run and locally). No assertion in the self-test fails; the crash happens in teardown."
+}

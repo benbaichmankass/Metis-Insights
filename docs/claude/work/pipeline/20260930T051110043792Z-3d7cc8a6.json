@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "At least 10 Alpaca equity sl/tp-family closes with exit_price_source=exchange_fill (and IBKR futures likewise) have accrued; realized round-trip slippage is measured against the 5.0 bps working assumption; execution_costs and the affected evidence records are updated if it differs materially (or the 5.0 bps is confirmed with the measurement cited).",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-HJPL5ABP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "operator",
+    "ref": "MANAGER-CHECKLIST E62 note 2026-09-27; config/mandates.yaml MD-PROMOTE-S1-S2 clause (b) note",
+    "rerun": "diag-relay /api/bot/trades/closed?limit=500 filtered to alpaca_* accounts, exit_price_source=='exchange_fill': count them and compute (fill - intended) slippage in bps"
+  },
+  "routed_to": "E62",
+  "state": "routed",
+  "what": "E62 MONITOR: the operator reaffirmed 5.0 bps slippage for Alpaca equities / IBKR futures as the working assumption on 2026-09-27 (clearing MD-PROMOTE-S1-S2 clause (b)) and asked for a task to monitor real fills and update accordingly once supporting data exists. Measure realized slippage from exchange-fill closes; update execution_costs and regenerate the affected evidence records when the data supports a different number."
+}

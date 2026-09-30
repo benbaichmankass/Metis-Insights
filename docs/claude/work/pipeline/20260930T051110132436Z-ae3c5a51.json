@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "/api/diag/ib_open_orders shows no oca-protect-t5836 legs, AND every flat-close path in order_monitor (watchdog, reconciler_filled, close_from_order_status) cancels the closing trade's resting protection, with a test asserting it, merged AND deployed (git_sha on /api/diag/version contains the fix)",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KFWRL9R1-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-001",
+    "rerun": "curl the live diag /api/diag/ib_open_orders and /api/diag/exchange_positions (scripts/ops/diag_fetch.sh 'ib_open_orders'; 'exchange_positions'): for every account, list each resting STP/LMT whose ocaGroup is 'oca-protect-t<trade_id>' and check trade <trade_id> is status='open' in /api/diag/journal?table=trades and that the venue holds a position on that symbol. Any keyed group whose trade is closed, or any protective leg on a symbol with no venue position, reproduces it. Then grep src/runtime/order_monitor.py for _cancel_resting_protection_after_flat call sites; the finding holds while the watchdog flat-close branch has none."
+  },
+  "routed_to": "FIX-CA-01",
+  "state": "routed",
+  "what": "CRITICAL (code audit CA-A01-001, MEASURED 2026-09-27T13:02Z): ib_paper has a resting IB OCA group 'oca-protect-t5836' -- SELL STP 15 MESZ6 @7602.5 (order 906) + SELL LMT 15 @8390.5 (order 907), status PreSubmitted, GTC -- while the venue holds NO MES position (/api/diag/exchange_positions: ib_paper = MHG short 22, MGC long 90 only). Its owner, trade 5836 (mes_trend_long_1d, adopted orphan, long 15), was closed 2026-09-19T01:44:44Z by _watchdog_stuck_strategies ('position flat at exchange ... finalized closed with local-compute pnl'). If either leg triggers it OPENS an unintended 15-lot MES short. ROOT CAUSE: the watchdog flat-close branch (src/runtime/order_monitor.py ~5750-5880) finalises the trade and package without calling _cancel_resting_protection_after_flat; that sweep is wired only into _reconcile_orphan_exchange_positions (lines 3394, 3630). The same defect class already produced the 2026-09-16/17 cascade on ib_paper MES: adopted orphans 5830 (short 15), 5835/5836 (long 15), 5852 (short 45), 5853 (short 30), 5856 (short 15), with 5836 re-armed 54 times (protection_repair_last_kind=naked_rearm). Paper account today; ib_live is dry_run, so the defect class would reach real money on the first live IB close through the watchdog path. FIX (Tier-2 order path): (1) cancel oca-protect-t5836 now via the existing IB cancel route (operator-OK'd Tier-2 system action, or the next reconcile of MES if one runs the sweep); (2) call _cancel_resting_protection_after_flat(aid, symbol) on every flat-close path in order_monitor (watchdog, reconciler_filled in _reconcile_open_trades, close_from_order_status) scoped to the closing trade's keyed group 'oca-protect-t<id>' so a sibling's group is preserved; (3) add a test that closes a trade through _watchdog_stuck_strategies and asserts cancel_resting_protection was called. Full finding: docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl id CA-A01-001."
+}
