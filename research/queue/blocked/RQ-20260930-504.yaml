@@ -1,23 +1,26 @@
 id: RQ-20260930-504
-title: 'Strategy development: is there ANY profitable <=1h crypto-perp strategy in the existing harness families, and does it fit HyroTrader? Two-stage, family-wise-corrected search (lane HYRO-STRATS, blocked on the sweep orchestrator)'
+title: 'Strategy development (general research mandate): is there ANY profitable <=1h crypto-perp strategy in the existing harness families? Two-stage, family-wise-corrected search (blocked on the sweep orchestrator)'
 status: blocked
 cadence: once
 kind: experiment
 
 question: >-
   Operator, 2026-09-30: "add a research unit to strategy development to look for some profitable
-  shorter time frame strategies". The committed evidence (docs/research/hyro-strategy-feasibility-2026-09-30.md)
-  has 15m ict_scalp legs at +0.03 to +0.08 R a trade after cost, every other <=1h family at or below zero,
-  and no evidence at all for session-open, funding-window or VWAP-at-current-cost ideas. So: across a FIXED,
-  pre-declared grid of (family x symbol x timeframe) cells drawn from the cost-complete harnesses, run at each
-  family's LIVE-CONFIG parameters with no tuning, does any cell show a net-of-full-cost edge that survives a
-  family-wise multiple-testing correction on data it was not screened on, and does it also fit HyroTrader's
-  rules (same-day closes, >= 10 trades and >= 4 qualifying days a month)?
+  shorter time frame strategies", and, clarifying, that short-timeframe strategy search "isn't
+  HyroTrader-specific, that's a general research mandate". So: across a FIXED, pre-declared grid of
+  (family x symbol x timeframe) cells drawn from the cost-complete harnesses, run at each family's
+  LIVE-CONFIG parameters with no tuning, does any cell show a net-of-full-cost edge that survives a
+  family-wise multiple-testing correction on data it was not screened on? Short timeframes matter to
+  the whole system for reasons of their own (more trades per unit of calendar time, faster evidence,
+  shorter capital lock-up); the venue-specific fit of any winner (HyroTrader's same-day and qualifying-day
+  rules today, others later) is REPORTED for every confirmed cell but is not part of the verdict.
 
 why_this_matters: >-
-  This is the discovery half of the HyroTrader question. RQ-20260930-501 asks whether ONE known book clears a
-  bar; this asks whether a better book exists in the space we can already measure honestly. Searching many
-  cells and reporting the best is the classic way to manufacture an edge (the repo's own
+  The committed evidence (docs/research/hyro-strategy-feasibility-2026-09-30.md, which is where the gap
+  was first measured) has 15m ict_scalp legs at +0.03 to +0.08 R a trade after cost, every other <=1h
+  family at or below zero, and no evidence at all for session-open, funding-window or VWAP-at-current-cost
+  ideas. The roster is mostly 1h-1d, so each new leg costs weeks of calendar time to evidence. Searching
+  many cells and reporting the best is the classic way to manufacture an edge (the repo's own
   param_selection_provenance: not_established caveat), so the design is fixed here, before any run: a
   screen on the early window, a Bonferroni-corrected confirmation on the late window that the screen never
   saw, and a result of "nothing found" is a first-class outcome.
@@ -62,25 +65,26 @@ decision_rule:
     t-test p_A. A cell SURVIVES if n_A >= 88 and mean > 0 and p_A < 0.05. S = number of survivors.
     STAGE B (confirm) window 2024-10-01 to the latest complete day, run ONCE with the identical
     parameters: per surviving cell, n_B, mean full-cost net R, one-sided p_B, folds positive of 4 equal
-    time-folds, same-UTC-day share, trades per month, qualifying days per month (strict reading A of
-    HyroTrader's +-1% test, as in hyro_passprob_mc.py / the feasibility memo).
+    time-folds, and the REPORTED (never gating) venue-fit attributes: same-UTC-day share, median hold,
+    trades per month, and HyroTrader qualifying days per month (strict reading A of its +-1% test, as in
+    hyro_passprob_mc.py / the feasibility memo) so any venue can be checked against the same table later.
   rule: >-
     NOT_APPLICABLE (producer_failed) IF the orchestrator cannot run at least half of the K cells.
     Otherwise a cell is CONFIRMED IF n_B >= 88 AND mean net R_B > 0 AND p_B < 0.05 / S AND folds positive
-    >= 3 of 4. A confirmed cell is HYRO-FIT IF also same-UTC-day share >= 0.85 AND trades a month >= 10
-    AND qualifying days a month >= 4. VERDICT: PASS IF at least one cell is CONFIRMED and HYRO-FIT.
-    PARTIAL (a finding, not a pass) IF cells are CONFIRMED but none is HYRO-FIT. FAIL IF S >= 1 and no
-    cell is CONFIRMED (the screen produced only candidates the late window rejects). NULL IF S = 0.
-    INDETERMINATE for a cell with n_B < 88 (never FAIL). A PASS or PARTIAL cell is a candidate for
-    hyro_fit_verdict.py on its own ledger (a separately registered unit), NOT a roster proposal.
-    The grid, both windows, the thresholds and the survivor rule are not to be changed after seeing any
-    Stage A output; a different grid is a different, separately registered unit.
+    >= 3 of 4. VERDICT: PASS IF at least one cell is CONFIRMED. FAIL IF S >= 1 and no cell is CONFIRMED
+    (the screen produced only candidates the late window rejects). NULL IF S = 0. INDETERMINATE for a cell
+    with n_B < 88 (never FAIL). Venue fit (same-day share, trades a month, HyroTrader qualifying days a
+    month) is printed for every CONFIRMED cell and changes no verdict. A PASS cell is a candidate for a
+    separately registered unit (its own cost-complete ledger, a venue-fit grade, then Gate 1 soak
+    placement), NOT a roster proposal. The grid, both windows, the thresholds and the survivor rule are
+    not to be changed after seeing any Stage A output; a different grid is a different, separately
+    registered unit.
   what_it_does_not_do: >-
     Does not tune any parameter, so it cannot find an edge by fitting one; it also therefore cannot
     find an edge that only exists after tuning. Does not test session-open, funding-window or VWAP ideas
-    (no cost-complete harness). Does not touch config/strategies.yaml or accounts.yaml. Does not apply
-    HyroTrader's demo-realism flag haircut (market fills assumed unflagged; the maker-entry unit
-    RQ-20260930-502 is the answer to that).
+    (no cost-complete harness). Does not touch config/strategies.yaml or accounts.yaml. Applies no
+    venue-specific rule (HyroTrader's demo-realism flag haircut included) to the verdict; the maker-entry
+    unit RQ-20260930-502 is the HyroTrader-specific follow-up.
 
 routing:
   needs_trainer_resident_data: true
@@ -104,8 +108,7 @@ blocked_on:
       on the committed fixture. About 1 to 1.5 lane-days (INFERRED).
     ref: PI-20260930-LJF2ZFXF-0001
     clears_when: >-
-      the orchestrator is merged with its test, and RQ-20260930-501 has graded (so a PASS here can be
-      compared against a known reference book).
+      the orchestrator is merged with its test on the committed fixture.
 
 run:
   workflow: null
