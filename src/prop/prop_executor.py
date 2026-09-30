@@ -60,13 +60,31 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 RULESET_PATH = _REPO_ROOT / "config" / "prop_rulesets" / "breakout.yaml"
 ROUTING_PATH = _REPO_ROOT / "config" / "prop_rulesets" / "breakout_routing.yaml"
 PLATFORMS_PATH = _REPO_ROOT / "config" / "prop_platforms.yaml"
+ACCOUNTS_PATH = _REPO_ROOT / "config" / "accounts.yaml"
+
+# The account the executor was built for. Its kill switch, symbol override,
+# ruleset and routing keep the names and paths they had before a second prop
+# account existed (TRADEIFY-WIRE, 2026-09-30), so nothing about it changes.
+PRIMARY_ACCOUNT = "breakout_1"
 
 
-def executor_mode(env: Optional[Mapping[str, str]] = None) -> str:
+def _env_suffix(account_id: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in str(account_id)).upper()
+
+
+def mode_env_for(account_id: str = PRIMARY_ACCOUNT) -> str:
+    """The kill-switch env var for ``account_id``. ``breakout_1`` keeps
+    ``PROP_EXECUTOR_MODE``; every other account has its OWN
+    (``PROP_EXECUTOR_MODE_<ACCOUNT>``) and never inherits the global one, so
+    arming Breakout can never arm a second account's clicks."""
+    return MODE_ENV if account_id == PRIMARY_ACCOUNT else f"{MODE_ENV}_{_env_suffix(account_id)}"
+
+
+def executor_mode(env: Optional[Mapping[str, str]] = None, account_id: str = PRIMARY_ACCOUNT) -> str:
     """``off`` / ``read_only`` / ``live``. Unset or unparseable → ``read_only``:
     falling back to ``live`` would let a typo arm real clicks, and falling back
     to ``off`` would hide a misconfiguration behind silence."""
-    raw = ((env if env is not None else os.environ).get(MODE_ENV) or "").strip().lower()
+    raw = ((env if env is not None else os.environ).get(mode_env_for(account_id)) or "").strip().lower()
     return raw if raw in MODES else DEFAULT_MODE
 
 
@@ -102,12 +120,44 @@ class ExecutorConfig:
 SYMBOLS_ENV = "PROP_EXECUTOR_SYMBOLS"
 
 
-def enabled_venues(ex: Mapping[str, Any], env: Optional[Mapping[str, str]] = None) -> List[str]:
-    """``PROP_EXECUTOR_SYMBOLS`` (comma-separated) when set, else
-    ``executor.enabled_venue_symbols``; missing = [] (fail closed)."""
-    raw = (env if env is not None else os.environ).get(SYMBOLS_ENV)
+def symbols_env_for(account_id: str = PRIMARY_ACCOUNT) -> str:
+    """Per-account like :func:`mode_env_for`: ``PROP_EXECUTOR_SYMBOLS`` for
+    ``breakout_1``, ``PROP_EXECUTOR_SYMBOLS_<ACCOUNT>`` for any other."""
+    return SYMBOLS_ENV if account_id == PRIMARY_ACCOUNT else f"{SYMBOLS_ENV}_{_env_suffix(account_id)}"
+
+
+def enabled_venues(ex: Mapping[str, Any], env: Optional[Mapping[str, str]] = None,
+                   account_id: str = PRIMARY_ACCOUNT) -> List[str]:
+    """``PROP_EXECUTOR_SYMBOLS`` (comma-separated; per account, see
+    :func:`symbols_env_for`) when set, else ``executor.enabled_venue_symbols``;
+    missing = [] (fail closed)."""
+    raw = (env if env is not None else os.environ).get(symbols_env_for(account_id))
     vals = raw.split(",") if raw is not None and raw.strip() else (ex.get("enabled_venue_symbols") or [])
     return sorted({str(v).strip().upper() for v in vals if str(v).strip()})
+
+
+def rule_paths_for(account_id: str) -> Tuple[Path, Path]:
+    """``(ruleset, routing)`` files for ``account_id``.
+
+    ``breakout_1`` → :data:`RULESET_PATH` / :data:`ROUTING_PATH`, exactly as
+    before a second account existed. Any other account → its
+    ``config/accounts.yaml::backtest_ruleset`` (the SAME key the ticket
+    emitter and the rule-distance guard resolve) and that ruleset's
+    ``routing:`` key. Either missing RAISES: an executor sized off another
+    firm's rules would type a number nobody computed for this account."""
+    import yaml
+
+    if account_id == PRIMARY_ACCOUNT:
+        return RULESET_PATH, ROUTING_PATH
+    accts = (yaml.safe_load(ACCOUNTS_PATH.read_text()) or {}).get("accounts") or {}
+    spec = (accts.get(account_id) or {}).get("backtest_ruleset")
+    if not spec or spec == "standard":
+        raise KeyError(f"{account_id!r}: no prop backtest_ruleset in {ACCOUNTS_PATH.name}")
+    ruleset = _REPO_ROOT / "config" / str(spec)
+    routing_spec = (yaml.safe_load(ruleset.read_text()) or {}).get("routing")
+    if not routing_spec:
+        raise KeyError(f"{account_id!r}: ruleset {ruleset.name} declares no `routing:` file")
+    return ruleset, _REPO_ROOT / "config" / str(routing_spec)
 
 
 def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
@@ -115,8 +165,9 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
     a second copy of a rule."""
     import yaml
 
-    rules = yaml.safe_load(RULESET_PATH.read_text()) or {}
-    routing = yaml.safe_load(ROUTING_PATH.read_text()) or {}
+    ruleset_path, routing_path = rule_paths_for(account_id)
+    rules = yaml.safe_load(ruleset_path.read_text()) or {}
+    routing = yaml.safe_load(routing_path.read_text()) or {}
     plat = (yaml.safe_load(PLATFORMS_PATH.read_text()) or {}).get("accounts", {}).get(account_id) or {}
     ex = plat.get("executor") or {}
     lim = rules.get("limits") or {}
@@ -157,7 +208,7 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         watched_click_max_lots={str(k): float(v) for k, v in (ex.get("watched_click_max_lots") or {}).items()
                                 if v is not None},
         breach_guards=_breach_guards_for(account_id),
-        enabled_venue_symbols=enabled_venues(ex),
+        enabled_venue_symbols=enabled_venues(ex, account_id=account_id),
     )
 
 

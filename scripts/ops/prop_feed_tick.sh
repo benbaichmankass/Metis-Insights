@@ -75,7 +75,17 @@ source "${SCRIPT_DIR}/_lib.sh"
 ACCOUNT="${PROP_FEED_ACCOUNT:-breakout_1}"
 BASE="${PROP_BROWSER_BASE:-${HOME}/.cache/metis-prop-browser}"
 VENV="${BASE}/venv"
-STATE_DIR="${BASE}/feed"
+# breakout_1 keeps the state dir it has always had; any other prop account
+# (the ict-prop-feed@<account> template, TRADEIFY-WIRE 2026-09-30) gets its own,
+# the SAME dir breakout-login-check uses for that account, so its saved session
+# and trip marker are never shared with breakout_1's.
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    STATE_DIR="${BASE}/feed"
+    RESET_HINT="breakout-login-check apply: reset-feed"
+else
+    STATE_DIR="${BASE}/accounts/${ACCOUNT}/feed"
+    RESET_HINT="breakout-login-check account: ${ACCOUNT} apply: reset-feed"
+fi
 SESSION_STATE="${STATE_DIR}/session_state.json"
 TRIP_FILE="${STATE_DIR}/tripped"
 FAILS_FILE="${STATE_DIR}/consecutive_failures"
@@ -87,9 +97,16 @@ PING_PY="${PROP_FEED_PING_PY:-/usr/bin/python3}"
 
 mkdir -p "${STATE_DIR}"
 chmod 700 "${STATE_DIR}"
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    FEED_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD"
+elif ! FEED_KEYS="$(cd "${REPO_DIR}" && python3 scripts/prop/prop_env_keys.py "${ACCOUNT}" | awk '{print $1, $2}')" \
+        || [ -z "${FEED_KEYS// }" ]; then
+    log "account ${ACCOUNT}: no entry in config/prop_platforms.yaml — not logging in"
+    exit 1
+fi
 
 if [ -f "${TRIP_FILE}" ]; then
-    log "feed TRIPPED ($(head -c 300 "${TRIP_FILE}")); not logging in. Re-arm: breakout-login-check apply: reset-feed"
+    log "feed TRIPPED ($(head -c 300 "${TRIP_FILE}")); not logging in. Re-arm: ${RESET_HINT}"
     exit 0
 fi
 
@@ -113,7 +130,7 @@ trip() {
     "${PING_PY}" "${REPO_DIR}/scripts/send_ping.py" --target claude --priority high \
         --kind state_change \
         --why "the 5-min ${ACCOUNT} account_status feed stopped logging in" \
-        "[prop-feed] ${ACCOUNT} feed TRIPPED: ${reason} (exit ${rc}). No further logins until re-armed (breakout-login-check apply: reset-feed)." \
+        "[prop-feed] ${ACCOUNT} feed TRIPPED: ${reason} (exit ${rc}). No further logins until re-armed (${RESET_HINT})." \
         >/dev/null 2>&1 || log "ping enqueue failed (trip marker + audit record still written)"
 }
 
@@ -139,7 +156,7 @@ fi
 
 # Exactly the keys the check needs, from the VM .env; values never echoed.
 if [ -f "${REPO_DIR}/.env" ]; then
-    for ckey in BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN; do
+    for ckey in ${FEED_KEYS} DASHBOARD_API_TOKEN; do
         cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
         if [ -n "${cval}" ]; then
             cval="${cval%\"}"; cval="${cval#\"}"

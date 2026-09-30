@@ -1,0 +1,15 @@
+# Per-account prop feed timer (TRADEIFY-WIRE, 2026-09-30). OPT-IN: installed and
+# enabled only by `breakout-login-check account: <id> apply: feed-enable-timer`.
+# Offset from breakout_1's :02/5 so the two instances rarely queue on the shared
+# login.lock (the tick skips, never waits, when the lock is held).
+[Unit]
+Description=Trigger ict-prop-feed@%i every 5 minutes (%i account_status)
+
+[Timer]
+OnCalendar=*-*-* *:04/5:00
+AccuracySec=15s
+Persistent=false
+Unit=ict-prop-feed@%i.service
+
+[Install]
+WantedBy=timers.target

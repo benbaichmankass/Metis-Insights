@@ -107,7 +107,7 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     ``off`` would block measurement exactly when the executor has been
     reverted. ``probe`` opens and closes the order form but types nothing;
     the other two never reach the order form."""
-    base = pe.executor_mode(env)
+    base = pe.executor_mode(env, getattr(args, "account", pe.PRIMARY_ACCOUNT) or pe.PRIMARY_ACCOUNT)
     if args.probe_ticket:
         return "probe"
     if getattr(args, "instrument_probe", ""):
@@ -131,6 +131,16 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
             return "close_position_dry"
         return "close_position_live" if base == "live" else "not_armed"
     return base
+
+
+def default_state_dir(account: str) -> Path:
+    """The executor's ledger / latch directory. ``breakout_1`` keeps the path it
+    has always had; another account gets its own, so one account's AUTO-REVERT
+    latch or intent ledger can never gate or confirm another's tickets."""
+    base = Path.home() / ".cache" / "metis-prop-browser"
+    if account == pe.PRIMARY_ACCOUNT:
+        return base / "executor"
+    return base / "accounts" / account / "executor"
 
 
 def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
@@ -162,7 +172,9 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--account", default="breakout_1")
     ap.add_argument("--api-base", default="http://127.0.0.1:8001")
     ap.add_argument("--timeout-s", type=int, default=45)
-    ap.add_argument("--state-dir", default=str(Path.home() / ".cache" / "metis-prop-browser" / "executor"))
+    ap.add_argument("--state-dir", default="",
+                    help="default: ~/.cache/metis-prop-browser/executor for breakout_1, "
+                         ".../accounts/<account>/executor for any other account")
     ap.add_argument("--storage-state", default="")
     ap.add_argument("--login", choices=("reuse", "fresh"), default="reuse")
     g = ap.add_mutually_exclusive_group()
@@ -185,20 +197,24 @@ def main(argv: Optional[list] = None) -> int:
                     help="round trip: actually click (refused unless PROP_EXECUTOR_MODE=live); default is a dry walk")
     ap.add_argument("--ticket-id", default="", help="watched click: act on this ticket only")
     args = ap.parse_args(argv)
+    if not args.state_dir:
+        args.state_dir = str(default_state_dir(args.account))
 
     mode = resolve_mode(args)
+    mode_env = pe.mode_env_for(args.account)
+    env_mode = pe.executor_mode(account_id=args.account)
     cfg_plat = load_platform_config(args.account)
     username = os.environ.get(cfg_plat.get("username_env", ""), "")
     password = os.environ.get(cfg_plat.get("password_env", ""), "")
     secrets = (username, password)
     emit({"executor": "start", "account": args.account, "mode": mode, "login": args.login,
-          "env_mode": pe.executor_mode(), "code_sha": _code_sha()})
+          "env_mode": env_mode, "code_sha": _code_sha()})
     if mode == "not_armed":
-        emit({"executor": "not_armed", "why": f"a live click needs {pe.MODE_ENV}=live explicitly "
-                                              f"(it reads {pe.executor_mode()!r}); nothing clicked"})
+        emit({"executor": "not_armed", "why": f"a live click needs {mode_env}=live explicitly "
+                                              f"(it reads {env_mode!r}); nothing clicked"})
         return EXIT_ERROR
     if mode == "off":
-        emit({"executor": "off", "why": f"{pe.MODE_ENV}=off — nothing read, nothing clicked"})
+        emit({"executor": "off", "why": f"{mode_env}=off — nothing read, nothing clicked"})
         return EXIT_OK
     if args.login == "reuse" and not args.storage_state:
         emit({"session": "none", "why": "--login reuse needs --storage-state (the feed's session file)"})
@@ -207,7 +223,16 @@ def main(argv: Optional[list] = None) -> int:
         emit({"feasibility": "no_credentials"})
         return EXIT_FEASIBILITY
 
-    cfg = pe.load_config(args.account)
+    # The probes never size a ticket, so they run without the account's
+    # ruleset/routing (a second account can be MEASURED before its
+    # accounts.yaml entry exists); every sizing mode fails closed without it.
+    try:
+        cfg = pe.load_config(args.account)
+    except (KeyError, FileNotFoundError) as exc:
+        if mode not in ("probe", "instrument_probe", "instrument_search_dump"):
+            emit({"config": f"no executor config for {args.account} ({exc}); nothing read, nothing clicked"})
+            return EXIT_ERROR
+        cfg = None
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000
