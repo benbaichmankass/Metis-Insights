@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only - the daily runner is deploy/trainer/ict-candle-refresh.timer, shipped as its own held Tier-2 PR (#14518) so it cannot ride this Tier-1 change.
 """Extend the trainer's multi-year candle CSVs forward, never truncating them.
 
 OWNER of the refresh for ``data/<SYM>_<tf>.csv`` (PI-20260929-FCJRWVAK-0002):

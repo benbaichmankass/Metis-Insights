@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a measurement instrument run by hand through the trainer-vm-diag relay to record a feed decision; it grades nothing and writes nothing.
 """Measure how two candle CSVs (same symbol/timeframe) agree on their overlap.
 
 Prints per pair: rows, span, overlap bars, median/p99/max |close diff| in bps,
