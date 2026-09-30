@@ -972,15 +972,23 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         # on 2026-09-30 12:44Z (only the two breach reports alerted), so each
         # failure alerts.
         n = int((seen.get(spec.ticket_id) or {}).get("attempts") or 0) + 1
-        if n < RETRY_MAX_ATTEMPTS:
+        # A WATCHED click (max_lots / only_ticket_id: the minimum-size test) is
+        # never retried: an unattended retry would place the ticket at its FULL
+        # size, not the watched cap (review of #14737, 2026-09-30).
+        watched = max_lots is not None or bool(only_ticket_id)
+        if n < RETRY_MAX_ATTEMPTS and not watched:
             ledger.record(spec.ticket_id, RETRY_STATE, attempts=n, last_detail=att.detail)
-            res.alerts.append(f"{spec.ticket_id}: NOT PLACED ({att.detail}); attempt {n}/{RETRY_MAX_ATTEMPTS}, "
-                              f"will retry until {candidate.get('valid_until')}")
+            # The ticket is still `emitted` and the executor WILL try again:
+            # say so, so nobody places it by hand in a race with the retry.
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED yet ({att.detail}); executor will retry until "
+                              f"{candidate.get('valid_until')} (attempt {n}/{RETRY_MAX_ATTEMPTS}) "
+                              f"— do NOT place by hand")
         else:
+            why = "watched click: not retried" if watched else f"after {n} attempts"
             ledger.record(spec.ticket_id, "refused", reasons=[att.detail], attempts=n)
-            _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail} (after {n} attempts)"))
-            res.alerts.append(f"{spec.ticket_id}: NOT PLACED after {n} attempts ({att.detail}); valid until "
-                              f"{candidate.get('valid_until')}. Place it by hand or it is lost")
+            _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail} ({why})"))
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED — place by hand or it is lost ({why}: {att.detail}); "
+                              f"valid until {candidate.get('valid_until')}")
         if "read-back" in str(att.detail or ""):
             n = int(st.get("readback_refusals") or 0) + 1
             st["readback_refusals"] = n

@@ -141,6 +141,16 @@ for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dr
     esac
 done
 case ",${APPLY}," in *",sol,"*) RT_SYMBOL="SOLUSD" ;; *) RT_SYMBOL="ETHUSD" ;; esac
+# `limit` is honoured ONLY by round-trip-dry (a dry-only LIMIT form walk). With
+# any other mode it would be silently ignored -- `round-trip-live,sol,limit`
+# would run a LIVE MARKET round trip -- so it is refused before anything runs
+# (review of #14737, 2026-09-30).
+case ",${APPLY}," in *",limit,"*)
+    if [ "${EXEC_MODE}" != "round-trip-dry" ]; then
+        log "limit: refused — 'limit' is valid only with round-trip-dry (got mode '${EXEC_MODE:-none}')"
+        exit 1
+    fi ;;
+esac
 if [ "${WANT_RESET}" = "1" ] && [ "${ACCOUNT}" != "breakout_1" ]; then
     # reset-feed clears ${BASE}/feed, which is breakout_1's feed: a check of
     # another account must never re-arm it.
