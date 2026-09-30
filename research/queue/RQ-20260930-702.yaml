@@ -4,7 +4,8 @@ title: >-
   that 22 single-leg tests (n=35-107) were too small to detect?
 status: queued
 cadence: once
-priority: 10
+theme: regime
+priority: 1
 kind: experiment
 
 question: >-

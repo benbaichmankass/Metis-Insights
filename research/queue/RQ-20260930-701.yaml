@@ -4,7 +4,8 @@ title: >-
   leg's losing ADX-14 cells, what is the change in full-cost net R?
 status: queued
 cadence: once
-priority: 10
+theme: regime
+priority: 1
 kind: experiment
 
 question: >-
