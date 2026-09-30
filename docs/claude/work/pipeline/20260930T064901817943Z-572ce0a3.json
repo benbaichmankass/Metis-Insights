@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "summarize() computes real drawdown/Sharpe/total_pnl_pct from the trade list (src.backtest.backtester.ICTBacktester already has correct logic for this and can be reused), or explicitly stamps them null/unmeasured instead of 0.0, with a test covering src.backtest.run_backtest for the first time.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-RLBXQDGK-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A15",
+    "rerun": "python3 -c \"from src.backtest.run_backtest import summarize; print(summarize([{'net_pnl':100.0},{'net_pnl':-50.0},{'net_pnl':30.0}], '2026-01-01','2026-01-02'))\""
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "routed",
+  "what": "AUD-20260927-CA-A15-run-backtest-summarize-fabricated-zeros: src/backtest/run_backtest.py::summarize() hardcodes max_drawdown, max_drawdown_pct, sharpe_ratio and total_pnl_pct to 0.0 regardless of the actual trade list (lines ~116-120), even on the branch that has real trades -- these are not computed at all, not merely defaulted. run_backtest() is invoked by scripts/ops/run_serious_baseline.sh against a real DB, and that DB is then built into the ml/datasets/families/backtest_results.py ML dataset family via `python -m ml build-dataset backtest_results`, so fabricated 0.0 values (not distinguishable from a genuinely-zero drawdown/Sharpe) flow into ML training data. No test imports src.backtest.run_backtest at all."
+}
