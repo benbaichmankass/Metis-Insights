@@ -70,6 +70,7 @@ functions over plain data so they are unit-tested without a browser.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -1621,7 +1622,7 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   }
   if (hit.length === 1) {
     hit[0].setAttribute('data-metis-search-hit', '1');
-    return {found: true, via: `placeholder+data-test-id`};
+    return {found: true, via: `placeholder+tid`};
   }
   return {found: false, n_candidate_inputs: inputs.length,
           why: `no visible input in the watchlist widget has placeholder '${wantPlaceholder}' AND a `
@@ -2341,6 +2342,240 @@ def watchlist_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[
     b, a = set(before.get("symbols") or []), set(after.get("symbols") or [])
     return {"changed": b != a, "n_before": len(b), "n_after": len(a),
             "added": sorted(a - b), "removed": sorted(b - a)}
+
+
+# ── instrument INFO-PANEL probe (PROP-ETH-DOM, 2026-09-30) ───────────────
+#
+# OPERATOR DECISIONS, verbatim, relayed by the manager: popup ~08:00Z
+# 2026-09-30 "Build an automated probe" (select a watchlist row, click
+# ``instrument_info_button``, dump the panel read-only, close it) and ~08:20Z
+# "I'll approve it in the lane". Pipeline PI-20260929-AQRK6CL1-0014. Live run
+# issue #14612 MEASURED that the watchlist already holds the candidate symbols
+# and that the search box surfaces no specs; issue #14551 MEASURED
+# ``[data-test-id=instrument_info_button]`` (icon ``#icon-info``) beside a
+# ``[data-test-id=symbol_input]`` in a widget-header toolbar.
+#
+# ⚠️ THIS IS THE SURFACE THREE REVIEW ROUNDS REJECTED (#13416; see the module
+# docstring). Each rejection reason, and what answers it here:
+#   R1 "page-wide text / a stale panel from the previous symbol / the symbol
+#      never verified": nothing reads page text. The panel is the ONE new,
+#      panel-sized element that appears after the info click (new = not in a
+#      pre-click WeakSet of every element); it must name the requested symbol
+#      as a whole token and NO OTHER watchlist symbol; it must be verified
+#      GONE before the next symbol is selected.
+#   R2 "wrong symbol's numbers (e.g. the order ticket's own Lot Size) / a
+#      panel resolved wide / identical panels reused / link roles clicked":
+#      the panel may hold no BUY or SELL control; its text is hashed and an
+#      identical hash to an earlier symbol refuses; the linked symbol input
+#      must read the requested symbol BEFORE the info click; every click is on
+#      an element THIS probe tagged after checking it (a watchlist Symbol
+#      CELL holding no control, the one info button, one close control inside
+#      the verified panel) -- nothing is clicked by role or name.
+#   R3 "it never converges": no named-field parser. The panel's own text
+#      leaves are dumped in order; turning them into lot/tick numbers is a
+#      reviewed follow-up against the measured shape.
+# Defensive rules (manager brief, 2026-09-30 08:02Z): the action holds
+# login.lock, so the executor tick skips while this runs; refuse unless the
+# account reads FLAT without clicking a tab (Used Margin parsed and 0, and the
+# visible Orders table found and empty); refuse if one-click reads ON (the
+# live reading is 'unknown', #13711; no price or trade control is ever
+# clicked); refuse on any dialog open before the run or appearing after a row
+# click; record the linked symbol first, RESTORE it and verify it after (a
+# failed restore is an alert and a non-zero exit); the watchlist symbol set
+# must read the same before and after. A DOUBLE-click on a watchlist row
+# opens the order ticket (open_order_ticket): this probe only ever issues a
+# single click, on the Symbol cell, never on a Bid/Ask cell.
+
+# Resolve every target WITHOUT clicking. Tags (only when every check passes):
+# ``data-metis-row-cell=<SYM>`` on each requested symbol's Symbol cell (exactly
+# one aligned watchlist row, a visible cell holding no control, not inside a
+# BUY+SELL panel), ``data-metis-info-btn`` on the one visible info button,
+# ``data-metis-sym-input`` on its linked symbol input (the one visible
+# ``symbol_input`` in the nearest ancestor of the info button that holds
+# any, walked at most 6 levels). Refuses when either sits in a BUY+SELL panel.
+INFO_PROBE_RESOLVE_JS = r"""
+([symbols]) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input'])
+    document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a));
+  const out = {ok: false, targets: {}};
+  const orderPanels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]')) {
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]')) { orderPanels.push(e); break; }
+    }
+  }
+  const inOrder = el => orderPanels.some(p => p.contains(el));
+  out.dialogs = [...document.querySelectorAll('[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length;
+  const wl = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push(hs);
+  }
+  if (wl.length !== 1) { out.why = `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`; return out; }
+  const hs = wl[0], si = hs.indexOf('symbol');
+  const rows = [];
+  for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    const tds = [...r.querySelectorAll('td')];
+    if (tds.length !== hs.length) continue;
+    const sym = txt(tds[si]).toUpperCase();
+    if (!/^[A-Z0-9]{2,15}$/.test(sym)) continue;
+    rows.push({sym, cell: tds[si]});
+  }
+  out.watchlist = [...new Set(rows.map(r => r.sym))].sort();
+  const ctl = 'button, [role=button], a, input, select, textarea, [onclick]';
+  for (const sym of [...new Set(symbols.map(s => String(s).toUpperCase()))]) {
+    const hit = rows.filter(r => r.sym === sym);
+    const t = {n_rows: hit.length, clean: false};
+    if (hit.length === 1) {
+      const c = hit[0].cell;
+      t.cell_has_control = c.matches(ctl) || !!c.querySelector(ctl);
+      t.cell_in_order_panel = inOrder(c);
+      t.clean = vis(c) && !t.cell_has_control && !t.cell_in_order_panel;
+      if (t.clean) c.setAttribute('data-metis-row-cell', sym);
+    }
+    out.targets[sym] = t;
+  }
+  const btns = [...document.querySelectorAll('[data-test-id=instrument_info_button]')].filter(vis);
+  out.n_info_buttons = btns.length;
+  if (btns.length !== 1) { out.why = `${btns.length} visible instrument_info_button (need exactly 1)`; return out; }
+  const btn = btns[0];
+  let host = null;
+  for (let e = btn.parentElement, i = 0; e && e !== document.body && i < 6; e = e.parentElement, i++) {
+    if (e.querySelector('[data-test-id=symbol_input]')) { host = e; break; }
+  }
+  const inputs = host ? [...host.querySelectorAll('[data-test-id=symbol_input]')].filter(vis) : [];
+  out.n_linked_inputs = inputs.length;
+  if (inputs.length !== 1) { out.why = `${inputs.length} symbol_input beside the info button (need exactly 1)`; return out; }
+  if (inOrder(btn) || inOrder(inputs[0])) { out.why = 'the info button or its symbol input sits in a BUY+SELL panel'; return out; }
+  btn.setAttribute('data-metis-info-btn', '1');
+  inputs[0].setAttribute('data-metis-sym-input', '1');
+  // The linked symbol is that input's value: a SYMBOL, the thing this probe
+  // must restore afterwards -- not account data.
+  out.linked_symbol = (inputs[0].value || '').trim().toUpperCase();
+  out.ok = true;
+  return out;
+}
+"""
+
+# Remember every element that exists now (a WeakSet on window -- no DOM
+# attribute) so the panel can be identified as NEW after the info click.
+# Returns the number of visible dialogs.
+INFO_PROBE_SNAPSHOT_JS = r"""
+() => {
+  window.__metisPre = new WeakSet(document.querySelectorAll('*'));
+  return [...document.querySelectorAll('[role=dialog],[role=alertdialog],[aria-modal=true]')]
+    .filter(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length;
+}
+"""
+
+# Find the ONE new panel-sized element: not in the pre-click WeakSet, parent
+# not itself new, >= 120x60 px, >= 3 text leaves. Tag it
+# ``data-metis-info-panel`` and return its OWN text leaves (never page text)
+# with the identity checks. Runs of 8+ digits and e-mails are masked (a
+# contract size or max quantity can legitimately run to 6-7 digits).
+INFO_PROBE_PANEL_JS = r"""
+([target, others]) => {
+  const pre = window.__metisPre;
+  if (!pre) return {found: false, why: 'no pre-click snapshot'};
+  document.querySelectorAll('[data-metis-info-panel]').forEach(e => e.removeAttribute('data-metis-info-panel'));
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+                     .replace(/\d{8,}/g, m => '#'.repeat(m.length)).slice(0, 80);
+  const leaves = el => [...el.querySelectorAll('*')].filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
+  const fresh = [...document.querySelectorAll('body *')]
+    .filter(el => !pre.has(el) && !(el.parentElement && !pre.has(el.parentElement)));
+  const panels = fresh.filter(el => {
+    const r = el.getBoundingClientRect();
+    return r.width >= 120 && r.height >= 60 && leaves(el).length >= 3;
+  });
+  const out = {found: false, n_new_top: fresh.length, n_panels: panels.length};
+  if (panels.length !== 1) { out.why = `${panels.length} new panel-sized elements after the info click (need exactly 1)`; return out; }
+  const p = panels[0];
+  const tokens = new Set(txt(p).toUpperCase().match(/[A-Z0-9]+/g) || []);
+  out.names_target = tokens.has(String(target).toUpperCase());
+  out.names_others = others.filter(o => tokens.has(String(o).toUpperCase()));
+  out.has_order_controls = !!p.querySelector('[data-test-id=BUY],[data-test-id=SELL]');
+  out.is_dialog = p.matches('[role=dialog],[role=alertdialog],[aria-modal=true]');
+  const all = leaves(p);
+  out.leaves = all.slice(0, 120);
+  out.truncated = all.length > 120;
+  p.setAttribute('data-metis-info-panel', '1');
+  out.found = true;
+  return out;
+}
+"""
+
+# Inside the tagged panel ONLY: tag its one close control (aria-label / title
+# / whole text reads close, ×, ✕, or a data-test-id with a whole "close" word).
+INFO_PROBE_CLOSE_JS = r"""
+() => {
+  const p = document.querySelector('[data-metis-info-panel]');
+  if (!p) return {n: 0, why: 'panel not tagged'};
+  document.querySelectorAll('[data-metis-close]').forEach(e => e.removeAttribute('data-metis-close'));
+  const re = /^(close|close panel|close dialog|×|✕|x)$/i;
+  const c = [...p.querySelectorAll('button, [role=button]')].filter(b => {
+    const t = [b.getAttribute('aria-label'), b.getAttribute('title'), (b.innerText || '').trim()].filter(Boolean);
+    return t.some(v => re.test(v.trim())) || /(^|[_-])close($|[_-])/i.test(b.getAttribute('data-test-id') || '');
+  });
+  if (c.length === 1) c[0].setAttribute('data-metis-close', '1');
+  return {n: c.length};
+}
+"""
+
+# How many VISIBLE tables carry the Orders grid's header shape (Symbol plus
+# Order ID or Order Type). The flat guard needs >= 1: a hidden grid may not
+# render its rows, and must never read as "no working order".
+INFO_PROBE_ORDERS_VISIBLE_JS = r"""
+() => {
+  const txt = el => (el.innerText || el.textContent || '').trim().toLowerCase();
+  let n = 0;
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
+    const r = t.getBoundingClientRect();
+    if (hs.includes('symbol') && (hs.includes('order id') || hs.includes('order type'))
+        && r.width > 0 && r.height > 0) n++;
+  }
+  return n;
+}
+"""
+
+INFO_PROBE_PANEL_GONE_JS = r"""
+() => {
+  const p = document.querySelector('[data-metis-info-panel]');
+  if (!p || !p.isConnected) return true;
+  const r = p.getBoundingClientRect();
+  return !(r.width > 0 && r.height > 0);
+}
+"""
+
+INFO_PROBE_CLEANUP_JS = r"""
+() => {
+  for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input',
+                   'data-metis-info-panel', 'data-metis-close'])
+    document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a));
+  try { delete window.__metisPre; } catch (e) {}
+}
+"""
+
+
+def info_probe_flat_guard(account: AccountSnapshot, orders: Optional[List[WorkingOrder]]) -> Optional[str]:
+    """Why the info probe must NOT click, or None when the account reads FLAT.
+
+    Flat = Used Margin parsed and exactly 0 (an open position holds margin)
+    AND the Orders table was found WITHOUT clicking a tab and holds no
+    working order. "Could not look" refuses; it never passes."""
+    if account.margin_used is None:
+        return "Used Margin not readable (could not confirm no open position)"
+    if account.margin_used != 0:
+        return f"Used Margin reads {account.margin_used} (a position may be open)"
+    if orders is None:
+        return "no Orders table visible without clicking a tab (could not confirm no working order)"
+    if orders:
+        return f"{len(orders)} working order(s) on the account"
+    return None
 
 
 #: A quote whose spread is wider than this is not believed (a mis-aligned
@@ -3222,6 +3457,195 @@ class DXtradeAdapter(PropPlatformAdapter):
             return page.evaluate(WATCHLIST_SYMBOLS_JS) or {"readable": False, "why": "no result"}
         except Exception as exc:
             return {"readable": False, "why": f"read failed ({type(exc).__name__})"}
+
+    # ── instrument INFO-PANEL probe (see INFO_PROBE_RESOLVE_JS's block) ──
+    @staticmethod
+    def _info_click(page: Any, selector: str) -> None:
+        """Click exactly one element carrying a tag THIS probe set after
+        checking it. Any other count raises -- nothing is clicked by role,
+        name or text."""
+        loc = page.locator(selector)
+        n = loc.count()
+        if n != 1:
+            raise LookupError(f"{n} elements match {selector} (need exactly 1)")
+        loc.first.click(timeout=5_000)
+
+    @staticmethod
+    def _linked_symbol(page: Any) -> Optional[str]:
+        try:
+            v = page.locator("[data-metis-sym-input='1']").first.input_value(timeout=3_000)
+            return (v or "").strip().upper()
+        except Exception:
+            return None
+
+    def probe_instrument_info(self, page: Any, symbols: Sequence[str], *, click: bool = False,
+                              settle_ms: int = 1_500) -> Dict[str, Any]:
+        """Operator-authorized (2026-09-30) instrument INFO-PANEL probe.
+
+        ``click=False`` (dry mode) resolves every target, runs every guard,
+        reports the plan and CLICKS NOTHING. ``click=True`` then, per symbol:
+        single-click that symbol's watchlist Symbol cell; confirm no dialog
+        appeared and the linked symbol input reads the symbol; click the info
+        button; dump the ONE new panel's own text leaves (identity checked);
+        close it and confirm it is gone. Afterwards it re-selects the
+        originally linked symbol and verifies it. ``alerts`` is non-empty
+        whenever the terminal may have been left changed.
+        """
+        want = [s.strip().upper() for s in symbols if s and s.strip()]
+        out: Dict[str, Any] = {"mode": "click" if click else "dry", "symbols": want,
+                               "results": {}, "alerts": [], "refused": None}
+        wl_before = self.watchlist_symbols(page)
+        clicked_any = False
+        no_more_clicks = False
+        try:
+            out["one_click"] = self.read_one_click(page)
+            acct = self.read_account(page)
+            out["account_margin_used"] = acct.margin_used
+            orders = orders_from_tables(self._tables(page))    # no tab click
+            out["n_visible_orders_tables"] = page.evaluate(INFO_PROBE_ORDERS_VISIBLE_JS)
+            if not out["n_visible_orders_tables"]:
+                orders = None      # a hidden grid is "could not look", never "empty"
+            out["n_working_orders"] = None if orders is None else len(orders)
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [want]) or {}
+            out["resolve"] = {k: v for k, v in res.items() if k != "ok"}
+            original = res.get("linked_symbol")
+            why: Optional[str] = None
+            if not res.get("ok"):
+                why = res.get("why") or "resolve failed"
+            elif res.get("dialogs"):
+                why = f"{res['dialogs']} dialog(s) already open"
+            elif (out["one_click"] or {}).get("state") == "on":
+                why = "one-click trading reads ON"
+            else:
+                why = info_probe_flat_guard(acct, orders)
+            if why is None and original not in (res.get("watchlist") or []):
+                why = f"linked symbol {original!r} is not a watchlist row (it could not be restored)"
+            if why is None:
+                # The ORIGINAL symbol's cell must be cleanly clickable too, for
+                # the restore -- checked before the first click, not after.
+                chk = page.evaluate(INFO_PROBE_RESOLVE_JS, [[original]]) or {}
+                if not (chk.get("targets") or {}).get(original, {}).get("clean"):
+                    why = f"original symbol {original}'s watchlist cell is not cleanly clickable"
+            out["refused"] = why
+            if why is not None or not click:
+                return out
+
+            others = list(res.get("watchlist") or [])
+            seen: Dict[str, str] = {}
+            for sym in want:
+                r: Dict[str, Any] = {}
+                out["results"][sym] = r
+                tag = page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]]) or {}
+                if not (tag.get("ok") and (tag.get("targets") or {}).get(sym, {}).get("clean")):
+                    r["skipped"] = "no single clean watchlist Symbol cell"
+                    continue
+                self._info_click(page, f"[data-metis-row-cell='{sym}']")
+                clicked_any = True
+                page.wait_for_timeout(settle_ms)
+                dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
+                if dialogs:
+                    no_more_clicks = True
+                    out["alerts"].append(f"{dialogs} dialog(s) appeared after selecting {sym}; "
+                                         f"aborted, nothing more clicked (restore NOT attempted)")
+                    return out
+                linked = self._linked_symbol(page)
+                r["linked_after_select"] = linked
+                if linked != sym:
+                    r["skipped"] = f"linked symbol reads {linked!r} after selecting {sym} (linkage not confirmed)"
+                    continue
+                self._info_click(page, "[data-metis-info-btn='1']")
+                page.wait_for_timeout(settle_ms)
+                panel = page.evaluate(INFO_PROBE_PANEL_JS, [sym, [o for o in others if o != sym]]) or {}
+                r["panel"] = {k: v for k, v in panel.items() if k != "leaves"}
+                if not panel.get("found"):
+                    # Nothing verified opened, so nothing is clicked to close
+                    # it, and no further symbol is attempted.
+                    no_more_clicks = True
+                    out["alerts"].append(f"{sym}: {panel.get('why') or 'no panel'}; aborted before any "
+                                         f"close click (restore NOT attempted)")
+                    return out
+                # A dialog-typed panel is accepted when it passes the same
+                # identity checks: the info click's own panel may be a modal
+                # (UNMEASURED). The "unexpected dialog" rule is the one after
+                # the ROW click, above. ``is_dialog`` is still recorded.
+                bad = None
+                if panel.get("has_order_controls"):
+                    bad = "the new element holds BUY/SELL controls"
+                elif not panel.get("names_target"):
+                    bad = f"the panel does not name {sym}"
+                elif panel.get("names_others"):
+                    bad = f"the panel also names {panel['names_others']}"
+                else:
+                    h = hashlib.sha256("\n".join(panel.get("leaves") or []).encode()).hexdigest()[:16]
+                    dup = [k for k, v in seen.items() if v == h]
+                    if dup:
+                        bad = f"panel text identical to {dup[0]}'s"
+                    seen[sym] = h
+                if bad:
+                    r["refused"] = bad
+                else:
+                    r["leaves"] = panel.get("leaves")
+                    r["truncated"] = panel.get("truncated")
+                if bad and panel.get("has_order_controls"):
+                    # An order surface appeared: click nothing more.
+                    no_more_clicks = True
+                    out["alerts"].append(f"{sym}: {bad}; aborted (restore NOT attempted)")
+                    return out
+                c = page.evaluate(INFO_PROBE_CLOSE_JS) or {}
+                if c.get("n") == 1:
+                    self._info_click(page, "[data-metis-close='1']")
+                    r["closed_via"] = "close_control"
+                else:
+                    self._info_click(page, "[data-metis-info-btn='1']")
+                    r["closed_via"] = "info_toggle"
+                page.wait_for_timeout(settle_ms)
+                r["closed"] = bool(page.evaluate(INFO_PROBE_PANEL_GONE_JS))
+                if not r["closed"]:
+                    no_more_clicks = True
+                    out["alerts"].append(f"{sym}'s info panel did not close; aborted (restore NOT attempted)")
+                    return out
+            return out
+        except Exception as exc:
+            out["alerts"].append(f"probe raised {type(exc).__name__}: {str(exc)[:200]}")
+            return out
+        finally:
+            if click and clicked_any and not no_more_clicks:
+                self._info_restore(page, out)
+            elif click and clicked_any:
+                out["restore"] = {"attempted": False}
+            wl_after = self.watchlist_symbols(page)
+            out["watchlist_diff"] = {"before": wl_before, "after": wl_after,
+                                     **watchlist_diff(wl_before, wl_after)}
+            if click and out["watchlist_diff"].get("changed") is not False:
+                out["alerts"].append("watchlist changed, or could not be re-read")
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
+
+    def _info_restore(self, page: Any, out: Dict[str, Any]) -> None:
+        """Re-select the ORIGINALLY linked symbol and verify it reads back.
+        A failure is an alert: the terminal's linked symbol may be changed."""
+        original = (out.get("resolve") or {}).get("linked_symbol")
+        rest: Dict[str, Any] = {"original": original, "attempted": True}
+        out["restore"] = rest
+        try:
+            if self._linked_symbol(page) == original:
+                rest.update(clicked=False, verified=True)
+                return
+            chk = page.evaluate(INFO_PROBE_RESOLVE_JS, [[original]]) or {}
+            if not (chk.get("targets") or {}).get(original, {}).get("clean"):
+                raise LookupError("original symbol's watchlist cell is not cleanly clickable")
+            self._info_click(page, f"[data-metis-row-cell='{original}']")
+            page.wait_for_timeout(1_500)
+            rest["clicked"] = True
+            rest["verified"] = self._linked_symbol(page) == original
+        except Exception as exc:
+            rest["verified"] = False
+            rest["error"] = type(exc).__name__
+        if not rest.get("verified"):
+            out["alerts"].append(f"RESTORE FAILED: the linked symbol should read {original!r}, "
+                                 f"reads {self._linked_symbol(page)!r}")
 
     def instrument_details_dump(self, page: Any) -> Dict[str, Any]:
         """Read-only, digit-run-masked (runs >= 5) dump of controls + short
