@@ -10,8 +10,11 @@ some of that infrastructure that we've already built out here"*. This extends
 confirmed as enabling [the API] for retail"; that gap is what this closes) and
 builds on [`prop-automation-options-2026-09-27.md`](prop-automation-options-2026-09-27.md).
 
-**Nothing was bought, no account opened, no credential requested, no firm
-contacted, and no terminal or API host was requested from the sandbox.**
+**Nothing was bought, no account opened, no credential requested, and no firm
+support channel contacted.** The first version of this memo also requested no
+host at all; the manager then ruled a landing-only GET of a public page is not
+"contacting the firm" and asked for it, so § 4.1 records those measurements
+(added 2026-09-30, after PR #14552).
 
 ## First-party URLs to check (read 2026-09-30)
 
@@ -77,13 +80,13 @@ Columns follow the operator's list. "Eval/funded" means what DXtrade covers.
 | | |
 |---|---|
 | DXtrade coverage | [1P press release 2026-04-21] DXtrade is the platform for Tradeify's crypto prop (simulated funded accounts $5k-$100k: 2-Step, 1-Step, Instant). [1P FAQ] *"DXTrade - available as web platform and desktop application"*; MT5 for non-US only, **US traders use DXtrade only**. Whether DXtrade is used for both evaluation and funded stages is not stated in a page I read; the paths are described as accounts on the same platform. The Tradeify *futures* brand is a different product; its platform was not checked. |
-| Terminal host | [1P DXtrade guide] *"Login URL: dx.tradeify247.co"*. The old `help.tradeifycrypto.co` help host redirects to `help.tradeify247.co`. Login markup and DOM at this host are **unmeasured** (§ 3). |
+| Terminal host | [1P DXtrade guide] *"Login URL: dx.tradeify247.co"*. The old `help.tradeifycrypto.co` help host redirects to `help.tradeify247.co`. The login page markup is **measured** (§ 4.1: same `loginForm-main` / `#username` / `#password` as Breakout); the post-login DOM is still **unmeasured** (§ 3). |
 | Bots | [1P FAQ] *"Yes, as long as you own the bot. Copy trading is also allowed. Shared bots and signal services that auto-execute trades (that you do not own) are not allowed."* [1P rules overview] bots *"permitted if you own them exclusively"*. [1P DXtrade guide] API access for own bots; *"Tradeify cannot provide technical support for the DXTrade API"*. [3P, not found 1P] ownership verified by code scans / a video; HFT prohibited. |
 | Instruments | [1P FAQ] 100+ crypto pairs *"including BTC, ETH, SOL, DOGE, XRP, and altcoins"*; ~30 tokenized stocks (2:1). [1P rules] leverage fixed: 5:1 BTC/ETH, 2:1 alts/indices/stocks. **ADA, US500/US100 and metals were not verified by name** (rules mention "indices", so some exist). Net for our crypto legs: BTC/ETH/SOL/XRP yes, ADA unconfirmed, indices/metals unconfirmed. |
 | Rules | [1P rules overview] daily loss **3%** of account size; max loss **6%**, static (fixed 6% below start) or trailing on Instant Funding; **20-second minimum hold**; **hedging not allowed**; inactivity closes at 30 days (warning at 28). Not stated in what I read: minimum profitable days, weekend rule, stop-loss requirement, news policy. [1P DXtrade guide] SL/TP "recommended", not required. [3P] no weekend/overnight restriction. |
 | Price | [1P FAQ] sizes $10k/$25k/$50k/$100k; [1P PR] $5k-$100k, 80% split. Cheapest price is [3P] ~$100 (2-Step 10k): **unverified**. |
-| Official API to the trader? | **Yes per the firm's own guide** ([1P] above). Devexperts side: [1P traders-faq] *"client-side API available"*, broker/prop controls permitted IPs. Whether `https://dx.tradeify247.co/specs` is served, and whether it accepts a VPS IP, is **unverified** (§ 4). |
-| Datacenter/VPS IP | [1P FAQ] *"VPNs and VPS are allowed"*; the account must stay personal and *"Tradeify may request verification if multiple IP addresses access your account"*. **No Cloudflare ASN-ban evidence** but no probe was run: the Breakout terminal's Error 1005 is exactly what a probe must rule out. |
+| Official API to the trader? | **Yes per the firm's own guide** ([1P] above). Devexperts side: [1P traders-faq] *"client-side API available"*, broker/prop controls permitted IPs. `https://dx.tradeify247.co/specs` was **measured 2026-09-30** (§ 4.1): HTTP 409 `SERVICE_ERROR`, no API docs, from both our sandbox and the live VM. That is not proof the API is off (§ 4.1 lists why). |
+| Datacenter/VPS IP | [1P FAQ] *"VPNs and VPS are allowed"*; the account must stay personal and *"Tradeify may request verification if multiple IP addresses access your account"*. **Measured 2026-09-30 (§ 4.1): the landing page returned HTTP 200 with no Cloudflare block or challenge from the live VM's Oracle egress**, the case Breakout's Error 1005 ban made expensive. A landing GET is not a login, so this is necessary, not sufficient. |
 
 ### 1.2 BrightFunded
 
@@ -188,9 +191,10 @@ our crypto legs, (d) reuse of what we built, (e) price. **Confidence is low on
   VPS allowed; bots allowed if owned; BTC/ETH/SOL/XRP named; static 6% max loss (a firm rule stated as a share of account size, not a measured rate) <!-- population-ok: rule limit from the firm rules page, not a measurement -->
   option; 3% daily; 20 s hold clears every leg of ours (1h+ bars); the same
   Devexperts platform family as breakout_1, so the shared executor layer applies.
-- **Open, and each one can kill it.** (i) Is `dx.tradeify247.co/specs` served and
-  does the login API accept our egress (the Breakout ASN ban is the precedent:
-  Cloudflare Error 1005 at `app.breakoutprop.com`, PI-20260929-FRJ7NMPU-0001)?
+- **Open, and each one can kill it.** (i) [Partly answered, § 4.1] The landing page
+  is reachable from the VM egress (the Breakout ASN ban, Cloudflare Error 1005 at
+  `app.breakoutprop.com`, PI-20260929-FRJ7NMPU-0001, did NOT reproduce here), but
+  `/specs` served no API docs and the login itself is untested.
   (ii) Does the "bots must be owned by you" clause require the code scan / video
   ([3P] only)? (iii) Bracket semantics through the REST order: SL/TP fields
   unread. (iv) Hedging is banned, and the daily-loss basis and DD type per path
@@ -212,8 +216,9 @@ our crypto legs, (d) reuse of what we built, (e) price. **Confidence is low on
     per-account ruleset/routing, and symbol switching if more than one
     instrument. Est. **4-7 lane-days**, most of it the measurement loop that took
     breakout_1 several rounds.
-- **The blocking unknown is the ASN/Cloudflare posture**, which nobody can
-  answer from documents.
+- **The blocking unknown was the ASN/Cloudflare posture**, now measured at the
+  landing page (§ 4.1). What remains unknown is whether the API is enabled for
+  traders (`/specs` returned no docs) and whether a real login is accepted.
 
 ### #2 BrightFunded
 
@@ -244,24 +249,72 @@ offered), Seacrest (closed), FXIFY (no bots), Alpha (no crypto, no autonomous),
 Funded Trading Plus (DXtrade unclear, bots via MT5/cTrader), Breakout DXtrade
 (already ours; no new purchases).
 
+### 4.1 Reachability measured 2026-09-30 (landing-only GETs, no credentials, nothing clicked)
+
+Two egresses, the same fixed URL list. Sandbox = this session's egress (curl,
+05:45Z). VM = the live trader VM's Oracle egress, via the read-only
+`egress-landing-probe` system-action (PR #14552, merged 2026-09-30 07:43Z; VM sha
+`bca028cc4` contains it; dispatched as issue #14635, run 36687556587, 08:05:44Z,
+exit 0).
+
+| URL | egress | HTTP | server | cf-mitigated | Cloudflare error / challenge marker | body bytes | login-form markers |
+|---|---|---|---|---|---|---|---|
+| `https://dx.tradeify247.co/` | sandbox | 200 | cloudflare | (none) | none / none | 437,935 | `loginForm-main`, `id="username"`, `id="password"` |
+| `https://dx.tradeify247.co/` | **VM** | 200 | cloudflare | (none) | none / none | 437,935 | same three |
+| `https://dx.tradeify247.co/specs` | sandbox | 409 JSON `SERVICE_ERROR` | cloudflare | (none) | none / none | 94-102 | none |
+| `https://dx.tradeify247.co/specs` | **VM** | 409 JSON | cloudflare | (none) | none / none | 94 (keys: `error`, `fieldValidationErrors`, `id`, `message`) | none |
+| `https://tradeify247.co/` (Webflow site) | sandbox | 200 | cloudflare | (none) | none / `turnstile` string in body | 297,701 | none |
+| `https://tradeify247.co/` (Webflow site) | **VM** | 200 | cloudflare | (none) | none / `turnstile` string in body | 297,701 | none |
+
+Population: one request per URL per egress, at one moment (05:45Z sandbox,
+08:05Z VM). Identical byte counts on `/` and on the main site across the two
+egresses (437,935 and 297,701) say the VM was served the same page, not a
+block page. Sandbox-only extras (not run from the VM): `/specs/` also 409;
+`/dxsca-web/` returned HTTP 400 `Can "Upgrade" only to "WebSocket"`.
+
+**What this establishes.** From the Oracle VM's egress, Tradeify's DXtrade
+terminal landing page is reachable: HTTP 200, the real terminal page, the same
+login-form markup our Breakout selectors were measured on, and none of the
+Cloudflare markers (Error 1005, `cf-mitigated`, challenge) that Breakout's
+terminal showed. `tradeify247.co` returns 200 too; its `turnstile` string is
+a script/form reference, since the page is the full 297,701-byte site and no
+`cf-mitigated` header is set.
+
+**What it does not establish (and each can still block the pilot).**
+- A **login** from the VM (POST to the login API) was not tried: Cloudflare or the
+  firm can treat authentication requests, a real browser's JavaScript, or repeated
+  sessions differently from a bare GET. The Breakout ban was measured with a browser
+  probe; this measurement used curl.
+- `/specs` returned a DXtrade backend error, **not API docs**, from both egresses.
+  It does not show the API is off: the spec may live at another path, or the API
+  may need a logged-in session or an enabled account. The firm's own guide says API
+  access exists; nothing measured here contradicts or confirms it.
+- One moment in time. Cloudflare posture can change; re-run the probe before buying.
+- Post-login DOM, order ticket, symbols and lot sizes remain unmeasured.
+
+**Effect on the decision.** Option A of § 5 is done and did not kill Tradeify. The
+remaining decision is Option B (a small paid account for a login-only trial).
+The manager's note cites a $120 pilot; this memo's ~$100 is third-party
+only, so the price is to be read off the firm's checkout before the operator decides.
+
 ## 5. Decision for the operator (2 to 4 options)
 
 | option | what it is | cost / risk | what it buys |
 |---|---|---|---|
-| **A. $0 read-only probe of Tradeify, then decide (recommended)** | Open the two Tradeify help pages in a browser and, from the VM via a labelled read-only probe (same shape as `breakout-terminal-probe`): (1) `GET https://dx.tradeify247.co/` for the landing page and any Cloudflare/ASN page; (2) `GET https://dx.tradeify247.co/specs` for the OpenAPI. No login, no account, no click. Also read the firm's "bots must be owned by you" clause and the crypto rules page. | Zero spend; one lane. Whether requesting a firm's public landing page counts as "contacting" it is the operator's call; this lane did not do it. | Answers the two kill questions (ASN block, API enabled) before any purchase. |
+| **A. $0 read-only probe of Tradeify, then decide (DONE 2026-09-30, § 4.1: reachable, no block)** | Open the two Tradeify help pages in a browser and, from the VM via a labelled read-only probe (same shape as `breakout-terminal-probe`): (1) `GET https://dx.tradeify247.co/` for the landing page and any Cloudflare/ASN page; (2) `GET https://dx.tradeify247.co/specs` for the OpenAPI. No login, no account, no click. Also read the firm's "bots must be owned by you" clause and the crypto rules page. | Zero spend; one lane. Whether requesting a firm's public landing page counts as "contacting" it is the operator's call; this lane did not do it. | Answers the two kill questions (ASN block, API enabled) before any purchase. |
 | **B. Buy one Tradeify 247 10k (~$100 [3P]) and run the login-only probe (recommended second step)** | Operator opens the account and sets `TRADEIFY_DX_*` secrets; we log in read-only through the existing adapter pattern, then test the REST login with the same credentials. | ~$100 per the 3P price; breach-and-rebuy already accepted. Risk: simulated fills; ASN block. | Real measurement of the browser DOM and of the API on the firm that actually says yes. |
 | **C. Skip DXtrade as a family; go straight to the Bybit-API props (HyroTrader / CFT) from the 09-30 survey** | Spend nothing on DXtrade; pursue survey #1/#2. | None. Loses the reuse the operator asked for. | The lowest-integration crypto route we know of. |
 | **D. Stay on breakout_1 only** | Nothing new. | Keeps ASN/Cloudflare fragility and a re-buy landing on the terminal we cannot reach. | Nothing new. |
 
-**Recommendation: A, then B if A passes.** A costs nothing and either kills
-Tradeify quickly (ASN block or no `/specs`) or turns "the firm says API" into
-a measured fact. Do not promote any of this to the ladder from this document.
+**Recommendation: A (done, passed at the landing level), then B.** A cost nothing and could have killed
+Tradeify quickly (an ASN block); it did not. It did not turn "the firm says API"
+into a measured fact either (`/specs` served no docs). Do not promote any of this to the ladder from this document.
 
 ## Not done / coverage gaps (stated so nobody reads absence as absence of evidence)
 
-- No terminal or API host was requested from this sandbox (the "no contact" scope).
-  Terminal login markup, `/specs`, Cloudflare and datacenter-IP behaviour are
-  **unmeasured for every firm except Breakout**.
+- Terminal login markup, `/specs`, Cloudflare and datacenter-IP behaviour are
+  **unmeasured for every firm except Breakout and, at the landing level only,
+  Tradeify 247** (§ 4.1). No login was attempted anywhere.
 - `dx.tradeify247.co`'s crypto **rules pages** were read only through summaries.
   Minimum days, weekend, SL requirement and news policy for Tradeify Crypto were
   **not found**.

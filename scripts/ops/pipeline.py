@@ -204,6 +204,28 @@ GRANDFATHERED_COLLISIONS = {
     "PI-20260921-0002",
 }
 
+#: Single RECORD FILES (not ids) whose collision is already in append-only
+#: history. Narrower than GRANDFATHERED_COLLISIONS on purpose: a later
+#: collision on the SAME id, at any other record, still fails the guard.
+#: Same rules: a dated debt list, reported LOUDLY every run, never `clean`.
+#:
+#: 20260930T080938782595Z-98f85ccf.json (PI-20260929-AQRK6CL1-0014), added
+#: 2026-09-30 by lane PROP-ETH-DOM (session_01HS7ws2n8c57QMUquRobE9z): two
+#: update records for 0014 were appended from two different bases 90 s apart
+#: (#14615 from a main without #14638's record, #14638 from a main without
+#: #14615's) and merged 07:24Z/08:09Z-stamped; the later one is therefore not
+#: an append-only extension of the earlier. Nothing is lost: record
+#: 20260930T081547130622Z-18fc31c5.json restores the displaced text verbatim.
+#: Cause, for the next caller: append a pipeline update from a FRESH
+#: origin/main, after your previous update to the same id has merged.
+GRANDFATHERED_COLLISION_RECORDS = {
+    "20260930T080938782595Z-98f85ccf.json",
+}
+
+
+def _is_grandfathered_collision(c: dict) -> bool:
+    return c.get("id") in GRANDFATHERED_COLLISIONS or c.get("at") in GRANDFATHERED_COLLISION_RECORDS
+
 
 @dataclass
 class LoadResult:
@@ -1234,10 +1256,8 @@ def _check(store: Path) -> int:
     # is invisible behind another record wearing its id. See the module
     # docstring's "SIXTH FAILURE MODE". Reported here, loudly, whether or not
     # it is grandfathered -- "clean" is never printed over any of them.
-    new_collisions = [c for c in res.collisions
-                       if c["id"] not in GRANDFATHERED_COLLISIONS]
-    known_collisions = [c for c in res.collisions
-                          if c["id"] in GRANDFATHERED_COLLISIONS]
+    new_collisions = [c for c in res.collisions if not _is_grandfathered_collision(c)]
+    known_collisions = [c for c in res.collisions if _is_grandfathered_collision(c)]
     if res.collisions:
         print(f"\n::warning::pipeline: {len(res.collisions)} id(s) with a "
               f"DISPLACED/SHADOWED record — two records share an id without "
@@ -1246,7 +1266,8 @@ def _check(store: Path) -> int:
               f"to due()/render_section_0() even though nothing above failed.")
         for c in res.collisions:
             tag = ("GRANDFATHERED -- pre-existing, see GRANDFATHERED_COLLISIONS"
-                   if c["id"] in GRANDFATHERED_COLLISIONS else "NEW")
+                   "/GRANDFATHERED_COLLISION_RECORDS"
+                   if _is_grandfathered_collision(c) else "NEW")
             print(f"  {c['id']} at {c['at']}: {c['reason']} [{tag}]")
 
     if res.unreadable or bad or new_collisions:

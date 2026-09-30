@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: PI-20260930-QZSE4AMA-0001 updated to LANDED (2926c22f3, #14590) with the observation that closes it (merged, not yet deployed/observed). No runtime, order path, strategy config, risk caps or VM code touched."
+}

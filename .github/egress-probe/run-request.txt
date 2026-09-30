@@ -1,0 +1,1 @@
+2026-09-30 first measurement request (PROP-TERM egress scoping)
