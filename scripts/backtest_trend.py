@@ -281,6 +281,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  skip_hours: str = "",
                  flat_at_utc: str = "",
                  no_entry_after_utc: str = "",
+                 bar_label: str = "open",
                  vol_skip_above_pctl: float = 0.0,
                  vol_skip_below_pctl: float = 0.0,
                  vol_pctl_window: int = 200,
@@ -382,14 +383,25 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # rule, never late. Ordering is stop -> target -> the other levers -> flatten, so the
     # flatten never pre-empts a stop that the same bar hit. A position with no bar left to
     # flatten on (the entry bar is already at or past the flatten bar) is NOT entered.
+    #
+    # `bar_label` says what a row's timestamp MEANS: "open" (native exchange candles: the bar starts at the
+    # stamp, so it closes one bar later) or "close" (this harness's own `_resample`, which stamps each bar at
+    # its CLOSE: label="right"). main() sets "close" whenever --resample is used. Reading a close-stamped bar
+    # as open-stamped would add one bar and flatten/cut EARLY by a whole bar (never late, but biased).
+    # The day is always the UTC day: a tz-aware column in another zone is converted first.
     _flat_min = _parse_hhmm(flat_at_utc)
     _nea_min = _parse_hhmm(no_entry_after_utc)
+    if bar_label not in ("open", "close"):
+        raise ValueError(f"bar_label must be 'open' or 'close', got {bar_label!r}")
     _close_idx = None
     if _flat_min is not None or _nea_min is not None:
-        _bar = pd.Series(pd.DatetimeIndex(df["timestamp"])).diff().median()
+        _ts_idx = pd.DatetimeIndex(df["timestamp"])
+        if _ts_idx.tz is not None:
+            _ts_idx = _ts_idx.tz_convert("UTC")
+        _bar = pd.Series(_ts_idx).diff().median()
         if pd.isna(_bar) or _bar >= pd.Timedelta(days=1):
             raise ValueError("flat_at_utc / no_entry_after_utc need intraday bars (< 1d)")
-        _close_idx = pd.DatetimeIndex(df["timestamp"]) + _bar
+        _close_idx = _ts_idx if bar_label == "close" else _ts_idx + _bar
     # M21 E-2 vol-at-entry + M20-X vol-conditional-trail levers share ONE trailing
     # ATR-percentile series: rank of ATR[j] within the previous `vol_pctl_window`
     # bars (causal, includes the bar itself; NaN until the window fills → never
@@ -1458,6 +1470,7 @@ def main(argv: List[str]) -> int:
                      skip_hours=args.skip_hours,
                      flat_at_utc=args.flat_at_utc,
                      no_entry_after_utc=args.no_entry_after_utc,
+                     bar_label=("close" if args.resample else "open"),
                      vol_skip_above_pctl=args.vol_skip_above_pctl,
                      vol_skip_below_pctl=args.vol_skip_below_pctl,
                      vol_pctl_window=args.vol_pctl_window,
