@@ -1,0 +1,102 @@
+id: RQ-20260930-901
+title: Fresh-holdout re-grade of ONE cell — ada_pullback_2h vol_trail vt_hot90_t2.5 (PR #14053), data after 2026-09-29 only
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  Does the single cell vt_hot90_t2.5 (trail_vol_above_pctl 0.9, trail_vol_tight_mult
+  2.5, vol_pctl_window 200) on ada_pullback_2h beat the un-levered base book on
+  net_R AND maxDD over trades opened strictly AFTER 2026-09-29, i.e. data that
+  did not exist when the cell was selected?
+
+why_this_matters: >-
+  #14053 would declare this lever on REAL MONEY (bybit_2 + bybit_portfolio).
+  The cell was picked from 17 cells over 3 re-runs of one lever with no
+  multiplicity correction; its OOS gain swung 3.08 / 0.91 / 1.72 R across
+  reruns (pipeline PI-20260929-AQRK6CL1-0012). Every number behind it is
+  in-sample to the selection. Only trades that post-date the selection can
+  settle it.
+
+why_not_inferential: >-
+  One pre-named cell, one fixed rule, no cell selection: the sweep runs all
+  cells but ONLY vt_hot90_t2.5 is graded, and no other cell can be substituted
+  after the result is seen.
+
+blocked_reason: >-
+  Holdout data is thin. Rate MEASURED from the committed corpus row (run_id
+  2026-09-29T00:56:49.355532+00:00, split 2025-05-23): 49 base OOS trades over
+  2025-05-23 -> 2026-09-28 (493 days) = 0.099 trades/day (~3 per month). The
+  floor below (n >= 25 base OOS trades after 2026-09-29) is therefore expected
+  at 25 / 0.099 = ~252 days -> ~2027-06-08 (earlier or later with the trade
+  rate; the rate is a point estimate, not a guarantee). Until then a run would
+  grade insufficient_base, which is not evidence either way. Unblock (manager) when a dry
+  sweep with --split-mode date --split 2026-09-29 reports base_trades_OOS >= 25.
+
+power:
+  expected_n: 25
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    n floor 25 is the exit-refinement gate's own MIN_OOS_TRADES (a denominator
+    requirement, not a fitted threshold); power at n=25 is the repo's standard
+    exit-lever block (template m20-exit-lever). A tighter n is not claimed to
+    prove the effect: with 25 trades the rule below is a NECESSARY sanity check
+    (direction and drawdown), not proof of size. The earlier OOS deltas
+    (0.91-3.08 R) are not used as the effect prior because they are
+    selection-contaminated.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Trades accrue at ~0.099/day (49 in 493 d, measured from the corpus row
+      above). n >= 25 after 2026-09-29 is expected ~2027-06-08. Population:
+      ada_pullback_2h harness trades at live-parity TP cap 0.099, venue-default
+      cost stack (fee 7.5 bps roundtrip + ADAUSDT slippage/funding defaults).
+
+decision_rule:
+  id: RULE-M20-ADA-VT-HOT90-T2.5-FRESH-HOLDOUT
+  registered_at: '2026-09-30'
+  registered_before_run: true
+  statistic: >-
+    Cell vt_hot90_t2.5 only, ada_pullback_2h, run with m20-exit-lever-sweep.yml
+    (tp_cap_pct 0.099, split_mode date, split 2026-09-29): OOS-window d_net_r
+    and d_max_dd versus the base book, and base_trades_OOS.
+  rule: >-
+    PASS iff base_trades_OOS >= 25 AND d_net_r_OOS > 0 AND d_max_dd_OOS < 0
+    (net_R higher AND maxDD strictly lower than baseline, OOS only). No IS
+    clause, no walk-forward (the window holds one fold by construction).
+    base_trades_OOS < 25 => insufficient_base (not a fail; re-run later).
+    Otherwise FAIL, and a FAIL closes the cell: #14053 is closed, no other
+    vol_trail cell for this leg is promoted from the same sweep. A PASS alone
+    does not ship #14053; it clears this unit's evidence requirement, and the
+    P5 parity record (PR claude/vol-trail-p5-shadow-ada) must also be graded.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 40
+  basis: one leg; same free-runner harness as RQ-20260928-007.
+
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: 'ada_pullback_2h'
+    levers: 'vol_trail'
+    tp_cap_pct: '0.099'
+    split_mode: date
+    split: '2026-09-29'
+    research_unit: 'RQ-20260930-901'
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - PI-20260929-AQRK6CL1-0012
+  - RQ-20260928-007
+  - .claude/skills/exit-refinement/SKILL.md
