@@ -263,7 +263,7 @@ def _lookup_org(page, PlaywrightError, secrets):
     return "org_unreadable", "unknown", token
 
 
-def _lookup_trace(page, PlaywrightError, secrets):
+def _lookup_trace(page, PlaywrightError):
     """Exit country through the proxy from Cloudflare's own trace page. ONLY the two-letter ``loc=`` value is kept:
     the page also prints the address (``ip=``) and more, which are never stored or printed."""
     try:
@@ -396,7 +396,7 @@ def run_probe(spec, now=None, urls=URLS, variant="baseline"):
             try:
                 state, org, token = _lookup_org(page, PlaywrightError, secrets)
                 if state == "ok":
-                    result["exit_country"] = _lookup_trace(page, PlaywrightError, secrets)
+                    result["exit_country"] = _lookup_trace(page, PlaywrightError)
             finally:
                 ctx.close()
             result["proxy_state"], result["egress_org"] = state, org
