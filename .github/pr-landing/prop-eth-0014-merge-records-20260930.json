@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Pipeline record only: restores the 07:21Z step-4 result paragraph on PI-20260929-AQRK6CL1-0014 that the 08:09Z record dropped (appended from a main without #14615; the store folds to the latest record). No code, config or runtime change."
+  "why": "Repairs pipeline-guard on main, broken by this lane: two PI-20260929-AQRK6CL1-0014 update records appended from different bases both merged (#14615, #14638), so `pipeline.py --check` exits 1 on a NEW collision. Append-only history cannot be rewritten, so (1) a record-scoped GRANDFATHERED_COLLISION_RECORDS names that ONE file (narrower than the id-level list, which would also hide future 0014 collisions; still reported loudly, never 'clean'), and (2) a new update record restores the displaced step-4 text verbatim. Tier-1 tooling + pipeline record; no runtime change."
 }
