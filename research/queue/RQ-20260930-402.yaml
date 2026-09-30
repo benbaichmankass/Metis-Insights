@@ -66,8 +66,13 @@ decision_rule:
     (no report, unreadable report, replay crashed, replay_mismatch,
     cost_policy_mismatch, cost_policy_unverified, join_incomplete, wrong fold mode,
     malformed): verdict not_applicable, read_state producer_failed. ELSE IF the 2025
-    fold does not exist (< 50 test trades) or n < 64: verdict indeterminate
-    (underpowered) — the floor is never lowered, no other year stands in. ELSE IF
+    fold was replayed and n < 64: verdict indeterminate (underpowered) — the floor is never
+    lowered, no other year stands in. AMENDMENT (pre-run, 2026-09-30, manager review of
+    #14514): if the 2025 fold does not exist (< 50 test trades), the replay returns
+    final_fold_missing WITHOUT writing final_fold_net.json, so the grader reads no_report and
+    the verdict is not_applicable / producer_failed, NOT indeterminate. This is stated here
+    rather than changing the replay; a missing fold is not expected (XRP 2025 harness
+    trades = 108) and would be reported as such. ELSE IF
     R > 0 (strictly): PASS — XRP's 2026 positive is read as persistent across two
     consecutive folds; the XRP exit head goes to the exit-refinement pipeline's E1
     step as a candidate (Tier-3 to flip live, NOT this unit's act). ELSE (R <= 0):
@@ -130,7 +135,10 @@ run:
   note: >-
     DO NOT DISPATCH BEFORE THIS UNIT IS MERGED. Step 0: copy the round dir if present
     (`cp -a /home/ubuntu/rq20260929_401_round /home/ubuntu/rq20260930_402_round`) so the
-    2026 final_fold_net.json is not overwritten; if absent, run m20_exit_head_round.py
+    2026 final_fold_net.json is not overwritten, THEN DELETE the stale per-leg output in the
+    copy (`rm -f /home/ubuntu/rq20260930_402_round/ict_scalp_xrp_15m/final_fold_net.json`) so a
+    crashed or early-returning replay leaves nothing to grade (the grader also refuses any file
+    whose fold_year is not 2025); if the round dir is absent, run m20_exit_head_round.py
     --legs ict_scalp_xrp_15m --tf 15m --data-dir /home/ubuntu/refresh_15m_20260929 --out
     /home/ubuntu/rq20260930_402_round --fold-mode years (detached, nohup, flat command).
     Step 1: `python scripts/research/exit_head_final_fold_replay.py --round-dir
