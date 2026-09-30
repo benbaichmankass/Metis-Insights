@@ -704,6 +704,27 @@ def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, 
             "already has open package %s",
             _gate_strategy, _existing_open,
         )
+        # The only one of the four gates that wrote no audit row. When every
+        # dispatch round is gated, run_pipeline returns BEFORE its
+        # ``pipeline_result`` write, and the intent layer emits a leg at most
+        # once per bar — so a blocked emission left NOTHING in ``signals``: a
+        # directional eval followed by silence, indistinguishable from a lost
+        # dispatch. Measured 2026-09-30 (LIVE-NO-TRADES): ~110 such silent
+        # emissions on the live legs since 09-15, every one inside an open
+        # package's lifetime, but only provable by joining order_packages.
+        # Best-effort — an audit failure never bypasses the gate.
+        try:
+            log_signal({
+                "event": "open_package_blocked",
+                "strategy": _gate_strategy,
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "open_package_id": _existing_open,
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "strategy_monocle: open-package audit emit failed",
+            )
         result = {
             "status": "skipped",
             "reason": "open_package_exists",
