@@ -2,6 +2,8 @@ id: RQ-20260930-502
 title: 'HyroTrader fit: post-only LIMIT entries for the ict_scalp 15m book -- does the edge survive adverse selection and unfilled signals? (lane HYRO-STRATS)'
 status: queued
 cadence: once
+theme: new_strategy_prop
+priority: 1
 kind: experiment
 
 question: >-

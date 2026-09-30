@@ -646,6 +646,29 @@ def grade_route(entry: Dict[str, Any]) -> RouteVerdict:
     return RouteVerdict(RUNNER, f"no VM-resident state, no GPU, {mem:g} GB fits a runner")
 
 
+THEMES_PATH = Path(__file__).resolve().parents[2] / "research" / "THEMES.yaml"
+PRIORITIES = (1, 2, 3)
+
+
+def load_themes(path: Optional[Path] = None) -> Dict[str, Any]:
+    """research/THEMES.yaml as {share_window_hours, aging_hours, themes:{name:{weight,..}}}.
+    Raises on an unreadable or malformed file: weights are the scheduler's only input, and a silent
+    default would hide a broken scheduler behind a plausible order."""
+    import yaml  # noqa: PLC0415
+    doc = yaml.safe_load((path or THEMES_PATH).read_text(encoding="utf-8")) or {}
+    themes = doc.get("themes")
+    if not isinstance(themes, dict) or not themes:
+        raise ValueError("THEMES.yaml: `themes` must be a non-empty mapping")
+    for name, t in themes.items():
+        w = t.get("weight") if isinstance(t, dict) else None
+        if isinstance(w, bool) or not isinstance(w, (int, float)) or w <= 0:
+            raise ValueError(f"THEMES.yaml: theme {name!r} needs a positive numeric weight, got {w!r}")
+    for k in ("share_window_hours", "aging_hours"):
+        if not isinstance(doc.get(k), (int, float)) or doc[k] <= 0:
+            raise ValueError(f"THEMES.yaml: {k} must be a positive number")
+    return doc
+
+
 def validate(entry: Dict[str, Any], *, path: Optional[Path] = None) -> List[str]:
     """Structural errors in one entry. An empty list means structurally valid.
 
@@ -669,6 +692,23 @@ def validate(entry: Dict[str, Any], *, path: Optional[Path] = None) -> List[str]
     status = entry.get("status")
     if status not in _STATUSES:
         errs.append(f"status must be one of {_STATUSES}, got {status!r}")
+    if status in ("queued", "running", "blocked"):
+        # A unit that can still run needs a home in the scheduler. `done`/`retired` units are exempt.
+        known: Dict[str, Any] = {}
+        try:
+            known = load_themes()["themes"]
+        except (OSError, ValueError) as exc:
+            errs.append(f"cannot read research/THEMES.yaml: {exc}")
+        if known and entry.get("theme") not in known:
+            errs.append(f"`theme` is required and must be one of {sorted(known)}, got {entry.get('theme')!r}")
+        prio = entry.get("priority")
+        if isinstance(prio, bool) or prio not in PRIORITIES:
+            errs.append(f"`priority` is required and must be one of {PRIORITIES} (1 = most urgent within "
+                        f"its theme), got {prio!r}")
+    req = entry.get("requires_result")
+    if req is not None and not (isinstance(req, dict) and _ID_RE.match(str(req.get("unit") or ""))
+                                and set(req) <= {"unit", "verdict"}):
+        errs.append("`requires_result` must be {unit: RQ-YYYYMMDD-NNN[, verdict: pass|fail|...]}")
     run = entry.get("run")
     if not isinstance(run, dict) or not run.get("workflow"):
         errs.append("`run.workflow` is required — the dispatcher fires a workflow, "
