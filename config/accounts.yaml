@@ -1933,8 +1933,7 @@ accounts:
       daily_loss_pct: 0.03             # 3% daily = $300 (resets 22:00 UTC; ruleset limits).
       daily_usd: 300                   # absolute fallback (= 3% of $10k).
       risk_pct: 0.005                  # 0.5% = $50/ticket (memo § 3.2-3.3; ruleset sizing.flat cap 50).
-      breach_guards: report            # SAME as breakout_1 (manager brief, TRADEIFY-WIRE:
-                                       # "the same breach guards as breakout_1"; operator
-                                       # 2026-09-28 on breakout_1: "we can breach the account
-                                       # and just buy a new one"). Rollback: delete this line
-                                       # -> `enforce`.
+      # breach_guards: NOT set -> `enforce` (the default). A DAILY_LOSS_CAP /
+      # INTRADAY_DRAWDOWN breach REFUSES the trade on this account (manager
+      # review of #14672, 2026-09-30: "'report' places orders through a
+      # breach; it must refuse"). breakout_1's `report` is unchanged.
