@@ -275,9 +275,18 @@ def main(argv: Optional[list] = None) -> int:
 
             if mode == "instrument_probe":
                 syms = [s.strip() for s in args.instrument_probe.split(",") if s.strip()]
+                # Read-only before/after read of the watchlist's symbol set:
+                # did typing into its search box persist anything server-side?
+                # (manager review of #14563)
+                wl_before = adapter.watchlist_symbols(page)
                 for sym in syms:
                     got = adapter.probe_instrument_details(page, sym)
                     emit({"instrument_probe": {"symbol": sym, **got}}, *secrets)
+                page.wait_for_timeout(2_000)
+                wl_after = adapter.watchlist_symbols(page)
+                from src.prop.platform.dxtrade import watchlist_diff
+                emit({"watchlist_diff": {"before": wl_before, "after": wl_after,
+                                         **watchlist_diff(wl_before, wl_after)}}, *secrets)
                 # A probe result never gates the exit code — same doctrine as
                 # the passive instrument-spec read in breakout_login_check.py.
                 return EXIT_OK

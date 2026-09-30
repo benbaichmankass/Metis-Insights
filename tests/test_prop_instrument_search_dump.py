@@ -234,10 +234,10 @@ def _page(browser, extra="", html=None):
 
 
 def test_locator_finds_the_measured_widget_header_input(browser):
-    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_CANDIDATES
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
     p = _page(browser, TICKET)       # an order ticket elsewhere on the page is excluded
-    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)])
-    assert got == {"found": True, "via": "text:symbol..."}
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
+    assert got == {"found": True, "via": "placeholder+data-test-id"}
     assert p.evaluate("document.querySelector('[data-metis-search-hit]').dataset.testId") \
         == "watchlist_public_search_input"
     p.close()
@@ -247,37 +247,78 @@ def test_probe_types_resets_and_never_clicks_or_submits(browser):
     p = _page(browser)
     got = DXtradeAdapter(timeout_ms=3_000).probe_instrument_details(p, "BTCUSD")
     assert got["searched"] is True and got["readback_matches"] is True and got["reset"] is True
-    assert got["via"] == "text:symbol..."
+    assert got["via"] == "placeholder+data-test-id" and got["blurred"] is True
     assert p.evaluate("window.__clicks") is None and p.evaluate("window.__submit") is None
     assert p.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
     p.close()
 
 
 def test_locator_refuses_without_a_widget_container(browser):
-    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_CANDIDATES
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
     html = WIDGET.replace("%EXTRA%", "").replace("widget__container___Ab1 widgetNew__container", "plain")
     p = _page(browser, html=html)
-    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)])
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
     assert got["found"] is False and "widget__container" in got["why"]
     p.close()
 
 
 def test_locator_refuses_when_the_widget_holds_an_order_panel(browser):
-    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_CANDIDATES
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
     html = WIDGET.replace("%EXTRA%", "").replace('<div class="droppable-body">',
                                                  TICKET + '<div class="droppable-body">')
     p = _page(browser, html=html)
-    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)])
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
     assert got["found"] is False and "order" in got["why"]
     assert p.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
     p.close()
 
 
 def test_locator_refuses_two_matching_inputs(browser):
-    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_CANDIDATES
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
     html = WIDGET.replace("%EXTRA%", "").replace(
-        '<div class="droppable-body">', '<input placeholder="Symbol..."><div class="droppable-body">')
+        '<div class="droppable-body">', '<input placeholder="Symbol..." data-test-id="watchlist_public_2"><div class="droppable-body">')
     p = _page(browser, html=html)
-    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)])
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
     assert got["found"] is False and "need exactly 1" in got["why"]
+    p.close()
+
+
+# ── manager review of #14563: both attributes on one input, no fallback ──
+
+
+@pytest.mark.parametrize("inp", [
+    '<input type="text" placeholder="Symbol...">',                          # placeholder only
+    '<input type="text" data-test-id="watchlist_public_x">',                # test-id only
+    '<input type="search">',                                                # the removed type=search fallback
+    '<input placeholder="Symbol..." data-test-id="other_x">',               # right placeholder, wrong test-id
+])
+def test_locator_refuses_anything_short_of_both_measured_attributes(browser, inp):
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
+    html = WIDGET.replace("%EXTRA%", "").replace(
+        '<form onsubmit="window.__submit=1;return false"><input type="text" placeholder="Symbol..."\n'
+        '        data-test-id="watchlist_public_search_input" class="sc-ixGGxD"\n'
+        '        oninput="window.__typed=(window.__typed||\'\')+this.value"></form>', "<form>" + inp + "</form>")
+    assert inp in html                                   # the fixture really swapped the input
+    p = _page(browser, html=html)
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
+    assert got["found"] is False and got["n_candidate_inputs"] == 1
+    assert "placeholder 'symbol...' AND a watchlist_public* data-test-id" in got["why"]
+    assert p.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
+    p.close()
+
+
+def test_watchlist_symbols_read_and_diff(browser):
+    from src.prop.platform.dxtrade import watchlist_diff
+    p = _page(browser)
+    a = DXtradeAdapter(timeout_ms=3_000)
+    before = a.watchlist_symbols(p)
+    assert before == {"readable": True, "symbols": ["ETHUSD"]}
+    a.probe_instrument_details(p, "BTCUSD")
+    after = a.watchlist_symbols(p)
+    assert watchlist_diff(before, after) == {"changed": False, "n_before": 1, "n_after": 1,
+                                             "added": [], "removed": []}
+    # a symbol that DID persist would be reported, not hidden
+    assert watchlist_diff(before, {"readable": True, "symbols": ["BTCUSD", "ETHUSD"]})["added"] == ["BTCUSD"]
+    # "could not look" is never folded into "no change"
+    assert watchlist_diff(before, {"readable": False, "why": "0 Symbol/Bid/Ask tables"})["changed"] is None
     p.close()

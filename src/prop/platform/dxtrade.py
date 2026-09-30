@@ -953,16 +953,18 @@ def extract_instrument_specs_from_responses(
 TICKET_OPENER_NAMES: Sequence[str] = ("New Order", "New order", "Create Order", "Create order",
                                       "Place Order", "Place order", "Order Entry", "Trade")
 
-# Candidate SEARCH input attribute-text substrings (case-insensitive), tried
-# in order by FIND_INSTRUMENT_SEARCH_JS. MEASURED 2026-09-30 (PROP-ETH-DOM,
-# instrument-search-dump run 36675129051, issue #14551, code 2058a2f1b): the
-# live terminal's watchlist symbol search is ONE
-# ``<input type=text placeholder="Symbol..." data-test-id="watchlist_public...">``
+# The watchlist symbol SEARCH input, as (placeholder, data-test-id prefix).
+# MEASURED 2026-09-30 (PROP-ETH-DOM, instrument-search-dump run 36675129051,
+# issue #14551, code 2058a2f1b): the live terminal's watchlist symbol search
+# is ONE ``<input type=text placeholder="Symbol..." data-test-id="watchlist_public...">``
 # inside a ``multiasset-suggest`` control in the watchlist widget's header
-# toolbar. The five earlier guesses ("search", "find symbol", ...) matched
-# nothing there and are gone. Exactly one input must match a candidate, or
-# the probe refuses.
-INSTRUMENT_SEARCH_CANDIDATES: Sequence[str] = ("symbol...", "watchlist_public")
+# toolbar. FIND_INSTRUMENT_SEARCH_JS admits an input only when BOTH hold on
+# the SAME element -- placeholder equal to the first (case-insensitive,
+# trimmed) AND data-test-id starting with the second -- and exactly one such
+# input exists, or it refuses (manager review of #14563: either attribute
+# alone, or the old bare ``type=search`` fallback, is a guess). The five
+# pre-measurement guesses ("search", "find symbol", ...) are gone.
+INSTRUMENT_SEARCH_MATCH: Tuple[str, str] = ("symbol...", "watchlist_public")
 
 # Form-field label patterns (anchored, case-insensitive), matched against the
 # label text the discovery JS derives for each control.
@@ -1431,12 +1433,13 @@ TICKET_PANEL_DUMP_JS = r"""
 }
 """
 
-# Discovery for a symbol SEARCH/FILTER input (PROP-ETH, 2026-09-29; revised
-# 2026-09-29 after live run issue #14437 -- see below). The CANDIDATE TEXT
-# LIST is still NOT MEASURED, no run has confirmed any candidate yet. Tries,
-# in document order, an input whose placeholder/aria-label/data-test-id/title
-# contains one of INSTRUMENT_SEARCH_CANDIDATES (case-insensitive), else a
-# bare ``input[type=search]``. Tags the one match with
+# Discovery for the watchlist symbol SEARCH input (PROP-ETH, 2026-09-29;
+# revised after live run issue #14437 -- see below; MEASURED and narrowed
+# 2026-09-30, PROP-ETH-DOM, issue #14551). Admits exactly ONE visible input
+# inside the watchlist widget carrying BOTH INSTRUMENT_SEARCH_MATCH
+# attributes (placeholder equal to "symbol..." AND data-test-id starting
+# "watchlist_public"); there is no fallback of any kind, and zero or several
+# matches refuse with a stated ``why``. Tags the one match with
 # ``data-metis-search-hit`` for the Python side to locate; reads nothing,
 # types nothing, clicks nothing.
 #
@@ -1496,7 +1499,7 @@ TICKET_PANEL_DUMP_JS = r"""
 #      sit inside none -- otherwise refuse. Live run #14457 (pre-change)
 #      found 0 inputs because it searched only inside the grid panel.
 FIND_INSTRUMENT_SEARCH_JS = r"""
-([candidates]) => {
+([[wantPlaceholder, wantTidPrefix]]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const symLike = /^[A-Z0-9]{2,15}$/i;
@@ -1603,36 +1606,26 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
     return {found: false, why: 'watchlist widget overlaps an order (BUY+SELL) panel'};
   }
 
-  const attrText = el => [el.getAttribute('placeholder'), el.getAttribute('aria-label'),
-                          el.getAttribute('data-test-id'), el.getAttribute('title')]
-      .filter(Boolean).join(' ').toLowerCase();
   const inputs = [...widget.querySelectorAll('input')].filter(el => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && el.getAttribute('data-test-id') !== 'symbol_input'
       && !inAnyOrderPanel(el);
   });
-  for (const cand of candidates) {
-    const hit = inputs.filter(el => attrText(el).includes(cand));
-    if (hit.length > 1) {
-      // Ambiguous on THIS candidate -- refuse outright rather than fall
-      // through to a later candidate that might match a single (but wrong)
-      // input, which would silently pick a guess over a refusal.
-      return {found: false, why: `${hit.length} inputs match candidate '${cand}' (need exactly 1)`};
-    }
-    if (hit.length === 1) {
-      hit[0].setAttribute('data-metis-search-hit', '1');
-      return {found: true, via: 'text:' + cand};
-    }
+  // BOTH measured attributes on the SAME input; no fallback of any kind.
+  const hit = inputs.filter(el =>
+    norm(el.getAttribute('placeholder')) === wantPlaceholder
+    && (el.getAttribute('data-test-id') || '').toLowerCase().startsWith(wantTidPrefix));
+  if (hit.length > 1) {
+    return {found: false, why: `${hit.length} inputs have placeholder '${wantPlaceholder}' and a `
+                               + `${wantTidPrefix}* data-test-id (need exactly 1)`};
   }
-  const bare = inputs.filter(el => (el.getAttribute('type') || '').toLowerCase() === 'search');
-  if (bare.length > 1) {
-    return {found: false, why: `${bare.length} inputs of type=search (need exactly 1)`};
+  if (hit.length === 1) {
+    hit[0].setAttribute('data-metis-search-hit', '1');
+    return {found: true, via: `placeholder+data-test-id`};
   }
-  if (bare.length === 1) {
-    bare[0].setAttribute('data-metis-search-hit', '1');
-    return {found: true, via: 'type=search'};
-  }
-  return {found: false, n_candidate_inputs: inputs.length};
+  return {found: false, n_candidate_inputs: inputs.length,
+          why: `no visible input in the watchlist widget has placeholder '${wantPlaceholder}' AND a `
+               + `${wantTidPrefix}* data-test-id (${inputs.length} inputs checked)`};
 }
 """
 
@@ -1653,7 +1646,7 @@ CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 # pipeline PI-20260929-AQRK6CL1-0014). Live run #14457 (code bd340d6ae)
 # resolved the watchlist panel through FIND_INSTRUMENT_SEARCH_JS's anchor but
 # found n_candidate_inputs 0 for all four symbols: the control is outside that
-# panel, is not an <input>, or carries labels INSTRUMENT_SEARCH_CANDIDATES
+# panel, is not an <input>, or carries labels INSTRUMENT_SEARCH_MATCH
 # does not name. Guessing a fourth candidate list is how the earlier rounds
 # drifted, so this dump records the shape and the next change derives the
 # candidates and the anchor FROM it.
@@ -2308,6 +2301,47 @@ WATCHLIST_ROWS_JS = r"""
   return {headers, rows: rows.slice(0, 5)};
 }
 """
+
+# The SET of symbols the watchlist table shows, read-only (PROP-ETH-DOM,
+# 2026-09-30, manager review of #14563): read before and after an
+# instrument-probe so the run log shows whether typing into the watchlist's
+# search box persisted anything to the (server-side) watchlist. Same header
+# table + row selectors as WATCHLIST_ROWS_JS; the Symbol cell is taken from
+# the header's own Symbol column and a row must align with the header (same
+# cell count) to count. ``readable: false`` when there is not exactly one
+# Symbol/Bid/Ask table -- "could not look", never an empty list.
+WATCHLIST_SYMBOLS_JS = r"""
+() => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const tables = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) tables.push(hs);
+  }
+  if (tables.length !== 1) return {readable: false, why: `${tables.length} Symbol/Bid/Ask tables (need exactly 1)`};
+  const hs = tables[0], si = hs.indexOf('symbol');
+  const syms = [];
+  for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    const cells = [...r.querySelectorAll('td')].map(txt);
+    if (cells.length !== hs.length) continue;
+    const s = (cells[si] || '').trim().toUpperCase();
+    if (/^[A-Z0-9]{2,15}$/.test(s)) syms.push(s);
+  }
+  return {readable: true, symbols: [...new Set(syms)].sort()};
+}
+"""
+
+
+def watchlist_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[str, Any]:
+    """Compare two WATCHLIST_SYMBOLS_JS reads. ``changed`` is None when either
+    read could not look (never collapsed into "no change")."""
+    if not (before.get("readable") and after.get("readable")):
+        return {"changed": None, "why": before.get("why") or after.get("why") or "not readable"}
+    b, a = set(before.get("symbols") or []), set(after.get("symbols") or [])
+    return {"changed": b != a, "n_before": len(b), "n_after": len(a),
+            "added": sorted(a - b), "removed": sorted(b - a)}
+
 
 #: A quote whose spread is wider than this is not believed (a mis-aligned
 #: column would pair two unrelated numbers).
@@ -3161,7 +3195,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         """Locate a symbol SEARCH/FILTER input. Discovery only: clicks and
         types nothing. See FIND_INSTRUMENT_SEARCH_JS."""
         try:
-            return page.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)]) or {}
+            return page.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)]) or {}
         except Exception as exc:
             return {"found": False, "why": f"probe failed ({type(exc).__name__})"}
 
@@ -3181,6 +3215,13 @@ class DXtradeAdapter(PropPlatformAdapter):
                 where = "?"
             out.append({"frame": i, "origin": where, **got})
         return {"frames": out}
+
+    def watchlist_symbols(self, page: Any) -> Dict[str, Any]:
+        """Read-only: the watchlist's symbol set (WATCHLIST_SYMBOLS_JS)."""
+        try:
+            return page.evaluate(WATCHLIST_SYMBOLS_JS) or {"readable": False, "why": "no result"}
+        except Exception as exc:
+            return {"readable": False, "why": f"read failed ({type(exc).__name__})"}
 
     def instrument_details_dump(self, page: Any) -> Dict[str, Any]:
         """Read-only, digit-run-masked (runs >= 5) dump of controls + short
@@ -3230,6 +3271,14 @@ class DXtradeAdapter(PropPlatformAdapter):
                     result["reset"] = (hit.first.input_value(timeout=2_000) == "")
                 except Exception:
                     result["reset"] = False
+                # Drop focus so no suggestion dropdown lingers (manager
+                # review of #14563): a DOM blur() on the same verified
+                # element -- no Escape key, no click anywhere.
+                try:
+                    result["blurred"] = bool(hit.first.evaluate(
+                        "el => { el.blur(); return document.activeElement !== el; }"))
+                except Exception:
+                    result["blurred"] = False
             # Unconditional: strip our own tag so it can never linger into
             # the next symbol's probe, whatever happened above.
             try:
