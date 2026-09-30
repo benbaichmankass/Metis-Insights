@@ -27,13 +27,17 @@ why_this_matters: >-
 
 power:
   expected_n: 2000
-  min_detectable_effect: 0.08
-  effect_units: rank_correlation
+  min_detectable_effect: 0.0802
+  effect_units: sd
   design: one_sample
   alpha: 0.05
   power: 0.8
   basis: >-
-    Fisher z: n = ((1.96 + 0.8416) / atanh(rho))^2 + 3. For rho = 0.08 that is 1,231 trades.
+    min_detectable_effect is the registered bar rho = 0.08 on the Fisher-z scale, atanh(0.08) = 0.0802,
+    where the statistic has unit sd per sqrt(n), so effect_units is sd (the gate standardises a raw
+    effect only alongside a power.sd, and a correlation has none). Fisher z: n = ((1.96 + 0.8416) /
+    atanh(rho))^2 + 3. For rho = 0.08 that is 1,224 trades (the gate's own floor prints 1,221). This
+    is the two-sided design; the rule's p <= 0.05 is one-sided, so the power claim is conservative.
     The registered N_FLOOR is 1,500, where the minimum detectable rho is
     2.8016 / sqrt(1497) = 0.0724 (atanh scale), i.e. below the 0.08 bar. expected_n = 2,000 is an
     INFERENCE from a measured census, not a measurement of this statistic: the 49 measured legs'
