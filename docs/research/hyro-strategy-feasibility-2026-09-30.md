@@ -14,7 +14,9 @@ Rules come from [`hyrotrader-bybit-deep-dive-2026-09-30.md`](hyrotrader-bybit-de
 4. **Break-even is about P ≥ 0.23** on the $59 deposit (refundable with the first payout), so the best case is roughly break-even and every haircut is negative EV (§ 3.4).
 5. **The evidence is 365 days, one regime, with every 15m leg's final fold negative** and `param_selection_provenance: not_established` on every record. What this memo can honestly say is *not disproven, not established*.
 
-**Operator decision (§ 6):** do not buy an evaluation on the existing legs; authorise the cheap sequence RQ-20260930-501 → 502 (maker entries) and, only if both pass, decide on one $59 challenge as an experiment.
+6. **Trade propensity is NOT the problem (added on the operator's ~05:44Z requirement, § 6).** The realistic ≤1h portfolio trades **about 32–45 times a month with 10–12 qualifying days a month** (strict reading), not "once or twice a month"; five qualifying days accrue in about two weeks. Only the BTC/SOL 1h trend legs (5–6 trades, ~1.3 qualifying days a month) and fvg_range_15m (1.8 trades a month) trade at that thin a rate, and they are not candidates. The minimum-days rule is an evaluation-phase rule; the funded phase has an inactivity rule (30 days without a closed trade) but no trading-day requirement for payouts was found. **What is not worthwhile at $5k is the payout size: about $18–$99 a month per funded $5k account**, so the EV per attempt is roughly zero to +$36 best case and negative under either stress. Sizing up ($25k–$100k) makes the best case positive (+$38 to +$207 a month) because the fee scales sub-linearly, but the sign still flips on the flag question.
+
+**Operator decision (§ 7):** do not buy an evaluation on the existing legs; authorise the cheap sequence RQ-20260930-501 → 502 (maker entries) and, only if both pass, decide on one $59 challenge as an experiment.
 
 ## 1. The rules that shape the fit (re-verified where it mattered)
 
@@ -146,7 +148,98 @@ Checked: 501–503 collide with nothing (`origin/main` has no `20260930` ids; th
 
 ⚠️ **Honesty about pre-registration:** the exploratory MC in § 3 was run *before* the units were written and shows the book near the 0.25 bar. The units are therefore not blind to that number; what they add is a **new, 5-year window** that the exploratory run never saw, so PASS/FAIL is not decided by data already looked at. The thresholds (0.25 from break-even, 0.10 for the shifted stress, n ≥ 300) come from § 3.4 arithmetic, not from tuning to the result. Also: `hyro_fit_verdict.py`'s builder step could not be exercised here (no candles); its grading half is tested on committed ledgers (`--from-ledger` smoke path: n=378, PASS, as the exploratory run predicts).
 
-## 6. Decision for the operator
+## 6. Trade propensity, rule scope and worthwhileness (operator requirement, ~05:44Z 2026-09-30)
+
+> Operator, verbatim: *"it's okay if not every day has a trade ... but if we only figure out one or two strategies and they only trade once or twice a month, then it's not necessarily going to be a worthwhile path as opposed to building some sort of local option for breakout."*
+
+### 6.1 Worthwhileness test (stated before the numbers)
+
+HyroTrader is worth building over the Breakout local-agent route (L3) only if **all three** hold for the realistic portfolio:
+
+1. **Propensity:** ≥ 10 executed trades a month **and** ≥ 4 qualifying days a month (strict reading A), so the 5-day minimum clears in about six weeks and the funded account cannot go 30 days without a closed trade.
+2. **Pass probability:** P(pass both phases) ≥ 0.23 (the break-even at the $59 refundable deposit, § 3.4) **and** still ≥ 0.15 with every R shifted −0.03 (the same stress as RQ-20260930-501, tightened from 0.10 because a portfolio should clear a higher bar than one leg).
+3. **EV:** expected value per month net of the account fee, at the account size actually bought, exceeds Breakout's by more than the extra build cost, amortised over 12 months. Build cost side: HyroTrader ≈ 4–6 lane-days (deep dive § 3, INFERRED) vs L3 ≈ 2.5–3 (manager's figure, not re-derived here). At this lane's own ceiling of about $40 a lane-day (an INFERRED proxy for compute and tokens, not payroll) the difference is roughly $60–$120, i.e. **too small to decide anything**; gate 3 is decided by EV per month, not by build cost.
+
+### 6.2 Rule scope: evaluation only, or also funded? (first-party, fetched 2026-09-30; WebFetch returns a small-model summary, so quotes are near-verbatim)
+
+| question | what the pages say | scope finding |
+|---|---|---|
+| Minimum / qualifying trading days | `/faq/evaluation-process/minimum-trading-days/`: "Minimum of 5 distinct trading days"; a day qualifies if "at least one trade is executed and closed on that day, regardless of the holding period", with the 5%-of-balance and ±1%-of-value tests (§ 1). The page is in the *evaluation-process* section and says nothing about funded accounts. | **Evaluation phases. No funded-phase trading-day requirement was found** (absence in the pages read, not proof). |
+| Payout eligibility | `/faq/hyrotrader-account/how-can-i-withdraw-my-profits/`: "You have the option to request a payout on the same day as your first trade executed on the account."; processed in 12–24 h. No minimum trading days, cycle, consistency or profit-distribution condition appears. Separate page: payout needs "at least $100 in profit after the split". | **Payouts are not gated by trading days.** |
+| Consistency (40% day rule) | phases 1 and 2 only (deep dive § 1.5); `/faq/rules/are-there-any-other-rules-for-a-funded-account/`: funded accounts "do not have a profit distribution rule". | **Evaluation only.** |
+| Funded-account rules that DO continue | same page: "The following rules from the Challenge phase continue to apply during the funded (live) phase: Daily Drawdown", "Maximum Loss"; plus "up to 25% of the initial account balance as total margin" and "total notional value ... must not exceed 2×" the balance. | Drawdown rules and exposure caps bind for the life of the account. |
+| Inactivity | `/faq/rules/do-you-have-an-inactivity-rule/`: "if your most recent trading day is older than 30 days, your account will be disabled."; "A trading day is defined as the last day you closed a trade, not the day you opened it". The page does not say which account types it covers. | **Assume it applies to funded accounts too.** Any *closed* trade resets it (no size or P&L test stated there). Longest gap between closed trades in the committed ledgers: book 6 days, top-3 portfolio 5 days, single 1h trend legs 7–19 days, fvg_range 57 days. |
+| Are intraday round trips required? | No rule requires them as such; the funded page says positions may stay open overnight/weekends (deep dive § 1.4). "Same-day" only enters through the *qualifying-day* definition, i.e. it is what earns the 5 evaluation days. The wording "executed and closed on that day" can be read as close-day-only; I model strict same-day (reading A) and report the close-day count too. | Intraday matters for **evaluation only**. |
+
+### 6.3 Trade frequency, measured (365-day cost-complete ledgers; trades and qualifying days per month)
+
+"A / B" are the strict (≥1% price move) and lenient (≥0.1%, 10x margin) readings of the ±1% test on same-day trades; "C" counts a trade on its **close** day (opened earlier allowed), reading A. Computed by this lane from `comms/strategy_evidence/runs/*/<leg>__trades.jsonl` (ETH prop 2026-09-26; avax 2026-09-28; others 2026-09-25); ticket-independent, harness-signal rates, not live-journal counts (the journal endpoint needed a session token this lane does not have).
+
+| set | n (365 d) | trades/mo | qual. days/mo A | B | C | days/mo with any close | longest gap between closes |
+|---|---|---|---|---|---|---|---|
+| ict_scalp_eth_15m | 117 | 10.0 | 3.8 | 8.3 | 3.8 | 8.8 | 15 d |
+| ict_scalp_sol_15m | 132 | 11.5 | 5.0 | 9.0 | 5.6 | 10.4 | 12 d |
+| ict_scalp_xrp_15m | 129 | 11.0 | 4.6 | 8.3 | 4.8 | 9.8 | 13 d |
+| ict_scalp_avax_5m | 257 | 21.5 | 6.4 | 14.6 | 6.8 | 16.3 | 9 d |
+| ict_scalp_xrp_5m / sol_5m / BTC 5m | 243 / 259 / 193 | 20.4 / 21.7 / 16.5 | 4.0 / 5.4 / 1.8 | 13.6 / 13.8 / 11.0 | 4.4 / 5.7 / 1.8 | 12–16 | 7–12 d |
+| fvg_range_15m | 17 | **1.8** | **0.1** | 1.7 | 0.1 | 1.8 | 57 d |
+| trend_donchian_eth_prop 1h | 169 | 14.3 | 4.8 | 6.5 | 8.5 | 13.4 | 7 d |
+| trend_donchian_eth 1h | 107 | 9.0 | 2.3 | 2.5 | 7.4 | 8.9 | 10 d |
+| trend_donchian sol_prop / sol / btc 1h | 65 / 59 / 73 | **5.5 / 5.0 / 6.2** | **1.4 / 1.3 / 1.2** | 1.9 / 1.5 / 2.3 | 3.8 / 4.6 / 4.0 | 5–6 | 14–19 d |
+| **15m book (eth+sol+xrp)** | 378 | **32.2** | **10.2** | 17.3 | 10.8 | 19.2 | 6 d |
+| **top-3 portfolio (eth_15m + avax_5m + trend_eth_prop)** | 543 | **45.3** | **12.3** | 21.0 | 14.8 | 24.1 | 5 d |
+
+**Plainly:** the realistic portfolio is a **30–45 trades a month** book, not one or two. The operator's concern is real only for the BTC/SOL 1h trend legs and `fvg_range_15m`, and none of them is proposed.
+
+**Cross-check against the live prop ticket stream** (`GET /api/bot/prop/tickets?account_id=breakout_1`, 170 real tickets, 2026-06-21 → 2026-09-28, summary in [`…-breakout-ticket-rate-2026-09-30.json`](hyro-strategy-feasibility-breakout-ticket-rate-2026-09-30.json)): `trend_donchian_eth_prop` alone raised 83 tickets in ~101 days (about 25 a month including suppressed/shadow rows) against the harness's 14 executed a month, so the committed ledgers are not overstating signal frequency.
+
+### 6.4 Time to clear each phase, and funded payouts (strict ruleset, reading A, best case = no flagged fills, 720-day horizon)
+
+Source: [`…-mc-frequency-strict-2026-09-30.json`](hyro-strategy-feasibility-mc-frequency-strict-2026-09-30.json), 1000 paths, seed 20260930. Days are calendar days to first reach the phase target (10% then 5%) with the 5 qualifying days and the 40% day cap enforced, over paths that pass. "Payout" is the mean, over paths that reach the funded phase, of weekly banked profit (80% split, ≥$100 per payout, everything above start withdrawn) per month over the first 90 funded days, on a **$5k** account, including paths that later breach.
+
+| candidate | risk | P(both) | phase 1 days p10 / p50 / p90 | phase 2 days p10 / p50 / p90 | median calendar to fund | funded payout $/mo | P(survive 90 d funded) |
+|---|---|---|---|---|---|---|---|
+| 15m book | 1.0% | 0.29 | 20 / 49 / 115 | 11 / 26 / 78 | ~75 d | **88** | 0.28 |
+| 15m book | 0.5% | 0.41 | 74 / 170 / 369 | 25 / 70 / 180 | ~240 d | 53 | 0.73 |
+| eth_15m alone | 1.0% | 0.45 | 74 / 172 / 424 | 32 / 89 / 226 | ~260 d | 49 | 0.77 |
+| top-3 portfolio | 1.0% | 0.22 | 14 / 34 / 85 | 10 / 23 / 70 | ~57 d | **99** | 0.09 |
+| top-3 portfolio | 0.5% | 0.46 | 45 / 118 / 270 | 19 / 54 / 152 | ~170 d | 67 | 0.63 |
+| trend_eth_prop 1h | 1.0% | 0.18 | 41 / 89 / 216 | 31 / 66 / 179 | ~155 d | 70 | 0.42 |
+| avax_5m | 1.0% | 0.24 | 39 / 94 / 229 | 18 / 44 / 114 | ~140 d | 56 | 0.42 |
+
+Stress rows (same file plus `…-frequency-shift…json`): with R shifted −0.03 the 1%-risk book falls to P(both) **0.20**, payout $76/mo; if half of fills are flagged, book 1% P(both) **0.05** and 0.5% **0.006**. The qualifying-day rule is not what sets these times (at 10–12 qualifying days a month five accrue in about two weeks); **edge per trade and the drawdown limits are.** Note the trade-off: the risk level that reaches the target quickly (1%) is the one that rarely survives the funded phase (28% for the book, 9% for the top-3), because the 4% trailing daily and 5% static limits continue to bind there.
+
+### 6.5 EV per month, net of fees, by account size (INFERRED arithmetic on § 6.4)
+
+EV per attempt = P(both) × (3 months × payout $/mo × size multiple) − (1 − P(both)) × fee. Fees from the deep dive (§ 1.6): $5k $59, $25k $249, $100k $579 (deposit refundable only with the first payout; refund on success ignored, a small conservative bias). Months per attempt = median calendar to fund + 3. Only the first 90 funded days are counted. Account-size scaling assumes payouts scale linearly, which holds only if the firm's per-position (3%), exposure (2× notional) and Bybit-demo liquidity limits do not bind.
+
+| case (15m book, 1% risk) | P(both) | $5k | $25k | $100k |
+|---|---|---|---|---|
+| best case (no flags) | 0.29 | +$36 → **+$6/mo** | +$211 → **+$38/mo** | +$1,139 → **+$207/mo** |
+| R shifted −0.03 | 0.20 | −$2 → −$0/mo | +$25 → +$5/mo | +$436 → +$78/mo |
+| half of fills flagged | 0.05 | −$46 → −$7/mo | −$187 → −$27/mo | −$351 → −$51/mo |
+| top-3 portfolio, best case | 0.22 | +$4/mo | +$26/mo | +$169/mo |
+| eth_15m alone at 0.5% risk, best case | 0.44 | −$0/mo | −$1/mo | +$6/mo |
+
+**Reading it:** at $5k the path pays about $0–6 a month even in the best case; the fee schedule makes larger accounts much better (fee grows ~10× while size grows 20×), but every row is still hostage to whether the firm flags our market fills. This is EV for **one attempt at a time**; parallel accounts are not independent (same signals, same regime) and the firm caps total capital at $200,000.
+
+### 6.6 Against Breakout (measured ticket rate, and what is not comparable)
+
+- **Breakout ticket stream, measured** (`/api/bot/prop/tickets`, 2026-06-21 → 2026-09-28, 170 real tickets): **18 tickets reached `closed` (a human took and closed the trade) = 5.3 a month over the full 101 days, 4.0 a month over the last 60 days, 1.0 over the last 30 days** (closed per month: Jun 3, Jul 7, Aug 7, Sep 1). The other 152 tickets never became trades: 48 shadow, 44 suppressed, 24 skipped, 22 orphaned, 8 expired, 6 invalidated_prompted. No ticket has been created since 2026-09-28, consistent with the manager's note; the latest 50 rows of the fills table (`/api/bot/prop/fills?limit=50`) read 23 `skipped`, 16 `closed`, 6 `filled`, 5 `open`.
+- **So Breakout's executed rate is a property of the manual-click bridge, not of the strategies:** the same signal families raise about 50 tickets a month and 90% die before a trade. An automated local agent (L3) would push the executed rate toward the signal rate, which is exactly the 10–45 a month above. **Frequency therefore does not separate the two routes; rules, fees and edge do.**
+- Breakout's ruleset (`config/prop_rulesets/breakout.yaml`): 3% daily / 6% static, **no consistency rule, no minimum trading days, no demo-realism flag rule**, $45 fee, 80% split; HyroTrader adds the 4% trailing on floating equity, the 40% day cap, 5 qualifying days and the flag haircut, and its evaluation runs on a simulated venue. **I did not compute Breakout's EV per month in this lane**, so gate 3 in § 6.1 is decided only on the HyroTrader side here: a like-for-like Breakout figure needs `scripts/research/prop_ev_grid.py` on the same ledgers under `--costs breakout`, which RQ-20260929-044 (eth_15m: `indeterminate`) and -053 (xrp_5m: `fail`) started and did not settle.
+
+### 6.7 Verdict on the worthwhileness test
+
+| gate | result |
+|---|---|
+| 1. propensity ≥ 10 trades and ≥ 4 qualifying days a month | **PASS** for the 15m book (32 / 10.2) and the top-3 (45 / 12.3); FAIL for the BTC/SOL 1h trend legs and fvg_range |
+| 2. P(both) ≥ 0.23, and ≥ 0.15 shifted −0.03 | book 0.29 and 0.20: **PASS on the exploratory run, not yet on new data**; top-3 0.22 (FAIL), and its 1%-risk funded survival is 9% |
+| 3. EV/month beats Breakout's by more than build cost | **not decidable** (Breakout EV not measured); HyroTrader's own EV is +$0–$6 a month at $5k and +$38 to +$207 at $25k–$100k, best case, negative if fills are flagged |
+
+**The path is not worthwhile as it stands, but not for the reason the operator feared.** Propensity is adequate. It fails on payout size at the account size the $59 tier gives, on the flag rule, and on a funded-phase survival rate that is poor at the risk needed to pass quickly. **What would change that:** (a) a maker/limit entry path that removes the flag exposure (RQ-20260930-502); (b) evidence of edge above ~0.08 R a trade after cost on more than one regime (RQ-20260930-501); (c) buying a larger account tier, where the fee structure makes the same edge pay; (d) a lower-variance funded-phase sizing (0.5% risk) once the account is funded.
+
+## 7. Decision for the operator
 
 1. **Do nothing yet (recommended).** Approve merging the held units and let the manager run 501 on the trainer. Cost: trainer minutes, no capital. Outcome: a 5-year answer on whether the 15m book's edge is real.
 2. **Build the maker-entry harness flag now (Tier 1) in parallel.** Unblocks 502, the only lever on the flag rule. About 1 lane-day (INFERRED).
@@ -157,5 +250,6 @@ Checked: 501–503 collide with nothing (`origin/main` has no `20260930` ids; th
 
 - `scripts/research/hyro_passprob_mc.py`, `scripts/research/hyro_fit_verdict.py`, `tests/test_hyro_passprob_mc.py`
 - `config/prop_rulesets/hyrotrader.yaml`, `hyrotrader_lenient.yaml`
+- Frequency/payout runs: `…-mc-frequency-strict-…json`, `…-mc-frequency-shift-…json`, spec `…-mc-spec-with-portfolio-…json` (adds the top-3 portfolio), Breakout ticket summary `…-breakout-ticket-rate-…json`.
 - Inputs: [`hyro-strategy-feasibility-mc-spec-2026-09-30.json`](hyro-strategy-feasibility-mc-spec-2026-09-30.json) (per-candidate trade samples copied from the committed ledgers). Outputs: `…-mc-results-hyrotrader-2026-09-30.json`, `…-mc-results-hyrotrader_lenient-…json`, `…-mc-horizon720-…json`, `…-mc-mae-sensitivity-…json`.
 - Reproduce: `python3 scripts/research/hyro_passprob_mc.py --spec docs/research/hyro-strategy-feasibility-mc-spec-2026-09-30.json --paths 1000 --risks 0.5,1.0 --readings A --flag-fracs 0.0,0.5 --cap-days 720`.
