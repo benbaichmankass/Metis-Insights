@@ -38,7 +38,7 @@ decision_rule:
     on the ledger.
   rule: >-
     UNDERPOWERED IF n < 300. ELSE PASS IF pooled full-cost net R > 0 AND same-day share >= 0.95 AND gates B
-    and C hold. ELSE FAIL. Registered flatten time 23:45 UTC (realized at the last 1h bar boundary at or before it, 23:00) ON NATIVE 1h CANDLES, NO --resample (native stamps are bar OPENs, bar_label open; a --resample run would be close-stamped and is a different design) and last-entry 20:00 UTC are fixed now and are
+    and C hold. ELSE FAIL. Registered flatten time 23:45 UTC (realized at the last 1h bar boundary at or before it, 23:00) and last-entry 20:00 UTC are fixed now and are
     not to be swept after the run (a sweep would be a different, separately registered unit).
   what_it_does_not_do: Does not change config/strategies.yaml or the live trend legs.
 
@@ -58,13 +58,8 @@ blocked_on:
       ending at or before HH:MM, i.e. 23:00 for 23:45 (up to one bar EARLY, never late); "no entry after 20:00"
       means the entry moment (the entry bar's close) is not later than 20:00. A unit-level flag would be a
       separate Tier-3 step if a result ever justified going live.
-      FOLLOW-UP (manager review of #14583, 2026-09-30): the levers as first merged read a --resample bar's
-      close-stamp as an open-stamp (a whole bar early) and normalized the day on a local clock for a non-UTC
-      column. claude/trend-dayflat-fixes adds bar_label (main() passes "close" only with --resample), converts
-      to UTC first, and replaces a byte-identity test that skipped forever with a stored pre-lever baseline. This
-      unit uses native candles, so the resample case does not arise, but the fix must be merged first.
     ref: RQ-20260930-501
-    clears_when: the follow-up branch claude/trend-dayflat-fixes is merged (then this unit may be promoted out of blocked/ by a held PR).
+    clears_when: the flag branch is merged (then this unit may be promoted out of blocked/ by a held PR).
 
 run:
   workflow: null
