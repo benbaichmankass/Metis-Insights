@@ -94,7 +94,19 @@ def emit(obj: Dict[str, Any], *secrets: str) -> None:
 
 
 def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None) -> str:
-    """The mode this run executes in. Pure; tested."""
+    """The mode this run executes in. Pure; tested.
+
+    ⚠️ The three PROBE modes (``probe``, ``instrument_probe``,
+    ``instrument_search_dump``) are decided BEFORE ``PROP_EXECUTOR_MODE`` and
+    so run even when it reads ``off``. That is a deliberate exception to
+    "off — nothing read, nothing clicked" (manager review of #14527,
+    2026-09-30): ``off`` is the EXECUTOR's kill switch (no cycle, no ticket,
+    no submit, no reconcile), while a probe is a manual, one-shot,
+    operator/manager-dispatched measurement that places nothing and writes
+    nothing to the API or the executor's state dir. Blocking it under
+    ``off`` would block measurement exactly when the executor has been
+    reverted. ``probe`` opens and closes the order form but types nothing;
+    the other two never reach the order form."""
     base = pe.executor_mode(env)
     if args.probe_ticket:
         return "probe"
@@ -263,9 +275,18 @@ def main(argv: Optional[list] = None) -> int:
 
             if mode == "instrument_probe":
                 syms = [s.strip() for s in args.instrument_probe.split(",") if s.strip()]
+                # Read-only before/after read of the watchlist's symbol set:
+                # did typing into its search box persist anything server-side?
+                # (manager review of #14563)
+                wl_before = adapter.watchlist_symbols(page)
                 for sym in syms:
                     got = adapter.probe_instrument_details(page, sym)
                     emit({"instrument_probe": {"symbol": sym, **got}}, *secrets)
+                page.wait_for_timeout(2_000)
+                wl_after = adapter.watchlist_symbols(page)
+                from src.prop.platform.dxtrade import watchlist_diff
+                emit({"watchlist_diff": {"before": wl_before, "after": wl_after,
+                                         **watchlist_diff(wl_before, wl_after)}}, *secrets)
                 # A probe result never gates the exit code — same doctrine as
                 # the passive instrument-spec read in breakout_login_check.py.
                 return EXIT_OK
