@@ -35,8 +35,21 @@ import candle_io  # noqa: E402  (the canonical loader: parses WITHOUT format='mi
 _TF_LABEL = {"5": "5m", "15": "15m", "60": "1h", "120": "2h", "240": "4h"}
 
 
+_BASE_COLS = {"timestamp", "open", "high", "low", "close", "volume"}
+
+
 def merge_extend(old: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
-    """Append rows of ``new`` strictly after ``old``'s last timestamp."""
+    """Append rows of ``new`` strictly after ``old``'s last timestamp.
+
+    REFUSES when the old file carries columns beyond timestamp/OHLCV (e.g.
+    ``taker_buy_base``): Bybit klines cannot fill them, and appending rows with
+    NaN there would silently poison every study that reads those columns.
+    """
+    extra = [c for c in old.columns if c not in _BASE_COLS]
+    if extra:
+        raise RuntimeError(
+            f"existing file has columns {extra} that the Bybit feed cannot fill; "
+            f"refusing to append NaN-filled rows")
     ots = pd.to_datetime(old["timestamp"], utc=True, format="mixed")
     nts = pd.to_datetime(new["timestamp"], utc=True, format="mixed")
     add = new[nts > ots.max()].copy()
