@@ -134,15 +134,17 @@ def test_orphaned_status_does_not_block(tmp_journal):
 
 
 # ---------------------------------------------------------------------------
-# Best-effort: DB read failure returns None (does not crash dispatch)
+# Fail closed: DB read failure BLOCKS (does not crash dispatch) — 2026-09-30
 # ---------------------------------------------------------------------------
 
 
-def test_db_read_failure_returns_none_silently(monkeypatch):
-    """A DB-read exception must not raise — the gate is best-effort.
-    Returning None lets the dispatcher proceed (one extra duplicate
-    package is preferable to refusing every signal during a DB
-    outage)."""
+def test_db_read_failure_fails_closed(monkeypatch):
+    """A DB-read exception must not raise, and must BLOCK (2026-09-30,
+    PI-20260930-QZSE4AMA-0001 review): an unreadable journal may hide an open
+    package, so the dispatch is refused with the cause. It used to return
+    None ("one extra duplicate package is preferable to refusing every signal
+    during a DB outage") — reversed: a duplicate package on a live leg is
+    stacking, the thing this gate exists to stop."""
     class _BoomDb:
         def __init__(self, *a, **kw):
             pass
@@ -151,7 +153,8 @@ def test_db_read_failure_returns_none_silently(monkeypatch):
             raise RuntimeError("simulated DB outage")
 
     monkeypatch.setattr("src.units.db.database.Database", _BoomDb)
-    assert _has_open_package_for_strategy("vwap") is None
+    from src.runtime.strategy_monocle import UNREADABLE_PACKAGE_PREFIX
+    assert _has_open_package_for_strategy("vwap").startswith(UNREADABLE_PACKAGE_PREFIX)
 
 
 # ---------------------------------------------------------------------------
