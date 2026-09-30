@@ -36,13 +36,14 @@ SPECS = {"BTCUSD": "0.001", "ETHUSD": "0.01", "SOLUSD": "0.1", "AVAXUSD": "1"}
 def page_html(*, margin="$0", order_rows="", one_click="", panel_names=None, dialog_on="",
               close_btn=True, no_close=False, sym_cell_extra="", link_breaks_for="",
               panel_role="", orders_hidden=False, one_click_unreadable=False, panel_extra="",
-              hover_button_for="", outside_table="", orders_headers=None):
+              hover_button_for="", outside_table="", orders_headers=None, no_panel_for="",
+              toggle_attrs=""):
     rows = "".join(
         f'<tr class="instrument" data-row-id="{i}"><td class="sym">{s}{sym_cell_extra if s == "SOLUSD" else ""}</td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.1</button></td>'
         f'<td><button class="px" onclick="window.__trade=(window.__trade||0)+1">100.2</button></td></tr>'
         for i, s in enumerate(["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]))
-    toggle = ('<div><span>One-click trading</span></div>' if one_click_unreadable else
+    toggle = (f'<div {toggle_attrs}><span>One-click trading</span></div>' if one_click_unreadable else
               f'<label><input type="checkbox" {one_click}><span>One-click trading</span></label>')
     heads = "".join(f"<th>{h}</th>" for h in (orders_headers or ["Symbol", "Side", "Order Type", "Order ID"]))
     return f"""<html><body>
@@ -92,6 +93,7 @@ document.querySelector('[data-test-id=instrument_info_button]').addEventListener
   const open = document.querySelector('.info-panel');
   if (open) {{ if (!{json.dumps(no_close)}) open.remove(); return; }}
   const s = document.querySelector('[data-test-id=symbol_input]').value;
+  if (s === {json.dumps(no_panel_for)}) return;
   const name = PANEL_NAMES ? PANEL_NAMES : s;
   const p = document.createElement('div'); p.className = 'info-panel';
   if ({json.dumps(panel_role)}) p.setAttribute('role', {json.dumps(panel_role)});
@@ -306,13 +308,24 @@ def test_a_dialog_after_a_row_click_aborts_and_restore_is_skipped_loudly(browser
 
 
 def test_fix3_an_aborted_run_still_restores_the_linked_symbol(browser):
-    # Review fix 3: the panel does not close -> abort. The restore runs on
-    # that exit path too (it used to run only after a clean finish).
-    got, st = run(browser, page_html(no_close=True), symbols=("BTCUSD", "ETHUSD"))
-    assert any("did not close" in a for a in got["alerts"]) and "ETHUSD" not in got["results"]
+    # Review fix 3: no panel appears for BTCUSD -> abort, with the linked
+    # symbol already moved to BTCUSD. The restore runs on that exit path too
+    # (it used to run only after a clean finish).
+    got, st = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    assert any("aborted before any close click" in a for a in got["alerts"]) and "ETHUSD" not in got["results"]
     assert got["restore"]["attempted"] is True and got["restore"]["verified"] is True
     assert st["linked"] == "SOLUSD"
     assert info_probe_restore_latch_reason(got) is None
+
+
+def test_an_unclosed_panel_skips_the_restore_and_latches(browser):
+    # Re-review A: a panel that did not close may still be on screen, so no
+    # further click -- the restore is skipped loudly and the latch is due.
+    got, st = run(browser, page_html(no_close=True), symbols=("BTCUSD", "ETHUSD"))
+    assert any("did not close" in a for a in got["alerts"]) and "ETHUSD" not in got["results"]
+    assert got["restore"]["attempted"] is False and "unclosed" in got["restore"]["why"]
+    assert info_probe_restore_latch_reason(got).startswith("AUTO-REVERT")
+    assert st["clicks"].count("sym") == 1                      # no restore click
 
 
 def test_fix3_a_failed_restore_writes_the_executor_halt_latch(browser, tmp_path):
@@ -337,7 +350,10 @@ def test_fix4_a_panel_naming_another_symbol_is_escaped_never_click_closed(browse
     assert "also names ['ETHUSD']" in r["refused"] and "leaves" not in r
     assert r["closed_via"] == "escape" and r["closed"] is True and "Escape" in st["keys"]
     assert "close" not in st["clicks"] and "ETHUSD" not in got["results"]        # aborted
-    assert got["restore"]["verified"] is True and st["panels"] == 0 and st["linked"] == "SOLUSD"
+    # a REFUSED panel stops all further clicks, the restore included (re-review A)
+    assert got["restore"]["attempted"] is False and st["panels"] == 0
+    assert st["clicks"] == ["sym", "instrument_info_button"], st["clicks"]
+    assert info_probe_restore_latch_reason(got).startswith("AUTO-REVERT")
 
 
 def test_fix4_a_panel_with_a_confirm_button_is_refused_and_its_buttons_never_clicked(browser):
@@ -378,7 +394,63 @@ def test_a_panel_that_never_names_the_symbol_is_refused_and_aborts(browser):
     r = got["results"]["BTCUSD"]
     assert "does not name" in r["refused"] and "leaves" not in r and r["closed"] is True
     assert "ETHUSD" not in got["results"]
-    assert st["panels"] == 0 and got["restore"]["verified"] is True
+    assert st["panels"] == 0 and got["restore"]["attempted"] is False
+
+
+def test_reA_a_non_dialog_buy_sell_panel_that_ignores_escape_gets_no_further_click(browser, tmp_path):
+    # Re-review A (a regression on abd0f25ef): the panel is NOT a role=dialog,
+    # holds BUY/SELL and Escape does not close it. Nothing more is clicked --
+    # no restore -- and the executor latch is written.
+    from scripts.prop.prop_executor_tick import latch_info_probe
+    from src.prop import prop_executor as pe
+    buy_sell = ('<button data-test-id="BUY" onclick="window.__trade=(window.__trade||0)+1">Buy</button>'
+                '<button data-test-id="SELL" onclick="window.__trade=(window.__trade||0)+1">Sell</button>')
+    got, st = run(browser, page_html(panel_extra=buy_sell, no_close=True), symbols=("BTCUSD", "ETHUSD"))
+    r = got["results"]["BTCUSD"]
+    assert "BUY/SELL" in r["refused"] and r["closed"] is False and r["panel"]["is_dialog"] is False
+    assert st["clicks"] == ["sym", "instrument_info_button"], st["clicks"]
+    assert got["restore"]["attempted"] is False and "ETHUSD" not in got["results"]
+    never_traded(st)
+    assert latch_info_probe(got, tmp_path)
+    assert "AUTO-REVERT: instrument-info-probe" in pe.ExecutorState(tmp_path).halted()
+
+
+def test_reB_the_one_click_dump_masks_ids_beside_the_toggle(browser):
+    got, st = run(browser, page_html(one_click_unreadable=True,
+                                     toggle_attrs='data-account="12345678" data-uid="a1b2c3d4e5" '
+                                                  'data-state="off" class="acct-98765432"'))
+    dump = json.dumps(got["one_click_dump"])
+    assert "12345678" not in dump and "a1b2c3d4e5" not in dump and "98765432" not in dump
+    assert '"data-state": "off"' in dump and "########" in dump      # still useful, just masked
+
+
+def test_pre_click_latch_is_armed_then_removed_or_replaced(tmp_path):
+    from scripts.prop.prop_executor_tick import INFO_PROBE_ARMED, arm_info_probe_latch, latch_info_probe
+    from src.prop import prop_executor as pe
+    st = pe.ExecutorState(tmp_path)
+    # clean run: armed before the click, removed after a verified restore
+    assert arm_info_probe_latch(tmp_path) is True and INFO_PROBE_ARMED in st.halted()
+    assert latch_info_probe({"mode": "click", "restore": {"verified": True}}, tmp_path, armed=True) is None
+    assert st.halted() is None
+    # unverified: the in-progress text is REPLACED by the reason
+    arm_info_probe_latch(tmp_path)
+    why = latch_info_probe({"mode": "click", "restore": {"original": "SOLUSD", "verified": False}},
+                           tmp_path, armed=True)
+    assert why and why in st.halted() and INFO_PROBE_ARMED not in st.halted()
+    # a killed run never reaches latch_info_probe: the in-progress latch stays
+    st.halt_file.unlink()
+    arm_info_probe_latch(tmp_path)
+    assert INFO_PROBE_ARMED in st.halted()
+    # a REAL executor trip already present is never touched or removed
+    st.halt_file.write_text("2026-09-30T00:00:00+00:00 AUTO-REVERT: real trip\n")
+    assert arm_info_probe_latch(tmp_path) is False
+    assert latch_info_probe({"mode": "click", "restore": {"verified": True}}, tmp_path, armed=False) is None
+    assert "real trip" in st.halted()
+
+
+def test_tick_docstring_names_the_latch_exception():
+    from scripts.prop.prop_executor_tick import resolve_mode
+    assert "writes the executor's\n    AUTO-REVERT ``halted`` latch" in resolve_mode.__doc__
 
 
 def test_an_exception_logs_only_its_type(browser):

@@ -1260,7 +1260,12 @@ ONE_CLICK_DUMP_JS = r"""
   const lab = [...document.querySelectorAll('body *')].find(el =>
     el.children.length === 0 && /^one[- ]click trading$/i.test(txt(el)));
   if (!lab) return {found: false};
-  const safe = v => (typeof v === 'string' && v.length <= 24 && /^[A-Za-z0-9 _.:#%()-]*$/.test(v)) ? v : null;
+  // Module masking convention (#14216; manager re-review of #14645): runs of
+  // 5+ digits and runs of 8+ hex characters containing a digit become '#',
+  // so an account id beside the toggle never reaches the public log.
+  const mask = v => v.replace(/(?<![0-9a-f])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/\d{5,}/g, m => '#'.repeat(m.length));
+  const safe = v => (typeof v === 'string' && v.length <= 24 && /^[A-Za-z0-9 _.:#%()-]*$/.test(v)) ? mask(v) : null;
   const desc = el => {
     const cs = getComputedStyle(el);
     const attrs = {};
@@ -1269,7 +1274,7 @@ ONE_CLICK_DUMP_JS = r"""
     }
     if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) attrs['checked'] = String(el.checked);
     return {tag: el.tagName.toLowerCase(),
-            cls: (typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal) || '').trim(),
+            cls: mask((typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal) || '').trim()),
             attrs, text: el.children.length === 0 ? (safe(txt(el)) || '') : '',
             is_label: el === lab,
             style: {bg: cs.backgroundColor, color: cs.color, transform: cs.transform, left: cs.left,
@@ -2491,7 +2496,7 @@ INFO_PROBE_PANEL_JS = r"""
   document.querySelectorAll('[data-metis-info-panel]').forEach(e => e.removeAttribute('data-metis-info-panel'));
   const txt = el => (el.innerText || el.textContent || '').trim();
   const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
-                     .replace(/\b[0-9a-f]{8,}\b/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/(?<![0-9a-f])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
                      .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80);
   const leaves = el => [...el.querySelectorAll('*')].filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
   const fresh = [...document.querySelectorAll('body *')]
@@ -3702,17 +3707,24 @@ class DXtradeAdapter(PropPlatformAdapter):
             # the tick turns it into the executor's AUTO-REVERT latch
             # (info_probe_restore_latch_reason).
             if click and clicked_any:
+                # A REFUSED panel (BUY/SELL, confirm-like, wrong identity) or
+                # one that did not close may still be on screen whether or not
+                # it is a role=dialog: no further click (manager re-review of
+                # #14645). Skipped -> unverified -> the tick writes the latch.
+                unsafe = [s for s, r in out["results"].items()
+                          if r.get("refused") or r.get("closed") is False]
                 try:
                     open_dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
                 except Exception:
                     open_dialogs = None
-                if open_dialogs == 0:
+                if open_dialogs == 0 and not unsafe:
                     self._info_restore(page, out)
                 else:
+                    why = (f"refused or unclosed panel for {unsafe}" if unsafe
+                           else f"dialogs open: {open_dialogs}")
                     out["restore"] = {"original": (out.get("resolve") or {}).get("linked_symbol"),
-                                      "attempted": False, "verified": False,
-                                      "why": f"dialogs open: {open_dialogs}"}
-                    out["alerts"].append("restore NOT attempted: a dialog is open (or could not be read)")
+                                      "attempted": False, "verified": False, "why": why}
+                    out["alerts"].append(f"restore NOT attempted ({why}); no further click")
             wl_after = self.watchlist_symbols(page)
             out["watchlist_diff"] = {"before": wl_before, "after": wl_after,
                                      **watchlist_diff(wl_before, wl_after)}

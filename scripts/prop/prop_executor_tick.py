@@ -114,7 +114,12 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     2026-09-30): ``off`` is the EXECUTOR's kill switch (no cycle, no ticket,
     no submit, no reconcile), while a probe is a manual, one-shot,
     operator/manager-dispatched measurement that places nothing and writes
-    nothing to the API or the executor's state dir. Blocking it under
+    nothing to the API. The one exception to "nothing in the executor's state
+    dir": ``instrument_info_probe`` (click mode) writes the executor's
+    AUTO-REVERT ``halted`` latch -- armed before its first click, removed
+    only after a VERIFIED restore, kept with the reason otherwise
+    (``arm_info_probe_latch`` / ``latch_info_probe``). That latch only ever
+    BLOCKS entries. Blocking it under
     ``off`` would block measurement exactly when the executor has been
     reverted. ``probe`` opens and closes the order form but types nothing;
     the other two never reach the order form."""
@@ -171,17 +176,45 @@ def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
     return EXIT_UNPARSED if got.get("alerts") else EXIT_OK
 
 
-def latch_info_probe(got: Dict[str, Any], state_dir: Path) -> Optional[str]:
+#: The pre-click latch text. A process killed mid-click (SIGTERM, timeout)
+#: never reaches its ``finally`` restore, so the latch goes down FIRST and is
+#: removed only after a verified restore (manager re-review of #14645).
+INFO_PROBE_ARMED = ("AUTO-REVERT: instrument-info-probe IN PROGRESS -- if this persists the probe "
+                    "was killed mid-run and the linked symbol is UNVERIFIED; re-select it on the "
+                    "terminal, then executor-clear-halt")
+
+
+def arm_info_probe_latch(state_dir: Path) -> bool:
+    """Write the in-progress latch before any click. Returns True only when
+    THIS call wrote it; an already-present latch (a real executor trip) is
+    left exactly as it is and is never removed by the probe."""
+    st = pe.ExecutorState(state_dir)
+    if st.halted():
+        return False
+    st.halt(INFO_PROBE_ARMED)
+    return True
+
+
+def latch_info_probe(got: Dict[str, Any], state_dir: Path, *, armed: bool = False) -> Optional[str]:
     """A click-mode info probe that could not VERIFY the linked-symbol restore
-    writes the executor's own AUTO-REVERT ``halted`` latch (manager review of
-    #14645): the next executor tick reads it before trading and refuses every
-    new entry, alerting, until the symbol is re-selected and
-    ``executor-clear-halt`` runs. The reason is appended to ``alerts`` too."""
+    leaves the executor's own AUTO-REVERT ``halted`` latch in place with the
+    reason (manager review of #14645): the next executor tick reads it before
+    trading and refuses every new entry, alerting, until the symbol is
+    re-selected and ``executor-clear-halt`` runs. The reason is appended to
+    ``alerts`` too. With ``armed`` (this run wrote the in-progress latch), a
+    clean run removes that latch -- only if it still holds the in-progress
+    text -- and an unclean one replaces its text with the reason."""
     from src.prop.platform.dxtrade import info_probe_restore_latch_reason
+    st = pe.ExecutorState(state_dir)
     reason = info_probe_restore_latch_reason(got)
+    ours = armed and INFO_PROBE_ARMED in (st.halted() or "")
     if reason:
-        pe.ExecutorState(state_dir).halt(reason)
+        if ours:
+            st.halt_file.unlink()
+        st.halt(reason)
         got.setdefault("alerts", []).append(f"executor halt latch written: {reason}")
+    elif ours:
+        st.halt_file.unlink()
     return reason
 
 
@@ -343,8 +376,10 @@ def main(argv: Optional[list] = None) -> int:
             if mode in ("instrument_info_dry", "instrument_info_probe"):
                 raw = args.instrument_info_dry or args.instrument_info_probe
                 syms = [s.strip() for s in raw.split(",") if s.strip()]
-                got = adapter.probe_instrument_info(page, syms, click=(mode == "instrument_info_probe"))
-                latch_info_probe(got, Path(args.state_dir))
+                click = mode == "instrument_info_probe"
+                armed = arm_info_probe_latch(Path(args.state_dir)) if click else False
+                got = adapter.probe_instrument_info(page, syms, click=click)
+                latch_info_probe(got, Path(args.state_dir), armed=armed)
                 return emit_info_probe(got, *secrets)
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
