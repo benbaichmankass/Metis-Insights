@@ -1,0 +1,27 @@
+{
+ "source": "GET /api/bot/prop/tickets?account_id=breakout_1&limit=200 read 2026-09-30 ~06:10Z; 173 rows, 3 TEST PING rows excluded",
+ "population": 170,
+ "by_status": {
+  "suppressed": 44,
+  "expired": 8,
+  "skipped": 24,
+  "closed": 18,
+  "invalidated_prompted": 6,
+  "shadow": 48,
+  "orphaned": 22
+ },
+ "first": "2026-06-21T21:11:13.566648+00:00",
+ "last": "2026-09-28T17:15:37.882228+00:00",
+ "closed_by_month": {
+  "2026-06": 3,
+  "2026-07": 7,
+  "2026-08": 7,
+  "2026-09": 1
+ },
+ "created_by_month": {
+  "2026-06": 12,
+  "2026-07": 92,
+  "2026-08": 52,
+  "2026-09": 14
+ }
+}
