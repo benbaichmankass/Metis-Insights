@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Changes the open-package dispatch gate in src/runtime/pipeline.py on the live order path (runs every tick). It narrows the 2026-05-03 'one open package per strategy globally' directive (#387) to per account, with Stage-2 pairs (bybit_2+bybit_portfolio, alpaca_live+alpaca_portfolio) COUPLED per the 2026-09-21 mirror-identity decision, and makes both open-package reads FAIL CLOSED (was fail-open). Held for the manager's independent review and merge under the operator's data-backed Tier-2/3 authorization (2026-09-27). Revert: git revert of this PR restores the strategy-wide, fail-open gate.",
+  "why": "PI-20260930-QZSE4AMA-0001 (lane GATE-SCOPE). MEASURED 2026-09-30 via /api/diag/exchange_positions: alpaca_paper (Stage-1, 141 sh) and alpaca_portfolio (Stage-2 mirror, 152 sh) hold the IEF short of pkg-5e636e3adddf4a83; alpaca_live is flat. A Stage-1 PAPER leg can no longer veto a Stage-2 entry. Stated cost: alpaca_live's IEF entries stay refused until alpaca_portfolio's legacy short exits (live GTC OCO: TP 84.24 / stop 90.84), because live and mirror must take the same trades."
+}

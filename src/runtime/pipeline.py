@@ -39,7 +39,7 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv()
 
 import logging  # noqa: E402
-from typing import Any, Callable, Dict, Optional  # noqa: E402
+from typing import Any, Callable, Dict, Optional, Tuple  # noqa: E402
 
 from src.runtime.notify import send_to_operator  # noqa: E402
 from src.runtime.outcomes import Level, report  # noqa: E402
@@ -49,6 +49,7 @@ from src.web.runtime_status import write_status  # noqa: E402
 from src.runtime.strategy_monocle import (  # noqa: E402
     _refusal_cooldown_seconds,  # noqa: F401  (re-export: tests import from pipeline)
     _has_open_package_for_strategy,
+    _open_package_scope,
     _recent_refusal_for_strategy,
     _same_bar_entry_for_strategy,
     _empty_sizing_refusal_for_signal,
@@ -658,7 +659,9 @@ def skip_reason(signal: dict) -> str:
     return "no_signal"
 
 
-def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, Any]]:
+def _monocle_gate(
+    signal: Dict[str, Any], settings: dict, *, open_package_checked: bool = False,
+) -> Optional[Dict[str, Any]]:
     """The four per-STRATEGY dispatch gates, for ONE signal. ``None`` = pass.
 
     Returns the ``status: skipped`` result the caller reports and records, or
@@ -681,6 +684,11 @@ def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, 
     was open — the cross-tick half of E34's double-place question.
     Extracted verbatim from ``run_pipeline``; only ``signal`` is now a
     parameter instead of the tick's headline.
+
+    ``open_package_checked=True`` skips the strategy-WIDE open-package check
+    below: ``run_pipeline`` has already applied it PER ACCOUNT via
+    :func:`_open_package_round` (PI-20260930-QZSE4AMA-0001). The default keeps
+    the strategy-wide check for any other caller.
     """
     # Strategy-monocle gate (one open package per strategy
     # globally, regardless of how many accounts follow it).
@@ -695,7 +703,7 @@ def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, 
         (signal.get("meta") or {}).get("strategy_name")
         or signal.get("strategy")
     )
-    _existing_open = _has_open_package_for_strategy(
+    _existing_open = None if open_package_checked else _has_open_package_for_strategy(
         _gate_strategy, signal.get("symbol")
     )
     if _existing_open is not None:
@@ -890,6 +898,104 @@ def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, 
         }
         return result
     return None
+
+
+def _open_package_round(
+    signal: Dict[str, Any], scope: Optional[frozenset],
+) -> Tuple[Optional[Dict[str, Any]], Optional[frozenset]]:
+    """The open-package gate for ONE dispatch round, applied PER ACCOUNT.
+
+    Returns ``(skip_result, None)`` when the round is blocked, else
+    ``(None, scope)`` with ``scope`` possibly NARROWED to the accounts that do
+    not hold a leg of the strategy's open package.
+
+    ⚠️ PI-20260930-QZSE4AMA-0001. Until this change the gate was strategy-wide
+    across every account (#387, 2026-05-04, operator directive 2026-05-03: stop
+    VWAP stacking packages). After the Stage-1/Stage-2 split that let a PAPER
+    soak leg veto a REAL-MONEY entry. The anti-stacking intent is kept per
+    account; Stage-2 pairs (live + mirror) are COUPLED so they only ever take
+    the same trades (a leg on either keeps both out); Stage-1 soak legs block
+    only their own account. An open package with no live leg anywhere, or a
+    journal read failure, still blocks the whole strategy (fail closed).
+    """
+    strategy = (signal.get("meta") or {}).get("strategy_name") or signal.get("strategy")
+    verdict = _open_package_scope(strategy, signal.get("symbol"), scope)
+    action = verdict["action"]
+    if action == "pass":
+        return None, verdict["scope"]
+    excluded = verdict.get("excluded") or {}
+    coupled = verdict.get("pair_coupled") or {}
+    for _acct, _c in coupled.items():
+        # One row per pair-coupled exclusion, distinct from the holder's own
+        # block, so "refused because the MIRROR holds a leg" is countable.
+        try:
+            log_signal({
+                "event": "open_package_pair_coupled",
+                "strategy": strategy,
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "account": _acct,
+                "partner": _c.get("partner"),
+                "open_package_id": _c.get("order_package_id"),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("strategy_monocle: pair-coupled audit emit failed")
+    if action == "narrow":
+        logger.info(
+            "strategy_monocle: narrowing dispatch — strategy=%s symbol=%s "
+            "held by %s (pair-coupled %s); dispatching to %s",
+            strategy, signal.get("symbol"), excluded, sorted(coupled),
+            sorted(verdict["scope"]),
+        )
+        try:
+            log_signal({
+                "event": "open_package_scoped",
+                "strategy": strategy,
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "held_by_account": excluded,
+                "pair_coupled": sorted(coupled),
+                "dispatch_accounts": sorted(verdict["scope"]),
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception("strategy_monocle: open-package scope audit emit failed")
+        return None, verdict["scope"]
+    read_error = verdict.get("read_error")
+    if read_error:
+        logger.warning(
+            "strategy_monocle: skipping dispatch — strategy=%s symbol=%s: "
+            "open-package state unreadable, failing closed: %s",
+            strategy, signal.get("symbol"), read_error,
+        )
+    else:
+        logger.info(
+            "strategy_monocle: skipping dispatch — strategy=%s "
+            "already has open package %s (held by %s)",
+            strategy, verdict["order_package_id"], excluded or "no account",
+        )
+    try:
+        log_signal({
+            "event": "open_package_read_failed" if read_error else "open_package_blocked",
+            "strategy": strategy,
+            "symbol": signal.get("symbol"),
+            "side": signal.get("side"),
+            "open_package_id": verdict["order_package_id"],
+            "held_by_account": excluded,
+            "pair_coupled": sorted(coupled),
+            **({"cause": read_error} if read_error else {}),
+        })
+    except Exception:  # noqa: BLE001
+        logger.exception("strategy_monocle: open-package audit emit failed")
+    return {
+        "status": "skipped",
+        "reason": "open_package_read_failed" if read_error else "open_package_exists",
+        "strategy": strategy,
+        "open_package_id": verdict["order_package_id"],
+        "held_by_account": excluded,
+        "pair_coupled": sorted(coupled),
+        **({"cause": read_error} if read_error else {}),
+        "signal": signal,
+    }, None
 
 
 def run_pipeline(
@@ -1133,7 +1239,19 @@ def run_pipeline(
                     _dispatch, _round_outcomes = _dispatch_rounds(signal)
                 _passed = []
                 for _rsig, _scope in _dispatch:
-                    _gate = _monocle_gate(_rsig, settings)
+                    # Open-package gate PER ACCOUNT first (may narrow _scope);
+                    # then the other three per-strategy gates. The typed
+                    # allocator path (default off) dispatches with no
+                    # account_scope, so it cannot honour a narrowed round and
+                    # keeps the strategy-wide check.
+                    if _allocator:
+                        _gate = _monocle_gate(_rsig, settings)
+                    else:
+                        _gate, _scope = _open_package_round(_rsig, _scope)
+                        if _gate is None:
+                            _gate = _monocle_gate(
+                                _rsig, settings, open_package_checked=True,
+                            )
                     if _gate is None:
                         _passed.append((_rsig, _scope))
                         continue

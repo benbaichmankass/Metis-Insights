@@ -162,7 +162,11 @@ _TF_TO_YF_INT = {"5m": "5m", "15m": "15m", "30m": "30m",
 _TREND_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
                 "symbols", "donchian", "atr_period", "atr_stop_mult", "trail_mult",
                 "tp_r", "min_confidence", "long_only", "adx_min", "adx_max",
-                "adx_period", "shadow_model_ids", "description", "tp_intent"}
+                "adx_period", "shadow_model_ids", "description", "tp_intent",
+                # decision_bar: closed == what THIS harness does by construction (it
+                # decides on the closed bar, i.e. Stage 0). An explicit `forming` is
+                # NOT modelled and is added to the omitted set in build_harness_cmd.
+                "decision_bar"}
 # Trend lever config-key -> harness flag (levers the trend harness DOES model,
 # so a trend strategy carrying ONLY these is faithful, not approximate). The
 # stale-exit lever was ported into scripts/backtest_trend.py as the rec #5
@@ -918,7 +922,9 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         argv += _tp_r_flags(cfg)
         omitted = sorted(set(k for k in cfg
                              if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
-                         | set(conditional_omissions("trend", cfg, argv)))
+                         | set(conditional_omissions("trend", cfg, argv))
+                         | ({"decision_bar"}
+                            if str(cfg.get("decision_bar") or "").lower() == "forming" else set()))
         faithful = not omitted
     elif harness == "fade":
         # Deliberately does NOT reuse `common`: that list hard-codes

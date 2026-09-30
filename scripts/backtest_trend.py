@@ -631,9 +631,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     i += 1
                     continue
         entry = c
-        sl = entry - atr_stop_mult * atr if direction == "long" else entry + atr_stop_mult * atr
-        risk = abs(entry - sl)
-        if risk <= 0:
+        # entry_override only, optional ``sl_anchor`` (None = byte-identical):
+        # live places a Market order whose SL/TP were computed from the SIGNAL
+        # price (order_package entry = the decision bar's close) and does not
+        # re-anchor them to the fill (src/units/accounts/execute.py sends
+        # order["sl"]/order["tp"] as-is), so the stop/target/risk anchor is the
+        # signal price while the position, trail and P&L run from the fill.
+        _anc = entry
+        if _ov is not None and _ov.get("sl_anchor") is not None:
+            _anc = float(_ov["sl_anchor"])
+        sl = _anc - atr_stop_mult * atr if direction == "long" else _anc + atr_stop_mult * atr
+        risk = abs(_anc - sl)
+        if risk <= 0 or (direction == "long" and entry <= sl) or (direction == "short" and entry >= sl):
+            # a fill already through the stop is refused by the venue (Bybit
+            # 10001 SL-side guard); with no anchor entry==_anc so never trips.
             i += 1
             continue
         # LIVE-PARITY TAKE-PROFIT. Tracking id on its own line, never wrapped:
@@ -649,9 +660,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         tp_price: Optional[float] = None
         if tp_cap_pct > 0.0:
             if direction == "long":
-                tp_price = min(entry * (1.0 + tp_cap_pct), entry + tp_r * risk)
+                tp_price = min(_anc * (1.0 + tp_cap_pct), _anc + tp_r * risk)
             else:
-                tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
+                tp_price = max(_anc * (1.0 - tp_cap_pct), _anc - tp_r * risk)
         # Distance of the live TP in R — the measurement that says whether the
         # clamp binds on THIS leg's own frame instead of an assumed ATR%.
         if tp_price is not None:
