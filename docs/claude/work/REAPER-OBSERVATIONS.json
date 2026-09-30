@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-30T08:53:32Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-30T08:46:44Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T22:14:46Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-30T08:46:44Z",
+  "updated_at": "2026-09-30T08:53:32Z",
   "latest": {
-    "generated_at": "2026-09-30T08:46:44Z",
+    "generated_at": "2026-09-30T08:53:32Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1042,9 +1042,9 @@
           "claude/promote-slv-trend-1h-alpaca-live"
         ],
         "session_011sppGNJr87nzGbLjf2zFxf": [
-          "claude/hyro-501-annotation",
           "claude/hyro-strategy-feasibility",
-          "claude/ict-scalp-limit-entry"
+          "claude/ict-scalp-limit-entry",
+          "claude/rq502-promotion"
         ],
         "session_011xpvJ2MQgd4jmKkdfg6gzV": [
           "claude/e20-lane-cost-supervision",
@@ -1640,8 +1640,8 @@
         ],
         "session_01HYq6XtfesZ57VyaQrK6CL1": [
           "claude/e44-lane-supervisor-build",
-          "claude/hyro-501-annotation",
-          "claude/mgr-pipeline-14053-needs-data"
+          "claude/mgr-pipeline-14053-needs-data",
+          "claude/mgr-pipeline-asn-decision"
         ],
         "session_01HaWB6g8EsN1x64hKKQHT2B": [
           "claude/mlopt-regime-recency-adopt",
