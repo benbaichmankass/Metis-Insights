@@ -1,0 +1,13 @@
+# Daily extend-only candle refresh. Binance-vision publishes daily zips with a
+# ~1 day lag, so a daily cadence keeps the files within ~2 days of now.
+# Install: see ict-candle-refresh.service header.
+[Unit]
+Description=Daily trainer candle refresh
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

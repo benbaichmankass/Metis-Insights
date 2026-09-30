@@ -1,0 +1,24 @@
+# ============================================
+# Trainer candle refresh (PI-20260929-FCJRWVAK-0002): the OWNER of
+# data/<SYM>_15m.csv freshness. Extends the multi-year files forward from their
+# last bar (append + dedupe on timestamp); never truncates or rewrites history.
+# scripts/ops/refresh_candle_history.py refuses a shrinking write.
+#
+# **TRAINER VM ONLY** — lives in deploy/trainer/ so the live-VM unit installer
+# (globs deploy/*.service) never picks it up. Non-money path (research data).
+# Install: cp deploy/trainer/ict-candle-refresh.{service,timer} /etc/systemd/system/
+#          && systemctl daemon-reload && systemctl enable --now ict-candle-refresh.timer
+# ============================================
+
+[Unit]
+Description=ICT trainer candle refresh (extend-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/ops/refresh_candle_history.py --data-dir data SOLUSDT:15 XRPUSDT:15 ETHUSDT:15
+StandardOutput=journal
+StandardError=journal

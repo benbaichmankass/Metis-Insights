@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Adds a systemd timer + service for the trainer VM (deploy/trainer/). Non-money path (research data refresh, extend-only), but a timer on a live VM is Tier-2 by the tier table. Lane brief: open as its own PR with landing hold; the manager reviews and merges. Depends on PR #14517 (the script it runs) merging first.",
+  "why": "New ict-candle-refresh.{service,timer} on the trainer running scripts/ops/refresh_candle_history.py daily for SOL/XRP/ETH 15m. No order path, no live trader VM."
+}
