@@ -91,3 +91,36 @@ def test_a_failed_harness_run_is_reported_not_graded(tmp_path):
 
 def test_leg_params_come_from_the_configured_leg():
     assert hfv.leg_params("ict_scalp_eth_15m", STRATS) == {"symbol": "ETHUSDT", "timeframe": "15m"}
+
+
+def test_underpowered_limit_run_stays_indeterminate_and_is_never_flipped_to_fail(tmp_path):
+    stats = hfv.run_limit_legs(["ict_scalp_eth_15m"], 1830, tmp_path, run=_fake_run(250),
+                               today=datetime(2026, 9, 30, tzinfo=timezone.utc), strategies=STRATS)
+    v = hfv.grade_limit(hfv.spec_from_ledgers("eth", stats["ledgers"]), stats,
+                        "config/prop_rulesets/hyrotrader.yaml")
+    assert v["verdict"] == "indeterminate" and v["read_state"] == "measured" and v["n"] == 117
+
+
+def test_limit_outputs_are_accepted_by_the_real_collector(tmp_path):
+    from types import SimpleNamespace
+    sr_spec = importlib.util.spec_from_file_location("script_run_limit_contract", REPO / "scripts/research/script_run.py")
+    sr = importlib.util.module_from_spec(sr_spec)
+    sys.modules["script_run_limit_contract"] = sr
+    sr_spec.loader.exec_module(sr)
+
+    def derive(sub, verdict):
+        out = Path("out")
+        (tmp_path / sub / out).mkdir(parents=True, exist_ok=True)
+        (tmp_path / sub / out / "verdict.json").write_text(json.dumps(verdict))
+        (tmp_path / sub / out / "run-manifest.json").write_text(json.dumps(
+            {"all_ok": True, "commands": [{"index": 0, "argv": ["python3", "x.py"], "exit_code": 0}]}))
+        plan = SimpleNamespace(unit="RQ-20260930-502", out_dir=out, rule_id="R", rule_registered_at="2026-09-30")
+        return sr.derive_record(plan, repo=tmp_path / sub)
+
+    (tmp_path / "g").mkdir()
+    _, v = _grade(tmp_path / "g", signals_per_leg=250)
+    rec = derive("a", v)
+    assert rec["read_state"] == "measured" and rec["verdict"] in ("pass", "fail")
+    failed = dict(verdict="not_applicable", read_state="producer_failed", n=None, population="x")
+    rec = derive("b", failed)
+    assert (rec["read_state"], rec["n"]) == ("producer_failed", "null")

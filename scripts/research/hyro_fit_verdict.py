@@ -179,7 +179,7 @@ def grade_limit(spec: Dict[str, Any], stats: Dict[str, Any], ruleset_path: str) 
              net_r_per_signal=round(per_signal, 5), legs=stats.get("legs"),
              market_arm_11bps_reported_not_gating=stats.get("market_arm_11bps"),
              window=stats.get("window"))
-    if v.get("read_state") == "underpowered":
+    if v["verdict"] == "indeterminate":          # underpowered (n below the floor): never flipped to FAIL
         return v
     ok = v["verdict"] == "pass" and fill_rate >= FILL_RATE_FLOOR and per_signal > 0
     v["verdict"] = "pass" if ok else "fail"
@@ -204,7 +204,7 @@ def main() -> int:
     if a.mode == "limit":
         stats = run_limit_legs(a.leg, a.days, out)
         if stats["failed"] or not stats["ledgers"]:
-            v = dict(verdict="not_applicable", read_state="producer_failed",
+            v = dict(verdict="not_applicable", read_state="producer_failed", n=None,
                      population=f"limit-mode harness run failed: {stats['failed']}")
         else:
             v = grade_limit(spec_from_ledgers("+".join(a.leg), stats["ledgers"]), stats, a.ruleset)
