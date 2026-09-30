@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 CI/ops tooling, no order path / strategy / risk / config / deploy change. (1) dispatch_queue.py: a session-bound unit (run.workflow is prose, not a *.yml) is reported not_due instead of dispatch_failed, which reddened every firing dispatch run (13 of the last 30 runs ended failure). (2) New research-queue throughput read (scripts/research/queue_throughput.py) and an idle alarm (scripts/ci/check_research_queue_throughput.py) run from schedule-keeper, outside the dispatch job they watch: runnable units exist and nothing fired for 12 h -> red run + Telegram on the 6-hourly cron. (3) Daily brief section 4 gains one research-throughput line, or a declared hole. The backpressure cap (--max-research-inflight 3) is deliberately NOT changed."
+}
