@@ -355,7 +355,7 @@ verify-the-source-before-you-build.
 
 | Question | Tool |
 |---|---|
-| **Is a real headless Chromium SERVED, CHALLENGED or BANNED at Breakout's terminal hosts from a GitHub-hosted runner's egress?** Landing only: fixed host allowlist, no credentials, nothing clicked or typed, prints the egress ORGANISATION (never an address), main-document status, `server`, `cf-mitigated`, page title, Cloudflare markers and whether the login form rendered. A plain `curl` and a browser can be scored differently, so curl-only results do not settle it. Runs via `.github/workflows/egress-chromium-landing-probe.yml`, triggered by a PR touching `.github/egress-probe/run-request.txt` (sessions cannot `workflow_dispatch`). | `scripts/research/egress_chromium_landing_probe.py` |
+| **Is a real headless Chromium SERVED, CHALLENGED or BANNED at Breakout's terminal hosts from a GitHub-hosted runner's egress?** Landing only: fixed host allowlist, no credentials, nothing clicked or typed, prints the egress ORGANISATION (never an address), main-document status, `server`, `cf-mitigated`, page title, Cloudflare markers and whether the login form rendered. A plain `curl` and a browser can be scored differently, so curl-only results do not settle it. Runs via `.github/workflows/egress-chromium-landing-probe.yml`, triggered by a PR touching `.github/egress-probe/run-request.txt` (sessions cannot `workflow_dispatch`). **Optional proxy** (secret `EGRESS_PROBE_PROXY`): fail-closed, nothing about the proxy printed, and `--evaluate` applies the route PASS rule (three passing runs at least an hour apart, same egress organisation). | `scripts/research/egress_chromium_landing_probe.py` |
 
 ---
 
