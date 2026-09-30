@@ -985,6 +985,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                     res.alerts.append(f"{t['ticket_id']}: live price unreadable, NOT placed yet; will retry "
                                       f"until {t.get('valid_until')}, place by hand if needed")
                 continue
+            if verdict == "ok":
+                # Logged with the quote it used, so a live pass is observable
+                # (manager 2026-09-30 22:06Z), not inferred from a guards line.
+                res.log("band_ok", ticket_id=t["ticket_id"], why=why)
             if verdict == "refuse":
                 res.log("band_refused", ticket_id=t["ticket_id"], why=why)
                 if live:
@@ -1496,7 +1500,7 @@ def _entry_band_check(adapter: Any, page: Any, ticket: Mapping[str, Any],
         return "blind", "no quote for the entry-band check (could not look)"
     if not (band[0] <= px <= band[1]):
         return "wait", f"{'ask' if long_side else 'bid'} {px} outside the ticket's entry band {band[0]}..{band[1]}"
-    return "ok", ""
+    return "ok", f"{'ask' if long_side else 'bid'} {px} inside the ticket's entry band {band[0]}..{band[1]}"
 
 #: Cancel attempts on one expired resting entry before the executor stops
 #: retrying and says so (an alert at exhaustion; later cycles only log).
