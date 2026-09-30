@@ -12,6 +12,11 @@
 > **Do not act on §§ 2–5 of this plan:** no device to buy, no Tailscale step for the operator, no VM change. The probe extension (PR #14793) stays a draft, marked
 > "paused: operator declined R2 2026-09-30 16:16Z". What is still open is the question the operator asked back: whether the one failed proxied run was the proxy's
 > network or headless Chromium itself; that is tracked in pipeline row `PI-20260930-3ZFMYYI4-0003`. The rest of this document is kept as the record of what R2 would have needed.
+> **UPDATE 2026-09-30 17:16Z (manager relay; run 36748538381, not re-read by this lane):** the four-lever matrix on the SAME IPRoyal proxy (`baseline`, `wait`, `newheadless`, `headed`) was challenged on
+> `app.breakoutprop.com` in all four: first load 403, `cleared_after_s=never`, `challenge_kind=interactive_widget` (a Turnstile checkbox the probe never clicks), no `cf_clearance`; exit country **BG**, organisation AS42049 Nadejda.Net;
+> `wss.breakoutprop.com` served with the login form on every lever. So browser mode made no difference and the exit address is in Bulgaria, not the US that was bought: the proxy's network/location is the lead cause, **not yet proven**.
+> Operator, verbatim: *"I'll see if I can change it to the us"* (asking IPRoyal for a US IP). When the operator says 'proxy swapped' the manager dispatches `variants=baseline,wait`. Tracked in `PI-20260930-3ZFMYYI4-0003`.
+>
 
 ## 1. Bottom line
 
