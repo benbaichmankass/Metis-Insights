@@ -26,7 +26,7 @@ def summarise(rows):
 
 def main(argv):
     path = argv[1] if len(argv) > 1 else "runtime_logs/vol_trail_shadow.jsonl"
-    rows = [json.loads(l) for l in open(path) if l.strip()]
+    rows = [json.loads(ln) for ln in open(path) if ln.strip()]
     print(json.dumps(summarise(rows), indent=1))
     return 0
 

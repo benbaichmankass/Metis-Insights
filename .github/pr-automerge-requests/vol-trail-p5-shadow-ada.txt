@@ -1,1 +1,0 @@
-tier-2 hold: log-only vol_trail shadow instrument (P5 parity) for ada_pullback_2h; manager merges
