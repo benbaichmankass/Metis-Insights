@@ -134,6 +134,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "instrument_info_dry"
     if getattr(args, "instrument_info_probe", ""):
         return "instrument_info_probe"
+    if getattr(args, "symbol_switch_dry", ""):
+        return "symbol_switch_dry"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -274,6 +276,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--instrument-info-probe", default="", metavar="VENUE_SYMBOLS",
                    help="info-panel probe: select each watchlist row, open + dump + close its info panel, "
                         "restore the linked symbol; see module docstring")
+    g.add_argument("--symbol-switch-dry", default="", metavar="VENUE_SYMBOL",
+                   help="per-ticket symbol switch, DRY: select this symbol, verify, re-select the original and "
+                        "verify; opens no order form")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -409,6 +414,11 @@ def main(argv: Optional[list] = None) -> int:
                     fresh_page_recheck(got, adapter, context, page, cfg_plat["login_url"])
                 latch_info_probe(got, Path(args.state_dir), armed=armed)
                 return emit_info_probe(got, *secrets)
+
+            if mode == "symbol_switch_dry":
+                got = adapter.symbol_switch_dry(page, args.symbol_switch_dry)
+                emit({"symbol_switch_dry": got}, *secrets)
+                return EXIT_OK if got.get("refused") is None and not got.get("alerts") else EXIT_UNPARSED
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
             state_dir = Path(args.state_dir)

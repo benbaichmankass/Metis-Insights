@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path change on the live breakout_1 executor: place_bracket may now click a watchlist Symbol cell to link the ticket's symbol. Manager review and merge required; ETHUSD stays disabled.",
+  "why": "Manager 2026-09-30 19:40Z: per-ticket symbol switch so SOL and ETH tickets can alternate, plus a dry mode that selects ETH, verifies and restores SOL with no order form."
+}

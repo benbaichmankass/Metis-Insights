@@ -99,6 +99,11 @@ accounts:
       # touched (never a refusal, never an AUTO-REVERT count) and stays manual
       # via Telegram. A symbol joins only after symbol switching lands AND it
       # passes the D1-D7 dry run. Env override: PROP_EXECUTOR_SYMBOLS.
+      # 2026-09-30 (PROP-ETH-DOM): per-ticket symbol switching is BUILT
+      # (DXtradeAdapter.select_linked_symbol, called by place_bracket).
+      # ETHUSD stays OUT: its price_step is UNMEASURED (lots/lot_step/cvpp are
+      # measured, #13500); measure it (watchlist quote decimals via
+      # dump-tables, then the ETH round-trip-dry D1-D7 walk) before it joins.
       enabled_venue_symbols: [SOLUSD]
 
   # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's

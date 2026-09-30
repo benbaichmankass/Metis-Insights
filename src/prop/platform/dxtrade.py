@@ -4017,6 +4017,84 @@ class DXtradeAdapter(PropPlatformAdapter):
                     pass
         return out
 
+    def select_linked_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+        """Make ``venue_symbol`` the terminal's linked symbol, VERIFIED.
+
+        Reads the linked symbol (INFO_PROBE_RESOLVE_JS, which clicks nothing
+        and tags the target's Symbol cell); when it already reads the target,
+        nothing is clicked. Otherwise ONE single click on the target's
+        watchlist Symbol cell -- never Bid/Ask, never a double-click (a
+        double-click opens the ticket) -- after the hover re-check, then a
+        read-back. ``ok`` is True only when the linked symbol reads the
+        target and no dialog is open. Refuses (nothing clicked) when the
+        watchlist / linked input cannot be resolved, a dialog is open, or the
+        target has no single clean Symbol cell. MEASURED live: #14831
+        (BTCUSD) and #14870 (ETHUSD) both read the clicked symbol back."""
+        target = str(venue_symbol or "").strip().upper()
+        out: Dict[str, Any] = {"target": target, "ok": False, "clicked": False}
+        try:
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[target]]) or {}
+            out["before"] = res.get("linked_symbol")
+            if not res.get("ok"):
+                out["why"] = res.get("why") or "could not resolve the watchlist / linked symbol"
+                return out
+            if res.get("dialogs"):
+                out["why"] = f"{res['dialogs']} dialog(s) open"
+                return out
+            if res.get("linked_symbol") == target:
+                out.update(ok=True, after=target)
+                return out
+            if not (res.get("targets") or {}).get(target, {}).get("clean"):
+                out["why"] = f"{target} has no single clean watchlist Symbol cell"
+                return out
+            if not self._info_click_cell(page, target):
+                out["why"] = f"a control appeared in {target}'s Symbol cell on hover; not clicked"
+                return out
+            out["clicked"] = True
+            page.wait_for_timeout(settle_ms)
+            dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
+            out["after"] = self._linked_symbol(page)
+            if dialogs:
+                out["why"] = f"{dialogs} dialog(s) appeared after selecting {target}"
+            elif out["after"] != target:
+                out["why"] = f"linked symbol reads {out['after']!r} after selecting {target}"
+            else:
+                out["ok"] = True
+            return out
+        except Exception as exc:
+            out["why"] = f"{type(exc).__name__} (code=symbol_switch_exception)"
+            return out
+        finally:
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
+
+    def symbol_switch_dry(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+        """DRY check of the per-ticket switch (manager 2026-09-30 19:40Z):
+        select ``venue_symbol``, verify, then re-select the ORIGINAL linked
+        symbol and verify. NO order form is opened. Refuses before any click
+        unless one-click reads OFF from the measured toggle."""
+        out: Dict[str, Any] = {"target": str(venue_symbol or "").strip().upper(), "alerts": [], "refused": None}
+        out["one_click"] = self.read_one_click(page)
+        if not info_probe_one_click_off(out["one_click"]):
+            out["refused"] = "one-click trading does not read OFF from the measured toggle"
+            return out
+        res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[]]) or {}
+        page.evaluate(INFO_PROBE_CLEANUP_JS)
+        original = res.get("linked_symbol")
+        out["original"] = original
+        if not res.get("ok") or not original:
+            out["refused"] = res.get("why") or "linked symbol not readable"
+            return out
+        out["switch"] = self.select_linked_symbol(page, out["target"], settle_ms=settle_ms)
+        if not out["switch"].get("ok"):
+            out["alerts"].append(f"switch to {out['target']} failed: {out['switch'].get('why')}")
+        out["restore"] = self.select_linked_symbol(page, original, settle_ms=settle_ms)
+        if not out["restore"].get("ok"):
+            out["alerts"].append(f"restore to {original} failed: {out['restore'].get('why')}")
+        return out
+
     def _info_restore(self, page: Any, out: Dict[str, Any]) -> None:
         """Re-select the ORIGINALLY linked symbol and verify it reads back.
         A failure is an alert: the terminal's linked symbol may be changed."""
@@ -4124,6 +4202,23 @@ class DXtradeAdapter(PropPlatformAdapter):
             return PlaceAttempt(stage="refused", detail=opened.get("refused") or "form not opened",
                                 form={"one_click": opened.get("one_click")})
         form = opened["form"]
+        # PER-TICKET SYMBOL SWITCH (manager 2026-09-30 19:40Z): the open form
+        # is the sidebar ticket linked to the terminal's linked symbol, so an
+        # ETHUSD ticket on a SOLUSD-linked terminal was refused ("the open form
+        # does not name ETHUSD") and could never trade. Only when the form
+        # names ANOTHER symbol: link the ticket's symbol -- one verified single
+        # click on its watchlist Symbol cell, MEASURED live twice (#14831
+        # BTCUSD, #14870 ETHUSD) -- re-read the form, and refuse on any
+        # mismatch. A form already naming the symbol (today's SOL path) is
+        # untouched. form_names_symbol below still guards.
+        if not form.get("ambiguous") and not form_names_symbol(form, spec.venue_symbol):
+            link = self.select_linked_symbol(page, spec.venue_symbol)
+            if not link.get("ok"):
+                self.close_order_ticket(page)
+                return PlaceAttempt(stage="refused", detail=f"symbol switch: {link.get('why')}",
+                                    form={**dict(form), "symbol_switch": link})
+            form = self._find_form(page)
+            form["symbol_switch"] = link
 
         trace: List[Dict[str, Any]] = []
 
