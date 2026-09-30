@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-30T13:54:07Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-30T13:45:43Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-30T02:25:54Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-30T13:45:43Z",
+  "updated_at": "2026-09-30T13:54:07Z",
   "latest": {
-    "generated_at": "2026-09-30T13:45:43Z",
+    "generated_at": "2026-09-30T13:54:07Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1747,9 +1747,9 @@
           "claude/perf-rolling-vol-reverse-scan"
         ],
         "session_01KMYJ5xC7gtPjGVf6Nwywoq": [
+          "claude/breakout-attrition-14737-obs",
           "claude/breakout-attrition-followup",
-          "claude/breakout-attrition-pi0003-note",
-          "claude/breakout-attrition-pipeline"
+          "claude/breakout-attrition-pi0003-note"
         ],
         "session_01KSZCUtFKze3k7ZvxnTnD4T": [
           "claude/mgr-route-mi218-and-correct-tlt-20260909",
