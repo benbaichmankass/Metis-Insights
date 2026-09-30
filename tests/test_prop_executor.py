@@ -50,6 +50,11 @@ def ticket(**kw):
          "sl": 118.0, "tp": 126.0, "qty": 0.5, "risk_usd": 1.0,
          "valid_until": (NOW + timedelta(minutes=30)).isoformat(), "created_at": NOW.isoformat()}
     t.update(kw)
+    if "message" not in kw:
+        # The entry band as breakout_ticket renders it (the executor's
+        # entry-band check parses it; FakeAdapter's default quote sits inside).
+        e = float(t["entry"])
+        t["message"] = f"  Entry    : {e}   (only if live price is within {e - 0.5} … {e + 0.5})"
     return t
 
 
@@ -269,8 +274,10 @@ def test_open_from_fills_keeps_the_newest_row_per_identity():
 
 
 class FakeAdapter:
-    def __init__(self, account=None, positions=(), orders=(), after_submit=None, attempt=None, read_error=None):
+    def __init__(self, account=None, positions=(), orders=(), after_submit=None, attempt=None, read_error=None,
+                 quote=None):
         self.account = account or acct()
+        self.quote = quote if quote is not None else {"bid": 119.99, "ask": 120.0}   # inside ticket()'s band
         self.positions, self.orders = list(positions), list(orders)
         self.after_submit = after_submit       # (positions, orders) the terminal shows after submit
         self.attempt = attempt
@@ -287,6 +294,9 @@ class FakeAdapter:
 
     def read_orders(self, page):
         return list(self.orders)
+
+    def read_quote(self, page, venue):
+        return self.quote or None
 
     def place_bracket(self, page, spec, *, arm=False):
         self.calls.append(("place_bracket", spec.ticket_id, arm))
@@ -3342,10 +3352,11 @@ def test_a_dry_limit_round_trip_walks_a_limit_spec_at_the_resting_quote(env):
 #    placement failed BEFORE any submit click is retried until valid_until ──
 
 class QuoteAdapter(FakeAdapter):
-    """A retry must never read a quote (manager 2026-09-30 13:21Z: the same
-    guard set as a first attempt); any read_quote call fails the test."""
+    """A retry reads the quote exactly as a first attempt does (the entry-band
+    check, PI-20260930-KMYJ5XC7-0003); it counts the reads."""
     def read_quote(self, page, venue):
-        raise AssertionError("a retry must not add a quote read")
+        self.quote_reads = getattr(self, "quote_reads", 0) + 1
+        return super().read_quote(page, venue)
 
 
 PRE = PlaceAttempt(stage="refused", submitted=False, detail="form fields not found: ['price']")
@@ -3460,3 +3471,156 @@ def test_a_watched_click_ticket_is_never_retried(env):
     pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger, state=state,
                  now=NOW + timedelta(minutes=5))
     assert len(_places(ad)) == 1
+
+
+# ── entry-band check on BOTH attempt kinds (PI-20260930-KMYJ5XC7-0003,
+#    manager 2026-09-30 13:29Z / 21:03Z): this cycle's quote must lie inside
+#    the ticket's own entry band before any placement ──
+
+B573_TEXT = ("e.\n  Entry    : 121.34   (only if live price is within 120.691339 … 121.988661)\n"
+             "  Stop     : 118.74535714")
+
+
+def test_the_band_parser_reads_the_real_ticket_text():
+    assert pe._entry_band({"message": B573_TEXT}) == (120.691339, 121.988661)
+    assert pe._entry_band({"message": "within 1.5 ... 2.5"}) == (1.5, 2.5)
+    assert pe._entry_band({"message": "no band here"}) is None
+    assert pe._entry_band({"message": "within 3 … 2"}) is None          # inverted: unreadable
+    assert pe._entry_band({}) is None
+
+
+def _band_cycle(ad, api, env, k=0, c=None):
+    ledger, state = env
+    return pe.run_cycle(adapter=ad, page=None, api=api, cfg=c or cfg(), mode="live", ledger=ledger,
+                        state=state, now=NOW + timedelta(minutes=5 * k))
+
+
+def test_a_first_attempt_waits_while_the_price_is_beyond_the_stop(env):
+    # the danger: a BUY limit at 120 with the ask at 117.5 (below the 118 SL)
+    # is marketable and fills straight into its own stop
+    ledger, _ = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    res = _band_cycle(ad, api, env)
+    assert _places(ad) == [] and ledger.latest() == {}                 # WAIT: not an attempt
+    assert any(a["what"] == "band_wait" and "117.5" in a["why"] for a in res.actions)
+    assert not [p for p in api.posts if p.get("kind") == "fill"]
+    ad.quote = {"bid": 119.99, "ask": 120.0}                           # back inside the band
+    _band_cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+
+
+def test_a_first_attempt_waits_above_the_band_too(env):
+    ad = FakeAdapter(quote={"bid": 120.9, "ask": 121.0})               # band 119.5..120.5
+    _band_cycle(ad, FakeApi([ticket()]), env)
+    assert _places(ad) == []
+
+
+def test_a_short_is_checked_on_the_bid(env):
+    t = ticket(direction="short", sl=122.0, tp=114.0)                  # band 119.5..120.5
+    ad = FakeAdapter(quote={"bid": 120.8, "ask": 120.0})               # ask inside, bid outside
+    _band_cycle(ad, FakeApi([t]), env)
+    assert _places(ad) == []
+    ad.quote = {"bid": 120.0, "ask": 120.8}
+    _band_cycle(ad, FakeApi([t]), env, 1)
+    assert len(_places(ad)) == 1
+
+
+def test_an_unreadable_quote_waits(env):
+    ledger, _ = env
+
+    class Blind(FakeAdapter):
+        def read_quote(self, page, venue):
+            raise LookupError("watchlist row not found")
+
+    ad = Blind()
+    res = _band_cycle(ad, FakeApi([ticket()]), env)
+    assert _places(ad) == [] and ledger.latest() == {}
+    assert any(a["what"] == "band_wait" and "could not look" in a["why"] for a in res.actions)
+    ad2 = FakeAdapter(quote={"bid": None, "ask": None})
+    _band_cycle(ad2, FakeApi([ticket()]), env, 1)
+    assert _places(ad2) == [] and ledger.latest() == {}
+
+
+def test_an_unreadable_band_is_terminal_with_one_alert(env):
+    ledger, _ = env
+    ad = FakeAdapter()
+    api = FakeApi([ticket(message="no band in this text")])
+    res = _band_cycle(ad, api, env)
+    assert _places(ad) == []
+    assert ledger.state("prop-manual-aaa") == "refused"
+    assert [a for a in res.alerts if "entry band unreadable" in a and "place it by hand" in a]
+    assert [p for p in api.posts if p.get("status") == "skipped"]
+    res = _band_cycle(ad, api, env, 1)                                  # final: not re-decided
+    assert _places(ad) == [] and not [a for a in res.alerts if "entry band" in a]
+
+
+def test_a_waiting_ticket_still_expires_at_valid_until(env):
+    ledger, _ = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)
+    _band_cycle(ad, api, env, 7)                                        # NOW+35m > valid_until (NOW+30m)
+    assert _places(ad) == [] and ledger.state("prop-manual-aaa") == "expired"
+
+
+def test_a_retry_waits_outside_the_band_without_spending_an_attempt(env):
+    ledger, _ = env
+    ad = QuoteAdapter(attempt=PRE)
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)                                            # attempt 1: pre-submit failure
+    assert ledger.state("prop-manual-aaa") == pe.RETRY_STATE
+    ad.attempt, ad.quote = None, {"bid": 117.4, "ask": 117.5}
+    _rcycle(ad, api, env, 1)                                            # beyond the stop: WAIT
+    assert len(_places(ad)) == 1 and ledger.state("prop-manual-aaa") == pe.RETRY_STATE
+    assert ledger.latest()["prop-manual-aaa"].get("attempts") == 1
+    ad.quote = {"bid": 119.99, "ask": 120.0}
+    _rcycle(ad, api, env, 2)
+    assert len(_places(ad)) == 2 and ledger.state("prop-manual-aaa") != pe.RETRY_STATE
+
+
+def test_the_band_check_runs_for_a_second_account_too(env):
+    # per account: the check is in run_cycle, which every account runs
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    _band_cycle(ad, FakeApi([ticket()]), env, c=cfg(account_id="tradeify_1"))
+    assert _places(ad) == []
+
+
+def test_a_blind_wait_alerts_once_per_ticket(env):
+    # manager review of #14908: a persistently unreadable quote must not let
+    # a live ticket expire with only a log line
+    ad = FakeAdapter(quote={"bid": None, "ask": None})
+    api = FakeApi([ticket()])
+    res = _band_cycle(ad, api, env, 0)
+    blind = [a for a in res.alerts if "live price unreadable, NOT placed yet" in a]
+    assert len(blind) == 1 and "prop-manual-aaa" in blind[0] and "place by hand if needed" in blind[0]
+    res = _band_cycle(ad, api, env, 1)
+    assert not [a for a in res.alerts if "live price unreadable" in a]      # once per ticket
+    api._tickets = [ticket(), ticket(ticket_id="prop-manual-bbb")]
+    res = _band_cycle(ad, api, env, 2)                                   # a waiting ticket is no candidate,
+    blind = [a for a in res.alerts if "live price unreadable" in a]      # so the next one is checked too
+    assert len(blind) == 1 and "prop-manual-bbb" in blind[0]            # its own first alert; aaa's not repeated
+
+
+def test_an_outside_band_wait_does_not_alert(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    res = _band_cycle(ad, FakeApi([ticket()]), env)
+    assert not [a for a in res.alerts if "unreadable" in a]
+
+
+@pytest.mark.parametrize("ask", [119.5, 120.5])                     # ticket()'s band is 119.5..120.5
+def test_a_price_exactly_on_a_band_edge_places(env, ask):
+    ad = FakeAdapter(quote={"bid": ask - 0.01, "ask": ask})
+    _band_cycle(ad, FakeApi([ticket()]), env)
+    assert len(_places(ad)) == 1
+
+
+def test_a_dry_unreadable_band_alerts_once(env):
+    ledger, state = env
+    api = FakeApi([ticket(message="no band in this text")])
+    alerts = []
+    for k in range(3):
+        res = pe.run_cycle(adapter=FakeAdapter(), page=None, api=api, cfg=cfg(), mode="read_only",
+                           ledger=ledger, state=state, now=NOW + timedelta(minutes=5 * k))
+        alerts += [a for a in res.alerts if "entry band unreadable" in a]
+    assert len(alerts) == 1
