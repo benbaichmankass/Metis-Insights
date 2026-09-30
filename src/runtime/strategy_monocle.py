@@ -103,6 +103,180 @@ def _has_open_package_for_strategy(
         return None
 
 
+# ---------------------------------------------------------------------------
+# Per-ACCOUNT scope for the open-package gate (PI-20260930-QZSE4AMA-0001)
+# ---------------------------------------------------------------------------
+#
+# ``_has_open_package_for_strategy`` answers "does this strategy+symbol have an
+# open package ANYWHERE". The 2026-05-03 directive behind it (#387) was an
+# anti-STACKING rule — VWAP had 10+ open packages because every tick minted a
+# new one — and "globally, across all accounts" was the cheap way to say it on
+# a system that then had one real-money book. It predates the Stage-1/Stage-2
+# split, so on 2026-09-30 a PAPER leg held a REAL-MONEY leg hostage:
+# pkg-5e636e3adddf4a83 (IEF short, 07-29) is open because alpaca_paper and
+# alpaca_portfolio still hold it, alpaca_live's leg was rejected and it is
+# flat, and every next ief_pullback_1d entry would have been skipped for
+# alpaca_live too.
+#
+# The intent is kept at the grain it actually protects: an ACCOUNT never gets a
+# second package for a strategy+symbol while it still holds a leg of the first.
+# An account that holds nothing is not blocked by another account's leg.
+
+#: Trade statuses that mean "this leg is no longer live". Mirrors
+#: ``order_monitor._TERMINAL_TRADE_STATUSES`` plus ``shadow_expired``;
+#: ``tests/test_monocle_gate_per_account.py`` pins the superset relation.
+_TERMINAL_LEG_STATUSES = (
+    "orphaned",
+    "exchange_rejected",
+    "closed",
+    "rejected",
+    "rejected_too_small",
+    "shadow_expired",
+)
+
+#: Stage-2 mirror -> the real-money book it mirrors (CLAUDE.md § "The promotion
+#: ladder"; the roster equality is pinned by tests/test_paper_portfolio_accounts.py
+#: and the same pairs are spelled in scripts/ops/mandate_resolver.py::MIRROR_OF).
+#: THE MIRROR FOLLOWS ITS PRIMARY: a leg held by the primary also keeps the
+#: mirror out, so the mirror never opens a trade its primary is not taking. The
+#: reverse does NOT hold — a mirror's own leg never blocks the primary; that
+#: direction is exactly the IEF lock this change removes.
+STAGE2_MIRROR_OF = {
+    "bybit_portfolio": "bybit_2",
+    "alpaca_portfolio": "alpaca_live",
+}
+
+
+def _open_package_holders(
+    strategy_name: Optional[str], symbol: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """Who holds *strategy_name*'s open package(s) on *symbol*, per account.
+
+    Returns ``None`` when no open package exists (or on a DB-read failure —
+    the same best-effort direction as ``_has_open_package_for_strategy``).
+    Otherwise ``{"unscoped": <pkg_id or None>, "by_account": {account: pkg_id}}``:
+
+    * ``by_account`` — every account with a NON-terminal leg on an open
+      package. Those accounts are blocked; nobody else is.
+    * ``unscoped`` — an open package with NO live leg on any account (just
+      minted, every leg refused, or not yet linked). It cannot be attributed
+      to an account, so it keeps the old strategy-wide block: this is the
+      2026-05-09 retry-storm case (``linked_only`` dropped) and it must stay
+      closed until the reconciler terminalises the row.
+    """
+    if not strategy_name:
+        return None
+    try:
+        from src.units.db.database import Database
+        from src.utils.paths import trade_journal_db_path
+        db = Database(db_path=trade_journal_db_path())
+        pkgs = db.get_order_packages_by_strategy(
+            strategy_name, status="open", symbol=symbol,
+        )
+        if not pkgs:
+            return None
+        by_account: Dict[str, str] = {}
+        unscoped: Optional[str] = None
+        placeholders = ",".join("?" * len(_TERMINAL_LEG_STATUSES))
+        conn = db.connect()
+        try:
+            for pkg in pkgs:
+                pkg_id = str(pkg.get("order_package_id") or "")
+                rows = conn.execute(
+                    "SELECT DISTINCT account_id FROM trades "
+                    " WHERE order_package_id = ? "
+                    "   AND COALESCE(is_backtest, 0) = 0 "
+                    f"  AND COALESCE(status, 'open') NOT IN ({placeholders})",
+                    (pkg_id, *_TERMINAL_LEG_STATUSES),
+                ).fetchall()
+                accounts = [str(r[0]) for r in rows if r[0]]
+                if not accounts:
+                    unscoped = unscoped or pkg_id
+                for acct in accounts:
+                    by_account.setdefault(acct, pkg_id)
+        finally:
+            conn.close()
+        return {"unscoped": unscoped, "by_account": by_account}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_open_package_holders(%s, symbol=%s): DB read failed — %s",
+            strategy_name, symbol, exc,
+        )
+        return None
+
+
+def _accounts_declaring(strategy_name: str) -> Optional[frozenset]:
+    """Names of the accounts ``Coordinator.multi_account_execute`` could send
+    *strategy_name* to: every ``config/accounts.yaml`` entry not
+    ``enabled: false`` whose ``strategies`` names it (or has no ``strategies``
+    key — the coordinator's legacy accept-all). A SUPERSET of the eligible set
+    by construction, which is safe because ``account_scope`` only narrows.
+    ``None`` on a read failure (caller falls back to the strategy-wide block).
+    """
+    try:
+        import yaml
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "..",
+            "config", "accounts.yaml",
+        )
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+        out = set()
+        for name, cfg in (raw.get("accounts") or {}).items():
+            cfg = cfg or {}
+            if cfg.get("enabled") is False:
+                continue
+            assigned = cfg.get("strategies")
+            if assigned is None or strategy_name in assigned:
+                out.add(str(name))
+        return frozenset(out)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_accounts_declaring(%s): read failed — %s", strategy_name, exc)
+        return None
+
+
+def _open_package_scope(
+    strategy_name: Optional[str],
+    symbol: Optional[str],
+    scope: Optional[frozenset],
+) -> Dict[str, Any]:
+    """The open-package gate for ONE dispatch round, per account.
+
+    Returns one of:
+
+    * ``{"action": "pass", "scope": scope}`` — nothing held; round unchanged
+      (byte-for-byte the pre-change path, ``scope`` may stay ``None``).
+    * ``{"action": "narrow", "scope": frozenset, "excluded": {acct: pkg}}`` —
+      some accounts in the round hold a leg (or their Stage-2 primary does);
+      dispatch to the rest only.
+    * ``{"action": "block", "order_package_id": pkg, "excluded": {...}}`` —
+      every account in the round is held, or an unattributable open package
+      exists, or the round's accounts could not be read.
+    """
+    holders = _open_package_holders(strategy_name, symbol)
+    if holders is None:
+        return {"action": "pass", "scope": scope}
+    if holders["unscoped"]:
+        return {"action": "block", "order_package_id": holders["unscoped"],
+                "excluded": dict(holders["by_account"])}
+    excluded: Dict[str, str] = dict(holders["by_account"])
+    for mirror, primary in STAGE2_MIRROR_OF.items():
+        if primary in holders["by_account"] and mirror not in excluded:
+            excluded[mirror] = holders["by_account"][primary]
+    candidates = scope if scope is not None else _accounts_declaring(str(strategy_name))
+    first_pkg = next(iter(holders["by_account"].values()), "")
+    if candidates is None:
+        return {"action": "block", "order_package_id": first_pkg, "excluded": excluded}
+    hit = {a: p for a, p in excluded.items() if a in candidates}
+    if not hit:
+        return {"action": "pass", "scope": scope}
+    remaining = frozenset(candidates) - frozenset(hit)
+    if not remaining:
+        return {"action": "block", "order_package_id": next(iter(hit.values())),
+                "excluded": hit}
+    return {"action": "narrow", "scope": remaining, "excluded": hit}
+
+
 def _recent_refusal_for_strategy(
     strategy_name: Optional[str],
     cooldown_seconds: Optional[int] = None,
