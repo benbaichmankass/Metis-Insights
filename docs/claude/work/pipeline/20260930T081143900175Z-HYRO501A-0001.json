@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "run 36687577503's record-inputs.json reads read_state=measured with an integer n and its record lands; then this row is killed as superseded",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-HYRO501A-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "research/queue/RQ-20260930-501.yaml",
+    "rerun": "Download the artifact of the latest research-script-run for RQ-20260930-501 and read verdict.json and record-inputs.json; confirm read_state=measured and re-grade against the registered rule."
+  },
+  "state": "queued",
+  "what": "RQ-20260930-501 first run (Actions run 36681432113, head 74f7738d) wrote read_state=graded to verdict.json, outside the collector vocabulary, so the collector will land its record as producer_failed. That record is a LANDING-CONTRACT BUG, NOT a FAIL of the 15m book: graded from the run artifact it was PASS (n=1595, net +63.06R, P(both) 0.261/0.277/0.281 vs 0.25; shifted -0.03: 0.170/0.186/0.157 vs 0.10). Fixed in #14619 (9edcf5f8); the authoritative re-run is Actions run 36687577503. Do not read the producer_failed record as an edge verdict."
+}
