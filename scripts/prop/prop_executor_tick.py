@@ -195,6 +195,30 @@ def arm_info_probe_latch(state_dir: Path) -> bool:
     return True
 
 
+def fresh_page_recheck(got: Dict[str, Any], adapter: Any, context: Any, page: Any, login_url: str) -> None:
+    """Before an unverified in-run restore latches the executor, re-read the
+    linked symbol CLICK-FREE on a FRESH page (manager 2026-09-30 18:00Z; the
+    linked symbol does not survive the page, #14831/#14836). The probe's own
+    page is closed first -- its state is exactly what does not persist, and
+    one tab per session avoids a second live session. The result goes in
+    ``got["fresh_page_check"]``; info_probe_restore_latch_reason reads it.
+    A fresh page reading the original symbol is an ALERT, never silence."""
+    from src.prop.platform.dxtrade import info_probe_restore_latch_reason
+    if not info_probe_restore_latch_reason(got):
+        return
+    try:
+        page.close()
+    except Exception:
+        pass
+    original = (got.get("restore") or {}).get("original")
+    chk = adapter.fresh_page_linked_check(context, login_url, original)
+    got["fresh_page_check"] = chk
+    if not info_probe_restore_latch_reason(got):
+        got.setdefault("alerts", []).append(
+            f"in-run restore unverified, but a fresh page reads the original linked symbol {original!r} "
+            f"with no dialog open: alert only, no latch")
+
+
 def latch_info_probe(got: Dict[str, Any], state_dir: Path, *, armed: bool = False) -> Optional[str]:
     """A click-mode info probe that could not VERIFY the linked-symbol restore
     leaves the executor's own AUTO-REVERT ``halted`` latch in place with the
@@ -381,6 +405,8 @@ def main(argv: Optional[list] = None) -> int:
                 click = mode == "instrument_info_probe"
                 armed = arm_info_probe_latch(Path(args.state_dir)) if click else False
                 got = adapter.probe_instrument_info(page, syms, click=click)
+                if click:
+                    fresh_page_recheck(got, adapter, context, page, cfg_plat["login_url"])
                 latch_info_probe(got, Path(args.state_dir), armed=armed)
                 return emit_info_probe(got, *secrets)
 
