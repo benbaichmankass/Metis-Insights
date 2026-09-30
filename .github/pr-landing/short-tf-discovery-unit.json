@@ -2,6 +2,6 @@
   "tier": 1,
   "landing": "hold",
   "hold_reason": "awaiting_evidence",
-  "hold_text": "Registers ONE pre-registered research unit RQ-20260930-504 in research/queue/blocked/ (blocked on an orchestrator script that does not exist yet) plus its pipeline row PI-20260930-LJF2ZFXF-0001. Registration only; nothing run, no config or runtime change. Held for the manager because a new research-queue unit is a registration; it is inert until promoted out of blocked/ by a later held PR. General research mandate (not venue-specific); the gap was measured in merged PR #14559.",
+  "hold_text": "Promotes RQ-20260930-504 (general short-timeframe strategy discovery, pre-registered, nothing run) out of blocked/ into the queue and ships its instrument scripts/research/short_tf_discovery_sweep.py with 16 tests (statistics, screen -> Bonferroni confirmation -> verdict, subprocess command, per-cell failure). Held for the manager because a new research-queue unit is a registration and must be merged before any run; the run itself needs trainer-staged candles. General research mandate (not venue-specific); the gap was measured in merged PR #14559. No config or runtime change.",
   "why": "Operator request 2026-09-30: add a research unit to strategy development to look for profitable shorter-timeframe strategies; clarified as a general research mandate, not HyroTrader-specific."
 }

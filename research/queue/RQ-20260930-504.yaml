@@ -1,6 +1,6 @@
 id: RQ-20260930-504
 title: 'Strategy development (general research mandate): is there ANY profitable <=1h crypto-perp strategy in the existing harness families? Two-stage, family-wise-corrected search (blocked on the sweep orchestrator)'
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 
@@ -52,15 +52,22 @@ decision_rule:
   registered_at: '2026-09-30'
   registered_before_run: true
   statistic: >-
-    GRID (fixed now, not extended after a run). Symbols BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, AVAXUSDT.
-    Timeframes 5m and 15m (and 30m where a harness supports it). Families, each at its LIVE
+    GRID (fixed now, not extended after a run). WAVE 1 symbols BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT,
+    AVAXUSDT (operator, 2026-09-30: "1 for first wave, but then the roster needs to continue expanding":
+    later symbols are later WAVES, each a separately registered unit, because K and therefore the
+    correction change). Timeframes 1m, 5m, 15m and 30m (operator, 2026-09-30). Families, each at its LIVE
     config/strategies.yaml parameters for that symbol where a leg exists, else the family's shared default:
     ict_scalp (scripts/backtest_ict_scalp.py), fvg_range, chop_scalp, pullback, squeeze, fade
     (scripts/backtest_*.py, all resolving venue-aware slippage and funding). Excluded until a cost-complete
     harness exists: scripts/backtest_orb.py (fee-only, points), src/backtest/backtester.py,
     scripts/backtest_xsec_momentum.py, scripts/backtest_vol_target.py (CLAUDE.md's four), and any
     session-open / funding-window / VWAP variant. K = the number of (family, symbol, timeframe) cells the
-    orchestrator reports as runnable; K is printed before any cell is graded.
+    orchestrator reports as runnable (harness script present AND candles resolve for that exact
+    symbol and timeframe AND the file is not a PROXY for another instrument); at most 6 x 5 x 4 = 120;
+    K and every unrunnable cell with its reason are printed before any cell is graded.
+    COSTS: the verdict arm is the harness default (fee 7.5 bps round trip + venue slippage + funding);
+    every confirmed cell also reports its mean net R re-priced at 11 bps (HyroTrader's published
+    taker-taker round trip), which gates nothing (operator, 2026-09-30).
     STAGE A (screen) window 2021-01-01 to 2024-09-30: per cell, n_A, mean full-cost net R, one-sided
     t-test p_A. A cell SURVIVES if n_A >= 88 and mean > 0 and p_A < 0.05. S = number of survivors.
     STAGE B (confirm) window 2024-10-01 to the latest complete day, run ONCE with the identical
@@ -72,8 +79,10 @@ decision_rule:
     NOT_APPLICABLE (producer_failed) IF the orchestrator cannot run at least half of the K cells.
     Otherwise a cell is CONFIRMED IF n_B >= 88 AND mean net R_B > 0 AND p_B < 0.05 / S AND folds positive
     >= 3 of 4. VERDICT: PASS IF at least one cell is CONFIRMED. FAIL IF S >= 1 and no cell is CONFIRMED
-    (the screen produced only candidates the late window rejects). NULL IF S = 0. INDETERMINATE for a cell
-    with n_B < 88 (never FAIL). Venue fit (same-day share, trades a month, HyroTrader qualifying days a
+    (the screen produced only candidates the late window rejects) AND every survivor had n_B >= 88.
+    INDETERMINATE IF S >= 1, none is CONFIRMED and at least one survivor had n_B < 88 or no Stage B result
+    (an underpowered or missing answer is not a rejection; this refines the FAIL clause above BEFORE any
+    run). NULL IF S = 0. Venue fit (same-day share, trades a month, HyroTrader qualifying days a
     month) is printed for every CONFIRMED cell and changes no verdict. A PASS cell is a candidate for a
     separately registered unit (its own cost-complete ledger, a venue-fit grade, then Gate 1 soak
     placement), NOT a roster proposal. The grid, both windows, the thresholds and the survivor rule are
@@ -90,29 +99,26 @@ routing:
   needs_trainer_resident_data: true
   needs_gpu: false
   peak_memory_gb: 6.0
-  est_minutes: 240
+  est_minutes: 360
   basis: >-
-    About 5 symbols x 2 timeframes x up to 6 families, two windows; the 2021-2026 5m frames are the
-    heavy part (RQ-20260929-401's census ran three 15m legs on the trainer). Estimate is INFERRED.
-
-blocked_on:
-  - what: >-
-      No orchestrator exists that runs a declared grid of harness cells, applies the Stage A screen and the
-      Stage B Bonferroni confirmation, and writes verdict.json. The single-cell dispatcher
-      (research-harness-dispatch.yml) runs one (harness, symbol, timeframe) per unit, and
-      scripts/research/m20_fleet_exit_sweep.py sweeps exit levers, not entries. Needs
-      scripts/research/short_tf_discovery_sweep.py that (1) enumerates the grid above and prints K before
-      grading, (2) runs each cell through the harness's own CLI with --emit-trades, (3) computes the Stage A
-      and Stage B statistics from the emitted per-trade net R, (4) writes verdict.json {verdict, read_state,
-      population, K, S, cells[]} with every cell's n and p reported (survivors AND non-survivors), and a test
-      on the committed fixture. About 1 to 1.5 lane-days (INFERRED).
-    ref: PI-20260930-LJF2ZFXF-0001
-    clears_when: >-
-      the orchestrator is merged with its test on the committed fixture.
+    Up to 120 cells at 2 jobs, Stage A over 3.75 years plus Stage B for the survivors only; the 1m and 5m
+    frames are the heavy part (RQ-20260929-401's census ran three 15m legs on the trainer). Estimate is
+    INFERRED and is the workflow's own 360-minute ceiling; --list-grid prints K without running anything.
 
 run:
-  workflow: null
-  note: Deliberately null until the orchestrator exists; then research-script-run.yml with that script.
+  workflow: research-script-run.yml
+  timeout_minutes: 360
+  command:
+  - python3
+  - scripts/research/short_tf_discovery_sweep.py
+  - --wave
+  - '1'
+  - --jobs
+  - '2'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20260930-504
 
 lands:
   store: research/results/
@@ -120,6 +126,7 @@ lands:
   min_rows: 1
 
 related:
+  - scripts/research/short_tf_discovery_sweep.py
   - RQ-20260930-501
   - RQ-20260930-502
   - RQ-20260930-503
