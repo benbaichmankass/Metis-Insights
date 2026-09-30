@@ -1,1 +1,1 @@
-trend-dayflat-fixes
+trend-dayflat-fixes (#14630, 2026-09-30 follow-up to #14583)

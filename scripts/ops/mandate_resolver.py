@@ -310,6 +310,8 @@ CAP_BASIS = "uniform_account_risk_pct_share_of_roster"
 ACCOUNT_SNAPSHOT_DIR_REL = "comms/mandate_evidence/account_snapshot"
 #: An equity reading older than this is not a measurement of the account today.
 ACCOUNT_SNAPSHOT_MAX_AGE_DAYS = 7
+#: Clock skew tolerated on a captured_at ahead of now (1 hour).
+ACCOUNT_SNAPSHOT_FUTURE_SKEW_DAYS = 1.0 / 24.0
 
 #: MD-DEMOTE-S2-S1's firing rule, T3 AND net<0 -- OPERATOR DECISION 2026-09-29
 #: ~14:17Z, popup in manager session session_01HYq6XtfesZ57VyaQrK6CL1, verbatim
@@ -580,7 +582,7 @@ def _account_snapshot(root: Path, account: str) -> Dict[str, Any]:
         raise _NeedsData("R-AFFORD", f"{rel} is for account_id={snap.get('account_id')!r}",
                          _afford_data_task(account, f"{rel} names another account"))
     eq = snap.get("equity_usd")
-    if not _num(eq) or eq < 0:
+    if not _finite(eq) or eq < 0:
         raise _NeedsData("R-AFFORD", f"{rel} equity_usd={eq!r} is not a measurement",
                          _afford_data_task(account, "equity_usd missing"))
     ts = _parse_ts(snap.get("captured_at"))
@@ -588,6 +590,12 @@ def _account_snapshot(root: Path, account: str) -> Dict[str, Any]:
         raise _NeedsData("R-AFFORD", f"{rel} carries no parseable captured_at",
                          _afford_data_task(account, "captured_at missing"))
     age_d = (datetime.now(timezone.utc) - ts).total_seconds() / 86400.0
+    # A captured_at in the FUTURE gives a negative age and would never go
+    # stale. Allow 1h of clock skew; anything further ahead is not a reading.
+    if age_d < -ACCOUNT_SNAPSHOT_FUTURE_SKEW_DAYS:
+        raise _NeedsData("R-AFFORD", f"{rel} captured_at={snap['captured_at']} is in the future "
+                                     f"({-age_d * 24:.1f}h ahead)",
+                         _afford_data_task(account, "the committed reading is future-dated"))
     if age_d > ACCOUNT_SNAPSHOT_MAX_AGE_DAYS:
         raise _NeedsData("R-AFFORD", f"{rel} captured_at={snap['captured_at']} is {age_d:.1f} "
                                      f"days old (> {ACCOUNT_SNAPSHOT_MAX_AGE_DAYS})",
@@ -610,8 +618,15 @@ def _affordability(leg: str, account: str, exchange: str, record: Dict[str, Any]
 
     REFUSE when that population is empty or NONE of it sizes above zero: the
     edit would put a leg on a real-money roster that cannot place an order.
-    NEEDS_DATA when the equity reading is absent or stale. A partial fraction
-    passes and is reported, never hidden.
+    NEEDS_DATA when the equity reading is absent, stale, future-dated or not
+    finite. A partial fraction passes and is reported, never hidden.
+
+    ⚠️ NECESSARY, NOT SUFFICIENT. A pass does NOT guarantee the leg sizes live:
+    the RiskManager here is fresh (daily_pnl=0, no drawdown state), ignores
+    open exposure, pledged margin and the T+1 cash-settlement basis, defaults
+    a missing confidence to 1.0, and applies only the ACCOUNT side_filter, not
+    a strategy-level long_only/side_filter. Every one of those can only make
+    the live sizer refuse MORE, so a REFUSE here is decisive and a pass is not.
     """
     snap = _account_snapshot(root, account)
     cfg = acfg.get(account) or {}
@@ -628,7 +643,7 @@ def _affordability(leg: str, account: str, exchange: str, record: Dict[str, Any]
             r = json.loads(line)
         except ValueError:
             continue
-        if isinstance(r, dict) and _num(r.get("entry")) and _num(r.get("sl")) \
+        if isinstance(r, dict) and _finite(r.get("entry")) and _finite(r.get("sl")) \
                 and r["entry"] > 0 and r.get("direction") in ("long", "short"):
             rows.append(r)
     ev: Dict[str, Any] = {"snapshot": snap["_rel"], "captured_at": snap.get("captured_at"),
@@ -652,7 +667,10 @@ def _affordability(leg: str, account: str, exchange: str, record: Dict[str, Any]
     rm = RiskManager(cfg.get("risk") or {}, dry_run=True, account_id="")
     equity = float(snap["equity_usd"])
     bp = snap.get("buying_power_usd")
-    bp = float(bp) if _num(bp) else None
+    if bp is not None and not _finite(bp):
+        raise _NeedsData("R-AFFORD", f"{snap['_rel']} buying_power_usd={bp!r} is not a finite "
+                                     "measurement", _afford_data_task(account, "buying_power_usd not finite"))
+    bp = float(bp) if bp is not None else None
     whole = requires_whole_unit_qty(exchange)
     sized = []
     for r in permitted:
@@ -663,7 +681,7 @@ def _affordability(leg: str, account: str, exchange: str, record: Dict[str, Any]
         conf = r.get("confidence")
         pkg = OrderPackage(strategy=leg, symbol=str(r.get("symbol") or ""),
                            direction=r["direction"], entry=ref, sl=sl, tp=tp,
-                           confidence=float(conf) if _num(conf) else 1.0, meta={})
+                           confidence=float(conf) if _finite(conf) else 1.0, meta={})
         qty = rm.position_size(pkg, equity, available_usd=bp, total_account_usd=equity,
                                whole_units=whole,
                                market_type=str(cfg.get("market_type") or "spot"))
@@ -1139,6 +1157,13 @@ def _fin(v: Any) -> float:
     if not math.isfinite(f):
         raise ValueError(f"non-finite: {v!r}")
     return f
+
+
+def _finite(v: Any) -> bool:
+    """`_num` AND not NaN/Inf. R-AFFORD's inputs use this: `json` accepts
+    `NaN` / `Infinity` literals, and an infinite equity would size anything."""
+    import math
+    return _num(v) and math.isfinite(v)
 
 
 def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
