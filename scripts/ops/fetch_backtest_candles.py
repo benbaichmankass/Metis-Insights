@@ -671,11 +671,39 @@ def fetch_klines_yfinance(
     return rows
 
 
+def shrink_refusal(output_path: Path, new_df) -> str | None:
+    """Return a reason if writing ``new_df`` over ``output_path`` would LOSE
+    history (fewer rows or a later first bar than the file already there).
+
+    The trainer holds multi-year ``data/<SYM>_15m.csv`` files; the corpus
+    fetcher pulls 90 days into the same names. Overwriting silently swaps the
+    population of every study that reads them (PI-20260929-FCJRWVAK-0002).
+    """
+    if not output_path.exists():
+        return None
+    try:
+        old = pd.read_csv(output_path, usecols=["timestamp"])
+    except Exception:
+        return None  # unreadable/foreign file: not ours to protect by shape
+    if old.empty:
+        return None
+    old_ts = pd.to_datetime(old["timestamp"], utc=True, format="mixed")
+    new_ts = pd.to_datetime(new_df["timestamp"], utc=True, format="mixed")
+    if len(new_ts) < len(old_ts) or new_ts.min() > old_ts.min():
+        return (f"{output_path} holds {len(old_ts)} rows from {old_ts.min()}; "
+                f"replacement has {len(new_ts)} rows from {new_ts.min()}")
+    return None
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         description="Fetch 5m candles for backtest (Bybit primary, Binance-vision fallback)"
     )
     parser.add_argument("--symbol", default="BTCUSDT")
+    parser.add_argument(
+        "--allow-shrink", action="store_true",
+        help="Permit replacing a longer existing --output file with a shorter one",
+    )
     parser.add_argument(
         "--interval",
         default="5",
@@ -838,6 +866,10 @@ def main(argv: list[str]) -> int:
     df = pd.DataFrame(rows).sort_values("timestamp").reset_index(drop=True)
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    refusal = shrink_refusal(output_path, df)
+    if refusal and not args.allow_shrink:
+        sys.stderr.write(f"REFUSED: {refusal} (pass --allow-shrink to override)\n")
+        return 3
     df.to_csv(output_path, index=False)
     print(
         f"Wrote {len(df)} rows "
