@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One read-only key added to the get-env allowlist (STRATEGY_BAR_DEBOUNCE_DISABLED) so the live value of the one-entry-per-bar debounce can be read back; tooling only, the action writes nothing and records no value. Requested by the manager after #14800 (unverified live value)."
+}
