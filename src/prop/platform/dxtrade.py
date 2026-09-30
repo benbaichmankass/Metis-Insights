@@ -1240,9 +1240,13 @@ ONE_CLICK_JS = r"""
 () => {
   const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  const lab = [...document.querySelectorAll('body *')].find(el =>
+  // Exactly ONE label leaf (manager note on #14723): the first match in DOM
+  // order is not trusted when there are several.
+  const labs = [...document.querySelectorAll('body *')].filter(el =>
     el.children.length === 0 && /^one[- ]click trading$/i.test(txt(el)));
-  if (!lab) return {state: 'unknown', why: 'label not found'};
+  if (!labs.length) return {state: 'unknown', why: 'label not found'};
+  if (labs.length > 1) return {state: 'unknown', why: `${labs.length} one-click labels (need exactly 1)`};
+  const lab = labs[0];
   const states = [];
   let via = null;
   // REALLY visible: a size, and no display:none / visibility:hidden /
@@ -1293,20 +1297,28 @@ ONE_CLICK_JS = r"""
       toggleWhy = `data-value ${dv} disagrees with the knob (${knob})`;
     else { states.push(dv === 'true' ? 'on' : 'off'); via = 'data-value+knob'; }
   }
+  // Checkbox / switch / aria state near the label (the pre-measurement
+  // reader; other terminals and fixtures use it). Only REALLY visible
+  // controls count, and there must be exactly one at the first level that
+  // has any -- a hidden unchecked checkbox never reads 'off' (manager note on
+  // #14723). The info probe accepts only via 'data-value+knob' anyway.
+  let ctlWhy = null;
   for (let e = lab, i = 0; e && i < 4; e = e.parentElement, i++) {
-    const before = states.length;
-    const cands = [e, ...e.querySelectorAll('input[type=checkbox], [role=switch], [role=checkbox], [aria-pressed], [aria-checked]')];
-    for (const c of cands) {
-      if (c.type === 'checkbox') states.push(c.checked ? 'on' : 'off');
-      const ac = c.getAttribute && (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'));
-      if (ac === 'true') states.push('on'); else if (ac === 'false') states.push('off');
-    }
-    if (states.length > before) { via = via ? via + '+aria' : 'aria'; break; }
+    const cands = [e, ...e.querySelectorAll('input[type=checkbox], [role=switch], [role=checkbox], [aria-pressed], [aria-checked]')]
+      .filter(c => c.type === 'checkbox' || (c.getAttribute && (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'))));
+    if (!cands.length) continue;
+    const vis_c = cands.filter(shown);
+    if (vis_c.length !== 1) { ctlWhy = `${vis_c.length} visible checkbox/aria controls near the label (need exactly 1)`; break; }
+    const c = vis_c[0];
+    const ac = c.type === 'checkbox' ? (c.checked ? 'true' : 'false') : (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'));
+    if (ac === 'true') states.push('on'); else if (ac === 'false') states.push('off');
+    via = via ? via + '+aria' : 'aria';
+    break;
   }
   const uniq = [...new Set(states)];
-  const ok = uniq.length === 1 && !toggleWhy;
+  const ok = uniq.length === 1 && !toggleWhy && !ctlWhy;
   return {state: ok ? uniq[0] : 'unknown', via, n_toggles: toggles.length, knob,
-          why: ok ? 'read' : toggleWhy || (uniq.length ? 'conflicting controls' : 'no data-value toggle or checkbox/switch/aria state near the label'),
+          why: ok ? 'read' : toggleWhy || ctlWhy || (uniq.length ? 'conflicting controls' : 'no data-value toggle or checkbox/switch/aria state near the label'),
           chain: (() => { const c = []; for (let e = lab, i = 0; e && e.tagName && i < 4; e = e.parentElement, i++)
             c.push(e.tagName.toLowerCase() + ((typeof e.className === 'string' && e.className) ? '.' + e.className.trim().split(/\s+/).join('.') : '')
                    + [...e.attributes].map(a => a.name).filter(n => n.startsWith('aria-') || n.startsWith('data-')).map(n => '[' + n + ']').join(''));
@@ -2627,34 +2639,60 @@ INFO_PROBE_CLOSE_JS = r"""
 # MEASURED anchor (issue #14612 dump): the Orders widget carries a
 # ``[data-test-id=widget_menu_ORDERS]`` button. Required: exactly ONE such
 # visible button; its widget container (nearest ``widget__container`` /
-# ``widgetNew__container`` ancestor, <= 8 up) visible; inside it a header row
+# ``widgetNew__container`` ancestor, <= 12 up -- MEASURED at level 10 by
+# the 2nd dry run, issue #14754 run 36726271098, which is why the original
+# 8-level walk read "no visible widget container") visible; inside it a header row
 # naming Symbol plus Order ID or Order Type and NO history-shaped column
 # (close / closed / execution / filled time -- INFERRED names); body rows are
-# the visible ``tr`` whose cell count matches that header and whose Symbol
-# cell is non-empty. Anything else is ``found: false`` ("could not look").
+# the ``tr`` whose cell count matches that header and whose Symbol cell is
+# non-empty. Anything else is ``found: false`` ("could not look").
+# VISIBILITY, fail-closed (manager review of #14764, fixture S3b: a visible
+# container holding a display:none Orders table with a working order read
+# found:true, n_rows:0 -- a hidden grid as "no working orders"): "shown" is a
+# size AND no display:none / visibility:hidden / opacity 0 up the tree. Every
+# widget_menu_ORDERS counts (exactly 1, shown); the container must be shown
+# and hold no OTHER widget_menu_* button; exactly ONE matching header row,
+# counted visible or not, and it must be shown; body rows are counted visible
+# or not, and ANY hidden order-shaped row reads "could not look", never
+# "empty".
 INFO_PROBE_ORDERS_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  const menus = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS]')].filter(vis);
-  if (menus.length !== 1) return {found: false, why: `${menus.length} visible widget_menu_ORDERS (need exactly 1)`};
+  const shown = el => {
+    if (!vis(el)) return false;
+    for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse'
+          || parseFloat(cs.opacity) === 0) return false;
+    }
+    return true;
+  };
+  const menus = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS]')];
+  if (menus.length !== 1) return {found: false, why: `${menus.length} widget_menu_ORDERS (need exactly 1)`};
+  if (!shown(menus[0])) return {found: false, why: 'widget_menu_ORDERS is not shown'};
   let w = null;
-  for (let e = menus[0].parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+  for (let e = menus[0].parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
     const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
     if (cls.some(c => /^widget(New)?__container/.test(c))) { w = e; break; }
   }
-  if (!w || !vis(w)) return {found: false, why: 'no visible widget container around widget_menu_ORDERS'};
-  const heads = [...w.querySelectorAll('tr')].map(r => [...r.querySelectorAll('th')].map(txt)).filter(h => h.length);
-  const hdr = heads.filter(h => h.includes('symbol') && (h.includes('order id') || h.includes('order type')));
+  if (!w || !shown(w)) return {found: false, why: 'no visible widget container around widget_menu_ORDERS'};
+  const others = [...w.querySelectorAll('[data-test-id^=widget_menu_]')].filter(m => m !== menus[0]);
+  if (others.length) return {found: false, why: `the Orders widget container also holds ${others.length} other widget_menu_* (not one widget)`};
+  const hrows = [...w.querySelectorAll('tr')].map(r => ({r, h: [...r.querySelectorAll('th')].map(txt)})).filter(x => x.h.length);
+  const hdr = hrows.filter(x => x.h.includes('symbol') && (x.h.includes('order id') || x.h.includes('order type')));
   if (hdr.length !== 1) return {found: false, why: `${hdr.length} working-orders header rows in the Orders widget (need exactly 1)`};
-  const hs = hdr[0];
+  if (!shown(hdr[0].r)) return {found: false, why: 'the working-orders header row is not shown (a hidden grid is could-not-look, never empty)'};
+  const hs = hdr[0].h;
   if (hs.some(h => /\b(close|closed|execution|filled)\b.*\btime\b|\btime\b.*\b(close|closed)\b/.test(h)))
     return {found: false, why: 'the Orders widget shows a history-shaped table'};
   const si = hs.indexOf('symbol');
   const rows = [...w.querySelectorAll('tr')].filter(r => {
     const tds = [...r.querySelectorAll('td')];
-    return tds.length === hs.length && vis(r) && txt(tds[si]);
+    return tds.length === hs.length && txt(tds[si]);
   });
+  const hidden = rows.filter(r => !shown(r)).length;
+  if (hidden) return {found: false, why: `${hidden} order-shaped row(s) are not shown (could not look)`, n_rows_hidden: hidden};
   return {found: true, n_rows: rows.length, headers: hs};
 }
 """
@@ -2695,6 +2733,41 @@ INFO_PROBE_ORDERS_DUMP_JS = r"""
 }
 """
 
+# READ-ONLY, after a not-found panel (live -probe issue #14831: the info
+# click left ONE new top-level element that was not panel-sized, n_panels 0,
+# so the run aborted and could not restore). Lists the NEW top-level elements
+# still in the page -- the same "new" test as INFO_PROBE_PANEL_JS -- with tag,
+# role, masked class tokens, size, whether it is visible, its text-leaf count
+# and its first 5 text leaves under the panel mask, so the info view's real
+# shape is MEASURED from the run log instead of guessed. ``n_visible`` is
+# what the recovery reads: 0 means nothing unidentified is still on screen.
+# Clicks, focuses and tags nothing.
+INFO_PROBE_NEW_ELEMENTS_JS = r"""
+() => {
+  const pre = window.__metisPre;
+  if (!pre) return {readable: false, why: 'no pre-click snapshot'};
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+                     .replace(/(?<![0-9a-f.])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/(?<![.\d])\d(?:[\s-]?\d){7,}/g, m => '#'.repeat(m.length))
+                     .replace(/(?<![.\d])\d{7,}(?![.\d])/g, m => '#'.repeat(m.length)).slice(0, 40);
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const fresh = [...document.querySelectorAll('body *')]
+    .filter(el => !pre.has(el) && !(el.parentElement && !pre.has(el.parentElement)));
+  const leaves = el => [...el.querySelectorAll('*')].concat([el])
+    .filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
+  return {readable: true, n_new_top: fresh.length, n_visible: fresh.filter(vis).length,
+          elements: fresh.slice(0, 10).map(el => {
+            const r = el.getBoundingClientRect(), lv = leaves(el);
+            return {tag: el.tagName.toLowerCase(), role: el.getAttribute('role') || '',
+                    cls: (typeof el.className === 'string' ? el.className : '').split(/\s+/)
+                           .filter(t => t && t.length < 24).map(mask).slice(0, 6),
+                    w: Math.round(r.width), h: Math.round(r.height), visible: vis(el),
+                    n_leaves: lv.length, leaves: lv.slice(0, 5)};
+          })};
+}
+"""
+
 INFO_PROBE_PANEL_GONE_JS = r"""
 () => {
   const p = document.querySelector('[data-metis-info-panel]');
@@ -2732,6 +2805,15 @@ def info_probe_flat_guard(account: AccountSnapshot, orders: Mapping[str, Any]) -
     return None
 
 
+def info_probe_one_click_off(one_click: Optional[Mapping[str, Any]]) -> bool:
+    """True only for a positive OFF read from the MEASURED toggle
+    (``via == "data-value+knob"``, optionally ``+aria`` agreeing). The
+    checkbox/aria fallback alone never passes the info probe's gate -- it is
+    not how the live terminal renders the toggle (issues #14714, #14754)."""
+    oc = one_click or {}
+    return oc.get("state") == "off" and str(oc.get("via") or "").startswith("data-value+knob")
+
+
 def info_probe_restore_latch_reason(got: Mapping[str, Any]) -> Optional[str]:
     """The AUTO-REVERT latch reason to write when the probe may have left
     the terminal's linked symbol changed, else None. Written by the tick
@@ -2742,6 +2824,17 @@ def info_probe_restore_latch_reason(got: Mapping[str, Any]) -> Optional[str]:
     if got.get("mode") != "click" or not rest:
         return None
     if rest.get("verified") is True:
+        return None
+    # MEASURED after #14831 (click-free dry #14836): the terminal's linked
+    # symbol lives in the run's own PAGE -- a fresh page loads with the
+    # original linked again. So when a CLICK-FREE read on a FRESH page (the
+    # tick's ``fresh_page_check``, manager-approved 2026-09-30 18:00Z) reads
+    # the original symbol with no dialog open, the run alerts only and no
+    # latch is written. Anything else -- no check, unreadable, another
+    # symbol, a dialog -- latches as before.
+    fp = got.get("fresh_page_check") or {}
+    if (fp.get("readable") is True and rest.get("original")
+            and fp.get("linked_symbol") == rest.get("original") and fp.get("dialogs") == 0):
         return None
     return ("AUTO-REVERT: instrument-info-probe left the linked symbol unverified "
             f"(should be {rest.get('original')!r}; restore attempted={rest.get('attempted')}); "
@@ -3413,10 +3506,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         return out
 
     def read_one_click(self, page: Any) -> Dict[str, Any]:
-        """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC:
-        recorded in every order-control result, gated on by none (ORDER ENTRY
-        rule 1; operator 2026-09-28). ``unknown`` is the live terminal's
-        measured reading (#13711) and blocks nothing."""
+        """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC for
+        every ORDER path: recorded in each order-control result, gated on by
+        none of them (ORDER ENTRY rule 1; operator 2026-09-28). The one
+        exception is the instrument INFO-PANEL probe (``probe_instrument_info``),
+        which clicks on the live terminal and refuses unless this reads
+        ``off`` via ``data-value+knob`` (the measured toggle, issues #14714 /
+        #14754). ``unknown`` blocks no order path."""
         try:
             got = page.evaluate(ONE_CLICK_JS) or {}
         except Exception as exc:
@@ -3690,7 +3786,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         clicked_any = False
         try:
             out["one_click"] = self.read_one_click(page)
-            if (out["one_click"] or {}).get("state") != "off":
+            if not info_probe_one_click_off(out["one_click"]):
                 # The guard fails CLOSED (manager review of #14645): only a
                 # positive "off" reading passes. The live terminal reads
                 # 'unknown' (#13711), so until a reader is built from this
@@ -3715,9 +3811,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                 why = res.get("why") or "resolve failed"
             elif res.get("dialogs"):
                 why = f"{res['dialogs']} dialog(s) already open"
-            elif (out["one_click"] or {}).get("state") != "off":
-                why = (f"one-click trading does not read OFF (reads "
-                       f"{(out['one_click'] or {}).get('state')!r}); refusing until it positively does")
+            elif not info_probe_one_click_off(out["one_click"]):
+                oc = out["one_click"] or {}
+                why = (f"one-click trading does not read OFF (reads {oc.get('state')!r}); via "
+                       f"{oc.get('via')!r}; refusing until it positively does from the measured toggle")
             else:
                 why = info_probe_flat_guard(acct, orders)
             if why is None and original not in (res.get("watchlist") or []):
@@ -3767,12 +3864,36 @@ class DXtradeAdapter(PropPlatformAdapter):
                 self._info_click(page, "[data-metis-info-btn='1']")
                 page.wait_for_timeout(settle_ms)
                 panel = page.evaluate(INFO_PROBE_PANEL_JS, [sym, [o for o in others if o != sym]]) or {}
+                if not panel.get("found"):
+                    # Live -probe #14831: n_new_top 1, n_panels 0 after the
+                    # settle. The panel may render late, so read ONCE more
+                    # after a longer wait before giving up (recorded).
+                    page.wait_for_timeout(settle_ms * 3)
+                    panel = page.evaluate(INFO_PROBE_PANEL_JS, [sym, [o for o in others if o != sym]]) or {}
+                    r["panel_retry"] = True
                 r["panel"] = {k: v for k, v in panel.items() if k != "leaves"}
                 if not panel.get("found"):
                     # Nothing verified opened, so nothing is clicked to close
-                    # it, and no further symbol is attempted.
+                    # it, and no further symbol is attempted. RECOVERY (manager
+                    # step 5 after #14831, whose restore was skipped with no
+                    # way back): record what DID appear (read-only, masked),
+                    # press ONE Escape -- never a click, the refused-panel
+                    # precedent -- and re-read. Only when no unidentified new
+                    # element is still VISIBLE is the panel treated as closed,
+                    # so the restore (the measured Symbol-cell click) may run;
+                    # otherwise panel_open stays set and the run latches as
+                    # before (round-3 review of #14645).
+                    r["new_elements"] = page.evaluate(INFO_PROBE_NEW_ELEMENTS_JS) or {"readable": False}
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(settle_ms)
+                    left = page.evaluate(INFO_PROBE_NEW_ELEMENTS_JS) or {"readable": False}
+                    r["after_escape"] = {"readable": left.get("readable"), "n_visible": left.get("n_visible")}
+                    if left.get("readable") is True and left.get("n_visible") == 0:
+                        r["panel_open"] = False
+                        r["closed_via"] = "escape_nothing_left"
                     out["alerts"].append(f"{sym}: {panel.get('why') or 'no panel'}; aborted before any "
-                                         f"close click")
+                                         f"close click; Escape pressed (unidentified element(s) still "
+                                         f"visible: {left.get('n_visible')})")
                     return out
                 # A dialog-typed panel is accepted only when it passes the
                 # identity checks AND reads nothing like an order
@@ -3861,6 +3982,39 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.evaluate(INFO_PROBE_CLEANUP_JS)
             except Exception:
                 pass
+
+    def fresh_page_linked_check(self, context: Any, login_url: str, original: Optional[str]) -> Dict[str, Any]:
+        """CLICK-FREE read of the linked symbol on a FRESH page of the same
+        browser context (manager 2026-09-30 18:00Z): the terminal's linked
+        symbol does not survive the page (#14831 / #14836), so an unverified
+        in-run restore is re-checked here before the tick latches. Loads the
+        terminal through ``resume_session`` (the saved session, never a
+        credential login), waits for it, and reads INFO_PROBE_RESOLVE_JS --
+        which clicks nothing -- for the linked symbol and open dialogs.
+        ``readable`` is False on any failure; that latches."""
+        out: Dict[str, Any] = {"readable": False, "original": original}
+        page = None
+        try:
+            page = context.new_page()
+            st = self.resume_session(page, login_url)
+            if st != "logged_in":
+                out["why"] = f"session {st}"
+                return out
+            page.wait_for_timeout(5_000)
+            self.wait_ready(page, timeout_ms=20_000)
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[original] if original else []]) or {}
+            out.update(readable=bool(res.get("ok")), linked_symbol=res.get("linked_symbol"),
+                       dialogs=res.get("dialogs"), why=res.get("why"))
+            page.evaluate(INFO_PROBE_CLEANUP_JS)
+        except Exception as exc:
+            out["why"] = f"{type(exc).__name__} (code=fresh_page_exception)"
+        finally:
+            if page is not None:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+        return out
 
     def _info_restore(self, page: Any, out: Dict[str, Any]) -> None:
         """Re-select the ORIGINALLY linked symbol and verify it reads back.
@@ -3982,7 +4136,12 @@ class DXtradeAdapter(PropPlatformAdapter):
         # into a ticket for the wrong symbol is the worst silent failure here.
         if not form_names_symbol(form, spec.venue_symbol):
             return refuse(f"the open form does not name {spec.venue_symbol}")
-        need = ["quantity", "stop_loss", "take_profit"] + (["price"] if spec.order_type == "limit" else [])
+        # The PRICE field is not required here: the live Breakout form opens in
+        # MARKET mode and shows no price input until LIMIT is selected
+        # (2026-09-30 12:44Z, ticket prop-manual-b573aecb5d47 refused
+        # "form fields not found: ['price']" before the order-type click ever
+        # ran). It is required right after that click, below.
+        need = ["quantity", "stop_loss", "take_profit"]
         missing = [k for k in need if k not in (form.get("fields") or {})]
         if missing:
             return refuse(f"form fields not found: {missing}")
@@ -4020,7 +4179,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                 pass
             elif type_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
+                page.wait_for_timeout(300)
             form = self._find_form(page)
+            if spec.order_type == "limit" and "price" not in (form.get("fields") or {}):
+                return refuse("form fields not found after selecting LIMIT: ['price']", form)
             # Switch each leg's enabling toggle ON (the live sidebar's SL / TP
             # toggles read "false" by default): the operator's flow sets the
             # brackets BEFORE execution. Never switched off; read back below.
