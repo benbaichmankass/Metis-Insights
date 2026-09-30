@@ -3584,3 +3584,43 @@ def test_the_band_check_runs_for_a_second_account_too(env):
     ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
     _band_cycle(ad, FakeApi([ticket()]), env, c=cfg(account_id="tradeify_1"))
     assert _places(ad) == []
+
+
+def test_a_blind_wait_alerts_once_per_ticket(env):
+    # manager review of #14908: a persistently unreadable quote must not let
+    # a live ticket expire with only a log line
+    ad = FakeAdapter(quote={"bid": None, "ask": None})
+    api = FakeApi([ticket()])
+    res = _band_cycle(ad, api, env, 0)
+    blind = [a for a in res.alerts if "live price unreadable, NOT placed yet" in a]
+    assert len(blind) == 1 and "prop-manual-aaa" in blind[0] and "place by hand if needed" in blind[0]
+    res = _band_cycle(ad, api, env, 1)
+    assert not [a for a in res.alerts if "live price unreadable" in a]      # once per ticket
+    api._tickets = [ticket(), ticket(ticket_id="prop-manual-bbb")]
+    res = _band_cycle(ad, api, env, 2)                                   # a waiting ticket is no candidate,
+    blind = [a for a in res.alerts if "live price unreadable" in a]      # so the next one is checked too
+    assert len(blind) == 1 and "prop-manual-bbb" in blind[0]            # its own first alert; aaa's not repeated
+
+
+def test_an_outside_band_wait_does_not_alert(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    res = _band_cycle(ad, FakeApi([ticket()]), env)
+    assert not [a for a in res.alerts if "unreadable" in a]
+
+
+@pytest.mark.parametrize("ask", [119.5, 120.5])                     # ticket()'s band is 119.5..120.5
+def test_a_price_exactly_on_a_band_edge_places(env, ask):
+    ad = FakeAdapter(quote={"bid": ask - 0.01, "ask": ask})
+    _band_cycle(ad, FakeApi([ticket()]), env)
+    assert len(_places(ad)) == 1
+
+
+def test_a_dry_unreadable_band_alerts_once(env):
+    ledger, state = env
+    api = FakeApi([ticket(message="no band in this text")])
+    alerts = []
+    for k in range(3):
+        res = pe.run_cycle(adapter=FakeAdapter(), page=None, api=api, cfg=cfg(), mode="read_only",
+                           ledger=ledger, state=state, now=NOW + timedelta(minutes=5 * k))
+        alerts += [a for a in res.alerts if "entry band unreadable" in a]
+    assert len(alerts) == 1

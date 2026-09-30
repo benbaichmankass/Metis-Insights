@@ -976,16 +976,25 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             # valid_until. A ticket with no venue is left to the guards,
             # which refuse it.
             verdict, why = _entry_band_check(adapter, page, t, venue)
-            if verdict == "wait":
+            if verdict in ("wait", "blind"):
                 res.log("band_wait", ticket_id=t["ticket_id"], why=why)
+                # A quote we could not read would otherwise let the ticket
+                # expire with only a log line (manager review of #14908): one
+                # alert per ticket, on its first blind wait.
+                if verdict == "blind" and _first_time(state, st, f"band_blind_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: live price unreadable, NOT placed yet; will retry "
+                                      f"until {t.get('valid_until')}, place by hand if needed")
                 continue
             if verdict == "refuse":
                 res.log("band_refused", ticket_id=t["ticket_id"], why=why)
                 if live:
                     ledger.record(t["ticket_id"], "refused", reasons=[why])
                     _report(res, post, _skip_body(cfg, t, f"not submitted: {why}"))
-                res.alerts.append(f"{t['ticket_id']}: NOT PLACED — {why}; place it by hand by "
-                                  f"{t.get('valid_until')} or it is lost")
+                # Live records the refusal, so the ticket is never seen again;
+                # a dry mode records nothing, so it is de-duplicated here.
+                if live or _first_time(state, st, f"band_refused_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: NOT PLACED — {why}; place it by hand by "
+                                      f"{t.get('valid_until')} or it is lost")
                 continue
         if candidate is None:
             candidate = t
@@ -1452,6 +1461,18 @@ def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
     return (lo, hi) if lo <= hi else None
 
 
+def _first_time(state: "ExecutorState", st: Dict[str, Any], key: str, ticket_id: str,
+                keep: int = 50) -> bool:
+    """True the first time ``ticket_id`` is seen under ``key`` (the last
+    ``keep`` ids are remembered in the executor state), False after."""
+    seen = list(st.get(key) or [])
+    if ticket_id in seen:
+        return False
+    st[key] = (seen + [ticket_id])[-keep:]
+    state.save(st)
+    return True
+
+
 def _entry_band_check(adapter: Any, page: Any, ticket: Mapping[str, Any],
                       venue: str) -> Tuple[str, str]:
     """Before ANY placement, a first attempt or a retry (PI-20260930-KMYJ5XC7-0003,
@@ -1459,19 +1480,20 @@ def _entry_band_check(adapter: Any, page: Any, ticket: Mapping[str, Any],
     bid for a short -- must lie inside the ticket's own entry band. The band
     is clipped at the stop, so a price outside it includes a price beyond the
     SL, where a LIMIT at entry would be marketable and fill straight into its
-    own stop. Returns ``("ok"|"wait"|"refuse", why)``. Fails closed: an
-    unreadable quote WAITS (we could not look), an unreadable band REFUSES."""
+    own stop. Returns ``("ok"|"wait"|"blind"|"refuse", why)``. Fails closed:
+    an unreadable quote is ``blind`` and waits like ``wait`` (we could not
+    look), an unreadable band REFUSES."""
     band = _entry_band(ticket)
     if band is None:
         return "refuse", "entry band unreadable in the ticket message"
     try:
         q = adapter.read_quote(page, venue)
     except Exception as exc:
-        return "wait", f"no quote for the entry-band check ({type(exc).__name__}; could not look)"
+        return "blind", f"no quote for the entry-band check ({type(exc).__name__}; could not look)"
     long_side = _dir(ticket.get("direction")) == "long"
     px = _f((q or {}).get("ask" if long_side else "bid"))
     if px is None:
-        return "wait", "no quote for the entry-band check (could not look)"
+        return "blind", "no quote for the entry-band check (could not look)"
     if not (band[0] <= px <= band[1]):
         return "wait", f"{'ask' if long_side else 'bid'} {px} outside the ticket's entry band {band[0]}..{band[1]}"
     return "ok", ""
