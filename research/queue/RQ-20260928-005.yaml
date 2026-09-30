@@ -1,6 +1,6 @@
 id: RQ-20260928-005
 title: M19 S2-exit — does the walk-forward exit head recover net R on the ict_scalp 15m family, or only on trend_donchian?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -157,3 +157,40 @@ last_dispatched_at: '2026-09-28T11:06:10+00:00'
 result: >-
   GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
   DISPOSITION: stays queued -- 1 of 3 legs landed; the other two were dispatched token-free on 2026-09-28 ~18:18Z. Landed: research/results/RQ-20260928-005/36413623634.jsonl, ict_scalp/SOLUSDT 15m, n_oos=108: FAIL on RULE-EXIT-HEAD-CLEARS-BAR (OOS AUC 0.5348, mean net-R improvement -0.0963/trade, cost_basis net_venue_bps 10.5). Under this unit's own rule that is recovered_R_oos <= 0 on one leg with n >= 64. XRPUSDT (research-exit-head-build run 36464183831) and ETHUSDT (run 36464257723) were dispatched by lane RQ-RUN with research_unit=RQ-20260928-005; their records land under research/results/RQ-20260928-005/ and the rule (2 of 3 / 1 of 3 / 0 of 3) is graded once all three rows exist.
+grading:
+  graded_at: '2026-09-29'
+  graded_by: lane M19-S2EXIT (session_01Um3DdFoaFgrhnEfcJRwVAK, manager session_01HYq6XtfesZ57VyaQrK6CL1)
+  verdict: indeterminate
+  record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-20260929.jsonl
+  supplementary_record: research/results/RQ-20260928-005/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260928-005-supplementary-2200d-non-verdict.jsonl
+  disposition: >-
+    REGISTERED VERDICT: indeterminate. At the registered 365d window the final
+    fold holds ~20 trades per leg (5 contiguous blocks over 97-108 pooled
+    trades), so the n_oos >= 64 floor is unreachable; the rule's n-floor branch
+    applies and the floor is not lowered (manager decision 2026-09-29). Pooled
+    5-fold figures (0 of 3 legs positive; -10.40 / -13.69 / -3.42 R) are
+    descriptive and non-deciding.
+  supplementary_evidence: >-
+    NOT A VERDICT. A trailing-2200d re-run (runs 36615144815 SOL, 36615154335
+    XRP, 36615157916 ETH) after per-fold emission was added to
+    analyze_exit_head.py: final-block n_oos 120 / 96 / 104, recovered R
+    -11.25 / -12.22 / -14.43, 0 of 3 legs > 0. Four deviations from the
+    registration: window 2200d (registered 365d); 5 contiguous blocks
+    (registered per-year folds); 12-bar embargo (registered 7 days; biases
+    toward PASS); exit_threshold 0.5 (registered below_half_r tau 0.10 - a
+    different parameter). Changing the window after the 365d run without
+    re-registering is a post-hoc substitution, so it does not stand as this
+    unit's verdict. No consequence is drawn for the ict_scalp exit line.
+    The sample-size fix is registered as a NEW unit before any run.
+  follow_up: >-
+    PI-20260929-FCJRWVAK-0001. The per-year re-registration is power-limited
+    today: final fold (2026 YTD) holds 60 / 62 / 55 harness trades (SOL / XRP /
+    ETH) vs the 64 floor because the trainer's 15m candles end 2026-06-18
+    (MEASURED, trainer census #14398). Floor not lowered. Reachable after a
+    candle refresh plus a --fold-mode passthrough in m20_exit_head_round.py.
+  follow_up_registered: >-
+    Registered as RQ-20260929-401 (PR #14438): per-year final fold, 7-day embargo,
+    the shipped below_half_r tau 0.10 policy with the head arm charged its
+    round-trip cost + exit fee; MEASURED final-fold (2026 to 09-28) harness
+    trades SOL 100 / XRP 98 / ETH 84, all >= 64. That unit, not this one,
+    carries the sample-size fix; nothing here is re-graded.

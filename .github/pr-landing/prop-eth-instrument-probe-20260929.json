@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; live-credentialed prop terminal probe surface (runs via breakout-login-check on the live VM)",
+  "why": "Adds a READ-ONLY instrument-search probe (DXtradeAdapter.probe_instrument_details) and a new breakout-login-check apply token, instrument-probe. Never opens the order ticket, never clicks BUY/SELL/submit/the chart -- only types into a discovered search/filter field and dumps structure, then resets. Tier-2 by path: dispatched via breakout-login-check, which logs into a live prop account with the operator's credentials (same classification as the repo's other read-only probes on this surface, e.g. prop-controls-dump.json). No sizing, guard, or risk change; no symbol added to executor.enabled_venue_symbols; no config/prop_platforms.yaml write in this PR."
+}

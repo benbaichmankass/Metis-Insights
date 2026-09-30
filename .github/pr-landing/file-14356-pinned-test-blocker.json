@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "adds one pipeline record (docs/claude/work/pipeline/) documenting a diagnosed CI blocker on a different PR; no runtime, order path, or live config touched"
+}

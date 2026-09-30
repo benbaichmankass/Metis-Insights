@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path follow-up to #14241 (PI-20260929-K1XNYYAQ-0002 items 1-5): a deferred top-up breach exit rests the top-up stop and leaves no cooldown; a rejected escalated stop spends the re-arm cap; escalation pages as 'escalated' with no false 'NOTHING is resting' page; breach-deferral counts pruned for closed rows. Held for the manager's independent review.",
+  "why": "Tier 2 because it changes the Alpaca naked sweep's order-path behaviour: when a top-up stop rests, when an escalated stop is charged to the re-arm cap, and what the pages say. These are the five non-blocking follow-ups the manager's APPROVE re-review of #14241 filed as PI-20260929-K1XNYYAQ-0002."
+}

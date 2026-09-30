@@ -83,8 +83,16 @@ EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV = 0, 1, 3, 4, 5
 # config/prop_rulesets/breakout_routing.yaml (2026-06-23). ADAUSD/XRPUSD are
 # CANDIDATE names only — the venue's convention of dropping the perp "T"
 # suffix, unconfirmed (PI-20260927-ODDTM5QY-0002) — this read either
-# confirms or refutes them, it does not assume them.
-DEFAULT_INSTRUMENT_SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD", "ADAUSD", "XRPUSD")
+# confirms or refutes them, it does not assume them. AVAXUSD (PROP-ETH,
+# 2026-09-29) is the SAME kind of candidate, added here so this passive read
+# at least reports whatever the terminal's own traffic happens to carry for
+# it; MEASURED 2026-09-29 (issue #14038) that this passive path reports
+# fields ONLY for symbols the terminal's own traffic already requests
+# (ETHUSD/SOLUSD, the routed strategies) — BTCUSD/ADAUSD/XRPUSD already
+# report nothing here, and AVAXUSD is expected to do the same until it is
+# reached by the active `instrument-probe` step (prop_executor_tick.py
+# --instrument-probe) instead.
+DEFAULT_INSTRUMENT_SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD", "ADAUSD", "XRPUSD", "AVAXUSD")
 
 
 def _strip_raw(items: list) -> list:

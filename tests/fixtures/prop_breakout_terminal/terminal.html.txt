@@ -11,7 +11,7 @@
   <div class="row"><div>BTCUSD</div><div>Long</div><div>0.01</div><div>65,100.0</div><div>65,875.0</div><div>67,000.0 / 64,000.0</div><div>7.75</div><div><button>Close</button></div></div>
 </div>
 <table id="ord"><thead><tr><th>Market</th><th>Side</th><th>Type</th><th>Size</th><th>Price</th><th>TP/SL</th><th>Order ID</th><th></th></tr></thead>
-<tbody><tr><td>ETHUSD</td><td>Sell</td><td>Limit</td><td>0.5</td><td>3,100.0</td><td>2,950.0 / 3,180.0</td><td>A77</td><td><button>Cancel</button></td></tr></tbody></table>
+<tbody><tr data-test-id="ord-88231467"><td>ETHUSD</td><td>Sell</td><td>Limit</td><td>0.5</td><td>3,100.0</td><td>2,950.0 / 3,180.0</td><td>A77</td><td><button>Cancel</button></td></tr></tbody></table>
 <div><span>One-click trading</span><input type="checkbox" id="oc"></div>
 <button id="open-ticket">New Order</button>
 <div id="ticket" style="display:none">
@@ -29,5 +29,14 @@ window.__clicks = [];
 document.getElementById('open-ticket').onclick = () => { document.getElementById('ticket').style.display = 'block'; };
 document.getElementById('x').onclick = () => { document.getElementById('ticket').style.display = 'none'; };
 for (const id of ['b','s','m','l','submit']) document.getElementById(id).addEventListener('click', () => window.__clicks.push(id));
+// The chosen side / order type reads back as aria-pressed (set
+// window.__noPress = true to model a ticket whose selection is unreadable).
+const pairs = {b: 's', s: 'b', m: 'l', l: 'm'};
+for (const id of Object.keys(pairs)) document.getElementById(id).addEventListener('click', () => {
+  if (window.__noPress) return;
+  document.getElementById(id).setAttribute('aria-pressed', 'true');
+  document.getElementById(pairs[id]).setAttribute('aria-pressed', 'false');
+});
+document.querySelector('#ord button').addEventListener('click', () => window.__clicks.push('cancel'));
 </script>
 </body></html>

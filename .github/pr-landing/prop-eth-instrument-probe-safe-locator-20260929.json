@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; live-credentialed prop terminal probe surface (runs via breakout-login-check on the live VM)",
+  "why": "Follow-up to #14134 (merged 823e475) after live run issue #14437 showed the instrument-probe refused on all four candidate symbols with '0 BUY buttons', because it anchored on excluding the order ticket -- which is never open on the terminal's normal landing state. Re-anchors FIND_INSTRUMENT_SEARCH_JS positively on the MEASURED watchlist panel (WATCHLIST_ROWS_JS's own header/row selectors) instead. Still READ-ONLY: never opens the order ticket, never types into it, never clicks BUY/SELL/submit/the chart -- only types into a discovered search field found inside the watchlist panel and dumps structure, then resets. Tier-2 by path, same classification as #14134 and the repo's other read-only probes on this surface. No sizing, guard, or risk change; no symbol added to executor.enabled_venue_symbols; no config/prop_platforms.yaml write in this PR. Manager instructed no live dispatch by this lane -- held for manager review/merge/dispatch."
+}
