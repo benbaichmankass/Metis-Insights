@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "partially_naked on an alpaca account is repaired automatically (a re-arm sized to the uncovered qty, observed once), or the manager kills it with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-PR6YRTQY-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "JC-SA-08 evidence docs/research/evidence/jc-sa-08-alpaca-mirror-exit-divergence-2026-09-29.md; lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ for manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "diag_fetch 'alpaca_open_orders' and compare per-symbol resting stop qty to position qty on each alpaca_* account; any symbol with stop_qty < position qty is live exposure of this class."
+  },
+  "routed_to": "FIX-SA-03",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "Alpaca quantity-coverage gap is detected but never re-armed. MEASURED 2026-09-29 via /api/diag/alpaca_order_history: paper rows 6023 (QQQ 22 sh, alpaca_paper), 6024 (QQQ 56 sh, alpaca_portfolio) and 6131 (SPY 8 sh, alpaca_paper) had their entry-bracket legs lapse at 20:00Z on the entry day (day-TIF, before the 09-27 GTC change) and were never re-armed, because a sibling row's OCO on the same symbol made AlpacaClient.protection_state read stop=True at symbol level; the partially_naked grade in _check_broker_naked_equity_positions is alert-only by design (BL-20260908). New entries are GTC, so the day-lapse trigger is gone, but any other way a sibling's legs disappear (fill of one row's stop, 90-day aged-order cancel) leaves the same gap. PR #14127's same-size/unknown-size logic does NOT change this: it acts inside a re-arm, and none is ever called here. Needs an operator-visible decision: bind a quantity-scoped re-arm to the partially_naked grade (Tier 2 order path).\n\n[2026-09-30 lane ALPACA-REARM] The code is on main (#14177), with the counters on the live sweep line (#14545). There is NOT YET an observed top-up: partially_naked=0 and topped_up=0 on every sweep observed. Close it on the first sweep line with topped_up>=1, confirmed against alpaca_open_orders. MEASURED 2026-09-30 via the diag relay (journalctl?unit=ict-trader-live): the trader is running 83cdae6b9 (#14545 merge, restarted 06:14:28Z). Its sweep lines at 06:15:45Z and 06:17:48Z carry 39 keys with unaccounted=0: checked=9 = stop_resting 8 + active_close_skipped 1 (alpaca_paper/GLD). rearmed=0, no refusals, no tracebacks. The pre-deploy lines (06:07-06:13Z, old pid) still showed checked=9 with only covered=7."
+}
