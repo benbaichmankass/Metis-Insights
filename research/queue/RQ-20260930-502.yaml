@@ -1,6 +1,6 @@
 id: RQ-20260930-502
-title: 'HyroTrader fit: post-only LIMIT entries for the ict_scalp 15m book -- does the edge survive adverse selection and unfilled signals? (lane HYRO-STRATS, blocked on a harness flag)'
-status: blocked
+title: 'HyroTrader fit: post-only LIMIT entries for the ict_scalp 15m book -- does the edge survive adverse selection and unfilled signals? (lane HYRO-STRATS)'
+status: queued
 cadence: once
 kind: experiment
 
@@ -13,6 +13,11 @@ question: >-
   price, expiring unfilled after 3 bars, filled only when price trades THROUGH the limit, with maker fee
   on entry and taker on exit and stop, does the filled-trade book keep a positive full-cost net R, and
   what fraction of signals is lost?
+
+dispatch_precondition: >-
+  Dispatch only after RQ-20260930-501 has landed a MEASURED record (read_state=measured, integer n) and
+  been graded PASS; on a 501 FAIL or INDETERMINATE the 15m book is not a HyroTrader candidate and 502 is
+  not run.
 
 why_this_matters: >-
   This is the only lever in reach that addresses the rule that binds a bot hardest. If adverse
@@ -40,8 +45,8 @@ decision_rule:
   registered_at: '2026-09-30'
   registered_before_run: true
   statistic: >-
-    backtest_ict_scalp.py with the NEW flag (see blocked_on) on ETH/SOL/XRP 15m, --days 1830, live-parity
-    config: (n_filled, fill_rate = filled / signals, pooled full-cost net R of FILLED trades, and net R
+    scripts/research/hyro_fit_verdict.py --mode limit (which runs backtest_ict_scalp.py --entry-mode limit,
+    built and merged separately) on ETH/SOL/XRP 15m, --days 1830, live-parity config: (n_filled, fill_rate = filled / signals, pooled full-cost net R of FILLED trades, and net R
     per SIGNAL = net R / signals), then hyro_fit_verdict.py's gates B and C on the filled-trade ledger
     with flag_frac 0.0.
   rule: >-
@@ -51,32 +56,45 @@ decision_rule:
     is not to be tuned after seeing results: a limit at the signal bar's close; a long fills only if a later
     bar's LOW is strictly below the limit (short: HIGH strictly above), within 3 bars, at the limit price;
     entry fee = maker 2.0 bps/side (Bybit 0.0200%), exit and stop = taker 5.5 bps/side, slippage 0 on the
-    limit fill and the venue default on the taker exit.
+    limit fill and half the venue round-trip figure on the taker exit (one side).
+    FEE BASIS, STATED BEFORE THE RUN (manager, 2026-09-30): the repo default of 7.5 bps round trip is THIS
+    account's taker figure, whereas HyroTrader's published Bybit schedule (maker 2.0 / taker 5.5 per side)
+    makes a market round trip 11 bps. Here HyroTrader's schedule is the one charged: the limit arm pays
+    2.0 + 5.5 = 7.5 bps by construction, and the same legs are also run in MARKET mode at
+    --fee-bps-roundtrip 11 over the same window and reported beside it (n and net R; never gating), so the
+    reader sees what a maker entry buys against what HyroTrader would charge a market fill. RQ-20260930-501
+    is untouched and keeps the harness default.
   what_it_does_not_do: >-
     Does not prove Bybit DEMO fills honour limit orders like this model (it is a conservative
     touch-through-only assumption); does not touch live execution code.
 
 routing:
-  needs_trainer_resident_data: true
+  needs_trainer_resident_data: false
   needs_gpu: false
   peak_memory_gb: 4.0
   est_minutes: 60
-  basis: Same three legs and window as RQ-20260930-501.
-
-blocked_on:
-  - what: >-
-      scripts/backtest_ict_scalp.py has no limit-entry mode (grep of its add_argument list, 2026-09-30:
-      no maker / limit / expire flag; docs/research/small-tf-directions-2026-07-15.md records maker
-      entry as "recognized but deferred"). Needs --entry-mode {market,limit} and --limit-expire-bars,
-      implementing exactly the fill model in the rule, with a test that market mode is byte-identical
-      to today's output.
-    ref: RQ-20260930-501
-    clears_when: >-
-      the flag is merged with the byte-identical-market-mode test, and RQ-20260930-501 has graded PASS.
+  basis: Same three legs and window as RQ-20260930-501. Candles are fetched from Binance-vision on the runner (no resident data needed).
 
 run:
-  workflow: null
-  note: Deliberately null until the flag exists; fill in research-script-run.yml then.
+  workflow: research-script-run.yml
+  timeout_minutes: 240
+  command:
+  - python3
+  - scripts/research/hyro_fit_verdict.py
+  - --mode
+  - limit
+  - --leg
+  - ict_scalp_eth_15m
+  - --leg
+  - ict_scalp_sol_15m
+  - --leg
+  - ict_scalp_xrp_15m
+  - --days
+  - '1830'
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20260930-502
 
 lands:
   store: research/results/

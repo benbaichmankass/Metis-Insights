@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "awaiting_evidence",
+  "hold_text": "Promotes RQ-20260930-502 (maker-limit entries, pre-registered, nothing run) out of blocked/ into the queue and adds hyro_fit_verdict.py --mode limit with 5 tests. Its dependencies #14573 (--entry-mode limit flag) and #14560 (verdict script and the 501 unit) are both on main; this branch is merged with main so the diff is only the promotion. Fee basis stated before the run: HyroTrader's schedule is charged (limit arm 2.0+5.5 = 7.5 bps; a market arm at 11 bps is reported, never gating); 501 is untouched. Held for the manager: a promoted unit must be merged before any run, and 501 should grade first. This branch also carries (a) the hyro_fit_verdict.py read_state fix (merged in from claude/hyro-verdict-contract) with limit-mode tests that run the real collector, and (b) the RQ-20260930-503 wording that it uses native 1h candles (no --resample) and now waits on claude/trend-dayflat-fixes, which could not ride that self-landing harness PR because a queue-unit edit is not vouchable.",
+  "why": "Manager instruction 2026-09-30 06:27Z: prepare the 502 promotion on a branch and state the 11 bps point in 502's registration before its run."
+}
