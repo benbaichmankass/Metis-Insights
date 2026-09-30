@@ -1,0 +1,86 @@
+{
+ "emitted_rows_n": 21,
+ "emitted_rows_sha256": "e67f1dd11137e622595149609c2bfcc79270ec138e04fd77f71ed60603bb0461",
+ "fees": [
+  7.5,
+  3.0,
+  1.0
+ ],
+ "fixture": "data/backtest_candles.csv resampled to 5min",
+ "harness_source": "scripts/backtest_trend.py at 2058a2f1 (before the --flat-at-utc / --no-entry-after-utc levers)",
+ "kwargs": {
+  "atr_period": 14,
+  "atr_stop_mult": 2.0,
+  "cooldown_bars": 2,
+  "donchian": 10,
+  "symbol": "BTCUSDT",
+  "timeframe": "5m",
+  "timeout_bars": 200,
+  "trail_mult": 5.0
+ },
+ "summary": {
+  "avg_win_r": 2.743,
+  "bar_minutes": 5.0,
+  "by_outcome": {
+   "stop": 14,
+   "timeout": 1,
+   "trail_stop": 6
+  },
+  "by_year": {
+   "2022": {
+    "net_r": -9.4923,
+    "trades": 21
+   }
+  },
+  "capital_days": 2.5799,
+  "data_end": "2022-07-27 08:45:00+00:00",
+  "data_start": "2022-07-23 21:25:00+00:00",
+  "fee_bps_roundtrip": 7.5,
+  "funding_bps_per_window": 1.0,
+  "max_drawdown_r": 12.7592,
+  "max_mfe_r": 8.076,
+  "mean_bars_held": 35.381,
+  "mean_cost_r": {
+   "fee_r": 0.14139,
+   "funding_r": 0.0074,
+   "funding_windows": 0.42857,
+   "slippage_r": 0.05656,
+   "total_cost_r": 0.20534
+  },
+  "net_expectancy_r": -0.452,
+  "net_expectancy_r_fee_only": -0.3881,
+  "net_r_per_capital_day": -3.6795,
+  "net_r_per_position_day": -3.6795,
+  "net_total_r": -9.4926,
+  "net_total_r_fee_only": -8.1496,
+  "net_total_r_long": -5.9522,
+  "net_total_r_short": -3.5403,
+  "params": {
+   "atr_stop_mult": 2.0,
+   "donchian": 10,
+   "min_confidence": 0.0,
+   "trail_mult": 5.0
+  },
+  "position_days": 2.5799,
+  "rr_floor_exits": 0,
+  "rr_floor_state": "off",
+  "rr_min_median": null,
+  "rr_min_n": 0,
+  "rr_min_p10": null,
+  "rr_min_p90": null,
+  "run_date": "2026-09-30",
+  "slippage_bps_roundtrip": 3.0,
+  "strategy": "trend_donchian",
+  "symbol": "BTCUSDT",
+  "timeframe": "5m",
+  "total_r": -5.1804,
+  "total_trades": 21,
+  "tp_r_effective_max": null,
+  "tp_r_effective_median": null,
+  "tp_r_effective_min": null,
+  "tp_r_effective_n": 0,
+  "trades_long": 8,
+  "trades_short": 13,
+  "win_rate_pct": 19.05
+ }
+}

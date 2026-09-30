@@ -27,6 +27,8 @@ def test_tick_mode_resolves_and_is_read_only_whatever_the_env():
                          dry_run=False, watched_click=False)
     assert resolve_mode(ns, {}) == "instrument_search_dump"
     assert resolve_mode(ns, {"PROP_EXECUTOR_MODE": "live"}) == "instrument_search_dump"
+    # Documented exception (resolve_mode docstring): probes run under off too.
+    assert resolve_mode(ns, {"PROP_EXECUTOR_MODE": "off"}) == "instrument_search_dump"
 
 
 def test_action_and_workflow_accept_the_mode():
@@ -59,7 +61,7 @@ def test_js_never_reads_a_value_or_acts():
 
 FIXTURE = """<html><body>
 <div class="app">
-  <div class="wl-toolbar watchlist-toolbar-container-outer">
+  <div class="wl-toolbar watchlist-toolbar-container-outer" title="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9">
     <input class="padding address" placeholder="Search instruments" data-test-id="wl_search" value="ALREADYTYPED">
     <button class="icon-btn" title="Add"><svg><use href="#icon-plus"></use></svg></button>
     <div class="padding address">not a control</div>
@@ -166,6 +168,20 @@ def test_dump_survives_the_public_log_redactor_intact(dump):
     assert redact_text(blob) == blob
     search = next(r for r in got["frames"][0]["rows"] if r["data_test_id"] == "wl_search")
     assert any(".watchlist-toolba\u2026" in c or ".watchlist-toolba…" in c for c in search["chain"])
+    # a token-looking run is dropped whole, never published as a prefix
+    assert "eyJhbGciOiJIUzI1" not in blob
+
+
+def test_mask_drops_token_like_runs_and_keeps_readable_class_prefixes(browser):
+    p = browser.new_page()
+    p.set_content("<html><body><div class='toolbar'>"
+                  "<input placeholder='Search' class='watchlist-search-input-container-x' "
+                  "title='a1b2c3d4e5f6a7b8c9d0e1f2a3b4' aria-label='AbCdEfGhIjKlMnOpQrStUvWxYz'>"
+                  "</div></body></html>")
+    row = DXtradeAdapter(timeout_ms=3_000).instrument_search_dump(p)["frames"][0]["rows"][0]
+    assert row["cls"] == "watchlist-search\u2026"
+    assert row["title"] == "<tok>" and row["aria_label"] == "<tok>"
+    p.close()
 
 
 def test_dump_still_runs_document_wide_when_the_panel_does_not_resolve(browser):
@@ -174,4 +190,135 @@ def test_dump_still_runs_document_wide_when_the_panel_does_not_resolve(browser):
     fr = DXtradeAdapter(timeout_ms=3_000).instrument_search_dump(p)["frames"][0]
     assert fr["panel"] is None and "0 tables" in fr["panel_why"]
     assert fr["rows"][0]["placeholder"] == "Find symbol" and fr["rows"][0]["wl_level"] is None
+    p.close()
+
+
+# ── STEP 3: the locator, re-anchored on the MEASURED widget (issue #14551) ──
+#
+# Shape copied from the live dump: the watchlist widget
+# (``widget__container... widgetNew__container``) holds a header toolbar with
+# ``form > ... > input[placeholder="Symbol..."][data-test-id^=watchlist_public]``
+# inside a ``multiasset-suggest`` control, and, 6 levels down, the grid panel
+# ``div.grid.grid-watchlist`` with the Symbol/Bid/Ask header table.
+
+WIDGET = """<html><body><main class="main"><section class="app">
+<div class="widget__container___Ab1 widgetNew__container">
+  <div class="widget-header__container"><div class="toolbar__item">
+    <div class="multiasset-suggest"><div class="control control-textInput"><div class="control--wrap"><div>
+      <form onsubmit="window.__submit=1;return false"><input type="text" placeholder="Symbol..."
+        data-test-id="watchlist_public_search_input" class="sc-ixGGxD"
+        oninput="window.__typed=(window.__typed||'')+this.value"></form>
+    </div></div></div></div>
+  </div></div>
+  <div class="droppable-body"><div class="widget__body"><div class="widget__body"><div><div>
+    <div class="grid grid-watchlist">
+      <div class="grid--head"><table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead></table></div>
+      <div class="grid--body"><table><tbody><tr class="instrument" data-row-id="1">
+        <td>ETHUSD</td><td>2600.1</td><td>2600.2</td></tr></tbody></table></div>
+    </div>
+  </div></div></div></div></div>
+</div>
+%EXTRA%
+</section></main>
+<script>document.addEventListener('click', () => { window.__clicks = (window.__clicks || 0) + 1; }, true);</script>
+</body></html>"""
+
+TICKET = """<div class="ticket"><button data-test-id="BUY">Buy</button><button data-test-id="SELL">Sell</button>
+<input data-test-id="symbol_input" placeholder="Symbol..."></div>"""
+
+
+def _page(browser, extra="", html=None):
+    p = browser.new_page()
+    p.set_content(html or WIDGET.replace("%EXTRA%", extra))
+    return p
+
+
+def test_locator_finds_the_measured_widget_header_input(browser):
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
+    p = _page(browser, TICKET)       # an order ticket elsewhere on the page is excluded
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
+    assert got == {"found": True, "via": "placeholder+data-test-id"}
+    assert p.evaluate("document.querySelector('[data-metis-search-hit]').dataset.testId") \
+        == "watchlist_public_search_input"
+    p.close()
+
+
+def test_probe_types_resets_and_never_clicks_or_submits(browser):
+    p = _page(browser)
+    got = DXtradeAdapter(timeout_ms=3_000).probe_instrument_details(p, "BTCUSD")
+    assert got["searched"] is True and got["readback_matches"] is True and got["reset"] is True
+    assert got["via"] == "placeholder+data-test-id" and got["blurred"] is True
+    assert p.evaluate("window.__clicks") is None and p.evaluate("window.__submit") is None
+    assert p.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
+    p.close()
+
+
+def test_locator_refuses_without_a_widget_container(browser):
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
+    html = WIDGET.replace("%EXTRA%", "").replace("widget__container___Ab1 widgetNew__container", "plain")
+    p = _page(browser, html=html)
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
+    assert got["found"] is False and "widget__container" in got["why"]
+    p.close()
+
+
+def test_locator_refuses_when_the_widget_holds_an_order_panel(browser):
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
+    html = WIDGET.replace("%EXTRA%", "").replace('<div class="droppable-body">',
+                                                 TICKET + '<div class="droppable-body">')
+    p = _page(browser, html=html)
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
+    assert got["found"] is False and "order" in got["why"]
+    assert p.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
+    p.close()
+
+
+def test_locator_refuses_two_matching_inputs(browser):
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
+    html = WIDGET.replace("%EXTRA%", "").replace(
+        '<div class="droppable-body">', '<input placeholder="Symbol..." data-test-id="watchlist_public_2"><div class="droppable-body">')
+    p = _page(browser, html=html)
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
+    assert got["found"] is False and "need exactly 1" in got["why"]
+    p.close()
+
+
+# ── manager review of #14563: both attributes on one input, no fallback ──
+
+
+@pytest.mark.parametrize("inp", [
+    '<input type="text" placeholder="Symbol...">',                          # placeholder only
+    '<input type="text" data-test-id="watchlist_public_x">',                # test-id only
+    '<input type="search">',                                                # the removed type=search fallback
+    '<input placeholder="Symbol..." data-test-id="other_x">',               # right placeholder, wrong test-id
+])
+def test_locator_refuses_anything_short_of_both_measured_attributes(browser, inp):
+    from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
+    html = WIDGET.replace("%EXTRA%", "").replace(
+        '<form onsubmit="window.__submit=1;return false"><input type="text" placeholder="Symbol..."\n'
+        '        data-test-id="watchlist_public_search_input" class="sc-ixGGxD"\n'
+        '        oninput="window.__typed=(window.__typed||\'\')+this.value"></form>', "<form>" + inp + "</form>")
+    assert inp in html                                   # the fixture really swapped the input
+    p = _page(browser, html=html)
+    got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
+    assert got["found"] is False and got["n_candidate_inputs"] == 1
+    assert "placeholder 'symbol...' AND a watchlist_public* data-test-id" in got["why"]
+    assert p.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
+    p.close()
+
+
+def test_watchlist_symbols_read_and_diff(browser):
+    from src.prop.platform.dxtrade import watchlist_diff
+    p = _page(browser)
+    a = DXtradeAdapter(timeout_ms=3_000)
+    before = a.watchlist_symbols(p)
+    assert before == {"readable": True, "symbols": ["ETHUSD"]}
+    a.probe_instrument_details(p, "BTCUSD")
+    after = a.watchlist_symbols(p)
+    assert watchlist_diff(before, after) == {"changed": False, "n_before": 1, "n_after": 1,
+                                             "added": [], "removed": []}
+    # a symbol that DID persist would be reported, not hidden
+    assert watchlist_diff(before, {"readable": True, "symbols": ["BTCUSD", "ETHUSD"]})["added"] == ["BTCUSD"]
+    # "could not look" is never folded into "no change"
+    assert watchlist_diff(before, {"readable": False, "why": "0 Symbol/Bid/Ask tables"})["changed"] is None
     p.close()

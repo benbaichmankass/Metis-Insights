@@ -151,6 +151,7 @@ on:
           - repair-prop-fill-direction
           - breakout-login-check
           - breakout-terminal-probe
+          - egress-landing-probe
           - reset-daily-risk-state
           - repair-malformed-notes
           - repair-netted-rows
@@ -683,7 +684,7 @@ jobs:
             status-check|verify-account-mode|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|breakout-terminal-probe|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
+            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|breakout-terminal-probe|egress-landing-probe|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -1088,8 +1089,11 @@ jobs:
           # it logs in to a live prop account with the operator's credentials).
           # `account` optional (default breakout_1); `apply` is an optional
           # comma-separated subset of install-deps,emit-status,reset-feed,
-          # probe-ticket,executor-dry-run,watched-click,round-trip-dry,
+          # probe-ticket,instrument-probe (needs `symbols:`),
+          # instrument-search-dump (read-only search-control measurement),
+          # executor-dry-run,watched-click,round-trip-dry,
           # round-trip-live,sol,executor-enable-timer,executor-disable-timer,
+          # executor-clear-halt,
           # dump-tables (read-only table dump of the positions / orders read path)
           # close-position / close-position-live (locate / CLOSE the one existing position; live needs PROP_EXECUTOR_MODE=live)
           # (the step-3 executor; the wrapper allows at most one mode per
@@ -1522,6 +1526,7 @@ jobs:
             repair-prop-fill-direction)         SCRIPT="repair_prop_fill_direction_action.sh" ;;
             breakout-login-check)               SCRIPT="breakout_login_check_action.sh" ;;
             breakout-terminal-probe)            SCRIPT="breakout_terminal_probe_action.sh" ;;
+            egress-landing-probe)               SCRIPT="egress_landing_probe_action.sh" ;;
             *)
               echo "::error::Allowlist regression: '${ACTION}' was not mapped to a wrapper script."
               exit 2

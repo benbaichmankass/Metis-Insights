@@ -61,7 +61,12 @@ evidence record that is simply absent (``R-RECORD-MISSING``); a closed-trade
 count below the mandate's own floor (``R-N``); and every R3 cost-fidelity
 verdict except ``consistent`` (pass) and ``divergent`` (REFUSE) --
 ``inconclusive`` / ``insufficient_n`` / ``no_record`` / a stale verdict / no
-committed R3 record at all -- are all ``NEEDS_DATA``. Everything else that
+committed R3 record at all -- are all ``NEEDS_DATA``. ``R-AFFORD`` (S1->S2,
+added 2026-09-30, PI-20260928-E8Y3BGBS-0003) splits the same way: an equity
+reading that is absent or older than ``ACCOUNT_SNAPSHOT_MAX_AGE_DAYS`` is
+``NEEDS_DATA``; a measured account on which NONE of the leg's permitted setups
+sizes above zero through ``RiskManager.position_size`` is ``REFUSE``, and it is
+decided BEFORE cost fidelity so an unaffordable leg never files a data task. Everything else that
 was a REFUSE before this change (mandate not granted or blocked, wrong
 account or account-class drift, an unknown transition, a config-fingerprint
 mismatch, B1's own four clauses, a computed expectancy or fold count that is
@@ -85,6 +90,13 @@ WHAT IT READS -- AND NOTHING ELSE
                                         threshold is RE-DERIVED from the leg's
                                         Stage-0 record above -- ``stage0_block_p10``)
   * ``comms/mandate_firings/*.json``    what earlier firings added (the cap)
+  * ``comms/mandate_evidence/account_snapshot/<account>.json``  the Stage-2
+                                        account's MEASURED equity + buying power
+                                        (S1->S2 affordability, ``R-AFFORD``),
+                                        written from the diag read by
+                                        ``scripts/ops/snapshot_account_for_mandate.py``
+  * the record's committed ``source_run``  its setups (entry/sl/direction),
+                                        re-sized through the live sizer
 
 It does not read the PR body, a commit message, a checklist note, the VM or the
 database. "A claim in a PR body is not a record" is the whole safety property
@@ -283,6 +295,22 @@ TRANSITION_MANDATE = {
 }
 #: The one cap basis this resolver knows how to measure (see docstring).
 CAP_BASIS = "uniform_account_risk_pct_share_of_roster"
+
+#: R-AFFORD (S1->S2): can the Stage-2 account size the leg AT ALL?
+#: PI-20260928-E8Y3BGBS-0003 -- on 2026-09-28 the armed MD-PROMOTE-S1-S2 FIREd
+#: gld_pullback_1h onto alpaca_live, a ~$194 whole-share CASH book, while one
+#: GLD share was ~$393: every signal would size to 0, so the roster edit could
+#: land and never trade. The measurement is the LIVE SIZER itself
+#: (RiskManager.position_size, the function the SPLG/IAUM affordability proxies
+#: were screened through), run over the leg's own committed setups at the
+#: account's measured equity -- not a second hand-written copy of "can it buy
+#: one share", which misses the round-up-to-one-share path (accounts.yaml
+#: alpaca_live risk comment: "the sizer is authoritative").
+ACCOUNT_SNAPSHOT_DIR_REL = "comms/mandate_evidence/account_snapshot"
+#: An equity reading older than this is not a measurement of the account today.
+ACCOUNT_SNAPSHOT_MAX_AGE_DAYS = 7
+#: Clock skew tolerated on a captured_at ahead of now (1 hour).
+ACCOUNT_SNAPSHOT_FUTURE_SKEW_DAYS = 1.0 / 24.0
 
 #: MD-DEMOTE-S2-S1's firing rule, T3 AND net<0 -- OPERATOR DECISION 2026-09-29
 #: ~14:17Z, popup in manager session session_01HYq6XtfesZ57VyaQrK6CL1, verbatim
@@ -514,6 +542,164 @@ def _cost_fidelity_data_task(leg: str, r3: Dict[str, Any], tol: Any, provisional
         "check_every_days": 7,
         "next_action": "check_observation",
     }
+
+
+def _afford_data_task(account: str, why: str) -> Dict[str, Any]:
+    rel = f"{ACCOUNT_SNAPSHOT_DIR_REL}/{account}.json"
+    return {
+        "what": (f"{account}'s equity and buying power are not measured for the S1->S2 "
+                 f"affordability clause (R-AFFORD): {why}. Read them with "
+                 f"`scripts/ops/diag_fetch.sh 'broker_account_status?account_id={account}' | "
+                 f"python3 scripts/ops/snapshot_account_for_mandate.py` and commit {rel}."),
+        "clears_when": (f"{rel} exists, is committed, and its captured_at is within "
+                        f"{ACCOUNT_SNAPSHOT_MAX_AGE_DAYS} days of the resolver run"),
+        "check_every_days": 7,
+        "next_action": "dispatch_lane",
+    }
+
+
+def _parse_ts(v: Any):
+    from datetime import datetime, timezone
+    if not isinstance(v, str) or not v:
+        return None
+    try:
+        t = datetime.fromisoformat(v.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def _account_snapshot(root: Path, account: str) -> Dict[str, Any]:
+    """The committed equity reading for `account`, or `_NeedsData` naming it."""
+    from datetime import datetime, timezone
+    rel = f"{ACCOUNT_SNAPSHOT_DIR_REL}/{account}.json"
+    snap = _json(root / rel)
+    if snap is None:
+        raise _NeedsData("R-AFFORD", f"no readable committed equity snapshot at {rel}",
+                         _afford_data_task(account, f"{rel} is absent or unreadable"))
+    if snap.get("account_id") != account:
+        raise _NeedsData("R-AFFORD", f"{rel} is for account_id={snap.get('account_id')!r}",
+                         _afford_data_task(account, f"{rel} names another account"))
+    eq = snap.get("equity_usd")
+    if not _finite(eq) or eq < 0:
+        raise _NeedsData("R-AFFORD", f"{rel} equity_usd={eq!r} is not a measurement",
+                         _afford_data_task(account, "equity_usd missing"))
+    ts = _parse_ts(snap.get("captured_at"))
+    if ts is None:
+        raise _NeedsData("R-AFFORD", f"{rel} carries no parseable captured_at",
+                         _afford_data_task(account, "captured_at missing"))
+    age_d = (datetime.now(timezone.utc) - ts).total_seconds() / 86400.0
+    # A captured_at in the FUTURE gives a negative age and would never go
+    # stale. Allow 1h of clock skew; anything further ahead is not a reading.
+    if age_d < -ACCOUNT_SNAPSHOT_FUTURE_SKEW_DAYS:
+        raise _NeedsData("R-AFFORD", f"{rel} captured_at={snap['captured_at']} is in the future "
+                                     f"({-age_d * 24:.1f}h ahead)",
+                         _afford_data_task(account, "the committed reading is future-dated"))
+    if age_d > ACCOUNT_SNAPSHOT_MAX_AGE_DAYS:
+        raise _NeedsData("R-AFFORD", f"{rel} captured_at={snap['captured_at']} is {age_d:.1f} "
+                                     f"days old (> {ACCOUNT_SNAPSHOT_MAX_AGE_DAYS})",
+                         _afford_data_task(account, f"the committed reading is {age_d:.1f} days old"))
+    return {**snap, "_rel": rel, "_age_days": round(age_d, 2)}
+
+
+def _affordability(leg: str, account: str, exchange: str, record: Dict[str, Any],
+                   acfg: Dict[str, Any], root: Path, ctx: Dict[str, Any]) -> None:
+    """R-AFFORD: would `account`'s own sizer size this leg's setups at all?
+
+    Population: every setup in the record's committed `source_run` whose
+    direction `account`'s `side_filter` permits (a suppressed direction is a
+    trade the account never takes, so it is not evidence the leg can trade
+    there). Each setup is RE-PRICED to the latest committed entry in that same
+    run, keeping its stop distance as a fraction of price -- a 2025 GLD setup at
+    $307 says nothing about buying GLD at $393. Each is then sized by
+    `RiskManager.position_size` with `account`'s declared `risk:` block, its
+    measured equity and buying power, and the exchange's whole-unit rule.
+
+    REFUSE when that population is empty or NONE of it sizes above zero: the
+    edit would put a leg on a real-money roster that cannot place an order.
+    NEEDS_DATA when the equity reading is absent, stale, future-dated or not
+    finite. A partial fraction passes and is reported, never hidden.
+
+    ⚠️ NECESSARY, NOT SUFFICIENT. A pass does NOT guarantee the leg sizes live:
+    the RiskManager here is fresh (daily_pnl=0, no drawdown state), ignores
+    open exposure, pledged margin and the T+1 cash-settlement basis, defaults
+    a missing confidence to 1.0, and applies only the ACCOUNT side_filter, not
+    a strategy-level long_only/side_filter. Every one of those can only make
+    the live sizer refuse MORE, so a REFUSE here is decisive and a pass is not.
+    """
+    snap = _account_snapshot(root, account)
+    cfg = acfg.get(account) or {}
+    sys.path.insert(0, str(REPO))
+    from src.core.coordinator import OrderPackage
+    from src.runtime.strategy_signal_builders import _side_filter_suppresses
+    from src.units.accounts.risk import RiskManager, requires_whole_unit_qty
+
+    side_filter = str(cfg.get("side_filter") or "both").strip().lower()
+    rows: List[Dict[str, Any]] = []
+    src_path = root / str(record.get("source_run") or "")
+    for line in src_path.read_text(encoding="utf-8").splitlines() if src_path.is_file() else []:
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(r, dict) and _finite(r.get("entry")) and _finite(r.get("sl")) \
+                and r["entry"] > 0 and r.get("direction") in ("long", "short"):
+            rows.append(r)
+    ev: Dict[str, Any] = {"snapshot": snap["_rel"], "captured_at": snap.get("captured_at"),
+                          "snapshot_age_days": snap["_age_days"],
+                          "equity_usd": snap.get("equity_usd"),
+                          "buying_power_usd": snap.get("buying_power_usd"),
+                          "side_filter": side_filter, "setups_in_run": len(rows)}
+    ctx["evidence"]["affordability"] = ev
+    if not rows:
+        raise _Refuse("R-AFFORD", f"source_run {record.get('source_run')!r} carries no setup with "
+                                  "entry/sl/direction -- nothing to size")
+    latest = max(rows, key=lambda r: str(r.get("entry_time") or ""))
+    ref = float(latest["entry"])
+    ev.update({"ref_price": round(ref, 4), "ref_price_at": latest.get("entry_time"),
+               "ref_price_source": record.get("source_run")})
+    permitted = [r for r in rows if not _side_filter_suppresses(r["direction"], side_filter)]
+    ev["setups_permitted"] = len(permitted)
+    if not permitted:
+        raise _Refuse("R-AFFORD", f"{account} is side_filter:{side_filter} and none of {leg}'s "
+                                  f"{len(rows)} setups is in a permitted direction")
+    rm = RiskManager(cfg.get("risk") or {}, dry_run=True, account_id="")
+    equity = float(snap["equity_usd"])
+    bp = snap.get("buying_power_usd")
+    if bp is not None and not _finite(bp):
+        raise _NeedsData("R-AFFORD", f"{snap['_rel']} buying_power_usd={bp!r} is not a finite "
+                                     "measurement", _afford_data_task(account, "buying_power_usd not finite"))
+    bp = float(bp) if bp is not None else None
+    whole = requires_whole_unit_qty(exchange)
+    sized = []
+    for r in permitted:
+        scale = ref / float(r["entry"])
+        sl = float(r["sl"]) * scale
+        dist = abs(ref - sl)
+        tp = ref + 2 * dist if r["direction"] == "long" else ref - 2 * dist
+        conf = r.get("confidence")
+        pkg = OrderPackage(strategy=leg, symbol=str(r.get("symbol") or ""),
+                           direction=r["direction"], entry=ref, sl=sl, tp=tp,
+                           confidence=float(conf) if _finite(conf) else 1.0, meta={})
+        qty = rm.position_size(pkg, equity, available_usd=bp, total_account_usd=equity,
+                               whole_units=whole,
+                               market_type=str(cfg.get("market_type") or "spot"))
+        sized.append(float(qty or 0.0))
+    ok = sum(1 for q in sized if q > 0)
+    ev.update({"setups_sized": ok, "max_qty": max(sized), "whole_units": whole,
+               "one_unit_notional_usd": round(ref, 4)})
+    if ok == 0:
+        raise _Refuse("R-AFFORD", f"0 of {len(permitted)} permitted setups size above zero on "
+                                  f"{account} (equity ${equity:.2f}, buying power "
+                                  f"{'$%.2f' % bp if bp is not None else 'unread'}, "
+                                  f"{'whole-unit' if whole else 'fractional'} venue) at "
+                                  f"{leg}'s latest committed price {ref:.2f} "
+                                  f"({latest.get('entry_time')}) -- the edit would land a leg "
+                                  "that cannot place an order")
+    if ok < len(permitted):
+        ctx["caveats"].append(
+            f"AFFORDABILITY PARTIAL: {ok} of {len(permitted)} permitted setups size on {account}; "
+            "the rest refuse at the sizer")
 
 
 def _percentile(sorted_vals: List[float], q: float) -> float:
@@ -826,6 +1012,13 @@ def _add_risk(leg: str, frm: str, to: str, account: str, exchange: str,
     if not 2 * pos > folds:
         raise _Refuse("R-FOLDS", f"positive in {pos} of {folds} folds -- not a majority")
 
+    # ── affordability (S1 -> S2 only) ───────────────────────────────────────
+    # Before cost fidelity on purpose: a leg the real-money account cannot
+    # size is a DECISIVE refusal, and filing a "collect more fills" data task
+    # for it would be work towards a promotion that can never trade.
+    if (frm, to) == ("S1", "S2"):
+        _affordability(leg, account, exchange, record, acfg, root, ctx)
+
     # ── Stage-1 cost fidelity (S1 -> S2 only) ───────────────────────────────
     if (frm, to) == ("S1", "S2"):
         _cost_fidelity(leg, venue, record, m, root, ctx)
@@ -949,6 +1142,13 @@ def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
 
 def _num(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _finite(v: Any) -> bool:
+    """`_num` AND not NaN/Inf. R-AFFORD's inputs use this: `json` accepts
+    `NaN` / `Infinity` literals, and an infinite equity would size anything."""
+    import math
+    return _num(v) and math.isfinite(v)
 
 
 def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:

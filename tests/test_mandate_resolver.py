@@ -106,6 +106,30 @@ def _r3(verdicts=None, *, modelled=5.0, as_of="2026-09-25T13:23:21+00:00"):
 
 R3_DATED = f"{mr.R3_DIR_REL}/2026-09-25.json"
 
+#: Committed setups per leg, in the shape build_strategy_evidence.py's
+#: source_run carries. Both directions, so the side_filter population is real.
+SETUPS = {
+    LEG: [{"symbol": "ADAUSDT", "entry_time": f"2026-09-{d:02d} 00:00:00+00:00",
+           "direction": "long" if d % 2 else "short", "entry": 0.70,
+           "sl": 0.68 if d % 2 else 0.72, "confidence": 1.0} for d in range(1, 11)],
+    EQ_LEG: [{"symbol": "SPY", "entry_time": f"2026-09-{d:02d} 00:00:00+00:00",
+              "direction": "long" if d % 2 else "short", "entry": 500.0,
+              "sl": 490.0 if d % 2 else 510.0, "confidence": 1.0} for d in range(1, 11)],
+}
+
+
+def _snapshot(account, equity, *, age_days=0.0, buying_power=None):
+    from datetime import datetime, timedelta, timezone
+    ts = datetime.now(timezone.utc) - timedelta(days=age_days)
+    return {"account_id": account, "captured_at": ts.isoformat(), "equity_usd": equity,
+            "buying_power_usd": equity if buying_power is None else buying_power,
+            "source": "test"}
+
+
+#: Default: both Stage-2 accounts richly funded, so R-AFFORD passes and every
+#: pre-existing test keeps meaning what it meant. Affordability tests override.
+SNAPSHOTS = {"bybit_2": 100_000.0, "alpaca_live": 100_000.0}
+
 
 def _w(root: Path, rel: str, data, as_yaml=False):
     p = root / rel
@@ -115,7 +139,8 @@ def _w(root: Path, rel: str, data, as_yaml=False):
 
 @pytest.fixture
 def repo(tmp_path):
-    def build(mandates=None, accounts=None, records=None, r3=..., firings=(), mirror=None):
+    def build(mandates=None, accounts=None, records=None, r3=..., firings=(), mirror=None,
+              snapshots=None, setups=None):
         if r3 is ...:
             r3 = _r3()
         _w(tmp_path, mr.MANDATES_REL, mandates or MANDATES, as_yaml=True)
@@ -127,7 +152,12 @@ def repo(tmp_path):
             _w(tmp_path, f"{mr.EVIDENCE_DIR_REL}/{leg}.json", rec)
             if rec.get("source_run"):
                 (tmp_path / rec["source_run"]).parent.mkdir(parents=True, exist_ok=True)
-                (tmp_path / rec["source_run"]).write_text("{}\n")
+                rows = (setups or SETUPS).get(leg, [])
+                (tmp_path / rec["source_run"]).write_text(
+                    "".join(json.dumps(r) + "\n" for r in rows) or "{}\n")
+        for acct, snap in (SNAPSHOTS if snapshots is None else snapshots).items():
+            _w(tmp_path, f"{mr.ACCOUNT_SNAPSHOT_DIR_REL}/{acct}.json",
+               snap if isinstance(snap, dict) else _snapshot(acct, snap))
         if r3 is not None:
             _w(tmp_path, R3_DATED, r3)
         for i, f in enumerate(firings):
@@ -782,3 +812,149 @@ def test_file_needs_data_appends_a_readable_item(tmp_path, repo):
     log = pipeline.read_log(store)
     assert filed["id"] in log.items
     assert log.items[filed["id"]]["what"] == filed["what"]
+
+
+# ── R-AFFORD: can the Stage-2 account size the leg at all? ──────────────────
+# PI-20260928-E8Y3BGBS-0003. On 2026-09-28 the armed MD-PROMOTE-S1-S2 FIREd
+# gld_pullback_1h onto alpaca_live, a ~$194 whole-share cash book, with one GLD
+# share at ~$393. The clause re-sizes the leg's committed setups through the
+# live sizer (RiskManager.position_size) at the account's measured equity.
+
+GLD_LIKE = {EQ_LEG: [{"symbol": "GLD", "entry_time": f"2026-09-{d:02d} 17:00:00+00:00",
+                      "direction": "long" if d % 2 else "short", "entry": 393.01,
+                      "sl": 390.23 if d % 2 else 395.79, "confidence": 1.0}
+                     for d in range(1, 11)]}
+EQ_R3 = {EQ_LEG: {"verdict": "consistent", "from_account": "alpaca_live", "basis": "market"}}
+
+
+def test_afford_refuses_a_leg_whose_one_share_exceeds_the_account(repo):
+    """The 2026-09-28 fire, reproduced: FIRE on a funded book (control), REFUSE
+    at the $193.56 measured on alpaca_live 2026-09-30T05:36Z. One field differs."""
+    ok = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3)), leg=EQ_LEG, account="alpaca_live")
+    assert ok["verdict"] == "FIRE", ok
+    assert ok["evidence"]["affordability"]["setups_sized"] == 10
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": 193.56}),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+    assert "0 of 10" in res["detail"] and "whole-unit" in res["detail"]
+    assert res["evidence"]["affordability"]["ref_price"] == 393.01
+
+
+def test_afford_is_decided_before_cost_fidelity(repo):
+    """An unaffordable leg must not come back NEEDS_DATA "collect more fills"."""
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3({EQ_LEG: "insufficient_n"}),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": 193.56}),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+
+
+def test_afford_counts_only_directions_the_account_permits(repo):
+    """side_filter: long on alpaca_live -- an all-short leg never trades there."""
+    accts = copy.deepcopy(ACCOUNTS)
+    accts["accounts"]["alpaca_live"]["side_filter"] = "long"
+    shorts = {EQ_LEG: [dict(r, direction="short", sl=510.0) for r in SETUPS[EQ_LEG]]}
+    res = _s1s2(repo(accounts=accts, setups=shorts, r3=_r3(EQ_R3)),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+    assert "side_filter:long" in res["detail"]
+    mixed = _s1s2(repo(accounts=accts, r3=_r3(EQ_R3)), leg=EQ_LEG, account="alpaca_live")
+    assert mixed["verdict"] == "FIRE", mixed
+    assert mixed["evidence"]["affordability"]["setups_permitted"] == 5
+
+
+def test_afford_reprices_old_setups_to_the_latest_committed_price(repo):
+    """A cheap 2025 setup is not evidence the leg is affordable today."""
+    old_cheap = [dict(r, entry=150.0, sl=148.0 if r["direction"] == "long" else 152.0,
+                      entry_time="2025-01-01 00:00:00+00:00") for r in GLD_LIKE[EQ_LEG][:-1]]
+    rows = {EQ_LEG: old_cheap + GLD_LIKE[EQ_LEG][-1:]}
+    res = _s1s2(repo(setups=rows, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": 193.56}),
+                leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-AFFORD")
+
+
+@pytest.mark.parametrize("snap", [
+    None,                                              # never measured
+    {"account_id": "alpaca_live", "captured_at": "2026-01-01T00:00:00+00:00",
+     "equity_usd": 1e6},                               # stale
+    {"account_id": "alpaca_live", "captured_at": None, "equity_usd": 1e6},
+    {"account_id": "bybit_2", "captured_at": "2099-01-01T00:00:00+00:00",
+     "equity_usd": 1e6},                               # another account's reading
+])
+def test_afford_needs_data_when_equity_is_not_measured(repo, snap):
+    snaps = {"bybit_2": 100_000.0}
+    if snap is not None:
+        snaps["alpaca_live"] = snap
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3), snapshots=snaps),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")
+    assert "broker_account_status?account_id=alpaca_live" in res["data_task"]["what"]
+
+
+def test_afford_on_the_real_committed_gld_record(tmp_path):
+    """The real 2026-09-28 gld_pullback_1h record, source_run, mandates and
+    accounts from THIS tree, with alpaca_live at its measured $193.56 (fresh
+    timestamp, so the test does not rot as the committed snapshot ages)."""
+    import shutil
+    leg = "gld_pullback_1h"
+    rec = json.loads((REPO / mr.EVIDENCE_DIR_REL / f"{leg}.json").read_text())
+    for rel in (mr.MANDATES_REL, mr.ACCOUNTS_REL, mr.STRATEGIES_REL,
+                f"{mr.EVIDENCE_DIR_REL}/{leg}.json", rec["source_run"]):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(REPO / rel, tmp_path / rel)
+    _w(tmp_path, f"{mr.ACCOUNT_SNAPSHOT_DIR_REL}/alpaca_live.json",
+       _snapshot("alpaca_live", 193.56))
+    res = mr.resolve(leg, "S1", "S2", "alpaca_live", root=tmp_path)
+    _refused(res, "R-AFFORD")
+    aff = res["evidence"]["affordability"]
+    assert aff["setups_sized"] == 0 and aff["setups_permitted"] > 0
+    assert aff["ref_price"] > 193.56
+
+
+def test_snapshot_writer_round_trips_the_diag_shape(tmp_path):
+    import snapshot_account_for_mandate as snapw
+    diag = {"captured_at": "2026-09-30T05:36:08.978715+00:00",
+            "requested_account_id": "alpaca_live",
+            "accounts": [{"account_id": "alpaca_live", "exchange": "alpaca", "error": None,
+                          "status_flags": {"shorting_enabled": False, "capacity": {
+                              "multiplier": "1", "buying_power": "193.56",
+                              "cash": "193.56", "equity": "193.56"}}}]}
+    snap = snapw.build(diag, "alpaca_live")
+    assert snap["equity_usd"] == 193.56 and snap["buying_power_usd"] == 193.56
+    assert snap["captured_at"] == diag["captured_at"]
+    _w(tmp_path, f"{mr.ACCOUNT_SNAPSHOT_DIR_REL}/alpaca_live.json", snap)
+    assert mr._json(tmp_path / mr.ACCOUNT_SNAPSHOT_DIR_REL / "alpaca_live.json") == snap
+    bad = copy.deepcopy(diag)
+    bad["accounts"][0]["status_flags"]["capacity"] = {}
+    bad["accounts"][0]["available_margin"] = {"could_not_look": True}
+    with pytest.raises(SystemExit):
+        snapw.build(bad, "alpaca_live")   # never writes a number it did not read
+
+
+def test_afford_rejects_a_future_dated_snapshot(repo):
+    """A captured_at ahead of now would have a negative age and never go stale."""
+    snap = _snapshot("alpaca_live", 1e6, age_days=-2)
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")
+    assert "future" in res["detail"]
+    # Within the 1h skew allowance it is still a reading (positive control).
+    ok = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                    snapshots={"bybit_2": 100_000.0,
+                               "alpaca_live": _snapshot("alpaca_live", 1e6, age_days=-0.5 / 24)}),
+               leg=EQ_LEG, account="alpaca_live")
+    assert ok["verdict"] == "FIRE", ok
+
+
+@pytest.mark.parametrize("field", ["equity_usd", "buying_power_usd"])
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_afford_rejects_non_finite_equity(repo, field, bad):
+    """json accepts NaN/Infinity; an infinite equity would size anything."""
+    snap = _snapshot("alpaca_live", 1e6)
+    snap[field] = bad
+    res = _s1s2(repo(setups=GLD_LIKE, r3=_r3(EQ_R3),
+                     snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
+                leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")

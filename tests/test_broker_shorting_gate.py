@@ -196,7 +196,8 @@ def test_both_gates_side_filter_long_and_shorting_disabled(run):
     """Precedence, pinned: side_filter demotes to dry FIRST, so the broker
     gate (inside `if not effective_dry:`) is not reached and the flag is not
     read. The short is still never sent. The side_filter dry row carrying no
-    cause is the same gap, filed separately."""
+    cause was PI-20260928-SVBNZOVH-0001, fixed by notes.dry_cause
+    (tests/test_side_filter_dry_cause.py)."""
     out = run("short", False, side_filter="long")
     assert out["executed"] == [True]
     assert out["rejections"] == []

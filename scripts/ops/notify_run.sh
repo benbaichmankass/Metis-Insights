@@ -178,6 +178,15 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="high" ;;
         esac
         ;;
+    egress-landing-probe)
+        # READ-ONLY landing-page reachability probe of a fixed host allowlist.
+        # Any HTTP outcome is a measurement; only an environment fault fails.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — probe completed (see run log)"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
+        esac
+        ;;
     breakout-login-check)
         # READ-ONLY prop-terminal login check. Exit 4 is a FEASIBILITY finding
         # (challenge / CAPTCHA / 2FA / login rejected), not a crash.

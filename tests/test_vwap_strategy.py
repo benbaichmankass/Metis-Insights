@@ -931,6 +931,10 @@ class TestQtylessSignalRoutesToMultiAccountDispatch:
             "src.runtime.pipeline._has_open_package_for_strategy", lambda *a, **k: None
         )
         monkeypatch.setattr(
+            "src.runtime.pipeline._open_package_scope",
+            lambda strategy, symbol, scope: {"action": "pass", "scope": scope},
+        )
+        monkeypatch.setattr(
             "src.runtime.pipeline._recent_refusal_for_strategy", lambda *a, **k: None
         )
         monkeypatch.setattr(

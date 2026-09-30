@@ -155,7 +155,7 @@ Full defaults (4000 lives + 100×200 bootstrap), $10k 1-Step, prorated swap, 3 b
 | 0.75%, dxtrade midnight-crossing swap | +$459 | +$0 |
 | 0.75%, prorated swap, **10 bps** round-trip slippage | +$71 | −$103 |
 
-Slippage on the Tradeify simulated book is unknown; **realized cost cannot be measured until an account exists**, and a simulated funded book gives simulated fills (same limitation the DXtrade memo names). The 10 bps case was run only at 0.75%, not at 0.5%; I have not measured how much 0.5% survives it.
+Slippage on the Tradeify simulated book is unknown; **this memo has no measurement of realized cost on Tradeify; the only way I see to get one is to trade an account**, and a simulated funded book gives simulated fills (same limitation the DXtrade memo names). The 10 bps case was run only at 0.75%, not at 0.5%; I have not measured how much 0.5% survives it.
 
 **Account size** (B3, 0.5%, reduced MC, path model): EV scales with account size while the fee scales less, so the larger tiers pay more per purchase, subject to the $300,000 funded cap.
 

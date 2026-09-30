@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "get_positions() resolves category from the account's actual market_type (matching _bybit_category() in src/units/accounts/execute.py) instead of hardcoding \"spot\", and a test asserts the category passed to fetch_positions.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-RLBXQDGK-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A15",
+    "rerun": "grep -n 'category.*spot' src/exchange/bybit_connector.py"
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "routed",
+  "what": "AUD-20260927-CA-A15-bybit-positions-spot-category: src/exchange/bybit_connector.py:98 BybitConnector.get_positions() calls self.exchange.fetch_positions(params={\"category\": \"spot\"}) unconditionally, even for linear-perpetual accounts (e.g. bybit_2), so it silently returns [] instead of the real open-position list. Consumed by src/runtime/risk_counters.py::inject_runtime_counters to populate CURRENT_OPEN_POSITIONS, which gates MAX_OPEN_POSITIONS in src/runtime/orders.py::safe_place_order. Currently dormant because MAX_OPEN_POSITIONS is not set in any config/env file (grep -rn MAX_OPEN_POSITIONS config/ *.env* *.service -> no hits), so the guard is a no-op today regardless of this bug -- but the method is broken unconditionally and would silently defeat the guard the moment anyone sets MAX_OPEN_POSITIONS."
+}

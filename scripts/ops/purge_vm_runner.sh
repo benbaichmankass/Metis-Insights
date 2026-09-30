@@ -190,7 +190,10 @@ if [ -e "${RUNNER_UNIT}" ]; then
         log "  [WARN] could NOT remove ${RUNNER_UNIT} — the post-state check will FAIL"
     fi
     sudo systemctl daemon-reload || true
-    sudo systemctl reset-failed 2>/dev/null || true
+    # Scoped to the runner instances this purge removed. A bare `reset-failed`
+    # also clears a start-limit-`failed` ict-trader-live to `inactive`, which
+    # erases the crash evidence (GITSYNC-REVIVE review, 2026-09-30).
+    sudo systemctl reset-failed 'claude-vm-runner@*.service' 2>/dev/null || true
 else
     log "  [--] ${RUNNER_UNIT} already absent"
 fi
