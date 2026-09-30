@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Offline tooling + test only: a guard in scripts/ops/fetch_backtest_candles.py that refuses to replace a longer CSV with a shorter one, a new extend-only scripts/ops/refresh_candle_history.py, a feed-comparison tool and their test. No runtime/order path, no live-VM file, no unit/timer (that ships as its own held Tier-2 PR)."
+}
