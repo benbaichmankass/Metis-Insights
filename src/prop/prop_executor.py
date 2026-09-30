@@ -145,19 +145,25 @@ def rule_paths_for(account_id: str) -> Tuple[Path, Path]:
     emitter and the rule-distance guard resolve) and that ruleset's
     ``routing:`` key. Either missing RAISES: an executor sized off another
     firm's rules would type a number nobody computed for this account."""
-    import yaml
+    from src.config.accounts_loader import load_accounts_dict
 
     if account_id == PRIMARY_ACCOUNT:
         return RULESET_PATH, ROUTING_PATH
-    accts = (yaml.safe_load(ACCOUNTS_PATH.read_text()) or {}).get("accounts") or {}
-    spec = (accts.get(account_id) or {}).get("backtest_ruleset")
+    spec = (load_accounts_dict(ACCOUNTS_PATH).get(account_id) or {}).get("backtest_ruleset")
     if not spec or spec == "standard":
         raise KeyError(f"{account_id!r}: no prop backtest_ruleset in {ACCOUNTS_PATH.name}")
     ruleset = _REPO_ROOT / "config" / str(spec)
-    routing_spec = (yaml.safe_load(ruleset.read_text()) or {}).get("routing")
+    routing_spec = _ruleset_routing_spec(ruleset)
     if not routing_spec:
         raise KeyError(f"{account_id!r}: ruleset {ruleset.name} declares no `routing:` file")
     return ruleset, _REPO_ROOT / "config" / str(routing_spec)
+
+
+def _ruleset_routing_spec(ruleset: Path) -> Optional[str]:
+    """The ruleset file's ``routing:`` key (``config/``-relative), or None."""
+    import yaml
+
+    return (yaml.safe_load(ruleset.read_text()) or {}).get("routing")
 
 
 def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
