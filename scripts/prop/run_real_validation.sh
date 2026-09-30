@@ -54,7 +54,7 @@ for S in $SYMBOLS; do
   else
     echo "================ $S : candles ================"
     "$PY" scripts/ops/fetch_backtest_candles.py --symbol "$S" --interval 5 \
-        --start-date "$START" --end-date "$END" --output "$DATADIR/${s}_5m.csv" \
+        --start-date "$START" --end-date "$END" --allow-window-replace --output "$DATADIR/${s}_5m.csv" \
         || { echo "CANDLE FETCH FAILED $S"; continue; }
   fi
   if [ "$(wc -l < "$DATADIR/${s}_funding.csv" 2>/dev/null || echo 0)" -gt 100 ]; then

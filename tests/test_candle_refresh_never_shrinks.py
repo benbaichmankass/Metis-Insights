@@ -140,3 +140,23 @@ def test_rate_limit_retries_are_bounded(monkeypatch):
 def test_flag_renamed_and_window_caller_passes_it():
     assert "--allow-window-replace" in (Path(__file__).resolve().parents[1] /
         "scripts/ops/vwap_backtest_sweep_action.sh").read_text()
+
+
+def test_refresh_refuses_files_with_columns_it_cannot_fill():
+    old = _frame("2024-01-01", 10)
+    old["taker_buy_base"] = 1.0
+    try:
+        rch.merge_extend(old, _frame("2024-01-02", 10))
+        raise AssertionError("must refuse")
+    except RuntimeError as exc:
+        assert "taker_buy_base" in str(exc)
+
+
+def test_every_rolling_window_caller_opts_out_explicitly():
+    root = Path(__file__).resolve().parents[1]
+    for rel in ("scripts/ops/vwap_backtest_sweep_action.sh",
+                ".github/workflows/vwap-backtest.yml",
+                "scripts/prop/run_real_validation.sh"):
+        text = (root / rel).read_text()
+        import re
+        assert re.search(r"fetch_backtest_candles\.py[^#]{0,400}--allow-window-replace", text), rel
