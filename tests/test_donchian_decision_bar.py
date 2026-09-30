@@ -31,11 +31,23 @@ def test_closed_drops_forming_bar_and_evaluates_fresh_close():
     assert int(out["timestamp"].iloc[-1].timestamp()) == T0 + 9 * H4
 
 
-def test_closed_skips_once_stale():
+def test_stale_after_in_window_eval_reads_already_evaluated():
     df = _frame(last_open=T0 + 10 * H4)
-    now = T0 + 10 * H4 + 3600  # closed bar closed 1h ago
-    _, skip = _decision_frame(df, TF, {"decision_bar": "closed"}, now=now)
+    cfg = {"decision_bar": "closed"}
+    _, skip = _decision_frame(df, TF, cfg, name="legA", now=T0 + 10 * H4 + 120)
+    assert skip is None
+    _, skip = _decision_frame(df, TF, cfg, name="legA", now=T0 + 10 * H4 + 3600)
     assert skip == "closed_bar_already_evaluated"
+
+
+def test_stale_without_in_window_eval_reads_missed_and_warns_once(caplog):
+    df = _frame(last_open=T0 + 10 * H4)
+    cfg = {"decision_bar": "closed"}
+    with caplog.at_level("WARNING"):
+        for dt in (3600, 3700):
+            _, skip = _decision_frame(df, TF, cfg, name="legB", now=T0 + 10 * H4 + dt)
+            assert skip == "closed_bar_stale_window_missed"
+    assert sum("never evaluated" in r.message for r in caplog.records) == 1
 
 
 def test_fresh_window_is_configurable():

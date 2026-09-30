@@ -2,6 +2,6 @@
   "tier": 3,
   "landing": "hold",
   "hold_reason": "tier_2_3_needs_approval",
-  "hold_text": "Live signal logic (decision_bar=closed on trend_donchian_eth_4h and trend_donchian_xrp_4h, REAL MONEY on bybit_2 + bybit_portfolio). Held for the manager's merge under the data-backed Tier-3 authorization; revert = delete the decision_bar line from each leg's strategies.yaml block.",
-  "why": "Live donchian legs evaluate the forming bar; Stage 0 scores the closed bar. Evidence: docs/research/evidence/donchian-closed-vs-forming-parity-2026-09-30.json (closed-bar live trades reproduce Stage 0: xrp -0.14R, eth_4h -8.1R vs Stage 0)."
+  "hold_text": "Live signal logic (decision_bar=closed on trend_donchian_xrp_4h only (eth_4h held on forming per manager), REAL MONEY on bybit_2 + bybit_portfolio). Held for the manager's merge under the data-backed Tier-3 authorization; revert = delete the decision_bar line from each leg's strategies.yaml block.",
+  "why": "Live donchian legs evaluate the forming bar; Stage 0 scores the closed bar. Evidence: docs/research/evidence/donchian-closed-vs-forming-parity-2026-09-30.json (closed-bar live trades with the live stop anchor: xrp +16.36R (n74) vs forming +9.53R)."
 }

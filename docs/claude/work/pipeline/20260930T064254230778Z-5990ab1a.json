@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A committed evidence record for trend_donchian_eth_4h reports A_live_anchor vs B_forming net R with a bootstrap CI on Bybit 1m data (or >= 30 days of live closed-bar shadow decisions vs forming fills), and the leg is either flipped to decision_bar: closed or the flip is killed with the number.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-GQPT6PQF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane DONCHIAN-PARITY (session_01KjACh47AwiaCPSgQPT6PQF), dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30",
+    "rerun": "python3 scripts/research/donchian_closed_vs_forming_parity.py --fetch --klines-dir <dir> --out <json> --leg trend_donchian_eth_4h; compare arms A_live_anchor vs B_forming in the output."
+  },
+  "state": "queued",
+  "what": "[parity] trend_donchian_eth_4h stays on FORMING-bar evaluation (manager decision 2026-09-30, PR #14577). Achievable closed arm (A_impl, +54.9R, entry ~2min into next bar, stop re-anchored on fill) trails forming (+57.7R); Stage-0's +63R is not tradeable. Owed before any flip: (1) log-only shadow of the closed-bar decision beside live, (2) Bybit-1m re-replay (current replay is a Binance proxy), (3) direct bootstrap of A_impl vs forming, (4) A_live_anchor arm (live SL/TP anchored on the signal price, not re-anchored on fill) for eth_4h.",
+  "why_it_matters": "eth_4h is REAL MONEY on bybit_2 + bybit_portfolio; the closed-vs-forming answer for it is currently inside the noise (dR CI [-40,+32])."
+}

@@ -29,6 +29,7 @@ import vol_skip_forming_bar_replay as vs  # noqa: E402
 sys.path.insert(0, str(ROOT))
 import forming_bar_entries as fbe  # noqa: E402
 import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 import yaml  # noqa: E402
 
 
@@ -50,6 +51,23 @@ def run_leg(leg: str, block: dict, klines_dir: str, workers: int) -> dict:
         px = mats["last_c"][i + 1, ws.IMPL_OFFSET - 1] if i + 1 < len(bars) else np.nan
         if not np.isnan(px):
             a_impl[i] = {**ov, "entry": float(px)}
+    # A_live_anchor: what a closed-bar live change trades if live places a Market
+    # order ~IMPL_OFFSET min into the next bar with SL/TP anchored on the SIGNAL
+    # price (order_package entry = the closed bar's close; execute.py sends
+    # order["sl"/"tp"] unchanged). Keyed on the ENTRY bar i+1; stops are tested
+    # only from the fill (rest_h/rest_l after the entry minute), never on the
+    # pre-entry minutes. Trades are re-keyed to the signal bar for comparison.
+    a_anchor = {}
+    for i, ov in a_live.items():
+        if i + 1 >= len(bars):
+            continue
+        px = mats["last_c"][i + 1, ws.IMPL_OFFSET - 1]
+        rh, rl = mats["rest_h"][i + 1, ws.IMPL_OFFSET], mats["rest_l"][i + 1, ws.IMPL_OFFSET]
+        if np.isnan(px):
+            continue
+        a_anchor[i + 1] = {**ov, "entry": float(px), "sl_anchor": float(ov["entry"]),
+                           "rest_high": None if np.isnan(rh) else float(rh),
+                           "rest_low": None if np.isnan(rl) else float(rl)}
     off = ws._ENTRY_GATES_OFF["trend"]
 
     def arm(ovr):
@@ -60,14 +78,19 @@ def run_leg(leg: str, block: dict, klines_dir: str, workers: int) -> dict:
         with tempfile.TemporaryDirectory() as td:
             return pr._run(mod, bars, leg, sym, tf, k, Path(td) / "t.jsonl",
                            **({"entry_override": ovr} if ovr is not None else {}))
-    trades = {"A_closed": arm(None), "B_forming": arm(b_ovr), "A_impl": arm(a_impl)}
+    tf_delta = f"{tf_min}min"
+    la = arm(a_anchor)
+    for t in la:  # re-key to the SIGNAL bar so it compares with A_closed
+        t["entry_time"] = str(pd.Timestamp(t["entry_time"]) - pd.Timedelta(tf_delta))
+    trades = {"A_closed": arm(None), "B_forming": arm(b_ovr), "A_impl": arm(a_impl),
+              "A_live_anchor": la}
     first, last = str(bars["timestamp"].iloc[fbe.WINDOW - 1]), str(bars["timestamp"].iloc[-1])
     trades = {n: [t for t in ts if t["entry_time"] >= first] for n, ts in trades.items()}
     out = {"leg": leg, "symbol": sym, "timeframe": tf, "execution": block.get("execution"),
            "costs": costs, "harness_kwargs": kw, "unmodelled_yaml_levers": unmodelled,
            "first_decision_bar": first, "last_bar": last, "bars": len(bars),
            "arms": {n: ws._summ(ts) for n, ts in trades.items()}}
-    for other in ("B_forming", "A_impl"):
+    for other in ("B_forming", "A_impl", "A_live_anchor"):
         c = ws.compare(trades["A_closed"], trades[other])
         ds = ws.delta_stats(trades["A_closed"], trades[other], first, last)
         # census: closed-only = live MISSES it; arm-only = live-only

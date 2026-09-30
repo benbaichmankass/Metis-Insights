@@ -1699,8 +1699,14 @@ def trend_donchian_1h_signal_builder(settings: dict) -> Dict[str, Any]:
 _CLOSED_DECISION_FRESH_SECONDS = 360.0
 
 
+#: leg -> open time (epoch s) of the last closed bar it evaluated in-window /
+#: whose missed window it already warned about. Process-local by design.
+_CLOSED_BAR_EVALUATED: dict[str, float] = {}
+_CLOSED_BAR_MISS_LOGGED: dict[str, float] = {}
+
+
 def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
-                    now: float | None = None) -> tuple[Any, str | None]:
+                    name: str = "", now: float | None = None) -> tuple[Any, str | None]:
     """Frame the leg's entry decision runs on: ``(frame, skip_reason)``.
 
     ``decision_bar: forming`` (default — unchanged behaviour) evaluates the
@@ -1727,7 +1733,19 @@ def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
         return frame, "closed_bar_unreadable"
     fresh = float(vcfg.get("decision_bar_fresh_seconds") or _CLOSED_DECISION_FRESH_SECONDS)
     if now_s - (open_s + tf_s) > fresh:
-        return frame, "closed_bar_already_evaluated"
+        # Two different stories that must not read alike: this process evaluated
+        # the bar inside its window (normal, quiet) vs. never saw it in-window
+        # (tick gap / restart: the trade for that bar is LOST, so say so once).
+        if _CLOSED_BAR_EVALUATED.get(name) == open_s:
+            return frame, "closed_bar_already_evaluated"
+        if _CLOSED_BAR_MISS_LOGGED.get(name) != open_s:
+            _CLOSED_BAR_MISS_LOGGED[name] = open_s
+            logger.warning(
+                "%s: closed bar opened %s was never evaluated inside its %.0fs window "
+                "(tick gap or restart) — that bar's entry is skipped",
+                name, open_s, fresh)
+        return frame, "closed_bar_stale_window_missed"
+    _CLOSED_BAR_EVALUATED[name] = open_s
     return frame, None
 
 
@@ -1773,7 +1791,7 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **vcfg}
     cfg["strategy_label"] = name
 
-    candles_df, _skip = _decision_frame(candles_df, timeframe, vcfg)
+    candles_df, _skip = _decision_frame(candles_df, timeframe, vcfg, name=name)
     if _skip is not None:
         return _with_signal_package(name, {
             "symbol": symbol, "side": "none",

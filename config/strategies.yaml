@@ -1382,7 +1382,6 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_eth_4h, donchian_eth_4h]
     enabled: true
-    decision_bar: closed     # Tier-3 HELD (PI-20260930-QZSE4AMA-0002): evaluate the CLOSED 4h bar like Stage 0; revert = delete this line (default forming). Evidence: docs/research/evidence/donchian-closed-vs-forming-parity-2026-09-30.json
     execution: live          # LIVE on REAL-MONEY bybit_2 AND paper bybit_1/
                              # bybit_portfolio (config/accounts.yaml). Corrected
                              # 2026-09-28 (lane EXIT-OPS, PI-20260926-X3QEGPJL-0002):
