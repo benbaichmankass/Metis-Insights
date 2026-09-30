@@ -39,8 +39,12 @@ def test_tradeify_ships_dry_with_the_b3_roster_at_half_percent():
     assert t["account_size_usd"] == 10000
 
 
-def test_breach_guards_match_breakout_1():
-    assert ACCOUNTS["tradeify_1"]["risk"]["breach_guards"] == ACCOUNTS["breakout_1"]["risk"]["breach_guards"]
+def test_breach_guards_enforce_not_report():
+    """Manager review of #14672: a breach must REFUSE on tradeify_1."""
+    from src.prop.prop_risk_gate import breach_guards_for
+    assert "breach_guards" not in ACCOUNTS["tradeify_1"]["risk"]
+    assert breach_guards_for("tradeify_1") == "enforce"
+    assert breach_guards_for("breakout_1") == "report"   # unchanged
 
 
 def test_one_leg_per_symbol_so_our_own_legs_cannot_hedge():

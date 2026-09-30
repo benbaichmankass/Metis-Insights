@@ -92,3 +92,72 @@ def test_shadow_leg_without_pkg_id_is_noop(isolated_env: Path) -> None:
     )
     trade_id = execute_pkg(pkg, _breakout_cfg(), dry_run=True)
     assert trade_id.startswith("dry-")
+
+
+# ── one package, two accounts (manager review of #14672, TRADEIFY-WIRE) ───
+# The order_package_id is shared by every account a signal fans out to. A DRY
+# prop account (tradeify_1 at mode: dry_run) dispatched AFTER a live account
+# must never overwrite that account's outcome on the same row.
+
+
+def _seed(db, pkg_id: str, **over) -> None:
+    row = {"order_package_id": pkg_id, "strategy_name": "trend_donchian_sol_prop",
+           "symbol": "SOLUSDT", "direction": "long", "entry": 150.0, "sl": 145.0,
+           "tp": 162.0, "status": "open"}
+    row.update(over)
+    db.insert_order_package(row)
+
+
+def _pkg(pkg_id: str):
+    from src.core.coordinator import OrderPackage
+    return OrderPackage(strategy="trend_donchian_sol_prop", symbol="SOLUSDT", direction="long",
+                        entry=150.0, sl=145.0, tp=162.0,
+                        meta={"order_package_id": pkg_id, "timeframe": "1h"})
+
+
+def _row(db, pkg_id: str) -> dict:
+    return next(r for r in db.get_order_packages_by_strategy("trend_donchian_sol_prop")
+                if r["order_package_id"] == pkg_id)
+
+
+def test_dry_account_after_a_live_emission_does_not_overwrite_it(isolated_env: Path) -> None:
+    from src.units.accounts.execute import execute_pkg
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+    _seed(db, "op-shared-1")
+    # breakout_1 (live) emitted on this package first …
+    db.update_order_package("op-shared-1", {"status": "emitted", "close_reason": "prop_ticket_emitted"})
+    # … then the dry prop account runs on the SAME package.
+    dry_cfg = {**_breakout_cfg(), "account_id": "tradeify_1"}
+    assert execute_pkg(_pkg("op-shared-1"), dry_cfg, dry_run=True).startswith("dry-")
+    r = _row(db, "op-shared-1")
+    assert (r["status"], r["close_reason"]) == ("emitted", "prop_ticket_emitted")
+
+
+def test_dry_account_after_a_live_fill_does_not_overwrite_it(isolated_env: Path) -> None:
+    from src.units.accounts.execute import execute_pkg
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+    _seed(db, "op-shared-2")
+    # a live broker account (e.g. bybit_1 on ict_scalp_xrp_15m) filled and linked
+    assert db.update_order_package_linked_trade_if_unset("op-shared-2", 4242) == 1
+    dry_cfg = {**_breakout_cfg(), "account_id": "tradeify_1"}
+    execute_pkg(_pkg("op-shared-2"), dry_cfg, dry_run=True)
+    r = _row(db, "op-shared-2")
+    assert r["status"] == "open" and str(r["linked_trade_id"]) == "4242"
+
+
+def test_helper_writes_only_an_untouched_open_package(isolated_env: Path) -> None:
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+    _seed(db, "op-a")
+    _seed(db, "op-b", status="emitted")
+    assert db.mark_order_package_shadow_if_untouched("op-a", "prop_shadow_no_emit") == 1
+    assert db.mark_order_package_shadow_if_untouched("op-b", "prop_shadow_no_emit") == 0
+    assert db.mark_order_package_shadow_if_untouched("op-missing", "prop_shadow_no_emit") == 0
