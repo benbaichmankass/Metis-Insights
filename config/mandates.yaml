@@ -743,6 +743,14 @@ mandates:
     proposed_at: '2026-09-30'
     granted_by: operator (Ben)
     granted_at: '2026-09-30'
+    amended_by: operator (Ben)
+    amended_at: '2026-09-30'
+    amendment: >-
+      Bound ADDED by the operator in the PATHB-MANDATE lane session, verbatim
+      "Yes, make spy_pullback_1h's contamination a bound", in answer to the lane's
+      question whether the coverage matrix's `timeout_binding: CONTAMINATED` flag
+      (the harness force-closes at 200 bars; live has no such exit) should become
+      a bound. Clause (8) below. The grant otherwise stands as written.
     source: >-
       Popup in manager session session_01HYq6XtfesZ57VyaQrK6CL1, ~05:15Z
       2026-09-30, answered verbatim "Grant; firing opens a PR (Recommended)".
@@ -775,7 +783,16 @@ mandates:
       cell's full-history d_max_dd is within the sweep's own exchange-rate
       allowance min(D_b x dN/N_b, D_b) AND within
       bar.max_dd_worsening_frac_of_base of the base drawdown; (7) the cell's
-      leverage_multiple <= bar.max_leverage_multiple. The edit changes ONE key,
+      leverage_multiple <= bar.max_leverage_multiple; (8) the leg's verdicts are
+      not CONTAMINATED by the harness timeout force-close: EITHER
+      scripts/research/timeout_binding_audit.audit() re-run over the corpus reads
+      `contaminated` OR the coverage matrix's own `timeout_binding` note reads
+      `leg CONTAMINATED` refuses (fail closed), and an audit that cannot run or
+      reads `no_power` is NEEDS-DATA, never a pass. ⚠️ THE TWO READINGS DISAGREE ON
+      spy_pullback_1h AT ADOPTION: the matrix note says CONTAMINATED (17 of 39
+      pairs), the audit over both the 08-29 and 08-31 sweeps says clean (0 of 39),
+      so it is refused through the note; reconcile in the pipeline row filed
+      against this. The edit changes ONE key,
       `atr_stop_mult`, on that one leg in config/strategies.yaml, and nothing
       else. One cell per leg per fire, chosen by the rule B4 stated in advance:
       highest wf_wins_effective, tie-break d_net_r, over the leg's gate-passing
@@ -834,6 +851,9 @@ mandates:
       # bounds a future cell. It is a bound on a future cell, not a correction of a
       # present one -- strike it if a control that controls nothing is unwanted.
       max_leverage_multiple: 2.0
+      # OPERATOR-ADDED 2026-09-30 (see `amendment`). true = clause (8) is part of the
+      # grant; the resolver REFUSES the whole mandate if this is not stated.
+      refuse_timeout_contaminated: true
     # AUTO-LAND: NOT GRANTED (operator, same popup). Short form:
     # scripts/ci/check_mandate_autoland.py clause A1/A2 is built for REMOVALS from
     # accounts.yaml and refuses config/strategies.yaml; this entry ADDS notional

@@ -1105,6 +1105,60 @@ BRACKET_CORPUS_REL = "docs/research/e35-bracket-corpus.jsonl"
 #: family today -- is REFUSEd, so a harness added later starts OUT of scope.
 EXIT_CELL_COST_COMPLETE_FAMILIES = frozenset({"pullback", "donchian"})
 PATHB_VERDICT = "path_b_wf_pass"
+COVERAGE_MATRIX_REL = "docs/research/exit-refinement-coverage.json"
+
+
+def _leg_rows(root: Path, leg: str) -> List[Dict[str, Any]]:
+    """EVERY corpus row for `leg` (the audit needs the base and to400 arms)."""
+    p = root / BRACKET_CORPUS_REL
+    if not p.is_file():
+        return []
+    rows = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or leg not in line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if r.get("leg") == leg:
+            rows.append(r)
+    return rows
+
+
+def timeout_binding(root: Path, leg: str) -> Dict[str, Any]:
+    """Does the harness's timeout force-close CONTAMINATE this leg's verdicts?
+
+    TWO INDEPENDENT READINGS, and the bound trips on EITHER (fail closed):
+      * `audit`  -- scripts/research/timeout_binding_audit.audit() re-run over the
+                    corpus rows NOW (the field): `contaminated` / `clean` /
+                    `no_power`, or None if it could not run.
+      * `matrix` -- the coverage matrix's own per-leg `timeout_binding` note
+                    (a claim about the field): `CONTAMINATED` / `CLEAN` / None.
+    ⚠️ THEY DISAGREE ON spy_pullback_1h (2026-09-30): the note says CONTAMINATED
+    ("bound on 17 of 39 pairs"); audit() over BOTH the 08-29 and 08-31 sweeps says
+    clean, 0 of 39. Neither is silently preferred: the union refuses.
+    """
+    out: Dict[str, Any] = {"audit": None, "binding": None, "graded_pairs": None, "matrix": None}
+    try:
+        sys.path.insert(0, str(REPO / "scripts" / "research"))
+        import timeout_binding_audit as tba  # noqa: WPS433 (local: research module)
+        per = tba.audit(_leg_rows(root, leg)).get(leg)
+        if per:
+            out.update(audit=per["verdict"], binding=per["binding"], graded_pairs=per["graded_pairs"])
+    except Exception:  # noqa: BLE001 -- "could not audit" is its own answer, never a pass
+        pass
+    mp = root / COVERAGE_MATRIX_REL
+    if mp.is_file():
+        try:
+            for row in json.loads(mp.read_text(encoding="utf-8")).get("rows", []):
+                if row.get("strategy") == leg:
+                    note = (row.get("bracket_geometry") or {}).get("timeout_binding")
+                    m = re.search(r"leg (CONTAMINATED|CLEAN)", note) if isinstance(note, str) else None
+                    out["matrix"] = m.group(1) if m else None
+        except (OSError, json.JSONDecodeError):
+            pass
+    return out
 
 
 def _load_corpus_rows(root: Path, leg: str, cell: str) -> List[Dict[str, Any]]:
@@ -1175,6 +1229,9 @@ def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed:
             "max_dd_worsening_frac_of_base", "max_leverage_multiple")
     if not isinstance(bar, dict) or any(not _num(bar.get(k)) for k in need):
         raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} does not state a numeric bar.{{{', '.join(need)}}}")
+    if bar.get("refuse_timeout_contaminated") is not True:
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{mid} does not state bar.refuse_timeout_contaminated: true "
+                                               "-- the timeout-binding bound is part of the grant")
 
     # -- clause 1: soak-only, read from accounts.yaml NOW --------------------
     accounts_text = (root / ACCOUNTS_REL).read_text(encoding="utf-8") \
@@ -1230,6 +1287,20 @@ def _decide_exit_cell(leg: str, cell: str, root: Path, mid: str, allow_proposed:
                                       f"implements a bar-count exit); got axis={row.get('axis')!r} "
                                       f"path={row.get('gate_path')!r} tp_r={row.get('tp_r')!r} "
                                       f"timeout={row.get('timeout')!r}")
+
+    # -- clause 2b: timeout-binding contamination (operator bound, 2026-09-30) --
+    tb = timeout_binding(root, leg)
+    ev["timeout_binding"] = tb
+    if tb["audit"] == "contaminated" or tb["matrix"] == "CONTAMINATED":
+        raise _Refuse("R-TIMEOUT-BINDING",
+                      f"the harness's timeout force-close CONTAMINATES this leg's verdicts (audit "
+                      f"{tb['audit']}, binding {tb['binding']}/{tb['graded_pairs']}; matrix note "
+                      f"{tb['matrix']}); the cell was measured under an exit production does not have")
+    if tb["audit"] != "clean":
+        raise _NeedsData("R-TIMEOUT-BINDING", f"timeout-binding audit reads {tb['audit']!r} (matrix "
+                                              f"{tb['matrix']}); 'could not look' is not 'clean'",
+                         _exit_cell_data_task(leg, cell, "timeout-binding audit not gradeable",
+                                              "timeout_binding_audit.audit() returns `clean` for the leg"))
 
     # -- clause 3: both windows, net R and capital efficiency ---------------
     try:

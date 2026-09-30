@@ -35,7 +35,17 @@ ROW = {
     "base_net_total_r": 12.1674, "base_max_drawdown_r": 15.208, "d_net_r": 28.1569, "d_max_dd": 3.6421,
     "leverage": {"leverage_multiple": 1.6589, "state": "measured"},
     "sweep_generated_at": "2026-08-31T16:14:00+00:00", "measurement_key": "k", "source": "s",
+    # timeout_binding_audit needs these on the base arm (the graded ROW is the timeout=None arm)
+    "timeframe": "1h", "net_total_r": 40.0, "tp_cap_pct": 0.099,
 }
+
+
+def audit_arms(leg=LEG, *, binding=False):
+    """The `to24` / `to400` sibling arms timeout_binding_audit.audit() pairs with ROW.
+    to24 MOVES (so the probe has power); to400 equals the base unless `binding`."""
+    common = dict(leg=leg, family="pullback", timeframe="1h", tp_r=None, stop_mult=1.5, tp_cap_pct=0.099)
+    return [dict(common, cell="sm1.5_to24", timeout=24, net_total_r=30.0),
+            dict(common, cell="sm1.5_to400", timeout=400, net_total_r=41.0 if binding else 40.0)]
 
 
 def _acct(cls, legs):
@@ -43,7 +53,8 @@ def _acct(cls, legs):
             "risk": {"risk_pct": 0.015}, "strategies": list(legs)}
 
 
-def _build(tmp_path, *, row=None, rows=None, accounts=None, cur=2.5, granted=False):
+def _build(tmp_path, *, row=None, rows=None, accounts=None, cur=2.5, granted=False,
+           binding=False, matrix_note=None, audit=True):
     real = yaml.safe_load((REPO / "config/mandates.yaml").read_text())
     entry = next(m for m in real["mandates"] if m["id"] == MID)
     # `granted=False` re-files the REAL entry under `proposed:` to exercise the dry path.
@@ -57,7 +68,13 @@ def _build(tmp_path, *, row=None, rows=None, accounts=None, cur=2.5, granted=Fal
     for rel, txt in files.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text(txt)
-    rs = rows if rows is not None else [dict(ROW, **(row or {}))]
+    rs = list(rows if rows is not None else [dict(ROW, **(row or {}))])
+    if audit:
+        rs += audit_arms(binding=binding)
+    if matrix_note is not None:
+        m = tmp_path / mr.COVERAGE_MATRIX_REL
+        m.parent.mkdir(parents=True, exist_ok=True)
+        m.write_text(json.dumps({"rows": [{"strategy": LEG, "bracket_geometry": {"timeout_binding": matrix_note}}]}))
     corpus = tmp_path / mr.BRACKET_CORPUS_REL
     corpus.parent.mkdir(parents=True, exist_ok=True)
     corpus.write_text("\n".join(json.dumps(r) for r in rs) + "\n")
@@ -66,6 +83,28 @@ def _build(tmp_path, *, row=None, rows=None, accounts=None, cur=2.5, granted=Fal
 
 def _run(tmp_path, **kw):
     return mr.resolve_exit_cell(LEG, CELL, root=_build(tmp_path, **kw), allow_proposed=True)
+
+
+@pytest.mark.parametrize("kw,verdict,clause", [
+    ({"binding": True}, mr.REFUSE, "R-TIMEOUT-BINDING"),                            # audit says contaminated
+    ({"matrix_note": "MEASURED: leg CONTAMINATED -- x"}, mr.REFUSE, "R-TIMEOUT-BINDING"),  # note says so, audit clean
+    ({"binding": True, "matrix_note": "MEASURED: leg CLEAN"}, mr.REFUSE, "R-TIMEOUT-BINDING"),  # either source trips it
+    ({"audit": False}, mr.NEEDS_DATA, "R-TIMEOUT-BINDING"),                          # cannot audit -> not a pass
+    ({"matrix_note": "MEASURED: leg CLEAN -- x"}, mr.FIRE, "ALL-CLAUSES-PASS"),      # positive control
+])
+def test_timeout_binding_bound(tmp_path, kw, verdict, clause):
+    r = _run(tmp_path, **kw)
+    assert (r["verdict"], r["clause"]) == (verdict, clause), r["detail"]
+    assert "timeout_binding" in r["evidence"] or verdict == mr.NEEDS_DATA
+
+
+def test_the_grant_must_state_the_bound(tmp_path):
+    root = _build(tmp_path)
+    doc = yaml.safe_load((root / "config/mandates.yaml").read_text())
+    del doc["proposed"][0]["bar"]["refuse_timeout_contaminated"]
+    (root / "config/mandates.yaml").write_text(yaml.safe_dump(doc))
+    r = mr.resolve_exit_cell(LEG, CELL, root=root, allow_proposed=True)
+    assert (r["verdict"], r["clause"]) == (mr.REFUSE, "R-MANDATE-NOT-GRANTED")
 
 
 def test_dry_fire_is_the_positive_control_and_says_it_authorizes_nothing(tmp_path):
@@ -169,4 +208,5 @@ def test_committed_entry_is_granted_by_the_operator_with_no_autoland():
     entry = next(m for m in real["mandates"] if m["id"] == MID)
     assert entry["granted_by"].startswith("operator") and entry["granted_at"] == "2026-09-30"
     assert "PATHB-MANDATE" in entry["source"]
+    assert entry["amended_by"].startswith("operator") and entry["bar"]["refuse_timeout_contaminated"] is True
     assert "autoland" not in entry  # operator: a fire opens a PR and pings; the manager merges
