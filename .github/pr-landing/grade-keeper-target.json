@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI only: adds grading-freshness-alert.yml to the schedule-keeper TARGETS and gives it the standard dedupe job; no runtime, order path or config touched"
+}
