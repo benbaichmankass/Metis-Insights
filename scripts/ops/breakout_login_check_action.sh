@@ -352,7 +352,14 @@ if [ -n "${EXEC_MODE}" ]; then
     exit "${rc}"
 fi
 
-ARGS=(--account "${ACCOUNT}" --dump-dir "${BASE}/last-run")
+# breakout_1 keeps its dump dir; another account gets its own, so a Tradeify
+# run never overwrites breakout_1's last diagnostic dump.
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    DUMP_DIR="${BASE}/last-run"
+else
+    DUMP_DIR="${BASE}/last-run-${ACCOUNT}"
+fi
+ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")
 [ "${WANT_EMIT}" = "1" ] && ARGS+=(--emit-status)
 [ "${WANT_TABLES}" = "1" ] && ARGS+=(--dump-tables)
 

@@ -67,3 +67,15 @@ def test_tradeify_credentials_are_optional_secrets():
                 assert env.get("TRADEIFY_DX_USERNAME") == "${{ secrets.TRADEIFY_DX_USERNAME }}"
                 assert env.get("TRADEIFY_DX_PASSWORD") == "${{ secrets.TRADEIFY_DX_PASSWORD }}"
     assert found >= 2
+
+
+def test_dump_dir_is_per_account_and_breakout_keeps_its_own():
+    assert 'DUMP_DIR="${BASE}/last-run"' in CODE
+    assert 'DUMP_DIR="${BASE}/last-run-${ACCOUNT}"' in CODE
+    assert 'ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")' in CODE
+
+
+def test_no_credentials_message_names_the_accounts_own_keys():
+    src = (REPO / "scripts" / "prop" / "breakout_login_check.py").read_text()
+    assert "sync BREAKOUT_DX_* to the VM .env first" not in src
+    assert "cfg.get('username_env')" in src
