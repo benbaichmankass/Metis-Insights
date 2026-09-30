@@ -298,11 +298,13 @@ def test_reset_feed_rearms_only_after_a_clean_check_under_the_lock():
     code = "\n".join(ln for ln in action.splitlines() if not ln.lstrip().startswith("#"))
     lock = code.index('exec 9>"${BASE}/login.lock"')
     run = code.index("scripts/prop/breakout_login_check.py")
-    clear = code.index('rm -f "${BASE}/feed/tripped"')
+    clear = code.index('rm -f "${FEED_DIR}/tripped"')
     assert lock < run < clear  # after the check, while fd 9 (the lock) is still held
     guard = code.rindex('if [ "${rc}" = "0" ]', 0, clear)
     assert run < guard < clear
-    assert code.count('rm -f "${BASE}/feed/tripped"') == 1
+    assert code.count('rm -f "${FEED_DIR}/tripped"') == 1
+    # breakout_1's feed dir is the one it always had (TRADEIFY-WIRE made it per account)
+    assert 'FEED_DIR="${BASE}/feed"' in code
 
 
 _HANGING_CHECK = (
@@ -394,3 +396,79 @@ def test_unit_runs_python_unbuffered():
     assert "Environment=PYTHONUNBUFFERED=1" in UNIT.read_text()
     code = "\n".join(ln for ln in TICK.read_text().splitlines() if not ln.lstrip().startswith("#"))
     assert 'PYTHONUNBUFFERED=1 "${VENV}/bin/python" -u scripts/prop/breakout_login_check.py' in code
+
+
+# ── second prop account (TRADEIFY-WIRE, 2026-09-30) ───────────────────────
+
+
+def _tick_account(tmp_path, repo, base, account, keys_rc=0):
+    (repo / "scripts" / "prop").mkdir(parents=True, exist_ok=True)
+    (repo / "scripts" / "prop" / "prop_env_keys.py").write_text(
+        "import sys\n"
+        f"sys.exit({keys_rc}) if {keys_rc} else print("
+        "'TRADEIFY_DX_USERNAME TRADEIFY_DX_PASSWORD PROP_EXECUTOR_MODE_TRADEIFY_1')\n")
+    (repo / ".env").write_text("TRADEIFY_DX_USERNAME=u\nBREAKOUT_DX_USERNAME=b\n")
+    env = {
+        "PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "REPO_DIR": str(repo),
+        "PROP_BROWSER_BASE": str(base), "PROP_FEED_PING_PY": str(tmp_path / "ping_py"),
+        "PROP_FEED_TIMEOUT_S": "20", "STUB_RC": "0", "STUB_SESSION": "",
+        "PROP_FEED_ACCOUNT": account,
+    }
+    return subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env)
+
+
+def test_second_account_uses_its_own_state_dir(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    r = _tick_account(tmp_path, repo, base, "tradeify_1")
+    assert r.returncode == 0, r.stderr
+    sdir = base / "accounts" / "tradeify_1" / "feed"
+    assert _lines(calls) == [
+        "-u scripts/prop/breakout_login_check.py --account tradeify_1 --emit-status --symbols= "
+        f"--storage-state {sdir}/session_state.json"
+    ]
+    assert (sdir / "consecutive_failures").read_text().strip() == "0"
+    assert not (base / "feed").exists()   # breakout_1's dir is never touched
+
+
+def test_second_account_without_platform_entry_never_logs_in(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    r = _tick_account(tmp_path, repo, base, "nope_1", keys_rc=1)
+    assert r.returncode == 1
+    assert _lines(calls) == []
+
+
+def test_template_unit_passes_the_instance_as_the_account():
+    svc = (REPO / "deploy" / "ict-prop-feed@.service").read_text()
+    tmr = (REPO / "deploy" / "opt-in" / "ict-prop-feed@.timer").read_text()
+    assert "Environment=PROP_FEED_ACCOUNT=%i" in svc
+    assert "ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/prop_feed_tick.sh" in svc
+    assert "Unit=ict-prop-feed@%i.service" in tmr
+
+
+def test_second_account_feed_never_contends_for_breakout_lock(tmp_path):
+    """Manager review of #14663: a tradeify_1 feed tick must not take
+    ${BASE}/login.lock, which breakout_1's real-money executor flock -n's."""
+    repo, base, calls, pings = _setup(tmp_path)
+    base.mkdir(parents=True, exist_ok=True)
+    with open(base / "login.lock", "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)   # breakout_1 busy
+        r = _tick_account(tmp_path, repo, base, "tradeify_1")
+    assert r.returncode == 0, r.stderr
+    assert len(_lines(calls)) == 1                       # it still ran
+    # and its own lock blocks only itself
+    own = base / "accounts" / "tradeify_1" / "login.lock"
+    with open(own, "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        r2 = _tick_account(tmp_path, repo, base, "tradeify_1")
+        r3 = _tick(tmp_path, repo, base, rc=0)            # breakout_1 unaffected
+    assert "skipping this tick" in r2.stderr
+    assert r3.returncode == 0 and len(_lines(calls)) == 2
+
+
+def test_feed_template_timer_is_off_breakout_slots():
+    tmr = (REPO / "deploy" / "opt-in" / "ict-prop-feed@.timer").read_text()
+    feed = (REPO / "deploy" / "ict-prop-feed.timer").read_text()
+    execu = (REPO / "deploy" / "opt-in" / "ict-prop-executor.timer").read_text()
+    import re as _re
+    slot = lambda t: _re.search(r"OnCalendar=\S+ \*:(\d\d)/5", t).group(1)  # noqa: E731
+    assert slot(tmr) not in {slot(feed), slot(execu)}

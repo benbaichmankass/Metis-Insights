@@ -1,0 +1,17 @@
+# Per-account prop feed timer (TRADEIFY-WIRE, 2026-09-30). OPT-IN: installed and
+# enabled only by `breakout-login-check account: <id> apply: feed-enable-timer`.
+# :01/5 — off breakout_1's feed (:02/5) and real-money executor (:04/5) slots
+# so two Chromium sessions rarely run at once on the 2-OCPU trader. Locks are
+# separate anyway (accounts/<id>/login.lock), so a collision never skips a
+# breakout_1 tick.
+[Unit]
+Description=Trigger ict-prop-feed@%i every 5 minutes (%i account_status)
+
+[Timer]
+OnCalendar=*-*-* *:01/5:00
+AccuracySec=15s
+Persistent=false
+Unit=ict-prop-feed@%i.service
+
+[Install]
+WantedBy=timers.target
