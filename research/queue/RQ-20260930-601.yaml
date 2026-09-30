@@ -1,0 +1,125 @@
+id: RQ-20260930-601
+title: 'M16 re-scope, Stage 0: inside ONE leg, do trades that enter with relatively higher `confidence` earn more full-cost R? (lane M16-RESCOPE)'
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  M18 measured the `confidence` scalar at OOS AUC 0.522 against a pre-registered 0.55 gate
+  (n_eval = 1,236) as a CROSS-candidate win predictor, so it cannot select between
+  strategies. Each strategy builds `confidence` from its own geometry (breakout depth,
+  pierce depth, pullback quality), so its scale is not comparable across strategies. Does the
+  score rank trades WITHIN a leg: is the past-only within-leg percentile of a trade's
+  confidence positively associated with its full-cost net R, net of month-level drift, and
+  does a budget-matched tilt on it gain R, on the committed cost-complete ledgers?
+
+why_this_matters: >-
+  Operator, 2026-09-30 (manager popup, verbatim): "Re-scope it" — M16 is re-scoped rather than
+  parked, to a use confidence MIGHT serve (pipeline item PI-20260928-NLANEM16-0001;
+  WORKPLAN-2026-08-26 Lane D1). Within-leg sizing is the use the M18 verdict does not rule out,
+  and it is the use the live reductive conviction-sizing arm (bybit_1, demo) already assumes.
+  The C1 A/B (docs/research/C1-conviction-sizing-evidence-2026-08-04.md) graded that arm on
+  portfolio max-drawdown over a net-negative population; nobody has measured the prior
+  question of whether confidence ranks trades inside a leg. A FAIL closes the within-leg use
+  and leaves the demo arm with no evidential basis (a Tier-3 call for the operator, not
+  made here). A PASS only authorises a budget-matched path A/B.
+  Memo: docs/research/m16-rescope-2026-09-30.md.
+
+power:
+  expected_n: 2000
+  min_detectable_effect: 0.0802
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    min_detectable_effect is the registered bar rho = 0.08 on the Fisher-z scale, atanh(0.08) = 0.0802,
+    where the statistic has unit sd per sqrt(n), so effect_units is sd (the gate standardises a raw
+    effect only alongside a power.sd, and a correlation has none). Fisher z: n = ((1.96 + 0.8416) /
+    atanh(rho))^2 + 3. For rho = 0.08 that is 1,224 trades (the gate's own floor prints 1,221). This
+    is the two-sided design; the rule's p <= 0.05 is one-sided, so the power claim is conservative.
+    The registered N_FLOOR is 1,500, where the minimum detectable rho is
+    2.8016 / sqrt(1497) = 0.0724 (atanh scale), i.e. below the 0.08 bar. expected_n = 2,000 is an
+    INFERENCE from a measured census, not a measurement of this statistic: the 49 measured legs'
+    committed ledgers hold 3,135 trades with numeric confidence and net_r (usable n equals each
+    leg's own n_trades_oos for all 49), 28 legs have >= 40, and those 28 hold 2,888; subtracting
+    the registered 20-trade per-leg warm-up (560) leaves about 2,300, and 2,000 allows for the
+    month-stratified centring absorbing some variance. Trades in one month across legs share a market, so
+    the effective n is below the row count; the permutation null is stratified by (leg, month) for
+    that reason, and expected_n is set under the row count.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Historical re-read of committed files; nothing accrues. Population census run 2026-09-30
+      before registration and limited to counts, nulls and distinct values — the confidence-to-R
+      relationship was NOT computed, so the rule below is registered before anyone has seen it.
+
+decision_rule:
+  id: RULE-RQ0930-601-M16-WITHIN-LEG-CONFIDENCE
+  registered_at: '2026-09-30'
+  registered_before_run: true
+  statistic: >-
+    scripts/research/m16_within_leg_confidence.py over comms/strategy_evidence/: every leg whose
+    summary reads coverage_state "measured" and whose source_run ledger exists, legs with >= 40
+    usable trades (numeric confidence and net_r). For each trade with >= 20 trades of STRICTLY EARLIER
+    entry time in its leg (trades sharing its timestamp are not its past), pct = mid-rank percentile
+    of its confidence among those earlier trades (past-only; reads confidences, never outcomes). rho = pooled Spearman(pct, full-cost net_r), both centred
+    within (leg, entry-month) strata. p = one-sided permutation p, net_r permuted within the same
+    strata, 10,000 shuffles, seed 20260930. lofo = rho with each strategy family (ict_scalp,
+    trend_donchian, pullback, other) removed in turn. delta = sum(w - 1) * net_r over the eval
+    trades, where w = (0.5 + pct) / mean over that trade's leg of (0.5 + pct), so each leg's tilted book
+    risks the same total as its flat book (budget-matched PER LEG; without the division a leg whose
+    confidence merely drifts upward gets weights near 1.5 and gains about half its net R with no
+    ranking). delta is the net R the tilt gains against flat sizing on this ledger.
+  rule: >-
+    UNDERPOWERED (verdict indeterminate) IF pooled n_eval < 1,500. NOT_APPLICABLE (no_data) IF no
+    leg qualifies. ELSE PASS IF (A) n_eval >= 1,500 AND (B) rho >= +0.08 AND (C) permutation
+    p <= 0.05 AND (D) min over families of lofo >= +0.04 AND (E) delta > 0. ELSE FAIL. The bar
+    0.08 sits above the 0.0724 minimum detectable effect at the floor, so a PASS cannot be a
+    detectable-but-trivial correlation. A FAIL is one pass and re-queues once for a confirmatory
+    run before it is read as a kill. A PASS authorises ONLY a budget-matched path-dependent A/B
+    (the existing c1-conviction-ab harness, per leg); it does not authorise a config, sizing or
+    risk change, and no live setting moves on this unit alone.
+  what_it_does_not_do: >-
+    Does not test cross-strategy selection (closed by M18). Does not test a veto: the bottom-decile
+    contrast is printed, informationally, and gates nothing. Does not test a volatility or regime
+    proxy, nor an ordering tie-break (already measured: ranking-key A/B 2026-09-08, confidence_first
+    p = 0.097, not preferred over priority_first). Does not model position-path interaction: a
+    tilt changes size, hence margin and drawdown, which this ledger-level delta cannot see. The
+    ledgers are 365-day crypto windows and ~15-month equity windows under parameter_selection
+    not_established; a PASS is Stage-0 evidence of a mechanism, not of edge. Reads no live book
+    and changes no config.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 10
+  basis: >-
+    The data is committed in the repository (comms/strategy_evidence/*.json and the
+    runs/<date>/ ledgers they point at), so it lives where a GitHub runner's checkout already
+    is; nothing needs the trainer VM. About 2,300 rows and 10,000 within-stratum shuffles.
+    Estimate, not measured.
+
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 30
+  command:
+  - python3
+  - scripts/research/m16_within_leg_confidence.py
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20260930-601
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - docs/research/m16-rescope-2026-09-30.md
+  - docs/research/M18-allocator-backtest-findings-2026-06-29.md
+  - docs/research/C1-conviction-sizing-evidence-2026-08-04.md
+  - docs/research/ranking-key-ab/2026-09-08-secondary-powered-ttl96/REPORT.txt
+last_dispatched_at: null
