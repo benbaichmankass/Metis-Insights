@@ -168,18 +168,29 @@ def test_control_a_real_failure_still_pages_at_the_threshold(monkeypatch, _clean
 ])
 def test_is_session_defer_table(monkeypatch, msg, session, expect):
     monkeypatch.setattr(om, "_us_equity_session", lambda now=None: session)
-    assert om._is_session_defer({"ok": False, "error": msg}, msg) is expect
+    assert om._is_session_defer(msg) is expect
 
 
 @pytest.mark.parametrize("session,expect", [("extended", True), ("closed", True),
                                             ("rth", False)])
 def test_real_spy_text_is_a_defer_only_outside_rth(monkeypatch, spy_msg, session, expect):
     monkeypatch.setattr(om, "_us_equity_session", lambda now=None: session)
-    assert om._is_session_defer(_result(spy_msg), spy_msg) is expect
+    assert om._is_session_defer(spy_msg) is expect
 
 
 @pytest.mark.parametrize("session", ["rth", "extended", "closed"])
 def test_real_unreadable_text_is_never_a_defer(monkeypatch, unreadable_msg, session):
     """Review BLOCKING 1: carries retCode 2 AND 'DEFERRED' — must not match."""
     monkeypatch.setattr(om, "_us_equity_session", lambda now=None: session)
-    assert om._is_session_defer(_result(unreadable_msg), unreadable_msg) is False
+    assert om._is_session_defer(unreadable_msg) is False
+
+
+def test_an_unknown_session_does_not_silence_an_alpaca_defer(monkeypatch):
+    """#14899 re-review: if the clock seam raises, the session is unknown, and
+    an Alpaca defer must count toward the streak rather than be honoured."""
+    def _boom(now=None):
+        raise RuntimeError("clock unavailable")
+    monkeypatch.setattr(om, "_us_equity_session", _boom)
+    msg = ("us_equity market closed — exit deferred to next session "
+           "(protective bracket left armed)")
+    assert om._is_session_defer(msg) is False

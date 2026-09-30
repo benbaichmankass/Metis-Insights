@@ -1249,7 +1249,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             # consecutive-close-failure streak, no "won't flatten" alarm. The
             # protective bracket (closed) / working limit (extended) handles the
             # exit; the monitor re-attempts next tick.
-            if _is_session_defer(ex_result, err_str):
+            if _is_session_defer(err_str):
                 logger.info(
                     "order_monitor: exchange close DEFERRED (market session) "
                     "for pkg=%s account=%s → %s — DB left open, no alarm.",
@@ -2907,8 +2907,7 @@ def _us_equity_session(now: Optional[datetime] = None) -> str:
     return us_equity_session(now)
 
 
-def _is_session_defer(ex_result: Dict[str, Any], err_str: str,
-                      now: Optional[datetime] = None) -> bool:
+def _is_session_defer(err_str: str, now: Optional[datetime] = None) -> bool:
     """Is this close result a market-session DEFER ("not now"), not a failure?
 
     A defer clears the close-failure streak and never pages; a failure counts
@@ -2944,8 +2943,13 @@ def _is_session_defer(ex_result: Dict[str, Any], err_str: str,
         try:
             if _us_equity_session(now) == "rth":
                 return False
-        except Exception:  # noqa: BLE001 — a clock failure keeps the defer
-            logger.debug("order_monitor: us_equity_session failed", exc_info=True)
+        except Exception:  # noqa: BLE001
+            # An UNKNOWN session must not silence a close: count it toward
+            # the streak so a stuck clock still reaches the alarm.
+            logger.warning(
+                "order_monitor: us_equity_session failed — treating the Alpaca "
+                "defer as a failure", exc_info=True)
+            return False
     return True
 
 

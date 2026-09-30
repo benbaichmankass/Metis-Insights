@@ -1057,12 +1057,8 @@ def test_defer_message_satisfies_the_monitors_actual_string_match(monkeypatch):
     res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
 
     assert "exit deferred" in res["retMsg"].lower(), res
-    assert _is_session_defer(
-        {"ok": False, "error": res["retMsg"], "exchange_response": res},
-        res["retMsg"],
-    ), "order_monitor no longer classifies the IB closed-venue defer as a defer"
-    # The phrase alone must still carry it, with no structured code attached.
-    assert _is_session_defer({"ok": False, "error": res["retMsg"]}, res["retMsg"])
+    assert _is_session_defer(res["retMsg"]), (
+        "order_monitor no longer classifies the IB closed-venue defer as a defer")
 
 
 def test_close_proceeds_when_the_venue_is_open(monkeypatch):
