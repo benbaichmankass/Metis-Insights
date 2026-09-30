@@ -4,6 +4,7 @@ status: queued
 cadence: once
 theme: new_strategy_prop
 priority: 1
+requires_result: {unit: RQ-20260930-501, verdict: pass}   # STRUCTURED form of the prose below; the dispatcher evaluates this one
 kind: experiment
 
 question: >-

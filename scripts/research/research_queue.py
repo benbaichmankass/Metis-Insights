@@ -655,7 +655,12 @@ def load_themes(path: Optional[Path] = None) -> Dict[str, Any]:
     Raises on an unreadable or malformed file: weights are the scheduler's only input, and a silent
     default would hide a broken scheduler behind a plausible order."""
     import yaml  # noqa: PLC0415
-    doc = yaml.safe_load((path or THEMES_PATH).read_text(encoding="utf-8")) or {}
+    try:
+        doc = yaml.safe_load((path or THEMES_PATH).read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"THEMES.yaml: not valid YAML: {exc}") from exc
+    if not isinstance(doc, dict):
+        raise ValueError("THEMES.yaml: top level must be a mapping")
     themes = doc.get("themes")
     if not isinstance(themes, dict) or not themes:
         raise ValueError("THEMES.yaml: `themes` must be a non-empty mapping")
