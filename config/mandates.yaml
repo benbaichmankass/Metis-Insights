@@ -751,6 +751,10 @@ mandates:
       question whether the coverage matrix's `timeout_binding: CONTAMINATED` flag
       (the harness force-closes at 200 bars; live has no such exit) should become
       a bound. Clause (8) below. The grant otherwise stands as written.
+      CONSEQUENCE, stated for the record: the bound also refuses four legs from the
+      operator's 2026-08-30 approved batch -- trend_donchian, trend_donchian_ada_4h,
+      trend_donchian_avax_4h, trend_donchian_sol_4h -- because the audit reads them
+      contaminated (binding 20/38, 17/38, 2/39, 2/38).
     source: >-
       Popup in manager session session_01HYq6XtfesZ57VyaQrK6CL1, ~05:15Z
       2026-09-30, answered verbatim "Grant; firing opens a PR (Recommended)".
@@ -790,9 +794,13 @@ mandates:
       `leg CONTAMINATED` refuses (fail closed), and an audit that cannot run or
       reads `no_power` is NEEDS-DATA, never a pass. ⚠️ THE TWO READINGS DISAGREE ON
       spy_pullback_1h AT ADOPTION: the matrix note says CONTAMINATED (17 of 39
-      pairs), the audit over both the 08-29 and 08-31 sweeps says clean (0 of 39),
-      so it is refused through the note; reconcile in the pipeline row filed
-      against this. The edit changes ONE key,
+      pairs), the audit over both the 08-29 and 08-31 sweeps says clean (0 of 39).
+      RE-DERIVED 2026-09-30 from the RAW rows (base arm vs the 400-bar arm per
+      geometry, no audit() code): 0 of 39 (08-31) and 0 of 35 (08-29) differ, no
+      null arms; no leg in any sweep has exactly 17 of 39 (the only 17-binding
+      leg is trend_donchian_ada_4h, 17 of 38). So the NOTE is the stale reading
+      and the audit the reliable one; it is refused through the note only because
+      the bound fails closed until the note is corrected (PI-20260930-39SDYWCO-0004). The edit changes ONE key,
       `atr_stop_mult`, on that one leg in config/strategies.yaml, and nothing
       else. One cell per leg per fire, chosen by the rule B4 stated in advance:
       highest wf_wins_effective, tie-break d_net_r, over the leg's gate-passing
