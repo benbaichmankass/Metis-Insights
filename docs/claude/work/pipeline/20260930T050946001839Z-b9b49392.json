@@ -1,0 +1,50 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "config/mandates.yaml's MD-PROMOTE-S1-S2 either carries a blocked_until naming a row that can still land, or has none because the operator armed it; AND bar.cost_tolerance_bps carries an operator-decided number or is explicitly confirmed at 0.0.",
+    "kind": "observation"
+  },
+  "id": "PI-20260925-RSAMWXRW-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane B5 mandate grants, session_01RAERa2sGmCEwSHRsAmwXrW, PR #12920, checklist row B5",
+    "rerun": "python3 -c \"import json;d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json'))\" and grep rows D1/R1/D3 for their state; then grep blocked_until and cost_tolerance_bps in config/mandates.yaml and check whether either still names a dropped row or an unstated number."
+  },
+  "severity": "medium",
+  "state": "killed",
+  "terminal_reason": "Fixed and armed: checklist MANDATE-ARM. Read from config/mandates.yaml (parsed, not the comments) 2026-09-30: MD-PROMOTE-S1-S2 has no blocked_until key and bar.cost_tolerance_bps = 2.0 (operator decision 'Arm, tolerance 2 bps'), so both numbers the item asked for are decided.",
+  "tier": 3,
+  "triage_2026_09_28": {
+    "checked": "Read docs/claude/work/MANAGER-CHECKLIST.json for rows D1/R1/D3: D1 is still 'dropped' (killed 2026-09-22 as duplicate of R1), R1 is 'done'. Grepped config/mandates.yaml: MD-PROMOTE-S1-S2's blocked_until still names D1 (lines ~367-408) and bar.cost_tolerance_bps is still 0.0 on both MD-PROMOTE-S1-S2 and MD-DEMOTE-S1-OFF (lines 457, 539), explicitly marked INFERRED not DECIDED in the file's own comments. Nothing has changed since this item was filed on 2026-09-25.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "doc/config edit",
+          "label": "Decide R1 discharges D1; rewrite blocked_until to reference R1 (or clear it, per D1-verify-cost-stack's proposed text)",
+          "risk": "arms a real-money mandate on a corpus that is not fully re-run net of the decided cost stack",
+          "what_happens": "Mandate becomes arm-able once the D1-verify-cost-stack findings are also accounted for (24/27 stale Bybit-perp records, all 22 equities/futures unmeasured-provisional, R1 covering only 12/~55 legs)."
+        },
+        {
+          "cost": "none",
+          "label": "Keep blocked_until as literally unsatisfiable until the corpus gaps close",
+          "risk": "none - status quo",
+          "what_happens": "Mandate stays permanently blocked, which may be the intended conservative posture."
+        },
+        {
+          "cost": "none, config edit only",
+          "label": "Set cost_tolerance_bps explicitly (0.0 or another number) as a DECIDED value",
+          "risk": "too strict a tolerance could block legitimate promotions; too loose weakens the safety property",
+          "what_happens": "Removes the INFERRED flag; makes the Stage-1 cost-fidelity clause enforceable as intended."
+        }
+      ],
+      "priority_tier": 0,
+      "question": "MD-PROMOTE-S1-S2's blocked_until still names checklist row D1, which is permanently 'dropped' (killed as a duplicate of R1, which is 'done') - so the block can never clear as literally written even though its substance may already be discharged by R1. Separately, bar.cost_tolerance_bps is set to 0.0 (INFERRED as the strictest reading, never operator-DECIDED). Does R1 discharge D1's block, and what should cost_tolerance_bps actually be?",
+      "recommendation": "This is exactly the operator-only act the mandates file's own comments describe ('clearing MD-PROMOTE-S1-S2's blocked_until... only the operator GRANTS one, and a lane must not') - no change without operator sign-off."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "Two numbers in config/mandates.yaml need an operator decision that PR #12920 deliberately did not make. (a) MD-PROMOTE-S1-S2 carries blocked_until naming checklist row D1, copied verbatim from OPERATING-PLAN-2026-09-21 section 5.3 (mirrored in CLAUDE.md and .claude/skills/manager/SKILL.md). MEASURED 2026-09-25 by reading docs/claude/work/MANAGER-CHECKLIST.json: row D1 reads `dropped`, killed 2026-09-22 as a duplicate of R1; row R1 reads `done`; row D3's note records 49 of 52 comms/strategy_evidence records now carry a cost stack and that the corpus is no longer fee-only, priced on a flat 5 bps round-trip slippage. INFERRED from that, not re-measured: the block's substance may already be discharged by R1 while the block as written can never clear, because a dropped row cannot land. So the only mandate that can route real money is granted but permanently unarmable until someone decides whether R1 discharges D1 and what text replaces the block. Clearing blocked_until is the operator's act; a lane must not. (b) Section 5.3 requires the Stage-1 cost-fidelity clause to be checked against 'a stated tolerance' and states no number, and no operator decision sets one. The PR wrote bar.cost_tolerance_bps 0.0 on MD-PROMOTE-S1-S2 and MD-DEMOTE-S1-OFF as the strictest reading, marked INFERRED in place rather than DECIDED. Related but separately tracked: the cap as written (25 percent of the account's configured risk budget) binds MD-PROMOTE-S0-S1 too, which sits in tension with CLAUDE.md's 'Stage 1 may be wide'. VERIFIED 2026-09-25 by lane/d1-verify-cost-stack, per operator instruction 2026-09-25 to verify before proposing. Findings: docs/research/d1-cost-stack-verification-2026-09-25.md. Summary: the CLI paths backing the current 52-record evidence corpus no longer default slippage/funding to 0.0 (E60 + R1 fixed the specific danger blocked_until names); the corpus is NOT fully re-run net of the operator-decided cost stack though -- 24/27 Bybit-perp records are stale against E60's 3.0bps decision (PI-20260924-JCVFRWEA-0001, conservative direction, not dangerous), all 22 equities/futures records carry an unmeasured 5.0bps provisional figure (E62 still landed_unproven), and R1 covered only 12 of ~55 live-roster legs. A replacement blocked_until text is proposed in this session's PR body -- checkable against PI-20260924-JCVFRWEA-0001's state and checklist row E62's done-when, not a row id. Not applied: only the operator grants a mandate change.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 0) — MD-PROMOTE-S1-S2's blocked_until still names checklist row D1, which is permanently 'dropped' (killed as a duplicate of R1, which is 'done') - so the block can never clear as literally written even though its substance may already be discharged by R1. Separately, bar.cost_tolerance_bps is set to 0.0 (INFERRED as the strictest reading, never operator-DECIDED). Does R1 discharge D1's block, and what should cost_tolerance_bps actually be? Recommendation: This is exactly the operator-only act the mandates file's own comments describe ('clearing MD-PROMOTE-S1-S2's blocked_until... only the operator GRANTS one, and a lane must not') - no change without operator sign-off."
+}

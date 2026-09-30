@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline record only (docs/claude/work/pipeline/*ZIFJ1RKM-0004.json) from lane ALPACA-CLOSE-WEDGE: the equity naked sweep's breach exit re-arms over its own working extended-hours close-limit (root-caused from code during the #14585 re-review). No code, config or order-path change; the fix is a separate future held Tier-2 PR."
+}

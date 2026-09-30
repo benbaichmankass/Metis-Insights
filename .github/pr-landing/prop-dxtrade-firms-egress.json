@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Memo follow-up under docs/research/ plus one pipeline record update. Records the read-only egress-landing-probe result (VM run, issue #14635) next to the sandbox result and updates the Tradeify decision text. No runtime, no order path, no config, no risk caps. Manager-dispatched lane PROP-DXTRADE-FIRMS, instruction 2026-09-30 08:02Z."
+}

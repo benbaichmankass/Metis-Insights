@@ -1,0 +1,6 @@
+{
+  "held_by": "session_014hPP8CTfoZ8y3kfDt5QsCC",
+  "branch": "claude/gitsync-revive-stopped-units",
+  "claimed_at": "2026-09-30T05:24:58Z",
+  "purpose": "GITSYNC-REVIVE: deploy never starts a stopped long-running unit (held Tier-2)"
+}

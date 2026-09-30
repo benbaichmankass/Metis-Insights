@@ -466,6 +466,12 @@ def execute_pkg(
                     status="rejected",
                     sized_qty=float(qty or 0.0),
                     is_dry=_rej_is_dry,
+                    # Which gate made it dry (account mode / execution:shadow /
+                    # side_filter), set by Coordinator.multi_account_execute.
+                    # Only meaningful on a genuine dry decision.
+                    dry_cause=(
+                        account_cfg.get("dry_cause") if _genuinely_dry else None
+                    ),
                 )
         except Exception as exc:  # noqa: BLE001 — never let journaling crash dispatch
             logger.warning(
@@ -2516,6 +2522,7 @@ def log_rejection_to_journal(
     sized_qty: Optional[float] = None,
     is_dry: bool = False,
     margin_basis: Optional[dict] = None,
+    dry_cause: Optional[str] = None,
 ) -> bool:
     """Public wrapper: log a refusal event to the trade journal.
 
@@ -2554,17 +2561,28 @@ def log_rejection_to_journal(
     ``None`` when sizing was not reached — omitted rather than written empty,
     so "no basis recorded" stays distinct from "basis was unknown".
 
+    ``dry_cause`` names the gate that made a dry dispatch dry —
+    ``account_mode:dry_run`` · ``execution:shadow`` · ``side_filter:<long|short>``
+    · ``process_override`` — stamped into ``notes.dry_cause``
+    (PI-20260928-SVBNZOVH-0001). Omitted when ``None`` so "no cause recorded"
+    stays distinct from any named cause.
+
     Wraps the underlying write in a defensive try/except so a
     journal-write failure during failure-handling can never escalate
     to a stack unwind.
     """
     try:
         order = {"qty": float(sized_qty or 0.0), "symbol": pkg.symbol}
+        _extra: dict = {}
+        if margin_basis:
+            _extra["margin_basis"] = margin_basis
+        if dry_cause:
+            _extra["dry_cause"] = str(dry_cause)
         return _log_trade_to_journal(
             pkg, account_cfg, order,
             trade_id=None, is_dry=is_dry,
             status=status, reason=reason,
-            extra_notes={"margin_basis": margin_basis} if margin_basis else None,
+            extra_notes=_extra or None,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning(

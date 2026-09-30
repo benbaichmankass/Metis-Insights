@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/runtime/order_monitor.py is the live order monitor that closes positions and runs the naked re-arm sweep, including for the real-money alpaca_live account. Dispatched by the manager (session_01HYq6XtfesZ57VyaQrK6CL1) as lane ALPACA-CLOSE-WEDGE (PI-20260930-ZPDIPMDA-0001), which requires a HELD PR. The manager has it independently reviewed and merges it. What changes on the order path: (1) the active-close marker is set only when a close is actually sent, not when it is wedge-suppressed; (2) a market-session defer that left the bracket armed clears the marker, so the naked sweep can verify and re-arm a protective stop overnight; (3) a standing-wedge re-probe that the session deferred is held for CLOSE_WEDGE_DEFERRED_REPROBE_S (300 s) instead of re-running every tick. No new order type. The sweep's existing re-arm and breach paths are what act. Revert: git revert of the merge commit.",
+  "why": "PI-20260930-ZPDIPMDA-0001: a deferred close kept the Alpaca/IB naked sweep skipping the position for the whole defer. On alpaca_live, an after-hours close cancels the OCO, its DAY limit expires, and nothing rests overnight while the sweep skips it."
+}

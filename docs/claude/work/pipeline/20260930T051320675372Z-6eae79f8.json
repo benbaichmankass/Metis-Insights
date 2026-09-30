@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a research-queue unit with a pre-registered rule re-measures vol_skip per declarer on Bybit data at current config, and each line is kept or removed on it",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-VOLSKIP-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLSKIP-FORMING, 2026-09-29, RQ-20260929-201 side finding",
+    "rerun": "python3 scripts/research/vol_skip_forming_bar_replay.py --klines-dir <binance 1m zips> --out /tmp/v.json  # compare legs.<leg>.no_gate vs arms.A_closed; the finding holds while they are within ~1R of each other or no-gate is higher"
+  },
+  "routed_to": "VOLSKIP-FORMING",
+  "state": "routed",
+  "what": "[strategy][evidence-drift] The M21 vol-skip gate barely binds at the legs' CURRENT config. RQ-20260929-201 (Binance proxy, full cost stack, config-exact 2026-09-29): ada_pullback_2h no-gate 413 trades +72.85R vs gate-on 400 trades +72.77R (OOS 2026: no-gate +15.12R/46 vs gate +12.39R/44); trend_donchian_xrp_4h no-gate +13.39R/77 vs gate +12.09R/73. The gate's own declare comments cite M21 E-2 round-4 gains (ada IS 31.0->32.3, OOS 5.4->7.4; xrp IS 57.2->59.1) measured BEFORE later changes (ada atr_stop_mult 2.5->1.5, tp_r 50->4, adx_min 25->28; xrp stop 2.5->2, tp 50->3). Question for the research queue: on Bybit data (trainer-resident), config-exact, walk-forward, does vol_skip still clear its rule on each declarer (ada, xrp_4h, trend_donchian_eth, avax)? If not, removing the line is a data-backed Tier-3 simplification."
+}

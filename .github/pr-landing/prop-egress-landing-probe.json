@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges after review; new Tier-2 system-action (read-only, fixed host allowlist, GET only, no credentials). Requested by the manager in the PROP-DXTRADE-FIRMS routine 2026-09-30 05:44Z.",
+  "why": "Adds system-action egress-landing-probe: from the live VM egress, GET a hard-coded allowlist (dx.tradeify247.co, /specs, tradeify247.co) and print status, server, cf-mitigated, Cloudflare error/challenge markers and login-form markers. No url parameter, no credentials, no cookies printed, no browser. Purpose: decide whether the Oracle ASN is blocked at Tradeify 247 the way Breakout blocks it (PI-20260929-FRJ7NMPU-0001)."
+}

@@ -1201,6 +1201,25 @@ accounts:
     api_key_env: ALPACA_API_KEY_PAPER_PORTFOLIO         # dedicated paper login,
     api_secret_env: ALPACA_API_SECRET_KEY_PAPER_PORTFOLIO  # separate from alpaca_paper.
     mode: live                         # paper host = paper money; executes.
+    side_filter: long                  # = alpaca_live's. B2 (operator, 2026-09-21): the mirror
+                                       # takes IDENTICAL trades, and a direction live suppresses
+                                       # is not a trade live takes. Until 2026-09-30 this key was
+                                       # absent, so the mirror traded shorts on ief/slv_pullback_1d
+                                       # that alpaca_live demotes to dry — and Gate 2's demotion
+                                       # read included short-side P&L the live book never had
+                                       # (PI-20260928-E8Y3BGBS-0002 / -SVBNZOVH-0002). This
+                                       # SUPERSEDES, for this account only, the 2026-08-23 scoping
+                                       # "alpaca_paper / alpaca_portfolio / ib_paper keep trading
+                                       # both sides": that scope existed so the soak keeps accruing
+                                       # short-side data, and alpaca_paper (the soak) still does.
+                                       # CONFIRMED 2026-09-30 05:41Z by the manager
+                                       # (session_01HYq6XtfesZ57VyaQrK6CL1), relaying the operator's
+                                       # authority: "B2 ... is the later decision and wins for
+                                       # alpaca_portfolio. The 2026-08-23 scoping still holds for
+                                       # alpaca_paper and ib_paper, which stay two-sided."
+                                       # Asserted by tests/test_paper_portfolio_accounts.py::
+                                       # test_alpaca_portfolio_trade_shaping_fields_equal_alpaca_live.
+                                       # ROLLBACK: delete this key (and that test's side_filter row).
     strategies:                        # alpaca_live's roster MINUS the affordability
       - ief_pullback_1d                # proxies (SPLG/IAUM) — see ROSTER-SYNC above.
       - slv_pullback_1d
@@ -1221,8 +1240,14 @@ accounts:
       # paperPortfolio block.
     symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]  # alpaca_live.symbols minus the SPLG/IAUM proxies.
     risk:
-      max_dd_pct: 0.05                 # mirrors alpaca_live's caps.
-      daily_loss_pct: 0.05
+      max_dd_pct: 0.10                 # = alpaca_live's caps (operator, 2026-08-25:
+      daily_loss_pct: 0.10             # "10% max drawdown" / "daily to 10% as well").
+                                       # Read 0.05 / 0.05 until 2026-09-30 under a comment
+                                       # claiming it "mirrors alpaca_live's caps" — it had not
+                                       # since #10253 raised live's. At half live's tolerance the
+                                       # mirror halts (daily cap / max DD) on days live keeps
+                                       # trading, so its Gate-2 window would miss trades live took.
+                                       # ROLLBACK: 0.05 / 0.05 (and relax the equality test).
       daily_usd: 200                   # absolute fallback (no equity snapshot).
       risk_pct: 0.02                   # 2% — same basis as alpaca_live, so the
                                        # paper read is representative of live.

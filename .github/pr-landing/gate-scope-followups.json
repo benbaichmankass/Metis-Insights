@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only: three follow-ups from the manager post-merge review of #14590 (read-failure alerting, allocator-path read-failure reason, ACCOUNTS_YAML_PATH resolver divergence). No runtime, order path, strategy config, risk caps or VM code touched."
+}

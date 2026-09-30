@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline record only (docs/claude/work/pipeline/*ZIFJ1RKM-0005.json) from lane ALPACA-CLOSE-WEDGE: the close-wedge ledger refresh is coupled to the close-failure alert streak, so each closed session costs 2 extra broker-hitting cancel+place rounds on an evidenced wedge (measured on alpaca_paper/GLD 08:02-08:03Z). No code, config or order-path change; the fix is a future held Tier-2 PR."
+}
