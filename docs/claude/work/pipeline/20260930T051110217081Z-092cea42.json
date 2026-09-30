@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "Either this cluster is archived under docs/archive/2026-09-21-operating-reset/ the same way the eight registers were, or its fixtures/paths are re-pointed at MANAGER-CHECKLIST.json + docs/claude/work/pipeline/ and manager_preflight.py --self-test / blocked_lane_watch.py's positive control pass again for real.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-MJX1ZKYC-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A11 / docs/audits/code-audit-2026-09-27/CA-A11.findings.jsonl#AUD-20260927-CA-A11-retired-register-cluster",
+    "rerun": "python3 scripts/ops/manager_preflight.py --self-test (expect FAIL, exit 4); git cat-file -e origin/main:docs/claude/work/SESSIONS.json (expect: fatal, path does not exist); ls docs/claude/work/MANAGER-LEASE.json docs/claude/work/SESSIONS.json docs/claude/work/MERGE-QUEUE.json docs/claude/OPEN-ITEMS.json docs/claude/work/objects docs/claude/{health,performance,ml}-review-backlog.json (expect: all No such file or directory)"
+  },
+  "routed_to": "E9",
+  "state": "routed",
+  "what": "[operating-model] A cluster of ~18 scripts/ops/ files (manager_lease.py, manager_state_watch.py, manager_view.py, manager_wake.py, manager_preflight.py, handoff_check.py, in_flight_owner_liveness.py, commit_work_decisions.py, blocked_lane_watch.py, checklist_routing_age.py, backlog_append.py, backlog_search.py, backlog_union_merge.py, check_backlog_refs.py, check_backlog_criteria.py, accrual_clock.py, calendar_edge_census.py, backlog_drain_candidates.py) still target files/paths the 2026-09-21 operating reset retired (MANAGER-LEASE.json, SESSIONS.json, MERGE-QUEUE.json, OPEN-ITEMS.json, docs/claude/work/objects/, the four *-review-backlog.json files) -- all confirmed absent via `ls`. Two are provably broken TODAY, not just stale-looking: (1) scripts/ops/manager_preflight.py --self-test FAILS its own mandatory planted-failure suite (2 cases: OPEN-ITEMS.json/SESSIONS.json round-trip checks return None because both fixtures were archived) -- running it for real returns exit code 4 ('unknown'), so this tool can never again produce a ready/not_ready verdict. (2) scripts/ops/blocked_lane_watch.py's positive control (`git cat-file -e origin/main:docs/claude/work/SESSIONS.json`) always fails since that path no longer exists on main, permanently blinding its path-existence detection half (it fails safe -- reports 'unknown', never a false clear). Mitigating factor: every cron that would run these on a schedule (pr-queue-watch.yml, constraint-readout.yml, session-reaper.yml) was already disabled in the 2026-09-21 reset (workflow_dispatch only), and scripts/ci/run_guards.py's own comments confirm the CI-guard side of the cleanup (checklist-routing-age-guard, manager-lease-guard, session-registry-guard, session-brief-guard, backlog_* checks) was deliberately dropped -- but the ~18 scripts/ops/ files themselves were never archived, fixed, or re-pointed to match, and their own docstrings/wiring comments still claim the removed guard wiring. Filed by code-audit lane CA-A11 (docs/audits/code-audit-2026-09-27/CA-A11.findings.jsonl, finding AUD-20260927-CA-A11-retired-register-cluster)."
+}
