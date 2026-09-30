@@ -81,7 +81,17 @@ def leg_stat(net: Dict[str, Any], leg: str) -> Dict[str, Any]:
             "charged_exit_fee_r": net.get("charged_exit_fee_r")}
 
 
-def read_leg(round_dir: Path, leg: str) -> Dict[str, Any]:
+def _year_ok(net: Dict[str, Any], expect_year: int) -> bool:
+    """True iff the file's own fold year is `expect_year`. A stale file from another fold (or one
+    with no year) must never be graded as this fold's result."""
+    y = net.get("fold_year", net.get("expect_year"))
+    try:
+        return int(y) == int(expect_year)
+    except (TypeError, ValueError):
+        return False
+
+
+def read_leg(round_dir: Path, leg: str, expect_year: Any = None) -> Dict[str, Any]:
     """Load one leg's `final_fold_net.json` -> its stat. A missing file is `no_report`; a file that
     is unreadable, not JSON, or not an object is `malformed` — it must never crash the grader and so
     lose the other legs' results (both are producer problems -> not_applicable)."""
@@ -96,6 +106,11 @@ def read_leg(round_dir: Path, leg: str) -> Dict[str, Any]:
     if not isinstance(obj, dict):
         return {"leg": leg, "state": "malformed",
                 "detail": {"why": f"final_fold_net.json is a {type(obj).__name__}, not an object"}}
+    if (expect_year is not None and obj.get("state") in ("ok", "final_fold_missing")
+            and not _year_ok(obj, expect_year)):
+        return {"leg": leg, "state": "malformed",
+                "detail": {"why": f"stale or unlabelled fold: file fold_year="
+                                  f"{obj.get('fold_year', obj.get('expect_year'))!r}, expected {expect_year}"}}
     return leg_stat(obj, leg)
 
 
@@ -150,10 +165,15 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--rule", choices=("family", "single-leg"), default="family",
                     help="family = RQ-20260929-401 (default, unchanged); "
                          "single-leg = RQ-20260930-402 (exactly one leg)")
+    ap.add_argument("--expect-year", type=int, default=None,
+                    help="required with --rule single-leg: a per-leg file whose fold_year differs "
+                         "(e.g. a stale 2026 result) is malformed -> producer_failed, never graded")
     a = ap.parse_args(argv[1:])
+    if a.rule == "single-leg" and a.expect_year is None:
+        ap.error("--rule single-leg requires --expect-year")
     stats: List[Dict[str, Any]] = []
     for leg in a.legs.split(","):
-        stats.append(read_leg(Path(a.round_dir), leg))
+        stats.append(read_leg(Path(a.round_dir), leg, a.expect_year))
     fn = grade_single_leg if a.rule == "single-leg" else grade
     print(json.dumps(fn(stats), indent=1, sort_keys=True))
     return 0

@@ -90,3 +90,27 @@ def test_single_leg_rule_rq_20260930_402():
     assert r["verdict"] == "not_applicable" and r["read_state"] == "producer_failed"
     assert g([_ok(100, 1), _ok(100, 1)])["verdict"] == "not_applicable"   # exactly one leg
     assert G.grade([_ok(108, 1)])["verdict"] == "indeterminate"        # family rule unchanged
+
+
+def test_stale_other_year_file_is_never_graded_as_this_fold(tmp_path):
+    """Manager review of #14514: a copied round dir carries the 2026 final_fold_net.json; a crashed
+    2025 replay writes nothing, so that file must not grade as a 2025 PASS."""
+    import json
+    d = tmp_path / "leg"
+    d.mkdir()
+    stale = {"state": "ok", "fold_year": 2026, "n_oos": 95, "baseline_net_r": -4.556,
+             "head_net_r": -4.346, "recovered_r_oos": -4.346 + 4.556}
+    (d / "final_fold_net.json").write_text(json.dumps(stale))
+    s = G.read_leg(tmp_path, "leg", 2025)
+    assert s["state"] == "malformed"
+    g = G.grade_single_leg([s])
+    assert g["verdict"] == "not_applicable" and g["read_state"] == "producer_failed"
+    stale.pop("fold_year")                                              # unlabelled is refused too
+    (d / "final_fold_net.json").write_text(json.dumps(stale))
+    assert G.read_leg(tmp_path, "leg", 2025)["state"] == "malformed"
+    stale["fold_year"] = 2025
+    (d / "final_fold_net.json").write_text(json.dumps(stale))
+    assert G.read_leg(tmp_path, "leg", 2025)["state"] == "ok"
+    (d / "final_fold_net.json").write_text(json.dumps({"state": "final_fold_missing", "expect_year": 2026}))
+    assert G.read_leg(tmp_path, "leg", 2025)["state"] == "malformed"
+    assert G.read_leg(tmp_path, "leg")["state"] == "final_fold_missing"   # family rule: no year check

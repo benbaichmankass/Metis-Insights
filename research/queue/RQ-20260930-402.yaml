@@ -83,10 +83,18 @@ decision_rule:
     reported with both arm sums beside R, never as "the head makes money".
   grader: >-
     scripts/research/exit_head_final_fold_grade.py --rule single-leg (grade_single_leg,
-    committed with this unit, tested). The default `family` rule is unchanged, so
+    with --expect-year 2025, which refuses any per-leg file from another fold; committed with
+    this unit, tested). The default `family` rule is unchanged, so
     RQ-20260929-401's grade is reproducible. The family rule cannot PASS or FAIL on
     one leg (|Q| < 2 -> indeterminate), which is why the single-leg rule is part of
     this registration and not added after the run.
+  visible_before_registration: >-
+    Disclosed, not hidden: trainer-vm-diag issue #14466 (2026-09-30 ~00:16Z, before this
+    registration) printed XRP's 2025 fold from the RQ-20260929-401 round: baseline actual
+    net_R +4.77, AUC 0.551, best_tau 0.25. The tau-0.10 head net statistic that this
+    unit grades was NOT shown, and no design choice here is free (arm, fold, floor, cost
+    method are all inherited from RQ-20260929-401), so it cannot have steered the design.
+    Stated so the reader can weigh it.
   what_it_does_not_do: >-
     Declares no exit_head_model in config/strategies.yaml, promotes no head, changes
     no live exit, writes nothing under runtime_logs/trainer_mirror/, and does NOT
@@ -128,7 +136,7 @@ run:
     Step 1: `python scripts/research/exit_head_final_fold_replay.py --round-dir
     /home/ubuntu/rq20260930_402_round --tf 15m --expect-year 2025 --legs ict_scalp_xrp_15m`.
     Step 2: `python scripts/research/exit_head_final_fold_grade.py --round-dir
-    /home/ubuntu/rq20260930_402_round --legs ict_scalp_xrp_15m --rule single-leg`.
+    /home/ubuntu/rq20260930_402_round --legs ict_scalp_xrp_15m --rule single-leg --expect-year 2025`.
     Step 3: land with scripts/research/research_result.py under
     research/results/RQ-20260930-402/, carrying n_oos, baseline_net_r, head_net_r,
     recovered_R (net and gross), early exits and charged cost in the measurement block
