@@ -38,6 +38,20 @@ script passes NO cost flags, so the verdict arm is the harness default (7.5 bps 
 The 11 bps arm is derived from each emitted row as delta_R = 3.5e-4 * entry / risk (entry price
 stands in for the entry/exit mid; a report-only approximation, labelled in the output).
 
+CANDLES ON THE RUNNER (manager review of #14586, 2026-09-30): the runner is ubuntu-latest with the candle CSVs
+gitignored, so `--fetch` first pulls every crypto (symbol, timeframe) in the grid from Binance-vision futures/um
+(keyless, not geoblocked; Bybit 403s GitHub runners) through the ONE existing fetcher
+(scripts/ops/fetch_backtest_candles.py) into data/{SYMBOL}_{grain}.csv, the name the resolver expects. A cell
+whose fetch fails is not runnable and is listed with the reason. If fewer than HALF of the declared cells are
+runnable the sweep is NOT_APPLICABLE (candles missing), so a mostly-unfetched grid can never read as a null.
+The Binance USD-M series is a PROXY for Bybit linear (prices track within a few bps); recorded in the output.
+
+Live-config parameters are NOT proof of out-of-sample parameters: ict_scalp and pullback cells run at the params
+of the live leg for that symbol/timeframe, and those were probably chosen on history that overlaps Stage B
+(2024-10 onward). Such a cell is flagged stage_b_not_fully_oos; a PASS carried ONLY by flagged cells is reported as
+pass_caveated, never plain pass. The other families run at harness defaults whose provenance is not established
+either; that is stated, not asserted clean.
+
 Universe: WAVES. Wave 1 is the five perps with committed short-timeframe evidence. Adding symbols is a
 NEW wave and therefore a NEW, separately registered grid (K changes, so the correction changes) --
 append to WAVES and register a unit; never edit wave 1 after a run.
@@ -285,6 +299,8 @@ class Cell:
     stage_b: Dict[str, Any] = field(default_factory=dict)
     survived: bool = False
     confirmed: bool = False
+    #: True when the cell runs at a LIVE leg's parameters (chosen on history that probably overlaps Stage B).
+    stage_b_not_fully_oos: bool = False
 
     @property
     def key(self) -> str:
@@ -297,6 +313,42 @@ def _load_data_source():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+#: Bybit-style interval code the fetcher speaks, per timeframe label.
+INTERVAL_CODE = {"1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60"}
+FETCH_START = "2020-12-01"      # a month of warm-up before Stage A opens on 2021-01-01
+
+
+def fetch_candles(symbols: Sequence[str], timeframes: Sequence[str], *, run=subprocess.run,
+                  data_dir: Optional[Path] = None, timeout_s: int = 3600,
+                  log: Callable[[str], None] = print) -> Dict[str, Dict[str, Any]]:
+    """Fetch each (symbol, timeframe) from Binance-vision into data/{SYMBOL}_{tf}.csv. Never raises:
+    a failure is returned per key ({'ok': False, 'detail': ...}) and that cell becomes unrunnable."""
+    data_dir = data_dir or (REPO / "data")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    out: Dict[str, Dict[str, Any]] = {}
+    for sym in symbols:
+        for tf in timeframes:
+            key = f"{sym}|{tf}"
+            code = INTERVAL_CODE.get(tf)
+            dest = data_dir / f"{sym}_{tf}.csv"
+            if code is None:
+                out[key] = {"ok": False, "detail": f"no interval code for {tf}"}
+                continue
+            cmd = [sys.executable, str(REPO / "scripts/ops/fetch_backtest_candles.py"), "--symbol", sym,
+                   "--source", "binance_vision", "--interval", code, "--start-date", FETCH_START,
+                   "--output", str(dest)]
+            try:
+                p = run(cmd, capture_output=True, text=True, timeout=timeout_s, cwd=str(REPO))
+                ok = p.returncode == 0 and dest.exists()
+                detail = "" if ok else (p.stderr or p.stdout or "no output")[-300:]
+            except subprocess.TimeoutExpired:
+                ok, detail = False, f"fetch timed out after {timeout_s}s"
+            out[key] = {"ok": bool(ok), "detail": detail, "file": str(dest.relative_to(REPO))
+                        if dest.is_relative_to(REPO) else str(dest)}
+            log(f"  fetch {key}: {'ok' if ok else 'FAILED ' + detail[:120]}")
+    return out
 
 
 def default_data_check(symbol: str, tf: str) -> Tuple[bool, str]:
@@ -344,6 +396,7 @@ def build_cells(wave: int, families: Sequence[str], timeframes: Sequence[str],
                     c.runnable, c.reason = ok, ("" if ok else why)
                 if c.runnable and FAMILIES[fam]["strategy_name"]:
                     c.strategy_name = live_leg_for(fam, sym, tf, strategies)
+                    c.stage_b_not_fully_oos = c.strategy_name is not None
                 cells.append(c)
     return cells
 
@@ -399,8 +452,18 @@ def sweep(*, wave: int, families: Sequence[str], timeframes: Sequence[str], runn
           data_check: Callable[[str, str], Tuple[bool, str]], jobs: int = 2,
           stage_a: Tuple[str, str] = STAGE_A, stage_b_start: str = STAGE_B_START,
           stage_b_end: Optional[str] = None, strategies: Optional[Dict[str, Any]] = None,
-          smoke: bool = False, log: Callable[[str], None] = print) -> Dict[str, Any]:
+          smoke: bool = False, fetch: Optional[Callable[[], Dict[str, Dict[str, Any]]]] = None,
+          log: Callable[[str], None] = print) -> Dict[str, Any]:
     stage_b_end = stage_b_end or latest_complete_day()
+    fetched = fetch() if fetch is not None else None
+    if fetched is not None:
+        _dc = data_check
+
+        def data_check(sym: str, tf: str, _dc=_dc):      # noqa: F811 -- a fetch failure makes the cell unrunnable
+            f = fetched.get(f"{sym}|{tf}")
+            if f is not None and not f["ok"]:
+                return False, f"candle fetch failed: {f['detail']}"
+            return _dc(sym, tf)
     cells = build_cells(wave, families, timeframes, data_check, strategies)
     runnable = [c for c in cells if c.runnable]
     K = len(runnable)
@@ -416,6 +479,11 @@ def sweep(*, wave: int, families: Sequence[str], timeframes: Sequence[str], runn
                            "report-only, never gates)",
         "cost_policy": "harness default, venue-aware fee+slippage+funding resolved in each harness main()",
         "read_state": "smoke" if smoke else "graded",
+        "candle_source": ("binance_vision futures/um via fetch_backtest_candles.py (PROXY for Bybit linear)"
+                          if fetched is not None else "pre-staged data/ files (trainer)"),
+        "fetch": fetched,
+        "report_only_note": "chop_scalp rows carry no entry/sl/exit_time, so its 11 bps arm and venue-fit "
+                            "fields read null; they are report-only and gate nothing",
     }
 
     # STAGE A
@@ -437,10 +505,12 @@ def sweep(*, wave: int, families: Sequence[str], timeframes: Sequence[str], runn
     out.update(S=S, stage_a_ok=ok_a, n_failed_a=len(failed_a), failed_cells=list(failed_a))
     log(f"STAGE A: {ok_a}/{K} cells produced a result; S={S} survivor(s) at p<{ALPHA_A}, n>={N_FLOOR}")
 
-    if K == 0 or ok_a < K / 2:
+    if K == 0 or K < len(cells) / 2 or ok_a < K / 2:
         out.update(verdict="not_applicable", clean=False,
                    read_state="producer_failed" if not smoke else "smoke",
-                   population=f"{ok_a} of {K} runnable cells produced a Stage A result",
+                   population=f"{ok_a} of {K} runnable cells produced a Stage A result; "
+                              f"{K} of {len(cells)} declared cells were runnable (candles missing or fetch failed "
+                              f"for the rest)",
                    cells=[_cell_dict(c) for c in cells])
         return out
     if S == 0:
@@ -485,7 +555,9 @@ def sweep(*, wave: int, families: Sequence[str], timeframes: Sequence[str], runn
     out.update(n_failed_b=len(failed_b), failed_cells=list(failed_a) + failed_b,
                clean=not (failed_a or failed_b))
     if confirmed:
-        verdict = "pass"          # a confirmed cell is a positive finding even if others failed to run
+        # a confirmed cell is a positive finding even if others failed to run, but a PASS carried only by
+        # cells at LIVE-config parameters is not fully out-of-sample (see the module docstring)
+        verdict = "pass" if any(not c.stage_b_not_fully_oos for c in confirmed) else "pass_caveated"
     elif underpowered or failed_a:
         # ...but "nothing confirmed" is only a FAIL if every one of the K cells actually ran.
         verdict = "indeterminate"
@@ -506,6 +578,7 @@ def _cell_dict(c: Cell) -> Dict[str, Any]:
     return {"family": c.family, "symbol": c.symbol, "timeframe": c.timeframe,
             "runnable": c.runnable, "reason": c.reason, "strategy_name": c.strategy_name,
             "survived_stage_a": c.survived, "confirmed": c.confirmed,
+            "stage_b_not_fully_oos": c.stage_b_not_fully_oos,
             "stage_a": c.stage_a, "stage_b": c.stage_b}
 
 
@@ -517,6 +590,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--timeframes", default=",".join(TIMEFRAMES))
     ap.add_argument("--jobs", type=int, default=2)
     ap.add_argument("--cell-timeout-s", type=int, default=3600)
+    ap.add_argument("--fetch", action="store_true",
+                    help="first fetch the crypto candles for the grid from Binance-vision (GitHub runner has none)")
     ap.add_argument("--list-grid", action="store_true",
                     help="print K and the unrunnable cells, run nothing")
     ap.add_argument("--stage-a-start", default=STAGE_A[0])
@@ -535,7 +610,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     tfs = [t for t in a.timeframes.split(",") if t]
     overridden = (a.families != ",".join(FAMILIES) or a.timeframes != ",".join(TIMEFRAMES)
                   or (a.stage_a_start, a.stage_a_end) != STAGE_A or a.stage_b_start != STAGE_B_START
-                  or a.wave != 1)
+                  or a.stage_b_end is not None or a.wave != 1)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     if a.list_grid:
@@ -544,7 +619,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for c in cells:
             print(f"  {'OK ' if c.runnable else 'NO '} {c.key}  {c.reason}")
         return 0
-    res = sweep(wave=a.wave, families=fams, timeframes=tfs,
+    fetch = (lambda: fetch_candles(WAVES[a.wave], tfs)) if a.fetch else None
+    res = sweep(wave=a.wave, families=fams, timeframes=tfs, fetch=fetch,
                 runner=subprocess_runner(a.cell_timeout_s), data_check=default_data_check,
                 jobs=a.jobs, stage_a=(a.stage_a_start, a.stage_a_end),
                 stage_b_start=a.stage_b_start, stage_b_end=a.stage_b_end, smoke=overridden)

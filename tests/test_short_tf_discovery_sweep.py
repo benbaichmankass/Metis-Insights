@@ -56,7 +56,7 @@ def _runner(mus, n_a=400, n_b=300, fail=()):
 def _sweep(runner, **kw):
     return sw.sweep(wave=1, families=FAMS, timeframes=("15m",), runner=runner,
                     data_check=kw.pop("data_check", lambda s, t: (True, "resolved")),
-                    strategies={}, stage_b_end="2026-09-29", log=lambda *_: None, **kw)
+                    strategies=kw.pop("strategies", {}), stage_b_end="2026-09-29", log=lambda *_: None, **kw)
 
 
 def test_student_t_tail_matches_known_values():
@@ -240,3 +240,65 @@ def test_stage_b_failure_of_a_survivor_is_counted():
 
     res = _sweep(run)
     assert res["n_failed_b"] == 1 and res["clean"] is False and res["verdict"] == "indeterminate"
+
+
+def test_fetch_writes_the_resolver_filename_and_records_failures_per_key(tmp_path):
+    calls = []
+
+    def fake(cmd, **kw):
+        calls.append(cmd)
+        dest = Path(cmd[cmd.index("--output") + 1])
+        sym = cmd[cmd.index("--symbol") + 1]
+
+        class P:
+            returncode = 1 if sym == "XRPUSDT" else 0
+            stdout, stderr = "", "geoblocked"
+        if P.returncode == 0:
+            dest.write_text("timestamp,open,high,low,close,volume\n")
+        return P()
+
+    out = sw.fetch_candles(("BTCUSDT", "XRPUSDT"), ("5m", "30m"), run=fake, data_dir=tmp_path, log=lambda *_: None)
+    assert out["BTCUSDT|5m"]["ok"] and (tmp_path / "BTCUSDT_5m.csv").exists()
+    assert out["XRPUSDT|30m"]["ok"] is False and "geoblocked" in out["XRPUSDT|30m"]["detail"]
+    c = calls[0]
+    assert c[c.index("--source") + 1] == "binance_vision" and c[c.index("--interval") + 1] == "5"
+    assert c[c.index("--start-date") + 1] == sw.FETCH_START
+
+
+def test_a_fetch_failure_makes_the_cell_unrunnable_and_a_mostly_unfetched_grid_is_not_applicable():
+    fetched = {f"{s}|15m": {"ok": s == "BTCUSDT", "detail": "403"} for s in sw.WAVES[1]}
+    res = _sweep(_runner({}), fetch=lambda: fetched)
+    dead = [c for c in res["cells"] if not c["runnable"]]
+    assert len(dead) == 8 and all("candle fetch failed" in c["reason"] for c in dead)
+    assert res["K"] == 2 and res["verdict"] == "not_applicable" and res["read_state"] == "producer_failed"
+    assert "declared cells were runnable" in res["population"]
+    assert res["candle_source"].startswith("binance_vision")
+
+
+def test_a_successful_fetch_is_recorded_and_grades_normally():
+    fetched = {f"{s}|15m": {"ok": True, "detail": ""} for s in sw.WAVES[1]}
+    res = _sweep(_runner({GOOD: (0.35, 0.35)}), fetch=lambda: fetched)
+    assert res["verdict"] in ("pass", "pass_caveated") and res["fetch"] == fetched
+
+
+def test_a_pass_carried_only_by_live_config_cells_is_pass_caveated():
+    strategies = {"ict_scalp_btc_15m": {"timeframe": "15m", "symbols": ["BTCUSDT"]}}
+    res = _sweep(_runner({GOOD: (0.35, 0.35)}), strategies=strategies)
+    cell = next(c for c in res["cells"] if c["survived_stage_a"])
+    assert cell["stage_b_not_fully_oos"] is True and res["verdict"] == "pass_caveated"
+
+
+def test_a_pass_on_a_default_parameter_cell_is_a_plain_pass():
+    res = _sweep(_runner({"fvg_range|BTCUSDT|15m": (0.35, 0.35)}))
+    cell = next(c for c in res["cells"] if c["survived_stage_a"])
+    assert cell["stage_b_not_fully_oos"] is False and res["verdict"] == "pass"
+
+
+def test_a_shortened_stage_b_is_a_smoke_run(tmp_path, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(sw, "sweep", lambda **kw: seen.update(kw) or {"verdict": "null", "read_state": "x"})
+    sw.main(["--out", str(tmp_path), "--stage-b-end", "2025-06-30"])
+    assert seen["smoke"] is True
+    seen.clear()
+    sw.main(["--out", str(tmp_path)])
+    assert seen["smoke"] is False
