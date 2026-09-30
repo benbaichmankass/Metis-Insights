@@ -784,7 +784,8 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             if _expire_resting(res, adapter, page, live, ledger, tid, row, spec, found, positions, now):
                 cancelled_this_cycle = True
             row = ledger.latest().get(tid, row)
-        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
+        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict,
+                        positions=positions)
         if trip:
             halted = halted or _trip(res, state, live, trip)
 
@@ -1282,6 +1283,8 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
 #: Cancel attempts on one expired resting entry before the executor stops
 #: retrying and says so (an alert at exhaustion; later cycles only log).
 CANCEL_EXPIRED_MAX_ATTEMPTS = 3
+#: While an exhausted cancel's order still rests, re-alert at most this often.
+CANCEL_EXHAUSTED_REALERT = timedelta(hours=1)
 
 
 def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledger: IntentLedger,
@@ -1306,13 +1309,15 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
       in ``found`` and would otherwise have its remainder cancelled and the
       ticket reported skipped with a position open;
     - ``cancel_requested`` is recorded only when every matched order's cancel
-      returned ``ok`` and ``clicked``; a failed cancel alerts and retries, up
-      to :data:`CANCEL_EXPIRED_MAX_ATTEMPTS`, then alerts once that it gave
-      up (the order is still resting and needs a human);
+      returned ``ok`` and ``clicked``, and it is a REQUEST, not a confirmation:
+      if the order is still on the next read, that attempt counts as failed.
+      A failed cancel alerts and retries, up to
+      :data:`CANCEL_EXPIRED_MAX_ATTEMPTS`, then alerts that it gave up and
+      re-alerts every :data:`CANCEL_EXHAUSTED_REALERT` while the order rests;
     - ``misses`` is reset with ``cancel_requested`` so the existing
       ``placed -> not_found`` path takes its full two reads before reporting
       the ticket skipped with the expiry as its reason."""
-    if now is None or row.get("cancel_requested") or row.get("cancel_exhausted"):
+    if now is None:
         return False
     vu = _parse_ts(row.get("valid_until"))
     if vu is None or vu > now:
@@ -1320,6 +1325,34 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
     orders = list(found.get("orders") or [])
     if not orders:
         return False
+    if row.get("cancel_exhausted"):
+        # Still resting after the attempts ran out: the busy-symbol guard
+        # refuses every new ticket on this symbol meanwhile, so say so again
+        # on a slow cadence rather than once.
+        last = _parse_ts(row.get("exhausted_alert_at"))
+        if live and (last is None or now - last >= CANCEL_EXHAUSTED_REALERT):
+            ledger.record(tid, "placed", exhausted_alert_at=now.isoformat())
+            res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} is STILL RESTING "
+                              f"(cancel attempts exhausted); cancel it on the terminal -- new tickets on "
+                              f"{spec.get('venue_symbol')} are refused while it rests")
+        return False
+    n_prior = int(row.get("cancel_attempts") or 0)
+    if row.get("cancel_requested"):
+        # A click is not a confirmed cancel: _row_action reports ok/clicked
+        # with "outcome unknown" when the click itself raised. The order is
+        # still on this read, so that request FAILED: count it and retry.
+        n_prior += 1
+        if live:
+            ledger.record(tid, "placed", cancel_requested=None, cancel_attempts=n_prior)
+        if n_prior >= CANCEL_EXPIRED_MAX_ATTEMPTS:
+            if live:
+                ledger.record(tid, "placed", cancel_exhausted=True, exhausted_alert_at=now.isoformat())
+            res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} is still on the "
+                              f"terminal after {n_prior} cancel attempts; it is STILL RESTING, cancel it "
+                              f"on the terminal")
+            return False
+        res.alerts.append(f"{tid}: cancel of resting entry past valid_until did not take (order still "
+                          f"present; attempt {n_prior}/{CANCEL_EXPIRED_MAX_ATTEMPTS}); retrying")
     venue = str(spec.get("venue_symbol") or "").upper()
     side = spec.get("side")
     held = [p for p in positions if p.symbol.upper() == venue and p.side == side]
@@ -1333,13 +1366,16 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
     if not live:
         return False
     if all(bool(r.get("ok")) and bool(r.get("clicked")) for r in results):
+        # Requested, NOT confirmed: the next read decides (gone -> the
+        # placed->not_found path; still there -> a failed attempt above).
         ledger.record(tid, "placed", cancel_requested=vu.isoformat(), misses=0)
         return True
-    n = int(row.get("cancel_attempts") or 0) + 1
+    n = n_prior + 1
     whys = "; ".join(str(r.get("why") or "not clicked") for r in results
                      if not (r.get("ok") and r.get("clicked")))
     if n >= CANCEL_EXPIRED_MAX_ATTEMPTS:
-        ledger.record(tid, "placed", cancel_attempts=n, cancel_exhausted=True)
+        ledger.record(tid, "placed", cancel_attempts=n, cancel_exhausted=True,
+                      exhausted_alert_at=now.isoformat())
         res.alerts.append(f"{tid}: resting entry past valid_until {vu.isoformat()} could not be cancelled "
                           f"after {n} attempts ({whys}); it is STILL RESTING, cancel it on the terminal")
     else:
@@ -1351,7 +1387,8 @@ def _expire_resting(res: CycleResult, adapter: Any, page: Any, live: bool, ledge
 
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
-             found: Mapping[str, Any], verdict: str) -> Optional[str]:
+             found: Mapping[str, Any], verdict: str,
+             positions: Sequence[Position] = ()) -> Optional[str]:
     """§ 3.5 for one submitted ticket. Never resubmits. Returns an
     auto-revert trip reason (a bracket leg missing, a duplicate, or an
     unconfirmed placement), or None."""
@@ -1366,6 +1403,27 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
     if prev == "placed" and verdict == "not_found":
         # A resting order that vanished without a position: cancelled or
         # expired on the terminal. Two reads, then report it skipped.
+        #
+        # ...unless ANY position is open on the ticket's symbol+side. A
+        # partial fill does not size-match the ticket (and if the orders
+        # table's "Size" is the REMAINING quantity -- unverified -- the
+        # remainder does not match either), so "not_found" here may be a
+        # partly-filled entry. Reporting it skipped would leave a position
+        # the journal does not know about (the orphan check then halts) and
+        # an unwatched remainder. So no miss is counted: the row stays
+        # `placed` (its symbol+side stays claimed) and a human is told once.
+        venue = str(spec.get("venue_symbol") or "").upper()
+        held = [p for p in positions if p.symbol.upper() == venue and p.side == spec.get("side")]
+        if held:
+            if not row.get("partial_fill_alerted"):
+                res.alerts.append(
+                    f"{tid}: working order no longer matches but {len(held)} position(s) are open on "
+                    f"{venue} {spec.get('side')} (size {[p.quantity for p in held]} vs ticket "
+                    f"{spec.get('quantity')}): possible PARTIAL FILL; not reported skipped, check the terminal")
+                if live:
+                    ledger.record(tid, "placed", partial_fill_alerted=True)
+            res.log("placed_not_found_position_open", ticket_id=tid, venue=venue)
+            return trip
         n = int(row.get("misses") or 0) + 1
         why = ("expired: resting entry cancelled at the ticket's valid_until"
                if row.get("cancel_requested") else "working order gone from the terminal without a fill")

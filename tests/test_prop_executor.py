@@ -2929,19 +2929,15 @@ def _placed_then(env, now, valid_until, orders, positions=()):
     return ad, api, res
 
 
-def test_a_resting_entry_past_valid_until_is_cancelled_once(env):
+def test_a_resting_entry_past_valid_until_is_cancelled_and_confirmed_by_reread(env):
     vu = (NOW + timedelta(minutes=30)).isoformat()
     later = NOW + timedelta(minutes=31)
     ad, api, res = _placed_then(env, later, vu, [_o()])
     assert ad.calls == [("cancel_order", "O1", True)]
     assert env[0].latest()["prop-manual-aaa"]["cancel_requested"]
-    # still showing next cycle (the venue is slow): never cancelled twice
-    ad.calls = []
-    pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=env[0], state=env[1],
-                 now=later + timedelta(minutes=5))
-    assert ad.calls == []
     # gone on two reads -> reported skipped with the expiry as its reason
     ad.orders = []
+    ad.calls = []
     for k in (10, 15):
         pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=env[0], state=env[1],
                      now=later + timedelta(minutes=k))
@@ -3078,3 +3074,61 @@ def test_a_new_ticket_in_the_cancel_cycle_is_held_not_refused(env):
     assert "prop-new" not in ledger.latest()  # not refused, not recorded: decided on the next read
     assert any(a["what"] == "hold" and a.get("ticket_id") == "prop-new" for a in res.actions)
     assert not any(p.get("ticket_id") == "prop-new" for p in api.posts)
+
+
+# ── round-2 review of #14581 (manager, 2026-09-30 07:15Z) ─────────────────
+
+
+def test_a_clicked_cancel_whose_order_is_still_there_is_a_failed_attempt_and_retries(env):
+    # _row_action returns ok/clicked with "outcome unknown" when the click
+    # raised: the next read, not the click, decides.
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    later = NOW + timedelta(minutes=31)
+    ad, api, _ = _placed_then(env, later, vu, [_o()])  # attempt 1 clicked, order stays
+    alerts = []
+    for k in range(1, pe.CANCEL_EXPIRED_MAX_ATTEMPTS + 2):
+        ad.calls = []
+        res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger,
+                           state=state, now=later + timedelta(minutes=5 * k))
+        alerts.append((len([c for c in ad.calls if c[0] == "cancel_order"]), res.alerts))
+    # attempts 2..MAX are retried with an alert each; the MAX-th read exhausts
+    assert [n for n, _ in alerts[:pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1]] == [1] * (pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1)
+    assert all(any("did not take" in a for a in al) for _, al in alerts[:pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1])
+    n_ex, al_ex = alerts[pe.CANCEL_EXPIRED_MAX_ATTEMPTS - 1]
+    assert n_ex == 0 and any("STILL RESTING" in a for a in al_ex)
+    assert ledger.latest()["prop-manual-aaa"]["cancel_exhausted"] is True
+    assert alerts[-1] == (0, [])  # 5 min later: no click, and no re-alert yet
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+
+
+def test_an_exhausted_cancel_re_alerts_hourly_while_the_order_rests(env):
+    ledger, state = env
+    ledger.record("t1", "placed", spec=SPEC, valid_until=(NOW - timedelta(hours=2)).isoformat(),
+                  cancel_attempts=3, cancel_exhausted=True, exhausted_alert_at=(NOW - timedelta(minutes=30)).isoformat())
+    ad, api = FakeAdapter(orders=[_o()]), FakeApi([])
+    r1 = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state, now=NOW)
+    assert not any("STILL RESTING" in a for a in r1.alerts)
+    r2 = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                      now=NOW + timedelta(minutes=31))
+    assert any("STILL RESTING" in a for a in r2.alerts)
+    assert not any(c[0] == "cancel_order" for c in ad.calls)
+
+
+def test_a_partial_fill_showing_the_remaining_size_is_not_reported_skipped(env):
+    # If the orders table's "Size" is the REMAINING quantity (unverified), a
+    # 0.2-of-0.5 fill leaves a 0.3 order and a 0.2 position: neither matches
+    # the ticket, the verdict is not_found. No miss may be counted.
+    ledger, state = env
+    vu = (NOW + timedelta(minutes=30)).isoformat()
+    ad, api, res = _placed_then(env, NOW + timedelta(minutes=10), vu, [_o(quantity=0.3)],
+                                positions=[_p(quantity=0.2)])
+    alerts = list(res.alerts)
+    for k in (15, 20, 25):
+        r = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(), mode="live", ledger=ledger, state=state,
+                         now=NOW + timedelta(minutes=k))
+        alerts += r.alerts
+    assert ledger.state("prop-manual-aaa") == "placed"
+    assert not any(p.get("status") == "skipped" for p in api.posts)
+    assert sum("PARTIAL FILL" in a for a in alerts) == 1  # told once
+    assert not any("orphan" in a for a in alerts) and state.halted() is None
