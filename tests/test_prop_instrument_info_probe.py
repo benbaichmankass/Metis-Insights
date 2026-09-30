@@ -308,14 +308,66 @@ def test_a_dialog_after_a_row_click_aborts_and_restore_is_skipped_loudly(browser
 
 
 def test_fix3_an_aborted_run_still_restores_the_linked_symbol(browser):
-    # Review fix 3: no panel appears for BTCUSD -> abort, with the linked
-    # symbol already moved to BTCUSD. The restore runs on that exit path too
-    # (it used to run only after a clean finish).
-    got, st = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
-    assert any("aborted before any close click" in a for a in got["alerts"]) and "ETHUSD" not in got["results"]
+    # Review fix 3: BTCUSD completes (linked symbol moved, panel verified
+    # gone), then ETHUSD's cell grows a control on hover -> abort. The
+    # restore runs on that exit path too (it used to run only after a clean
+    # finish).
+    got, st = run(browser, page_html(hover_button_for="ETHUSD"), symbols=("BTCUSD", "ETHUSD", "AVAXUSD"))
+    assert any("control appeared" in a for a in got["alerts"]) and "AVAXUSD" not in got["results"]
+    assert got["results"]["BTCUSD"]["panel_open"] is False
     assert got["restore"]["attempted"] is True and got["restore"]["verified"] is True
     assert st["linked"] == "SOLUSD"
     assert info_probe_restore_latch_reason(got) is None
+
+
+def _no_restore_click(st):
+    # exactly one symbol-cell click (the target's); the restore clicked nothing
+    assert st["clicks"].count("sym") == 1, st["clicks"]
+
+
+def test_r3a_a_not_found_panel_gets_no_restore_click_and_latches(browser, tmp_path):
+    # Round-3 review: found:false after the info click can mean unidentified
+    # new elements -- an open panel. No further click; the latch is written.
+    from scripts.prop.prop_executor_tick import latch_info_probe
+    got, st = run(browser, page_html(no_panel_for="BTCUSD"), symbols=("BTCUSD", "ETHUSD"))
+    assert any("aborted before any close click" in a for a in got["alerts"])
+    assert got["results"]["BTCUSD"]["panel_open"] is True
+    assert got["restore"]["attempted"] is False and "unverified" in got["restore"]["why"]
+    _no_restore_click(st)
+    assert latch_info_probe(got, tmp_path) and (tmp_path / "halted").exists()
+
+
+def test_r3b_an_exception_in_the_close_step_gets_no_restore_click_and_latches(browser, tmp_path):
+    from scripts.prop.prop_executor_tick import latch_info_probe
+
+    class CloseBoom(DXtradeAdapter):
+        def _info_click(self, page, selector):
+            if selector == "[data-metis-close='1']":
+                raise RuntimeError("close failed")
+            return super()._info_click(page, selector)
+
+    p = browser.new_page()
+    p.set_content(page_html())
+    got = CloseBoom(timeout_ms=3_000).probe_instrument_info(p, ["BTCUSD", "ETHUSD"], click=True, settle_ms=50)
+    clicks = p.evaluate("window.__clicks")
+    p.close()
+    assert "probe raised RuntimeError (code=probe_exception)" in got["alerts"]
+    assert got["results"]["BTCUSD"]["panel_open"] is True and "ETHUSD" not in got["results"]
+    assert got["restore"]["attempted"] is False
+    assert clicks == ["sym", "instrument_info_button"], clicks
+    assert latch_info_probe(got, tmp_path) and (tmp_path / "halted").exists()
+
+
+def test_r3_separated_digit_groups_are_masked_in_both_dumps(browser):
+    ids = ["1234-5678", "1234 5678", "12,345,678", "1.234.567.8"]
+    got, _ = run(browser, page_html(panel_extra="".join(f"<div>id {v}</div>" for v in ids)
+                                               + "<div>tick 0.01</div>"), symbols=("BTCUSD",))
+    leaves = got["results"]["BTCUSD"]["leaves"]
+    for v in ids:
+        assert not any(v in x for x in leaves), (v, leaves)
+    assert "tick 0.01" in leaves and "0.01" in leaves             # short numbers survive
+    dry, _ = run(browser, page_html(one_click_unreadable=True, toggle_attrs='data-acct="1234-5678"'), click=False)
+    assert "1234-5678" not in json.dumps(dry["one_click_dump"])
 
 
 def test_an_unclosed_panel_skips_the_restore_and_latches(browser):

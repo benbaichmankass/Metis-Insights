@@ -1264,6 +1264,7 @@ ONE_CLICK_DUMP_JS = r"""
   // 5+ digits and runs of 8+ hex characters containing a digit become '#',
   // so an account id beside the toggle never reaches the public log.
   const mask = v => v.replace(/(?<![0-9a-f])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/\d(?:[\s,.-]?\d){7,}/g, m => '#'.repeat(m.length))
                      .replace(/\d{5,}/g, m => '#'.repeat(m.length));
   const safe = v => (typeof v === 'string' && v.length <= 24 && /^[A-Za-z0-9 _.:#%()-]*$/.test(v)) ? mask(v) : null;
   const desc = el => {
@@ -2485,8 +2486,9 @@ INFO_PROBE_SNAPSHOT_JS = r"""
 # not itself new, >= 120x60 px, >= 3 text leaves. Tag it
 # ``data-metis-info-panel`` and return its OWN text leaves (never page text)
 # with the identity checks. Masking follows the module convention (#14216,
-# manager review of #14645): runs of 5+ digits, runs of 8+ hex characters
-# and e-mails. ``confirm_like`` flags an element that reads like an order
+# manager review of #14645): runs of 5+ digits, digit groups split by
+# spaces / commas / dots / hyphens totalling 8+ digits, runs of 8+ hex
+# characters containing a digit, and e-mails. ``confirm_like`` flags an element that reads like an order
 # CONFIRMATION (a confirm / submit / OK / place / buy / sell control or
 # wording) -- such a panel is refused and never clicked.
 INFO_PROBE_PANEL_JS = r"""
@@ -2497,6 +2499,7 @@ INFO_PROBE_PANEL_JS = r"""
   const txt = el => (el.innerText || el.textContent || '').trim();
   const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
                      .replace(/(?<![0-9a-f])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/\d(?:[\s,.-]?\d){7,}/g, m => '#'.repeat(m.length))
                      .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80);
   const leaves = el => [...el.querySelectorAll('*')].filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
   const fresh = [...document.querySelectorAll('body *')]
@@ -3639,6 +3642,11 @@ class DXtradeAdapter(PropPlatformAdapter):
                 if linked != sym:
                     r["skipped"] = f"linked symbol reads {linked!r} after selecting {sym} (linkage not confirmed)"
                     continue
+                # From here until the panel is VERIFIED gone, an info panel
+                # may be open (manager round-3 review of #14645): a not-found
+                # abort (found:false can mean unidentified new elements) or
+                # any exception leaves this set, and the restore is skipped.
+                r["panel_open"] = True
                 self._info_click(page, "[data-metis-info-btn='1']")
                 page.wait_for_timeout(settle_ms)
                 panel = page.evaluate(INFO_PROBE_PANEL_JS, [sym, [o for o in others if o != sym]]) or {}
@@ -3691,6 +3699,8 @@ class DXtradeAdapter(PropPlatformAdapter):
                     r["closed_via"] = "info_toggle"
                 page.wait_for_timeout(settle_ms)
                 r["closed"] = bool(page.evaluate(INFO_PROBE_PANEL_GONE_JS))
+                if r["closed"]:
+                    r["panel_open"] = False
                 if not r["closed"]:
                     out["alerts"].append(f"{sym}'s info panel did not close; aborted")
                     return out
@@ -3712,7 +3722,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 # it is a role=dialog: no further click (manager re-review of
                 # #14645). Skipped -> unverified -> the tick writes the latch.
                 unsafe = [s for s, r in out["results"].items()
-                          if r.get("refused") or r.get("closed") is False]
+                          if r.get("refused") or r.get("closed") is False or r.get("panel_open")]
                 try:
                     open_dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
                 except Exception:
@@ -3720,7 +3730,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 if open_dialogs == 0 and not unsafe:
                     self._info_restore(page, out)
                 else:
-                    why = (f"refused or unclosed panel for {unsafe}" if unsafe
+                    why = (f"refused, unclosed or unverified panel for {unsafe}" if unsafe
                            else f"dialogs open: {open_dialogs}")
                     out["restore"] = {"original": (out.get("resolve") or {}).get("linked_symbol"),
                                       "attempted": False, "verified": False, "why": why}
