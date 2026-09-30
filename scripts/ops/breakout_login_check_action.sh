@@ -357,7 +357,7 @@ fi
 if [ "${ACCOUNT}" = "breakout_1" ]; then
     DUMP_DIR="${BASE}/last-run"
 else
-    DUMP_DIR="${BASE}/last-run-${ACCOUNT}"
+    DUMP_DIR="${BASE}/accounts/${ACCOUNT}/last-run"
 fi
 ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")
 [ "${WANT_EMIT}" = "1" ] && ARGS+=(--emit-status)

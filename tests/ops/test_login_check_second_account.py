@@ -71,7 +71,7 @@ def test_tradeify_credentials_are_optional_secrets():
 
 def test_dump_dir_is_per_account_and_breakout_keeps_its_own():
     assert 'DUMP_DIR="${BASE}/last-run"' in CODE
-    assert 'DUMP_DIR="${BASE}/last-run-${ACCOUNT}"' in CODE
+    assert 'DUMP_DIR="${BASE}/accounts/${ACCOUNT}/last-run"' in CODE
     assert 'ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")' in CODE
 
 
