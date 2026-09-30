@@ -37,6 +37,7 @@ BYBIT_KLINES_URL = "https://api.bybit.com/v5/market/kline"
 MAX_BARS_PER_REQUEST = 1000
 _RETRY_LIMIT = 4
 _RETRY_BACKOFF = [2, 4, 8, 16]
+_RATE_LIMIT_MAX_RETRIES = 20  # x 30s = 10 min ceiling per fetch, then raise
 
 # Binance's public data archive (S3/Cloudflare, keyless, globally reachable —
 # NOT geoblocked). The fallback when Bybit's REST 403s the caller's IP: Bybit
@@ -99,6 +100,7 @@ def fetch_klines(
     rows: list[dict] = []
     cursor_ms = start_ms
     interval_ms = _interval_ms(interval)
+    rate_limit_hits = 0
 
     while cursor_ms < end_ms:
         # Pass only `start` (no `end`) so Bybit returns the next `limit` bars
@@ -134,6 +136,11 @@ def fetch_klines(
             # above don't cover this (HTTP 200 with an error retCode), and
             # raising here is what killed 8 of 14 datasets in the M15 WS-C
             # alt fetch (2026-06-11). Back off hard and retry the same page.
+            rate_limit_hits += 1
+            if rate_limit_hits > _RATE_LIMIT_MAX_RETRIES:
+                raise RuntimeError(
+                    f"Bybit rate limit (retCode 10006) persisted through "
+                    f"{_RATE_LIMIT_MAX_RETRIES} retries; giving up")
             print("  rate-limited (retCode 10006) — sleeping 30s", file=sys.stderr)
             time.sleep(30)
             continue
@@ -678,16 +685,23 @@ def shrink_refusal(output_path: Path, new_df) -> str | None:
     The trainer holds multi-year ``data/<SYM>_15m.csv`` files; the corpus
     fetcher pulls 90 days into the same names. Overwriting silently swaps the
     population of every study that reads them (PI-20260929-FCJRWVAK-0002).
+
+    FAILS CLOSED: an existing non-empty file we cannot read, or one with no
+    ``timestamp`` column, is refused -- "cannot tell" is not "safe to replace".
+    Only a missing or zero-byte file is overwritten unconditionally.
     """
-    if not output_path.exists():
+    if not output_path.exists() or output_path.stat().st_size == 0:
         return None
     try:
         old = pd.read_csv(output_path, usecols=["timestamp"])
-    except Exception:
-        return None  # unreadable/foreign file: not ours to protect by shape
+    except Exception as exc:
+        return (f"{output_path} exists but its history cannot be read "
+                f"({type(exc).__name__}: {exc})")
     if old.empty:
         return None
-    old_ts = pd.to_datetime(old["timestamp"], utc=True, format="mixed")
+    old_ts = pd.to_datetime(old["timestamp"], utc=True, format="mixed", errors="coerce")
+    if old_ts.isna().all():
+        return f"{output_path} exists but none of its timestamps parse"
     new_ts = pd.to_datetime(new_df["timestamp"], utc=True, format="mixed")
     if len(new_ts) < len(old_ts) or new_ts.min() > old_ts.min():
         return (f"{output_path} holds {len(old_ts)} rows from {old_ts.min()}; "
@@ -701,8 +715,10 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument(
-        "--allow-shrink", action="store_true",
-        help="Permit replacing a longer existing --output file with a shorter one",
+        "--allow-window-replace", action="store_true",
+        help="Permit replacing a longer/earlier existing --output with a shorter/later "
+             "one. ONLY for callers whose file IS a rolling window re-fetched in place "
+             "(vwap_backtest_sweep_action.sh); never for multi-year history files.",
     )
     parser.add_argument(
         "--interval",
@@ -867,8 +883,8 @@ def main(argv: list[str]) -> int:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     refusal = shrink_refusal(output_path, df)
-    if refusal and not args.allow_shrink:
-        sys.stderr.write(f"REFUSED: {refusal} (pass --allow-shrink to override)\n")
+    if refusal and not args.allow_window_replace:
+        sys.stderr.write(f"REFUSED: {refusal} (pass --allow-window-replace only if this file is a rolling window)\n")
         return 3
     df.to_csv(output_path, index=False)
     print(

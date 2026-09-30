@@ -30,3 +30,19 @@ exist even Bybit-vs-old (likely revised bars).
   15m window: a different population under the same filenames. It now refuses to
   shrink an existing longer file (`fetch_backtest_candles.py::shrink_refusal`).
 - Refresh: `scripts/ops/refresh_candle_history.py` (extend-only, dedupe on timestamp).
+
+## File format (read from the trainer, diag #14511)
+Header `timestamp,open,high,low,close,volume`; timestamps `2021-10-15 00:00:00+00:00`
+(space separator, `+00:00` suffix, bar OPEN time). The canonical loaders
+(`scripts/candle_io.py`, `scripts/backtest_pullback.py`) parse WITHOUT
+`format='mixed'`, so rows spelled differently from the first row become NaT and
+are silently dropped. The refresh therefore writes in each file's OWN spelling
+(detected from its last row) and re-reads the result through `candle_io.load_candles`,
+refusing (original untouched) unless every row loads. The refresh also fetches
+CLOSED bars only (end floored to the current bar's start, as `closed_bars.py`).
+
+## Guard scope
+`fetch_backtest_candles.py` refuses a shorter/later-starting replacement and fails
+closed on an unreadable existing file. A caller whose file IS a rolling window
+re-fetched in place opts out explicitly with `--allow-window-replace`
+(only `vwap_backtest_sweep_action.sh` does).
