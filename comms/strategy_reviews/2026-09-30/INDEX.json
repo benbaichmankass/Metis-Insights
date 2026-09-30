@@ -1,6 +1,6 @@
 {
  "schema": "stage_aware_v1",
- "generated_at": "2026-09-30T05:16:51.400747+00:00",
+ "generated_at": "2026-09-30T08:43:59.207520+00:00",
  "utc_date": "2026-09-30",
  "generated_by": "scripts/ops/strategy_review_stage_aware.py",
  "graded": 52,
@@ -246,9 +246,9 @@
    "actionable": false,
    "disposition": "insufficient-data",
    "execution": "live",
-   "n_needed": "needs 0 more entry fill(s) and 3 more package-referenced exit fill(s) to clear the n=10/side floor (currently entry=32, exit=7); no fill-rate basis to date an ETA from this run alone — re-check next scheduled pass",
+   "n_needed": "needs 0 more entry fill(s) and 3 more package-referenced exit fill(s) to clear the n=10/side floor (currently entry=33, exit=7); no fill-rate basis to date an ETA from this run alone — re-check next scheduled pass",
    "eta": "re-check next scheduled pass",
-   "reason": "flowing; cost fidelity insufficient_n (entry n=32, exit n=7; need >= 10 each)"
+   "reason": "flowing; cost fidelity insufficient_n (entry n=33, exit n=7; need >= 10 each)"
   },
   {
    "stage": "S1",
