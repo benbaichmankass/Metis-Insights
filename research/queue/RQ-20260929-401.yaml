@@ -1,6 +1,6 @@
 id: RQ-20260929-401
 title: M19 S2-exit (re-registered) — does the shipped below_half_r exit head recover net R on the ict_scalp 15m family, graded on the FINAL per-year fold?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -240,4 +240,26 @@ related:
   - docs/research/M20-exit-refinement-2026-07-12.md § 8-9 (the walk-forward recipe and the below_half_r policy)
   - PI-20260929-FCJRWVAK-0001 (why the trainer's candles were stale; the refreshed dir and the open decision on data/)
   - PR #14407 (the --fold-mode passthrough and the trade census tool)
-last_dispatched_at: null
+last_dispatched_at: '2026-09-29T23:43:00+00:00'
+grading:
+  graded_at: '2026-09-30'
+  graded_by: lane M19-S2EXIT (session_01Um3DdFoaFgrhnEfcJRwVAK, manager session_01HYq6XtfesZ57VyaQrK6CL1)
+  verdict: indeterminate
+  record: research/results/RQ-20260929-401/session_01Um3DdFoaFgrhnEfcJRwVAK-rq20260929-401.jsonl
+  disposition: >-
+    REGISTERED-RULE VERDICT, as printed by the committed grader
+    (exit_head_final_fold_grade.py, unmodified, floor 64): indeterminate --
+    REFINE. Q = all three legs (final-year 2026 n_oos SOL 99 / XRP 95 / ETH 83,
+    all >= 64); P = 1 leg (XRP, recovered_R_oos +0.2102). SOL -4.2971, ETH
+    -1.1634. All three legs state ok: the replay reproduced the trainer's own
+    fold and the recomputed cost matched on every fold trade (worst gap 5.0e-06 R;
+    n_cost_checked == n_oos). The floor was not lowered and no consequence is
+    drawn beyond the unit's own text: re-run the positive leg on the fold before
+    the last before reading it as a family property; not a kill.
+  read_with_care: >-
+    XRP's positive sits on a baseline of -4.556 R and a head net of -4.346 R (the
+    head loses less than the harness exit; it is not a positive arm). Gross
+    recovered R is positive on all three legs (+0.90 / +5.66 / +5.36) and net is
+    positive on one: the early exits are worth less than the round trip they pay
+    for on SOL and ETH. Descriptive; changes no verdict.
+  evidence: 'trainer-vm-diag issues #14464 (launch), #14465, #14466 (polls), #14467 (replay + grade)'

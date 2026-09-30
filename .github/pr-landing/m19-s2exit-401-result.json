@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lands the graded result of the pre-registered unit RQ-20260929-401: one research/results record plus the unit's grading block (status done), from the committed grader run unmodified. Every changed path is on the Tier-1 surface (check_pr_landing R14 refused a hold declaration for this diff). No config/, src/, deploy/, roster, gate or order-path file touched; no consequence applied beyond the unit's registered text. Reporting only: nothing here changes what runs."
+}
