@@ -7,16 +7,19 @@
 #   proxied (secret set): the browser goes ONLY through that proxy. FAIL-CLOSED: an unusable
 #           proxy reports `proxy_unreachable`; the run never falls back to the direct route.
 #
-# THE SECRET. It reaches the job ONLY on `schedule` or `workflow_dispatch` runs on refs/heads/main
-# (the expression below yields '' for a pull_request or any other ref), and only in two steps,
-# through `env:`; never interpolated into a command line, never echoed, never masked by a workflow
+# THE SECRET. It is an ENVIRONMENT secret in the GitHub Environment `egress-probe`, whose deployment
+# branches are restricted to `main`. Only the job `probe-main` references that environment, and that
+# job runs ONLY on `schedule` / `workflow_dispatch` (`if:`), so a pull_request run never references
+# the environment (no pending deployment, no red check) and a PR-modified copy of this file cannot
+# reach the secret: GitHub itself refuses the environment to any ref but main. Inside `probe-main`
+# the secret also passes the event/ref expression (defence in depth), only in two steps, through `env:`; never interpolated into a command line, never echoed, never masked by a workflow
 # command, never posted to an issue or comment (this workflow has no write permission). The script
 # prints no part of it: not the string, host, port, user, password or address. A crash prints a
 # scrubbed token, not a traceback. tests/research/test_egress_chromium_landing_probe.py proves that
 # on every failure path.
-# RESIDUAL, stated plainly: this gate lives in the workflow FILE, and a pull request runs its own
-# copy of the file. The complete control is a GitHub Environment restricted to `main` holding the
-# secret as an environment secret; that is a manager decision (it adds two clicks for the operator).
+# The job `probe` (pull_request only) is the DIRECT measurement: no environment, no secret, no evaluate.
+# If the environment or the secret is absent, `probe-main` no-ops cleanly (scheduled: skipped by the
+# gate; dispatch: direct mode).
 #
 # THE PASS RULE is evaluated by the script (`--evaluate`) over the result artifacts of the last
 # 72 h of `schedule` / `workflow_dispatch` runs ON MAIN ONLY (a fork or PR run cannot plant a result):
@@ -51,6 +54,25 @@ concurrency:
 
 jobs:
   probe:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          pip install playwright
+          playwright install --with-deps chromium
+      - name: Landing-only DIRECT probe (no environment, no secret, nothing clicked)
+        run: python3 scripts/research/egress_chromium_landing_probe.py --out probe-out/probe-result.json
+
+  probe-main:
+    if: github.event_name != 'pull_request'
+    environment: egress-probe
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

@@ -502,3 +502,19 @@ def test_workflow_withholds_the_secret_from_pull_requests_and_only_reads_main():
     assert '--event "${ev}"' in run and "--branch main" in run and "for ev in schedule workflow_dispatch" in run
     assert "--failed-runs failed-runs.json" in run and '"failure"' in run and '"cancelled"' in run
 
+
+
+def test_only_the_main_job_references_the_environment_and_pr_runs_never_do():
+    """Manager decision 2026-09-30: the secret is an ENVIRONMENT secret (restricted to main). A
+    pull_request run must never reference the environment (a pending deployment or red check), and
+    the PR job must hold no secret, no environment and no evaluate step."""
+    import yaml
+    wf = yaml.safe_load((ROOT / ".github" / "workflows" / "egress-chromium-landing-probe.yml").read_text())
+    jobs = wf["jobs"]
+    with_env = {n: j for n, j in jobs.items() if "environment" in j}
+    assert list(with_env) == ["probe-main"] and with_env["probe-main"]["environment"] == "egress-probe"
+    assert with_env["probe-main"]["if"] == "github.event_name != 'pull_request'"
+    pr = jobs["probe"]
+    assert pr["if"] == "github.event_name == 'pull_request'"
+    assert "EGRESS_PROBE_PROXY" not in json.dumps(pr) and "secrets." not in json.dumps(pr)
+    assert "--evaluate" not in json.dumps(pr)
