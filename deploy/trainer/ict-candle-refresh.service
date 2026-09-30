@@ -6,8 +6,7 @@
 #
 # **TRAINER VM ONLY** — lives in deploy/trainer/ so the live-VM unit installer
 # (globs deploy/*.service) never picks it up. Non-money path (research data).
-# Install: cp deploy/trainer/ict-candle-refresh.{service,timer} /etc/systemd/system/
-#          && systemctl daemon-reload && systemctl enable --now ict-candle-refresh.timer
+# Install (reproducible): sudo bash scripts/ops/install_trainer_candle_refresh.sh
 # ============================================
 
 [Unit]
@@ -19,6 +18,8 @@ Wants=network-online.target
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
+# A hung Bybit call must not wedge the unit (10 min ceiling; fetch itself is bounded).
+TimeoutStartSec=900
 ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/ops/refresh_candle_history.py --data-dir data SOLUSDT:15 XRPUSDT:15 ETHUSDT:15
 StandardOutput=journal
 StandardError=journal
