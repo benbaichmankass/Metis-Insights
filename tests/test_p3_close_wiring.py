@@ -1043,24 +1043,26 @@ def test_close_defers_when_the_venue_is_closed(monkeypatch):
 
 
 def test_defer_message_satisfies_the_monitors_actual_string_match(monkeypatch):
-    """order_monitor._apply_update detects a defer by STRING-MATCHING the
-    message, not by the retCode. A retCode 2 whose text lacks the phrase is
-    booked as a close FAILURE — streak, alarm, "won't flatten" spam — for a
-    venue that is merely shut. Asserted against order_monitor's own source so
-    drift on EITHER side fails: the message losing the phrase, or the monitor
-    dropping it from its match set."""
-    from pathlib import Path
+    """order_monitor._apply_update decides defer-vs-failure with
+    `_is_session_defer`. A result it does not recognise is booked as a close
+    FAILURE — streak, alarm, "won't flatten" spam — for a venue that is merely
+    shut. Asserted against the monitor's own classifier (not a grep of its
+    source, which broke when the match moved into a helper — PI-20260930-
+    ZIFJ1RKM-0003) so drift on EITHER side fails: the message losing its
+    phrase, or the monitor no longer recognising it."""
+    from src.runtime.order_monitor import _is_session_defer
 
     _freeze(monkeypatch, _et(2026, 8, 15, 12))
     fake_ib = _ib_serving_hours(_long_mgc())
     res = _ib_client_with(fake_ib).close(symbol="MGC", side="long", qty=3)
 
-    monitor_src = Path("src/runtime/order_monitor.py").read_text(encoding="utf-8")
-    assert '"exit deferred" in err_str.lower()' in monitor_src, (
-        "order_monitor no longer matches 'exit deferred' — the IB defer message "
-        "must be updated to whatever it matches now"
-    )
     assert "exit deferred" in res["retMsg"].lower(), res
+    assert _is_session_defer(
+        {"ok": False, "error": res["retMsg"], "exchange_response": res},
+        res["retMsg"],
+    ), "order_monitor no longer classifies the IB closed-venue defer as a defer"
+    # The phrase alone must still carry it, with no structured code attached.
+    assert _is_session_defer({"ok": False, "error": res["retMsg"]}, res["retMsg"])
 
 
 def test_close_proceeds_when_the_venue_is_open(monkeypatch):

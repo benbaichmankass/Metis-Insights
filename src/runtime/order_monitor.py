@@ -1249,9 +1249,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             # consecutive-close-failure streak, no "won't flatten" alarm. The
             # protective bracket (closed) / working limit (extended) handles the
             # exit; the monitor re-attempts next tick.
-            if ("exit deferred" in err_str.lower()
-                    or "deferring" in err_str.lower()
-                    or "market closed" in err_str.lower()):
+            if _is_session_defer(ex_result, err_str):
                 logger.info(
                     "order_monitor: exchange close DEFERRED (market session) "
                     "for pkg=%s account=%s → %s — DB left open, no alarm.",
@@ -2901,6 +2899,36 @@ def _clear_close_fail_alert_state(key: tuple) -> None:
     _CLOSE_FAIL_STREAK.pop(key, None)
     _CLOSE_FAIL_ALERT_AT.pop(key, None)
     _CLOSE_FAIL_ALERT_COUNT.pop(key, None)
+
+
+def _is_session_defer(ex_result: Dict[str, Any], err_str: str) -> bool:
+    """Is this close result a market-session DEFER ("not now"), not a failure?
+
+    A defer clears the close-failure streak and never pages; a failure counts
+    toward the "won't flatten" alarm. Detection used to be three phrases only,
+    and AlpacaClient's extended-hours TRADE-SCOPED defer ("… trade-scoped exit
+    of N of M on SYM DEFERRED to the regular session … (protective bracket left
+    armed; nothing placed)") matched none of them. So it was booked as a
+    FAILURE on every tick of an extended session. MEASURED 2026-09-30 on
+    alpaca_paper SPY pkg-51f1eff527d44b2e: 49 ERROR lines in 28 min and 7 false
+    "won't flatten" PAGES (20:02:30–20:39:18Z) for a close the venue had merely
+    deferred to the open (PI-20260930-ZIFJ1RKM-0003).
+
+    Now also recognised:
+      * that phrase, "deferred to the regular session";
+      * the STRUCTURED signal: ``exchange_response.retCode == 2``, which
+        AlpacaClient and IBClient document as "deferred, not failed". It is
+        taken only when the text also says "defer", so an unrelated venue's
+        retCode 2 is never read as a defer.
+    """
+    low = str(err_str or "").lower()
+    if ("exit deferred" in low or "deferring" in low or "market closed" in low
+            or "deferred to the regular session" in low):
+        return True
+    resp = (ex_result or {}).get("exchange_response")
+    if isinstance(resp, dict) and resp.get("retCode") == 2 and "defer" in low:
+        return True
+    return False
 
 
 def _close_retry_decision_for(matched_trade: dict):
