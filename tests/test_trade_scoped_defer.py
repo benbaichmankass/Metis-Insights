@@ -9,6 +9,10 @@ alpaca_paper SPY pkg-51f1eff527d44b2e: 49 ERROR lines in 28 min and 7 false
 "won't flatten" pages (20:02:30–20:39:18Z) from operator_alerts, plus the sweep
 skipping the position every sweep because the failure path kept the active-close
 marker.
+
+#14899 review: detection is by phrase only (the regular-hours "position size …
+unreadable … is DEFERRED rather than …" retCode 2 is a real failure), and an
+Alpaca defer seen during regular hours escalates like a failure.
 """
 from __future__ import annotations
 
@@ -17,16 +21,45 @@ from collections import namedtuple
 import pytest
 
 from src.runtime import order_monitor as om
+from src.units.accounts.alpaca_client import AlpacaClient
 
 _D = namedtuple("RetryDecision", "attempt state reason last_seen")
 
-_SPY_MSG = (
-    "extended-hours: trade-scoped exit of 8 of 11.0 on SPY DEFERRED to the "
-    "regular session — the extended-hours limit path cannot close part of a "
-    "symbol without either cancelling a sibling trade's protection or stacking "
-    "duplicate close-limits (protective bracket left armed; nothing placed)")
-_SPY_DEFER = {"ok": False, "error": _SPY_MSG,
-              "exchange_response": {"retCode": 2, "retMsg": _SPY_MSG}}
+
+def _client(monkeypatch, position):
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_position_raw", lambda *a: position)
+    monkeypatch.setattr(cli, "position_present", lambda *a: None)
+
+    def _no_request(*a, **k):
+        raise AssertionError("a defer must place nothing")
+    monkeypatch.setattr(cli, "_request", _no_request, raising=False)
+    return cli
+
+
+@pytest.fixture
+def spy_msg(monkeypatch):
+    """The REAL extended-hours trade-scoped defer text, so wording drift in
+    AlpacaClient fails here (#14899 review item 4)."""
+    cli = _client(monkeypatch, {"qty": "11", "side": "long", "current_price": "600"})
+    out = cli._close_extended_hours("SPY", 8)
+    assert out["retCode"] == 2
+    return out["retMsg"]
+
+
+@pytest.fixture
+def unreadable_msg(monkeypatch):
+    """The REAL `_resolve_close_scope` unreadable-position text — retCode 2, and
+    reachable on the REGULAR-hours path, where it is a failure that must page."""
+    cli = _client(monkeypatch, None)
+    out = cli._resolve_close_scope("SPY", 8).envelope
+    assert out["retCode"] == 2
+    return out["retMsg"]
+
+
+def _result(msg):
+    return {"ok": False, "error": msg,
+            "exchange_response": {"retCode": 2, "retMsg": msg}}
 
 
 class _FakeDB:
@@ -63,6 +96,7 @@ def _clean(monkeypatch):
               om._WEDGE_REPROBE_SESSION_DEFERRED, om._PENDING_CLOSE_RETRY_COOLDOWN):
         d.clear()
     monkeypatch.setenv("MONITOR_CLOSE_FAIL_ALERT_AFTER", "3")
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: "extended")
     monkeypatch.setattr(om, "_close_retry_decision_for",
                         lambda t: _D(True, "no_wedge", "no standing wedge", None))
     pages = []
@@ -82,34 +116,36 @@ def _ticks(monkeypatch, result, n):
     return db
 
 
-def test_the_spy_shape_never_pages_and_never_counts(monkeypatch, _clean):
+def test_the_spy_shape_never_pages_and_never_counts(monkeypatch, _clean, spy_msg):
     pages = _clean
-    db = _ticks(monkeypatch, _SPY_DEFER, 10)          # 10 ticks = 5 min of 30 s ticks
+    db = _ticks(monkeypatch, _result(spy_msg), 10)    # 10 ticks = 5 min of 30 s ticks
     assert pages == [], "a venue defer paged 'won't flatten'"
     assert om._CLOSE_FAIL_STREAK.get(_KEY, 0) == 0, "a defer counted as a failure"
     assert db._trade["status"] == "open", "a defer must not close the row"
 
 
-def test_the_spy_shape_releases_the_marker_so_the_sweep_can_check(monkeypatch):
-    _ticks(monkeypatch, _SPY_DEFER, 1)
+def test_the_spy_shape_releases_the_marker_so_the_sweep_can_check(monkeypatch, spy_msg):
+    _ticks(monkeypatch, _result(spy_msg), 1)
     assert not om.is_active_close("alpaca_paper", "SPY"), (
         "nothing was placed, so the sweep must still verify SPY's protection")
 
 
-def test_structured_retcode_2_with_defer_text_is_a_defer(monkeypatch, _clean):
-    msg = "venue: exit held for the next session (deferred)"
-    _ticks(monkeypatch, {"ok": False, "error": msg,
-                         "exchange_response": {"retCode": 2, "retMsg": msg}}, 5)
-    assert _clean == [] and om._CLOSE_FAIL_STREAK.get(_KEY, 0) == 0
-
-
-def test_retcode_2_without_defer_text_is_still_a_failure(monkeypatch, _clean):
-    """An unrelated venue's retCode 2 must not buy quiet."""
-    msg = "insufficient buying power"
-    _ticks(monkeypatch, {"ok": False, "error": msg,
-                         "exchange_response": {"retCode": 2, "retMsg": msg}}, 3)
+def test_regular_hours_unreadable_retcode_2_still_pages(monkeypatch, _clean, unreadable_msg):
+    """Review BLOCKING 1: retCode 2 + 'DEFERRED' from the regular-hours scope
+    read is a real failure; on alpaca_live it must not sit silent forever."""
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: "rth")
+    _ticks(monkeypatch, _result(unreadable_msg), 3)
     assert om._CLOSE_FAIL_STREAK.get(_KEY) == 3
     assert len(_clean) == 1, "a real failure must still page at the threshold"
+
+
+def test_an_alpaca_defer_seen_in_rth_escalates(monkeypatch, _clean, spy_msg):
+    """Review item 3: a defer still reported once the regular session is open
+    counts toward the streak and pages — no wording stays silent past the open."""
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: "rth")
+    _ticks(monkeypatch, _result(spy_msg), 3)
+    assert om._CLOSE_FAIL_STREAK.get(_KEY) == 3
+    assert len(_clean) == 1
 
 
 def test_control_a_real_failure_still_pages_at_the_threshold(monkeypatch, _clean):
@@ -118,20 +154,32 @@ def test_control_a_real_failure_still_pages_at_the_threshold(monkeypatch, _clean
     assert len(_clean) == 1
 
 
-@pytest.mark.parametrize("msg,resp,expect", [
-    ("us_equity market closed — exit deferred to next session", None, True),
-    ("IB venue for MHG is closed — exit deferred to next session", None, True),
-    ("extended-hours limit close working — not yet filled, exit deferred", None, True),
-    (_SPY_MSG, None, True),                                   # phrase alone
-    ("extended-hours: position unreadable — exit deferred", None, True),
-    ("something deferred", {"retCode": 2}, True),             # structured
-    ("something deferred", {"retCode": 1}, False),
-    ("insufficient qty available", {"retCode": 2}, False),
-    ("insufficient qty available", None, False),
-    ("", None, False),
+@pytest.mark.parametrize("msg,session,expect", [
+    ("us_equity market closed — exit deferred to next session", "closed", True),
+    ("us_equity market closed — exit deferred to next session", "rth", False),
+    ("extended-hours limit close working — not yet filled, exit deferred", "extended", True),
+    ("extended-hours limit close working — not yet filled, exit deferred", "rth", False),
+    ("extended-hours: position unreadable — exit deferred", "extended", True),
+    # IB follows its own venue session, not the US equity clock.
+    ("IB venue for MHG is closed — exit deferred to next session", "rth", True),
+    ("IB venue for MHG is closed — exit deferred to next session", "closed", True),
+    ("insufficient qty available", "extended", False),
+    ("", "extended", False),
 ])
-def test_is_session_defer_table(msg, resp, expect):
-    ex = {"ok": False, "error": msg}
-    if resp is not None:
-        ex["exchange_response"] = resp
-    assert om._is_session_defer(ex, msg) is expect
+def test_is_session_defer_table(monkeypatch, msg, session, expect):
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: session)
+    assert om._is_session_defer({"ok": False, "error": msg}, msg) is expect
+
+
+@pytest.mark.parametrize("session,expect", [("extended", True), ("closed", True),
+                                            ("rth", False)])
+def test_real_spy_text_is_a_defer_only_outside_rth(monkeypatch, spy_msg, session, expect):
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: session)
+    assert om._is_session_defer(_result(spy_msg), spy_msg) is expect
+
+
+@pytest.mark.parametrize("session", ["rth", "extended", "closed"])
+def test_real_unreadable_text_is_never_a_defer(monkeypatch, unreadable_msg, session):
+    """Review BLOCKING 1: carries retCode 2 AND 'DEFERRED' — must not match."""
+    monkeypatch.setattr(om, "_us_equity_session", lambda now=None: session)
+    assert om._is_session_defer(_result(unreadable_msg), unreadable_msg) is False
