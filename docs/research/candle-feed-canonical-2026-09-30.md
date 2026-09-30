@@ -1,6 +1,6 @@
 # Canonical candle feed for the trainer's `data/<SYM>_15m.csv` (2026-09-30)
 
-> **Doc status:** `live` · lane CANDLE-REFRESH · pipeline item PI-20260929-FCJRWVAK-0002
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **Decision: Bybit linear perp klines are the canonical feed** for the trainer's
 multi-year 15m files. Refresh EXTENDS them from Bybit; Binance USD-M is not a
