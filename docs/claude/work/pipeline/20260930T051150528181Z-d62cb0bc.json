@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-29",
+    "kind": "date"
+  },
+  "id": "PI-20260928-3QJJAY5Y-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/issues/13796",
+    "rerun": "Read Alpaca order history for 2ffe81cc-4155-4bfc-b080-7e926c54e0a9 (GET /v2/orders/{id}?nested=true, e.g. via a read-only trainer/system script or an alpaca order-history diag path): check order_class ('bracket' expected), time_in_force ('gtc' expected) and the legs' statuses/canceled_at between 15:03:36Z and 15:10:26Z. Also grep the entry-time log for 'alpaca place(' / 'bracket' around 15:03:34Z."
+  },
+  "routed_to": "FIX-SA-03",
+  "state": "routed",
+  "what": "First post-#13047 Alpaca entry ended BROKER-NAKED for ~7 minutes. Trade 6260 (alpaca_paper QQQ long 54, order 2ffe81cc-4155-4bfc-b080-7e926c54e0a9) was dispatched at 15:03:34Z with sl/tp by execute_pkg and accepted (no GTC->DAY fallback logged), yet at 15:10:26Z _check_broker_naked_equity_positions found no stop resting and re-armed a whole-symbol GTC OCO via place_protective. Either (a) the entry was not sent as a bracket (sl/tp dropped between execute_pkg and AlpacaClient.place), (b) Alpaca accepted then cancelled/rejected the legs, or (c) the sweep's protection_state read missed bracket-class legs (order_class 'bracket' vs the 'oco' it usually sees). Each is an order-path defect on a path alpaca_live also uses. The sweep repair worked, so the position IS protected now (GTC OCO 54 @ 725.67/806.02, read 20:37Z #13784). INFERRED hypotheses; none checked. Also noted: the prior 12-share QQQ OCO (sell 12 @ 732.36/808.91) is gone and the position is 54, not 66. Most likely that tranche stopped out before 15:03, but it is not verified."
+}

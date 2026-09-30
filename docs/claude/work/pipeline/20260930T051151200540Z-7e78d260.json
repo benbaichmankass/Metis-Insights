@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "the prop-exec PR is merged AND a breakout-login-check `apply: probe-ticket` run prints `probe: {\"surface\": \"dom\", ...}` with quantity/stop_loss/take_profit/submit found (or `feasibility: canvas_ticket`, which closes this as killed) AND config/prop_platforms.yaml executor.lots + watched_click_max_lots carry the measured SOLUSD lot size — OR the operator cancels step 3",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-K3GZXIAV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-EXEC session_01MVZR1A4pGGRerkk3Gzxiav 2026-09-28, for manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
+    "rerun": "open a system-action issue: action: breakout-login-check / account: breakout_1 / apply: probe-ticket / reason: <why> — expect a `probe:` JSON line with `surface` dom|canvas_ticket|not_opened and the form's field labels"
+  },
+  "routed_to": "PROP-EXEC",
+  "state": "routed",
+  "what": "PREREQUISITES FOR THE WATCHED STEP-3 CLICK (docs/research/prop-automation-options-2026-09-27.md § 4 step 3). The executor is built but two facts it needs are NOT MEASURED: (1) the order-ticket DOM. Evidence so far (run 36358563148, issue #13385) says it is PROBABLY DOM, not canvas: React/styled-components markup, real <table> order/watchlist tables, 9 canvases that belong to the chart, and the page text 'One-click trading' plus chart 'Sell <bid>' / '<ask> Buy' price buttons. INFERRED, not measured. The `probe-ticket` apply mode measures it read-only, and opens the ticket only if one-click trading reads OFF; if it reads on or unknown, the probe refuses, and the operator must switch one-click trading off in the terminal first. (2) The SOLUSD/ETHUSD/BTCUSD lot size (units per lot, step, minimum). Only ADA/XRP are operator-confirmed. The executor REFUSES any symbol whose lot size is not declared, so every SOL ticket stops at the structure guard until executor.lots.SOLUSD is filled from the terminal's Instrument Details. The watched click also needs executor.watched_click_max_lots.SOLUSD (the minimum size). Also expected: at the ~$24 static-DD cushion every flat-$75 ticket is refused (correct), and a watched click at minimum size can still fit (tested)."
+}
