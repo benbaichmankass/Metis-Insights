@@ -7,10 +7,6 @@ hit still wins over the flatten; (5) an entry with no bar left to flatten on is 
 """
 from __future__ import annotations
 
-import importlib.util
-import subprocess
-import sys
-
 import pandas as pd
 import pytest
 
@@ -101,29 +97,62 @@ def test_garbage_times_are_refused(bad):
         h.run_backtest(_frame(34), **BASE, flat_at_utc=bad)
 
 
-def test_default_off_is_byte_identical_to_the_pre_change_harness(tmp_path):
-    src = subprocess.run(["git", "show", "origin/main:scripts/backtest_trend.py"], capture_output=True, text=True)
-    if src.returncode != 0 or "flat_at_utc" in src.stdout:
-        pytest.skip("origin/main unavailable, or already carries the flags (the equality is then a tautology)")
-    ref_path = h.Path(h.__file__).parent / "_backtest_trend_premarket_ref.py"
-    ref_path.write_text(src.stdout)
+def test_close_stamped_bars_flatten_at_the_stamp_not_a_bar_early():
+    """`_resample` stamps bars at their CLOSE (label="right"). Read as open-stamped they flatten a bar early."""
+    df = _frame(breakout_at=40)
+    df["timestamp"] = df["timestamp"] + pd.Timedelta(hours=1)          # the same bars, close-stamped
+    as_close = _run(df, flat_at_utc="23:45", bar_label="close")[0]
+    as_open = _run(df, flat_at_utc="23:45", bar_label="open")[0]
+    assert pd.Timestamp(as_close.exit_time).hour == 23        # last bar CLOSING at or before 23:45 is 23:00
+    assert pd.Timestamp(as_open.exit_time).hour == 22         # the misreading: a whole bar early
+    late = _run(_frame(breakout_at=44).assign(
+        timestamp=lambda d: d["timestamp"] + pd.Timedelta(hours=1)), no_entry_after_utc="21:00", bar_label="close")
+    assert late, "an entry moment of exactly 21:00 is allowed when the stamps are read as closes"
+
+
+def test_main_reads_resampled_bars_as_close_stamped_and_native_bars_as_open(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(h, "run_backtest", lambda df, **kw: seen.append(kw) or {"total_trades": 0, "symbol": "X", "timeframe": "1h"})
+    csv = tmp_path / "c.csv"
+    _frame(breakout_at=40).rename(columns={"timestamp": "timestamp"}).to_csv(csv, index=False)
+    for extra, want in (([], "open"), (["--resample", "1h"], "close")):
+        h.main(["backtest_trend.py", "--data", str(csv), "--symbol", "ETHUSDT", "--timeframe", "1h",
+                "--flat-at-utc", "23:45", *extra])
+        assert seen[-1]["bar_label"] == want, extra
+
+
+def test_a_non_utc_timestamp_column_uses_the_UTC_day():
+    df = _frame(breakout_at=40)
+    utc = _run(df, flat_at_utc="23:45")[0]
+    ny = df.copy()
+    ny["timestamp"] = ny["timestamp"].dt.tz_convert("America/New_York")      # same instants, local clock
+    local = _run(ny, flat_at_utc="23:45")[0]
+    assert (local.entry_index, local.exit_index, local.outcome) == (utc.entry_index, utc.exit_index, utc.outcome)
+    assert pd.Timestamp(local.exit_time).tz_convert("UTC").hour == 22
+
+
+def test_bad_bar_label_is_refused():
+    with pytest.raises(ValueError, match="bar_label"):
+        h.run_backtest(_frame(40), **BASE, flat_at_utc="23:45", bar_label="middle")
+
+
+def test_default_off_reproduces_the_stored_pre_lever_baseline(tmp_path):
+    """Compares the CURRENT harness (levers unset) with a baseline generated from scripts/backtest_trend.py at
+    2058a2f1, i.e. BEFORE the levers existed (tests/fixtures/trend_pre_dayflat_baseline.json). Unlike a diff
+    against origin/main, this can fail after the levers merge."""
+    import hashlib
+    import json
+    base = json.loads((h.Path(h.__file__).resolve().parents[1] / "tests/fixtures/trend_pre_dayflat_baseline.json")
+                      .read_text())
+    df = h._resample(h._load_candles("data/backtest_candles.csv"), "5min")
+    h.FEE_BPS_ROUNDTRIP, h.SLIPPAGE_BPS_ROUNDTRIP, h.FUNDING_BPS_PER_WINDOW = base["fees"]
+    emit = tmp_path / "rows.jsonl"
+    out = h.run_backtest(df.copy(), emit_path=str(emit), **base["kwargs"])
     try:
-        spec = importlib.util.spec_from_file_location("_ref_trend", ref_path)
-        ref = importlib.util.module_from_spec(spec)
-        sys.modules["_ref_trend"] = ref
-        spec.loader.exec_module(ref)
-        df = ref._resample(ref._load_candles("data/backtest_candles.csv"), "5min")
-        kw = dict(donchian=10, atr_period=14, atr_stop_mult=2.0, trail_mult=5.0, timeout_bars=200,
-                  cooldown_bars=2, timeframe="5m", symbol="BTCUSDT")
-        outs = []
-        for i, mod in enumerate((ref, h)):
-            mod.FEE_BPS_ROUNDTRIP, mod.SLIPPAGE_BPS_ROUNDTRIP, mod.FUNDING_BPS_PER_WINDOW = 7.5, 3.0, 1.0
-            outs.append((mod.run_backtest(df.copy(), emit_path=str(tmp_path / f"{i}.jsonl"), **kw)))
-        assert outs[0] == outs[1]
-        assert outs[0]["total_trades"] > 0, "fixture produced no trades: equality would prove nothing"
-        a, b = sorted(tmp_path.glob("*.jsonl"))
-        assert a.read_text() == b.read_text()
+        assert json.loads(json.dumps(out, default=str, sort_keys=True)) == base["summary"]
+        rows = emit.read_text()
+        assert len(rows.splitlines()) == base["emitted_rows_n"]
+        assert hashlib.sha256(rows.encode()).hexdigest() == base["emitted_rows_sha256"]
+        assert base["summary"]["total_trades"] > 0, "baseline produced no trades: equality would prove nothing"
     finally:
-        ref_path.unlink(missing_ok=True)
-        sys.modules.pop("_ref_trend", None)
         _reset()
