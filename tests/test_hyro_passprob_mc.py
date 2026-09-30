@@ -14,8 +14,8 @@ KW = dict(n_paths=300, seed=1, reading="A", leverage=10.0, winner_mae_r=0.3, los
           flag_frac=0.0)
 
 
-def _spec(wr, w, l, tpd=2.0):
-    return dict(name="t", win_rate=wr, win_r=w, loss_r=l, trades_per_day=tpd, stop_pct=1.5,
+def _spec(wr, w, loss, tpd=2.0):
+    return dict(name="t", win_rate=wr, win_r=w, loss_r=loss, trades_per_day=tpd, stop_pct=1.5,
                 same_day_frac=1.0)
 
 

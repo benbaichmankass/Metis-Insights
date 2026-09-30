@@ -45,10 +45,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -74,7 +73,7 @@ def _draw_r(spec: Dict[str, Any], rng: np.random.Generator, state: Dict[str, Any
     return wR if rng.random() < wr else -abs(lR)
 
 
-def _phase(spec, rs, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_max,
+def _phase(spec, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_max,
            consistency, flag_frac, reading, leverage, winner_mae_r, loser_mfe_r,
            need_qual, capped_day_share=0.40, payout=False, split=0.80,
            min_payout=100.0):
@@ -90,7 +89,6 @@ def _phase(spec, rs, *, target, days_cap, rng, risk_pct, initial, dd_daily, dd_m
     floor = initial * (1 - dd_max)
     paid = 0.0
     for day in range(days_cap):
-        day_open = bal
         day_peak = bal
         n = rng.poisson(tpd)
         for _ in range(n):
@@ -154,7 +152,7 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
     out = dict(b_daily=0, b_max=0, p1=0, p1_breach=0, p1_timeout=0, both=0, p2_breach=0, p2_timeout=0,
                d1=[], d2=[], paid=[], fund_surv=0, fund_ret=[], q1=[])
     for _ in range(n_paths):
-        r1 = _phase(spec, rs, target=t1, days_cap=p1_cap, rng=rng, consistency=True,
+        r1 = _phase(spec, target=t1, days_cap=p1_cap, rng=rng, consistency=True,
                     need_qual=need, **kw)
         out["q1"].append(r1["qual"])
         if r1["result"] == "breach_daily":
@@ -166,7 +164,7 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
             continue
         out["p1"] += 1
         out["d1"].append(r1["days"])
-        r2 = _phase(spec, rs, target=t2, days_cap=p2_cap, rng=rng, consistency=True,
+        r2 = _phase(spec, target=t2, days_cap=p2_cap, rng=rng, consistency=True,
                     need_qual=need, **kw)
         if r2["result"] != "pass":
             out["p2_breach" if r2["result"].startswith("breach") else "p2_timeout"] += 1
@@ -174,7 +172,7 @@ def run(spec: Dict[str, Any], rs, *, n_paths: int, seed: int, risk_pct: float, r
         out["both"] += 1
         out["d2"].append(r2["days"])
         # funded: no target, no consistency, no qualifying-day need; survive `funded_days`
-        rf = _phase(spec, rs, target=1e18, days_cap=funded_days, rng=rng, consistency=False,
+        rf = _phase(spec, target=1e18, days_cap=funded_days, rng=rng, consistency=False,
                     need_qual=0, payout=True, **kw)
         out["paid"].append(rf["paid"])
         if rf["result"] == "timeout":
