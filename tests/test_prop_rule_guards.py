@@ -96,7 +96,9 @@ def _guards(qty, c, ds=10_000.0, equity=10_000.0):
     return pe.evaluate_guards(ticket=t, spec=spec, facts=facts, refusal=refusal,
                               account=AccountSnapshot(balance=equity, equity=equity, unrealized=0.0,
                                                       realized_today=0.0),
-                              day_start_balance=ds, open_risk_usd=0.0, open_risk_state="no_open_positions",
+                              day_start_balance=ds, open_risk_usd=0.0,
+                              # collapsed-state: no_open_positions — a flat-book fixture; the other states are the executor suite's
+                              open_risk_state="no_open_positions",
                               cfg=c, now=NOW)
 
 
