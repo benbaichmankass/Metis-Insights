@@ -358,18 +358,6 @@ def test_r3b_an_exception_in_the_close_step_gets_no_restore_click_and_latches(br
     assert latch_info_probe(got, tmp_path) and (tmp_path / "halted").exists()
 
 
-def test_r3_separated_digit_groups_are_masked_in_both_dumps(browser):
-    ids = ["1234-5678", "1234 5678", "12,345,678", "1.234.567.8"]
-    got, _ = run(browser, page_html(panel_extra="".join(f"<div>id {v}</div>" for v in ids)
-                                               + "<div>tick 0.01</div>"), symbols=("BTCUSD",))
-    leaves = got["results"]["BTCUSD"]["leaves"]
-    for v in ids:
-        assert not any(v in x for x in leaves), (v, leaves)
-    assert "tick 0.01" in leaves and "0.01" in leaves             # short numbers survive
-    dry, _ = run(browser, page_html(one_click_unreadable=True, toggle_attrs='data-acct="1234-5678"'), click=False)
-    assert "1234-5678" not in json.dumps(dry["one_click_dump"])
-
-
 def test_an_unclosed_panel_skips_the_restore_and_latches(browser):
     # Re-review A: a panel that did not close may still be on screen, so no
     # further click -- the restore is skipped loudly and the latch is due.
@@ -429,16 +417,6 @@ def test_fix5_a_control_that_appears_on_hover_aborts_before_the_click(browser):
     assert st["clicks"] == [] and "ETHUSD" not in got["results"]
     assert got["restore"]["verified"] is True and st["linked"] == "SOLUSD"
     never_traded(st)
-
-
-def test_fix6_panel_text_masks_long_digit_and_hex_runs(browser):
-    got, st = run(browser, page_html(panel_extra="<div>acct 12345</div><div>id deadbeef01</div>"
-                                                 "<div>word abcdefabc</div><div>ref 1234</div>"),
-                  symbols=("BTCUSD",))
-    leaves = got["results"]["BTCUSD"]["leaves"]
-    assert "acct #####" in leaves and "id ##########" in leaves
-    assert "word abcdefabc" in leaves and "ref 1234" in leaves        # no digit / too short
-    assert not any(re.search(r"\d{5,}", v) for v in leaves)
 
 
 def test_a_panel_that_never_names_the_symbol_is_refused_and_aborts(browser):
@@ -503,6 +481,33 @@ def test_pre_click_latch_is_armed_then_removed_or_replaced(tmp_path):
 def test_tick_docstring_names_the_latch_exception():
     from scripts.prop.prop_executor_tick import resolve_mode
     assert "writes the executor's\n    AUTO-REVERT ``halted`` latch" in resolve_mode.__doc__
+
+
+SPEC_VALUES = ["100000", "Max qty 10000", "0.00001", "25.00000", "0.01-1000.00", "1000000.00", "tick 0.01"]
+ACCOUNT_SHAPES = ["1234567", "12345678", "1234-5678", "1234 5678", "deadbeef01"]
+
+
+def test_r4_panel_mask_keeps_spec_values_and_masks_account_ids(browser):
+    # Round-4 review: the spec values this probe exists to read must survive
+    # the panel mask (the round-1/3 5+-digit and dotted-group rules destroyed
+    # them); account-ID shapes are still masked.
+    extra = "".join(f"<div>{v}</div>" for v in SPEC_VALUES + [f"acct {x}" for x in ACCOUNT_SHAPES])
+    got, _ = run(browser, page_html(panel_extra=extra), symbols=("BTCUSD",))
+    leaves = got["results"]["BTCUSD"]["leaves"]
+    for v in SPEC_VALUES:
+        assert v in leaves, (v, leaves)
+    for x in ACCOUNT_SHAPES:
+        assert not any(x in v for v in leaves), (x, leaves)
+        assert f"acct {'#' * len(x)}" in leaves, (x, leaves)
+
+
+def test_one_click_dump_keeps_the_strict_mask(browser):
+    # The one-click dump sits near account chrome, not the spec surface: it
+    # keeps 5+-digit runs and comma/dot-separated groups masked too.
+    strict = ACCOUNT_SHAPES + ["12345", "12,345,678", "1.234.567.8"]
+    for x in strict:
+        dry, _ = run(browser, page_html(one_click_unreadable=True, toggle_attrs=f'data-acct="{x}"'), click=False)
+        assert x not in json.dumps(dry["one_click_dump"]), x
 
 
 def test_an_exception_logs_only_its_type(browser):

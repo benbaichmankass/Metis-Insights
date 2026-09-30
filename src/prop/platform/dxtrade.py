@@ -2485,10 +2485,15 @@ INFO_PROBE_SNAPSHOT_JS = r"""
 # Find the ONE new panel-sized element: not in the pre-click WeakSet, parent
 # not itself new, >= 120x60 px, >= 3 text leaves. Tag it
 # ``data-metis-info-panel`` and return its OWN text leaves (never page text)
-# with the identity checks. Masking follows the module convention (#14216,
-# manager review of #14645): runs of 5+ digits, digit groups split by
-# spaces / commas / dots / hyphens totalling 8+ digits, runs of 8+ hex
-# characters containing a digit, and e-mails. ``confirm_like`` flags an element that reads like an order
+# with the identity checks. Masking is DELIBERATELY looser than the module's
+# 5+-digit convention (#14216), because the spec values this probe exists to
+# read (100000, Max qty 10000, 0.00001, 0.01-1000.00, 1000000.00) are exactly
+# what that rule destroys (manager round-4 review of #14645, measured in
+# node). Masked here: integer runs of 7+ digits not touching a '.', digit
+# groups split by spaces / hyphens totalling 8+ digits not preceded by a '.',
+# runs of 8+ hex characters containing a digit not preceded by a '.', and
+# e-mails. ONE_CLICK_DUMP_JS keeps the STRICT mask -- it sits near account
+# chrome and is not the spec surface. ``confirm_like`` flags an element that reads like an order
 # CONFIRMATION (a confirm / submit / OK / place / buy / sell control or
 # wording) -- such a panel is refused and never clicked.
 INFO_PROBE_PANEL_JS = r"""
@@ -2498,9 +2503,9 @@ INFO_PROBE_PANEL_JS = r"""
   document.querySelectorAll('[data-metis-info-panel]').forEach(e => e.removeAttribute('data-metis-info-panel'));
   const txt = el => (el.innerText || el.textContent || '').trim();
   const mask = v => v.replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
-                     .replace(/(?<![0-9a-f])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
-                     .replace(/\d(?:[\s,.-]?\d){7,}/g, m => '#'.repeat(m.length))
-                     .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80);
+                     .replace(/(?<![0-9a-f.])[0-9a-f]{8,}(?![0-9a-f])/gi, m => /\d/.test(m) ? '#'.repeat(m.length) : m)
+                     .replace(/(?<![.\d])\d(?:[\s-]?\d){7,}/g, m => '#'.repeat(m.length))
+                     .replace(/(?<![.\d])\d{7,}(?![.\d])/g, m => '#'.repeat(m.length)).slice(0, 80);
   const leaves = el => [...el.querySelectorAll('*')].filter(x => x.children.length === 0 && txt(x)).map(x => mask(txt(x)));
   const fresh = [...document.querySelectorAll('body *')]
     .filter(el => !pre.has(el) && !(el.parentElement && !pre.has(el.parentElement)));
