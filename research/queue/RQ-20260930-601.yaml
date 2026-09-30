@@ -61,14 +61,16 @@ decision_rule:
   statistic: >-
     scripts/research/m16_within_leg_confidence.py over comms/strategy_evidence/: every leg whose
     summary reads coverage_state "measured" and whose source_run ledger exists, legs with >= 40
-    usable trades (numeric confidence and net_r). For each trade with >= 20 EARLIER trades in
-    its leg, pct = mid-rank percentile of its confidence among those earlier trades (past-only;
-    reads confidences, never outcomes). rho = pooled Spearman(pct, full-cost net_r), both centred
+    usable trades (numeric confidence and net_r). For each trade with >= 20 trades of STRICTLY EARLIER
+    entry time in its leg (trades sharing its timestamp are not its past), pct = mid-rank percentile
+    of its confidence among those earlier trades (past-only; reads confidences, never outcomes). rho = pooled Spearman(pct, full-cost net_r), both centred
     within (leg, entry-month) strata. p = one-sided permutation p, net_r permuted within the same
     strata, 10,000 shuffles, seed 20260930. lofo = rho with each strategy family (ict_scalp,
-    trend_donchian, pullback, other) removed in turn. delta = sum((0.5 + pct) - 1) * net_r over
-    the eval trades, the net R that a budget-matched tilt (size x (0.5 + pct)) gains against flat
-    sizing on this ledger.
+    trend_donchian, pullback, other) removed in turn. delta = sum(w - 1) * net_r over the eval
+    trades, where w = (0.5 + pct) / mean over that trade's leg of (0.5 + pct), so each leg's tilted book
+    risks the same total as its flat book (budget-matched PER LEG; without the division a leg whose
+    confidence merely drifts upward gets weights near 1.5 and gains about half its net R with no
+    ranking). delta is the net R the tilt gains against flat sizing on this ledger.
   rule: >-
     UNDERPOWERED (verdict indeterminate) IF pooled n_eval < 1,500. NOT_APPLICABLE (no_data) IF no
     leg qualifies. ELSE PASS IF (A) n_eval >= 1,500 AND (B) rho >= +0.08 AND (C) permutation

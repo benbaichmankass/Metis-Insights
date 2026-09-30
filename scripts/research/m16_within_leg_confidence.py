@@ -33,8 +33,9 @@ STATISTIC (registered before the run — see the unit's decision_rule)
   p      = one-sided permutation p: net_r permuted WITHIN the same strata,
            PERM_N shuffles, seed PERM_SEED.
   lofo   = rho recomputed with each strategy family removed in turn.
-  delta  = sum((0.5 + pct_i) - 1) * net_r_i over eval trades: the net R a budget-matched
-           tilt (size x(0.5 + pct)) gains or loses against flat sizing, on this ledger.
+  delta  = sum(w_i - 1) * net_r_i over eval trades, w_i = (0.5 + pct_i) / mean over the
+           trade's leg of (0.5 + pct): the net R a budget-matched tilt gains or loses against
+           flat sizing, on this ledger. Normalised per leg so each leg risks what it would flat.
   informational, NOT gating: bottom-decile vs rest, per-family rho, per-leg rho.
 
 RULE (mirrors the unit; change one and the other must change in the same PR)
@@ -55,6 +56,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
+import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_EVIDENCE = REPO / "comms" / "strategy_evidence"
@@ -84,7 +86,7 @@ def load_legs(evidence: Path) -> Tuple[Dict[str, List[dict]], Dict[str, Any]]:
     """leg -> usable trades (entry-ordered) plus a census of what was excluded."""
     legs: Dict[str, List[dict]] = {}
     census = {"summaries": 0, "not_measured": 0, "no_ledger": 0, "unreadable": 0,
-              "rows_dropped_non_numeric": 0}
+              "rows_dropped_non_numeric": 0, "rows_dropped_bad_time": 0}
     for summ in sorted(evidence.glob("*.json")):
         census["summaries"] += 1
         try:
@@ -115,22 +117,35 @@ def load_legs(evidence: Path) -> Tuple[Dict[str, List[dict]], Dict[str, Any]]:
                 census["unreadable"] += 1
                 continue
             c, n = r.get("confidence"), r.get("net_r")
-            if (isinstance(c, (int, float)) and isinstance(n, (int, float))
+            if not (isinstance(c, (int, float)) and isinstance(n, (int, float))
                     and r.get("entry_time")):
-                rows.append({"c": float(c), "r": float(n), "t": str(r["entry_time"])})
-            else:
                 census["rows_dropped_non_numeric"] += 1
+                continue
+            t = pd.to_datetime(str(r["entry_time"]), utc=True, errors="coerce")
+            if pd.isna(t):
+                census["rows_dropped_bad_time"] += 1
+                continue
+            rows.append({"c": float(c), "r": float(n), "t": t})
         rows.sort(key=lambda x: x["t"])
         legs[summ.stem] = rows
     return legs, census
 
 
-def past_percentile(conf: np.ndarray) -> np.ndarray:
-    """Mid-rank percentile of each element among the strictly earlier ones; NaN < MIN_PAST."""
+def past_percentile(conf: np.ndarray, times: np.ndarray) -> np.ndarray:
+    """Mid-rank percentile of each trade among those with a STRICTLY EARLIER entry time.
+
+    `times` is entry-ordered. Trades sharing a timestamp are not each other's past (list
+    order inside a tie is arbitrary, and a confidence known at the same instant is not past
+    information). NaN until a trade has MIN_PAST strictly-earlier trades.
+    """
     out = np.full(len(conf), np.nan)
-    for i in range(MIN_PAST, len(conf)):
-        past = conf[:i]
-        out[i] = ((past < conf[i]).sum() + 0.5 * (past == conf[i]).sum()) / i
+    first = np.searchsorted(times, times, side="left")   # index of the first trade at this time
+    for i in range(len(conf)):
+        k = int(first[i])
+        if k < MIN_PAST:
+            continue
+        past = conf[:k]
+        out[i] = ((past < conf[i]).sum() + 0.5 * (past == conf[i]).sum()) / k
     return out
 
 
@@ -191,13 +206,14 @@ def grade(legs: Dict[str, List[dict]], census: Dict[str, Any]) -> Dict[str, Any]
     base = {"rule_id": RULE_ID, "census": census,
             "legs_excluded_thin": sorted(k for k, v in legs.items() if len(v) < MIN_LEG_TRADES)}
     if not kept:
-        return dict(base, verdict="not_applicable", read_state="no_data", n=0,
+        return dict(base, verdict="not_applicable", read_state="no_data", n=None,
                     population="no measured leg with a ledger and >= "
                                f"{MIN_LEG_TRADES} usable trades")
     leg_l, fam_l, pct_l, r_l, strat_l = [], [], [], [], []
     for leg in sorted(kept):
         rows = kept[leg]
-        pct = past_percentile(np.array([x["c"] for x in rows]))
+        pct = past_percentile(np.array([x["c"] for x in rows]),
+                              np.array([x["t"].value for x in rows]))
         for x, p in zip(rows, pct):
             if np.isnan(p):
                 continue
@@ -205,14 +221,14 @@ def grade(legs: Dict[str, List[dict]], census: Dict[str, Any]) -> Dict[str, Any]
             fam_l.append(family_of(leg))
             pct_l.append(p)
             r_l.append(x["r"])
-            strat_l.append(f"{leg}|{x['t'][:7]}")
+            strat_l.append(f"{leg}|{x['t'].strftime('%Y-%m')}")
     n = len(pct_l)
     pop = (f"{len(kept)} measured legs with >= {MIN_LEG_TRADES} usable trades "
            f"({len(legs) - len(kept)} thinner legs excluded); {n} trades after the "
            f"{MIN_PAST}-trade per-leg warm-up; full-cost net_r from each leg's committed "
            f"source_run ledger")
     if n == 0:
-        return dict(base, verdict="not_applicable", read_state="no_data", n=0, population=pop)
+        return dict(base, verdict="not_applicable", read_state="no_data", n=None, population=pop)
     pct, r = np.array(pct_l), np.array(r_l)
     fam, leg_a = np.array(fam_l), np.array(leg_l)
     # sort by stratum so permutation blocks are contiguous
@@ -234,11 +250,20 @@ def grade(legs: Dict[str, List[dict]], census: Dict[str, Any]) -> Dict[str, Any]
     for lg in sorted(set(leg_a)):
         m = leg_a == lg
         per_leg[lg] = {"n": int(m.sum()), "rho": stratified_rho(pct[m], r[m], strata[m])}
+    # Budget-matched means each leg's tilted book risks the same total as its flat book, so the
+    # weights are normalised PER LEG. Un-normalised, a leg whose confidence drifts up (past-only
+    # percentile near 1 throughout) gets weights near 1.5 and "gains" 0.5 x its net R on any
+    # positive leg with no ranking at all.
     w = 0.5 + pct
+    raw_leg_mean = {}
+    for lg in sorted(set(leg_a)):
+        m = leg_a == lg
+        raw_leg_mean[lg] = float(w[m].mean())
+        w[m] = w[m] / w[m].mean()
     delta = float(((w - 1.0) * r).sum())
     low = pct <= 0.10
     info = {
-        "mean_tilt_weight": float(w.mean()),
+        "raw_tilt_weight_mean_by_leg": raw_leg_mean,
         "delta_net_r_total": delta, "delta_net_r_per_trade": delta / n,
         "bottom_decile_n": int(low.sum()),
         "bottom_decile_mean_net_r": float(r[low].mean()) if low.any() else None,
@@ -261,6 +286,7 @@ def grade(legs: Dict[str, List[dict]], census: Dict[str, Any]) -> Dict[str, Any]
         verdict = "fail"
     return dict(base, verdict=verdict, read_state="measured", n=n, population=pop,
                 measurement={"rho": rho, "perm_p_one_sided": p, "lofo": lofo,
+                             "informational": info,
                              "conditions": conds, "bars": {
                                  "N_FLOOR": N_FLOOR, "RHO_BAR": RHO_BAR, "P_BAR": P_BAR,
                                  "LOFO_BAR": LOFO_BAR, "PERM_N": PERM_N}},
