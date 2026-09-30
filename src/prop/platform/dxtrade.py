@@ -1601,6 +1601,205 @@ CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 }
 """
 
+# MEASUREMENT for the symbol search/add control (PROP-ETH-DOM, 2026-09-30,
+# pipeline PI-20260929-AQRK6CL1-0014). Live run #14457 (code bd340d6ae)
+# resolved the watchlist panel through FIND_INSTRUMENT_SEARCH_JS's anchor but
+# found n_candidate_inputs 0 for all four symbols: the control is outside that
+# panel, is not an <input>, or carries labels INSTRUMENT_SEARCH_CANDIDATES
+# does not name. Guessing a fourth candidate list is how the earlier rounds
+# drifted, so this dump records the shape and the next change derives the
+# candidates and the anchor FROM it.
+#
+# What it lists, from the whole document (open shadow roots included): every
+# visible input/textarea/select, [role=searchbox|combobox|textbox],
+# contenteditable, and every button / [role=button] / element whose own or
+# icon-descendant attributes read search-, find-, filter-, add- or plus-like.
+# Each row: tag, type, role, placeholder, aria-label, data-test-id, title,
+# name, class, rounded rect, whether it sits INSIDE the resolved watchlist
+# panel, how many ancestor levels above that panel first contain it
+# (``wl_level``, the "near" measure), and its ancestor chain with class names.
+# Sorted nearest-first, capped at MAX (50) rows so the run log's tail keeps it.
+#
+# What it NEVER does: read an input's value, read the text of an editable
+# control (only its length), type, click, focus, scroll, or tag anything. It
+# skips password fields, personal-looking controls, the order ticket's own
+# symbol_input, and anything inside a BUY+SELL-holding container (counted,
+# never listed), so the order ticket is not read. Runs of 5+ digits and
+# e-mails are masked in every string it returns.
+INSTRUMENT_SEARCH_DUMP_JS = r"""
+() => {
+  const MAX = 50, CHAIN = 6;
+  // Any 24+ run of [A-Za-z0-9_-.=+/] is cut to a 16-char prefix + an
+  // ellipsis HERE, because the run-log redactor (redact_text's
+  // _TOKENISH_RE) would otherwise replace a long CSS class name with
+  // "<token>" and erase the very measurement this dump exists for. A real
+  // token never survives whole; the redactor itself is left unchanged.
+  const mask = (v, n) => (typeof v === 'string' && v.trim())
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length))
+        .replace(/[A-Za-z0-9_\-.=+\/]{24,}/g, m => m.slice(0, 16) + '\u2026').slice(0, n || 60) : null;
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const clsOf = el => (typeof el.className === 'string' ? el.className
+                       : (el.className && el.className.baseVal) || '');
+  const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const personal = /user|profile|account|login|email|password/i;
+  // Token match, never substring: "padding" / "address" must not read as
+  // "add". camelCase and kebab/snake names are split into words first.
+  const words = s => (s || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  const SEARCHY = new Set(['search', 'searchbox', 'magnifier', 'magnifying', 'magnify', 'loupe', 'find', 'lookup',
+                           'filter', 'add', 'plus', 'instrument', 'instruments', 'symbol', 'symbols']);
+  const SEARCH_NAMED = new Set(['search', 'searchbox', 'magnifier', 'magnifying', 'magnify', 'loupe']);
+  const has = (s, set) => words(s).some(w => set.has(w));
+
+  // Every element, open shadow roots included (a closed root is invisible to
+  // page script; the count of hosts tells a reader whether that matters).
+  const all = [];
+  let shadowHosts = 0;
+  const walk = root => {
+    for (const el of root.querySelectorAll('*')) {
+      all.push(el);
+      if (el.shadowRoot) { shadowHosts++; walk(el.shadowRoot); }
+    }
+  };
+  walk(document);
+
+  // The watchlist panel, resolved as FIND_INSTRUMENT_SEARCH_JS does (header
+  // table with Symbol/Bid/Ask + an aligned row + their common ancestor below
+  // body). Not a precondition: when it does not resolve, the dump still runs
+  // document-wide and says why.
+  let panel = null, panelWhy = null;
+  const wl = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
+  }
+  if (wl.length !== 1) {
+    panelWhy = `${wl.length} tables with Symbol/Bid/Ask headers (need exactly 1)`;
+  } else {
+    const {t, hs} = wl[0];
+    const si = hs.indexOf('symbol');
+    let row = null;
+    for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+      const cells = [...r.querySelectorAll('td')].map(txt);
+      if (cells.length === hs.length && /^[A-Z0-9]{2,15}$/i.test((cells[si] || '').trim())) { row = r; break; }
+    }
+    if (!row) panelWhy = 'no watchlist row aligned with the header';
+    for (let e = t.parentElement; row && e && e !== document.body; e = e.parentElement) {
+      if (e.contains(row)) { panel = e; break; }
+    }
+    if (row && !panel) panelWhy = 'no common ancestor of the watchlist header and its row';
+  }
+  // Ancestors of the panel, nearest first, for the wl_level measure.
+  const panelUp = [];
+  for (let e = panel; e; e = e.parentElement) panelUp.push(e);
+  const wlLevel = el => {
+    if (!panel) return null;
+    for (let k = 0; k < panelUp.length; k++) if (panelUp[k].contains(el)) return k;
+    return null;   // inside a shadow root no light-DOM ancestor contains
+  };
+
+  const orderPanels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]')) {
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]')) { orderPanels.push(e); break; }
+    }
+  }
+  const inOrderPanel = el => orderPanels.some(p => p.contains(el));
+
+  // Space-separated parts ("div #id .a .b [role=x] [tid=y]"), never one
+  // dotted run the redactor would read as a token.
+  const desc = e => {
+    const parts = [e.tagName.toLowerCase()];
+    if (e.id) parts.push('#' + mask(e.id, 30));
+    for (const c of clsOf(e).split(/\s+/).filter(Boolean).slice(0, 3)) parts.push('.' + mask(c, 30));
+    const role = e.getAttribute('role'); if (role) parts.push(`[role=${mask(role, 20)}]`);
+    const tid = e.getAttribute('data-test-id'); if (tid) parts.push(`[tid=${mask(tid, 30)}]`);
+    if (e === panel) parts.push('<WATCHLIST_PANEL>');
+    return parts.join(' ');
+  };
+  const chain = el => {
+    const out = [];
+    for (let e = el.parentElement; e && e !== document.body && out.length < CHAIN; e = e.parentElement) out.push(desc(e));
+    return out;
+  };
+  // An icon's href keeps only its #fragment (a sprite id): a path or query
+  // is never read.
+  const frag = h => (h && h.includes('#')) ? '#' + h.split('#').pop() : null;
+  const iconAttrs = el => [...el.querySelectorAll('svg, use, i, img, [class*=icon], [class*=Icon]')].slice(0, 4)
+    .map(i => [clsOf(i), i.getAttribute('aria-label'), i.getAttribute('title'), i.getAttribute('data-test-id'),
+               frag(i.getAttribute('href')), frag(i.getAttribute('xlink:href')), i.getAttribute('alt')]
+               .filter(Boolean).join(' '))
+    .join(' ');
+
+  const kindOf = el => {
+    const tag = el.tagName.toLowerCase();
+    const role = (el.getAttribute('role') || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return 'field';
+    if (/^(searchbox|combobox|textbox)$/.test(role)) return 'role_' + role;
+    if (el.getAttribute('contenteditable') !== null && el.isContentEditable) return 'contenteditable';
+    const own = [el.getAttribute('aria-label'), el.getAttribute('title'), el.getAttribute('data-test-id'),
+                 el.getAttribute('placeholder'), clsOf(el)].filter(Boolean).join(' ');
+    const clickable = tag === 'button' || role === 'button' || el.hasAttribute('onclick') || tag === 'a';
+    if (clickable) {
+      const t = el.children.length === 0 ? txt(el) : '';
+      if (has(own, SEARCHY) || has(iconAttrs(el), SEARCHY) || /^\+$/.test(t)) return 'search_like_button';
+      return null;
+    }
+    // A non-button element NAMED like a search control (a div-based search).
+    if (has(own, SEARCH_NAMED)) return 'search_named';
+    return null;
+  };
+
+  const rows = [];
+  let nOrder = 0, nPersonal = 0, nHiddenInPanel = 0;
+  for (const el of all) {
+    const kind = kindOf(el);
+    if (!kind) continue;
+    const tag = el.tagName.toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    if (!visible(el)) { if (panel && panel.contains(el)) nHiddenInPanel++; continue; }
+    if (inOrderPanel(el)) { nOrder++; continue; }
+    const tid = el.getAttribute('data-test-id') || '';
+    if (type === 'password' || tid === 'symbol_input'
+        || personal.test([tid, el.getAttribute('name') || '', el.getAttribute('aria-label') || '',
+                          el.getAttribute('placeholder') || '', clsOf(el)].join(' '))) { nPersonal++; continue; }
+    const editable = kind === 'field' || kind.startsWith('role_') || kind === 'contenteditable';
+    const r = el.getBoundingClientRect();
+    rows.push({
+      kind, tag, type: mask(type, 20), role: mask(el.getAttribute('role'), 20),
+      placeholder: mask(el.getAttribute('placeholder')), aria_label: mask(el.getAttribute('aria-label')),
+      data_test_id: mask(tid), title: mask(el.getAttribute('title')), name: mask(el.getAttribute('name'), 30),
+      cls: mask(clsOf(el), 80),
+      // Never a value: an editable control reports only its text LENGTH.
+      text: editable ? null : mask(el.children.length ? txt(el).split('\n')[0] : txt(el), 40),
+      text_len: editable && tag !== 'input' && tag !== 'select' ? txt(el).length : null,
+      n_options: tag === 'select' ? el.options.length : null,
+      icon: kind === 'search_like_button' ? mask(iconAttrs(el), 80) : null,
+      rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+      in_wl_panel: !!(panel && panel.contains(el)),
+      wl_level: wlLevel(el),
+      chain: chain(el),
+    });
+  }
+  const rank = x => (x.in_wl_panel ? 0 : 1) * 1000 + (x.wl_level === null ? 999 : x.wl_level);
+  rows.sort((a, b) => rank(a) - rank(b));   // stable: document order within a rank
+  const panelInfo = panel ? {
+    desc: desc(panel), chain: chain(panel), rect: (r => [Math.round(r.left), Math.round(r.top),
+      Math.round(r.width), Math.round(r.height)])(panel.getBoundingClientRect()),
+    headers: wl[0].hs.slice(0, 12).map(h => mask(h, 20)),
+    children: [...panel.children].slice(0, 15).map(c => ({desc: desc(c), n_inputs: c.querySelectorAll('input').length,
+      n_buttons: c.querySelectorAll('button, [role=button]').length, has_table: !!c.querySelector('table')})),
+  } : null;
+  return {found: true, panel: panelInfo, panel_why: panelWhy, n_rows: rows.length,
+          truncated: rows.length > MAX, rows: rows.slice(0, MAX),
+          excluded_order_panel: nOrder, excluded_personal: nPersonal, hidden_in_panel: nHiddenInPanel,
+          ticket_holds_watchlist: !!(panel && orderPanels.some(p => p.contains(panel))),
+          n_iframes: document.querySelectorAll('iframe').length, n_shadow_hosts: shadowHosts,
+          n_elements: all.length};
+}
+"""
+
 # Read-only, DIGIT-RUN-masked (runs of 5+ digits only -- deliberately looser
 # than CONTROLS_DUMP_JS's every-digit mask, because the numbers THIS dump
 # exists to surface -- lot size, tick/price step, a venue minimum -- are
@@ -2911,6 +3110,23 @@ class DXtradeAdapter(PropPlatformAdapter):
             return page.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_CANDIDATES)]) or {}
         except Exception as exc:
             return {"found": False, "why": f"probe failed ({type(exc).__name__})"}
+
+    def instrument_search_dump(self, page: Any) -> Dict[str, Any]:
+        """READ-ONLY measurement of where the symbol search/add control is
+        (INSTRUMENT_SEARCH_DUMP_JS): run in every frame, origin only per
+        frame. Types, clicks, focuses and tags nothing; never reads a value."""
+        out: List[Dict[str, Any]] = []
+        for i, fr in enumerate(self._frames(page)):
+            try:
+                got = fr.evaluate(INSTRUMENT_SEARCH_DUMP_JS) or {"found": False}
+            except Exception as exc:
+                got = {"found": False, "error": type(exc).__name__}
+            try:
+                where = _strip_url(fr.url)
+            except Exception:
+                where = "?"
+            out.append({"frame": i, "origin": where, **got})
+        return {"frames": out}
 
     def instrument_details_dump(self, page: Any) -> Dict[str, Any]:
         """Read-only, digit-run-masked (runs >= 5) dump of controls + short
