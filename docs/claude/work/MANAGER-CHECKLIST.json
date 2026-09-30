@@ -3901,12 +3901,14 @@
       "owner": "build lane",
       "lane": "session_01R2PHzyjMvQoNiB39SdYWco",
       "model": "claude-sonnet-5-5",
-      "ceiling_usd": 15,
+      "ceiling_usd": 35,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        14520
+      ],
       "blocked_on": [],
-      "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_01R2PHzyjMvQoNiB39SdYWco (claude-sonnet-5-5, ceiling $15). Writes proposed: only, never mandates:. Held Tier-3 PR, then the manager puts grant/decline to the operator."
+      "note": "2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane dispatched: session_01R2PHzyjMvQoNiB39SdYWco (claude-sonnet-5-5, ceiling $15). Writes proposed: only, never mandates:. Held Tier-3 PR, then the manager puts grant/decline to the operator. || 2026-09-30 ~05:17Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): the lane opened #14520 (proposed MD-SOAK-EXIT-CELL-PATHB; resolve_exit_cell and --exit-cell/--dry-proposed in mandate_resolver.py; 32 tests). The dry run returns FIRE on #14332's cell. OPERATOR POPUP ~05:15Z; bounds stated: soak-only by Stage-1 membership, never on a Stage-2 roster; folds >=5/6; maxDD worsening <=0.35x base; leverage <=2.0; pullback/donchian only; no runner exists yet. Answer verbatim: \"Grant; firing opens a PR (Recommended)\". GRANTED AS WRITTEN, NO autoland: a fire opens a PR and pings, and the manager merges it. Relayed to the lane: move the entry into mandates: on #14520 (Tier-3 hold, the manager merges on green), then build the runner PI-20260930-39SDYWCO-0001 as a held Tier-2 PR. Ceiling $15 -> $35. The lane found (not blocking): trend_donchian_eth_4h / trend_donchian_xrp_4h were in the 08-30 batch and are now on bybit_2, so the entry refuses them; skill Path-B text vs the shipped path_b_wf_pass differ (-0003); corpus rows lack a cost-stack stamp (-0002)."
     },
     {
       "id": "PROP-PLATFORMS",
