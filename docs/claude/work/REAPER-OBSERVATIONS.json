@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-30T06:15:37Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-30T06:08:53Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T21:21:28Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-30T06:08:53Z",
+  "updated_at": "2026-09-30T06:15:37Z",
   "latest": {
-    "generated_at": "2026-09-30T06:08:53Z",
+    "generated_at": "2026-09-30T06:15:37Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1200,
+      "unregistered_claude_branches": 1199,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 334,
+      "unregistered_but_attributable_sessions": 335,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1059,7 +1059,6 @@
           "claude/pr-req-exit-head-9k2p1x"
         ],
         "session_012Q62RPzq1M36Ruk7u61jJu": [
-          "claude/mandate-affordability-clause",
           "claude/r-afford-hardening",
           "claude/stage2-mirror-trade-identity"
         ],
@@ -2154,6 +2153,9 @@
           "claude/mi194-phase-a-respec",
           "claude/mi194-phase-abcd-observations",
           "claude/mi194-strategy-decision-record"
+        ],
+        "session_01WJKF5ZpAgsF3BTsq5JJYwo": [
+          "claude/correct-qqq-trend-long-1d-vol-trail-degenerate"
         ],
         "session_01WKwvhBuaYYCKbdkk7fHrpf": [
           "claude/mi275-close-out",
