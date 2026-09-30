@@ -46,6 +46,18 @@ PASS RULE (``--evaluate``), evaluated here and not by a reader
   the hourly schedule ends 2026-10-04, and the manager records the verdict on
   the PROP-TERM checklist row, which is the durable record).
 
+LEVERS (``--variants a,b,c --out-dir DIR``; diagnostics for choosing how the browser is run through the SAME proxy)
+  ``baseline`` (today: Playwright's headless shell, the first response is judged), ``wait`` (keep watching a
+  "Just a moment..." page up to 30 s, because a JS/managed challenge often clears by itself; records BOTH the first
+  load and ``cleared_after_s``), ``newheadless`` (Chromium's own new headless mode, ``channel="chromium"``) and
+  ``headed`` (a real window; needs a display, xvfb on the runner). Each lever is a fresh browser and writes its own
+  ``probe-result-<variant>.json`` carrying ``variant``; per-host records add ``challenge_kind`` (``none`` /
+  ``js_or_managed`` / ``interactive_widget`` / ``other``: a Turnstile widget is only OBSERVED, never clicked),
+  ``cf_clearance_set`` (cookie NAME presence only) and, in proxy mode, ``exit_country`` / ``exit_colo`` read from
+  Cloudflare's trace page (the ``ip=`` line on it is never kept). ``--evaluate --variant NAME`` judges one lever at a
+  time (results with no ``variant`` are ``baseline``), so the PASS rule is unchanged. NOT built, on purpose: any option
+  that HIDES automation (webdriver / User-Agent overrides, AutomationControlled): that needs an operator decision.
+
 EVERY PROXY-MODE EXIT WRITES A RESULT (``proxy_state`` ok / proxy_unreachable /
 org_unreadable / error / format_invalid), so a crash can never be mistaken for a
 quiet success. ``main`` also catches everything except ``SystemExit`` and prints
@@ -72,6 +84,21 @@ URLS = (
     "https://wss.breakoutprop.com/",
 )
 APP_HOST = "app.breakoutprop.com"
+
+#: Levers to try on the SAME proxy (diagnostics for choosing a lever; the PASS rule is unchanged and judges one
+#: variant at a time). None of them types, clicks or hides anything: they only change HOW the unmodified Chromium is
+#: launched and how long the landing page is observed. ``wait_s``: keep observing a "Just a moment..." page up to
+#: this long, because a JS/managed challenge often clears by itself. ``channel="chromium"``: Chromium's own
+#: "new headless" mode instead of Playwright's separate headless shell. ``headed``: a real window (needs a display,
+#: e.g. xvfb on a runner). Deliberately NOT here: options that HIDE automation (webdriver / User-Agent overrides,
+#: AutomationControlled): that needs an explicit operator decision and was not built.
+VARIANTS = {
+    "baseline": {"wait_s": 0},
+    "wait": {"wait_s": 30},
+    "newheadless": {"wait_s": 30, "channel": "chromium"},
+    "headed": {"wait_s": 30, "channel": "chromium", "headed": True},
+}
+TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
 MARKERS = {
     "cloudflare_1005_asn_ban": re.compile(r"banned the autonomous system number|error code:?\s*1005", re.I),
     "cloudflare_other_error": re.compile(r"error code:?\s*10\d\d", re.I),
@@ -236,12 +263,111 @@ def _lookup_org(page, PlaywrightError, secrets):
     return "org_unreadable", "unknown", token
 
 
-def run_probe(spec, now=None, urls=URLS):
+def _lookup_trace(page, PlaywrightError, secrets):
+    """Exit country/colo through the proxy from Cloudflare's own trace page. ONLY the two-letter ``loc`` and the
+    three-letter ``colo`` are kept: the page also prints the address (``ip=``), which is never stored or printed."""
+    try:
+        resp = page.goto(TRACE_URL, wait_until="domcontentloaded", timeout=30_000)
+        text = page.inner_text("body") or ""
+    except PlaywrightError:
+        return "unknown", "unknown"
+    if resp is None or resp.status != 200:
+        return "unknown", "unknown"
+    loc = re.search(r"^loc=([A-Z]{2})$", text, re.M)
+    colo = re.search(r"^colo=([A-Z]{3})$", text, re.M)
+    return (loc.group(1) if loc else "unknown"), (colo.group(1) if colo else "unknown")
+
+
+def _is_challenge_title(title: str) -> bool:
+    return "just a moment" in (title or "").lower()
+
+
+def _observe(page, secrets):
+    """What the landing page looks like NOW. Observation only: nothing is typed or clicked."""
+    title = scrub(page.title() or "", secrets)[:80]
+    body = page.inner_text("body")[:20000] if page.query_selector("body") else ""
+    html = page.content()[:200000]
+    markers = [k for k, rx in MARKERS.items() if rx.search(body) or rx.search(html)]
+    has_pw = bool(page.query_selector("input[type=password]"))
+    has_user = bool(page.query_selector("input#username, input[name=username], input[type=email]"))
+    widget = bool(page.query_selector("iframe[src*='challenges.cloudflare.com'], input[name='cf-turnstile-response'], .cf-turnstile"))
+    return title, markers, bool(has_pw and has_user), widget, body
+
+
+def _challenge_kind(title, markers, login, widget, body) -> str:
+    """``none`` (served), ``interactive_widget`` (a Turnstile checkbox/iframe is present: needs a click we never make),
+    ``js_or_managed`` (a challenge page with no widget: may clear by itself), or ``other``."""
+    if login and not _is_challenge_title(title):
+        return "none"
+    if widget or re.search(r"verify you are human", body or "", re.I):
+        return "interactive_widget"
+    if _is_challenge_title(title) or "challenge" in markers:
+        return "js_or_managed"
+    return "other"
+
+
+def _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result):
+    rec = {"http_status": "", "cf_mitigated": "", "server": "", "title": "", "markers": [],
+           "login_form_rendered": False, "navigation_error": "", "first_http_status": "", "first_cf_mitigated": "",
+           "first_title": "", "challenged_at_first_load": None, "cleared_after_s": None, "challenge_kind": "unknown",
+           "cf_clearance_set": False}
+    ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+    page = ctx.new_page()
+    last_nav = {}
+
+    def _note(resp):  # the LAST main-frame document response: after a challenge clears the page navigates again
+        try:
+            if resp.request.is_navigation_request() and resp.frame == page.main_frame:
+                last_nav["status"] = str(resp.status)
+                last_nav["cf"] = scrub({k.lower(): v for k, v in resp.headers.items()}.get("cf-mitigated", ""), secrets)[:40]
+        except PlaywrightError:
+            pass
+
+    try:
+        page.on("response", _note)
+        resp = page.goto(url, wait_until="domcontentloaded", timeout=45_000)
+        page.wait_for_timeout(5_000)  # let a challenge interstitial or the login form settle
+        if resp is not None:
+            rec["http_status"] = rec["first_http_status"] = str(resp.status)
+            hdr = {k.lower(): v for k, v in resp.headers.items()}
+            rec["server"] = scrub(hdr.get("server", ""), secrets)[:40]
+            rec["cf_mitigated"] = rec["first_cf_mitigated"] = scrub(hdr.get("cf-mitigated", ""), secrets)[:40]
+        title, markers, login, widget, body = _observe(page, secrets)
+        rec["first_title"] = title
+        served_first = login and not _is_challenge_title(title) and not rec["first_cf_mitigated"] and rec["first_http_status"] == "200"
+        rec["challenged_at_first_load"] = not served_first
+        if not served_first and cfg.get("wait_s"):
+            for sec in range(1, int(cfg["wait_s"]) + 1):  # keep watching: a JS/managed challenge often clears by itself
+                page.wait_for_timeout(1_000)
+                title, markers, login, widget, body = _observe(page, secrets)
+                if login and not _is_challenge_title(title):
+                    rec["cleared_after_s"] = 5 + sec
+                    break
+            if last_nav.get("status"):
+                rec["http_status"], rec["cf_mitigated"] = last_nav["status"], last_nav.get("cf", "")
+        elif served_first:
+            rec["cleared_after_s"] = 0
+        rec["title"], rec["markers"], rec["login_form_rendered"] = title, markers, login
+        rec["challenge_kind"] = _challenge_kind(title, markers, login, widget, body)
+        rec["cf_clearance_set"] = any(c.get("name") == "cf_clearance" for c in ctx.cookies())  # name only, never the value
+    except PlaywrightError as exc:
+        rec["navigation_error"] = error_token(exc, secrets)
+        if spec and is_proxy_error(rec["navigation_error"]):
+            result["proxy_state"] = "proxy_unreachable"
+    finally:
+        ctx.close()
+    return rec
+
+
+def run_probe(spec, now=None, urls=URLS, variant="baseline"):
     """Returns (result_dict, exit_code). ``spec`` is a ProxySpec or None (direct).
 
-    Never returns None: every path yields a result, so the caller can always store one.
+    Never returns None: every path yields a result, so the caller can always store one. ``variant`` picks one of
+    ``VARIANTS`` (how the browser is launched and how long the landing page is observed).
     """
+    cfg = VARIANTS[variant]
     result = _new_result(spec, now)
+    result["variant"] = variant
     secrets = spec.secrets() if spec else []
     try:
         sync_playwright, PlaywrightError = _load_playwright()
@@ -252,7 +378,9 @@ def run_probe(spec, now=None, urls=URLS):
         return result, 1
     with sync_playwright() as p:
         try:
-            launch_kw = {"headless": True}
+            launch_kw = {"headless": not cfg.get("headed", False)}
+            if cfg.get("channel"):
+                launch_kw["channel"] = cfg["channel"]
             if spec:
                 launch_kw["proxy"] = spec.playwright_proxy()  # explicit proxy: Chromium has no direct fallback
             browser = p.chromium.launch(**launch_kw)
@@ -267,6 +395,8 @@ def run_probe(spec, now=None, urls=URLS):
             page = ctx.new_page()
             try:
                 state, org, token = _lookup_org(page, PlaywrightError, secrets)
+                if state == "ok":
+                    result["exit_country"], result["exit_colo"] = _lookup_trace(page, PlaywrightError, secrets)
             finally:
                 ctx.close()
             result["proxy_state"], result["egress_org"] = state, org
@@ -279,32 +409,7 @@ def run_probe(spec, now=None, urls=URLS):
             result["egress_org"] = direct_egress_org()
         for url in urls:
             host_key = url.split("//", 1)[1].rstrip("/")
-            rec = {"http_status": "", "cf_mitigated": "", "server": "", "title": "", "markers": [],
-                   "login_form_rendered": False, "navigation_error": ""}
-            ctx = browser.new_context(viewport={"width": 1280, "height": 800})
-            page = ctx.new_page()
-            try:
-                resp = page.goto(url, wait_until="domcontentloaded", timeout=45_000)
-                page.wait_for_timeout(5_000)  # let a challenge interstitial or the login form settle
-                if resp is not None:
-                    rec["http_status"] = str(resp.status)
-                    hdr = {k.lower(): v for k, v in resp.headers.items()}
-                    rec["server"] = scrub(hdr.get("server", ""), secrets)[:40]
-                    rec["cf_mitigated"] = scrub(hdr.get("cf-mitigated", ""), secrets)[:40]
-                rec["title"] = scrub(page.title() or "", secrets)[:80]
-                body = page.inner_text("body")[:20000] if page.query_selector("body") else ""
-                html = page.content()[:200000]
-                rec["markers"] = [k for k, rx in MARKERS.items() if rx.search(body) or rx.search(html)]
-                has_pw = bool(page.query_selector("input[type=password]"))
-                has_user = bool(page.query_selector("input#username, input[name=username], input[type=email]"))
-                rec["login_form_rendered"] = bool(has_pw and has_user)
-            except PlaywrightError as exc:
-                rec["navigation_error"] = error_token(exc, secrets)
-                if spec and is_proxy_error(rec["navigation_error"]):
-                    result["proxy_state"] = "proxy_unreachable"
-            finally:
-                ctx.close()
-            result["hosts"][host_key] = rec
+            result["hosts"][host_key] = _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result)
         browser.close()
     result["app_pass"] = app_pass(result["hosts"].get(APP_HOST)) and (not spec or result["proxy_state"] == "ok")
     return result, 0
@@ -314,6 +419,10 @@ def print_result(result: dict) -> None:
     print(f"via_proxy={'yes' if result['via_proxy'] else 'no'}")
     print(f"proxy_state={result['proxy_state']}" + (f" ({result['proxy_error']})" if result.get("proxy_error") else ""))
     print(f"egress_org={result['egress_org']}")
+    if result.get("variant"):
+        print(f"variant={result['variant']}")
+    if result.get("exit_country"):
+        print(f"exit_country={result['exit_country']} exit_colo={result.get('exit_colo', 'unknown')}")
     for host, rec in result["hosts"].items():
         print(f"--- {host}")
         print(f"  http_status={rec['http_status'] or 'none'}")
@@ -322,23 +431,43 @@ def print_result(result: dict) -> None:
         print(f"  title={rec['title']!r}")
         print(f"  cloudflare_markers={','.join(rec['markers']) or 'none'}")
         print(f"  login_form_rendered={'yes' if rec['login_form_rendered'] else 'no'}")
+        if rec.get("challenged_at_first_load") is not None:
+            first = (f"{rec['first_http_status'] or 'none'}"
+                     f"{' cf-mitigated=' + rec['first_cf_mitigated'] if rec['first_cf_mitigated'] else ''}")
+            print(f"  first_load={first} title={rec['first_title']!r} challenged_at_first_load={'yes' if rec['challenged_at_first_load'] else 'no'}")
+            print(f"  cleared_after_s={rec['cleared_after_s'] if rec['cleared_after_s'] is not None else 'never'}"
+                  f" challenge_kind={rec['challenge_kind']} cf_clearance_set={'yes' if rec['cf_clearance_set'] else 'no'}")
         if rec["navigation_error"]:
             print(f"  navigation_error={rec['navigation_error']}")
     print(f"app_pass={'yes' if result['app_pass'] else 'no'}")
+
+
+def print_summary(results: list) -> None:
+    """One line per lever (variant) for a dispatch that tried several. Diagnostics: the PASS rule is unchanged."""
+    print("=== per-lever summary (diagnostic; the PASS rule judges one variant at a time) ===")
+    for r in results:
+        app = (r.get("hosts") or {}).get(APP_HOST, {})
+        cleared = app.get("cleared_after_s")
+        print(f"variant={r.get('variant', 'baseline')} proxy_state={r['proxy_state']} exit={r.get('exit_country', 'n/a')}/{r.get('exit_colo', 'n/a')}"
+              f" org={r['egress_org']} | app: first={app.get('first_http_status') or 'none'}"
+              f"{'/' + app['first_cf_mitigated'] if app.get('first_cf_mitigated') else ''}"
+              f" final={app.get('http_status') or 'none'} cleared_after_s={cleared if cleared is not None else 'never'}"
+              f" kind={app.get('challenge_kind', 'n/a')} login={'yes' if app.get('login_form_rendered') else 'no'}"
+              f" app_pass={'yes' if r['app_pass'] else 'no'}")
 
 
 def _ts(r: dict) -> datetime:
     return datetime.strptime(r["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
-def evaluate(results, now=None, failed_runs=()):
+def evaluate(results, now=None, failed_runs=(), variant="baseline"):
     """(verdict, reasons). Verdict is PASS, FAIL, PENDING or NO_PROXY_RUNS. See the module docstring.
 
     ``failed_runs`` are ISO timestamps of workflow runs that FAILED (a crash writes no result file). Each
     counts as a proxy-mode failure at that instant, so three passes around a crash are not a PASS.
     """
     now = now or datetime.now(timezone.utc)
-    pool = [r for r in results if r.get("via_proxy")]
+    pool = [r for r in results if r.get("via_proxy") and r.get("variant", "baseline") == variant]
     for stamp in failed_runs or ():
         pool.append({"ts": stamp, "via_proxy": True, "proxy_state": "run_failed", "egress_org": "unknown"})
     proxy = sorted((r for r in pool if now - _ts(r) <= timedelta(hours=WINDOW_H)), key=_ts)
@@ -379,7 +508,7 @@ def evaluate(results, now=None, failed_runs=()):
     return "PENDING", [f"{len(passes)} of {NEEDED_PASSES} spaced passing runs so far, no failure{note}"]
 
 
-def cmd_evaluate(directory: str, failed_file: str = "") -> int:
+def cmd_evaluate(directory: str, failed_file: str = "", variant: str = "baseline") -> int:
     root = Path(directory)
     if not root.is_dir():
         print("evaluate: results directory not found")
@@ -398,8 +527,9 @@ def cmd_evaluate(directory: str, failed_file: str = "") -> int:
         except (OSError, ValueError):
             print("evaluate: the failed-runs file is unreadable; refusing to evaluate without it")
             return 2
-    verdict, reasons = evaluate(results, failed_runs=failed)
-    print(f"results_read={len(results)} proxy_runs={sum(1 for r in results if r.get('via_proxy'))} failed_runs={len(failed)}")
+    verdict, reasons = evaluate(results, failed_runs=failed, variant=variant)
+    print(f"variant={variant} results_read={len(results)} "
+          f"proxy_runs={sum(1 for r in results if r.get('via_proxy') and r.get('variant', 'baseline') == variant)} failed_runs={len(failed)}")
     print(f"verdict={verdict}")
     for why in reasons:
         print(f"  {why}")
@@ -407,7 +537,7 @@ def cmd_evaluate(directory: str, failed_file: str = "") -> int:
 
 
 #: What the last-resort handler in ``main`` may use to scrub and to store. Filled in as soon as it is known.
-_STATE: dict = {"spec": None, "raw_set": False, "out": None, "now": None}
+_STATE: dict = {"spec": None, "raw_set": False, "out": None, "now": None, "out_dir": None, "variants_left": []}
 
 
 def _store(result: dict, out) -> None:
@@ -422,12 +552,22 @@ def _main(argv=None) -> int:
     ap.add_argument("--failed-runs", metavar="FILE", default="",
                     help="with --evaluate: JSON list of ISO timestamps of workflow runs that failed")
     ap.add_argument("--out", default="probe-out/probe-result.json")
+    ap.add_argument("--variant", default="baseline", help="with --evaluate: judge only results of this variant (lever)")
+    ap.add_argument("--variants", default="",
+                    help="comma-separated levers to try in one run (" + ", ".join(VARIANTS) + "); one result file each in --out-dir")
+    ap.add_argument("--out-dir", default="probe-out", help="with --variants: where probe-result-<variant>.json is written")
     args = ap.parse_args(argv)
     if args.evaluate:
-        return cmd_evaluate(args.evaluate, args.failed_runs)
+        return cmd_evaluate(args.evaluate, args.failed_runs, args.variant)
+    names = [v.strip() for v in args.variants.split(",") if v.strip()]
+    unknown = [v for v in names if v not in VARIANTS]
+    if unknown:
+        print(f"unknown_variant: choose from {', '.join(VARIANTS)}")
+        return 2
     raw = os.environ.get("EGRESS_PROBE_PROXY", "").strip()
     now = datetime.now(timezone.utc)
-    _STATE.update(spec=None, raw_set=bool(raw), out=args.out, now=now)
+    _STATE.update(spec=None, raw_set=bool(raw), out=args.out, now=now,
+                  out_dir=args.out_dir if names else None, variants_left=list(names))
     if os.environ.get("GITHUB_EVENT_NAME") == "schedule":
         if now >= SCHEDULE_ACTIVE_UNTIL:
             print("schedule_expired: the hourly measurement window has ended")
@@ -441,15 +581,32 @@ def _main(argv=None) -> int:
             spec = parse_proxy(raw)
         except ProxyFormatError as exc:
             print(f"proxy_format_invalid: {exc.reason}")
-            bad = _new_result(None, now)
-            bad.update(via_proxy=True, proxy_state="format_invalid", proxy_error=exc.reason)
-            _store(bad, args.out)  # a malformed secret must not read as "no run happened"
+            for name in (names or [None]):  # a malformed secret must not read as "no run happened"
+                bad = _new_result(None, now)
+                bad.update(via_proxy=True, proxy_state="format_invalid", proxy_error=exc.reason)
+                if name:
+                    bad["variant"] = name
+                    _store(bad, str(Path(args.out_dir) / f"probe-result-{name}.json"))
+                else:
+                    _store(bad, args.out)
             return 2
         _STATE["spec"] = spec
-    result, code = run_probe(spec, now=now)
-    _store(result, args.out)
-    print_result(result)
-    return code
+    if not names:
+        result, code = run_probe(spec, now=now)
+        _store(result, args.out)
+        print_result(result)
+        return code
+    results, codes = [], []
+    for name in names:
+        print(f"##### lever: {name}")
+        result, code = run_probe(spec, now=now, variant=name)
+        _store(result, str(Path(args.out_dir) / f"probe-result-{name}.json"))
+        _STATE["variants_left"].remove(name)
+        print_result(result)
+        results.append(result)
+        codes.append(code)
+    print_summary(results)
+    return 1 if all(codes) else 0  # a lever that cannot start (e.g. no display) is recorded as its own error result
 
 
 def main(argv=None) -> int:
@@ -464,7 +621,12 @@ def main(argv=None) -> int:
         spec = _STATE.get("spec")
         token = error_token(exc, spec.secrets() if spec else [])
         print(f"error: unexpected failure ({token})")
-        if _STATE.get("raw_set") and _STATE.get("out"):
+        if _STATE.get("raw_set") and _STATE.get("out_dir"):
+            for name in _STATE.get("variants_left") or []:
+                fail = _new_result(spec, _STATE.get("now"))
+                fail.update(via_proxy=True, proxy_state="error", proxy_error=token, variant=name)
+                _store(fail, str(Path(_STATE["out_dir"]) / f"probe-result-{name}.json"))
+        elif _STATE.get("raw_set") and _STATE.get("out"):
             fail = _new_result(spec, _STATE.get("now"))
             fail.update(via_proxy=True, proxy_state="error", proxy_error=token)
             _store(fail, _STATE["out"])
