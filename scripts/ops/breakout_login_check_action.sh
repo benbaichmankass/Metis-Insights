@@ -2,7 +2,8 @@
 # Tier-2 system-action: READ-ONLY login check for a prop account's web
 # terminal (probe step 1 — docs/research/prop-automation-options-2026-09-27.md § 4).
 #
-# Logs in to breakout_1's DXtrade terminal (app.breakoutprop.com) with
+# Logs in to breakout_1's DXtrade terminal (wss.breakoutprop.com, the dxtrade default login_url in
+# config/prop_platforms.yaml; app.breakoutprop.com is the separate proprietary-terminal dashboard) with
 # BREAKOUT_DX_USERNAME / BREAKOUT_DX_PASSWORD from the VM .env, reads balance,
 # equity, open positions and working orders, and prints them. It has NO code
 # path that clicks an order control (scripts/prop/breakout_login_check.py).

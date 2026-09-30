@@ -516,8 +516,9 @@ def test_workflow_handles_the_secret_safely():
         for m in re.finditer(r"EGRESS_PROBE_PROXY", step["run"]):
             assert step["run"][max(0, m.start() - 6):m.start()] in (' -z "$',), "the variable may only be tested with -z"
     assert any("egress_chromium_landing_probe.py" in s["run"] for s in holders)
-    assert "cron" in json.dumps(wf.get(True, wf.get("on", {})))  # the temporary hourly schedule exists...
-    assert "2026-10-04" in text  # ...and is bounded
+    on = wf.get(True, wf.get("on", {}))
+    assert "schedule" not in on and "cron" not in json.dumps(on)  # PROP-TERM egress is PARKED: no standing cron
+    assert {"pull_request", "workflow_dispatch"} <= set(on)       # ...a re-run is a dispatch (or a request-file PR)
 
 
 def test_workflow_withholds_the_secret_from_pull_requests_and_only_reads_main():
