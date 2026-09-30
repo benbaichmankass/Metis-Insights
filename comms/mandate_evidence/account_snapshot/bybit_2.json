@@ -1,0 +1,12 @@
+{
+  "account_id": "bybit_2",
+  "exchange": "bybit",
+  "captured_at": "2026-09-30T05:37:59.987150+00:00",
+  "source": "GET /api/diag/broker_account_status?account_id=bybit_2",
+  "equity_usd": 214.25370929,
+  "buying_power_usd": 214.25370929,
+  "cash_usd": null,
+  "multiplier": null,
+  "equity_basis": "available_margin (coin_derived) -- equity not in this endpoint; understates, so R-AFFORD errs to refuse",
+  "shorting_enabled": null
+}

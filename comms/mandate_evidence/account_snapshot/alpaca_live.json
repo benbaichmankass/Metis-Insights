@@ -1,0 +1,12 @@
+{
+  "account_id": "alpaca_live",
+  "exchange": "alpaca",
+  "captured_at": "2026-09-30T05:36:08.978715+00:00",
+  "source": "GET /api/diag/broker_account_status?account_id=alpaca_live",
+  "equity_usd": 193.56,
+  "buying_power_usd": 193.56,
+  "cash_usd": 193.56,
+  "multiplier": "1",
+  "equity_basis": "venue equity",
+  "shorting_enabled": false
+}

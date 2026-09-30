@@ -1,0 +1,7 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  ada_pullback_2h              A        seed=1 exit=0 ev=+152.46 p=0.3618 (111.0s)
+  ada_pullback_2h              A        seed=2 exit=0 ev=+145.41 p=0.3670 (112.1s)
+  ada_pullback_2h              A        seed=3 exit=0 ev=+134.81 p=0.3563 (107.5s)
+  ada_pullback_2h              A        seed=4 exit=0 ev=+135.53 p=0.3535 (110.8s)
+  ada_pullback_2h              A        seed=5 exit=0 ev=+139.44 p=0.3427 (59.6s)
+prop_ev_grid: overall=indeterminate {"ada_pullback_2h": "indeterminate"}

@@ -67,6 +67,13 @@
 #                        BUY/SELL/submit/the chart. See
 #                        DXtradeAdapter.probe_instrument_details's docstring
 #                        for why this reports STRUCTURE, not named fields.
+#     instrument-search-dump — READ-ONLY (PROP-ETH-DOM, 2026-09-30): lists
+#                        every visible input / combobox / searchbox /
+#                        textbox / contenteditable / search-like button with
+#                        its attributes and ancestor chain, nearest the
+#                        watchlist first, so the search control's locator is
+#                        derived from a measurement. Types, clicks and reads
+#                        no value; skips the order ticket. No `symbols:`.
 #     close-position   — locate the ONE existing position for the symbol (add
 #                        `sol` for SOLUSD) and its row close control through
 #                        the terminal's own flow, read back, click nothing.
@@ -110,7 +117,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt; do
     case ",${APPLY}," in *",${m},"*)
@@ -301,6 +308,7 @@ if [ -n "${EXEC_MODE}" ]; then
     case "${EXEC_MODE}" in
         probe-ticket)        EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
         instrument-probe)    EARGS+=(--instrument-probe "${ACTION_SYMBOLS}") ;;
+        instrument-search-dump) EARGS+=(--instrument-search-dump) ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}") ;;

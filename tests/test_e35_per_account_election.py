@@ -365,6 +365,14 @@ def run(monkeypatch, roster):
     gates = {"open": set(), "same_bar": set()}
     monkeypatch.setattr(pipeline, "_has_open_package_for_strategy",
                         lambda s, symbol=None: f"open-{s}" if s in gates["open"] else None)
+    # The pipeline applies the open-package gate PER ACCOUNT through
+    # ``_open_package_scope`` (PI-20260930-QZSE4AMA-0001); a strategy in
+    # gates["open"] models an open package held by every account in the round.
+    monkeypatch.setattr(pipeline, "_open_package_scope",
+                        lambda s, symbol, scope: (
+                            {"action": "block", "order_package_id": f"open-{s}",
+                             "excluded": {}}
+                            if s in gates["open"] else {"action": "pass", "scope": scope}))
     monkeypatch.setattr(pipeline, "_same_bar_entry_for_strategy",
                         lambda s, symbol=None: ({"bar_seconds": 900, "order_package_id": "p",
                                                  "last_created_at": "t"}

@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "breakout_1 passes or dies — detectable from GET /api/bot/prop/status?account_id=breakout_1: passed = status equity (else balance) >= 5500; dead = rule_distance.distance_to_dd_floor_usd <= 0 or distance_to_daily_loss_usd <= 0 (or the operator reports the account disabled). Read status_freshness first: a stale snapshot answers neither. Then the operator is pinged to buy, and the sizing.mode flip to `room` is merged for the fresh account.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-CSTGV2YT-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "operator",
+    "ref": "docs/claude/work/MANAGER-CHECKLIST.json R4 note '11:12Z OPERATOR DECISIONS (popups)'; config/prop_rulesets/breakout.yaml sizing:",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | python3 -c \"import json,sys; d=json.load(sys.stdin); s=d.get('status') or {}; rd=d.get('rule_distance') or {}; eq=s.get('equity') if s.get('equity') is not None else s.get('balance'); print({'freshness': d.get('status_freshness'), 'equity': eq, 'passed': (eq is not None and eq >= 5500), 'dead': any((rd.get(k) is not None and rd.get(k) <= 0) for k in ('distance_to_dd_floor_usd','distance_to_daily_loss_usd'))})\""
+  },
+  "routed_to": "P1b",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Ran the item's own rerun curl against the live API: GET /api/bot/prop/status?account_id=breakout_1 returns status_freshness=ok, equity=$4724.0, distance_to_dd_floor_usd=24.0 (>0, not dead), distance_to_daily_loss_usd=null but the binding floor distance is positive — account has neither passed ($5500 target) nor died. The operator's decision for both outcomes (buy a fresh eval on pass/die, flip sizing.mode to room) is already pre-recorded in the item itself from the 2026-09-27 popup; nothing new needs asking today.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — the operator already decided the actions for both the pass and die outcomes on 2026-09-27; this row is purely waiting on the triggering event (checked daily per its own due_when), not a live judgment call.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[TIER-3 PRE-DECIDED, PROP] When the CURRENT breakout_1 account instance (Breakout 1-Step Classic $5,000 eval; last measured balance $4,724, $24 above the $4,700 static floor, 2026-09-27T07:23Z) PASSES (equity >= $5,500 target) or DIES (equity at/through the $4,700 static floor or the daily-loss limit; Breakout disables the account), then: (1) PING THE OPERATOR to buy a fresh $5,000 Breakout 1-Step Classic evaluation ($45 fee, no refund, operator answer 'Yes, buy and run it'). The purchase is the operator's act, not a session's. (2) FOLLOW-UP once the fresh account exists: in config/prop_rulesets/breakout.yaml set sizing.mode from `flat` to `room` (the value already declared in sizing.next_instance_mode: risk_usd = min(1.5% x live balance, 0.33 x binding cushion), skip below $10) and reset the account's journal state for the new instance; land it as a Tier-3 PR citing this item and the 11:12Z decision. On a PASS the funded account resets to a fresh $5,000 (operator, same popup), so the funded instance is also a fresh account and also switches to room sizing. Operator decision by AskUserQuestion popup in manager session session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~11:12Z: 'Current flat, room sizing next' + 'Yes, buy and run it'. Evidence: PR #13084, docs/research/b6-prop-ev/live-state-2026-09-27T0723Z.json (fresh-account EV per life, path model: room k=0.33/min $10 +$111.96, k=0.45 +$112.06, flat 1.5% -$12.43; population: breakout_1 evidence n=234 trades over the 363-day window 2025-09-28 to 2026-09-24, 3000 simulated account lives per arm). Code + config landing on branch claude/w6-prop-sizing-decisions (held Tier-3 PR; manager merges).\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — the operator already decided the actions for both the pass and die outcomes on 2026-09-27; this row is purely waiting on the triggering event (checked daily per its own due_when), not a live judgment call."
+}

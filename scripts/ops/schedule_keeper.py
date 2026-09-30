@@ -69,6 +69,9 @@ TARGETS: dict[str, dict] = {
     # JC-SA-01 (2026-09-29): the graded hop of the trade pipeline, daily.
     "grade-closed-trades.yml": {"stale_hours": 26},
     "soak-book-grade-weekly.yml": {"stale_hours": 170},
+    # GRADE-ALERT (2026-09-30): the alarm for the grading hop had 0 runs ever;
+    # its first 04:10Z slot never fired. An alarm that can be dropped is silent.
+    "grading-freshness-alert.yml": {"stale_hours": 26},
     # RQ-OPS-2 (2026-09-28): added after the SAME lag/drop this module exists
     # for stranded a full day of research-queue-dispatch's own cron — its
     # 06:20 UTC slot had not fired by 13:14Z (measured: every other schedule-

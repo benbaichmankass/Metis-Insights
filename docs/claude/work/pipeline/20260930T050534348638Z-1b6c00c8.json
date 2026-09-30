@@ -1,0 +1,43 @@
+{
+  "due_when": {
+    "clears_when": "The operator decides (promote gld_pullback_1h to alpaca_live under MD-PROMOTE-S1-S2, or explicitly declines) OR E62 lands a measured equities slippage figure that changes this leg's cost_stack and the verdict is re-read against it.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-2S8DXGTZ-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "MANAGER-CHECKLIST.json#E67 (/performance-review, session_01HUMdsBGKWKBmNC2S8DxGtz)",
+    "rerun": "python3 -c \"import json,yaml; accts=yaml.safe_load(open('config/accounts.yaml'))['accounts']; real=set(); [real.update(a.get('strategies',[])) for a in accts.values() if a.get('account_class') in ('real_money','prop')]; d=json.load(open('comms/strategy_evidence/gld_pullback_1h.json')); print('gld_pullback_1h in real-money roster:', 'gld_pullback_1h' in real); print(d['decision_rule']['verdict'], d['n_trades_oos'], d['folds_positive'], d['folds'], d['cost_stack'])\""
+  },
+  "routed_to": "MANDATE-ARM",
+  "severity": "medium",
+  "state": "routed",
+  "tier": "3",
+  "triage_2026_09_28": {
+    "checked": "Verified config/accounts.yaml: gld_pullback_1h is still only on alpaca_paper, not alpaca_live — not yet promoted. Verified config/mandates.yaml: MD-PROMOTE-S1-S2 is granted but its blocked_until clause (a)/(b) status matches CLAUDE.md's account (clause (b) cleared 2026-09-27; real-money promotion still gated until D1 lands per the file's own header). This is a live, unresolved Tier-3 promotion decision.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "real money at risk on a leg whose cost assumption (slippage) is still unverified and whose most recent fold softened",
+          "label": "Promote gld_pullback_1h to alpaca_live now",
+          "risk": "medium — mechanical bar cleared, but on an unverified cost stack and a softening trend",
+          "what_happens": "Leg moves from Stage-1 paper to Stage-2 real money + mirror, sized per the standard real-money risk basis."
+        },
+        {
+          "cost": "none",
+          "label": "Decline / wait for D1's measured equities slippage figure",
+          "risk": "none, but defers a leg that otherwise clears the bar",
+          "what_happens": "Leg stays on alpaca_paper; re-read once D1 lands a real slippage number."
+        }
+      ],
+      "priority_tier": 4,
+      "question": "gld_pullback_1h clears the full Stage-0->Stage-1 promotion bar (net_r_oos 16.98, expectancy 0.29R, n=59, 3/4 folds positive) but its most recent fold is slightly negative (-0.54R), and its cost_stack.slippage (5.0bps) is a provisional equities assumption, not yet measured (D1 not landed). Promote to alpaca_live now, or wait?",
+      "recommendation": "Wait for D1 — CLAUDE.md's own text states real-money promotion on the fee-only/provisional-slippage corpus 'stays blocked until D1', and this leg's cost_stack is explicitly flagged as provisional, not measured."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] gld_pullback_1h (Stage-1, alpaca_paper only, execution=live) is the ONLY Stage-1 leg in today's corpus that clears the FULL three-clause S1->S2 promotion bar (operator, 2026-09-21: expectancy>0 net of full cost stack at n>=30 closed; positive in a MAJORITY of walk-forward folds; Stage-1 realized cost within tolerance of modelled cost). MEASURED against comms/strategy_evidence/gld_pullback_1h.json, generated_at 2026-09-24, harness=pullback, coverage_state=measured, fidelity=faithful (omitted_levers=[]): decision_rule.verdict=pass, net_r_oos=16.9757, expectancy_r_oos=0.2877, n_trades_oos=59, folds_positive=3/4. Fold detail: fold1 net_r 0.7281 (14 trades), fold2 net_r 12.5702 (14), fold3 net_r 4.2197 (14), fold4 net_r -0.5423 (17, MOST RECENT, slightly negative) -- so the edge is majority-positive but its most recent fold has softened, worth the operator's eye even though it clears the mechanical bar. POPULATION CHECKED: all execution=live strategies in config/strategies.yaml NOT already on a real_money/prop account roster in config/accounts.yaml (i.e. genuinely Stage-1), n=53 candidates; only this one clears n>=30 AND folds_positive>folds/2 AND decision_rule.verdict=pass simultaneously. 17 other Stage-1 legs pass the Stage-0 headline verdict but fail n>=30 or fold-majority (near-misses, listed in comms/reviews/performance-review-20260924-e67.json). LABEL: gld_pullback_1h's cost_stack.slippage is 5.0 bps -- the PROVISIONAL equities/futures assumption E62 is still measuring (operator, 2026-09-24 ~13:15Z: 'a working artifact until we get evidence backed numbers'), NOT a measured figure the way the Bybit-perp 3.0bps (E60/D3) is. So the D3 cost-tolerance clause of the bar is accepted on that assumption, not verified against a real GLD fill. This is a Tier-3 promotion decision (S1->S2, real money) -- PROPOSED here, NOT enacted. MD-PROMOTE-S1-S2 is a PROPOSED, not GRANTED, mandate (config/mandates.yaml `mandates: []` verified empty this session; B5's checklist row is `state: blocked` on a stuck permission prompt) -- so even if this cleared the bar, nothing auto-promotes it today regardless; this needs an explicit operator decision either way.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 4) — gld_pullback_1h clears the full Stage-0->Stage-1 promotion bar (net_r_oos 16.98, expectancy 0.29R, n=59, 3/4 folds positive) but its most recent fold is slightly negative (-0.54R), and its cost_stack.slippage (5.0bps) is a provisional equities assumption, not yet measured (D1 not landed). Promote to alpaca_live now, or wait? Recommendation: Wait for D1 — CLAUDE.md's own text states real-money promotion on the fee-only/provisional-slippage corpus 'stays blocked until D1', and this leg's cost_stack is explicitly flagged as provisional, not measured."
+}

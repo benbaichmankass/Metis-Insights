@@ -134,15 +134,17 @@ def test_orphaned_status_does_not_block(tmp_journal):
 
 
 # ---------------------------------------------------------------------------
-# Best-effort: DB read failure returns None (does not crash dispatch)
+# Fail closed: DB read failure BLOCKS (does not crash dispatch) — 2026-09-30
 # ---------------------------------------------------------------------------
 
 
-def test_db_read_failure_returns_none_silently(monkeypatch):
-    """A DB-read exception must not raise — the gate is best-effort.
-    Returning None lets the dispatcher proceed (one extra duplicate
-    package is preferable to refusing every signal during a DB
-    outage)."""
+def test_db_read_failure_fails_closed(monkeypatch):
+    """A DB-read exception must not raise, and must BLOCK (2026-09-30,
+    PI-20260930-QZSE4AMA-0001 review): an unreadable journal may hide an open
+    package, so the dispatch is refused with the cause. It used to return
+    None ("one extra duplicate package is preferable to refusing every signal
+    during a DB outage") — reversed: a duplicate package on a live leg is
+    stacking, the thing this gate exists to stop."""
     class _BoomDb:
         def __init__(self, *a, **kw):
             pass
@@ -151,7 +153,8 @@ def test_db_read_failure_returns_none_silently(monkeypatch):
             raise RuntimeError("simulated DB outage")
 
     monkeypatch.setattr("src.units.db.database.Database", _BoomDb)
-    assert _has_open_package_for_strategy("vwap") is None
+    from src.runtime.strategy_monocle import UNREADABLE_PACKAGE_PREFIX
+    assert _has_open_package_for_strategy("vwap").startswith(UNREADABLE_PACKAGE_PREFIX)
 
 
 # ---------------------------------------------------------------------------
@@ -241,3 +244,56 @@ def test_symbol_none_keeps_global_scope(tmp_journal):
                 linked_trade_id=2, symbol="MES")
     # No symbol → any open package for the strategy blocks (legacy).
     assert _has_open_package_for_strategy("vwap") == "pkg-mes"
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-30 — the open-package gate leaves an audit row
+# ---------------------------------------------------------------------------
+#
+# It was the only one of ``_monocle_gate``'s four gates with no ``log_signal``
+# row, and a fully gated tick returns before ``pipeline_result`` is written,
+# so a blocked emission was invisible in ``signals`` (LIVE-NO-TRADES lane).
+
+
+def _gate_signal():
+    return {
+        "symbol": "XRPUSDT",
+        "side": "buy",
+        "meta": {"strategy_name": "xrp_pullback_2h"},
+    }
+
+
+def test_open_package_block_writes_audit_row(monkeypatch):
+    import src.runtime.pipeline as pl
+
+    rows = []
+    monkeypatch.setattr(pl, "_has_open_package_for_strategy",
+                        lambda strategy, symbol=None: "pkg-open-1")
+    monkeypatch.setattr(pl, "log_signal", rows.append)
+
+    result = pl._monocle_gate(_gate_signal(), {})
+
+    assert result["reason"] == "open_package_exists"
+    assert rows == [{
+        "event": "open_package_blocked",
+        "strategy": "xrp_pullback_2h",
+        "symbol": "XRPUSDT",
+        "side": "buy",
+        "open_package_id": "pkg-open-1",
+    }]
+
+
+def test_open_package_audit_failure_still_blocks(monkeypatch):
+    import src.runtime.pipeline as pl
+
+    def _boom(_row):
+        raise RuntimeError("audit sink down")
+
+    monkeypatch.setattr(pl, "_has_open_package_for_strategy",
+                        lambda strategy, symbol=None: "pkg-open-1")
+    monkeypatch.setattr(pl, "log_signal", _boom)
+
+    result = pl._monocle_gate(_gate_signal(), {})
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "open_package_exists"

@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Runtime monitor hook on the real-money ada_pullback_2h path; log-only, no stop change, manager decides merge and deploy.",
+  "why": "log-only vol_trail shadow instrument for P5 parity"
+}

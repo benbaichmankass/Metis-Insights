@@ -57,7 +57,7 @@ echo "===== fetch_backtest_candles.py --days ${DAYS} ====="
 set +e
 BACKTEST_DATA_PATH="${DATA_PATH}" python3 \
     "${REPO_DIR}/scripts/ops/fetch_backtest_candles.py" \
-    --days "${DAYS}"
+    --days "${DAYS}" --allow-window-replace
 fetch_code=$?
 set -e
 

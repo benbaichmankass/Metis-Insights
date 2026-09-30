@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "replay_pregate_live.run reads archives (grep iter_records_with_archives in the file on main) and a test with an empty active log + populated archive passes",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#fix-sa-01",
+    "rerun": "git show origin/main:scripts/ml/replay_pregate_live.py | sed -n 220,230p  # records must come from iter_records_with_archives"
+  },
+  "routed_to": "SA-DATA",
+  "state": "routed",
+  "what": "FIX-SA-01 (HIGH, AUD-4): scripts/ml/replay_pregate_live.py::run builds records from the ACTIVE shadow log only and raises SystemExit when empty, so the REQUIRED labels_accruing regime gate (ml/promotion/gates.py:180) and RG4 replay share the rotation blind spot FIX-CA-20 closed for drift. Fix: iter_records_with_archives + return an error state. Tier 1."
+}

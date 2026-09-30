@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: the operator-authorized info-panel probe build for PI-20260929-AQRK6CL1-0014 was blocked by the lane's Claude Code permission classifier before any code landed; recorded per the 'reading is never gated' refusal rule. No code, config or runtime change."
+}
