@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path change on a real-money leg (trend_donchian_xrp_4h on bybit_2 + bybit_portfolio): decision_bar: closed legs now skip the candle fetch outside their post-close window and bypass the candle cache inside it. Held for the manager's review and merge (PI-20260930-GQPT6PQF-0002); revert = revert the PR.",
+  "why": "A decision_bar: closed leg can decide off a cached frame fetched before the bar closed (live CANDLE_CACHE_TTL_MAX_S = 300 s, read via get-env issue #14797), so its last 'closed' row is the then-forming bar. Fix: no cache read for those legs inside the window, no fetch outside it; forming legs and every other fetch_candles caller are unchanged (bypass_cache defaults False)."
+}
