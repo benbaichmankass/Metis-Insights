@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a one-shot parity census a session RUNS (needs multi-GB 1m klines); it feeds PR #14577, no scheduled consumer.
 """Donchian legs: closed-bar (Stage 0) vs forming-bar (live) parity census.
 
 PI-20260930-QZSE4AMA-0002 / lane DONCHIAN-PARITY. Generalises the RQ-301
@@ -28,12 +29,12 @@ import vol_skip_forming_bar_replay as vs  # noqa: E402
 sys.path.insert(0, str(ROOT))
 import forming_bar_entries as fbe  # noqa: E402
 import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
 import yaml  # noqa: E402
 
 
 def run_leg(leg: str, block: dict, klines_dir: str, workers: int) -> dict:
-    tf = str(block["timeframe"]); sym = str(block["symbols"][0])
+    tf = str(block["timeframe"])
+    sym = str(block["symbols"][0])
     tf_min = fbe.tf_minutes(tf)
     m1 = vs.load_1m(klines_dir, sym)
     bars = vs.build_bars(m1, tf_min)
@@ -54,7 +55,8 @@ def run_leg(leg: str, block: dict, klines_dir: str, workers: int) -> dict:
     def arm(ovr):
         k = dict(kw)
         if ovr is not None:
-            k.update(off); k["side_filter"] = "both"
+            k.update(off)
+            k["side_filter"] = "both"
         with tempfile.TemporaryDirectory() as td:
             return pr._run(mod, bars, leg, sym, tf, k, Path(td) / "t.jsonl",
                            **({"entry_override": ovr} if ovr is not None else {}))
@@ -73,7 +75,9 @@ def run_leg(leg: str, block: dict, klines_dir: str, workers: int) -> dict:
         for key, ents in (("closed_only", c["only_closed_entries"]), ("arm_only", c["only_arm_entries"])):
             d = {}
             for _, direction, r in ents:
-                x = d.setdefault(direction, {"n": 0, "net_r": 0.0}); x["n"] += 1; x["net_r"] = round(x["net_r"] + r, 4)
+                x = d.setdefault(direction, {"n": 0, "net_r": 0.0})
+                x["n"] += 1
+                x["net_r"] = round(x["net_r"] + r, 4)
             by_dir[key] = d
         out[f"A_closed_vs_{other}"] = {**{k: v for k, v in c.items() if not k.endswith("_entries")},
                                         "by_direction": by_dir, **ds,
@@ -85,11 +89,14 @@ def run_leg(leg: str, block: dict, klines_dir: str, workers: int) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--klines-dir", required=True); ap.add_argument("--out", required=True)
+    ap.add_argument("--klines-dir", required=True)
+    ap.add_argument("--out", required=True)
     ap.add_argument("--leg", action="append", required=True)
-    ap.add_argument("--fetch", action="store_true"); ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--fetch", action="store_true")
+    ap.add_argument("--workers", type=int, default=4)
     a = ap.parse_args()
-    cfg = yaml.safe_load((ROOT / "config/strategies.yaml").read_text()); cfg = cfg.get("strategies", cfg)
+    cfg = yaml.safe_load((ROOT / "config/strategies.yaml").read_text())
+    cfg = cfg.get("strategies", cfg)
     rec = {"unit": "PI-20260930-QZSE4AMA-0002", "data_source": "Binance USD-M 1m proxy", "legs": {}}
     for leg in a.leg:
         if a.fetch:
