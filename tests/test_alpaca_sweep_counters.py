@@ -204,7 +204,7 @@ def test_trace_marks_a_venue_call_only_when_one_was_made(world):  # noqa: F811 �
            "direction": "long", "position_size": 56.0}
     t: dict = {}
     assert om._attempt_naked_autoprotect(row, 716.8, 787.86, db=db, trace=t) is True
-    assert t == {"sent": True, "ret_code": 0}
+    assert t == {"sent": True, "responded": True, "ret_code": 0}
     t2: dict = {}
     mp.setattr("src.units.accounts.clients.alpaca_client_for", lambda acc: None)
     assert om._attempt_naked_autoprotect(row, 716.8, 787.86, db=db, trace=t2) is False
@@ -215,7 +215,9 @@ def test_rearm_cap_is_three_and_bounds_a_stop_that_never_holds(world):  # noqa: 
     """PR6YRTQY-0005 (d), pinned to a NUMBER. The row's shares stay present and
     the price sits above its stop, but every re-armed stop vanishes (the venue
     accepts it and nothing rests). The row is re-armed exactly 3 times, then
-    escalated to the trade-scoped close, never 28 times. The existing tests
+    escalated to the trade-scoped close on the 4th sweep. The 28 is only an
+    upper bound on the loop, which stops at the close; it matches the
+    measured 2026-09-24 storm size. The existing tests
     read om._ALPACA_REARM_CAP, so they passed unchanged with the cap at 50."""
     assert om._ALPACA_REARM_CAP == 3
     db, _pages, mp = world
@@ -247,3 +249,18 @@ def test_topup_deferred_comment_matches_the_cooldown(world):  # noqa: F811 — p
     src = (Path(__file__).resolve().parents[1] / "src" / "runtime"
            / "order_monitor.py").read_text()
     assert "no cooldown was left" not in src
+
+
+def test_a_raising_escalated_post_is_not_counted_as_a_venue_rejection(world):  # noqa: F811 — pytest fixture
+    """Manager review of #14545, note (a): `sent` is set before the client call,
+    so a call that RAISES must not be read as a venue rejection."""
+    db, _pages, mp = world
+    v = _escalating(db, mp)
+
+    def _boom(order):
+        raise ConnectionError("reset by peer")
+    v.place_protective = _boom
+    s = om._check_broker_naked_equity_positions(db)
+    assert s["escalated_post_not_sent"] == 1 and s["escalated_post_rejected"] == 0
+    assert om._rearm_attempts("alpaca_portfolio", 6024) == 1
+    _assert_accounted(s)
