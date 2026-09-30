@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-30T06:08:53Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-30T06:00:18Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T21:16:19Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-30T06:00:18Z",
+  "updated_at": "2026-09-30T06:08:53Z",
   "latest": {
-    "generated_at": "2026-09-30T06:00:18Z",
+    "generated_at": "2026-09-30T06:08:53Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1140,9 +1140,6 @@
         ],
         "session_014ZKXKoPUbHgANGdDmRRjHz": [
           "claude/mi301-attribute-the-0830-break"
-        ],
-        "session_014hPP8CTfoZ8y3kfDt5QsCC": [
-          "claude/gitsync-revive-stopped-units"
         ],
         "session_014jrW67rFyJNnHr7y6dEhec": [
           "claude/per-merge-ping-reobservation-20260906"
@@ -1633,6 +1630,9 @@
         "session_01HMfmAi3sPv4TtZ67SP2utB": [
           "claude/board-done-drain2-20260902"
         ],
+        "session_01HS7ws2n8c57QMUquRobE9z": [
+          "claude/prop-eth-dom-locator-20260930"
+        ],
         "session_01HTHCedaMSamfxT69fnRzXG": [
           "claude/mi125-backlog-rows",
           "claude/mi125-board-post",
@@ -1765,9 +1765,6 @@
         ],
         "session_01L8GZoVxY9iqAykyydG13rP": [
           "claude/phase-b-done-post"
-        ],
-        "session_01LKkJDVYVLZ6GouLTikn8zV": [
-          "claude/rq-20260930-402-xrp-2025"
         ],
         "session_01LRLUSvcGqQjPcMByAiggsg": [
           "claude/mi189b-unread-account-venue-audit"
@@ -2194,6 +2191,9 @@
         ],
         "session_01X9HcdqY1K9k9nGjfGCFKAc": [
           "claude/m28-value-thesis-sweep-evapa5"
+        ],
+        "session_01XEHP2RTP24AZWSQZSE4AMA": [
+          "claude/open-package-blocked-audit"
         ],
         "session_01XHZLyD6muRE7t77JxtKrJ2": [
           "claude/mi312-board-done"
