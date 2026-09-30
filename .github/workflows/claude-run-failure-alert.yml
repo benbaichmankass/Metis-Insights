@@ -37,6 +37,10 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # PROP-TERM (2026-09-30): the egress landing probe's hourly measurement aid. A red run
+      # here is a script/format/environment fault (a proxy that fails is a RESULT, exit 0), and
+      # the operator is waiting on the answer, so it must not die silently.
+      - "egress-chromium-landing-probe"
       # E57 (2026-09-24): the research loss detector. It FAILS DELIBERATELY when
       # a question could not be read, and its death is otherwise silent until
       # its receipt goes stale in CI 36h later.

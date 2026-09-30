@@ -20,6 +20,7 @@
 # TRIGGERS. A PR touching the request file (sessions cannot workflow_dispatch); manual dispatch;
 # and an hourly schedule that is a TEMPORARY measurement aid: it does nothing unless the secret is
 # set and it stops for good on 2026-10-04 (the script and the gate step both enforce that).
+# no-durable-result: temporary measurement aid; the verdict is read from the run log by the manager and recorded on the PROP-TERM checklist row, and the per-run result files are 7-day working artifacts, not research results
 name: egress-chromium-landing-probe
 
 on:
