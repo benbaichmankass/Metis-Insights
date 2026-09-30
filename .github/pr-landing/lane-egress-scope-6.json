@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI-only measurement tooling: a landing-only headless-Chromium reachability probe (script + workflow + catalog row) for Breakout's two terminal hosts from a GitHub-hosted runner. No secrets, no credentials, no VM, no src/ or config/ change, nothing clicked. The workflow runs only on a PR touching its request file or on manual dispatch."
+}

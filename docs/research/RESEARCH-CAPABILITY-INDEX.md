@@ -350,6 +350,14 @@ verify-the-source-before-you-build.
 
 ---
 
+## 12. Reachability — "is that host served, challenged or banned from egress X?"
+
+| Question | Tool |
+|---|---|
+| **Is a real headless Chromium SERVED, CHALLENGED or BANNED at Breakout's terminal hosts from a GitHub-hosted runner's egress?** Landing only: fixed host allowlist, no credentials, nothing clicked or typed, prints the egress ORGANISATION (never an address), main-document status, `server`, `cf-mitigated`, page title, Cloudflare markers and whether the login form rendered. A plain `curl` and a browser can be scored differently, so curl-only results do not settle it. Runs via `.github/workflows/egress-chromium-landing-probe.yml`, triggered by a PR touching `.github/egress-probe/run-request.txt` (sessions cannot `workflow_dispatch`). | `scripts/research/egress_chromium_landing_probe.py` |
+
+---
+
 ## Maintaining this index
 
 It is only useful while it is complete, and a stale index that *looks* complete is worse
