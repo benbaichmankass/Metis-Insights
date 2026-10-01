@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager decision 2026-10-01 04:33Z option (c): a READ-ONLY link-state dump mode for breakout-login-check, held so the manager reviews and merges before the one dispatch. It touches the prop executor tick, the wrapper and the system-actions allowlist; it clicks nothing.",
+  "why": "Live #15022 clicked SOLUSD's watchlist Symbol cell with one-click OFF and the linked symbol stayed ETHUSD. Before any further click, measure why: the element hit at each Symbol cell's centre (an overlay would show), every symbol_input, and the sidebar ticket's state and close controls."
+}

@@ -324,3 +324,59 @@ def test_review_nit_b_quote_raw_keeps_only_symbol_bid_ask(browser):  # noqa: F81
     raw = p.evaluate(WATCHLIST_QUOTE_RAW_JS, ["ETHUSD"])
     p.close()
     assert raw["rows"] == [["ETHUSD", "100.1", "100.2"]]
+
+
+# ── link-state-dump (manager 2026-10-01 04:33Z, option (c)): READ-ONLY ──────
+
+
+OVERLAY = ('<div class="ticket-overlay" style="position:fixed;left:0;top:0;width:100vw;height:100vh;'
+           'background:rgba(0,0,0,0.01)"></div>')
+TICKET = ('<div class="order-ticket"><span>ETHUSD</span><button data-test-id="BUY">Buy</button>'
+          '<button data-test-id="SELL">Sell</button><input value="0.01">'
+          '<button aria-label="Close">x</button><button title="acct 123456789">i</button></div>')
+
+
+def dump(browser, html):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(html)
+    got = DXtradeAdapter(timeout_ms=3_000).link_state_dump(p)
+    st = state(p)
+    p.close()
+    return got, st
+
+
+def test_link_state_dump_reads_rows_hits_and_the_linked_input_without_clicking(browser):  # noqa: F811
+    got, st = dump(browser, page_html())
+    assert [r["sym"] for r in got["rows"]] == ["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]
+    assert all(r["hit_is_cell"] and r["hit_in_row"] for r in got["rows"])
+    assert [i["value"] for i in got["symbol_inputs"]] == ["SOLUSD"] and got["dialogs"] == 0
+    assert got["order_panels"] == []
+    assert st["clicks"] == [] and st["tags"] == 0
+    never_traded(st)
+
+
+def test_link_state_dump_shows_an_overlay_covering_the_symbol_cells(browser):  # noqa: F811
+    got, st = dump(browser, page_html(outside_table=OVERLAY))
+    sol = next(r for r in got["rows"] if r["sym"] == "SOLUSD")
+    assert sol["hit_is_cell"] is False and sol["hit"]["cls"] == ["ticket-overlay"]
+    assert st["clicks"] == []
+
+
+def test_link_state_dump_describes_the_sidebar_ticket_and_masks_long_digit_runs(browser):  # noqa: F811
+    got, st = dump(browser, page_html(outside_table=TICKET))
+    (panel,) = got["order_panels"]
+    assert panel["names_symbols"] == ["ETHUSD"] and panel["n_close_like"] == 1
+    flat = str(panel["buttons"])
+    assert "123456789" not in flat and "#########" in flat
+    assert st["clicks"] == []
+    never_traded(st)
+
+
+def test_the_tick_maps_link_state_dump_to_its_own_read_only_mode():
+    import argparse
+    from scripts.prop import prop_executor_tick as tick
+    args = argparse.Namespace(probe_ticket=False, instrument_probe="", instrument_search_dump=False,
+                              instrument_info_dry="", instrument_info_probe="", symbol_switch_dry="",
+                              link_state_dump=True, dry_run=False, watched_click=False, round_trip="",
+                              close_position="", live=False, account="breakout_1")
+    assert tick.resolve_mode(args, {"PROP_EXECUTOR_MODE": "live"}) == "link_state_dump"

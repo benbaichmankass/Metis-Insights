@@ -2565,6 +2565,85 @@ INFO_PROBE_RESOLVE_JS = r"""
 }
 """
 
+# READ-ONLY state dump behind a symbol switch that did not take (PROP-ETH-DOM,
+# manager 2026-10-01 04:33Z option (c)): live #15022 clicked SOLUSD's watchlist
+# Symbol cell with one-click OFF and the linked symbol stayed ETHUSD. CLICKS,
+# HOVERS, FOCUSES AND TYPES NOTHING; tags nothing. Per watchlist row: the
+# symbol, row/cell class tokens and aria-selected (is a row already "selected"?),
+# the cell rect and the element actually hit at the cell's centre
+# (document.elementFromPoint -- an overlay such as the sidebar ticket would show
+# here instead of the cell). The linked-symbol source: every
+# [data-test-id=symbol_input] with its value (a symbol), visibility and a
+# 4-level ancestor class chain. The sidebar ticket: every BUY+SELL panel's rect,
+# which watchlist symbols its text names, and its buttons (data-test-id,
+# aria-label, title, text; close / dismiss / cancel wording flagged). Dialogs
+# counted. Every class token has its digits masked; every text value is capped
+# and runs of 5+ digits are masked (the log is public).
+LINK_STATE_DUMP_JS = r"""
+() => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+  const m = v => String(v == null ? '' : v).replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+                   .replace(/\d{5,}/g, d => '#'.repeat(d.length)).slice(0, 60);
+  const cls = el => (typeof el.className === 'string' ? el.className.split(/\s+/) : [])
+                      .filter(Boolean).slice(0, 8).map(c => c.replace(/\d/g, '#'));
+  const rect = el => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); };
+  const desc = el => el ? {tag: el.tagName.toLowerCase(), cls: cls(el), tid: m(el.getAttribute('data-test-id'))} : null;
+  const chain = (el, n) => { const out = []; for (let e = el && el.parentElement, i = 0; e && e !== document.body && i < n; e = e.parentElement, i++) out.push(desc(e)); return out; };
+  const out = {dialogs: [...document.querySelectorAll('[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length,
+               viewport: [window.innerWidth, window.innerHeight]};
+  const wl = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
+  }
+  out.n_watchlist_tables = wl.length;
+  const syms = [];
+  if (wl.length === 1) {
+    const hs = wl[0].hs, si = hs.indexOf('symbol');
+    out.rows = [];
+    for (const r of wl[0].t.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+      const tds = [...r.querySelectorAll('td')];
+      if (tds.length !== hs.length) continue;
+      const c = tds[si], sym = txt(c).toUpperCase();
+      if (!/^[A-Z0-9]{2,15}$/.test(sym)) continue;
+      syms.push(sym);
+      const rr = c.getBoundingClientRect(), cx = rr.x + rr.width / 2, cy = rr.y + rr.height / 2;
+      const inView = cx >= 0 && cy >= 0 && cx < window.innerWidth && cy < window.innerHeight;
+      const hit = inView ? document.elementFromPoint(cx, cy) : null;
+      out.rows.push({sym, row_cls: cls(r), row_aria_selected: r.getAttribute('aria-selected'),
+                     cell_cls: cls(c), cell_rect: rect(c), cell_visible: vis(c), center_in_viewport: inView,
+                     hit: desc(hit), hit_is_cell: !!hit && (hit === c || c.contains(hit)),
+                     hit_in_row: !!hit && r.contains(hit), hit_chain: hit && !r.contains(hit) ? chain(hit, 4) : []});
+    }
+  }
+  out.symbol_inputs = [...document.querySelectorAll('[data-test-id=symbol_input]')].map(i => ({
+    value: m((i.value || '').trim().toUpperCase()), visible: vis(i), rect: rect(i), chain: chain(i, 4)}));
+  const panels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]')) {
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]')) { if (!panels.includes(e)) panels.push(e); break; }
+    }
+  }
+  const closeWord = /\b(close|dismiss|cancel|hide|collapse)\b|^[x\u00d7\u2715]$/i;
+  out.order_panels = panels.map(p => {
+    // Tokens per text LEAF (innerText joins inline siblings: "ETHUSDBuySell").
+    const tokens = new Set([...p.querySelectorAll('*')].filter(x => x.children.length === 0)
+      .flatMap(x => txt(x).toUpperCase().match(/[A-Z0-9]+/g) || []));
+    const btns = [...p.querySelectorAll('button, [role=button]')].filter(vis).slice(0, 30).map(b => {
+      const lab = [b.getAttribute('aria-label'), b.getAttribute('title'), txt(b)].filter(Boolean).map(m);
+      return {tid: m(b.getAttribute('data-test-id')), labels: lab, close_like: lab.some(v => closeWord.test(String(v).trim()))};
+    });
+    return {visible: vis(p), rect: rect(p), cls: cls(p), names_symbols: syms.filter(s => tokens.has(s)),
+            n_inputs: p.querySelectorAll('input').length, buttons: btns,
+            n_close_like: btns.filter(b => b.close_like).length};
+  });
+  return out;
+}
+"""
+
 # Remember every element that exists now (a WeakSet on window -- no DOM
 # attribute) so the panel can be identified as NEW after the info click.
 # Returns the number of visible dialogs.
@@ -4081,6 +4160,14 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.evaluate(INFO_PROBE_CLEANUP_JS)
             except Exception:
                 pass
+
+    def link_state_dump(self, page: Any) -> Dict[str, Any]:
+        """READ-ONLY (LINK_STATE_DUMP_JS): watchlist rows with the element hit at each Symbol cell's
+        centre, every symbol_input, and the sidebar ticket's buttons. Clicks nothing."""
+        try:
+            return page.evaluate(LINK_STATE_DUMP_JS) or {"error": "no result"}
+        except Exception as exc:
+            return {"error": f"{type(exc).__name__} (code=link_state_dump_exception)"}
 
     def select_linked_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
         """Make ``venue_symbol`` the terminal's linked symbol, VERIFIED.
