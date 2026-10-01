@@ -14,6 +14,8 @@ status_reason: >-
   +0.0123 R/trade [-0.0102, +0.0326] vs bar 0.03 R/trade and p5 > 0. The gain is concentrated in ict_scalp_5m (BTC, +9.42 R).
   Caveats: in-sample head labels, live_verified false, SOL head labels 51.96% of bars volatile vs BTC 7.98%.
   Not dispatched by the queue (trainer-resident registry): the dispatcher never fired it.
+  PRECONDITION OF ANY FUTURE VOL-AXIS UNIT: live_verified is false; the replay `verify` against live audit rows must pass first
+  (not run now by manager decision: a power-bounded null cannot be turned into a decision by label verification).
 kind: experiment
 
 question: >-

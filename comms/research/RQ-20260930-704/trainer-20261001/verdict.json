@@ -8,27 +8,176 @@
   "test_trades_total": 673,
   "power_note": "673 test trades < 785 the rule asks for: a null here is power-bounded.",
   "ungated_test_net_r_total": -8.698,
-  "ungated_test_net_r_per_leg": {"htf_pullback_trend_2h": -5.082, "ict_scalp_5m": -5.76, "ict_scalp_sol_15m": -0.445, "ict_scalp_sol_5m": -4.485, "trend_donchian": -3.021, "trend_donchian_sol": 5.294, "trend_donchian_sol_4h": -0.084, "trend_donchian_sol_prop": 4.884},
-  "selection": {"min_cell_n": 20, "loss_se": 1.0},
+  "ungated_test_net_r_per_leg": {
+    "htf_pullback_trend_2h": -5.082,
+    "ict_scalp_5m": -5.76,
+    "ict_scalp_sol_15m": -0.445,
+    "ict_scalp_sol_5m": -4.485,
+    "trend_donchian": -3.021,
+    "trend_donchian_sol": 5.294,
+    "trend_donchian_sol_4h": -0.084,
+    "trend_donchian_sol_prop": 4.884
+  },
+  "selection": {
+    "min_cell_n": 20,
+    "loss_se": 1.0
+  },
   "pooled": {
-    "oracle": {"delta_r": {"mean": 9.1704, "p5": -6.9854, "p95": 25.7828}, "per_test_trade": {"mean": 0.0123, "p5": -0.0102, "p95": 0.0326}, "mean_dropped_trades": 76.0},
-    "A=0.70": {"delta_r": {"mean": 8.0968, "p5": -7.1248, "p95": 26.958}, "per_test_trade": {"mean": 0.0109, "p5": -0.0118, "p95": 0.0352}, "mean_dropped_trades": 70.06},
-    "A=0.60": {"delta_r": {"mean": 7.1304, "p5": -9.4476, "p95": 24.7021}, "per_test_trade": {"mean": 0.0096, "p5": -0.0139, "p95": 0.0306}, "mean_dropped_trades": 67.7},
-    "A=0.55": {"delta_r": {"mean": 6.9457, "p5": -10.0926, "p95": 25.2435}, "per_test_trade": {"mean": 0.0092, "p5": -0.016, "p95": 0.0309}, "mean_dropped_trades": 66.7}
+    "oracle": {
+      "delta_r": {
+        "mean": 9.1704,
+        "p5": -6.9854,
+        "p95": 25.7828
+      },
+      "per_test_trade": {
+        "mean": 0.0123,
+        "p5": -0.0102,
+        "p95": 0.0326
+      },
+      "mean_dropped_trades": 76.0
+    },
+    "A=0.70": {
+      "delta_r": {
+        "mean": 8.0968,
+        "p5": -7.1248,
+        "p95": 26.958
+      },
+      "per_test_trade": {
+        "mean": 0.0109,
+        "p5": -0.0118,
+        "p95": 0.0352
+      },
+      "mean_dropped_trades": 70.06
+    },
+    "A=0.60": {
+      "delta_r": {
+        "mean": 7.1304,
+        "p5": -9.4476,
+        "p95": 24.7021
+      },
+      "per_test_trade": {
+        "mean": 0.0096,
+        "p5": -0.0139,
+        "p95": 0.0306
+      },
+      "mean_dropped_trades": 67.7
+    },
+    "A=0.55": {
+      "delta_r": {
+        "mean": 6.9457,
+        "p5": -10.0926,
+        "p95": 25.2435
+      },
+      "per_test_trade": {
+        "mean": 0.0092,
+        "p5": -0.016,
+        "p95": 0.0309
+      },
+      "mean_dropped_trades": 66.7
+    }
   },
   "per_leg_oracle_delta_r": {
-    "htf_pullback_trend_2h": {"delta_r": -3.4927, "dropped": 9, "n": 86, "labels": {"calm": 79, "volatile": 7}, "has_live_policy_cell": true},
-    "ict_scalp_5m": {"delta_r": 9.4214, "dropped": 49, "n": 193, "labels": {"calm": 166, "volatile": 27}, "has_live_policy_cell": true},
-    "ict_scalp_sol_15m": {"delta_r": 0.0, "dropped": 0, "n": 132, "labels": {"calm": 76, "volatile": 56}, "has_live_policy_cell": false},
-    "ict_scalp_sol_5m": {"delta_r": 3.47, "dropped": 18, "n": 259, "labels": {"calm": 154, "volatile": 105}, "has_live_policy_cell": false},
-    "trend_donchian": {"delta_r": 0.0, "dropped": 0, "n": 73, "labels": {"calm": 60, "volatile": 13}, "has_live_policy_cell": true},
-    "trend_donchian_sol": {"delta_r": 0.0, "dropped": 0, "n": 59, "labels": {"calm": 22, "volatile": 37}, "has_live_policy_cell": false},
-    "trend_donchian_sol_4h": {"delta_r": 0.0, "dropped": 0, "n": 35, "labels": {"calm": 20, "volatile": 15}, "has_live_policy_cell": false},
-    "trend_donchian_sol_prop": {"delta_r": 0.0, "dropped": 0, "n": 65, "labels": {"calm": 25, "volatile": 40}, "has_live_policy_cell": false}
+    "htf_pullback_trend_2h": {
+      "delta_r": -3.4927,
+      "dropped": 9,
+      "n": 86,
+      "labels": {
+        "calm": 79,
+        "volatile": 7
+      },
+      "has_live_policy_cell": true
+    },
+    "ict_scalp_5m": {
+      "delta_r": 9.4214,
+      "dropped": 49,
+      "n": 193,
+      "labels": {
+        "calm": 166,
+        "volatile": 27
+      },
+      "has_live_policy_cell": true
+    },
+    "ict_scalp_sol_15m": {
+      "delta_r": 0.0,
+      "dropped": 0,
+      "n": 132,
+      "labels": {
+        "calm": 76,
+        "volatile": 56
+      },
+      "has_live_policy_cell": false
+    },
+    "ict_scalp_sol_5m": {
+      "delta_r": 3.47,
+      "dropped": 18,
+      "n": 259,
+      "labels": {
+        "calm": 154,
+        "volatile": 105
+      },
+      "has_live_policy_cell": false
+    },
+    "trend_donchian": {
+      "delta_r": 0.0,
+      "dropped": 0,
+      "n": 73,
+      "labels": {
+        "calm": 60,
+        "volatile": 13
+      },
+      "has_live_policy_cell": true
+    },
+    "trend_donchian_sol": {
+      "delta_r": 0.0,
+      "dropped": 0,
+      "n": 59,
+      "labels": {
+        "calm": 22,
+        "volatile": 37
+      },
+      "has_live_policy_cell": false
+    },
+    "trend_donchian_sol_4h": {
+      "delta_r": 0.0,
+      "dropped": 0,
+      "n": 35,
+      "labels": {
+        "calm": 20,
+        "volatile": 15
+      },
+      "has_live_policy_cell": false
+    },
+    "trend_donchian_sol_prop": {
+      "delta_r": 0.0,
+      "dropped": 0,
+      "n": 65,
+      "labels": {
+        "calm": 25,
+        "volatile": 40
+      },
+      "has_live_policy_cell": false
+    }
   },
   "labels_replay": {
-    "BTCUSDT": {"head": "btc-regime-15m-lgbm-fc-pcv-v2", "bars": 175272, "ts_first": "2021-10-01T04:45:00Z", "ts_last": "2026-09-30T22:30:00Z", "volatile_pct": 7.98, "feature_audit_ok": true, "dataset": "datasets-out/market_features/BTCUSDT/15m/v002"},
-    "SOLUSDT": {"head": "sol-regime-15m-lgbm-fc-pcv-v2", "bars": 173928, "ts_first": "2021-10-15T04:45:00Z", "ts_last": "2026-09-30T22:30:00Z", "volatile_pct": 51.96, "p_volatile_median": 0.528, "feature_audit_ok": true, "dataset": "datasets-out/market_features/SOLUSDT/15m/v002"}
+    "BTCUSDT": {
+      "head": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "bars": 175272,
+      "ts_first": "2021-10-01T04:45:00Z",
+      "ts_last": "2026-09-30T22:30:00Z",
+      "volatile_pct": 7.98,
+      "feature_audit_ok": true,
+      "dataset": "datasets-out/market_features/BTCUSDT/15m/v002"
+    },
+    "SOLUSDT": {
+      "head": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "bars": 173928,
+      "ts_first": "2021-10-15T04:45:00Z",
+      "ts_last": "2026-09-30T22:30:00Z",
+      "volatile_pct": 51.96,
+      "p_volatile_median": 0.528,
+      "feature_audit_ok": true,
+      "dataset": "datasets-out/market_features/SOLUSDT/15m/v002"
+    }
   },
   "not_measured": "33 ledgers n<30, 12 on symbols with no advisory head (ETH, ADA, AVAX, XRP), 8 non-crypto; reasons in the full verdict's measurement.skipped.",
   "caveats": [
@@ -38,5 +187,7 @@
     "The only meaningfully positive leg is ict_scalp_5m on BTC (+9.42 R from 49 dropped trades) and its band at A=0.70 is +1.09 to +11.86 R on that leg alone; pooled across 8 legs the p5 is negative.",
     "Legs on one symbol are not independent (BTC 3, SOL 5), so the pooled band is optimistic.",
     "Scoping instrument, NOT a promotion case."
-  ]
+  ],
+  "live_verified": false,
+  "precondition_for_any_future_vol_axis_unit": "Replay `verify` against the live gate's audit rows (ml_vol_label_replay.py verify) MUST pass before a vol-axis unit is re-registered. Decided 2026-10-01 (manager): NOT run now, because this result is a power-bounded null (673 < 785 test trades) and label verification cannot turn it into a decision; it only matters once a vol-axis unit has enough test trades."
 }
