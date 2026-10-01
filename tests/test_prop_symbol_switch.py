@@ -690,3 +690,21 @@ def test_the_switch_works_on_breakouts_separate_rows_table(browser):  # noqa: F8
     assert got["ok"] is True and got["route"] == "watchlist" and got["attempts"] == 1
     assert got["ready"]["watchlist_n"] == 4 and st["clicks"] == ["sym"] and st["linked"] == "ETHUSD"
     never_traded(st)
+
+
+# ── TRADEIFY-WIRE T4: the same switch on Tradeify's column-header watchlist ──
+
+
+def test_tradeify_layout_symbol_switch_dry_selects_verifies_and_restores(browser):  # noqa: F811
+    from tests.test_prop_instrument_info_probe import tradeify_layout
+
+    p = browser.new_page()
+    p.set_content(tradeify_layout(page_html()))
+    got = DXtradeAdapter(timeout_ms=3_000).symbol_switch_dry(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert got["refused"] is None and got["alerts"] == [] and got["original"] == "SOLUSD"
+    assert got["quote_raw"]["rows"] == [["ETHUSD", "100.1", "100.2"]]
+    assert got["switch"]["ok"] is True and got["restore"]["ok"] is True
+    assert st["clicks"] == ["sym", "sym"] and st["linked"] == "SOLUSD"
+    never_traded(st)
