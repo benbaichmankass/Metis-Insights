@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: DIALOG-MEASURE step 3 follow-through (run edit-dialog-probe on the next open breakout_1 position, then the held EDIT_DIALOG_MEASURED flip). No code, config or order-path change."
+}
