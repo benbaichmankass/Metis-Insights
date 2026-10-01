@@ -385,3 +385,38 @@ def test_live_account_zero_balance_still_a_genuine_failure(
     assert not err.startswith("dry_run_sizing_skip:")
     assert is_expected_dispatch_skip(err) is False
     assert captured == []
+
+
+# ---------------------------------------------------------------------------
+# Trader halt flag — the second, independent layer (ORDER-AUDIT-2 item 2,
+# AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers). The order-layer
+# halt check lived in safe_place_order, which has no caller in src/.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("halted", [False, True])
+def test_halt_flag_refuses_dispatch(coord, live_yaml, monkeypatch, tmp_path, halted):
+    monkeypatch.setenv("BYBIT_KEY_LIVE", "k")
+    monkeypatch.setenv("BYBIT_KEY_LIVE_API_SECRET", "s")
+    flag = tmp_path / "trader_halt.flag"
+    if halted:
+        flag.write_text("halt")
+    monkeypatch.setenv("HALT_FLAG_PATH", str(flag))
+    captured, stub = _capture_execute_pkg_calls()
+
+    with patch(
+        "src.units.accounts.execute.execute_pkg", side_effect=stub,
+    ), patch(
+        "src.units.accounts.clients.bybit_client_for", return_value=object(),
+    ):
+        results = coord.multi_account_execute(
+            _pkg(), accounts_path=live_yaml,
+            balance_fetcher=lambda _a: 10_000.0,
+        )
+
+    if halted:
+        assert results == []
+        assert captured == []
+    else:
+        # Positive control: same fixture, no flag → it dispatches.
+        assert len(captured) == 1

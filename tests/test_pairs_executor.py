@@ -807,3 +807,66 @@ def test_soak_row_survives_an_alert_failure(tmp_path, monkeypatch):
     px.run_pairs_tick({})                       # must not raise
     assert len(soak) == 1, "the soak row was lost when the alert failed"
     assert soak[0]["event"] == "half_open"
+
+
+# ── trader halt flag (AUD-20260927-CA-A02, ORDER-AUDIT-2 item 1) ────────────
+# run_pairs_tick is called from src/main.py OUTSIDE pipeline.run, whose halt
+# check was the only one, so a halted trader still opened live pairs.
+
+def _live_open_tick(tmp_path, monkeypatch, *, halted: bool):
+    ca, cb = _extended_spread()
+    captured, placed = [], []
+    monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
+        "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
+                   "symbol_b": "BTCUSDT", "execution": "live",
+                   "timeframe": "1h", "hedge_beta": "one"}],
+    })
+    monkeypatch.setattr(px, "_fetch_leg",
+                        lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
+    monkeypatch.setattr(px, "_pair_is_open", lambda *a, **k: False)
+    monkeypatch.setattr(px, "_held_leg_symbols", lambda *a, **k: set())
+    monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
+    monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
+    monkeypatch.setattr(px, "_load_decision_bars", lambda: {})
+    monkeypatch.setattr(px, "_place_pair",
+                        lambda *a, **k: placed.append(a) or {"placed": True, "trade_ids": ["t1", "t2"]})
+    import src.units.accounts.clients as _clients
+    monkeypatch.setattr(_clients, "bybit_client_for", lambda acct: object())
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    import src.units.accounts.qty_legalize as _ql
+    monkeypatch.setattr(_ql, "legalize_qty",
+                        lambda qty, **k: _ql.LegalizedQty(qty=qty, ok=True, reason="",
+                                                          venue_min=0.0, step=0.0,
+                                                          source="instrument_profile"))
+    import src.config.accounts_loader as _al
+    monkeypatch.setattr(_al, "load_accounts_dict",
+                        lambda *a, **k: {"bybit_1": {"exchange": "bybit",
+                                                     "account_class": "paper",
+                                                     "risk": {"risk_pct": 0.015}}})
+    import src.utils.paths as _paths
+    monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    import src.runtime.pairs_soak as _soak
+    monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
+    flag = tmp_path / "trader_halt.flag"
+    if halted:
+        flag.write_text("halt")
+    monkeypatch.setenv("HALT_FLAG_PATH", str(flag))
+    px.run_pairs_tick({})
+    return captured, placed
+
+
+def test_live_pair_opens_when_not_halted(tmp_path, monkeypatch):
+    """Positive control: the same tick with no flag DOES place — so the halted
+    case below is refused by the flag, not by some other gate."""
+    captured, placed = _live_open_tick(tmp_path, monkeypatch, halted=False)
+    assert len(placed) == 1
+    assert captured[0]["event"] == "open"
+
+
+def test_halt_flag_refuses_live_pair_open(tmp_path, monkeypatch):
+    captured, placed = _live_open_tick(tmp_path, monkeypatch, halted=True)
+    assert placed == []
+    assert len(captured) == 1
+    assert captured[0]["event"] == "skip_halted"
