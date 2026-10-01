@@ -1,0 +1,1 @@
+{"tier": 1, "landing": "self", "why": "research/queue/** stamp-only edit: reset RQ-20260930-703 last_dispatched_at to null (wrongly copied from 702), so dispatch_queue._is_due returns due. No src/, config/, workflow or strategy change."}
