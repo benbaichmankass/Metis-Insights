@@ -1,5 +1,7 @@
 # Manager handoff — 2026-10-01 ~16:40Z
 
+> **Doc status:** `historical` · category `history` · last verified `2026-10-01` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+
 **From:** manager `session_01HYq6XtfesZ57VyaQrK6CL1` (Manager Session 2026-09-29; its context is very large, so cost per request is high).
 **To:** the new manager session, which titles itself `Manager Session 2026-10-01`.
 **Operator instruction, 2026-10-01, verbatim:** *"go ahead with the handoff now. you're not done when the handoff happens. You're done when you've verified that the new manager has taken on everything and has every all the information that they need in order to take on the work. And you've verified that all the items have changed to their ownership."*
