@@ -1,15 +1,14 @@
-id: RQ-20260930-601
-title: 'M16 re-scope, Stage 0: inside ONE leg, do trades that enter with relatively higher `confidence` earn more full-cost R? (lane M16-RESCOPE)'
-status: done
+id: RQ-20260930-602
+title: 'M16 confirmatory re-run (of RQ-20260930-601 FAIL): within-leg `confidence` vs full-cost R, once the committed ledgers hold >= 500 more eval trades'
+status: blocked
 cadence: once
-theme: live_strategy
-priority: 2
-status_reason: >-
-  2026-09-30 (RESEARCH-W7, manager 20:12Z): graded FAIL, record research/results/RQ-20260930-601/36732230587.jsonl
-  (rho 0.019, p 0.197, n_eval 2328; conditions A and E true, B, C, D false). The rule's "re-queues once for a
-  confirmatory run" is NOT done by re-firing this unit: the statistic is a seeded permutation over the same committed
-  ledgers, so a same-data rerun reproduces the FAIL exactly. The confirmatory run is RQ-20260930-602, blocked until
-  the ledgers have grown by >= 500 eval trades.
+theme: ml_health
+priority: 3
+blocked_on: >-
+  (a) the committed ledgers under comms/strategy_evidence/ have grown by >= 500 EVAL trades since RQ-20260930-601 measured
+  n_eval = 2,328, i.e. `python3 scripts/research/m16_within_leg_confidence.py --out <tmp>` reports n >= 2,828. Checked by the
+  research-planning session (research/queue/PLANNING.md section 4 step 1), not by the dispatcher: a `blocked/` unit is
+  not loaded. To unblock, `git mv` this file to research/queue/ and set status: queued.
 kind: experiment
 
 question: >-
@@ -63,7 +62,7 @@ power:
       relationship was NOT computed, so the rule below is registered before anyone has seen it.
 
 decision_rule:
-  id: RULE-RQ0930-601-M16-WITHIN-LEG-CONFIDENCE
+  id: RULE-RQ0930-602-M16-CONFIRMATORY
   registered_at: '2026-09-30'
   registered_before_run: true
   statistic: >-
@@ -118,7 +117,7 @@ run:
   - --out
   - '{out_dir}'
   inputs:
-    research_unit: RQ-20260930-601
+    research_unit: RQ-20260930-602
 
 lands:
   store: research/results/
@@ -130,4 +129,12 @@ related:
   - docs/research/M18-allocator-backtest-findings-2026-06-29.md
   - docs/research/C1-conviction-sizing-evidence-2026-08-04.md
   - docs/research/ranking-key-ab/2026-09-08-secondary-powered-ttl96/REPORT.txt
-last_dispatched_at: '2026-09-30T14:51:18+00:00'
+last_dispatched_at: null
+
+confirmatory_of: RQ-20260930-601   # same statistic, same bars, same script
+caveat: >-
+  The committed ledgers are rolling windows (365 days crypto, ~15 months equity), so a re-run at n_eval >= 2,828 shares
+  most trades with RQ-20260930-601 and is NOT independent of it; only the >= 500 new trades are. The statistic
+  (seeded permutation, past-only percentile) is deterministic on identical data. If the new trades are to carry the
+  verdict, the script needs an `--since <date>` restriction of the EVAL set (percentiles may still use full history)
+  before this unit is unblocked; that build is part of unblocking, and the rule above is then read on the since-subset.

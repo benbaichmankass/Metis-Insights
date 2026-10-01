@@ -77,7 +77,7 @@ def test_research_workflow_names_resolve_from_the_committed_queue():
 
 def test_a_fired_cycle_under_pressure_dispatches_nothing_and_stamps_nothing(tmp_path, monkeypatch):
     """PLANTED: with 3 research runs in flight, --fire must call gh workflow run ZERO times."""
-    unit = (REPO / "research/queue/RQ-20260928-012.yaml").read_text().replace("status: done", "status: queued")
+    unit = (REPO / "research/queue/RQ-20260928-012.yaml").read_text().replace("status: done", "status: queued\ntheme: infra\npriority: 2")
     unit = unit.replace("last_dispatched_at: '2026-09-28T21:20:36+00:00'", "last_dispatched_at: null")
     q = tmp_path / "queue"
     q.mkdir()

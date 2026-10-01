@@ -208,6 +208,10 @@ def render(tpl: Dict[str, Any], tpl_path: str, tpl_sha: str, params: Dict[str, A
     p["date"] = day
     unit: Dict[str, Any] = {"id": unit_id, "title": _fill(tpl["title"], p), "status": "queued",
                             "cadence": str(tpl.get("cadence") or "once"), "kind": str(tpl.get("kind") or "experiment")}
+    if tpl.get("theme") is not None:
+        unit["theme"] = str(tpl["theme"])
+    if tpl.get("priority") is not None:
+        unit["priority"] = int(tpl["priority"])
     if tpl.get("why_not_inferential"):
         unit["why_not_inferential"] = _fill(tpl["why_not_inferential"], p)
     unit["question"] = _fill(tpl["question"], p)

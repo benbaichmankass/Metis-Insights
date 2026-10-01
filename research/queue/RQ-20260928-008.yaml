@@ -2,6 +2,8 @@ id: RQ-20260928-008
 title: Re-grade ict_scalp_xrp_5m on its gated/off_cells variant (PI-20260922-UTN353OZ-0001)
 status: blocked
 cadence: once
+theme: live_strategy
+priority: 2
 kind: deterministic
 
 question: >-
