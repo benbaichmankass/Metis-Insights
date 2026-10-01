@@ -2452,6 +2452,16 @@ _COLUMN_HEADER_TABLES_JS = _SYMBOL_TEXT_JS + r"""
       if (!(hs.includes('symbol') && hs.includes('bid') && hs.includes('ask'))) {
         why.push(`columns [${hs.join(',')}] lack symbol/bid/ask`); continue;
       }
+      // Manager review of 221c459, BLOCK 2 (the variant with the empty
+      // watchlist's <table> GONE): the header host must sit inside THIS
+      // table's own widget, and the row under the bid / ask headers must hold
+      // PRICES -- a Positions row ("Buy", "0.01") is not a quote row.
+      if (!(box === colHost || box.contains(colHost))) {
+        why.push(`${tds.length}-cell rows: the table_column headers sit outside the table's own widget`); continue; }
+      const price = v => /^(\d{1,3}(,\d{3})+|\d+)(\.\d+)?$/.test(String(v || '').trim());
+      const bi = hs.indexOf('bid'), ai = hs.indexOf('ask');
+      if (!price(t_(tds[bi])) || !price(t_(tds[ai]))) {
+        why.push(`${tds.length}-cell rows: the bid / ask cells are not prices`); continue; }
       found.push({t, hs});
     }
     return {found, why};
@@ -2975,6 +2985,7 @@ WATCHLIST_OR_TRADE_JS = r"""
 # symbol the submit label names ("Buy 0.01 SOLUSD at ...") or null.
 TICKET_SYMBOL_RESOLVE_JS = r"""
 () => {
+""" + _SYMBOL_TEXT_JS + r"""
   const txt = el => (el.innerText || el.textContent || '').trim();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   document.querySelectorAll('[data-metis-ticket-sym]').forEach(e => e.removeAttribute('data-metis-ticket-sym'));
@@ -2993,6 +3004,7 @@ TICKET_SYMBOL_RESOLVE_JS = r"""
   const box = ins[0];
   box.setAttribute('data-metis-ticket-sym', '1');
   out.value = String(box.value || '').trim().toUpperCase();
+  out.value_canon = __metisSym(out.value);
   // The description line: the first short visible text leaf AFTER the field
   // in document order inside the panel (the measured sidebar shows "SOL"
   // right under its Symbol input, probe #13816).
@@ -3011,6 +3023,7 @@ TICKET_SYMBOL_RESOLVE_JS = r"""
     if (verbs.length) break;
   }
   out.submit_symbol = verbs.length === 1 ? verbs[0][2].toUpperCase() : null;
+  out.submit_canon = out.submit_symbol ? __metisSym(out.submit_symbol) : null;
   out.ok = true;
   return out;
 }
@@ -3018,12 +3031,14 @@ TICKET_SYMBOL_RESOLVE_JS = r"""
 
 #: The dropdown row to pick after typing into the tagged ticket field. A
 #: candidate is the row (nearest tr / [role=row] / [role=option] / li) of a
-#: VISIBLE text leaf that EXACTLY equals the target, inside a dropdown: an
-#: ancestor (<= 8 up) carrying role listbox / grid / menu / option, or one
-#: whose short text leaves include the column titles "symbol" AND
+#: VISIBLE element whose FULL text names the target (canonical, __metisSym --
+#: ETH/USD == ETHUSD; a highlighted prefix is read on the whole row), inside a
+#: dropdown: an ancestor (<= 8 up) carrying role listbox / grid / menu / option,
+#: or one whose short text leaves include the column titles "symbol" AND
 #: "description" (the measured-by-eye Symbol | Description | Asset Class
-#: header) that is itself NEW since the pre-typing snapshot unless it carries
-#: one of those roles. Never the ticket field itself, never in a watchlist /
+#: header), that is itself NEW since the pre-typing snapshot WHATEVER its role.
+#: Never inside a control (button / [role=button] / a / [onclick]), never the
+#: ticket field itself, never in a watchlist /
 #: Orders / Positions / quick-trade scope (WATCHLIST_OR_TRADE_JS; a scope that
 #: also holds the ticket field is the ticket's own), never a buy/sell control. Exactly one distinct row
 #: is tagged ``data-metis-ticket-pick`` (on its Symbol leaf); otherwise nothing
@@ -3031,7 +3046,7 @@ TICKET_SYMBOL_RESOLVE_JS = r"""
 #: returned (masked) so the live dropdown can be measured.
 TICKET_SYMBOL_PICK_JS = r"""
 ([target]) => {
-""" + WATCHLIST_OR_TRADE_JS + r"""
+""" + WATCHLIST_OR_TRADE_JS + _SYMBOL_TEXT_JS + r"""
   const txt = el => (el.innerText || el.textContent || '').trim();
   const n_ = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
@@ -3039,7 +3054,7 @@ TICKET_SYMBOL_PICK_JS = r"""
   const cls = el => (typeof el.className === 'string' ? el.className.split(/\s+/) : [])
                       .filter(Boolean).slice(0, 6).map(c => c.replace(/\d/g, '#'));
   document.querySelectorAll('[data-metis-ticket-pick]').forEach(e => e.removeAttribute('data-metis-ticket-pick'));
-  const want = String(target || '').trim().toUpperCase();
+  const want = __metisSym(target);
   const field = document.querySelector('[data-metis-ticket-sym]');
   const pre = window.__metisPre;
   const isDropdown = e => {
@@ -3059,19 +3074,29 @@ TICKET_SYMBOL_PICK_JS = r"""
   const blocked = r => __metisWatchlistOrTradeScopes().some(sc => (sc === r || sc.contains(r))
                                                            && !(field && sc.contains(field)));
   const found = [], rejected = [];
+  // The SMALLEST visible element whose FULL text names the target (canonical,
+  // __metisSym: ETH/USD == ETHUSD, SOLUSD.X is not SOLUSD) -- a highlighted
+  // prefix (<span>ETH</span>USD) is matched on the whole row text.
+  const names = e => want && __metisSym(txt(e)) === want;
+  const ctl = 'button, [role=button], a, [onclick]';
   for (const el of document.querySelectorAll('body *')) {
-    if (el.children.length !== 0 || txt(el).toUpperCase() !== want || !vis(el)) continue;
+    if (!names(el) || !vis(el) || [...el.children].some(c => names(c))) continue;
     if (field && (el === field || field.contains(el))) continue;
+    if (el.closest(ctl)) {
+      if (rejected.length < 6) rejected.push({tag: el.tagName.toLowerCase(), cls: cls(el), role: el.getAttribute('role') || '',
+                                              why: 'inside_a_control', new_since_typing: !!pre && !pre.has(el)});
+      continue;
+    }
     const row = el.closest('tr, [role=row], [role=option], li') || el.parentElement || el;
     const dd = isDropdown(row);
-    // The dropdown must be what the TYPING produced: its container is new
-    // since the pre-typing snapshot, or it carries a listbox/grid/menu/option
-    // role. A table that merely shows Symbol / Description headers is not one.
-    const ddRole = dd && /^(listbox|grid|menu|option)$/.test(dd.getAttribute('role') || '');
+    // The dropdown must be what the TYPING produced: its container is NEW
+    // since the pre-typing snapshot, WHATEVER its role (manager review of
+    // 221c459, BLOCK 1: a pre-existing role=grid Positions row was picked).
+    // No snapshot, no pick.
     const why = blocked(row) ? 'watchlist_or_trade'
       : sideCtl(el) ? 'buy_sell_control'
       : !dd ? 'not_in_a_dropdown'
-      : !ddRole && pre && pre.has(dd) ? 'dropdown_not_new' : '';
+      : !pre || pre.has(dd) ? 'dropdown_not_new' : '';
     if (why) {
       if (rejected.length < 6) rejected.push({tag: row.tagName.toLowerCase(), cls: cls(row), role: row.getAttribute('role') || '',
                                               why, new_since_typing: !!pre && !pre.has(row)});
@@ -3600,13 +3625,16 @@ def form_names_symbol(form: Mapping[str, Any], venue_symbol: str) -> bool:
     ``symbol_input``, probe #13816: its visible text says only "SOL"), THAT
     value decides: it must equal ``venue_symbol`` (letters/digits compared),
     and a mismatch refuses even if the text happens to name the symbol."""
-    def norm(v: Any) -> str:
-        return re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
-
+    # One canonical spelling everywhere (canonical_symbol / __metisSym,
+    # #15101): tradeify_1 shows ETH/USD for ETHUSD; SOLUSD.X is NOT SOLUSD.
+    want = canonical_symbol(venue_symbol)
+    if not want:
+        return False
     if form.get("symbol_value"):
-        return norm(form["symbol_value"]) == norm(venue_symbol)
-    return bool(re.search(r"(?<![A-Z0-9])" + re.escape(str(venue_symbol).upper()) + r"(?![A-Z0-9])",
-                          str(form.get("form_text") or "").upper()))
+        return canonical_symbol(form["symbol_value"]) == want
+    tokens = re.findall(r"(?<![A-Za-z0-9./_-])([A-Za-z0-9]+(?:/[A-Za-z0-9]+)?)(?![A-Za-z0-9./_-])",
+                        str(form.get("form_text") or ""))
+    return any(canonical_symbol(t) == want for t in tokens)
 
 
 def verify_form_selection(form: Mapping[str, Any], side: str, order_type: str) -> List[str]:
@@ -3652,7 +3680,7 @@ def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
         return f"its text {text!r} states an unparseable quantity"
     if abs(qty - float(spec.quantity)) > 1e-9:
         return f"its text {text!r} states quantity {qty}, not the typed {spec.quantity}"
-    if m.group(3).upper() != str(spec.venue_symbol).upper():
+    if canonical_symbol(m.group(3)) != canonical_symbol(spec.venue_symbol) or not canonical_symbol(m.group(3)):
         return f"its text {text!r} names {m.group(3)!r}, not {spec.venue_symbol}"
     return ""
 
@@ -4740,13 +4768,14 @@ class DXtradeAdapter(PropPlatformAdapter):
         waited = first
         while True:
             got = self._ticket_symbol(page)
-            if got.get("value") == want or got.get("dialogs") or waited >= self.SWITCH_VERIFY_MS:
+            if got.get("value_canon") == canonical_symbol(want) or got.get("dialogs") or waited >= self.SWITCH_VERIFY_MS:
                 got["verify_waited_ms"] = waited
                 return got
             page.wait_for_timeout(self.SWITCH_POLL_MS)
             waited += self.SWITCH_POLL_MS
 
-    def select_ticket_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+    def select_ticket_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500,
+                             restore_on_failure: bool = True) -> Dict[str, Any]:
         """Set the OPEN order ticket's own Symbol field to ``venue_symbol``,
         VERIFIED -- the PRIMARY per-ticket switch (operator by hand, manager
         comment 5928196365 on #15070). Never an order control.
@@ -4761,9 +4790,14 @@ class DXtradeAdapter(PropPlatformAdapter):
         target, no dialog is open, the description under it CHANGED and the
         submit label NAMES the target -- never the typed field alone. With
         no single exact row nothing is clicked and the field is put back to
-        the original (filled, then blurred: no key).
-        ``picked`` says whether a row was clicked."""
+        the original (filled, then blurred: no key); when a row WAS picked but
+        did not verify, the original is re-picked through this same guarded
+        route (``restore``). Symbols compare canonically (canonical_symbol /
+        __metisSym: ETH/USD == ETHUSD). ``picked`` says whether a row was
+        clicked. A SIGTERM mid-route skips the restore (accepted, manager
+        review of 221c459); the next ticket's switch re-reads the field."""
         target = str(venue_symbol or "").strip().upper()
+        want = canonical_symbol(target)
         out: Dict[str, Any] = {"target": target, "ok": False, "picked": False, "route": "ticket_field"}
         typed = False
         original = None
@@ -4777,7 +4811,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                 out["why"] = f"{res['dialogs']} dialog(s) open"
                 return out
             original = res.get("value")
-            if original == target:
+            if not want:
+                out["why"] = f"{target!r} is not a symbol"
+                return out
+            if res.get("value_canon") == want:
                 out.update(ok=True, after=out["before"])
                 return out
             if not self._one_click_off(page, out):
@@ -4822,27 +4859,43 @@ class DXtradeAdapter(PropPlatformAdapter):
             before_desc = (out.get("before") or {}).get("desc") or ""
             if got.get("dialogs"):
                 out["why"] = f"{got['dialogs']} dialog(s) appeared after picking {target}"
-            elif got.get("value") != target:
+            elif got.get("value_canon") != want:
                 out["why"] = f"ticket symbol reads {got.get('value')!r} after picking {target}"
-            elif got.get("submit_symbol") != target:
+            elif got.get("submit_canon") != want:
                 out["why"] = f"submit label names {got.get('submit_symbol')!r}, not {target}"
-            elif not got.get("desc") or got.get("desc") == before_desc:
+            elif not got.get("desc") or (got.get("desc") == before_desc
+                                         and canonical_symbol(res.get("submit_symbol") or "") != want):
+                # The description must change -- unless the ticket was already
+                # committed to the target before the pick (its submit label
+                # named it; only the field text had drifted, e.g. a restore after
+                # an unverified pick), when an unchanged description is right.
                 out["why"] = f"the description under the field did not change (reads {got.get('desc')!r})"
             else:
                 out["ok"] = True
+            if not out["ok"] and restore_on_failure and original:
+                # Picked but NOT verified: the ticket may now hold another
+                # symbol. Put the ORIGINAL back through the same guarded route
+                # (manager review of 221c459, item 4); once, never recursively.
+                rest = self.select_ticket_symbol(page, original, settle_ms=settle_ms, restore_on_failure=False)
+                out["restore"] = {k: rest.get(k) for k in ("ok", "picked", "why", "after")}
+                if not rest.get("ok"):
+                    out["why"] += f"; RESTORE to {original} FAILED: {rest.get('why')}"
+                    typed = True             # last resort below: fill the original back (no key)
             return out
         except Exception as exc:
             out["why"] = f"{type(exc).__name__} (code=ticket_switch_exception)"
             return out
         finally:
             if typed and original:
-                # Nothing was picked: put the field back the way it was. No key
-                # press -- a fill and a DOM blur only.
+                # Nothing was picked (or the guarded restore failed): put the
+                # field back the way it was. No key press -- a fill and a DOM
+                # blur only.
                 try:
+                    self._ticket_symbol(page)            # re-tag: a nested restore's cleanup removed the tag
                     box = page.locator("[data-metis-ticket-sym='1']")
                     box.first.fill(original, timeout=3_000)
                     box.first.evaluate("el => el.blur()")
-                    out["field_reset"] = self._ticket_symbol(page).get("value") == original
+                    out["field_reset"] = self._ticket_symbol(page).get("value_canon") == canonical_symbol(original)
                 except Exception:
                     out["field_reset"] = False
             try:

@@ -609,7 +609,7 @@ def ticket_sidebar(sym="SOLUSD", desc="SOL"):
     return inner.replace(f">Buy {sym}</button>", f">Buy 0.01 {sym} at 1.00</button>", 1)
 
 
-TICKET_DD_JS = """({inside, instruments, dialog}) => {
+TICKET_DD_JS = """({inside, instruments, dialog, broken, highlight}) => {
   const box = document.querySelector('#panel [data-test-id=symbol_input]');
   const desc = document.querySelector('#panel .tk-desc'), sub = document.querySelector('#sub');
   window.__tk = {committed: box.value, keys: [], tabs: 0, picks: 0};
@@ -624,9 +624,12 @@ TICKET_DD_JS = """({inside, instruments, dialog}) => {
     for (const [s, d] of instruments) {
       if (s[0] !== v[0]) continue;
       const r = document.createElement('div'); r.className = 'ddrow';
-      r.innerHTML = '<div class="c-sym">' + s + '</div><div class="c-desc">' + d + '</div><div class="c-cls">Cryptocurrencies</div>';
-      r.addEventListener('click', () => { window.__tk.committed = s; box.value = s; desc.textContent = d;
-        sub.textContent = 'Buy 0.01 ' + s + ' at 1.00'; window.__tk.picks++; dd.remove(); });
+      const symHtml = highlight ? '<span class="hl">' + s.slice(0, 3) + '</span>' + s.slice(3) : s;
+      r.innerHTML = '<div class="c-sym">' + symHtml + '</div><div class="c-desc">' + d + '</div><div class="c-cls">Cryptocurrencies</div>';
+      r.addEventListener('click', () => { window.__tk.picks++;
+        if (s === broken) { box.value = s; dd.remove(); return; }           // the field only: nothing committed
+        window.__tk.committed = s; box.value = s; desc.textContent = d;
+        sub.textContent = 'Buy 0.01 ' + s + ' at 1.00'; dd.remove(); });
       dd.appendChild(r);
     }
     dd.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => window.__tk.tabs++));
@@ -638,11 +641,12 @@ TICKET_DD_JS = """({inside, instruments, dialog}) => {
 
 
 def ticket_page(browser, *, sym="SOLUSD", desc="SOL", instruments=BREAKOUT_INSTRUMENTS, inside=False,  # noqa: F811
-                dialog=False, dropdown=True, extra="", base=None, setup=()):
+                dialog=False, dropdown=True, extra="", base=None, setup=(), broken="", highlight=False):
     p = browser.new_page()
     p.set_content((base or page_html)(outside_table=ticket_sidebar(sym, desc) + extra))
     if dropdown:
-        p.evaluate(TICKET_DD_JS, {"inside": inside, "instruments": instruments, "dialog": dialog})
+        p.evaluate(TICKET_DD_JS, {"inside": inside, "instruments": instruments, "dialog": dialog,
+                                  "broken": broken, "highlight": highlight})
     else:
         p.evaluate("() => { const b = document.querySelector('#panel [data-test-id=symbol_input]');"
                    " window.__tk = {committed: b.value, keys: [], tabs: 0, picks: 0};"
@@ -1056,7 +1060,11 @@ def test_review_a_field_set_without_desc_or_submit_change_is_not_a_switch(browse
     st = tk_state(p)
     p.close()
     assert got["picked"] is True and got["after"]["value"] == "ETHUSD"
-    assert got["ok"] is False and got["why"] == "submit label names 'SOLUSD', not ETHUSD"
+    assert got["ok"] is False and got["why"].startswith("submit label names 'SOLUSD', not ETHUSD")
+    # Picked but unverified -> the original is put back (manager review of 221c459, item 4): the guarded
+    # re-pick finds no SOLUSD row in this dropdown, so the last-resort fill-back restores the field.
+    assert got["restore"]["ok"] is False and "RESTORE to SOLUSD FAILED" in got["why"]
+    assert got["field_reset"] is True and st["field"] == "SOLUSD"
     no_order(st)
 
 
@@ -1069,7 +1077,8 @@ def test_review_an_unreadable_submit_label_is_not_a_pass(browser):  # noqa: F811
     p.close()
     assert got["picked"] is True and got["after"]["value"] == "ETHUSD" and got["after"]["desc"] == "ETH"
     assert got["after"]["submit_symbol"] is None and got["ok"] is False
-    assert got["why"] == "submit label names None, not ETHUSD"
+    assert got["why"].startswith("submit label names None, not ETHUSD")
+    assert got["restore"]["picked"] is True and got["field_reset"] is True
 
 
 def test_review_a_description_that_does_not_change_is_not_a_pass(browser):  # noqa: F811
@@ -1080,3 +1089,114 @@ def test_review_a_description_that_does_not_change_is_not_a_pass(browser):  # no
     p.close()
     assert got["picked"] is True and got["after"]["submit_symbol"] == "ETHUSD"
     assert got["ok"] is False and "description under the field did not change" in got["why"]
+
+
+
+# ── manager review of 221c459 (BLOCK 1-2, items 3-4) ─────────────────────────
+
+# The reviewer's repro: a PRE-EXISTING div grid (role=grid) Positions row with a
+# Close button, no <table>, no widget_menu_*.
+GRID_POS = ('<div role="grid" class="pos-grid"><div role="row" class="g-row"><div class="g-sym">ETHUSD</div>'
+            '<div>Buy</div><button class="g-close">Close</button></div></div>')
+GRID_FLAG_JS = """() => document.querySelector('.g-row').addEventListener('click',
+  () => { window.__gridClicked = (window.__gridClicked || 0) + 1; }, true)"""
+
+
+@pytest.mark.parametrize("dropdown", [False, True])
+def test_review_a_pre_existing_role_grid_positions_row_is_never_picked(browser, dropdown):  # noqa: F811
+    p = ticket_page(browser, dropdown=dropdown, extra=GRID_POS, setup=[GRID_FLAG_JS])
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    grid = p.evaluate("window.__gridClicked || 0")
+    p.close()
+    assert grid == 0 and "g-sym" not in st["clicks"] and "g-close" not in st["clicks"]
+    assert "dropdown_not_new" in {r["why"] for r in got["pick"]["rejected"]}
+    assert got["picked"] is dropdown and got["ok"] is dropdown            # only the real dropdown row, if any
+    no_order(st)
+
+
+def test_review_a_dropdown_entry_inside_a_control_is_never_clicked(browser):  # noqa: F811
+    # A new, dropdown-shaped container whose only ETHUSD entry is a <button>.
+    js = """() => { const box = document.querySelector('#panel [data-test-id=symbol_input]');
+      box.addEventListener('input', () => { const dd = document.createElement('div'); dd.className = 'tk-dd';
+        dd.innerHTML = '<div><div>Symbol</div><div>Description</div></div><div class="ddrow">'
+          + '<button class="dd-btn">ETHUSD</button><div>ETH</div></div>';
+        document.body.appendChild(dd); }); }"""
+    p = ticket_page(browser, dropdown=False, setup=[js])
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    p.close()
+    assert got["picked"] is False and "dd-btn" not in st["clicks"]
+    assert "inside_a_control" in {r["why"] for r in got["pick"]["rejected"]}
+    no_order(st)
+
+
+def test_review_canonical_compare_tradeify_display_eth_slash_usd_for_venue_ethusd(browser):  # noqa: F811
+    # tradeify_1 shows ETH/USD; the executor's venue symbol is ETHUSD. Exactly one row: never ENA/USD, ETC/USD.
+    got, st = ticket_switch(browser, "ETHUSD", sym="TRX/USD", desc="TRX", instruments=TRADEIFY_INSTRUMENTS)
+    assert got["ok"] is True and st["field"] == "ETH/USD" and got["pick"]["n_candidates"] == 1
+    assert st["tk"]["picks"] == 1 and st["tk"]["tabs"] == 0
+    no_order(st)
+
+
+def test_review_a_prefix_highlighted_dropdown_row_is_matched_on_its_full_text(browser):  # noqa: F811
+    got, st = ticket_switch(browser, "ETHUSD", highlight=True)
+    assert got["ok"] is True and got["pick"]["n_candidates"] == 1 and st["field"] == "ETHUSD"
+    assert st["clicks"] == ["c-sym"]                                   # the whole cell, not the <span>ETH</span>
+    no_order(st)
+
+
+def test_review_canonical_form_names_symbol_and_submit_label():
+    from src.prop.platform.dxtrade import form_names_symbol, submit_label_mismatch
+    assert form_names_symbol({"symbol_value": "ETH/USD"}, "ETHUSD") is True
+    assert form_names_symbol({"symbol_value": "ETHUSD"}, "ETH/USD") is True
+    assert form_names_symbol({"symbol_value": "SOLUSD.X"}, "SOLUSD") is False      # a near-miss is not SOLUSD
+    assert form_names_symbol({"form_text": "Buy 0.01 ETH/USD at 1"}, "ETHUSD") is True
+    assert form_names_symbol({"form_text": "Buy 0.01 ENA/USD at 1"}, "ETHUSD") is False
+    spec = SimpleNamespace(quantity=0.01, venue_symbol="ETHUSD")
+    assert submit_label_mismatch("Buy 0.01 ETH/USD at 2,685.84", spec) == ""
+    assert "names 'ENA/USD'" in submit_label_mismatch("Buy 0.01 ENA/USD at 0.5", spec)
+
+
+def test_review_picked_but_unverified_restores_the_original_through_the_guarded_route(browser):  # noqa: F811
+    # The ETHUSD row "takes" in the field only; the guarded re-pick of SOLUSD then works.
+    p = ticket_page(browser, broken="ETHUSD")
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    p.close()
+    assert got["ok"] is False and got["picked"] is True
+    assert got["restore"]["ok"] is True and got["restore"]["picked"] is True, (got["why"], got["restore"])
+    assert st["field"] == "SOLUSD" and st["desc"] == "SOL" and st["submit"] == "Buy 0.01 SOLUSD at 1.00"
+    assert st["clicks"] == ["c-sym", "c-sym"] and st["tk"]["keys"] == []
+    no_order(st)
+
+
+# BLOCK 2: Tradeify layout with the empty watchlist's <table> GONE and a header-less Positions table
+# (3 aligned cells, tr[data-row-id]) directly under the table_column_* header divs.
+VARIANT_B_NO_TABLE_JS = """() => {
+  const wl = document.querySelector('table.wl'); const host = wl.parentElement;
+  const pos = document.createElement('table'); pos.className = 'pos';
+  pos.style.cssText = 'border-spacing:0;table-layout:fixed';
+  pos.innerHTML = '<tbody><tr data-row-id="pos1"><td class="psym" style="width:120px;padding:0">ETHUSD</td>'
+    + '<td style="width:120px;padding:0">Buy</td><td style="width:120px;padding:0">0.01</td></tr></tbody>';
+  wl.replaceWith(pos);
+  pos.querySelector('tr').addEventListener('click', () => { window.__posClicked = (window.__posClicked || 0) + 1; }); }"""
+
+
+def test_review_variant_b_without_the_watchlist_table_never_clicks_the_positions_row(browser):  # noqa: F811
+    from tests.test_prop_instrument_info_probe import tradeify_layout
+
+    from src.prop.platform.dxtrade import INFO_PROBE_RESOLVE_JS
+    p = browser.new_page()
+    p.set_content(tradeify_layout(page_html()))
+    p.evaluate(VARIANT_B_NO_TABLE_JS)
+    a = fast_adapter()
+    a.SWITCH_READY_MS = 300
+    got = a.select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    res = p.evaluate(INFO_PROBE_RESOLVE_JS, [["ETHUSD"]])
+    st = state(p)
+    pos = p.evaluate("window.__posClicked || 0")
+    p.close()
+    assert got["ok"] is False and got["clicked"] is False and st["clicks"] == [] and pos == 0
+    assert "the bid / ask cells are not prices" in " ".join(res.get("column_headers", {}).get("why", []))
+    never_traded(st)
