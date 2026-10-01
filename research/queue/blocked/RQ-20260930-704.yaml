@@ -1,0 +1,97 @@
+id: RQ-20260930-704
+title: >-
+  Regime impact scoping, VOL axis: using the vol label the router actually reads (the advisory regime head's
+  P(volatile) call, replayed at each trade's entry), would gating each leg's losing (vol x direction) cells add
+  full-cost net R out of sample?
+status: blocked
+cadence: once
+theme: regime
+priority: 2
+blocked_on: >-
+  (a) FEASIBILITY, established 2026-10-01 (RESEARCH-W7): the label the router reads is the ADVISORY-stage regime head's
+  P(volatile) >= 0.5 per SYMBOL (`ml_vol_regime_for_symbol`; scripts/research/ml_vol_label_replay.py mirrors it offline). The heads live in the
+  trainer's model registry (`ml.registry.model_registry.ModelRegistry`), and `git ls-files` holds no model spec or state file, so this
+  cannot run on a GitHub runner from the checkout: it is a TRAINER-VM unit. Do NOT substitute the frozen-edge `vol_detector.py`
+  label: ml_vol_label_replay.py's own docstring records that it is a different label (axis-fidelity rule, regime-selectivity skill).
+  (b) List which symbols have an advisory-stage regime head via the trainer-vm-diag relay (BTC is live since 2026-06-28 per that
+  docstring); only legs on those symbols can be measured, and the unit must name the rest not_attempted.
+  (c) `regime_impact_scoping.py` needs a `--vol-labels <replay jsonl>` input (label per (symbol, bar) from ml_vol_label_replay.py),
+  replacing the ADX label while keeping the same blocks, selection and bar. Build and test it before unblocking.
+  Unblock by `git mv` to research/queue/ with status: queued once (a)-(c) hold.
+kind: experiment
+
+question: >-
+  For each leg whose SYMBOL has an advisory-stage regime head, label every committed-ledger trade with the head's
+  calm/volatile call at entry (P(volatile) >= 0.5, the label the router reads; replayed by ml_vol_label_replay.py), define cells (vol label x direction), select losing cells on
+  earlier chronological blocks only (the 703 conservative rule: train n >= 20, train mean net R below -1 SE) and drop test-block
+  trades in selected cells. What is the pooled and per-leg change in full-cost net R?
+
+why_this_matters: >-
+  RQ-20260930-701/-702 and E38 are trend-axis nulls and say nothing about the VOL axis, which is the axis the live router
+  cells actually key on (config/regime_policy.yaml `trend_vol`). It is the one regime question the repo has not measured. It is a
+  SCOPING instrument, not a promotion case: a pass would only justify regime_cell_walkforward.py on the real 2-D cell with
+  `--vol-labels`, then a Tier-3 packet (.claude/skills/regime-selectivity).
+
+power:
+  expected_n: 600
+  min_detectable_effect: 0.1
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Unit = test-block trade on a leg whose symbol has an advisory head. d = 0.1 sd needs (1.96 + 0.8416)^2 / 0.1^2 = 784.9 trades; the
+    count on head-covered legs is NOT yet known (step (b)), and only a few symbols are expected to have heads, so this is
+    declared accruing: it runs and reports, but a null here is power-bounded and must be read as such.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Re-grading of committed ledgers with head-replayed labels; nothing accrues. expected_n is a placeholder to be replaced
+      by the measured head-covered trade count in step (b).
+
+decision_rule:
+  id: RULE-RQ0930-704-REGIME-HEADROOM-VOL
+  registered_at: '2026-10-01'
+  registered_before_run: true
+  statistic: >-
+    Pooled DeltaNetR per test trade over head-covered legs (n >= 30 each), vol label = the advisory head's calm/volatile call at entry
+    (P(volatile) >= 0.5; no noise arms: the head's own labels ARE the runtime read), 4 chronological blocks, selection on earlier blocks only
+    with the conservative rule (train n >= 20, train mean net R < -1 SE), pooled by re-sampling legs with replacement per
+    seed (300 seeds over the leg bootstrap), mean and 5th-95th percentile.
+  rule: >-
+    IF fewer than 3 legs are head-covered with n >= 30 -> could_not_measure (read_state no_data); no verdict.
+    ELSE IF pooled mean >= 0.03 R per test trade AND its 5th percentile > 0 -> `vol_axis_headroom` (pass): the vol axis
+      carries out-of-sample headroom; next unit is regime_cell_walkforward.py on the real 2-D cell, NOT a flip.
+    ELSE -> `no_headroom_vol_axis` (fail), stated as power-bounded if the head-covered n < 785.
+  min_n: 3 head-covered legs; 30 trades per leg; 20 training trades per cell.
+  what_it_does_not_do: >-
+    Flips no gate and authors no cell. NOT a promotion case. Covers only legs whose symbol has an advisory head. The head is
+    the live label, so offline-vs-live parity is the head replay's own (ml_vol_label_replay.py documents it); this unit inherits and
+    reports it.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 3.0
+  est_minutes: 60
+  basis: >-
+    Head replay needs the trainer-resident model registry (6 GB trainer; 3 GB declared). Dispatched via trainer-vm-diag, like the
+    other registry-resident units.
+
+run:
+  workflow: trainer-vm-diag.yml
+  timeout_minutes: 55
+  inputs:
+    research_unit: RQ-20260930-704
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+references:
+  - RQ-20260930-701, RQ-20260930-703 (trend axis)
+  - scripts/research/ml_vol_label_replay.py (the live vol label, mirrored offline)
+  - PI-20261001-1MX1RCZS-0002
+
+last_dispatched_at: null
