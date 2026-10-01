@@ -854,3 +854,99 @@ def test_review_the_dump_records_header_words_only_and_the_widget_facts(browser)
     dump = got["watchlist_dump"]
     assert [c["text"] for c in dump["columns"]] == [None, "bid", "ask"]
     assert dump["header_less"][0]["widget_depth"] == 1 and dump["header_less"][0]["widget_has_trade_menu"] is False
+
+
+# ── slash-named symbols (TRADEIFY-WIRE T4, operator screenshots 2026-10-01) ──
+# tradeify_1 shows ``ETH/USD`` where the API symbol is ``ETHUSD`` (#14993).
+
+
+def slashed(html):
+    for s in ("ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"):
+        old = f'<td class="sym">{s}'
+        assert html.count(old) == 1
+        html = html.replace(old, f'<td class="sym">{s[:-3]}/{s[-3:]}')
+    return html
+
+
+def test_canonical_symbol_drops_one_slash_only():
+    from src.prop.platform.dxtrade import canonical_symbol
+
+    assert canonical_symbol(" eth/usd ") == "ETHUSD" == canonical_symbol("ETHUSD")
+    assert canonical_symbol("ETH/USD/X") == "" and canonical_symbol("ETH USD") == ""
+    assert canonical_symbol("$5,024") == "" and canonical_symbol(None) == ""
+
+
+@pytest.mark.parametrize("layout", [lambda h: h, tradeify_layout])
+def test_slash_named_rows_resolve_every_target_click_free(browser, layout):
+    got, st = run(browser, layout(slashed(page_html())), click=False)
+    r = got["resolve"]
+    assert all(r["targets"][s]["clean"] for s in ("BTCUSD", "ETHUSD", "AVAXUSD"))
+    assert r["watchlist"] == ["AVAXUSD", "BTCUSD", "ETHUSD", "SOLUSD"]
+    assert st["clicks"] == [] and never_traded(st) is None
+
+
+def test_slash_named_quote_rows_read(browser):
+    from src.prop.platform.dxtrade import WATCHLIST_QUOTE_RAW_JS, WATCHLIST_ROWS_JS, quote_from_watchlist_rows
+
+    p = browser.new_page()
+    p.set_content(tradeify_layout(slashed(page_html())))
+    rows = p.evaluate(WATCHLIST_ROWS_JS, ["ETHUSD"])
+    raw = p.evaluate(WATCHLIST_QUOTE_RAW_JS, ["ETHUSD"])
+    p.close()
+    assert quote_from_watchlist_rows(rows, "ETHUSD") == {"bid": 100.1, "ask": 100.2}
+    assert raw["rows"] == [["ETH/USD", "100.1", "100.2"]]
+
+
+def test_any_refused_resolve_records_row_shapes_click_free(browser):
+    # rows whose cell count does not match the 3 headers: 0 accepted rows
+    html = slashed(page_html()).replace('<td class="sym">', '<td>x</td><td class="sym">')
+    got, st = run(browser, html, symbols=("ETHUSD",), click=False)
+    assert got["refused"] and st["clicks"] == []
+    diag = got["watchlist_dump"]["row_diag"]
+    assert diag[0]["th"] == ["symbol", "bid", "ask"]
+    assert diag[0]["rows"][0] == [4, 1, "ETH/USD"]
+
+
+# ── manager review of #15101 (BLOCK) ──────────────────────────────────────
+
+POSITIONS_ROW = ('<tr class="instrument"><td>358201947</td><td>25</td><td>ETHUSD</td>'
+                 '<td>100.1</td></tr>')
+
+
+def test_review_row_diag_never_prints_an_id_or_a_trade_widgets_rows(browser):
+    # the watchlist rows mismatch their headers -> a refusal -> the dump runs
+    base = slashed(page_html()).replace('<td class="sym">', '<td>x</td><td class="sym">')
+    in_widget = ('<div class="widgetNew__container"><button data-test-id="widget_menu_POSITIONS">P</button>'
+                 f'<table><tbody>{POSITIONS_ROW}</tbody></table></div>')
+    loose = f'<div class="loose"><table><tbody>{POSITIONS_ROW}</tbody></table></div>'
+    html = base.replace("</body>", in_widget + loose + "</body>")
+    got, st = run(browser, html, symbols=("ETHUSD",), click=False)
+    diag = got["watchlist_dump"]["row_diag"]
+    blob = json.dumps(diag)
+    assert "358201947" not in blob and "358" not in blob
+    assert len(diag) == 2                                   # watchlist + the container-less table only
+    assert diag[1]["rows"] == [[4, 2, "ETHUSD"]]            # a letter is required: the id cell is skipped
+    assert st["clicks"] == []
+
+
+def test_review_row_diag_masks_digit_runs_in_a_symbol_like_cell(browser):
+    base = slashed(page_html()).replace('<td class="sym">', '<td>x</td><td class="sym">')
+    html = base.replace("</body>", '<div class="loose"><table><tbody><tr class="instrument">'
+                                   '<td>AB12345</td></tr></tbody></table></div></body>')
+    got, _ = run(browser, html, symbols=("ETHUSD",), click=False)
+    assert got["watchlist_dump"]["row_diag"][-1]["rows"] == [[1, 0, "AB#####"]]
+
+
+def test_review_quote_refuses_an_empty_canonical_and_a_second_distinct_row():
+    from src.prop.platform.dxtrade import quote_from_tables
+
+    hdr = ["Symbol", "Bid", "Ask"]
+    assert quote_from_tables([{"headers": hdr, "rows": [["Ethereum vs US dollar", "100.1", "100.2"]]}],
+                             "XAU/USD/X") is None
+    two = [["ETH/USD", "100.1", "100.2"], ["ETHUSD", "100.1", "100.2"]]
+    assert quote_from_tables([{"headers": hdr, "rows": two}], "ETHUSD") is None
+    same = [{"headers": hdr, "rows": [["ETH/USD", "100.1", "100.2"]]},
+            {"headers": hdr, "rows": [["ETH/USD", "100.1", "100.2"]]}]   # one row read twice
+    assert quote_from_tables(same, "ETHUSD") == {"bid": 100.1, "ask": 100.2}
+    assert quote_from_tables([{"headers": hdr, "rows": [["ETHUSD", "100.1", "100.2"]]}],
+                             "ETHUSD") == {"bid": 100.1, "ask": 100.2}

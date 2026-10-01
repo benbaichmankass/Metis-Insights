@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's merge (TRADEIFY-WIRE T4; code changes as Tier-2 hold PRs). Tier-2: the DXtrade adapter's watchlist resolvers and quote match on the live VM. No order path, no submit, no new click.",
+  "why": "tradeify_1 displays slash-named symbols (ETH/USD; operator screenshots 2026-10-01) where the API symbol is ETHUSD (#14993), and link-state-dump #15096 found its Symbol/Bid/Ask table with 0 accepted rows: every resolver required /^[A-Z0-9]{2,15}$/. __metisSym / canonical_symbol drop one slash between two alphanumeric parts; Breakout's unslashed names are unchanged (tests). The click-free watchlist_dump now fires on any info-dry refusal and records row shapes."
+}
