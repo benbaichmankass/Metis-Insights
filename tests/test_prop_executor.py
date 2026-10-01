@@ -3725,6 +3725,28 @@ def test_an_unreadable_link_before_the_walk_is_an_alert_and_nothing_is_reselecte
     assert any("could not be read" in a for a in res.alerts)
 
 
+def test_review_a_failed_or_unreadable_restore_fails_the_round_trip_exit(env):
+    # Manager review of #15020: a failed restore exited 0 because the tick's
+    # round-trip branch only checked res.halted. Both link alerts must fail it.
+    ledger, _ = env
+    for ad in (_LinkingAdapter(linked="SOLUSD", fail_restore=True), _LinkingAdapter(linked=None)):
+        res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                                venue_symbol="ETHUSD", arm=False)
+        assert not res.halted and pe.round_trip_failed(res) is True
+    ok = pe.run_round_trip(adapter=_LinkingAdapter(linked="SOLUSD"), page=None, api=FakeApi(),
+                           cfg=_eth_not_enabled(), ledger=ledger, venue_symbol="ETHUSD", arm=False)
+    assert not any(str(a).startswith(pe.LINK_RESTORE_ALERTS) for a in ok.alerts)
+    assert pe.round_trip_failed(ok) is False
+
+
+def test_review_the_tick_exits_3_on_round_trip_failed_not_only_on_halted():
+    src = (Path(__file__).resolve().parents[1] / "scripts/prop/prop_executor_tick.py").read_text()
+    branch = src[src.index('if mode.startswith("round_trip") or mode.startswith("close_position"):'):
+                 src.index("res = pe.run_cycle(")]
+    assert "return EXIT_UNPARSED if pe.round_trip_failed(res) else EXIT_OK" in branch
+    assert "EXIT_UNPARSED if res.halted else EXIT_OK" not in branch
+
+
 def test_an_armed_round_trip_does_not_read_or_restore_the_link(env):
     ledger, _ = env
     ad = _LinkingAdapter(linked="SOLUSD")

@@ -481,7 +481,7 @@ def main(argv: Optional[list] = None) -> int:
                         save_storage_state(context, args.storage_state)
                     except Exception as exc:
                         emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
-                return EXIT_UNPARSED if res.halted else EXIT_OK
+                return EXIT_UNPARSED if pe.round_trip_failed(res) else EXIT_OK
             res = pe.run_cycle(
                 adapter=adapter, page=page, api=api, cfg=cfg, mode=mode,
                 ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),

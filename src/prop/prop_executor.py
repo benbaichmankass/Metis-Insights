@@ -1149,6 +1149,19 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     return res
 
 
+#: Alerts that mean the dry round trip may have LEFT THE TERMINAL LINKED TO THE
+#: WRONG SYMBOL. They are not ``halted`` (no order risk), but the tick must
+#: still exit non-zero on them (manager review of #15020: a failed restore
+#: exited 0 because the round-trip branch only checked ``res.halted``).
+LINK_RESTORE_ALERTS = ("RESTORE FAILED", "linked symbol could not be read before the dry walk")
+
+
+def round_trip_failed(res: CycleResult) -> bool:
+    """True when a round trip / close must exit non-zero: it halted, or the
+    linked symbol was not restored and verified."""
+    return bool(res.halted) or any(str(a).startswith(LINK_RESTORE_ALERTS) for a in res.alerts)
+
+
 def _restore_linked_symbol(res: CycleResult, adapter: Any, page: Any, original: Optional[str]) -> None:
     """Re-select ``original`` as the linked symbol (a no-op click-free read when it already is) and log
     the VERIFIED outcome; an unreadable original or a failed restore is an alert."""
