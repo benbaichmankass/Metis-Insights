@@ -12,14 +12,15 @@ from src.utils.paths import repo_root as _repo_root  # noqa: E402
 from src.utils.paths import trade_journal_db_path as _trade_journal_db_path  # noqa: E402
 REPO_ROOT = _repo_root()
 # Canonical resolver first (TRADE_JOURNAL_DB env →
-# $DATA_DIR/trade_journal.db → repo-root), then repo root as the
-# existence-check fallback. The SCRIPT_DIR (CWD-ish) candidate was
+# $DATA_DIR/trade_journal.db → repo-root), and nothing else. The SCRIPT_DIR (CWD-ish) candidate was
 # dropped — see src/utils/paths.py::trade_journal_db_path.
-DB_CANDIDATES = [
-    _trade_journal_db_path(),
-    os.path.join(REPO_ROOT, "trade_journal.db"),
-]
-DB_PATH = next((p for p in DB_CANDIDATES if p and os.path.exists(p)), _trade_journal_db_path())
+# The repo-root existence fallback was REMOVED 2026-10-01 (ORDER-AUDIT-2 item 9,
+# AUD-20260927-CA-A15-db-loaders-stray-trade-journal-fallback): with DATA_DIR
+# set but $DATA_DIR/trade_journal.db not yet present, `next(... exists ...)`
+# silently picked a stray <repo>/trade_journal.db. The resolver already falls
+# back to repo root when no env is set, so the second candidate only ever
+# changed the answer in that wrong case.
+DB_PATH = _trade_journal_db_path()
 
 DATA_CANDIDATES = [
     os.environ.get("BACKTEST_DATA_PATH", ""),
@@ -63,7 +64,46 @@ def load_data():
         "No backtest data found. Set BACKTEST_DATA_PATH or place a CSV in data/backtest_candles.csv"
     )
 
-def summarize(trades, start_date, end_date, strategy_version):
+def _risk_stats(pnl, initial_capital):
+    """max_drawdown / max_drawdown_pct / sharpe_ratio / total_pnl_pct, MEASURED.
+
+    These four were hardcoded ``0.0`` on every run, trades or not
+    (AUD-20260927-CA-A15-run-backtest-summarize-fabricated-zeros, ORDER-AUDIT-2
+    item 7) — indistinguishable from a genuinely flat run. Now:
+
+    * ``max_drawdown`` — largest peak-to-trough fall (USD) of the equity curve
+      ``initial_capital + cumsum(net_pnl)``, peak including the start.
+    * ``max_drawdown_pct`` / ``total_pnl_pct`` — against that curve /
+      ``initial_capital``; ``None`` when no capital basis is known.
+    * ``sharpe_ratio`` — PER-TRADE, NOT annualized: mean / sample-std of
+      ``net_pnl``. The harness has no return-period basis to annualize on.
+      ``None`` (not measurable) with fewer than 2 trades or zero dispersion.
+
+    ``None`` is written as SQL NULL — "not measured", never ``0``.
+    """
+    n = len(pnl)
+    if n == 0:
+        return {"max_drawdown": 0.0, "max_drawdown_pct": 0.0 if initial_capital else None,
+                "sharpe_ratio": None, "total_pnl_pct": 0.0 if initial_capital else None}
+    base = float(initial_capital) if initial_capital else 0.0
+    equity = base + pnl.cumsum()
+    peak = equity.cummax().clip(lower=base)
+    dd = peak - equity
+    max_dd = float(dd.max())
+    if initial_capital and float(initial_capital) > 0:
+        dd_pct = float((dd / peak.where(peak > 0)).max() * 100)
+        total_pnl_pct = float(pnl.sum() / float(initial_capital) * 100)
+    else:
+        dd_pct = None
+        total_pnl_pct = None
+    std = float(pnl.std(ddof=1)) if n >= 2 else 0.0
+    sharpe = float(pnl.mean() / std) if n >= 2 and std > 0 else None
+    r = lambda v: None if v is None or v != v else round(v, 4)  # noqa: E731
+    return {"max_drawdown": round(max_dd, 2), "max_drawdown_pct": r(dd_pct),
+            "sharpe_ratio": r(sharpe), "total_pnl_pct": r(total_pnl_pct)}
+
+
+def summarize(trades, start_date, end_date, strategy_version, initial_capital=None):
     if not trades:
         return {
             "run_date": str(date.today()),
@@ -76,11 +116,8 @@ def summarize(trades, start_date, end_date, strategy_version):
             "win_rate": 0.0,
             "profit_factor": 0.0,
             "expectancy": 0.0,
-            "max_drawdown": 0.0,
-            "max_drawdown_pct": 0.0,
-            "sharpe_ratio": 0.0,
+            **_risk_stats(pd.Series(dtype=float), initial_capital),
             "total_pnl": 0.0,
-            "total_pnl_pct": 0.0,
             "avg_win": 0.0,
             "avg_loss": 0.0,
             "largest_win": 0.0,
@@ -113,11 +150,8 @@ def summarize(trades, start_date, end_date, strategy_version):
         "win_rate": round(win_rate, 2),
         "profit_factor": round(profit_factor, 2),
         "expectancy": round(expectancy, 2),
-        "max_drawdown": 0.0,
-        "max_drawdown_pct": 0.0,
-        "sharpe_ratio": 0.0,
+        **_risk_stats(pnl.astype(float).reset_index(drop=True), initial_capital),
         "total_pnl": round(total_pnl, 2),
-        "total_pnl_pct": 0.0,
         "avg_win": round(avg_win, 2),
         "avg_loss": round(avg_loss, 2),
         "largest_win": round(largest_win, 2),
@@ -138,6 +172,7 @@ def run_backtest():
         str(df["timestamp"].iloc[0].date()),
         str(df["timestamp"].iloc[-1].date()),
         strategy_version,
+        initial_capital=bt.cfg.get("initial_capital"),
     )
 
     conn = sqlite3.connect(DB_PATH)
