@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Test-only: tests/test_trend_dayflat.py compared the backtest summary's run_date (date.today(), wall-clock) with the fixture's 2026-09-30, so it fails on every branch from 2026-10-01. The test now drops run_date from both sides; every other field, the emitted-row count and the sha256 are still compared. No runtime, config, strategy or harness code changes."
+}
