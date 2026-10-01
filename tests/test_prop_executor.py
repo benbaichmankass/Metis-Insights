@@ -3739,12 +3739,25 @@ def test_review_a_failed_or_unreadable_restore_fails_the_round_trip_exit(env):
     assert pe.round_trip_failed(ok) is False
 
 
-def test_review_the_tick_exits_3_on_round_trip_failed_not_only_on_halted():
+def test_review_the_tick_exits_3_when_a_dry_restore_fails(env, capsys):
+    # CLI-level (manager re-review of #15020): the tick's round-trip branch
+    # returns emit_round_trip(res); a real dry round trip whose restore fails
+    # (or whose link is unreadable) must exit 3, and a clean one 0.
+    from scripts.prop import prop_executor_tick as tick
+    ledger, _ = env
+    for ad, want in ((_LinkingAdapter(linked="SOLUSD", fail_restore=True), tick.EXIT_UNPARSED),
+                     (_LinkingAdapter(linked=None), tick.EXIT_UNPARSED),
+                     (_LinkingAdapter(linked="SOLUSD"), tick.EXIT_OK)):
+        res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                                venue_symbol="ETHUSD", arm=False)
+        assert not res.halted and tick.emit_round_trip(res) == want
+    out = capsys.readouterr().out
+    assert "RESTORE FAILED" in out and '"executor": "done"' in out
     src = (Path(__file__).resolve().parents[1] / "scripts/prop/prop_executor_tick.py").read_text()
     branch = src[src.index('if mode.startswith("round_trip") or mode.startswith("close_position"):'):
                  src.index("res = pe.run_cycle(")]
-    assert "return EXIT_UNPARSED if pe.round_trip_failed(res) else EXIT_OK" in branch
-    assert "EXIT_UNPARSED if res.halted else EXIT_OK" not in branch
+    assert "code = emit_round_trip(res, *secrets)" in branch and "return code" in branch
+    assert "if res.halted else" not in branch
 
 
 def test_an_armed_round_trip_does_not_read_or_restore_the_link(env):
