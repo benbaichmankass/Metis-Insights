@@ -11,7 +11,7 @@ Live reads 2026-10-01 ~20:50Z: `/api/bot/prop/{fills,status,tickets}` (breakout_
 | 1 | fill #44 stop / observation | **Already true in the field; stale rows closed.** #44 (ETH short 1.3 @ 2666.11) carries `sl 2711.1` and a one-entry `amendments` trail (stop 2736.00 → 2711.10, 2026-09-24); its close is fill **#45** (exit 2711.10 = the amended stop, pnl −58.49 gross, commissions −2.80, 2026-09-25 09:28Z). `/prop/status` reads `open_risk.state = no_open_positions`, `stop_unknown_count = 0`. The `#44` row stays `status: filled` by design (open row + separate close row, the journal's pattern for every trade). Pipeline rows PI-20260924-BOEZJAFZ-0001 and -MQ3CDMU6-0003 closed `done`. |
 | 2 | baseline residual −68.70 | **Re-measured and decomposed: −70.90 now; $48.57 explained, $22.33 UNVERIFIED.** See below. Stays open (narrowed). |
 | 3 | PROP-EVIDENCE-BRACKET | **Confirmed: the evidence records grade exits the prop bracket never performs.** Record fixed (additive, regeneration-safe). **A finding for the manager: SOL's Stage-0 pass does not survive.** See below. |
-| 4 | ETH-prop cost headroom | **Partly measured from live data; the remainder is unmeasurable until an executor ETH fill closes.** See below. |
+| 4 | ETH-prop cost headroom | **Partly measured from live data; the remainder cannot be measured until an executor ETH fill closes (checked: docs/research/RESEARCH-CAPABILITY-INDEX.md, scripts/research/prop_cost_headroom.py — both price a modelled stack; none reads executor fills).** See below. |
 
 ## 2 — the residual
 

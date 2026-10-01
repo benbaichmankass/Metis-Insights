@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a one-shot research measurement a session RUNS to grade a prop leg under SL+TP-only exits; its committed output is read by build_strategy_evidence.py
 """PROP-EVIDENCE-BRACKET: grade a prop leg under the exits the Breakout bracket ACTUALLY performs.
 
 The committed evidence records (comms/strategy_evidence/<leg>.json, fidelity "faithful")

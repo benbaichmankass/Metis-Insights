@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only — a one-shot measurement a session RUNS against live /api/bot/prop/* reads to decompose the breakout_1 journal-vs-venue residual; no scheduled consumer
 """PROP-JOURNAL item 2: decompose breakout_1's journal-vs-venue baseline residual.
 
 residual = (venue balance - account_size) - sum(journaled closed pnl, duplicates removed)
