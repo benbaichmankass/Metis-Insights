@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only (docs/claude/work/pipeline/): closes PI-20260930-BHYHMK2H-0001 (fixed by #15035, deployed) and files PI-20261001-EFKI6YYD-0001 (TRADEIFY-WIRE F2 dispatch-order test, referenced by #14673 but never written to the store). No src/, no config, no order path."
+}
