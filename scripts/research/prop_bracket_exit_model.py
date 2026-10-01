@@ -17,7 +17,12 @@ Needs pandas + network (Binance Vision candles). Costs: the harness's own venue-
 """
 from __future__ import annotations
 
-import argparse, json, os, subprocess, sys, tempfile
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tempfile
 from collections import defaultdict
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -32,21 +37,25 @@ def _strip(a, flags):
         if a[i] in flags:
             i += 2
             continue
-        out.append(a[i]); i += 1
+        out.append(a[i])
+        i += 1
     return out
 
 
 def _set(a, k, v):
-    a = a[:]; a[a.index(k) + 1] = v
+    a = a[:]
+    a[a.index(k) + 1] = v
     return a
 
 
 def _summ(path):
-    rows = [json.loads(l) for l in open(path)]
+    rows = [json.loads(ln) for ln in open(path)]
     g = defaultdict(lambda: [0, 0.0])
     for t in rows:
-        g[t["exit_reason"]][0] += 1; g[t["exit_reason"]][1] += t["net_r"]
-    xs = sorted(rows, key=lambda t: t["entry_time"]); q = len(xs) // 4
+        g[t["exit_reason"]][0] += 1
+        g[t["exit_reason"]][1] += t["net_r"]
+    xs = sorted(rows, key=lambda t: t["entry_time"])
+    q = len(xs) // 4
     folds = [round(sum(t["net_r"] for t in (xs[i * q:(i + 1) * q] if i < 3 else xs[3 * q:])), 2) for i in range(4)]
     return {"n": len(rows), "net_r": round(sum(t["net_r"] for t in rows), 2),
             "net_r_fee_only": round(sum(t["net_r_fee_only"] for t in rows), 2),

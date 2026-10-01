@@ -10,7 +10,10 @@ never folded into a measured term. Rerun (live reads, no auth):
 Per-fill tables below were read off each fill's own `reason` text (MEASURED where a
 commission is stated for both legs) -- re-read them if the journal rows are ever amended.
 """
-import argparse, json, sys, urllib.request
+import argparse
+import json
+import sys
+import urllib.request
 
 BASE = "https://ict-bot.duckdns.org/api/bot/prop"
 ACCOUNT_SIZE = 5000.0
@@ -36,7 +39,9 @@ def get(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--out"); a = ap.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out")
+    a = ap.parse_args()
     fills = get("fills?account_id=breakout_1&limit=500")["fills"]
     st = get("status?account_id=breakout_1")["status"]
     closed = [f for f in fills if f["status"] == "closed" and f["id"] not in DUPLICATES]
