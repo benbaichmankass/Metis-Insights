@@ -125,3 +125,36 @@ def test_committed_queue_dispatches_every_theme_it_holds():
     # No theme is starved: each one holding due work shows up in the first 3 picks per theme. (Not the
     # first len(themes): a theme that already fired a lot in the window is legitimately behind.)
     assert set(themes_of(live, 3 * len(themes))) == themes
+
+
+# ── deterministic dispatch-config problems are not_due, never a red run ─────────
+def test_unresolved_placeholder_input_is_not_due():
+    e = {"status": "queued", "cadence": "once", "run": {"workflow": "x.yml",
+         "inputs": {"fee_frac": "NOT YET DECIDED -- see design"}}}
+    due, why = dq._is_due(e, NOW)
+    assert not due and "unresolved placeholder" in why and "fee_frac" in why
+
+
+def test_undeclared_inputs_are_not_due_even_with_a_path_prefixed_workflow():
+    # macro-valuation-backfill.yml declares start_date/cadence_days/fee_frac/carry_frac_per_day
+    # but NOT research_unit/label_trigger/note/power_state. The `.github/workflows/` prefix used to hide
+    # that (declared_inputs returned None), so gh answered HTTP 422 every cycle.
+    e = {"status": "queued", "cadence": "once", "run": {
+         "workflow": ".github/workflows/macro-valuation-backfill.yml",
+         "inputs": {"research_unit": "RQ-20300101-001", "fee_frac": "0.005"}}}
+    assert dq.declared_inputs(e["run"]["workflow"]) == dq.declared_inputs("macro-valuation-backfill.yml")
+    assert dq.declared_inputs(e["run"]["workflow"]) is not None
+    due, why = dq._is_due(e, NOW)
+    assert not due and "not declared" in why and "research_unit" in why
+
+
+def test_a_well_formed_unit_is_still_due_and_the_committed_queue_has_no_doomed_unit():
+    ok = {"status": "queued", "cadence": "once", "run": {"workflow": "research-script-run.yml",
+          "inputs": {"research_unit": "RQ-20300101-001"}}}
+    assert dq._is_due(ok, NOW)[0]
+    from scripts.research.research_queue import load_queue
+    jobs, err = load_queue(Path(dq._DEFAULT_QUEUE))
+    assert err is None
+    doomed = [(j.id, dq.config_problem(j.raw)) for j in jobs if j.valid and j.status == "queued"
+              and dq.config_problem(j.raw)]
+    assert doomed == []
