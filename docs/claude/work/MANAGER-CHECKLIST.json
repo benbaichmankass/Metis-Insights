@@ -4348,7 +4348,7 @@
       "id": "M16-RESCOPE",
       "title": "Re-scope M16 (Unified Confidence) to a use the confidence score can actually serve; register its test before any run",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01LF3eUyxahXxpH7bKnLRhe9",
       "model": "claude-sonnet-5-5",
@@ -4359,7 +4359,7 @@
         14641
       ],
       "blocked_on": [],
-      "note": "2026-09-30 ~08:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP (park vs re-scope; the confidence scalar measured OOS AUC 0.522 vs a pre-registered 0.55 gate, n_eval=1,236), answer verbatim: \"Re-scope it\". Lane writes a re-scope memo naming 1-3 candidate uses, each with population, metric, pre-registered bar and minimum n; registers the most promising as a held RQ unit; updates the ROADMAP M16 row; closes PI-20260928-NLANEM16-0001. No live config, sizing or risk change. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14641 review CHANGES NEEDED, relayed: no_data record must carry n=None; condition E not budget-matched (normalise tilt weights per leg); tie ordering; merge main. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-601 FAIL (landed #14810): rho 0.019, one-sided perm p 0.197, n=2328 over 28 legs. Per its rule a FAIL re-queues once for a confirmatory run before it is read as a kill; confirm the re-queue exists."
+      "note": "[2026-10-01T16:58Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] in_flight -> done. Lane report 16:52Z: #14641 merged (re-scope memo, ROADMAP M16 line, unit RQ-20260930-601); RQ-20260930-601 ran 2026-09-30 (run 36732230587) and FAILED (n_eval 2,328, rho 0.019, perm p 0.197), result on main, unit stamped (#14772). Confirmatory RQ-20260930-602 registered, blocked until >=500 more eval trades. The open Tier-3 question (does bybit_1's conviction-sizing arm still have a basis) is filed as PI-20261001-APBY4NTV-0001. || 2026-09-30 ~08:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP (park vs re-scope; the confidence scalar measured OOS AUC 0.522 vs a pre-registered 0.55 gate, n_eval=1,236), answer verbatim: \"Re-scope it\". Lane writes a re-scope memo naming 1-3 candidate uses, each with population, metric, pre-registered bar and minimum n; registers the most promising as a held RQ unit; updates the ROADMAP M16 row; closes PI-20260928-NLANEM16-0001. No live config, sizing or risk change. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14641 review CHANGES NEEDED, relayed: no_data record must carry n=None; condition E not budget-matched (normalise tilt weights per leg); tie ordering; merge main. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): RQ-601 FAIL (landed #14810): rho 0.019, one-sided perm p 0.197, n=2328 over 28 legs. Per its rule a FAIL re-queues once for a confirmatory run before it is read as a kill; confirm the re-queue exists."
     },
     {
       "id": "TRADEIFY-WIRE",
