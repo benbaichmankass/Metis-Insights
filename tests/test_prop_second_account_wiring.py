@@ -76,7 +76,7 @@ def test_breakout_config_is_unchanged_by_the_refactor():
     assert c.account_size_usd == float(rules["account_size_usd"])
     assert c.daily_reset_utc == str(rules["limits"].get("daily_loss_reset_utc") or "00:30")
     assert c.risk_cap_usd == 75.0
-    assert c.enabled_venue_symbols == ["SOLUSD"]
+    assert c.enabled_venue_symbols == ["ETHUSD", "SOLUSD"]       # B5 (2026-10-01): ETHUSD joined
     assert "SOLUSDT" in c.symbols and c.symbols["SOLUSDT"]["venue"] == "SOLUSD"
 
 
