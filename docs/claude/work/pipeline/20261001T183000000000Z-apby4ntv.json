@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-08"
+  },
+  "id": "PI-20261001-APBY4NTV-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, independent go-live review of PR #15221, 2026-10-01 ~18:25Z",
+    "rerun": "Open the latest pytest-run job log on any PR touching src/prop/platform/dxtrade.py and grep for 'SKIPPED' with reason 'could not import playwright' (or importorskip) on tests/test_prop_symbol_switch.py and tests/test_prop_instrument_info_probe.py; compare the passed count to a local run with playwright + headless chromium installed (review measured 175 + 546 passing locally)."
+  },
+  "state": "queued",
+  "what": "CI COVERAGE GAP on the LIVE prop order path: the pytest-run CI job has no Playwright/Chromium installed, so every browser-fixture test of the DXtrade ticket opener (tests/test_prop_symbol_switch.py, tests/test_prop_instrument_info_probe.py, and the other open_order_ticket/last_resort tests) importorskips in CI. A green pytest-run therefore says NOTHING about the breakout_1/tradeify_1 opener path; #15221's 175+546 passes were measured only locally by the reviewer. Fix: install playwright + chromium in pytest-run (or a dedicated job for the prop browser tests) and make a skipped browser test fail loudly on that job, so 'we could not look' is distinguishable from 'passed'."
+}
