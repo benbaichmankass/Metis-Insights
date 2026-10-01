@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Test-only fix. tests/test_trend_dayflat.py::test_default_off_reproduces_the_stored_pre_lever_baseline compared the harness summary's run_date (str(date.today()), a wall-clock stamp) against the fixture's '2026-09-30', so pytest-run went red on every PR from 2026-10-01 00:00Z. The comparison now drops run_date (still asserting it is present on both sides); every backtest output field, the emitted-row count and the row sha256 are still compared exactly. No runtime, config or harness code touched."
+}
