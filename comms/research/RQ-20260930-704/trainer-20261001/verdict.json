@@ -179,7 +179,7 @@
       "dataset": "datasets-out/market_features/SOLUSDT/15m/v002"
     }
   },
-  "not_measured": "33 ledgers n<30, 12 on symbols with no advisory head (ETH, ADA, AVAX, XRP), 8 non-crypto; reasons in the full verdict's measurement.skipped.",
+  "not_measured": "41 ledgers not measured (counted from the full verdict's measurement.skipped): 14 on symbols with no advisory head (ETH, ADA, AVAX, XRP), 20 with n<30, 7 non-USDT-perp instruments (GLD, MGC, QQQ, SLV, SPY, TLT, USO hourly legs, no committed candle source). Reasons per ledger are in the full verdict (relay issue #15284).",
   "caveats": [
     "Oracle arm graded: the head's own labels ARE the runtime read; noise arms shown for context only.",
     "Head labels are IN-SAMPLE over the head's training window; live_verified is false (replay verify against live audit rows was not run).",
@@ -189,5 +189,6 @@
     "Scoping instrument, NOT a promotion case."
   ],
   "live_verified": false,
-  "precondition_for_any_future_vol_axis_unit": "Replay `verify` against the live gate's audit rows (ml_vol_label_replay.py verify) MUST pass before a vol-axis unit is re-registered. Decided 2026-10-01 (manager): NOT run now, because this result is a power-bounded null (673 < 785 test trades) and label verification cannot turn it into a decision; it only matters once a vol-axis unit has enough test trades."
+  "precondition_for_any_future_vol_axis_unit": "Replay `verify` against the live gate's audit rows (ml_vol_label_replay.py verify) MUST pass before a vol-axis unit is re-registered. Decided 2026-10-01 (manager): NOT run now, because this result is a power-bounded null (673 < 785 test trades) and label verification cannot turn it into a decision; it only matters once a vol-axis unit has enough test trades.",
+  "_correction": "2026-10-01 close-out: an earlier draft of not_measured said 33 / 12 / 8; those did not sum to the 41 skipped and were wrong. Recounted from the transcribed skipped list: 14 + 20 + 7 = 41."
 }
