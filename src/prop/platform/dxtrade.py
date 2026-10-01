@@ -2837,9 +2837,12 @@ LINK_STATE_DUMP_JS = r"""
 #:   * the <th>-text watchlist: the widget(New)__container (<= 8 up, else the
 #:     table) of any table with Symbol/Bid/Ask <th> texts -- that scope also
 #:     holds Breakout's SEPARATE rows table (#13898);
-#:   * a table_column watchlist (Tradeify, #15067): any widget(New)__container
-#:     (<= 12 up) holding ``[data-test-id^=table_column_]`` headers, and any
-#:     <table> holding ``tr.instrument`` / ``tr[data-row-id]`` rows;
+#:   * a table_column watchlist (Tradeify, #15067 / #15075): the
+#:     widget(New)__container (<= 12 up, else the 6th ancestor) of every
+#:     ``[data-test-id^=table_column_]`` header, and ANY <table> holding
+#:     ``tr.instrument`` / ``tr[data-row-id]`` rows -- which also covers a
+#:     Positions / Orders table with no widget_menu_* button (unmeasured on
+#:     Tradeify; manager review 2026-10-01 08:31Z);
 #:   * an Orders / Positions widget: the widget(New)__container (<= 12 up)
 #:     of a widget_menu_ORDERS / _POSITIONS button, else its 6th ancestor.
 #: A JS SNIPPET (a function declaration) for concatenation into any
@@ -2860,7 +2863,14 @@ WATCHLIST_OR_TRADE_JS = r"""
         if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) scopes.push(box(t, 8) || t);
         if (t.querySelector('tr.instrument, tr[data-row-id]')) scopes.push(t);
       }
-      for (const c of document.querySelectorAll('[data-test-id^="table_column_"]')) { const b = box(c, 12); if (b) scopes.push(b); }
+      // table_column headers (Tradeify, #15075's __metisColumnTables layout):
+      // their widget, else the header's 6th ancestor -- a container with no
+      // widget class is still excluded.
+      for (const c of document.querySelectorAll('[data-test-id^="table_column_"]')) {
+        let b = box(c, 12);
+        if (!b) { b = c; for (let i = 0; i < 6 && b.parentElement && b.parentElement !== document.body; i++) b = b.parentElement; }
+        scopes.push(b);
+      }
       for (const b of document.querySelectorAll('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
         let w = box(b, 12);
         if (!w) { w = b; for (let i = 0; i < 6 && w.parentElement && w.parentElement !== document.body; i++) w = w.parentElement; }
@@ -2878,9 +2888,10 @@ WATCHLIST_OR_TRADE_JS = r"""
 # symbols"): after the linked ``symbol_input`` (tagged ``data-metis-sym-input``
 # by INFO_PROBE_RESOLVE_JS) is filled with the target, find the suggestion the
 # terminal offers for it. A candidate is a VISIBLE element whose own trimmed
-# text equals the target exactly, that is not the input itself, not inside any
-# BUY+SELL panel, and not in a watchlist or Orders / Positions widget
-# (WATCHLIST_OR_TRADE_JS; a watchlist cell is the other route); a leaf is lifted to its nearest [role=option] / li ancestor.
+# text equals the target exactly, inside a [role=option] / [role=listbox],
+# that is not the input itself, not inside any BUY+SELL panel, and not in a
+# watchlist or Orders / Positions widget (WATCHLIST_OR_TRADE_JS; a watchlist
+# cell is the other route); a leaf is lifted to its [role=option] ancestor.
 # Exactly one distinct candidate is tagged ``data-metis-suggest``; otherwise
 # nothing is tagged and up to 6 masked descriptors are returned so the live
 # shape can be measured. UNMEASURED on the live terminal until a run records it.
@@ -2902,22 +2913,27 @@ SYMBOL_SUGGEST_JS = r"""
       if (e.querySelector('[data-test-id=SELL]')) { orderPanels.push(e); break; }
     }
   }
-  // Never the input, a BUY+SELL panel, a watchlist (either layout) or an
-  // Orders / Positions widget -- WATCHLIST_OR_TRADE_JS, shared with #15075.
-  const excluded = el => el === input || (input && input.contains(el))
-    || orderPanels.some(p => p.contains(el)) || __metisIsWatchlistOrTradeTable(el);
-  // A suggestion is something the TYPING produced: an element absent from
-  // the pre-typing snapshot (window.__metisPre, INFO_PROBE_SNAPSHOT_JS run
-  // just before the fill) or one inside a [role=listbox] / [role=option].
+  // A suggestion is ONLY a real dropdown entry: inside [role=option] (or a
+  // [role=listbox]) -- manager review 2026-10-01 08:31Z: a watchlist or
+  // Positions row RE-RENDERED during the typing is new too, so "new since
+  // typing" alone is not enough. Every other visible exact-text leaf is
+  // recorded (shape + why only, masked) so the live dropdown can be measured
+  // if it does not use roles; __metisPre (snapshot just before the fill)
+  // says whether it appeared with the typing.
   const pre = window.__metisPre;
-  const offered = el => !!el.closest('[role=listbox], [role=option]') || (!!pre && !pre.has(el));
-  const found = [];
+  const found = [], rejected = [];
   for (const el of document.querySelectorAll('body *')) {
-    if (el.children.length !== 0 || txt(el).toUpperCase() !== want || !vis(el) || excluded(el)) continue;
-    const opt = el.closest('[role=option], li') || el;
-    if (!excluded(opt) && offered(opt) && !found.includes(opt)) found.push(opt);
+    if (el.children.length !== 0 || txt(el).toUpperCase() !== want || !vis(el) || el === input) continue;
+    const opt = el.closest('[role=option]') || el.closest('[role=listbox] li') || el;
+    const why = orderPanels.some(p => p.contains(opt)) ? 'order_panel'
+      : __metisIsWatchlistOrTradeTable(opt) ? 'watchlist_or_trade'
+      : !opt.closest('[role=option], [role=listbox]') ? 'not_an_option' : '';
+    if (why) { if (rejected.length < 6) rejected.push({tag: opt.tagName.toLowerCase(), cls: cls(opt),
+                                                       role: opt.getAttribute('role') || '', why,
+                                                       new_since_typing: !!pre && !pre.has(opt)}); continue; }
+    if (!found.includes(opt)) found.push(opt);
   }
-  const out = {n_candidates: found.length, dialogs: [...document.querySelectorAll(
+  const out = {n_candidates: found.length, rejected, dialogs: [...document.querySelectorAll(
     '[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length,
     candidates: found.slice(0, 6).map(e => ({tag: e.tagName.toLowerCase(), cls: cls(e),
                                              role: e.getAttribute('role') || ''}))};

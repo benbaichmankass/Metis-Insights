@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from src.prop.platform.base import BracketSpec
 from src.prop.platform.dxtrade import DXtradeAdapter
 
@@ -708,3 +710,78 @@ def test_tradeify_layout_symbol_switch_dry_selects_verifies_and_restores(browser
     assert got["switch"]["ok"] is True and got["restore"]["ok"] is True
     assert st["clicks"] == ["sym", "sym"] and st["linked"] == "SOLUSD"
     never_traded(st)
+
+
+# ── manager review 2026-10-01 08:31Z: ONLY a real [role=option] entry may be a
+# suggestion. Adversarial re-render: while the toolbar route types, EVERY body
+# row on the page is cloned and replaced (so each is "new since typing") -- on
+# Breakout's split layout, on Tradeify's table_column layout, and in Positions
+# tables sitting in a container with NO widget_menu_* button. ──────────────
+
+POS_NO_MENU = ('<div class="pos-box"><table><tbody><tr class="instrument" data-row-id="q1">'
+               '<td class="posrow">ETHUSD</td><td>Buy</td></tr></tbody></table></div>'
+               '<div class="pos-box2"><table><tbody><tr><td class="posrow2">ETHUSD</td><td>Sell</td></tr>'
+               '</tbody></table></div>')
+RERENDER_ON_TYPING_JS = """() => { const box = document.querySelector('[data-test-id=symbol_input]');
+  box.addEventListener('input', () => {
+    window.__rerendered = 0;
+    document.querySelectorAll('tbody tr').forEach(tr => { tr.replaceWith(tr.cloneNode(true)); window.__rerendered++; });
+  }); }"""
+
+
+def _layouts():
+    from tests.test_prop_instrument_info_probe import tradeify_layout
+    return {"breakout_split": (page_html(link_breaks_for="ETHUSD", outside_table=POS_NO_MENU), [SPLIT_WL_JS]),
+            "tradeify": (tradeify_layout(page_html(link_breaks_for="ETHUSD", outside_table=POS_NO_MENU)), [])}
+
+
+def adversarial(browser, layout, dropdown):  # noqa: F811
+    html, prep = _layouts()[layout]
+    p = browser.new_page()
+    p.set_content(html)
+    for js in prep:
+        p.evaluate(js)
+    p.evaluate(RERENDER_ON_TYPING_JS)
+    if dropdown:
+        p.evaluate(SUGGEST_BOX_JS, False)
+    got = fast_adapter().select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    st["rerendered"] = p.evaluate("window.__rerendered || 0")
+    p.close()
+    return got, st
+
+
+@pytest.mark.parametrize("layout", ["breakout_split", "tradeify"])
+def test_review_rerendered_watchlist_and_positions_rows_never_become_suggestions(browser, layout):  # noqa: F811
+    got, st = adversarial(browser, layout, dropdown=False)
+    tb = got["toolbar"]
+    assert st["rerendered"] >= 6                                  # every row really was replaced during the typing
+    assert got["ok"] is False and tb["suggest"]["n_candidates"] == 0
+    whys = {r["why"] for r in tb["suggest"]["rejected"]}
+    assert whys <= {"watchlist_or_trade", "not_an_option"} and "not_an_option" in whys
+    assert any(r["new_since_typing"] for r in tb["suggest"]["rejected"])
+    assert st["clicks"] == ["sym"] * got["attempts"] and st["linked"] == "SOLUSD"   # nothing clicked after typing
+    never_traded(st)
+
+
+@pytest.mark.parametrize("layout", ["breakout_split", "tradeify"])
+def test_review_only_the_role_option_entry_is_taken_while_rows_rerender(browser, layout):  # noqa: F811
+    got, st = adversarial(browser, layout, dropdown=True)
+    assert st["rerendered"] >= 6
+    assert got["ok"] is True and got["route"] == "toolbar" and got["toolbar"]["suggest"]["n_candidates"] == 1
+    assert got["toolbar"]["suggest"]["candidates"] == [{"tag": "li", "cls": [], "role": "option"}]
+    assert st["clicks"][-1] == "LI" and st["linked"] == "ETHUSD"
+    never_traded(st)
+
+
+def test_shared_predicate_excludes_a_menu_less_positions_table_with_instrument_rows(browser):  # noqa: F811
+    from src.prop.platform.dxtrade import WATCHLIST_OR_TRADE_JS
+    p = browser.new_page()
+    p.set_content(page_html(outside_table=POS_NO_MENU))
+    got = p.evaluate("() => {" + WATCHLIST_OR_TRADE_JS + """
+      return [__metisIsWatchlistOrTradeTable(document.querySelector('td.posrow')),
+              __metisIsWatchlistOrTradeTable(document.querySelector('td.posrow2'))]; }""")
+    p.close()
+    # tr.instrument rows: excluded by the predicate; a plain-<tr> table is not a known shape, so the
+    # role=option requirement is what keeps it out (tests above).
+    assert got == [True, False]
