@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "edits a research/queue unit file (non-stamp queue edit); one-line fix, human merge per the queue landing rule",
+  "why": "RQ-20260930-703 was registered carrying a last_dispatched_at stamp copied from RQ-20260930-702, so cadence=once made it not_due and it could never fire; reset to null"
+}
