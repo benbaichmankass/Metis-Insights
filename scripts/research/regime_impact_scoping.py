@@ -37,6 +37,10 @@ Reported: ΔnetR per leg and pooled, as mean and the 5th-95th percentile band
 over seeds. The pooled band also re-samples legs with replacement per seed, so
 it carries between-leg heterogeneity; the per-leg band is label-noise only.
 
+VOL axis (RQ-20260930-704): ``--axis vol --vol-labels SYMBOL=labels.jsonl`` swaps the ADX label for the live ML vol
+label (``ml_vol_label_replay.py`` output), two classes, graded on the oracle arm (the head's labels ARE the runtime
+read), floor 3 legs. Trend-axis defaults are unchanged.
+
 Assumptions that make this an UPPER bound or otherwise limit it (all stated in
 the verdict note): dropping a trade leaves every other trade unchanged (true
 for the ledgers' fixed-bracket trades, false if a dropped entry would have
@@ -77,6 +81,7 @@ sys.path.insert(0, str(REPO / "scripts" / "ops"))
 MIN_LEG_N = 30
 MIN_CELL_N = 8
 MIN_LEGS = 5
+MIN_LEGS_VOL = 3   # RULE-RQ0930-704: fewer than 3 head-covered legs -> could_not_measure
 K_BLOCKS = 4
 PER_TRADE_BAR = 0.03   # R per test trade
 ACCURACIES = (0.55, 0.60, 0.70)
@@ -174,9 +179,11 @@ def fetch_candles(symbol: str, tf: str, start: datetime, end: datetime) -> Optio
 
 
 # ── noise + walk-forward ───────────────────────────────────────────────────
-def confusion(model: str, accuracy: float) -> np.ndarray:
-    """Row = TRUE label (chop, transitional, trending), col = PREDICTED."""
+def confusion(model: str, accuracy: float, k: int = 3) -> np.ndarray:
+    """Row = TRUE label, col = PREDICTED. k=3: (chop, transitional, trending); k=2 (vol axis): (calm, volatile)."""
     a, e = accuracy, 1.0 - accuracy
+    if k == 2:   # both noise models coincide for two classes
+        return np.array([[a, e], [e, a]])
     if model == "uniform":
         return np.array([[a, e / 2, e / 2], [e / 2, a, e / 2], [e / 2, e / 2, a]])
     return np.array([[a, e, 0.0], [e / 2, a, e / 2], [0.0, e, a]])   # ordinal
@@ -197,6 +204,14 @@ def fold_plan(n: int) -> List[Tuple[np.ndarray, np.ndarray]]:
 #: --loss-se 1.0 (a cell is selected only when its train MEAN net R is below -1 standard error, so a
 #: cell that is merely a little negative on a thin sample is not gated).
 SELECTION = {"min_cell_n": MIN_CELL_N, "loss_se": 0.0}
+
+#: Which regime axis is being scoped. Default = the trend axis (ADX-14), i.e. 701/703 exactly. ``--axis vol``
+#: (RQ-20260930-704) swaps in the live ML vol label (advisory head P(volatile) >= 0.5, replayed offline by
+#: ``ml_vol_label_replay.py``), two classes.
+VOL_LABELS = ("calm", "volatile")
+AXIS = {"name": "trend", "labels": LABELS}
+AXIS_DESC = {"trend": "trend (ADX-14); vol NOT covered",
+             "vol": "vol (live advisory-head P(volatile)>=0.5, in-sample replay); trend NOT covered"}
 
 
 def select_cells(true_cell: np.ndarray, net_r: np.ndarray, train: np.ndarray) -> np.ndarray:
@@ -230,10 +245,10 @@ def leg_delta(true_lab: np.ndarray, direction: np.ndarray, net_r: np.ndarray,
 
 def noisy(true_lab: np.ndarray, conf: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     out = true_lab.copy()
-    for t in (0, 1, 2):
+    for t in range(len(conf)):
         idx = np.where(true_lab == t)[0]
         if len(idx):
-            out[idx] = rng.choice(3, size=len(idx), p=conf[t])
+            out[idx] = rng.choice(len(conf), size=len(idx), p=conf[t])
     return out
 
 
@@ -257,7 +272,7 @@ def scope(legs: Dict[str, dict], seeds: int, base_seed: int = 7) -> dict:
                 rng = np.random.default_rng([base_seed, s])
                 for k in names:
                     L = legs[k]
-                    pred = L["true_lab"] if a is None else noisy(L["true_lab"], confusion(model, a), rng)
+                    pred = L["true_lab"] if a is None else noisy(L["true_lab"], confusion(model, a, len(AXIS["labels"])), rng)
                     d, _, nd = leg_delta(L["true_lab"], L["direction"], L["net_r"], pred)
                     per_leg[k][s], drops[k][s] = d, nd
             # pooled: per seed, resample legs with replacement (between-leg heterogeneity)
@@ -281,21 +296,61 @@ def scope(legs: Dict[str, dict], seeds: int, base_seed: int = 7) -> dict:
 
 
 def grade(results: dict, n_legs: int) -> Tuple[str, str]:
-    if n_legs < MIN_LEGS:
+    vol = AXIS["name"] == "vol"
+    if n_legs < (MIN_LEGS_VOL if vol else MIN_LEGS):
         return "indeterminate", "could_not_measure"
     o = results["ordinal"]
+
     def ok(arm):
         b = o[arm]["pooled_delta_r_per_test_trade"]
         return b["mean"] >= PER_TRADE_BAR and b["p5"] > 0
+    if vol:   # RULE-RQ0930-704: the head's own labels ARE the runtime read, so the oracle arm is the verdict
+        return ("pass", "vol_axis_headroom") if ok("oracle") else ("fail", "no_headroom_vol_axis")
     if ok("A=0.70"):
         return "pass", "headroom_at_realistic_accuracy"
     if ok("oracle"):
         return "indeterminate", "headroom_only_with_oracle"
-    return "fail", "no_headroom_trend_axis"
+    return "fail", f"no_headroom_{AXIS['name']}_axis"
 
 
 # ── driver ─────────────────────────────────────────────────────────────────
-def build_legs(glob_pat: str, strategies: dict, candle_source: Callable[..., Optional[pd.DataFrame]]
+def vol_axis_labels(label_rows: Dict[str, str], entry_times: pd.Series) -> List[Optional[str]]:
+    """Live-vol label ({ts: 'calm'|'volatile'|'unknown'}) of the last bar CLOSED at/before each entry.
+
+    The label file's ``ts`` is treated as the bar OPEN and the bar width is inferred from the file's own
+    median spacing, so a trade never reads a label from a bar still forming (if ``ts`` is really the
+    close, this is one bar conservative, never look-ahead). A trade more than 2 bar-widths after the
+    last-closed label (stale / past the file's end) is unlabelled rather than as-of-matched to a weeks-old bar.
+    """
+    ts = pd.to_datetime(pd.Series(list(label_rows)), utc=True).dt.tz_convert(None)
+    order = np.argsort(ts.to_numpy())
+    open_ns = ts.to_numpy(dtype="datetime64[ns]")[order]
+    labs = np.array([label_rows[k] for k in label_rows], dtype=object)[order]
+    if len(open_ns) < 2:
+        return [None] * len(entry_times)
+    width = np.median(np.diff(open_ns)).astype("timedelta64[ns]")
+    close_ns = open_ns + width
+    entry_ns = pd.to_datetime(entry_times, utc=True).dt.tz_convert(None).to_numpy(dtype="datetime64[ns]")
+    idx = np.searchsorted(close_ns, entry_ns, side="right") - 1
+    out: List[Optional[str]] = []
+    for e, i in zip(entry_ns, idx):
+        ok = i >= 0 and (e - close_ns[i]) <= 2 * width and labs[i] in VOL_LABELS
+        out.append(str(labs[i]) if ok else None)
+    return out
+
+
+def load_vol_label_file(path: Path) -> Dict[str, str]:
+    rows: Dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            r = json.loads(line)
+            if r.get("ts") and r.get("vol_regime"):
+                rows[str(r["ts"])] = str(r["vol_regime"])
+    return rows
+
+
+def build_legs(glob_pat: str, strategies: dict, candle_source: Callable[..., Optional[pd.DataFrame]],
+               vol_labels: Optional[Dict[str, Dict[str, str]]] = None
                ) -> Tuple[Dict[str, dict], Dict[str, str]]:
     legs, skipped = {}, {}
     cache: Dict[Tuple[str, str], Optional[pd.DataFrame]] = {}
@@ -311,6 +366,24 @@ def build_legs(glob_pat: str, strategies: dict, candle_source: Callable[..., Opt
             continue
         if tf not in _TF_MIN:
             skipped[leg] = f"timeframe {tf!r} unresolved — not_attempted"
+            continue
+        if AXIS["name"] == "vol":
+            rows = (vol_labels or {}).get(symbol)
+            if not rows:
+                skipped[leg] = f"no advisory-head vol labels for {symbol} — not_attempted"
+                continue
+            labs = vol_axis_labels(rows, df["entry_time"])
+            idx = {name: i for i, name in enumerate(VOL_LABELS)}
+            true_lab = np.array([idx.get(x, -1) for x in labs])
+            if (true_lab >= 0).sum() < MIN_LEG_N:
+                skipped[leg] = f"only {(true_lab >= 0).sum()} trades vol-labelled — no_data"
+                continue
+            legs[leg] = {"true_lab": true_lab, "direction": df["direction"].astype(str).to_numpy(),
+                         "net_r": df["net_r"].astype(float).to_numpy(),
+                         "meta": {"ledger": path.relative_to(REPO).as_posix() if path.is_absolute() and REPO in path.parents else str(path),
+                                  "symbol": symbol, "timeframe": tf, "n": int(len(df)),
+                                  "label_counts": {name: int((true_lab == i).sum()) for i, name in enumerate(VOL_LABELS)},
+                                  "unlabelled": int((true_lab < 0).sum())}}
             continue
         key = (symbol, tf)
         if key not in cache:
@@ -344,35 +417,49 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="train trades a cell needs before it can be selected (701: 8)")
     ap.add_argument("--loss-se", type=float, default=0.0,
                     help="select a cell only if its train mean net R < -loss_se * SE (701: 0 = any loss)")
+    ap.add_argument("--axis", choices=("trend", "vol"), default="trend",
+                    help="trend = ADX-14 (701/703); vol = live ML vol label from --vol-labels (704)")
+    ap.add_argument("--vol-labels", action="append", default=[], metavar="SYMBOL=labels.jsonl",
+                    help="per-symbol ml_vol_label_replay.py output ({ts, vol_regime}); repeatable; --axis vol only")
     args = ap.parse_args(argv)
+    if args.axis == "vol" and not args.vol_labels:
+        ap.error("--axis vol requires at least one --vol-labels SYMBOL=path")
     if args.seeds < 200:
         ap.error("--seeds must be >= 200 (pre-registered floor)")
     if args.min_cell_n < 1 or args.loss_se < 0:
         ap.error("--min-cell-n must be >= 1 and --loss-se >= 0")
     SELECTION.update(min_cell_n=args.min_cell_n, loss_se=args.loss_se)
+    vol_labels: Dict[str, Dict[str, str]] = {}
+    if args.axis == "vol":
+        AXIS.update(name="vol", labels=VOL_LABELS)
+        for spec in args.vol_labels:
+            sym, _, path = spec.partition("=")
+            if not sym or not path:
+                ap.error(f"--vol-labels expects SYMBOL=path, got {spec!r}")
+            vol_labels[sym] = load_vol_label_file(Path(path))
     import yaml
     strategies = (yaml.safe_load((REPO / "config/strategies.yaml").read_text()) or {})
     strategies = strategies.get("strategies", strategies)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    legs, skipped = build_legs(args.ledgers, strategies, fetch_candles)
+    legs, skipped = build_legs(args.ledgers, strategies, fetch_candles, vol_labels)
     scoped = scope(legs, args.seeds) if legs else {"n_legs": 0, "results": {}}
     v, label = grade(scoped["results"], scoped["n_legs"]) if legs else ("indeterminate", "could_not_measure")
-    measured = scoped["n_legs"] >= MIN_LEGS
+    measured = scoped["n_legs"] >= (MIN_LEGS_VOL if AXIS["name"] == "vol" else MIN_LEGS)
     pop = (f"{scoped['n_legs']} crypto-perp legs with n>=30 in the newest committed ledger; "
-           f"{len(skipped)} other ledgers not measured (reasons in measurement.skipped); TREND axis only (ADX-14), vol axis NOT covered")
+           f"{len(skipped)} other ledgers not measured (reasons in measurement.skipped); {AXIS_DESC[AXIS['name']]}")
     cells = policy_cell_legs()
     for k in legs:
         legs[k]["meta"]["has_live_policy_cell"] = k in cells
-    measurement = {"label": label, "scoping_only_not_a_promotion_case": True, "axis": "trend (ADX-14); vol NOT covered",
+    measurement = {"label": label, "scoping_only_not_a_promotion_case": True, "axis": AXIS_DESC[AXIS["name"]],
                    "selection": dict(SELECTION),
                    "bar": {"per_test_trade_r": PER_TRADE_BAR, "p5_gt": 0, "min_cell_n": SELECTION["min_cell_n"], "min_leg_n": MIN_LEG_N,
                            "min_legs": MIN_LEGS, "blocks": K_BLOCKS, "seeds": args.seeds},
                    "skipped": skipped, "legs": {k: legs[k]["meta"] for k in legs}, **scoped}
     note = (f"{label}. Upper-bound scoping, NOT a promotion case: ΔnetR = net R of dropped test-block trades negated, "
             "cells selected on earlier blocks only. Pooled legs share symbols, so the pooled band is optimistic. "
-            "Vol axis not covered.")
+            f"{AXIS_DESC[AXIS['name']]}.")
     verdict = {"verdict": v, "read_state": "measured" if measured else "no_data", "population": pop,
                "n": scoped.get("test_trades_total"), "measurement": measurement, "note": note}
     (out / "verdict.json").write_text(json.dumps(verdict, indent=2) + "\n", encoding="utf-8")

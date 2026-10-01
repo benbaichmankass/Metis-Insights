@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Second fix for the live prop ticket opener after #15138/#15192: on breakout_1 (#15214) the Symbol-cell double-click left the target watchlist row unresolvable (n_rows 0), so the measured row double-click (#15139) had nothing to click. The measured opener now runs before the unmeasured Symbol-cell double-click. The manager reviews and merges.",
+  "why": "Restores the measured live opener ahead of the unmeasured one so a breakout_1 ticket can open its order form; records the watchlist at that moment."
+}

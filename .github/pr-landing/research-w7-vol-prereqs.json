@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "research-only harness change: opt-in --axis vol mode for regime_impact_scoping.py (RQ-20260930-704 prerequisite c); trend defaults unchanged and tested; no runtime, config, strategy, sizing or risk touched"
+}
