@@ -130,13 +130,20 @@ def test_place_bracket_still_refuses_when_the_reread_form_does_not_name_the_symb
 # ── the DRY mode: select, verify, restore, verify; no order form ─────────
 
 
-def test_symbol_switch_dry_refuses_unless_one_click_reads_off(browser):  # noqa: F811
+# One-click is informational, never a refusal (operator directive 2026-10-01,
+# manager comment 5930025023 on #14947): an ON read is ONE alert per run.
+def test_symbol_switch_dry_with_one_click_on_runs_and_alerts_once(browser):  # noqa: F811
     p = browser.new_page()
     p.set_content(page_html(one_click="checked"))
     got = DXtradeAdapter(timeout_ms=3_000).symbol_switch_dry(p, "ETHUSD", settle_ms=50)
     st = state(p)
     p.close()
-    assert "does not read OFF" in got["refused"] and st["clicks"] == []
+    assert got["refused"] is None and got["one_click"]["state"] == "on"
+    assert [a for a in got["alerts"] if "one-click" in a] == [
+        "one-click trading reads ON (informational, never a refusal: the executor clicks no "
+        "instant-trade control; operator directive 2026-10-01)"]
+    assert got["restore"]["ok"] is True
+    assert st["trade"] == 0 and "px" not in st["clicks"]     # no Bid/Ask, no quick-trade control
 
 
 def test_the_tick_decides_symbol_switch_dry_before_the_kill_switch():
@@ -150,17 +157,19 @@ def test_the_tick_decides_symbol_switch_dry_before_the_kill_switch():
 # ── independent review of #14885 (manager 20:17Z) ─────────────────────────
 
 
-def test_review_the_switch_click_refuses_when_one_click_reads_on(browser):  # noqa: F811
-    got, st = switch(browser, page_html(one_click="checked"), "ETHUSD")
-    assert got["ok"] is False and got["clicked"] is False
-    assert got["why"].startswith("symbol switch refused: one-click not confirmed OFF (reads 'on'")
-    assert st["clicks"] == [] and st["linked"] == "SOLUSD"
-
-
-def test_review_the_switch_click_refuses_when_one_click_is_unknown(browser):  # noqa: F811
-    got, st = switch(browser, page_html(one_click_unreadable=True), "ETHUSD")
-    assert got["ok"] is False and "one-click not confirmed OFF (reads 'unknown'" in got["why"]
-    assert st["clicks"] == []
+@pytest.mark.parametrize("kw,reads", [({"one_click": "checked"}, "on"), ({"one_click_unreadable": True}, "unknown")])
+def test_the_switch_click_records_one_click_and_never_refuses_on_it(browser, kw, reads):  # noqa: F811
+    a = DXtradeAdapter(timeout_ms=3_000)
+    p = browser.new_page()
+    p.set_content(page_html(**kw))
+    got = a.select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert got["ok"] is True and got["clicked"] is True and got["one_click"]["state"] == reads
+    assert st["clicks"] == ["sym"] and st["linked"] == "ETHUSD"     # the Symbol cell only
+    never_traded(st)
+    alert = a.take_one_click_alert()
+    assert (alert is not None) is (reads == "on") and a.take_one_click_alert() is None    # once
 
 
 def test_review_one_click_off_lets_the_switch_click(browser):  # noqa: F811
@@ -416,10 +425,10 @@ def test_robust_an_empty_watchlist_refuses_without_a_cell_click(browser):  # noq
     never_traded(st)
 
 
-def test_robust_one_click_on_refuses_before_any_click(browser):  # noqa: F811
+def test_robust_one_click_on_is_recorded_and_only_symbol_cells_are_clicked(browser):  # noqa: F811
     got, st = robust(browser, page_html(one_click="checked", link_breaks_for="ETHUSD"), "ETHUSD")
-    assert got["ok"] is False and "one-click not confirmed OFF" in got["why"]
-    assert st["clicks"] == [] and st["linked"] == "SOLUSD"
+    assert got["ok"] is False and got["one_click"]["state"] == "on" and "one-click" not in got["why"]
+    assert st["clicks"] and set(st["clicks"]) == {"sym"} and st["linked"] == "SOLUSD"
     never_traded(st)
 
 
@@ -752,13 +761,13 @@ def test_ticket_route_with_no_dropdown_puts_the_field_back_and_presses_no_key(br
     no_order(st)
 
 
-def test_ticket_route_refuses_before_typing_unless_one_click_reads_off(browser):  # noqa: F811
+def test_ticket_route_with_one_click_on_still_switches_and_records_it(browser):  # noqa: F811
     p = ticket_page(browser, base=lambda **kw: page_html(one_click="checked", **kw))
     got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
     st = tk_state(p)
     p.close()
-    assert got["ok"] is False and "one-click not confirmed OFF" in got["why"] and "pick" not in got
-    assert st["field"] == "SOLUSD" and st["tk"]["keys"] == [] and st["clicks"] == []
+    assert got["ok"] is True and got["one_click"]["state"] == "on"
+    assert st["field"] == "ETHUSD" and st["clicks"] == ["c-sym"] and "Enter" not in st["tk"]["keys"]
     no_order(st)
 
 
@@ -910,6 +919,28 @@ def test_ticket_pick_reports_what_typing_produced_by_shape_only(browser):  # noq
     assert got["pick"]["field_value"] == "ETHUSD"
     assert any(t["cls"] == ["tk-dd"] and t["n_leaves"] > 0 for t in tops)
     assert all(set(t) == {"tag", "cls", "role", "n_leaves", "w", "h"} for t in tops)   # never text
+
+
+@pytest.mark.parametrize("kw", [{}, {"one_click": "checked"}])
+def test_the_ticket_opener_double_clicks_the_symbol_cell_never_a_price(browser, kw):  # noqa: F811
+    # PROP-ETH-DOM 2026-10-01: the opener double-clicked the ROW's centre, which
+    # on a Symbol | Bid | Ask row is a price cell -- the Bid/Ask buttons were
+    # hit twice (window.__trade == 2). An instant order with one-click ON.
+    p = browser.new_page()
+    p.set_content(page_html(**kw))
+    DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
+    st = state(p)
+    p.close()
+    assert st["trade"] == 0 and st["clicks"] == ["sym", "sym"] and st["tags"] == 0
+
+
+def test_the_ticket_opener_never_double_clicks_a_cell_that_grows_a_control_on_hover(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html(hover_button_for="SOLUSD"))
+    DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
+    st = state(p)
+    p.close()
+    assert st["trade"] == 0 and st["clicks"] == []
 
 
 def test_switch_dry_home_rules():

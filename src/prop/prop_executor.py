@@ -1087,6 +1087,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         if walk_form:
             att = adapter.place_bracket(page, spec, arm=False)
             res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict(), walk=_attempt_public(att))
+            _one_click_alert(res, adapter)
         else:
             res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict())
         return res
@@ -1094,6 +1095,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                   valid_until=candidate.get("valid_until"))
     att: PlaceAttempt = adapter.place_bracket(page, spec, arm=True)
     res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
+    _one_click_alert(res, adapter)
     st = state.load()
     if not att.submitted:
         # The guards said FITS and the form refused BEFORE any submit click
@@ -1284,12 +1286,14 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         try:
             att = adapter.place_bracket(page, spec, arm=False)
             res.log("place_bracket", ticket_id=tid, attempt=_attempt_public(att))
+            _one_click_alert(res, adapter)
             res.log("would_close", ticket_id=tid, result=adapter.flatten(page, venue, arm=False))
         finally:
             _restore_linked_symbol(res, adapter, page, original)
         return res
     att = adapter.place_bracket(page, spec, arm=arm)
     res.log("place_bracket", ticket_id=tid, attempt=_attempt_public(att))
+    _one_click_alert(res, adapter)
     if not att.submitted:
         ledger.record(tid, "refused", reasons=[att.detail])
         return stop(f"not submitted: {att.detail}")
@@ -1459,6 +1463,16 @@ def run_close_position(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig
                                   "pnl is the last unrealized P&L read before the close (ESTIMATED, not the broker fill)"})
     res.log("close_position_done", ticket_id=tid)
     return res
+
+
+def _one_click_alert(res: "CycleResult", adapter: Any) -> None:
+    """One-click is informational, never a refusal (operator directive
+    2026-10-01, manager comment 5930025023 on #14947): when the adapter saw it
+    read ON this run, ONE alert, once."""
+    take = getattr(adapter, "take_one_click_alert", None)
+    msg = take() if callable(take) else None
+    if isinstance(msg, str) and msg:
+        res.alerts.append(msg)
 
 
 def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:

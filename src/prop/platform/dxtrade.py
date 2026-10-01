@@ -4176,23 +4176,32 @@ class DXtradeAdapter(PropPlatformAdapter):
         return out
 
     def read_one_click(self, page: Any) -> Dict[str, Any]:
-        """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC for
-        every ORDER path: recorded in each order-control result, gated on by
-        none of them (ORDER ENTRY rule 1; operator 2026-09-28). Two
-        exceptions, both WATCHLIST-CELL clicks rather than order controls,
-        refuse unless this reads ``off`` via ``data-value+knob`` (the measured
-        toggle, issues #14714 / #14754): the instrument INFO-PANEL probe
-        (``probe_instrument_info``) and the per-ticket SYMBOL SWITCH
-        (``select_linked_symbol``, only when a click is needed; manager
-        decision 2026-09-30 20:17Z, review of #14885). ``unknown`` blocks no
-        order control."""
+        """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC,
+        gated on by NOTHING (operator directive ~11:00Z 2026-10-01, manager
+        comment 5930025023 on #14947): one-click arms only the INSTANT-trade
+        controls (the chart's quick Buy/Sell and the Bid/Ask price cells),
+        which no path here ever clicks (WATCHLIST_OR_TRADE_JS, the Symbol cell
+        only, verify_buttons_in_panel); a ticket needs its own submit click
+        whatever the toggle reads. An ``on`` read is remembered for ONE alert
+        per run (``take_one_click_alert``); ``unknown`` is only recorded."""
         try:
             got = page.evaluate(ONE_CLICK_JS) or {}
         except Exception as exc:
             return {"state": "unknown", "why": f"probe failed ({type(exc).__name__})"}
         if got.get("state") not in ("on", "off"):
             got["state"] = "unknown"
+        if got["state"] == "on":
+            self._one_click_seen_on = True
         return got
+
+    def take_one_click_alert(self) -> Optional[str]:
+        """The ONE alert for this run when any read saw one-click ON, else
+        None; later calls return None (alert once, never a refusal)."""
+        if getattr(self, "_one_click_seen_on", False) and not getattr(self, "_one_click_alerted", False):
+            self._one_click_alerted = True
+            return ("one-click trading reads ON (informational, never a refusal: the executor clicks no "
+                    "instant-trade control; operator directive 2026-10-01)")
+        return None
 
     def _find_form(self, page: Any) -> Dict[str, Any]:
         try:
@@ -4223,20 +4232,34 @@ class DXtradeAdapter(PropPlatformAdapter):
                         return out
             except Exception:
                 continue
-        # Double-click the symbol's WATCHLIST row (the table MEASURED with
-        # headers Symbol/Bid/Ask/...). A row, never a price button.
+        # Double-click the symbol's WATCHLIST Symbol CELL -- never the row's
+        # centre: on a Symbol | Bid | Ask row that is a PRICE cell, an
+        # instant-trade control with one-click ON (PROP-ETH-DOM 2026-10-01: the
+        # row-centre double-click hit the Bid/Ask buttons twice in the fixture).
+        # The ONE clean Symbol cell is tagged by INFO_PROBE_RESOLVE_JS and
+        # hover-re-checked for controls first, exactly like the switch click.
         try:
-            rows = page.locator("tr.instrument, tr[data-row-id]").filter(
-                has=page.locator("td", has_text=re.compile(r"^\s*" + re.escape(venue_symbol) + r"\s*$")))
-            if rows.count() == 1:
-                rows.first.dblclick(timeout=5_000)
-                page.wait_for_timeout(1_000)
-                form = self._find_form(page)
-                if form.get("found"):
-                    out.update(opened=True, via="watchlist_dblclick", form=form)
-                    return out
+            sym = str(venue_symbol or "").strip().upper()
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]]) or {}
+            if (res.get("targets") or {}).get(sym, {}).get("clean"):
+                cell = page.locator(f"[data-metis-row-cell='{sym}']")
+                if cell.count() == 1:
+                    cell.first.hover(timeout=5_000)
+                    page.wait_for_timeout(300)
+                    if not cell.first.evaluate("(c, s) => c.matches(s) || !!c.querySelector(s)", self._CELL_CONTROLS):
+                        cell.first.dblclick(timeout=5_000)
+                        page.wait_for_timeout(1_000)
+                        form = self._find_form(page)
+                        if form.get("found"):
+                            out.update(opened=True, via="watchlist_dblclick", form=form)
+                            return out
         except Exception:
             pass
+        finally:
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
         out["form"] = form
         out["refused"] = "no opener produced an order form (TICKET_OPENER_NAMES / watchlist row)"
         return out
@@ -4460,11 +4483,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         try:
             out["one_click"] = self.read_one_click(page)
             if not info_probe_one_click_off(out["one_click"]):
-                # The guard fails CLOSED (manager review of #14645): only a
-                # positive "off" reading passes. The live terminal reads
-                # 'unknown' (#13711), so until a reader is built from this
-                # structure dump, -probe REFUSES there; -dry records the dump.
+                # Recorded, never a refusal (operator directive 2026-10-01,
+                # manager comment 5930025023 on #14947): the structure dump
+                # stays as a diagnostic; an ON read is ONE alert per run.
                 out["one_click_dump"] = self.one_click_dump(page)
+            oc_alert = self.take_one_click_alert()
+            if oc_alert:
+                out["alerts"].append(oc_alert)
             acct = self.read_account(page)
             out["account_margin_used"] = acct.margin_used
             orders = page.evaluate(INFO_PROBE_ORDERS_JS) or {"found": False, "why": "no result"}
@@ -4484,10 +4509,6 @@ class DXtradeAdapter(PropPlatformAdapter):
                 why = res.get("why") or "resolve failed"
             elif res.get("dialogs"):
                 why = f"{res['dialogs']} dialog(s) already open"
-            elif not info_probe_one_click_off(out["one_click"]):
-                oc = out["one_click"] or {}
-                why = (f"one-click trading does not read OFF (reads {oc.get('state')!r}); via "
-                       f"{oc.get('via')!r}; refusing until it positively does from the measured toggle")
             else:
                 why = info_probe_flat_guard(acct, orders)
             if why is None and original not in (res.get("watchlist") or []):
@@ -4784,14 +4805,11 @@ class DXtradeAdapter(PropPlatformAdapter):
             page.wait_for_timeout(self.SWITCH_POLL_MS)
             waited += self.SWITCH_POLL_MS
 
-    def _one_click_off(self, page: Any, out: Dict[str, Any]) -> bool:
+    def _note_one_click(self, page: Any, out: Dict[str, Any]) -> None:
+        """Read and RECORD one-click before a click. Never refuses (operator
+        directive 2026-10-01, manager comment 5930025023 on #14947)."""
         oc = self.read_one_click(page)
         out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
-        if info_probe_one_click_off(oc):
-            return True
-        out["why"] = (f"symbol switch refused: one-click not confirmed OFF "
-                      f"(reads {oc.get('state')!r} via {oc.get('via')!r})")
-        return False
 
     def _ticket_symbol(self, page: Any) -> Dict[str, Any]:
         try:
@@ -4820,11 +4838,11 @@ class DXtradeAdapter(PropPlatformAdapter):
         comment 5928196365 on #15070). Never an order control.
 
         Resolve the ONE ticket field (TICKET_SYMBOL_RESOLVE_JS); a field that
-        already reads the target does nothing. Otherwise: re-read one-click
-        (must read OFF); snapshot; fill the target (no Enter, ever); find the
+        already reads the target does nothing. Otherwise: record one-click
+        (informational, never a refusal); snapshot; fill the target (no Enter, ever); find the
         ONE dropdown row whose Symbol text EXACTLY equals it
         (TICKET_SYMBOL_PICK_JS) -- when the full name lists none, re-type its
-        first three characters once; re-read one-click; click that row's
+        first three characters once; record one-click; click that row's
         Symbol cell; poll the field. ``ok`` only when the field reads the
         target, no dialog is open, the description under it CHANGED and the
         submit label NAMES the target -- never the typed field alone. With
@@ -4856,8 +4874,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             if res.get("value_canon") == want:
                 out.update(ok=True, after=out["before"])
                 return out
-            if not self._one_click_off(page, out):
-                return out
+            self._note_one_click(page, out)
             if page.evaluate(INFO_PROBE_SNAPSHOT_JS):
                 out["why"] = "dialog(s) open before typing"
                 return out
@@ -4878,8 +4895,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             if pick.get("n_candidates") != 1:
                 out["why"] = f"{pick.get('n_candidates')} dropdown rows read exactly {target} (need exactly 1)"
                 return out
-            if not self._one_click_off(page, out):
-                return out
+            self._note_one_click(page, out)
             page.locator("[data-metis-ticket-pick='1']").first.click(timeout=5_000)
             out["picked"] = True
             typed = False
@@ -4948,8 +4964,8 @@ class DXtradeAdapter(PropPlatformAdapter):
         1. READY: poll the click-free resolve (INFO_PROBE_RESOLVE_JS) until
            the watchlist has rows, up to SWITCH_READY_MS (10 s). A link that already
            reads the target clicks nothing.
-        2. WATCHLIST ROUTE, up to SWITCH_CLICK_ATTEMPTS: re-resolve, re-read
-           one-click (must read OFF), ONE single click on the target's clean
+        2. WATCHLIST ROUTE, up to SWITCH_CLICK_ATTEMPTS: re-resolve, record
+           one-click (informational), ONE single click on the target's clean
            watchlist Symbol cell (never Bid/Ask, never a double-click -- a
            double-click opens the ticket) after the hover re-check, then poll
            the linked symbol up to SWITCH_VERIFY_MS.
@@ -4994,8 +5010,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 # 2026-09-30 20:17Z, review of #14885). With one-click ON a
                 # geometry shift or a hover control the check misses could
                 # turn this click into an order. Order controls stay un-gated.
-                if not self._one_click_off(page, out):
-                    return out
+                self._note_one_click(page, out)
                 if not self._info_click_cell(page, target):
                     out["why"] = f"a control appeared in {target}'s Symbol cell on hover; not clicked"
                     return out
@@ -5074,8 +5089,8 @@ class DXtradeAdapter(PropPlatformAdapter):
     def symbol_switch_dry(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500,
                           home: Optional[str] = None) -> Dict[str, Any]:
         """DRY check of the per-ticket switch. NO order control is touched and
-        nothing is submitted. Refuses before any click unless one-click reads
-        OFF from the measured toggle.
+        nothing is submitted. One-click is recorded, never a refusal; an ON
+        read is ONE alert (operator directive 2026-10-01).
 
         1. Read the linked symbol and the target's quote (click-free).
         2. TICKET ROUTE (primary): open the order ticket (open_order_ticket --
@@ -5095,10 +5110,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         original link."""
         out: Dict[str, Any] = {"target": str(venue_symbol or "").strip().upper(), "alerts": [], "refused": None}
         try:
+            # Recorded, never a refusal (operator directive 2026-10-01); an ON
+            # read anywhere in this run is ONE alert, added at the end.
             out["one_click"] = self.read_one_click(page)
-            if not info_probe_one_click_off(out["one_click"]):
-                out["refused"] = "one-click trading does not read OFF from the measured toggle"
-                return out
             res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[]]) or {}
             page.evaluate(INFO_PROBE_CLEANUP_JS)
             original = res.get("linked_symbol")
@@ -5149,6 +5163,9 @@ class DXtradeAdapter(PropPlatformAdapter):
                 out["restore"] = self.select_linked_symbol(page, home_sym, settle_ms=settle_ms)
                 if not out["restore"].get("ok"):
                     out["alerts"].append(f"link to {home_sym} failed: {out['restore'].get('why')}")
+            oc_alert = self.take_one_click_alert()
+            if oc_alert:
+                out["alerts"].append(oc_alert)
             return out
         except Exception as exc:
             out["alerts"].append(f"symbol-switch-dry raised {type(exc).__name__} (code=switch_dry_exception)")
