@@ -179,6 +179,26 @@ def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
         emit({"instrument_search_dump": fr}, *secrets)
 
 
+def switch_dry_home(cfg: Any, adapter: Any, page: Any) -> Optional[str]:
+    """Where symbol-switch-dry leaves the terminal: the CURRENT linked symbol
+    when it is one of the account's enabled venue symbols, else the first
+    enabled one (PROP-ETH-DOM: a link stuck on a NOT-enabled symbol --
+    ETHUSD after B4 -- is restored to SOLUSD). None (the adapter's own
+    default, the original link) when nothing is enabled or the link is
+    unreadable."""
+    enabled = [str(s).upper() for s in (getattr(cfg, "enabled_venue_symbols", None) or [])]
+    if not enabled:
+        return None
+    reader = getattr(adapter, "read_linked_symbol", None)
+    try:
+        linked = str(reader(page) or "").upper() if reader else ""
+    except Exception:
+        linked = ""
+    if not linked:
+        return None
+    return linked if linked in enabled else enabled[0]
+
+
 def emit_round_trip(res: Any, *secrets: str) -> int:
     """Print a round-trip / close-position result (reads, actions, reports,
     alerts, then the ``done`` line) and return the tick's exit code:
@@ -469,7 +489,8 @@ def main(argv: Optional[list] = None) -> int:
                 return EXIT_OK if "error" not in got else EXIT_UNPARSED
 
             if mode == "symbol_switch_dry":
-                got = adapter.symbol_switch_dry(page, args.symbol_switch_dry)
+                got = adapter.symbol_switch_dry(page, args.symbol_switch_dry,
+                                                home=switch_dry_home(cfg, adapter, page))
                 emit({"symbol_switch_dry": got}, *secrets)
                 return EXIT_OK if got.get("refused") is None and not got.get("alerts") else EXIT_UNPARSED
 
