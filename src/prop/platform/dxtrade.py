@@ -822,13 +822,21 @@ def _matching_symbol(obj: Mapping[str, Any], symbols_upper: Mapping[str, str]) -
     ``BTCUSD``. ``None`` if no symbol-like key is present, none matches
     exactly, or the object's symbol-like keys match TWO DIFFERENT requested
     symbols (e.g. ``symbol=BTCUSD``, ``name=ADAUSD``) — that is ambiguous,
-    not a match either way, so it is skipped rather than guessed."""
+    not a match either way, so it is skipped rather than guessed.
+
+    A slash-named value (``ETH/USD``) matches its unslashed request
+    (``ETHUSD``) through :func:`canonical_symbol` -- still an EXACT equality
+    of canonical forms, never a substring (TRADEIFY-WIRE T4: tradeify_1's
+    instrument objects carried lotSize/minVolume yet matched no requested
+    symbol in #14993; the operator's screenshots show slash names)."""
     hits = set()
     for key in _SYMBOL_KEYS:
         val = obj.get(key)
         if not isinstance(val, str):
             continue
         hit = symbols_upper.get(val.strip().upper())
+        if hit is None:
+            hit = symbols_upper.get(canonical_symbol(val) or "\0")
         if hit is not None:
             hits.add(hit)
     return next(iter(hits)) if len(hits) == 1 else None

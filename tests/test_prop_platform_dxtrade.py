@@ -313,6 +313,19 @@ def test_extract_instrument_specs_substring_never_satisfies_exact_match():
     assert len(result["discovery"]) == 1
 
 
+def test_extract_instrument_specs_slash_named_symbol_matches_its_unslashed_request():
+    # TRADEIFY-WIRE T4: tradeify_1's instrument objects name "ETH/USD".
+    resp = CapturedResponse(
+        url="https://dx.tradeify247.co/api/instruments",
+        body=json.dumps([{"symbol": "ETH/USD", "lotSize": 1.0, "minVolume": 0.01, "volumeStep": 0.01,
+                          "pricePrecision": 2},
+                         {"symbol": "BTC/USDT", "lotSize": 9.0}]))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD", "BTCUSD"])
+    assert result["specs"]["ETHUSD"] == {"lotSize": 1.0, "minVolume": 0.01, "volumeStep": 0.01,
+                                         "pricePrecision": 2}
+    assert result["specs"]["BTCUSD"] == {}            # BTC/USDT is still not BTCUSD
+
+
 def test_extract_instrument_specs_conflicting_duplicates_report_conflict():
     resps = [
         CapturedResponse(url="https://wss.breakoutprop.com/a",
