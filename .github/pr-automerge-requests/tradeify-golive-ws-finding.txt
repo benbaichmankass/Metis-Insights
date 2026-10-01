@@ -1,0 +1,1 @@
+auto-merge: pipeline record (TRADEIFY-GOLIVE)
