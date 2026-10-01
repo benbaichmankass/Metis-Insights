@@ -1090,3 +1090,20 @@ def test_w4_dispatcher_dry_run_selects_the_unit(unit_id, _wf):
     )
     if row["outcome"] == "would_dispatch":
         assert row["power_state"] == ACCRUING
+
+
+def test_a_new_queued_unit_must_not_carry_a_dispatch_stamp():
+    """PI-20261001-1MX1RCZS-0004: RQ-20260930-703 was registered `queued` with a
+    stamp copied from its clone source; with cadence=once it could never fire and
+    every guard passed it."""
+    stamped = _entry(status="queued", last_dispatched_at="2026-10-01T07:29:51+00:00")
+    assert any("last_dispatched_at" in e for e in validate(stamped, is_new=True))
+    # positive controls: the same entry is fine when not new (grandfathered /
+    # an existing unit the dispatcher legitimately stamped), and a new unit with
+    # a null stamp is fine.
+    assert not any("last_dispatched_at" in e for e in validate(stamped))
+    clean = _entry(status="queued", last_dispatched_at=None)
+    assert not any("last_dispatched_at" in e for e in validate(clean, is_new=True))
+    # only `queued` is refused: a done unit legitimately carries its stamp.
+    done = _entry(status="done", last_dispatched_at="2026-10-01T07:29:51+00:00")
+    assert not any("last_dispatched_at" in e for e in validate(done, is_new=True))

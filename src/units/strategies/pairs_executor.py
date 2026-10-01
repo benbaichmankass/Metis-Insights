@@ -1341,6 +1341,21 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                     decision.close = False
                     decision.soak["min_qty_block"] = min_qty_blocked
 
+            # TRADER HALT FLAG (AUD-20260927-CA-A02, ORDER-AUDIT-2 item 1): this
+            # sleeve runs from src/main.py OUTSIDE pipeline.run — the halt check
+            # there never saw it, so a halted trader still OPENED live pairs.
+            # Halt refuses NEW opens only; closes still run (risk-reducing, the
+            # same scope pipeline.run's halt has — exits go via order_monitor).
+            # Read per decision, not cached, so the flag takes effect this tick.
+            if decision.event == "open" and execution == "live":
+                from src.runtime.runtime_flags import is_halted
+                if is_halted():
+                    logger.warning(
+                        "pairs: trader HALTED (flag present) — refusing to "
+                        "open %s on %s", decision.pair, account_id)
+                    decision.event = "skip_halted"
+                    decision.legs = []
+
             # --- act on the decision (only `live` execution places/closes) ---
             place_result: Dict[str, Any] = {}
             if decision.event == "open" and execution == "live":

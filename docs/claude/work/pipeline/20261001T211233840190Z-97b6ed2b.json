@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "_cancel_oca_group_for_symbol returns verify_state 'unreadable' when ib.openTrades() raises, with a test, and place_protective's handling of that state is decided and tested",
+    "kind": "observation"
+  },
+  "id": "PI-20261001-IDQ1HLJD-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ORDER-AUDIT-2 lane session_01MEyTMDNj3ZYV2ziDq1hLJd (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-01; PR #15306",
+    "rerun": "grep -n 'def _cancel_oca_group_for_symbol' -A40 src/units/accounts/ib_client.py | grep -n '_open_trades'  # a hit => still open"
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "routed",
+  "what": "IBClient._cancel_oca_group_for_symbol (src/units/accounts/ib_client.py, the keyed pre-cancel in place_protective) still reads the book via _open_trades, which swallows an ib.openTrades() failure into [] -- the same 'could not read' == 'nothing resting' collapse PR #15306 fixed for _cancel_resting_orders_for_symbol (ORDER-AUDIT-2 item 4). Consequence here is narrower (place_protective arms a fresh bracket beside one it could not see -> possible double protection, not a reverse fill), so it was left out of that PR. Fix: same direct read + verify_state 'unreadable', and place_protective should not arm a second bracket on 'unreadable'."
+}

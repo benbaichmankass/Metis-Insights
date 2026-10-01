@@ -64,6 +64,11 @@
 #                        press the dialog's OWN Cancel. Submits nothing. Only
 #                        meaningful while a position is open on that symbol;
 #                        with no row it stops before any click.
+#     widget-menu-probe — MEASUREMENT (TRADEIFY-GOLIVE 2026-10-01): ONE click on
+#                        the current workspace's top-most add-widget "+", dump
+#                        the menu that appears (masked), Escape, re-read the
+#                        layout. Clicks no menu item, no order/price/delete
+#                        control; refused if one-click reads ON.
 #     round-trip-dry   — the END-TO-END test walked dry: read the quote, build
 #                        a minimum-size ETHUSD market bracket (add `sol` for
 #                        SOLUSD), fill + read back the form, locate the close
@@ -175,7 +180,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe widget-menu-probe executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt \
          feed-enable-timer feed-disable-timer; do
@@ -448,6 +453,7 @@ if [ -n "${EXEC_MODE}" ]; then
         edit-dialog-dry|edit-dialog-probe)
             case "${ACTION_SYMBOLS// /}" in ""|*,*) log "${EXEC_MODE}: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--"${EXEC_MODE}" "${ACTION_SYMBOLS// /}") ;;
+        widget-menu-probe)   EARGS+=(--widget-menu-probe) ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")

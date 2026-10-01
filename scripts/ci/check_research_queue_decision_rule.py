@@ -66,11 +66,15 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+from scripts.research.research_queue import new_unit_stamp_errors  # noqa: E402
+
 QUEUE_DIRS = ("research/queue", "research/queue/blocked")
 
 
@@ -165,6 +169,13 @@ def scan(root: Path, base: Optional[str]) -> Tuple[List[str], int, int, str]:
             # clean", it is broken.
             failures.append(f"{rel}: unreadable — {read_err}")
             continue
+
+        # PI-20261001-1MX1RCZS-0004: a NEW queued unit must not carry a stamp.
+        # Graded like the decision rule below: unresolved base => refuse.
+        stamp_errs = new_unit_stamp_errors(entry) if base is not None else []
+        if stamp_errs:
+            if not merge_base_ok or not existed_at_merge_base(root, base, rel):
+                failures.append(f"{rel}: {'; '.join(stamp_errs)}")
 
         errs = decision_rule_errors(entry)
         if not errs:
@@ -290,6 +301,26 @@ def _self_test() -> int:
               not any("RQ-NEW-GOOD" in f for f in failures_found))
         check("grandfather: OLD unit with no decision_rule does NOT fail",
               not any("RQ-OLD-001" in f for f in failures_found))
+
+        # PI-...-0004: a NEW queued unit carrying a stamp fails; an OLD one is
+        # grandfathered; a NEW one with a null stamp is fine.
+        _write_unit(root, "RQ-NEW-STAMPED", with_rule=True)
+        _write_unit(root, "RQ-NEW-CLEAN", with_rule=True)
+        sp = root / "research" / "queue" / "RQ-NEW-STAMPED.yaml"
+        sp.write_text(sp.read_text() + "last_dispatched_at: '2026-10-01T07:29:51+00:00'\n")
+        old = root / "research" / "queue" / "RQ-OLD-001.yaml"
+        old.write_text(old.read_text() + "last_dispatched_at: '2026-09-01T00:00:00+00:00'\n")
+        _run_git(root, "add", "-A")
+        _run_git(root, "commit", "-q", "-m", "stamps")
+        f_stamp, _, _, _ = scan(root, base="trunk")
+        check("negative control: NEW queued unit with last_dispatched_at FAILS",
+              any("RQ-NEW-STAMPED" in f and "last_dispatched_at" in f for f in f_stamp))
+        check("positive control: NEW queued unit with a null stamp does NOT fail on it",
+              not any("RQ-NEW-CLEAN" in f for f in f_stamp))
+        check("grandfather: OLD stamped unit does NOT fail on the stamp",
+              not any("RQ-OLD-001" in f and "last_dispatched_at" in f for f in f_stamp))
+        check("no_base: the stamp check does not fire without --base",
+              not any("last_dispatched_at" in f for f in scan(root, base=None)[0]))
 
         # no_base: nothing is failed, population still counted.
         failures_nobase, total_nobase, missing_nobase, state_nobase = scan(root, base=None)
