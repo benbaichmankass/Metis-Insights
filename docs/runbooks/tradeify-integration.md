@@ -60,3 +60,10 @@ PROP_EXECUTOR_MODE_TRADEIFY_1=off`.
   the ruleset).
 - **Symbol switching is not built** in the executor; the three-symbol book
   needs it before more than one venue symbol can be enabled.
+- **The watchlist resolver does not find Tradeify's watchlist** (issue #15033,
+  2026-10-01): `instrument-info-dry` on `tradeify_1` refused with
+  `0 Symbol/Bid/Ask tables (need exactly 1)`, so the per-ticket symbol switch,
+  `symbol-switch-dry` and `instrument-info-probe` cannot target a row there
+  yet. A dry run that refuses this way now also prints a click-free
+  `watchlist_dump` line (header words and counts only), the measurement the
+  resolver fix is built from. Pipeline `PI-20261001-BHYHMK2I-0001`.

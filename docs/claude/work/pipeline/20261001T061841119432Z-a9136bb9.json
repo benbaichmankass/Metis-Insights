@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-07",
+    "kind": "date"
+  },
+  "id": "PI-20260930-3QNHBGND-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1 review of PR #14600; lane PAPER-RESET session_01JjPRfAYQKaocTX3QnHBgnD",
+    "rerun": "grep -n 'closed_at' scripts/ops/close_stranded_journal_row.py  # still _now_ms() under exit_kind = still open"
+  },
+  "state": "queued",
+  "what": "[ops tooling] close-stranded-journal-row exit_kind follow-ups, from the manager's review of #14600 (non-blocking): (1) with exit_kind, closed_at is stamped with the run time, not the venue fill time. Row 6131 will read as closed 2026-09-30+ although it filled 2026-09-29T15:12:34Z. Add an optional fill time (or derive it from a fill_order_id) and stamp closed_at from it. (2) add an optional fill_order_id: that is recorded in notes, so the exchange_fill claim carries its evidence. (3) add regression tests for a SHORT row under exit_kind (pnl sign) and for a row id belonging to another account or symbol (must be refused_row_not_open). | (4) Nit seen on #15062: close_stranded_journal_row_action.sh still echoes '(broker-flat verified first)' in APPLY mode, which is false on the netted path. Make it neutral."
+}

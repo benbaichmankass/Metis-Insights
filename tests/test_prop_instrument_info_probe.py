@@ -719,3 +719,38 @@ def test_review_b_the_not_found_alert_says_recovered_or_not(browser):
     assert any("Escape pressed, recovered: nothing unidentified left visible" in a for a in got["alerts"])
     got, _ = run(browser, page_html(stray_for="BTCUSD"), symbols=("BTCUSD",))
     assert any("Escape pressed, NOT recovered: unidentified element(s) still visible: 1" in a for a in got["alerts"])
+
+
+# ── click-free watchlist dump on a refused resolve (TRADEIFY-WIRE, issue #15033) ──
+
+
+def test_breakout_layout_resolves_as_before_and_records_no_watchlist_dump(browser):
+    got, st = run(browser, page_html(), symbols=("BTCUSD",), click=False)
+    assert got["refused"] is None and "watchlist_dump" not in got
+    assert st["clicks"] == [] and never_traded(st) is None
+
+
+def test_a_non_table_watchlist_is_refused_and_measured_click_free(browser):
+    # Tradeify-like stand-in: the watchlist is a div grid, so there is no
+    # Symbol/Bid/Ask <table>; the 6+ digit id in a header must be masked.
+    html = page_html().replace(
+        "<table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>",
+        '<div data-test-id="watchlist_grid"><div class="hdr"><span>Symbol</span><span>Sell</span>'
+        '<span>Buy</span><span>Spread 1234567</span></div></div><table><thead><tr><th>X</th></tr></thead>')
+    got, st = run(browser, html, symbols=("ETHUSD",), click=False)
+    assert "0 Symbol/Bid/Ask tables" in (got["refused"] or "")
+    dump = got["watchlist_dump"]
+    assert any(d["headers"][:3] == ["symbol", "sell", "buy"] for d in dump["divgrids"])
+    assert "watchlist_grid" in dump["watchlist_test_ids"]
+    assert all("1234567" not in h for d in dump["divgrids"] for h in d["headers"])
+    assert dump["iframes"] == 0 and isinstance(dump["instrument_rows_total"], int)
+    assert st["clicks"] == [] and never_traded(st) is None
+
+
+def test_the_tick_prints_the_watchlist_dump_on_its_own_line(capsys):
+    import scripts.prop.prop_executor_tick as tick
+
+    tick.emit_info_probe({"mode": "dry", "alerts": [], "refused": "0 Symbol/Bid/Ask tables (need exactly 1)",
+                          "watchlist_dump": {"tables": [], "iframes": 0}})
+    out = capsys.readouterr().out.strip().splitlines()
+    assert out[0].startswith('{"watchlist_dump"') and out[-1].startswith('{"instrument_info_summary"')

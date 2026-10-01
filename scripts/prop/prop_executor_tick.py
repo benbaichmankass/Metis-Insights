@@ -200,6 +200,10 @@ def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
     got = dict(got)
     for sym, r in (got.pop("results", None) or {}).items():
         emit({"instrument_info": {"symbol": sym, **r}}, *secrets)
+    if "watchlist_dump" in got:
+        # Click-free watchlist shape (issue #15033), on its own line so the
+        # summary stays last for a tail-read log.
+        emit({"watchlist_dump": got.pop("watchlist_dump")}, *secrets)
     emit({"instrument_info_summary": got}, *secrets)
     return EXIT_UNPARSED if got.get("alerts") else EXIT_OK
 
