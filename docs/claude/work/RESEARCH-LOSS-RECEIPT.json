@@ -1,57 +1,63 @@
 {
-  "generated_at": "2026-10-01T06:10:35Z",
+  "generated_at": "2026-10-01T18:29:15Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": "36823329015",
+    "run_id": "36907099712",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
       "findings": [
         {
-          "age_hours": 114.6,
+          "age_hours": 126.9,
           "branch": "automation/research-queue-stamp-36239222079-1",
           "pr": 12989,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 109.1,
+          "age_hours": 121.4,
           "branch": "automation/research-queue-stamp-36257853974-1",
           "pr": 13012,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 93.0,
+          "age_hours": 105.3,
           "branch": "automation/research-result-36308457855-1",
           "pr": 13105,
           "title": "research result: unattributed (run 36308457855)"
         },
         {
-          "age_hours": 57.4,
+          "age_hours": 69.7,
           "branch": "automation/research-queue-stamp-36477235568-1",
           "pr": 13792,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 40.1,
+          "age_hours": 52.4,
           "branch": "automation/e35-bracket-corpus-36571462010-1",
           "pr": 14228,
           "title": "corpus: e35 bracket sweep (run 36571462010)"
         },
         {
-          "age_hours": 22.8,
+          "age_hours": 35.1,
           "branch": "automation/research-queue-grade-36683285620-1",
           "pr": 14614,
           "title": "research-queue: mechanical grading (auto)"
         },
         {
-          "age_hours": 17.1,
+          "age_hours": 29.4,
           "branch": "automation/research-queue-grade-36718923692-1",
           "pr": 14736,
           "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 11.0,
+          "branch": "automation/research-queue-grade-36830378688-1",
+          "pr": 15083,
+          "title": "research-queue: mechanical grading (auto)"
         }
       ],
-      "population": "97 open PRs; 75 automation/*; 7 carry research; 68 automation/* carry none (not graded here)",
+      "population": "99 open PRs; 78 automation/*; 8 carry research; 70 automation/* carry none (not graded here)",
       "state": "findings",
       "threshold_hours": 6.0
     },
@@ -421,12 +427,12 @@
         }
       ],
       "pending_merge": [],
-      "population": "54 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-17 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1126 produced no result by design (skipped); 74 result file(s) on origin/main",
+      "population": "56 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-17 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1231 produced no result by design (skipped); 79 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "2958 artifact(s) listed, 2958 unexpired, 2651 expire within 72.0h across 2650 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "2843 artifact(s) listed, 2843 unexpired, 2560 expire within 72.0h across 2560 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },
