@@ -4207,6 +4207,21 @@ class DXtradeAdapter(PropPlatformAdapter):
                     pass
         return out
 
+    def read_linked_symbol(self, page: Any) -> Optional[str]:
+        """The terminal's linked symbol, read CLICK-FREE (INFO_PROBE_RESOLVE_JS with no targets, then the
+        cleanup), or None when it cannot be read. Used by the dry round trip to restore the link it moved
+        (manager review of #15002)."""
+        try:
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[]]) or {}
+            return res.get("linked_symbol") if res.get("ok") else None
+        except Exception:
+            return None
+        finally:
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
+
     def link_state_dump(self, page: Any) -> Dict[str, Any]:
         """READ-ONLY (LINK_STATE_DUMP_JS): watchlist rows with the element hit at each Symbol cell's
         centre, every symbol_input, and the sidebar ticket's buttons. Clicks nothing."""

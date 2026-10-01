@@ -179,6 +179,20 @@ def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
         emit({"instrument_search_dump": fr}, *secrets)
 
 
+def emit_round_trip(res: Any, *secrets: str) -> int:
+    """Print a round-trip / close-position result (reads, actions, reports,
+    alerts, then the ``done`` line) and return the tick's exit code:
+    ``EXIT_UNPARSED`` when it halted OR the linked symbol was not restored
+    and verified (``pe.round_trip_failed``; manager review of #15020 -- a
+    failed restore used to exit 0 because only ``halted`` was checked)."""
+    emit({"reads": res.reads}, *secrets)
+    for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):
+        for it in items:
+            emit({key: it}, *secrets)
+    emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+    return EXIT_UNPARSED if pe.round_trip_failed(res) else EXIT_OK
+
+
 def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
     """Print a ``probe_instrument_info`` result: one line per symbol, then the
     summary (alerts, restore, watchlist diff) LAST so a tail-read log keeps
@@ -475,17 +489,13 @@ def main(argv: Optional[list] = None) -> int:
                         venue_symbol=args.round_trip, side=args.side, lots=args.lots,
                         arm=(mode == "round_trip_live"), order_type=args.order_type,
                         sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
-                emit({"reads": res.reads}, *secrets)
-                for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):
-                    for it in items:
-                        emit({key: it}, *secrets)
-                emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+                code = emit_round_trip(res, *secrets)
                 if args.login == "reuse":
                     try:
                         save_storage_state(context, args.storage_state)
                     except Exception as exc:
                         emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
-                return EXIT_UNPARSED if res.halted else EXIT_OK
+                return code
             res = pe.run_cycle(
                 adapter=adapter, page=page, api=api, cfg=cfg, mode=mode,
                 ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),

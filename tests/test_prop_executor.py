@@ -3656,3 +3656,157 @@ def test_a_passing_band_check_is_logged_with_the_quote_it_used(env):
     ok = [a for a in res.actions if a["what"] == "band_ok"]
     assert len(ok) == 1 and ok[0]["why"] == "ask 120.0 inside the ticket's entry band 119.5..120.5"
     assert len(_places(ad)) == 1
+
+
+# ── the dry round trip restores the linked symbol it moved (manager review of #15002) ──
+
+
+class _LinkingAdapter(FakeAdapter):
+    """Models the terminal's linked symbol: the dry place_bracket switches it to the ticket's symbol."""
+
+    def __init__(self, linked="SOLUSD", fail_restore=False, raise_in_place=False, **kw):
+        super().__init__(**kw)
+        self.linked, self.fail_restore, self.raise_in_place = linked, fail_restore, raise_in_place
+
+    def read_linked_symbol(self, page):
+        self.calls.append(("read_linked_symbol",))
+        return self.linked
+
+    def select_linked_symbol(self, page, sym):
+        self.calls.append(("select_linked_symbol", sym))
+        before = self.linked
+        if self.fail_restore:
+            return {"ok": False, "clicked": True, "before": before, "after": before, "why": "did not follow"}
+        self.linked = sym
+        return {"ok": True, "clicked": before != sym, "before": before, "after": sym}
+
+    def place_bracket(self, page, spec, *, arm=False):
+        self.linked = spec.venue_symbol
+        if self.raise_in_place:
+            self.calls.append(("place_bracket", spec.ticket_id, arm))
+            raise RuntimeError("terminal went away")
+        return super().place_bracket(page, spec, arm=arm)
+
+
+def test_dry_round_trip_restores_and_verifies_the_original_linked_symbol(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD")
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    names = [c[0] for c in ad.calls]
+    assert names.index("read_linked_symbol") < names.index("place_bracket") < names.index("select_linked_symbol")
+    assert ("select_linked_symbol", "SOLUSD") in ad.calls and ad.linked == "SOLUSD"
+    assert not any("RESTORE" in a for a in res.alerts)
+
+
+def test_dry_round_trip_restores_even_when_the_walk_raises(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD", raise_in_place=True)
+    with pytest.raises(RuntimeError):
+        pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                          venue_symbol="ETHUSD", arm=False)
+    assert ("select_linked_symbol", "SOLUSD") in ad.calls and ad.linked == "SOLUSD"
+
+
+def test_a_failed_restore_is_an_alert(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD", fail_restore=True)
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert any("RESTORE FAILED" in a and "SOLUSD" in a for a in res.alerts)
+
+
+def test_an_unreadable_link_before_the_walk_is_an_alert_and_nothing_is_reselected(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked=None)
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert not any(c[0] == "select_linked_symbol" for c in ad.calls)
+    assert any("could not be read" in a for a in res.alerts)
+
+
+def test_review_a_failed_or_unreadable_restore_fails_the_round_trip_exit(env):
+    # Manager review of #15020: a failed restore exited 0 because the tick's
+    # round-trip branch only checked res.halted. Both link alerts must fail it.
+    ledger, _ = env
+    for ad in (_LinkingAdapter(linked="SOLUSD", fail_restore=True), _LinkingAdapter(linked=None)):
+        res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                                venue_symbol="ETHUSD", arm=False)
+        assert not res.halted and pe.round_trip_failed(res) is True
+    ok = pe.run_round_trip(adapter=_LinkingAdapter(linked="SOLUSD"), page=None, api=FakeApi(),
+                           cfg=_eth_not_enabled(), ledger=ledger, venue_symbol="ETHUSD", arm=False)
+    assert not any(str(a).startswith(pe.LINK_RESTORE_ALERTS) for a in ok.alerts)
+    assert pe.round_trip_failed(ok) is False
+
+
+def test_review_the_tick_exits_3_when_a_dry_restore_fails(env, capsys):
+    # CLI-level (manager re-review of #15020): the tick's round-trip branch
+    # returns emit_round_trip(res); a real dry round trip whose restore fails
+    # (or whose link is unreadable) must exit 3, and a clean one 0.
+    from scripts.prop import prop_executor_tick as tick
+    ledger, _ = env
+    for ad, want in ((_LinkingAdapter(linked="SOLUSD", fail_restore=True), tick.EXIT_UNPARSED),
+                     (_LinkingAdapter(linked=None), tick.EXIT_UNPARSED),
+                     (_LinkingAdapter(linked="SOLUSD"), tick.EXIT_OK)):
+        res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                                venue_symbol="ETHUSD", arm=False)
+        assert not res.halted and tick.emit_round_trip(res) == want
+    out = capsys.readouterr().out
+    assert "RESTORE FAILED" in out and '"executor": "done"' in out
+    src = (Path(__file__).resolve().parents[1] / "scripts/prop/prop_executor_tick.py").read_text()
+    branch = src[src.index('if mode.startswith("round_trip") or mode.startswith("close_position"):'):
+                 src.index("res = pe.run_cycle(")]
+    assert "code = emit_round_trip(res, *secrets)" in branch and "return code" in branch
+    assert "if res.halted else" not in branch
+
+
+@pytest.mark.parametrize("fail_restore,linked,want", [(True, "SOLUSD", 3), (False, None, 3), (False, "SOLUSD", 0)])
+def test_review_cli_round_trip_dry_exit_code_follows_the_restore(tmp_path, monkeypatch, capsys,
+                                                                 fail_restore, linked, want):
+    # REAL CLI (manager re-review of #15020): the whole tick.main(["--round-trip", ...]) path --
+    # argument parsing, mode resolution, the session branch, run_round_trip and the exit code -- with
+    # only the outside world faked: the browser (a no-op page), the platform config, the adapter, the
+    # executor config and the local API.
+    import contextlib
+    import types
+    pytest.importorskip("playwright.sync_api")
+    import playwright.sync_api as pw_api
+    from scripts.prop import prop_executor_tick as tick
+
+    page = types.SimpleNamespace(wait_for_timeout=lambda ms: None)
+    context = types.SimpleNamespace(new_page=lambda: page)
+    browser = types.SimpleNamespace(new_context=lambda **kw: context, close=lambda: None)
+    monkeypatch.setattr(pw_api, "sync_playwright", lambda: contextlib.nullcontext(
+        types.SimpleNamespace(chromium=types.SimpleNamespace(launch=lambda **kw: browser))))
+
+    class _CliAdapter(_LinkingAdapter):
+        timeout_ms = 3_000
+
+        def login(self, page, url, username, password):
+            self.calls.append(("login",))
+
+        def wait_ready(self, page, timeout_ms=None):
+            return True
+
+    ad = _CliAdapter(linked=linked, fail_restore=fail_restore)
+    monkeypatch.setenv("METIS_TEST_USER", "zq9-fake-user")
+    monkeypatch.setenv("METIS_TEST_PASS", "zq9-fake-pass")
+    monkeypatch.setattr(tick, "load_platform_config", lambda account: {
+        "platform": "fake", "login_url": "about:blank", "username_env": "METIS_TEST_USER",
+        "password_env": "METIS_TEST_PASS"})
+    monkeypatch.setattr(tick, "adapter_for_platform", lambda platform: ad)
+    monkeypatch.setattr(pe, "load_config", lambda account: _eth_not_enabled())
+    monkeypatch.setattr(pe, "LocalApi", lambda *a, **k: FakeApi())
+    code = tick.main(["--round-trip", "ETHUSD", "--login", "fresh", "--state-dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert ("login",) in ad.calls and any(c[0] == "place_bracket" for c in ad.calls), out
+    assert code == want, out
+    assert ('RESTORE FAILED' in out or 'could not be read' in out) == (want == 3)
+
+
+def test_an_armed_round_trip_does_not_read_or_restore_the_link(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD")
+    pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_sol_only(), ledger=ledger,
+                      venue_symbol="SOLUSD", arm=True, reads=1)
+    assert not any(c[0] in ("read_linked_symbol", "select_linked_symbol") for c in ad.calls)

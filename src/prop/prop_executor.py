@@ -1149,6 +1149,35 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     return res
 
 
+#: Alerts that mean the dry round trip may have LEFT THE TERMINAL LINKED TO THE
+#: WRONG SYMBOL. They are not ``halted`` (no order risk), but the tick must
+#: still exit non-zero on them (manager review of #15020: a failed restore
+#: exited 0 because the round-trip branch only checked ``res.halted``).
+LINK_RESTORE_ALERTS = ("RESTORE FAILED", "linked symbol could not be read before the dry walk")
+
+
+def round_trip_failed(res: CycleResult) -> bool:
+    """True when a round trip / close must exit non-zero: it halted, or the
+    linked symbol was not restored and verified."""
+    return bool(res.halted) or any(str(a).startswith(LINK_RESTORE_ALERTS) for a in res.alerts)
+
+
+def _restore_linked_symbol(res: CycleResult, adapter: Any, page: Any, original: Optional[str]) -> None:
+    """Re-select ``original`` as the linked symbol (a no-op click-free read when it already is) and log
+    the VERIFIED outcome; an unreadable original or a failed restore is an alert."""
+    if not original:
+        res.alerts.append("linked symbol could not be read before the dry walk; not restored")
+        res.log("restore_linked", original=None, ok=False)
+        return
+    try:
+        r = adapter.select_linked_symbol(page, original)
+    except Exception as exc:
+        r = {"ok": False, "why": f"{type(exc).__name__} (code=restore_exception)"}
+    res.log("restore_linked", original=original, **{k: r.get(k) for k in ("ok", "clicked", "before", "after", "why")})
+    if not r.get("ok"):
+        res.alerts.append(f"RESTORE FAILED: the linked symbol should read {original!r} ({r.get('why')})")
+
+
 def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, ledger: IntentLedger,
                    venue_symbol: str, side: str = "long", lots: Optional[float] = None,
                    bracket_pct: float = 0.01, arm: bool = False, reads: int = 20,
@@ -1246,11 +1275,21 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
 
     if arm:
         ledger.record(tid, "intended", spec=spec.as_dict(), purpose="round_trip_test")
+    if not arm:
+        # The dry walk's per-ticket symbol switch leaves the terminal linked to the walked symbol
+        # (manager review of #15002): read the link click-free first, and on EVERY exit (success or
+        # exception) re-select and VERIFY it, alerting when that fails.
+        reader = getattr(adapter, "read_linked_symbol", None)
+        original = reader(page) if reader else None
+        try:
+            att = adapter.place_bracket(page, spec, arm=False)
+            res.log("place_bracket", ticket_id=tid, attempt=_attempt_public(att))
+            res.log("would_close", ticket_id=tid, result=adapter.flatten(page, venue, arm=False))
+        finally:
+            _restore_linked_symbol(res, adapter, page, original)
+        return res
     att = adapter.place_bracket(page, spec, arm=arm)
     res.log("place_bracket", ticket_id=tid, attempt=_attempt_public(att))
-    if not arm:
-        res.log("would_close", ticket_id=tid, result=adapter.flatten(page, venue, arm=False))
-        return res
     if not att.submitted:
         ledger.record(tid, "refused", reasons=[att.detail])
         return stop(f"not submitted: {att.detail}")

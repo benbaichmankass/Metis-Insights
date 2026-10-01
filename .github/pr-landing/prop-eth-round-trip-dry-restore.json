@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager review of #15002 asked for this as a Tier-2 hold: the dry round trip now reads the linked symbol click-free before the walk and re-selects and verifies it on every exit. It touches the prop executor's dry path and adds one adapter reader; the manager reviews and merges.",
+  "why": "After a successful dry walk place_bracket leaves the terminal linked to the walked symbol (ETHUSD) and nothing restored SOLUSD, so the next SOL ticket depended on a switch click. Armed paths are unchanged; the restore uses the existing gated, verified select_linked_symbol."
+}
