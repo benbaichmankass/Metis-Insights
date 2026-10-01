@@ -149,7 +149,11 @@ def test_default_off_reproduces_the_stored_pre_lever_baseline(tmp_path):
     emit = tmp_path / "rows.jsonl"
     out = h.run_backtest(df.copy(), emit_path=str(emit), **base["kwargs"])
     try:
-        assert json.loads(json.dumps(out, default=str, sort_keys=True)) == base["summary"]
+        # run_date is the wall-clock day the harness ran (str(date.today())), not a backtest output: comparing it
+        # made this test fail on every run after the day the baseline was generated.
+        got = json.loads(json.dumps(out, default=str, sort_keys=True))
+        assert got.pop("run_date", None) and "run_date" in base["summary"]
+        assert got == {k: v for k, v in base["summary"].items() if k != "run_date"}
         rows = emit.read_text()
         assert len(rows.splitlines()) == base["emitted_rows_n"]
         assert hashlib.sha256(rows.encode()).hexdigest() == base["emitted_rows_sha256"]
