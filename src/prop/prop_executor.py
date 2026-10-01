@@ -1160,7 +1160,10 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
 
     if sym is None:
         return stop(f"{venue} is not in breakout_routing.yaml")
-    if cfg.enabled_venue_symbols is not None and venue not in cfg.enabled_venue_symbols:
+    # The enabled list gates what the executor may ARM. A dry walk (arm=False) submits nothing and is
+    # exactly the D1-D7 measurement a symbol must pass BEFORE it joins the list (PROP-ETH-DOM B4), so
+    # gating it on that list made the measurement impossible.
+    if arm and cfg.enabled_venue_symbols is not None and venue not in cfg.enabled_venue_symbols:
         return stop(f"{venue} is not in executor.enabled_venue_symbols {cfg.enabled_venue_symbols}")
     if not _f(sym.get("lot_units")) or not _f(sym.get("lot_step")):
         return stop(f"lot size for {venue} is not declared (executor.lots; unmeasured)")
