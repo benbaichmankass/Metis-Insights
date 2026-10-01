@@ -614,38 +614,8 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
 
     _publish_liquidity_state(symbol, candles_df)
 
-    # HTF bias fetch (v2): when ``htf_trend_filter_enabled`` is on in
-    # YAML, fetch the HTF candles + compute the EMA and inject the
-    # values into cfg so the unit's filter can run. Failure degrades
-    # gracefully — the unit treats missing values as filter-off, which
-    # is the v2-no-HTF variant from the backtest (still positive but
-    # weaker). Same fetch pattern as vwap's htf_trend_filter at L378-397.
-    htf_close: Optional[float] = None
-    htf_ema: Optional[float] = None
-    if bool(ict_cfg.get("htf_trend_filter_enabled", True)):
-        htf_tf = str(ict_cfg.get("htf_filter_timeframe") or "1h")
-        ema_period = int(ict_cfg.get("htf_filter_ema_period") or 20)
-        try:
-            htf_df = fetch_candles(
-                symbol, htf_tf, exchange_client=exchange,
-                limit=max(ema_period * 3, 60),
-            )
-            if htf_df is not None and not htf_df.empty and "close" in htf_df.columns:
-                ema_series = htf_df["close"].ewm(span=ema_period, adjust=False).mean()
-                if pd.notna(ema_series.iloc[-1]):
-                    htf_close = float(htf_df["close"].iloc[-1])
-                    htf_ema = float(ema_series.iloc[-1])
-                    logger.info(
-                        "ict_scalp_5m: HTF bias %s (close=%.2f ema=%.2f tf=%s)",
-                        "bullish" if htf_close > htf_ema else "bearish",
-                        htf_close, htf_ema, htf_tf,
-                    )
-        except Exception as exc:  # noqa: BLE001 — degrade to no-gate
-            logger.warning(
-                "ict_scalp_5m: HTF fetch failed for symbol=%s tf=%s: %s — "
-                "filter degrades to no-gate this tick",
-                symbol, htf_tf, exc,
-            )
+    # HTF bias fetch (v2): see _fetch_htf_bias. Failure degrades to no-gate.
+    htf_close, htf_ema = _fetch_htf_bias("ict_scalp_5m", symbol, ict_cfg, exchange)
 
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **ict_cfg}
     if htf_close is not None and htf_ema is not None:
@@ -728,6 +698,55 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("ict_scalp_5m", sig)
 
 
+def _fetch_htf_bias(
+    name: str, symbol: str, cfg: Dict[str, Any], exchange: Any,
+) -> "tuple[Optional[float], Optional[float]]":
+    """Fetch HTF candles and return ``(htf_close, htf_ema)`` for ict_scalp's
+    HTF trend-bias filter, or ``(None, None)``.
+
+    Shared by ``ict_scalp_signal_builder`` and ``_ict_scalp_variant_builder``
+    (CA-A05-001: the variant builder never fetched, so the filter that
+    ``ict_scalp._DEFAULTS`` turns on never received data). ``cfg`` is the
+    strategy's YAML block; the flag defaults True, matching the unit default.
+    Any failure degrades to ``(None, None)`` — the unit treats missing values
+    as filter-off — with a warning, never an exception.
+    """
+    from src.runtime.market_data import fetch_candles
+
+    if not bool(cfg.get("htf_trend_filter_enabled", True)):
+        return None, None
+    htf_tf = str(cfg.get("htf_filter_timeframe") or "1h")
+    ema_period = int(cfg.get("htf_filter_ema_period") or 20)
+    try:
+        htf_df = fetch_candles(
+            symbol, htf_tf, exchange_client=exchange,
+            limit=max(ema_period * 3, 60),
+        )
+        if htf_df is not None and not htf_df.empty and "close" in htf_df.columns:
+            ema_series = htf_df["close"].ewm(span=ema_period, adjust=False).mean()
+            if pd.notna(ema_series.iloc[-1]):
+                htf_close = float(htf_df["close"].iloc[-1])
+                htf_ema = float(ema_series.iloc[-1])
+                logger.info(
+                    "%s: HTF bias %s (close=%.2f ema=%.2f tf=%s)",
+                    name, "bullish" if htf_close > htf_ema else "bearish",
+                    htf_close, htf_ema, htf_tf,
+                )
+                return htf_close, htf_ema
+    except Exception as exc:  # noqa: BLE001 — degrade to no-gate
+        logger.warning(
+            "%s: HTF fetch failed for symbol=%s tf=%s: %s — "
+            "filter degrades to no-gate this tick",
+            name, symbol, htf_tf, exc,
+        )
+        return None, None
+    logger.warning(
+        "%s: no usable HTF candles for symbol=%s tf=%s — filter degrades to "
+        "no-gate this tick", name, symbol, htf_tf,
+    )
+    return None, None
+
+
 def _ict_scalp_variant_builder(name: str, settings: dict) -> Dict[str, Any]:
     """Shared builder for the M27 P0 Batch-1 ict_scalp per-symbol alt variants
     (ict_scalp_sol_5m / ict_scalp_xrp_5m / ict_scalp_avax_5m).
@@ -781,7 +800,11 @@ def _ict_scalp_variant_builder(name: str, settings: dict) -> Dict[str, Any]:
             f"{name}: no candle data for symbol={symbol} timeframe={timeframe}.")
 
     _publish_liquidity_state(symbol, candles_df)
+    htf_close, htf_ema = _fetch_htf_bias(name, symbol, vcfg, exchange)
     cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **vcfg}
+    if htf_close is not None and htf_ema is not None:
+        cfg["htf_close"] = htf_close
+        cfg["htf_ema"] = htf_ema
 
     try:
         pkg = order_package(cfg, candles_df=candles_df)
