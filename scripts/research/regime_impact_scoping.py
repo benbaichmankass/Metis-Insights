@@ -192,13 +192,24 @@ def fold_plan(n: int) -> List[Tuple[np.ndarray, np.ndarray]]:
     return [(np.concatenate(blocks[:k]), blocks[k]) for k in range(1, K_BLOCKS)]
 
 
+#: Selection strictness. The defaults ARE RQ-20260930-701's registered rule (train n >= 8 and train net
+#: R < 0). RQ-20260930-703 re-runs the same harness with a conservative rule: --min-cell-n 20 and
+#: --loss-se 1.0 (a cell is selected only when its train MEAN net R is below -1 standard error, so a
+#: cell that is merely a little negative on a thin sample is not gated).
+SELECTION = {"min_cell_n": MIN_CELL_N, "loss_se": 0.0}
+
+
 def select_cells(true_cell: np.ndarray, net_r: np.ndarray, train: np.ndarray) -> np.ndarray:
     sel = []
     for c in np.unique(true_cell[train]):
         if c < 0:
             continue
         m = train[true_cell[train] == c]
-        if len(m) >= MIN_CELL_N and net_r[m].sum() < 0:
+        if len(m) < SELECTION["min_cell_n"]:
+            continue
+        x = net_r[m]
+        se = float(x.std(ddof=1) / np.sqrt(len(x))) if len(x) > 1 else 0.0
+        if x.mean() < -SELECTION["loss_se"] * se and x.sum() < 0:
             sel.append(c)
     return np.array(sel, dtype=int)
 
@@ -329,9 +340,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--seeds", type=int, default=300)
     ap.add_argument("--ledgers", default=str(REPO / "comms/strategy_evidence/runs/*/*__trades.jsonl"))
+    ap.add_argument("--min-cell-n", type=int, default=MIN_CELL_N,
+                    help="train trades a cell needs before it can be selected (701: 8)")
+    ap.add_argument("--loss-se", type=float, default=0.0,
+                    help="select a cell only if its train mean net R < -loss_se * SE (701: 0 = any loss)")
     args = ap.parse_args(argv)
     if args.seeds < 200:
         ap.error("--seeds must be >= 200 (pre-registered floor)")
+    if args.min_cell_n < 1 or args.loss_se < 0:
+        ap.error("--min-cell-n must be >= 1 and --loss-se >= 0")
+    SELECTION.update(min_cell_n=args.min_cell_n, loss_se=args.loss_se)
     import yaml
     strategies = (yaml.safe_load((REPO / "config/strategies.yaml").read_text()) or {})
     strategies = strategies.get("strategies", strategies)
@@ -348,7 +366,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     for k in legs:
         legs[k]["meta"]["has_live_policy_cell"] = k in cells
     measurement = {"label": label, "scoping_only_not_a_promotion_case": True, "axis": "trend (ADX-14); vol NOT covered",
-                   "bar": {"per_test_trade_r": PER_TRADE_BAR, "p5_gt": 0, "min_cell_n": MIN_CELL_N, "min_leg_n": MIN_LEG_N,
+                   "selection": dict(SELECTION),
+                   "bar": {"per_test_trade_r": PER_TRADE_BAR, "p5_gt": 0, "min_cell_n": SELECTION["min_cell_n"], "min_leg_n": MIN_LEG_N,
                            "min_legs": MIN_LEGS, "blocks": K_BLOCKS, "seeds": args.seeds},
                    "skipped": skipped, "legs": {k: legs[k]["meta"] for k in legs}, **scoped}
     note = (f"{label}. Upper-bound scoping, NOT a promotion case: ΔnetR = net R of dropped test-block trades negated, "
