@@ -14,6 +14,38 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-01T14:39:06Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-10-01T14:32:08Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-01T14:22:46Z",
       "rows_graded": 0,
       "by_state": {
@@ -940,43 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-01T06:36:04Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-10-01T06:31:00Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-01T14:22:46Z",
+  "updated_at": "2026-10-01T14:39:06Z",
   "latest": {
-    "generated_at": "2026-10-01T14:22:46Z",
+    "generated_at": "2026-10-01T14:39:06Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1248,
+      "unregistered_claude_branches": 1247,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1650,8 +1650,8 @@
         ],
         "session_01HYq6XtfesZ57VyaQrK6CL1": [
           "claude/e44-lane-supervisor-build",
-          "claude/mgr-pi-prop-drop-0917",
-          "claude/mgr-pipeline-14053-needs-data"
+          "claude/mgr-pipeline-14053-needs-data",
+          "claude/mgr-pipeline-asn-decision"
         ],
         "session_01HaWB6g8EsN1x64hKKQHT2B": [
           "claude/mlopt-regime-recency-adopt",
