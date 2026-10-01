@@ -162,7 +162,6 @@ markers that were cheaper to lie to than to satisfy — `new-table-wiring-guard`
 |---|---|---|
 | `docs/claude/DUE.md` | `scripts/ops/render_due_list.py` | verified: generator exists and names the file |
 | `docs/claude/READOUT.md` | `scripts/ops/constraint_readout.py` | verified: generator exists and names the file |
-| `docs/research/prop-journal/prop-journal-truth-2026-10-01.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/strategy-coverage-matrix.md` | `scripts/check_strategy_coverage.py` | verified: generator exists and names the file |
 | `docs/training-population-matrix.md` | `scripts/check_training_population.py` | verified: generator exists and names the file |
 
@@ -895,6 +894,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/prop-candidates-2026-09-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/hyrotrader-bybit-deep-dive-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/hyro-strategy-feasibility-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/prop-journal/prop-journal-truth-2026-10-01.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-platform-automation-survey-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-dxtrade-firms-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/tradeify-portfolio-feasibility-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
