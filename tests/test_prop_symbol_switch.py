@@ -407,7 +407,7 @@ LATE_LINK_JS = """([sym, ms]) => { const tr = [...document.querySelectorAll('tr.
 # A toolbar symbol box with a suggestion list: typing lists matches as
 # li[role=option]; clicking one COMMITS it; blur shows the committed symbol
 # (an uncommitted typed value never survives blur). ``dialog`` also opens a dialog.
-SUGGEST_BOX_JS = """dialog => { const box = document.querySelector('[data-test-id=symbol_input]');
+SUGGEST_BOX_JS = """dialog => { const box = document.querySelector('.toolbar__item [data-test-id=symbol_input]');
   window.__committed = box.value;
   box.addEventListener('input', () => {
     document.querySelectorAll('.suggest').forEach(e => e.remove());
@@ -785,3 +785,84 @@ def test_shared_predicate_excludes_a_menu_less_positions_table_with_instrument_r
     # tr.instrument rows: excluded by the predicate; a plain-<tr> table is not a known shape, so the
     # role=option requirement is what keeps it out (tests above).
     assert got == [True, False]
+
+
+
+# ── manager 2026-10-01 08:58Z (operator screenshot of breakout_1): a chart
+# QUICK-TRADE BAR (Sell | qty ± | Buy) sits beside the linked symbol box, and
+# the watchlist header has its own "Symbol..." SEARCH box. The toolbar route
+# types only into the resolved box holding the link, and never touches the bar.
+
+QUICK_BAR_JS = """() => { const item = document.querySelector('.toolbar__item');
+  const bar = document.createElement('div'); bar.className = 'quick-trade';
+  bar.innerHTML = '<button class="qt-sell">Sell 2,685.83</button><button class="qt-minus">-</button>'
+    + '<input class="qt-qty" value="0.01"><button class="qt-plus">+</button><button class="qt-buy">2,685.84 Buy</button>';
+  item.appendChild(bar);
+  const qty = bar.querySelector('.qt-qty');
+  for (const ev of ['focus', 'input', 'keydown']) qty.addEventListener(ev, () => { window.__qtyTouched = (window.__qtyTouched || 0) + 1; });
+  bar.addEventListener('click', () => { window.__barClicked = (window.__barClicked || 0) + 1; }, true); }"""
+# The watchlist header's own search box -- FIRST [data-test-id=symbol_input] in DOM order.
+WL_SEARCH_JS = """() => { const wl = document.querySelector('.widgetNew__container');
+  const s = document.createElement('input'); s.setAttribute('data-test-id', 'symbol_input');
+  s.className = 'wl-search'; s.placeholder = 'Symbol...'; wl.insertBefore(s, wl.firstChild);
+  for (const ev of ['focus', 'input', 'keydown']) s.addEventListener(ev, () => { window.__searchTouched = (window.__searchTouched || 0) + 1; }); }"""
+
+
+def toolbar_case(browser, *setup, html=None):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(html or page_html(link_breaks_for="ETHUSD"))
+    for js, arg in setup:
+        p.evaluate(js, arg) if arg is not None else p.evaluate(js)
+    got = fast_adapter().select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    st = p.evaluate("""() => ({clicks: window.__clicks, trade: window.__trade || 0, ticket: window.__ticket || 0,
+      linked: document.querySelector('.toolbar__item [data-test-id=symbol_input]').value,
+      bar: window.__barClicked || 0, qty: window.__qtyTouched || 0, search: window.__searchTouched || 0,
+      search_value: (document.querySelector('.wl-search') || {}).value || ''})""")
+    p.close()
+    return got, st
+
+
+def test_shared_predicate_excludes_the_chart_quick_trade_bar_but_not_the_symbol_box(browser):  # noqa: F811
+    from src.prop.platform.dxtrade import WATCHLIST_OR_TRADE_JS
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate(QUICK_BAR_JS)
+    got = p.evaluate("() => {" + WATCHLIST_OR_TRADE_JS + """
+      const f = __metisIsWatchlistOrTradeTable;
+      return ['.qt-sell', '.qt-buy', '.qt-qty', '.qt-plus', '.toolbar__item [data-test-id=symbol_input]',
+              '[data-test-id=instrument_info_button]'].map(q => f(document.querySelector(q))); }""")
+    p.close()
+    assert got == [True, True, True, True, False, False]
+
+
+@pytest.mark.parametrize("dropdown", [False, True])
+def test_review_toolbar_route_never_touches_the_quick_trade_bar(browser, dropdown):  # noqa: F811
+    setup = [(QUICK_BAR_JS, None)] + ([(SUGGEST_BOX_JS, False)] if dropdown else [])
+    got, st = toolbar_case(browser, *setup)
+    assert st["bar"] == 0 and st["qty"] == 0                       # never clicked, focused or typed into
+    assert not any(str(c).startswith("qt-") for c in st["clicks"])
+    assert got["ok"] is dropdown and st["linked"] == ("ETHUSD" if dropdown else "SOLUSD")
+    assert st["trade"] == 0 and st["ticket"] == 0
+
+
+@pytest.mark.parametrize("dropdown", [False, True])
+def test_review_toolbar_route_types_only_into_the_linked_box_never_the_watchlist_search(browser, dropdown):  # noqa: F811
+    setup = [(WL_SEARCH_JS, None)] + ([(SUGGEST_BOX_JS, False)] if dropdown else [])
+    got, st = toolbar_case(browser, *setup)
+    assert st["search"] == 0 and st["search_value"] == ""           # the "Symbol..." search box is untouched
+    assert got["toolbar"]["attempted"] is True
+    assert got["ok"] is dropdown and st["linked"] == ("ETHUSD" if dropdown else "SOLUSD")
+    assert st["trade"] == 0 and st["ticket"] == 0
+
+
+def test_review_toolbar_route_refuses_a_tagged_box_not_holding_the_link(browser):  # noqa: F811
+    from src.prop.platform.dxtrade import DXtradeAdapter as A
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate("() => document.querySelector('[data-test-id=symbol_input]').setAttribute('data-metis-sym-input', '1')")
+    out = {}
+    a = fast_adapter()
+    a._resolve_link = lambda page, targets: {"ok": True}            # leave the stale tag in place
+    ok = A._toolbar_select(a, p, "ETHUSD", "BTCUSD", 50, out)
+    p.close()
+    assert ok is False and "not the linked symbol 'BTCUSD'" in out["toolbar"]["why"]

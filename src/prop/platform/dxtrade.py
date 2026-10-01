@@ -2844,7 +2844,10 @@ LINK_STATE_DUMP_JS = r"""
 #:     Positions / Orders table with no widget_menu_* button (unmeasured on
 #:     Tradeify; manager review 2026-10-01 08:31Z);
 #:   * an Orders / Positions widget: the widget(New)__container (<= 12 up)
-#:     of a widget_menu_ORDERS / _POSITIONS button, else its 6th ancestor.
+#:     of a widget_menu_ORDERS / _POSITIONS button, else its 6th ancestor;
+#:   * a quick-trade bar (Sell | qty | Buy beside the chart's symbol box,
+#:     operator screenshot 2026-10-01): the smallest ancestor (<= 6 up) of a
+#:     Buy-side control that also holds a Sell-side control.
 #: A JS SNIPPET (a function declaration) for concatenation into any
 #: evaluate body: ``r"""() => {""" + WATCHLIST_OR_TRADE_JS + r"""...}"""``.
 #: The scopes are computed once, on first use, per enclosing evaluate call.
@@ -2870,6 +2873,20 @@ WATCHLIST_OR_TRADE_JS = r"""
         let b = box(c, 12);
         if (!b) { b = c; for (let i = 0; i < 6 && b.parentElement && b.parentElement !== document.body; i++) b = b.parentElement; }
         scopes.push(b);
+      }
+      // Quick-trade bars (manager 2026-10-01 08:58Z, operator screenshot: the
+      // Chart widget shows "Sell 2,685.83 | qty 0.01 | 2,685.84 Buy" beside the
+      // linked symbol box): the SMALLEST ancestor (<= 6 up) of any Buy-side
+      // control that also holds a Sell-side control -- buttons, its qty field
+      // and everything else inside it are excluded.
+      const side = e => { const s = n_([e.getAttribute('data-test-id'), e.getAttribute('aria-label'),
+                                        e.getAttribute('title'), t_(e)].filter(Boolean).join(' '));
+                          return /\bbuy\b/.test(s) ? 'buy' : /\bsell\b/.test(s) ? 'sell' : ''; };
+      const ctl = 'button, [role=button], [data-test-id=BUY], [data-test-id=SELL]';
+      for (const c of document.querySelectorAll(ctl)) {
+        if (side(c) !== 'buy') continue;
+        for (let x = c.parentElement, i = 0; x && x !== document.body && i < 6; x = x.parentElement, i++)
+          if ([...x.querySelectorAll(ctl)].some(o => side(o) === 'sell')) { scopes.push(x); break; }
       }
       for (const b of document.querySelectorAll('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
         let w = box(b, 12);
@@ -4565,6 +4582,17 @@ class DXtradeAdapter(PropPlatformAdapter):
         box = page.locator("[data-metis-sym-input='1']")
         if box.count() != 1:
             tb["why"] = f"{box.count()} tagged linked inputs (need exactly 1)"
+            return False
+        # Type ONLY into the box that holds the current link (manager
+        # 2026-10-01 08:58Z: the watchlist header carries a second "Symbol..."
+        # search box that adds symbols and must never be typed into).
+        try:
+            held = (box.first.input_value(timeout=3_000) or "").strip().upper()
+        except Exception as exc:
+            tb["why"] = f"linked input not readable ({type(exc).__name__})"
+            return False
+        if not original or held != original:
+            tb["why"] = f"the tagged input reads {held!r}, not the linked symbol {original!r}; not typed into"
             return False
         typed = False
         try:
