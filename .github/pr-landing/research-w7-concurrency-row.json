@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1, register-only: ONE new pipeline row (docs/claude/work/pipeline/*.json) filed through scripts/ops/pipeline.py, which validated it (due_when and origin.rerun present). It records the measured ~75-minute concurrency hold of a research-queue-dispatch cycle (run 36798175014: batch landing 34 min, stamp landing 37 min) and the three options to cost out. No src/, config/, workflow or script change."
+}
