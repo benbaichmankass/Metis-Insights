@@ -548,19 +548,10 @@ def main(argv: Optional[list] = None) -> int:
                 max_lots=cfg.watched_click_max_lots if args.watched_click else None,
                 only_ticket_id=args.ticket_id or None,
                 sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
-            if not (args.watched_click or args.ticket_id):
-                # PROP-TRAIL: the leg's declared trail, by amending the resting
-                # SL. AFTER the cycle, so it never delays a ticket; same mode
-                # (read_only walks to the edit control and stops).
-                # Fully contained: an exception here must not reach the outer
-                # handler, whose record_tick_error trips the entry halt.
-                try:
-                    from src.prop import prop_trail
-                    prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
-                                              state_dir=state_dir, candles_fn=prop_trail.default_candles_fn(),
-                                              res=res)
-                except Exception as exc:  # noqa: BLE001
-                    res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
+            # The cycle's reads / actions / reports / alerts are emitted and the
+            # session saved BEFORE the trail step (manager re-review of #15316):
+            # a trail step that hangs past the wrapper's wall clock must not
+            # lose this tick's alert lines or its ping.
             emit({"reads": res.reads}, *secrets)
             for a in res.actions:
                 emit({"action": a}, *secrets)
@@ -574,6 +565,25 @@ def main(argv: Optional[list] = None) -> int:
                     save_storage_state(context, args.storage_state)
                 except Exception as exc:
                     emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
+            if not (args.watched_click or args.ticket_id):
+                # PROP-TRAIL: the leg's declared trail, by amending the resting
+                # SL. AFTER the cycle and its output, so it never delays a
+                # ticket or an alert; same mode (read_only walks to the edit
+                # control and stops). Fully contained: an exception here must
+                # not reach the outer handler, whose record_tick_error trips
+                # the entry halt. Its own reports / alerts are emitted after it.
+                n_rep, n_al = len(res.reports), len(res.alerts)
+                try:
+                    from src.prop import prop_trail
+                    prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
+                                              state_dir=state_dir, candles_fn=prop_trail.default_candles_fn(),
+                                              res=res)
+                except Exception as exc:  # noqa: BLE001
+                    res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
+                for r in res.reports[n_rep:]:
+                    emit({"report": r}, *secrets)
+                for al in res.alerts[n_al:]:
+                    emit({"alert": al}, *secrets)
             return EXIT_UNPARSED if res.halted else EXIT_OK
         except Exception as exc:
             emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)

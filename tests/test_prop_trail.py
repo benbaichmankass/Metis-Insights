@@ -12,7 +12,10 @@ from src.prop.platform.base import Position
 from src.prop.prop_executor import ExecutorConfig
 
 T0 = datetime(2026, 10, 1, 10, 0, tzinfo=timezone.utc)   # signal bar CLOSE
-SOL = {"timeframe": "1h", "atr_stop_mult": 2.5, "trail_mult": 3.5, "tp_r": 6.0}
+# ``decision_bar: closed`` here: signal_time at/after T0 is then already in
+# harness bar entry_i+1. The live breakout legs are ``forming`` (the default);
+# test_forming_leg_does_not_manage_its_signal_bar covers that shift.
+SOL = {"timeframe": "1h", "atr_stop_mult": 2.5, "trail_mult": 3.5, "tp_r": 6.0, "decision_bar": "closed"}
 ETH = {**SOL, "stale_exit_bars": 12, "stale_exit_below_r": 0.0, "trail_decay_stall_bars": 10,
        "trail_decay_tight_mult": 1.8, "trail_decay_arm_r": 2.99}
 
@@ -264,3 +267,20 @@ def test_unparsed_sl_after_amend_is_not_treated_as_loosened(tmp_path):
     res = run(a, Api(), "live", tmp_path)
     assert len(a.calls) == 1                       # no blind "restore" click
     assert any("not confirmed" in x for x in res.alerts)
+
+
+def test_forming_leg_does_not_manage_its_signal_bar():
+    # A ``decision_bar: forming`` leg (both live breakout legs) fires INSIDE
+    # the bar that broke the channel: that bar is harness bar i, and the trail
+    # starts at entry_i+1 (scripts/backtest_trend.py), one bar later.
+    forming_leg = {k: v for k, v in SOL.items() if k != "decision_bar"}
+    c = bars([(130, 99, 103), (104, 102, 103.5)], forming=(104, 103, 103.5))
+    sig = T0 + timedelta(minutes=20)                         # inside the bar opening at T0
+    p = pt.plan_trail(leg=forming_leg, direction="long", entry=100, initial_sl=95, signal_time=sig,
+                      resting_sl=95, candles=c, now=now_after(2), price_step=0.01)
+    assert p.bars == 1                                       # the T0 bar (high 130) is not replayed
+    assert p.replay_sl == pytest.approx(104 - 7.0)           # extreme from the managed bar only
+    closed = pt.plan_trail(leg=SOL, direction="long", entry=100, initial_sl=95, signal_time=sig,
+                           resting_sl=95, candles=c, now=now_after(2), price_step=0.01)
+    assert closed.bars == 2                                  # a closed-bar leg manages from the T0 bar
+    assert closed.replay_sl == pytest.approx(130 - 7.0)

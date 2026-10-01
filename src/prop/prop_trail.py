@@ -39,7 +39,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional
 
@@ -123,7 +123,17 @@ def plan_trail(*, leg: Mapping[str, Any], direction: str, entry: float, initial_
     if candles is None or len(candles) == 0 or "timestamp" not in candles:
         return TrailPlan("skip", "no candles")
     atr = risk / stop_mult
-    bars = _closed_bars(candles, _floor_tf(signal_time, tf_min), tf_min, now)
+    # Harness parity (scripts/backtest_trend.py: entry on bar i, trail from
+    # entry_i+1). ``signal_time`` is the wall clock when the ticket was built
+    # (breakout_executor). A ``decision_bar: forming`` leg (the default; both
+    # breakout legs) fires INSIDE the bar that broke the channel, so that bar
+    # is harness bar i and is NOT managed: start one bar later. A
+    # ``decision_bar: closed`` leg fires just after bar i closed, so the bar
+    # holding signal_time already is i+1 (manager re-review of #15316).
+    start = _floor_tf(signal_time, tf_min)
+    if str(leg.get("decision_bar") or "forming").lower() != "closed":
+        start = start + timedelta(minutes=tf_min)
+    bars = _closed_bars(candles, start, tf_min, now)
     long_ = direction == "long"
 
     decay_tight = _num(leg, "trail_decay_tight_mult")
