@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "kind": "observation",
+    "check_every_days": 1,
+    "clears_when": "an edit-dialog-probe readout on a real open breakout_1 position is posted on #15347 and either the EDIT_DIALOG_MEASURED flip PR is opened (held Tier-2) or the selectors are adjusted from it; OR the manager kills this with a stated reason"
+  },
+  "id": "PI-20261001-SBD5S8KE-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #15347 (DIALOG-MEASURE step 2, held) stacked on #15327; PROP-TRAIL #15316 go-live review",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | jq '.status.raw' (open_positions non-empty => dispatch breakout-login-check, apply: edit-dialog-probe, symbols: <that ONE venue symbol>)"
+  },
+  "routed_to": "manager (session_01MM8o5js6TcDFeNAPBY4Ntv) — DIALOG-MEASURE step 3",
+  "state": "routed",
+  "what": "DIALOG-MEASURE step 1 not run: breakout_1 was FLAT at 22:12Z 2026-10-01 (feed open_positions [], open_orders []), and the SL/TP edit pencil exists only on a Positions row. After #15327 then #15347 merge and git-sync, the next time breakout_1 holds a strategy position dispatch the read-only edit-dialog-probe (one pencil click + the dialog's own Cancel, submits nothing). Its readout decides: adjust EDIT_DIALOG_JS / edit_dialog_mismatch to the measured markup (mode select, submit name, qty read-only, tick-rounding of the read-back), then open the held Tier-2 PR setting DXtradeAdapter.EDIT_DIALOG_MEASURED=True. Until then armed modify_bracket refuses and the PROP-TRAIL trail is inert on the venue. No trade is to be opened for the measurement without an operator call."
+}
