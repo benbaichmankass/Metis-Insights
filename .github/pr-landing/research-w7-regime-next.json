@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1, register-only: ONE new pipeline row (docs/claude/work/pipeline/*.json) filed through scripts/ops/pipeline.py, validated (due_when, origin.rerun present). It records the measured results of RQ-20260930-701 and -702 (both graded fail) and the two next regime units to register. No src/, config/, workflow or script change."
+}
