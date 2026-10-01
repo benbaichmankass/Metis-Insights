@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-01T07:25:00Z",
+  "updated_at": "2026-10-01T09:15:00Z",
   "updated_by": "session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -4272,7 +4272,7 @@
       "id": "ALPACA-CLOSE-WEDGE",
       "title": "A standing close wedge re-marks active-close every tick, so the naked sweep skips the position; could it strand alpaca_live overnight? (PI-20260930-ZPDIPMDA-0001)",
       "phase": "W6",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01LLCqwwDGQM7BZMZifj1rkM",
       "model": "claude-opus-5-5",
@@ -4288,7 +4288,7 @@
         14681
       ],
       "blocked_on": [],
-      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): VERDICT a bug. On alpaca_live, per the code (not observed): an after-hours sl_cross cancels the OCO and places a DAY extended-hours limit; after it expires at the close, each tick returns 'deferred (bracket left armed)' and re-marks active-close, so the sweep skips a position with nothing resting at the venue overnight. Fix HELD Tier-2 #14585: mark active-close only when a close is sent; a bracket-left-armed defer clears the marker; a session-deferred re-probe is held 300 s with a logged cause. 11 new tests, 6 fail on old code. Under independent review. Pipeline #14587 (landing added by the manager, auto-merge). Paper GLD zombie OCO -> PAPER-RESET. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14585 MERGED (2bb864ab), DEPLOYED (59765e602) and OBSERVED: the GLD re-probe held at most once per 300 s, active_close_skipped=0 across 4 sweep summaries. The 07:35Z restart was a git-sync deploy, not a crash. Next fixes for ZIFJ1RKM-0004 (sweep breach exit re-arms over a working extended-hours close-limit, alpaca_live) and -0005 (wedge ledger refresh tied to the alert streak) are in HELD #14643, under independent review. Records #14587, #14611, #14633 landed. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14643 MERGED b721524f (Tier 2 under the data-backed authorization; revert = revert #14643). DEPLOYED: VM git_sha b721524f6, clean restart 09:17:28Z, new sweep keys present. NOT OBSERVED: ZIFJ1RKM-0005 (first extended-hours re-probe after a closed session, about 2026-10-01 08:00Z, if a standing wedge still exists after the paper reset) and -0004 (an extended-hours breach exit: exit_working>=1 with no re-arm; windows 20:00-24:00Z today, 08:00-13:30Z tomorrow). Also measured K7U61JJU-0002 (TLT #5912 protected, see STAGE2-MIRROR); record in #14681."
+      "note": "2026-09-30 ~06:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): VERDICT a bug. On alpaca_live, per the code (not observed): an after-hours sl_cross cancels the OCO and places a DAY extended-hours limit; after it expires at the close, each tick returns 'deferred (bracket left armed)' and re-marks active-close, so the sweep skips a position with nothing resting at the venue overnight. Fix HELD Tier-2 #14585: mark active-close only when a close is sent; a bracket-left-armed defer clears the marker; a session-deferred re-probe is held 300 s with a logged cause. 11 new tests, 6 fail on old code. Under independent review. Pipeline #14587 (landing added by the manager, auto-merge). Paper GLD zombie OCO -> PAPER-RESET. || 2026-09-30 ~08:50Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14585 MERGED (2bb864ab), DEPLOYED (59765e602) and OBSERVED: the GLD re-probe held at most once per 300 s, active_close_skipped=0 across 4 sweep summaries. The 07:35Z restart was a git-sync deploy, not a crash. Next fixes for ZIFJ1RKM-0004 (sweep breach exit re-arms over a working extended-hours close-limit, alpaca_live) and -0005 (wedge ledger refresh tied to the alert streak) are in HELD #14643, under independent review. Records #14587, #14611, #14633 landed. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14643 MERGED b721524f (Tier 2 under the data-backed authorization; revert = revert #14643). DEPLOYED: VM git_sha b721524f6, clean restart 09:17:28Z, new sweep keys present. NOT OBSERVED: ZIFJ1RKM-0005 (first extended-hours re-probe after a closed session, about 2026-10-01 08:00Z, if a standing wedge still exists after the paper reset) and -0004 (an extended-hours breach exit: exit_working>=1 with no re-arm; windows 20:00-24:00Z today, 08:00-13:30Z tomorrow). Also measured K7U61JJU-0002 (TLT #5912 protected, see STAGE2-MIRROR); record in #14681. || 2026-10-01 ~09:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): DONE. #14585, #14643, #14899 merged, deployed and OBSERVED on the live trader: no \"won't flatten\" alert after 21:31:07Z (pre-deploy) through 08:33Z; sampled windows 17/17/19 DEFERRED, 0 failed; broker_naked=0. -0003 closed done (#15105); the 13:30Z 8-share exit check is MOOT (row 6131 closed stranded by PAPER-RESET, #15063). Open follow-ups stay in the pipeline: ZIFJ1RKM-0002, ZIFJ1RKM-0006 (generic defer phrases not venue-pinned -- money-path), ZIFJ1RKM-0001 (GLD, PAPER-RESET). Lane archived."
     },
     {
       "id": "PAPER-RESET",

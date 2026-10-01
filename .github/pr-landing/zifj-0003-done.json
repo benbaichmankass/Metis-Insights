@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record closing PI-20260930-ZIFJ1RKM-0003 as done (fixed by #14899, deployed and observed overnight) plus the manager's register update marking ALPACA-CLOSE-WEDGE done. No code, config or order-path change."
+}
