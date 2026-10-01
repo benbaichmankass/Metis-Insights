@@ -1,6 +1,6 @@
 # P2 round 2 — Breakout-listed symbols × corpus harnesses (2026-10-01)
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-10-01` · Tier-1 research, no config/src change. Checklist row **P2**.
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current** · Tier-1 research, no config/src change, checklist row **P2**.
 
 ## Constraint and source
 Candidates come ONLY from `https://www.breakoutprop.com/symbols/`. That page returns HTTP 403 (Cloudflare) to non-browser clients from this sandbox, so the list used is the operator's committed transcription, `docs/integrations/breakout-instruments-2026-09-27.md` (**unverified against the live page**). It names 17 crypto symbols (BTC ETH SOL BNB XRP HYPE TRX AAVE ADA FIL ONDO DOGE LINK LTC SUI UNI ZEC) plus ~50 unnamed small alts. The 4 non-crypto symbols are Terminal-only and unreachable on `breakout_1` (DXTrade), so they are out. AVAX is not named on the list, so it is NOT scoped (round 1's template mapped it anyway).
