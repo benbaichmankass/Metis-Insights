@@ -5211,11 +5211,19 @@ class DXtradeAdapter(PropPlatformAdapter):
                 # route alone is exercised -- the one place_bracket uses first
                 # -- with the ticket field's own value as home, and no link
                 # restore. Refused only when the ticket field is unreadable too.
-                tk = self._ticket_symbol(page)
                 page.evaluate(INFO_PROBE_CLEANUP_JS)
                 out["link_unavailable"] = res.get("why") or "linked symbol not readable"
+                # tradeify_1 keeps no New Order ticket open (#15146: "0 order
+                # panels"): open it first with the same opener place_bracket
+                # uses (a named opener button, else the target's watchlist row).
+                pre_open = self.open_order_ticket(page, out["target"])
+                out["ticket_preopen"] = {k: pre_open.get(k) for k in ("opened", "via", "refused")}
+                tk = self._ticket_symbol(page)
                 if not tk.get("ok") or not tk.get("value"):
-                    out["refused"] = f"{out['link_unavailable']}; ticket symbol field: {tk.get('why') or 'empty'}"
+                    out["refused"] = (f"{out['link_unavailable']}; ticket symbol field: {tk.get('why') or 'empty'}"
+                                      f"; ticket open: {pre_open.get('via') or pre_open.get('refused')}")
+                    if pre_open.get("opened") and pre_open.get("via") != "already_open":
+                        out["ticket_closed"] = self.close_order_ticket(page)
                     return out
                 original = tk.get("value")
                 out["original"] = original
