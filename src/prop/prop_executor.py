@@ -1511,6 +1511,9 @@ def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
             # The one-click toggle's reading: a DIAGNOSTIC the adapter records
             # and gates nothing on (operator 2026-09-28). state + why only.
             "one_click": {"state": oc.get("state"), "why": oc.get("why")} if oc else None,
+            # Which ticket openers ran and why the last resort did or did not
+            # (live #15187: the Symbol openers missed; the reason was unrecorded).
+            "opener": form.get("opener"),
             # Where the submit search looked and why each candidate failed
             # (buttons matching the submit pattern only: "Buy 0.01 SOLUSD at
             # 117.14"-shaped labels, never account data). Absent when the

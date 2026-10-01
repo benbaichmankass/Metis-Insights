@@ -4271,15 +4271,30 @@ class DXtradeAdapter(PropPlatformAdapter):
         # dry run #13898; it opened the live ticket in #15139). Its centre can
         # be a Bid/Ask PRICE cell (fixture: both price buttons hit), an INSTANT
         # order with one-click ON -- the instant-trade exclusion the operator
-        # kept (5930025023) -- so it runs only on a positive one-click OFF
+        # kept (5930025023) -- so it never runs on a positive one-click ON
         # read. And only on the ONE row INFO_PROBE_RESOLVE_JS resolved inside
         # the watchlist (``data-metis-wl-row``), never a page-wide row search
         # that could hit a Positions / Orders row (manager review 5932126267).
-        if info_probe_one_click_off(self.read_one_click(page)):
+        # It is SKIPPED only on a positive one-click ON read (the instant-trade
+        # case). An unreadable toggle does NOT skip it: live #15187 (dry run on
+        # 9f51c275) never reached it with one-click reading OFF at the start,
+        # and a trade must never be missed for want of an opener (manager
+        # 5931584062; before #15138 this opener ran with no one-click check).
+        # Why it ran or not is RECORDED in ``last_resort``.
+        oc = self.read_one_click(page)
+        lr: Dict[str, Any] = {"one_click": {k: oc.get(k) for k in ("state", "via")}}
+        out["last_resort"] = lr
+        if oc.get("state") == "on":
+            lr["skipped"] = "one-click reads ON: the row centre may be an instant-trade price cell"
+        else:
             try:
-                page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]])
+                res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]]) or {}
+                lr["resolve"] = {"ok": res.get("ok"), "why": res.get("why"),
+                                 "target": (res.get("targets") or {}).get(sym),
+                                 "watchlist_n": len(res.get("watchlist") or [])}
                 row = page.locator(f"tr[data-metis-wl-row='{sym}']")
-                if row.count() == 1:
+                lr["rows"] = row.count()
+                if lr["rows"] == 1:
                     out["tried"].append("watchlist_dblclick")
                     row.first.dblclick(timeout=5_000)
                     page.wait_for_timeout(1_000)
@@ -4287,8 +4302,8 @@ class DXtradeAdapter(PropPlatformAdapter):
                     if form.get("found"):
                         out.update(opened=True, via="watchlist_dblclick", form=form)
                         return out
-            except Exception:
-                pass
+            except Exception as exc:
+                lr["error"] = type(exc).__name__
             finally:
                 try:
                     page.evaluate(INFO_PROBE_CLEANUP_JS)
@@ -5211,7 +5226,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             out["quote"] = self.read_quote(page, out["target"])
             out["quote_raw"] = page.evaluate(WATCHLIST_QUOTE_RAW_JS, [out["target"]]) or {"error": "no result"}
             opened = self.open_order_ticket(page, original)
-            out["ticket_open"] = {k: opened.get(k) for k in ("opened", "via", "refused")}
+            out["ticket_open"] = {k: opened.get(k) for k in ("opened", "via", "refused", "tried", "last_resort")}
             if opened.get("opened"):
                 try:
                     for key, sym, label in (("switch", out["target"], "ticket switch to"),
@@ -5348,7 +5363,8 @@ class DXtradeAdapter(PropPlatformAdapter):
         opened = self.open_order_ticket(page, spec.venue_symbol)
         if not opened.get("opened"):
             return PlaceAttempt(stage="refused", detail=opened.get("refused") or "form not opened",
-                                form={"one_click": opened.get("one_click")})
+                                form={"one_click": opened.get("one_click"),
+                                      "opener": {k: opened.get(k) for k in ("tried", "last_resort")}})
         form = opened["form"]
         # PER-TICKET SYMBOL SWITCH (manager 2026-09-30 19:40Z; routes per
         # manager comment 5928196365 on #15070): the open form is the sidebar
