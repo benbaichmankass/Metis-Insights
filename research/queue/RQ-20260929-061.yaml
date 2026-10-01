@@ -4,7 +4,7 @@ title: >-
   trending/calm/long + trend_donchian_sol transitional/calm/long) clear the
   regime-selectivity skill's Rule-2 walk-forward gate under the CURRENT
   advisory head, on data extended through today (E74)?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -183,4 +183,30 @@ related:
   - 'comms/reviews/ml-review-20260929-095500.json (W7, restates E74 with the evidence chain)'
   - 'scripts/research/regime_cell_walkforward.py / ml_vol_label_replay.py'
 
-last_dispatched_at: null
+last_dispatched_at: '2026-09-29T10:19:25+00:00'
+result: >-
+  GRADED 2026-09-29 against the pre-registered rule, from the trainer-vm-diag
+  run (issue #14102, run 36554846099) only. VERDICT: DOES_NOT_CLEAR on both
+  cells. (a) sol_pullback_2h @ trending/calm: long_verdict=no_trades
+  (long_trades=0 of 30 total — this leg carries `side_filter: short` live and
+  the run modelled it faithfully, fidelity=faithful, omitted_levers=[] — so
+  the 2026-08-02 doc's `long: off` candidate targeted a direction this leg
+  never trades; per regime-selectivity checklist item 3a a verdict over zero
+  trades is no finding, not a negative one). (b) trend_donchian_sol @
+  transitional/calm: long_verdict=no_stable_drag (long_trades=29, pooled
+  +19.4553R, 3 of 4 folds positive — net STRONGLY positive, the opposite of a
+  drag; fidelity=approximate, omitted exit_head_* levers). Full per-cell JSON:
+  docs/research/e74-sol-trendvol-offcell-walkforward-2026-09-29.json.
+  DISPOSITION per the decision rule's second clause: Rule 1 (no-cosmetic-cell)
+  stands. SOL keeps no trend_vol cell; sol-regime-15m-lgbm-fc-pcv-v2 remains
+  observer-only with no real-money lever. The 2026-08-02 near-miss under
+  scripts/ml/walkforward_cell_selection.py's discovery bar is NOT evidence
+  under this gate (Rule 2/3) — E74's "presented, never enacted" question is
+  closed: no cell authored, nothing proposed to the operator,
+  config/regime_policy.yaml untouched.
+  NEW FINDING (outside this rule, not acted on here): sol_pullback_2h's
+  ACTUAL live direction (short) shows short_stable_drag=true (pooled
+  -2.345R/30 trades, short-majority-negative under every fold count in
+  {3,4,5}) in the same trending/calm cell. Filed to the pipeline
+  (PI-20260929-E74-SOL-SHORT-SIDE) as a candidate for a separately
+  pre-registered future unit — not authored or evidenced here.
