@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "PR C (#14673) is merged and deployed and a tradeify_1 prop ticket has been emitted, OR the operator/manager decides not to proceed (killed with that reason)",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-CBHYHMK2-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #14663 / #14672 / #14673 (lane TRADEIFY-WIRE)",
+    "rerun": "Read the three PRs' merge state; GET /api/bot/prop/status for tradeify_1; read the latest breakout-login-check run with account: tradeify_1; query order_packages where account=tradeify_1 for status=shadow."
+  },
+  "state": "queued",
+  "what": "TRADEIFY-WIRE go-live sequence for tradeify_1 (Tradeify 247 $10k, operator 2026-09-30 ~08:24Z 'Buy the $10k pilot (Recommended)'). Held PRs: A #14663 (Tier-2 per-account executor/login-check/feed plumbing), B #14672 (Tier-3 account at dry_run + ruleset + runtime backtest_ruleset fix), C #14673 (Tier-3 live flip, stacked on B). Steps after A merges+deploys: sync-vm-secrets (TRADEIFY_DX_* optional), breakout-login-check account: tradeify_1 apply: emit-status (expect exit 0; correct tradeify_routing.yaml from the printed instrument specs), apply: feed-enable-timer, merge B, observe shadow order packages per leg + round-trip-dry, then C. Runbook docs/runbooks/tradeify-integration.md."
+}

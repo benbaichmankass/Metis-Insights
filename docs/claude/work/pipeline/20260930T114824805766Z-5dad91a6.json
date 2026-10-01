@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "implemented with a test and merged, before PR #14673 (tradeify_1 go-live) merges; or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-BHYHMK2E-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "src/prop/prop_executor.py::evaluate_guards",
+    "rerun": "Compute the executor's daily floor for tradeify_1 with prior close 10,250 and account size 10,000: must be 9,950 (10,250 - 300), not 10,250 x 0.97 = 9,942.5; and it must roll at 22:00 UTC."
+  },
+  "state": "queued",
+  "what": "TRADEIFY-WIRE go-live blocker (b), manager review of #14672 2026-09-30: the executor's daily-loss floor is day_start_balance x (1 - daily_loss_pct) (src/prop/prop_executor.py evaluate_guards / day_start_balance), but Tradeify's rule (a firm RULE, not a measurement: population n=1 account, the $10,000 1-Step, per 1 of 1 first-party rules pages read 2026-09-30, docs/research/tradeify-portfolio-feasibility-2026-09-30.md \u00a7 1.2) is PRIOR DAY CLOSING BALANCE minus 3% of ACCOUNT SIZE ($300 on $10k), reset 22:00 UTC. Need a ruleset-declared daily basis (e.g. limits.daily_loss_basis: prior_close_minus_pct_of_size) honoured by the executor guard and the prop risk gate, with breakout_1's basis unchanged. PR C (#14673) stays held until done."
+}
