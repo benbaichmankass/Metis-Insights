@@ -4502,6 +4502,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched. Run 70 (36910217777) red although stamp PR #15276 merged 13 s after the wait expired. Manager decision: re-check once, do not raise the timeout or change stamp-PR checks. Closes PI-20261001-1MX1RCZS-0003."
+    },
+    {
+      "id": "PROP-TRAIL",
+      "title": "Give breakout_1's prop bracket the trailing/stale exit the Stage-0 evidence assumed (SOL first)",
+      "phase": "W7",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_012X4AJaScSxML6HaJLuXpzV",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-01T21:23Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR DECISION (popup ~21:23Z), verbatim choice: \"Build the trail instead\" (options were keep-live-and-retest / shadow SOL now / build the trail). SOLUSD stays LIVE on breakout_1 at $75 meanwhile. Evidence: PROP-JOURNAL (PR #15301, PI-20261001-S8DMYMUN-0001): prop bracket is static SL+TP; SL+TP-only re-run on one window ETH +21.28R n=100, SOL -0.49R n=53 vs declared-lever baseline ETH +10.63, SOL +3.69. Mechanism: amend the resting SL by the declared trail/stale lever, tighten-only, via the tested modify path; held PR reviewed by the manager under the go-live rule."
     }
   ]
 }
