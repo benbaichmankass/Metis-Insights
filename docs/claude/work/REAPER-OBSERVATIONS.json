@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-01T22:30:26Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-01T22:24:08Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-01T15:24:20Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-01T22:24:08Z",
+  "updated_at": "2026-10-01T22:30:26Z",
   "latest": {
-    "generated_at": "2026-10-01T22:24:08Z",
+    "generated_at": "2026-10-01T22:30:26Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1847,9 +1847,6 @@
           "claude/mi259-close-the-work-object",
           "claude/mi259-file-the-two-findings"
         ],
-        "session_01MEyTMDNj3ZYV2ziDq1hLJd": [
-          "claude/order-audit-2-truth"
-        ],
         "session_01ML8uLRrKLMmzR9fFywTWv5": [
           "claude/mgr-redispatch-205b-2218-20260908",
           "claude/mi205b-ranking-key-harness"
@@ -1950,6 +1947,9 @@
           "claude/manager-handoff-20260903",
           "claude/manager-unjam-decision-and-10780",
           "claude/manager-wind-down-20260903"
+        ],
+        "session_01NpQatfW1eowJpoJwzSVYVs": [
+          "claude/ict-scalp-htf-wiring"
         ],
         "session_01NriFh691pHJFiVc7agPHnC": [
           "claude/mgr-hb-20260907-1430",
