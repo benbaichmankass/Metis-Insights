@@ -2403,13 +2403,24 @@ _COLUMN_HEADER_TABLES_JS = r"""
       if (!box) { why.push(`${tds.length}-cell rows: no widget container within 12 ancestors`); continue; }
       if (box.querySelector(trade)) { why.push(`${tds.length}-cell rows: widget holds an Orders / Positions menu`); continue; }
       if (!t.getBoundingClientRect().width) { why.push(`${tds.length}-cell rows: table has no width`); continue; }
-      let cols = null;
+      let cols = null, colHost = null;
       for (let e = t, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
         const cs = [...e.querySelectorAll('[data-test-id^="table_column_"]')]
           .filter(c => { const ct = c.closest('table'); return !ct || ct === t; });
-        if (cs.length) { cols = cs; break; }
+        if (cs.length) { cols = cs; colHost = e; break; }
       }
       if (!cols) { why.push(`${tds.length}-cell rows: no table_column_* headers within 8 ancestors`); continue; }
+      // The headers must belong to THIS table (manager review 2026-10-01
+      // 09:18Z, reviewer's variant (b) on main: a header-less Positions table
+      // sharing a widget container with an EMPTY watchlist borrowed the
+      // watchlist's headers and was clicked). Both must hold: the ancestor
+      // where the headers were found holds exactly one table, and the header
+      // row's bottom edge sits directly above this table's top (<= 8 px gap).
+      const nTables = colHost.querySelectorAll('table').length + (colHost.tagName === 'TABLE' ? 1 : 0);
+      if (nTables !== 1) { why.push(`${tds.length}-cell rows: the table_column headers' ancestor holds ${nTables} tables (need exactly 1)`); continue; }
+      const hBottom = Math.max(...cols.map(c => c.getBoundingClientRect().bottom)), tTop = t.getBoundingClientRect().top;
+      if (!(hBottom <= tTop + 1 && tTop - hBottom <= 8)) {
+        why.push(`${tds.length}-cell rows: the table_column header row does not sit directly above the table`); continue; }
       const hs = cols.map(c => n_((c.getAttribute('data-test-id') || '').slice('table_column_'.length)));
       if (cols.length !== tds.length) { why.push(`${cols.length} columns [${hs.join(',')}] vs ${tds.length} cells`); continue; }
       const need = new Set(['symbol', 'bid', 'ask']);
@@ -4672,9 +4683,10 @@ class DXtradeAdapter(PropPlatformAdapter):
         (TICKET_SYMBOL_PICK_JS) -- when the full name lists none, re-type its
         first three characters once; re-read one-click; click that row's
         Symbol cell; poll the field. ``ok`` only when the field reads the
-        target, no dialog is open, and the submit label -- when one is shown --
-        names the target. With no single exact row nothing is clicked and the
-        field is put back to the original (filled, then blurred: no key).
+        target, no dialog is open, the description under it CHANGED and the
+        submit label NAMES the target -- never the typed field alone. With
+        no single exact row nothing is clicked and the field is put back to
+        the original (filled, then blurred: no key).
         ``picked`` says whether a row was clicked."""
         target = str(venue_symbol or "").strip().upper()
         out: Dict[str, Any] = {"target": target, "ok": False, "picked": False, "route": "ticket_field"}
@@ -4723,12 +4735,24 @@ class DXtradeAdapter(PropPlatformAdapter):
             got = self._await_ticket_symbol(page, target, settle_ms)
             out["after"] = {k: got.get(k) for k in ("value", "desc", "submit_symbol")}
             out["verify_waited_ms"] = got.get("verify_waited_ms")
+            # Recorded, not gated on: whether the chart's linked box followed
+            # the ticket pick is unmeasured.
+            out["chart_after"] = self._resolve_link(page, []).get("linked_symbol")
+            # NEVER verified by the field alone -- the field is the box we just
+            # typed into (manager 2026-10-01 09:22Z: the old toolbar route read
+            # its own typing back and reported ok with nothing linked). Success
+            # needs the field AND two signals the typing cannot produce: the
+            # description line under the field CHANGED, and the submit label
+            # NAMES the target (an unreadable label is not a pass).
+            before_desc = (out.get("before") or {}).get("desc") or ""
             if got.get("dialogs"):
                 out["why"] = f"{got['dialogs']} dialog(s) appeared after picking {target}"
             elif got.get("value") != target:
                 out["why"] = f"ticket symbol reads {got.get('value')!r} after picking {target}"
-            elif got.get("submit_symbol") not in (None, target):
+            elif got.get("submit_symbol") != target:
                 out["why"] = f"submit label names {got.get('submit_symbol')!r}, not {target}"
+            elif not got.get("desc") or got.get("desc") == before_desc:
+                out["why"] = f"the description under the field did not change (reads {got.get('desc')!r})"
             else:
                 out["ok"] = True
             return out

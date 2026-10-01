@@ -958,3 +958,125 @@ def test_ticket_route_never_takes_a_pre_existing_table_that_merely_shows_dropdow
     assert {r["why"] for r in got["pick"]["rejected"]} <= {"dropdown_not_new", "watchlist_or_trade"}
     assert "plainrow" not in st["clicks"]
     no_order(st)
+
+
+# ── manager review 2026-10-01 09:18Z (reviewer's variant (b), reproduced on
+# main): __metisColumnTables took the watchlist's table_column headers from a
+# shared widgetNew__container for a header-less POSITIONS table while the
+# watchlist was EMPTY -- equal cell count, aligned -- and the switch clicked the
+# position row. The headers' ancestor must hold exactly one table, and the
+# header row must sit directly above the table. ────────────────────────────
+
+VARIANT_B_JS = """() => {
+  const wl = document.querySelector('table.wl');
+  wl.querySelectorAll('tr').forEach(r => r.remove());                     // the watchlist is empty right now
+  const pos = document.createElement('table'); pos.className = 'pos';
+  pos.style.cssText = 'border-spacing:0;table-layout:fixed';
+  pos.innerHTML = '<tbody><tr data-row-id="pos1"><td class="psym" style="width:120px;padding:0">ETHUSD</td>'
+    + '<td style="width:120px;padding:0">Buy</td><td style="width:120px;padding:0">0.01</td></tr></tbody>';
+  wl.parentElement.appendChild(pos);                                        // same widget container, no menu button
+  pos.querySelector('tr').addEventListener('click', () => { window.__posClicked = (window.__posClicked || 0) + 1; }); }"""
+
+
+def variant_b_page(browser):  # noqa: F811
+    from tests.test_prop_instrument_info_probe import tradeify_layout
+    p = browser.new_page()
+    p.set_content(tradeify_layout(page_html()))
+    p.evaluate(VARIANT_B_JS)
+    return p
+
+
+def test_review_variant_b_column_headers_are_never_borrowed_by_a_positions_table(browser):  # noqa: F811
+    p = variant_b_page(browser)
+    a = fast_adapter()
+    a.SWITCH_READY_MS = 300
+    got = a.select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    from src.prop.platform.dxtrade import INFO_PROBE_RESOLVE_JS
+    res = p.evaluate(INFO_PROBE_RESOLVE_JS, [["ETHUSD"]])
+    st = state(p)
+    pos = p.evaluate("window.__posClicked || 0")
+    p.close()
+    assert got["ok"] is False and got["clicked"] is False and got["attempts"] == 0
+    assert st["clicks"] == [] and pos == 0
+    whys = " ".join(res.get("column_headers", {}).get("why", []))
+    assert "holds 2 tables (need exactly 1)" in whys
+    never_traded(st)
+
+
+def test_review_variant_b_switch_dry_clicks_nothing_on_the_positions_table(browser):  # noqa: F811
+    p = variant_b_page(browser)
+    a = fast_adapter()
+    a.SWITCH_READY_MS = 300
+    got = a.symbol_switch_dry(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    pos = p.evaluate("window.__posClicked || 0")
+    p.close()
+    assert "psym" not in st["clicks"] and pos == 0
+    assert got["refused"] or got["alerts"]                           # nothing to switch with; never the position row
+    never_traded(st)
+
+
+def test_review_column_headers_not_directly_above_the_table_are_refused(browser):  # noqa: F811
+    from tests.test_prop_instrument_info_probe import tradeify_layout
+    p = browser.new_page()
+    p.set_content(tradeify_layout(page_html()))
+    p.evaluate("() => { const sp = document.createElement('div'); sp.style.height = '40px';"
+               " document.querySelector('table.wl').before(sp); }")
+    a = fast_adapter()
+    a.SWITCH_READY_MS = 300
+    got = a.select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert got["ok"] is False and st["clicks"] == []
+    never_traded(st)
+
+
+# ── manager 2026-10-01 09:22Z: verification is never the box we typed into.
+# The ticket route passes only when the description under the field CHANGED
+# and the submit label NAMES the target. ───────────────────────────────────
+
+# A dropdown whose row click sets ONLY the field (no description, no submit
+# label), and a page whose submit label is unreadable.
+FIELD_ONLY_PICK_JS = """() => {
+  const box = document.querySelector('#panel [data-test-id=symbol_input]');
+  box.addEventListener('input', () => {
+    document.querySelectorAll('.tk-dd').forEach(e => e.remove());
+    const dd = document.createElement('div'); dd.className = 'tk-dd';
+    dd.innerHTML = '<div class="hdr"><div>Symbol</div><div>Description</div></div>'
+      + '<div class="ddrow"><div class="c-sym">ETHUSD</div><div class="c-desc">ETH</div></div>';
+    dd.querySelector('.ddrow').addEventListener('click', () => { box.value = 'ETHUSD'; dd.remove(); });
+    document.body.appendChild(dd);
+  }); }"""
+
+
+def test_review_a_field_set_without_desc_or_submit_change_is_not_a_switch(browser):  # noqa: F811
+    # The pick "takes" in the field only (typed text kept, nothing committed): never ok.
+    p = ticket_page(browser, dropdown=False, setup=[FIELD_ONLY_PICK_JS])
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    p.close()
+    assert got["picked"] is True and got["after"]["value"] == "ETHUSD"
+    assert got["ok"] is False and got["why"] == "submit label names 'SOLUSD', not ETHUSD"
+    no_order(st)
+
+
+def test_review_an_unreadable_submit_label_is_not_a_pass(browser):  # noqa: F811
+    p = ticket_page(browser, setup=["() => { const s = document.querySelector('#sub');"
+                                    " const o = new MutationObserver(() => { if (s.textContent !== 'Place order')"
+                                    " s.textContent = 'Place order'; }); o.observe(s, {childList: true, characterData: true,"
+                                    " subtree: true}); s.textContent = 'Place order'; }"])
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    p.close()
+    assert got["picked"] is True and got["after"]["value"] == "ETHUSD" and got["after"]["desc"] == "ETH"
+    assert got["after"]["submit_symbol"] is None and got["ok"] is False
+    assert got["why"] == "submit label names None, not ETHUSD"
+
+
+def test_review_a_description_that_does_not_change_is_not_a_pass(browser):  # noqa: F811
+    p = ticket_page(browser, setup=["() => { const d = document.querySelector('#panel .tk-desc');"
+                                    " new MutationObserver(() => { if (d.textContent !== 'SOL') d.textContent = 'SOL'; })"
+                                    ".observe(d, {childList: true, characterData: true, subtree: true}); }"])
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    p.close()
+    assert got["picked"] is True and got["after"]["submit_symbol"] == "ETHUSD"
+    assert got["ok"] is False and "description under the field did not change" in got["why"]
