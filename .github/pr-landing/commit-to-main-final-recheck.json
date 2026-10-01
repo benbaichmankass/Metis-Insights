@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI-only fix in the shared commit-to-main action: one bounded final re-check (PR state, then main paths) before the verify-merged wait reports failure, after run 36910217777 failed on a stamp PR that merged 13 s past expiry. No timeout change, no change to which checks run, no runtime/order-path/config change."
+}
