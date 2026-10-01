@@ -385,7 +385,10 @@ def test_step5_the_new_element_dump_is_masked_and_clicks_nothing(browser):
 
 
 def test_step5_a_panel_that_renders_late_is_found_on_the_retry(browser):
-    got, st = run(browser, page_html(late_ms=90), symbols=("BTCUSD",))
+    # 125ms sits mid-window between the first read (settle 50ms + overhead)
+    # and the retry (a further 3 x 50ms); 90ms raced the first read and
+    # flaked (1 in 3 on main, 2026-10-01).
+    got, st = run(browser, page_html(late_ms=125), symbols=("BTCUSD",))
     r = got["results"]["BTCUSD"]
     assert r["panel_retry"] is True and r["panel"]["found"] is True and r["closed"] is True
     assert any("0.001" in leaf for leaf in r["leaves"]) and got["restore"]["verified"] is True
@@ -727,6 +730,7 @@ def test_review_b_the_not_found_alert_says_recovered_or_not(browser):
 def test_breakout_layout_resolves_as_before_and_records_no_watchlist_dump(browser):
     got, st = run(browser, page_html(), symbols=("BTCUSD",), click=False)
     assert got["refused"] is None and "watchlist_dump" not in got
+    assert "column_headers" not in got["resolve"]     # the <th> path resolved; the fallback never ran
     assert st["clicks"] == [] and never_traded(st) is None
 
 
@@ -754,3 +758,99 @@ def test_the_tick_prints_the_watchlist_dump_on_its_own_line(capsys):
                           "watchlist_dump": {"tables": [], "iframes": 0}})
     out = capsys.readouterr().out.strip().splitlines()
     assert out[0].startswith('{"watchlist_dump"') and out[-1].startswith('{"instrument_info_summary"')
+
+
+# ── the column-header fallback (TRADEIFY-WIRE T4, MEASURED #15067) ─────────
+# tradeify_1's watchlist <table> has NO <th> text: 23 ``tr.instrument`` rows
+# under column headers carrying ``table_column_*`` test-ids outside it.
+
+BREAKOUT_HEADER = "<table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead><tbody>"
+
+
+def tradeify_layout(html, cols=("symbol", "bid", "ask"), width=120):
+    """The fixture page with Breakout's <th> header table swapped for
+    Tradeify's shape: a div header row of ``table_column_*`` cells above a
+    header-less table whose 120px cells sit under them."""
+    hdr = "".join(f'<div data-test-id="table_column_{c}" style="flex:none;width:{width}px">{c.title()}</div>'
+                  for c in cols)
+    assert html.count(BREAKOUT_HEADER) == 1
+    return html.replace(BREAKOUT_HEADER,
+                        '<style>.wl td{width:120px;padding:0;overflow:hidden}</style>'
+                        f'<div class="wl-hdr" style="display:flex">{hdr}</div>'
+                        '<table class="wl" style="border-spacing:0;table-layout:fixed"><tbody>')
+
+
+def test_tradeify_layout_resolves_every_target_through_the_column_headers_and_clicks_nothing(browser):
+    got, st = run(browser, tradeify_layout(page_html()), click=False)
+    assert got["refused"] is None and got["alerts"] == [] and "watchlist_dump" not in got
+    r = got["resolve"]
+    assert r["column_headers"] == {"found": 1, "why": []}
+    assert r["linked_symbol"] == "SOLUSD" and all(r["targets"][s]["clean"] for s in ("BTCUSD", "ETHUSD", "AVAXUSD"))
+    assert got["watchlist_diff"]["changed"] is False
+    assert st["clicks"] == [] and st["tags"] == 0 and never_traded(st) is None
+
+
+def test_tradeify_misaligned_columns_are_refused_and_measured(browser):
+    got, st = run(browser, tradeify_layout(page_html(), width=200), symbols=("ETHUSD",), click=False)
+    assert "0 Symbol/Bid/Ask tables" in got["refused"]
+    assert got["resolve"]["column_headers"]["why"] == ["column 1 (bid) does not sit over its cell"]
+    dump = got["watchlist_dump"]
+    assert [c["tid"] for c in dump["columns"]] == ["table_column_symbol", "table_column_bid", "table_column_ask"]
+    assert [len(h["cells"]) for h in dump["header_less"]] == [3]
+    assert st["clicks"] == [] and never_traded(st) is None
+
+
+def test_tradeify_column_count_mismatch_is_refused(browser):
+    got, st = run(browser, tradeify_layout(page_html(), cols=("symbol", "bid", "ask", "change")),
+                  symbols=("ETHUSD",), click=False)
+    assert got["resolve"]["column_headers"]["why"] == ["4 columns [symbol,bid,ask,change] vs 3 cells"]
+    assert st["clicks"] == []
+
+
+def test_tradeify_columns_without_bid_and_ask_are_refused(browser):
+    got, _ = run(browser, tradeify_layout(page_html(), cols=("symbol", "sell", "buy")), symbols=("ETHUSD",),
+                 click=False)
+    assert got["resolve"]["column_headers"]["why"] == ["columns [symbol,sell,buy] lack symbol/bid/ask"]
+
+
+def test_tradeify_quote_rows_read_through_the_column_headers(browser):
+    from src.prop.platform.dxtrade import WATCHLIST_ROWS_JS, quote_from_watchlist_rows
+
+    p = browser.new_page()
+    p.set_content(tradeify_layout(page_html()))
+    got = p.evaluate(WATCHLIST_ROWS_JS, ["ETHUSD"])
+    p.close()
+    assert got["headers"] == ["symbol", "bid", "ask"]
+    assert quote_from_watchlist_rows(got, "ETHUSD") == {"bid": 100.1, "ask": 100.2}
+
+
+# ── manager review of #15075 (BLOCK 1): the fallback itself excludes trade tables ──
+
+WL_BOX = 'class="widget__container___Ab1 widgetNew__container"'
+
+
+@pytest.mark.parametrize("swap, why", [
+    # a Positions-shaped table with no widget container: refused, never tagged
+    ((WL_BOX, 'class="positions-ish"'), "3-cell rows: no widget container within 12 ancestors"),
+    # the same table inside a widget that also carries an Orders/Positions menu
+    ((WL_BOX, WL_BOX + '><button data-test-id="widget_menu_POSITIONS">Positions</button'),
+     "3-cell rows: widget holds an Orders / Positions menu"),
+    # a hidden (zero-width) table never qualifies
+    (('<table class="wl" style="', '<table class="wl" style="display:none;'), "3-cell rows: table has no width"),
+])
+def test_review_the_fallback_refuses_container_less_trade_scoped_and_hidden_tables(browser, swap, why):
+    html = tradeify_layout(page_html())
+    assert html.count(swap[0]) == 1
+    got, st = run(browser, html.replace(*swap), symbols=("ETHUSD",), click=False)
+    assert "0 Symbol/Bid/Ask tables" in got["refused"]
+    assert got["resolve"]["column_headers"] == {"found": 0, "why": [why]}
+    assert st["clicks"] == [] and st["tags"] == 0 and never_traded(st) is None
+
+
+def test_review_the_dump_records_header_words_only_and_the_widget_facts(browser):
+    html = tradeify_layout(page_html(), width=200).replace(
+        '>Symbol</div>', '>Symbol 1234567 $5,024</div>')  # a non-header-like text is never emitted
+    got, _ = run(browser, html, symbols=("ETHUSD",), click=False)
+    dump = got["watchlist_dump"]
+    assert [c["text"] for c in dump["columns"]] == [None, "bid", "ask"]
+    assert dump["header_less"][0]["widget_depth"] == 1 and dump["header_less"][0]["widget_has_trade_menu"] is False

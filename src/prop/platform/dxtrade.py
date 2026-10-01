@@ -2366,6 +2366,70 @@ def parse_price(text: Optional[str]) -> Optional[float]:
     return float(joined) if re.fullmatch(r"\d+\.\d+", joined) else None
 
 
+#: FALLBACK watchlist resolver for a terminal whose watchlist <table> carries
+#: no <th> text (TRADEIFY-WIRE T4, MEASURED on tradeify_1, issue #15067 run
+#: 36824837314: 0 Symbol/Bid/Ask header tables, one visible header-less table
+#: with 23 ``tr.instrument`` rows, and a ``table_column_symbol`` test-id on the
+#: page). Consulted ONLY when the <th> search finds NO Symbol/Bid/Ask table,
+#: so a layout that has one (breakout_1) never reaches it. A candidate is a
+#: table with ``tr.instrument`` rows and no texted <th>; its columns are the
+#: ``[data-test-id^=table_column_]`` elements of its nearest ancestor (<= 8 up)
+#: that holds any, excluding those inside ANOTHER table, named by the test-id
+#: suffix. Alignment is PROVEN, never assumed: as many columns as the first
+#: row has cells, and each column's horizontal span covers its cell's centre
+#: (the table and its symbol/bid/ask columns must have width). The candidate
+#: must sit in a ``widget(New)__container`` (<= 12 up; refused when none) that
+#: holds no Orders / Positions widget menu (manager review of #15075, BLOCK 1:
+#: the downstream scope check alone let a container-less Positions table's
+#: Symbol cell be tagged clickable).
+#: Returns ``{found: [{t, hs}], why: [...]}``; ``why`` says per candidate why
+#: it was not taken (shapes and counts only, no cell text).
+_COLUMN_HEADER_TABLES_JS = r"""
+  function __metisColumnTables() {
+    const n_ = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const t_ = el => (el.innerText || el.textContent || '').trim();
+    const found = [], why = [];
+    const trade = '[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]';
+    for (const t of document.querySelectorAll('table')) {
+      if ([...t.querySelectorAll('th')].some(h => h.closest('table') === t && n_(t_(h)))) continue;
+      const row = [...t.querySelectorAll('tr.instrument, tr[data-row-id]')].find(r => r.closest('table') === t);
+      if (!row) continue;
+      const tds = [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row);
+      let box = null;
+      for (let e = t.parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+        const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+        if (cls.some(c => /^widget(New)?__container/.test(c))) { box = e; break; }
+      }
+      if (!box) { why.push(`${tds.length}-cell rows: no widget container within 12 ancestors`); continue; }
+      if (box.querySelector(trade)) { why.push(`${tds.length}-cell rows: widget holds an Orders / Positions menu`); continue; }
+      if (!t.getBoundingClientRect().width) { why.push(`${tds.length}-cell rows: table has no width`); continue; }
+      let cols = null;
+      for (let e = t, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+        const cs = [...e.querySelectorAll('[data-test-id^="table_column_"]')]
+          .filter(c => { const ct = c.closest('table'); return !ct || ct === t; });
+        if (cs.length) { cols = cs; break; }
+      }
+      if (!cols) { why.push(`${tds.length}-cell rows: no table_column_* headers within 8 ancestors`); continue; }
+      const hs = cols.map(c => n_((c.getAttribute('data-test-id') || '').slice('table_column_'.length)));
+      if (cols.length !== tds.length) { why.push(`${cols.length} columns [${hs.join(',')}] vs ${tds.length} cells`); continue; }
+      const need = new Set(['symbol', 'bid', 'ask']);
+      const off = cols.findIndex((c, i) => {
+        const a = c.getBoundingClientRect(), b = tds[i].getBoundingClientRect();
+        if (!a.width || !b.width) return need.has(hs[i]) || a.width !== b.width;
+        const mid = b.x + b.width / 2;
+        return mid < a.x - 1 || mid > a.x + a.width + 1;
+      });
+      if (off >= 0) { why.push(`column ${off} (${hs[off]}) does not sit over its cell`); continue; }
+      if (!(hs.includes('symbol') && hs.includes('bid') && hs.includes('ask'))) {
+        why.push(`columns [${hs.join(',')}] lack symbol/bid/ask`); continue;
+      }
+      found.push({t, hs});
+    }
+    return {found, why};
+  }
+"""
+
+
 #: The watchlist's ROWS, read directly. MEASURED 2026-09-29 (dry run #13898,
 #: run 36507086110): the table carrying the Symbol/Bid/Ask/Change/Chg%/
 #: Description headers has ZERO body rows. The rows live in a separate
@@ -2376,12 +2440,14 @@ WATCHLIST_ROWS_JS = r"""
 ([venue]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+""" + _COLUMN_HEADER_TABLES_JS + r"""
   let headers = null;
   for (const t of document.querySelectorAll('table')) {
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
     const n = hs.map(norm);
     if (n.includes('symbol') && n.includes('bid') && n.includes('ask')) { headers = hs; break; }
   }
+  if (!headers) { const fb = __metisColumnTables().found; if (fb.length === 1) headers = fb[0].hs; }
   const want = String(venue || '').toUpperCase();
   const rows = [...document.querySelectorAll('tr.instrument, tr[data-row-id]')]
     .map(r => [...r.querySelectorAll('td')].map(txt))
@@ -2402,11 +2468,13 @@ WATCHLIST_SYMBOLS_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+""" + _COLUMN_HEADER_TABLES_JS + r"""
   const tables = [];
   for (const t of document.querySelectorAll('table')) {
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
     if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) tables.push(hs);
   }
+  if (!tables.length) tables.push(...__metisColumnTables().found.map(x => x.hs));
   if (tables.length !== 1) return {readable: false, why: `${tables.length} Symbol/Bid/Ask tables (need exactly 1)`};
   const hs = tables[0], si = hs.indexOf('symbol');
   const syms = [];
@@ -2530,7 +2598,32 @@ WATCHLIST_DUMP_JS = r"""
   }
   const named = [...document.querySelectorAll('[data-test-id]')].map(tid)
     .filter(t => /watch|instrument|symbol|quote|market/i.test(t));
+  // Column-header elements and the cell geometry of each header-less table's
+  // first row (TRADEIFY-WIRE T4, #15067): test-ids, tags and x/width only --
+  // no cell text -- so a failed _COLUMN_HEADER_TABLES_JS match is diagnosable.
+  const allT = [...document.querySelectorAll('table')];
+  const xw = el => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.width)]; };
+  const columns = [...document.querySelectorAll('[data-test-id^="table_column_"]')].slice(0, 40).map(c => ({
+    tid: tid(c), tag: c.tagName.toLowerCase(), table: allT.indexOf(c.closest('table')),
+    text: /^[a-z][a-z %&./()-]{0,19}$/i.test(txt(c)) ? w(txt(c)) : null,  // header words only
+    in_thead: !!c.closest('thead'), xw: xw(c), parent: c.parentElement ? c.parentElement.tagName.toLowerCase() : null,
+  }));
+  const header_less = allT.map((t, i) => ({i, t})).filter(({t}) =>
+    ![...t.querySelectorAll('th')].some(h => h.closest('table') === t && txt(h))).map(({i, t}) => {
+    const row = [...t.querySelectorAll('tr.instrument, tr[data-row-id]')].find(r => r.closest('table') === t);
+    if (!row) return null;
+    let depth = null, box = null;
+    for (let e = t.parentElement, k = 0; e && e !== document.body && k < 12; e = e.parentElement, k++) {
+      const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+      if (cls.some(c => /^widget(New)?__container/.test(c))) { depth = k + 1; box = e; break; }
+    }
+    return {table: i, widget_depth: depth,
+            widget_has_trade_menu: box ? !!box.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]') : null,
+            cells: [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row)
+              .slice(0, 16).map(c => ({xw: xw(c), tid: tid(c)}))};
+  }).filter(Boolean);
   return {
+    columns, header_less,
     tables, grids, divgrids,
     instrument_rows_total: document.querySelectorAll('tr.instrument, tr[data-row-id]').length,
     iframes: document.querySelectorAll('iframe').length,
@@ -2542,6 +2635,7 @@ WATCHLIST_DUMP_JS = r"""
 INFO_PROBE_RESOLVE_JS = r"""
 ([symbols]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
+""" + _COLUMN_HEADER_TABLES_JS + r"""
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input'])
@@ -2559,6 +2653,11 @@ INFO_PROBE_RESOLVE_JS = r"""
   for (const t of document.querySelectorAll('table')) {
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
     if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
+  }
+  if (!wl.length) {
+    const fb = __metisColumnTables();
+    wl.push(...fb.found);
+    out.column_headers = {found: fb.found.length, why: fb.why.slice(0, 5)};
   }
   if (wl.length !== 1) { out.why = `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`; return out; }
   const hs = wl[0].hs, si = hs.indexOf('symbol');
@@ -2636,6 +2735,7 @@ INFO_PROBE_RESOLVE_JS = r"""
 LINK_STATE_DUMP_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim();
+""" + _COLUMN_HEADER_TABLES_JS + r"""
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
     return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
@@ -2653,6 +2753,7 @@ LINK_STATE_DUMP_JS = r"""
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
     if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
   }
+  if (!wl.length) wl.push(...__metisColumnTables().found);
   out.n_watchlist_tables = wl.length;
   const syms = [];
   if (wl.length === 1) {
@@ -2922,12 +3023,14 @@ INFO_PROBE_NEW_ELEMENTS_JS = r"""
 WATCHLIST_QUOTE_RAW_JS = r"""
 ([symbol]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
+""" + _COLUMN_HEADER_TABLES_JS + r"""
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const wl = [];
   for (const t of document.querySelectorAll('table')) {
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
     if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
   }
+  if (!wl.length) wl.push(...__metisColumnTables().found);
   if (wl.length !== 1) return {error: `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`};
   const hs = wl[0].hs, si = hs.indexOf('symbol'), bi = hs.indexOf('bid'), ai = hs.indexOf('ask');
   let scope = wl[0].t;
