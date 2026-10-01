@@ -2,6 +2,8 @@ id: RQ-20260930-504
 title: 'Strategy development (general research mandate): is there ANY profitable <=1h crypto-perp strategy in the existing harness families? Two-stage, family-wise-corrected search (blocked on the sweep orchestrator)'
 status: queued
 cadence: once
+theme: new_strategy_prop
+priority: 1
 kind: experiment
 
 question: >-
@@ -157,4 +159,4 @@ related:
   - RQ-20260930-502
   - RQ-20260930-503
   - docs/research/hyro-strategy-feasibility-2026-09-30.md
-last_dispatched_at: null
+last_dispatched_at: '2026-09-30T08:42:40+00:00'

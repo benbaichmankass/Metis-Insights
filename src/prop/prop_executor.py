@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -60,13 +61,31 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 RULESET_PATH = _REPO_ROOT / "config" / "prop_rulesets" / "breakout.yaml"
 ROUTING_PATH = _REPO_ROOT / "config" / "prop_rulesets" / "breakout_routing.yaml"
 PLATFORMS_PATH = _REPO_ROOT / "config" / "prop_platforms.yaml"
+ACCOUNTS_PATH = _REPO_ROOT / "config" / "accounts.yaml"
+
+# The account the executor was built for. Its kill switch, symbol override,
+# ruleset and routing keep the names and paths they had before a second prop
+# account existed (TRADEIFY-WIRE, 2026-09-30), so nothing about it changes.
+PRIMARY_ACCOUNT = "breakout_1"
 
 
-def executor_mode(env: Optional[Mapping[str, str]] = None) -> str:
+def _env_suffix(account_id: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in str(account_id)).upper()
+
+
+def mode_env_for(account_id: str = PRIMARY_ACCOUNT) -> str:
+    """The kill-switch env var for ``account_id``. ``breakout_1`` keeps
+    ``PROP_EXECUTOR_MODE``; every other account has its OWN
+    (``PROP_EXECUTOR_MODE_<ACCOUNT>``) and never inherits the global one, so
+    arming Breakout can never arm a second account's clicks."""
+    return MODE_ENV if account_id == PRIMARY_ACCOUNT else f"{MODE_ENV}_{_env_suffix(account_id)}"
+
+
+def executor_mode(env: Optional[Mapping[str, str]] = None, account_id: str = PRIMARY_ACCOUNT) -> str:
     """``off`` / ``read_only`` / ``live``. Unset or unparseable → ``read_only``:
     falling back to ``live`` would let a typo arm real clicks, and falling back
     to ``off`` would hide a misconfiguration behind silence."""
-    raw = ((env if env is not None else os.environ).get(MODE_ENV) or "").strip().lower()
+    raw = ((env if env is not None else os.environ).get(mode_env_for(account_id)) or "").strip().lower()
     return raw if raw in MODES else DEFAULT_MODE
 
 
@@ -102,12 +121,50 @@ class ExecutorConfig:
 SYMBOLS_ENV = "PROP_EXECUTOR_SYMBOLS"
 
 
-def enabled_venues(ex: Mapping[str, Any], env: Optional[Mapping[str, str]] = None) -> List[str]:
-    """``PROP_EXECUTOR_SYMBOLS`` (comma-separated) when set, else
-    ``executor.enabled_venue_symbols``; missing = [] (fail closed)."""
-    raw = (env if env is not None else os.environ).get(SYMBOLS_ENV)
+def symbols_env_for(account_id: str = PRIMARY_ACCOUNT) -> str:
+    """Per-account like :func:`mode_env_for`: ``PROP_EXECUTOR_SYMBOLS`` for
+    ``breakout_1``, ``PROP_EXECUTOR_SYMBOLS_<ACCOUNT>`` for any other."""
+    return SYMBOLS_ENV if account_id == PRIMARY_ACCOUNT else f"{SYMBOLS_ENV}_{_env_suffix(account_id)}"
+
+
+def enabled_venues(ex: Mapping[str, Any], env: Optional[Mapping[str, str]] = None,
+                   account_id: str = PRIMARY_ACCOUNT) -> List[str]:
+    """``PROP_EXECUTOR_SYMBOLS`` (comma-separated; per account, see
+    :func:`symbols_env_for`) when set, else ``executor.enabled_venue_symbols``;
+    missing = [] (fail closed)."""
+    raw = (env if env is not None else os.environ).get(symbols_env_for(account_id))
     vals = raw.split(",") if raw is not None and raw.strip() else (ex.get("enabled_venue_symbols") or [])
     return sorted({str(v).strip().upper() for v in vals if str(v).strip()})
+
+
+def rule_paths_for(account_id: str) -> Tuple[Path, Path]:
+    """``(ruleset, routing)`` files for ``account_id``.
+
+    ``breakout_1`` → :data:`RULESET_PATH` / :data:`ROUTING_PATH`, exactly as
+    before a second account existed. Any other account → its
+    ``config/accounts.yaml::backtest_ruleset`` (the SAME key the ticket
+    emitter and the rule-distance guard resolve) and that ruleset's
+    ``routing:`` key. Either missing RAISES: an executor sized off another
+    firm's rules would type a number nobody computed for this account."""
+    from src.config.accounts_loader import load_accounts_dict
+
+    if account_id == PRIMARY_ACCOUNT:
+        return RULESET_PATH, ROUTING_PATH
+    spec = (load_accounts_dict(ACCOUNTS_PATH).get(account_id) or {}).get("backtest_ruleset")
+    if not spec or spec == "standard":
+        raise KeyError(f"{account_id!r}: no prop backtest_ruleset in {ACCOUNTS_PATH.name}")
+    ruleset = _REPO_ROOT / "config" / str(spec)
+    routing_spec = _ruleset_routing_spec(ruleset)
+    if not routing_spec:
+        raise KeyError(f"{account_id!r}: ruleset {ruleset.name} declares no `routing:` file")
+    return ruleset, _REPO_ROOT / "config" / str(routing_spec)
+
+
+def _ruleset_routing_spec(ruleset: Path) -> Optional[str]:
+    """The ruleset file's ``routing:`` key (``config/``-relative), or None."""
+    import yaml
+
+    return (yaml.safe_load(ruleset.read_text()) or {}).get("routing")
 
 
 def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
@@ -115,8 +172,9 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
     a second copy of a rule."""
     import yaml
 
-    rules = yaml.safe_load(RULESET_PATH.read_text()) or {}
-    routing = yaml.safe_load(ROUTING_PATH.read_text()) or {}
+    ruleset_path, routing_path = rule_paths_for(account_id)
+    rules = yaml.safe_load(ruleset_path.read_text()) or {}
+    routing = yaml.safe_load(routing_path.read_text()) or {}
     plat = (yaml.safe_load(PLATFORMS_PATH.read_text()) or {}).get("accounts", {}).get(account_id) or {}
     ex = plat.get("executor") or {}
     lim = rules.get("limits") or {}
@@ -157,7 +215,7 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         watched_click_max_lots={str(k): float(v) for k, v in (ex.get("watched_click_max_lots") or {}).items()
                                 if v is not None},
         breach_guards=_breach_guards_for(account_id),
-        enabled_venue_symbols=enabled_venues(ex),
+        enabled_venue_symbols=enabled_venues(ex, account_id=account_id),
     )
 
 
@@ -760,17 +818,31 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             res.halted = _trip(res, state, live, f"executor errors on {n} consecutive ticks ({why})")
         res.log("halt_no_entries", why=res.halted)
         return res
+    prior_errors = int(st.get("consecutive_errors") or 0)
     st["consecutive_errors"] = 0
     res.reads = {"account": acct.as_dict(), "positions": len(positions), "orders": len(orders)}
     if acct.balance is None or acct.equity is None:
         res.alerts.append("balance/equity did not parse this cycle")
 
     halted = state.halted()
+    # A failed journal read is an executor error like a failed terminal read
+    # (PI-20260930-KMYJ5XC7-0011): it counts toward TRIP_CONSECUTIVE_ERRORS and
+    # blocks entries THIS cycle only. It used to latch on the first failure, so
+    # one ict-web-api restart by the deploy (16:05:05-07Z on 2026-09-30) halted
+    # the executor until a person cleared it. The terminal-side containment in
+    # step 3 still runs; the journal reconcile (step 4) is skipped, so a failed
+    # read never counts as "flat".
+    journal_error = None
     try:
         journal_open = api.open_fills(cfg.account_id)
     except Exception as exc:
         journal_open = None
-        halted = halted or f"journal read failed ({type(exc).__name__})"
+        journal_error = f"journal read failed ({type(exc).__name__})"
+        n = prior_errors + 1
+        st["consecutive_errors"] = n
+        res.alerts.append(f"{journal_error}; no entries this cycle")
+        if n >= TRIP_CONSECUTIVE_ERRORS:
+            halted = halted or _trip(res, state, live, f"executor errors on {n} consecutive ticks ({journal_error})")
 
     # 3. reconcile the ledger (confirm by re-read, contain per § 3.5)
     claimed_keys = set()
@@ -838,6 +910,12 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                             "balance": acct.balance, "equity": acct.equity,
                             "unrealized": acct.unrealized, "realized_today": acct.realized_today,
                             "day_start_balance": ds, "source": "prop_executor"})
+    if journal_error:
+        # Before intake, so no ticket reaches the guards and is refused: it is
+        # taken in by the next clean cycle.
+        res.halted = res.halted or journal_error
+        res.log("halt_no_entries", why=journal_error)
+        return res
 
     # 5. intake
     try:
@@ -846,7 +924,15 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         res.alerts.append(f"ticket intake failed ({type(exc).__name__}); no entries this cycle")
         return res
     seen = ledger.latest()
-    fresh = [t for t in tickets if t.get("ticket_id") and t["ticket_id"] not in seen]
+    # A ticket whose placement failed BEFORE any submit click is `retry_pending`
+    # in the ledger and is taken in again until its valid_until (operator
+    # directive 2026-09-30 ~13:12Z). Every other ledger state is final. A retry
+    # runs EXACTLY the guards a first attempt runs (manager 2026-09-30 13:21Z):
+    # this cycle's terminal read + the busy-symbol guard, valid_until, the
+    # § 3.3 guards, the LIMIT at entry, and the entry-band check below, which
+    # applies to both attempt kinds alike (no retry-only price rule).
+    fresh = [t for t in tickets if t.get("ticket_id")
+             and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") == RETRY_STATE)]
     if only_ticket_id:
         fresh = [t for t in fresh if t["ticket_id"] == only_ticket_id]
     fresh.sort(key=lambda t: str(t.get("created_at") or ""))
@@ -883,6 +969,37 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
             continue
+        if candidate is None and venue:
+            # The entry-band check, identical for a first attempt and a
+            # retry. A WAIT is not an attempt: nothing is recorded, so the
+            # ticket is looked at again next cycle and still expires at
+            # valid_until. A ticket with no venue is left to the guards,
+            # which refuse it.
+            verdict, why = _entry_band_check(adapter, page, t, venue)
+            if verdict in ("wait", "blind"):
+                res.log("band_wait", ticket_id=t["ticket_id"], why=why)
+                # A quote we could not read would otherwise let the ticket
+                # expire with only a log line (manager review of #14908): one
+                # alert per ticket, on its first blind wait.
+                if verdict == "blind" and _first_time(state, st, f"band_blind_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: live price unreadable, NOT placed yet; will retry "
+                                      f"until {t.get('valid_until')}, place by hand if needed")
+                continue
+            if verdict == "ok":
+                # Logged with the quote it used, so a live pass is observable
+                # (manager 2026-09-30 22:06Z), not inferred from a guards line.
+                res.log("band_ok", ticket_id=t["ticket_id"], why=why)
+            if verdict == "refuse":
+                res.log("band_refused", ticket_id=t["ticket_id"], why=why)
+                if live:
+                    ledger.record(t["ticket_id"], "refused", reasons=[why])
+                    _report(res, post, _skip_body(cfg, t, f"not submitted: {why}"))
+                # Live records the refusal, so the ticket is never seen again;
+                # a dry mode records nothing, so it is de-duplicated here.
+                if live or _first_time(state, st, f"band_refused_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: NOT PLACED — {why}; place it by hand by "
+                                      f"{t.get('valid_until')} or it is lost")
+                continue
         if candidate is None:
             candidate = t
     if candidate is None:
@@ -956,8 +1073,32 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
     st = state.load()
     if not att.submitted:
-        ledger.record(spec.ticket_id, "refused", reasons=[att.detail])
-        _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail}"))
+        # The guards said FITS and the form refused BEFORE any submit click
+        # (place_bracket reports submitted=True the moment the submit click is
+        # attempted, even if it raised), so no order can exist: the ticket
+        # stays RETRYABLE until its valid_until (operator directive
+        # 2026-09-30 ~13:12Z), up to RETRY_MAX_ATTEMPTS, and is not written
+        # off: nothing is reported, the ticket stays `emitted`. It was silent
+        # on 2026-09-30 12:44Z (only the two breach reports alerted), so each
+        # failure alerts.
+        n = int((seen.get(spec.ticket_id) or {}).get("attempts") or 0) + 1
+        # A WATCHED click (max_lots / only_ticket_id: the minimum-size test) is
+        # never retried: an unattended retry would place the ticket at its FULL
+        # size, not the watched cap (review of #14737, 2026-09-30).
+        watched = max_lots is not None or bool(only_ticket_id)
+        if n < RETRY_MAX_ATTEMPTS and not watched:
+            ledger.record(spec.ticket_id, RETRY_STATE, attempts=n, last_detail=att.detail)
+            # The ticket is still `emitted` and the executor WILL try again:
+            # say so, so nobody places it by hand in a race with the retry.
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED yet ({att.detail}); executor will retry until "
+                              f"{candidate.get('valid_until')} (attempt {n}/{RETRY_MAX_ATTEMPTS}) "
+                              f"— do NOT place by hand")
+        else:
+            why = "watched click: not retried" if watched else f"after {n} attempts"
+            ledger.record(spec.ticket_id, "refused", reasons=[att.detail], attempts=n)
+            _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail} ({why})"))
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED — place by hand or it is lost ({why}: {att.detail}); "
+                              f"valid until {candidate.get('valid_until')}")
         if "read-back" in str(att.detail or ""):
             n = int(st.get("readback_refusals") or 0) + 1
             st["readback_refusals"] = n
@@ -989,7 +1130,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
                    venue_symbol: str, side: str = "long", lots: Optional[float] = None,
                    bracket_pct: float = 0.01, arm: bool = False, reads: int = 20,
                    sleep: Callable[[float], None] = lambda s: None,
-                   now: Optional[datetime] = None) -> CycleResult:
+                   now: Optional[datetime] = None, order_type: str = "market") -> CycleResult:
     """The end-to-end test (operator 2026-09-28 ~13:40Z, relayed by the
     manager, approved by the operator in this lane's popup): place ONE
     minimum-size MARKET bracket with SL and TP attached → confirm the position
@@ -1033,6 +1174,13 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         return stop(f"lots {lots} is not a valid venue size ({why or f'nearest step is {stepped}'})")
     if side not in ("long", "short"):
         return stop(f"side {side!r} is not long/short")
+    # LIMIT is walked DRY only: it proves the ticket path's order form (select
+    # LIMIT, then find and fill the price field) on the live terminal without
+    # an emitted ticket. A live limit round trip would rest, not fill.
+    if order_type not in ("market", "limit"):
+        return stop(f"order_type {order_type!r} is not market/limit")
+    if order_type == "limit" and arm:
+        return stop("a LIMIT round trip is dry-only (walk the form; never armed)")
     try:
         acct = adapter.read_account(page)
         positions = adapter.read_positions(page)
@@ -1059,8 +1207,14 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     ps = _f(sym.get("price_step"))
     sl, tp = round_to_step(round(sl, 6), ps), round_to_step(round(tp, 6), ps)
     tid = f"roundtrip-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    limit_px = None
+    if order_type == "limit":
+        # Resting side of the book (a long bids at the bid), as a ticket's
+        # entry usually sits away from the touch.
+        limit_px = round_to_step(round(quote["bid"] if side == "long" else quote["ask"], 6), ps)
     spec = BracketSpec(ticket_id=tid, venue_symbol=venue, side=side, quantity=float(lots),
-                       stop_loss=sl, take_profit=tp, order_type="market", price_step=ps)
+                       stop_loss=sl, take_profit=tp, order_type=order_type, limit_price=limit_px,
+                       price_step=ps)
     risk = float(lots) * float(sym["lot_units"]) * float(_f(sym.get("cvpp")) or 1.0) * abs(ref - sl)
     res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2))
 
@@ -1289,6 +1443,64 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
             "entry_price": entry if entry is not None else spec.get("limit_price"),
             "sl": spec.get("stop_loss"), "tp": spec.get("take_profit"), "source": "prop_executor"}
 
+
+#: A ticket whose placement failed before any submit click (retryable).
+RETRY_STATE = "retry_pending"
+#: Placement attempts per ticket before the pre-submit failure is final.
+RETRY_MAX_ATTEMPTS = 3
+
+#: The ticket's own entry band as ``breakout_ticket`` renders it in the
+#: message: "(only if live price is within <min> … <max>)".
+_BAND_RE = re.compile(r"within\s+([0-9]+(?:\.[0-9]+)?)\s*(?:…|\.\.\.)\s*([0-9]+(?:\.[0-9]+)?)")
+
+
+def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
+    """The ticket's own entry band, parsed from its message, or None when it
+    cannot be read. Never recomputed here: a second copy of the rule could
+    disagree with the ticket the operator saw."""
+    m = _BAND_RE.search(str(ticket.get("message") or ""))
+    if not m:
+        return None
+    lo, hi = float(m.group(1)), float(m.group(2))
+    return (lo, hi) if lo <= hi else None
+
+
+def _first_time(state: "ExecutorState", st: Dict[str, Any], key: str, ticket_id: str,
+                keep: int = 50) -> bool:
+    """True the first time ``ticket_id`` is seen under ``key`` (the last
+    ``keep`` ids are remembered in the executor state), False after."""
+    seen = list(st.get(key) or [])
+    if ticket_id in seen:
+        return False
+    st[key] = (seen + [ticket_id])[-keep:]
+    state.save(st)
+    return True
+
+
+def _entry_band_check(adapter: Any, page: Any, ticket: Mapping[str, Any],
+                      venue: str) -> Tuple[str, str]:
+    """Before ANY placement, a first attempt or a retry (PI-20260930-KMYJ5XC7-0003,
+    manager 2026-09-30 13:29Z): this cycle's quote -- the ask for a long, the
+    bid for a short -- must lie inside the ticket's own entry band. The band
+    is clipped at the stop, so a price outside it includes a price beyond the
+    SL, where a LIMIT at entry would be marketable and fill straight into its
+    own stop. Returns ``("ok"|"wait"|"blind"|"refuse", why)``. Fails closed:
+    an unreadable quote is ``blind`` and waits like ``wait`` (we could not
+    look), an unreadable band REFUSES."""
+    band = _entry_band(ticket)
+    if band is None:
+        return "refuse", "entry band unreadable in the ticket message"
+    try:
+        q = adapter.read_quote(page, venue)
+    except Exception as exc:
+        return "blind", f"no quote for the entry-band check ({type(exc).__name__}; could not look)"
+    long_side = _dir(ticket.get("direction")) == "long"
+    px = _f((q or {}).get("ask" if long_side else "bid"))
+    if px is None:
+        return "blind", "no quote for the entry-band check (could not look)"
+    if not (band[0] <= px <= band[1]):
+        return "wait", f"{'ask' if long_side else 'bid'} {px} outside the ticket's entry band {band[0]}..{band[1]}"
+    return "ok", f"{'ask' if long_side else 'bid'} {px} inside the ticket's entry band {band[0]}..{band[1]}"
 
 #: Cancel attempts on one expired resting entry before the executor stops
 #: retrying and says so (an alert at exhaustion; later cycles only log).

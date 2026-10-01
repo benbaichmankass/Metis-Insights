@@ -695,6 +695,7 @@ def fetch_candles(
     limit: int,
     exchange_client: Any = None,
     since: Optional[int] = None,
+    bypass_cache: bool = False,
 ) -> Optional[pd.DataFrame]:
     """Fetch OHLCV candles for *symbol* / *timeframe* and return a DataFrame.
 
@@ -711,6 +712,13 @@ def fetch_candles(
         ``BYBIT_API_KEY``, ``BYBIT_API_SECRET``.
     limit : int
         Number of candles to fetch.
+    bypass_cache : bool
+        ``True`` skips the cache READ and goes to the venue (the fresh frame is
+        still written back). For a caller whose decision needs a bar to have
+        CLOSED before the frame was fetched: a cached frame (TTL up to
+        ``CANDLE_CACHE_TTL_MAX_S``, 300 s on the live VM) can predate the close
+        and carry the then-forming bar as its last row
+        (PI-20260930-GQPT6PQF-0002). Default ``False`` = unchanged.
     since : int, optional
         Epoch MILLISECONDS (CCXT convention) to fetch candles FORWARD from —
         the historical-range read the M30 P5 exit panel uses to reconstruct
@@ -747,7 +755,7 @@ def fetch_candles(
             return None
 
     cache_key = _candle_cache_key(exchange_client, symbol, timeframe, limit, since)
-    cached = _candle_cache_get(cache_key)
+    cached = None if bypass_cache else _candle_cache_get(cache_key)
     if cached is not None:
         # Counted for its `n` (see _fetch_phase): hits vs misses is the empirical
         # test of whether the cache reaches across ticks at all.

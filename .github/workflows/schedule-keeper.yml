@@ -57,6 +57,38 @@ jobs:
           pip install -q pyyaml
           python3 scripts/ops/schedule_keeper.py keep | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # RESEARCH-W7 A0 (operator 2026-09-30, "make sure those tests are running"): the research
+      # queue's own idle alarm is the LAST STEP of research-queue-dispatch, so it is silent when that
+      # job is dropped, skipped or red before it. This one runs from here (push-to-main + cron),
+      # outside the thing it watches: runnable units exist but nothing has fired for 12 h -> red run
+      # here (claude-run-failure-alert) and, on the 6-hourly paging cron, a Telegram alert.
+      - name: Research queue throughput (idle alarm)
+        id: research_throughput
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          pip install -q pyyaml
+          python3 scripts/ci/check_research_queue_throughput.py | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Page when the research queue is idle with work waiting
+        if: steps.research_throughput.outcome == 'failure' && github.event.schedule == '53 */6 * * *'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python3 scripts/notify_session.py alert \
+            --summary "🚨 Research queue IDLE — runnable units waiting, nothing fired for 12h+" \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
+
+      - name: Fail this run when the research queue is idle
+        if: steps.research_throughput.outcome == 'failure'
+        run: |
+          echo "::error::research queue idle with runnable units waiting — see the 'Research queue throughput' step"
+          exit 1
+
       - name: Page when a validator has stopped running
         if: steps.keep.outputs.stale == 'true' && github.event.schedule == '53 */6 * * *'
         env:

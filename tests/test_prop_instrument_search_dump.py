@@ -237,7 +237,7 @@ def test_locator_finds_the_measured_widget_header_input(browser):
     from src.prop.platform.dxtrade import FIND_INSTRUMENT_SEARCH_JS, INSTRUMENT_SEARCH_MATCH
     p = _page(browser, TICKET)       # an order ticket elsewhere on the page is excluded
     got = p.evaluate(FIND_INSTRUMENT_SEARCH_JS, [list(INSTRUMENT_SEARCH_MATCH)])
-    assert got == {"found": True, "via": "placeholder+data-test-id"}
+    assert got == {"found": True, "via": "placeholder+tid"}
     assert p.evaluate("document.querySelector('[data-metis-search-hit]').dataset.testId") \
         == "watchlist_public_search_input"
     p.close()
@@ -247,7 +247,7 @@ def test_probe_types_resets_and_never_clicks_or_submits(browser):
     p = _page(browser)
     got = DXtradeAdapter(timeout_ms=3_000).probe_instrument_details(p, "BTCUSD")
     assert got["searched"] is True and got["readback_matches"] is True and got["reset"] is True
-    assert got["via"] == "placeholder+data-test-id" and got["blurred"] is True
+    assert got["via"] == "placeholder+tid" and got["blurred"] is True
     assert p.evaluate("window.__clicks") is None and p.evaluate("window.__submit") is None
     assert p.evaluate("document.querySelectorAll('[data-metis-search-hit]').length") == 0
     p.close()

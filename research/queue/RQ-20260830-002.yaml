@@ -2,6 +2,8 @@ id: RQ-20260830-002
 title: Monthly re-validation of every SHIPPED bracket-geometry cell on a live leg
 status: queued
 cadence: monthly
+theme: live_strategy
+priority: 3
 kind: experiment
 question: 'Do the bracket-geometry cells currently SHIPPED on live legs still clear
   the gate that shipped them? A validation is a measurement with a date, not a property

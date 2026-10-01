@@ -2,6 +2,8 @@ id: RQ-20260930-501
 title: 'HyroTrader fit, Stage 0: does the ict_scalp 15m book (ETH+SOL+XRP) clear a pre-registered edge AND rule-fit gate over ~5 years? (lane HYRO-STRATS)'
 status: queued
 cadence: once
+theme: new_strategy_prop
+priority: 1
 kind: experiment
 
 question: >-
@@ -116,4 +118,4 @@ related:
   - docs/research/hyrotrader-bybit-deep-dive-2026-09-30.md
   - config/prop_rulesets/hyrotrader.yaml
   - RQ-20260930-502 (blocked) and RQ-20260930-503 (blocked)
-last_dispatched_at: null
+last_dispatched_at: '2026-09-30T08:05:41+00:00'

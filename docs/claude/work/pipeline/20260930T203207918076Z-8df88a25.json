@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "order_monitor treats the extended-hours trade-scoped defer as a defer (no failure streak), with a test pinning it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-ZIFJ1RKM-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "#14585 independent review F2 (manager session_01HYq6XtfesZ57VyaQrK6CL1); lane ALPACA-CLOSE-WEDGE session_01LLCqwwDGQM7BZMZifj1rkM",
+    "rerun": "python3 -c \"import re;s=open('src/units/accounts/alpaca_client.py').read();m=re.search(r'trade-scoped exit of.*?nothing placed\\)', s, re.S);t=m.group(0).lower();print([k for k in ('exit deferred','deferring','market closed') if k in t])\"  # [] = still misclassified (also re-read the defer test in order_monitor._apply_update)"
+  },
+  "state": "queued",
+  "what": "[money-path] AlpacaClient._close_extended_hours' trade-scoped defer (retCode 2, '… trade-scoped exit of N of M on SYM DEFERRED to the regular session … (protective bracket left armed; nothing placed)') matches NONE of order_monitor._apply_update's defer phrases ('exit deferred' / 'deferring' / 'market closed'). It is therefore booked as a close FAILURE: _CLOSE_FAIL_STREAK increments, the 'won't flatten' alert can page, and the close is retried every tick through a whole extended session, for a venue that was merely asked to wait. Found by the #14585 review (F2) and verified 2026-09-30 by string check. Fix: key the defer on retCode 2 or add the phrase, with a test; Tier-2 order-path, to be a HELD PR. | LIVE EVIDENCE 2026-09-30 after-hours (lane ALPACA-CLOSE-WEDGE): alpaca_paper SPY pkg-51f1eff527d44b2e (spy_pullback_1h, verdict sl_cross @763.61 for the 8-share row of an 11-share netted long). From 20:01:31Z every ~30 s the monitor logged 'exchange close failed — leaving DB open … extended-hours: trade-scoped exit of 8 of 11.0 on SPY DEFERRED to the regular session' — 49 ERROR lines 20:00–20:29Z, each incrementing the close-failure streak; and because the failure path keeps the active-close marker, the equity sweep logged 'skipping re-arm for alpaca_paper/SPY' 21 times (active_close_skipped 20 over 11 sweeps). Not a protection gap tonight: the broker shows SPY 11 long with an OCO covering all 11 (stop 744.48 held, TP 830.43). Whether the streak paged the operator was NOT established (a successful enqueue is not logged)."
+}

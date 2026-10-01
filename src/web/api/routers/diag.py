@@ -326,6 +326,11 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # trip/backoff lines) can be tailed without SSH.
     "ict-prop-feed.service",
     "ict-prop-feed.timer",
+    # 2026-09-30 (TRADEIFY-WIRE) — the per-account feed INSTANCE for
+    # tradeify_1 (template deploy/ict-prop-feed@.service, opt-in timer);
+    # queryable so a session can confirm it is on and tail its journal.
+    "ict-prop-feed@tradeify_1.service",
+    "ict-prop-feed@tradeify_1.timer",
     # 2026-09-28 (PROP-EXEC) — the breakout_1 step-3 executor. Ships NOT
     # enabled (its timer is in deploy/opt-in/); queryable so a session can
     # confirm it is off, and tail its redacted cycle journal once enabled.

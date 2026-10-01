@@ -33,6 +33,16 @@ Modes (exactly one; default = one scheduled cycle):
   button, with its attributes and ancestor chain, nearest the watchlist
   first (``DXtradeAdapter.instrument_search_dump``). Types, clicks and reads
   no value. Always ``EXIT_OK`` unless the session/environment fails.
+- ``--instrument-info-dry SYMBOLS`` / ``--instrument-info-probe SYMBOLS``
+  (PROP-ETH-DOM, operator decision 2026-09-30 "Build an automated probe"):
+  the instrument INFO-PANEL probe (``DXtradeAdapter.probe_instrument_info``).
+  ``-dry`` resolves every target and runs every guard, clicking NOTHING.
+  ``-probe`` then, per symbol, single-clicks the watchlist Symbol cell, the
+  info button and the panel's close control only, dumps the panel's own text,
+  and restores + verifies the originally linked symbol. It refuses unless the
+  account reads flat (no tab click). ``EXIT_UNPARSED`` when any alert was
+  raised (a failed restore, an unexpected dialog, a panel that did not
+  close, a changed watchlist), so the action run reads as failed.
 - ``--round-trip VENUE [--lots N] [--side long|short] [--live]``: the
   end-to-end test (operator 2026-09-28): ONE minimum-size market bracket with
   SL+TP → confirm by re-read → report ``open`` → the bot closes it at market →
@@ -96,24 +106,36 @@ def emit(obj: Dict[str, Any], *secrets: str) -> None:
 def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None) -> str:
     """The mode this run executes in. Pure; tested.
 
-    ⚠️ The three PROBE modes (``probe``, ``instrument_probe``,
-    ``instrument_search_dump``) are decided BEFORE ``PROP_EXECUTOR_MODE`` and
+    ⚠️ The PROBE modes (``probe``, ``instrument_probe``,
+    ``instrument_search_dump``, ``instrument_info_dry``,
+    ``instrument_info_probe``) are decided BEFORE ``PROP_EXECUTOR_MODE`` and
     so run even when it reads ``off``. That is a deliberate exception to
     "off — nothing read, nothing clicked" (manager review of #14527,
     2026-09-30): ``off`` is the EXECUTOR's kill switch (no cycle, no ticket,
     no submit, no reconcile), while a probe is a manual, one-shot,
     operator/manager-dispatched measurement that places nothing and writes
-    nothing to the API or the executor's state dir. Blocking it under
+    nothing to the API. The one exception to "nothing in the executor's state
+    dir": ``instrument_info_probe`` (click mode) writes the executor's
+    AUTO-REVERT ``halted`` latch -- armed before its first click, removed
+    only after a VERIFIED restore, kept with the reason otherwise
+    (``arm_info_probe_latch`` / ``latch_info_probe``). That latch only ever
+    BLOCKS entries. Blocking it under
     ``off`` would block measurement exactly when the executor has been
     reverted. ``probe`` opens and closes the order form but types nothing;
     the other two never reach the order form."""
-    base = pe.executor_mode(env)
+    base = pe.executor_mode(env, getattr(args, "account", pe.PRIMARY_ACCOUNT) or pe.PRIMARY_ACCOUNT)
     if args.probe_ticket:
         return "probe"
     if getattr(args, "instrument_probe", ""):
         return "instrument_probe"
     if getattr(args, "instrument_search_dump", False):
         return "instrument_search_dump"
+    if getattr(args, "instrument_info_dry", ""):
+        return "instrument_info_dry"
+    if getattr(args, "instrument_info_probe", ""):
+        return "instrument_info_probe"
+    if getattr(args, "symbol_switch_dry", ""):
+        return "symbol_switch_dry"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -133,6 +155,16 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     return base
 
 
+def default_state_dir(account: str) -> Path:
+    """The executor's ledger / latch directory. ``breakout_1`` keeps the path it
+    has always had; another account gets its own, so one account's AUTO-REVERT
+    latch or intent ledger can never gate or confirm another's tickets."""
+    base = Path.home() / ".cache" / "metis-prop-browser"
+    if account == pe.PRIMARY_ACCOUNT:
+        return base / "executor"
+    return base / "accounts" / account / "executor"
+
+
 def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
     """Print an ``instrument_search_dump`` result one row per line, FARTHEST
     first, then each frame's summary last: a run log read from its tail keeps
@@ -143,6 +175,83 @@ def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
         for i in range(len(rows) - 1, -1, -1):
             emit({"search_dump_row": {"frame": fr.get("frame"), "rank": i, **rows[i]}}, *secrets)
         emit({"instrument_search_dump": fr}, *secrets)
+
+
+def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
+    """Print a ``probe_instrument_info`` result: one line per symbol, then the
+    summary (alerts, restore, watchlist diff) LAST so a tail-read log keeps
+    it. Returns the exit code: ``EXIT_UNPARSED`` when any alert was raised."""
+    got = dict(got)
+    for sym, r in (got.pop("results", None) or {}).items():
+        emit({"instrument_info": {"symbol": sym, **r}}, *secrets)
+    emit({"instrument_info_summary": got}, *secrets)
+    return EXIT_UNPARSED if got.get("alerts") else EXIT_OK
+
+
+#: The pre-click latch text. A process killed mid-click (SIGTERM, timeout)
+#: never reaches its ``finally`` restore, so the latch goes down FIRST and is
+#: removed only after a verified restore (manager re-review of #14645).
+INFO_PROBE_ARMED = ("AUTO-REVERT: instrument-info-probe IN PROGRESS -- if this persists the probe "
+                    "was killed mid-run and the linked symbol is UNVERIFIED; re-select it on the "
+                    "terminal, then executor-clear-halt")
+
+
+def arm_info_probe_latch(state_dir: Path) -> bool:
+    """Write the in-progress latch before any click. Returns True only when
+    THIS call wrote it; an already-present latch (a real executor trip) is
+    left exactly as it is and is never removed by the probe."""
+    st = pe.ExecutorState(state_dir)
+    if st.halted():
+        return False
+    st.halt(INFO_PROBE_ARMED)
+    return True
+
+
+def fresh_page_recheck(got: Dict[str, Any], adapter: Any, context: Any, page: Any, login_url: str) -> None:
+    """Before an unverified in-run restore latches the executor, re-read the
+    linked symbol CLICK-FREE on a FRESH page (manager 2026-09-30 18:00Z; the
+    linked symbol does not survive the page, #14831/#14836). The probe's own
+    page is closed first -- its state is exactly what does not persist, and
+    one tab per session avoids a second live session. The result goes in
+    ``got["fresh_page_check"]``; info_probe_restore_latch_reason reads it.
+    A fresh page reading the original symbol is an ALERT, never silence."""
+    from src.prop.platform.dxtrade import info_probe_restore_latch_reason
+    if not info_probe_restore_latch_reason(got):
+        return
+    try:
+        page.close()
+    except Exception:
+        pass
+    original = (got.get("restore") or {}).get("original")
+    chk = adapter.fresh_page_linked_check(context, login_url, original)
+    got["fresh_page_check"] = chk
+    if not info_probe_restore_latch_reason(got):
+        got.setdefault("alerts", []).append(
+            f"in-run restore unverified, but a fresh page reads the original linked symbol {original!r} "
+            f"with no dialog open: alert only, no latch")
+
+
+def latch_info_probe(got: Dict[str, Any], state_dir: Path, *, armed: bool = False) -> Optional[str]:
+    """A click-mode info probe that could not VERIFY the linked-symbol restore
+    leaves the executor's own AUTO-REVERT ``halted`` latch in place with the
+    reason (manager review of #14645): the next executor tick reads it before
+    trading and refuses every new entry, alerting, until the symbol is
+    re-selected and ``executor-clear-halt`` runs. The reason is appended to
+    ``alerts`` too. With ``armed`` (this run wrote the in-progress latch), a
+    clean run removes that latch -- only if it still holds the in-progress
+    text -- and an unclean one replaces its text with the reason."""
+    from src.prop.platform.dxtrade import info_probe_restore_latch_reason
+    st = pe.ExecutorState(state_dir)
+    reason = info_probe_restore_latch_reason(got)
+    ours = armed and INFO_PROBE_ARMED in (st.halted() or "")
+    if reason:
+        if ours:
+            st.halt_file.unlink()
+        st.halt(reason)
+        got.setdefault("alerts", []).append(f"executor halt latch written: {reason}")
+    elif ours:
+        st.halt_file.unlink()
+    return reason
 
 
 def _code_sha() -> str:
@@ -162,7 +271,9 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--account", default="breakout_1")
     ap.add_argument("--api-base", default="http://127.0.0.1:8001")
     ap.add_argument("--timeout-s", type=int, default=45)
-    ap.add_argument("--state-dir", default=str(Path.home() / ".cache" / "metis-prop-browser" / "executor"))
+    ap.add_argument("--state-dir", default="",
+                    help="default: ~/.cache/metis-prop-browser/executor for breakout_1, "
+                         ".../accounts/<account>/executor for any other account")
     ap.add_argument("--storage-state", default="")
     ap.add_argument("--login", choices=("reuse", "fresh"), default="reuse")
     g = ap.add_mutually_exclusive_group()
@@ -172,6 +283,14 @@ def main(argv: Optional[list] = None) -> int:
                    help="comma-separated venue symbols to search + dump (read-only); see module docstring")
     g.add_argument("--instrument-search-dump", action="store_true",
                    help="read-only dump of the search/add controls near the watchlist; see module docstring")
+    g.add_argument("--instrument-info-dry", default="", metavar="VENUE_SYMBOLS",
+                   help="info-panel probe, DRY: resolve targets and run every guard, click nothing")
+    g.add_argument("--instrument-info-probe", default="", metavar="VENUE_SYMBOLS",
+                   help="info-panel probe: select each watchlist row, open + dump + close its info panel, "
+                        "restore the linked symbol; see module docstring")
+    g.add_argument("--symbol-switch-dry", default="", metavar="VENUE_SYMBOL",
+                   help="per-ticket symbol switch, DRY: select this symbol, verify, re-select the original and "
+                        "verify; opens no order form")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -184,21 +303,27 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--live", action="store_true",
                     help="round trip: actually click (refused unless PROP_EXECUTOR_MODE=live); default is a dry walk")
     ap.add_argument("--ticket-id", default="", help="watched click: act on this ticket only")
+    ap.add_argument("--order-type", choices=("market", "limit"), default="market",
+                    help="round trip only: 'limit' walks the ticket path's LIMIT form, DRY only")
     args = ap.parse_args(argv)
+    if not args.state_dir:
+        args.state_dir = str(default_state_dir(args.account))
 
     mode = resolve_mode(args)
+    mode_env = pe.mode_env_for(args.account)
+    env_mode = pe.executor_mode(account_id=args.account)
     cfg_plat = load_platform_config(args.account)
     username = os.environ.get(cfg_plat.get("username_env", ""), "")
     password = os.environ.get(cfg_plat.get("password_env", ""), "")
     secrets = (username, password)
     emit({"executor": "start", "account": args.account, "mode": mode, "login": args.login,
-          "env_mode": pe.executor_mode(), "code_sha": _code_sha()})
+          "env_mode": env_mode, "code_sha": _code_sha()})
     if mode == "not_armed":
-        emit({"executor": "not_armed", "why": f"a live click needs {pe.MODE_ENV}=live explicitly "
-                                              f"(it reads {pe.executor_mode()!r}); nothing clicked"})
+        emit({"executor": "not_armed", "why": f"a live click needs {mode_env}=live explicitly "
+                                              f"(it reads {env_mode!r}); nothing clicked"})
         return EXIT_ERROR
     if mode == "off":
-        emit({"executor": "off", "why": f"{pe.MODE_ENV}=off — nothing read, nothing clicked"})
+        emit({"executor": "off", "why": f"{mode_env}=off — nothing read, nothing clicked"})
         return EXIT_OK
     if args.login == "reuse" and not args.storage_state:
         emit({"session": "none", "why": "--login reuse needs --storage-state (the feed's session file)"})
@@ -207,7 +332,16 @@ def main(argv: Optional[list] = None) -> int:
         emit({"feasibility": "no_credentials"})
         return EXIT_FEASIBILITY
 
-    cfg = pe.load_config(args.account)
+    # The probes never size a ticket, so they run without the account's
+    # ruleset/routing (a second account can be MEASURED before its
+    # accounts.yaml entry exists); every sizing mode fails closed without it.
+    try:
+        cfg = pe.load_config(args.account)
+    except (KeyError, FileNotFoundError) as exc:
+        if mode not in ("probe", "instrument_probe", "instrument_search_dump"):
+            emit({"config": f"no executor config for {args.account} ({exc}); nothing read, nothing clicked"})
+            return EXIT_ERROR
+        cfg = None
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000
@@ -295,6 +429,22 @@ def main(argv: Optional[list] = None) -> int:
                 emit_search_dump(adapter.instrument_search_dump(page), *secrets)
                 return EXIT_OK
 
+            if mode in ("instrument_info_dry", "instrument_info_probe"):
+                raw = args.instrument_info_dry or args.instrument_info_probe
+                syms = [s.strip() for s in raw.split(",") if s.strip()]
+                click = mode == "instrument_info_probe"
+                armed = arm_info_probe_latch(Path(args.state_dir)) if click else False
+                got = adapter.probe_instrument_info(page, syms, click=click)
+                if click:
+                    fresh_page_recheck(got, adapter, context, page, cfg_plat["login_url"])
+                latch_info_probe(got, Path(args.state_dir), armed=armed)
+                return emit_info_probe(got, *secrets)
+
+            if mode == "symbol_switch_dry":
+                got = adapter.symbol_switch_dry(page, args.symbol_switch_dry)
+                emit({"symbol_switch_dry": got}, *secrets)
+                return EXIT_OK if got.get("refused") is None and not got.get("alerts") else EXIT_UNPARSED
+
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
             state_dir = Path(args.state_dir)
             if mode.startswith("round_trip") or mode.startswith("close_position"):
@@ -309,7 +459,7 @@ def main(argv: Optional[list] = None) -> int:
                         adapter=adapter, page=page, api=api, cfg=cfg,
                         ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
                         venue_symbol=args.round_trip, side=args.side, lots=args.lots,
-                        arm=(mode == "round_trip_live"),
+                        arm=(mode == "round_trip_live"), order_type=args.order_type,
                         sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
                 emit({"reads": res.reads}, *secrets)
                 for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):

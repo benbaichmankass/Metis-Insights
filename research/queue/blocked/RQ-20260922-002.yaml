@@ -2,6 +2,8 @@ id: RQ-20260922-002
 title: Is the Stage-0 pass fold-concentrated across the eight legs that clear the bar?
 status: blocked
 cadence: once
+theme: new_strategy_prop
+priority: 2
 kind: deterministic
 
 question: >-

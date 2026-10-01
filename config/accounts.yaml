@@ -1738,6 +1738,9 @@ accounts:
     type: prop
     account_class: prop
     mode: live
+    report_default: true               # a bare Telegram fill report / screenshot (no acct=) is
+                                       # breakout_1's once tradeify_1 is live too (TRADEIFY-WIRE C;
+                                       # src/prop/telegram_report_handler.default_prop_account).
     account_state: evaluation          # eval → funded lifecycle (PropRiskManager).
                                        # Flips to `funded` once the +10% target is
                                        # cleared; the operator/system updates it.

@@ -126,6 +126,10 @@ EXPECTED_SERVICES = {
     # feed (ict-prop-feed.timer). Logs in to a live prop account, so it is
     # skipped by deploy_pull_restart.sh DEFAULT_SKIP (no unscheduled login).
     "ict-prop-feed.service",
+    # 2026-09-30 (TRADEIFY-WIRE): per-account TEMPLATE of the same feed
+    # (ict-prop-feed@<account>). install_systemd_units.sh skips *@*; installed
+    # and enabled only by breakout-login-check apply: feed-enable-timer.
+    "ict-prop-feed@.service",
     # 2026-09-28 (PROP-EXEC): the breakout_1 step-3 executor. Its timer is in
     # deploy/opt-in/ (never auto-enabled); the unit is in DEFAULT_SKIP because
     # a live-mode cycle can place orders.

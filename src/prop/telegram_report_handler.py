@@ -42,9 +42,12 @@ def default_prop_account() -> Optional[str]:
     """The account a bare command targets when no ``acct=`` override is given.
 
     ``PROP_DEFAULT_ACCOUNT`` wins; otherwise resolve the single prop account
-    from ``accounts.yaml`` (when exactly one exists — the common case today). If
-    several prop accounts exist and none is pinned, returns ``None`` so the
-    handler asks the operator to disambiguate rather than guess.
+    from ``accounts.yaml`` (when exactly one exists). With several, the single
+    one in ``mode: live`` (a ``dry_run`` account places nothing, so a bare
+    report cannot be about it — TRADEIFY-WIRE: tradeify_1 at dry_run must not
+    take the default away from the live breakout_1). If that is still not
+    exactly one and none is pinned, returns ``None`` so the handler asks the
+    operator to disambiguate rather than guess.
     """
     pinned = os.environ.get("PROP_DEFAULT_ACCOUNT")
     if pinned:
@@ -61,7 +64,18 @@ def default_prop_account() -> Optional[str]:
         aid for aid, a in accts.items()
         if isinstance(a, dict) and is_prop_account(a)
     ]
-    return prop_ids[0] if len(prop_ids) == 1 else None
+    if len(prop_ids) == 1:
+        return prop_ids[0]
+    # `mode` defaults to live (the account gate is default-permissive).
+    live = [aid for aid in prop_ids
+            if str(accts[aid].get("mode") or "live").strip().lower() == "live"]
+    if len(live) == 1:
+        return live[0]
+    # Several LIVE prop accounts (tradeify_1 beside breakout_1 after go-live):
+    # the one declaring `report_default: true` in accounts.yaml takes a bare
+    # report; none or several declaring it → None (ask, never guess).
+    flagged = [aid for aid in live if accts[aid].get("report_default") is True]
+    return flagged[0] if len(flagged) == 1 else None
 
 
 def resolve_open_ticket(account_id: str, canonical_symbol: str) -> Tuple[

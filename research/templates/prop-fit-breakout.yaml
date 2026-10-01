@@ -2,6 +2,8 @@ family: prop-fit-breakout
 weight: 30
 kind: experiment
 cadence: once
+theme: new_strategy_prop
+priority: 2
 title: "Breakout prop fit: {leg} at sizing {sizing_arm} under RULE-B6 V2 (generated)"
 question: >-
   Does {leg} ({symbol} {timeframe}, Breakout market {breakout_market}) clear the

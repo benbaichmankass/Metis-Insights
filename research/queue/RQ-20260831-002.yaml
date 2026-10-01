@@ -2,6 +2,8 @@ id: RQ-20260831-002
 title: Thin-leg bracket-geometry accrual — the five 1d equity legs that cannot reach the power floor
 status: queued
 cadence: monthly
+theme: live_strategy
+priority: 3
 kind: experiment
 question: 'Are the shipped bracket-geometry cells on the five LOW-FREQUENCY 1d equity
   legs (iwm, mgc, qqq, scha, spy) still behaving as they did when they shipped? This
@@ -66,4 +68,4 @@ lands:
     per leg and one leg''s data fetch can fail, so requiring all 5 would grade a 4-of-5
     run as a LANDING failure — a different defect from "nothing landed", and this gate
     only catches the latter.'
-last_dispatched_at: '2026-08-31T11:46:12+00:00'
+last_dispatched_at: '2026-09-30T11:59:38+00:00'
