@@ -1,0 +1,1 @@
+Tier-1 self-land: RQ-20260930-703 dispatch stamp reset (claude/mgr-703-stamp-reset)
