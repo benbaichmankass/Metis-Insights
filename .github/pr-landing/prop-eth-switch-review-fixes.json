@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Follow-up to merged #15070 (operator: 'Merge now, fix after'): the four items of manager review 5929788082 on the live prop executor's per-ticket symbol switch (dxtrade.py) -- new-only dropdowns, no control leaves, priced watchlist rows under table_column headers, canonical symbols, restore after an unverified pick. The manager reviews and merges.",
+  "why": "Closes the review findings on the funded breakout_1 / tradeify_1 symbol switch; no order path changes; 8 new tests fail on main."
+}

@@ -100,9 +100,9 @@ def test_real_config_loads_and_keeps_flat_75_and_unmeasured_lots_refuse():
     assert c.symbols["ADAUSDT"]["min_lots"] == 10
     spec, _, why = pe.bracket_from_ticket(ticket(symbol="BTCUSDT"), c)
     assert spec is None and "not declared" in why
-    # The lot step: SOLUSD (#13855); ETHUSD for its dry round trip only (PROP-ETH-DOM B4), not enabled.
+    # The lot step: SOLUSD (#13855); ETHUSD (PROP-ETH-DOM B4) -- enabled since B5 (2026-10-01).
     assert c.watched_click_max_lots == {"SOLUSD": 0.01, "ETHUSD": 0.01}
-    assert "ETHUSD" not in c.enabled_venue_symbols
+    assert "ETHUSD" in c.enabled_venue_symbols
 
 
 # ── § 3.3 guards, one at a time ───────────────────────────────────────────
@@ -1162,8 +1162,9 @@ def test_live_output_never_carries_the_raw_form(env):
 
 def test_real_config_eth_sol_lots_are_the_measured_ones():
     c = pe.load_config("breakout_1")
-    for s in ("ETHUSDT", "SOLUSDT"):
-        assert (c.symbols[s]["lot_units"], c.symbols[s]["lot_step"], c.symbols[s]["min_lots"]) == (1, 0.01, None)
+    # ETHUSD min_lots 0.01 MEASURED by B4 (#15021, no clamp at 0.01 = the lot step); SOLUSD's stays null.
+    for s, mn in (("ETHUSDT", 0.01), ("SOLUSDT", None)):
+        assert (c.symbols[s]["lot_units"], c.symbols[s]["lot_step"], c.symbols[s]["min_lots"]) == (1, 0.01, mn)
 
 
 def test_one_click_dump_reads_structure_never_values(tpage):
@@ -1880,9 +1881,14 @@ def test_enabled_venues_env_overrides_config_and_missing_enables_nothing():
     assert pe.enabled_venues({}, env={}) == []
 
 
-def test_the_real_config_enables_sol_only():
+def test_the_real_config_enables_sol_and_eth():
+    # PROP-ETH-DOM B5 (2026-10-01): ETHUSD joins with every spec measured.
     c = pe.load_config("breakout_1")
-    assert c.enabled_venue_symbols == ["SOLUSD"]
+    assert c.enabled_venue_symbols == ["ETHUSD", "SOLUSD"]
+    eth = c.symbols["ETHUSDT"]
+    assert eth == {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1, "min_lots": 0.01, "lot_step": 0.01,
+                   "price_step": 0.01}
+    assert c.watched_click_max_lots["ETHUSD"] == 0.01 and c.risk_cap_usd == 75.0
 
 
 def _eth_not_enabled():
@@ -3810,3 +3816,41 @@ def test_an_armed_round_trip_does_not_read_or_restore_the_link(env):
     pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_sol_only(), ledger=ledger,
                       venue_symbol="SOLUSD", arm=True, reads=1)
     assert not any(c[0] in ("read_linked_symbol", "select_linked_symbol") for c in ad.calls)
+
+
+# ── the live tick wins over a secondary test (operator directive ~12:35Z
+# 2026-10-01, manager comment 5931584062 on #14947) ─────────────────────────
+
+
+def test_pending_live_tickets_uses_the_cycles_own_intake_filters(tmp_path):
+    led = pe.IntentLedger(tmp_path / "ledger.jsonl")
+    led.record("prop-done", "submitted")
+    led.record("prop-retry", pe.RETRY_STATE, attempts=1)
+    c = cfg(enabled_venue_symbols=["SOLUSD"])
+    api = FakeApi(tickets=[
+        ticket(ticket_id="prop-fresh"),
+        ticket(ticket_id="prop-done"),                                        # final in the ledger
+        ticket(ticket_id="prop-retry"),                                       # retry_pending: still waiting
+        ticket(ticket_id="prop-stale", valid_until=(NOW - timedelta(minutes=1)).isoformat()),
+        ticket(ticket_id="prop-eth", symbol="ETHUSDT"),                       # no enabled venue
+    ])
+    assert pe.pending_live_tickets(api, c, led, now=NOW) == ["prop-fresh", "prop-retry"]
+
+
+def test_a_secondary_mode_defers_before_any_browser_while_a_live_ticket_waits(tmp_path, monkeypatch, capsys):
+    import scripts.prop.prop_executor_tick as tick
+    monkeypatch.setattr(pe, "pending_live_tickets", lambda api, cfg, ledger, now=None: ["prop-x"])
+    monkeypatch.setattr(tick, "adapter_for_platform", lambda name: (_ for _ in ()).throw(AssertionError("no browser")))
+    storage = tmp_path / "s.json"
+    storage.write_text("{}")
+    code = tick.main(["--symbol-switch-dry", "ETHUSD", "--state-dir", str(tmp_path),
+                      "--storage-state", str(storage)])
+    assert code == tick.EXIT_DEFERRED and "the executor tick wins" in capsys.readouterr().out
+    assert "close_position_dry" not in tick.YIELD_MODES and "live" not in tick.YIELD_MODES
+
+
+def test_the_action_wrapper_reports_a_deferred_test_as_deferred_not_failed():
+    sh = (Path(__file__).resolve().parents[1] / "scripts/ops/breakout_login_check_action.sh").read_text()
+    i = sh.index('if [ "${rc}" -eq 7 ]; then')
+    block = sh[i:i + 400]
+    assert "deferred" in block and "exit 0" in block

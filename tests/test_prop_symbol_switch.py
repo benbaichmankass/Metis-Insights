@@ -130,13 +130,20 @@ def test_place_bracket_still_refuses_when_the_reread_form_does_not_name_the_symb
 # ── the DRY mode: select, verify, restore, verify; no order form ─────────
 
 
-def test_symbol_switch_dry_refuses_unless_one_click_reads_off(browser):  # noqa: F811
+# One-click is informational, never a refusal (operator directive 2026-10-01,
+# manager comment 5930025023 on #14947): an ON read is ONE alert per run.
+def test_symbol_switch_dry_with_one_click_on_runs_and_alerts_once(browser):  # noqa: F811
     p = browser.new_page()
     p.set_content(page_html(one_click="checked"))
     got = DXtradeAdapter(timeout_ms=3_000).symbol_switch_dry(p, "ETHUSD", settle_ms=50)
     st = state(p)
     p.close()
-    assert "does not read OFF" in got["refused"] and st["clicks"] == []
+    assert got["refused"] is None and got["one_click"]["state"] == "on"
+    assert [a for a in got["alerts"] if "one-click" in a] == [
+        "one-click trading reads ON (informational, never a refusal: the executor clicks no "
+        "instant-trade control; operator directive 2026-10-01)"]
+    assert got["restore"]["ok"] is True
+    assert st["trade"] == 0 and "px" not in st["clicks"]     # no Bid/Ask, no quick-trade control
 
 
 def test_the_tick_decides_symbol_switch_dry_before_the_kill_switch():
@@ -150,17 +157,19 @@ def test_the_tick_decides_symbol_switch_dry_before_the_kill_switch():
 # ── independent review of #14885 (manager 20:17Z) ─────────────────────────
 
 
-def test_review_the_switch_click_refuses_when_one_click_reads_on(browser):  # noqa: F811
-    got, st = switch(browser, page_html(one_click="checked"), "ETHUSD")
-    assert got["ok"] is False and got["clicked"] is False
-    assert got["why"].startswith("symbol switch refused: one-click not confirmed OFF (reads 'on'")
-    assert st["clicks"] == [] and st["linked"] == "SOLUSD"
-
-
-def test_review_the_switch_click_refuses_when_one_click_is_unknown(browser):  # noqa: F811
-    got, st = switch(browser, page_html(one_click_unreadable=True), "ETHUSD")
-    assert got["ok"] is False and "one-click not confirmed OFF (reads 'unknown'" in got["why"]
-    assert st["clicks"] == []
+@pytest.mark.parametrize("kw,reads", [({"one_click": "checked"}, "on"), ({"one_click_unreadable": True}, "unknown")])
+def test_the_switch_click_records_one_click_and_never_refuses_on_it(browser, kw, reads):  # noqa: F811
+    a = DXtradeAdapter(timeout_ms=3_000)
+    p = browser.new_page()
+    p.set_content(page_html(**kw))
+    got = a.select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert got["ok"] is True and got["clicked"] is True and got["one_click"]["state"] == reads
+    assert st["clicks"] == ["sym"] and st["linked"] == "ETHUSD"     # the Symbol cell only
+    never_traded(st)
+    alert = a.take_one_click_alert()
+    assert (alert is not None) is (reads == "on") and a.take_one_click_alert() is None    # once
 
 
 def test_review_one_click_off_lets_the_switch_click(browser):  # noqa: F811
@@ -416,10 +425,10 @@ def test_robust_an_empty_watchlist_refuses_without_a_cell_click(browser):  # noq
     never_traded(st)
 
 
-def test_robust_one_click_on_refuses_before_any_click(browser):  # noqa: F811
+def test_robust_one_click_on_is_recorded_and_only_symbol_cells_are_clicked(browser):  # noqa: F811
     got, st = robust(browser, page_html(one_click="checked", link_breaks_for="ETHUSD"), "ETHUSD")
-    assert got["ok"] is False and "one-click not confirmed OFF" in got["why"]
-    assert st["clicks"] == [] and st["linked"] == "SOLUSD"
+    assert got["ok"] is False and got["one_click"]["state"] == "on" and "one-click" not in got["why"]
+    assert st["clicks"] and set(st["clicks"]) == {"sym"} and st["linked"] == "SOLUSD"
     never_traded(st)
 
 
@@ -609,7 +618,7 @@ def ticket_sidebar(sym="SOLUSD", desc="SOL"):
     return inner.replace(f">Buy {sym}</button>", f">Buy 0.01 {sym} at 1.00</button>", 1)
 
 
-TICKET_DD_JS = """({inside, instruments, dialog}) => {
+TICKET_DD_JS = """({inside, instruments, dialog, broken, highlight}) => {
   const box = document.querySelector('#panel [data-test-id=symbol_input]');
   const desc = document.querySelector('#panel .tk-desc'), sub = document.querySelector('#sub');
   window.__tk = {committed: box.value, keys: [], tabs: 0, picks: 0};
@@ -624,9 +633,12 @@ TICKET_DD_JS = """({inside, instruments, dialog}) => {
     for (const [s, d] of instruments) {
       if (s[0] !== v[0]) continue;
       const r = document.createElement('div'); r.className = 'ddrow';
-      r.innerHTML = '<div class="c-sym">' + s + '</div><div class="c-desc">' + d + '</div><div class="c-cls">Cryptocurrencies</div>';
-      r.addEventListener('click', () => { window.__tk.committed = s; box.value = s; desc.textContent = d;
-        sub.textContent = 'Buy 0.01 ' + s + ' at 1.00'; window.__tk.picks++; dd.remove(); });
+      const symHtml = highlight ? '<span class="hl">' + s.slice(0, 3) + '</span>' + s.slice(3) : s;
+      r.innerHTML = '<div class="c-sym">' + symHtml + '</div><div class="c-desc">' + d + '</div><div class="c-cls">Cryptocurrencies</div>';
+      r.addEventListener('click', () => { window.__tk.picks++;
+        if (s === broken) { box.value = s; dd.remove(); return; }           // the field only: nothing committed
+        window.__tk.committed = s; box.value = s; desc.textContent = d;
+        sub.textContent = 'Buy 0.01 ' + s + ' at 1.00'; dd.remove(); });
       dd.appendChild(r);
     }
     dd.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => window.__tk.tabs++));
@@ -638,11 +650,12 @@ TICKET_DD_JS = """({inside, instruments, dialog}) => {
 
 
 def ticket_page(browser, *, sym="SOLUSD", desc="SOL", instruments=BREAKOUT_INSTRUMENTS, inside=False,  # noqa: F811
-                dialog=False, dropdown=True, extra="", base=None, setup=()):
+                dialog=False, dropdown=True, extra="", base=None, setup=(), broken="", highlight=False):
     p = browser.new_page()
     p.set_content((base or page_html)(outside_table=ticket_sidebar(sym, desc) + extra))
     if dropdown:
-        p.evaluate(TICKET_DD_JS, {"inside": inside, "instruments": instruments, "dialog": dialog})
+        p.evaluate(TICKET_DD_JS, {"inside": inside, "instruments": instruments, "dialog": dialog,
+                                  "broken": broken, "highlight": highlight})
     else:
         p.evaluate("() => { const b = document.querySelector('#panel [data-test-id=symbol_input]');"
                    " window.__tk = {committed: b.value, keys: [], tabs: 0, picks: 0};"
@@ -748,13 +761,13 @@ def test_ticket_route_with_no_dropdown_puts_the_field_back_and_presses_no_key(br
     no_order(st)
 
 
-def test_ticket_route_refuses_before_typing_unless_one_click_reads_off(browser):  # noqa: F811
+def test_ticket_route_with_one_click_on_still_switches_and_records_it(browser):  # noqa: F811
     p = ticket_page(browser, base=lambda **kw: page_html(one_click="checked", **kw))
     got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
     st = tk_state(p)
     p.close()
-    assert got["ok"] is False and "one-click not confirmed OFF" in got["why"] and "pick" not in got
-    assert st["field"] == "SOLUSD" and st["tk"]["keys"] == [] and st["clicks"] == []
+    assert got["ok"] is True and got["one_click"]["state"] == "on"
+    assert st["field"] == "ETHUSD" and st["clicks"] == ["c-sym"] and "Enter" not in st["tk"]["keys"]
     no_order(st)
 
 
@@ -857,6 +870,144 @@ def test_symbol_switch_dry_alerts_when_no_ticket_opens_and_still_restores_the_li
     p.close()
     assert any(a.startswith("no order ticket opened") for a in got["alerts"])
     assert got["restore"]["ok"] is True and "switch" not in got
+
+
+# PROP-ETH-DOM #15139 (MEASURED live 2026-10-01 11:30Z on breakout_1): typing in
+# the ticket's Symbol field produced NO dropdown row; the watchlist click then
+# re-linked SOLUSD with the ticket field following. The dry run now takes the
+# SAME route as the live placement (switch_ticket_symbol), so that is a note,
+# not an alert -- and a ticket field that does NOT follow still alerts.
+TICKET_FOLLOWS_WATCHLIST_JS = """() => {
+  document.addEventListener('click', e => {
+    const c = e.target.closest('.sym'); if (!c) return;
+    const s = (c.innerText || '').trim();
+    setTimeout(() => { const b = document.querySelector('#panel [data-test-id=symbol_input]');
+      b.value = s; if (window.__tk) window.__tk.committed = s;
+      document.querySelector('#panel .tk-desc').textContent = s.slice(0, 3);
+      document.querySelector('#sub').textContent = 'Buy 0.01 ' + s + ' at 1.00'; }, 0);
+  }, true); }"""
+
+
+@pytest.mark.parametrize("follows", [True, False])
+def test_symbol_switch_dry_takes_the_live_watchlist_alternative_when_the_field_lists_nothing(browser, follows):  # noqa: F811
+    p = ticket_page(browser, sym="ETHUSD", desc="ETH", dropdown=False,
+                    setup=[TICKET_FOLLOWS_WATCHLIST_JS] if follows else [])
+    p.evaluate("v => { document.querySelector('.toolbar__item [data-test-id=symbol_input]').value = v; }", "ETHUSD")
+    got = fast_adapter().symbol_switch_dry(p, "SOLUSD", settle_ms=50, home="SOLUSD")
+    st = tk_state(p)
+    p.close()
+    sw = got["switch"]
+    assert sw["ticket_route"]["pick"]["n_candidates"] == 0 and sw["ticket_route"]["pick"]["field_value"] == "sol"
+    assert st["chart"] == "SOLUSD" and st["tk"]["keys"] == [] and st["clicks"] == ["sym"]
+    if follows:
+        assert got["alerts"] == [] and sw["ok"] is True and sw["route"] == "watchlist"
+        assert sw["ticket_after"] == "SOLUSD" and st["field"] == "SOLUSD"
+        assert len(got["notes"]) == 1 and "watchlist route used" in got["notes"][0]
+        assert got["ticket_home"]["ok"] is True and got["restore"]["clicked"] is False
+    else:
+        # Both legs alert: the click's follow check, and the click-free leg
+        # whose link ALREADY reads SOLUSD while the ticket still names ETHUSD.
+        assert sw["ok"] is False and got["ticket_home"]["ok"] is False and st["field"] == "ETHUSD"
+        assert "after the watchlist route" in got["ticket_home"]["why"]
+        assert [a.split(" failed")[0] for a in got["alerts"]] == ["ticket switch to SOLUSD", "ticket back to SOLUSD"]
+    no_order(st)
+
+
+def test_ticket_pick_reports_what_typing_produced_by_shape_only(browser):  # noqa: F811
+    got, _ = ticket_switch(browser, "ETHUSD")
+    tops = got["pick"]["new_tops"]
+    assert got["pick"]["field_value"] == "ETHUSD"
+    assert any(t["cls"] == ["tk-dd"] and t["n_leaves"] > 0 for t in tops)
+    assert all(set(t) == {"tag", "cls", "role", "n_leaves", "w", "h"} for t in tops)   # never text
+
+
+# Ticket OPENER (operator directive ~12:35Z 2026-10-01, manager comment
+# 5931584062 on #14947): ONE click on the Symbol cell first, accepted only when
+# the form names the symbol; fallbacks so a ticket is never missed; the old
+# row-centre double-click (it hit both Bid/Ask buttons here) only as the last
+# resort and only on a positive one-click OFF read.
+OPEN_ON_SYMBOL_CLICK_JS = """(html) => {
+  document.querySelectorAll('tr.instrument td.sym').forEach(c => c.addEventListener('click', () => {
+    if (!document.querySelector('#panel')) document.body.insertAdjacentHTML('beforeend', html);
+  })); }"""
+
+
+def opener(browser, *, kw=None, setup_html=None):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html(**(kw or {})))
+    if setup_html is not None:
+        p.evaluate(OPEN_ON_SYMBOL_CLICK_JS, setup_html)
+    got = DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
+    st = state(p)
+    p.close()
+    return got, st
+
+
+def test_the_opener_takes_one_symbol_click_when_the_form_then_names_the_symbol(browser):  # noqa: F811
+    got, st = opener(browser, setup_html=ticket_sidebar("SOLUSD", "SOL"))
+    assert got["opened"] is True and got["via"] == "symbol_click" and got["tried"] == ["symbol_click"]
+    assert st["clicks"] == ["sym"] and st["trade"] == 0 and st["ticket"] == 0 and st["tags"] == 0
+
+
+def test_the_opener_falls_back_when_the_clicked_form_names_another_symbol(browser):  # noqa: F811
+    got, st = opener(browser, setup_html=ticket_sidebar("ETHUSD", "ETH"))
+    # the clicked panel names ETHUSD: not accepted; the next opener takes the form
+    # (place_bracket then switches it -- the opener never trusts a wrong form)
+    assert got["tried"] == ["symbol_click", "symbol_dblclick"] and got["via"] == "symbol_dblclick"
+    assert st["trade"] == 0 and set(st["clicks"]) == {"sym"}
+
+
+@pytest.mark.parametrize("kw,legacy", [({}, True), ({"one_click": "checked"}, False)])
+def test_the_opener_fallback_order_and_the_row_centre_only_on_one_click_off(browser, kw, legacy):  # noqa: F811
+    got, st = opener(browser, kw=kw)                      # no form ever opens on this page
+    assert got["opened"] is False and "no opener produced an order form" in got["refused"]
+    assert got["tried"][:2] == ["symbol_click", "symbol_dblclick"]
+    assert ("watchlist_dblclick" in got["tried"]) is legacy
+    if not legacy:                                        # one-click ON: no instant-trade control, ever
+        assert st["trade"] == 0 and set(st["clicks"]) == {"sym"}
+
+
+POSITIONS_ROW_XRP = ('<div class="widget__container___Or3 widgetNew__container">'
+                     '<button data-test-id="widget_menu_POSITIONS">Positions</button><table><tbody>'
+                     '<tr class="instrument" data-row-id="p9" ondblclick="window.__posDbl=(window.__posDbl||0)+1">'
+                     '<td class="sym">XRPUSD</td><td>Buy</td><td>1</td></tr></tbody></table></div>')
+
+
+@pytest.mark.parametrize("extra", [POSITIONS_ROW_XRP, POS_NO_MENU.replace("ETHUSD", "XRPUSD")])
+def test_the_last_resort_never_double_clicks_a_positions_row_when_the_watchlist_row_is_absent(browser, extra):  # noqa: F811
+    # Manager review 5932126267 (BLOCK): XRPUSD has NO watchlist row, but a
+    # Positions row reads it under the same tr.instrument / tr[data-row-id]
+    # selector. One-click OFF, so the last resort is reachable: it must find
+    # no RESOLVED watchlist row and double-click nothing.
+    p = browser.new_page()
+    p.set_content(page_html(outside_table=extra))
+    p.evaluate("() => document.querySelectorAll('tr').forEach(tr => tr.addEventListener('dblclick',"
+               " () => { if (!tr.closest('table').closest('.widget__container___Ab1'))"
+               " window.__posDbl = (window.__posDbl || 0) + 1; }))")
+    got = DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "XRPUSD")
+    pos_dbl = p.evaluate("window.__posDbl || 0")
+    st = state(p)
+    p.close()
+    assert got["opened"] is False and "watchlist_dblclick" not in got["tried"]
+    assert pos_dbl == 0 and st["clicks"] == [] and st["trade"] == 0
+
+
+def test_the_last_resort_double_clicks_only_the_resolved_watchlist_row(browser):  # noqa: F811
+    # The same symbol in BOTH the watchlist and a Positions row: only the
+    # watchlist row (data-metis-wl-row) is double-clicked; no tag survives.
+    p = browser.new_page()
+    p.set_content(page_html(outside_table=POSITIONS_ROW_XRP.replace("XRPUSD", "SOLUSD")))
+    got = DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
+    pos_dbl = p.evaluate("window.__posDbl || 0")
+    st = state(p)
+    p.close()
+    assert "watchlist_dblclick" in got["tried"] and pos_dbl == 0 and st["tags"] == 0
+
+
+def test_the_opener_never_clicks_a_symbol_cell_that_grows_a_control_on_hover(browser):  # noqa: F811
+    got, st = opener(browser, kw={"hover_button_for": "SOLUSD", "one_click": "checked"})
+    assert "symbol_click" not in got["tried"] and "symbol_dblclick" not in got["tried"]
+    assert st["trade"] == 0 and st["clicks"] == []
 
 
 def test_switch_dry_home_rules():
@@ -1056,7 +1207,11 @@ def test_review_a_field_set_without_desc_or_submit_change_is_not_a_switch(browse
     st = tk_state(p)
     p.close()
     assert got["picked"] is True and got["after"]["value"] == "ETHUSD"
-    assert got["ok"] is False and got["why"] == "submit label names 'SOLUSD', not ETHUSD"
+    assert got["ok"] is False and got["why"].startswith("submit label names 'SOLUSD', not ETHUSD")
+    # Picked but unverified -> the original is put back (manager review of 221c459, item 4): the guarded
+    # re-pick finds no SOLUSD row in this dropdown, so the last-resort fill-back restores the field.
+    assert got["restore"]["ok"] is False and "RESTORE to SOLUSD FAILED" in got["why"]
+    assert got["field_reset"] is True and st["field"] == "SOLUSD"
     no_order(st)
 
 
@@ -1069,7 +1224,8 @@ def test_review_an_unreadable_submit_label_is_not_a_pass(browser):  # noqa: F811
     p.close()
     assert got["picked"] is True and got["after"]["value"] == "ETHUSD" and got["after"]["desc"] == "ETH"
     assert got["after"]["submit_symbol"] is None and got["ok"] is False
-    assert got["why"] == "submit label names None, not ETHUSD"
+    assert got["why"].startswith("submit label names None, not ETHUSD")
+    assert got["restore"]["picked"] is True and got["field_reset"] is True
 
 
 def test_review_a_description_that_does_not_change_is_not_a_pass(browser):  # noqa: F811
@@ -1080,6 +1236,117 @@ def test_review_a_description_that_does_not_change_is_not_a_pass(browser):  # no
     p.close()
     assert got["picked"] is True and got["after"]["submit_symbol"] == "ETHUSD"
     assert got["ok"] is False and "description under the field did not change" in got["why"]
+
+
+
+# ── manager review of 221c459 (BLOCK 1-2, items 3-4) ─────────────────────────
+
+# The reviewer's repro: a PRE-EXISTING div grid (role=grid) Positions row with a
+# Close button, no <table>, no widget_menu_*.
+GRID_POS = ('<div role="grid" class="pos-grid"><div role="row" class="g-row"><div class="g-sym">ETHUSD</div>'
+            '<div>Buy</div><button class="g-close">Close</button></div></div>')
+GRID_FLAG_JS = """() => document.querySelector('.g-row').addEventListener('click',
+  () => { window.__gridClicked = (window.__gridClicked || 0) + 1; }, true)"""
+
+
+@pytest.mark.parametrize("dropdown", [False, True])
+def test_review_a_pre_existing_role_grid_positions_row_is_never_picked(browser, dropdown):  # noqa: F811
+    p = ticket_page(browser, dropdown=dropdown, extra=GRID_POS, setup=[GRID_FLAG_JS])
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    grid = p.evaluate("window.__gridClicked || 0")
+    p.close()
+    assert grid == 0 and "g-sym" not in st["clicks"] and "g-close" not in st["clicks"]
+    assert "dropdown_not_new" in {r["why"] for r in got["pick"]["rejected"]}
+    assert got["picked"] is dropdown and got["ok"] is dropdown            # only the real dropdown row, if any
+    no_order(st)
+
+
+def test_review_a_dropdown_entry_inside_a_control_is_never_clicked(browser):  # noqa: F811
+    # A new, dropdown-shaped container whose only ETHUSD entry is a <button>.
+    js = """() => { const box = document.querySelector('#panel [data-test-id=symbol_input]');
+      box.addEventListener('input', () => { const dd = document.createElement('div'); dd.className = 'tk-dd';
+        dd.innerHTML = '<div><div>Symbol</div><div>Description</div></div><div class="ddrow">'
+          + '<button class="dd-btn">ETHUSD</button><div>ETH</div></div>';
+        document.body.appendChild(dd); }); }"""
+    p = ticket_page(browser, dropdown=False, setup=[js])
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    p.close()
+    assert got["picked"] is False and "dd-btn" not in st["clicks"]
+    assert "inside_a_control" in {r["why"] for r in got["pick"]["rejected"]}
+    no_order(st)
+
+
+def test_review_canonical_compare_tradeify_display_eth_slash_usd_for_venue_ethusd(browser):  # noqa: F811
+    # tradeify_1 shows ETH/USD; the executor's venue symbol is ETHUSD. Exactly one row: never ENA/USD, ETC/USD.
+    got, st = ticket_switch(browser, "ETHUSD", sym="TRX/USD", desc="TRX", instruments=TRADEIFY_INSTRUMENTS)
+    assert got["ok"] is True and st["field"] == "ETH/USD" and got["pick"]["n_candidates"] == 1
+    assert st["tk"]["picks"] == 1 and st["tk"]["tabs"] == 0
+    no_order(st)
+
+
+def test_review_a_prefix_highlighted_dropdown_row_is_matched_on_its_full_text(browser):  # noqa: F811
+    got, st = ticket_switch(browser, "ETHUSD", highlight=True)
+    assert got["ok"] is True and got["pick"]["n_candidates"] == 1 and st["field"] == "ETHUSD"
+    assert st["clicks"] == ["c-sym"]                                   # the whole cell, not the <span>ETH</span>
+    no_order(st)
+
+
+def test_review_canonical_form_names_symbol_and_submit_label():
+    from src.prop.platform.dxtrade import form_names_symbol, submit_label_mismatch
+    assert form_names_symbol({"symbol_value": "ETH/USD"}, "ETHUSD") is True
+    assert form_names_symbol({"symbol_value": "ETHUSD"}, "ETH/USD") is True
+    assert form_names_symbol({"symbol_value": "SOLUSD.X"}, "SOLUSD") is False      # a near-miss is not SOLUSD
+    assert form_names_symbol({"form_text": "Buy 0.01 ETH/USD at 1"}, "ETHUSD") is True
+    assert form_names_symbol({"form_text": "Buy 0.01 ENA/USD at 1"}, "ETHUSD") is False
+    spec = SimpleNamespace(quantity=0.01, venue_symbol="ETHUSD")
+    assert submit_label_mismatch("Buy 0.01 ETH/USD at 2,685.84", spec) == ""
+    assert "names 'ENA/USD'" in submit_label_mismatch("Buy 0.01 ENA/USD at 0.5", spec)
+
+
+def test_review_picked_but_unverified_restores_the_original_through_the_guarded_route(browser):  # noqa: F811
+    # The ETHUSD row "takes" in the field only; the guarded re-pick of SOLUSD then works.
+    p = ticket_page(browser, broken="ETHUSD")
+    got = fast_adapter().select_ticket_symbol(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    p.close()
+    assert got["ok"] is False and got["picked"] is True
+    assert got["restore"]["ok"] is True and got["restore"]["picked"] is True, (got["why"], got["restore"])
+    assert st["field"] == "SOLUSD" and st["desc"] == "SOL" and st["submit"] == "Buy 0.01 SOLUSD at 1.00"
+    assert st["clicks"] == ["c-sym", "c-sym"] and st["tk"]["keys"] == []
+    no_order(st)
+
+
+# BLOCK 2: Tradeify layout with the empty watchlist's <table> GONE and a header-less Positions table
+# (3 aligned cells, tr[data-row-id]) directly under the table_column_* header divs.
+VARIANT_B_NO_TABLE_JS = """() => {
+  const wl = document.querySelector('table.wl'); const host = wl.parentElement;
+  const pos = document.createElement('table'); pos.className = 'pos';
+  pos.style.cssText = 'border-spacing:0;table-layout:fixed';
+  pos.innerHTML = '<tbody><tr data-row-id="pos1"><td class="psym" style="width:120px;padding:0">ETHUSD</td>'
+    + '<td style="width:120px;padding:0">Buy</td><td style="width:120px;padding:0">0.01</td></tr></tbody>';
+  wl.replaceWith(pos);
+  pos.querySelector('tr').addEventListener('click', () => { window.__posClicked = (window.__posClicked || 0) + 1; }); }"""
+
+
+def test_review_variant_b_without_the_watchlist_table_never_clicks_the_positions_row(browser):  # noqa: F811
+    from tests.test_prop_instrument_info_probe import tradeify_layout
+
+    from src.prop.platform.dxtrade import INFO_PROBE_RESOLVE_JS
+    p = browser.new_page()
+    p.set_content(tradeify_layout(page_html()))
+    p.evaluate(VARIANT_B_NO_TABLE_JS)
+    a = fast_adapter()
+    a.SWITCH_READY_MS = 300
+    got = a.select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    res = p.evaluate(INFO_PROBE_RESOLVE_JS, [["ETHUSD"]])
+    st = state(p)
+    pos = p.evaluate("window.__posClicked || 0")
+    p.close()
+    assert got["ok"] is False and got["clicked"] is False and st["clicks"] == [] and pos == 0
+    assert "the bid / ask cells are not prices" in " ".join(res.get("column_headers", {}).get("why", []))
+    never_traded(st)
 
 
 # ── TRADEIFY-WIRE T4: the ticket route takes the UNSLASHED venue symbol the
@@ -1121,12 +1388,12 @@ def test_switch_dry_refuses_when_neither_the_link_nor_the_ticket_field_reads(bro
     p = browser.new_page()
     p.set_content(page_html().replace(*NO_INFO_BTN))
     got = fast_adapter().symbol_switch_dry(p, "ETHUSD", settle_ms=50)
-    st = state(p)
     p.close()
     assert "instrument_info_button" in got["refused"] and "ticket symbol field" in got["refused"]
-    # the pre-open's only clicks: one double-click on ETHUSD's SYMBOL cell
-    # (#15146), never its Bid/Ask price buttons (row centre)
-    assert st["clicks"] == ["sym", "sym"] and st["trade"] == 0
+    # the pre-open used open_order_ticket's own opener sequence (#15138); no
+    # form here, so it refused and says how
+    assert "no opener produced an order form" in got["refused"]
+    assert got["ticket_preopen"]["opened"] is False
 
 
 def test_form_names_a_slash_named_symbol_as_a_whole_token():
@@ -1180,10 +1447,3 @@ def test_switch_dry_refuses_and_says_how_the_ticket_failed_to_open(browser):  # 
     assert "ticket open: no opener produced an order form" in got["refused"]
     assert st["trade"] == 0 and st["ticket"] == 0
 
-
-def test_watchlist_row_pattern_accepts_one_slash_only():
-    from src.prop.platform.dxtrade import _symbol_cell_re
-
-    rx = _symbol_cell_re("ETHUSD")
-    assert rx.match("ETH/USD") and rx.match(" ETHUSD ") and rx.match("ETHU/SD")
-    assert not rx.match("ETH/USDT") and not rx.match("ETH//USD") and not rx.match("XETH/USD")

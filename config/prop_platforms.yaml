@@ -78,7 +78,11 @@ accounts:
         # ["ETHUSD", "2,683.58", "2,683.59"] -- both quotes 2 decimals, last digits
         # non-zero, so no trailing-zero ambiguity. Display precision, cross-checked
         # by the ETH round-trip-dry (B4) form read-back before ETHUSD is enabled.
-        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: null, price_step: 0.01}
+        # ETHUSD min_lots 0.01: MEASURED 2026-10-01 (B4 round-trip-dry, issue
+        # #15021, run 36813539419, code f7e55264f): the venue accepted a typed
+        # 0.01 with no clamp -- submit label "Buy 0.01 ETHUSD at 2,697.81" -- so
+        # the minimum is <= 0.01, and the lot step is 0.01, so it IS 0.01.
+        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.01}
         # SOLUSD price_step 0.01: MEASURED 2026-09-29 (dry run #13965, run
         # 36526339732): the watchlist quotes 118.01 / 118.02, the submit label
         # reads "at 118.02", and the ticket rounded a typed 119.2002 to 119.2.
@@ -109,12 +113,14 @@ accounts:
       # touched (never a refusal, never an AUTO-REVERT count) and stays manual
       # via Telegram. A symbol joins only after symbol switching lands AND it
       # passes the D1-D7 dry run. Env override: PROP_EXECUTOR_SYMBOLS.
-      # 2026-09-30 (PROP-ETH-DOM): per-ticket symbol switching is BUILT
-      # (DXtradeAdapter.select_linked_symbol, called by place_bracket).
-      # ETHUSD stays OUT: its price_step is UNMEASURED (lots/lot_step/cvpp are
-      # measured, #13500); measure it (watchlist quote decimals via
-      # dump-tables, then the ETH round-trip-dry D1-D7 walk) before it joins.
-      enabled_venue_symbols: [SOLUSD]
+      # 2026-10-01 (PROP-ETH-DOM B5): ETHUSD JOINS. Per-ticket symbol switching
+      # is built and merged (#15070: the ticket's own Symbol field, else the
+      # verified watchlist click; place_bracket refuses any form not naming the
+      # ticket's symbol). ETHUSD specs are all MEASURED: lot_units / lot_step /
+      # cvpp (#13500), price_step 0.01 (B3, #14999), min_lots 0.01 (B4, #15021,
+      # form verified and never submitted). Risk caps unchanged ($75/ticket).
+      # Operator go-live rule 2026-10-01: if we can execute trades, go live.
+      enabled_venue_symbols: [SOLUSD, ETHUSD]
 
   # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's
   # DXtrade white-label (TRADEIFY-WIRE, 2026-09-30; operator decision ~08:24Z

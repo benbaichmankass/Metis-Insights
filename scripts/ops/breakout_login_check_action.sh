@@ -451,6 +451,12 @@ if [ -n "${EXEC_MODE}" ]; then
     set -e
     record_audit "breakout-login-check" "${EXEC_MODE}" \
         "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"mode\": \"${EXEC_MODE}\"}" >/dev/null || true
+    if [ "${rc}" -eq 7 ]; then
+        # EXIT_DEFERRED: a live ticket was waiting and this test stood aside
+        # before any browser (the tick wins, manager 5931584062). Not a failure.
+        log "breakout-login-check ${EXEC_MODE}: deferred — a live ticket is waiting; the executor tick wins (re-dispatch after it is placed)"
+        exit 0
+    fi
     log "breakout-login-check ${EXEC_MODE}: exit ${rc}"
     exit "${rc}"
 fi
