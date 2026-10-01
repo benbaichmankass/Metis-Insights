@@ -1,6 +1,5 @@
 | Model | Sym/TF | n | base | AUC | brier_lift | Verdict |
 |---|---|---:|---:|---:|---:|---|
-| eth-regime-5m-lgbm-v1 | ETHUSDT/5m | 13976 | 0.01 | 0.9214 | 0.00591 | 🟢 TRUSTWORTHY_SIGNAL |
 | mes-regime-1d-lgbm-v2 | MES/1d | 2930 | 0.5 | 0.9205 | 0.13423 | 🟢 TRUSTWORTHY_SIGNAL |
 | mes-regime-15m-lgbm-v2 | MES/15m | 14264 | 0.3753 | 0.8816 | 0.09253 | 🟢 TRUSTWORTHY_SIGNAL |
 | btc-regime-5m-lgbm-yz-v1 | BTCUSDT/5m | 30023 | 0.0017 | 0.8775 | -0.00381 | 🟢 TRUSTWORTHY_SIGNAL |
@@ -18,6 +17,7 @@
 | eth-regime-15m-lgbm-xasset-v1 | ETHUSDT/15m | 22919 | 0.234 | 0.7163 | 0.01229 | 🟢 TRUSTWORTHY_SIGNAL |
 | btc-regime-15m-baseline-v1 | BTCUSDT/15m | 21191 | 0.0364 | 0.7089 | 0.00064 | 🟢 TRUSTWORTHY_SIGNAL |
 | mes-regime-5m-baseline-v1 | MES/5m | 30023 | 0.3999 | 0.7015 | 0.02678 | 🟢 TRUSTWORTHY_SIGNAL |
+| eth-regime-5m-lgbm-v1 | ETHUSDT/5m | 30023 | 0.0054 | 0.6942 | -0.00115 | 🟢 TRUSTWORTHY_SIGNAL |
 | eth-regime-1h-lgbm-xasset-v1 | ETHUSDT/1h | 30023 | 0.3363 | 0.6836 | -0.0061 | 🟢 TRUSTWORTHY_SIGNAL |
 | mes-regime-15m-baseline-v1 | MES/15m | 14264 | 0.3753 | 0.6485 | 0.0168 | 🟢 TRUSTWORTHY_SIGNAL |
 
