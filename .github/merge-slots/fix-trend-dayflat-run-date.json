@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01BBHxEYiMMJtEhnCBhyhmk2",
+  "branch": "claude/fix-trend-dayflat-run-date",
+  "claimed_at": "2026-10-01T00:21:20Z",
+  "purpose": "Tier-1 test fix: trend_dayflat run_date"
+}
