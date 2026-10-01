@@ -250,14 +250,26 @@ def record_ticket(ticket: Dict[str, Any]) -> str:
     return ticket_id
 
 
-def set_ticket_status(ticket_id: str, status: str) -> int:
+def set_ticket_status(
+    ticket_id: str, status: str, *, account_id: Optional[str] = None,
+) -> int:
+    """Set a ticket's status. With ``account_id`` the UPDATE is scoped to that
+    account, so a report from one prop account can never advance another
+    account's ticket (TRADEIFY-WIRE F1): a mismatched pair updates 0 rows."""
     conn = _connect()
     try:
         ensure_tables(conn)
-        cur = conn.execute(
-            "UPDATE prop_tickets SET status = ? WHERE ticket_id = ?",
-            (status, ticket_id),
-        )
+        if account_id:
+            cur = conn.execute(
+                "UPDATE prop_tickets SET status = ? "
+                "WHERE ticket_id = ? AND account_id = ?",
+                (status, ticket_id, account_id),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE prop_tickets SET status = ? WHERE ticket_id = ?",
+                (status, ticket_id),
+            )
         conn.commit()
         return cur.rowcount
     finally:
@@ -285,6 +297,20 @@ def list_tickets(
             (*params, int(limit)),
         ).fetchall()
         return [_ticket_row(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_ticket(ticket_id: str) -> Optional[Dict[str, Any]]:
+    """One ticket by id, or ``None`` (also when the tables are absent)."""
+    if not ticket_id or not tables_present():
+        return None
+    conn = _connect(read_only=True)
+    try:
+        row = conn.execute(
+            "SELECT * FROM prop_tickets WHERE ticket_id = ?", (str(ticket_id),),
+        ).fetchone()
+        return _ticket_row(row) if row else None
     finally:
         conn.close()
 
@@ -707,6 +733,7 @@ __all__ = [
     "record_ticket",
     "set_ticket_status",
     "list_tickets",
+    "get_ticket",
     "insert_fill",
     "amend_fill_levels",
     "list_fills",
