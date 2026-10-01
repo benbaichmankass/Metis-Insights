@@ -3418,6 +3418,25 @@ INFO_PROBE_PANEL_GONE_JS = r"""
 }
 """
 
+#: Click-free: the visible workspace tabs, ``[{index, name, current}]``, each
+#: tab's NAME span tagged ``data-metis-ws-name=<index>`` -- the only element a
+#: workspace switch clicks (never ``workspace_close_button`` "Delete
+#: Workspace"). MEASURED tradeify_1 probe #15217: ``li[data-test-id=
+#: workspace_current|workspace_tab] > span[data-test-id=workspace_name]``.
+WORKSPACE_TABS_JS = r"""
+() => {
+  document.querySelectorAll('[data-metis-ws-name]').forEach(e => e.removeAttribute('data-metis-ws-name'));
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const tabs = [...document.querySelectorAll('li[data-test-id=workspace_current], li[data-test-id=workspace_tab]')].filter(vis);
+  return tabs.map((li, index) => {
+    const names = [...li.querySelectorAll('[data-test-id=workspace_name]')].filter(vis);
+    const name = names.length === 1 ? (names[0].innerText || names[0].textContent || '').trim().slice(0, 40) : null;
+    if (names.length === 1) names[0].setAttribute('data-metis-ws-name', String(index));
+    return {index, name, current: li.getAttribute('data-test-id') === 'workspace_current'};
+  });
+}
+"""
+
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row',
@@ -4309,9 +4328,59 @@ class DXtradeAdapter(PropPlatformAdapter):
                     page.evaluate(INFO_PROBE_CLEANUP_JS)
                 except Exception:
                     pass
+        # LAST: another WORKSPACE (tradeify_1, probe #15217: the session sits on
+        # a workspace with no New Order panel at all). A navigation click on a
+        # workspace tab's NAME -- never its close / delete control -- kept only
+        # when that workspace shows an order form; else the original workspace
+        # is restored. Never reached when any opener above found the form.
+        ws = self._open_ticket_on_another_workspace(page, out)
+        if ws is not None:
+            out.update(opened=True, via=f"workspace:{ws['name']}", form=ws["form"])
+            return out
         out["form"] = form
         out["refused"] = f"no opener produced an order form (tried {out['tried']})"
         return out
+
+    def _workspaces(self, page: Any) -> List[Dict[str, Any]]:
+        """Click-free: the workspace tabs (``WORKSPACE_TABS_JS``)."""
+        try:
+            return list(page.evaluate(WORKSPACE_TABS_JS) or [])
+        except Exception:
+            return []
+
+    def _switch_workspace(self, page: Any, index: int) -> bool:
+        """ONE click on workspace tab ``index``'s NAME span (tagged by
+        WORKSPACE_TABS_JS), then wait. Never its close / delete control."""
+        try:
+            self._workspaces(page)
+            loc = page.locator(f"[data-metis-ws-name='{int(index)}']")
+            if loc.count() != 1:
+                return False
+            loc.first.click(timeout=5_000)
+            page.wait_for_timeout(1_500)
+            return True
+        except Exception:
+            return False
+
+    def _open_ticket_on_another_workspace(self, page: Any, out: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        tabs = self._workspaces(page)
+        current = next((t for t in tabs if t.get("current")), None)
+        out["workspaces"] = [t.get("name") for t in tabs]
+        if current is None or len(tabs) < 2:
+            return None
+        for t in tabs:
+            if t.get("current"):
+                continue
+            out["tried"].append(f"workspace:{t.get('name')}")
+            if not self._switch_workspace(page, t["index"]):
+                continue
+            form = self._find_form(page)
+            if form.get("found"):
+                return {"name": t.get("name"), "form": form}
+        # none had a ticket: put the operator's workspace back
+        back = next((x for x in self._workspaces(page) if x.get("name") == current.get("name")), None)
+        out["workspace_restored"] = bool(back and self._switch_workspace(page, back["index"]))
+        return None
 
     def _dismiss_dialogs(self, page: Any, out: Dict[str, Any]) -> None:
         """A dialog the rejected single click opened is closed (Escape)
@@ -4401,6 +4470,9 @@ class DXtradeAdapter(PropPlatformAdapter):
             "one_click": opened.get("one_click"),
             "via": opened.get("via"),
             "refused": opened.get("refused"),
+            "tried": opened.get("tried"),
+            "workspaces": opened.get("workspaces"),
+            "workspace_restored": opened.get("workspace_restored"),
             "fields": {k: {"label": v.get("label"), "disabled": v.get("disabled")}
                        for k, v in (form.get("fields") or {}).items()},
             "buttons": form.get("buttons") or {},

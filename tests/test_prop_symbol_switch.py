@@ -1465,3 +1465,73 @@ def test_switch_dry_refuses_and_says_how_the_ticket_failed_to_open(browser):  # 
     assert "ticket open: no opener produced an order form" in got["refused"]
     assert st["trade"] == 0 and st["ticket"] == 0
 
+
+
+# ── tradeify_1 probe #15217: the session's workspace has NO New Order panel;
+# the opener's last resort switches to the workspace that has one (a click on
+# the tab's NAME, never its delete control) or restores the original. ───────
+
+def workspace_page(browser, ticket_on="Trading Dashboard"):  # noqa: F811
+    p = browser.new_page()
+    tabs = "".join(
+        f'<li data-test-id="{"workspace_current" if i == 0 else "workspace_tab"}" style="display:inline-block">'
+        f'<span data-test-id="workspace_name">{n}</span>'
+        f'<button data-test-id="workspace_close_button" title="Delete Workspace">x</button></li>'
+        for i, n in enumerate(["My Trading Account", "Trading Dashboard", "Trading Journal"]))
+    shell = (f'<ul class="ws">{tabs}</ul><div id="ws-body"></div>'
+             f'<template id="tk">{ticket_sidebar("SOL/USD", "SOL")}</template>')
+    p.set_content(page_html(outside_table=shell).replace(*NO_INFO_BTN))
+    p.evaluate("""([ticketOn, dd, args]) => {
+      const setup = eval('(' + dd + ')');
+      window.__deleted = 0;
+      document.querySelectorAll('[data-test-id=workspace_close_button]').forEach(b =>
+        b.addEventListener('click', () => { window.__deleted++; }));
+      document.querySelectorAll('li [data-test-id=workspace_name]').forEach(sp => sp.addEventListener('click', () => {
+        document.querySelectorAll('ul.ws li').forEach(li => li.setAttribute('data-test-id', 'workspace_tab'));
+        sp.closest('li').setAttribute('data-test-id', 'workspace_current');
+        document.querySelectorAll('#ws-body > *').forEach(e => e.remove());
+        if (sp.textContent === ticketOn) {
+          document.getElementById('ws-body').appendChild(document.getElementById('tk').content.cloneNode(true));
+          setup(args);
+        }
+      }));
+    }""", [ticket_on, TICKET_DD_JS, {"inside": False, "instruments": TRADEIFY_INSTRUMENTS, "dialog": False}])
+    return p
+
+
+def current_ws(p):
+    return p.evaluate("document.querySelector('li[data-test-id=workspace_current] [data-test-id=workspace_name]').textContent")
+
+
+def test_opener_switches_to_the_workspace_that_holds_the_ticket(browser):  # noqa: F811
+    p = workspace_page(browser)
+    got = fast_adapter().open_order_ticket(p, "ETHUSD")
+    deleted, ws = p.evaluate("window.__deleted"), current_ws(p)
+    p.close()
+    assert got["opened"] is True and got["via"] == "workspace:Trading Dashboard"
+    assert got["workspaces"] == ["My Trading Account", "Trading Dashboard", "Trading Journal"]
+    assert ws == "Trading Dashboard" and deleted == 0
+
+
+def test_opener_restores_the_workspace_when_none_holds_a_ticket(browser):  # noqa: F811
+    p = workspace_page(browser, ticket_on="nowhere")
+    got = fast_adapter().open_order_ticket(p, "ETHUSD")
+    deleted, ws = p.evaluate("window.__deleted"), current_ws(p)
+    p.close()
+    assert got["opened"] is False and got["workspace_restored"] is True
+    assert "workspace:Trading Dashboard" in got["tried"] and "workspace:Trading Journal" in got["tried"]
+    assert ws == "My Trading Account" and deleted == 0
+
+
+def test_switch_dry_round_trips_after_the_workspace_switch(browser):  # noqa: F811
+    p = workspace_page(browser)
+    got = fast_adapter().symbol_switch_dry(p, "ETHUSD", settle_ms=50)
+    deleted = p.evaluate("window.__deleted")
+    st = tk_state(p)
+    p.close()
+    assert got["ticket_preopen"]["via"] == "workspace:Trading Dashboard"
+    assert got["refused"] is None and got["switch"]["ok"] is True and got["ticket_home"]["ok"] is True
+    assert got["switch"]["after"]["value"] == "ETH/USD" and deleted == 0
+    # no submit; the earlier price-cell clicks are #15138's one-click-OFF-gated
+    # last-resort row double-click, which runs BEFORE the workspace step
+    assert st["submits"] == 0 and st["clicks"].index("workspace_name") > st["clicks"].index("px")
