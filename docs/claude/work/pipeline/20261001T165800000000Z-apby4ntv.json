@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-04"
+  },
+  "id": "PI-20261001-APBY4NTV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "M16-RESCOPE lane session_01LF3eUyxahXxpH7bKnLRhe9 report to manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-01 16:52Z; RQ-20260930-601 FAIL (run 36732230587)",
+    "rerun": "Read research/results/RQ-20260930-601/36732230587.jsonl (FAIL: rho 0.019, perm p 0.197, n_eval 2328); then grep config/strategies.yaml and config/accounts.yaml for the conviction-sizing arm on bybit_1 and name the evidence record it was enabled on."
+  },
+  "state": "queued",
+  "what": "TIER-3 EVIDENCE GAP (unfiled until now, per the M16 lane; its search for 'conviction' with M16/601 found no row, which is not proof of absence): RQ-20260930-601 (M16 conviction -> outcome) FAILED on measured data, and the confirmatory RQ-20260930-602 is blocked until >=500 more eval trades accrue. Does the live reductive conviction-sizing arm on bybit_1 (demo/Stage 1) still have any evidential basis? Settle by reading what evidence record enabled it: if it rests on M16's conviction signal alone, propose the exact revert as a data-backed Tier-3 change (Stage-1 soak book, reversible); if it has an independent committed record, kill this with that record named."
+}
