@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's review (TRADEIFY-WIRE T4, manager 05:15Z: measure the Tradeify watchlist DOM with no clicks, then the resolver fix). Tier-2: the DXtrade adapter's instrument-info probe on the live VM. Adds a CLICK-FREE measurement only; changes no click path, no resolver, no order path.",
+  "why": "instrument-info-dry on tradeify_1 refused with '0 Symbol/Bid/Ask tables (need exactly 1)' (issue #15033). When the resolver refuses that way, the dry run now also records WATCHLIST_DUMP_JS: header words and counts only (tables, ARIA grids, div-grids with a Symbol/Instrument header leaf, instrument-row count, iframe count, watchlist-ish data-test-id names; digits masked), with no click, hover, focus or tag. Breakout's layout resolves exactly as before and records no dump (test)."
+}
