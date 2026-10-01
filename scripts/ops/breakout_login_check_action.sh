@@ -239,6 +239,12 @@ if { [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executo
     log "${EXEC_MODE}: refused for ${ACCOUNT} — the executor timer is breakout_1's; a per-account executor timer is not built"
     exit 1
 fi
+if [ "${EXEC_MODE}" = "add-watchlist-widget" ] && [ "${ACCOUNT}" = "breakout_1" ]; then
+    # A layout change on breakout_1's LIVE real-money terminal is never made
+    # by this mode (TRADEIFY-GOLIVE, manager review of #15354).
+    log "add-watchlist-widget: refused for breakout_1 — a tradeify-only layout change"
+    exit 1
+fi
 if [ "${EXEC_MODE}" = "feed-enable-timer" ] || [ "${EXEC_MODE}" = "feed-disable-timer" ]; then
     # Per-account account_status feed (templated unit, TRADEIFY-WIRE). breakout_1
     # keeps its own non-templated ict-prop-feed.timer, untouched by this.

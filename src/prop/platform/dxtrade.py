@@ -5200,6 +5200,14 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.keyboard.press("Escape")
         except Exception as exc:
             out["error"] = type(exc).__name__
+            # A menu (or whatever the click opened) may still be up: one
+            # Escape, like the mismatch path; never a close click.
+            if out["clicks"]:
+                try:
+                    page.keyboard.press("Escape")
+                    out["escaped_after_error"] = True
+                except Exception:
+                    out["escaped_after_error"] = False
         finally:
             try:
                 page.evaluate("() => { document.querySelectorAll('[data-metis-wadd],[data-metis-wpick]')"

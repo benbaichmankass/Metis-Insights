@@ -275,7 +275,10 @@ layout_line="$(grep -m1 '^layout_watchlist: ' "${OUT}" || true)"
 case "${layout_line}" in
     "layout_watchlist: MISSING"*)
         if [ ! -f "${LAYOUT_MARK}" ]; then
-            printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${layout_line}" > "${LAYOUT_MARK}" 2>/dev/null || true
+            # Like trip(): an empty marker still suppresses the repeat ping.
+            printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${layout_line}" > "${LAYOUT_MARK}" 2>/dev/null \
+                || : > "${LAYOUT_MARK}" 2>/dev/null \
+                || log "CANNOT write ${LAYOUT_MARK}; the next MISSING tick will ping again"
             log "LAYOUT: ${layout_line} (first tick missing; pinging once)"
             record_audit "prop-feed" "layout_watchlist_missing" \
                 "{\"account\": \"${ACCOUNT}\"}" >/dev/null || true

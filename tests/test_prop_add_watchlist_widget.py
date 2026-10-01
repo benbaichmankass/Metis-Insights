@@ -200,3 +200,20 @@ def test_feed_canary_pings_once_on_missing_and_logs_recovery(tmp_path):
 def test_feed_canary_is_off_for_breakout_1():
     s = (REPO / "scripts/ops/prop_feed_tick.sh").read_text()
     assert '[ "${ACCOUNT}" != "breakout_1" ] && CANARY_ARG="--layout-canary"' in s
+
+
+def test_action_refuses_add_watchlist_widget_for_breakout_1(tmp_path):
+    # Manager review of #15354: no layout change on breakout_1's live terminal.
+    import shutil
+
+    from tests.test_prop_executor_clear_halt import STUB_LIB
+    d = tmp_path / "ops"
+    d.mkdir()
+    shutil.copy(REPO / "scripts" / "ops" / "breakout_login_check_action.sh", d / "action.sh")
+    (d / "_lib.sh").write_text(STUB_LIB)
+    home = tmp_path / "home"
+    (home / ".cache" / "metis-prop-browser").mkdir(parents=True)
+    env = {"HOME": str(home), "PATH": "/usr/bin:/bin", "ACTION_APPLY": "add-watchlist-widget"}
+    p = subprocess.run(["bash", str(d / "action.sh")], env=env, capture_output=True, text=True, timeout=30)
+    assert p.returncode == 1
+    assert "add-watchlist-widget: refused for breakout_1" in p.stdout + p.stderr
