@@ -2707,7 +2707,7 @@ INFO_PROBE_RESOLVE_JS = r"""
 """ + _COLUMN_HEADER_TABLES_JS + r"""
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input'])
+  for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row'])
     document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a));
   const out = {ok: false, targets: {}};
   const orderPanels = [];
@@ -2770,6 +2770,12 @@ INFO_PROBE_RESOLVE_JS = r"""
     const t = {n_rows: hit.length, clean: false};
     if (hit.length === 1) {
       const c = hit[0].cell;
+      // The ONE resolved WATCHLIST row, tagged whatever the cell's state: the
+      // opener's last resort double-clicks only this row, never a row found
+      // by a page-wide selector (manager review 5932126267: a Positions /
+      // Orders row can share tr.instrument / tr[data-row-id]).
+      const wlRow = c.closest('tr');
+      if (wlRow) wlRow.setAttribute('data-metis-wl-row', sym);
       t.cell_has_control = c.matches(ctl) || !!c.querySelector(ctl);
       t.cell_in_order_panel = inOrder(c);
       t.clean = vis(c) && !t.cell_has_control && !t.cell_in_order_panel;
@@ -3414,7 +3420,7 @@ INFO_PROBE_PANEL_GONE_JS = r"""
 
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
-  for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input',
+  for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row',
                    'data-metis-info-panel', 'data-metis-close', 'data-metis-ticket-sym', 'data-metis-ticket-pick'])
     document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a));
   try { delete window.__metisPre; } catch (e) {}
@@ -4218,7 +4224,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         logged in ``tried``: a form already open; ONE click on the Symbol cell
         (kept only when the form then names the symbol); a ticket-opener
         button; a Symbol-cell double-click; and, only on a positive one-click
-        OFF read, the measured row double-click (#15139)."""
+        OFF read, the RESOLVED watchlist row's double-click (#13898 / #15139)."""
         out: Dict[str, Any] = {"opened": False, "via": None, "one_click": self.read_one_click(page), "form": {}}
         form = self._find_form(page)
         if form.get("found"):
@@ -4239,6 +4245,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             if form.get("found") and form_names_symbol(form, sym):
                 out.update(opened=True, via="symbol_click", form=form)
                 return out
+            self._dismiss_dialogs(page, out)
         for name in TICKET_OPENER_NAMES:
             try:
                 loc = page.get_by_role("button", name=name, exact=True)
@@ -4260,18 +4267,21 @@ class DXtradeAdapter(PropPlatformAdapter):
             if form.get("found"):
                 out.update(opened=True, via="symbol_dblclick", form=form)
                 return out
-        # LAST RESORT: the opener MEASURED working on breakout_1 (#15139) --
-        # a double-click on the watchlist ROW. Its centre can be a Bid/Ask
-        # PRICE cell (fixture: both price buttons hit), which with one-click ON
-        # is an INSTANT order -- the instant-trade exclusion the operator kept
-        # (5930025023). So it runs only on a positive one-click OFF read.
+        # LAST RESORT: the watchlist-ROW double-click (row selector MEASURED in
+        # dry run #13898; it opened the live ticket in #15139). Its centre can
+        # be a Bid/Ask PRICE cell (fixture: both price buttons hit), an INSTANT
+        # order with one-click ON -- the instant-trade exclusion the operator
+        # kept (5930025023) -- so it runs only on a positive one-click OFF
+        # read. And only on the ONE row INFO_PROBE_RESOLVE_JS resolved inside
+        # the watchlist (``data-metis-wl-row``), never a page-wide row search
+        # that could hit a Positions / Orders row (manager review 5932126267).
         if info_probe_one_click_off(self.read_one_click(page)):
             try:
-                rows = page.locator("tr.instrument, tr[data-row-id]").filter(
-                    has=page.locator("td", has_text=re.compile(r"^\s*" + re.escape(sym) + r"\s*$")))
-                if rows.count() == 1:
+                page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]])
+                row = page.locator(f"tr[data-metis-wl-row='{sym}']")
+                if row.count() == 1:
                     out["tried"].append("watchlist_dblclick")
-                    rows.first.dblclick(timeout=5_000)
+                    row.first.dblclick(timeout=5_000)
                     page.wait_for_timeout(1_000)
                     form = self._find_form(page)
                     if form.get("found"):
@@ -4279,9 +4289,27 @@ class DXtradeAdapter(PropPlatformAdapter):
                         return out
             except Exception:
                 pass
+            finally:
+                try:
+                    page.evaluate(INFO_PROBE_CLEANUP_JS)
+                except Exception:
+                    pass
         out["form"] = form
         out["refused"] = f"no opener produced an order form (tried {out['tried']})"
         return out
+
+    def _dismiss_dialogs(self, page: Any, out: Dict[str, Any]) -> None:
+        """A dialog the rejected single click opened is closed (Escape)
+        before the next opener runs. Recorded in ``dismissed``."""
+        try:
+            n = page.evaluate("() => [...document.querySelectorAll('[role=dialog],[role=alertdialog],"
+                              "[aria-modal=true]')].filter(e => { const r = e.getBoundingClientRect();"
+                              " return r.width > 0 && r.height > 0; }).length")
+            if n:
+                page.keyboard.press("Escape")
+                out["dismissed"] = n
+        except Exception:
+            pass
 
     def _symbol_cell_click(self, page: Any, sym: str, *, double: bool) -> bool:
         """Click (or double-click) ``sym``'s ONE clean watchlist Symbol cell

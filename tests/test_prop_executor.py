@@ -3841,3 +3841,10 @@ def test_a_secondary_mode_defers_before_any_browser_while_a_live_ticket_waits(tm
                       "--storage-state", str(storage)])
     assert code == tick.EXIT_DEFERRED and "the executor tick wins" in capsys.readouterr().out
     assert "close_position_dry" not in tick.YIELD_MODES and "live" not in tick.YIELD_MODES
+
+
+def test_the_action_wrapper_reports_a_deferred_test_as_deferred_not_failed():
+    sh = (Path(__file__).resolve().parents[1] / "scripts/ops/breakout_login_check_action.sh").read_text()
+    i = sh.index('if [ "${rc}" -eq 7 ]; then')
+    block = sh[i:i + 400]
+    assert "deferred" in block and "exit 0" in block

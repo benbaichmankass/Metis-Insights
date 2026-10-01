@@ -967,6 +967,43 @@ def test_the_opener_fallback_order_and_the_row_centre_only_on_one_click_off(brow
         assert st["trade"] == 0 and set(st["clicks"]) == {"sym"}
 
 
+POSITIONS_ROW_XRP = ('<div class="widget__container___Or3 widgetNew__container">'
+                     '<button data-test-id="widget_menu_POSITIONS">Positions</button><table><tbody>'
+                     '<tr class="instrument" data-row-id="p9" ondblclick="window.__posDbl=(window.__posDbl||0)+1">'
+                     '<td class="sym">XRPUSD</td><td>Buy</td><td>1</td></tr></tbody></table></div>')
+
+
+@pytest.mark.parametrize("extra", [POSITIONS_ROW_XRP, POS_NO_MENU.replace("ETHUSD", "XRPUSD")])
+def test_the_last_resort_never_double_clicks_a_positions_row_when_the_watchlist_row_is_absent(browser, extra):  # noqa: F811
+    # Manager review 5932126267 (BLOCK): XRPUSD has NO watchlist row, but a
+    # Positions row reads it under the same tr.instrument / tr[data-row-id]
+    # selector. One-click OFF, so the last resort is reachable: it must find
+    # no RESOLVED watchlist row and double-click nothing.
+    p = browser.new_page()
+    p.set_content(page_html(outside_table=extra))
+    p.evaluate("() => document.querySelectorAll('tr').forEach(tr => tr.addEventListener('dblclick',"
+               " () => { if (!tr.closest('table').closest('.widget__container___Ab1'))"
+               " window.__posDbl = (window.__posDbl || 0) + 1; }))")
+    got = DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "XRPUSD")
+    pos_dbl = p.evaluate("window.__posDbl || 0")
+    st = state(p)
+    p.close()
+    assert got["opened"] is False and "watchlist_dblclick" not in got["tried"]
+    assert pos_dbl == 0 and st["clicks"] == [] and st["trade"] == 0
+
+
+def test_the_last_resort_double_clicks_only_the_resolved_watchlist_row(browser):  # noqa: F811
+    # The same symbol in BOTH the watchlist and a Positions row: only the
+    # watchlist row (data-metis-wl-row) is double-clicked; no tag survives.
+    p = browser.new_page()
+    p.set_content(page_html(outside_table=POSITIONS_ROW_XRP.replace("XRPUSD", "SOLUSD")))
+    got = DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
+    pos_dbl = p.evaluate("window.__posDbl || 0")
+    st = state(p)
+    p.close()
+    assert "watchlist_dblclick" in got["tried"] and pos_dbl == 0 and st["tags"] == 0
+
+
 def test_the_opener_never_clicks_a_symbol_cell_that_grows_a_control_on_hover(browser):  # noqa: F811
     got, st = opener(browser, kw={"hover_button_for": "SOLUSD", "one_click": "checked"})
     assert "symbol_click" not in got["tried"] and "symbol_dblclick" not in got["tried"]
