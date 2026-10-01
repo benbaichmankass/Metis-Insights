@@ -2656,7 +2656,12 @@ WATCHLIST_DUMP_JS = r"""
       const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
       if (cls.some(c => /^widget(New)?__container/.test(c))) { depth = k + 1; box = e; break; }
     }
-    return {table: i, widget_depth: depth,
+    let wmDepth = null, wm = null;
+    for (let e = t.parentElement, k = 0; e && e !== document.body && k < 12; e = e.parentElement, k++) {
+      if (e.querySelector('[data-test-id=widget_menu_WATCHLIST]')) { wmDepth = k + 1; wm = e; break; }
+    }
+    return {table: i, widget_depth: depth, watchlist_menu_depth: wmDepth,
+            watchlist_menu_scope_has_trade_menu: wm ? !!wm.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]') : null,
             widget_has_trade_menu: box ? !!box.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]') : null,
             cells: [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row)
               .slice(0, 16).map(c => ({xw: xw(c), tid: tid(c)}))};
@@ -2730,10 +2735,22 @@ INFO_PROBE_RESOLVE_JS = r"""
   // Symbol/Bid/Ask table (<= 8 up; else the table itself). That scope must
   // hold no Orders / Positions widget menu, so a working-order or position
   // row can never be taken for a watchlist Symbol cell.
-  let scope = wl[0].t;
+  let scope = wl[0].t, foundBox = false;
   for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
     const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
-    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; foundBox = true; break; }
+  }
+  // No widget(New)__container class (tradeify_1, #15126: the Symbol/Bid/Ask
+  // header table and its 9-row body table are separate, as on Breakout, but
+  // no ancestor carries that class): the nearest ancestor (<= 12 up) holding
+  // exactly ONE widget_menu_WATCHLIST is the watchlist widget. The trade-menu
+  // refusal below still applies to it.
+  if (!foundBox) {
+    for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+      const n = e.querySelectorAll('[data-test-id=widget_menu_WATCHLIST]').length;
+      if (n === 1) { scope = e; break; }
+      if (n > 1) break;
+    }
   }
   if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
     out.why = 'the watchlist scope also holds an Orders / Positions widget'; return out;
@@ -3357,10 +3374,22 @@ WATCHLIST_QUOTE_RAW_JS = r"""
   if (!wl.length) wl.push(...__metisColumnTables().found);
   if (wl.length !== 1) return {error: `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`};
   const hs = wl[0].hs, si = hs.indexOf('symbol'), bi = hs.indexOf('bid'), ai = hs.indexOf('ask');
-  let scope = wl[0].t;
+  let scope = wl[0].t, foundBox = false;
   for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
     const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
-    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; foundBox = true; break; }
+  }
+  // No widget(New)__container class (tradeify_1, #15126: the Symbol/Bid/Ask
+  // header table and its 9-row body table are separate, as on Breakout, but
+  // no ancestor carries that class): the nearest ancestor (<= 12 up) holding
+  // exactly ONE widget_menu_WATCHLIST is the watchlist widget. The trade-menu
+  // refusal below still applies to it.
+  if (!foundBox) {
+    for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+      const n = e.querySelectorAll('[data-test-id=widget_menu_WATCHLIST]').length;
+      if (n === 1) { scope = e; break; }
+      if (n > 1) break;
+    }
   }
   if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]'))
     return {error: 'the watchlist scope also holds an Orders / Positions widget'};
@@ -5004,16 +5033,19 @@ class DXtradeAdapter(PropPlatformAdapter):
             except Exception:
                 pass
 
-    def switch_ticket_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+    def switch_ticket_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500,
+                             alternative: bool = True) -> Dict[str, Any]:
         """The per-ticket switch the live placement uses, and symbol-switch-dry
         exercises the SAME one (PROP-ETH-DOM #15139: the dry run tested the
         ticket route alone and alerted while the live path's alternative
         succeeded). PRIMARY: the ticket's own Symbol field (manager comment
         5928196365 on #15070). ALTERNATIVE, only when that route picked
         nothing: the verified watchlist-row click, which the ticket field must
-        follow; the ticket route's outcome is kept under ``ticket_route``."""
+        follow; the ticket route's outcome is kept under ``ticket_route``.
+        ``alternative=False`` (switch-dry with no readable chart link, e.g.
+        tradeify_1, #15136) runs the ticket route alone."""
         link = self.select_ticket_symbol(page, venue_symbol, settle_ms=settle_ms)
-        if not link.get("ok") and not link.get("picked"):
+        if alternative and not link.get("ok") and not link.get("picked"):
             wl = self.select_linked_symbol(page, venue_symbol, settle_ms=settle_ms)
             wl["ticket_route"] = {k: link.get(k) for k in ("why", "before", "pick")}
             # The link may ALREADY read the target (no click, so no follow
@@ -5071,9 +5103,21 @@ class DXtradeAdapter(PropPlatformAdapter):
             page.evaluate(INFO_PROBE_CLEANUP_JS)
             original = res.get("linked_symbol")
             out["original"] = original
-            if not res.get("ok") or not original:
-                out["refused"] = res.get("why") or "linked symbol not readable"
-                return out
+            link_route = bool(res.get("ok") and original)
+            if not link_route:
+                # No readable chart link (tradeify_1 has no toolbar
+                # symbol_input and no info button, #15096/#15126): the TICKET
+                # route alone is exercised -- the one place_bracket uses first
+                # -- with the ticket field's own value as home, and no link
+                # restore. Refused only when the ticket field is unreadable too.
+                tk = self._ticket_symbol(page)
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+                out["link_unavailable"] = res.get("why") or "linked symbol not readable"
+                if not tk.get("ok") or not tk.get("value"):
+                    out["refused"] = f"{out['link_unavailable']}; ticket symbol field: {tk.get('why') or 'empty'}"
+                    return out
+                original = tk.get("value")
+                out["original"] = original
             home_sym = str(home or original).strip().upper()
             out["home"] = home_sym
             # CLICK-FREE quote read of the target BEFORE any click (manager
@@ -5086,7 +5130,8 @@ class DXtradeAdapter(PropPlatformAdapter):
                 try:
                     for key, sym, label in (("switch", out["target"], "ticket switch to"),
                                             ("ticket_home", home_sym, "ticket back to")):
-                        out[key] = self.switch_ticket_symbol(page, sym, settle_ms=settle_ms)
+                        out[key] = self.switch_ticket_symbol(page, sym, settle_ms=settle_ms,
+                                                             alternative=link_route)
                         if not out[key].get("ok"):
                             out["alerts"].append(f"{label} {sym} failed: {out[key].get('why')}")
                         elif out[key].get("ticket_route"):
@@ -5100,9 +5145,10 @@ class DXtradeAdapter(PropPlatformAdapter):
                     out["ticket_closed"] = self.close_order_ticket(page)
             else:
                 out["alerts"].append(f"no order ticket opened: {opened.get('refused')}")
-            out["restore"] = self.select_linked_symbol(page, home_sym, settle_ms=settle_ms)
-            if not out["restore"].get("ok"):
-                out["alerts"].append(f"link to {home_sym} failed: {out['restore'].get('why')}")
+            if link_route:
+                out["restore"] = self.select_linked_symbol(page, home_sym, settle_ms=settle_ms)
+                if not out["restore"].get("ok"):
+                    out["alerts"].append(f"link to {home_sym} failed: {out['restore'].get('why')}")
             return out
         except Exception as exc:
             out["alerts"].append(f"symbol-switch-dry raised {type(exc).__name__} (code=switch_dry_exception)")
