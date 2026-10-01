@@ -3503,6 +3503,72 @@ def canonical_symbol(text: Any) -> str:
     return c if re.fullmatch(r"[A-Z0-9]{2,15}", c) else ""
 
 
+#: Tags (``data-metis-open-cell``) the ONE watchlist Symbol cell matching
+#: ``pattern`` (a :func:`_symbol_cell_re` source) for open_order_ticket's
+#: double-click; returns the candidate count. A cell counts only inside a table
+#: PROVEN to be the watchlist -- a Symbol/Bid/Ask <th> table, the header-less
+#: table that directly follows one (Breakout's and tradeify_1's split layout),
+#: or a table _COLUMN_HEADER_TABLES_JS accepts -- in the Symbol column, with as
+#: many cells as there are headers, and never inside an Orders / Positions
+#: widget or a BUY+SELL panel. Clicks nothing. (TRADEIFY-WIRE #15146 tests: the
+#: old document-wide row match double-clicked a row's centre, a Bid price
+#: button, and could take a position row naming the symbol.)
+OPEN_ROW_CELL_JS = r"""
+([pattern]) => {
+""" + _COLUMN_HEADER_TABLES_JS + r"""
+  document.querySelectorAll('[data-metis-open-cell]').forEach(e => e.removeAttribute('data-metis-open-cell'));
+  const re = new RegExp(pattern, 'i');
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const box = (e, n) => { for (let x = e.parentElement, i = 0; x && x !== document.body && i < n; x = x.parentElement, i++) {
+      const c = typeof x.className === 'string' ? x.className.split(/\s+/) : [];
+      if (c.some(k => /^widget(New)?__container/.test(k))) return x; } return null; };
+  const trade = [...document.querySelectorAll('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')].map(b => {
+    let w = box(b, 12);
+    if (!w) { w = b; for (let i = 0; i < 6 && w.parentElement && w.parentElement !== document.body; i++) w = w.parentElement; }
+    return w; });
+  const panels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]'))
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement)
+      if (e.querySelector('[data-test-id=SELL]')) { panels.push(e); break; }
+  const all = [...document.querySelectorAll('table')];
+  const ths = t => [...t.querySelectorAll('thead th, tr:first-child th')].filter(h => h.closest('table') === t).map(h => norm(txt(h)));
+  const lists = [];                               // [{t, hs}] proven watchlist tables
+  all.forEach((t, i) => {
+    const hs = ths(t);
+    if (!(hs.includes('symbol') && hs.includes('bid') && hs.includes('ask'))) return;
+    lists.push({t, hs});
+    const next = all[i + 1];
+    if (next && !ths(next).some(Boolean)) lists.push({t: next, hs});
+  });
+  if (!lists.length) lists.push(...__metisColumnTables().found);
+  const cells = [];
+  for (const {t, hs} of lists) {
+    const si = hs.indexOf('symbol');
+    for (const r of t.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+      if (r.closest('table') !== t) continue;
+      const tds = [...r.querySelectorAll('td')].filter(c => c.closest('tr') === r);
+      const c = tds[si];
+      if (tds.length !== hs.length || !c || !re.test(txt(c))) continue;
+      if (trade.some(w => w.contains(c)) || panels.some(p => p.contains(c))) continue;
+      if (!cells.includes(c)) cells.push(c);
+    }
+  }
+  if (cells.length === 1) cells[0].setAttribute('data-metis-open-cell', '1');
+  return cells.length;
+}
+"""
+
+
+def _symbol_cell_re(venue_symbol: str) -> "re.Pattern[str]":
+    """A whole-cell pattern for ``venue_symbol`` that also accepts ONE slash
+    anywhere inside it (tradeify_1's watchlist shows ``ETH/USD`` for
+    ``ETHUSD``; TRADEIFY-WIRE T4). Callers still require exactly one row."""
+    v = str(venue_symbol or "").strip()
+    alts = [re.escape(v)] + [re.escape(v[:i]) + "/" + re.escape(v[i:]) for i in range(2, len(v) - 1)]
+    return re.compile(r"^\s*(?:" + "|".join(alts) + r")\s*$", re.IGNORECASE)
+
+
 def _sym_key(text: Any) -> str:
     """The comparison key for a symbol shown by the terminal: its
     :func:`canonical_symbol` (``ETH/USD`` -> ``ETHUSD``) or, when it has
@@ -4205,10 +4271,17 @@ class DXtradeAdapter(PropPlatformAdapter):
         # Double-click the symbol's WATCHLIST row (the table MEASURED with
         # headers Symbol/Bid/Ask/...). A row, never a price button.
         try:
-            rows = page.locator("tr.instrument, tr[data-row-id]").filter(
-                has=page.locator("td", has_text=re.compile(r"^\s*" + re.escape(venue_symbol) + r"\s*$")))
-            if rows.count() == 1:
-                rows.first.dblclick(timeout=5_000)
+            # Double-click the matched SYMBOL CELL, never the row's centre (the
+            # centre of a Symbol | Bid | Ask row is the Bid cell, an instant-
+            # trade price button), and never a cell in an Orders / Positions
+            # widget or a BUY+SELL panel (a position row naming the symbol is
+            # a tr[data-row-id] too). Exactly one candidate, else no click.
+            # (TRADEIFY-WIRE, #15146 tests.)
+            n = page.evaluate(OPEN_ROW_CELL_JS, [_symbol_cell_re(venue_symbol).pattern])
+            out["row_candidates"] = n
+            cell = page.locator("[data-metis-open-cell='1']")
+            if n == 1 and cell.count() == 1:
+                cell.first.dblclick(timeout=5_000)
                 page.wait_for_timeout(1_000)
                 form = self._find_form(page)
                 if form.get("found"):
@@ -5023,11 +5096,19 @@ class DXtradeAdapter(PropPlatformAdapter):
                 # route alone is exercised -- the one place_bracket uses first
                 # -- with the ticket field's own value as home, and no link
                 # restore. Refused only when the ticket field is unreadable too.
-                tk = self._ticket_symbol(page)
                 page.evaluate(INFO_PROBE_CLEANUP_JS)
                 out["link_unavailable"] = res.get("why") or "linked symbol not readable"
+                # tradeify_1 keeps no New Order ticket open (#15146: "0 order
+                # panels"): open it first with the same opener place_bracket
+                # uses (a named opener button, else the target's watchlist row).
+                pre_open = self.open_order_ticket(page, out["target"])
+                out["ticket_preopen"] = {k: pre_open.get(k) for k in ("opened", "via", "refused")}
+                tk = self._ticket_symbol(page)
                 if not tk.get("ok") or not tk.get("value"):
-                    out["refused"] = f"{out['link_unavailable']}; ticket symbol field: {tk.get('why') or 'empty'}"
+                    out["refused"] = (f"{out['link_unavailable']}; ticket symbol field: {tk.get('why') or 'empty'}"
+                                      f"; ticket open: {pre_open.get('via') or pre_open.get('refused')}")
+                    if pre_open.get("opened") and pre_open.get("via") != "already_open":
+                        out["ticket_closed"] = self.close_order_ticket(page)
                     return out
                 original = tk.get("value")
                 out["original"] = original

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's merge (TRADEIFY-WIRE T4). Tier-2: the DXtrade adapter's ticket opener on the live VM (used by place_bracket and the dry runs). Makes the watchlist-row double-click strictly SAFER and opens the ticket first in the ticket-only switch-dry. No submit, no order control.",
+  "why": "symbol-switch-dry #15146 on tradeify_1 refused 'ticket symbol field: 0 order panels' (no ticket open). The ticket-only path now opens it first with place_bracket's opener. Its tests exposed a pre-existing hazard in open_order_ticket's row double-click: it clicked the ROW CENTRE (a Bid price button = instant-trade control) and matched rows document-wide (a Positions row naming the symbol). It now double-clicks only the Symbol cell of a row in a table proven to be the watchlist, outside Orders/Positions widgets and BUY+SELL panels, exactly one candidate, slash-tolerant."
+}

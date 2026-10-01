@@ -1124,7 +1124,9 @@ def test_switch_dry_refuses_when_neither_the_link_nor_the_ticket_field_reads(bro
     st = state(p)
     p.close()
     assert "instrument_info_button" in got["refused"] and "ticket symbol field" in got["refused"]
-    assert st["clicks"] == []
+    # the pre-open's only clicks: one double-click on ETHUSD's SYMBOL cell
+    # (#15146), never its Bid/Ask price buttons (row centre)
+    assert st["clicks"] == ["sym", "sym"] and st["trade"] == 0
 
 
 def test_form_names_a_slash_named_symbol_as_a_whole_token():
@@ -1134,3 +1136,54 @@ def test_form_names_a_slash_named_symbol_as_a_whole_token():
     assert not form_names_symbol({"form_text": "Buy 0.01 ETH/USDT at 2,500.10"}, "ETHUSD")
     assert not form_names_symbol({"form_text": "Buy 0.01 SOL/USD at 150.00"}, "ETHUSD")
     assert form_names_symbol({"form_text": "Buy 0.01 ETHUSD at 2,500.10"}, "ETHUSD")      # Breakout unchanged
+
+
+# ── #15146: tradeify_1 keeps NO ticket open; the ticket-only switch-dry opens
+# it first with place_bracket's opener (a "New Order" button here). ──────────
+
+def closed_ticket_page(browser, instruments=TRADEIFY_INSTRUMENTS, sym="SOL/USD", desc="SOL"):  # noqa: F811
+    p = browser.new_page()
+    shell = ('<button id="open-ticket">New Order</button>'
+             f'<template id="tk">{ticket_sidebar(sym, desc)}</template>')
+    p.set_content(page_html(outside_table=shell).replace(*NO_INFO_BTN))
+    p.evaluate("""([dd, args]) => {
+      const setup = eval('(' + dd + ')');
+      document.querySelector('#open-ticket').addEventListener('click', () => {
+        window.__opened = (window.__opened || 0) + 1;
+        document.body.appendChild(document.getElementById('tk').content.cloneNode(true));
+        setup(args);
+      });
+    }""", [TICKET_DD_JS, {"inside": False, "instruments": instruments, "dialog": False}])
+    return p
+
+
+def test_switch_dry_opens_the_closed_ticket_then_round_trips_the_slash_named_symbol(browser):  # noqa: F811
+    p = closed_ticket_page(browser)
+    got = fast_adapter().symbol_switch_dry(p, "ETHUSD", settle_ms=50)
+    st = tk_state(p)
+    opened = p.evaluate("window.__opened || 0")
+    p.close()
+    assert got["ticket_preopen"] == {"opened": True, "via": "button:New Order", "refused": None}
+    assert got["refused"] is None and got["alerts"] == [] and got["original"] == "SOL/USD"
+    assert got["switch"]["ok"] is True and got["switch"]["after"]["value"] == "ETH/USD"
+    assert got["ticket_home"]["ok"] is True and got["ticket_home"]["after"]["value"] == "SOL/USD"
+    assert opened == 1 and "restore" not in got
+    no_order(st)
+
+
+def test_switch_dry_refuses_and_says_how_the_ticket_failed_to_open(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html().replace(*NO_INFO_BTN))
+    got = fast_adapter().symbol_switch_dry(p, "ZZZUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert "ticket open: no opener produced an order form" in got["refused"]
+    assert st["trade"] == 0 and st["ticket"] == 0
+
+
+def test_watchlist_row_pattern_accepts_one_slash_only():
+    from src.prop.platform.dxtrade import _symbol_cell_re
+
+    rx = _symbol_cell_re("ETHUSD")
+    assert rx.match("ETH/USD") and rx.match(" ETHUSD ") and rx.match("ETHU/SD")
+    assert not rx.match("ETH/USDT") and not rx.match("ETH//USD") and not rx.match("XETH/USD")
