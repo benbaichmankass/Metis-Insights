@@ -1,0 +1,97 @@
+id: RQ-20260930-702
+title: >-
+  E38 follow-up (a): POOLED trend_donchian family test - do rv20/er20 at entry carry regime dependence
+  that 22 single-leg tests (n=35-107) were too small to detect?
+status: queued
+cadence: once
+theme: regime
+priority: 1
+kind: experiment
+
+question: >-
+  Pooling the 10 trend_donchian_* crypto legs (664 ledger trades; 500 after de-duplicating re-run trades on
+  the same symbol/hour/direction), is the WITHIN-SYMBOL percentile of rv20 or er20 (E38's daily-bar
+  features, no look-ahead) associated with full-cost net R - and does a train-only walk-forward gate on it
+  improve out-of-sample net R?
+
+why_this_matters: >-
+  PI-20260925-7P3VZ7EJ-0001. E38 (2026-09-25) is a POWER-BOUNDED null: 0 of 22 legs, but single-leg n
+  only detects |rho| >= 0.27-0.46, so the six real-money-gated legs stay held on a test that could not have
+  said yes. The pooled test detects roughly |rho| 0.10 (measured: n = 500, alpha 0.025 -> 0.1), i.e. it can
+  turn a power-bounded null into a real one, or find the signal. It is the cheapest unit that changes the
+  regime-priority answer for the largest family on the roster. Feature-level finding only: a pass here is
+  NOT a cell to author (regime-selectivity Rule 1-2 still apply).
+
+power:
+  expected_n: 500
+  min_detectable_effect: 0.1
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Unit = de-duplicated pooled trade. Spearman |rho| = 0.1 needs about (1.96 + 0.8416)^2 / 0.1^2 = 785
+    at power 0.8 and alpha 0.05 (the tabulated floor; the DECISION alpha is the Bonferroni 0.025 over two
+    features, in decision_rule); at 0.025 this n = 500 has ~50% power at |rho| ~ 0.10 (E38's own min_detectable_rho definition, Fisher-z), which the harness reports
+    as min_detectable_abs_rho. MEASURED 2026-09-30 from the committed ledgers: 10 legs, 664 trades, 500
+    after de-duplication (ETH 217, SOL 98, BTC 73, AVAX 50, ADA 46, XRP 16). So a null is only
+    called well powered if the MDE <= 0.10; otherwise the verdict is indeterminate, never a clean fail.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Re-grading of committed ledgers with fetched public daily candles; nothing accrues. n measured above.
+
+decision_rule:
+  id: RULE-RQ0930-702-POOLED-TREND-DONCHIAN-E38
+  registered_at: '2026-09-30'
+  registered_before_run: true
+  statistic: >-
+    Pooled Spearman rho(within-symbol percentile of feature, net_r) for rv20 and er20; p_iid = net_r
+    permuted within symbol (10,000); p_circular = net_r rotated by one random shift per symbol (10,000);
+    alpha = 0.05 / 2 = 0.025; circular p <= 0.10 (E38's bar). Walk-forward = E38's walk_forward over 4
+    chronological pooled blocks, train = earlier blocks, gate = the train-rho side of the train median.
+  rule: >-
+    A feature PASSES in-sample iff p_iid < 0.025 AND p_circular <= 0.10. IF at least one feature passes
+    in-sample AND its walk-forward passes (sum improvement > 0, strict majority of evaluated folds improve,
+    gated sum > 0) -> verdict pass (`regime_dependence_detected`): the trend_donchian family depends on that
+    feature; next unit is a cell-level walk-forward on the real (trend, vol) cell, NOT a flip.
+    IF a feature passes in-sample but the walk-forward fails -> indeterminate (`in_sample_only`).
+    IF no feature passes in-sample AND MDE |rho| <= 0.10 -> fail (`no_regime_signal`, a WELL-POWERED null:
+    close the pooled-family question for trend_donchian on these features).
+    IF no feature passes AND MDE > 0.10 -> indeterminate (still power-bounded).
+    IF fewer than 200 pooled trades have features -> read_state no_data.
+  min_n: 200 pooled trades with features; 16+ trades per symbol is reported, not required.
+  what_it_does_not_do: >-
+    Flips no gate and authors no cell. Crypto legs only (equity/futures legs have no committed candle
+    source). Features are E38's daily rv20/er20, not the live ADX-14 / vol-head labels.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: >-
+    Committed ledgers + ~6 public daily kline series from Binance vision on a runner; 2 features x
+    10,000 x 2 permutation loops over ~500 trades.
+
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 60
+  command:
+  - python3
+  - scripts/research/e38_pooled_trend_donchian.py
+  - --out
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20260930-702
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+references:
+  - PI-20260925-7P3VZ7EJ-0001
+  - docs/research/e38-regime/REGISTRATION.yaml (E38-REGIME-2026-09-25)
+
+last_dispatched_at: null
