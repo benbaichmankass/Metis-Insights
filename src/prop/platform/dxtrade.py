@@ -4067,6 +4067,21 @@ class DXtradeAdapter(PropPlatformAdapter):
                     pass
         return out
 
+    def read_linked_symbol(self, page: Any) -> Optional[str]:
+        """The terminal's linked symbol, read CLICK-FREE (INFO_PROBE_RESOLVE_JS with no targets, then the
+        cleanup), or None when it cannot be read. Used by the dry round trip to restore the link it moved
+        (manager review of #15002)."""
+        try:
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[]]) or {}
+            return res.get("linked_symbol") if res.get("ok") else None
+        except Exception:
+            return None
+        finally:
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
+
     def select_linked_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
         """Make ``venue_symbol`` the terminal's linked symbol, VERIFIED.
 

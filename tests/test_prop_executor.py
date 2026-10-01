@@ -3656,3 +3656,78 @@ def test_a_passing_band_check_is_logged_with_the_quote_it_used(env):
     ok = [a for a in res.actions if a["what"] == "band_ok"]
     assert len(ok) == 1 and ok[0]["why"] == "ask 120.0 inside the ticket's entry band 119.5..120.5"
     assert len(_places(ad)) == 1
+
+
+# ── the dry round trip restores the linked symbol it moved (manager review of #15002) ──
+
+
+class _LinkingAdapter(FakeAdapter):
+    """Models the terminal's linked symbol: the dry place_bracket switches it to the ticket's symbol."""
+
+    def __init__(self, linked="SOLUSD", fail_restore=False, raise_in_place=False, **kw):
+        super().__init__(**kw)
+        self.linked, self.fail_restore, self.raise_in_place = linked, fail_restore, raise_in_place
+
+    def read_linked_symbol(self, page):
+        self.calls.append(("read_linked_symbol",))
+        return self.linked
+
+    def select_linked_symbol(self, page, sym):
+        self.calls.append(("select_linked_symbol", sym))
+        before = self.linked
+        if self.fail_restore:
+            return {"ok": False, "clicked": True, "before": before, "after": before, "why": "did not follow"}
+        self.linked = sym
+        return {"ok": True, "clicked": before != sym, "before": before, "after": sym}
+
+    def place_bracket(self, page, spec, *, arm=False):
+        self.linked = spec.venue_symbol
+        if self.raise_in_place:
+            self.calls.append(("place_bracket", spec.ticket_id, arm))
+            raise RuntimeError("terminal went away")
+        return super().place_bracket(page, spec, arm=arm)
+
+
+def test_dry_round_trip_restores_and_verifies_the_original_linked_symbol(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD")
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    names = [c[0] for c in ad.calls]
+    assert names.index("read_linked_symbol") < names.index("place_bracket") < names.index("select_linked_symbol")
+    assert ("select_linked_symbol", "SOLUSD") in ad.calls and ad.linked == "SOLUSD"
+    assert not any("RESTORE" in a for a in res.alerts)
+
+
+def test_dry_round_trip_restores_even_when_the_walk_raises(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD", raise_in_place=True)
+    with pytest.raises(RuntimeError):
+        pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                          venue_symbol="ETHUSD", arm=False)
+    assert ("select_linked_symbol", "SOLUSD") in ad.calls and ad.linked == "SOLUSD"
+
+
+def test_a_failed_restore_is_an_alert(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD", fail_restore=True)
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert any("RESTORE FAILED" in a and "SOLUSD" in a for a in res.alerts)
+
+
+def test_an_unreadable_link_before_the_walk_is_an_alert_and_nothing_is_reselected(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked=None)
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert not any(c[0] == "select_linked_symbol" for c in ad.calls)
+    assert any("could not be read" in a for a in res.alerts)
+
+
+def test_an_armed_round_trip_does_not_read_or_restore_the_link(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD")
+    pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_sol_only(), ledger=ledger,
+                      venue_symbol="SOLUSD", arm=True, reads=1)
+    assert not any(c[0] in ("read_linked_symbol", "select_linked_symbol") for c in ad.calls)
