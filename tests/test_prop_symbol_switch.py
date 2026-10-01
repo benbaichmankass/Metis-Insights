@@ -1080,3 +1080,57 @@ def test_review_a_description_that_does_not_change_is_not_a_pass(browser):  # no
     p.close()
     assert got["picked"] is True and got["after"]["submit_symbol"] == "ETHUSD"
     assert got["ok"] is False and "description under the field did not change" in got["why"]
+
+
+# ── TRADEIFY-WIRE T4: the ticket route takes the UNSLASHED venue symbol the
+# executor and the workflow pass (ETHUSD) on tradeify_1's slash-named
+# dropdown and field (ETH/USD); switch-dry runs the ticket route alone when
+# the chart link is unreadable (tradeify_1: no toolbar input, no info button). ──
+
+NO_INFO_BTN = ('<button data-test-id="instrument_info_button">',
+               '<button data-test-id="instrument_info_button" style="display:none">')
+
+
+def test_ticket_route_matches_an_unslashed_target_to_the_slash_named_row(browser):  # noqa: F811
+    got, st = ticket_switch(browser, "ETHUSD", sym="TRX/USD", desc="TRX", instruments=TRADEIFY_INSTRUMENTS)
+    assert got["ok"] is True and got["after"]["value"] == "ETH/USD" and got["after"]["submit_symbol"] == "ETH/USD"
+    assert got["pick"]["n_candidates"] == 1 and st["clicks"] == ["c-sym"]      # not ENA/USD, ETC/USD
+    no_order(st)
+
+
+def test_ticket_route_never_takes_a_dotted_near_miss_for_an_unslashed_target(browser):  # noqa: F811
+    got, st = ticket_switch(browser, "SOLUSD", sym="ETHUSD", desc="ETH")
+    assert got["ok"] is True and st["field"] == "SOLUSD"                       # never SOLUSD.X
+    assert got["pick"]["n_candidates"] == 1
+
+
+def test_switch_dry_runs_the_ticket_route_alone_when_the_link_is_unreadable(browser):  # noqa: F811
+    got, st = switch_dry(browser, "ETHUSD", ticket="SOL/USD", desc="SOL", instruments=TRADEIFY_INSTRUMENTS,
+                         base=lambda **kw: page_html(**kw).replace(*NO_INFO_BTN))
+    assert got["refused"] is None and got["alerts"] == []
+    assert "instrument_info_button" in got["link_unavailable"]
+    assert got["original"] == "SOL/USD" and got["home"] == "SOL/USD"
+    assert got["switch"]["ok"] is True and got["switch"]["after"]["value"] == "ETH/USD"
+    assert got["ticket_home"]["ok"] is True and got["ticket_home"]["after"]["value"] == "SOL/USD"
+    assert "restore" not in got and st["field"] == "SOL/USD"
+    assert st["clicks"][:2] == ["c-sym", "c-sym"]
+    no_order(st)
+
+
+def test_switch_dry_refuses_when_neither_the_link_nor_the_ticket_field_reads(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html().replace(*NO_INFO_BTN))
+    got = fast_adapter().symbol_switch_dry(p, "ETHUSD", settle_ms=50)
+    st = state(p)
+    p.close()
+    assert "instrument_info_button" in got["refused"] and "ticket symbol field" in got["refused"]
+    assert st["clicks"] == []
+
+
+def test_form_names_a_slash_named_symbol_as_a_whole_token():
+    from src.prop.platform.dxtrade import form_names_symbol
+
+    assert form_names_symbol({"form_text": "Buy 0.01 ETH/USD at 2,500.10"}, "ETHUSD")
+    assert not form_names_symbol({"form_text": "Buy 0.01 ETH/USDT at 2,500.10"}, "ETHUSD")
+    assert not form_names_symbol({"form_text": "Buy 0.01 SOL/USD at 150.00"}, "ETHUSD")
+    assert form_names_symbol({"form_text": "Buy 0.01 ETHUSD at 2,500.10"}, "ETHUSD")      # Breakout unchanged
