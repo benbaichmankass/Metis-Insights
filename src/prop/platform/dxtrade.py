@@ -2421,13 +2421,24 @@ _COLUMN_HEADER_TABLES_JS = _SYMBOL_TEXT_JS + r"""
       if (!box) { why.push(`${tds.length}-cell rows: no widget container within 12 ancestors`); continue; }
       if (box.querySelector(trade)) { why.push(`${tds.length}-cell rows: widget holds an Orders / Positions menu`); continue; }
       if (!t.getBoundingClientRect().width) { why.push(`${tds.length}-cell rows: table has no width`); continue; }
-      let cols = null;
+      let cols = null, colHost = null;
       for (let e = t, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
         const cs = [...e.querySelectorAll('[data-test-id^="table_column_"]')]
           .filter(c => { const ct = c.closest('table'); return !ct || ct === t; });
-        if (cs.length) { cols = cs; break; }
+        if (cs.length) { cols = cs; colHost = e; break; }
       }
       if (!cols) { why.push(`${tds.length}-cell rows: no table_column_* headers within 8 ancestors`); continue; }
+      // The headers must belong to THIS table (manager review 2026-10-01
+      // 09:18Z, reviewer's variant (b) on main: a header-less Positions table
+      // sharing a widget container with an EMPTY watchlist borrowed the
+      // watchlist's headers and was clicked). Both must hold: the ancestor
+      // where the headers were found holds exactly one table, and the header
+      // row's bottom edge sits directly above this table's top (<= 8 px gap).
+      const nTables = colHost.querySelectorAll('table').length + (colHost.tagName === 'TABLE' ? 1 : 0);
+      if (nTables !== 1) { why.push(`${tds.length}-cell rows: the table_column headers' ancestor holds ${nTables} tables (need exactly 1)`); continue; }
+      const hBottom = Math.max(...cols.map(c => c.getBoundingClientRect().bottom)), tTop = t.getBoundingClientRect().top;
+      if (!(hBottom <= tTop + 1 && tTop - hBottom <= 8)) {
+        why.push(`${tds.length}-cell rows: the table_column header row does not sit directly above the table`); continue; }
       const hs = cols.map(c => n_((c.getAttribute('data-test-id') || '').slice('table_column_'.length)));
       if (cols.length !== tds.length) { why.push(`${cols.length} columns [${hs.join(',')}] vs ${tds.length} cells`); continue; }
       const need = new Set(['symbol', 'bid', 'ask']);
@@ -2815,11 +2826,44 @@ LINK_STATE_DUMP_JS = r"""
   }
   if (!wl.length) wl.push(...__metisColumnTables().found);
   out.n_watchlist_tables = wl.length;
+  // Why rows may not match (#15046 / #15064 read the table with ZERO rows):
+  // the raw shape of every Symbol/Bid/Ask table -- its header texts, how many
+  // <tr> it holds, how many match the row selector, a td-count histogram, and
+  // up to 8 rows' masked class tokens, td count and (only when it is
+  // symbol-shaped) the text under the Symbol header. Plus the [role=row]
+  // count in the table's own widget, in case the rows moved to a grid.
+  out.table_diag = wl.map(({t, hs}) => {
+    const trs = [...t.querySelectorAll('tr')].filter(r => r.closest('table') === t);
+    const si = hs.indexOf('symbol'), hist = {};
+    for (const r of trs) { const n = r.querySelectorAll('td').length; hist[n] = (hist[n] || 0) + 1; }
+    let scope = t;
+    for (let e = t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+      if (cls(e).some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    }
+    return {headers: hs.map(h => m(h).slice(0, 24)), n_tr: trs.length,
+            n_tr_selector: trs.filter(r => r.matches('tr.instrument, tr[data-row-id]')).length,
+            td_count_hist: hist, n_role_row_in_widget: scope.querySelectorAll('[role=row]').length,
+            n_tr_selector_in_widget: scope.querySelectorAll('tr.instrument, tr[data-row-id]').length,
+            sample: trs.slice(0, 8).map(r => { const tds = [...r.querySelectorAll('td')];
+              const sv = si >= 0 && tds[si] ? txt(tds[si]).toUpperCase() : '';
+              return {cls: cls(r), n_td: tds.length, n_th: r.querySelectorAll('th').length,
+                      selector: r.matches('tr.instrument, tr[data-row-id]'),
+                      sym: /^[A-Z0-9]{2,15}$/.test(sv) ? sv : (sv ? `<${sv.length} chars>` : '')}; })};
+  });
   const syms = [];
   if (wl.length === 1) {
     const hs = wl[0].hs, si = hs.indexOf('symbol');
     out.rows = [];
-    for (const r of wl[0].t.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    // Rows are read in the watchlist's own widget, exactly as
+    // INFO_PROBE_RESOLVE_JS reads them: on Breakout the Symbol/Bid/Ask header
+    // table has ZERO body rows and the rows live in a separate table (#13898)
+    // -- which is why #15046 / #15064 (table-only) read rows: [].
+    let scope = wl[0].t;
+    for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+      if (cls(e).some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    }
+    out.rows_scope = scope === wl[0].t ? 'table' : 'widget';
+    for (const r of scope.querySelectorAll('tr.instrument, tr[data-row-id]')) {
       const tds = [...r.querySelectorAll('td')];
       if (tds.length !== hs.length) continue;
       const c = tds[si], sym = __metisSym(txt(c));
@@ -2855,6 +2899,208 @@ LINK_STATE_DUMP_JS = r"""
             n_inputs: p.querySelectorAll('input').length, buttons: btns,
             n_close_like: btns.filter(b => b.close_like).length};
   });
+  return out;
+}
+"""
+
+#: SHARED EXCLUSION PREDICATE (manager review of #15070 / #15075): defines
+#: ``__metisIsWatchlistOrTradeTable(el)`` -- true when ``el`` sits in
+#:   * the <th>-text watchlist: the widget(New)__container (<= 8 up, else the
+#:     table) of any table with Symbol/Bid/Ask <th> texts -- that scope also
+#:     holds Breakout's SEPARATE rows table (#13898);
+#:   * a table_column watchlist (Tradeify, #15067 / #15075): the
+#:     widget(New)__container (<= 12 up, else the 6th ancestor) of every
+#:     ``[data-test-id^=table_column_]`` header, and ANY <table> holding
+#:     ``tr.instrument`` / ``tr[data-row-id]`` rows -- which also covers a
+#:     Positions / Orders table with no widget_menu_* button (unmeasured on
+#:     Tradeify; manager review 2026-10-01 08:31Z);
+#:   * an Orders / Positions widget: the widget(New)__container (<= 12 up)
+#:     of a widget_menu_ORDERS / _POSITIONS button, else its 6th ancestor;
+#:   * a quick-trade bar (Sell | qty | Buy beside the chart's symbol box,
+#:     operator screenshot 2026-10-01): the smallest ancestor (<= 6 up) of a
+#:     Buy-side control that also holds a Sell-side control.
+#: A JS SNIPPET (a function declaration) for concatenation into any
+#: evaluate body: ``r"""() => {""" + WATCHLIST_OR_TRADE_JS + r"""...}"""``.
+#: The scopes are computed once, on first use, per enclosing evaluate call;
+#: ``__metisWatchlistOrTradeScopes()`` returns them (the ticket-field pick
+#: exempts only a scope that also holds the ticket field itself).
+WATCHLIST_OR_TRADE_JS = r"""
+  let __metisWOTScopes = null;
+  function __metisIsWatchlistOrTradeTable(el) {
+    return __metisWatchlistOrTradeScopes().some(s => s === el || s.contains(el));
+  }
+  function __metisWatchlistOrTradeScopes() {
+    if (!__metisWOTScopes) {
+      const n_ = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const t_ = e => (e.innerText || e.textContent || '').trim();
+      const c_ = e => (typeof e.className === 'string' ? e.className.split(/\s+/) : []);
+      const box = (e, n) => { for (let x = e.parentElement, i = 0; x && x !== document.body && i < n; x = x.parentElement, i++)
+                                if (c_(x).some(c => /^widget(New)?__container/.test(c))) return x; return null; };
+      const scopes = [];
+      for (const t of document.querySelectorAll('table')) {
+        const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => n_(t_(h)));
+        if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) scopes.push(box(t, 8) || t);
+        if (t.querySelector('tr.instrument, tr[data-row-id]')) scopes.push(t);
+      }
+      // table_column headers (Tradeify, #15075's __metisColumnTables layout):
+      // their widget, else the header's 6th ancestor -- a container with no
+      // widget class is still excluded.
+      for (const c of document.querySelectorAll('[data-test-id^="table_column_"]')) {
+        let b = box(c, 12);
+        if (!b) { b = c; for (let i = 0; i < 6 && b.parentElement && b.parentElement !== document.body; i++) b = b.parentElement; }
+        scopes.push(b);
+      }
+      // Quick-trade bars (manager 2026-10-01 08:58Z, operator screenshot: the
+      // Chart widget shows "Sell 2,685.83 | qty 0.01 | 2,685.84 Buy" beside the
+      // linked symbol box): the SMALLEST ancestor (<= 6 up) of any Buy-side
+      // control that also holds a Sell-side control -- buttons, its qty field
+      // and everything else inside it are excluded.
+      const side = e => { const s = n_([e.getAttribute('data-test-id'), e.getAttribute('aria-label'),
+                                        e.getAttribute('title'), t_(e)].filter(Boolean).join(' '));
+                          return /\bbuy\b/.test(s) ? 'buy' : /\bsell\b/.test(s) ? 'sell' : ''; };
+      const ctl = 'button, [role=button], [data-test-id=BUY], [data-test-id=SELL]';
+      for (const c of document.querySelectorAll(ctl)) {
+        if (side(c) !== 'buy') continue;
+        for (let x = c.parentElement, i = 0; x && x !== document.body && i < 6; x = x.parentElement, i++)
+          if ([...x.querySelectorAll(ctl)].some(o => side(o) === 'sell')) { scopes.push(x); break; }
+      }
+      for (const b of document.querySelectorAll('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
+        let w = box(b, 12);
+        if (!w) { w = b; for (let i = 0; i < 6 && w.parentElement && w.parentElement !== document.body; i++) w = w.parentElement; }
+        scopes.push(w);
+      }
+      __metisWOTScopes = scopes;
+    }
+    return __metisWOTScopes;
+  }
+"""
+
+
+# THE ORDER TICKET'S OWN SYMBOL FIELD -- the PRIMARY per-ticket switch
+# (operator, by hand on breakout_1 and tradeify_1, ~09:00Z 2026-10-01;
+# manager comment 5928196365 on #15070). Typing into the New Order panel's
+# ``Symbol`` input opens a dropdown (tabs All | Cryptocurrencies | ...;
+# columns Symbol | Description | Asset Class); picking the row whose Symbol
+# cell is EXACTLY the target sets the ticket, and the submit label then names
+# it. INFERRED from screenshots until a run measures the live shape.
+#
+# Resolve (no clicks; tags ``data-metis-ticket-sym``): the ONE visible
+# ``[data-test-id=symbol_input]`` inside the ONE order panel (the smallest
+# ancestor of a BUY that also holds a SELL and a symbol_input -- the same
+# anchor ORDER_FORM_JS uses). Returns its value, the description text shown
+# with it (the field's container text minus the value, capped), and the
+# symbol the submit label names ("Buy 0.01 SOLUSD at ...") or null.
+TICKET_SYMBOL_RESOLVE_JS = r"""
+() => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  document.querySelectorAll('[data-metis-ticket-sym]').forEach(e => e.removeAttribute('data-metis-ticket-sym'));
+  const panels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]')) {
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]') && e.querySelector('[data-test-id=symbol_input]')) {
+        if (!panels.includes(e)) panels.push(e); break; }
+    }
+  }
+  const out = {ok: false, n_panels: panels.length, dialogs: [...document.querySelectorAll(
+    '[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length};
+  if (panels.length !== 1) { out.why = `${panels.length} order panels (need exactly 1)`; return out; }
+  const ins = [...panels[0].querySelectorAll('[data-test-id=symbol_input]')].filter(vis);
+  if (ins.length !== 1) { out.why = `${ins.length} visible symbol_input in the order panel (need exactly 1)`; return out; }
+  const box = ins[0];
+  box.setAttribute('data-metis-ticket-sym', '1');
+  out.value = String(box.value || '').trim().toUpperCase();
+  // The description line: the first short visible text leaf AFTER the field
+  // in document order inside the panel (the measured sidebar shows "SOL"
+  // right under its Symbol input, probe #13816).
+  out.desc = '';
+  const after = [...panels[0].querySelectorAll('*')].filter(e => e.children.length === 0 && vis(e)
+    && (box.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING) && txt(e));
+  if (after.length) out.desc = txt(after[0]).replace(/\s+/g, ' ').replace(/\d{5,}/g, d => '#'.repeat(d.length)).slice(0, 40);
+  // The submit label naming the ticket's symbol ("Buy 0.01 SOLUSD at 117.82",
+  // or "Buy SOLUSD"): exactly one such button in the panel or its <= 3
+  // ancestors (the measured submit is a footer OUTSIDE the panel); else null.
+  const re = /^(buy|sell)\b(?:\s+[\d.,]+)?\s+([A-Za-z0-9][A-Za-z0-9.\/_-]*)(?:\s+at\b.*)?$/i;
+  let scope = panels[0], verbs = [];
+  for (let i = 0; scope && scope !== document.body && i <= 3; scope = scope.parentElement, i++) {
+    verbs = [...scope.querySelectorAll('button, [role=button]')].filter(vis)
+      .map(b => re.exec(txt(b).replace(/\s+/g, ' '))).filter(Boolean);
+    if (verbs.length) break;
+  }
+  out.submit_symbol = verbs.length === 1 ? verbs[0][2].toUpperCase() : null;
+  out.ok = true;
+  return out;
+}
+"""
+
+#: The dropdown row to pick after typing into the tagged ticket field. A
+#: candidate is the row (nearest tr / [role=row] / [role=option] / li) of a
+#: VISIBLE text leaf that EXACTLY equals the target, inside a dropdown: an
+#: ancestor (<= 8 up) carrying role listbox / grid / menu / option, or one
+#: whose short text leaves include the column titles "symbol" AND
+#: "description" (the measured-by-eye Symbol | Description | Asset Class
+#: header) that is itself NEW since the pre-typing snapshot unless it carries
+#: one of those roles. Never the ticket field itself, never in a watchlist /
+#: Orders / Positions / quick-trade scope (WATCHLIST_OR_TRADE_JS; a scope that
+#: also holds the ticket field is the ticket's own), never a buy/sell control. Exactly one distinct row
+#: is tagged ``data-metis-ticket-pick`` (on its Symbol leaf); otherwise nothing
+#: is tagged and every exact-text leaf's shape and rejection reason is
+#: returned (masked) so the live dropdown can be measured.
+TICKET_SYMBOL_PICK_JS = r"""
+([target]) => {
+""" + WATCHLIST_OR_TRADE_JS + r"""
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const n_ = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+  const cls = el => (typeof el.className === 'string' ? el.className.split(/\s+/) : [])
+                      .filter(Boolean).slice(0, 6).map(c => c.replace(/\d/g, '#'));
+  document.querySelectorAll('[data-metis-ticket-pick]').forEach(e => e.removeAttribute('data-metis-ticket-pick'));
+  const want = String(target || '').trim().toUpperCase();
+  const field = document.querySelector('[data-metis-ticket-sym]');
+  const pre = window.__metisPre;
+  const isDropdown = e => {
+    for (let x = e, i = 0; x && x !== document.body && i < 8; x = x.parentElement, i++) {
+      if (/^(listbox|grid|menu|option)$/.test(x.getAttribute('role') || '')) return x;
+      const leaves = [...x.querySelectorAll('*')].filter(y => y.children.length === 0 && vis(y)).slice(0, 400)
+        .map(y => n_(txt(y))).filter(t => t && t.length <= 20);
+      if (leaves.includes('symbol') && leaves.includes('description')) return x;
+    }
+    return null;
+  };
+  const sideCtl = e => !!e.closest('button, [role=button]') && /\b(buy|sell)\b/.test(n_(txt(e.closest('button, [role=button]'))));
+  // A scope that also holds the ticket FIELD is the ticket's own region (its
+  // BUY+SELL panel matches the quick-trade rule): a dropdown rendered inside
+  // it is still the field's own dropdown. Every other scope -- a watchlist,
+  // Orders / Positions, a quick-trade bar -- excludes the row.
+  const blocked = r => __metisWatchlistOrTradeScopes().some(sc => (sc === r || sc.contains(r))
+                                                           && !(field && sc.contains(field)));
+  const found = [], rejected = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.children.length !== 0 || txt(el).toUpperCase() !== want || !vis(el)) continue;
+    if (field && (el === field || field.contains(el))) continue;
+    const row = el.closest('tr, [role=row], [role=option], li') || el.parentElement || el;
+    const dd = isDropdown(row);
+    // The dropdown must be what the TYPING produced: its container is new
+    // since the pre-typing snapshot, or it carries a listbox/grid/menu/option
+    // role. A table that merely shows Symbol / Description headers is not one.
+    const ddRole = dd && /^(listbox|grid|menu|option)$/.test(dd.getAttribute('role') || '');
+    const why = blocked(row) ? 'watchlist_or_trade'
+      : sideCtl(el) ? 'buy_sell_control'
+      : !dd ? 'not_in_a_dropdown'
+      : !ddRole && pre && pre.has(dd) ? 'dropdown_not_new' : '';
+    if (why) {
+      if (rejected.length < 6) rejected.push({tag: row.tagName.toLowerCase(), cls: cls(row), role: row.getAttribute('role') || '',
+                                              why, new_since_typing: !!pre && !pre.has(row)});
+      continue;
+    }
+    if (!found.some(f => f.row === row)) found.push({row, leaf: el, dd});
+  }
+  const out = {n_candidates: found.length, rejected, dialogs: [...document.querySelectorAll(
+    '[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length,
+    candidates: found.slice(0, 6).map(f => ({tag: f.row.tagName.toLowerCase(), cls: cls(f.row),
+                                             role: f.row.getAttribute('role') || '', new_since_typing: !!pre && !pre.has(f.row)}))};
+  if (found.length === 1) found[0].leaf.setAttribute('data-metis-ticket-pick', '1');
   return out;
 }
 """
@@ -3134,7 +3380,7 @@ INFO_PROBE_PANEL_GONE_JS = r"""
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input',
-                   'data-metis-info-panel', 'data-metis-close'])
+                   'data-metis-info-panel', 'data-metis-close', 'data-metis-ticket-sym', 'data-metis-ticket-pick'])
     document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a));
   try { delete window.__metisPre; } catch (e) {}
 }
@@ -4431,30 +4677,235 @@ class DXtradeAdapter(PropPlatformAdapter):
 
     def link_state_dump(self, page: Any) -> Dict[str, Any]:
         """READ-ONLY (LINK_STATE_DUMP_JS): watchlist rows with the element hit at each Symbol cell's
-        centre, every symbol_input, and the sidebar ticket's buttons. Clicks nothing."""
+        centre, every symbol_input, and the sidebar ticket's buttons. Clicks nothing.
+
+        Polls (read-only) until the watchlist table shows rows, up to
+        SWITCH_READY_MS, and records ``rows_waited_ms`` / ``polls`` -- the
+        05:28Z run (#15046) read the table with zero rows once and could not
+        tell "slow to render" from "gone" (manager go 2026-10-01 06:12Z)."""
         try:
-            return page.evaluate(LINK_STATE_DUMP_JS) or {"error": "no result"}
+            waited, polls = 0, 0
+            while True:
+                got = page.evaluate(LINK_STATE_DUMP_JS) or {"error": "no result"}
+                polls += 1
+                if "error" in got or got.get("rows") or waited >= self.SWITCH_READY_MS:
+                    got.update(rows_waited_ms=waited, polls=polls)
+                    return got
+                page.wait_for_timeout(500)
+                waited += 500
         except Exception as exc:
             return {"error": f"{type(exc).__name__} (code=link_state_dump_exception)"}
+
+    #: Symbol-switch bounds (PROP-ETH-DOM, operator directive 2026-10-01
+    #: 06:13Z). Live #15022 clicked SOLUSD's Symbol cell and the link stayed
+    #: ETHUSD; the 05:28Z dump (#15046) found the watchlist table with ZERO
+    #: rows -- a race against a terminal still rendering is the working
+    #: hypothesis, so the switch waits for rows, verifies by polling instead of
+    #: one fixed settle, retries a click that did not take, and falls back to
+    #: the toolbar symbol box. Instance-overridable (tests shorten them).
+    SWITCH_READY_MS = 10_000
+    SWITCH_VERIFY_MS = 4_000
+    SWITCH_POLL_MS = 250
+    SWITCH_CLICK_ATTEMPTS = 3
+
+    def _resolve_link(self, page: Any, targets: Sequence[str]) -> Dict[str, Any]:
+        """INFO_PROBE_RESOLVE_JS (clicks nothing; tags the targets' clean
+        Symbol cells and the linked input). Never raises."""
+        try:
+            return page.evaluate(INFO_PROBE_RESOLVE_JS, [list(targets)]) or {}
+        except Exception as exc:
+            return {"ok": False, "why": f"{type(exc).__name__} (code=resolve_exception)"}
+
+    def _wait_watchlist_rows(self, page: Any, target: str) -> Dict[str, Any]:
+        """Poll the click-free resolve until the watchlist has rows (or the
+        link already reads ``target``), up to SWITCH_READY_MS. Returns the
+        last resolve with ``ready_waited_ms`` / ``ready_polls`` recorded."""
+        waited, polls = 0, 0
+        while True:
+            res = self._resolve_link(page, [target])
+            polls += 1
+            if (res.get("ok") and (res.get("watchlist") or res.get("linked_symbol") == target)) \
+                    or res.get("dialogs") or waited >= self.SWITCH_READY_MS:
+                res.update(ready_waited_ms=waited, ready_polls=polls)
+                return res
+            page.wait_for_timeout(self.SWITCH_POLL_MS * 2)
+            waited += self.SWITCH_POLL_MS * 2
+
+    def _await_link(self, page: Any, target: str, min_ms: int) -> Dict[str, Any]:
+        """After an action: poll the linked symbol (click-free resolve) until
+        it reads ``target`` or a dialog appears, waiting at least ``min_ms``
+        before the first read and at most SWITCH_VERIFY_MS in all."""
+        first = max(0, min(int(min_ms), self.SWITCH_VERIFY_MS))
+        page.wait_for_timeout(first)
+        waited = first
+        while True:
+            res = self._resolve_link(page, [])
+            if res.get("linked_symbol") == target or res.get("dialogs") or waited >= self.SWITCH_VERIFY_MS:
+                return {"after": res.get("linked_symbol"), "dialogs": res.get("dialogs") or 0,
+                        "verify_waited_ms": waited}
+            page.wait_for_timeout(self.SWITCH_POLL_MS)
+            waited += self.SWITCH_POLL_MS
+
+    def _one_click_off(self, page: Any, out: Dict[str, Any]) -> bool:
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if info_probe_one_click_off(oc):
+            return True
+        out["why"] = (f"symbol switch refused: one-click not confirmed OFF "
+                      f"(reads {oc.get('state')!r} via {oc.get('via')!r})")
+        return False
+
+    def _ticket_symbol(self, page: Any) -> Dict[str, Any]:
+        try:
+            return page.evaluate(TICKET_SYMBOL_RESOLVE_JS) or {"ok": False, "why": "no result"}
+        except Exception as exc:
+            return {"ok": False, "why": f"{type(exc).__name__} (code=ticket_symbol_exception)"}
+
+    def _await_ticket_symbol(self, page: Any, want: str, min_ms: int) -> Dict[str, Any]:
+        """Poll the ticket field (click-free) until it reads ``want`` or a
+        dialog shows, at least ``min_ms`` then up to SWITCH_VERIFY_MS."""
+        first = max(0, min(int(min_ms), self.SWITCH_VERIFY_MS))
+        page.wait_for_timeout(first)
+        waited = first
+        while True:
+            got = self._ticket_symbol(page)
+            if got.get("value") == want or got.get("dialogs") or waited >= self.SWITCH_VERIFY_MS:
+                got["verify_waited_ms"] = waited
+                return got
+            page.wait_for_timeout(self.SWITCH_POLL_MS)
+            waited += self.SWITCH_POLL_MS
+
+    def select_ticket_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+        """Set the OPEN order ticket's own Symbol field to ``venue_symbol``,
+        VERIFIED -- the PRIMARY per-ticket switch (operator by hand, manager
+        comment 5928196365 on #15070). Never an order control.
+
+        Resolve the ONE ticket field (TICKET_SYMBOL_RESOLVE_JS); a field that
+        already reads the target does nothing. Otherwise: re-read one-click
+        (must read OFF); snapshot; fill the target (no Enter, ever); find the
+        ONE dropdown row whose Symbol text EXACTLY equals it
+        (TICKET_SYMBOL_PICK_JS) -- when the full name lists none, re-type its
+        first three characters once; re-read one-click; click that row's
+        Symbol cell; poll the field. ``ok`` only when the field reads the
+        target, no dialog is open, the description under it CHANGED and the
+        submit label NAMES the target -- never the typed field alone. With
+        no single exact row nothing is clicked and the field is put back to
+        the original (filled, then blurred: no key).
+        ``picked`` says whether a row was clicked."""
+        target = str(venue_symbol or "").strip().upper()
+        out: Dict[str, Any] = {"target": target, "ok": False, "picked": False, "route": "ticket_field"}
+        typed = False
+        original = None
+        try:
+            res = self._ticket_symbol(page)
+            out["before"] = {k: res.get(k) for k in ("value", "desc", "submit_symbol")}
+            if not res.get("ok"):
+                out["why"] = res.get("why") or "ticket symbol field not resolvable"
+                return out
+            if res.get("dialogs"):
+                out["why"] = f"{res['dialogs']} dialog(s) open"
+                return out
+            original = res.get("value")
+            if original == target:
+                out.update(ok=True, after=out["before"])
+                return out
+            if not self._one_click_off(page, out):
+                return out
+            if page.evaluate(INFO_PROBE_SNAPSHOT_JS):
+                out["why"] = "dialog(s) open before typing"
+                return out
+            box = page.locator("[data-metis-ticket-sym='1']")
+            pick: Dict[str, Any] = {}
+            for typed_text in dict.fromkeys([target, target[:3].lower()]):
+                box.first.fill(typed_text, timeout=5_000)
+                typed = True
+                page.wait_for_timeout(max(settle_ms, 800))
+                pick = page.evaluate(TICKET_SYMBOL_PICK_JS, [target]) or {}
+                pick["typed"] = typed_text
+                if pick.get("dialogs") or pick.get("n_candidates") == 1:
+                    break
+            out["pick"] = pick
+            if pick.get("dialogs"):
+                out["why"] = f"{pick['dialogs']} dialog(s) open after typing {target}"
+                return out
+            if pick.get("n_candidates") != 1:
+                out["why"] = f"{pick.get('n_candidates')} dropdown rows read exactly {target} (need exactly 1)"
+                return out
+            if not self._one_click_off(page, out):
+                return out
+            page.locator("[data-metis-ticket-pick='1']").first.click(timeout=5_000)
+            out["picked"] = True
+            typed = False
+            got = self._await_ticket_symbol(page, target, settle_ms)
+            out["after"] = {k: got.get(k) for k in ("value", "desc", "submit_symbol")}
+            out["verify_waited_ms"] = got.get("verify_waited_ms")
+            # Recorded, not gated on: whether the chart's linked box followed
+            # the ticket pick is unmeasured.
+            out["chart_after"] = self._resolve_link(page, []).get("linked_symbol")
+            # NEVER verified by the field alone -- the field is the box we just
+            # typed into (manager 2026-10-01 09:22Z: the old toolbar route read
+            # its own typing back and reported ok with nothing linked). Success
+            # needs the field AND two signals the typing cannot produce: the
+            # description line under the field CHANGED, and the submit label
+            # NAMES the target (an unreadable label is not a pass).
+            before_desc = (out.get("before") or {}).get("desc") or ""
+            if got.get("dialogs"):
+                out["why"] = f"{got['dialogs']} dialog(s) appeared after picking {target}"
+            elif got.get("value") != target:
+                out["why"] = f"ticket symbol reads {got.get('value')!r} after picking {target}"
+            elif got.get("submit_symbol") != target:
+                out["why"] = f"submit label names {got.get('submit_symbol')!r}, not {target}"
+            elif not got.get("desc") or got.get("desc") == before_desc:
+                out["why"] = f"the description under the field did not change (reads {got.get('desc')!r})"
+            else:
+                out["ok"] = True
+            return out
+        except Exception as exc:
+            out["why"] = f"{type(exc).__name__} (code=ticket_switch_exception)"
+            return out
+        finally:
+            if typed and original:
+                # Nothing was picked: put the field back the way it was. No key
+                # press -- a fill and a DOM blur only.
+                try:
+                    box = page.locator("[data-metis-ticket-sym='1']")
+                    box.first.fill(original, timeout=3_000)
+                    box.first.evaluate("el => el.blur()")
+                    out["field_reset"] = self._ticket_symbol(page).get("value") == original
+                except Exception:
+                    out["field_reset"] = False
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
 
     def select_linked_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
         """Make ``venue_symbol`` the terminal's linked symbol, VERIFIED.
 
-        Reads the linked symbol (INFO_PROBE_RESOLVE_JS, which clicks nothing
-        and tags the target's Symbol cell); when it already reads the target,
-        nothing is clicked. Otherwise ONE single click on the target's
-        watchlist Symbol cell -- never Bid/Ask, never a double-click (a
-        double-click opens the ticket) -- after the hover re-check, then a
-        read-back. ``ok`` is True only when the linked symbol reads the
-        target and no dialog is open. Refuses (nothing clicked) when the
-        watchlist / linked input cannot be resolved, a dialog is open, or the
-        target has no single clean Symbol cell. MEASURED live: #14831
-        (BTCUSD) and #14870 (ETHUSD) both read the clicked symbol back."""
+        1. READY: poll the click-free resolve (INFO_PROBE_RESOLVE_JS) until
+           the watchlist has rows, up to SWITCH_READY_MS (10 s). A link that already
+           reads the target clicks nothing.
+        2. WATCHLIST ROUTE, up to SWITCH_CLICK_ATTEMPTS: re-resolve, re-read
+           one-click (must read OFF), ONE single click on the target's clean
+           watchlist Symbol cell (never Bid/Ask, never a double-click -- a
+           double-click opens the ticket) after the hover re-check, then poll
+           the linked symbol up to SWITCH_VERIFY_MS.
+        The ALTERNATIVE route: the primary per-ticket switch is the open
+        ticket's own Symbol field (select_ticket_symbol). The chart-toolbar
+        typing route was DROPPED (manager comment 5928196365 on #15070: a
+        quick-trade bar sits beside that box and a second "Symbol..." box
+        exists).
+        ``ok`` is True only when the linked symbol reads the target and no
+        dialog is open. Any dialog stops everything at once. MEASURED live:
+        #14831 (BTCUSD), #14870 and B2 #14999 (ETHUSD) read the clicked symbol
+        back; #15022 (SOLUSD) did not."""
         target = str(venue_symbol or "").strip().upper()
-        out: Dict[str, Any] = {"target": target, "ok": False, "clicked": False}
+        out: Dict[str, Any] = {"target": target, "ok": False, "clicked": False, "attempts": 0}
         try:
-            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[target]]) or {}
+            res = self._wait_watchlist_rows(page, target)
             out["before"] = res.get("linked_symbol")
+            out["ready"] = {"waited_ms": res.get("ready_waited_ms"), "polls": res.get("ready_polls"),
+                            "watchlist_n": len(res.get("watchlist") or [])}
             if not res.get("ok"):
                 out["why"] = res.get("why") or "could not resolve the watchlist / linked symbol"
                 return out
@@ -4464,32 +4915,51 @@ class DXtradeAdapter(PropPlatformAdapter):
             if res.get("linked_symbol") == target:
                 out.update(ok=True, after=target)
                 return out
-            if not (res.get("targets") or {}).get(target, {}).get("clean"):
-                out["why"] = f"{target} has no single clean watchlist Symbol cell"
-                return out
-            # A click is needed: gate it like the info probe (manager decision
-            # 2026-09-30 20:17Z, review of #14885). With one-click ON, a
-            # geometry shift or a hover control the check misses could turn
-            # this click into an order. Order controls stay un-gated (rule 1).
-            oc = self.read_one_click(page)
-            out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
-            if not info_probe_one_click_off(oc):
-                out["why"] = (f"symbol switch refused: one-click not confirmed OFF "
-                              f"(reads {oc.get('state')!r} via {oc.get('via')!r})")
-                return out
-            if not self._info_click_cell(page, target):
-                out["why"] = f"a control appeared in {target}'s Symbol cell on hover; not clicked"
-                return out
-            out["clicked"] = True
-            page.wait_for_timeout(settle_ms)
-            dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
-            out["after"] = self._linked_symbol(page)
-            if dialogs:
-                out["why"] = f"{dialogs} dialog(s) appeared after selecting {target}"
-            elif out["after"] != target:
-                out["why"] = f"linked symbol reads {out['after']!r} after selecting {target}"
-            else:
-                out["ok"] = True
+            route_why: Optional[str] = None
+            for attempt in range(1, self.SWITCH_CLICK_ATTEMPTS + 1):
+                res = self._resolve_link(page, [target])
+                if res.get("dialogs"):
+                    out["why"] = f"{res['dialogs']} dialog(s) open"
+                    return out
+                if res.get("linked_symbol") == target:
+                    out.update(ok=True, after=target)
+                    return out
+                if not (res.get("targets") or {}).get(target, {}).get("clean"):
+                    route_why = f"{target} has no single clean watchlist Symbol cell"
+                    break
+                # Gate every click like the info probe (manager decision
+                # 2026-09-30 20:17Z, review of #14885). With one-click ON a
+                # geometry shift or a hover control the check misses could
+                # turn this click into an order. Order controls stay un-gated.
+                if not self._one_click_off(page, out):
+                    return out
+                if not self._info_click_cell(page, target):
+                    out["why"] = f"a control appeared in {target}'s Symbol cell on hover; not clicked"
+                    return out
+                out["clicked"] = True
+                out["attempts"] = attempt
+                got = self._await_link(page, target, settle_ms)
+                out["after"] = got["after"]
+                out["verify_waited_ms"] = got["verify_waited_ms"]
+                if got["dialogs"]:
+                    out["why"] = f"{got['dialogs']} dialog(s) appeared after selecting {target}"
+                    return out
+                if got["after"] == target:
+                    # When a ticket is open, its own Symbol field must follow
+                    # the click too (operator screenshots: a watchlist click
+                    # moves the chart box AND the New Order field).
+                    if self._ticket_symbol(page).get("ok"):
+                        tk = self._await_ticket_symbol(page, target, 0)
+                        out["ticket_after"] = tk.get("value")
+                        if tk.get("value") != target:
+                            out["why"] = f"ticket field reads {tk.get('value')!r} after the watchlist click"
+                            return out
+                    out["ok"] = True
+                    out["route"] = "watchlist"
+                    return out
+                route_why = f"linked symbol reads {got['after']!r} after selecting {target}"
+            out["after"] = self._resolve_link(page, []).get("linked_symbol")
+            out["why"] = route_why or f"linked symbol reads {out['after']!r} after selecting {target}"
             return out
         except Exception as exc:
             out["why"] = f"{type(exc).__name__} (code=symbol_switch_exception)"
@@ -4500,11 +4970,25 @@ class DXtradeAdapter(PropPlatformAdapter):
             except Exception:
                 pass
 
-    def symbol_switch_dry(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
-        """DRY check of the per-ticket switch (manager 2026-09-30 19:40Z):
-        select ``venue_symbol``, verify, then re-select the ORIGINAL linked
-        symbol and verify. NO order form is opened. Refuses before any click
-        unless one-click reads OFF from the measured toggle."""
+    def symbol_switch_dry(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500,
+                          home: Optional[str] = None) -> Dict[str, Any]:
+        """DRY check of the per-ticket switch. NO order control is touched and
+        nothing is submitted. Refuses before any click unless one-click reads
+        OFF from the measured toggle.
+
+        1. Read the linked symbol and the target's quote (click-free).
+        2. TICKET ROUTE (primary): open the order ticket (open_order_ticket --
+           a ticket-opener button or a double-click on the LINKED symbol's own
+           watchlist row, never a price button), set its Symbol field to the
+           target (select_ticket_symbol), verify, then set it to ``home`` and
+           verify; close the ticket.
+        3. LINK: set the terminal's linked symbol to ``home`` with the
+           verified watchlist click (select_linked_symbol) -- click-free when
+           it already reads ``home``.
+        ``home`` is where the terminal is left: the caller passes the
+        account's resting symbol (the tick: the original link when it is an
+        enabled venue symbol, else the first enabled one), defaulting to the
+        original link."""
         out: Dict[str, Any] = {"target": str(venue_symbol or "").strip().upper(), "alerts": [], "refused": None}
         try:
             out["one_click"] = self.read_one_click(page)
@@ -4518,19 +5002,29 @@ class DXtradeAdapter(PropPlatformAdapter):
             if not res.get("ok") or not original:
                 out["refused"] = res.get("why") or "linked symbol not readable"
                 return out
+            home_sym = str(home or original).strip().upper()
+            out["home"] = home_sym
             # CLICK-FREE quote read of the target BEFORE any click (manager
-            # 2026-09-30 20:39Z): its bid/ask DECIMALS measure the price_step
-            # ETHUSD still lacks. read_quote parses floats (a trailing zero is
-            # lost), so the target row's raw watchlist cells are kept too --
-            # market data only (symbol, prices), capped per cell.
+            # 2026-09-30 20:39Z): its bid/ask DECIMALS measure the price_step.
             out["quote"] = self.read_quote(page, out["target"])
             out["quote_raw"] = page.evaluate(WATCHLIST_QUOTE_RAW_JS, [out["target"]]) or {"error": "no result"}
-            out["switch"] = self.select_linked_symbol(page, out["target"], settle_ms=settle_ms)
-            if not out["switch"].get("ok"):
-                out["alerts"].append(f"switch to {out['target']} failed: {out['switch'].get('why')}")
-            out["restore"] = self.select_linked_symbol(page, original, settle_ms=settle_ms)
+            opened = self.open_order_ticket(page, original)
+            out["ticket_open"] = {k: opened.get(k) for k in ("opened", "via", "refused")}
+            if opened.get("opened"):
+                try:
+                    out["switch"] = self.select_ticket_symbol(page, out["target"], settle_ms=settle_ms)
+                    if not out["switch"].get("ok"):
+                        out["alerts"].append(f"ticket switch to {out['target']} failed: {out['switch'].get('why')}")
+                    out["ticket_home"] = self.select_ticket_symbol(page, home_sym, settle_ms=settle_ms)
+                    if not out["ticket_home"].get("ok"):
+                        out["alerts"].append(f"ticket back to {home_sym} failed: {out['ticket_home'].get('why')}")
+                finally:
+                    out["ticket_closed"] = self.close_order_ticket(page)
+            else:
+                out["alerts"].append(f"no order ticket opened: {opened.get('refused')}")
+            out["restore"] = self.select_linked_symbol(page, home_sym, settle_ms=settle_ms)
             if not out["restore"].get("ok"):
-                out["alerts"].append(f"restore to {original} failed: {out['restore'].get('why')}")
+                out["alerts"].append(f"link to {home_sym} failed: {out['restore'].get('why')}")
             return out
         except Exception as exc:
             out["alerts"].append(f"symbol-switch-dry raised {type(exc).__name__} (code=switch_dry_exception)")
@@ -4643,17 +5137,24 @@ class DXtradeAdapter(PropPlatformAdapter):
             return PlaceAttempt(stage="refused", detail=opened.get("refused") or "form not opened",
                                 form={"one_click": opened.get("one_click")})
         form = opened["form"]
-        # PER-TICKET SYMBOL SWITCH (manager 2026-09-30 19:40Z): the open form
-        # is the sidebar ticket linked to the terminal's linked symbol, so an
-        # ETHUSD ticket on a SOLUSD-linked terminal was refused ("the open form
-        # does not name ETHUSD") and could never trade. Only when the form
-        # names ANOTHER symbol: link the ticket's symbol -- one verified single
-        # click on its watchlist Symbol cell, MEASURED live twice (#14831
-        # BTCUSD, #14870 ETHUSD) -- re-read the form, and refuse on any
-        # mismatch. A form already naming the symbol (today's SOL path) is
-        # untouched. form_names_symbol below still guards.
+        # PER-TICKET SYMBOL SWITCH (manager 2026-09-30 19:40Z; routes per
+        # manager comment 5928196365 on #15070): the open form is the sidebar
+        # ticket, set to the terminal's linked symbol, so an ETHUSD ticket on a
+        # SOLUSD-linked terminal was refused ("the open form does not name
+        # ETHUSD"). Only when the form names ANOTHER symbol: set the ticket's
+        # own Symbol field (exact dropdown row, verified), else the verified
+        # watchlist-row click (MEASURED live: #14831 BTCUSD, #14870 ETHUSD);
+        # re-read the form; refuse on any mismatch. A form already naming the
+        # symbol is untouched. form_names_symbol below still guards.
         if not form.get("ambiguous") and not form_names_symbol(form, spec.venue_symbol):
-            link = self.select_linked_symbol(page, spec.venue_symbol)
+            # PRIMARY: the ticket's own Symbol field (manager comment
+            # 5928196365 on #15070). ALTERNATIVE, only when that route picked
+            # nothing: the verified watchlist-row click.
+            link = self.select_ticket_symbol(page, spec.venue_symbol)
+            if not link.get("ok") and not link.get("picked"):
+                wl = self.select_linked_symbol(page, spec.venue_symbol)
+                wl["ticket_route"] = {k: link.get(k) for k in ("why", "before", "pick")}
+                link = wl
             if not link.get("ok"):
                 detail = f"symbol switch: {link.get('why')}"
                 # A switch that CLICKED but did not verify may have moved the
