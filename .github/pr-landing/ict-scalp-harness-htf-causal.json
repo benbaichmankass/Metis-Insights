@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Backtest harness + tests only (scripts/backtest_ict_scalp.py, tests/test_backtest_ict_scalp_htf_causal.py, pipeline row). No runtime, order path, strategy config, risk caps or live-VM change; it changes what FUTURE evidence runs measure. Manager directive 2026-10-01 22:58Z: take off hold, land on the Tier-1 self-land route. Committed ict_scalp evidence records are NOT rebuilt here (PI-20261001-JWZSVYVS-0003)."
+}
