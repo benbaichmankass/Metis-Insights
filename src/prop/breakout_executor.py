@@ -185,6 +185,37 @@ def _reticket_suppress_reason(
     return None
 
 
+def _leverage_refusal(account_id: str, unit: Any, symbol: str, qty_units: Any, entry: Any,
+                      cvpp: float) -> Optional[str]:
+    """The ruleset's leverage-cap breach reason for this ticket, or None.
+
+    Basis = min(nominal account size, live sizing balance when readable). A
+    declared cap that cannot be checked is a breach (could not look)."""
+    from src.prop import prop_rule_guards
+
+    caps = prop_rule_guards.leverage_caps(prop_rule_guards.load_limits(getattr(unit, "source", None)))
+    if not caps:
+        return None
+    live: list = []
+    try:
+        from src.prop import prop_balance
+
+        state, bal, _meta = prop_balance.prop_sizing_balance(account_id)
+        if state == "ok":
+            live.append(bal)
+    except Exception as exc:  # noqa: BLE001 — the nominal size still bounds it
+        logger.warning("breakout_executor: leverage basis balance read failed for %s: %s", account_id, exc)
+    size = (getattr(unit, "account_size_usd", None)
+            or getattr(getattr(unit, "ruleset", None), "account_size_usd", None))
+    try:
+        notional = float(qty_units) * float(entry) * float(cvpp)
+    except (TypeError, ValueError):
+        notional = None
+    return prop_rule_guards.leverage_breach(
+        symbol=symbol, notional_usd=notional, caps=caps,
+        basis_usd=prop_rule_guards.leverage_basis(size, live))
+
+
 def emit_prop_ticket(
     order: Dict[str, Any],
     account_cfg: Dict[str, Any],
@@ -383,6 +414,37 @@ def emit_prop_ticket(
             account_id, symbol, leg.reason, trade_id,
         )
         return trade_id
+
+    # FIRM LEVERAGE CAP (TRADEIFY-WIRE T2; declared per ruleset, breakout.yaml
+    # declares none so breakout_1 never reaches the refusal). A breach item:
+    # `enforce` refuses the ticket, `report` logs it and emits.
+    lev_reason = _leverage_refusal(account_id, unit, symbol, leg.ticket.qty_units, sig.entry,
+                                   float(_per_symbol(routing, symbol, "contract_value_usd_per_point", 1.0)))
+    if lev_reason:
+        from src.prop import prop_risk_gate
+
+        if prop_risk_gate.breach_guards_for(account_id) == "report":
+            logger.warning("breakout_executor: %s %s %s — %s (breach_guards=report, emitting anyway)",
+                           account_id, symbol, direction, lev_reason)
+        else:
+            logger.warning("breakout_executor: %s %s %s REFUSED — %s → %s",
+                           account_id, symbol, direction, lev_reason, trade_id)
+            try:
+                from src.prop import prop_journal
+
+                prop_journal.record_ticket({
+                    "ticket_id": trade_id, "account_id": account_id,
+                    "strategy": strategy, "symbol": symbol, "direction": direction,
+                    "entry": entry, "sl": sl, "tp": tp,
+                    "signal_time": sig.signal_time.isoformat(),
+                    "status": "skipped", "message": lev_reason,
+                    "order_package_id": (order.get("order_package_id")
+                                         or (order.get("meta") or {}).get("order_package_id")),
+                    "meta": {"rule_guard": "leverage"},
+                })
+            except Exception as exc:  # noqa: BLE001 — audit row is best-effort
+                logger.warning("breakout_executor: leverage-refusal journal write failed: %s", exc)
+            return trade_id
 
     # P3 observe-only soak: log the laddered ticket that WOULD be emitted (the
     # materialized ExitPlan sized against this leg) next to the single-target

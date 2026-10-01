@@ -45,6 +45,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from src.prop import prop_rule_guards
 from src.prop.platform.base import (
     AccountSnapshot,
     BracketSpec,
@@ -116,6 +117,10 @@ class ExecutorConfig:
     # refusal, never a latch count. None = no filter (programmatic use);
     # load_config reads the YAML and a missing key enables NOTHING.
     enabled_venue_symbols: Optional[List[str]] = None
+    # Firm rules declared in the ruleset's ``limits:`` (src/prop/prop_rule_guards.py).
+    # Empty / None = not declared = the pre-existing behaviour (breakout.yaml).
+    leverage_caps: Dict[str, float] = field(default_factory=dict)
+    daily_loss_amount_basis: Optional[str] = None
 
 
 SYMBOLS_ENV = "PROP_EXECUTOR_SYMBOLS"
@@ -216,6 +221,9 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
                                 if v is not None},
         breach_guards=_breach_guards_for(account_id),
         enabled_venue_symbols=enabled_venues(ex, account_id=account_id),
+        leverage_caps=prop_rule_guards.leverage_caps(lim),
+        daily_loss_amount_basis=(str(lim["daily_loss_amount_basis"])
+                                 if lim.get("daily_loss_amount_basis") else None),
     )
 
 
@@ -333,6 +341,7 @@ def bracket_from_ticket(ticket: Mapping[str, Any], cfg: ExecutorConfig,
                        side=side, quantity=lots, stop_loss=sl, take_profit=tp,
                        order_type="limit", limit_price=entry, price_step=ps)
     return spec, {"lots": lots, "units": units, "ticket_risk_usd": round(risk, 2),
+                  "notional_usd": round(units * entry * cvpp, 2),
                   "ticket_claimed_risk_usd": _f(ticket.get("risk_usd")), "cvpp": cvpp}, ""
 
 
@@ -429,7 +438,9 @@ def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], f
         reasons.append(f"open risk: {open_risk_state} (could not look)")
     risk = _f(facts.get("ticket_risk_usd"))
     floor = cfg.account_size_usd * (1.0 - cfg.max_dd_pct)
-    daily_floor = day_start_balance * (1.0 - cfg.daily_loss_pct) if day_start_balance else None
+    daily_floor = prop_rule_guards.daily_floor(
+        daily_loss_pct=cfg.daily_loss_pct, day_start_balance=day_start_balance,
+        account_size_usd=cfg.account_size_usd, amount_basis=cfg.daily_loss_amount_basis)
     checks.update(equity=eq, balance=bal, open_risk_usd=open_risk_usd, open_risk_state=open_risk_state,
                   ticket_risk_usd=risk, dd_floor=floor, daily_floor=daily_floor,
                   day_start_balance=day_start_balance, margin=cfg.safety_margin_usd)
@@ -445,6 +456,18 @@ def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], f
         if daily_floor is not None and after <= daily_floor + cfg.safety_margin_usd:
             breach.append(f"daily loss: equity after all stops ${after:,.2f} <= day floor "
                           f"${daily_floor:,.2f} + margin ${cfg.safety_margin_usd:,.2f}")
+    # Leverage cap (declared per ruleset; breakout.yaml declares none). A
+    # breach item: ``enforce`` refuses, ``report`` alerts.
+    if cfg.leverage_caps:
+        basis = prop_rule_guards.leverage_basis(cfg.account_size_usd, (eq, bal))
+        lev = prop_rule_guards.leverage_breach(
+            symbol=str(ticket.get("symbol") or "").upper(), notional_usd=_f(facts.get("notional_usd")),
+            caps=cfg.leverage_caps, basis_usd=basis)
+        checks["leverage"] = {"notional_usd": _f(facts.get("notional_usd")), "basis_usd": basis,
+                              "cap": prop_rule_guards.leverage_cap_for(
+                                  cfg.leverage_caps, str(ticket.get("symbol") or ""))}
+        if lev:
+            breach.append(lev)
     # prop_risk_gate in ENFORCE for the executor, whatever the global default
     if eq is not None and open_risk_usd is not None:
         grade = prop_risk_gate.grade_ticket_risk(
@@ -1160,7 +1183,10 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
 
     if sym is None:
         return stop(f"{venue} is not in breakout_routing.yaml")
-    if cfg.enabled_venue_symbols is not None and venue not in cfg.enabled_venue_symbols:
+    # The enabled list gates what the executor may ARM. A dry walk (arm=False) submits nothing and is
+    # exactly the D1-D7 measurement a symbol must pass BEFORE it joins the list (PROP-ETH-DOM B4), so
+    # gating it on that list made the measurement impossible.
+    if arm and cfg.enabled_venue_symbols is not None and venue not in cfg.enabled_venue_symbols:
         return stop(f"{venue} is not in executor.enabled_venue_symbols {cfg.enabled_venue_symbols}")
     if not _f(sym.get("lot_units")) or not _f(sym.get("lot_step")):
         return stop(f"lot size for {venue} is not declared (executor.lots; unmeasured)")

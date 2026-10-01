@@ -251,6 +251,19 @@ def _ruleset_for(account_id: str):
         return None
 
 
+def _ruleset_limits_raw(account_id: str) -> Dict[str, Any]:
+    """The account ruleset file's raw ``limits:`` ({} when unknown)."""
+    try:
+        from src.prop import prop_rule_guards
+        from src.prop.account_rulesets import all_account_units
+
+        unit = all_account_units().get(account_id)
+        return prop_rule_guards.load_limits(getattr(unit, "source", None)) if unit else {}
+    except Exception as exc:  # noqa: BLE001 — fail soft to "undeclared"
+        logger.warning("prop_reconcile: raw limits lookup failed for %s: %s", account_id, exc)
+        return {}
+
+
 def _status_freshness(status: Dict[str, Any]) -> tuple:
     """``(age_hours, freshness)`` for the snapshot the distances are computed on.
 
@@ -549,6 +562,16 @@ def compute_rule_distance(
         daily_loss_pct * day_basis
         if (daily_loss_pct is not None and day_basis is not None) else None
     )
+    # A ruleset may declare the AMOUNT as a share of the account size instead
+    # (Tradeify 247: prior close minus 3% of the account size; TRADEIFY-WIRE
+    # T2, src/prop/prop_rule_guards.py). Undeclared = unchanged.
+    amount_basis = _ruleset_limits_raw(account_id).get("daily_loss_amount_basis")
+    if amount_basis:
+        from src.prop import prop_rule_guards
+
+        daily_loss_limit_usd = prop_rule_guards.daily_loss_amount(
+            daily_loss_pct=daily_loss_pct, day_start_balance=day_basis,
+            account_size_usd=account_size, amount_basis=amount_basis)
     # Day P&L = realized today + unrealized (equity-basis, like Breakout).
     #
     # ⚠️ A MISSING TERM MUST NOT BECOME ZERO.
