@@ -6,6 +6,17 @@
 # sourcing, the conflicts, and the strictest-reading choices are in
 # docs/research/tradeify-portfolio-feasibility-2026-09-30.md section 1 and 2.
 # NOT verified by buying an account or contacting the firm.
+#
+# PROVENANCE: this file is byte-identical to PR #14580's (lane
+# TRADEIFY-PORTFOLIO) up to `economics:`; lane TRADEIFY-WIRE (2026-09-30) added
+# the `routing:` and `sizing:` blocks at the end so the live account
+# `tradeify_1` (config/accounts.yaml) can use it. #14580 landed first; this
+# is a strict superset of it (additions only). scripts/research/prop_ev_sim.py
+# takes sizing from its own --risk-pct/--sizing flags, never from `sizing:`.
+#
+# UNCONFIRMED (not first-party-verified, strictest reading chosen): commission
+# per side; leverage cap per position; max-loss on live equity; funded start
+# balance. See the memo § 1.6 and § 7.
 ruleset: tradeify_247
 plan: 1-step-10k
 account_size_usd: 10000           # other tiers (1-Step): $25k $231, $50k $431, $100k $838
@@ -64,3 +75,19 @@ economics:
     buffer_usd: 0
     bank_asap: true               # same policy as breakout.yaml: the floor is static and not raised on payout
     cadence_days: 1
+
+# ── live-account wiring (TRADEIFY-WIRE, 2026-09-30) ─────────────────────────
+# Venue symbol map + ticket band/TTL for tradeify_1. Read by
+# src/prop/breakout_executor.emit_prop_ticket and
+# src/prop/prop_executor.rule_paths_for. Without it both fall back to /
+# refuse, never to Breakout's map by accident.
+routing: prop_rulesets/tradeify_routing.yaml
+
+# Ticket sizing (src/prop/prop_sizing.py). FLAT at the memo's recommended
+# 0.5% risk: 0.5% x $10,000 = $50 per ticket (B3 book, § 3.2-3.3: 0.5% is the
+# only risk at which the pessimistic `stop` bound stays positive). The cap is
+# what PROP_TICKET_RISK_GATE_MODE=enforce resizes a ticket down to.
+sizing:
+  mode: flat
+  flat:
+    max_risk_usd: 50

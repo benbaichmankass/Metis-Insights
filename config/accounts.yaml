@@ -1883,3 +1883,52 @@ accounts:
                                        # raises an alert (pinged by its tick) when it
                                        # places through a breach. Every other account
                                        # defaults to `enforce`. Rollback: delete this line.
+
+  # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's DXtrade
+  # white-label (dx.tradeify247.co). TRADEIFY-WIRE, 2026-09-30, PR B (Tier-3).
+  # OPERATOR DECISION (manager popup ~08:24Z 2026-09-30, relayed by manager
+  # session_01HYq6XtfesZ57VyaQrK6CL1), verbatim: "Buy the $10k pilot
+  # (Recommended)". Evidence: docs/research/tradeify-portfolio-feasibility-
+  # 2026-09-30.md (PR #14580) — B3 book at 0.5% risk: path EV +$828..+$852 per
+  # account life after the $120 fee, P(net>0) 0.77, registered rule V2
+  # INDETERMINATE (evidence p5 about -$100). MARGINAL: this is a $120 pilot to
+  # measure fills and cost, not a promotion on edge.
+  #
+  # Same shape as breakout_1: exchange `breakout` is the prop ticket bridge
+  # (src/prop/breakout_executor.py), NOT a Breakout-specific venue; the ruleset
+  # + routing below make every number Tradeify's. Terminal: prop_platforms.yaml
+  # tradeify_1 (own login TRADEIFY_DX_*, own kill switch
+  # PROP_EXECUTOR_MODE_TRADEIFY_1, nothing enabled).
+  #
+  # DRY FIRST: mode dry_run -> execute_pkg's breakout branch emits NO ticket and
+  # NO ping; the order package is journaled with status=shadow /
+  # close_reason=prop_shadow_no_emit. That is the dry evidence the go-live PR
+  # (C) waits on. dry_run is excluded from the prop status-request and
+  # fills-staleness asks (declared_prop_account_ids(live_only=True)).
+  tradeify_1:
+    exchange: breakout
+    type: prop
+    account_class: prop
+    mode: dry_run                      # dry-run-guard: allow — TRADEIFY-WIRE: new prop account ships DRY; go-live is the separate held PR C after the dry evidence (operator "Buy the $10k pilot (Recommended)", 2026-09-30)
+    account_state: evaluation
+    phase_requirements:                # Tradeify 247 1-Step terms (first-party summary, unconfirmed).
+      target_profit_pct: 0.12          # +12% to pass.
+      min_active_days: 0               # no minimum trading days.
+    backtest_ruleset: prop_rulesets/tradeify_247_1step.yaml
+    account_size_usd: 10000
+    strategies:                        # the memo's B3 book (§ 3.1): one leg per
+                                       # symbol, so the no-hedging rule cannot be
+                                       # tripped by two of our own legs.
+      - trend_donchian_eth_prop        # ETH 1h (n=169, net R +13.03 after Tradeify costs)
+      - trend_donchian_sol_prop        # SOL 1h (n=65, +4.97)
+      - ict_scalp_xrp_15m              # XRP 15m (n=129, +3.09)
+    symbols: [ETHUSDT, SOLUSDT, XRPUSDT]
+    risk:
+      max_dd_pct: 0.06                 # Tradeify 1-Step STATIC 6% = $600 floor at $9,400.
+      daily_loss_pct: 0.03             # 3% daily = $300 (resets 22:00 UTC; ruleset limits).
+      daily_usd: 300                   # absolute fallback (= 3% of $10k).
+      risk_pct: 0.005                  # 0.5% = $50/ticket (memo § 3.2-3.3; ruleset sizing.flat cap 50).
+      # breach_guards: NOT set -> `enforce` (the default). A DAILY_LOSS_CAP /
+      # INTRADAY_DRAWDOWN breach REFUSES the trade on this account (manager
+      # review of #14672, 2026-09-30: "'report' places orders through a
+      # breach; it must refuse"). breakout_1's `report` is unchanged.

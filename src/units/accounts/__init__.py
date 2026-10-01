@@ -196,6 +196,13 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
         # ``RiskManager.evaluate()``; this attribute is for read-only
         # observability.
         account.dry_run = dry_run
+        # The account's prop ruleset (``backtest_ruleset``), carried onto the
+        # object so the coordinator can forward it into the execution
+        # account_cfg. Without it the prop ticket bridge sized EVERY prop
+        # account against the default ``prop_rulesets/breakout.yaml``
+        # (``account_rulesets.unit_for_account``), which is right only for
+        # breakout_1 (whose value IS that file). TRADEIFY-WIRE 2026-09-30.
+        account.backtest_ruleset = cfg.get("backtest_ruleset")
         accounts.append(account)
     _stamp_accounts(config_path, source_text, accounts)
     return accounts

@@ -263,11 +263,11 @@ def execute_pkg(
                     from src.units.db.database import Database
                     from src.utils.paths import trade_journal_db_path
 
-                    Database(db_path=trade_journal_db_path()).update_order_package(
-                        pkg_id, {
-                            "status": "shadow",
-                            "close_reason": "prop_shadow_no_emit",
-                        })
+                    # CONDITIONAL: the package id is shared across accounts, so a
+                    # dry prop account must never overwrite a live account's
+                    # emitted / filled outcome on the same row (#14672 review).
+                    Database(db_path=trade_journal_db_path()).mark_order_package_shadow_if_untouched(
+                        pkg_id, "prop_shadow_no_emit")
             except Exception as exc:  # noqa: BLE001 — never break the no-emit path
                 logger.warning(
                     "execute_pkg: prop shadow package status update failed "

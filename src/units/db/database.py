@@ -1519,6 +1519,39 @@ class Database:
         finally:
             conn.close()
 
+    def mark_order_package_shadow_if_untouched(self, order_package_id, close_reason):
+        """Mark a package ``shadow`` ONLY while no account has acted on it.
+
+        One ``order_package_id`` is shared by every account a signal fans out
+        to (``Coordinator.multi_account_execute`` logs it once per dispatch
+        round). A DRY prop account's no-emit terminalisation must therefore
+        never overwrite what a LIVE account already wrote to the same row —
+        before this guard, a dry ``tradeify_1`` dispatched after a live
+        ``breakout_1`` turned ``('emitted', 'prop_ticket_emitted')`` into
+        ``('shadow', 'prop_shadow_no_emit')`` (manager review of #14672,
+        TRADEIFY-WIRE). Writes only when ``status = 'open'`` AND
+        ``linked_trade_id IS NULL``. Returns rows affected (0 = another
+        account got there first, which is the correct outcome to keep).
+        """
+        from datetime import timezone
+
+        if not order_package_id:
+            raise ValueError("mark_order_package_shadow_if_untouched requires order_package_id")
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "UPDATE order_packages "
+                "SET status = 'shadow', close_reason = ?, updated_at = ? "
+                "WHERE order_package_id = ? AND status = 'open' "
+                "AND linked_trade_id IS NULL",
+                [close_reason, datetime.now(timezone.utc).isoformat(), order_package_id],
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
     def insert_signal(self, signal_data):
         """Insert a row into the signals table.
 
