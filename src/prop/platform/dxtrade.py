@@ -6011,6 +6011,11 @@ class DXtradeAdapter(PropPlatformAdapter):
             pass
         return False
 
+    # False until a run MEASURES the position edit dialog and modify_bracket
+    # proves it is that dialog (symbol named, read-only qty == the position's,
+    # SL mode = Price) and not the sidebar ticket. See modify_bracket.
+    EDIT_DIALOG_MEASURED = False
+
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
                        *, arm: bool = False) -> Dict[str, Any]:
@@ -6023,11 +6028,24 @@ class DXtradeAdapter(PropPlatformAdapter):
         oc = self.read_one_click(page)
         self._show_tab(page, "tab_positions")
         # Disarmed: locate the edit control and stop — no click at all.
+        # Armed while the dialog is unmeasured: LOCATE only (no click), then
+        # refuse below.
         opened = self._row_action(page, "positions", "Symbol", position.symbol,
-                                  r"^(edit|modify|✎|sl/tp|edit position)$", arm)
+                                  r"^(edit|modify|✎|sl/tp|edit position)$",
+                                  arm and self.EDIT_DIALOG_MEASURED)
         if not arm:
             return {"ok": bool(opened.get("ok")), "clicked": False, "one_click": oc,
                     "why": f"disarmed: stopped before the edit control ({opened.get('why')})"}
+        if not self.EDIT_DIALOG_MEASURED:
+            # PROP-TRAIL go-live review (manager, 2026-10-01): the edit dialog
+            # has never been measured. `_find_form` anchors on the first
+            # quantity input on the page, and the DOCKED SIDEBAR ORDER TICKET
+            # is always one, so an armed walk could fill SL/TP into the
+            # sidebar and press ITS submit: a NEW order. Refuse before any
+            # click until a measured dialog check replaces this.
+            return {"ok": False, "clicked": False, "one_click": oc,
+                    "why": "refused: the SL/TP edit dialog is unmeasured (an armed walk could "
+                           "submit the sidebar order ticket instead)"}
         if not opened.get("clicked"):
             return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit control: {opened.get('why')}"}
         page.wait_for_timeout(1_000)
