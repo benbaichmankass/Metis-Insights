@@ -921,25 +921,55 @@ def test_ticket_pick_reports_what_typing_produced_by_shape_only(browser):  # noq
     assert all(set(t) == {"tag", "cls", "role", "n_leaves", "w", "h"} for t in tops)   # never text
 
 
-@pytest.mark.parametrize("kw", [{}, {"one_click": "checked"}])
-def test_the_ticket_opener_double_clicks_the_symbol_cell_never_a_price(browser, kw):  # noqa: F811
-    # PROP-ETH-DOM 2026-10-01: the opener double-clicked the ROW's centre, which
-    # on a Symbol | Bid | Ask row is a price cell -- the Bid/Ask buttons were
-    # hit twice (window.__trade == 2). An instant order with one-click ON.
-    p = browser.new_page()
-    p.set_content(page_html(**kw))
-    DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
-    st = state(p)
-    p.close()
-    assert st["trade"] == 0 and st["clicks"] == ["sym", "sym"] and st["tags"] == 0
+# Ticket OPENER (operator directive ~12:35Z 2026-10-01, manager comment
+# 5931584062 on #14947): ONE click on the Symbol cell first, accepted only when
+# the form names the symbol; fallbacks so a ticket is never missed; the old
+# row-centre double-click (it hit both Bid/Ask buttons here) only as the last
+# resort and only on a positive one-click OFF read.
+OPEN_ON_SYMBOL_CLICK_JS = """(html) => {
+  document.querySelectorAll('tr.instrument td.sym').forEach(c => c.addEventListener('click', () => {
+    if (!document.querySelector('#panel')) document.body.insertAdjacentHTML('beforeend', html);
+  })); }"""
 
 
-def test_the_ticket_opener_never_double_clicks_a_cell_that_grows_a_control_on_hover(browser):  # noqa: F811
+def opener(browser, *, kw=None, setup_html=None):  # noqa: F811
     p = browser.new_page()
-    p.set_content(page_html(hover_button_for="SOLUSD"))
-    DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
+    p.set_content(page_html(**(kw or {})))
+    if setup_html is not None:
+        p.evaluate(OPEN_ON_SYMBOL_CLICK_JS, setup_html)
+    got = DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
     st = state(p)
     p.close()
+    return got, st
+
+
+def test_the_opener_takes_one_symbol_click_when_the_form_then_names_the_symbol(browser):  # noqa: F811
+    got, st = opener(browser, setup_html=ticket_sidebar("SOLUSD", "SOL"))
+    assert got["opened"] is True and got["via"] == "symbol_click" and got["tried"] == ["symbol_click"]
+    assert st["clicks"] == ["sym"] and st["trade"] == 0 and st["ticket"] == 0 and st["tags"] == 0
+
+
+def test_the_opener_falls_back_when_the_clicked_form_names_another_symbol(browser):  # noqa: F811
+    got, st = opener(browser, setup_html=ticket_sidebar("ETHUSD", "ETH"))
+    # the clicked panel names ETHUSD: not accepted; the next opener takes the form
+    # (place_bracket then switches it -- the opener never trusts a wrong form)
+    assert got["tried"] == ["symbol_click", "symbol_dblclick"] and got["via"] == "symbol_dblclick"
+    assert st["trade"] == 0 and set(st["clicks"]) == {"sym"}
+
+
+@pytest.mark.parametrize("kw,legacy", [({}, True), ({"one_click": "checked"}, False)])
+def test_the_opener_fallback_order_and_the_row_centre_only_on_one_click_off(browser, kw, legacy):  # noqa: F811
+    got, st = opener(browser, kw=kw)                      # no form ever opens on this page
+    assert got["opened"] is False and "no opener produced an order form" in got["refused"]
+    assert got["tried"][:2] == ["symbol_click", "symbol_dblclick"]
+    assert ("watchlist_dblclick" in got["tried"]) is legacy
+    if not legacy:                                        # one-click ON: no instant-trade control, ever
+        assert st["trade"] == 0 and set(st["clicks"]) == {"sym"}
+
+
+def test_the_opener_never_clicks_a_symbol_cell_that_grows_a_control_on_hover(browser):  # noqa: F811
+    got, st = opener(browser, kw={"hover_button_for": "SOLUSD", "one_click": "checked"})
+    assert "symbol_click" not in got["tried"] and "symbol_dblclick" not in got["tried"]
     assert st["trade"] == 0 and st["clicks"] == []
 
 

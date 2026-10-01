@@ -1465,6 +1465,31 @@ def run_close_position(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig
     return res
 
 
+def pending_live_tickets(api: Any, cfg: ExecutorConfig, ledger: "IntentLedger",
+                         now: Optional[datetime] = None) -> List[str]:
+    """Ticket ids the NEXT live cycle would take in: fresh (not in the ledger,
+    or ``retry_pending``), on an enabled venue symbol, not past valid_until --
+    the same filters ``run_cycle``'s intake applies, read-only (no report, no
+    ledger write). A secondary test defers while this is non-empty: the live
+    tick wins (operator directive ~12:35Z 2026-10-01, manager comment
+    5931584062 on #14947)."""
+    now = now or datetime.now(timezone.utc)
+    seen = ledger.latest()
+    out: List[str] = []
+    for t in api.tickets(cfg.account_id) or []:
+        tid = t.get("ticket_id")
+        if not tid or (tid in seen and (seen[tid] or {}).get("state") != RETRY_STATE):
+            continue
+        venue = (cfg.symbols.get(str(t.get("symbol") or "").upper()) or {}).get("venue")
+        if cfg.enabled_venue_symbols is not None and str(venue or "").upper() not in cfg.enabled_venue_symbols:
+            continue
+        vu = _parse_ts(t.get("valid_until"))
+        if vu is not None and vu <= now:
+            continue
+        out.append(tid)
+    return out
+
+
 def _one_click_alert(res: "CycleResult", adapter: Any) -> None:
     """One-click is informational, never a refusal (operator directive
     2026-10-01, manager comment 5930025023 on #14947): when the adapter saw it

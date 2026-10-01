@@ -4214,16 +4214,36 @@ class DXtradeAdapter(PropPlatformAdapter):
         order control. Returns ``{"opened": bool, "via": ..., "form": ...,
         "one_click": ...}``. ``one_click`` is the toggle's reading, recorded
         as a diagnostic only (ORDER ENTRY rule 1); nothing refuses on it.
-        Never uses a chart Buy/Sell price button."""
+        Never uses a chart Buy/Sell price button. Openers in order, each
+        logged in ``tried``: a form already open; ONE click on the Symbol cell
+        (kept only when the form then names the symbol); a ticket-opener
+        button; a Symbol-cell double-click; and, only on a positive one-click
+        OFF read, the measured row double-click (#15139)."""
         out: Dict[str, Any] = {"opened": False, "via": None, "one_click": self.read_one_click(page), "form": {}}
         form = self._find_form(page)
         if form.get("found"):
             out.update(opened=True, via="already_open", form=form)
             return out
+        # OPENERS, in order (operator directive ~12:35Z 2026-10-01, manager
+        # comment 5931584062 on #14947): first what the operator does by hand
+        # -- ONE single click on the symbol's watchlist Symbol CELL (the docked
+        # New Order panel follows the clicked row), accepted only when the form
+        # then NAMES the symbol. Every later opener is a FALLBACK so a ticket is
+        # never missed because the new one did not take. ``tried`` logs each.
+        sym = str(venue_symbol or "").strip().upper()
+        out["tried"] = []
+        if self._symbol_cell_click(page, sym, double=False):
+            out["tried"].append("symbol_click")
+            page.wait_for_timeout(1_000)
+            form = self._find_form(page)
+            if form.get("found") and form_names_symbol(form, sym):
+                out.update(opened=True, via="symbol_click", form=form)
+                return out
         for name in TICKET_OPENER_NAMES:
             try:
                 loc = page.get_by_role("button", name=name, exact=True)
                 if loc.count() == 1:
+                    out["tried"].append(f"button:{name}")
                     loc.first.click(timeout=5_000)
                     page.wait_for_timeout(1_000)
                     form = self._find_form(page)
@@ -4232,37 +4252,61 @@ class DXtradeAdapter(PropPlatformAdapter):
                         return out
             except Exception:
                 continue
-        # Double-click the symbol's WATCHLIST Symbol CELL -- never the row's
-        # centre: on a Symbol | Bid | Ask row that is a PRICE cell, an
-        # instant-trade control with one-click ON (PROP-ETH-DOM 2026-10-01: the
-        # row-centre double-click hit the Bid/Ask buttons twice in the fixture).
-        # The ONE clean Symbol cell is tagged by INFO_PROBE_RESOLVE_JS and
-        # hover-re-checked for controls first, exactly like the switch click.
+        # Double-click the Symbol CELL (clean, hover-re-checked), never a price.
+        if self._symbol_cell_click(page, sym, double=True):
+            out["tried"].append("symbol_dblclick")
+            page.wait_for_timeout(1_000)
+            form = self._find_form(page)
+            if form.get("found"):
+                out.update(opened=True, via="symbol_dblclick", form=form)
+                return out
+        # LAST RESORT: the opener MEASURED working on breakout_1 (#15139) --
+        # a double-click on the watchlist ROW. Its centre can be a Bid/Ask
+        # PRICE cell (fixture: both price buttons hit), which with one-click ON
+        # is an INSTANT order -- the instant-trade exclusion the operator kept
+        # (5930025023). So it runs only on a positive one-click OFF read.
+        if info_probe_one_click_off(self.read_one_click(page)):
+            try:
+                rows = page.locator("tr.instrument, tr[data-row-id]").filter(
+                    has=page.locator("td", has_text=re.compile(r"^\s*" + re.escape(sym) + r"\s*$")))
+                if rows.count() == 1:
+                    out["tried"].append("watchlist_dblclick")
+                    rows.first.dblclick(timeout=5_000)
+                    page.wait_for_timeout(1_000)
+                    form = self._find_form(page)
+                    if form.get("found"):
+                        out.update(opened=True, via="watchlist_dblclick", form=form)
+                        return out
+            except Exception:
+                pass
+        out["form"] = form
+        out["refused"] = f"no opener produced an order form (tried {out['tried']})"
+        return out
+
+    def _symbol_cell_click(self, page: Any, sym: str, *, double: bool) -> bool:
+        """Click (or double-click) ``sym``'s ONE clean watchlist Symbol cell
+        (INFO_PROBE_RESOLVE_JS), after a hover re-check for controls -- never
+        the row, never a Bid/Ask cell. True when the click was made."""
         try:
-            sym = str(venue_symbol or "").strip().upper()
             res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]]) or {}
-            if (res.get("targets") or {}).get(sym, {}).get("clean"):
-                cell = page.locator(f"[data-metis-row-cell='{sym}']")
-                if cell.count() == 1:
-                    cell.first.hover(timeout=5_000)
-                    page.wait_for_timeout(300)
-                    if not cell.first.evaluate("(c, s) => c.matches(s) || !!c.querySelector(s)", self._CELL_CONTROLS):
-                        cell.first.dblclick(timeout=5_000)
-                        page.wait_for_timeout(1_000)
-                        form = self._find_form(page)
-                        if form.get("found"):
-                            out.update(opened=True, via="watchlist_dblclick", form=form)
-                            return out
+            if not (res.get("targets") or {}).get(sym, {}).get("clean"):
+                return False
+            cell = page.locator(f"[data-metis-row-cell='{sym}']")
+            if cell.count() != 1:
+                return False
+            cell.first.hover(timeout=5_000)
+            page.wait_for_timeout(300)
+            if cell.first.evaluate("(c, s) => c.matches(s) || !!c.querySelector(s)", self._CELL_CONTROLS):
+                return False
+            (cell.first.dblclick if double else cell.first.click)(timeout=5_000)
+            return True
         except Exception:
-            pass
+            return False
         finally:
             try:
                 page.evaluate(INFO_PROBE_CLEANUP_JS)
             except Exception:
                 pass
-        out["form"] = form
-        out["refused"] = "no opener produced an order form (TICKET_OPENER_NAMES / watchlist row)"
-        return out
 
     def close_order_ticket(self, page: Any) -> bool:
         """Dismiss the form (its Cancel/Close button, else Escape). Safe."""
