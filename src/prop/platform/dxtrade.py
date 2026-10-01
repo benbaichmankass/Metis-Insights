@@ -2702,13 +2702,33 @@ SYMBOL_SUGGEST_JS = r"""
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
     return hs.includes('symbol') && hs.includes('bid') && hs.includes('ask');
   });
+  // The Orders / Positions widgets (manager review of #15070): a working
+  // order or an open position row carries the same symbol text and must
+  // never be a candidate. Each widget is the nearest widget(New)__container
+  // ancestor of its menu button (<= 12 up; the live Orders button sits 9
+  // wrappers below it, #14754), else the button's 6th ancestor.
+  const tradeWidgets = [];
+  for (const b of document.querySelectorAll('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
+    let w = null, e = b.parentElement;
+    for (let i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+      if (cls(e).some(c => /^widget(New)?__container/.test(c))) { w = e; break; }
+    }
+    if (!w) { w = b; for (let i = 0; i < 6 && w.parentElement && w.parentElement !== document.body; i++) w = w.parentElement; }
+    tradeWidgets.push(w);
+  }
   const excluded = el => el === input || (input && input.contains(el))
-    || orderPanels.some(p => p.contains(el)) || wlTables.some(t => t.contains(el));
+    || orderPanels.some(p => p.contains(el)) || wlTables.some(t => t.contains(el))
+    || tradeWidgets.some(w => w.contains(el));
+  // A suggestion is something the TYPING produced: an element absent from
+  // the pre-typing snapshot (window.__metisPre, INFO_PROBE_SNAPSHOT_JS run
+  // just before the fill) or one inside a [role=listbox] / [role=option].
+  const pre = window.__metisPre;
+  const offered = el => !!el.closest('[role=listbox], [role=option]') || (!!pre && !pre.has(el));
   const found = [];
   for (const el of document.querySelectorAll('body *')) {
     if (el.children.length !== 0 || txt(el).toUpperCase() !== want || !vis(el) || excluded(el)) continue;
     const opt = el.closest('[role=option], li') || el;
-    if (!excluded(opt) && !found.includes(opt)) found.push(opt);
+    if (!excluded(opt) && offered(opt) && !found.includes(opt)) found.push(opt);
   }
   const out = {n_candidates: found.length, dialogs: [...document.querySelectorAll(
     '[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length,
@@ -4246,8 +4266,8 @@ class DXtradeAdapter(PropPlatformAdapter):
     #: hypothesis, so the switch waits for rows, verifies by polling instead of
     #: one fixed settle, retries a click that did not take, and falls back to
     #: the toolbar symbol box. Instance-overridable (tests shorten them).
-    SWITCH_READY_MS = 15_000
-    SWITCH_VERIFY_MS = 5_000
+    SWITCH_READY_MS = 10_000
+    SWITCH_VERIFY_MS = 4_000
     SWITCH_POLL_MS = 250
     SWITCH_CLICK_ATTEMPTS = 3
 
@@ -4318,6 +4338,11 @@ class DXtradeAdapter(PropPlatformAdapter):
             return False
         typed = False
         try:
+            # Snapshot every element BEFORE typing: a suggestion must be new
+            # (or sit in a listbox/option) -- SYMBOL_SUGGEST_JS.
+            if page.evaluate(INFO_PROBE_SNAPSHOT_JS):
+                tb["why"] = "dialog(s) open before typing"
+                return False
             box.first.fill(target, timeout=5_000)
             typed = True
             page.wait_for_timeout(max(settle_ms, 800))
@@ -4369,7 +4394,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         """Make ``venue_symbol`` the terminal's linked symbol, VERIFIED.
 
         1. READY: poll the click-free resolve (INFO_PROBE_RESOLVE_JS) until
-           the watchlist has rows, up to SWITCH_READY_MS. A link that already
+           the watchlist has rows, up to SWITCH_READY_MS (10 s). A link that already
            reads the target clicks nothing.
         2. WATCHLIST ROUTE, up to SWITCH_CLICK_ATTEMPTS: re-resolve, re-read
            one-click (must read OFF), ONE single click on the target's clean

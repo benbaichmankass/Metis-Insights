@@ -549,3 +549,48 @@ def test_link_state_dump_table_diag_explains_rows_the_filter_rejects(browser):  
     assert d["n_tr"] == 5 and d["n_tr_selector"] == 4 and d["td_count_hist"] == {"0": 1, "4": 4}
     assert [r["sym"] for r in d["sample"][1:]] == ["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]
     assert st["clicks"] == [] and st["tags"] == 0
+
+
+# ── manager review of #15070: the toolbar route must never take a Positions /
+# Orders row (or any pre-existing text) that happens to read the target. ────
+
+POS_FLAG_JS = """() => document.querySelectorAll('[data-row-id=p1]').forEach(r =>
+  r.addEventListener('click', () => { window.__posClicked = (window.__posClicked || 0) + 1; }, true))"""
+
+
+def robust_with(browser, html, target, *setup):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(html)
+    for js, arg in setup:
+        p.evaluate(js, arg)
+    got = fast_adapter().select_linked_symbol(p, target, settle_ms=50)
+    st = state(p)
+    st["pos_clicked"] = p.evaluate("window.__posClicked || 0")
+    p.close()
+    return got, st
+
+
+def test_review_toolbar_route_never_clicks_a_positions_row_with_the_target_text(browser):  # noqa: F811
+    # The reviewer's reproduction: ORDER_ROW_OUTSIDE + link_breaks_for, no dropdown.
+    got, st = robust_with(browser, page_html(link_breaks_for="ETHUSD", outside_table=ORDER_ROW_OUTSIDE),
+                          "ETHUSD", (POS_FLAG_JS, None))
+    assert got["ok"] is False and got["toolbar"]["suggest"]["n_candidates"] == 0
+    assert st["pos_clicked"] == 0 and st["clicks"] == ["sym", "sym", "sym"] and st["linked"] == "SOLUSD"
+    never_traded(st)
+
+
+def test_review_toolbar_route_takes_the_dropdown_option_not_the_positions_row(browser):  # noqa: F811
+    got, st = robust_with(browser, page_html(link_breaks_for="ETHUSD", outside_table=ORDER_ROW_OUTSIDE),
+                          "ETHUSD", (POS_FLAG_JS, None), (SUGGEST_BOX_JS, False))
+    assert got["ok"] is True and got["route"] == "toolbar" and got["toolbar"]["suggest"]["n_candidates"] == 1
+    assert st["pos_clicked"] == 0 and st["clicks"][-1] == "LI" and st["linked"] == "ETHUSD"
+    never_traded(st)
+
+
+def test_review_toolbar_route_ignores_text_that_existed_before_typing(browser):  # noqa: F811
+    # A static label reading the target (not new, not in a listbox) is not a suggestion.
+    label = '<div class="chart-title" style="width:80px;height:20px">ETHUSD</div>'
+    got, st = robust_with(browser, page_html(link_breaks_for="ETHUSD", outside_table=label), "ETHUSD")
+    assert got["ok"] is False and got["toolbar"]["suggest"]["n_candidates"] == 0
+    assert "chart-title" not in st["clicks"] and st["linked"] == "SOLUSD"
+    never_traded(st)
