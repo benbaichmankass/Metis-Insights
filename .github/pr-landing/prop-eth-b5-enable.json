@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "PROP-GOLIVE-PREAPPROVAL step B5: enables ETHUSD on the funded breakout_1 prop executor with the specs measured in B2-B4 (price_step 0.01, lot_step 0.01, min_lots 0.01); the $75/ticket risk cap is unchanged. Operator go-live rule: if we can execute trades, go live. The manager merges.",
+  "why": "Adds ETHUSD to breakout_1 enabled_venue_symbols with measured specs; caps unchanged; tests pin the specs and the $75 cap."
+}
