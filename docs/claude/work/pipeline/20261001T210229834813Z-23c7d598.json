@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "research_queue.py --validate (or a queue guard) refuses a unit registered with a non-null last_dispatched_at while its status is queued and it has no committed stamp-landing record, OR this is killed with a stated reason (one-off)",
+    "kind": "observation"
+  },
+  "id": "PI-20261001-1MX1RCZS-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "PR #15218 (registered RQ-20260930-703 with last_dispatched_at '2026-10-01T07:29:51+00:00' copied from RQ-20260930-702); fixed by manager PR #15282",
+    "rerun": "git show 34c81e1e:research/queue/RQ-20260930-703.yaml | grep last_dispatched_at ; python3 scripts/research/research_queue.py --validate  (it passed rc 0 with the copied stamp; dispatch_queue._is_due then returned not_due 'cadence=once and it ran at ...')"
+  },
+  "state": "queued",
+  "what": "GUARD GAP behind a lane bug: PR #15218 registered RQ-20260930-703 carrying a last_dispatched_at stamp copied from the unit it was cloned from (702). research_queue.py --validate and every CI guard passed it, and dispatch_queue._is_due then treated cadence=once + a stamp as already run, so a queued unit could never fire and nothing flagged it (no run, no alarm; found only because 703 was expected to dispatch). Fixed in the data by manager PR #15282 (stamp reset to null). Not fixed in the tooling: nothing refuses a NEW queued unit with a non-null stamp, and the throughput alarm cannot see it because the unit still counts as runnable-looking until graded not_due. Suggested guard: in research_queue.validate(), refuse status=queued with a last_dispatched_at that is not in the committed results/stamp history for that id (or simply refuse a stamp on a unit whose id has no result record). Small, Tier-1."
+}
