@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "the DXtrade watchlist resolver finds exactly one Symbol/Bid/Ask watchlist table on dx.tradeify247.co (an instrument-info-dry on tradeify_1 resolves ETHUSD/SOLUSD/XRPUSD with no refusal), merged and deployed; or killed with a reason. Blocks TRADEIFY-WIRE T4/T5 and PR #14673.",
+    "kind": "event"
+  },
+  "id": "PI-20261001-BHYHMK2I-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "issue #15033 (run 36815736231): instrument-info-dry on tradeify_1",
+    "rerun": "Dispatch breakout-login-check account: tradeify_1, apply: instrument-info-dry, symbols: ETHUSD,SOLUSD,XRPUSD (clicks nothing) and read instrument_info_summary.refused."
+  },
+  "state": "queued",
+  "what": "TRADEIFY-WIRE T4: on tradeify_1 the click-free instrument-info-dry refused with '0 Symbol/Bid/Ask tables (need exactly 1)' while every other guard read clean (one-click off via data-value+knob, margin 0, Orders widget found with 0 rows). The resolver that works on Breakout's DXtrade does not find Tradeify's watchlist table, although the login check's API discovery lists the symbols. Until the resolver handles Tradeify's DOM, instrument-info-probe, symbol-switch-dry and the executor's per-ticket symbol switch cannot run on tradeify_1. Next measurement: one read-only apply: dump-tables on tradeify_1, then a small Tier-2 resolver PR."
+}

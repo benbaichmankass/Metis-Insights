@@ -161,3 +161,58 @@ def test_helper_writes_only_an_untouched_open_package(isolated_env: Path) -> Non
     assert db.mark_order_package_shadow_if_untouched("op-a", "prop_shadow_no_emit") == 1
     assert db.mark_order_package_shadow_if_untouched("op-b", "prop_shadow_no_emit") == 0
     assert db.mark_order_package_shadow_if_untouched("op-missing", "prop_shadow_no_emit") == 0
+
+
+# ── live branch: refused tickets and shared packages (PI-20260930-BHYHMK2H-0001) ──
+
+
+def _live(monkeypatch, db, pkg_id, ticket_status):
+    """Run the LIVE prop branch with the emitter stubbed to journal one ticket
+    in ``ticket_status`` (``None`` = no ticket row)."""
+    from src.prop import breakout_executor, prop_journal
+    from src.units.accounts.execute import execute_pkg
+
+    def _emit(order, cfg, **kw):
+        tid = f"prop-manual-{pkg_id}"
+        if ticket_status:
+            prop_journal.record_ticket({"ticket_id": tid, "account_id": cfg["account_id"],
+                                        "symbol": "SOLUSDT", "direction": "long",
+                                        "status": ticket_status})
+        return tid
+
+    monkeypatch.setattr(breakout_executor, "emit_prop_ticket", _emit)
+    return execute_pkg(_pkg(pkg_id), _breakout_cfg(), dry_run=False)
+
+
+def test_live_emitted_ticket_stamps_emitted(isolated_env: Path, monkeypatch) -> None:
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+    _seed(db, "op-live-1")
+    _live(monkeypatch, db, "op-live-1", "emitted")
+    r = _row(db, "op-live-1")
+    assert (r["status"], r["close_reason"]) == ("emitted", "prop_ticket_emitted")
+
+
+def test_live_refused_ticket_stamps_rejected_not_emitted(isolated_env: Path, monkeypatch) -> None:
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+    _seed(db, "op-live-2")
+    _live(monkeypatch, db, "op-live-2", "skipped")   # e.g. a leverage-cap refusal
+    r = _row(db, "op-live-2")
+    assert (r["status"], r["close_reason"]) == ("rejected", "prop_ticket_skipped")
+
+
+def test_live_prop_leg_never_overwrites_another_accounts_fill(isolated_env: Path, monkeypatch) -> None:
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+    _seed(db, "op-live-3")
+    assert db.update_order_package_linked_trade_if_unset("op-live-3", 777) == 1
+    _live(monkeypatch, db, "op-live-3", "emitted")
+    r = _row(db, "op-live-3")
+    assert r["status"] == "open" and str(r["linked_trade_id"]) == "777"
