@@ -1,0 +1,1 @@
+Tier-1 self-land: manager bookkeeping (claude/mgr-ci-playwright-gap)
