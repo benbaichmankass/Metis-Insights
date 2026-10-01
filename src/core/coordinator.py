@@ -1028,7 +1028,7 @@ class Coordinator:
             except Exception:  # noqa: BLE001 — never break sizing on a probe
                 return str(getattr(acc, "exchange", "")).lower() == "breakout"
 
-        def _prop_sizing_balance_or_refuse(acc) -> float:
+        def _prop_sizing_balance_or_refuse(acc, notify: bool = True) -> float:
             """A declared prop account's sizing basis — or a refusal.
 
             PROP ACCOUNTS HAVE NO BROKER SOCKET BY DESIGN. Their sizing basis
@@ -1050,7 +1050,13 @@ class Coordinator:
             from src.prop.prop_balance import (
                 note_refusal, prop_sizing_balance, refusal_message)
             state, bal, meta = prop_sizing_balance(acc.name)
-            note_refusal(state, acc.name, meta)
+            # A DRY dispatch (account mode: dry_run, execution: shadow,
+            # side_filter) places nothing, so a stale-balance refusal on it is
+            # journaled but never PAGES the operator (manager review of #14672,
+            # TRADEIFY-WIRE: a dry tradeify_1 must not page before its feed is
+            # fresh). The refusal itself is unchanged.
+            if notify:
+                note_refusal(state, acc.name, meta)
             if state == "ok" and bal is not None:
                 return float(bal)
             raise RuntimeError(refusal_message(state, acc.name, meta))
@@ -1381,6 +1387,12 @@ class Coordinator:
                 "alpaca_env": getattr(account, "alpaca_env", None),
                 "base_url": getattr(account, "base_url", None),
                 "oanda_env": getattr(account, "oanda_env", None),
+                # The prop ruleset (accounts.yaml::backtest_ruleset) so the prop
+                # ticket bridge sizes and routes against THIS account's rules;
+                # absent, unit_for_account defaults a prop account to
+                # prop_rulesets/breakout.yaml. None for non-prop accounts.
+                # TRADEIFY-WIRE 2026-09-30.
+                "backtest_ruleset": getattr(account, "backtest_ruleset", None),
             }
 
             # Per-account live/dry resolution. The caller-supplied
@@ -1713,7 +1725,8 @@ class Coordinator:
             margin_basis: dict = {}
             try:
                 if _is_declared_prop:
-                    _prop_balance = _prop_sizing_balance_or_refuse(account)
+                    _prop_balance = _prop_sizing_balance_or_refuse(
+                        account, notify=not effective_dry)
                     balance = 0.0 if _is_prop_bridge else _prop_balance
                 else:
                     balance = float(fetcher(account))

@@ -42,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.research.research_queue import (  # noqa: E402
     BLOCKED_POWER, BLOCKED_ROUTE, DISPATCHED, DISPATCH_FAILED, GPU, INVALID,
-    NOT_DUE, grade_power, grade_route, load_queue,
+    NOT_DUE, grade_power, grade_route, load_queue, load_themes,
 )
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -65,8 +65,36 @@ def _display_path(path: Path) -> str:
         return str(path)
 
 
+def precondition_met(entry: Dict[str, Any], root: Optional[Path] = None) -> tuple:
+    """(met, reason) for the structured `requires_result: {unit, verdict?}` field: at least one MEASURED
+    record under research/results/<unit>/*.jsonl (and, when `verdict` is given, one carrying it). A unit
+    without the field is always met. The free-text `dispatch_precondition` is prose for humans and is
+    NOT evaluated (research/queue/README.md): an unevaluated precondition reads as a gate and is not."""
+    req = entry.get("requires_result")
+    if not req:
+        return True, "no precondition"
+    unit, want = str(req.get("unit")), req.get("verdict")
+    rdir = (root or _REPO) / "research" / "results" / unit
+    seen = 0
+    for f in sorted(rdir.glob("*.jsonl")) if rdir.is_dir() else []:
+        try:
+            rows = [json.loads(ln) for ln in f.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        except (OSError, ValueError):
+            continue
+        for r in rows:
+            if str(r.get("read_state")) == "measured":
+                seen += 1
+                if want is None or str(r.get("verdict")) == str(want):
+                    return True, f"{unit} landed a measured record" + (f" with verdict {want}" if want else "")
+    return False, (f"precondition unmet: needs a measured record from {unit}"
+                   + (f" with verdict {want}" if want else "") + f" (found {seen} measured record(s) without it)")
+
+
 def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
     """(due, reason). A job with no recorded run has never run and IS due."""
+    met, why = precondition_met(entry)
+    if not met:
+        return False, why
     cadence = str(entry.get("cadence") or "once")
     last = entry.get("last_dispatched_at")
     if not last:
@@ -87,6 +115,67 @@ def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
     if now - when >= gap:
         return True, f"last ran {when.isoformat()}, cadence {cadence} elapsed"
     return False, f"last ran {when.isoformat()}, cadence {cadence} not yet elapsed"
+
+
+def _waiting_since(entry: Dict[str, Any], uid: str) -> Optional[datetime]:
+    """When the unit started waiting: its last stamp, else the date in its id."""
+    last = entry.get("last_dispatched_at")
+    if last:
+        try:
+            when = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+            return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    m = re.match(r"^RQ-(\d{4})(\d{2})(\d{2})-", uid)
+    return datetime(int(m[1]), int(m[2]), int(m[3]), tzinfo=timezone.utc) if m else None
+
+
+def effective_priority(entry: Dict[str, Any], uid: str, now: datetime, aging_hours: float) -> int:
+    """priority minus one step per `aging_hours` waited (floor 0): nothing starves inside its theme."""
+    prio = entry.get("priority")
+    prio = prio if isinstance(prio, int) and not isinstance(prio, bool) else 3
+    since = _waiting_since(entry, uid)
+    steps = int(max(0.0, (now - since).total_seconds()) // (aging_hours * 3600)) if since else 0
+    return max(0, prio - steps)
+
+
+def fair_order(jobs: List[Any], now: datetime, themes_doc: Dict[str, Any]) -> List[Any]:
+    """Dispatch order: weighted fair share across themes, aged priority within a theme.
+
+    Repeatedly pick the theme with the lowest (fired in the last `share_window_hours` + picked so far)
+    / weight, among themes that still hold a due job, and take that theme's best job (lowest effective
+    priority, then id). Stateless: the only memory is the stamps already on the units. A theme with
+    runnable work and no recent fire has usage 0, so it is served before any theme over its share:
+    low weight means fewer slots, never none. Jobs that are not due (done, cadence not elapsed, unmet
+    precondition, session-bound, invalid) keep id order after the candidates, unchanged."""
+    themes = themes_doc["themes"]
+    window = timedelta(hours=float(themes_doc["share_window_hours"]))
+    aging = float(themes_doc["aging_hours"])
+    used: Dict[str, float] = {t: 0.0 for t in themes}
+    for j in jobs:
+        ts = _waiting_since({"last_dispatched_at": j.raw.get("last_dispatched_at")}, "") \
+            if j.raw.get("last_dispatched_at") else None   # a stamp, never the id-date fallback
+        th = str(j.raw.get("theme") or "")
+        if ts and now - ts <= window and th in used:
+            used[th] += 1
+    cand: Dict[str, List[Any]] = {}
+    rest: List[Any] = []
+    for j in sorted(jobs, key=lambda x: x.id):
+        e = j.raw
+        th = str(e.get("theme") or "")
+        wf = str((e.get("run") or {}).get("workflow") or "")
+        fireable = (j.valid and j.status == "queued" and th in themes and wf.endswith((".yml", ".yaml"))
+                    and not any(ch.isspace() for ch in wf) and _is_due(e, now)[0])
+        (cand.setdefault(th, []) if fireable else rest).append(j)
+    for th in cand:
+        cand[th].sort(key=lambda x: (effective_priority(x.raw, x.id, now, aging), x.id))
+    out: List[Any] = []
+    while any(cand.values()):
+        th = min((t for t in cand if cand[t]),
+                 key=lambda t: (used[t] / float(themes[t]["weight"]), -float(themes[t]["weight"]), t))
+        out.append(cand[th].pop(0))
+        used[th] += 1
+    return out + rest
 
 
 def due_within(entry: Dict[str, Any], now: datetime, hours: float = 0.0) -> bool:
@@ -490,6 +579,15 @@ def main(argv: Optional[List[str]] = None) -> int:
               f"This is NOT an empty queue.", file=sys.stderr)
         return 2
 
+    # Fire order: weighted fair share across themes (research/THEMES.yaml), aged priority within
+    # a theme. load_queue returns files sorted by id, which made this a pure FIFO: a cycle fires at
+    # most --max-research-inflight units, so the newest ids waited behind every older one.
+    try:
+        jobs = fair_order(jobs, now, load_themes())
+    except (OSError, ValueError) as exc:
+        print(f"::error::research-queue: COULD NOT READ research/THEMES.yaml — {exc}. Falling back "
+              "to id order; this is a broken scheduler, not a quiet one.", file=sys.stderr)
+
     decisions: List[Dict[str, Any]] = []
     # Backpressure is read ONCE per cycle, then every successful fire counts
     # against the in-flight cap so one cycle cannot fan the whole queue out.
@@ -506,7 +604,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     fired_by_workflow: Dict[str, int] = {}
     for job in jobs:
         entry = job.raw
-        row: Dict[str, Any] = {"id": job.id, "path": _display_path(job.path)}
+        row: Dict[str, Any] = {"id": job.id, "path": _display_path(job.path),
+                               "theme": entry.get("theme"), "priority": entry.get("priority")}
 
         if not job.valid:
             row.update(outcome=INVALID, errors=job.errors)
@@ -524,6 +623,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         due, due_reason = _is_due(entry, now)
         if not due:
             row.update(outcome=NOT_DUE, reason=due_reason)
+            decisions.append(row)
+            continue
+
+        # A session-bound note (`run.workflow` is prose, not a workflow file)
+        # can never be fired. Until 2026-09-30 it reached _fire(), returned
+        # DISPATCH_FAILED on EVERY cycle and turned each firing run red
+        # ("Fail the job if grading reported a problem"), while reading as
+        # would_dispatch in a dry run. It is not due for THIS dispatcher.
+        _wf = str((entry.get("run") or {}).get("workflow") or "")
+        if not _wf.endswith((".yml", ".yaml")) or any(ch.isspace() for ch in _wf):
+            row.update(outcome=NOT_DUE,
+                       reason=f"session-bound: run.workflow {_wf[:40]!r} is not a workflow file "
+                              "(retarget to research-script-run.yml to make it dispatchable)")
             decisions.append(row)
             continue
 

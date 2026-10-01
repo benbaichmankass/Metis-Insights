@@ -206,6 +206,10 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # for it is inert and reading one back would suggest an effect it lacks
     # (the enabled symbols come from config/prop_platforms.yaml).
     "PROP_EXECUTOR_MODE",
+    # tradeify_1's OWN kill switch (TRADEIFY-WIRE 2026-09-30): a non-breakout
+    # prop account never reads PROP_EXECUTOR_MODE, so its mode needs its own
+    # reader for the same L8-style "mode back to read_only, confirmed" check.
+    "PROP_EXECUTOR_MODE_TRADEIFY_1",
     # PROTECTION_STRAY_GROUP_* cancels a live position's resting protective
     # legs. Its EMPTY `..._ACCOUNTS` means NONE (inverted from its
     # CONVICTION_SIZING_/NETTING_ATTRIBUTION_ siblings, where empty means ALL),
@@ -285,6 +289,13 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # inference from the code rather than an observation of the fleet — and the
     # .env says only what the NEXT restart picks up.
     "EXIT_LOOP_IB_BREAKER_DISABLED",
+    # Added 2026-09-30 (DONCHIAN-PARITY, PI-20260930-GQPT6PQF-0002). The one-entry-
+    # per-bar debounce (strategy_monocle._same_bar_entry_for_strategy) is what stops
+    # a decision_bar: closed leg taking a SECOND position on the same bar across the
+    # post-close window; any non-empty value DISABLES it, and nothing could read the
+    # live value back (the review of #14800 could only say "unverified"). A boolean
+    # kill-switch: safe to publish.
+    "STRATEGY_BAR_DEBOUNCE_DISABLED",
     # --- Cadence / budget knobs (an unparseable one changes behaviour) ---
     "TICK_INTERVAL_SECONDS",
     "HEARTBEAT_INTERVAL_SECONDS",

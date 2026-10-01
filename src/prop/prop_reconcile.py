@@ -91,9 +91,30 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
       operator-confirmed/prompted ticket whose later fill/close must link back.
     """
     explicit = fill.get("ticket_id")
-    if explicit:
-        return str(explicit)
     account_id = str(fill.get("account_id") or "").strip()
+    if explicit:
+        # An explicit id that names an EXISTING ticket is honoured only when
+        # that ticket belongs to the reporting account (TRADEIFY-WIRE F1 +
+        # manager review): with two prop accounts a report from one must never
+        # link to — and so advance — the other's ticket. A blank owner or a
+        # blank reporting account cannot be shown to match, so it returns None
+        # too: the fill is journaled unlinked, never cross-linked.
+        #
+        # An id with NO ticket row belongs to no account, so it cannot
+        # cross-link, and it is kept: the fill dedup keys on it (a relay retry
+        # of an open report re-sends the same ticket_id; refusing it would
+        # journal a second fill and double-count open risk —
+        # tests/test_prop_open_risk_e66.py).
+        ticket = prop_journal.get_ticket(str(explicit))
+        if ticket is None:
+            return str(explicit)
+        owner = str(ticket.get("account_id") or "").strip()
+        if not account_id or not owner or owner != account_id:
+            logger.warning(
+                "prop_reconcile: explicit ticket %s not linkable for reporting account "
+                "%r (owner %r) — fill left unlinked", explicit, account_id, owner)
+            return None
+        return str(explicit)
     if not account_id:
         return None
     symbol = str(fill.get("symbol") or "").upper()
@@ -228,6 +249,19 @@ def _ruleset_for(account_id: str):
         logger.warning("prop_reconcile: ruleset lookup failed for %s: %s",
                        account_id, exc)
         return None
+
+
+def _ruleset_limits_raw(account_id: str) -> Dict[str, Any]:
+    """The account ruleset file's raw ``limits:`` ({} when unknown)."""
+    try:
+        from src.prop import prop_rule_guards
+        from src.prop.account_rulesets import all_account_units
+
+        unit = all_account_units().get(account_id)
+        return prop_rule_guards.load_limits(getattr(unit, "source", None)) if unit else {}
+    except Exception as exc:  # noqa: BLE001 — fail soft to "undeclared"
+        logger.warning("prop_reconcile: raw limits lookup failed for %s: %s", account_id, exc)
+        return {}
 
 
 def _status_freshness(status: Dict[str, Any]) -> tuple:
@@ -528,6 +562,16 @@ def compute_rule_distance(
         daily_loss_pct * day_basis
         if (daily_loss_pct is not None and day_basis is not None) else None
     )
+    # A ruleset may declare the AMOUNT as a share of the account size instead
+    # (Tradeify 247: prior close minus 3% of the account size; TRADEIFY-WIRE
+    # T2, src/prop/prop_rule_guards.py). Undeclared = unchanged.
+    amount_basis = _ruleset_limits_raw(account_id).get("daily_loss_amount_basis")
+    if amount_basis:
+        from src.prop import prop_rule_guards
+
+        daily_loss_limit_usd = prop_rule_guards.daily_loss_amount(
+            daily_loss_pct=daily_loss_pct, day_start_balance=day_basis,
+            account_size_usd=account_size, amount_basis=amount_basis)
     # Day P&L = realized today + unrealized (equity-basis, like Breakout).
     #
     # ⚠️ A MISSING TERM MUST NOT BECOME ZERO.

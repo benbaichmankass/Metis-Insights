@@ -123,7 +123,7 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
     ``off`` would block measurement exactly when the executor has been
     reverted. ``probe`` opens and closes the order form but types nothing;
     the other two never reach the order form."""
-    base = pe.executor_mode(env)
+    base = pe.executor_mode(env, getattr(args, "account", pe.PRIMARY_ACCOUNT) or pe.PRIMARY_ACCOUNT)
     if args.probe_ticket:
         return "probe"
     if getattr(args, "instrument_probe", ""):
@@ -134,6 +134,10 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "instrument_info_dry"
     if getattr(args, "instrument_info_probe", ""):
         return "instrument_info_probe"
+    if getattr(args, "symbol_switch_dry", ""):
+        return "symbol_switch_dry"
+    if getattr(args, "link_state_dump", False):
+        return "link_state_dump"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -151,6 +155,16 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
             return "close_position_dry"
         return "close_position_live" if base == "live" else "not_armed"
     return base
+
+
+def default_state_dir(account: str) -> Path:
+    """The executor's ledger / latch directory. ``breakout_1`` keeps the path it
+    has always had; another account gets its own, so one account's AUTO-REVERT
+    latch or intent ledger can never gate or confirm another's tickets."""
+    base = Path.home() / ".cache" / "metis-prop-browser"
+    if account == pe.PRIMARY_ACCOUNT:
+        return base / "executor"
+    return base / "accounts" / account / "executor"
 
 
 def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
@@ -195,6 +209,30 @@ def arm_info_probe_latch(state_dir: Path) -> bool:
     return True
 
 
+def fresh_page_recheck(got: Dict[str, Any], adapter: Any, context: Any, page: Any, login_url: str) -> None:
+    """Before an unverified in-run restore latches the executor, re-read the
+    linked symbol CLICK-FREE on a FRESH page (manager 2026-09-30 18:00Z; the
+    linked symbol does not survive the page, #14831/#14836). The probe's own
+    page is closed first -- its state is exactly what does not persist, and
+    one tab per session avoids a second live session. The result goes in
+    ``got["fresh_page_check"]``; info_probe_restore_latch_reason reads it.
+    A fresh page reading the original symbol is an ALERT, never silence."""
+    from src.prop.platform.dxtrade import info_probe_restore_latch_reason
+    if not info_probe_restore_latch_reason(got):
+        return
+    try:
+        page.close()
+    except Exception:
+        pass
+    original = (got.get("restore") or {}).get("original")
+    chk = adapter.fresh_page_linked_check(context, login_url, original)
+    got["fresh_page_check"] = chk
+    if not info_probe_restore_latch_reason(got):
+        got.setdefault("alerts", []).append(
+            f"in-run restore unverified, but a fresh page reads the original linked symbol {original!r} "
+            f"with no dialog open: alert only, no latch")
+
+
 def latch_info_probe(got: Dict[str, Any], state_dir: Path, *, armed: bool = False) -> Optional[str]:
     """A click-mode info probe that could not VERIFY the linked-symbol restore
     leaves the executor's own AUTO-REVERT ``halted`` latch in place with the
@@ -235,7 +273,9 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--account", default="breakout_1")
     ap.add_argument("--api-base", default="http://127.0.0.1:8001")
     ap.add_argument("--timeout-s", type=int, default=45)
-    ap.add_argument("--state-dir", default=str(Path.home() / ".cache" / "metis-prop-browser" / "executor"))
+    ap.add_argument("--state-dir", default="",
+                    help="default: ~/.cache/metis-prop-browser/executor for breakout_1, "
+                         ".../accounts/<account>/executor for any other account")
     ap.add_argument("--storage-state", default="")
     ap.add_argument("--login", choices=("reuse", "fresh"), default="reuse")
     g = ap.add_mutually_exclusive_group()
@@ -250,6 +290,12 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--instrument-info-probe", default="", metavar="VENUE_SYMBOLS",
                    help="info-panel probe: select each watchlist row, open + dump + close its info panel, "
                         "restore the linked symbol; see module docstring")
+    g.add_argument("--symbol-switch-dry", default="", metavar="VENUE_SYMBOL",
+                   help="per-ticket symbol switch, DRY: select this symbol, verify, re-select the original and "
+                        "verify; opens no order form")
+    g.add_argument("--link-state-dump", action="store_true",
+                   help="READ-ONLY: watchlist rows (element hit at each Symbol cell's centre), symbol_input(s), "
+                        "and the sidebar ticket's buttons; clicks nothing")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -265,20 +311,24 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--order-type", choices=("market", "limit"), default="market",
                     help="round trip only: 'limit' walks the ticket path's LIMIT form, DRY only")
     args = ap.parse_args(argv)
+    if not args.state_dir:
+        args.state_dir = str(default_state_dir(args.account))
 
     mode = resolve_mode(args)
+    mode_env = pe.mode_env_for(args.account)
+    env_mode = pe.executor_mode(account_id=args.account)
     cfg_plat = load_platform_config(args.account)
     username = os.environ.get(cfg_plat.get("username_env", ""), "")
     password = os.environ.get(cfg_plat.get("password_env", ""), "")
     secrets = (username, password)
     emit({"executor": "start", "account": args.account, "mode": mode, "login": args.login,
-          "env_mode": pe.executor_mode(), "code_sha": _code_sha()})
+          "env_mode": env_mode, "code_sha": _code_sha()})
     if mode == "not_armed":
-        emit({"executor": "not_armed", "why": f"a live click needs {pe.MODE_ENV}=live explicitly "
-                                              f"(it reads {pe.executor_mode()!r}); nothing clicked"})
+        emit({"executor": "not_armed", "why": f"a live click needs {mode_env}=live explicitly "
+                                              f"(it reads {env_mode!r}); nothing clicked"})
         return EXIT_ERROR
     if mode == "off":
-        emit({"executor": "off", "why": f"{pe.MODE_ENV}=off — nothing read, nothing clicked"})
+        emit({"executor": "off", "why": f"{mode_env}=off — nothing read, nothing clicked"})
         return EXIT_OK
     if args.login == "reuse" and not args.storage_state:
         emit({"session": "none", "why": "--login reuse needs --storage-state (the feed's session file)"})
@@ -287,7 +337,16 @@ def main(argv: Optional[list] = None) -> int:
         emit({"feasibility": "no_credentials"})
         return EXIT_FEASIBILITY
 
-    cfg = pe.load_config(args.account)
+    # The probes never size a ticket, so they run without the account's
+    # ruleset/routing (a second account can be MEASURED before its
+    # accounts.yaml entry exists); every sizing mode fails closed without it.
+    try:
+        cfg = pe.load_config(args.account)
+    except (KeyError, FileNotFoundError) as exc:
+        if mode not in ("probe", "instrument_probe", "instrument_search_dump"):
+            emit({"config": f"no executor config for {args.account} ({exc}); nothing read, nothing clicked"})
+            return EXIT_ERROR
+        cfg = None
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000
@@ -381,8 +440,20 @@ def main(argv: Optional[list] = None) -> int:
                 click = mode == "instrument_info_probe"
                 armed = arm_info_probe_latch(Path(args.state_dir)) if click else False
                 got = adapter.probe_instrument_info(page, syms, click=click)
+                if click:
+                    fresh_page_recheck(got, adapter, context, page, cfg_plat["login_url"])
                 latch_info_probe(got, Path(args.state_dir), armed=armed)
                 return emit_info_probe(got, *secrets)
+
+            if mode == "link_state_dump":
+                got = adapter.link_state_dump(page)
+                emit({"link_state_dump": got}, *secrets)
+                return EXIT_OK if "error" not in got else EXIT_UNPARSED
+
+            if mode == "symbol_switch_dry":
+                got = adapter.symbol_switch_dry(page, args.symbol_switch_dry)
+                emit({"symbol_switch_dry": got}, *secrets)
+                return EXIT_OK if got.get("refused") is None and not got.get("alerts") else EXIT_UNPARSED
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
             state_dir = Path(args.state_dir)

@@ -184,3 +184,34 @@ def test_non_prop_control_is_unchanged(env, state, expected):
     _run(env)
     assert "bybit_ctl" not in calls
     assert sized.get("bybit_ctl") == expected
+
+
+# ── a DRY dispatch refuses but never PAGES (manager review of #14672) ──────
+
+
+def _capture_pages(env):
+    pages = []
+    import src.prop.prop_balance as pb
+    env["mp"].setattr(pb, "note_refusal", lambda *a, **k: pages.append(a) or True)
+    return pages
+
+
+def test_dry_dispatch_refuses_without_paging(env):
+    _arrange(env, "fallback", snapshot="stale")
+    pages = _capture_pages(env)
+    by, emit = _run(env)                      # _run dispatches dry_run=True
+    assert "prop_balance_stale" in (by["breakout_1"]["error"] or "")   # still refused
+    assert pages == []                        # but nobody is paged
+    assert emit.call_count == 0
+
+
+def test_live_dispatch_still_pages_on_refusal(env):
+    _arrange(env, "fallback", snapshot="stale")
+    pages = _capture_pages(env)
+    with patch("src.prop.breakout_executor.emit_prop_ticket",
+               return_value="prop-manual-deadbeef"):
+        results = env["coord"].multi_account_execute(
+            _pkg(), accounts_path=env["path"], dry_run=False)
+    by = {r["name"]: r for r in results}
+    assert "prop_balance_stale" in (by["breakout_1"]["error"] or "")
+    assert [p[1] for p in pages] == ["breakout_1"]

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Executor fix on the live prop executor (src/prop/prop_executor.py run_cycle). A single failed journal read (api.open_fills) wrote the permanent AUTO-REVERT latch. On 2026-09-30 an ict-web-api restart by the deploy (16:05:05-07Z) refused one read at 16:05:06Z and halted breakout_1 until a person cleared it (#14808). Now a failed journal read counts toward TRIP_CONSECUTIVE_ERRORS like a terminal read, and blocks entries that cycle only, returning before intake so no ticket is refused. Held: the manager reviews and merges.",
+  "why": "Every runtime-touching merge restarts ict-web-api for about 2-4 s; one unlucky tick must not disable the executor. PI-20260930-KMYJ5XC7-0011."
+}

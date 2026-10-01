@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Tier-1 research tooling, no order path / strategy / risk / config change, but a human should read it: (1) research/templates/*.yaml and scripts/research/queue_replenish.py are landing machinery (the replenisher self-lands generated units against them); they gain theme/priority pass-through, which changes every template's sha and so the header of ~75 generated units. (2) The diff edits ~86 research/queue units beyond a dispatch stamp (theme + priority lines; RQ-20260928-002 queued->done; RQ-20260930-502 gains a structured requires_result), which R5 will not vouch for. (3) dispatch_queue.py changes fire ORDER from id-FIFO to weighted fair share across themes; the gates (power, route, cadence, backpressure) are unchanged. Stacked on #14886 (the A0 liveness PR): its commits appear in this diff until it merges.",
+  "why": "Lane RESEARCH-W7 deliverables A + A2 (operator re-scope 2026-09-30: regime first but everything keeps moving). Adds research/THEMES.yaml (the one weights file), required theme + priority 1-3 per queued unit, weighted fair share across themes with aging inside a theme, a structured requires_result precondition evaluated by the dispatcher (closes PI-20260930-HYRO501A-0002), and research/queue/PLANNING.md."
+}

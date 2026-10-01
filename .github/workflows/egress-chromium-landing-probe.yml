@@ -28,9 +28,10 @@
 # failed runs are listed here and handed to the evaluator) or an organisation change is FAIL (route
 # ended). The 72 h window is intended: the manager records the verdict on the PROP-TERM checklist row.
 #
-# TRIGGERS. A PR touching the request file (sessions cannot workflow_dispatch); manual dispatch;
-# and an hourly schedule that is a TEMPORARY measurement aid: it does nothing unless the secret is
-# set and it stops for good on 2026-10-04 (the script and the gate step both enforce that).
+# TRIGGERS. A PR touching the request file (sessions cannot workflow_dispatch) and manual dispatch.
+# The temporary hourly schedule was REMOVED on 2026-09-30: PROP-TERM egress is PARKED (pipeline row
+# PI-20260930-3ZFMYYI4-0004); the `schedule` branches below are inert and kept only so a re-dispatch
+# behaves exactly as before. Reopen conditions are in that row.
 # no-durable-result: temporary measurement aid; the verdict is read from the run log by the manager and recorded on the PROP-TERM checklist row, and the per-run result files are 7-day working artifacts, not research results
 name: egress-chromium-landing-probe
 
@@ -41,8 +42,11 @@ on:
       - "scripts/research/egress_chromium_landing_probe.py"
       - ".github/workflows/egress-chromium-landing-probe.yml"
   workflow_dispatch:
-  schedule:
-    - cron: "17 * * * *"
+    inputs:
+      variants:
+        description: "Comma-separated levers to try on the SAME proxy in this one run: baseline, wait, newheadless, headed (see the script). The PASS rule counts only `baseline`; the others are diagnostics."
+        type: string
+        default: "baseline"
 
 permissions:
   contents: read
@@ -100,24 +104,27 @@ jobs:
           set -euo pipefail
           pip install playwright
           playwright install --with-deps chromium
+          command -v xvfb-run >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }   # the `headed` lever needs a display
       - name: Landing-only probe (no credentials, nothing clicked)
         if: steps.gate.outputs.run == 'true'
         env:
           EGRESS_PROBE_PROXY: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && secrets.EGRESS_PROBE_PROXY || '' }}
-        run: python3 scripts/research/egress_chromium_landing_probe.py --out probe-out/probe-result.json
-      - name: Keep this run's result (contains no secret, no address)
-        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/probe-result.json') != ''
+          VARIANTS: ${{ inputs.variants }}
+        run: xvfb-run -a python3 scripts/research/egress_chromium_landing_probe.py --variants "${VARIANTS:-baseline}" --out-dir probe-out
+      - name: Keep this run's results (contain no secret, no address, no cookie value)
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/*.json') != ''
         uses: actions/upload-artifact@v4
         with:
           name: probe-result-${{ github.run_id }}
-          path: probe-out/probe-result.json
+          path: probe-out/*.json
           retention-days: 7
       - name: Evaluate the PASS rule over the last 72 h
-        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/probe-result.json') != ''
+        if: always() && steps.gate.outputs.run == 'true' && hashFiles('probe-out/*.json') != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          eval_variant=baseline   # the PASS rule counts ONLY the default variant; the other levers are diagnostics
           if [ "${{ github.ref }}" != "refs/heads/main" ]; then
             echo "NOTE: not on main, so this verdict is NOT authoritative (only main's schedule/dispatch runs count)."
           fi
@@ -139,5 +146,5 @@ jobs:
               echo "run ${id}: no result artifact (skipped run or expired)"
             fi
           done
-          mkdir -p prior/current && cp probe-out/probe-result.json prior/current/
-          python3 scripts/research/egress_chromium_landing_probe.py --evaluate prior --failed-runs failed-runs.json
+          mkdir -p prior/current && cp probe-out/*.json prior/current/
+          python3 scripts/research/egress_chromium_landing_probe.py --evaluate prior --variant "${eval_variant}" --failed-runs failed-runs.json

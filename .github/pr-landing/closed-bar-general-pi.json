@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline row (PI-20260930-GQPT6PQF-0004) recording that the cached-pre-close-frame defect fixed for decision_bar closed legs in #14800 also affects the other drop_forming_bar consumers. Pipeline record only; no runtime, order path, strategy or config touched."
+}

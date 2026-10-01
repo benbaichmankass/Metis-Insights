@@ -179,7 +179,11 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
     try:
         fill["ticket_id"] = prop_reconcile.match_fill_to_ticket(fill)
     except Exception as exc:  # noqa: BLE001 — linking is best-effort
-        logger.warning("prop_report: ticket match failed: %s", exc)
+        # A failed match links NOTHING: keeping the report's own ticket_id
+        # would let a report from one account advance another account's
+        # ticket (manager review of #14756, F1-1).
+        fill["ticket_id"] = None
+        logger.warning("prop_report: ticket match failed, fill left unlinked: %s", exc)
 
     row_id = prop_journal.insert_fill(fill)
 
@@ -193,7 +197,8 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
                 else "skipped" if status == "skipped"
                 else "placed" if status == "placed"
                 else "filled")
-            prop_journal.set_ticket_status(fill["ticket_id"], new_status)
+            prop_journal.set_ticket_status(
+                fill["ticket_id"], new_status, account_id=account_id or None)
         except Exception as exc:  # noqa: BLE001
             logger.warning("prop_report: ticket status update failed: %s", exc)
 

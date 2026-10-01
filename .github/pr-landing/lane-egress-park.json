@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Parks PROP-TERM egress (manager 2026-09-30T18:45Z): removes the hourly `17 * * * *` schedule from egress-chromium-landing-probe.yml (workflow_dispatch and the request-file PR trigger stay), its CADENCE_REGISTRY entry and its claude-run-failure-alert watch entry; corrects two stale comments (breakout_login_check_action.sh and prop-automation-options-2026-09-27.md said app.breakoutprop.com where the config field is wss.breakoutprop.com); closes three pipeline rows and files the parked row with both reopen conditions. No runtime path, VM, config or order-path file changes: the .sh edit is a comment only."
+}

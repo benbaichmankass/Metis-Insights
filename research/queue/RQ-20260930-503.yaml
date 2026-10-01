@@ -2,6 +2,8 @@ id: RQ-20260930-503
 title: 'HyroTrader fit: same-UTC-day-flat variant of the 1h trend_donchian ETH prop leg -- does forcing an intraday close keep the edge? (lane HYRO-STRATS)'
 status: queued
 cadence: once
+theme: new_strategy_prop
+priority: 1
 kind: experiment
 
 question: >-
@@ -78,4 +80,4 @@ lands:
 related:
   - RQ-20260930-501
   - docs/research/hyro-strategy-feasibility-2026-09-30.md
-last_dispatched_at: null
+last_dispatched_at: '2026-09-30T14:51:18+00:00'

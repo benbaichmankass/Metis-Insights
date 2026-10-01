@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's review (TRADEIFY-WIRE T2, operator pre-approval 21:03Z 2026-09-30 'Approve both, as written (Recommended)', checklist row PROP-GOLIVE-PREAPPROVAL). Tier-3: prop risk guards on the ticket and executor paths. Places no order; changes no cap or sizing; breakout_1 declares neither rule and is unchanged (tests). Stacked on B (#14672).",
+  "why": "Tradeify 247 rules the generic prop guards did not express, declared in config/prop_rulesets/tradeify_247_1step.yaml and enforced by src/prop/prop_rule_guards.py: (1) leverage caps 5:1 BTC/ETH, 2:1 altcoins, on notional vs min(account size, live balance), refused by the ticket emitter and the DXtrade executor under breach_guards enforce; (2) daily floor = prior close minus 3% of the ACCOUNT SIZE (reset 22:00 UTC), in the executor's daily-loss guard and in compute_rule_distance's daily cushion. Closes PI-20260930-BHYHMK2D-0001 and PI-20260930-BHYHMK2E-0001 on merge."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Adds symbol-switch-dry to the system-actions workflow's breakout-login-check apply allowlist (it gates a live-terminal click action). Manager review and merge; B2 is re-dispatched once after deploy.",
+  "why": "#14885 wired apply: symbol-switch-dry into the action script but not the workflow gate; the operator-approved B2 dispatch (issue #14944) died in validation with zero clicks."
+}

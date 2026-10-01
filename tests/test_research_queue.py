@@ -38,7 +38,7 @@ QUEUE_DIR = REPO / "research" / "queue"
 def _entry(**kw):
     base = {
         "id": "RQ-20260827-999", "title": "t", "question": "q",
-        "cadence": "once", "status": "queued",
+        "cadence": "once", "status": "queued", "theme": "infra", "priority": 2,
         "kind": "experiment",
         # `feasibility` is required since the admission guard landed: `basis` is
         # prose and cannot be checked, so expected_n must ALSO name observed data.
@@ -478,7 +478,7 @@ def test_gpu_dispatches_are_capped_per_run(tmp_path):
     """The ledger cap is MONTHLY; it cannot bound a loop inside one run."""
     for n in (11, 12):
         (tmp_path / f"RQ-20260827-0{n}.yaml").write_text(
-            f"id: RQ-20260827-0{n}\ntitle: t\nquestion: q\ncadence: once\nstatus: queued\n"
+            f"id: RQ-20260827-0{n}\ntitle: t\nquestion: q\ncadence: once\nstatus: queued\ntheme: infra\npriority: 2\n"
             "kind: deterministic\nwhy_not_inferential: fixed re-grade\n"
             "routing: {needs_gpu: true, peak_memory_gb: 8.0}\n"
             "run: {workflow: gpu-burst-train.yml}\n"
@@ -505,7 +505,7 @@ def test_the_gpu_cap_actually_stops_the_second_burst(tmp_path, monkeypatch):
 
     for n in (21, 22, 23):
         (tmp_path / f"RQ-20260827-0{n}.yaml").write_text(
-            f"id: RQ-20260827-0{n}\ntitle: t\nquestion: q\ncadence: once\nstatus: queued\n"
+            f"id: RQ-20260827-0{n}\ntitle: t\nquestion: q\ncadence: once\nstatus: queued\ntheme: infra\npriority: 2\n"
             "kind: deterministic\nwhy_not_inferential: fixed re-grade\n"
             "routing: {needs_gpu: true, peak_memory_gb: 8.0}\n"
             "run: {workflow: gpu-burst-train.yml}\n"
@@ -528,7 +528,7 @@ def test_a_failed_fire_is_not_stamped(tmp_path, monkeypatch):
 
     job = tmp_path / "RQ-20260827-031.yaml"
     job.write_text(
-        "id: RQ-20260827-031\ntitle: t\nquestion: q\ncadence: daily\nstatus: queued\n"
+        "id: RQ-20260827-031\ntitle: t\nquestion: q\ncadence: daily\nstatus: queued\ntheme: infra\npriority: 2\n"
         "kind: deterministic\nwhy_not_inferential: fixed re-grade\n"
         "routing: {peak_memory_gb: 2.0}\n"
         "run: {workflow: w.yml}\n"
@@ -547,7 +547,7 @@ def test_a_successful_fire_is_stamped(tmp_path, monkeypatch):
 
     job = tmp_path / "RQ-20260827-032.yaml"
     job.write_text(
-        "id: RQ-20260827-032\ntitle: t\nquestion: q\ncadence: daily\nstatus: queued\n"
+        "id: RQ-20260827-032\ntitle: t\nquestion: q\ncadence: daily\nstatus: queued\ntheme: infra\npriority: 2\n"
         "kind: deterministic\nwhy_not_inferential: fixed re-grade\n"
         "routing: {peak_memory_gb: 2.0}\n"
         "run: {workflow: w.yml}\n"

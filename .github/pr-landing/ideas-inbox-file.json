@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: adds docs/claude/work/IDEAS.md (the operator ideas inbox register, content supplied verbatim by the manager) and its docs/DOCUMENT-INDEX.md row. No runtime, order path, strategy config, risk cap or account mode. The manager-skill edit that codifies the inbox is NOT in this PR (blocked by the auto-mode classifier)."
+}

@@ -1,0 +1,61 @@
+{
+ "n": 1573,
+ "net_r": 61.922,
+ "span_days": 1829,
+ "population": "ict_scalp_eth_15m+ict_scalp_sol_15m+ict_scalp_xrp_15m ledger, 1829d, n=1573",
+ "p_both_gateB": [
+  0.2753,
+  0.2687,
+  0.2293
+ ],
+ "p_both_gateC": [
+  0.1667,
+  0.1567,
+  0.1527
+ ],
+ "info_p_both_if_half_of_fills_flagged": 0.0187,
+ "verdict": "fail",
+ "read_state": "measured",
+ "gates": {
+  "A_net_r_positive": true,
+  "B_all_seeds_ge_0_25": false,
+  "C_all_seeds_ge_0_10": true,
+  "fill_rate_ge_0_50": true,
+  "net_r_per_signal_positive": true
+ },
+ "n_signals": 1591,
+ "n_filled": 1573,
+ "fill_rate": 0.9887,
+ "net_r_per_signal": 0.03892,
+ "legs": {
+  "ict_scalp_eth_15m": {
+   "n_signals": 513,
+   "n_filled": 512,
+   "fill_rate": 0.9981,
+   "net_total_r_filled": 20.6561,
+   "net_r_per_signal": 0.04027
+  },
+  "ict_scalp_sol_15m": {
+   "n_signals": 573,
+   "n_filled": 565,
+   "fill_rate": 0.986,
+   "net_total_r_filled": 22.0592,
+   "net_r_per_signal": 0.0385
+  },
+  "ict_scalp_xrp_15m": {
+   "n_signals": 505,
+   "n_filled": 496,
+   "fill_rate": 0.9822,
+   "net_total_r_filled": 19.2076,
+   "net_r_per_signal": 0.03803
+  }
+ },
+ "market_arm_11bps_reported_not_gating": {
+  "n": 1590,
+  "net_total_r": 25.4947
+ },
+ "window": [
+  "2021-09-25",
+  "2026-09-29"
+ ]
+}

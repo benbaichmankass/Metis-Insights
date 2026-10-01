@@ -73,12 +73,17 @@ accounts:
         # multiplier 1, quantityPrecision 2 -> lot_units 1, lot_step 0.01.
         # The venue MINIMUM was NOT in the served fields: min_lots is null
         # (no local minimum check); fill it from the probe / Instrument Details.
-        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
+        # ETHUSD price_step 0.01: MEASURED 2026-10-01 (B3, symbol-switch-dry issue
+        # #14999, run 36807550409, code 847034b3f): the watchlist row reads
+        # ["ETHUSD", "2,683.58", "2,683.59"] -- both quotes 2 decimals, last digits
+        # non-zero, so no trailing-zero ambiguity. Display precision, cross-checked
+        # by the ETH round-trip-dry (B4) form read-back before ETHUSD is enabled.
+        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: null, price_step: 0.01}
         # SOLUSD price_step 0.01: MEASURED 2026-09-29 (dry run #13965, run
         # 36526339732): the watchlist quotes 118.01 / 118.02, the submit label
         # reads "at 118.02", and the ticket rounded a typed 119.2002 to 119.2.
         # The executor types SL / TP rounded to it and accepts a read-back
-        # within one step (criterion D3). ETHUSD's step is not measured: unset.
+        # within one step (criterion D3).
         SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: null, price_step: 0.01}
         # BTCUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED (no fields served)
       # The watched click / round trip places at most this many lots of the
@@ -92,13 +97,23 @@ accounts:
       # the typed 0.01 (a clamp to a higher minimum) REFUSES
       # (dxtrade.submit_label_mismatch). If the dry run passes at 0.01, the
       # minimum is 0.01. min_lots above stays null until then.
-      watched_click_max_lots: {SOLUSD: 0.01}
+      # ETHUSD 0.01 (PROP-ETH-DOM B4, 2026-10-01): the lot step (#13500), on the
+      # same reasoning as SOLUSD; it lets the ETH round-trip-dry walk run. It
+      # ARMS nothing: ETHUSD is not in enabled_venue_symbols below, and every
+      # armed path (the ticket cycle, round-trip-live) refuses a symbol that is
+      # not.
+      watched_click_max_lots: {SOLUSD: 0.01, ETHUSD: 0.01}
       # Venue symbols the executor may ACT on (manager 2026-09-28: SOL-only
       # go-live; the sidebar sits on SOLUSD and symbol switching is not built).
       # Any other ticket is SKIPPED `symbol_not_enabled` before the form is
       # touched (never a refusal, never an AUTO-REVERT count) and stays manual
       # via Telegram. A symbol joins only after symbol switching lands AND it
       # passes the D1-D7 dry run. Env override: PROP_EXECUTOR_SYMBOLS.
+      # 2026-09-30 (PROP-ETH-DOM): per-ticket symbol switching is BUILT
+      # (DXtradeAdapter.select_linked_symbol, called by place_bracket).
+      # ETHUSD stays OUT: its price_step is UNMEASURED (lots/lot_step/cvpp are
+      # measured, #13500); measure it (watchlist quote decimals via
+      # dump-tables, then the ETH round-trip-dry D1-D7 walk) before it joins.
       enabled_venue_symbols: [SOLUSD]
 
   # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's
@@ -118,10 +133,10 @@ accounts:
     login_url: https://dx.tradeify247.co/
     username_env: TRADEIFY_DX_USERNAME
     password_env: TRADEIFY_DX_PASSWORD
-    # LOGIN CHECK ONLY for now: breakout-login-check REFUSES every executor
-    # mode for any account but breakout_1 (the executor's kill switch is the
-    # global PROP_EXECUTOR_MODE until a per-account one exists — TRADEIFY-WIRE
-    # PR A #14663), so nothing here can reach an order control.
+    # Kill switch: PROP_EXECUTOR_MODE_TRADEIFY_1 (off | read_only | live,
+    # default read_only). It NEVER reads breakout_1's PROP_EXECUTOR_MODE.
+    # Ruleset + routing: accounts.yaml::tradeify_1.backtest_ruleset and that
+    # ruleset's `routing:` key (src/prop/prop_executor.py::rule_paths_for).
     executor:
       safety_margin_usd: 5
       unconfirmed_reads: 3

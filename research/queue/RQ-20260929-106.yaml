@@ -2,6 +2,8 @@ id: RQ-20260929-106
 title: 'Stage-0 backtest: pairs harness on SPY/QQQ 1h (pairs family has bybit-crypto history, zero alpaca-ETF history)'
 status: queued
 cadence: once
+theme: new_strategy_prop
+priority: 2
 kind: experiment
 
 question: >-
