@@ -2635,7 +2635,12 @@ WATCHLIST_DUMP_JS = r"""
       const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
       if (cls.some(c => /^widget(New)?__container/.test(c))) { depth = k + 1; box = e; break; }
     }
-    return {table: i, widget_depth: depth,
+    let wmDepth = null, wm = null;
+    for (let e = t.parentElement, k = 0; e && e !== document.body && k < 12; e = e.parentElement, k++) {
+      if (e.querySelector('[data-test-id=widget_menu_WATCHLIST]')) { wmDepth = k + 1; wm = e; break; }
+    }
+    return {table: i, widget_depth: depth, watchlist_menu_depth: wmDepth,
+            watchlist_menu_scope_has_trade_menu: wm ? !!wm.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]') : null,
             widget_has_trade_menu: box ? !!box.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]') : null,
             cells: [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row)
               .slice(0, 16).map(c => ({xw: xw(c), tid: tid(c)}))};
@@ -2709,10 +2714,22 @@ INFO_PROBE_RESOLVE_JS = r"""
   // Symbol/Bid/Ask table (<= 8 up; else the table itself). That scope must
   // hold no Orders / Positions widget menu, so a working-order or position
   // row can never be taken for a watchlist Symbol cell.
-  let scope = wl[0].t;
+  let scope = wl[0].t, foundBox = false;
   for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
     const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
-    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; foundBox = true; break; }
+  }
+  // No widget(New)__container class (tradeify_1, #15126: the Symbol/Bid/Ask
+  // header table and its 9-row body table are separate, as on Breakout, but
+  // no ancestor carries that class): the nearest ancestor (<= 12 up) holding
+  // exactly ONE widget_menu_WATCHLIST is the watchlist widget. The trade-menu
+  // refusal below still applies to it.
+  if (!foundBox) {
+    for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+      const n = e.querySelectorAll('[data-test-id=widget_menu_WATCHLIST]').length;
+      if (n === 1) { scope = e; break; }
+      if (n > 1) break;
+    }
   }
   if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
     out.why = 'the watchlist scope also holds an Orders / Positions widget'; return out;
@@ -3076,10 +3093,22 @@ WATCHLIST_QUOTE_RAW_JS = r"""
   if (!wl.length) wl.push(...__metisColumnTables().found);
   if (wl.length !== 1) return {error: `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`};
   const hs = wl[0].hs, si = hs.indexOf('symbol'), bi = hs.indexOf('bid'), ai = hs.indexOf('ask');
-  let scope = wl[0].t;
+  let scope = wl[0].t, foundBox = false;
   for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
     const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
-    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; foundBox = true; break; }
+  }
+  // No widget(New)__container class (tradeify_1, #15126: the Symbol/Bid/Ask
+  // header table and its 9-row body table are separate, as on Breakout, but
+  // no ancestor carries that class): the nearest ancestor (<= 12 up) holding
+  // exactly ONE widget_menu_WATCHLIST is the watchlist widget. The trade-menu
+  // refusal below still applies to it.
+  if (!foundBox) {
+    for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+      const n = e.querySelectorAll('[data-test-id=widget_menu_WATCHLIST]').length;
+      if (n === 1) { scope = e; break; }
+      if (n > 1) break;
+    }
   }
   if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]'))
     return {error: 'the watchlist scope also holds an Orders / Positions widget'};

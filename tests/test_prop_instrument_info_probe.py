@@ -950,3 +950,51 @@ def test_review_quote_refuses_an_empty_canonical_and_a_second_distinct_row():
     assert quote_from_tables(same, "ETHUSD") == {"bid": 100.1, "ask": 100.2}
     assert quote_from_tables([{"headers": hdr, "rows": [["ETHUSD", "100.1", "100.2"]]}],
                              "ETHUSD") == {"bid": 100.1, "ask": 100.2}
+
+
+# ── tradeify_1's split watchlist with no widget(New)__container (#15126) ──
+# The Symbol/Bid/Ask header table and its rows table are separate (as on
+# Breakout) and no ancestor carries the widget class; the watchlist widget is
+# marked by its widget_menu_WATCHLIST button.
+
+
+def tradeify_split(html, menus=1, trade_menu=False):
+    assert html.count(WL_BOX) == 1 and html.count(BREAKOUT_HEADER) == 1
+    extra = '<button data-test-id="widget_menu_WATCHLIST">W</button>' * menus
+    if trade_menu:
+        extra += '<button data-test-id="widget_menu_POSITIONS">P</button>'
+    html = html.replace(WL_BOX, 'class="wl-root">' + extra + '<div class="wl-inner"')
+    html = html.replace(BREAKOUT_HEADER, "<table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th></tr></thead>"
+                                         "</table></div><table><tbody>")
+    return html
+
+
+def test_split_watchlist_without_widget_class_resolves_through_its_watchlist_menu(browser):
+    got, st = run(browser, tradeify_split(slashed(page_html())), click=False)
+    r = got["resolve"]
+    assert r["watchlist"] == ["AVAXUSD", "BTCUSD", "ETHUSD", "SOLUSD"]
+    assert all(r["targets"][s]["clean"] for s in ("BTCUSD", "ETHUSD", "AVAXUSD"))
+    assert st["clicks"] == [] and never_traded(st) is None
+
+
+def test_split_watchlist_quote_raw_reads_through_its_watchlist_menu(browser):
+    from src.prop.platform.dxtrade import WATCHLIST_QUOTE_RAW_JS
+
+    p = browser.new_page()
+    p.set_content(tradeify_split(slashed(page_html())))
+    raw = p.evaluate(WATCHLIST_QUOTE_RAW_JS, ["ETHUSD"])
+    p.close()
+    assert raw["rows"] == [["ETH/USD", "100.1", "100.2"]]
+
+
+@pytest.mark.parametrize("kw", [dict(menus=2), dict(menus=0)])
+def test_split_watchlist_with_no_single_watchlist_menu_reads_no_rows(browser, kw):
+    got, st = run(browser, tradeify_split(slashed(page_html()), **kw), symbols=("ETHUSD",), click=False)
+    assert got["resolve"]["targets"]["ETHUSD"]["n_rows"] == 0 and st["clicks"] == []
+
+
+def test_split_watchlist_menu_scope_holding_a_trade_menu_refuses(browser):
+    got, st = run(browser, tradeify_split(slashed(page_html()), trade_menu=True), symbols=("ETHUSD",),
+                  click=False)
+    assert got["resolve"]["why"] == "the watchlist scope also holds an Orders / Positions widget"
+    assert st["clicks"] == [] and st["tags"] == 0
