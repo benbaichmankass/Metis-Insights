@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "scripts/research/regime_impact_scoping.py is outside the Tier-1 allowlist; research-only, no runtime/config/strategy/sizing/risk change",
+  "why": "adds an opt-in --axis vol mode (RQ-20260930-704 prerequisite c); trend defaults unchanged and tested"
+}
