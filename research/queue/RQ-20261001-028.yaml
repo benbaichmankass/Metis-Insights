@@ -3,6 +3,8 @@ title: 'P2r2 Breakout screen: ONDOUSD x ict15 (15m)'
 status: queued
 cadence: once
 kind: experiment
+theme: new_strategy_prop
+priority: 2
 question: 'Does ICT liquidity-sweep scalp 15m on ONDOUSDT (15m, Breakout market ONDOUSD), run untuned
   from its donor config over 730 days, clear the prop bar under Breakout''s cost stack? Untested: no committed
   evidence record or round-1 unit covers this cell.'

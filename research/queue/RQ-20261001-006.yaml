@@ -3,6 +3,8 @@ title: 'P2r2 Breakout screen: SOLUSD x pb2 (2h)'
 status: queued
 cadence: once
 kind: experiment
+theme: new_strategy_prop
+priority: 2
 question: 'Does trend-pullback 2h, adx>=25 on SOLUSDT (2h, Breakout market SOLUSD), run untuned from its
   donor config over 730 days, clear the prop bar under Breakout''s cost stack? Untested: no committed
   evidence record or round-1 unit covers this cell.'

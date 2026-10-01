@@ -3,6 +3,8 @@ title: 'P2r2 Breakout screen: BTCUSD x ict5 (5m)'
 status: queued
 cadence: once
 kind: experiment
+theme: new_strategy_prop
+priority: 2
 question: Does ict_scalp_5m (BTCUSDT 5m, Breakout market BTCUSD) clear the prop bar under Breakout's own
   cost stack? Not in round 1 (it graded live-roster legs only); committed n=193 clears the floor.
 why_this_matters: 'Operator priority 1 (row P2): widen breakout_1 beyond ETH/SOL. Candidates come ONLY

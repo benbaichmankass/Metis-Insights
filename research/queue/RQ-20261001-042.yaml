@@ -3,6 +3,8 @@ title: 'P2r2 Breakout screen: UNIUSD x trend (1h)'
 status: queued
 cadence: once
 kind: experiment
+theme: new_strategy_prop
+priority: 2
 question: 'Does Donchian-20 breakout, breakout_1 live shape on UNIUSDT (1h, Breakout market UNIUSD), run
   untuned from its donor config over 730 days, clear the prop bar under Breakout''s cost stack? Untested:
   no committed evidence record or round-1 unit covers this cell.'
