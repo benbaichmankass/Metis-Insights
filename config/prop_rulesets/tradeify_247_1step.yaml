@@ -7,10 +7,10 @@
 # docs/research/tradeify-portfolio-feasibility-2026-09-30.md section 1 and 2.
 # NOT verified by buying an account or contacting the firm.
 #
-# PROVENANCE: this file is byte-identical to PR #14580's (lane
-# TRADEIFY-PORTFOLIO) up to `economics:`; lane TRADEIFY-WIRE (2026-09-30) added
-# the `routing:` and `sizing:` blocks at the end so the live account
-# `tradeify_1` (config/accounts.yaml) can use it. #14580 landed first; this
+# PROVENANCE: this file is PR #14580's (lane TRADEIFY-PORTFOLIO) plus
+# additions by lane TRADEIFY-WIRE (2026-09-30): the `routing:` and `sizing:`
+# blocks at the end, and `limits.daily_loss_amount_basis` / `limits.leverage_caps`
+# (T2 rule guards), so the live account `tradeify_1` (config/accounts.yaml) can use it. #14580 landed first; this
 # is a strict superset of it (additions only). scripts/research/prop_ev_sim.py
 # takes sizing from its own --risk-pct/--sizing flags, never from `sizing:`.
 #
@@ -37,6 +37,16 @@ limits:
   # Reset 22:00 UTC. Limit = previous day's CLOSING BALANCE minus 3%.
   daily_loss_reset_utc: "22:00"
   daily_loss_basis: equity_vs_daystart_balance
+  # The limit AMOUNT is 3% of the ACCOUNT SIZE below the prior close (not 3% of
+  # the close). Read by src/prop/prop_rule_guards.py (TRADEIFY-WIRE T2).
+  daily_loss_amount_basis: account_size
+  # Max notional / balance per position (firm rule, UNCONFIRMED: see header).
+  # Bot symbols; `default` covers altcoins (SOL, XRP). Enforced by the ticket
+  # emitter and the DXtrade executor (src/prop/prop_rule_guards.py).
+  leverage_caps:
+    BTCUSDT: 5
+    ETHUSDT: 5
+    default: 2
   max_drawdown_pct: 0.06          # 6% STATIC on 1-Step: floor = start - 6%, never moves, not locked on payout
   drawdown_type: static
   max_position_pct: null
