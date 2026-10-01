@@ -630,3 +630,28 @@ def test_cancel_resting_protection_unreadable_is_not_ok():
     client = _client_for(fake)
     res = client.cancel_resting_protection("MHG")
     assert res["retCode"] == 1
+
+
+def test_already_flat_close_is_not_ok_when_book_unreadable():
+    """ORDER-AUDIT-2 follow-up: the already-flat branch of close() also sweeps
+    the book; an unreadable sweep must not report OK over legs it never saw."""
+    fake = _UnreadableBookIB(_mhg_legs(597, "oca-protect-416", 417, 1179890976))
+    client = _client_for(fake)
+    client._live_position_qty = lambda sym: 0.0  # type: ignore[method-assign]
+    res = client.close("MHG", "long", 1)
+    assert res["retCode"] == 1
+    assert "unreadable" in res["retMsg"]
+    low = res["retMsg"].lower()
+    assert "exit deferred" not in low and "deferring" not in low
+    assert fake.placed == []
+
+
+def test_already_flat_close_ok_when_book_readable():
+    """Positive control: readable book, flat position -> legs swept, OK."""
+    fake = FakeIB(_mhg_legs(597, "oca-protect-416", 417, 1179890976))
+    client = _client_for(fake)
+    client._live_position_qty = lambda sym: 0.0  # type: ignore[method-assign]
+    res = client.close("MHG", "long", 1)
+    assert res["retCode"] == 0
+    assert fake.cancel_calls
+    assert fake.placed == []

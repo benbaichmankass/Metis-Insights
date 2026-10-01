@@ -2612,7 +2612,22 @@ class IBClient:
                 # IB reports flat already — nothing to close. Still cancel
                 # any stray resting protective orders, then return success
                 # (idempotent close, matching the Alpaca 404 → ok mapping).
-                self._cancel_resting_orders_for_symbol(ib, sym)
+                swept = self._cancel_resting_orders_for_symbol(ib, sym)
+                # ...unless the book could not be READ: then a stray bracket
+                # may still rest over the flat position and later fill into a
+                # reverse one, so "OK" would be a claim nobody checked. Fail
+                # the same way _locked_close Step 1 does (ORDER-AUDIT-2 item 4
+                # follow-up): a failure, not a defer, so the monitor retries
+                # and pages if the Gateway stays unreadable.
+                if (swept or {}).get("verify_state") == "unreadable":
+                    return {
+                        "retCode": 1,
+                        "retMsg": (
+                            f"IBClient.close: {sym} already flat but open-order "
+                            "book unreadable — stray protective legs may still "
+                            "rest; nothing cancelled, retry next tick"
+                        ),
+                    }
                 return {
                     "retCode": 0,
                     "result": {"orderId": None, "note": "already flat"},
