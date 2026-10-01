@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane ICT-SCALP-HTF dispatch convention: do not merge -- the manager merges. Harness-only change (scripts/backtest_ict_scalp.py); no runtime, config or order path touched.",
+  "why": "Fixes lookahead in the backtest HTF bias alignment (PI-20261001-JWZSVYVS-0001). Tier 1 by path; it changes what FUTURE evidence runs measure, not any live behaviour. Committed ict_scalp evidence records predate it and are NOT rebuilt here."
+}
