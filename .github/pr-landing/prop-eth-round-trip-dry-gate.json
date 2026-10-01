@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "PROP-ETH-DOM B4 prep. Changes the executor's round-trip gate (dry walks no longer require enabled_venue_symbols; armed runs still do) and config/prop_platforms.yaml (ETHUSD price_step 0.01 from B3; watched_click_max_lots ETHUSD 0.01). A deliberate test asserted the old dry refusal, so the manager decides and merges.",
+  "why": "B4 (one ETH round-trip-dry, operator pre-approved) refuses before any read because ETHUSD is not enabled, and enabling it is forbidden until B5. The dry walk submits nothing and is the measurement a symbol passes before it is enabled. ETHUSD stays out of enabled_venue_symbols; every armed path (ticket cycle, round-trip-live) still refuses it."
+}

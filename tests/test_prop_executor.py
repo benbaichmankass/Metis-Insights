@@ -100,7 +100,9 @@ def test_real_config_loads_and_keeps_flat_75_and_unmeasured_lots_refuse():
     assert c.symbols["ADAUSDT"]["min_lots"] == 10
     spec, _, why = pe.bracket_from_ticket(ticket(symbol="BTCUSDT"), c)
     assert spec is None and "not declared" in why
-    assert c.watched_click_max_lots == {"SOLUSD": 0.01}   # the lot step; only SOLUSD (#13855)
+    # The lot step: SOLUSD (#13855); ETHUSD for its dry round trip only (PROP-ETH-DOM B4), not enabled.
+    assert c.watched_click_max_lots == {"SOLUSD": 0.01, "ETHUSD": 0.01}
+    assert "ETHUSD" not in c.enabled_venue_symbols
 
 
 # ── § 3.3 guards, one at a time ───────────────────────────────────────────
@@ -1883,15 +1885,32 @@ def test_the_real_config_enables_sol_only():
     assert c.enabled_venue_symbols == ["SOLUSD"]
 
 
-def test_round_trip_refuses_a_non_enabled_venue(env):
-    ledger, _ = env
+def _eth_not_enabled():
     c = _sol_only()
     c.symbols = {**c.symbols, "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
                                           "min_lots": 0.01, "lot_step": 0.01}}
     c.watched_click_max_lots = {"ETHUSD": 0.01, "SOLUSD": 0.01}
-    res = pe.run_round_trip(adapter=FakeAdapter(), page=None, api=FakeApi(), cfg=c, ledger=ledger,
-                            venue_symbol="ETHUSD", arm=False)
+    return c
+
+
+def test_an_armed_round_trip_refuses_a_non_enabled_venue_before_any_read(env):
+    ledger, _ = env
+    ad = FakeAdapter()
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=True)
     assert res.halted and "enabled_venue_symbols" in res.halted
+    assert ad.calls == []
+
+
+def test_a_dry_round_trip_walks_a_non_enabled_venue_and_submits_nothing(env):
+    """The dry walk is the D1-D7 measurement a symbol passes BEFORE it is enabled (PROP-ETH-DOM B4)."""
+    ledger, _ = env
+    ad = FakeAdapter()
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert not (res.halted and "enabled_venue_symbols" in res.halted)
+    assert [c for c in ad.calls if c[0] == "place_bracket"], ad.calls
+    assert all(c[2] is False for c in ad.calls if c[0] in ("place_bracket", "flatten"))
 
 
 # ── Fable review of #13822 ─────────────────────────────────────────────────
@@ -1982,10 +2001,10 @@ def test_bracket_from_ticket_types_tick_rounded_prices_and_grades_the_typed_risk
     assert facts["ticket_risk_usd"] == round(1.0 * (120.0 - 118.01) * 1.0, 2)
 
 
-def test_real_config_sol_price_step_is_measured_eth_is_not():
+def test_real_config_sol_and_eth_price_steps_are_measured():
     c = pe.load_config("breakout_1")
     assert c.symbols["SOLUSDT"]["price_step"] == 0.01
-    assert c.symbols["ETHUSDT"]["price_step"] is None
+    assert c.symbols["ETHUSDT"]["price_step"] == 0.01   # B3, symbol-switch-dry #14999
 
 
 def test_tick_script_opens_the_browser_at_the_operator_sized_viewport():
