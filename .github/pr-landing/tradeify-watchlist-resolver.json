@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's prompt merge (TRADEIFY-WIRE T4; manager 06:24Z relay: code changes as Tier-2 hold PRs). Tier-2: the DXtrade adapter's watchlist resolvers on the live VM. Adds a fallback consulted ONLY when no Symbol/Bid/Ask <th> table exists, so breakout_1's layout never reaches it (test). No order path, no submit, no new click.",
+  "why": "issue #15067 (run 36824837314) MEASURED tradeify_1's watchlist: a header-less <table> of 23 tr.instrument rows whose column headers carry table_column_* test-ids, so every <th>-based resolver read 0 tables. _COLUMN_HEADER_TABLES_JS takes a header-less instrument table's columns from its nearest table_column_* ancestor, PROVES alignment (equal column/cell counts and each header spanning its cell's centre) and refuses otherwise with a measured reason. Wired into INFO_PROBE_RESOLVE_JS (info-dry, select_linked_symbol), WATCHLIST_SYMBOLS_JS, WATCHLIST_ROWS_JS (quotes), WATCHLIST_QUOTE_RAW_JS and LINK_STATE_DUMP_JS."
+}

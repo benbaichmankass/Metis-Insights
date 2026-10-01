@@ -67,3 +67,12 @@ PROP_EXECUTOR_MODE_TRADEIFY_1=off`.
   yet. A dry run that refuses this way now also prints a click-free
   `watchlist_dump` line (header words and counts only), the measurement the
   resolver fix is built from. Pipeline `PI-20261001-BHYHMK2I-0001`.
+- **Measured and fixed (pending deploy), 2026-10-01:** the `watchlist_dump`
+  from issue #15067 showed Tradeify's watchlist is a header-less `<table>`
+  (23 `tr.instrument` rows) whose column headers carry `table_column_*`
+  test-ids. The resolvers now fall back to those headers ONLY when no
+  Symbol/Bid/Ask `<th>` table exists (breakout_1 never reaches it), with
+  alignment proven per column; a refused fallback prints
+  `resolve.column_headers.why` and the dump's `columns` / `header_less`
+  geometry. Observed working only once an `instrument-info-dry` on
+  `tradeify_1` resolves ETHUSD/SOLUSD/XRPUSD with no refusal.
