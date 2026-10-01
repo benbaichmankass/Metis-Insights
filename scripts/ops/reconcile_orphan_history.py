@@ -181,9 +181,32 @@ def _orphan_rows(conn: sqlite3.Connection) -> List[sqlite3.Row]:
 
 # ── order-package recovery (mirror of order_monitor._recover_orphan_…) ────
 
+def _strategy_size_history(
+    conn: sqlite3.Connection, *, strategy_name: str, symbol: str,
+) -> Optional[List[float]]:
+    """The claimed strategy's own ``position_size`` history on *symbol* — the
+    same population ``order_monitor._strategy_symbol_size_history`` reads.
+    ``None`` on a read failure (graded ``unreadable``, never refuses)."""
+    from src.runtime import orphan_attribution as _orphan_attr
+    if not strategy_name or not symbol:
+        return None
+    try:
+        rows = conn.execute(
+            "SELECT position_size, setup_type FROM trades "
+            "WHERE strategy_name = ? AND symbol = ? "
+            "ORDER BY id DESC LIMIT 200",
+            [strategy_name, symbol],
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    return _orphan_attr.sizes_from_trades([dict(r) for r in rows])
+
+
 def _recover_package(
     conn: sqlite3.Connection, *, symbol: str, direction: str,
     entry_price: Optional[float], entry_tol: float,
+    position_size: Any = None, trade_id: Optional[int] = None,
+    claimed: Optional[set] = None,
 ) -> Optional[Dict[str, Any]]:
     """Find the order package that originally opened this position.
 
@@ -213,10 +236,43 @@ def _recover_package(
         if pe is None:
             continue
         try:
-            if abs(float(pe) - entry_price) / entry_price <= entry_tol:
-                return cd
+            if abs(float(pe) - entry_price) / entry_price > entry_tol:
+                continue
         except (TypeError, ValueError, ZeroDivisionError):
             continue
+        # ONE PACKAGE, ONE TRADE (AUD-20260927-CA-A12-orphan-history-package-
+        # double-attribution, ORDER-AUDIT-2 item 5). Price alone let a single
+        # package be written onto several trades in one --apply (two orphans,
+        # bybit_1 qty 1 and bybit_2 qty 100, both -> pkg-1). Skip a package
+        # that (a) this run already attributed, (b) the journal links to a
+        # DIFFERENT trade, or (c) the live monitor's size gate would refuse.
+        pid = cd.get("order_package_id")
+        if claimed is not None and pid in claimed:
+            continue
+        linked = cd.get("linked_trade_id")
+        if linked not in (None, "") and trade_id is not None \
+                and str(linked) != str(trade_id):
+            continue
+        if pid and trade_id is not None:
+            try:
+                taken = conn.execute(
+                    "SELECT 1 FROM trades WHERE order_package_id = ? "
+                    "AND id != ? LIMIT 1", [pid, trade_id]).fetchone()
+            except sqlite3.Error:
+                taken = None
+            if taken:
+                continue
+        if position_size is not None:
+            from src.runtime import orphan_attribution as _orphan_attr
+            verdict = _orphan_attr.assess_size_support(
+                size=position_size,
+                history_sizes=_strategy_size_history(
+                    conn, strategy_name=str(cd.get("strategy_name") or ""),
+                    symbol=symbol),
+            )
+            if verdict.refuses:
+                continue
+        return cd
     return None
 
 
@@ -281,7 +337,7 @@ class RowPlan:
 
 def _plan_cluster(
     conn: sqlite3.Connection, cluster: List[sqlite3.Row], *,
-    entry_tol: float, now_iso: str,
+    entry_tol: float, now_iso: str, claimed: Optional[set] = None,
 ) -> List[RowPlan]:
     """Produce the per-row plan for one physical-position cluster.
 
@@ -308,11 +364,16 @@ def _plan_cluster(
         entry = float(canonical["entry_price"]) if canonical["entry_price"] else None
     except (TypeError, ValueError):
         entry = None
-    pkg = _recover_package(
-        conn, symbol=str(canonical["symbol"] or ""),
-        direction=str(canonical["direction"] or ""), entry_price=entry,
-        entry_tol=entry_tol,
-    )
+    pkg = None
+    if not canonical["order_package_id"]:
+        pkg = _recover_package(
+            conn, symbol=str(canonical["symbol"] or ""),
+            direction=str(canonical["direction"] or ""), entry_price=entry,
+            entry_tol=entry_tol, position_size=canonical["position_size"],
+            trade_id=int(canonical["id"]), claimed=claimed,
+        )
+        if pkg is not None and claimed is not None:
+            claimed.add(pkg.get("order_package_id"))
     canon_pkg_id = canonical["order_package_id"] or (
         pkg.get("order_package_id") if pkg else None)
 
@@ -463,6 +524,8 @@ def run(db_path: str, *, apply: bool, gap_hours: float,
 
     all_plans: List[RowPlan] = []
     cluster_count = 0
+    # Packages attributed so far in THIS run — one package, one trade.
+    claimed_pkgs: set = set()
     print(f"db: {db_path}")
     print(f"orphan-flagged rows: {len(rows)} across {len(groups)} "
           f"(account,symbol,direction) groups\n")
@@ -470,7 +533,7 @@ def run(db_path: str, *, apply: bool, gap_hours: float,
         for cluster in _cluster(grp, gap_hours):
             cluster_count += 1
             plans = _plan_cluster(conn, cluster, entry_tol=entry_tol,
-                                  now_iso=now_iso)
+                                  now_iso=now_iso, claimed=claimed_pkgs)
             all_plans.extend(plans)
             if len(cluster) > 1 or plans[0].reconcile_status == "unreconciled":
                 acct, sym, direction = key
