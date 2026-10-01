@@ -193,7 +193,16 @@ def _leverage_refusal(account_id: str, unit: Any, symbol: str, qty_units: Any, e
     declared cap that cannot be checked is a breach (could not look)."""
     from src.prop import prop_rule_guards
 
-    caps = prop_rule_guards.leverage_caps(prop_rule_guards.load_limits(getattr(unit, "source", None)))
+    source = getattr(unit, "source", None)
+    if source and not Path(source).is_file():
+        # The account DECLARES a ruleset but it cannot be read: fail closed
+        # rather than read "no rule declared" (T2 review nit,
+        # PI-20260930-BHYHMK2H-0001).
+        return f"leverage: ruleset {Path(source).name} unreadable (could not look)"
+    limits = prop_rule_guards.load_limits(source)
+    if source and not limits:
+        return f"leverage: ruleset {Path(source).name} has no readable limits (could not look)"
+    caps = prop_rule_guards.leverage_caps(limits)
     if not caps:
         return None
     live: list = []

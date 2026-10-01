@@ -303,17 +303,31 @@ def execute_pkg(
         # terminal, accurate status — without polluting the `trades` table.
         # Best-effort: a journal hiccup must never break the (already-emitted)
         # ticket.
+        #
+        # A ticket the emitter REFUSED (sizing skip, $-cap or firm-rule refusal
+        # — journaled `status='skipped'`) was NOT emitted: the package records
+        # `rejected / prop_ticket_skipped` instead (TRADEIFY-WIRE T2 review
+        # nit, PI-20260930-BHYHMK2H-0001). Both writes are CONDITIONAL: the
+        # package id is shared across every account the signal fanned out to,
+        # so a prop leg never overwrites what another account already wrote
+        # (the #14672 guard, generalised).
         try:
             pkg_id = (getattr(pkg, "meta", None) or {}).get("order_package_id")
             if pkg_id:
                 from src.units.db.database import Database
                 from src.utils.paths import trade_journal_db_path
 
-                Database(db_path=trade_journal_db_path()).update_order_package(
-                    pkg_id, {
-                        "status": "emitted",
-                        "close_reason": "prop_ticket_emitted",
-                    })
+                status, reason = "emitted", "prop_ticket_emitted"
+                try:
+                    from src.prop import prop_journal
+
+                    tk = prop_journal.get_ticket(str(trade_id)) if trade_id else None
+                    if (tk or {}).get("status") == "skipped":
+                        status, reason = "rejected", "prop_ticket_skipped"
+                except Exception as exc:  # noqa: BLE001 — default to the emitted stamp
+                    logger.warning("execute_pkg: prop ticket status read failed: %s", exc)
+                Database(db_path=trade_journal_db_path()).mark_order_package_if_untouched(
+                    pkg_id, status, reason)
         except Exception as exc:  # noqa: BLE001 — never break the emitted ticket
             logger.warning(
                 "execute_pkg: prop package status update failed "

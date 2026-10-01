@@ -50,6 +50,10 @@
 #                        POST /api/bot/prop/report. Refused unless
 #                        PROP_EXECUTOR_MODE=live. Dispatch only with the
 #                        operator watching.
+#     link-state-dump  — READ-ONLY (PROP-ETH-DOM 2026-10-01): watchlist rows with
+#                        the element hit at each Symbol cell's centre, every
+#                        symbol_input, and the sidebar ticket's buttons. Clicks,
+#                        hovers and types nothing. No symbols: needed.
 #     round-trip-dry   — the END-TO-END test walked dry: read the quote, build
 #                        a minimum-size ETHUSD market bracket (add `sol` for
 #                        SOLUSD), fill + read back the form, locate the close
@@ -161,7 +165,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt \
          feed-enable-timer feed-disable-timer; do
@@ -430,6 +434,7 @@ if [ -n "${EXEC_MODE}" ]; then
         symbol-switch-dry)
             case "${ACTION_SYMBOLS}" in *,*) log "symbol-switch-dry: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--symbol-switch-dry "${ACTION_SYMBOLS// /}") ;;
+        link-state-dump)     EARGS+=(--link-state-dump) ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")

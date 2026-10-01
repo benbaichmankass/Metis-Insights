@@ -136,6 +136,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "instrument_info_probe"
     if getattr(args, "symbol_switch_dry", ""):
         return "symbol_switch_dry"
+    if getattr(args, "link_state_dump", False):
+        return "link_state_dump"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -295,6 +297,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--symbol-switch-dry", default="", metavar="VENUE_SYMBOL",
                    help="per-ticket symbol switch, DRY: select this symbol, verify, re-select the original and "
                         "verify; opens no order form")
+    g.add_argument("--link-state-dump", action="store_true",
+                   help="READ-ONLY: watchlist rows (element hit at each Symbol cell's centre), symbol_input(s), "
+                        "and the sidebar ticket's buttons; clicks nothing")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -443,6 +448,11 @@ def main(argv: Optional[list] = None) -> int:
                     fresh_page_recheck(got, adapter, context, page, cfg_plat["login_url"])
                 latch_info_probe(got, Path(args.state_dir), armed=armed)
                 return emit_info_probe(got, *secrets)
+
+            if mode == "link_state_dump":
+                got = adapter.link_state_dump(page)
+                emit({"link_state_dump": got}, *secrets)
+                return EXIT_OK if "error" not in got else EXIT_UNPARSED
 
             if mode == "symbol_switch_dry":
                 got = adapter.symbol_switch_dry(page, args.symbol_switch_dry)

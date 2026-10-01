@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's review (TRADEIFY-WIRE, the two T2 review nits PI-20260930-BHYHMK2H-0001, due before T5). Tier-2: the prop ticket emitter's refusal path and the order-package terminal write in execute_pkg. Places no order; changes no cap or sizing.",
+  "why": "(1) A leverage-cap check on an account whose declared ruleset is missing or unreadable now refuses ('could not look') instead of reading 'no rule declared'. (2) A ticket the emitter refused (journaled status=skipped: sizing skip, $-cap or firm-rule refusal) no longer stamps its order package 'emitted'; it records rejected / prop_ticket_skipped. Both live-branch package writes are now CONDITIONAL (status open AND no linked trade), the #14672 guard generalised, so a prop leg never overwrites another account's outcome on a shared package. Also files PI-20261001-BHYHMK2I-0001 (Tradeify watchlist DOM blocks T4/T5)."
+}
