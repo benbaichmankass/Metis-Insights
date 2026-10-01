@@ -2376,7 +2376,12 @@ def parse_price(text: Optional[str]) -> Optional[float]:
 #: ``[data-test-id^=table_column_]`` elements of its nearest ancestor (<= 8 up)
 #: that holds any, excluding those inside ANOTHER table, named by the test-id
 #: suffix. Alignment is PROVEN, never assumed: as many columns as the first
-#: row has cells, and each column's horizontal span covers its cell's centre.
+#: row has cells, and each column's horizontal span covers its cell's centre
+#: (the table and its symbol/bid/ask columns must have width). The candidate
+#: must sit in a ``widget(New)__container`` (<= 12 up; refused when none) that
+#: holds no Orders / Positions widget menu (manager review of #15075, BLOCK 1:
+#: the downstream scope check alone let a container-less Positions table's
+#: Symbol cell be tagged clickable).
 #: Returns ``{found: [{t, hs}], why: [...]}``; ``why`` says per candidate why
 #: it was not taken (shapes and counts only, no cell text).
 _COLUMN_HEADER_TABLES_JS = r"""
@@ -2384,11 +2389,20 @@ _COLUMN_HEADER_TABLES_JS = r"""
     const n_ = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const t_ = el => (el.innerText || el.textContent || '').trim();
     const found = [], why = [];
+    const trade = '[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]';
     for (const t of document.querySelectorAll('table')) {
       if ([...t.querySelectorAll('th')].some(h => h.closest('table') === t && n_(t_(h)))) continue;
       const row = [...t.querySelectorAll('tr.instrument, tr[data-row-id]')].find(r => r.closest('table') === t);
       if (!row) continue;
       const tds = [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row);
+      let box = null;
+      for (let e = t.parentElement, i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
+        const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+        if (cls.some(c => /^widget(New)?__container/.test(c))) { box = e; break; }
+      }
+      if (!box) { why.push(`${tds.length}-cell rows: no widget container within 12 ancestors`); continue; }
+      if (box.querySelector(trade)) { why.push(`${tds.length}-cell rows: widget holds an Orders / Positions menu`); continue; }
+      if (!t.getBoundingClientRect().width) { why.push(`${tds.length}-cell rows: table has no width`); continue; }
       let cols = null;
       for (let e = t, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
         const cs = [...e.querySelectorAll('[data-test-id^="table_column_"]')]
@@ -2398,9 +2412,10 @@ _COLUMN_HEADER_TABLES_JS = r"""
       if (!cols) { why.push(`${tds.length}-cell rows: no table_column_* headers within 8 ancestors`); continue; }
       const hs = cols.map(c => n_((c.getAttribute('data-test-id') || '').slice('table_column_'.length)));
       if (cols.length !== tds.length) { why.push(`${cols.length} columns [${hs.join(',')}] vs ${tds.length} cells`); continue; }
+      const need = new Set(['symbol', 'bid', 'ask']);
       const off = cols.findIndex((c, i) => {
         const a = c.getBoundingClientRect(), b = tds[i].getBoundingClientRect();
-        if (!a.width || !b.width) return a.width !== b.width;
+        if (!a.width || !b.width) return need.has(hs[i]) || a.width !== b.width;
         const mid = b.x + b.width / 2;
         return mid < a.x - 1 || mid > a.x + a.width + 1;
       });
@@ -2589,14 +2604,23 @@ WATCHLIST_DUMP_JS = r"""
   const allT = [...document.querySelectorAll('table')];
   const xw = el => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.width)]; };
   const columns = [...document.querySelectorAll('[data-test-id^="table_column_"]')].slice(0, 40).map(c => ({
-    tid: tid(c), tag: c.tagName.toLowerCase(), text: w(txt(c)), table: allT.indexOf(c.closest('table')),
+    tid: tid(c), tag: c.tagName.toLowerCase(), table: allT.indexOf(c.closest('table')),
+    text: /^[a-z][a-z %&./()-]{0,19}$/i.test(txt(c)) ? w(txt(c)) : null,  // header words only
     in_thead: !!c.closest('thead'), xw: xw(c), parent: c.parentElement ? c.parentElement.tagName.toLowerCase() : null,
   }));
   const header_less = allT.map((t, i) => ({i, t})).filter(({t}) =>
     ![...t.querySelectorAll('th')].some(h => h.closest('table') === t && txt(h))).map(({i, t}) => {
     const row = [...t.querySelectorAll('tr.instrument, tr[data-row-id]')].find(r => r.closest('table') === t);
-    return row ? {table: i, cells: [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row)
-      .slice(0, 16).map(c => ({xw: xw(c), tid: tid(c)}))} : null;
+    if (!row) return null;
+    let depth = null, box = null;
+    for (let e = t.parentElement, k = 0; e && e !== document.body && k < 12; e = e.parentElement, k++) {
+      const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+      if (cls.some(c => /^widget(New)?__container/.test(c))) { depth = k + 1; box = e; break; }
+    }
+    return {table: i, widget_depth: depth,
+            widget_has_trade_menu: box ? !!box.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]') : null,
+            cells: [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row)
+              .slice(0, 16).map(c => ({xw: xw(c), tid: tid(c)}))};
   }).filter(Boolean);
   return {
     columns, header_less,

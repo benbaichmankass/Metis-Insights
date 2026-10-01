@@ -822,3 +822,35 @@ def test_tradeify_quote_rows_read_through_the_column_headers(browser):
     p.close()
     assert got["headers"] == ["symbol", "bid", "ask"]
     assert quote_from_watchlist_rows(got, "ETHUSD") == {"bid": 100.1, "ask": 100.2}
+
+
+# ── manager review of #15075 (BLOCK 1): the fallback itself excludes trade tables ──
+
+WL_BOX = 'class="widget__container___Ab1 widgetNew__container"'
+
+
+@pytest.mark.parametrize("swap, why", [
+    # a Positions-shaped table with no widget container: refused, never tagged
+    ((WL_BOX, 'class="positions-ish"'), "3-cell rows: no widget container within 12 ancestors"),
+    # the same table inside a widget that also carries an Orders/Positions menu
+    ((WL_BOX, WL_BOX + '><button data-test-id="widget_menu_POSITIONS">Positions</button'),
+     "3-cell rows: widget holds an Orders / Positions menu"),
+    # a hidden (zero-width) table never qualifies
+    (('<table class="wl" style="', '<table class="wl" style="display:none;'), "3-cell rows: table has no width"),
+])
+def test_review_the_fallback_refuses_container_less_trade_scoped_and_hidden_tables(browser, swap, why):
+    html = tradeify_layout(page_html())
+    assert html.count(swap[0]) == 1
+    got, st = run(browser, html.replace(*swap), symbols=("ETHUSD",), click=False)
+    assert "0 Symbol/Bid/Ask tables" in got["refused"]
+    assert got["resolve"]["column_headers"] == {"found": 0, "why": [why]}
+    assert st["clicks"] == [] and st["tags"] == 0 and never_traded(st) is None
+
+
+def test_review_the_dump_records_header_words_only_and_the_widget_facts(browser):
+    html = tradeify_layout(page_html(), width=200).replace(
+        '>Symbol</div>', '>Symbol 1234567 $5,024</div>')  # a non-header-like text is never emitted
+    got, _ = run(browser, html, symbols=("ETHUSD",), click=False)
+    dump = got["watchlist_dump"]
+    assert [c["text"] for c in dump["columns"]] == [None, "bid", "ask"]
+    assert dump["header_less"][0]["widget_depth"] == 1 and dump["header_less"][0]["widget_has_trade_menu"] is False
