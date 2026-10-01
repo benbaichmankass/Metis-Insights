@@ -235,5 +235,10 @@ def build_settings_from_env() -> dict:
         #
         # Read at call time by the helper, so an env change takes effect
         # without a redeploy — matching pipeline.py's behaviour exactly.
+        #
+        # ⚠️ AND IT STILL NEVER FIRES (2026-10-01, ORDER-AUDIT-2 item 2):
+        # safe_place_order has no caller in src/, so wiring this key did not
+        # create the second layer either. That layer is now an explicit
+        # is_halted() check in Coordinator.multi_account_execute.
         "HALT_FLAG_PATH": halt_flag_path(),
     }
