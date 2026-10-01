@@ -3760,6 +3760,50 @@ def test_review_the_tick_exits_3_when_a_dry_restore_fails(env, capsys):
     assert "if res.halted else" not in branch
 
 
+@pytest.mark.parametrize("fail_restore,linked,want", [(True, "SOLUSD", 3), (False, None, 3), (False, "SOLUSD", 0)])
+def test_review_cli_round_trip_dry_exit_code_follows_the_restore(tmp_path, monkeypatch, capsys,
+                                                                 fail_restore, linked, want):
+    # REAL CLI (manager re-review of #15020): the whole tick.main(["--round-trip", ...]) path --
+    # argument parsing, mode resolution, the session branch, run_round_trip and the exit code -- with
+    # only the outside world faked: the browser (a no-op page), the platform config, the adapter, the
+    # executor config and the local API.
+    import contextlib
+    import types
+    pytest.importorskip("playwright.sync_api")
+    import playwright.sync_api as pw_api
+    from scripts.prop import prop_executor_tick as tick
+
+    page = types.SimpleNamespace(wait_for_timeout=lambda ms: None)
+    context = types.SimpleNamespace(new_page=lambda: page)
+    browser = types.SimpleNamespace(new_context=lambda **kw: context, close=lambda: None)
+    monkeypatch.setattr(pw_api, "sync_playwright", lambda: contextlib.nullcontext(
+        types.SimpleNamespace(chromium=types.SimpleNamespace(launch=lambda **kw: browser))))
+
+    class _CliAdapter(_LinkingAdapter):
+        timeout_ms = 3_000
+
+        def login(self, page, url, username, password):
+            self.calls.append(("login",))
+
+        def wait_ready(self, page, timeout_ms=None):
+            return True
+
+    ad = _CliAdapter(linked=linked, fail_restore=fail_restore)
+    monkeypatch.setenv("METIS_TEST_USER", "zq9-fake-user")
+    monkeypatch.setenv("METIS_TEST_PASS", "zq9-fake-pass")
+    monkeypatch.setattr(tick, "load_platform_config", lambda account: {
+        "platform": "fake", "login_url": "about:blank", "username_env": "METIS_TEST_USER",
+        "password_env": "METIS_TEST_PASS"})
+    monkeypatch.setattr(tick, "adapter_for_platform", lambda platform: ad)
+    monkeypatch.setattr(pe, "load_config", lambda account: _eth_not_enabled())
+    monkeypatch.setattr(pe, "LocalApi", lambda *a, **k: FakeApi())
+    code = tick.main(["--round-trip", "ETHUSD", "--login", "fresh", "--state-dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert ("login",) in ad.calls and any(c[0] == "place_bracket" for c in ad.calls), out
+    assert code == want, out
+    assert ('RESTORE FAILED' in out or 'could not be read' in out) == (want == 3)
+
+
 def test_an_armed_round_trip_does_not_read_or_restore_the_link(env):
     ledger, _ = env
     ad = _LinkingAdapter(linked="SOLUSD")
