@@ -3,10 +3,19 @@ title: >-
   M28 P4 rescore at a REALISTIC (nonzero) options cost stack — does the
   event-blind value thesis clear calibration/edge once fee_frac and
   carry_frac_per_day stop being the zero-cost placeholder CAA05-0003 flagged?
-status: queued
+status: blocked
 cadence: once
 theme: macro
 priority: 2
+blocked_on: >-
+  (a) the options round-trip cost figure (`design.cost_figure`) is DECIDED: a debit-vertical commission plus
+  bid/ask width for the alpaca_options_paper 5-symbol universe, or a clearly labelled conservative proxy; AND
+  (b) `run.inputs` is rewritten to what `.github/workflows/macro-valuation-backfill.yml` declares
+  (start_date, cadence_days, fee_frac, carry_frac_per_day), with real numbers, no `research_unit` /
+  `label_trigger` / `note` keys. Moved here 2026-10-01 (RESEARCH-W7): in `research/queue/` it failed dispatch on
+  EVERY cycle (HTTP 422: the workflow declares none of research_unit/label_trigger/note/power_state) and
+  carried `fee_frac: "NOT YET DECIDED"`, which would have been sent as a numeric input. Unblock by `git mv` back
+  to research/queue/ with status: queued once both hold.
 kind: experiment
 
 question: >-

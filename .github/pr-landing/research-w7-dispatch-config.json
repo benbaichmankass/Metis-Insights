@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 research tooling, no order path / strategy / risk / config change. Held for a human read only because the diff moves one research/queue unit (RQ-20260928-010, macro) into research/queue/blocked/ with a blocked_on clause; the landing guard never vouches for a non-stamp queue edit (R5). Code: dispatch_queue.config_problem() reports a unit that is deterministically doomed (placeholder 'NOT YET DECIDED' input, or run.inputs the workflow does not declare) as not_due instead of failing the whole dispatch run, and declared_inputs() now accepts a `.github/workflows/`-prefixed workflow path.",
+  "why": "Measured on research-queue-dispatch run 36798175014 (2026-10-01 00:50Z, the first fired cycle after #14886): 3 units dispatched, 40 deferred at the 3-in-flight cap, 1 dispatch_failed: RQ-20260928-010, HTTP 422 'Unexpected inputs provided: [label_trigger, note, power_state, research_unit]'. Its run.workflow was spelled `.github/workflows/macro-valuation-backfill.yml`, which made declared_inputs() return None and skip the undeclared-inputs preflight, and its fee_frac / carry_frac_per_day inputs read 'NOT YET DECIDED -- see design.cost_figure'. That one unit reddened the run ('Fail the job if grading reported a problem'), the same class RQ-20260928-001 was in before #14886. Under fair share the macro theme has usage 0 so this unit would have been first in line every cycle."
+}
