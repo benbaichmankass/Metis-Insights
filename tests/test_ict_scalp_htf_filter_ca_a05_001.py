@@ -87,7 +87,10 @@ def _capture_cfg(monkeypatch, name, vcfg, htf_frame):
     return captured, tfs
 
 
-@pytest.mark.parametrize("name", SEVEN_DEAD_FILTER_LEGS)
+SIX_WIRED_LEGS = tuple(n for n in SEVEN_DEAD_FILTER_LEGS if n != "ict_scalp_mgc_15m")
+
+
+@pytest.mark.parametrize("name", SIX_WIRED_LEGS)
 def test_variant_builder_fetches_htf_and_supplies_close_and_ema(monkeypatch, name):
     """CA-A05-001 fix: with the flag absent (unit default True) the builder
     fetches the HTF timeframe and hands htf_close/htf_ema to order_package."""
@@ -187,20 +190,45 @@ def test_htf_filter_active_flag_is_false_in_both_cases():
         assert pkg["meta"]["htf_filter_active"] is False
 
 
-@pytest.mark.parametrize("name", SEVEN_DEAD_FILTER_LEGS)
-def test_config_yaml_no_longer_declares_the_dead_flag(name):
-    """config/strategies.yaml itself: after this PR, none of the 7 legs may
-    carry htf_trend_filter_enabled — field beats comment, so this checks the
-    live file, not this test's own claim about it.
-    """
+@pytest.mark.parametrize("name", SIX_WIRED_LEGS)
+def test_config_yaml_leaves_the_flag_to_the_default_for_the_six_wired_legs(name):
+    """The 6 crypto legs that cleared the registered rule carry no explicit
+    flag: the unit default (True) now applies AND receives HTF data."""
     from src.units.strategies import load_strategy_config
 
-    cfg = load_strategy_config()
-    leg_cfg = cfg.get(name) or {}
-    assert "htf_trend_filter_enabled" not in leg_cfg, (
-        f"{name} still declares htf_trend_filter_enabled — CA-A05-001 / "
-        "JC-CA-02 removed it because the filter never runs for this leg"
-    )
+    leg_cfg = load_strategy_config().get(name) or {}
+    assert "htf_trend_filter_enabled" not in leg_cfg
+
+
+def test_mgc_15m_is_explicitly_off_and_skips_the_htf_fetch(monkeypatch):
+    """ict_scalp_mgc_15m was OUTSIDE the evidence population, so it is carved
+    out with an explicit false (manager review of #15340). Field beats
+    comment: read the live YAML, then prove the builder skips the HTF fetch
+    for that value."""
+    from src.units.strategies import load_strategy_config
+
+    leg_cfg = load_strategy_config().get("ict_scalp_mgc_15m") or {}
+    assert leg_cfg.get("htf_trend_filter_enabled") is False
+    cfg = _base_cfg("BTCUSDT", htf_trend_filter_enabled=leg_cfg["htf_trend_filter_enabled"])
+    cfg["htf_filter_timeframe"] = leg_cfg.get("htf_filter_timeframe", "1h")
+    captured, tfs = _capture_cfg(monkeypatch, "ict_scalp_mgc_15m", cfg, _htf_frame(110.0))
+    assert cfg["htf_filter_timeframe"] not in tfs
+    assert "htf_close" not in captured and "htf_ema" not in captured
+
+
+def test_htf_warning_is_rate_limited_per_leg(monkeypatch, caplog):
+    """A persistent HTF outage logs once per leg per hour, not once per tick."""
+    import logging
+
+    monkeypatch.setattr(ssb, "_htf_last_warned", {})
+    cfg = _base_cfg("BTCUSDT")
+    cfg.pop("htf_trend_filter_enabled", None)
+    cfg["htf_filter_timeframe"] = "1h"
+    with caplog.at_level(logging.WARNING, logger=ssb.logger.name):
+        for _ in range(3):
+            _capture_cfg(monkeypatch, "ict_scalp_sol_5m", cfg, None)
+    msgs = [r for r in caplog.records if "HTF fetch failed" in r.getMessage()]
+    assert len(msgs) == 1
 
 
 def test_base_ict_scalp_leg_keeps_the_flag_out_of_scope():

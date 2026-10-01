@@ -698,6 +698,24 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("ict_scalp_5m", sig)
 
 
+_HTF_WARN_INTERVAL_S = 3600.0
+_htf_last_warned: Dict[str, float] = {}
+
+
+def _htf_warn_due(name: str) -> bool:
+    """True at most once per leg per hour, so a persistent HTF outage does not
+    write one WARNING per tick per leg. The filter still degrades to no-gate on
+    every tick; only the log line is rate-limited."""
+    import time
+
+    now = time.monotonic()
+    last = _htf_last_warned.get(name)
+    if last is not None and now - last < _HTF_WARN_INTERVAL_S:
+        return False
+    _htf_last_warned[name] = now
+    return True
+
+
 def _fetch_htf_bias(
     name: str, symbol: str, cfg: Dict[str, Any], exchange: Any,
 ) -> "tuple[Optional[float], Optional[float]]":
@@ -734,16 +752,20 @@ def _fetch_htf_bias(
                 )
                 return htf_close, htf_ema
     except Exception as exc:  # noqa: BLE001 — degrade to no-gate
-        logger.warning(
-            "%s: HTF fetch failed for symbol=%s tf=%s: %s — "
-            "filter degrades to no-gate this tick",
-            name, symbol, htf_tf, exc,
-        )
+        if _htf_warn_due(name):
+            logger.warning(
+                "%s: HTF fetch failed for symbol=%s tf=%s: %s — "
+                "filter degrades to no-gate this tick (warning rate-limited "
+                "to once per hour per leg)",
+                name, symbol, htf_tf, exc,
+            )
         return None, None
-    logger.warning(
-        "%s: no usable HTF candles for symbol=%s tf=%s — filter degrades to "
-        "no-gate this tick", name, symbol, htf_tf,
-    )
+    if _htf_warn_due(name):
+        logger.warning(
+            "%s: no usable HTF candles for symbol=%s tf=%s — filter degrades "
+            "to no-gate this tick (warning rate-limited to once per hour per "
+            "leg)", name, symbol, htf_tf,
+        )
     return None, None
 
 
