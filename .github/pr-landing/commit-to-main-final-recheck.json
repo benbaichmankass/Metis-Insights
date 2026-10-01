@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "why": "CI-only fix in the shared commit-to-main action: one bounded final re-check (PR state, then main paths) before the verify-merged wait reports failure, after run 36910217777 failed on a stamp PR that merged 13 s past expiry. It edits landing machinery, so R12 requires a human read. No timeout change, no change to which checks run, no runtime/order-path/config change.",
+  "hold_text": "Edits the shared commit-to-main action (landing machinery); a human should read the one-shot final re-check once before it merges."
+}
