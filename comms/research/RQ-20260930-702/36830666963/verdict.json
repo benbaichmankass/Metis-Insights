@@ -1,0 +1,149 @@
+{
+  "verdict": "fail",
+  "read_state": "measured",
+  "population": "trend_donchian_* crypto legs, newest committed ledger each, de-duplicated by (symbol, entry hour, direction): 10 legs -> 500 pooled trades; skipped 0; rv20/er20 daily features (E38)",
+  "n": 500,
+  "measurement": {
+    "n": 500,
+    "n_by_symbol": {
+      "ETHUSDT": 217,
+      "SOLUSDT": 98,
+      "BTCUSDT": 73,
+      "AVAXUSDT": 50,
+      "ADAUSDT": 46,
+      "XRPUSDT": 16
+    },
+    "alpha_corrected": 0.025,
+    "min_detectable_abs_rho": 0.1,
+    "trade_level": {
+      "rv20": {
+        "rho": 0.0046,
+        "p_iid": 0.91681,
+        "p_circular": 0.92421
+      },
+      "er20": {
+        "rho": 0.0171,
+        "p_iid": 0.70273,
+        "p_circular": 0.71333
+      }
+    },
+    "walk_forward": {
+      "rv20": {
+        "feature": "rv20",
+        "folds": [
+          {
+            "fold": 1,
+            "evaluated": true,
+            "train_n": 125,
+            "train_rho": -0.126,
+            "threshold": 0.68,
+            "on_side": "<",
+            "test_n": 125,
+            "on_n": 66,
+            "gated_net_r": 17.7726,
+            "ungated_net_r": 14.585,
+            "improvement_r": 3.1876
+          },
+          {
+            "fold": 2,
+            "evaluated": true,
+            "train_n": 250,
+            "train_rho": -0.0219,
+            "threshold": 0.669718,
+            "on_side": "<",
+            "test_n": 125,
+            "on_n": 104,
+            "gated_net_r": -19.5803,
+            "ungated_net_r": -19.7374,
+            "improvement_r": 0.1571
+          },
+          {
+            "fold": 3,
+            "evaluated": true,
+            "train_n": 375,
+            "train_rho": 0.0334,
+            "threshold": 0.571429,
+            "on_side": ">=",
+            "test_n": 125,
+            "on_n": 29,
+            "gated_net_r": -17.2594,
+            "ungated_net_r": 10.7796,
+            "improvement_r": -28.039
+          }
+        ],
+        "n_evaluated": 3,
+        "sum_improvement_r": -24.6943,
+        "folds_improved": 2,
+        "sum_gated_net_r": -19.0671,
+        "sum_ungated_net_r": 5.6272,
+        "pass": false
+      },
+      "er20": {
+        "feature": "er20",
+        "folds": [
+          {
+            "fold": 1,
+            "evaluated": true,
+            "train_n": 125,
+            "train_rho": -0.0034,
+            "threshold": 0.534247,
+            "on_side": "<",
+            "test_n": 125,
+            "on_n": 59,
+            "gated_net_r": -3.4852,
+            "ungated_net_r": 14.585,
+            "improvement_r": -18.0702
+          },
+          {
+            "fold": 2,
+            "evaluated": true,
+            "train_n": 250,
+            "train_rho": -0.0049,
+            "threshold": 0.545933,
+            "on_side": "<",
+            "test_n": 125,
+            "on_n": 66,
+            "gated_net_r": -22.7766,
+            "ungated_net_r": -19.7374,
+            "improvement_r": -3.0392
+          },
+          {
+            "fold": 3,
+            "evaluated": true,
+            "train_n": 375,
+            "train_rho": 0.0682,
+            "threshold": 0.535714,
+            "on_side": ">=",
+            "test_n": 125,
+            "on_n": 47,
+            "gated_net_r": -21.2284,
+            "ungated_net_r": 10.7796,
+            "improvement_r": -32.008
+          }
+        ],
+        "n_evaluated": 3,
+        "sum_improvement_r": -53.1174,
+        "folds_improved": 0,
+        "sum_gated_net_r": -47.4902,
+        "sum_ungated_net_r": 5.6272,
+        "pass": false
+      }
+    },
+    "label": "no_regime_signal",
+    "skipped": {},
+    "legs": [
+      "trend_donchian",
+      "trend_donchian_ada_4h",
+      "trend_donchian_avax_4h",
+      "trend_donchian_eth",
+      "trend_donchian_eth_4h",
+      "trend_donchian_eth_prop",
+      "trend_donchian_sol",
+      "trend_donchian_sol_4h",
+      "trend_donchian_sol_prop",
+      "trend_donchian_xrp_4h"
+    ],
+    "dedup_removed": 164
+  },
+  "note": "no_regime_signal; MDE |rho| 0.1 at alpha 0.025. Feature-level regime dependence of trend_donchian pooled; NOT a cell-authoring case (walk-forward on the real cell is a separate Tier-3 gate)."
+}
