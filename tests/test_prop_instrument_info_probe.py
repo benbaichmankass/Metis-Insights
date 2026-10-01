@@ -905,3 +905,48 @@ def test_any_refused_resolve_records_row_shapes_click_free(browser):
     diag = got["watchlist_dump"]["row_diag"]
     assert diag[0]["th"] == ["symbol", "bid", "ask"]
     assert diag[0]["rows"][0] == [4, 1, "ETH/USD"]
+
+
+# ── manager review of #15101 (BLOCK) ──────────────────────────────────────
+
+POSITIONS_ROW = ('<tr class="instrument"><td>358201947</td><td>25</td><td>ETHUSD</td>'
+                 '<td>100.1</td></tr>')
+
+
+def test_review_row_diag_never_prints_an_id_or_a_trade_widgets_rows(browser):
+    # the watchlist rows mismatch their headers -> a refusal -> the dump runs
+    base = slashed(page_html()).replace('<td class="sym">', '<td>x</td><td class="sym">')
+    in_widget = ('<div class="widgetNew__container"><button data-test-id="widget_menu_POSITIONS">P</button>'
+                 f'<table><tbody>{POSITIONS_ROW}</tbody></table></div>')
+    loose = f'<div class="loose"><table><tbody>{POSITIONS_ROW}</tbody></table></div>'
+    html = base.replace("</body>", in_widget + loose + "</body>")
+    got, st = run(browser, html, symbols=("ETHUSD",), click=False)
+    diag = got["watchlist_dump"]["row_diag"]
+    blob = json.dumps(diag)
+    assert "358201947" not in blob and "358" not in blob
+    assert len(diag) == 2                                   # watchlist + the container-less table only
+    assert diag[1]["rows"] == [[4, 2, "ETHUSD"]]            # a letter is required: the id cell is skipped
+    assert st["clicks"] == []
+
+
+def test_review_row_diag_masks_digit_runs_in_a_symbol_like_cell(browser):
+    base = slashed(page_html()).replace('<td class="sym">', '<td>x</td><td class="sym">')
+    html = base.replace("</body>", '<div class="loose"><table><tbody><tr class="instrument">'
+                                   '<td>AB12345</td></tr></tbody></table></div></body>')
+    got, _ = run(browser, html, symbols=("ETHUSD",), click=False)
+    assert got["watchlist_dump"]["row_diag"][-1]["rows"] == [[1, 0, "AB#####"]]
+
+
+def test_review_quote_refuses_an_empty_canonical_and_a_second_distinct_row():
+    from src.prop.platform.dxtrade import quote_from_tables
+
+    hdr = ["Symbol", "Bid", "Ask"]
+    assert quote_from_tables([{"headers": hdr, "rows": [["Ethereum vs US dollar", "100.1", "100.2"]]}],
+                             "XAU/USD/X") is None
+    two = [["ETH/USD", "100.1", "100.2"], ["ETHUSD", "100.1", "100.2"]]
+    assert quote_from_tables([{"headers": hdr, "rows": two}], "ETHUSD") is None
+    same = [{"headers": hdr, "rows": [["ETH/USD", "100.1", "100.2"]]},
+            {"headers": hdr, "rows": [["ETH/USD", "100.1", "100.2"]]}]   # one row read twice
+    assert quote_from_tables(same, "ETHUSD") == {"bid": 100.1, "ask": 100.2}
+    assert quote_from_tables([{"headers": hdr, "rows": [["ETHUSD", "100.1", "100.2"]]}],
+                             "ETHUSD") == {"bid": 100.1, "ask": 100.2}

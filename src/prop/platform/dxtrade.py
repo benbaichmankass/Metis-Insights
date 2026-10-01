@@ -2644,14 +2644,26 @@ WATCHLIST_DUMP_JS = r"""
   // accepted rows): per table holding instrument rows, each of its first 12
   // rows' td count and its first symbol-like cell (index + text; public
   // instrument names only, e.g. "ETH/USD" -- no price, no other cell).
-  const symLike = /^[A-Z0-9]{2,10}(\/[A-Z0-9]{2,10})?$/i;
+  // A symbol-like cell must hold a LETTER and is digit-masked like every other
+  // dump field; a table whose widget holds an Orders / Positions menu is never
+  // read (manager review of #15101: an id-shaped Positions cell leaked).
+  const symLike = /^(?=.*[A-Z])[A-Z0-9]{2,10}(\/[A-Z0-9]{2,10})?$/i;
+  const dmask = s => s.replace(/\d{3,}/g, m => '#'.repeat(m.length));
+  const tradeScoped = t => {
+    for (let e = t.parentElement, k = 0; e && e !== document.body && k < 12; e = e.parentElement, k++) {
+      const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+      if (cls.some(c => /^widget(New)?__container/.test(c)))
+        return !!e.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]');
+    }
+    return false;
+  };
   const row_diag = allT.map((t, i) => ({i, t, th: [...t.querySelectorAll('thead th, tr:first-child th')]
       .filter(h => h.closest('table') === t).map(h => w(txt(h))).slice(0, 14)}))
-    .filter(({t}) => t.querySelector('tr.instrument, tr[data-row-id]')).slice(0, 6).map(({i, t, th}) => ({
+    .filter(({t}) => t.querySelector('tr.instrument, tr[data-row-id]') && !tradeScoped(t)).slice(0, 6).map(({i, t, th}) => ({
       table: i, th, rows: [...t.querySelectorAll('tr.instrument, tr[data-row-id]')].slice(0, 12).map(r => {
         const tds = [...r.querySelectorAll('td')].filter(c => c.closest('tr') === r);
         const k = tds.findIndex(c => symLike.test(txt(c)));
-        return [tds.length, k, k >= 0 ? txt(tds[k]).toUpperCase() : null];
+        return [tds.length, k, k >= 0 ? dmask(txt(tds[k]).toUpperCase()) : null];
       })}));
   return {
     columns, header_less, row_diag,
@@ -3221,7 +3233,18 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
     of a headed table can now come from a paired header-less body table
     (EXTRACT_TABLES_JS): a row must have exactly as many cells as there are
     headers, 0 < bid <= ask, and the spread must be under
-    :data:`MAX_QUOTE_SPREAD_FRAC`; otherwise the row is not a quote."""
+    :data:`MAX_QUOTE_SPREAD_FRAC`; otherwise the row is not a quote.
+
+    The symbol cell is compared through :func:`canonical_symbol`; a venue
+    symbol with no canonical form is None (an empty canonical never matches
+    an empty one), and EXACTLY ONE distinct matching row is required --
+    ``ETH/USD`` and ``ETHUSD`` both present refuse rather than take the first
+    (manager review of #15101). The same row read twice (a table that is
+    also a role=grid) is one distinct row."""
+    want = canonical_symbol(venue_symbol)
+    if not want:
+        return None
+    hits: Dict[Tuple[str, ...], Tuple[int, int, int]] = {}
     for t in tables:
         headers = list(t.get("headers") or [])
         norm = [_norm(h) for h in headers]
@@ -3231,11 +3254,15 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
         for row in t.get("rows") or []:
             if len(row) != len(headers):
                 continue
-            if canonical_symbol(_cell(row, c_sym)) == canonical_symbol(venue_symbol):
-                bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
-                if (bid is not None and ask is not None and 0 < bid <= ask
-                        and (ask - bid) / ask <= MAX_QUOTE_SPREAD_FRAC):
-                    return {"bid": bid, "ask": ask}
+            if canonical_symbol(_cell(row, c_sym)) == want:
+                hits.setdefault(tuple(str(c) for c in row), (c_sym, c_bid, c_ask))
+    if len(hits) != 1:
+        return None
+    (row, (c_sym, c_bid, c_ask)), = hits.items()
+    bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
+    if (bid is not None and ask is not None and 0 < bid <= ask
+            and (ask - bid) / ask <= MAX_QUOTE_SPREAD_FRAC):
+        return {"bid": bid, "ask": ask}
     return None
 
 
