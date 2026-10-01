@@ -96,3 +96,31 @@ def test_policy_cell_legs_reads_real_policy():
     keys = R.policy_cell_legs()
     assert "trend_donchian" in keys and "gld_pullback_1h" in keys
     assert "trend_donchian_eth_4h" not in keys   # an uncovered live leg
+
+
+def test_default_selection_is_the_701_rule_and_conservative_selects_fewer():
+    assert R.SELECTION == {"min_cell_n": 8, "loss_se": 0.0}
+    rng = np.random.default_rng(5)
+    n = 200
+    lab = rng.integers(0, 3, n)
+    direction = np.where(rng.random(n) < 0.5, "long", "short")
+    net = rng.normal(-0.02, 1.0, n)            # barely negative everywhere: noise, not a loss
+    cell = R.cell_ids(lab, direction)
+    train = np.arange(0, 150)
+    loose = R.select_cells(cell, net, train)
+    try:
+        R.SELECTION.update(min_cell_n=20, loss_se=1.0)
+        strict = R.select_cells(cell, net, train)
+    finally:
+        R.SELECTION.update(min_cell_n=8, loss_se=0.0)
+    assert len(strict) <= len(loose) and set(strict) <= set(loose)
+
+
+def test_conservative_selection_keeps_a_real_planted_loss():
+    legs = {f"l{i}": _leg(seed=i) for i in range(8)}      # planted trending+long loss of -0.8 R
+    try:
+        R.SELECTION.update(min_cell_n=20, loss_se=1.0)
+        out = R.scope(legs, seeds=200)["results"]["ordinal"]
+    finally:
+        R.SELECTION.update(min_cell_n=8, loss_se=0.0)
+    assert out["oracle"]["pooled_delta_r"]["mean"] > 3

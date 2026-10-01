@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 research only. Adds one NEW queue unit (RQ-20260930-703, queued) and one NEW BLOCKED unit (research/queue/blocked/RQ-20260930-704.yaml), which the landing guard never vouches for beyond a dispatch stamp (R5); each carries a decision_rule registered_before_run and says it is a scoping instrument, not a promotion case. Also a parameter change to scripts/research/regime_impact_scoping.py (--min-cell-n, --loss-se; defaults reproduce RQ-20260930-701 exactly, tested) with tests, and one pipeline update on PI-20261001-1MX1RCZS-0002. No src/, config/, workflow, order-path, strategy, sizing or risk change.",
+  "why": "Manager decision 2026-10-01 16:24Z: register both next regime units. 703 re-runs 701 with a conservative selection rule to separate 'the rule over-gates' from 'the axis has no headroom'. 704 is the VOL-axis scoping unit; the feasibility check found the live vol label (advisory head P(volatile) per symbol) is registry-resident, not in the repo, so 704 is a trainer-VM unit parked as blocked with a stated unblock path."
+}
