@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's merge (TRADEIFY-WIRE T4). Tier-2: open_order_ticket's LAST fallback on the live VM -- a navigation click on a workspace tab's name, reached only when every existing opener failed (breakout_1 never reaches it). No order control, no submit.",
+  "why": "probe-ticket #15217 measured tradeify_1's session on workspace 'My Trading Account', which has NO New Order panel (no BUY/SELL anywhere), so no opener can produce a ticket. The opener now switches to the workspace tab that shows an order form (clicking only the tab's NAME span, never its delete control) or restores the original workspace; probe-ticket reports the workspaces tried."
+}

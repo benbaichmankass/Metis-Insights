@@ -477,6 +477,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/web-automations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/IDEAS.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/LANE-WATCHDOG-PROMPT.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/work/MANAGER-HANDOFF-2026-10-01.md` | history | historical | — | 2026-10-01 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
 | `docs/claude/work/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/findings/E18-starved-triage-post-E35-20260926.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/triage-2026-09-28.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
