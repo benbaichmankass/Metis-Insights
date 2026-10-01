@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier 2: widens the broker-flat safety gate of an operator-gated money-DB writeback action (close-stranded-journal-row), narrowly. Approval is sought from the manager, who relayed the operator's decision to keep alpaca_paper (~14:59Z 2026-09-30, recorded verbatim in PI-20260930-3QNHBGND-0001). The manager reviews and merges.",
+  "why": "The operator kept alpaca_paper instead of resetting it. So SPY never reads flat while row 4347 holds 11 shares, and row 6131, already stopped out at the venue on 2026-09-29 @ 763.70 (order 9fe49151), can never close through the broker-flat gate. This lets a row close with row: + exit_kind: only when the OTHER open rows exactly account for the live broker position (same side, summed size == broker size). Any mismatch is still refused_position_open. Without row + exit_kind the gate is unchanged. No order path, strategy, risk or mode change."
+}
