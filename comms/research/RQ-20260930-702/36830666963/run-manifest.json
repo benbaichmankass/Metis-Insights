@@ -1,0 +1,22 @@
+{
+  "unit": "RQ-20260930-702",
+  "run_id": "36830666963",
+  "commit_sha": "9ef32962c5fdf9a89348dacc4e2399df9068d7d9",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36830666963",
+  "timeout_minutes": 60,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/e38_pooled_trend_donchian.py",
+        "--out",
+        "comms/research/RQ-20260930-702/36830666963"
+      ],
+      "log": "comms/research/RQ-20260930-702/36830666963/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 59.9
+    }
+  ],
+  "all_ok": true
+}
