@@ -39,7 +39,8 @@ def switch(browser, html, target):  # noqa: F811
 def test_switches_the_linked_symbol_with_one_verified_symbol_cell_click(browser):  # noqa: F811
     got, st = switch(browser, page_html(), "ETHUSD")
     assert got == {"target": "ETHUSD", "ok": True, "clicked": True, "before": "SOLUSD", "after": "ETHUSD",
-                   "one_click": {"state": "off", "via": "data-value+knob"}}
+                   "one_click": {"state": "off", "via": "data-value+knob"}, "attempts": 1, "route": "watchlist",
+                   "ready": {"waited_ms": 0, "polls": 1, "watchlist_n": 4}, "verify_waited_ms": 50}
     assert st["clicks"] == ["sym"] and st["linked"] == "ETHUSD" and st["tags"] == 0
     never_traded(st)                                   # no Bid/Ask, no double-click ticket
 
@@ -380,3 +381,171 @@ def test_the_tick_maps_link_state_dump_to_its_own_read_only_mode():
                               link_state_dump=True, dry_run=False, watched_click=False, round_trip="",
                               close_position="", live=False, account="breakout_1")
     assert tick.resolve_mode(args, {"PROP_EXECUTOR_MODE": "live"}) == "link_state_dump"
+
+
+# ── robust switch (operator directive 2026-10-01 06:13Z: "there's no way that
+# we are unable to switch between symbols"). Live #15022 clicked SOLUSD and the
+# link stayed ETHUSD; the 05:28Z dump (#15046) read the watchlist with ZERO
+# rows. The switch now waits for rows, polls the link instead of one fixed
+# settle, retries a click that did not take (one-click OFF re-read before
+# EVERY click), and falls back to the toolbar symbol box. ──────────────────
+
+# Rows rendered late: the SAME row nodes (listeners intact) re-attached later.
+LATE_ROWS_JS = """ms => { const tb = document.querySelector('tbody'); const rows = [...tb.children];
+  rows.forEach(r => r.remove()); setTimeout(() => rows.forEach(r => tb.appendChild(r)), ms); }"""
+# The first click on <sym>'s row never reaches the cell (a click that did not take).
+SWALLOW_FIRST_JS = """sym => { const tr = [...document.querySelectorAll('tr.instrument')]
+  .find(r => r.querySelector('td.sym').firstChild.textContent.trim() === sym); let n = 0;
+  tr.addEventListener('click', e => { if (n++ === 0) e.stopPropagation(); }, true); }"""
+# The link follows the click only after ``ms`` (an async terminal).
+LATE_LINK_JS = """([sym, ms]) => { const tr = [...document.querySelectorAll('tr.instrument')]
+  .find(r => r.querySelector('td.sym').firstChild.textContent.trim() === sym);
+  tr.addEventListener('click', e => { e.stopPropagation();
+    setTimeout(() => { document.querySelector('[data-test-id=symbol_input]').value = sym; }, ms); }, true); }"""
+# A toolbar symbol box with a suggestion list: typing lists matches as
+# li[role=option]; clicking one COMMITS it; blur shows the committed symbol
+# (an uncommitted typed value never survives blur). ``dialog`` also opens a dialog.
+SUGGEST_BOX_JS = """dialog => { const box = document.querySelector('[data-test-id=symbol_input]');
+  window.__committed = box.value;
+  box.addEventListener('input', () => {
+    document.querySelectorAll('.suggest').forEach(e => e.remove());
+    const v = box.value.toUpperCase(); if (!v) return;
+    const ul = document.createElement('ul'); ul.className = 'suggest';
+    for (const s of ['ETHUSD', 'SOLUSD', 'BTCUSD', 'AVAXUSD'].filter(s => s.startsWith(v.slice(0, 3)))) {
+      const li = document.createElement('li'); li.setAttribute('role', 'option');
+      li.innerHTML = '<span>' + s + '</span>';
+      li.addEventListener('click', () => { window.__committed = s; box.value = s; ul.remove(); });
+      ul.appendChild(li);
+    }
+    document.body.appendChild(ul);
+    if (dialog) { const d = document.createElement('div'); d.setAttribute('role', 'dialog');
+      d.textContent = 'Confirm?'; d.style.cssText = 'width:200px;height:100px'; document.body.appendChild(d); }
+  });
+  box.addEventListener('blur', () => { box.value = window.__committed; }); }"""
+
+
+def fast_adapter():
+    a = DXtradeAdapter(timeout_ms=3_000)
+    a.SWITCH_READY_MS, a.SWITCH_VERIFY_MS, a.SWITCH_POLL_MS = 3_000, 600, 50
+    return a
+
+
+def robust(browser, html, target, *setup):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(html)
+    for js, arg in setup:
+        p.evaluate(js, arg)
+    got = fast_adapter().select_linked_symbol(p, target, settle_ms=50)
+    st = state(p)
+    st["keys"] = p.evaluate("window.__keys || []")
+    p.close()
+    return got, st
+
+
+def test_robust_waits_for_watchlist_rows_that_render_late(browser):  # noqa: F811
+    got, st = robust(browser, page_html(), "ETHUSD", (LATE_ROWS_JS, 700))
+    assert got["ok"] is True and got["route"] == "watchlist" and got["attempts"] == 1
+    assert got["ready"]["waited_ms"] >= 500 and got["ready"]["watchlist_n"] == 4
+    assert st["clicks"] == ["sym"] and st["linked"] == "ETHUSD" and st["tags"] == 0
+    never_traded(st)
+
+
+def test_robust_retries_a_click_that_did_not_take(browser):  # noqa: F811
+    got, st = robust(browser, page_html(), "ETHUSD", (SWALLOW_FIRST_JS, "ETHUSD"))
+    assert got["ok"] is True and got["route"] == "watchlist" and got["attempts"] == 2
+    assert st["clicks"] == ["sym", "sym"] and st["linked"] == "ETHUSD"
+    never_traded(st)
+
+
+def test_robust_polls_a_link_that_follows_late_and_clicks_once(browser):  # noqa: F811
+    got, st = robust(browser, page_html(), "ETHUSD", (LATE_LINK_JS, ["ETHUSD", 400]))
+    assert got["ok"] is True and got["attempts"] == 1 and got["verify_waited_ms"] >= 350
+    assert st["clicks"] == ["sym"]                       # verified by polling, never re-clicked
+    never_traded(st)
+
+
+def test_robust_stops_after_the_bounded_attempts_then_tries_the_toolbar(browser):  # noqa: F811
+    got, st = robust(browser, page_html(link_breaks_for="ETHUSD"), "ETHUSD")
+    assert got["ok"] is False and got["attempts"] == 3 and st["clicks"] == ["sym", "sym", "sym"]
+    tb = got["toolbar"]
+    assert tb["attempted"] and tb["suggest"]["n_candidates"] == 0 and "need exactly 1" in tb["why"]
+    assert tb["box_reset"] is True and st["linked"] == "SOLUSD" and "Escape" in st["keys"]
+    assert "linked symbol reads 'SOLUSD' after selecting ETHUSD" in got["why"]
+    never_traded(st)
+
+
+def test_robust_toolbar_route_selects_the_one_exact_suggestion(browser):  # noqa: F811
+    got, st = robust(browser, page_html(link_breaks_for="ETHUSD"), "ETHUSD", (SUGGEST_BOX_JS, False))
+    assert got["ok"] is True and got["route"] == "toolbar" and got["after"] == "ETHUSD"
+    assert got["toolbar"]["suggest"]["n_candidates"] == 1 and got["toolbar"]["clicked"] is True
+    assert st["clicks"] == ["sym", "sym", "sym", "LI"] and st["linked"] == "ETHUSD" and st["tags"] == 0
+    never_traded(st)
+
+
+def test_robust_toolbar_route_never_takes_a_match_inside_an_order_panel(browser):  # noqa: F811
+    got, st = robust(browser, page_html(link_breaks_for="ETHUSD", outside_table=TICKET), "ETHUSD")
+    assert got["ok"] is False and got["toolbar"]["suggest"]["n_candidates"] == 0
+    assert "BUY" not in st["clicks"] and "SELL" not in st["clicks"] and st["linked"] == "SOLUSD"
+    never_traded(st)
+
+
+def test_robust_toolbar_route_stops_on_a_dialog_without_clicking_a_suggestion(browser):  # noqa: F811
+    got, st = robust(browser, page_html(link_breaks_for="ETHUSD"), "ETHUSD", (SUGGEST_BOX_JS, True))
+    assert got["ok"] is False and "dialog(s) open after typing ETHUSD" in got["toolbar"]["why"]
+    assert "LI" not in st["clicks"] and st["linked"] == "SOLUSD"
+    never_traded(st)
+
+
+def test_robust_an_empty_watchlist_goes_straight_to_the_toolbar_without_a_cell_click(browser):  # noqa: F811
+    got, st = robust(browser, page_html(), "ETHUSD", (LATE_ROWS_JS, 60_000), (SUGGEST_BOX_JS, False))
+    assert got["ok"] is True and got["route"] == "toolbar" and got["attempts"] == 0
+    assert got["ready"]["watchlist_n"] == 0 and got["ready"]["waited_ms"] >= 3_000
+    assert "sym" not in st["clicks"] and st["linked"] == "ETHUSD"
+    never_traded(st)
+
+
+def test_robust_one_click_on_refuses_both_routes_before_any_click(browser):  # noqa: F811
+    got, st = robust(browser, page_html(one_click="checked", link_breaks_for="ETHUSD"), "ETHUSD",
+                     (SUGGEST_BOX_JS, False))
+    assert got["ok"] is False and "one-click not confirmed OFF" in got["why"]
+    assert st["clicks"] == [] and st["linked"] == "SOLUSD"
+    never_traded(st)
+
+
+def test_link_state_dump_waits_for_rows_that_render_late(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate(LATE_ROWS_JS, 1_200)
+    got = fast_adapter().link_state_dump(p)
+    st = state(p)
+    p.close()
+    assert [r["sym"] for r in got["rows"]] == ["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]
+    assert got["rows_waited_ms"] >= 1_000 and got["polls"] >= 3
+    assert st["clicks"] == [] and st["tags"] == 0
+
+
+def test_link_state_dump_records_the_full_wait_when_rows_never_render(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate(LATE_ROWS_JS, 60_000)
+    got = fast_adapter().link_state_dump(p)
+    p.close()
+    assert got["rows"] == [] and got["rows_waited_ms"] >= 3_000
+
+
+def test_link_state_dump_table_diag_explains_rows_the_filter_rejects(browser):  # noqa: F811
+    # A watchlist that grew a 4th <td> per row without a 4th header: every
+    # row is rejected by the td-count filter (rows == []); the diag says why.
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate("() => document.querySelectorAll('tr.instrument').forEach(r => r.appendChild(document.createElement('td')))")
+    a = fast_adapter()
+    a.SWITCH_READY_MS = 0
+    got = a.link_state_dump(p)
+    st = state(p)
+    p.close()
+    (d,) = got["table_diag"]
+    assert got["rows"] == [] and d["headers"] == ["symbol", "bid", "ask"]
+    assert d["n_tr"] == 5 and d["n_tr_selector"] == 4 and d["td_count_hist"] == {"0": 1, "4": 4}
+    assert [r["sym"] for r in d["sample"][1:]] == ["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]
+    assert st["clicks"] == [] and st["tags"] == 0

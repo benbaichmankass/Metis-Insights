@@ -2600,6 +2600,29 @@ LINK_STATE_DUMP_JS = r"""
     if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
   }
   out.n_watchlist_tables = wl.length;
+  // Why rows may not match (#15046 / #15064 read the table with ZERO rows):
+  // the raw shape of every Symbol/Bid/Ask table -- its header texts, how many
+  // <tr> it holds, how many match the row selector, a td-count histogram, and
+  // up to 8 rows' masked class tokens, td count and (only when it is
+  // symbol-shaped) the text under the Symbol header. Plus the [role=row]
+  // count in the table's own widget, in case the rows moved to a grid.
+  out.table_diag = wl.map(({t, hs}) => {
+    const trs = [...t.querySelectorAll('tr')].filter(r => r.closest('table') === t);
+    const si = hs.indexOf('symbol'), hist = {};
+    for (const r of trs) { const n = r.querySelectorAll('td').length; hist[n] = (hist[n] || 0) + 1; }
+    let scope = t;
+    for (let e = t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+      if (cls(e).some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    }
+    return {headers: hs.map(h => m(h).slice(0, 24)), n_tr: trs.length,
+            n_tr_selector: trs.filter(r => r.matches('tr.instrument, tr[data-row-id]')).length,
+            td_count_hist: hist, n_role_row_in_widget: scope.querySelectorAll('[role=row]').length,
+            sample: trs.slice(0, 8).map(r => { const tds = [...r.querySelectorAll('td')];
+              const sv = si >= 0 && tds[si] ? txt(tds[si]).toUpperCase() : '';
+              return {cls: cls(r), n_td: tds.length, n_th: r.querySelectorAll('th').length,
+                      selector: r.matches('tr.instrument, tr[data-row-id]'),
+                      sym: /^[A-Z0-9]{2,15}$/.test(sv) ? sv : (sv ? `<${sv.length} chars>` : '')}; })};
+  });
   const syms = [];
   if (wl.length === 1) {
     const hs = wl[0].hs, si = hs.indexOf('symbol');
@@ -2647,6 +2670,55 @@ LINK_STATE_DUMP_JS = r"""
 # Remember every element that exists now (a WeakSet on window -- no DOM
 # attribute) so the panel can be identified as NEW after the info click.
 # Returns the number of visible dialogs.
+# TOOLBAR ROUTE of the symbol switch (PROP-ETH-DOM, operator directive
+# 2026-10-01 06:13Z "there's no way that we are unable to switch between
+# symbols"): after the linked ``symbol_input`` (tagged ``data-metis-sym-input``
+# by INFO_PROBE_RESOLVE_JS) is filled with the target, find the suggestion the
+# terminal offers for it. A candidate is a VISIBLE element whose own trimmed
+# text equals the target exactly, that is not the input itself, not inside any
+# BUY+SELL panel and not inside the watchlist table (a watchlist cell is the
+# other route); a leaf is lifted to its nearest [role=option] / li ancestor.
+# Exactly one distinct candidate is tagged ``data-metis-suggest``; otherwise
+# nothing is tagged and up to 6 masked descriptors are returned so the live
+# shape can be measured. UNMEASURED on the live terminal until a run records it.
+SYMBOL_SUGGEST_JS = r"""
+([target]) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+  const cls = el => (typeof el.className === 'string' ? el.className.split(/\s+/) : [])
+                      .filter(Boolean).slice(0, 6).map(c => c.replace(/\d/g, '#'));
+  document.querySelectorAll('[data-metis-suggest]').forEach(e => e.removeAttribute('data-metis-suggest'));
+  const want = String(target || '').toUpperCase();
+  const input = document.querySelector('[data-metis-sym-input]');
+  const orderPanels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]')) {
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]')) { orderPanels.push(e); break; }
+    }
+  }
+  const wlTables = [...document.querySelectorAll('table')].filter(t => {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    return hs.includes('symbol') && hs.includes('bid') && hs.includes('ask');
+  });
+  const excluded = el => el === input || (input && input.contains(el))
+    || orderPanels.some(p => p.contains(el)) || wlTables.some(t => t.contains(el));
+  const found = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.children.length !== 0 || txt(el).toUpperCase() !== want || !vis(el) || excluded(el)) continue;
+    const opt = el.closest('[role=option], li') || el;
+    if (!excluded(opt) && !found.includes(opt)) found.push(opt);
+  }
+  const out = {n_candidates: found.length, dialogs: [...document.querySelectorAll(
+    '[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length,
+    candidates: found.slice(0, 6).map(e => ({tag: e.tagName.toLowerCase(), cls: cls(e),
+                                             role: e.getAttribute('role') || ''}))};
+  if (found.length === 1) found[0].setAttribute('data-metis-suggest', '1');
+  return out;
+}
+"""
+
 INFO_PROBE_SNAPSHOT_JS = r"""
 () => {
   window.__metisPre = new WeakSet(document.querySelectorAll('*'));
@@ -2905,7 +2977,7 @@ INFO_PROBE_PANEL_GONE_JS = r"""
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input',
-                   'data-metis-info-panel', 'data-metis-close'])
+                   'data-metis-info-panel', 'data-metis-close', 'data-metis-suggest'])
     document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a));
   try { delete window.__metisPre; } catch (e) {}
 }
@@ -4148,30 +4220,176 @@ class DXtradeAdapter(PropPlatformAdapter):
 
     def link_state_dump(self, page: Any) -> Dict[str, Any]:
         """READ-ONLY (LINK_STATE_DUMP_JS): watchlist rows with the element hit at each Symbol cell's
-        centre, every symbol_input, and the sidebar ticket's buttons. Clicks nothing."""
+        centre, every symbol_input, and the sidebar ticket's buttons. Clicks nothing.
+
+        Polls (read-only) until the watchlist table shows rows, up to
+        SWITCH_READY_MS, and records ``rows_waited_ms`` / ``polls`` -- the
+        05:28Z run (#15046) read the table with zero rows once and could not
+        tell "slow to render" from "gone" (manager go 2026-10-01 06:12Z)."""
         try:
-            return page.evaluate(LINK_STATE_DUMP_JS) or {"error": "no result"}
+            waited, polls = 0, 0
+            while True:
+                got = page.evaluate(LINK_STATE_DUMP_JS) or {"error": "no result"}
+                polls += 1
+                if "error" in got or got.get("rows") or waited >= self.SWITCH_READY_MS:
+                    got.update(rows_waited_ms=waited, polls=polls)
+                    return got
+                page.wait_for_timeout(500)
+                waited += 500
         except Exception as exc:
             return {"error": f"{type(exc).__name__} (code=link_state_dump_exception)"}
+
+    #: Symbol-switch bounds (PROP-ETH-DOM, operator directive 2026-10-01
+    #: 06:13Z). Live #15022 clicked SOLUSD's Symbol cell and the link stayed
+    #: ETHUSD; the 05:28Z dump (#15046) found the watchlist table with ZERO
+    #: rows -- a race against a terminal still rendering is the working
+    #: hypothesis, so the switch waits for rows, verifies by polling instead of
+    #: one fixed settle, retries a click that did not take, and falls back to
+    #: the toolbar symbol box. Instance-overridable (tests shorten them).
+    SWITCH_READY_MS = 15_000
+    SWITCH_VERIFY_MS = 5_000
+    SWITCH_POLL_MS = 250
+    SWITCH_CLICK_ATTEMPTS = 3
+
+    def _resolve_link(self, page: Any, targets: Sequence[str]) -> Dict[str, Any]:
+        """INFO_PROBE_RESOLVE_JS (clicks nothing; tags the targets' clean
+        Symbol cells and the linked input). Never raises."""
+        try:
+            return page.evaluate(INFO_PROBE_RESOLVE_JS, [list(targets)]) or {}
+        except Exception as exc:
+            return {"ok": False, "why": f"{type(exc).__name__} (code=resolve_exception)"}
+
+    def _wait_watchlist_rows(self, page: Any, target: str) -> Dict[str, Any]:
+        """Poll the click-free resolve until the watchlist has rows (or the
+        link already reads ``target``), up to SWITCH_READY_MS. Returns the
+        last resolve with ``ready_waited_ms`` / ``ready_polls`` recorded."""
+        waited, polls = 0, 0
+        while True:
+            res = self._resolve_link(page, [target])
+            polls += 1
+            if (res.get("ok") and (res.get("watchlist") or res.get("linked_symbol") == target)) \
+                    or res.get("dialogs") or waited >= self.SWITCH_READY_MS:
+                res.update(ready_waited_ms=waited, ready_polls=polls)
+                return res
+            page.wait_for_timeout(self.SWITCH_POLL_MS * 2)
+            waited += self.SWITCH_POLL_MS * 2
+
+    def _await_link(self, page: Any, target: str, min_ms: int) -> Dict[str, Any]:
+        """After an action: poll the linked symbol (click-free resolve) until
+        it reads ``target`` or a dialog appears, waiting at least ``min_ms``
+        before the first read and at most SWITCH_VERIFY_MS in all."""
+        first = max(0, min(int(min_ms), self.SWITCH_VERIFY_MS))
+        page.wait_for_timeout(first)
+        waited = first
+        while True:
+            res = self._resolve_link(page, [])
+            if res.get("linked_symbol") == target or res.get("dialogs") or waited >= self.SWITCH_VERIFY_MS:
+                return {"after": res.get("linked_symbol"), "dialogs": res.get("dialogs") or 0,
+                        "verify_waited_ms": waited}
+            page.wait_for_timeout(self.SWITCH_POLL_MS)
+            waited += self.SWITCH_POLL_MS
+
+    def _one_click_off(self, page: Any, out: Dict[str, Any]) -> bool:
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if info_probe_one_click_off(oc):
+            return True
+        out["why"] = (f"symbol switch refused: one-click not confirmed OFF "
+                      f"(reads {oc.get('state')!r} via {oc.get('via')!r})")
+        return False
+
+    def _toolbar_select(self, page: Any, target: str, original: Optional[str], settle_ms: int,
+                        out: Dict[str, Any]) -> bool:
+        """The SECOND route: type ``target`` into the linked toolbar
+        ``symbol_input`` (the control #15046 found holding the link), click the
+        ONE suggestion that reads exactly ``target`` (SYMBOL_SUGGEST_JS), blur,
+        verify. When there is not exactly one suggestion, nothing is clicked:
+        the box is set back to ``original``, one Escape, blur. Every click is
+        preceded by a one-click-OFF read. Returns True only when verified."""
+        tb: Dict[str, Any] = {"attempted": True}
+        out["toolbar"] = tb
+        res = self._resolve_link(page, [])
+        if not res.get("ok"):
+            tb["why"] = res.get("why") or "linked symbol input not resolvable"
+            return False
+        box = page.locator("[data-metis-sym-input='1']")
+        if box.count() != 1:
+            tb["why"] = f"{box.count()} tagged linked inputs (need exactly 1)"
+            return False
+        typed = False
+        try:
+            box.first.fill(target, timeout=5_000)
+            typed = True
+            page.wait_for_timeout(max(settle_ms, 800))
+            sug = page.evaluate(SYMBOL_SUGGEST_JS, [target]) or {}
+            tb["suggest"] = sug
+            if sug.get("dialogs"):
+                tb["why"] = f"{sug['dialogs']} dialog(s) open after typing {target}"
+                return False
+            if sug.get("n_candidates") != 1:
+                tb["why"] = f"{sug.get('n_candidates')} suggestions read exactly {target} (need exactly 1)"
+                return False
+            if not self._one_click_off(page, tb):
+                return False
+            page.locator("[data-metis-suggest='1']").first.click(timeout=5_000)
+            tb["clicked"] = True
+            typed = False                       # a selection was made; blur commits it
+            try:
+                box.first.evaluate("el => el.blur()")
+            except Exception:
+                pass
+            got = self._await_link(page, target, settle_ms)
+            tb.update(got)
+            if got["dialogs"]:
+                tb["why"] = f"{got['dialogs']} dialog(s) appeared after the toolbar selection"
+                return False
+            if got["after"] != target:
+                tb["why"] = f"linked symbol reads {got['after']!r} after the toolbar selection"
+                return False
+            return True
+        except Exception as exc:
+            tb["why"] = f"{type(exc).__name__} (code=toolbar_switch_exception)"
+            return False
+        finally:
+            if typed:
+                # Nothing was selected: put the box back the way it was.
+                try:
+                    box.first.fill(original or "", timeout=3_000)
+                    box.first.press("Escape", timeout=3_000)
+                    box.first.evaluate("el => el.blur()")
+                    tb["box_reset"] = True
+                except Exception:
+                    tb["box_reset"] = False
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
 
     def select_linked_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
         """Make ``venue_symbol`` the terminal's linked symbol, VERIFIED.
 
-        Reads the linked symbol (INFO_PROBE_RESOLVE_JS, which clicks nothing
-        and tags the target's Symbol cell); when it already reads the target,
-        nothing is clicked. Otherwise ONE single click on the target's
-        watchlist Symbol cell -- never Bid/Ask, never a double-click (a
-        double-click opens the ticket) -- after the hover re-check, then a
-        read-back. ``ok`` is True only when the linked symbol reads the
-        target and no dialog is open. Refuses (nothing clicked) when the
-        watchlist / linked input cannot be resolved, a dialog is open, or the
-        target has no single clean Symbol cell. MEASURED live: #14831
-        (BTCUSD) and #14870 (ETHUSD) both read the clicked symbol back."""
+        1. READY: poll the click-free resolve (INFO_PROBE_RESOLVE_JS) until
+           the watchlist has rows, up to SWITCH_READY_MS. A link that already
+           reads the target clicks nothing.
+        2. WATCHLIST ROUTE, up to SWITCH_CLICK_ATTEMPTS: re-resolve, re-read
+           one-click (must read OFF), ONE single click on the target's clean
+           watchlist Symbol cell (never Bid/Ask, never a double-click -- a
+           double-click opens the ticket) after the hover re-check, then poll
+           the linked symbol up to SWITCH_VERIFY_MS.
+        3. TOOLBAR ROUTE when the watchlist route did not take (or the
+           watchlist never rendered rows): type the target into the linked
+           toolbar ``symbol_input`` and click its ONE exact suggestion.
+        ``ok`` is True only when the linked symbol reads the target and no
+        dialog is open. Any dialog stops everything at once. MEASURED live:
+        #14831 (BTCUSD), #14870 and B2 #14999 (ETHUSD) read the clicked symbol
+        back; #15022 (SOLUSD) did not."""
         target = str(venue_symbol or "").strip().upper()
-        out: Dict[str, Any] = {"target": target, "ok": False, "clicked": False}
+        out: Dict[str, Any] = {"target": target, "ok": False, "clicked": False, "attempts": 0}
         try:
-            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[target]]) or {}
+            res = self._wait_watchlist_rows(page, target)
             out["before"] = res.get("linked_symbol")
+            out["ready"] = {"waited_ms": res.get("ready_waited_ms"), "polls": res.get("ready_polls"),
+                            "watchlist_n": len(res.get("watchlist") or [])}
             if not res.get("ok"):
                 out["why"] = res.get("why") or "could not resolve the watchlist / linked symbol"
                 return out
@@ -4181,32 +4399,50 @@ class DXtradeAdapter(PropPlatformAdapter):
             if res.get("linked_symbol") == target:
                 out.update(ok=True, after=target)
                 return out
-            if not (res.get("targets") or {}).get(target, {}).get("clean"):
-                out["why"] = f"{target} has no single clean watchlist Symbol cell"
+            original = res.get("linked_symbol")
+            route_why: Optional[str] = None
+            for attempt in range(1, self.SWITCH_CLICK_ATTEMPTS + 1):
+                res = self._resolve_link(page, [target])
+                if res.get("dialogs"):
+                    out["why"] = f"{res['dialogs']} dialog(s) open"
+                    return out
+                if res.get("linked_symbol") == target:
+                    out.update(ok=True, after=target)
+                    return out
+                if not (res.get("targets") or {}).get(target, {}).get("clean"):
+                    route_why = f"{target} has no single clean watchlist Symbol cell"
+                    break
+                # Gate every click like the info probe (manager decision
+                # 2026-09-30 20:17Z, review of #14885). With one-click ON a
+                # geometry shift or a hover control the check misses could
+                # turn this click into an order. Order controls stay un-gated.
+                if not self._one_click_off(page, out):
+                    return out
+                if not self._info_click_cell(page, target):
+                    out["why"] = f"a control appeared in {target}'s Symbol cell on hover; not clicked"
+                    return out
+                out["clicked"] = True
+                out["attempts"] = attempt
+                got = self._await_link(page, target, settle_ms)
+                out["after"] = got["after"]
+                out["verify_waited_ms"] = got["verify_waited_ms"]
+                if got["dialogs"]:
+                    out["why"] = f"{got['dialogs']} dialog(s) appeared after selecting {target}"
+                    return out
+                if got["after"] == target:
+                    out["ok"] = True
+                    out["route"] = "watchlist"
+                    return out
+                route_why = f"linked symbol reads {got['after']!r} after selecting {target}"
+            if self._toolbar_select(page, target, original, settle_ms, out):
+                out.update(ok=True, after=target, route="toolbar")
+                out["clicked"] = True
                 return out
-            # A click is needed: gate it like the info probe (manager decision
-            # 2026-09-30 20:17Z, review of #14885). With one-click ON, a
-            # geometry shift or a hover control the check misses could turn
-            # this click into an order. Order controls stay un-gated (rule 1).
-            oc = self.read_one_click(page)
-            out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
-            if not info_probe_one_click_off(oc):
-                out["why"] = (f"symbol switch refused: one-click not confirmed OFF "
-                              f"(reads {oc.get('state')!r} via {oc.get('via')!r})")
-                return out
-            if not self._info_click_cell(page, target):
-                out["why"] = f"a control appeared in {target}'s Symbol cell on hover; not clicked"
-                return out
-            out["clicked"] = True
-            page.wait_for_timeout(settle_ms)
-            dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
-            out["after"] = self._linked_symbol(page)
-            if dialogs:
-                out["why"] = f"{dialogs} dialog(s) appeared after selecting {target}"
-            elif out["after"] != target:
-                out["why"] = f"linked symbol reads {out['after']!r} after selecting {target}"
-            else:
-                out["ok"] = True
+            out["after"] = self._resolve_link(page, []).get("linked_symbol")
+            out["why"] = "; ".join(w for w in (route_why, (out.get("toolbar") or {}).get("why")) if w) \
+                or f"linked symbol reads {out['after']!r} after selecting {target}"
+            if (out.get("toolbar") or {}).get("clicked"):
+                out["clicked"] = True
             return out
         except Exception as exc:
             out["why"] = f"{type(exc).__name__} (code=symbol_switch_exception)"
