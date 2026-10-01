@@ -978,6 +978,37 @@ def test_modify_bracket_records_an_unknown_one_click_and_does_not_gate_on_it():
     assert r["one_click"]["state"] == "unknown" and "one-click" not in r["why"]
 
 
+def test_modify_bracket_armed_refuses_before_any_click_while_the_dialog_is_unmeasured():
+    # An armed walk could fill and SUBMIT the docked sidebar order ticket
+    # (PROP-TRAIL go-live review): until the edit dialog is measured, arm=True
+    # must not click anything at all.
+    from src.prop.platform.base import Position
+    calls = []
+
+    class P:
+        def evaluate(self, js, *a):
+            return {"rows": 1, "controls": 1}
+
+        def click(self, *a, **k):
+            calls.append(a)
+
+        def fill(self, *a, **k):
+            calls.append(a)
+
+        def wait_for_timeout(self, *a):
+            pass
+
+    a = DXtradeAdapter()
+    a._show_tab = lambda *x: True
+    a.read_one_click = lambda page: {"state": "off"}
+    clicked_rows = []
+    a._row_action = lambda *x: clicked_rows.append(x) or {"ok": True, "clicked": x[-1], "why": "x"}
+    r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and calls == []
+    assert clicked_rows and clicked_rows[0][-1] is False      # located, never clicked
+    assert "unmeasured" in r["why"]
+
+
 # ── instrument-details probe (PROP-ETH, 2026-09-29) — real Chromium ───────
 # INVENTED layout (no run has measured a real Instrument Details panel; that
 # is the whole reason this probe stops at a structure DUMP rather than

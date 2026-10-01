@@ -1832,7 +1832,8 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
             res.log("place_missing_leg", ticket_id=tid, result=r)
             if live:
                 ledger.record(tid, "unconfirmed", leg_fix_tried=True)
-            res.alerts.append(f"{tid}: bracket leg missing — one repair attempted")
+            res.alerts.append(f"{tid}: bracket leg missing — one repair attempted "
+                              f"({r.get('why') if isinstance(r, dict) else r})")
             return trip
         # still missing after the one repair: close at market and alert
         if isinstance(leg, Position):
