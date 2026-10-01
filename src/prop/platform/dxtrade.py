@@ -2485,6 +2485,60 @@ def watchlist_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[
 # ``data-metis-sym-input`` on its linked symbol input (the one visible
 # ``symbol_input`` in the nearest ancestor of the info button that holds
 # any, walked at most 6 levels). Refuses when either sits in a BUY+SELL panel.
+# CLICK-FREE measurement of the watchlist's shape, attached to an
+# instrument-info DRY run when the resolver above does not find exactly one
+# Symbol/Bid/Ask <table> (TRADEIFY-WIRE T4, issue #15033: tradeify_1 read 0
+# such tables while its API lists the symbols). HEADER WORDS AND COUNTS ONLY:
+# no cell value, no row text, no input value; digit runs masked. No click, no
+# hover, no focus, no tag. Covers <table>s, ARIA grids, div-grids whose header
+# row holds a "Symbol"/"Instrument" leaf, the document-wide instrument-row
+# count, iframes, and data-test-id names mentioning a watchlist.
+WATCHLIST_DUMP_JS = r"""
+() => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const w = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase()
+    .replace(/\d{3,}/g, m => '#'.repeat(m.length)).slice(0, 20);
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const tid = el => (el.getAttribute && el.getAttribute('data-test-id') || '').replace(/\d{3,}/g, '#').slice(0, 40);
+  const chain = el => { const out = []; for (let e = el.parentElement; e && e !== document.body && out.length < 3; e = e.parentElement) { const t = tid(e); if (t) out.push(t); } return out; };
+  const tables = [...document.querySelectorAll('table')].slice(0, 25).map(t => ({
+    headers: [...t.querySelectorAll('thead th, tr:first-child th')].filter(h => h.closest('table') === t).map(h => w(txt(h))).slice(0, 14),
+    body_rows: [...t.querySelectorAll('tr')].filter(r => r.closest('table') === t && r.querySelector('td')).length,
+    instrument_rows: t.querySelectorAll('tr.instrument, tr[data-row-id]').length,
+    visible: vis(t), test_ids: chain(t),
+  }));
+  const grids = [...document.querySelectorAll('[role=grid], [role=treegrid], [role=table]')].slice(0, 10).map(g => ({
+    role: g.getAttribute('role'),
+    headers: [...g.querySelectorAll('[role=columnheader]')].map(h => w(txt(h))).slice(0, 14),
+    rows: g.querySelectorAll('[role=row]').length, visible: vis(g), test_ids: [tid(g), ...chain(g)].filter(Boolean),
+  }));
+  const divgrids = [];
+  for (const leaf of document.querySelectorAll('body *')) {
+    if (divgrids.length >= 10) break;
+    if (leaf.children.length || !/^(symbol|instrument|name|market)$/i.test(txt(leaf))) continue;
+    if (leaf.closest('table, [role=grid], [role=treegrid], [role=table]')) continue;
+    let row = leaf;
+    for (let i = 0; i < 5 && row && row.parentElement; i++) {
+      row = row.parentElement;
+      const kids = [...row.children];
+      if (kids.length >= 3 && kids.every(k => txt(k).length <= 40)) {
+        divgrids.push({tag: row.tagName.toLowerCase(), headers: kids.map(k => w(txt(k))).slice(0, 14),
+                       visible: vis(row), test_ids: [tid(row), ...chain(row)].filter(Boolean)});
+        break;
+      }
+    }
+  }
+  const named = [...document.querySelectorAll('[data-test-id]')].map(tid)
+    .filter(t => /watch|instrument|symbol|quote|market/i.test(t));
+  return {
+    tables, grids, divgrids,
+    instrument_rows_total: document.querySelectorAll('tr.instrument, tr[data-row-id]').length,
+    iframes: document.querySelectorAll('iframe').length,
+    watchlist_test_ids: [...new Set(named)].slice(0, 30),
+  };
+}
+"""
+
 INFO_PROBE_RESOLVE_JS = r"""
 ([symbols]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
@@ -3854,6 +3908,13 @@ class DXtradeAdapter(PropPlatformAdapter):
                     out["orders_dump"] = {"error": type(exc).__name__}
             res = page.evaluate(INFO_PROBE_RESOLVE_JS, [want]) or {}
             out["resolve"] = {k: v for k, v in res.items() if k != "ok"}
+            if not res.get("ok") and "Symbol/Bid/Ask tables" in str(res.get("why") or ""):
+                # The watchlist was not where the resolver looks: record its
+                # shape, click-free (WATCHLIST_DUMP_JS; issue #15033).
+                try:
+                    out["watchlist_dump"] = page.evaluate(WATCHLIST_DUMP_JS)
+                except Exception as exc:
+                    out["watchlist_dump"] = {"error": type(exc).__name__}
             original = res.get("linked_symbol")
             why: Optional[str] = None
             if not res.get("ok"):
