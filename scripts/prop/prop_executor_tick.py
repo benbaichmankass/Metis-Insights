@@ -548,6 +548,14 @@ def main(argv: Optional[list] = None) -> int:
                 max_lots=cfg.watched_click_max_lots if args.watched_click else None,
                 only_ticket_id=args.ticket_id or None,
                 sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
+            if not (args.watched_click or args.ticket_id):
+                # PROP-TRAIL: the leg's declared trail, by amending the resting
+                # SL. AFTER the cycle, so it never delays a ticket; same mode
+                # (read_only walks to the edit control and stops).
+                from src.prop import prop_trail
+                prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
+                                          state_dir=state_dir, candles_fn=prop_trail.default_candles_fn(),
+                                          res=res)
             emit({"reads": res.reads}, *secrets)
             for a in res.actions:
                 emit({"action": a}, *secrets)
