@@ -951,7 +951,8 @@ def test_the_opener_takes_one_symbol_click_when_the_form_then_names_the_symbol(b
 
 
 def test_the_opener_falls_back_when_the_clicked_form_names_another_symbol(browser):  # noqa: F811
-    got, st = opener(browser, setup_html=ticket_sidebar("ETHUSD", "ETH"))
+    # one-click ON so the row double-click is skipped and the Symbol-cell double-click is reached
+    got, st = opener(browser, kw={"one_click": "checked"}, setup_html=ticket_sidebar("ETHUSD", "ETH"))
     # the clicked panel names ETHUSD: not accepted; the next opener takes the form
     # (place_bracket then switches it -- the opener never trusts a wrong form)
     assert got["tried"] == ["symbol_click", "symbol_dblclick"] and got["via"] == "symbol_dblclick"
@@ -962,8 +963,10 @@ def test_the_opener_falls_back_when_the_clicked_form_names_another_symbol(browse
 def test_the_opener_fallback_order_and_the_row_centre_only_on_one_click_off(browser, kw, legacy):  # noqa: F811
     got, st = opener(browser, kw=kw)                      # no form ever opens on this page
     assert got["opened"] is False and "no opener produced an order form" in got["refused"]
-    assert got["tried"][:2] == ["symbol_click", "symbol_dblclick"]
-    assert ("watchlist_dblclick" in got["tried"]) is legacy
+    # the MEASURED row double-click runs BEFORE the Symbol-cell double-click
+    # (live #15214: the Symbol double-click left the row unresolvable)
+    assert got["tried"] == (["symbol_click", "watchlist_dblclick", "symbol_dblclick"] if legacy
+                            else ["symbol_click", "symbol_dblclick"])
     if not legacy:                                        # one-click ON: no instant-trade control, ever
         assert st["trade"] == 0 and set(st["clicks"]) == {"sym"}
 
@@ -1010,10 +1013,25 @@ def test_an_unreadable_one_click_never_skips_the_last_resort_and_why_is_recorded
     # ran, with no record of why. Only a positive ON read skips it now; every
     # run records the one-click read, the resolve and the row count.
     got, st = opener(browser, kw={"one_click_unreadable": True})
-    assert got["tried"] == ["symbol_click", "symbol_dblclick", "watchlist_dblclick"]
+    assert got["tried"] == ["symbol_click", "watchlist_dblclick", "symbol_dblclick"]
     lr = got["last_resort"]
     assert lr["one_click"]["state"] == "unknown" and lr["rows"] == 1 and "skipped" not in lr
     assert lr["resolve"]["target"]["n_rows"] == 1 and st["tags"] == 0
+
+
+def test_the_measured_row_opener_runs_even_when_a_symbol_double_click_would_remove_the_row(browser):  # noqa: F811
+    # Live #15214: after the Symbol-cell double-click the target row no longer
+    # resolved (n_rows 0). Here that double-click deletes the row: the measured
+    # row double-click must already have run, on the intact row.
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate("() => document.querySelectorAll('tr.instrument td.sym').forEach(c =>"
+               " c.addEventListener('dblclick', () => c.closest('tr').remove()))")
+    got = DXtradeAdapter(timeout_ms=3_000).open_order_ticket(p, "SOLUSD")
+    p.close()
+    assert got["tried"].index("watchlist_dblclick") < got["tried"].index("symbol_dblclick") \
+        if "symbol_dblclick" in got["tried"] else "watchlist_dblclick" in got["tried"]
+    assert got["last_resort"]["rows"] == 1 and "SOLUSD" in got["last_resort"]["resolve"]["watchlist"]
 
 
 def test_one_click_on_skips_the_last_resort_and_says_so(browser):  # noqa: F811

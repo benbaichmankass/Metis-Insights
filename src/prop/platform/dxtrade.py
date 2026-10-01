@@ -4223,8 +4223,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         Never uses a chart Buy/Sell price button. Openers in order, each
         logged in ``tried``: a form already open; ONE click on the Symbol cell
         (kept only when the form then names the symbol); a ticket-opener
-        button; a Symbol-cell double-click; and, only on a positive one-click
-        OFF read, the RESOLVED watchlist row's double-click (#13898 / #15139)."""
+        button; the RESOLVED watchlist row's double-click (#13898 / #15139),
+        skipped only on a positive one-click ON read; a Symbol-cell
+        double-click."""
         out: Dict[str, Any] = {"opened": False, "via": None, "one_click": self.read_one_click(page), "form": {}}
         form = self._find_form(page)
         if form.get("found"):
@@ -4259,15 +4260,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                         return out
             except Exception:
                 continue
-        # Double-click the Symbol CELL (clean, hover-re-checked), never a price.
-        if self._symbol_cell_click(page, sym, double=True):
-            out["tried"].append("symbol_dblclick")
-            page.wait_for_timeout(1_000)
-            form = self._find_form(page)
-            if form.get("found"):
-                out.update(opened=True, via="symbol_dblclick", form=form)
-                return out
-        # LAST RESORT: the watchlist-ROW double-click (row selector MEASURED in
+        # The MEASURED opener: the watchlist-ROW double-click (row selector MEASURED in
         # dry run #13898; it opened the live ticket in #15139). Its centre can
         # be a Bid/Ask PRICE cell (fixture: both price buttons hit), an INSTANT
         # order with one-click ON -- the instant-trade exclusion the operator
@@ -4280,7 +4273,11 @@ class DXtradeAdapter(PropPlatformAdapter):
         # 9f51c275) never reached it with one-click reading OFF at the start,
         # and a trade must never be missed for want of an opener (manager
         # 5931584062; before #15138 this opener ran with no one-click check).
-        # Why it ran or not is RECORDED in ``last_resort``.
+        # Why it ran or not is RECORDED in ``last_resort``. It runs BEFORE the
+        # Symbol-cell double-click: live #15214 (on 0e8d6e3de) resolved the
+        # target row cleanly for both Symbol openers, then found it gone
+        # (n_rows 0) after the Symbol-cell double-click, so the measured
+        # opener had nothing left to click.
         oc = self.read_one_click(page)
         lr: Dict[str, Any] = {"one_click": {k: oc.get(k) for k in ("state", "via")}}
         out["last_resort"] = lr
@@ -4291,7 +4288,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]]) or {}
                 lr["resolve"] = {"ok": res.get("ok"), "why": res.get("why"),
                                  "target": (res.get("targets") or {}).get(sym),
-                                 "watchlist_n": len(res.get("watchlist") or [])}
+                                 "watchlist": list(res.get("watchlist") or [])[:12]}
                 row = page.locator(f"tr[data-metis-wl-row='{sym}']")
                 lr["rows"] = row.count()
                 if lr["rows"] == 1:
@@ -4309,6 +4306,16 @@ class DXtradeAdapter(PropPlatformAdapter):
                     page.evaluate(INFO_PROBE_CLEANUP_JS)
                 except Exception:
                     pass
+        # LAST: double-click the Symbol CELL (clean, hover-re-checked), never a
+        # price. Unmeasured as an opener, and it may change the row, so it
+        # runs only after the measured one.
+        if not out.get("opened") and self._symbol_cell_click(page, sym, double=True):
+            out["tried"].append("symbol_dblclick")
+            page.wait_for_timeout(1_000)
+            form = self._find_form(page)
+            if form.get("found"):
+                out.update(opened=True, via="symbol_dblclick", form=form)
+                return out
         out["form"] = form
         out["refused"] = f"no opener produced an order form (tried {out['tried']})"
         return out
