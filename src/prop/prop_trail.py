@@ -215,6 +215,11 @@ def _save_state(state_dir: Path, st: Mapping[str, Any]) -> None:
 
 
 MAX_ATTEMPTS_PER_TARGET = 2
+# Every armed edit walk on one ticket, confirmed or not (a 1h leg ratchets at
+# most once a bar, so this is hours of trailing, not a retry budget).
+MAX_ARMED_ATTEMPTS_PER_TICKET = 24
+# The new stop must clear the venue quote by this many entry-ATRs.
+QUOTE_BUFFER_ATR = 0.1
 
 
 def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: str,
@@ -244,15 +249,15 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
     st = _load_state(state_dir)
     jr = {(str(j.get("symbol") or "").upper(), _dir(j.get("direction"))): j for j in journal}
 
-    for p in positions:
+    def _one(p: Position) -> None:
         venue = p.symbol.upper()
         if venue not in enabled:
-            continue
+            return
         bot_sym = venue_to_bot.get(venue)
         j = jr.get((str(bot_sym or "").upper(), p.side))
         if j is None:
             res.log("trail_skip", venue=venue, why="no open journal row (orphan handling is the reconcile's)")
-            continue
+            return
         tid = j.get("ticket_id")
         t = tickets.get(tid) or {}
         leg = legs.get(str(t.get("strategy") or ""))
@@ -260,7 +265,7 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
         if not leg or entry is None or isl is None or sig_t is None:
             res.log("trail_skip", ticket_id=tid, venue=venue,
                     why="ticket or leg not found (strategy/entry/sl/signal_time)")
-            continue
+            return
         try:
             candles = candles_fn(bot_sym, str(leg.get("timeframe") or "1h"))
         except Exception as exc:  # noqa: BLE001
@@ -280,17 +285,39 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
                 "bar-close exit, so the prop trail does NOT apply it — operator decides")
             tst["close_lever_alerted"] = True
         if plan.action != "tighten" or tst.get("locked"):
-            continue
+            return
+        # Through-price guard on the VENUE's own quote (the plan only saw the
+        # Bybit feed): a long stop must sit a buffer under the bid, a short
+        # one over the ask. No quote = could not look = no amend.
+        q = adapter.read_quote(page, venue) or {}
+        bid, ask = _f(q.get("bid")), _f(q.get("ask"))
+        step = _f((cfg.symbols.get(bot_sym) or {}).get("price_step"))
+        buf = max(2 * (step or 0.0), QUOTE_BUFFER_ATR * float(plan.detail.get("atr") or 0.0))
+        if (p.side == "long" and (bid is None or plan.sl > bid - buf)) or \
+                (p.side == "short" and (ask is None or plan.sl < ask + buf)):
+            res.log("trail_skip", ticket_id=tid, why="venue quote missing or within the buffer of the new stop",
+                    bid=bid, ask=ask, buffer=buf, new_sl=plan.sl)
+            return
+        if int(tst.get("armed_attempts") or 0) >= MAX_ARMED_ATTEMPTS_PER_TICKET:
+            res.log("trail_skip", ticket_id=tid, why=f"{MAX_ARMED_ATTEMPTS_PER_TICKET} armed attempts used for this ticket")
+            return
         tries = tst.get("tries") if tst.get("target") == plan.sl else 0
         if (tries or 0) >= MAX_ATTEMPTS_PER_TARGET:
             res.log("trail_skip", ticket_id=tid, why=f"amend to {plan.sl} already tried {tries}x; alerted")
-            continue
+            return
         r = adapter.modify_bracket(page, p, plan.sl, None, arm=live)
         res.log("trail_amend", ticket_id=tid, venue=venue, sl=plan.sl, result=r)
         if not live:
-            continue
-        tst.update(target=plan.sl, tries=(tries or 0) + 1)
-        step = _f((cfg.symbols.get(bot_sym) or {}).get("price_step"))
+            return
+        if isinstance(r, dict) and not r.get("clicked"):
+            # Refused before any click (e.g. the edit dialog is unmeasured):
+            # nothing changed on the venue. One alert per ticket, no count.
+            if not tst.get("refused_alerted"):
+                res.alerts.append(f"{tid}: trail amend to {plan.sl} refused by the adapter ({r.get('why')})")
+                tst["refused_alerted"] = True
+            return
+        tst.update(target=plan.sl, tries=(tries or 0) + 1,
+                   armed_attempts=int(tst.get("armed_attempts") or 0) + 1)
         confirmed = _confirm(adapter, page, p, plan.sl, step)
         if confirmed is None and _loosened(adapter, page, p):
             # The edit flow's armed path is unmeasured on the venue (only its
@@ -299,13 +326,13 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
             # this ticket until a person clears trail_state.json.
             back = adapter.modify_bracket(page, p, p.stop_loss, None, arm=True)
             tst["locked"] = True
-            res.alerts.append(f"{tid}: SL LOOSENED OR MISSING after the trail amend to {plan.sl} "
+            res.alerts.append(f"{tid}: SL LOOSENED after the trail amend to {plan.sl} "
                               f"(was {p.stop_loss}); restore attempted ({back.get('why') if isinstance(back, dict) else back}); "
                               "trail locked for this ticket")
-            continue
+            return
         if confirmed is None:
             res.alerts.append(f"{tid}: trail amend to {plan.sl} not confirmed on re-read (result: {r.get('why') if isinstance(r, dict) else r})")
-            continue
+            return
         if confirmed.take_profit is None and p.take_profit is not None:
             res.alerts.append(f"{tid}: TP missing after the trail amend — the executor's containment will act")
         tst.update(applied_sl=plan.sl, tries=0)
@@ -315,6 +342,14 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
                             "reason": f"trail: {leg.get('timeframe')} chandelier replay "
                                       f"(bars={plan.bars}, mfe_r={plan.detail.get('mfe_r')})",
                             "source": "prop_trail"})
+    for p in positions:
+        try:
+            _one(p)
+        except Exception as exc:  # noqa: BLE001 — a trail failure must never reach the tick
+            # An escaped exception would count toward the executor's
+            # TRIP_CONSECUTIVE_ERRORS and halt new entries on the live book.
+            res.alerts.append(f"trail: {p.symbol} step failed ({type(exc).__name__}); skipped this tick")
+
     # Local file only (no API write), so read_only keeps it too: one close-lever
     # alert per ticket, and rows for closed positions are dropped.
     open_ids = {str(j.get("ticket_id")) for j in journal}
@@ -339,14 +374,16 @@ def _confirm(adapter: Any, page: Any, p: Position, sl: float, step: Optional[flo
 
 
 def _loosened(adapter: Any, page: Any, p: Position) -> bool:
-    """True when the re-read SL is missing or looser than ``p.stop_loss``. An
-    unreadable re-read is not proof of either and returns False (the caller
-    still alerts that the amend did not confirm)."""
+    """True when the re-read SL is looser than ``p.stop_loss``. A missing SL
+    cell or an unreadable re-read is not proof of either and returns False (the
+    caller alerts that the amend did not confirm)."""
     try:
         for q in adapter.read_positions(page):
             if q.symbol.upper() == p.symbol.upper() and q.side == p.side:
                 if q.stop_loss is None:
-                    return True
+                    # An SL cell that did not parse is UNKNOWN, not loosened:
+                    # "restoring" on a misread would be a second blind click.
+                    return False
                 return q.stop_loss < p.stop_loss if p.side == "long" else q.stop_loss > p.stop_loss
     except Exception:  # noqa: BLE001
         return False

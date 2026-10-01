@@ -114,6 +114,11 @@ class Adapter:
     def read_positions(self, page):
         return [Position(**p.as_dict()) for p in self.positions]
 
+    quote = {"bid": 109.0, "ask": 109.02}
+
+    def read_quote(self, page, venue_symbol):
+        return self.quote
+
     def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False):
         self.calls.append((position.symbol, stop_loss, take_profit, arm))
         if arm and self.apply:
@@ -212,3 +217,50 @@ def test_loosened_stop_is_restored_and_the_ticket_locks(tmp_path):
     a.calls.clear()
     run(a, api, "live", tmp_path)
     assert a.calls == []                                       # locked
+
+
+def test_no_venue_quote_means_no_amend(tmp_path):
+    a, api = Adapter([pos()]), Api()
+    a.quote = None
+    run(a, api, "live", tmp_path)
+    assert a.calls == []
+
+
+def test_stop_within_buffer_of_venue_bid_is_not_amended(tmp_path):
+    a, api = Adapter([pos()]), Api()
+    a.quote = {"bid": 103.1, "ask": 103.12}     # new stop 103.0; buffer 0.2 (0.1 x atr 2.0)
+    run(a, api, "live", tmp_path)
+    assert a.calls == []
+
+
+def test_adapter_refusal_alerts_once_and_counts_nothing(tmp_path):
+    class Refusing(Adapter):
+        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False):
+            self.calls.append((position.symbol, stop_loss, take_profit, arm))
+            return {"ok": False, "clicked": False, "why": "refused: the SL/TP edit dialog is unmeasured"}
+    a, api = Refusing([pos()]), Api()
+    alerts = []
+    for _ in range(3):
+        alerts += run(a, api, "live", tmp_path).alerts
+    assert sum("refused by the adapter" in x for x in alerts) == 1 and api.posted == []
+
+
+def test_an_exception_inside_the_step_is_contained(tmp_path):
+    class Boom(Adapter):
+        def read_quote(self, page, venue_symbol):
+            raise TimeoutError("playwright")
+    res = run(Boom([pos()]), Api(), "live", tmp_path)
+    assert any("step failed (TimeoutError)" in x for x in res.alerts)
+
+
+def test_unparsed_sl_after_amend_is_not_treated_as_loosened(tmp_path):
+    class Blank(Adapter):
+        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False):
+            self.calls.append((position.symbol, stop_loss, take_profit, arm))
+            if arm:
+                self.positions[0].stop_loss = None
+            return {"ok": True, "clicked": arm, "why": "x"}
+    a = Blank([pos()])
+    res = run(a, Api(), "live", tmp_path)
+    assert len(a.calls) == 1                       # no blind "restore" click
+    assert any("not confirmed" in x for x in res.alerts)

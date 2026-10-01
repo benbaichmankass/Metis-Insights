@@ -552,10 +552,15 @@ def main(argv: Optional[list] = None) -> int:
                 # PROP-TRAIL: the leg's declared trail, by amending the resting
                 # SL. AFTER the cycle, so it never delays a ticket; same mode
                 # (read_only walks to the edit control and stops).
-                from src.prop import prop_trail
-                prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
-                                          state_dir=state_dir, candles_fn=prop_trail.default_candles_fn(),
-                                          res=res)
+                # Fully contained: an exception here must not reach the outer
+                # handler, whose record_tick_error trips the entry halt.
+                try:
+                    from src.prop import prop_trail
+                    prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
+                                              state_dir=state_dir, candles_fn=prop_trail.default_candles_fn(),
+                                              res=res)
+                except Exception as exc:  # noqa: BLE001
+                    res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
             emit({"reads": res.reads}, *secrets)
             for a in res.actions:
                 emit({"action": a}, *secrets)
