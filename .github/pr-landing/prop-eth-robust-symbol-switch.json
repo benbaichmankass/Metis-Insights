@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Changes the live prop executor's per-ticket symbol switch on the funded breakout_1 terminal (select_linked_symbol: row wait, polled verify, up to 3 watchlist clicks with one-click OFF re-read before each, toolbar symbol-box fallback). Operator directive 2026-10-01 06:13Z; the manager reviews and merges.",
+  "why": "PROP-ETH-DOM: #15022 clicked SOLUSD and the link stayed ETHUSD; dumps #15046 and #15064 read the watchlist table with zero rows. No order path is touched; every click is gated on one-click reading OFF."
+}
