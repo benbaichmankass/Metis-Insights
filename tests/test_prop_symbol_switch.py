@@ -812,7 +812,8 @@ def switch_dry(browser, target, *, home=None, link="SOLUSD", ticket="SOLUSD", de
 def test_symbol_switch_dry_ticket_round_and_link_left_on_the_original(browser):  # noqa: F811
     got, st = switch_dry(browser, "ETHUSD")
     assert got["refused"] is None and got["alerts"] == [] and got["original"] == "SOLUSD" and got["home"] == "SOLUSD"
-    assert got["ticket_open"] == {"opened": True, "via": "already_open", "refused": None}
+    assert {k: got["ticket_open"][k] for k in ("opened", "via", "refused")} == {
+        "opened": True, "via": "already_open", "refused": None}
     assert got["switch"]["ok"] is True and got["switch"]["after"]["value"] == "ETHUSD"
     assert got["ticket_home"]["ok"] is True and got["ticket_home"]["after"]["value"] == "SOLUSD"
     assert got["restore"]["ok"] is True and got["restore"]["clicked"] is False       # the link never moved
@@ -1002,6 +1003,23 @@ def test_the_last_resort_double_clicks_only_the_resolved_watchlist_row(browser):
     st = state(p)
     p.close()
     assert "watchlist_dblclick" in got["tried"] and pos_dbl == 0 and st["tags"] == 0
+
+
+def test_an_unreadable_one_click_never_skips_the_last_resort_and_why_is_recorded(browser):  # noqa: F811
+    # Live #15187 (9f51c275): both Symbol openers missed and the last resort never
+    # ran, with no record of why. Only a positive ON read skips it now; every
+    # run records the one-click read, the resolve and the row count.
+    got, st = opener(browser, kw={"one_click_unreadable": True})
+    assert got["tried"] == ["symbol_click", "symbol_dblclick", "watchlist_dblclick"]
+    lr = got["last_resort"]
+    assert lr["one_click"]["state"] == "unknown" and lr["rows"] == 1 and "skipped" not in lr
+    assert lr["resolve"]["target"]["n_rows"] == 1 and st["tags"] == 0
+
+
+def test_one_click_on_skips_the_last_resort_and_says_so(browser):  # noqa: F811
+    got, st = opener(browser, kw={"one_click": "checked"})
+    assert "watchlist_dblclick" not in got["tried"] and "instant-trade" in got["last_resort"]["skipped"]
+    assert st["trade"] == 0
 
 
 def test_the_opener_never_clicks_a_symbol_cell_that_grows_a_control_on_hover(browser):  # noqa: F811

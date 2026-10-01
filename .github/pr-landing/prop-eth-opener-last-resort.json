@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Regression fix for #15138 on the live prop ticket opener: on breakout_1 (#15187) both Symbol-cell openers missed and the last-resort row double-click (the opener measured working in #15139) never ran. It now runs unless one-click positively reads ON, and records why it ran or not. The manager reviews and merges.",
+  "why": "Restores the measured live opener so a breakout_1 ticket is not refused for want of an order form; adds the opener diagnostics to dry and live outputs."
+}
