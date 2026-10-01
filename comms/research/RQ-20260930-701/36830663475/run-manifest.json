@@ -1,0 +1,24 @@
+{
+  "unit": "RQ-20260930-701",
+  "run_id": "36830663475",
+  "commit_sha": "9ef32962c5fdf9a89348dacc4e2399df9068d7d9",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36830663475",
+  "timeout_minutes": 60,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/regime_impact_scoping.py",
+        "--out",
+        "comms/research/RQ-20260930-701/36830663475",
+        "--seeds",
+        "300"
+      ],
+      "log": "comms/research/RQ-20260930-701/36830663475/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 215.3
+    }
+  ],
+  "all_ok": true
+}
