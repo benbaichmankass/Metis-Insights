@@ -85,6 +85,16 @@ from src.prop import prop_executor as pe  # noqa: E402
 from src.prop.platform import FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV, EXIT_NO_SESSION = 0, 1, 3, 4, 5, 6
+# A secondary test that stood aside for a live ticket (the tick wins).
+EXIT_DEFERRED = 7
+#: Modes that are TESTS / measurements, never the live cycle: each defers
+#: while a live ticket is waiting, so it cannot hold login.lock across the
+#: executor's tick (operator directive ~12:35Z 2026-10-01, manager comment
+#: 5931584062 on #14947: "if a live ticket is waiting, the tick wins").
+#: ``close_position_*`` is NOT here: closing a position is never deferred.
+YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
+                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump",
+                         "round_trip_dry", "round_trip_live"})
 
 # Headless viewport. Playwright's default (1280x720) clipped the sidebar
 # ticket at y 640 with the submit footer at y 659 (dry runs #13917, #13965);
@@ -385,6 +395,19 @@ def main(argv: Optional[list] = None) -> int:
             emit({"config": f"no executor config for {args.account} ({exc}); nothing read, nothing clicked"})
             return EXIT_ERROR
         cfg = None
+    if mode in YIELD_MODES and cfg is not None:
+        # Before any browser: a few seconds under the lock, never a tick's worth.
+        try:
+            waiting = pe.pending_live_tickets(
+                pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip()), cfg,
+                pe.IntentLedger(Path(args.state_dir) / "intent_ledger.jsonl"))
+        except Exception as exc:
+            waiting = []
+            emit({"yield_check": f"ticket read failed ({type(exc).__name__}); not deferring"})
+        if waiting:
+            emit({"deferred": f"{len(waiting)} live ticket(s) waiting ({', '.join(waiting[:3])}); "
+                              f"the executor tick wins -- re-dispatch this {mode} after it is placed"})
+            return EXIT_DEFERRED
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000

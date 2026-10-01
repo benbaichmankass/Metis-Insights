@@ -258,7 +258,6 @@ def test_a_dialog_typed_info_panel_is_dumped_and_closed(browser):
 @pytest.mark.parametrize("kw,why", [
     ({"margin": "$12.50"}, "Used Margin reads 12.5"),
     ({"order_rows": "<tr><td>SOLUSD</td><td>Buy</td><td>Limit</td><td>77</td></tr>"}, "1 working order"),
-    ({"one_click": "checked"}, "one-click trading does not read OFF (reads 'on')"),
     ({"sym_cell_extra": '<a href="#"></a>'}, "original symbol SOLUSD's watchlist cell is not cleanly clickable"),
 ])
 def test_refuses_before_any_click(browser, kw, why):
@@ -268,16 +267,22 @@ def test_refuses_before_any_click(browser, kw, why):
     never_traded(st)
 
 
-def test_fix1_an_unreadable_one_click_toggle_refuses_and_records_its_structure(browser):
-    # Review fix 1: the live terminal reads 'unknown' (#13711). The guard
-    # fails CLOSED -- only a positive "off" passes -- and dry mode records the
-    # toggle's structure so a reader can be built from it.
+# One-click is informational, never a refusal (operator directive 2026-10-01,
+# manager comment 5930025023 on #14947; it was fail-closed since review fix 1).
+def test_an_unreadable_one_click_toggle_is_recorded_with_its_structure_and_never_refuses(browser):
     got, st = run(browser, page_html(one_click_unreadable=True))
-    assert got["one_click"]["state"] == "unknown"
-    assert "does not read OFF (reads 'unknown')" in got["refused"]
-    assert "one_click_dump" in got and st["clicks"] == []
+    assert got["one_click"]["state"] == "unknown" and got["refused"] is None
+    assert "one_click_dump" in got and not any("one-click" in a for a in got["alerts"])
+    never_traded(st)
     dry, _ = run(browser, page_html(one_click_unreadable=True), click=False)
-    assert dry["refused"] and "one_click_dump" in dry
+    assert dry["refused"] is None and "one_click_dump" in dry
+
+
+def test_one_click_on_probes_anyway_alerts_once_and_never_trades(browser):
+    got, st = run(browser, page_html(one_click="checked"))
+    assert got["one_click"]["state"] == "on" and got["refused"] is None
+    assert sum("one-click trading reads ON" in a for a in got["alerts"]) == 1
+    never_traded(st)
 
 
 def test_refuses_without_the_orders_widget(browser):
