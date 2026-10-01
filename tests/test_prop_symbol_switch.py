@@ -863,6 +863,55 @@ def test_symbol_switch_dry_alerts_when_no_ticket_opens_and_still_restores_the_li
     assert got["restore"]["ok"] is True and "switch" not in got
 
 
+# PROP-ETH-DOM #15139 (MEASURED live 2026-10-01 11:30Z on breakout_1): typing in
+# the ticket's Symbol field produced NO dropdown row; the watchlist click then
+# re-linked SOLUSD with the ticket field following. The dry run now takes the
+# SAME route as the live placement (switch_ticket_symbol), so that is a note,
+# not an alert -- and a ticket field that does NOT follow still alerts.
+TICKET_FOLLOWS_WATCHLIST_JS = """() => {
+  document.addEventListener('click', e => {
+    const c = e.target.closest('.sym'); if (!c) return;
+    const s = (c.innerText || '').trim();
+    setTimeout(() => { const b = document.querySelector('#panel [data-test-id=symbol_input]');
+      b.value = s; if (window.__tk) window.__tk.committed = s;
+      document.querySelector('#panel .tk-desc').textContent = s.slice(0, 3);
+      document.querySelector('#sub').textContent = 'Buy 0.01 ' + s + ' at 1.00'; }, 0);
+  }, true); }"""
+
+
+@pytest.mark.parametrize("follows", [True, False])
+def test_symbol_switch_dry_takes_the_live_watchlist_alternative_when_the_field_lists_nothing(browser, follows):  # noqa: F811
+    p = ticket_page(browser, sym="ETHUSD", desc="ETH", dropdown=False,
+                    setup=[TICKET_FOLLOWS_WATCHLIST_JS] if follows else [])
+    p.evaluate("v => { document.querySelector('.toolbar__item [data-test-id=symbol_input]').value = v; }", "ETHUSD")
+    got = fast_adapter().symbol_switch_dry(p, "SOLUSD", settle_ms=50, home="SOLUSD")
+    st = tk_state(p)
+    p.close()
+    sw = got["switch"]
+    assert sw["ticket_route"]["pick"]["n_candidates"] == 0 and sw["ticket_route"]["pick"]["field_value"] == "sol"
+    assert st["chart"] == "SOLUSD" and st["tk"]["keys"] == [] and st["clicks"] == ["sym"]
+    if follows:
+        assert got["alerts"] == [] and sw["ok"] is True and sw["route"] == "watchlist"
+        assert sw["ticket_after"] == "SOLUSD" and st["field"] == "SOLUSD"
+        assert len(got["notes"]) == 1 and "watchlist route used" in got["notes"][0]
+        assert got["ticket_home"]["ok"] is True and got["restore"]["clicked"] is False
+    else:
+        # Both legs alert: the click's follow check, and the click-free leg
+        # whose link ALREADY reads SOLUSD while the ticket still names ETHUSD.
+        assert sw["ok"] is False and got["ticket_home"]["ok"] is False and st["field"] == "ETHUSD"
+        assert "after the watchlist route" in got["ticket_home"]["why"]
+        assert [a.split(" failed")[0] for a in got["alerts"]] == ["ticket switch to SOLUSD", "ticket back to SOLUSD"]
+    no_order(st)
+
+
+def test_ticket_pick_reports_what_typing_produced_by_shape_only(browser):  # noqa: F811
+    got, _ = ticket_switch(browser, "ETHUSD")
+    tops = got["pick"]["new_tops"]
+    assert got["pick"]["field_value"] == "ETHUSD"
+    assert any(t["cls"] == ["tk-dd"] and t["n_leaves"] > 0 for t in tops)
+    assert all(set(t) == {"tag", "cls", "role", "n_leaves", "w", "h"} for t in tops)   # never text
+
+
 def test_switch_dry_home_rules():
     from types import SimpleNamespace as NS
 

@@ -3108,6 +3108,16 @@ TICKET_SYMBOL_PICK_JS = r"""
     '[role=dialog],[role=alertdialog],[aria-modal=true]')].filter(vis).length,
     candidates: found.slice(0, 6).map(f => ({tag: f.row.tagName.toLowerCase(), cls: cls(f.row),
                                              role: f.row.getAttribute('role') || '', new_since_typing: !!pre && !pre.has(f.row)}))};
+  // DIAGNOSTIC (PROP-ETH-DOM #15139: typing produced no dropdown row on
+  // breakout_1): what the field reads after typing, and the TOP-LEVEL visible
+  // elements new since the snapshot -- shape only, never their text.
+  out.field_value = field ? (field.value || '') : null;
+  out.new_tops = !pre ? null : [...document.querySelectorAll('body *')]
+    .filter(e => !pre.has(e) && e.parentElement && pre.has(e.parentElement) && vis(e)).slice(0, 6)
+    .map(e => { const r = e.getBoundingClientRect();
+      return {tag: e.tagName.toLowerCase(), cls: cls(e), role: e.getAttribute('role') || '',
+              n_leaves: [...e.querySelectorAll('*')].filter(y => y.children.length === 0).length,
+              w: Math.round(r.width), h: Math.round(r.height)}; });
   if (found.length === 1) found[0].leaf.setAttribute('data-metis-ticket-pick', '1');
   return out;
 }
@@ -4975,7 +4985,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                     if self._ticket_symbol(page).get("ok"):
                         tk = self._await_ticket_symbol(page, target, 0)
                         out["ticket_after"] = tk.get("value")
-                        if tk.get("value") != target:
+                        if tk.get("value_canon") != canonical_symbol(target):
                             out["why"] = f"ticket field reads {tk.get('value')!r} after the watchlist click"
                             return out
                     out["ok"] = True
@@ -4994,6 +5004,41 @@ class DXtradeAdapter(PropPlatformAdapter):
             except Exception:
                 pass
 
+    def switch_ticket_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+        """The per-ticket switch the live placement uses, and symbol-switch-dry
+        exercises the SAME one (PROP-ETH-DOM #15139: the dry run tested the
+        ticket route alone and alerted while the live path's alternative
+        succeeded). PRIMARY: the ticket's own Symbol field (manager comment
+        5928196365 on #15070). ALTERNATIVE, only when that route picked
+        nothing: the verified watchlist-row click, which the ticket field must
+        follow; the ticket route's outcome is kept under ``ticket_route``."""
+        link = self.select_ticket_symbol(page, venue_symbol, settle_ms=settle_ms)
+        if not link.get("ok") and not link.get("picked"):
+            wl = self.select_linked_symbol(page, venue_symbol, settle_ms=settle_ms)
+            wl["ticket_route"] = {k: link.get(k) for k in ("why", "before", "pick")}
+            # The link may ALREADY read the target (no click, so no follow
+            # check inside select_linked_symbol) while the ticket still names
+            # another symbol: the alternative is ok only when the open
+            # ticket's own field reads the target.
+            if wl.get("ok"):
+                try:
+                    tk = self._ticket_symbol(page)
+                    if tk.get("ok"):
+                        wl["ticket_after"] = tk.get("value")
+                        if tk.get("value_canon") != canonical_symbol(venue_symbol):
+                            wl["ok"] = False
+                            wl["why"] = f"ticket field reads {tk.get('value')!r} after the watchlist route"
+                except Exception as exc:
+                    wl["ok"] = False
+                    wl["why"] = f"{type(exc).__name__} (code=ticket_follow_check_exception)"
+                finally:
+                    try:
+                        page.evaluate(INFO_PROBE_CLEANUP_JS)
+                    except Exception:
+                        pass
+            link = wl
+        return link
+
     def symbol_switch_dry(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500,
                           home: Optional[str] = None) -> Dict[str, Any]:
         """DRY check of the per-ticket switch. NO order control is touched and
@@ -5003,9 +5048,12 @@ class DXtradeAdapter(PropPlatformAdapter):
         1. Read the linked symbol and the target's quote (click-free).
         2. TICKET ROUTE (primary): open the order ticket (open_order_ticket --
            a ticket-opener button or a double-click on the LINKED symbol's own
-           watchlist row, never a price button), set its Symbol field to the
-           target (select_ticket_symbol), verify, then set it to ``home`` and
-           verify; close the ticket.
+           watchlist row, never a price button), switch it to the target
+           through the SAME route the live placement uses
+           (switch_ticket_symbol: the ticket's Symbol field, else the
+           verified watchlist click), verify, then to ``home`` and verify;
+           close the ticket. A field-route miss that the watchlist route
+           covers is a ``notes`` entry, not an alert.
         3. LINK: set the terminal's linked symbol to ``home`` with the
            verified watchlist click (select_linked_symbol) -- click-free when
            it already reads ``home``.
@@ -5036,12 +5084,18 @@ class DXtradeAdapter(PropPlatformAdapter):
             out["ticket_open"] = {k: opened.get(k) for k in ("opened", "via", "refused")}
             if opened.get("opened"):
                 try:
-                    out["switch"] = self.select_ticket_symbol(page, out["target"], settle_ms=settle_ms)
-                    if not out["switch"].get("ok"):
-                        out["alerts"].append(f"ticket switch to {out['target']} failed: {out['switch'].get('why')}")
-                    out["ticket_home"] = self.select_ticket_symbol(page, home_sym, settle_ms=settle_ms)
-                    if not out["ticket_home"].get("ok"):
-                        out["alerts"].append(f"ticket back to {home_sym} failed: {out['ticket_home'].get('why')}")
+                    for key, sym, label in (("switch", out["target"], "ticket switch to"),
+                                            ("ticket_home", home_sym, "ticket back to")):
+                        out[key] = self.switch_ticket_symbol(page, sym, settle_ms=settle_ms)
+                        if not out[key].get("ok"):
+                            out["alerts"].append(f"{label} {sym} failed: {out[key].get('why')}")
+                        elif out[key].get("ticket_route"):
+                            # Not an alert: the live placement takes the same
+                            # alternative. Recorded so the field route's miss
+                            # stays visible.
+                            out.setdefault("notes", []).append(
+                                f"{label} {sym}: ticket field picked nothing "
+                                f"({out[key]['ticket_route'].get('why')}); watchlist route used")
                 finally:
                     out["ticket_closed"] = self.close_order_ticket(page)
             else:
@@ -5171,14 +5225,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         # re-read the form; refuse on any mismatch. A form already naming the
         # symbol is untouched. form_names_symbol below still guards.
         if not form.get("ambiguous") and not form_names_symbol(form, spec.venue_symbol):
-            # PRIMARY: the ticket's own Symbol field (manager comment
-            # 5928196365 on #15070). ALTERNATIVE, only when that route picked
-            # nothing: the verified watchlist-row click.
-            link = self.select_ticket_symbol(page, spec.venue_symbol)
-            if not link.get("ok") and not link.get("picked"):
-                wl = self.select_linked_symbol(page, spec.venue_symbol)
-                wl["ticket_route"] = {k: link.get(k) for k in ("why", "before", "pick")}
-                link = wl
+            link = self.switch_ticket_symbol(page, spec.venue_symbol)
             if not link.get("ok"):
                 detail = f"symbol switch: {link.get('why')}"
                 # A switch that CLICKED but did not verify may have moved the
