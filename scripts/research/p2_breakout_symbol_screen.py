@@ -111,7 +111,13 @@ def main() -> int:
         (wd / f"{name}__trades.jsonl").write_text(Path(a.trades).read_text())
         row = {"fidelity": "committed-evidence", "omitted_levers": None}
     else:
-        row = rdm.run_one(name, cfg, str(wd), days=a.days)
+        # Some harnesses (ict_scalp) read config/strategies.yaml BY NAME, so the
+        # run must be keyed by the donor leg's name; one cell per workdir keeps
+        # the files from colliding. The symbol is re-pointed via cfg["symbols"].
+        run_name = donor if a.family == "ict15" else name
+        row = rdm.run_one(run_name, cfg, str(wd), days=a.days)
+        if run_name != name and (wd / f"{run_name}__trades.jsonl").exists():
+            (wd / f"{run_name}__trades.jsonl").rename(wd / f"{name}__trades.jsonl")
     out = {"cell": name, "symbol": a.symbol, "family": a.family, "donor": donor,
            "days": a.days, "harness_error": row.get("error"),
            "fidelity": row.get("fidelity"), "omitted_levers": row.get("omitted_levers")}
