@@ -1533,19 +1533,30 @@ class Database:
         ``linked_trade_id IS NULL``. Returns rows affected (0 = another
         account got there first, which is the correct outcome to keep).
         """
+        if not order_package_id:
+            raise ValueError("mark_order_package_shadow_if_untouched requires order_package_id")
+        return self.mark_order_package_if_untouched(order_package_id, "shadow", close_reason)
+
+    def mark_order_package_if_untouched(self, order_package_id, status, close_reason):
+        """Terminalise a SHARED package with ``status`` / ``close_reason`` ONLY
+        while no account has acted on it (``status = 'open'`` AND
+        ``linked_trade_id IS NULL``) — the guard
+        :meth:`mark_order_package_shadow_if_untouched` introduced, for any
+        status. Returns rows affected (0 = another account got there first,
+        the correct outcome to keep)."""
         from datetime import timezone
 
         if not order_package_id:
-            raise ValueError("mark_order_package_shadow_if_untouched requires order_package_id")
+            raise ValueError("mark_order_package_if_untouched requires order_package_id")
         conn = self.connect()
         cursor = conn.cursor()
         try:
             cursor.execute(
                 "UPDATE order_packages "
-                "SET status = 'shadow', close_reason = ?, updated_at = ? "
+                "SET status = ?, close_reason = ?, updated_at = ? "
                 "WHERE order_package_id = ? AND status = 'open' "
                 "AND linked_trade_id IS NULL",
-                [close_reason, datetime.now(timezone.utc).isoformat(), order_package_id],
+                [status, close_reason, datetime.now(timezone.utc).isoformat(), order_package_id],
             )
             conn.commit()
             return cursor.rowcount
