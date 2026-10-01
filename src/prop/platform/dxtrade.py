@@ -2671,6 +2671,7 @@ LINK_STATE_DUMP_JS = r"""
     return {headers: hs.map(h => m(h).slice(0, 24)), n_tr: trs.length,
             n_tr_selector: trs.filter(r => r.matches('tr.instrument, tr[data-row-id]')).length,
             td_count_hist: hist, n_role_row_in_widget: scope.querySelectorAll('[role=row]').length,
+            n_tr_selector_in_widget: scope.querySelectorAll('tr.instrument, tr[data-row-id]').length,
             sample: trs.slice(0, 8).map(r => { const tds = [...r.querySelectorAll('td')];
               const sv = si >= 0 && tds[si] ? txt(tds[si]).toUpperCase() : '';
               return {cls: cls(r), n_td: tds.length, n_th: r.querySelectorAll('th').length,
@@ -2681,7 +2682,16 @@ LINK_STATE_DUMP_JS = r"""
   if (wl.length === 1) {
     const hs = wl[0].hs, si = hs.indexOf('symbol');
     out.rows = [];
-    for (const r of wl[0].t.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    // Rows are read in the watchlist's own widget, exactly as
+    // INFO_PROBE_RESOLVE_JS reads them: on Breakout the Symbol/Bid/Ask header
+    // table has ZERO body rows and the rows live in a separate table (#13898)
+    // -- which is why #15046 / #15064 (table-only) read rows: [].
+    let scope = wl[0].t;
+    for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+      if (cls(e).some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+    }
+    out.rows_scope = scope === wl[0].t ? 'table' : 'widget';
+    for (const r of scope.querySelectorAll('tr.instrument, tr[data-row-id]')) {
       const tds = [...r.querySelectorAll('td')];
       if (tds.length !== hs.length) continue;
       const c = tds[si], sym = txt(c).toUpperCase();
@@ -2721,22 +2731,61 @@ LINK_STATE_DUMP_JS = r"""
 }
 """
 
-# Remember every element that exists now (a WeakSet on window -- no DOM
-# attribute) so the panel can be identified as NEW after the info click.
-# Returns the number of visible dialogs.
+#: SHARED EXCLUSION PREDICATE (manager review of #15070 / #15075): defines
+#: ``__metisIsWatchlistOrTradeTable(el)`` -- true when ``el`` sits in
+#:   * the <th>-text watchlist: the widget(New)__container (<= 8 up, else the
+#:     table) of any table with Symbol/Bid/Ask <th> texts -- that scope also
+#:     holds Breakout's SEPARATE rows table (#13898);
+#:   * a table_column watchlist (Tradeify, #15067): any widget(New)__container
+#:     (<= 12 up) holding ``[data-test-id^=table_column_]`` headers, and any
+#:     <table> holding ``tr.instrument`` / ``tr[data-row-id]`` rows;
+#:   * an Orders / Positions widget: the widget(New)__container (<= 12 up)
+#:     of a widget_menu_ORDERS / _POSITIONS button, else its 6th ancestor.
+#: A JS SNIPPET (a function declaration) for concatenation into any
+#: evaluate body: ``r"""() => {""" + WATCHLIST_OR_TRADE_JS + r"""...}"""``.
+#: The scopes are computed once, on first use, per enclosing evaluate call.
+WATCHLIST_OR_TRADE_JS = r"""
+  let __metisWOTScopes = null;
+  function __metisIsWatchlistOrTradeTable(el) {
+    if (!__metisWOTScopes) {
+      const n_ = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const t_ = e => (e.innerText || e.textContent || '').trim();
+      const c_ = e => (typeof e.className === 'string' ? e.className.split(/\s+/) : []);
+      const box = (e, n) => { for (let x = e.parentElement, i = 0; x && x !== document.body && i < n; x = x.parentElement, i++)
+                                if (c_(x).some(c => /^widget(New)?__container/.test(c))) return x; return null; };
+      const scopes = [];
+      for (const t of document.querySelectorAll('table')) {
+        const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => n_(t_(h)));
+        if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) scopes.push(box(t, 8) || t);
+        if (t.querySelector('tr.instrument, tr[data-row-id]')) scopes.push(t);
+      }
+      for (const c of document.querySelectorAll('[data-test-id^="table_column_"]')) { const b = box(c, 12); if (b) scopes.push(b); }
+      for (const b of document.querySelectorAll('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
+        let w = box(b, 12);
+        if (!w) { w = b; for (let i = 0; i < 6 && w.parentElement && w.parentElement !== document.body; i++) w = w.parentElement; }
+        scopes.push(w);
+      }
+      __metisWOTScopes = scopes;
+    }
+    return __metisWOTScopes.some(s => s === el || s.contains(el));
+  }
+"""
+
+
 # TOOLBAR ROUTE of the symbol switch (PROP-ETH-DOM, operator directive
 # 2026-10-01 06:13Z "there's no way that we are unable to switch between
 # symbols"): after the linked ``symbol_input`` (tagged ``data-metis-sym-input``
 # by INFO_PROBE_RESOLVE_JS) is filled with the target, find the suggestion the
 # terminal offers for it. A candidate is a VISIBLE element whose own trimmed
 # text equals the target exactly, that is not the input itself, not inside any
-# BUY+SELL panel and not inside the watchlist table (a watchlist cell is the
-# other route); a leaf is lifted to its nearest [role=option] / li ancestor.
+# BUY+SELL panel, and not in a watchlist or Orders / Positions widget
+# (WATCHLIST_OR_TRADE_JS; a watchlist cell is the other route); a leaf is lifted to its nearest [role=option] / li ancestor.
 # Exactly one distinct candidate is tagged ``data-metis-suggest``; otherwise
 # nothing is tagged and up to 6 masked descriptors are returned so the live
 # shape can be measured. UNMEASURED on the live terminal until a run records it.
 SYMBOL_SUGGEST_JS = r"""
 ([target]) => {
+""" + WATCHLIST_OR_TRADE_JS + r"""
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
@@ -2752,27 +2801,10 @@ SYMBOL_SUGGEST_JS = r"""
       if (e.querySelector('[data-test-id=SELL]')) { orderPanels.push(e); break; }
     }
   }
-  const wlTables = [...document.querySelectorAll('table')].filter(t => {
-    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
-    return hs.includes('symbol') && hs.includes('bid') && hs.includes('ask');
-  });
-  // The Orders / Positions widgets (manager review of #15070): a working
-  // order or an open position row carries the same symbol text and must
-  // never be a candidate. Each widget is the nearest widget(New)__container
-  // ancestor of its menu button (<= 12 up; the live Orders button sits 9
-  // wrappers below it, #14754), else the button's 6th ancestor.
-  const tradeWidgets = [];
-  for (const b of document.querySelectorAll('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
-    let w = null, e = b.parentElement;
-    for (let i = 0; e && e !== document.body && i < 12; e = e.parentElement, i++) {
-      if (cls(e).some(c => /^widget(New)?__container/.test(c))) { w = e; break; }
-    }
-    if (!w) { w = b; for (let i = 0; i < 6 && w.parentElement && w.parentElement !== document.body; i++) w = w.parentElement; }
-    tradeWidgets.push(w);
-  }
+  // Never the input, a BUY+SELL panel, a watchlist (either layout) or an
+  // Orders / Positions widget -- WATCHLIST_OR_TRADE_JS, shared with #15075.
   const excluded = el => el === input || (input && input.contains(el))
-    || orderPanels.some(p => p.contains(el)) || wlTables.some(t => t.contains(el))
-    || tradeWidgets.some(w => w.contains(el));
+    || orderPanels.some(p => p.contains(el)) || __metisIsWatchlistOrTradeTable(el);
   // A suggestion is something the TYPING produced: an element absent from
   // the pre-typing snapshot (window.__metisPre, INFO_PROBE_SNAPSHOT_JS run
   // just before the fill) or one inside a [role=listbox] / [role=option].
@@ -2793,6 +2825,9 @@ SYMBOL_SUGGEST_JS = r"""
 }
 """
 
+# Remember every element that exists now (a WeakSet on window -- no DOM
+# attribute) so the panel can be identified as NEW after the info click.
+# Returns the number of visible dialogs.
 INFO_PROBE_SNAPSHOT_JS = r"""
 () => {
   window.__metisPre = new WeakSet(document.querySelectorAll('*'));

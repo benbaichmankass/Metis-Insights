@@ -594,3 +594,99 @@ def test_review_toolbar_route_ignores_text_that_existed_before_typing(browser): 
     assert got["ok"] is False and got["toolbar"]["suggest"]["n_candidates"] == 0
     assert "chart-title" not in st["clicks"] and st["linked"] == "SOLUSD"
     never_traded(st)
+
+
+# ── manager review of #15070 / #15075: ONE shared exclusion predicate
+# (WATCHLIST_OR_TRADE_JS) for both watchlist layouts and the trade widgets,
+# and the dump reads rows in the watchlist's widget (Breakout's rows live in
+# a separate table from the Symbol/Bid/Ask headers, #13898). ───────────────
+
+TRADEIFY_WL = ('<div class="widgetNew__container tradeify-wl">'
+               '<div data-test-id="table_column_symbol" style="display:inline-block;width:60px">&nbsp;</div>'
+               '<div data-test-id="table_column_bid" style="display:inline-block;width:60px">&nbsp;</div>'
+               '<table><tbody><tr class="instrument" data-row-id="t1"><td>BTCUSD</td><td>1</td></tr></tbody>'
+               '</table></div>')
+# Re-render rows on typing: a NEW row reading <target> appears in the Tradeify
+# watchlist and in the Positions widget -- "new since typing" alone would let
+# them through; only the shared predicate keeps them out.
+ROWS_ON_TYPING_JS = """target => { const box = document.querySelector('[data-test-id=symbol_input]');
+  box.addEventListener('input', () => {
+    for (const sel of ['.tradeify-wl tbody', '[data-row-id=p1]']) {
+      const host = sel.startsWith('[') ? document.querySelector(sel).parentElement : document.querySelector(sel);
+      const tr = document.createElement('tr'); tr.className = 'instrument'; tr.setAttribute('data-row-id', 'n' + sel.length);
+      tr.innerHTML = '<td class="late">' + target + '</td><td>x</td>';
+      tr.addEventListener('click', () => { window.__lateClicked = (window.__lateClicked || 0) + 1; });
+      host.appendChild(tr);
+    }
+  }); }"""
+
+
+def test_shared_predicate_covers_both_watchlists_and_trade_widgets_but_not_a_dropdown(browser):  # noqa: F811
+    from src.prop.platform.dxtrade import WATCHLIST_OR_TRADE_JS
+    p = browser.new_page()
+    p.set_content(page_html(outside_table=ORDER_ROW_OUTSIDE + TRADEIFY_WL
+                            + '<ul role="listbox"><li role="option"><span>ETHUSD</span></li></ul>'))
+    got = p.evaluate("() => {" + WATCHLIST_OR_TRADE_JS + """
+      const f = __metisIsWatchlistOrTradeTable;
+      return {watchlist_cell: f(document.querySelector('td.sym')),
+              positions_row: f(document.querySelector('[data-row-id=p1] td')),
+              tradeify_cell: f(document.querySelector('.tradeify-wl td')),
+              tradeify_header: f(document.querySelector('[data-test-id=table_column_symbol]')),
+              dropdown_option: f(document.querySelector('[role=option] span')),
+              toolbar_input: f(document.querySelector('[data-test-id=symbol_input]'))}; }""")
+    p.close()
+    assert got == {"watchlist_cell": True, "positions_row": True, "tradeify_cell": True, "tradeify_header": True,
+                   "dropdown_option": False, "toolbar_input": False}
+
+
+def test_review_toolbar_route_never_takes_a_watchlist_or_positions_row_rendered_after_typing(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html(link_breaks_for="ETHUSD", outside_table=ORDER_ROW_OUTSIDE + TRADEIFY_WL))
+    p.evaluate(ROWS_ON_TYPING_JS, "ETHUSD")
+    got = fast_adapter().select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    late, st = p.evaluate("window.__lateClicked || 0"), state(p)
+    p.close()
+    assert got["ok"] is False and got["toolbar"]["suggest"]["n_candidates"] == 0
+    assert late == 0 and st["linked"] == "SOLUSD"
+    never_traded(st)
+
+
+def test_review_toolbar_route_still_takes_the_dropdown_when_rows_rerender_on_typing(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html(link_breaks_for="ETHUSD", outside_table=ORDER_ROW_OUTSIDE + TRADEIFY_WL))
+    p.evaluate(ROWS_ON_TYPING_JS, "ETHUSD")
+    p.evaluate(SUGGEST_BOX_JS, False)
+    got = fast_adapter().select_linked_symbol(p, "ETHUSD", settle_ms=50)
+    late, st = p.evaluate("window.__lateClicked || 0"), state(p)
+    p.close()
+    assert got["ok"] is True and got["route"] == "toolbar" and got["toolbar"]["suggest"]["n_candidates"] == 1
+    assert late == 0 and st["clicks"][-1] == "LI" and st["linked"] == "ETHUSD"
+    never_traded(st)
+
+
+# Breakout's measured split (#13898): the Symbol/Bid/Ask <th> table holds no
+# rows; the rows sit in a SEPARATE table in the same widget.
+SPLIT_WL_JS = """() => { const t = document.querySelector('table'); const tb = t.querySelector('tbody');
+  const rows = document.createElement('table'); rows.className = 'rows'; rows.appendChild(tb);
+  t.parentElement.appendChild(rows); }"""
+
+
+def test_link_state_dump_reads_rows_from_breakouts_separate_rows_table(browser):  # noqa: F811
+    p = browser.new_page()
+    p.set_content(page_html())
+    p.evaluate(SPLIT_WL_JS)
+    got = fast_adapter().link_state_dump(p)
+    st = state(p)
+    p.close()
+    assert got["rows_scope"] == "widget" and got["rows_waited_ms"] == 0
+    assert [r["sym"] for r in got["rows"]] == ["ETHUSD", "SOLUSD", "BTCUSD", "AVAXUSD"]
+    (d,) = got["table_diag"]
+    assert d["n_tr_selector"] == 0 and d["n_tr_selector_in_widget"] == 4      # what #15046/#15064 could not see
+    assert st["clicks"] == [] and st["tags"] == 0
+
+
+def test_the_switch_works_on_breakouts_separate_rows_table(browser):  # noqa: F811
+    got, st = robust(browser, page_html(), "ETHUSD", (SPLIT_WL_JS, None))
+    assert got["ok"] is True and got["route"] == "watchlist" and got["attempts"] == 1
+    assert got["ready"]["watchlist_n"] == 4 and st["clicks"] == ["sym"] and st["linked"] == "ETHUSD"
+    never_traded(st)
