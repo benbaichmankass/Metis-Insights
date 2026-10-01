@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "(1) The latch is cleared (halt_clears.jsonl entry) and a later executor tick shows halted null. AND (2) a merged executor fix makes one failed journal read NOT latch: no entries that cycle, latch only after TRIP_CONSECUTIVE_ERRORS consecutive failures, with tests. Or the manager records a stated decision that single-failure latching is intended (killed with that reason).",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0011",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq, hourly SOL watch 2026-09-30 16:38Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-prop-executor&lines=200' | grep -E 'halted|journal read failed|URLError'; sed -n 765,835p src/prop/prop_executor.py"
+  },
+  "routed_to": "PROP-EXEC",
+  "state": "done",
+  "terminal_reason": "Both clauses met: (1) the latch was cleared by #14808 at 16:47:03Z, and the next tick at 16:49:44Z showed halted null; (2) #14813 was merged as f54b8fb7 (17:25Z) and deployed (code_sha f54b8fb71 at 17:29Z). One failed journal read now counts toward TRIP_CONSECUTIVE_ERRORS and blocks entries that cycle only, with 6 tests. The live single-failure path has not fired yet: the deploy restarts at 17:26, 17:31 and 17:36 all fell between executor journal reads. The wider question of other local-API clients is PI-20260930-KMYJ5XC7-0012.",
+  "what": "MONEY-PATH, MEASURED 2026-09-30 from the ict-prop-executor journal: a single transient local-API failure permanently halts the Breakout prop executor. At 16:05:06Z, api.open_fills raised URLError [Errno 111] Connection refused; the account_status write-back failed the same way. src/prop/prop_executor.py:769-773 turns ONE open_fills exception into halted='journal read failed', and :830-831 writes the permanent 'halted' latch (state.halt), which refuses every new entry until a person clears it. By contrast, terminal-read errors latch only after TRIP_CONSECUTIVE_ERRORS=2 consecutive ticks (:756-760). The API was reachable again by 16:34:40 (account_status write-back id 942 ok), but every tick since ended halted. No ticket was lost at filing time, because none arrived after the 14:22:36Z deploy. The cause of the refusal (a web-API restart?) is UNVERIFIED: the pullable web-API journal starts at 16:13. Line origin: #13647. Reported to the manager 16:39Z with two asks: clear the latch via breakout-login-check apply: executor-clear-halt (person-cleared by design), and a held executor PR that routes journal-read failures through the consecutive_errors counter."
+}

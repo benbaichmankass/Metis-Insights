@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path guard on the live prop executor (src/prop/prop_executor.py run_cycle intake), PI-20260930-KMYJ5XC7-0003. Before ANY placement, a first attempt or a retry, the executor reads this cycle's quote (ask for a long, bid for a short) and requires it inside the ticket's own entry band parsed from its message. Outside the band or an unreadable quote: WAIT (not an attempt; still expires at valid_until). An unreadable band: terminal refused plus alert. Covers breakout_1 and tradeify_1 (run_cycle is per account). Gate for the Tradeify go-live. Held: the manager reviews and merges.",
+  "why": "The executor typed a LIMIT at entry with no live-price check, so a ticket whose price had already crossed its stop would be placed as a marketable limit that fills straight into its own SL."
+}

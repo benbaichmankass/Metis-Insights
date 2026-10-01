@@ -2504,12 +2504,25 @@ INFO_PROBE_RESOLVE_JS = r"""
   const wl = [];
   for (const t of document.querySelectorAll('table')) {
     const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
-    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push(hs);
+    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
   }
   if (wl.length !== 1) { out.why = `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`; return out; }
-  const hs = wl[0], si = hs.indexOf('symbol');
+  const hs = wl[0].hs, si = hs.indexOf('symbol');
+  // Rows are scanned ONLY inside the watchlist's own widget (manager review of
+  // #14885, finding a): the nearest widget(New)__container ancestor of the
+  // Symbol/Bid/Ask table (<= 8 up; else the table itself). That scope must
+  // hold no Orders / Positions widget menu, so a working-order or position
+  // row can never be taken for a watchlist Symbol cell.
+  let scope = wl[0].t;
+  for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+    const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+  }
+  if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]')) {
+    out.why = 'the watchlist scope also holds an Orders / Positions widget'; return out;
+  }
   const rows = [];
-  for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+  for (const r of scope.querySelectorAll('tr.instrument, tr[data-row-id]')) {
     const tds = [...r.querySelectorAll('td')];
     if (tds.length !== hs.length) continue;
     const sym = txt(tds[si]).toUpperCase();
@@ -2764,6 +2777,40 @@ INFO_PROBE_NEW_ELEMENTS_JS = r"""
                     w: Math.round(r.width), h: Math.round(r.height), visible: vis(el),
                     n_leaves: leafCount(el)};
           })};
+}
+"""
+
+# The target's RAW watchlist quote cells for symbol-switch-dry (price_step
+# decimals). Scoped EXACTLY like INFO_PROBE_RESOLVE_JS -- the watchlist's own
+# widget, refusing when it also holds an Orders / Positions widget menu -- and
+# returning ONLY the Symbol, Bid and Ask cells (manager review of #14885, nit
+# b: the run log is PUBLIC, and a page-wide row scan could capture a position
+# or working-order row's qty / entry / P&L). Read-only; clicks nothing.
+WATCHLIST_QUOTE_RAW_JS = r"""
+([symbol]) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const wl = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol') && hs.includes('bid') && hs.includes('ask')) wl.push({t, hs});
+  }
+  if (wl.length !== 1) return {error: `${wl.length} Symbol/Bid/Ask tables (need exactly 1)`};
+  const hs = wl[0].hs, si = hs.indexOf('symbol'), bi = hs.indexOf('bid'), ai = hs.indexOf('ask');
+  let scope = wl[0].t;
+  for (let e = wl[0].t.parentElement, i = 0; e && e !== document.body && i < 8; e = e.parentElement, i++) {
+    const cls = typeof e.className === 'string' ? e.className.split(/\s+/) : [];
+    if (cls.some(c => /^widget(New)?__container/.test(c))) { scope = e; break; }
+  }
+  if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]'))
+    return {error: 'the watchlist scope also holds an Orders / Positions widget'};
+  const want = String(symbol || '').toUpperCase(), rows = [];
+  for (const r of scope.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    const tds = [...r.querySelectorAll('td')];
+    if (tds.length !== hs.length || txt(tds[si]).toUpperCase() !== want) continue;
+    rows.push([txt(tds[si]), txt(tds[bi]), txt(tds[ai])].map(v => v.slice(0, 24)));
+  }
+  return {headers: ['symbol', 'bid', 'ask'], rows: rows.slice(0, 2)};
 }
 """
 
@@ -3507,11 +3554,14 @@ class DXtradeAdapter(PropPlatformAdapter):
     def read_one_click(self, page: Any) -> Dict[str, Any]:
         """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC for
         every ORDER path: recorded in each order-control result, gated on by
-        none of them (ORDER ENTRY rule 1; operator 2026-09-28). The one
-        exception is the instrument INFO-PANEL probe (``probe_instrument_info``),
-        which clicks on the live terminal and refuses unless this reads
-        ``off`` via ``data-value+knob`` (the measured toggle, issues #14714 /
-        #14754). ``unknown`` blocks no order path."""
+        none of them (ORDER ENTRY rule 1; operator 2026-09-28). Two
+        exceptions, both WATCHLIST-CELL clicks rather than order controls,
+        refuse unless this reads ``off`` via ``data-value+knob`` (the measured
+        toggle, issues #14714 / #14754): the instrument INFO-PANEL probe
+        (``probe_instrument_info``) and the per-ticket SYMBOL SWITCH
+        (``select_linked_symbol``, only when a click is needed; manager
+        decision 2026-09-30 20:17Z, review of #14885). ``unknown`` blocks no
+        order control."""
         try:
             got = page.evaluate(ONE_CLICK_JS) or {}
         except Exception as exc:
@@ -4017,6 +4067,105 @@ class DXtradeAdapter(PropPlatformAdapter):
                     pass
         return out
 
+    def select_linked_symbol(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+        """Make ``venue_symbol`` the terminal's linked symbol, VERIFIED.
+
+        Reads the linked symbol (INFO_PROBE_RESOLVE_JS, which clicks nothing
+        and tags the target's Symbol cell); when it already reads the target,
+        nothing is clicked. Otherwise ONE single click on the target's
+        watchlist Symbol cell -- never Bid/Ask, never a double-click (a
+        double-click opens the ticket) -- after the hover re-check, then a
+        read-back. ``ok`` is True only when the linked symbol reads the
+        target and no dialog is open. Refuses (nothing clicked) when the
+        watchlist / linked input cannot be resolved, a dialog is open, or the
+        target has no single clean Symbol cell. MEASURED live: #14831
+        (BTCUSD) and #14870 (ETHUSD) both read the clicked symbol back."""
+        target = str(venue_symbol or "").strip().upper()
+        out: Dict[str, Any] = {"target": target, "ok": False, "clicked": False}
+        try:
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[target]]) or {}
+            out["before"] = res.get("linked_symbol")
+            if not res.get("ok"):
+                out["why"] = res.get("why") or "could not resolve the watchlist / linked symbol"
+                return out
+            if res.get("dialogs"):
+                out["why"] = f"{res['dialogs']} dialog(s) open"
+                return out
+            if res.get("linked_symbol") == target:
+                out.update(ok=True, after=target)
+                return out
+            if not (res.get("targets") or {}).get(target, {}).get("clean"):
+                out["why"] = f"{target} has no single clean watchlist Symbol cell"
+                return out
+            # A click is needed: gate it like the info probe (manager decision
+            # 2026-09-30 20:17Z, review of #14885). With one-click ON, a
+            # geometry shift or a hover control the check misses could turn
+            # this click into an order. Order controls stay un-gated (rule 1).
+            oc = self.read_one_click(page)
+            out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+            if not info_probe_one_click_off(oc):
+                out["why"] = (f"symbol switch refused: one-click not confirmed OFF "
+                              f"(reads {oc.get('state')!r} via {oc.get('via')!r})")
+                return out
+            if not self._info_click_cell(page, target):
+                out["why"] = f"a control appeared in {target}'s Symbol cell on hover; not clicked"
+                return out
+            out["clicked"] = True
+            page.wait_for_timeout(settle_ms)
+            dialogs = page.evaluate(INFO_PROBE_SNAPSHOT_JS)
+            out["after"] = self._linked_symbol(page)
+            if dialogs:
+                out["why"] = f"{dialogs} dialog(s) appeared after selecting {target}"
+            elif out["after"] != target:
+                out["why"] = f"linked symbol reads {out['after']!r} after selecting {target}"
+            else:
+                out["ok"] = True
+            return out
+        except Exception as exc:
+            out["why"] = f"{type(exc).__name__} (code=symbol_switch_exception)"
+            return out
+        finally:
+            try:
+                page.evaluate(INFO_PROBE_CLEANUP_JS)
+            except Exception:
+                pass
+
+    def symbol_switch_dry(self, page: Any, venue_symbol: str, *, settle_ms: int = 1_500) -> Dict[str, Any]:
+        """DRY check of the per-ticket switch (manager 2026-09-30 19:40Z):
+        select ``venue_symbol``, verify, then re-select the ORIGINAL linked
+        symbol and verify. NO order form is opened. Refuses before any click
+        unless one-click reads OFF from the measured toggle."""
+        out: Dict[str, Any] = {"target": str(venue_symbol or "").strip().upper(), "alerts": [], "refused": None}
+        try:
+            out["one_click"] = self.read_one_click(page)
+            if not info_probe_one_click_off(out["one_click"]):
+                out["refused"] = "one-click trading does not read OFF from the measured toggle"
+                return out
+            res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[]]) or {}
+            page.evaluate(INFO_PROBE_CLEANUP_JS)
+            original = res.get("linked_symbol")
+            out["original"] = original
+            if not res.get("ok") or not original:
+                out["refused"] = res.get("why") or "linked symbol not readable"
+                return out
+            # CLICK-FREE quote read of the target BEFORE any click (manager
+            # 2026-09-30 20:39Z): its bid/ask DECIMALS measure the price_step
+            # ETHUSD still lacks. read_quote parses floats (a trailing zero is
+            # lost), so the target row's raw watchlist cells are kept too --
+            # market data only (symbol, prices), capped per cell.
+            out["quote"] = self.read_quote(page, out["target"])
+            out["quote_raw"] = page.evaluate(WATCHLIST_QUOTE_RAW_JS, [out["target"]]) or {"error": "no result"}
+            out["switch"] = self.select_linked_symbol(page, out["target"], settle_ms=settle_ms)
+            if not out["switch"].get("ok"):
+                out["alerts"].append(f"switch to {out['target']} failed: {out['switch'].get('why')}")
+            out["restore"] = self.select_linked_symbol(page, original, settle_ms=settle_ms)
+            if not out["restore"].get("ok"):
+                out["alerts"].append(f"restore to {original} failed: {out['restore'].get('why')}")
+            return out
+        except Exception as exc:
+            out["alerts"].append(f"symbol-switch-dry raised {type(exc).__name__} (code=switch_dry_exception)")
+            return out
+
     def _info_restore(self, page: Any, out: Dict[str, Any]) -> None:
         """Re-select the ORIGINALLY linked symbol and verify it reads back.
         A failure is an alert: the terminal's linked symbol may be changed."""
@@ -4124,6 +4273,33 @@ class DXtradeAdapter(PropPlatformAdapter):
             return PlaceAttempt(stage="refused", detail=opened.get("refused") or "form not opened",
                                 form={"one_click": opened.get("one_click")})
         form = opened["form"]
+        # PER-TICKET SYMBOL SWITCH (manager 2026-09-30 19:40Z): the open form
+        # is the sidebar ticket linked to the terminal's linked symbol, so an
+        # ETHUSD ticket on a SOLUSD-linked terminal was refused ("the open form
+        # does not name ETHUSD") and could never trade. Only when the form
+        # names ANOTHER symbol: link the ticket's symbol -- one verified single
+        # click on its watchlist Symbol cell, MEASURED live twice (#14831
+        # BTCUSD, #14870 ETHUSD) -- re-read the form, and refuse on any
+        # mismatch. A form already naming the symbol (today's SOL path) is
+        # untouched. form_names_symbol below still guards.
+        if not form.get("ambiguous") and not form_names_symbol(form, spec.venue_symbol):
+            link = self.select_linked_symbol(page, spec.venue_symbol)
+            if not link.get("ok"):
+                detail = f"symbol switch: {link.get('why')}"
+                # A switch that CLICKED but did not verify may have moved the
+                # link: ONE guarded restore to the prior linked symbol (itself
+                # gated and verified), alerting if it fails (manager review of
+                # #14885, finding b).
+                if link.get("clicked") and link.get("before"):
+                    rest = self.select_linked_symbol(page, link["before"])
+                    link["restore"] = {k: rest.get(k) for k in ("ok", "clicked", "after", "why")}
+                    if not rest.get("ok"):
+                        detail += f"; RESTORE to {link['before']} FAILED: {rest.get('why')}"
+                self.close_order_ticket(page)
+                return PlaceAttempt(stage="refused", detail=detail,
+                                    form={**dict(form), "symbol_switch": link})
+            form = self._find_form(page)
+            form["symbol_switch"] = link
 
         trace: List[Dict[str, Any]] = []
 

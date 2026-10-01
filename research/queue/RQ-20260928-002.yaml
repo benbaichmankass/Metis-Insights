@@ -1,7 +1,10 @@
 id: RQ-20260928-002
 title: M19 S1-v0 — does anything the harness knows at entry carry WITHIN-CELL veto information on the costed trade corpus?
-status: queued
+status: done
 cadence: once
+status_reason: >-
+  2026-09-30 (RESEARCH-W7): left `queued` after its FAIL was graded 2026-09-29 (see `result:`). A `once` unit
+  with a terminal graded verdict is done; it was already not_due, so this changes what the queue reports only.
 kind: experiment
 
 question: >-

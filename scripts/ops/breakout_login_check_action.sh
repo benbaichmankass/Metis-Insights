@@ -161,7 +161,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt \
          feed-enable-timer feed-disable-timer; do
@@ -407,7 +407,8 @@ if [ "${ACCOUNT}" != "breakout_1" ]; then
 fi
 
 if { [ "${EXEC_MODE}" = "instrument-probe" ] || [ "${EXEC_MODE}" = "instrument-info-dry" ] \
-     || [ "${EXEC_MODE}" = "instrument-info-probe" ]; } && [ -z "${ACTION_SYMBOLS// }" ]; then
+     || [ "${EXEC_MODE}" = "instrument-info-probe" ] || [ "${EXEC_MODE}" = "symbol-switch-dry" ]; } \
+     && [ -z "${ACTION_SYMBOLS// }" ]; then
     log "${EXEC_MODE}: refused — 'symbols:' is required (comma-separated venue symbols)"
     exit 1
 fi
@@ -426,6 +427,9 @@ if [ -n "${EXEC_MODE}" ]; then
         instrument-search-dump) EARGS+=(--instrument-search-dump) ;;
         instrument-info-dry)    EARGS+=(--instrument-info-dry "${ACTION_SYMBOLS}") ;;
         instrument-info-probe)  EARGS+=(--instrument-info-probe "${ACTION_SYMBOLS}") ;;
+        symbol-switch-dry)
+            case "${ACTION_SYMBOLS}" in *,*) log "symbol-switch-dry: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--symbol-switch-dry "${ACTION_SYMBOLS// /}") ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")

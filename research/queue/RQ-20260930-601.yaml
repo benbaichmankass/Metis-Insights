@@ -1,7 +1,15 @@
 id: RQ-20260930-601
 title: 'M16 re-scope, Stage 0: inside ONE leg, do trades that enter with relatively higher `confidence` earn more full-cost R? (lane M16-RESCOPE)'
-status: queued
+status: done
 cadence: once
+theme: live_strategy
+priority: 2
+status_reason: >-
+  2026-09-30 (RESEARCH-W7, manager 20:12Z): graded FAIL, record research/results/RQ-20260930-601/36732230587.jsonl
+  (rho 0.019, p 0.197, n_eval 2328; conditions A and E true, B, C, D false). The rule's "re-queues once for a
+  confirmatory run" is NOT done by re-firing this unit: the statistic is a seeded permutation over the same committed
+  ledgers, so a same-data rerun reproduces the FAIL exactly. The confirmatory run is RQ-20260930-602, blocked until
+  the ledgers have grown by >= 500 eval trades.
 kind: experiment
 
 question: >-

@@ -91,9 +91,30 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
       operator-confirmed/prompted ticket whose later fill/close must link back.
     """
     explicit = fill.get("ticket_id")
-    if explicit:
-        return str(explicit)
     account_id = str(fill.get("account_id") or "").strip()
+    if explicit:
+        # An explicit id that names an EXISTING ticket is honoured only when
+        # that ticket belongs to the reporting account (TRADEIFY-WIRE F1 +
+        # manager review): with two prop accounts a report from one must never
+        # link to — and so advance — the other's ticket. A blank owner or a
+        # blank reporting account cannot be shown to match, so it returns None
+        # too: the fill is journaled unlinked, never cross-linked.
+        #
+        # An id with NO ticket row belongs to no account, so it cannot
+        # cross-link, and it is kept: the fill dedup keys on it (a relay retry
+        # of an open report re-sends the same ticket_id; refusing it would
+        # journal a second fill and double-count open risk —
+        # tests/test_prop_open_risk_e66.py).
+        ticket = prop_journal.get_ticket(str(explicit))
+        if ticket is None:
+            return str(explicit)
+        owner = str(ticket.get("account_id") or "").strip()
+        if not account_id or not owner or owner != account_id:
+            logger.warning(
+                "prop_reconcile: explicit ticket %s not linkable for reporting account "
+                "%r (owner %r) — fill left unlinked", explicit, account_id, owner)
+            return None
+        return str(explicit)
     if not account_id:
         return None
     symbol = str(fill.get("symbol") or "").upper()

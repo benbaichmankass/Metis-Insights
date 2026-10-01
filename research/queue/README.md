@@ -115,6 +115,9 @@ title: ...
 question: >-                 # what is being asked, BEFORE it runs
 status: queued               # queued | running | done | blocked | retired
 cadence: once                # once | daily | weekly | monthly
+theme: live_strategy         # REQUIRED on a queued/running/blocked unit: a key of research/THEMES.yaml
+priority: 2                  # REQUIRED, 1 (most urgent) .. 3, WITHIN the theme
+requires_result: {unit: RQ-YYYYMMDD-NNN, verdict: pass}   # OPTIONAL structured gate, see "Scheduling"
 kind: experiment             # experiment | deterministic
 
 # kind: experiment → required
@@ -193,6 +196,29 @@ lands:                       # R2 — a run's deliverable is a LANDED result
 
 last_dispatched_at: null     # stamped by the dispatcher; drives cadence
 ```
+
+## Scheduling: themes, fair share, aging, preconditions
+
+**Order is not FIFO and not strict priority.** Until 2026-09-30 `load_queue` sorted by id and the dispatcher
+fired in that order, so the newest units waited behind every older one (46 of the 48 never-dispatched units
+had been created the day before). The operator's direction: regime first, but *everything keeps moving*.
+
+- Every queued unit carries `theme:` (a key of [`research/THEMES.yaml`](../THEMES.yaml): `regime`,
+  `live_strategy`, `ml_health`, `new_strategy_prop`, `macro`, `infra`) and `priority:` 1-3 within the theme.
+  `validate` refuses a queued/running/blocked unit without both; `done`/`retired` units are exempt.
+- **Weights live in ONE file, `research/THEMES.yaml`.** `dispatch_queue.fair_order` repeatedly picks the theme
+  with the lowest (stamps in the last `share_window_hours` + picks so far) / weight among themes that still hold
+  a due unit, then that theme's best unit. Low weight means fewer slots, never none: a theme with due work and no
+  recent fire has usage 0 and is served before any theme over its share.
+- **Aging:** every `aging_hours` a unit has waited (since its last stamp, else the date in its id) lowers its
+  effective priority by one (floor 0), so nothing starves inside its theme.
+- Not candidates, kept in id order after the ranked ones: units that are done, not yet due, invalid, session-bound
+  (`run.workflow` is prose) or whose precondition is unmet. Cadence, power and route gates are unchanged.
+- **Preconditions.** `requires_result: {unit, verdict?}` is evaluated: the unit is not due until
+  `research/results/<unit>/*.jsonl` holds a `read_state: measured` record (with that verdict, when given). The
+  free-text `dispatch_precondition` is **advisory prose for humans and is NOT evaluated**; state a gate that must
+  hold as `requires_result`, or it is not a gate.
+- Intake, planning and the weekly re-weighting: [`PLANNING.md`](PLANNING.md).
 
 ## Running it
 

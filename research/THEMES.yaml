@@ -1,0 +1,18 @@
+# research/THEMES.yaml — the ONE place dispatch weights live.
+#
+# Every non-done queue unit carries `theme:` (a key below) and `priority:` (1 = most urgent .. 3 = least,
+# WITHIN its theme). The dispatcher does NOT run themes in strict order: it allocates fire slots by weighted
+# fair share over the last `share_window_hours` of stamps, so a theme with runnable work and no recent fire
+# is served before any theme that is over its share. A low-weight theme therefore still gets slots.
+# Rules and the weekly revisit: research/queue/PLANNING.md.
+#
+# Weights are the operator's 2026-09-30 order (regime first, macro last), revisited by the planning session.
+share_window_hours: 48      # stamps newer than this count against a theme's share
+aging_hours: 72             # every aging_hours a unit waits lowers its EFFECTIVE priority by 1 (floor 0)
+themes:
+  regime:            {weight: 5, what: "regime selectivity / classifier headroom / cell evidence"}
+  live_strategy:     {weight: 4, what: "improving legs that are live: entries, exits, re-validation"}
+  ml_health:         {weight: 3, what: "regime-head drift, exit heads, demotion proposals"}
+  new_strategy_prop: {weight: 2, what: "Stage-0 coverage, new strategies, prop-account fit"}
+  macro:             {weight: 1, what: "macro / value sleeve and event studies"}
+  infra:             {weight: 2, what: "research tooling and pipeline self-tests that are units"}

@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -951,7 +952,8 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     # directive 2026-09-30 ~13:12Z). Every other ledger state is final. A retry
     # runs EXACTLY the guards a first attempt runs (manager 2026-09-30 13:21Z):
     # this cycle's terminal read + the busy-symbol guard, valid_until, the
-    # § 3.3 guards, the LIMIT at entry. No retry-only price rule.
+    # § 3.3 guards, the LIMIT at entry, and the entry-band check below, which
+    # applies to both attempt kinds alike (no retry-only price rule).
     fresh = [t for t in tickets if t.get("ticket_id")
              and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") == RETRY_STATE)]
     if only_ticket_id:
@@ -990,6 +992,37 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
             continue
+        if candidate is None and venue:
+            # The entry-band check, identical for a first attempt and a
+            # retry. A WAIT is not an attempt: nothing is recorded, so the
+            # ticket is looked at again next cycle and still expires at
+            # valid_until. A ticket with no venue is left to the guards,
+            # which refuse it.
+            verdict, why = _entry_band_check(adapter, page, t, venue)
+            if verdict in ("wait", "blind"):
+                res.log("band_wait", ticket_id=t["ticket_id"], why=why)
+                # A quote we could not read would otherwise let the ticket
+                # expire with only a log line (manager review of #14908): one
+                # alert per ticket, on its first blind wait.
+                if verdict == "blind" and _first_time(state, st, f"band_blind_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: live price unreadable, NOT placed yet; will retry "
+                                      f"until {t.get('valid_until')}, place by hand if needed")
+                continue
+            if verdict == "ok":
+                # Logged with the quote it used, so a live pass is observable
+                # (manager 2026-09-30 22:06Z), not inferred from a guards line.
+                res.log("band_ok", ticket_id=t["ticket_id"], why=why)
+            if verdict == "refuse":
+                res.log("band_refused", ticket_id=t["ticket_id"], why=why)
+                if live:
+                    ledger.record(t["ticket_id"], "refused", reasons=[why])
+                    _report(res, post, _skip_body(cfg, t, f"not submitted: {why}"))
+                # Live records the refusal, so the ticket is never seen again;
+                # a dry mode records nothing, so it is de-duplicated here.
+                if live or _first_time(state, st, f"band_refused_{mode}", t["ticket_id"]):
+                    res.alerts.append(f"{t['ticket_id']}: NOT PLACED — {why}; place it by hand by "
+                                      f"{t.get('valid_until')} or it is lost")
+                continue
         if candidate is None:
             candidate = t
     if candidate is None:
@@ -1438,6 +1471,59 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
 RETRY_STATE = "retry_pending"
 #: Placement attempts per ticket before the pre-submit failure is final.
 RETRY_MAX_ATTEMPTS = 3
+
+#: The ticket's own entry band as ``breakout_ticket`` renders it in the
+#: message: "(only if live price is within <min> … <max>)".
+_BAND_RE = re.compile(r"within\s+([0-9]+(?:\.[0-9]+)?)\s*(?:…|\.\.\.)\s*([0-9]+(?:\.[0-9]+)?)")
+
+
+def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
+    """The ticket's own entry band, parsed from its message, or None when it
+    cannot be read. Never recomputed here: a second copy of the rule could
+    disagree with the ticket the operator saw."""
+    m = _BAND_RE.search(str(ticket.get("message") or ""))
+    if not m:
+        return None
+    lo, hi = float(m.group(1)), float(m.group(2))
+    return (lo, hi) if lo <= hi else None
+
+
+def _first_time(state: "ExecutorState", st: Dict[str, Any], key: str, ticket_id: str,
+                keep: int = 50) -> bool:
+    """True the first time ``ticket_id`` is seen under ``key`` (the last
+    ``keep`` ids are remembered in the executor state), False after."""
+    seen = list(st.get(key) or [])
+    if ticket_id in seen:
+        return False
+    st[key] = (seen + [ticket_id])[-keep:]
+    state.save(st)
+    return True
+
+
+def _entry_band_check(adapter: Any, page: Any, ticket: Mapping[str, Any],
+                      venue: str) -> Tuple[str, str]:
+    """Before ANY placement, a first attempt or a retry (PI-20260930-KMYJ5XC7-0003,
+    manager 2026-09-30 13:29Z): this cycle's quote -- the ask for a long, the
+    bid for a short -- must lie inside the ticket's own entry band. The band
+    is clipped at the stop, so a price outside it includes a price beyond the
+    SL, where a LIMIT at entry would be marketable and fill straight into its
+    own stop. Returns ``("ok"|"wait"|"blind"|"refuse", why)``. Fails closed:
+    an unreadable quote is ``blind`` and waits like ``wait`` (we could not
+    look), an unreadable band REFUSES."""
+    band = _entry_band(ticket)
+    if band is None:
+        return "refuse", "entry band unreadable in the ticket message"
+    try:
+        q = adapter.read_quote(page, venue)
+    except Exception as exc:
+        return "blind", f"no quote for the entry-band check ({type(exc).__name__}; could not look)"
+    long_side = _dir(ticket.get("direction")) == "long"
+    px = _f((q or {}).get("ask" if long_side else "bid"))
+    if px is None:
+        return "blind", "no quote for the entry-band check (could not look)"
+    if not (band[0] <= px <= band[1]):
+        return "wait", f"{'ask' if long_side else 'bid'} {px} outside the ticket's entry band {band[0]}..{band[1]}"
+    return "ok", f"{'ask' if long_side else 'bid'} {px} inside the ticket's entry band {band[0]}..{band[1]}"
 
 #: Cancel attempts on one expired resting entry before the executor stops
 #: retrying and says so (an alert at exhaustion; later cycles only log).

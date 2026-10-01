@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-30T19:40:00Z",
+  "updated_at": "2026-09-30T21:00:00Z",
   "updated_by": "session_01HYq6XtfesZ57VyaQrK6CL1",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -4437,6 +4437,26 @@
       "prs": [],
       "blocked_on": [],
       "note": "2026-09-30 ~19:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): SOURCE: operator ideas inbox (idea synced 2026-09-30; its IDEAS.md row lands with the MGR-SKILL-IDEAS PR, which registers the file in docs/DOCUMENT-INDEX.md); the first end-to-end test of the inbox flow, requested by the operator. TRIAGE: a BUILD (the catalog is a maintained artifact) with a research tail. Theme ml_health. PLACED, not chased: queued behind the live pipeline, the prop go-live work and RESEARCH-W7 A0/A/A2 (queue liveness and weights), per PACE-W40. Scope when dispatched: (1) inventory every input the live strategies, ML heads (ml/configs), regime router and macro producers consume, with file:line; (2) per input, record definition, source/feed, freshness, null rate, and where it is used (which legs/models); (3) a committed catalog file plus a guard that fails when a new input appears in code without a catalog entry; (4) hand the research-planning session a standing 'catalog review' item: which signals are unused, redundant or unmeasured, and candidate additions, each becoming a registered unit. Sonnet, ceiling ~$25."
+    },
+    {
+      "id": "PROP-GOLIVE-PREAPPROVAL",
+      "title": "Operator milestone pre-approval (2026-09-30): Breakout ETHUSD and Tradeify go-live, gated step by step",
+      "phase": "W7",
+      "state": "in_flight",
+      "owner": "manager",
+      "lane": "session_01HYq6XtfesZ57VyaQrK6CL1",
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        14885,
+        14672,
+        14756,
+        14673
+      ],
+      "blocked_on": [],
+      "note": "2026-09-30 ~21:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR PRE-APPROVAL (popup ~21:00Z, answer verbatim: \"Approve both, as written (Recommended)\"). Milestone-gated go-live for both prop accounts; each step proceeds ONLY when its criteria are met. ALWAYS: independent review MERGE-OK + green CI + deploy observed before the next step; every click run on a funded terminal ONCE, no retries; STOP and wait for the operator on: an executor latch, any unexpected click or unintended order, a review BLOCK whose fix is not clear-cut, any change to caps/sizing or a strategy outside the approved roster; an auto-mode classifier denial is never worked around; caps and sizing stay as in config and the PRs. BREAKOUT (breakout_1, live) add ETHUSD: B1 merge #14885 after re-review, deploy observed (tick on new sha, halted null). B2 one ETH symbol-switch-dry: all guards, quote read, ETH selected+verified, SOL restored+verified, zero order controls, next tick clean. B3 price_step from quote decimals, only if unambiguous. B4 one ETH round-trip-dry: form filled, all fields read back, never submitted, next tick clean. B5 PR enabling ETHUSD with measured specs: review, CI, merge, deploy observed -> real ETH tickets automated; $75/ticket cap unchanged. TRADEIFY (tradeify_1, $10k eval) dry -> live: T1 merge B #14672 and F1 #14756 after review. T2 build+review+merge the rule guards (leverage caps; daily floor prior close -3% reset 22:00 UTC; PI-BHYHMK2D-0001/-BHYHMK2E-0001) and the price-band check (PI-KMYJ5XC7-0003, both accounts). T3 deploy observed; read-only login check on tradeify_1 passes; feed on, rows appear. T4 per symbol ETH/SOL/XRP: specs measured, one symbol-switch-dry, one round-trip-dry; a symbol that fails stays disabled. T5 executor dry mode, at least one full ticket cycle observed end to end, zero errors. T6 C #14673 after review: merge, PROP_EXECUTOR_MODE_TRADEIFY_1 -> live via the system action, first live tick observed. Roster: the planned B3 book (trend_donchian_eth_prop, trend_donchian_sol_prop, ict_scalp_xrp_15m) at 0.5% risk. Notify the operator at each go-live (what changed, evidence, merged/deployed/observed, revert). Expected overnight: Breakout ETH possibly live; Tradeify likely to T5 (guards not yet built)."
     }
   ]
 }
