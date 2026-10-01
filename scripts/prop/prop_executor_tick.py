@@ -93,7 +93,7 @@ EXIT_DEFERRED = 7
 #: 5931584062 on #14947: "if a live ticket is waiting, the tick wins").
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
-                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump",
+                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe",
                          "round_trip_dry", "round_trip_live"})
 
 # Headless viewport. Playwright's default (1280x720) clipped the sidebar
@@ -148,6 +148,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "symbol_switch_dry"
     if getattr(args, "link_state_dump", False):
         return "link_state_dump"
+    if getattr(args, "widget_menu_probe", False):
+        return "widget_menu_probe"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -344,6 +346,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--link-state-dump", action="store_true",
                    help="READ-ONLY: watchlist rows (element hit at each Symbol cell's centre), symbol_input(s), "
                         "and the sidebar ticket's buttons; clicks nothing")
+    g.add_argument("--widget-menu-probe", action="store_true",
+                   help="MEASURE the add-widget ('+') menu: one click on the top-most widget_tab_add_button, "
+                        "dump the menu (masked), Escape; clicks no menu item, no order/price/delete control")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -510,6 +515,12 @@ def main(argv: Optional[list] = None) -> int:
                 got = adapter.link_state_dump(page)
                 emit({"link_state_dump": got}, *secrets)
                 return EXIT_OK if "error" not in got else EXIT_UNPARSED
+
+            if mode == "widget_menu_probe":
+                got = adapter.widget_menu_probe(page)
+                emit({"widget_menu_probe": got}, *secrets)
+                ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
+                return EXIT_OK if ok else EXIT_UNPARSED
 
             if mode == "symbol_switch_dry":
                 got = adapter.symbol_switch_dry(page, args.symbol_switch_dry,

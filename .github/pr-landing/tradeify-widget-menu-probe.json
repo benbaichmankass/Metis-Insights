@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE, option B step 1). Tier-2 by file (dxtrade.py, the action script, the system-actions allowlist): adds a NEW opt-in apply mode only. Its one click is the add-widget '+' (widget_tab_add_button), refused if one-click reads ON; it clicks no menu item and no order/price/instant-trade/position/delete control, Escapes and verifies the layout unchanged. No existing path (breakout_1 included) calls it.",
+  "why": "Operator decision ~21:50Z 2026-10-01 (relayed by the manager, trig_011pk6h1WcYvTFJhuceKtC4E): 'Runner does it' -- a runner adds a Watchlist and the New Order widget to tradeify_1's 'My Trading Account' (#15319/#15322: the workspace lost its Watchlist and no workspace holds an order ticket). Step 1 is this measurement of the '+' menu so step 2 clicks only measured entries."
+}
