@@ -1,7 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "hold_reason": "operator_asked_to_hold",
-  "hold_text": "Lane ICT-SCALP-HTF dispatch convention: do not merge -- the manager merges. Harness-only change (scripts/backtest_ict_scalp.py); no runtime, config or order path touched.",
-  "why": "Fixes lookahead in the backtest HTF bias alignment (PI-20261001-JWZSVYVS-0001). Tier 1 by path; it changes what FUTURE evidence runs measure, not any live behaviour. Committed ict_scalp evidence records predate it and are NOT rebuilt here."
+  "landing": "self",
+  "why": "Backtest harness + tests only (scripts/backtest_ict_scalp.py, tests/test_backtest_ict_scalp_htf_causal.py, pipeline row). No runtime, order path, strategy config, risk caps or live-VM change; it changes what FUTURE evidence runs measure. Manager directive 2026-10-01 22:58Z: take off hold, land on the Tier-1 self-land route. Committed ict_scalp evidence records are NOT rebuilt here (PI-20261001-JWZSVYVS-0003)."
 }
