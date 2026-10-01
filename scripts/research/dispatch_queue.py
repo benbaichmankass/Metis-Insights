@@ -90,11 +90,46 @@ def precondition_met(entry: Dict[str, Any], root: Optional[Path] = None) -> tupl
                    + (f" with verdict {want}" if want else "") + f" (found {seen} measured record(s) without it)")
 
 
+#: Values that mean "a human has not decided this yet". A unit carrying one must never reach `gh`:
+#: the string is sent verbatim as an input value and lands in a numeric parameter.
+_PLACEHOLDER_RE = re.compile(r"NOT YET DECIDED|\bTBD\b|\bTODO\b|\bFIXME\b", re.I)
+
+
+def config_problem(entry: Dict[str, Any], repo: Optional[Path] = None) -> Optional[str]:
+    """Why this unit's dispatch is DETERMINISTICALLY doomed, or None.
+
+    Two shapes, both measured on research-queue-dispatch run 36798175014 (2026-10-01): RQ-20260928-010
+    named inputs its workflow does not declare (HTTP 422 on every cycle, which reddened the run) and
+    carried `fee_frac: "NOT YET DECIDED ..."`. A doomed unit is not due: it reports `not_due` with this
+    reason instead of failing the whole run each cycle, and the runnable count (queue health, refill)
+    stops counting it. The fix belongs in the unit, so the reason names it."""
+    run = entry.get("run") or {}
+    workflow = str(run.get("workflow") or "")
+    if not workflow.endswith((".yml", ".yaml")) or any(ch.isspace() for ch in workflow):
+        return None   # session-bound: reported separately
+    bad = [k for k, v in (run.get("inputs") or {}).items()
+           if isinstance(v, str) and _PLACEHOLDER_RE.search(v)]
+    if bad:
+        return f"misconfigured: run.inputs {bad} hold an unresolved placeholder ('NOT YET DECIDED'/TBD/TODO)"
+    declared = declared_inputs(workflow, repo=repo or _REPO)
+    if declared is None or workflow.split("/")[-1] == "research-script-run.yml":
+        return None
+    inputs, _ = dispatch_inputs(entry, power_state="x", repo=repo or _REPO)
+    unknown = sorted(k for k in inputs if k not in declared)
+    if unknown:
+        return (f"misconfigured: run.inputs {unknown} are not declared by {workflow.split('/')[-1]} "
+                f"(declared: {declared}); GitHub would refuse the dispatch with HTTP 422")
+    return None
+
+
 def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
     """(due, reason). A job with no recorded run has never run and IS due."""
     met, why = precondition_met(entry)
     if not met:
         return False, why
+    problem = config_problem(entry)
+    if problem:
+        return False, problem
     cadence = str(entry.get("cadence") or "once")
     last = entry.get("last_dispatched_at")
     if not last:
@@ -270,7 +305,10 @@ def declared_inputs(workflow: str, *, repo: Path = _REPO) -> Optional[List[str]]
     """The ``workflow_dispatch.inputs`` keys ``<repo>/.github/workflows/<workflow>``
     declares, or ``None`` when the file cannot be read (not "no inputs" — the
     two are different claims, and only the second is a reason to filter)."""
-    path = repo / ".github" / "workflows" / workflow
+    # A unit may spell the workflow as `.github/workflows/x.yml` (RQ-20260928-010 did). Joining that
+    # onto the workflows dir gave a path that never exists, so this returned None, the undeclared-inputs
+    # preflight in `_fire` was skipped, and gh answered HTTP 422 on every cycle (run 36798175014).
+    path = repo / ".github" / "workflows" / workflow.split("/")[-1]
     try:
         import yaml  # noqa: PLC0415 — optional at import time, required here
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
