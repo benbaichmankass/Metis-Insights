@@ -1,0 +1,53 @@
+{
+ "account": "breakout_1",
+ "as_of": "2026-10-01T20:59:50.426138+00:00",
+ "open_positions_at_snapshot": false,
+ "population": "22 closed journal fills (duplicates removed: [52]); venue balance snapshot",
+ "terms": {
+  "venue_balance_minus_account_size": {
+   "usd": -276.0,
+   "provenance": "measured"
+  },
+  "sum_journaled_closed_pnl": {
+   "usd": -205.1,
+   "provenance": "measured (mixed gross/net basis per fill)"
+  },
+  "residual_to_explain": {
+   "usd": -70.9
+  },
+  "commissions_on_gross_basis_fills_stated": {
+   "usd": -14.0,
+   "provenance": "measured",
+   "fills": [
+    14,
+    29,
+    41,
+    45
+   ]
+  },
+  "commissions_on_gross_or_unknown_basis_fills": {
+   "usd": -16.5,
+   "provenance": "estimated",
+   "fills": [
+    2,
+    11,
+    23,
+    25,
+    27,
+    38,
+    39
+   ]
+  },
+  "swap_by_midnight_crossings": {
+   "usd": -18.07,
+   "provenance": "estimated",
+   "rate_bps_per_crossing": 3.3,
+   "note": "crossing counts partly from report timestamps, not venue open/close times"
+  },
+  "unexplained_remainder": {
+   "usd": -22.33,
+   "provenance": "unverified"
+  }
+ },
+ "not_folded": "the unexplained remainder is UNVERIFIED and is not added to any measured term"
+}
