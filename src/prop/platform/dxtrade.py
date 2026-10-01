@@ -2384,7 +2384,17 @@ def parse_price(text: Optional[str]) -> Optional[float]:
 #: Symbol cell be tagged clickable).
 #: Returns ``{found: [{t, hs}], why: [...]}``; ``why`` says per candidate why
 #: it was not taken (shapes and counts only, no cell text).
-_COLUMN_HEADER_TABLES_JS = r"""
+_SYMBOL_TEXT_JS = r"""
+  function __metisSym(s) {
+    const u = String(s == null ? '' : s).trim().toUpperCase();
+    const m = /^([A-Z0-9]{2,10})\/([A-Z0-9]{2,10})$/.exec(u);
+    const c = m ? m[1] + m[2] : u;
+    return /^[A-Z0-9]{2,15}$/.test(c) ? c : '';
+  }
+"""
+
+#: Every resolver that carries the fallback also carries ``__metisSym`` (above).
+_COLUMN_HEADER_TABLES_JS = _SYMBOL_TEXT_JS + r"""
   function __metisColumnTables() {
     const n_ = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const t_ = el => (el.innerText || el.textContent || '').trim();
@@ -2448,10 +2458,10 @@ WATCHLIST_ROWS_JS = r"""
     if (n.includes('symbol') && n.includes('bid') && n.includes('ask')) { headers = hs; break; }
   }
   if (!headers) { const fb = __metisColumnTables().found; if (fb.length === 1) headers = fb[0].hs; }
-  const want = String(venue || '').toUpperCase();
+  const want = __metisSym(venue);
   const rows = [...document.querySelectorAll('tr.instrument, tr[data-row-id]')]
     .map(r => [...r.querySelectorAll('td')].map(txt))
-    .filter(cells => cells.some(c => c.toUpperCase() === want));
+    .filter(cells => want && cells.some(c => __metisSym(c) === want));
   return {headers, rows: rows.slice(0, 5)};
 }
 """
@@ -2481,8 +2491,8 @@ WATCHLIST_SYMBOLS_JS = r"""
   for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
     const cells = [...r.querySelectorAll('td')].map(txt);
     if (cells.length !== hs.length) continue;
-    const s = (cells[si] || '').trim().toUpperCase();
-    if (/^[A-Z0-9]{2,15}$/.test(s)) syms.push(s);
+    const s = __metisSym(cells[si]);
+    if (s) syms.push(s);
   }
   return {readable: true, symbols: [...new Set(syms)].sort()};
 }
@@ -2622,8 +2632,21 @@ WATCHLIST_DUMP_JS = r"""
             cells: [...row.querySelectorAll('td')].filter(c => c.closest('tr') === row)
               .slice(0, 16).map(c => ({xw: xw(c), tid: tid(c)}))};
   }).filter(Boolean);
+  // Row shapes (TRADEIFY-WIRE T4, #15096: a Symbol/Bid/Ask table with 0
+  // accepted rows): per table holding instrument rows, each of its first 12
+  // rows' td count and its first symbol-like cell (index + text; public
+  // instrument names only, e.g. "ETH/USD" -- no price, no other cell).
+  const symLike = /^[A-Z0-9]{2,10}(\/[A-Z0-9]{2,10})?$/i;
+  const row_diag = allT.map((t, i) => ({i, t, th: [...t.querySelectorAll('thead th, tr:first-child th')]
+      .filter(h => h.closest('table') === t).map(h => w(txt(h))).slice(0, 14)}))
+    .filter(({t}) => t.querySelector('tr.instrument, tr[data-row-id]')).slice(0, 6).map(({i, t, th}) => ({
+      table: i, th, rows: [...t.querySelectorAll('tr.instrument, tr[data-row-id]')].slice(0, 12).map(r => {
+        const tds = [...r.querySelectorAll('td')].filter(c => c.closest('tr') === r);
+        const k = tds.findIndex(c => symLike.test(txt(c)));
+        return [tds.length, k, k >= 0 ? txt(tds[k]).toUpperCase() : null];
+      })}));
   return {
-    columns, header_less,
+    columns, header_less, row_diag,
     tables, grids, divgrids,
     instrument_rows_total: document.querySelectorAll('tr.instrument, tr[data-row-id]').length,
     iframes: document.querySelectorAll('iframe').length,
@@ -2678,13 +2701,13 @@ INFO_PROBE_RESOLVE_JS = r"""
   for (const r of scope.querySelectorAll('tr.instrument, tr[data-row-id]')) {
     const tds = [...r.querySelectorAll('td')];
     if (tds.length !== hs.length) continue;
-    const sym = txt(tds[si]).toUpperCase();
-    if (!/^[A-Z0-9]{2,15}$/.test(sym)) continue;
+    const sym = __metisSym(txt(tds[si]));
+    if (!sym) continue;
     rows.push({sym, cell: tds[si]});
   }
   out.watchlist = [...new Set(rows.map(r => r.sym))].sort();
   const ctl = 'button, [role=button], a, input, select, textarea, [onclick]';
-  for (const sym of [...new Set(symbols.map(s => String(s).toUpperCase()))]) {
+  for (const sym of [...new Set(symbols.map(s => __metisSym(s)).filter(Boolean))]) {
     const hit = rows.filter(r => r.sym === sym);
     const t = {n_rows: hit.length, clean: false};
     if (hit.length === 1) {
@@ -2762,8 +2785,8 @@ LINK_STATE_DUMP_JS = r"""
     for (const r of wl[0].t.querySelectorAll('tr.instrument, tr[data-row-id]')) {
       const tds = [...r.querySelectorAll('td')];
       if (tds.length !== hs.length) continue;
-      const c = tds[si], sym = txt(c).toUpperCase();
-      if (!/^[A-Z0-9]{2,15}$/.test(sym)) continue;
+      const c = tds[si], sym = __metisSym(txt(c));
+      if (!sym) continue;
       syms.push(sym);
       const rr = c.getBoundingClientRect(), cx = rr.x + rr.width / 2, cy = rr.y + rr.height / 2;
       const inView = cx >= 0 && cy >= 0 && cx < window.innerWidth && cy < window.innerHeight;
@@ -3040,10 +3063,10 @@ WATCHLIST_QUOTE_RAW_JS = r"""
   }
   if (scope.querySelector('[data-test-id=widget_menu_ORDERS],[data-test-id=widget_menu_POSITIONS]'))
     return {error: 'the watchlist scope also holds an Orders / Positions widget'};
-  const want = String(symbol || '').toUpperCase(), rows = [];
+  const want = __metisSym(symbol), rows = [];
   for (const r of scope.querySelectorAll('tr.instrument, tr[data-row-id]')) {
     const tds = [...r.querySelectorAll('td')];
-    if (tds.length !== hs.length || txt(tds[si]).toUpperCase() !== want) continue;
+    if (!want || tds.length !== hs.length || __metisSym(txt(tds[si])) !== want) continue;
     rows.push([txt(tds[si]), txt(tds[bi]), txt(tds[ai])].map(v => v.slice(0, 24)));
   }
   return {headers: ['symbol', 'bid', 'ask'], rows: rows.slice(0, 2)};
@@ -3164,6 +3187,23 @@ def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
     return out
 
 
+_SLASH_SYMBOL_RE = re.compile(r"^([A-Z0-9]{2,10})/([A-Z0-9]{2,10})$")
+
+
+def canonical_symbol(text: Any) -> str:
+    """The venue symbol a watchlist cell names, or ``""``. Python twin of
+    ``__metisSym`` (_SYMBOL_TEXT_JS): upper-cased and trimmed, with ONE slash
+    between two alphanumeric parts dropped -- tradeify_1 displays ``ETH/USD``
+    for the instrument whose API ``symbol`` is ``ETHUSD`` (operator
+    screenshots 2026-10-01, login check #14993) -- while Breakout's
+    ``ETHUSD`` is unchanged. Anything else that is not ``[A-Z0-9]{2,15}`` is
+    ``""`` (not a symbol)."""
+    u = str(text if text is not None else "").strip().upper()
+    m = _SLASH_SYMBOL_RE.match(u)
+    c = m.group(1) + m.group(2) if m else u
+    return c if re.fullmatch(r"[A-Z0-9]{2,15}", c) else ""
+
+
 def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
     """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
     (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
@@ -3183,7 +3223,7 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
         for row in t.get("rows") or []:
             if len(row) != len(headers):
                 continue
-            if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
+            if canonical_symbol(_cell(row, c_sym)) == canonical_symbol(venue_symbol):
                 bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
                 if (bid is not None and ask is not None and 0 < bid <= ask
                         and (ask - bid) / ask <= MAX_QUOTE_SPREAD_FRAC):
@@ -4090,13 +4130,6 @@ class DXtradeAdapter(PropPlatformAdapter):
                     out["orders_dump"] = {"error": type(exc).__name__}
             res = page.evaluate(INFO_PROBE_RESOLVE_JS, [want]) or {}
             out["resolve"] = {k: v for k, v in res.items() if k != "ok"}
-            if not res.get("ok") and "Symbol/Bid/Ask tables" in str(res.get("why") or ""):
-                # The watchlist was not where the resolver looks: record its
-                # shape, click-free (WATCHLIST_DUMP_JS; issue #15033).
-                try:
-                    out["watchlist_dump"] = page.evaluate(WATCHLIST_DUMP_JS)
-                except Exception as exc:
-                    out["watchlist_dump"] = {"error": type(exc).__name__}
             original = res.get("linked_symbol")
             why: Optional[str] = None
             if not res.get("ok"):
@@ -4118,6 +4151,13 @@ class DXtradeAdapter(PropPlatformAdapter):
                 if not (chk.get("targets") or {}).get(original, {}).get("clean"):
                     why = f"original symbol {original}'s watchlist cell is not cleanly clickable"
             out["refused"] = why
+            if why is not None:
+                # Any refusal records the watchlist's shape and row shapes,
+                # click-free (WATCHLIST_DUMP_JS; issues #15033, #15096).
+                try:
+                    out["watchlist_dump"] = page.evaluate(WATCHLIST_DUMP_JS)
+                except Exception as exc:
+                    out["watchlist_dump"] = {"error": type(exc).__name__}
             if why is not None or not click:
                 return out
 

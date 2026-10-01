@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "symbol-switch-dry on tradeify_1 selects and restores ETHUSD with a verified link read-back, merged and deployed; or killed with a reason. Blocks TRADEIFY-WIRE T4/T5 and PR #14673.",
+    "kind": "event"
+  },
+  "id": "PI-20261001-CBHYHMK2-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "issue #15096 (run 36836234969): link-state-dump on tradeify_1",
+    "rerun": "Dispatch breakout-login-check account: tradeify_1, apply: link-state-dump (read-only) and read link_state_dump.symbol_inputs."
+  },
+  "state": "queued",
+  "what": "TRADEIFY-WIRE T4: tradeify_1 has NO [data-test-id=symbol_input] (link-state-dump #15096, run 36836234969: symbol_inputs [], order_panels [], 1 Symbol/Bid/Ask table, 0 accepted rows). select_linked_symbol, INFO_PROBE_RESOLVE_JS's linked_symbol and the info-probe all read the linked symbol from that toolbar input (Breakout's layout), so on tradeify_1 the per-ticket symbol switch cannot verify a link even once rows resolve. Needs a measured Tradeify link read-back (operator screenshots show chain-link icons on panels and an order ticket titled 'Buy 0.01 BTC/USD at ...'). Owner of select_linked_symbol: the PROP-ETH-DOM lane (#15070)."
+}
