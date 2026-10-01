@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the dispatch stamp-landing step has a timeout margin over the stamp PR's CI (pytest-run) duration, or the stamp PR stops running the full pytest-run, and two consecutive dispatch runs end green end-to-end",
+    "kind": "observation"
+  },
+  "id": "PI-20261001-1MX1RCZS-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "research-queue-dispatch run 36910217777 (run 70), step 'Land the dispatch stamps on main'; stamp PR #15276",
+    "rerun": "gh run view 36910217777 --log | grep 'did not merge within'; compare the stamp PR's pytest-run duration (check runs of #15276: 19:52:04Z to 20:20:31Z = 28.5 min) against the step's 30 min wait"
+  },
+  "state": "queued",
+  "what": "Run 70 (workflow_dispatch 2026-10-01 18:53Z) concluded FAILURE although the dispatch worked: 'Grade and dispatch' succeeded (no dispatch_failed, grading problem step skipped, liveness receipt fresh, last dispatch 19:34:27Z). The failing step is 'Land the dispatch stamps on main': stamp PR #15276 (automation/research-queue-stamp-36910217777-1) MERGED at 20:20:39Z but the step's 30 minute wait expired at 20:20:52Z with 'did not merge within 30m'. Cause established from the PR's check runs: the data-only stamp PR runs the full pytest-run, which took 28.5 min (19:52:04Z to 20:20:31Z), leaving about 1.5 min of margin against a 30 min wait, after earlier steps in the same run took 40 min (batch landing 18:54 to 19:34) and 6 min (receipt landing). So the stamps landed, the run is red: a timing race, not a dispatch failure. Consequence: A0's green-cycle evidence is runs 68 and 69 (both success); run 70 is a different failure class (landing-wait margin) and a recurring red alarm source. Related: the earlier ~75-minute concurrency hold (PI-20261001-1MX1RCZS-0001). Options: raise the wait above the stamp PR's CI duration, or stop running full pytest on a data-only stamp PR, or make the step re-check main once after the wait before failing. Not changed here (workflow edit is the manager's call)."
+}
