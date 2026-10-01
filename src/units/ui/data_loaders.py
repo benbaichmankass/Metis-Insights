@@ -40,16 +40,16 @@ TRADER_SERVICE_PREFIX = "ict-trader-"
 
 # Trade-journal DB resolution mirrors src/bot/telegram_query_bot.py:
 # the canonical resolver first (TRADE_JOURNAL_DB env →
-# $DATA_DIR/trade_journal.db → repo-root), then repo root as the
-# existence-check fallback. The legacy ``src/bot/trade_journal.db``
+# $DATA_DIR/trade_journal.db → repo-root), and nothing else. The legacy ``src/bot/trade_journal.db``
 # candidate was dropped — it was a stray duplicate journal we are
 # eliminating (see src/utils/paths.py::trade_journal_db_path docstring).
-_TJ_CANDIDATES = [
-    _trade_journal_db_path(),
-    os.path.join(REPO_ROOT, "trade_journal.db"),
-]
-TRADE_JOURNAL_DB = next((p for p in _TJ_CANDIDATES if p and os.path.exists(p)),
-                       _trade_journal_db_path())
+# The repo-root existence fallback was REMOVED 2026-10-01 (ORDER-AUDIT-2 item 9,
+# AUD-20260927-CA-A15-db-loaders-stray-trade-journal-fallback): with DATA_DIR
+# set but $DATA_DIR/trade_journal.db not yet present, `next(... exists ...)`
+# silently picked a stray <repo>/trade_journal.db. The resolver already falls
+# back to repo root when no env is set, so the second candidate only ever
+# changed the answer in that wrong case.
+TRADE_JOURNAL_DB = _trade_journal_db_path()
 
 # Signals DB written by src/runtime/signal_writer.py via data_dir()/"trades.db".
 # On the live VM DATA_DIR=/data/bot-data so the canonical path is

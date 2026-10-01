@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager (session_01MM8o5js6TcDFeNAPBY4Ntv) follow-up request on ORDER-AUDIT-2: 'Tier-1 self-land if all-Tier-1, otherwise held for my review'. The ib_client.py change is on the IB close (order) path, so the PR is Tier 2 and held for the manager.",
+  "why": "Two follow-ups to #15306: (a) IBClient.close's already-flat branch returned OK even when the pre-cancel could not read the open-order book, so a stray bracket could rest over a flat position; it now returns retCode 1 like the main close path. (b) scripts/daily_heartbeat.py read a hardcoded /tmp/trader_halt.flag while the pipeline checks runtime_flags.halt_flag_path(); it now mirrors that resolver (stdlib copy, pinned by a parity test). Plus the ORDER-AUDIT-2 checklist row -> landed_unproven. Each fix has a test that fails on the old code."
+}

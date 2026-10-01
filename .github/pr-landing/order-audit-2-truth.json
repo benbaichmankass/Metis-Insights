@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane ORDER-AUDIT-2 (manager session_01MM8o5js6TcDFeNAPBY4Ntv): held for the manager's review/merge. Item 5 changes the matching rule of reconcile_orphan_history.py, the script behind the Tier-2 reconcile-orphan-history system-action (a DB writeback), so it is treated as Tier 2 rather than self-landed.",
+  "why": "Truth/attribution half of ORDER-AUDIT-2, each re-verified unfixed on main 2026-10-01: (5) reconcile_orphan_history attributes one order package to at most one trade (run-local claim set, linked_trade_id / existing trades.order_package_id check, and the live monitor's orphan_attribution size gate); (7) run_backtest.summarize measures max_drawdown / max_drawdown_pct / sharpe_ratio / total_pnl_pct instead of hardcoding 0.0, writing NULL where unmeasurable; (9) data_loaders, telegram_query_bot and run_backtest resolve the journal through trade_journal_db_path() only, dropping the existence-based repo-root fallback. Also: the ORDER-AUDIT-2 checklist row (claimed, dispositions) and two follow-up pipeline rows. Each fix has a test that fails on the old code."
+}

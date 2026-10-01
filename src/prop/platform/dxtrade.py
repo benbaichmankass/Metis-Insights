@@ -3623,6 +3623,69 @@ WORKSPACE_SUMMARY_JS = r"""
 }
 """
 
+#: Add-widget menu measurement (TRADEIFY-GOLIVE, operator decision ~21:50Z
+#: 2026-10-01, "Runner does it"). tradeify_1's "My Trading Account" lost its
+#: Watchlist and has no New Order panel (#15319/#15322). Before a runner adds
+#: those widgets, the "+" (``widget_tab_add_button``) menu must be MEASURED.
+#: ``WIDGET_MENU_STATE_JS(snapshot)``: click-free. The current workspace, the
+#: visible "+" buttons (top-most first; the first is tagged
+#: ``data-metis-wadd``) and the layout counts a menu must not change. With
+#: ``snapshot`` it also remembers every visible element so
+#: ``WIDGET_MENU_NEW_JS`` can list only what the click made appear.
+WIDGET_MENU_STATE_JS = r"""
+(snapshot) => {
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const n = s => [...document.querySelectorAll(s)].filter(vis).length;
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  document.querySelectorAll('[data-metis-wadd]').forEach(e => e.removeAttribute('data-metis-wadd'));
+  if (snapshot) window.__metisWmPre = new WeakSet([...document.querySelectorAll('body *')].filter(vis));
+  const adds = [...document.querySelectorAll('[data-test-id=widget_tab_add_button]')].filter(vis)
+    .sort((a, b) => (a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+                    || (a.getBoundingClientRect().left - b.getBoundingClientRect().left));
+  if (snapshot && adds.length) adds[0].setAttribute('data-metis-wadd', '1');
+  const cur = document.querySelector('li[data-test-id=workspace_current] [data-test-id=workspace_name]');
+  return {
+    workspace: cur ? (cur.innerText || cur.textContent || '').trim().slice(0, 40) : null,
+    add_buttons: adds.map(box),
+    widget_tabs: n('[data-test-id=widget_tab]'),
+    widget_close: n('[data-test-id=widget_close_button]'),
+    tables: n('table'),
+  };
+}
+"""
+
+#: Click-free: the elements that became visible since WIDGET_MENU_STATE_JS's
+#: snapshot (the open menu), as short masked text items (digits -> '#',
+#: emails -> '<email>', 40 chars). Personal-looking test ids are dropped.
+WIDGET_MENU_NEW_JS = r"""
+() => {
+  const pre = window.__metisWmPre;
+  if (!pre) return {error: 'no snapshot'};
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 40) : null;
+  const personal = /user|profile|account|login|email/i;
+  const fresh = [...document.querySelectorAll('body *')].filter(el => vis(el) && !pre.has(el));
+  const items = [], seen = new Set();
+  for (const el of fresh) {
+    const t = (el.innerText || '').trim();
+    if (!t || t.length > 40 || t.includes('\n')) continue;
+    if ([...el.children].some(c => (c.innerText || '').trim() === t)) continue;
+    const tid = el.getAttribute('data-test-id') || '';
+    if (personal.test(tid)) continue;
+    const key = t + '|' + (el.getAttribute('role') || '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const r = el.getBoundingClientRect();
+    items.push({text: mask(t), tag: el.tagName.toLowerCase(), role: el.getAttribute('role'), tid: mask(tid) || null,
+                box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]});
+    if (items.length >= 80) break;
+  }
+  return {n_new: fresh.length, items};
+}
+"""
+
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row',
@@ -5166,6 +5229,64 @@ class DXtradeAdapter(PropPlatformAdapter):
                 waited += 500
         except Exception as exc:
             return {"error": f"{type(exc).__name__} (code=link_state_dump_exception)"}
+
+    def widget_menu_probe(self, page: Any, *, settle_ms: int = 800) -> Dict[str, Any]:
+        """MEASURE the current workspace's add-widget ("+") menu: ONE click on
+        the top-most visible ``widget_tab_add_button``, dump what appeared
+        (WIDGET_MENU_NEW_JS, masked), then Escape. Clicks NOTHING else -- never
+        a menu item, an order/position/price/instant-trade control or a
+        workspace/widget delete control. Refused when one-click reads ON. The
+        layout counts are re-read after Escape and must match (``restored``);
+        a menu still open gets one more Escape.
+
+        Never reached by any trading path; the dump is masked like #15304's."""
+        out: Dict[str, Any] = {"clicked": False, "refused": None}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if oc.get("state") == "on":
+            out["refused"] = "one-click reads ON"
+            return out
+        try:
+            pre = page.evaluate(WIDGET_MENU_STATE_JS, True) or {}
+            out["before"] = pre
+            if not pre.get("add_buttons"):
+                out["refused"] = "no visible widget_tab_add_button"
+                return out
+            loc = page.locator("[data-metis-wadd='1']")
+            if loc.count() != 1:
+                out["refused"] = f"{loc.count()} tagged add buttons (need exactly 1)"
+                return out
+            loc.first.click(timeout=5_000)
+            out["clicked"] = True
+            page.wait_for_timeout(settle_ms)
+            out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+        finally:
+            if out.get("clicked"):
+                try:
+                    for i in range(2):
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(400)
+                        left = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                        out["escapes"] = i + 1
+                        if not left.get("items"):
+                            break
+                    out["menu_left_open"] = bool(left.get("items"))
+                    post = page.evaluate(WIDGET_MENU_STATE_JS, False) or {}
+                    out["after"] = post
+                    keys = ("workspace", "widget_tabs", "widget_close", "tables")
+                    out["restored"] = (not out["menu_left_open"]
+                                       and all(post.get(k) == out["before"].get(k) for k in keys))
+                except Exception as exc:
+                    out["restore_error"] = type(exc).__name__
+                    out["restored"] = False
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-wadd]')"
+                              ".forEach(e => e.removeAttribute('data-metis-wadd')); delete window.__metisWmPre; }")
+            except Exception:
+                pass
+        return out
 
     #: Symbol-switch bounds (PROP-ETH-DOM, operator directive 2026-10-01
     #: 06:13Z). Live #15022 clicked SOLUSD's Symbol cell and the link stayed

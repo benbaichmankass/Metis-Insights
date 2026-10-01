@@ -674,14 +674,37 @@ def load_themes(path: Optional[Path] = None) -> Dict[str, Any]:
     return doc
 
 
-def validate(entry: Dict[str, Any], *, path: Optional[Path] = None) -> List[str]:
+def new_unit_stamp_errors(entry: Dict[str, Any]) -> List[str]:
+    """A NEW unit that is still `queued` has never run, so it cannot carry a stamp.
+
+    ⚠️ PI-20261001-1MX1RCZS-0004: RQ-20260930-703 was registered `queued` with a
+    `last_dispatched_at` copied from the unit it was cloned from. Every guard
+    passed it and `dispatch_queue._is_due` then read cadence=once + a stamp as
+    "already ran", so it could never fire and nothing flagged it. "New" is a fact
+    about the branch (absent at the merge-base), so the caller supplies it.
+    """
+    if entry.get("status") == "queued" and entry.get("last_dispatched_at") is not None:
+        return [f"a NEW unit with status `queued` must not carry `last_dispatched_at` "
+                f"(got {entry.get('last_dispatched_at')!r}): it has never run, so the "
+                "stamp was copied from another unit and would make a cadence=once "
+                "unit read as already dispatched"]
+    return []
+
+
+def validate(entry: Dict[str, Any], *, path: Optional[Path] = None,
+             is_new: bool = False) -> List[str]:
     """Structural errors in one entry. An empty list means structurally valid.
+
+    ``is_new`` (default False, so every existing caller is unchanged) adds the
+    checks that only apply to a unit not present on the base.
 
     ⚠️ A malformed job is an ERROR, never a skip. A dispatcher that silently
     drops an unparseable entry reports "nothing to do" for a queue that has work
     in it — the `filter_state` collapse, one layer up.
     """
     errs: List[str] = []
+    if is_new:
+        errs.extend(new_unit_stamp_errors(entry))
     jid = entry.get("id")
     if not isinstance(jid, str) or not _ID_RE.match(jid):
         errs.append(f"id must match RQ-YYYYMMDD-NNN, got {jid!r}")

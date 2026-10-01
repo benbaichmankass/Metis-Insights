@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "ml/datasets/families/backtest_results.py's producer claim and the actual writers of backtest_results agree (grep below returns writers only if the docstring says a producer exists)",
+    "kind": "observation"
+  },
+  "id": "PI-20261001-IDQ1HLJD-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ORDER-AUDIT-2 lane session_01MEyTMDNj3ZYV2ziDq1hLJd, 2026-10-01; PR #15311",
+    "rerun": "grep -rn 'INSERT INTO backtest_results' src scripts; grep -n 'run_backtest' scripts/ops/run_serious_baseline.sh; sed -n 1,12p ml/datasets/families/backtest_results.py"
+  },
+  "state": "queued",
+  "what": "ml/datasets/families/backtest_results.py's docstring says the backtest_results writer was REMOVED 2026-08-20 and no producer remains, but src/backtest/run_backtest.py::run_backtest() still INSERTs into backtest_results and scripts/ops/run_serious_baseline.sh (line ~180) still invokes src.backtest.run_backtest. One of the two is wrong: either the producer is live (fix the docstring; note rows after #15311 carry measured drawdown/sharpe/pnl% instead of fabricated 0.0) or it should be gone (remove the insert / the baseline invocation). Found by ORDER-AUDIT-2 item 7."
+}

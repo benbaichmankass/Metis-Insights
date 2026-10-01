@@ -73,11 +73,25 @@ def _load_env() -> None:
 # Kill-switch
 # ---------------------------------------------------------------------------
 
-HALT_FLAG = "/tmp/trader_halt.flag"
+# Test override only. ``None`` = resolve the canonical path at call time.
+HALT_FLAG = None
+
+# Mirrors ``src.runtime.runtime_flags.halt_flag_path()`` — THE path the
+# pipeline actually checks: ``HALT_FLAG_PATH`` env, else this default. Stdlib
+# copy because this digest must run when ``src`` is wedged (see _db_path);
+# ``tests/test_daily_heartbeat.py`` pins the two to the same answer. This line
+# read a hardcoded ``/tmp/trader_halt.flag`` — the stale path runtime_flags'
+# docstring retired on 2026-08-13 — so the digest could say RUNNING while the
+# pipeline was halted (ORDER-AUDIT-2 follow-up).
+_HALT_FLAG_DEFAULT = "/data/bot-data/trader_halt.flag"
+
+
+def _halt_flag_path() -> str:
+    return HALT_FLAG or os.environ.get("HALT_FLAG_PATH") or _HALT_FLAG_DEFAULT
 
 
 def _kill_switch_state() -> str:
-    return "\U0001f534 HALTED" if Path(HALT_FLAG).exists() else "\U0001f7e2 RUNNING"
+    return "\U0001f534 HALTED" if Path(_halt_flag_path()).exists() else "\U0001f7e2 RUNNING"
 
 
 # ---------------------------------------------------------------------------
