@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "_patch_env_var escapes the delimiter it uses (or writes via a non-sed path) with a test for a value containing '|', OR killed with a reason",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-BHYHMK2C-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "scripts/ops/sync_vm_secrets.sh::_patch_env_var",
+    "rerun": "sed -n 84,115p scripts/ops/sync_vm_secrets.sh — check the delimiter of the in-place sed against the escape set; reproduce with a temp .env holding KEY=a and a new value 'x|y'."
+  },
+  "state": "queued",
+  "what": "Pre-existing (manager review of #14682, 2026-09-30): scripts/ops/sync_vm_secrets.sh _patch_env_var escapes only / & \\ for its sed replacement but the sed UPDATE uses '|' as delimiter, so a later UPDATE of an existing secret whose value contains '|' fails or corrupts that .env line. A first sync APPENDS (safe for any character); only a rotation of an existing key is exposed."
+}

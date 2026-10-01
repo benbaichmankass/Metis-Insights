@@ -248,7 +248,8 @@ def main(argv: Optional[list] = None) -> int:
     print(f"credentials: username {'set' if username else 'MISSING'}, "
           f"password {'set' if password else 'MISSING'} (values never printed)")
     if not username or not password:
-        print("feasibility: no_credentials (sync BREAKOUT_DX_* to the VM .env first)")
+        print(f"feasibility: no_credentials (sync {cfg.get('username_env') or '?'} / "
+              f"{cfg.get('password_env') or '?'} to the VM .env first)")
         return EXIT_FEASIBILITY
 
     adapter = adapter_for_platform(platform)

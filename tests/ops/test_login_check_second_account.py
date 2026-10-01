@@ -91,3 +91,9 @@ def test_dump_dir_is_per_account_and_breakout_keeps_its_own():
     assert 'DUMP_DIR="${BASE}/accounts/${ACCOUNT}/last-run"' in CODE
     assert 'ARGS=(--account "${ACCOUNT}" --dump-dir "${DUMP_DIR}")' in CODE
     assert '--dump-dir "${BASE}/last-run"' not in CODE
+
+
+def test_no_credentials_message_names_the_accounts_own_keys():
+    src = (REPO / "scripts" / "prop" / "breakout_login_check.py").read_text()
+    assert "sync BREAKOUT_DX_* to the VM .env first" not in src
+    assert "cfg.get('username_env')" in src
