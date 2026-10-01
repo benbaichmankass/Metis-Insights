@@ -62,3 +62,14 @@ generated:
     symbol: MGC
     timeframe: 15m
 last_dispatched_at: '2026-09-30T18:54:34+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE
+  evidence:
+  - research/results/RQ-20260929-009/36761942827.jsonl
+  graded_at: '2026-10-01'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  rows: 1
+  verdict: null
