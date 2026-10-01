@@ -4509,14 +4509,17 @@
       "phase": "W7",
       "state": "in_flight",
       "owner": "build lane",
-      "lane": "session_012X4AJaScSxML6HaJLuXpzV",
+      "lane": "session_01PNFmCa7dgP1ykmsBd5s8kE",
       "model": "claude-opus-5-5",
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        15316,
+        15327
+      ],
       "blocked_on": [],
-      "note": "[2026-10-01T21:23Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR DECISION (popup ~21:23Z), verbatim choice: \"Build the trail instead\" (options were keep-live-and-retest / shadow SOL now / build the trail). SOLUSD stays LIVE on breakout_1 at $75 meanwhile. Evidence: PROP-JOURNAL (PR #15301, PI-20261001-S8DMYMUN-0001): prop bracket is static SL+TP; SL+TP-only re-run on one window ETH +21.28R n=100, SOL -0.49R n=53 vs declared-lever baseline ETH +10.63, SOL +3.69. Mechanism: amend the resting SL by the declared trail/stale lever, tighten-only, via the tested modify path; held PR reviewed by the manager under the go-live rule."
+      "note": "[2026-10-01T22:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session_012X4AJaScSxML6HaJLuXpzV closed (handoff, ~$30 of $40). Found a LIVE hazard in existing code: _contain's armed modify_bracket could fill+submit the sidebar order ticket -> fix #15327 (armed modify refuses while EDIT_DIALOG_MEASURED=False; repair falls to verified flatten next cycle), reviewed MERGE-WITH-NOTE, merges when CI green. #15316 (trail) reworked, re-review MERGE-WITH-NOTE but HELD: inert until the dialog is measured; carried by DIALOG-MEASURE session_01PNFmCa7dgP1ykmsBd5s8kE (also: emit cycle output before the trail step, signal_time vs entry_i+1, venv deps). MANAGER DECISION (data-backed): ETH stale_exit_bars=12 is NOT approximated by an SL band; ETH SL+TP-only measured +21.28R vs +10.63R with declared levers, so no evidence the stale exit is needed on the prop bracket. SOL's declared exits are fully covered by the trail. Rollout: >=1 day read_only, one watched single-step tighten, then live. || [2026-10-01T21:23Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR DECISION (popup ~21:23Z), verbatim choice: \"Build the trail instead\" (options were keep-live-and-retest / shadow SOL now / build the trail). SOLUSD stays LIVE on breakout_1 at $75 meanwhile. Evidence: PROP-JOURNAL (PR #15301, PI-20261001-S8DMYMUN-0001): prop bracket is static SL+TP; SL+TP-only re-run on one window ETH +21.28R n=100, SOL -0.49R n=53 vs declared-lever baseline ETH +10.63, SOL +3.69. Mechanism: amend the resting SL by the declared trail/stale lever, tighten-only, via the tested modify path; held PR reviewed by the manager under the go-live rule."
     }
   ]
 }
