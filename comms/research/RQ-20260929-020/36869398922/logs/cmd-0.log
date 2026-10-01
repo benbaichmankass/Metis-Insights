@@ -1,0 +1,7 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  trend_donchian               A        seed=1 exit=0 ev=-5.79 p=0.1098 (58.2s)
+  trend_donchian               A        seed=2 exit=0 ev=-2.84 p=0.1135 (56.7s)
+  trend_donchian               A        seed=3 exit=0 ev=-2.11 p=0.1103 (57.4s)
+  trend_donchian               A        seed=4 exit=0 ev=-5.73 p=0.1125 (57.3s)
+  trend_donchian               A        seed=5 exit=0 ev=-5.00 p=0.1042 (30.7s)
+prop_ev_grid: overall=indeterminate {"trend_donchian": "indeterminate"}
