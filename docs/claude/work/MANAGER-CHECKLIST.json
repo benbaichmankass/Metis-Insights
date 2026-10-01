@@ -4028,16 +4028,20 @@
       "id": "ICT-SCALP-HTF",
       "title": "CA-A05-001: _ict_scalp_variant_builder never fetches HTF candles for 7 ict_scalp legs that declare htf_trend_filter_enabled (paper: bybit_1, ib_paper)",
       "phase": "W6",
-      "state": "queued",
-      "owner": "unassigned",
-      "lane": null,
+      "state": "in_flight",
+      "owner": "session_01NpQatfW1eowJpoJwzSVYVs",
+      "lane": "session_01NpQatfW1eowJpoJwzSVYVs",
       "model": null,
       "ceiling_usd": null,
       "spend_usd": null,
-      "tier": 1,
-      "prs": [],
-      "blocked_on": [],
-      "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator popup ~20:55Z: selected for wave 2, starts when a running lane closes (pace-staggered); a fix that changes trades is Tier 3. || 2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+      "tier": 3,
+      "prs": [
+        15340
+      ],
+      "blocked_on": [
+        "reconcile in-sample vs committed OOS ict_scalp evidence (finding 2) + fix harness HTF lookahead PI-20261001-JWZSVYVS-0001, then re-run against a pre-registered rule"
+      ],
+      "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator popup ~20:55Z: selected for wave 2, starts when a running lane closes (pace-staggered); a fix that changes trades is Tier 3. || 2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. | [2026-10-01T22:51Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Steps 2-3 report: HELD draft PR #15340 (Tier 3) feeds HTF bias to _ict_scalp_variant_builder; merging turns the filter ON for all 7 legs via the unit default (#15250 removed the declarations). MEASURED in-sample only (6 crypto legs, 365d Binance spot, no registered rule; MGC unmeasured): OFF 2167 trades/-377.4R, causal-ON 1217/-140.7R; the filter improves net R on 5/6 legs by trading less and creates no edge. The harness has an HTF LOOKAHEAD (~+103R flattery), filed PI-20261001-JWZSVYVS-0001. Full-window OFF runs are deeply negative while the committed OOS records are slightly positive: UNRECONCILED. Manager decision: HOLD #15340, no operator popup (2026-09-29 directive: open data is a task). The lane will fix the harness, reconcile, pre-register the rule, re-run OOS, then either #15340 or an explicit-off PR."
     },
     {
       "id": "PROV-IB",
