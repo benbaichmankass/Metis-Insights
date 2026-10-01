@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline update record closing PI-20260930-GQPT6PQF-0002 as fixed, deployed and observed on three consecutive 4h closes (20:00Z, 00:00Z, 04:00Z), caveats stated. Pipeline record only; no runtime, order path, strategy or config touched."
+}
