@@ -1,5 +1,7 @@
 # ict_scalp HTF trend filter — decision rule, REGISTERED BEFORE THE RE-RUN
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Registered 2026-10-01 (lane ICT-SCALP-HTF, manager instruction 22:53Z), committed before any re-run. Applies to PR #15340 (wire the filter) vs the alternative (explicit `htf_trend_filter_enabled: false` on the 7 legs).
 
 **Population:** the 6 crypto ict_scalp variant legs (sol_5m, xrp_5m, avax_5m, xrp_15m, eth_15m, sol_15m). `mgc_15m` is excluded: no data source from this sandbox, so it is neither for nor against.
