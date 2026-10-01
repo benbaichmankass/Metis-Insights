@@ -3543,6 +3543,43 @@ WIDGET_MENU_NEW_JS = r"""
 }
 """
 
+#: Click-free pick of ONE item in the open add-widget menu (TRADEIFY-GOLIVE
+#: option B step 2). Among the elements that appeared since
+#: WIDGET_MENU_STATE_JS's snapshot, the text LEAVES whose own text is exactly
+#: ``label``; the menu must also show every MEASURED sibling (``siblings``,
+#: widget-menu-probe #15350), so a different menu is never clicked into. The
+#: one leaf is tagged ``data-metis-wpick``; anything else tags nothing.
+WIDGET_MENU_PICK_JS = r"""
+(args) => {
+  const [label, siblings] = args;
+  const pre = window.__metisWmPre;
+  if (!pre) return {error: 'no snapshot'};
+  document.querySelectorAll('[data-metis-wpick]').forEach(e => e.removeAttribute('data-metis-wpick'));
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const own = el => (el.innerText || '').trim();
+  const fresh = [...document.querySelectorAll('body *')].filter(el => vis(el) && !pre.has(el));
+  const leaves = fresh.filter(el => { const t = own(el); return t && !t.includes('\n')
+    && ![...el.children].some(c => own(c) === t); });
+  const texts = new Set(leaves.map(own));
+  const missing = siblings.filter(s => !texts.has(s));
+  const danger = '[data-test-id=BUY],[data-test-id=SELL],table,[data-test-id=widget_close_button],[data-test-id=workspace_close_button]';
+  const hits = leaves.filter(el => own(el) === label);
+  const safe = hits.filter(el => !el.closest(danger));
+  const out = {n: hits.length, n_safe: safe.length, missing_siblings: missing, tagged: false};
+  if (safe.length === 1 && hits.length === 1 && !missing.length) {
+    safe[0].setAttribute('data-metis-wpick', '1');
+    out.tagged = true;
+  }
+  return out;
+}
+"""
+
+#: MEASURED add-widget menu (widget-menu-probe #15350, tradeify_1, code
+#: 6750a9451): the sibling entries the menu must show before any item is
+#: picked. "Market Depth" (DOM trading) and every other entry is never clicked.
+WIDGET_MENU_MEASURED: Tuple[str, ...] = ("Chart", "Positions", "Watchlist", "Orders", "Order History",
+                                         "Trade History", "Messages", "Market Depth", "Alerts")
+
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row',
@@ -5088,6 +5125,86 @@ class DXtradeAdapter(PropPlatformAdapter):
             try:
                 page.evaluate("() => { document.querySelectorAll('[data-metis-wadd]')"
                               ".forEach(e => e.removeAttribute('data-metis-wadd')); delete window.__metisWmPre; }")
+            except Exception:
+                pass
+        return out
+
+    def add_watchlist_widget(self, page: Any, *, expect_workspace: str = "My Trading Account",
+                             settle_ms: int = 800, ready_ms: int = 6_000) -> Dict[str, Any]:
+        """Add the Watchlist widget to ``expect_workspace`` (TRADEIFY-GOLIVE
+        option B step 2; operator ~21:50Z 2026-10-01 "Runner does it").
+
+        Exactly TWO clicks, both on MEASURED targets (#15350): the top-most
+        add-widget "+", then the ONE menu leaf whose text is exactly
+        ``Watchlist`` in a menu that shows every measured sibling. Refused
+        unless one-click reads OFF, the workspace is ``expect_workspace`` and
+        no Symbol/Bid/Ask table is already present (then it is a no-op).
+        Verified by the click-free WATCHLIST_SYMBOLS_JS read (exactly one
+        table) and a widget-tab count that grew. On a pick that does not
+        match, Escape and abort with nothing picked. It never clicks a menu
+        entry other than Watchlist, an order / price / instant-trade /
+        position control, or a widget / workspace close (delete) control --
+        so a wrong widget is REPORTED, never removed."""
+        out: Dict[str, Any] = {"added": False, "refused": None, "clicks": []}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if oc.get("state") != "off":
+            out["refused"] = f"one-click not confirmed OFF ({oc.get('state')})"
+            return out
+        wl = self.watchlist_symbols(page)
+        out["watchlist_before"] = wl
+        if wl.get("readable"):
+            out["refused"] = "watchlist already present (nothing to add)"
+            out["already_present"] = True
+            return out
+        try:
+            pre = page.evaluate(WIDGET_MENU_STATE_JS, True) or {}
+            out["before"] = pre
+            if pre.get("workspace") != expect_workspace:
+                out["refused"] = f"workspace is {pre.get('workspace')!r}, not {expect_workspace!r}"
+                return out
+            plus = page.locator("[data-metis-wadd='1']")
+            if not pre.get("add_buttons") or plus.count() != 1:
+                out["refused"] = "no single visible widget_tab_add_button"
+                return out
+            plus.first.click(timeout=5_000)
+            out["clicks"].append("add_widget_plus")
+            page.wait_for_timeout(settle_ms)
+            pick = page.evaluate(WIDGET_MENU_PICK_JS, ["Watchlist", list(WIDGET_MENU_MEASURED)]) or {}
+            out["pick"] = pick
+            item = page.locator("[data-metis-wpick='1']")
+            if not pick.get("tagged") or item.count() != 1:
+                out["refused"] = "menu did not match the measured menu (nothing picked)"
+                out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                for _ in range(2):
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(400)
+                return out
+            item.first.click(timeout=5_000)
+            out["clicks"].append("menu:Watchlist")
+            waited = 0
+            while True:
+                page.wait_for_timeout(500)
+                waited += 500
+                wl = self.watchlist_symbols(page)
+                if wl.get("readable") or waited >= ready_ms:
+                    break
+            post = page.evaluate(WIDGET_MENU_STATE_JS, False) or {}
+            out.update(after=post, watchlist_after=wl, waited_ms=waited)
+            grew = (post.get("widget_tabs") or 0) > (pre.get("widget_tabs") or 0)
+            out["added"] = bool(wl.get("readable")) and grew and post.get("workspace") == expect_workspace
+            if not out["added"]:
+                # Whatever opened instead is dumped, then one Escape; it is
+                # REPORTED, never closed by a click (a close control is a delete).
+                out["new_after"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                page.keyboard.press("Escape")
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+        finally:
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-wadd],[data-metis-wpick]')"
+                              ".forEach(e => { e.removeAttribute('data-metis-wadd');"
+                              " e.removeAttribute('data-metis-wpick'); }); delete window.__metisWmPre; }")
             except Exception:
                 pass
         return out
