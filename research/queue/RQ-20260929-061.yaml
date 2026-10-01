@@ -1,0 +1,186 @@
+id: RQ-20260929-061
+title: >-
+  Does the SOL trend_vol OFF-cell candidate (sol_pullback_2h
+  trending/calm/long + trend_donchian_sol transitional/calm/long) clear the
+  regime-selectivity skill's Rule-2 walk-forward gate under the CURRENT
+  advisory head, on data extended through today (E74)?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  E74 (checklist row, operator directive 2026-09-27 "Add the row.") asks for
+  an authored + walk-forward-validated SOL trend_vol OFF-cell.
+  docs/research/A-vol-gating-SOL-revalidation-fcpcv-v2-2026-08-02.md already
+  ran the CELL-SELECTION tool (scripts/ml/walkforward_cell_selection.py)
+  under the current advisory head (sol-regime-15m-lgbm-fc-pcv-v2, promoted
+  2026-08-02) and near-missed (net PASS 2/3 folds, through 2026-06 data) on
+  two candidate cells: `sol_pullback_2h | trending | calm | long` and
+  `trend_donchian_sol | transitional | calm | long`. That tool's bar
+  (ev-ml net >= ungated net AND ev-ml maxDD <= ungated maxDD in EVERY fold)
+  is the CELL-DISCOVERY policy, not the regime-selectivity skill's binding
+  Rule-2 GATE, which is `scripts/research/regime_cell_walkforward.py`'s
+  `*_stable_drag` verdict over the fixed FOLD_PANEL=(3,4,5) on the actual
+  2-D (trend, vol) population. That gate has never been run on either
+  candidate cell. Does it clear now, on data extended ~3 months further
+  (through today) and net of the harness's full cost stack?
+
+why_this_matters: >-
+  MEASURED, comms/reviews/ml-review-20260929-095500.json (PR #14069, W7,
+  this session's window): sol-regime-15m-lgbm-fc-pcv-v2 has been advisory
+  since 2026-08-02 with ZERO regime_hard_gate rows for SOL ever recorded —
+  no real-money lever exists for it at all. The same review restates the
+  2026-08-02 near-miss as "presented and never enacted" and names E74's next
+  step as "dispatch via the regime-selectivity / backtesting skills". This
+  unit is that dispatch: it answers the skill's own gate (not the discovery
+  tool's ad hoc bar) so the near-miss stops being carried as an open
+  question across review cycles.
+
+power:
+  expected_n: null
+  min_detectable_effect: null
+  effect_units: n/a
+  design: one_sample
+  alpha: 0.05
+  power: null
+  basis: >-
+    Not a to-be-designed statistical power calc — the gate this unit answers
+    (scripts/research/regime_cell_walkforward.py::cell_verdict) carries its
+    OWN pre-declared meaningful-sample floor, MIN_DIRECTION_TRADES=10 per
+    graded direction, pinned by that module's own docstring/test to the
+    identical MIN_TRADES=10 the cell-selection tool used to author these two
+    candidates in the first place — so grading below that floor is not a
+    weaker finding, the tool itself reports it as `insufficient_n` (no
+    finding either way), never as a measured drag. Read the run's own
+    `long_verdict` tri-state (no_trades / insufficient_n / no_stable_drag /
+    stable_drag), not a separately-declared d/alpha/power target.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Unknown until run. The 2026-08-02 cell-selection study's IN-SAMPLE
+      per-fold trade counts (sol_pullback_2h: 27, 50, 63 long;
+      trend_donchian_sol: 16, 27, 38 long) both clear the n=10 floor per
+      fold on that tool's population, but scripts/research/
+      regime_cell_walkforward.py extracts trades via a DIFFERENT path
+      (harness --emit-trades -> regime_tag_emitted --only-regime --only-vol,
+      pooled over the whole --days window rather than per discovery-fold),
+      so its own long_trades count for each cell is not assumed equal and is
+      read off this run.
+
+decision_rule:
+  id: RULE-E74-SOL-TRENDVOL-OFFCELL-WF-20260929
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    For each candidate cell — (a) sol_pullback_2h @ regime=trending,
+    vol=calm and (b) trend_donchian_sol @ regime=transitional, vol=calm —
+    the LONG-side `cell_verdict` (long_verdict, long_stable_drag,
+    long_fold_sensitive, long_trades) from
+    scripts/research/regime_cell_walkforward.py --vol calm --vol-labels
+    <SOL advisory-head replay, ml_vol_label_replay.py> over the fixed
+    FOLD_PANEL=(3,4,5), on candles extended through today (2026-09-29),
+    net of the harness's full cost stack (execution_costs.resolve_cost_policy
+    venue-aware defaults — D1, docs/research/d1-cost-stack-verification-
+    2026-09-25.md — both backtest_pullback.py and backtest_trend.py are in
+    the D1-cleared corpus, no explicit override needed). This is the
+    regime-selectivity skill's Rule-2 gate, not the 2026-08-02 study's
+    cell-selection bar (`ev-ml net >= ungated net AND ev-ml maxDD <=
+    ungated maxDD in EVERY fold`) — that bar is superseded here because it
+    is the discovery policy the skill explicitly distinguishes from the
+    live-routing gate (Rule 2), and grading a Tier-3 candidate on the
+    discovery tool's bar instead of the enforcement gate would be exactly
+    the wrong-population substitution axis-fidelity (Rule 3) exists to
+    catch.
+  rule: >-
+    IF BOTH cells report long_verdict == "stable_drag" (pooled long-R < 0
+    AND majority-negative under every fold count in {3,4,5} AND
+    long_trades >= MIN_DIRECTION_TRADES) -> record CLEARS. Author the exact
+    config/regime_policy.yaml trend_vol addition the 2026-08-02 doc already
+    specifies (sol_pullback_2h trending/calm long: off,
+    trend_donchian_sol transitional/calm long: off) as a Tier-3 DRAFT only
+    — never merged/flipped by this unit — and hand it to the operator per
+    regime-selectivity checklist item 5.
+    IF EITHER cell reports long_verdict in {"no_stable_drag",
+    "insufficient_n", "no_trades"}, OR long_fold_sensitive is true for
+    either cell that would otherwise read stable_drag -> record DOES NOT
+    CLEAR. Rule 1 (no-cosmetic-cell) stands: SOL keeps no trend_vol cell,
+    observer-only advisory head, unchanged live routing. The 2026-08-02
+    near-miss under the discovery tool is explicitly NOT itself evidence
+    under this gate — a different population, per Rule 3 — so a DOES NOT
+    CLEAR verdict here closes the "near-miss, unenacted" question rather
+    than extending it.
+    IF the SOL advisory-head vol-label replay (ml_vol_label_replay.py
+    replay) cannot be produced, or its own feature-audit / degenerate-split
+    checks fail -> record UNABLE_TO_GATE. The unit stays open and axis
+    fidelity (Rule 3) is not yet satisfiable; no verdict is read off a
+    1-D fallback.
+  what_it_does_not_do: >-
+    Never edits config/regime_policy.yaml, config/strategies.yaml or any
+    other live-routing config. A CLEARS verdict produces a Tier-3 PROPOSAL
+    packet only — the operator flips, walk-forward-gated, per
+    regime-selectivity checklist item 5. Does not touch the advisory head's
+    own training or promotion ladder (that is model-training/ml-review
+    territory) — this only grades whether ITS current label output, fed
+    into the live gate's own walk-forward tool, justifies an OFF-cell.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 35
+  basis: >-
+    The 2-D cell requires per-bar SOL vol labels from the CURRENT advisory
+    head (ml_vol_label_replay.py replay), which reads the trainer-resident
+    market_features/SOLUSDT/15m/v002 dataset build + the trainer's model
+    registry — not reproducible off-VM. Run entirely on the trainer via
+    trainer-vm-diag (never the live VM): replay the vol labels, then run
+    scripts/research/regime_cell_walkforward.py for both cells against
+    those labels (crypto/Binance-vision candle fetch, exercisable from the
+    trainer's own network egress — the same path the module docstring
+    verifies in-sandbox). Only the compact JSON verdicts + the replay
+    manifest travel back via the issue comment; the (large) per-bar labels
+    file never leaves the trainer.
+
+run:
+  workflow: trainer-vm-diag.yml
+  inputs:
+    label: trainer-vm-diag-request
+    cmd: >-
+      cd /home/ubuntu/ict-trading-bot && python3
+      scripts/research/ml_vol_label_replay.py replay --symbol SOLUSDT
+      --dataset datasets-out/market_features/SOLUSDT/15m/v002/data.jsonl
+      --out /tmp/sol_vol_labels.jsonl --json > /tmp/replay.json 2>&1; echo
+      "REPLAY_RC=$?"; tail -c 4000 /tmp/replay.json; for CELL in
+      "sol_pullback_2h:trending" "trend_donchian_sol:transitional"; do
+      STRAT="${CELL%%:*}"; REGIME="${CELL##*:}"; python3
+      scripts/research/regime_cell_walkforward.py --strategy "$STRAT"
+      --regime "$REGIME" --vol calm --vol-labels /tmp/sol_vol_labels.jsonl
+      --days 1200 --workdir /tmp/rcwf_$STRAT --json; echo
+      "RC_${STRAT}=$?"; done
+  note: >-
+    Session-dispatched via the git-actions issue-label pattern
+    (trainer-vm-diag-request), not workflow_dispatch (unavailable to a web
+    session). --days 1200 extends the fetch window to roughly 2023-05
+    through today, covering and extending the 2026-08-02 study's
+    2023-07..2026-06 span. Output is the compact JSON per cell (fits an
+    issue comment); the vol-labels JSONL and its .manifest.json stay on the
+    trainer's /tmp.
+
+lands:
+  store: docs/research/e74-sol-trendvol-offcell-walkforward-2026-09-29.json
+  assert_field: verdict
+  min_rows: 2
+  note: >-
+    One row per candidate cell (sol_pullback_2h, trend_donchian_sol), each
+    carrying its own `verdict` (stable_drag / no_stable_drag /
+    insufficient_n / no_trades), the full cell_verdict block, and the
+    replay manifest's fidelity flags.
+
+related:
+  - 'E74 (docs/claude/work/MANAGER-CHECKLIST.json) — operator directive 2026-09-27 "Add the row."'
+  - '.claude/skills/regime-selectivity/SKILL.md Rule 1/2/3'
+  - 'docs/research/A-vol-gating-SOL-revalidation-fcpcv-v2-2026-08-02.md (the near-miss this unit re-grades under the correct gate)'
+  - 'comms/reviews/ml-review-20260929-095500.json (W7, restates E74 with the evidence chain)'
+  - 'scripts/research/regime_cell_walkforward.py / ml_vol_label_replay.py'
+
+last_dispatched_at: null
