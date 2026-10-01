@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-01T23:06:43Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-01T23:00:29Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-01T16:10:20Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-01T23:00:29Z",
+  "updated_at": "2026-10-01T23:06:43Z",
   "latest": {
-    "generated_at": "2026-10-01T23:00:29Z",
+    "generated_at": "2026-10-01T23:06:43Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 348,
+      "unregistered_but_attributable_sessions": 347,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1511,6 +1511,7 @@
           "claude/mi302-backlog-drain"
         ],
         "session_01Db47kLwhEpWPNaEfki6yYD": [
+          "claude/tradeify-add-watchlist",
           "claude/tradeify-golive-pipeline",
           "claude/tradeify-golive-ws-finding"
         ],
@@ -1847,9 +1848,6 @@
           "claude/mi259-close-the-work-object",
           "claude/mi259-file-the-two-findings"
         ],
-        "session_01MEyTMDNj3ZYV2ziDq1hLJd": [
-          "claude/order-audit-2-followups"
-        ],
         "session_01ML8uLRrKLMmzR9fFywTWv5": [
           "claude/mgr-redispatch-205b-2218-20260908",
           "claude/mi205b-ranking-key-harness"
@@ -1973,7 +1971,8 @@
         ],
         "session_01PNFmCa7dgP1ykmsBd5s8kE": [
           "claude/pipeline-dialog-measure",
-          "claude/prop-edit-dialog-measure"
+          "claude/prop-edit-dialog-measure",
+          "claude/prop-trail"
         ],
         "session_01PT8KKSz3KzyN2hE5UpwTaU": [
           "claude/w6-ops-recurring-validations"
