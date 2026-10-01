@@ -1,0 +1,38 @@
+# P2 round 2 — Breakout-listed symbols × corpus harnesses (2026-10-01)
+
+> **Doc status:** `live` · category `evidence` · last verified `2026-10-01` · Tier-1 research, no config/src change. Checklist row **P2**.
+
+## Constraint and source
+Candidates come ONLY from `https://www.breakoutprop.com/symbols/`. That page returns HTTP 403 (Cloudflare) to non-browser clients from this sandbox, so the list used is the operator's committed transcription, `docs/integrations/breakout-instruments-2026-09-27.md` (**unverified against the live page**). It names 17 crypto symbols (BTC ETH SOL BNB XRP HYPE TRX AAVE ADA FIL ONDO DOGE LINK LTC SUI UNI ZEC) plus ~50 unnamed small alts. The 4 non-crypto symbols are Terminal-only and unreachable on `breakout_1` (DXTrade), so they are out. AVAX is not named on the list, so it is NOT scoped (round 1's template mapped it anyway).
+
+## Harness families used (full cost stack only)
+`trend` (Donchian, donor `trend_donchian_eth_prop`, 1h), `ict15` (donor `ict_scalp_xrp_15m`), `pb2` (pullback 2h, donor `xrp_pullback_2h`). Excluded as having no full cost stack: `backtest_orb.py`, `src/backtest/backtester.py`, `backtest_xsec_momentum.py`, `backtest_vol_target.py` (CLAUDE.md). Donor configs are tuned on other symbols, so each new-symbol cell is an untuned transfer test; the multiplicity (49 cells) is carried into any proposal. Window 730 days (data.binance.vision); round 1's 365-day evidence left several cells at n < 88.
+
+## Matrix (cell → unit RQ-20261001-NNN, or what already covers it)
+| symbol | trend 1h | ict_scalp 15m | pullback 2h | ict_scalp 5m (committed trades) |
+|---|---|---|---|---|
+| BTCUSD | 001 | 002 | 003 | 048 |
+| ETHUSD | covered (round 1: trend_donchian_eth_prop n=169, NULL) | covered (round 1: ict_scalp_eth_15m n=117, NULL) | 004 |  |
+| SOLUSD | 005 | covered (round 1: ict_scalp_sol_15m n=132, NULL) | 006 | 049 |
+| BNBUSD | 007 | 008 | 009 |  |
+| XRPUSD | 010 | covered (round 1: ict_scalp_xrp_15m n=129, NULL) | 011 |  |
+| HYPEUSD | 012 | 013 | 014 |  |
+| TRXUSD | 015 | 016 | 017 |  |
+| AAVEUSD | 018 | 019 | 020 |  |
+| ADAUSD | 021 | 022 | 023 |  |
+| FILUSD | 024 | 025 | 026 |  |
+| ONDOUSD | 027 | 028 | 029 |  |
+| DOGEUSD | 030 | 031 | 032 |  |
+| LINKUSD | 033 | 034 | 035 |  |
+| LTCUSD | 036 | 037 | 038 |  |
+| SUIUSD | 039 | 040 | 041 |  |
+| UNIUSD | 042 | 043 | 044 |  |
+| ZECUSD | 045 | 046 | 047 |  |
+
+The 5m column reuses committed 365-day evidence (`ict_scalp_5m` BTC n=193, `ict_scalp_sol_5m` n=259). Round 1 skipped both because it graded live-roster legs only; both are `execution: shadow`. `ict_scalp_xrp_5m` was a round-1 FAIL.
+
+## Data census (730 d of 1h bars requested)
+Checked symbols return the full 17,520 bars from 2024-10-01, except HYPE: 11,726 bars from 2025-05-30 (~489 days), so it is history-short. SUI, UNI, ZEC were still fetching when this was written.
+
+## Rule (identical in every unit, registered before any run)
+Gate A: n ≥ 88 and harness net_r > 0 pooled and in both chronological halves. Gate B: `prop_ev_grid.py`, `--costs breakout` (8 bps commission + 3 bps slippage round trip, 0.033%/day swap, dxtrade), 5 seeds, arms bal015 and room033, PASS iff ev > 0 and P(net>0) ≥ 0.70 on all 5 seeds. Driver: `scripts/research/p2_breakout_symbol_screen.py`.
