@@ -1,0 +1,31 @@
+# Tradeify 247 routing — tradeify_1 (TRADEIFY-WIRE, 2026-09-30).
+# Named by config/prop_rulesets/tradeify_247_1step.yaml `routing:`.
+#
+# ⚠️ EVERY dxtrade_symbol BELOW IS UNCONFIRMED. The names follow Breakout's
+# DXtrade convention (perp symbol minus the T), which is the same Devexperts
+# white-label; Tradeify's own names have NOT been read. The first read-only
+# login check (breakout-login-check account: tradeify_1) prints the passive
+# instrument-spec read for ETHUSD/SOLUSD/XRPUSD; correct this file from it.
+# A wrong name here cannot place anything: config/prop_platforms.yaml
+# tradeify_1.executor has no lot table and no enabled symbol, so every ticket
+# is refused / skipped before the order form is touched.
+account_size_usd: 10000
+risk_pct: 0.5                       # PERCENT, informational (the account's
+                                    # accounts.yaml risk_pct is what sizes)
+symbols:
+  ETHUSDT:
+    dxtrade_symbol: ETHUSD          # UNCONFIRMED on Tradeify
+    contract_value_usd_per_point: 1.0
+  SOLUSDT:
+    dxtrade_symbol: SOLUSD          # UNCONFIRMED on Tradeify
+    contract_value_usd_per_point: 1.0
+  XRPUSDT:
+    dxtrade_symbol: XRPUSD          # UNCONFIRMED on Tradeify
+    contract_value_usd_per_point: 1.0
+symbol_map:
+  ETHUSDT: ETHUSD
+  SOLUSDT: SOLUSD
+  XRPUSDT: XRPUSD
+contract_value_usd_per_point: 1.0
+entry_band_frac: 0.25               # same as breakout_routing.yaml
+ttl_bars: 1.0                       # same as breakout_routing.yaml

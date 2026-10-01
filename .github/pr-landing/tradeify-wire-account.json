@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD Tier-3: adds a prop account to accounts.yaml (roster + risk), a ruleset and routing, and touches the order path's account_cfg (coordinator + loader) so prop tickets size against the account's own ruleset. Ships mode: dry_run (no ticket, no ping). Merge after PR A (#14663) is deployed and the tradeify_1 feed is fresh. Lane TRADEIFY-WIRE; operator decision ~08:24Z 2026-09-30 \"Buy the $10k pilot (Recommended)\".",
+  "why": "tradeify_1 (Tradeify 247 1-Step $10k, DXtrade) with the TRADEIFY-PORTFOLIO memo's B3 roster (trend_donchian_eth_prop, trend_donchian_sol_prop, ict_scalp_xrp_15m) at 0.5% risk ($50 flat cap), static 6% / daily 3% (22:00 UTC reset), breach_guards: report like breakout_1. Also fixes a latent bug that only a second prop account exposes: the runtime account_cfg never carried backtest_ruleset, so every prop account was sized against breakout.yaml (tradeify tickets would have been $25 instead of $50). breakout_1's tickets are pinned byte-identical by test."
+}

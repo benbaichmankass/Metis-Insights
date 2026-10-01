@@ -91,6 +91,9 @@ def test_only_breakout_1_is_report_in_the_real_config():
     report = sorted(a for a, c in accounts.items()
                     if isinstance(c, dict) and breach_guards_mode(c.get("risk")) == "report")
     assert report == ["breakout_1"]
+    # tradeify_1 (TRADEIFY-WIRE) deliberately ENFORCES: manager review of
+    # #14672 — "'report' places orders through a breach; it must refuse".
+    assert prop_risk_gate.breach_guards_for("tradeify_1") == "enforce"
     assert prop_risk_gate.breach_guards_for("breakout_1") == "report"
     assert prop_risk_gate.breach_guards_for("bybit_2") == "enforce"
     assert prop_risk_gate.breach_guards_for("no_such_account") == "enforce"
