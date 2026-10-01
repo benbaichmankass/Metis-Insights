@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's merge (TRADEIFY-GOLIVE). Tier-2 by file (dxtrade.py on the live VM) but diagnostic only: one read-only, digit-masked page.evaluate per workspace the opener's LAST fallback already visits. No new click, no order control, no submit; breakout_1 never reaches that fallback.",
+  "why": "probe-ticket #15296 on tradeify_1 (VM code_sha e39ea9e9f) switched through all three other workspaces, found no recognised order form on any, restored the original, and recorded nothing about what those workspaces held. Each formless workspace now records BUY/SELL/symbol_input counts, visible input labels (masked), widget tabs and order-ish test ids, so the next probe says why the form finder failed (e.g. a New Order panel whose SL/TP inputs are hidden)."
+}

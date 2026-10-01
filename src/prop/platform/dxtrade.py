@@ -3437,6 +3437,49 @@ WORKSPACE_TABS_JS = r"""
 }
 """
 
+#: Click-free, digit-masked summary of what the CURRENT workspace shows, recorded
+#: per workspace by the opener's workspace fallback so a probe that finds no
+#: order form says WHY (tradeify_1 probe #15296: all three other workspaces
+#: "held no form", with nothing recorded about what they did hold). Counts and
+#: masked labels only -- no values, no table body text (the log is public).
+WORKSPACE_SUMMARY_JS = r"""
+() => {
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 30) : null;
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const personal = /user|profile|account|login|email/i;
+  const n = s => [...document.querySelectorAll(s)].filter(vis).length;
+  const lab = inp => {
+    for (let e = inp, i = 0; i < 4 && e && e !== document.body; i++, e = e.parentElement) {
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea') || s.querySelector('input, select, textarea')) break;
+        const t = (s.innerText || s.textContent || '').trim(); if (t) return t.split(/\n/)[0];
+      }
+    }
+    return inp.getAttribute('aria-label') || inp.getAttribute('placeholder') || '';
+  };
+  const inputs = [...document.querySelectorAll('input:not([type=hidden]), [role=spinbutton]')].filter(vis)
+    .filter(i => !i.closest('tbody'));
+  const tids = new Set();
+  for (const el of document.querySelectorAll('[data-test-id]')) {
+    if (!vis(el) || el.closest('tbody')) continue;
+    const t = el.getAttribute('data-test-id') || '';
+    if (personal.test(t)) continue;
+    if (/order|ticket|buy|sell|stop|take|profit|loss|limit|market|lot|quantity|qty|side|symbol_input|sl|tp/i.test(t)) tids.add(mask(t));
+    if (tids.size >= 40) break;
+  }
+  return {
+    buy: n('[data-test-id=BUY]'), sell: n('[data-test-id=SELL]'), symbol_input: n('[data-test-id=symbol_input]'),
+    inputs: inputs.length,
+    input_labels: inputs.slice(0, 20).map(i => ({type: mask(i.getAttribute('type')), label: mask(lab(i))})),
+    widget_tabs: [...document.querySelectorAll('[data-test-id=widget_tab]')].filter(vis).slice(0, 20)
+      .map(e => mask(e.innerText || e.textContent || '')),
+    order_tids: [...tids],
+    canvases: n('canvas'),
+  };
+}
+"""
+
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row',
@@ -4384,6 +4427,12 @@ class DXtradeAdapter(PropPlatformAdapter):
             form = self._find_form(page)
             if form.get("found"):
                 return {"name": t.get("name"), "form": form}
+            # Diagnostic only (read-only, masked): what this workspace DID show.
+            try:
+                summ = page.evaluate(WORKSPACE_SUMMARY_JS) or {}
+            except Exception as exc:
+                summ = {"error": type(exc).__name__}
+            out.setdefault("workspace_summary", {})[str(t.get("name"))] = summ
         # none had a ticket: put the operator's workspace back
         back = next((x for x in self._workspaces(page) if x.get("name") == current.get("name")), None)
         out["workspace_restored"] = bool(back and self._switch_workspace(page, back["index"]))
@@ -4480,6 +4529,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             "tried": opened.get("tried"),
             "workspaces": opened.get("workspaces"),
             "workspace_restored": opened.get("workspace_restored"),
+            "workspace_summary": opened.get("workspace_summary"),
             "fields": {k: {"label": v.get("label"), "disabled": v.get("disabled")}
                        for k, v in (form.get("fields") or {}).items()},
             "buttons": form.get("buttons") or {},
@@ -5961,6 +6011,11 @@ class DXtradeAdapter(PropPlatformAdapter):
             pass
         return False
 
+    # False until a run MEASURES the position edit dialog and modify_bracket
+    # proves it is that dialog (symbol named, read-only qty == the position's,
+    # SL mode = Price) and not the sidebar ticket. See modify_bracket.
+    EDIT_DIALOG_MEASURED = False
+
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
                        *, arm: bool = False) -> Dict[str, Any]:
@@ -5973,11 +6028,24 @@ class DXtradeAdapter(PropPlatformAdapter):
         oc = self.read_one_click(page)
         self._show_tab(page, "tab_positions")
         # Disarmed: locate the edit control and stop — no click at all.
+        # Armed while the dialog is unmeasured: LOCATE only (no click), then
+        # refuse below.
         opened = self._row_action(page, "positions", "Symbol", position.symbol,
-                                  r"^(edit|modify|✎|sl/tp|edit position)$", arm)
+                                  r"^(edit|modify|✎|sl/tp|edit position)$",
+                                  arm and self.EDIT_DIALOG_MEASURED)
         if not arm:
             return {"ok": bool(opened.get("ok")), "clicked": False, "one_click": oc,
                     "why": f"disarmed: stopped before the edit control ({opened.get('why')})"}
+        if not self.EDIT_DIALOG_MEASURED:
+            # PROP-TRAIL go-live review (manager, 2026-10-01): the edit dialog
+            # has never been measured. `_find_form` anchors on the first
+            # quantity input on the page, and the DOCKED SIDEBAR ORDER TICKET
+            # is always one, so an armed walk could fill SL/TP into the
+            # sidebar and press ITS submit: a NEW order. Refuse before any
+            # click until a measured dialog check replaces this.
+            return {"ok": False, "clicked": False, "one_click": oc,
+                    "why": "refused: the SL/TP edit dialog is unmeasured (an armed walk could "
+                           "submit the sidebar order ticket instead)"}
         if not opened.get("clicked"):
             return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit control: {opened.get('why')}"}
         page.wait_for_timeout(1_000)
