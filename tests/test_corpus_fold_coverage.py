@@ -47,8 +47,13 @@ PANEL = [{"fold": str(y)} for y in (2021, 2022, 2023, 2024, 2025, 2026)]
 
 # Measured 2026-08-17 over the committed corpus.
 EXPECTED_UNCOVERED = {
-    ("ief_pullback_1d", "vt_hot80_t2.5"): [2017, 2018, 2019, 2020],
-    ("ief_pullback_1d", "decay_stall10_t2.5"): [2017, 2018, 2019, 2020],
+    # RE-MEASURED 2026-10-02 (lane M20-EXITS-4): the 2026-10-02 re-sweep derived the
+    # ief split at 2015-12-10 (OOS n=39) but its walk-forward folds are still
+    # 2021-2026, so 2015-2020 of the OOS span were never examined. This is a REAL
+    # caveat on the ief_pullback_1d PASS cells, not a pin to loosen.
+    ("ief_pullback_1d", "vt_hot80_t2.5"): [2015, 2016, 2017, 2018, 2019, 2020],
+    ("ief_pullback_1d", "decay_stall10_t2.5"): [2015, 2016, 2017, 2018, 2019, 2020],
+    ("ief_pullback_1d", "rrfloor0.75"): [2015, 2016, 2017, 2018, 2019, 2020],
     ("tlt_pullback_1d", "decay_stall6_t2.5"): [2019, 2020],
     ("tlt_pullback_1d", "decay_arm1.5R_stall6_t2.5"): [2019, 2020],
     ("splg_trend_long_1d", "vt_hot80_t2"): [2019, 2020],
