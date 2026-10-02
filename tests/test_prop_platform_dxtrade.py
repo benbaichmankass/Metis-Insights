@@ -2151,7 +2151,7 @@ PANEL_HTML = """
        <button id="pmod" disabled onclick="window.__log.push('panel-modify')">Modify Position</button></div>
   <button id="pdis" onclick="window.__log.push('discard'); window.__shut()">Discard</button></div>
 <script>
-window.__log = [];
+window.__log = []; window.__stuckModify = false;   // set_content keeps the window: reset what tests set
 window.__open = () => { document.getElementById('pp').style.display = 'block'; };
 window.__shut = () => { document.getElementById('pp').style.display = 'none'; };
 window.__dirty = () => { if (!window.__stuckModify) document.getElementById('pmod').disabled = false; };
@@ -2167,8 +2167,11 @@ def panel_page(chromium_page):
 
 
 def _armed():
+    # The panel FLOW, armed on the instance with the rollout guard off; the
+    # guard has its own tests below (_guarded).
     a = _edit_adapter()
     a.EDIT_DIALOG_MEASURED = True
+    a.ROLLOUT_GUARD = False
     return a
 
 
@@ -2298,3 +2301,104 @@ def test_surface_probe_ignores_live_prices_in_control_names(surface_page):
                           " document.body.prepend(b); let n = 0; setInterval(() => { b.textContent = 'Sell 2,66' + (n++ % 10) + '.73'; }, 5); }")
     got = _edit_adapter().probe_edit_surface(surface_page, "ETHUSD")
     assert got["restored"] is True and got["alerts"] == [], got.get("residual")
+
+
+# ── ROLLOUT GUARD (manager 2026-10-02 21:45Z, option (c)) ─────────────────
+# EDIT_DIALOG_MEASURED stays False in the repo; these tests arm it on the
+# INSTANCE only, to exercise the guard the flip will rely on.
+
+_QUOTE = {"bid": 2660.0, "ask": 2660.5}          # short: the stop fills on the ask
+
+
+def _guarded(tmp_path, quote=_QUOTE):
+    from src.prop.platform.dxtrade import ModifyRollout
+    a = _armed()
+    a.ROLLOUT_GUARD = True
+    a.read_quote = lambda page, sym: quote
+    return a, ModifyRollout(tmp_path / "modify_rollout.json")
+
+
+def _short_with_row():
+    from src.prop.platform.base import Position
+    return Position(symbol="ETHUSD", side="short", quantity=1.22, stop_loss=2718.46, take_profit=2394.06)
+
+
+def _row_follows_the_panel(page):
+    # The venue applies the modify: the row's SL cell takes the typed value.
+    page.evaluate("() => { document.getElementById('pmod').onclick = () => { window.__log.push('panel-modify');"
+                  " document.querySelector('#rows tr').children[4].textContent = document.getElementById('psl').value; }; }")
+
+
+def test_the_repo_flag_stays_false_and_refuses_before_any_click(panel_page, tmp_path):
+    from src.prop.platform.dxtrade import DXtradeAdapter, ModifyRollout
+    assert DXtradeAdapter.EDIT_DIALOG_MEASURED is False and DXtradeAdapter.ROLLOUT_GUARD is True
+    r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True,
+                                       rollout=ModifyRollout(tmp_path / "l.json"))
+    assert r["ok"] is False and r["clicked"] is False and "EDIT_DIALOG_MEASURED is False" in r["why"]
+    assert panel_page.evaluate("window.__log") == [] and not (tmp_path / "l.json").exists()
+
+
+def test_rollout_single_tighten_step_is_typed_verified_and_latched(panel_page, tmp_path):
+    a, roll = _guarded(tmp_path)
+    _row_follows_the_panel(panel_page)
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
+    assert r["ok"] is True and r["rollout"] == "verified", r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "panel-modify"]
+    assert panel_page.evaluate("document.getElementById('ptp').value") == "2394.06"   # TP never typed
+    assert json.loads(roll.path.read_text())["state"] == "verified"
+    again = a.modify_bracket(panel_page, _short_with_row(), 2705.0, None, arm=True, rollout=roll)
+    assert again["clicked"] is False and "halted until" in again["why"]                 # single step
+
+
+def test_rollout_verify_failure_alerts_and_halts_further_modifies(panel_page, tmp_path):
+    a, roll = _guarded(tmp_path)                                    # the row's SL does NOT change
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
+    assert r["ok"] is False and r["rollout"] == "verify_failed" and "ROLLOUT VERIFY FAILED" in r["why"]
+    assert "further modifies halted" in r["why"] and json.loads(roll.path.read_text())["state"] == "verify_failed"
+    assert a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)["clicked"] is False
+
+
+@pytest.mark.parametrize("sl,tp,needle", [
+    (2725.0, None, "does not move toward price"),                   # loosen (a short's SL up)
+    (2690.0, None, "exceeds 25%"),                                  # 28.46 > 0.25 * 57.96
+    (2659.0, None, "cross the current price"),
+    (2710.0, 2400.0, "take profit unchanged"),                      # _contain's SL+TP repair shape
+])
+def test_rollout_refuses_anything_but_a_bounded_tighten_before_any_click(panel_page, tmp_path, sl, tp, needle):
+    a, roll = _guarded(tmp_path)
+    r = a.modify_bracket(panel_page, _short_with_row(), sl, tp, arm=True, rollout=roll)
+    assert r["ok"] is False and r["clicked"] is False and needle in r["why"], r["why"]
+    assert panel_page.evaluate("window.__log") == [] and not roll.path.exists()
+
+
+def test_rollout_needs_a_latch_and_a_quote(panel_page, tmp_path):
+    a, _ = _guarded(tmp_path)
+    assert "needs the account's modify-rollout latch" in a.modify_bracket(
+        panel_page, _short_with_row(), 2710.0, None, arm=True)["why"]
+    a, roll = _guarded(tmp_path, quote=None)
+    assert "no live quote" in a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_rollout_in_progress_is_written_before_the_click(panel_page, tmp_path):
+    a, roll = _guarded(tmp_path)
+    seen = []
+    panel_page.evaluate("() => { window.__open = () => {}; }")      # the modify control opens nothing
+    orig = roll.record
+    roll.record = lambda state, **k: (seen.append(state), orig(state, **k))
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
+    assert r["ok"] is False and seen[0] == "in_progress" and seen[-1] == "refused"
+    assert roll.blocked()                                            # a refused step still uses the latch
+
+
+def test_rollout_pure_checks():
+    from src.prop.platform.base import Position
+    from src.prop.platform.dxtrade import rollout_tighten_mismatch, rollout_verify_mismatch
+    assert rollout_tighten_mismatch("long", 95.0, 120.0, 96.0, None, {"bid": 100.0, "ask": 100.1}) == []
+    assert rollout_tighten_mismatch("long", 95.0, 120.0, 96.0, 120.0, {"bid": 100.0, "ask": 100.1}) == []
+    assert rollout_tighten_mismatch("long", 95.0, 120.0, None, None, {"bid": 100.0, "ask": 100.1})
+    before = Position(symbol="X", side="long", quantity=2.0, stop_loss=95.0, take_profit=120.0)
+    assert rollout_verify_mismatch(before, Position(symbol="X", quantity=2.0, stop_loss=96.0, take_profit=120.0), 96.0) == []
+    bad = rollout_verify_mismatch(before, Position(symbol="X", quantity=1.0, stop_loss=95.0, take_profit=121.0), 96.0)
+    assert len(bad) == 3
+    assert rollout_verify_mismatch(before, None, 96.0) == ["position not found on the next read"]

@@ -402,8 +402,11 @@ class FakeAdapter:
         self.flatten_facts = facts
         return {"ok": True, "clicked": arm}
 
-    def modify_bracket(self, page, position, sl, tp, *, arm=False):
+    def modify_bracket(self, page, position, sl, tp, *, arm=False, rollout=None):
         self.calls.append(("modify_bracket", position.symbol, arm))
+        self.rollout = rollout
+        if getattr(self, "modify_result", None) is not None:
+            return self.modify_result
         return {"ok": True, "clicked": arm}
 
 
@@ -3986,3 +3989,20 @@ def test_the_action_wrapper_reports_a_deferred_test_as_deferred_not_failed():
     i = sh.index('if [ "${rc}" -eq 7 ]; then')
     block = sh[i:i + 400]
     assert "deferred" in block and "exit 0" in block
+
+
+def test_contain_passes_the_accounts_rollout_latch_and_a_guard_refusal_falls_through_to_close(env):
+    # DIALOG-MEASURE rollout guard (manager 2026-10-02): the partial_no_sl_tp
+    # repair types SL AND TP, so under the guard it is refused before any
+    # click; the existing next-cycle close-at-market then takes over.
+    ledger, _ = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    ad.modify_result = {"ok": False, "clicked": False,
+                        "why": "rollout refused: rollout step must leave the take profit unchanged"}
+    res = run(ad, FakeApi(), env)
+    assert ("modify_bracket", "SOLUSD", True) in ad.calls
+    assert ad.rollout.path == Path(ledger.path).parent / "modify_rollout.json"
+    assert any("rollout refused" in al for al in res.alerts)
+    run(ad, FakeApi(), env)
+    assert ("flatten", "SOLUSD", True) in ad.calls

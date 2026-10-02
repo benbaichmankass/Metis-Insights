@@ -84,3 +84,16 @@ def test_the_workflow_allows_the_apply_and_requires_a_reason():
 def test_the_executor_never_clears_its_own_latch():
     src = (REPO / "src" / "prop" / "prop_executor.py").read_text()
     assert "halt_file.unlink" not in src and "halted.cleared" not in src
+
+
+def test_clears_the_modify_rollout_latch_and_records_it(sandbox):
+    script, home = sandbox
+    roll = home / ".cache" / "metis-prop-browser" / "executor" / "modify_rollout.json"
+    roll.write_text('{"state": "verified", "sl": 2710.0}')
+    p, halt = _run(script, home, reason="manager: first modify observed and reviewed")
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert not roll.exists() and not halt.exists()
+    moved = list(roll.parent.glob("modify_rollout.json.cleared-*"))
+    assert len(moved) == 1 and "verified" in moved[0].read_text()
+    rec = json.loads((roll.parent / "halt_clears.jsonl").read_text().splitlines()[-1])
+    assert rec["latch"] == "modify_rollout.json" and "verified" in rec["prior"]
