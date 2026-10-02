@@ -96,7 +96,7 @@ YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", 
                          "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
                          "add_watchlist_symbol_dry", "add_watchlist_symbol",
                          "instrument_page_dump",
-                         "edit_dialog_dry", "edit_dialog_probe",
+                         "edit_dialog_dry", "edit_dialog_probe", "edit_surface_probe",
                          "round_trip_dry", "round_trip_live"})
 
 # Headless viewport. Playwright's default (1280x720) clipped the sidebar
@@ -157,6 +157,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "edit_dialog_dry"
     if getattr(args, "edit_dialog_probe", ""):
         return "edit_dialog_probe"
+    if getattr(args, "edit_surface_probe", ""):
+        return "edit_surface_probe"
     if getattr(args, "widget_menu_probe", False):
         return "widget_menu_probe"
     if getattr(args, "add_watchlist_widget", False):
@@ -367,6 +369,9 @@ def main(argv: Optional[list] = None) -> int:
                         "and the sidebar ticket's buttons; clicks nothing")
     g.add_argument("--edit-dialog-dry", default="", metavar="VENUE_SYMBOL",
                    help="locate the symbol's Positions row and its edit pencil (by icon name); click nothing")
+    g.add_argument("--edit-surface-probe", default="", metavar="VENUE_SYMBOL",
+                   help="MEASURE what the row's modify control changes (snapshot diff), leave via Escape or the "
+                        "surface's own cancel, require the page back at baseline; submits nothing")
     g.add_argument("--edit-dialog-probe", default="", metavar="VENUE_SYMBOL",
                    help="MEASURE the position edit dialog: click that pencil, read the dialog, press its Cancel; "
                         "submits nothing")
@@ -566,6 +571,14 @@ def main(argv: Optional[list] = None) -> int:
                 got = adapter.link_state_dump(page)
                 emit({"link_state_dump": got}, *secrets)
                 return EXIT_OK if "error" not in got else EXIT_UNPARSED
+
+            if mode == "edit_surface_probe":
+                got = adapter.probe_edit_surface(page, args.edit_surface_probe)
+                emit({"edit_surface": got}, *secrets)
+                for al in got.get("alerts") or []:
+                    emit({"alert": f"edit-surface-probe: {al}"}, *secrets)
+                ok = (got.get("locate") or {}).get("ok") and got.get("restored") is True and not got.get("alerts")
+                return EXIT_OK if ok else EXIT_UNPARSED
 
             if mode in ("edit_dialog_dry", "edit_dialog_probe"):
                 sym = args.edit_dialog_dry or args.edit_dialog_probe

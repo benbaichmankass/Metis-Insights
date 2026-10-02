@@ -2762,6 +2762,86 @@ EDIT_DIALOG_JS = r"""
 }
 """
 
+# The edit SURFACE (DIALOG-MEASURE live readout, #15628, 2026-10-02): the
+# Positions row's modify control ("position-table-modify",
+# #icon-replace-context) opened NO new dialog, so whatever it changes was
+# already on screen -- most likely the docked sidebar ticket switching into
+# a modify-position mode. These ops measure that READ-ONLY, by diff:
+#  "snap":   every visible input / select / button / heading OUTSIDE any
+#            table and outside the positions row, keyed by its place and
+#            name, with its label, value (masked), read-only / disabled and
+#            box; plus whether the ORDER-ENTRY ticket is showing (Buy / Sell
+#            side buttons, Market / Limit / Stop / OCO type buttons, a
+#            "Buy|Sell <qty> <SYM> at <px>" submit). Clicks nothing.
+#  "cancel": among the controls a diff found ADDED, tag the ONE whose own
+#            name is cancel / discard / close / x and that names nothing
+#            that submits, modifies, applies, confirms, places, saves or
+#            closes a position. Clicks nothing.
+EDIT_SURFACE_JS = r"""
+(args) => {
+  const [op, addedKeys] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
+  const mask = s => String(s || '').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '<email>')
+    .replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 60);
+  const tid = el => mask(attr(el, 'data-test-id') || attr(el, 'data-testid'));
+  const SEL = 'input:not([type=hidden]):not([type=password]), select, textarea, button, [role=button], [role=combobox], h1, h2, h3, h4, [class*=title], [class*=header]';
+  const excluded = el => !!(el.closest('table') || el.closest('[data-metis-close-row]') || el.closest('[role=row]') || el.closest('[role=grid]'));
+  const labelOf = el => {
+    const a = attr(el, 'aria-label'); if (a) return a;
+    for (let e = el, i = 0; i < 4 && e; i++, e = e.parentElement)
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea, button')) break;
+        const t = txt(s); if (t) return t.split(/\n/)[0];
+      }
+    return attr(el, 'placeholder');
+  };
+  const kindOf = el => el.matches('input, textarea, [role=combobox]') ? 'input' : el.matches('select') ? 'select'
+    : el.matches('button, [role=button]') ? 'button' : 'heading';
+  const nameOf = el => txt(el) || attr(el, 'aria-label') || attr(el, 'title') || '';
+  if (op === 'snap') {
+    const els = [...document.querySelectorAll(SEL)].filter(el => vis(el) && !excluded(el));
+    // Headings: only leaf-ish text holders (a container whose text is all of
+    // its children's would duplicate them).
+    const items = els.filter(el => kindOf(el) !== 'heading' || el.children.length <= 2).map(el => {
+      const k = kindOf(el), b = box(el);
+      const value = k === 'input' ? (el.value !== undefined ? el.value : txt(el))
+        : k === 'select' ? (el.options && el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '') : '';
+      return {key: [k, tid(el), mask(k === 'button' || k === 'heading' ? nameOf(el) : labelOf(el)).slice(0, 30),
+                    Math.round(b[0] / 8), Math.round(b[1] / 8)].join('|'),
+              kind: k, tid: tid(el), name: mask(k === 'input' || k === 'select' ? labelOf(el) : nameOf(el)),
+              value: mask(value), readonly: !!(el.readOnly || attr(el, 'aria-readonly') === 'true'),
+              disabled: !!(el.disabled || attr(el, 'aria-disabled') === 'true'), box: b};
+    });
+    const names = items.filter(i => i.kind === 'button').map(i => i.name.toLowerCase());
+    const order_entry = {
+      side_buttons: ['BUY', 'SELL'].every(t => [...document.querySelectorAll('[data-test-id=' + t + ']')].some(vis)),
+      type_buttons: ['market', 'limit', 'stop'].filter(t => names.some(n => n === t)),
+      submit_label: items.some(i => i.kind === 'button' && /^(buy|sell)\s+[0-9.,]+\s+\S+\s+at\b/i.test(i.name)),
+      modify_words: items.filter(i => /modify|edit position|update position/i.test(i.name)).map(i => i.name).slice(0, 5)};
+    return {ok: true, n: items.length, items, order_entry, dialogs: document.querySelectorAll('[role=dialog], [aria-modal=true]').length};
+  }
+  if (op === 'cancel') {
+    document.querySelectorAll('[data-metis-surface-cancel]').forEach(e => e.removeAttribute('data-metis-surface-cancel'));
+    const want = new Set(addedKeys || []);
+    const BAD = /(submit|modify|apply|confirm|place|save|update|position|buy|sell|ok\b)/i;
+    const OK = /^(cancel|discard|close|×|✕|✖|x)$/i;
+    const cands = [...document.querySelectorAll('button, [role=button]')].filter(el => vis(el) && !excluded(el)).filter(el => {
+      const b = box(el), k = ['button', tid(el), mask(nameOf(el)).slice(0, 30), Math.round(b[0] / 8), Math.round(b[1] / 8)].join('|');
+      const n = nameOf(el).trim(), cls = attr(el, 'class') + ' ' + attr(el, 'aria-label');
+      return want.has(k) && !BAD.test(n + ' ' + cls) && (OK.test(n) || (!n && /(^|[\s_-])(close|cancel)([\s_-]|$)/i.test(cls)));
+    });
+    if (cands.length !== 1) return {ok: false, why: cands.length + ' cancel-type controls among the added ones (need exactly 1)'};
+    cands[0].setAttribute('data-metis-surface-cancel', '1');
+    return {ok: true, name: mask(nameOf(cands[0]) || 'x')};
+  }
+  return {ok: false, why: 'unknown op'};
+}
+"""
+
 def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
     """The row controls' markup, bound for a PUBLIC log: through
     ``redact_text`` (credential-shaped runs, e-mails), then digit runs of 5+,
@@ -4514,6 +4594,26 @@ def edit_dialog_mismatch(dlg: Mapping[str, Any], symbol: str, quantity: Optional
     if dlg.get("cancel") != 1:
         bad.append(f"{dlg.get('cancel')} cancel controls in the dialog (need exactly 1)")
     return bad
+
+def surface_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[str, Any]:
+    """Pure: what EDIT_SURFACE_JS "snap" ``after`` shows that ``before`` did
+    not (``added``), what it no longer shows (``removed``) and what kept its
+    key but changed value / read-only / disabled (``changed``). ``same`` only
+    when both snapshots were read and nothing differs -- a snapshot we could
+    not take is never "the same"."""
+    if not before.get("ok") or not after.get("ok"):
+        return {"same": False, "added": [], "removed": [], "changed": [],
+                "summary": "snapshot not read (" + str(before.get("why") or after.get("why")) + ")"}
+    b = {i["key"]: i for i in before.get("items") or []}
+    a = {i["key"]: i for i in after.get("items") or []}
+    added = [a[k] for k in a if k not in b]
+    removed = [b[k] for k in b if k not in a]
+    changed = [{"key": k, "before": {f: b[k].get(f) for f in ("value", "readonly", "disabled")},
+                "after": {f: a[k].get(f) for f in ("value", "readonly", "disabled")}}
+               for k in a if k in b and any(a[k].get(f) != b[k].get(f) for f in ("value", "readonly", "disabled"))]
+    same = not (added or removed or changed)
+    return {"same": same, "added": added, "removed": removed, "changed": changed,
+            "summary": "no change" if same else f"{len(added)} added, {len(removed)} removed, {len(changed)} changed"}
 
 def check_bracket_spec(spec: BracketSpec) -> List[str]:
     """Pure structural check of one bracket before any click: both legs, a
@@ -7342,6 +7442,73 @@ class DXtradeAdapter(PropPlatformAdapter):
         page.wait_for_timeout(600)
         after = self._read_edit_dialog(page, symbol)
         out["closed_after_cancel"] = (not after.get("ok")) and after.get("fresh") == 0
+        return out
+
+    @staticmethod
+    def _surface_snap(page: Any) -> Dict[str, Any]:
+        try:
+            return page.evaluate(EDIT_SURFACE_JS, ["snap", []]) or {"ok": False, "why": "empty snapshot"}
+        except Exception as exc:
+            return {"ok": False, "why": f"snapshot failed ({type(exc).__name__})"}
+
+    def probe_edit_surface(self, page: Any, symbol: str) -> Dict[str, Any]:
+        """MEASURE what the Positions row's modify control changes (DIALOG-
+        MEASURE, after #15628 found it opens no new dialog). READ-ONLY by
+        construction: snapshot the page's controls (outside every table and
+        the positions row), click THAT symbol's modify control, snapshot
+        again and report the diff, then leave via Escape -- and only if the
+        surface did not go back, via the ONE added control named cancel /
+        discard / close / x (never anything that submits, modifies, applies,
+        confirms, places, saves or closes a position). Then REQUIRE the page
+        to be back at the baseline; anything else is an alert."""
+        out: Dict[str, Any] = {"symbol": symbol, "one_click": self.read_one_click(page), "alerts": []}
+        loc = self._locate_edit_control(page, symbol, None, None)
+        out["locate"] = loc
+        if not loc.get("ok"):
+            out["stopped"] = f"before any click ({loc.get('why')})"
+            return out
+        before = self._surface_snap(page)
+        out["baseline_order_entry"] = before.get("order_entry")
+        if not before.get("ok"):
+            out["stopped"] = f"before any click ({before.get('why')})"
+            return out
+        try:
+            page.click("[data-metis-edit-ctl]", timeout=5_000)
+        except Exception as exc:
+            out["clicked"] = "unknown"
+            out["alerts"].append(f"modify control click raised {type(exc).__name__}; outcome unknown")
+            page.keyboard.press("Escape")
+            return out
+        out["clicked"] = True
+        page.wait_for_timeout(1_000)
+        after = self._surface_snap(page)
+        out["diff"] = surface_diff(before, after)
+        out["after_order_entry"] = after.get("order_entry")
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        page.wait_for_timeout(600)
+        back = surface_diff(before, self._surface_snap(page))
+        out["exit"] = "escape"
+        if not back["same"]:
+            got = {}
+            try:
+                got = page.evaluate(EDIT_SURFACE_JS, ["cancel", [i["key"] for i in out["diff"]["added"]]]) or {}
+            except Exception as exc:
+                got = {"ok": False, "why": f"cancel lookup failed ({type(exc).__name__})"}
+            out["cancel"] = got
+            if got.get("ok"):
+                try:
+                    page.click("[data-metis-surface-cancel]", timeout=5_000)
+                    out["exit"] = f"escape, then the surface's own {got.get('name')!r}"
+                except Exception as exc:
+                    out["alerts"].append(f"surface cancel click raised {type(exc).__name__}")
+                page.wait_for_timeout(600)
+                back = surface_diff(before, self._surface_snap(page))
+        out["restored"] = back["same"]
+        if not back["same"]:
+            out["alerts"].append("PAGE NOT BACK AT BASELINE after the probe: " + back["summary"])
         return out
 
     def modify_bracket(self, page: Any, position: Position,
