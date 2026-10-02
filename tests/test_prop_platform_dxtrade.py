@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from typing import Any, List
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -1917,6 +1919,28 @@ def _submit_js_on(html: str):
     exe = next((str(c) for c in Path("/opt/pw-browsers").glob("chromium-*/chrome-linux/chrome")), None)
     if exe is None:
         pytest.skip("no Chromium under /opt/pw-browsers")
+    # In a WORKER THREAD: an earlier test in this file can leave a running
+    # asyncio loop (the anyio plugin), and Playwright's sync API refuses to
+    # start inside one -- which made these two pass alone and fail in the full
+    # file. A fresh thread has no running loop.
+    out: List[Any] = []
+    thread = threading.Thread(target=lambda: out.append(_drive(sync_playwright, SUBMIT_JS, exe, html)))
+    thread.start()
+    thread.join(120)
+    assert out, "the browser thread produced nothing"
+    if isinstance(out[0], BaseException):
+        raise out[0]
+    return out[0]
+
+
+def _drive(sync_playwright: Any, SUBMIT_JS: str, exe: str, html: str):
+    try:
+        return _drive_inner(sync_playwright, SUBMIT_JS, exe, html)
+    except BaseException as exc:                 # handed back to the test thread
+        return exc
+
+
+def _drive_inner(sync_playwright: Any, SUBMIT_JS: str, exe: str, html: str):
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True, executable_path=exe)
         try:
