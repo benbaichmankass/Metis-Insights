@@ -4402,12 +4402,21 @@ def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
     terminal says what quantity it ACCEPTED: a venue that clamps a
     below-minimum size up (or rounds it) changes this number, and the dry run
     at the lot step is only a measurement of the venue minimum if that change
-    would be caught. A label with no quantity passes (the check is then the
-    input read-back alone).
+    would be caught.
+
+    A label that does NOT parse as "<Buy|Sell> <qty> <SYM>" is REFUSED
+    (DIALOG-MEASURE, manager 2026-10-02): "Save", "Modify" or "" is not an
+    order-entry submit -- the row's modify control opens a docked "Position
+    Details" panel with its own "Modify Position" / "Close Position" buttons
+    (#15628, #15657), which must never be submitted on the strength of the
+    side/type read-back alone. Every label measured live
+    so far parses (Buy 0.01 SOLUSD at 117.49 .. 120.73, Buy 49 SOLUSD at
+    117.52 / 117.77, Buy 0.01 ETHUSD at 2,697.81 .. 2,749.46, Sell 1.22
+    ETHUSD at 2,657.11; tradeify_1's Buy 0.01 ETH/USD at 2,685.84).
     """
     m = _SUBMIT_LABEL.search(text or "")
     if not m:
-        return ""
+        return f"its text {str(text or '')[:60]!r} does not read as '<Buy|Sell> <qty> <SYM>' (not an order-entry submit)"
     try:
         qty = float(m.group(2).replace(",", "."))
     except ValueError:
