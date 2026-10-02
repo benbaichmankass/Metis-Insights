@@ -1817,7 +1817,9 @@ SUGGESTION_ROWS_JS = r"""
 # a [role=row] or a virtualized grid, to show where (if anywhere) results
 # render. Per leaf: tag, its box (rounded px), its nearest table/grid-like
 # ancestor (tag, role, masked data-test-id, whether it sits in a tbody) and
-# its masked text (5+ digit runs and emails masked, 80 chars). A node whose own
+# its masked text: emails masked and EVERY digit replaced by '#' (manager
+# review of #15550: balances, P&L, prices and sizes never reach the public
+# run log), 80 chars. A node whose own
 # or parent class/data-test-id looks personal (user/profile/account/login/
 # email) is skipped. At most 400 leaves in document order, plus up to 50
 # ``matches``: leaves whose text contains the typed query, collected whatever
@@ -1827,6 +1829,10 @@ PAGE_LEAF_DUMP_JS = r"""
   const maskRuns = v => (typeof v === 'string')
     ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
         .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80) : null;
+  // EVERY digit masked in leaf text (manager review of #15550): a page-wide
+  // dump would otherwise print balances, P&L, prices and sizes into public
+  // run logs. Matching uses the RAW text, so the query still matches.
+  const maskAll = v => { const m = maskRuns(v); return (m === null) ? null : m.replace(/\d/g, '#'); };
   const personal = /user|profile|account|login|email/i;
   const looksPersonal = el => {
     for (const e of [el, el.parentElement]) {
@@ -1853,8 +1859,8 @@ PAGE_LEAF_DUMP_JS = r"""
     const g = el.closest(gridSel);
     const row = {tag, box: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
                  grid: g ? {tag: g.tagName.toLowerCase(), role: maskRuns(g.getAttribute('role')),
-                            tid: maskRuns(g.getAttribute('data-test-id') || ''), in_tbody: !!el.closest('tbody')} : null,
-                 text: maskRuns(t)};
+                            tid: maskAll(g.getAttribute('data-test-id') || ''), in_tbody: !!el.closest('tbody')} : null,
+                 text: maskAll(t)};
     if (leaves.length < 400) leaves.push(row);
     if (q && t.toUpperCase().includes(q) && matches.length < 50) matches.push(row);
   }

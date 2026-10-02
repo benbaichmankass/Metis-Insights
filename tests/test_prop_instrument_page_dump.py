@@ -109,3 +109,18 @@ def test_action_refuses_the_page_dump_for_breakout_1(tmp_path):
     p = _run_action(tmp_path, {"ACTION_APPLY": "instrument-page-dump", "ACTION_SYMBOLS": "ETHUSD"})
     assert p.returncode == 1
     assert "instrument-page-dump: refused for breakout_1" in p.stdout + p.stderr
+
+
+def test_page_dump_masks_every_digit_so_balances_never_reach_the_log(chromium_page):
+    # Manager review of #15550 (BLOCK): a page-wide dump must not print
+    # balances, P&L, prices or sizes. Every digit becomes '#', in leaves AND
+    # matches; the query still matches on the raw text.
+    chromium_page.set_content(
+        "<html><body><div>Balance 98,432.10</div><div>P&L -1,416.42</div>"
+        "<div>ETH/USD 2,431.5</div><div>Size 3</div></body></html>")
+    got = chromium_page.evaluate(PAGE_LEAF_DUMP_JS, "ETH")
+    texts = [lf["text"] for lf in got["leaves"]] + [m["text"] for m in got["matches"]]
+    assert "Balance ##,###.##" in texts and "P&L -#,###.##" in texts and "Size #" in texts
+    assert not any(ch.isdigit() for t in texts for ch in t)
+    assert got["n_matches"] == 1 and got["matches"][0]["text"] == "ETH/USD #,###.#"
+    chromium_page.set_content(DIVGRID.read_text())
