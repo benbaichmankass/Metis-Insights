@@ -1747,8 +1747,11 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
 # everything inside a <tbody> (positions/orders tables), and that would hide
 # the suggestion rows too. So this anchors ONLY on a visible "Asset Class"
 # header leaf, walks up (at most 8 levels) to the smallest container that
-# also shows a "Description" and a "Symbol" header, and reads that
-# container's rows: <tr> under a <tbody>, else [role=row]. Each row gives its
+# also shows a "Description" and a "Symbol" header. A header inside a real
+# <table> reads THAT table's own tbody rows (empty = no results; #15472's
+# fix: the first cut widened past an empty tbody and could reach another
+# table's rows). A div grid reads [role=row], widening only over containers
+# that hold no other table. Each row gives its
 # tag / data-test-id / role and its cells' text, with digit runs masked
 # (5+), emails masked and personal-looking controls skipped, like the other
 # dumps. It clicks nothing and reads no input value. At most 40 rows.
@@ -1768,16 +1771,26 @@ SUGGESTION_ROWS_JS = r"""
     let el = a.parentElement, hops = 0;
     while (el && hops < 8 && !(hasLeaf(el, 'Description') && hasLeaf(el, 'Symbol'))) { el = el.parentElement; hops++; }
     if (!el || hops >= 8) continue;
-    // Widen until the container also holds the rows (a <tbody> tr or a role=row).
+    // A header inside a real <table>: that table IS the panel; its own tbody
+    // holds the rows (empty tbody = no results). Never widen past it.
+    const tbl = a.closest('table');
+    if (tbl) { if (!panels.includes(tbl)) panels.push(tbl); continue; }
+    // A div grid: widen until the container also holds role=row rows, but
+    // never over a container that holds ANOTHER table (positions/orders).
     let box = el, up = 0;
-    while (box && up < 4 && !box.querySelector('tbody tr, [role=row]')) { box = box.parentElement; up++; }
-    if (box && box.querySelector('tbody tr, [role=row]')) el = box;
+    while (box && up < 4 && !box.querySelector('[role=row]')) {
+      const nxt = box.parentElement;
+      if (!nxt || nxt.querySelector('table')) break;
+      box = nxt; up++;
+    }
+    if (box && box.querySelector('[role=row]')) el = box;
     if (!panels.includes(el)) panels.push(el);
   }
   if (panels.length === 0) return {found: false, n_anchors: anchors.length, why: 'no container shows Symbol + Description + Asset Class'};
   const out = [];
   for (const panel of panels) {
-    let rows = Array.from(panel.querySelectorAll('tbody tr'));
+    let rows = (panel.tagName === 'TABLE')
+      ? Array.from(panel.tBodies).flatMap(b => Array.from(b.rows)) : [];
     let via = 'tbody tr';
     if (rows.length === 0) { rows = Array.from(panel.querySelectorAll('[role=row]')); via = 'role=row'; }
     const got = [];
@@ -6185,6 +6198,72 @@ class DXtradeAdapter(PropPlatformAdapter):
                     result["blurred"] = False
             # Unconditional: strip our own tag so it can never linger into
             # the next symbol's probe, whatever happened above.
+            try:
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
+            except Exception:
+                pass
+        return result
+
+    @staticmethod
+    def search_query_variants(venue_symbol: str) -> List[str]:
+        """The query forms the variant probe types for ``venue_symbol``: the
+        base asset alone (a prefix every naming matches), the venue symbol,
+        then the slash display form. ``ETHUSD`` -> ``["ETH", "ETHUSD",
+        "ETH/USD"]``. De-duplicated, order kept."""
+        sym = str(venue_symbol or "").strip().upper()
+        slash = DXtradeAdapter.search_query_for(sym, "slash")
+        base = slash.split("/", 1)[0] if "/" in slash else sym
+        out: List[str] = []
+        for q in (base, sym, slash):
+            if q and q not in out:
+                out.append(q)
+        return out
+
+    def probe_search_variants(self, page: Any, venue_symbol: str, *, queries: Optional[List[str]] = None,
+                              settle_ms: int = 3_000, key_delay_ms: int = 80) -> Dict[str, Any]:
+        """READ-ONLY (TRADEIFY-GOLIVE, #15472): typing ``ETH/USD`` with
+        ``fill()`` left the suggestion table's tbody EMPTY. This types each
+        query form KEY BY KEY (``press_sequentially``: characters only, never
+        Enter) into the same verified watchlist search, waits ``settle_ms``,
+        reads only the scoped suggestion rows (SUGGESTION_ROWS_JS), and
+        clears the field before the next form. It ends with the field
+        cleared, blurred and the search tag removed, like
+        ``probe_instrument_details``. It never clicks anything."""
+        loc = self._find_instrument_search(page)
+        if not loc.get("found"):
+            return {"searched": False, "reset": None, **loc}
+        hit = page.locator("[data-metis-search-hit='1']")
+        result: Dict[str, Any] = {"searched": False, "via": loc.get("via"), "reset": None, "variants": []}
+        try:
+            if hit.count() != 1:
+                result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
+                return result
+            result["searched"] = True
+            for q in (queries or self.search_query_variants(venue_symbol)):
+                row: Dict[str, Any] = {"query": q}
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    hit.first.press_sequentially(q, delay=key_delay_ms, timeout=10_000)
+                    page.wait_for_timeout(settle_ms)
+                    row["readback_matches"] = (hit.first.input_value(timeout=5_000).strip().upper() == q.upper())
+                    row["suggestions"] = page.evaluate(SUGGESTION_ROWS_JS) or {"found": False}
+                except Exception as exc:
+                    row["error"] = type(exc).__name__
+                result["variants"].append(row)
+        except Exception as exc:
+            result["error"] = type(exc).__name__
+        finally:
+            if result["searched"]:
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                except Exception:
+                    result["reset"] = False
+                try:
+                    result["blurred"] = bool(hit.first.evaluate(
+                        "el => { el.blur(); return document.activeElement !== el; }"))
+                except Exception:
+                    result["blurred"] = False
             try:
                 page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
             except Exception:
