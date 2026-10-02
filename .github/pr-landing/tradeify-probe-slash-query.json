@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE measure-first for adding ETH/SOL/XRP). instrument-probe types the account's declared query form: tradeify_1 sets search_query_style: slash (SOL/USD) with a 3 s settle. Used only by the manual instrument-probe measurement (types into the watchlist search, dumps, resets; clicks nothing). breakout_1 declares no style and types the venue symbol exactly as before.",
+  "why": "instrument-probe #15444 typed ETHUSD/SOLUSD/XRPUSD into tradeify_1's empty Favourites search: the result panel opened (All / Cryptocurrencies / Stocks; Symbol / Description / Asset Class) with NO rows. Tradeify names symbols ETH/USD, so the suggestion rows the add PR must click cannot be measured until the probe types that form."
+}
