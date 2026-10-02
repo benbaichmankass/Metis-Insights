@@ -1,6 +1,6 @@
 id: RQ-20261001-028
 title: 'P2r2 Breakout screen: ONDOUSD x ict15 (15m)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -77,3 +77,4 @@ related:
 - docs/research/prop-candidates-2026-09-29.md
 - docs/research/p2-breakout-matrix-2026-10-01.md
 last_dispatched_at: null
+result: "GRADED 2026-10-02 by lane P2 r2 against the rule above, run session-local. Verdict NULL, n=279, harness net_r pooled 17.498 (halves 10.199 / 7.299), arms {'bal015': 'indeterminate', 'room033': 'indeterminate'}. Record: research/results/RQ-20261001-028/*.jsonl; per-seed cells: docs/research/p2-breakout-r2-cells-2026-10-02.jsonl."

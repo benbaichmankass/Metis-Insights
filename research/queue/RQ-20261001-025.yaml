@@ -1,6 +1,6 @@
 id: RQ-20261001-025
 title: 'P2r2 Breakout screen: FILUSD x ict15 (15m)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -77,3 +77,4 @@ related:
 - docs/research/prop-candidates-2026-09-29.md
 - docs/research/p2-breakout-matrix-2026-10-01.md
 last_dispatched_at: null
+result: "GRADED 2026-10-02 by lane P2 r2 against the rule above, run session-local. Verdict FAIL, n=201, harness net_r pooled -19.456 (halves 3.263 / -22.72), arms None. Record: research/results/RQ-20261001-025/*.jsonl; per-seed cells: docs/research/p2-breakout-r2-cells-2026-10-02.jsonl."

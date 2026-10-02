@@ -36,3 +36,31 @@ Checked symbols return the full 17,520 bars from 2024-10-01, except HYPE: 11,726
 
 ## Rule (identical in every unit, registered before any run)
 Gate A: n ≥ 88 and harness net_r > 0 pooled and in both chronological halves. Gate B: `prop_ev_grid.py`, `--costs breakout` (8 bps commission + 3 bps slippage round trip, 0.033%/day swap, dxtrade), 5 seeds, arms bal015 and room033, PASS iff ev > 0 and P(net>0) ≥ 0.70 on all 5 seeds. Driver: `scripts/research/p2_breakout_symbol_screen.py`.
+
+## Results (2026-10-02): 49 of 49 graded, **0 PASS**
+Run session-local with `scripts/research/p2_breakout_symbol_screen.py`; per-cell record in `docs/research/p2-breakout-r2-cells-2026-10-02.jsonl` and `research/results/RQ-20261001-*`.
+
+| outcome | cells | meaning |
+|---|--:|---|
+| FAIL at Gate A | 31 | n >= 88 but harness net_r not positive pooled and in both halves |
+| UNDERPOWERED | 1 | HYPE x pullback 2h, n = 83 (only ~489 days of history) |
+| NULL at Gate B | 17 | cleared Gate A; ev > 0 on every seed, but P(net>0) < 0.70 on at least one seed under both arms |
+| PASS | 0 | |
+
+**Ranked shortlist of the 17 NULL cells** (closest to the 0.70 bar first; best-arm minimum P(net>0) over 5 seeds, harness trades net of fee + slippage + funding, re-priced under Breakout costs):
+
+| rank | cell | n | net R (730 d) | bal015 P(net>0) | room033 P(net>0) |
+|--:|---|--:|--:|---|---|
+| 1 | ZECUSD trend 1h | 364 | +40.7 | 0.48-0.50 | **0.68-0.70** |
+| 2 | HYPEUSD trend 1h | 201 | +15.0 | 0.34-0.36 | 0.58-0.59 |
+| 3 | ONDOUSD ict15 | 279 | +17.5 | 0.42-0.44 | 0.56-0.57 |
+| 4 | LINKUSD trend 1h | 343 | +27.0 | 0.21-0.23 | 0.55-0.56 |
+| 5 | AAVEUSD ict15 | 279 | +13.6 | 0.33-0.34 | 0.50-0.52 |
+| 6 | XRPUSD trend 1h | 357 | +31.0 | 0.27-0.29 | 0.50-0.52 |
+| 7 | HYPEUSD ict15 | 193 | +8.4 | 0.32-0.34 | 0.49-0.52 |
+| 8 | FILUSD trend 1h | 339 | +22.5 | 0.26-0.29 | 0.47-0.49 |
+| 9-17 | XRP pb2, UNI trend, SUI ict15, SOL trend, ZEC ict15, ADA trend, SUI trend, DOGE ict15 | | | <= 0.42 | <= 0.47 |
+
+Nothing clears. ZEC trend under room033 is the nearest (0.70 on at least one seed, below it on others), but its harness net R is lopsided across halves (+8.1 then +32.7), it is one of 49 screened cells, and `trend_donchian_eth_prop`/`ict_scalp_eth_15m` already sat at 0.43-0.63 in round 1 without qualifying. **No roster PR is proposed.** Caveats: donor configs are untuned transfer, the 49-cell multiplicity, and the Breakout symbols list is the unverified transcription.
+
+Driver bugs found and fixed mid-run, rule unchanged: the ICT harness reads `config/strategies.yaml` by strategy name (cells now keyed by the donor leg's name), and `prop_ev_grid.py` needs trade files inside the repo.
