@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE, measure-first step after #15373). New opt-in apply mode watchlist-submenu-probe: the two already-measured clicks ('+', 'Watchlist'), then HOVERS (no click) each of Private/Public and dumps what appears; Escape; layout re-read. Refused unless one-click reads OFF, on any workspace but 'My Trading Account', and for breakout_1. No trading path calls it.",
+  "why": "add-watchlist-widget #15373 (code aaa7ff4ee) showed the add-widget menu's 'Watchlist' entry opens a Private/Public SUBMENU rather than adding a widget; the run Escaped with the layout unchanged. The submenu entries' effect is unmeasured, so it is measured (hover-only) before any click past 'Watchlist' is built."
+}
