@@ -14,6 +14,86 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-02T17:28:32Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-10-02T17:21:18Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-10-02T17:13:21Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-10-02T17:07:42Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-10-02T16:59:00Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-02T16:52:55Z",
       "rows_graded": 0,
       "by_state": {
@@ -892,91 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-02T09:14:44Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-10-02T09:10:27Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-10-02T09:04:22Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-10-02T08:59:15Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-10-02T08:53:11Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-02T16:52:55Z",
+  "updated_at": "2026-10-02T17:28:32Z",
   "latest": {
-    "generated_at": "2026-10-02T16:52:55Z",
+    "generated_at": "2026-10-02T17:28:32Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1262,
+      "unregistered_claude_branches": 1269,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 346,
+      "unregistered_but_attributable_sessions": 351,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1317,6 +1317,9 @@
           "claude/triage-2-ask-operator-2026-09-28",
           "claude/triage-2-checklist-close-20260928"
         ],
+        "session_018JiqKhEVf8Jgj2xa75rbeb": [
+          "claude/prop-funnel-pipeline-rows"
+        ],
         "session_018b6dC9uUk1z5KDDaN41uJ2": [
           "claude/system-review-backlog-xsg81e"
         ],
@@ -1549,6 +1552,9 @@
         "session_01FAJhh5Q47LA1zhpPyXQ27c": [
           "claude/android-overview-page-Ghkyw"
         ],
+        "session_01FDKSBG6aQnf416DXVHEUaU": [
+          "claude/sol-bracket-regrade"
+        ],
         "session_01FEyBLv4xbJQoAzTRs4df3M": [
           "claude/ca-lead-report",
           "claude/ca-lead-report-3",
@@ -1719,6 +1725,11 @@
         ],
         "session_01JHFDpaWxaGw4BaxMGgtF9A": [
           "claude/mi307-offline-mfe-distribution"
+        ],
+        "session_01JLyScUje5s6PAN84ZiqnJd": [
+          "claude/m20-exits-4-ief-decay-held",
+          "claude/m20-exits-4-resweep",
+          "claude/m20-exits-4-xrp4h-trail-held"
         ],
         "session_01JTqmnBwmw3nfKaHxo9WPvh": [
           "claude/sa-prov-pipeline-leftovers"
@@ -1950,6 +1961,9 @@
           "claude/mgr-hb-20260907-1430",
           "claude/mi161-board-post-20260907",
           "claude/mi161-document-library-20260907"
+        ],
+        "session_01PAxCW84tr1SV8q7FTEG7QN": [
+          "claude/m16-arm-basis-0001"
         ],
         "session_01PEYVqTaCY92C3HmtHwxYff": [
           "claude/decision-push-back"
@@ -2190,6 +2204,9 @@
         "session_01VQCPCfUdFFZ5N6B5EH5DbV": [
           "claude/ca-b06-audit"
         ],
+        "session_01Vaq4L8zaozp2cyEXi7AXXN": [
+          "claude/ict-evidence-rebuild-causal-htf"
+        ],
         "session_01VsAt1BzrdspLn6hDzFTGh2": [
           "claude/e44-lane-supervisor",
           "claude/e44-lane-supervisor-build"
@@ -2293,7 +2310,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 0,
-      "origin_head_count": 1628,
+      "origin_head_count": 1638,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",
