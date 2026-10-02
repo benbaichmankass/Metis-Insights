@@ -2039,6 +2039,53 @@ ORDER_SURFACE_DUMP_JS = r"""
 }
 """
 
+# READ-ONLY chart trade affordances (TRADEIFY-GOLIVE, manager 22:40Z
+# 2026-10-02, item (1) of the 22:25Z dump): on the CURRENT page, every element
+# whose own leaf text is exactly Buy / Sell (any case), or whose data-test-id /
+# aria-label / title names buy or sell, with its tag, tid, class, role,
+# aria/title, masked text, box, visibility, up to 4 ancestors (same fields) and
+# what elementFromPoint returns at its centre (and whether that is the element
+# or inside it). Plus the canvas count. Clicks, hovers and focuses nothing.
+# EVERY digit is masked; personal-looking nodes are skipped. At most 60 hits.
+CHART_AFFORDANCE_DUMP_JS = r"""
+() => {
+  const m = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 80) : null;
+  const personal = /user|profile|account|login|email/i;
+  const cls = e => (typeof e.className === 'string' ? e.className : (e.getAttribute && e.getAttribute('class')) || '')
+    .split(/\s+/).filter(Boolean).slice(0, 6).map(c => c.replace(/\d/g, '#'));
+  const box = e => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; };
+  const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const txt = e => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim();
+  const looksPersonal = e => [e, e.parentElement].some(x => x && (personal.test(cls(x).join(' ')) ||
+    personal.test(x.getAttribute('data-test-id') || '')));
+  const attrs = e => ({tag: e.tagName.toLowerCase(), tid: m(e.getAttribute('data-test-id') || ''), cls: cls(e),
+    role: m(e.getAttribute('role')), title: m(e.getAttribute('title')), aria: m(e.getAttribute('aria-label'))});
+  const word = /^(buy|sell)$/i, named = /\b(buy|sell)\b|buy_|sell_|_buy|_sell/i;
+  const hits = [];
+  for (const e of document.body.querySelectorAll('*')) {
+    if (hits.length >= 60) break;
+    if (looksPersonal(e)) continue;
+    const own = e.children.length === 0 ? txt(e) : '';
+    const keys = [e.getAttribute('data-test-id') || '', e.getAttribute('aria-label') || '', e.getAttribute('title') || ''];
+    if (!(word.test(own) || keys.some(k => k && k.length <= 60 && named.test(k)))) continue;
+    const anc = [];
+    for (let a = e.parentElement; a && a !== document.body && anc.length < 4; a = a.parentElement) anc.push({...attrs(a), box: box(a)});
+    let at = null;
+    if (vis(e)) {
+      const b = e.getBoundingClientRect();
+      const x = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+      if (x) at = {...attrs(x), is_self: x === e, inside: e.contains(x), contains_self: x.contains(e)};
+    }
+    hits.push({...attrs(e), text: m(own), box: box(e), visible: vis(e),
+               in_menu: !!e.closest('[role=menu],[role=menuitem],[role=listbox]'),
+               in_table: !!e.closest('table'), ancestors: anc, at_point: at});
+  }
+  const canvases = [...document.querySelectorAll('canvas')];
+  return {hits, n_hits: hits.length, n_canvas: canvases.length, n_canvas_visible: canvases.filter(vis).length};
+}
+"""
+
 CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 () => {
   document.querySelectorAll('[data-metis-search-hit]').forEach(
@@ -7003,6 +7050,70 @@ class DXtradeAdapter(PropPlatformAdapter):
                 ORDER_SURFACE_DUMP_JS, [self.search_query_for(out["symbol"], "slash")]) or {}
         except Exception as exc:
             out["error"] = type(exc).__name__
+        return out
+
+    def chart_surface_dump(self, page: Any, venue_symbol: str, *,
+                           workspace: str = "Technical Analysis") -> Dict[str, Any]:
+        """READ-ONLY apart from two workspace-tab clicks (TRADEIFY-GOLIVE,
+        manager 22:40Z 2026-10-02): the chart's trade affordances live only
+        on the ``workspace`` workspace, which is in the DOM only while it is
+        the current one. Refused unless one-click reads OFF. ONE click on
+        that workspace tab's NAME span (``_switch_workspace``, the same
+        handling probe-ticket uses; never a close / delete control), then
+        CHART_AFFORDANCE_DUMP_JS and ORDER_SURFACE_DUMP_JS (click-free), then
+        ONE click back on the original tab and a re-read:
+        ``workspace_restored`` is True only when the original is current
+        again. Nothing on the chart -- no Buy / Sell, price or order control
+        -- is clicked, hovered or focused. ``dialogs_grew`` reports any new
+        dialog."""
+        sym = str(venue_symbol or "").strip().upper()
+        out: Dict[str, Any] = {"symbol": sym, "workspace_target": workspace, "refused": None,
+                               "clicks": [], "workspace_restored": None}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if oc.get("state") != "off":
+            out["refused"] = f"one-click not confirmed OFF ({oc.get('state')})"
+            return out
+        tabs = self._workspaces(page)
+        out["workspaces"] = [t.get("name") for t in tabs]
+        current = next((t for t in tabs if t.get("current")), None)
+        wanted = [t for t in tabs if t.get("name") == workspace]
+        if current is None or len(wanted) != 1:
+            out["refused"] = (f"workspaces unreadable (current={current and current.get('name')!r}, "
+                              f"{len(wanted)} tab(s) named {workspace!r})")
+            return out
+        out["workspace_before"] = current.get("name")
+        out["dialogs_before"] = self._visible_dialogs(page)
+        switched = False
+        if not wanted[0].get("current"):
+            out["clicks"].append(f"workspace:{workspace}")
+            if not self._switch_workspace(page, wanted[0]["index"]):
+                out["refused"] = f"could not switch to {workspace!r}"
+                return out
+            switched = True
+        now = next((t for t in self._workspaces(page) if t.get("current")), None)
+        out["workspace_read"] = now and now.get("name")
+        if out["workspace_read"] == workspace:
+            for key, js, arg in (("chart", CHART_AFFORDANCE_DUMP_JS, None),
+                                 ("surface", ORDER_SURFACE_DUMP_JS, [self.search_query_for(sym, "slash")])):
+                try:
+                    out[key] = (page.evaluate(js, arg) if arg is not None else page.evaluate(js)) or {}
+                except Exception as exc:
+                    out[key] = {"error": type(exc).__name__}
+        else:
+            out["refused"] = f"after the switch the current workspace is {out['workspace_read']!r}"
+        out["dialogs_after_dump"] = self._visible_dialogs(page)
+        if switched:
+            back = next((t for t in self._workspaces(page) if t.get("name") == current.get("name")), None)
+            out["clicks"].append(f"workspace:{current.get('name')}")
+            if back:
+                self._switch_workspace(page, back["index"])
+        final = next((t for t in self._workspaces(page) if t.get("current")), None)
+        out["workspace_after"] = final and final.get("name")
+        out["workspace_restored"] = out["workspace_after"] == current.get("name")
+        out["dialogs_after"] = self._visible_dialogs(page)
+        b, a = out["dialogs_before"], out["dialogs_after"]
+        out["dialogs_grew"] = None if (b is None or a is None) else a > b
         return out
 
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:

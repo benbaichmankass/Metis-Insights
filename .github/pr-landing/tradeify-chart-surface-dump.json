@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD, WORK IN PROGRESS: do not merge. TRADEIFY-GOLIVE chart-surface-dump (manager 22:40Z): ONE workspace-tab click to Technical Analysis, a click-free dump of the chart's Buy/Sell affordances, ONE click back with a verified restore; refused unless one-click is OFF; breakout_1 refused. The workflow allowlist edit and the tests are not done yet (the workflow edit needs operator permission in this session).",
+  "why": "The chart's trade affordances are only in the DOM while Technical Analysis is the current workspace; the manager wants them measured before approving any opener click."
+}

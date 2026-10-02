@@ -95,7 +95,7 @@ EXIT_DEFERRED = 7
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
                          "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
                          "add_watchlist_symbol_dry", "add_watchlist_symbol",
-                         "instrument_page_dump", "order_surface_dump",
+                         "instrument_page_dump", "order_surface_dump", "chart_surface_dump",
                          "edit_dialog_dry", "edit_dialog_probe", "edit_surface_probe",
                          "round_trip_dry", "round_trip_live"})
 
@@ -173,6 +173,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "instrument_page_dump"
     if getattr(args, "order_surface_dump", ""):
         return "order_surface_dump"
+    if getattr(args, "chart_surface_dump", ""):
+        return "chart_surface_dump"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -389,6 +391,10 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--order-surface-dump", default="", metavar="VENUE_SYMBOL",
                    help="READ-ONLY: dump the symbol's watchlist row cells and every order-surface term "
                         "(new order / trade / buy / sell) on the current page; clicks nothing")
+    g.add_argument("--chart-surface-dump", default="", metavar="VENUE_SYMBOL",
+                   help="READ-ONLY dump of the Technical Analysis chart's Buy/Sell affordances: ONE workspace-tab "
+                        "click there, click-free dump, ONE click back + verified restore; refused unless "
+                        "one-click reads OFF; no chart / order control is touched")
     g.add_argument("--instrument-page-dump", default="", metavar="VENUE_SYMBOL",
                    help="READ-ONLY: type the base asset key by key into the watchlist search (never Enter), "
                         "dump every visible text leaf on the page (masked, <=400), reset + blur; clicks nothing")
@@ -599,6 +605,12 @@ def main(argv: Optional[list] = None) -> int:
             if mode == "order_surface_dump":
                 emit({"order_surface": adapter.order_surface_dump(page, args.order_surface_dump.strip())}, *secrets)
                 return EXIT_OK
+
+            if mode == "chart_surface_dump":
+                got = adapter.chart_surface_dump(page, args.chart_surface_dump.strip())
+                emit({"chart_surface": got}, *secrets)
+                ok = got.get("refused") is None and got.get("workspace_restored") is True and not got.get("dialogs_grew")
+                return EXIT_OK if ok else EXIT_UNPARSED
 
             if mode == "instrument_page_dump":
                 sym = args.instrument_page_dump.strip()
