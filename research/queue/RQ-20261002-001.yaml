@@ -1,6 +1,6 @@
 id: RQ-20261002-001
 title: 'ict_scalp evidence rebuild on the CAUSAL HTF harness (7 measured legs)'
-status: running
+status: done
 cadence: once
 kind: experiment
 theme: live_strategy
@@ -58,7 +58,7 @@ run:
   - scripts/ops/build_strategy_evidence.py
   - --strategy
   - ict_scalp_xrp_15m
-  note: 'Run SESSION-LOCAL by lane ICT-EVIDENCE-REBUILD (status: running so the dispatcher, which fires only queued units, does not double-run it).'
+  note: 'Run SESSION-LOCAL by lane ICT-EVIDENCE-REBUILD (status: done so the dispatcher, which fires only queued units, does not double-run it).'
 lands:
   store: comms/strategy_evidence/
   assert_field: coverage_state
@@ -68,3 +68,4 @@ related:
 - docs/claude/work/pipeline/20261001T233500000000Z-mdexpo.json
 - tests/test_backtest_ict_scalp_htf_causal.py
 last_dispatched_at: null
+result: "GRADED 2026-10-02 against RULE-ICTSCALP-CAUSAL-REBUILD, run session-local. 7 legs rebuilt at 365d/4 folds: 4 FAIL powered (avax_5m, 5m, sol_5m, xrp_5m: net -22.7 to -37.1R, 0/4 folds), 3 UNDERPOWERED at 365d (xrp_15m n=76, eth_15m n=78, sol_15m n=84) which the pre-registered 730d escalation graded FAIL (n=132/151/158; xrp_15m -4.60R 1/4 folds, eth_15m +0.43R 2/4 folds, sol_15m -8.64R 1/4 folds). 0 PASS. Records: comms/strategy_evidence/ict_scalp_*.json (old kept in comms/strategy_evidence/superseded/); rows: research/results/RQ-20261002-001/session-20261002.jsonl."
