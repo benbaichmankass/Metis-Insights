@@ -286,6 +286,14 @@ if { [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executo
     log "${EXEC_MODE}: refused for ${ACCOUNT} — the executor timer is breakout_1's; a per-account executor timer is not built"
     exit 1
 fi
+# probe-ticket's symbol (TRADEIFY-GOLIVE, manager 21:35Z 2026-10-02): an
+# optional ``symbols:`` line with EXACTLY ONE venue symbol selects it; nothing
+# forwarded PROBE_SYMBOL from an issue before, so probe-ticket always measured
+# the SOLUSD default. No ``symbols:`` line keeps that default unchanged.
+if [ "${EXEC_MODE}" = "probe-ticket" ] && [ -n "${ACTION_SYMBOLS// /}" ]; then
+    case "${ACTION_SYMBOLS// /}" in *,*) log "probe-ticket: refused — exactly one symbol"; exit 1 ;; esac
+    PROBE_SYMBOL="${ACTION_SYMBOLS// /}"
+fi
 if { [ "${EXEC_MODE}" = "add-watchlist-widget" ] || [ "${EXEC_MODE}" = "watchlist-submenu-probe" ] \
      || [ "${EXEC_MODE}" = "instrument-page-dump" ] \
      || [ "${EXEC_MODE}" = "add-watchlist-symbol-dry" ] || [ "${EXEC_MODE}" = "add-watchlist-symbol" ]; } \
