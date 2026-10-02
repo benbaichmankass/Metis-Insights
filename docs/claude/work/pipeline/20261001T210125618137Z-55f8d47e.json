@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "prop_ev_sim / the Stage-0 record for both prop legs is re-graded on the static SL+TP exit model (committed evidence record, registered rule, declared n), and the manager/operator has a verdict on SOL's leg; or it is killed with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261001-S8DMYMUN-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-journal/prop-journal-truth-2026-10-01.md#3",
+    "rerun": "python3 scripts/research/prop_bracket_exit_model.py --leg trend_donchian_sol_prop  # needs pandas + network; compare static.net_r with comms/strategy_evidence/trend_donchian_sol_prop.json net_r_oos"
+  },
+  "state": "queued",
+  "tier": 3,
+  "what": "[TIER-3 EVIDENCE] The prop evidence records grade exits the Breakout bracket never performs. trend_donchian_eth_prop/sol_prop records (fidelity faithful) model trail 3.5 + stale_stop + decay; the live bracket is one static SL+TP (breakout_ticket.py 'the bracket is the exit'; modify_bracket only restores). 125/169 ETH trades exit via trail/stale. Bracket-faithful re-run (2025-10-05..2026-09-30): ETH 100 trades +21.28 R; SOL 53 trades -0.49 R (declared levers: +10.63 / +3.69), so SOL's Stage-0 'net_r_oos>0' rests on a trail it does not get. Record now carries venue_bracket_arm. Not done: re-grade Stage-0/B6 V2 (prop_ev_sim consumes the declared-lever trades) on the bracket-faithful trades, at declared power, and decide what SOL's verdict is."
+}

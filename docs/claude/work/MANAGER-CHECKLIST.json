@@ -4065,7 +4065,7 @@
       "id": "PROP-JOURNAL",
       "title": "Prop journal truth: fill #44 stop/observation, breakout_1 baseline residual -68.70, PROP-EVIDENCE-BRACKET (prop records model stale_stop/trail, n=169), ETH-prop cost headroom",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "data lane",
       "lane": "session_013pigAqkqWXnSaZS8DmymUN",
       "model": "claude-sonnet-5-5",
@@ -4074,7 +4074,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched, operator popup ~20:55Z (wave 2). Goal: prop journal true before the first live breakout_1 ETH/SOL tickets are graded. || 2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+      "note": "[2026-10-01T21:05Z lane session_013pigAqkqWXnSaZS8DmymUN] (1) #44 already true live (sl 2711.1 + amendments trail; closed by #45; open_risk no_open_positions): PI rows closed. (2) residual re-measured -70.90, explained $48.57 (14.00 MEASURED, 16.50 + 18.07 ESTIMATED), -22.33 UNVERIFIED; stays queued on PI-20260924-MQ3CDMU6-0005. (3) record grades trail/stale the bracket never does: venue_bracket_arm added; SL+TP-only re-run ETH +21.28R n=100, SOL -0.49R n=53 -> PI-20261001-S8DMYMUN-0001 (Tier-3 evidence, for the manager). (4) commission/swap/spread measured; executor-fill slippage unmeasured -> PI-20261001-S8DMYMUN-0002. Memo: docs/research/prop-journal/prop-journal-truth-2026-10-01.md. Closes when the PR merges and -0001 is dispositioned. || [2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched, operator popup ~20:55Z (wave 2). Goal: prop journal true before the first live breakout_1 ETH/SOL tickets are graded. || 2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
     },
     {
       "id": "LEDGER-REFRESH",
