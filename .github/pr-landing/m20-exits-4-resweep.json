@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research evidence only: the corpus rows from m20-exit-lever-sweep run 37037846659, the coverage-matrix verdict updates they produce, and the M20-EXITS checklist note. No config, runtime or order-path change; the two exit-config proposals that follow are separate HELD Tier-3 PRs."
+}

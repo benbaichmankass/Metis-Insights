@@ -1,0 +1,1 @@
+auto-merge: M20-EXITS-4 evidence + coverage matrix
