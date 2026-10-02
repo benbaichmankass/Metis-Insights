@@ -2328,6 +2328,149 @@ CLOSE_ROW_JS = r"""
 """
 
 
+# The position EDIT dialog (PROP-TRAIL / DIALOG-MEASURE, 2026-10-01). The
+# row's icon trio (reverse . modify . close, live test #14191) is text-less,
+# so the pencil is chosen by the NAME of its icon, exactly as CLOSE_ROW_JS
+# chooses the close. The dialog it opens has never been measured: these ops
+# READ it and tag only controls INSIDE it, so modify_bracket never touches
+# the docked sidebar order ticket (go-live review of #15316, blocker 2).
+#  "controls": on the row CLOSE_ROW_JS "locate" tagged (after a hover), tag
+#              the ONE modify-type pressable, boxed inside the row, away from
+#              any canvas, with no close / reverse / qualified name.
+#  "snapshot": mark every dialog-like element visible BEFORE the click, so
+#              "dialog" can require one that APPEARED after it.
+#  "dialog":   the ONE new visible dialog-like element: its text (masked),
+#              whether it names the symbol, its inputs (label, value,
+#              read-only), its mode selects, its buttons with geometry; tags
+#              stop_loss / take_profit / quantity fields and submit / cancel
+#              buttons, all inside it. Clicks nothing.
+EDIT_DIALOG_JS = r"""
+(args) => {
+  const [op, symbol] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
+  const tokens = s => (s || '').replace(/[-_./#:]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  const NAME_ATTRS = ['class', 'href', 'xlink:href', 'data-icon', 'data-test-id', 'data-testid', 'data-action', 'name', 'id'];
+  const called = el => [el, ...el.querySelectorAll('*')].flatMap(d => NAME_ATTRS.map(a => attr(d, a)).filter(Boolean))
+    .map(v => norm(tokens(v))).join(' ');
+  const label = el => [el, ...el.querySelectorAll('*')].flatMap(d =>
+    [d === el ? txt(el) : '', attr(d, 'title'), attr(d, 'aria-label')].filter(Boolean)).map(norm).join(' ');
+  const mask = s => (s || '').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########');
+  const snippet = el => mask((el.outerHTML || '').replace(/\s+/g, ' ')
+    .replace(/(data-[\w-]*id[\w-]*=")[^"]*(")/gi, '$1#####$2')).slice(0, 200);
+  const PRESS = 'button, [role=button], a';
+  const inBox = (inner, outer, pad) => inner[2] > 0 && inner[3] > 0 && inner[0] >= outer[0] - pad && inner[1] >= outer[1] - pad
+    && inner[0] + inner[2] <= outer[0] + outer[2] + pad && inner[1] + inner[3] <= outer[1] + outer[3] + pad;
+  if (op === 'controls') {
+    const row = document.querySelector('[data-metis-close-row]');
+    if (!row) return {ok: false, why: 'no located row'};
+    document.querySelectorAll('[data-metis-edit-ctl]').forEach(e => e.removeAttribute('data-metis-edit-ctl'));
+    const presses = [...row.querySelectorAll(PRESS)].filter(vis);
+    const ctls = presses.filter(el => !presses.some(o => o !== el && o.contains(el)));
+    const MOD_NAME = /(^|\s)(edit|modify|pencil)(\s|$)/i, MOD_GLYPH = /(✎|✏)/,
+          BAD = /(close|cross|reverse|flip|swap|⇄|⇆|↔|(^|\s)all(\s|$)|(^|\s)(×|✕|✖|x)(\s|$))/i;
+    const isMod = el => (MOD_NAME.test(called(el)) || MOD_NAME.test(label(el)) || MOD_GLYPH.test(label(el)))
+      && !BAD.test(called(el) + ' ' + label(el));
+    const desc = ctls.map(el => ({hint: mask(norm(label(el) + ' ' + called(el))).slice(0, 80),
+                                  tag: el.tagName.toLowerCase(), box: box(el), html: snippet(el)}));
+    const idx = ctls.map((el, i) => isMod(el) ? i : -1).filter(i => i >= 0);
+    let why = null, chosen = null;
+    if (!ctls.length) why = 'the row shows no control';
+    else if (idx.length !== 1) why = idx.length + ' modify-type controls in the row (need exactly 1)';
+    else {
+      const c = ctls[idx[0]], rb = box(row), cb = box(c);
+      const nearCanvas = !!(c.closest('canvas') || [...(c.parentElement ? c.parentElement.children : [])].some(e => e.tagName === 'CANVAS'));
+      const outer = c.parentElement ? c.parentElement.closest(PRESS + ', [onclick]') : null;
+      if (c.closest('tr') !== row || !inBox(cb, rb, 4)) why = 'the modify control is not boxed inside its row';
+      else if (nearCanvas) why = 'the modify control sits beside a canvas';
+      else if (outer && row.contains(outer)) why = 'the modify control is nested in another pressable';
+      else { c.setAttribute('data-metis-edit-ctl', '1'); chosen = idx[0]; }
+    }
+    return {ok: chosen !== null, controls: desc, chosen, why};
+  }
+  const DLG = '[role=dialog], [role=alertdialog], [aria-modal=true], [class*=modal], [class*=Modal], [class*=dialog], [class*=Dialog], [class*=popup], [class*=Popup]';
+  const outermost = els => els.filter(el => !els.some(o => o !== el && o.contains(el)));
+  if (op === 'snapshot') {
+    document.querySelectorAll('[data-metis-pre-dialog]').forEach(e => e.removeAttribute('data-metis-pre-dialog'));
+    const pre = outermost([...document.querySelectorAll(DLG)].filter(vis));
+    pre.forEach(e => e.setAttribute('data-metis-pre-dialog', '1'));
+    return {ok: true, visible_before: pre.length};
+  }
+  if (op === 'dialog') {
+    ['data-metis-edit-dialog', 'data-metis-edit-field', 'data-metis-edit-btn'].forEach(a =>
+      document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a)));
+    const all = outermost([...document.querySelectorAll(DLG)].filter(vis));
+    const fresh = all.filter(e => !e.hasAttribute('data-metis-pre-dialog') && !e.querySelector('[data-metis-pre-dialog]'));
+    if (fresh.length !== 1) return {ok: false, why: fresh.length + ' new dialogs after the click (need exactly 1)',
+                                    visible: all.length, fresh: fresh.length};
+    const d = fresh[0], db = box(d);
+    d.setAttribute('data-metis-edit-dialog', '1');
+    const text = (d.innerText || '').replace(/\s+/g, ' ');
+    const sym = String(symbol || '').toUpperCase();
+    const names_symbol = !!sym && new RegExp('(^|[^A-Z0-9])' + sym + '([^A-Z0-9]|$)').test(text.toUpperCase());
+    const prevLabel = inp => {
+      const a = attr(inp, 'aria-label'); if (a) return a.trim();
+      if (inp.id) { const l = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`); if (l) return txt(l); }
+      let e = inp;
+      for (let i = 0; i < 6 && e && e !== d; i++, e = e.parentElement) {
+        for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+          if (s.matches('input, select, textarea') || s.querySelector('input, select, textarea')) break;
+          const t = txt(s); if (t) return t.split(/\n/)[0].trim();
+        }
+      }
+      return (attr(inp, 'placeholder') || '').trim();
+    };
+    const FIELDS = {stop_loss: /(stop\s*loss|^s\/?l\b)/i, take_profit: /(take\s*profit|^t\/?p\b)/i,
+                    quantity: /(qty|quantity|lots?|volume|size|amount)/i};
+    const inputs = [...d.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
+    const ins = inputs.map(el => ({el, label: prevLabel(el), value: el.value !== undefined ? String(el.value) : txt(el),
+      readonly: !!(el.readOnly || el.disabled || attr(el, 'aria-readonly') === 'true' || attr(el, 'aria-disabled') === 'true')}));
+    const fields = {}, ambiguous = [];
+    for (const [k, r] of Object.entries(FIELDS)) {
+      const m = ins.filter(i => r.test(i.label) && !(k === 'quantity' && (FIELDS.stop_loss.test(i.label) || FIELDS.take_profit.test(i.label))));
+      if (m.length === 1) { m[0].el.setAttribute('data-metis-edit-field', k);
+        fields[k] = {label: mask(m[0].label).slice(0, 40), value: m[0].value, readonly: m[0].readonly}; }
+      else if (m.length > 1) ambiguous.push(k);
+    }
+    // A quantity the dialog shows as TEXT (not an input) is read from it.
+    const qtyText = (text.match(/(?:qty|quantity|lots?|volume|size|amount)\s*:?\s*([0-9]+(?:[.,][0-9]+)?)/i) || [])[1] || null;
+    // The SL/TP Price-or-offset mode controls (probe #13816 saw one on the
+    // sidebar): <select>s, comboboxes and checked radios, with what they read.
+    const modeEls = [...d.querySelectorAll('select, [role=combobox], [role=listbox], input[type=radio]:checked, [aria-haspopup=listbox]')].filter(vis);
+    const modes = modeEls.map(el => ({label: mask(prevLabel(el)).slice(0, 40),
+      value: mask(el.tagName === 'SELECT' ? (el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '') :
+                  (el.type === 'radio' ? (prevLabel(el) || el.value) : txt(el))).slice(0, 30)}));
+    const btns = [...d.querySelectorAll('button, [role=button], input[type=submit]')].filter(vis);
+    const bname = b => txt(b) || attr(b, 'aria-label') || b.value || '';
+    const SUBMIT = /^(save|apply|modify|modify position|update|confirm|ok|place|submit)$/i, CANCEL = /^(cancel|discard)$/i;
+    const sub = btns.filter(b => SUBMIT.test(bname(b).trim()));
+    const can = btns.filter(b => CANCEL.test(bname(b).trim()));
+    // The dialog's own x, never anything that reads "position" or buy / sell.
+    const xs = btns.filter(b => !sub.includes(b) && !can.includes(b) && !/position|buy|sell/i.test(bname(b))
+      && (/^(×|✕|✖|x)$/i.test(bname(b).trim()) || /(^|\s)(close|dismiss)(\s|$)/i.test(norm(attr(b, 'aria-label') + ' ' + tokens(attr(b, 'class'))))));
+    if (sub.length === 1) sub[0].setAttribute('data-metis-edit-btn', 'submit');
+    if (can.length === 1) can[0].setAttribute('data-metis-edit-btn', 'cancel');
+    else if (!can.length && xs.length === 1) xs[0].setAttribute('data-metis-edit-btn', 'cancel');
+    const sb = sub.length === 1 ? box(sub[0]) : null;
+    return {ok: true, box: db, role: attr(d, 'role') || null, text: mask(text).slice(0, 400), names_symbol,
+            inputs: ins.map(i => ({label: mask(i.label).slice(0, 40), value: mask(i.value).slice(0, 20), readonly: i.readonly})),
+            fields, ambiguous, qty_text: qtyText, modes,
+            buttons: btns.map(b => ({name: mask(bname(b)).slice(0, 30), box: box(b)})),
+            submit: sub.length, cancel: can.length + (can.length ? 0 : xs.length),
+            submit_in_box: sb ? inBox(sb, db, 0) : false,
+            submit_enabled: sub.length === 1 && !(sub[0].disabled || attr(sub[0], 'aria-disabled') === 'true'),
+            buy_sell_buttons: btns.filter(b => /^(buy|sell)\b/i.test(bname(b).trim())).length,
+            sidebar_ticket_inside: !!d.querySelector('[data-test-id=BUY], [data-test-id=SELL], [data-test-id=symbol_input]')};
+  }
+  return {ok: false, why: 'unknown op'};
+}
+"""
+
 def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
     """The row controls' markup, bound for a PUBLIC log: through
     ``redact_text`` (credential-shaped runs, e-mails), then digit runs of 5+,
@@ -3437,6 +3580,167 @@ WORKSPACE_TABS_JS = r"""
 }
 """
 
+#: Click-free, digit-masked summary of what the CURRENT workspace shows, recorded
+#: per workspace by the opener's workspace fallback so a probe that finds no
+#: order form says WHY (tradeify_1 probe #15296: all three other workspaces
+#: "held no form", with nothing recorded about what they did hold). Counts and
+#: masked labels only -- no values, no table body text (the log is public).
+WORKSPACE_SUMMARY_JS = r"""
+() => {
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 30) : null;
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const personal = /user|profile|account|login|email/i;
+  const n = s => [...document.querySelectorAll(s)].filter(vis).length;
+  const lab = inp => {
+    for (let e = inp, i = 0; i < 4 && e && e !== document.body; i++, e = e.parentElement) {
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea') || s.querySelector('input, select, textarea')) break;
+        const t = (s.innerText || s.textContent || '').trim(); if (t) return t.split(/\n/)[0];
+      }
+    }
+    return inp.getAttribute('aria-label') || inp.getAttribute('placeholder') || '';
+  };
+  const inputs = [...document.querySelectorAll('input:not([type=hidden]), [role=spinbutton]')].filter(vis)
+    .filter(i => !i.closest('tbody'));
+  const tids = new Set();
+  for (const el of document.querySelectorAll('[data-test-id]')) {
+    if (!vis(el) || el.closest('tbody')) continue;
+    const t = el.getAttribute('data-test-id') || '';
+    if (personal.test(t)) continue;
+    if (/order|ticket|buy|sell|stop|take|profit|loss|limit|market|lot|quantity|qty|side|symbol_input|sl|tp/i.test(t)) tids.add(mask(t));
+    if (tids.size >= 40) break;
+  }
+  return {
+    buy: n('[data-test-id=BUY]'), sell: n('[data-test-id=SELL]'), symbol_input: n('[data-test-id=symbol_input]'),
+    inputs: inputs.length,
+    input_labels: inputs.slice(0, 20).map(i => ({type: mask(i.getAttribute('type')), label: mask(lab(i))})),
+    widget_tabs: [...document.querySelectorAll('[data-test-id=widget_tab]')].filter(vis).slice(0, 20)
+      .map(e => mask(e.innerText || e.textContent || '')),
+    order_tids: [...tids],
+    canvases: n('canvas'),
+  };
+}
+"""
+
+#: Add-widget menu measurement (TRADEIFY-GOLIVE, operator decision ~21:50Z
+#: 2026-10-01, "Runner does it"). tradeify_1's "My Trading Account" lost its
+#: Watchlist and has no New Order panel (#15319/#15322). Before a runner adds
+#: those widgets, the "+" (``widget_tab_add_button``) menu must be MEASURED.
+#: ``WIDGET_MENU_STATE_JS(snapshot)``: click-free. The current workspace, the
+#: visible "+" buttons (top-most first; the first is tagged
+#: ``data-metis-wadd``) and the layout counts a menu must not change. With
+#: ``snapshot`` it also remembers every visible element so
+#: ``WIDGET_MENU_NEW_JS`` can list only what the click made appear.
+WIDGET_MENU_STATE_JS = r"""
+(snapshot) => {
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const n = s => [...document.querySelectorAll(s)].filter(vis).length;
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  document.querySelectorAll('[data-metis-wadd]').forEach(e => e.removeAttribute('data-metis-wadd'));
+  if (snapshot) window.__metisWmPre = new WeakSet([...document.querySelectorAll('body *')].filter(vis));
+  const adds = [...document.querySelectorAll('[data-test-id=widget_tab_add_button]')].filter(vis)
+    .sort((a, b) => (a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+                    || (a.getBoundingClientRect().left - b.getBoundingClientRect().left));
+  if (snapshot && adds.length) adds[0].setAttribute('data-metis-wadd', '1');
+  const cur = document.querySelector('li[data-test-id=workspace_current] [data-test-id=workspace_name]');
+  return {
+    workspace: cur ? (cur.innerText || cur.textContent || '').trim().slice(0, 40) : null,
+    add_buttons: adds.map(box),
+    widget_tabs: n('[data-test-id=widget_tab]'),
+    widget_close: n('[data-test-id=widget_close_button]'),
+    tables: n('table'),
+  };
+}
+"""
+
+#: Click-free: the elements that became visible since WIDGET_MENU_STATE_JS's
+#: snapshot (the open menu), as short masked text items (digits -> '#',
+#: emails -> '<email>', 40 chars). Personal-looking test ids are dropped.
+WIDGET_MENU_NEW_JS = r"""
+() => {
+  const pre = window.__metisWmPre;
+  if (!pre) return {error: 'no snapshot'};
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 40) : null;
+  const personal = /user|profile|account|login|email/i;
+  const fresh = [...document.querySelectorAll('body *')].filter(el => vis(el) && !pre.has(el));
+  const items = [], seen = new Set();
+  for (const el of fresh) {
+    const t = (el.innerText || '').trim();
+    if (!t || t.length > 40 || t.includes('\n')) continue;
+    if ([...el.children].some(c => (c.innerText || '').trim() === t)) continue;
+    const tid = el.getAttribute('data-test-id') || '';
+    if (personal.test(tid)) continue;
+    const key = t + '|' + (el.getAttribute('role') || '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const r = el.getBoundingClientRect();
+    items.push({text: mask(t), tag: el.tagName.toLowerCase(), role: el.getAttribute('role'), tid: mask(tid) || null,
+                box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]});
+    if (items.length >= 80) break;
+  }
+  return {n_new: fresh.length, items};
+}
+"""
+
+#: Click-free pick of ONE item in the open add-widget menu (TRADEIFY-GOLIVE
+#: option B step 2). Among the elements that appeared since
+#: WIDGET_MENU_STATE_JS's snapshot, the text LEAVES whose own text is exactly
+#: ``label``; the menu must also show every MEASURED sibling (``siblings``,
+#: widget-menu-probe #15350), so a different menu is never clicked into. The
+#: one leaf is tagged ``data-metis-wpick``; anything else tags nothing.
+WIDGET_MENU_PICK_JS = r"""
+(args) => {
+  const [label, siblings] = args;
+  const pre = window.__metisWmPre;
+  if (!pre) return {error: 'no snapshot'};
+  document.querySelectorAll('[data-metis-wpick]').forEach(e => e.removeAttribute('data-metis-wpick'));
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const own = el => (el.innerText || '').trim();
+  const fresh = [...document.querySelectorAll('body *')].filter(el => vis(el) && !pre.has(el));
+  const leaves = fresh.filter(el => { const t = own(el); return t && !t.includes('\n')
+    && ![...el.children].some(c => own(c) === t); });
+  const texts = new Set(leaves.map(own));
+  const missing = siblings.filter(s => !texts.has(s));
+  const danger = '[data-test-id=BUY],[data-test-id=SELL],table,[data-test-id=widget_close_button],[data-test-id=workspace_close_button]';
+  const hits = leaves.filter(el => own(el) === label);
+  const safe = hits.filter(el => !el.closest(danger));
+  const out = {n: hits.length, n_safe: safe.length, missing_siblings: missing, tagged: false};
+  if (safe.length === 1 && hits.length === 1 && !missing.length) {
+    safe[0].setAttribute('data-metis-wpick', '1');
+    out.tagged = true;
+  }
+  return out;
+}
+"""
+
+#: MEASURED add-widget menu (widget-menu-probe #15350, tradeify_1, code
+#: 6750a9451): the sibling entries the menu must show before any item is
+#: picked. "Market Depth" (DOM trading) and every other entry is never clicked.
+WIDGET_MENU_MEASURED: Tuple[str, ...] = ("Chart", "Positions", "Watchlist", "Orders", "Order History",
+                                         "Trade History", "Messages", "Market Depth", "Alerts")
+
+#: Click-free: how many visible text leaves read exactly one of ``labels``
+#: (labels that only ever appear inside the add-widget menu / its Watchlist
+#: submenu), so "is a menu still open?" needs no snapshot.
+MENU_LABELS_VISIBLE_JS = r"""
+(labels) => {
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const own = el => (el.innerText || '').trim();
+  const want = new Set(labels);
+  const hits = [...document.querySelectorAll('body *')].filter(el => vis(el) && want.has(own(el))
+    && ![...el.children].some(c => own(c) === own(el)));
+  return {n: hits.length, labels: [...new Set(hits.map(own))]};
+}
+"""
+
+#: Labels MEASURED only inside the add-widget menu (#15350) and the Watchlist
+#: submenu (#15373) -- never a widget tab or panel title on the terminal.
+MENU_ONLY_LABELS: Tuple[str, ...] = ("Cash Movements", "Market Depth", "Time and Sales", "Private", "Public")
+
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row',
@@ -3837,6 +4141,59 @@ def _close_modal_mismatch(modal: Mapping[str, Any], symbol: str, side: Optional[
         bad.append('"Close Position" is disabled')
     return bad
 
+
+def edit_dialog_mismatch(dlg: Mapping[str, Any], symbol: str, quantity: Optional[float],
+                         want: Sequence[str] = ("stop_loss", "take_profit")) -> List[str]:
+    """Pure: is the dialog EDIT_DIALOG_JS "dialog" read the position's own
+    SL/TP edit dialog, and safe to type into and submit? Every reason
+    returned is a refusal (go-live review of #15316: a form that is not
+    PROVABLY the position's could be the docked sidebar order ticket, whose
+    submit places a NEW order). It must: have APPEARED after the click; name
+    the symbol; show the quantity read-only and equal to the position's; hold
+    no sidebar-ticket control and no Buy/Sell button; hold every SL/TP field
+    we mean to type, editable and unambiguous; read its SL/TP mode as Price
+    (an offset mode would turn an absolute price into a wrong stop); and own
+    exactly one enabled submit, boxed inside it, and one cancel."""
+    if not dlg.get("ok"):
+        return [str(dlg.get("why") or "dialog not read")]
+    bad: List[str] = []
+    if not dlg.get("names_symbol"):
+        bad.append(f"dialog does not name {symbol}")
+    if dlg.get("sidebar_ticket_inside") or dlg.get("buy_sell_buttons"):
+        bad.append("dialog holds order-ticket controls (Buy/Sell or the ticket's symbol input)")
+    q = (dlg.get("fields") or {}).get("quantity")
+    shown = parse_number(q.get("value")) if q else parse_number(dlg.get("qty_text"))
+    if q and not q.get("readonly"):
+        bad.append("quantity field is editable (a position's edit dialog shows it read-only)")
+    if shown is None:
+        bad.append("quantity not readable")
+    elif quantity is None:
+        bad.append("position size unknown: cannot match the dialog's quantity")
+    elif not math.isclose(shown, float(quantity), rel_tol=1e-6, abs_tol=1e-9):
+        bad.append(f"dialog quantity {_fmt_num(shown)} != the position's {_fmt_num(quantity)}")
+    if dlg.get("ambiguous"):
+        bad.append(f"ambiguous fields: {sorted(dlg['ambiguous'])}")
+    for k in want:
+        f = (dlg.get("fields") or {}).get(k)
+        if not f:
+            bad.append(f"no {k} field in the dialog")
+        elif f.get("readonly"):
+            bad.append(f"{k} field is read-only")
+    modes = [str(m.get("value") or "").strip() for m in (dlg.get("modes") or [])]
+    if not modes:
+        bad.append("SL/TP mode not readable (need Price)")
+    elif any(m.lower() != "price" for m in modes):
+        bad.append(f"SL/TP mode reads {modes} (need Price)")
+    if dlg.get("submit") != 1:
+        bad.append(f"{dlg.get('submit')} submit buttons in the dialog (need exactly 1)")
+    else:
+        if not dlg.get("submit_in_box"):
+            bad.append("submit is not boxed inside the dialog")
+        if not dlg.get("submit_enabled"):
+            bad.append("submit is disabled")
+    if dlg.get("cancel") != 1:
+        bad.append(f"{dlg.get('cancel')} cancel controls in the dialog (need exactly 1)")
+    return bad
 
 def check_bracket_spec(spec: BracketSpec) -> List[str]:
     """Pure structural check of one bracket before any click: both legs, a
@@ -4384,6 +4741,12 @@ class DXtradeAdapter(PropPlatformAdapter):
             form = self._find_form(page)
             if form.get("found"):
                 return {"name": t.get("name"), "form": form}
+            # Diagnostic only (read-only, masked): what this workspace DID show.
+            try:
+                summ = page.evaluate(WORKSPACE_SUMMARY_JS) or {}
+            except Exception as exc:
+                summ = {"error": type(exc).__name__}
+            out.setdefault("workspace_summary", {})[str(t.get("name"))] = summ
         # none had a ticket: put the operator's workspace back
         back = next((x for x in self._workspaces(page) if x.get("name") == current.get("name")), None)
         out["workspace_restored"] = bool(back and self._switch_workspace(page, back["index"]))
@@ -4480,6 +4843,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             "tried": opened.get("tried"),
             "workspaces": opened.get("workspaces"),
             "workspace_restored": opened.get("workspace_restored"),
+            "workspace_summary": opened.get("workspace_summary"),
             "fields": {k: {"label": v.get("label"), "disabled": v.get("disabled")}
                        for k, v in (form.get("fields") or {}).items()},
             "buttons": form.get("buttons") or {},
@@ -4920,6 +5284,245 @@ class DXtradeAdapter(PropPlatformAdapter):
                 waited += 500
         except Exception as exc:
             return {"error": f"{type(exc).__name__} (code=link_state_dump_exception)"}
+
+    def widget_menu_probe(self, page: Any, *, settle_ms: int = 800) -> Dict[str, Any]:
+        """MEASURE the current workspace's add-widget ("+") menu: ONE click on
+        the top-most visible ``widget_tab_add_button``, dump what appeared
+        (WIDGET_MENU_NEW_JS, masked), then Escape. Clicks NOTHING else -- never
+        a menu item, an order/position/price/instant-trade control or a
+        workspace/widget delete control. Refused when one-click reads ON. The
+        layout counts are re-read after Escape and must match (``restored``);
+        a menu still open gets one more Escape.
+
+        Never reached by any trading path; the dump is masked like #15304's."""
+        out: Dict[str, Any] = {"clicked": False, "refused": None}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if oc.get("state") == "on":
+            out["refused"] = "one-click reads ON"
+            return out
+        try:
+            pre = page.evaluate(WIDGET_MENU_STATE_JS, True) or {}
+            out["before"] = pre
+            if not pre.get("add_buttons"):
+                out["refused"] = "no visible widget_tab_add_button"
+                return out
+            loc = page.locator("[data-metis-wadd='1']")
+            if loc.count() != 1:
+                out["refused"] = f"{loc.count()} tagged add buttons (need exactly 1)"
+                return out
+            loc.first.click(timeout=5_000)
+            out["clicked"] = True
+            page.wait_for_timeout(settle_ms)
+            out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+        finally:
+            if out.get("clicked"):
+                try:
+                    for i in range(2):
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(400)
+                        left = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                        out["escapes"] = i + 1
+                        if not left.get("items"):
+                            break
+                    out["menu_left_open"] = bool(left.get("items"))
+                    post = page.evaluate(WIDGET_MENU_STATE_JS, False) or {}
+                    out["after"] = post
+                    keys = ("workspace", "widget_tabs", "widget_close", "tables")
+                    out["restored"] = (not out["menu_left_open"]
+                                       and all(post.get(k) == out["before"].get(k) for k in keys))
+                except Exception as exc:
+                    out["restore_error"] = type(exc).__name__
+                    out["restored"] = False
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-wadd]')"
+                              ".forEach(e => e.removeAttribute('data-metis-wadd')); delete window.__metisWmPre; }")
+            except Exception:
+                pass
+        return out
+
+    #: MEASURED by add-watchlist-widget #15373 (code aaa7ff4ee): the menu's
+    #: "Watchlist" entry opens a SUBMENU, not a widget.
+    WATCHLIST_SUBMENU: Tuple[str, ...] = ("Private", "Public")
+
+    def watchlist_submenu_probe(self, page: Any, *, expect_workspace: str = "My Trading Account",
+                                settle_ms: int = 800) -> Dict[str, Any]:
+        """MEASURE the Watchlist submenu (TRADEIFY-GOLIVE option B, manager
+        step 3 "measure first"). Two clicks, both already measured: the
+        top-most "+" and the menu leaf "Watchlist" (#15350/#15373). Then it
+        HOVERS -- never clicks -- each submenu entry in ``WATCHLIST_SUBMENU``
+        in turn and dumps what appeared (WIDGET_MENU_NEW_JS, masked), then
+        Escapes (at most three times) and re-reads the layout: ``restored`` =
+        menus gone and workspace / widget-tab / widget-close / table counts
+        unchanged. Refused unless one-click reads OFF and the workspace is
+        ``expect_workspace``."""
+        out: Dict[str, Any] = {"clicks": [], "hovers": {}, "refused": None}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if oc.get("state") != "off":
+            out["refused"] = f"one-click not confirmed OFF ({oc.get('state')})"
+            return out
+        try:
+            pre = page.evaluate(WIDGET_MENU_STATE_JS, True) or {}
+            out["before"] = pre
+            if pre.get("workspace") != expect_workspace:
+                out["refused"] = f"workspace is {pre.get('workspace')!r}, not {expect_workspace!r}"
+                return out
+            plus = page.locator("[data-metis-wadd='1']")
+            if not pre.get("add_buttons") or plus.count() != 1:
+                out["refused"] = "no single visible widget_tab_add_button"
+                return out
+            plus.first.click(timeout=5_000)
+            out["clicks"].append("add_widget_plus")
+            page.wait_for_timeout(settle_ms)
+            pick = page.evaluate(WIDGET_MENU_PICK_JS, ["Watchlist", list(WIDGET_MENU_MEASURED)]) or {}
+            out["pick"] = pick
+            item = page.locator("[data-metis-wpick='1']")
+            if not pick.get("tagged") or item.count() != 1:
+                out["refused"] = "menu did not match the measured menu (nothing picked)"
+                return out
+            item.first.click(timeout=5_000)
+            out["clicks"].append("menu:Watchlist")
+            page.wait_for_timeout(settle_ms)
+            # Tag each submenu entry against the pre-"+" snapshot (exact text,
+            # siblings required, never inside BUY/SELL / a table / a close).
+            for label in self.WATCHLIST_SUBMENU:
+                others = [x for x in self.WATCHLIST_SUBMENU if x != label] + ["Chart", "Positions"]
+                got = page.evaluate(WIDGET_MENU_PICK_JS, [label, others]) or {}
+                if got.get("tagged"):
+                    page.evaluate("(l) => { const e = document.querySelector('[data-metis-wpick]');"
+                                  " e.removeAttribute('data-metis-wpick'); e.setAttribute('data-metis-wsub', l); }",
+                                  label)
+                out["hovers"][label] = {"pick": got}
+            # A fresh snapshot with both menus open: each hover dump lists only
+            # what THAT hover made appear.
+            page.evaluate(WIDGET_MENU_STATE_JS, True)
+            for label in self.WATCHLIST_SUBMENU:
+                loc = page.locator(f"[data-metis-wsub='{label}']")
+                if loc.count() != 1:
+                    out["hovers"][label]["hovered"] = False
+                    continue
+                loc.first.hover(timeout=5_000)
+                page.wait_for_timeout(settle_ms)
+                out["hovers"][label].update(hovered=True, appeared=page.evaluate(WIDGET_MENU_NEW_JS) or {})
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+        finally:
+            if out["clicks"]:
+                try:
+                    for i in range(3):
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(400)
+                        out["escapes"] = i + 1
+                        still = page.evaluate(MENU_LABELS_VISIBLE_JS, list(MENU_ONLY_LABELS)) or {}
+                        if not still.get("n"):
+                            break
+                    post = page.evaluate(WIDGET_MENU_STATE_JS, False) or {}
+                    out["after"] = post
+                    out["menu_left_open"] = bool(still.get("n"))
+                    keys = ("workspace", "widget_tabs", "widget_close", "tables")
+                    out["restored"] = (not out["menu_left_open"]
+                                       and all(post.get(k) == out["before"].get(k) for k in keys))
+                except Exception as exc:
+                    out["restore_error"] = type(exc).__name__
+                    out["restored"] = False
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-wadd],[data-metis-wpick],[data-metis-wsub]')"
+                              ".forEach(e => { e.removeAttribute('data-metis-wadd'); e.removeAttribute('data-metis-wpick');"
+                              " e.removeAttribute('data-metis-wsub'); }); delete window.__metisWmPre; }")
+            except Exception:
+                pass
+        return out
+
+    def add_watchlist_widget(self, page: Any, *, expect_workspace: str = "My Trading Account",
+                             settle_ms: int = 800, ready_ms: int = 6_000) -> Dict[str, Any]:
+        """Add the Watchlist widget to ``expect_workspace`` (TRADEIFY-GOLIVE
+        option B step 2; operator ~21:50Z 2026-10-01 "Runner does it").
+
+        Exactly TWO clicks, both on MEASURED targets (#15350): the top-most
+        add-widget "+", then the ONE menu leaf whose text is exactly
+        ``Watchlist`` in a menu that shows every measured sibling. Refused
+        unless one-click reads OFF, the workspace is ``expect_workspace`` and
+        no Symbol/Bid/Ask table is already present (then it is a no-op).
+        Verified by the click-free WATCHLIST_SYMBOLS_JS read (exactly one
+        table) and a widget-tab count that grew. On a pick that does not
+        match, Escape and abort with nothing picked. It never clicks a menu
+        entry other than Watchlist, an order / price / instant-trade /
+        position control, or a widget / workspace close (delete) control --
+        so a wrong widget is REPORTED, never removed."""
+        out: Dict[str, Any] = {"added": False, "refused": None, "clicks": []}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if oc.get("state") != "off":
+            out["refused"] = f"one-click not confirmed OFF ({oc.get('state')})"
+            return out
+        wl = self.watchlist_symbols(page)
+        out["watchlist_before"] = wl
+        if wl.get("readable"):
+            out["refused"] = "watchlist already present (nothing to add)"
+            out["already_present"] = True
+            return out
+        try:
+            pre = page.evaluate(WIDGET_MENU_STATE_JS, True) or {}
+            out["before"] = pre
+            if pre.get("workspace") != expect_workspace:
+                out["refused"] = f"workspace is {pre.get('workspace')!r}, not {expect_workspace!r}"
+                return out
+            plus = page.locator("[data-metis-wadd='1']")
+            if not pre.get("add_buttons") or plus.count() != 1:
+                out["refused"] = "no single visible widget_tab_add_button"
+                return out
+            plus.first.click(timeout=5_000)
+            out["clicks"].append("add_widget_plus")
+            page.wait_for_timeout(settle_ms)
+            pick = page.evaluate(WIDGET_MENU_PICK_JS, ["Watchlist", list(WIDGET_MENU_MEASURED)]) or {}
+            out["pick"] = pick
+            item = page.locator("[data-metis-wpick='1']")
+            if not pick.get("tagged") or item.count() != 1:
+                out["refused"] = "menu did not match the measured menu (nothing picked)"
+                out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                for _ in range(2):
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(400)
+                return out
+            item.first.click(timeout=5_000)
+            out["clicks"].append("menu:Watchlist")
+            waited = 0
+            while True:
+                page.wait_for_timeout(500)
+                waited += 500
+                wl = self.watchlist_symbols(page)
+                if wl.get("readable") or waited >= ready_ms:
+                    break
+            post = page.evaluate(WIDGET_MENU_STATE_JS, False) or {}
+            out.update(after=post, watchlist_after=wl, waited_ms=waited)
+            grew = (post.get("widget_tabs") or 0) > (pre.get("widget_tabs") or 0)
+            out["added"] = bool(wl.get("readable")) and grew and post.get("workspace") == expect_workspace
+            if not out["added"]:
+                # Whatever opened instead is dumped, then one Escape; it is
+                # REPORTED, never closed by a click (a close control is a delete).
+                out["new_after"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                page.keyboard.press("Escape")
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+            # A menu (or whatever the click opened) may still be up: one
+            # Escape, like the mismatch path; never a close click.
+            if out["clicks"]:
+                try:
+                    page.keyboard.press("Escape")
+                    out["escaped_after_error"] = True
+                except Exception:
+                    out["escaped_after_error"] = False
+        finally:
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-wadd],[data-metis-wpick]')"
+                              ".forEach(e => { e.removeAttribute('data-metis-wadd');"
+                              " e.removeAttribute('data-metis-wpick'); }); delete window.__metisWmPre; }")
+            except Exception:
+                pass
+        return out
 
     #: Symbol-switch bounds (PROP-ETH-DOM, operator directive 2026-10-01
     #: 06:13Z). Live #15022 clicked SOLUSD's Symbol cell and the link stayed
@@ -5961,48 +6564,171 @@ class DXtradeAdapter(PropPlatformAdapter):
             pass
         return False
 
+    # False until a measured run (edit-dialog-probe, DIALOG-MEASURE) has read
+    # the real dialog and edit_dialog_mismatch passes on it. While False an
+    # ARMED modify_bracket locates the edit control and refuses before any
+    # click. Flipping it is a held Tier-2 change (it arms a live click).
+    EDIT_DIALOG_MEASURED = False
+
+    def _locate_edit_control(self, page: Any, symbol: str, side: Optional[str],
+                             quantity: Optional[float]) -> Dict[str, Any]:
+        """The ONE Positions row for ``symbol`` (its side / size must match
+        when given) -> hover -> the row's ONE modify-type control, chosen by
+        the NAME of its icon (the trio is text-less, live test #14191). Clicks
+        nothing; tags the control ``data-metis-edit-ctl``."""
+        self._show_tab(page, "tab_positions")
+        try:
+            loc = page.evaluate(CLOSE_ROW_JS, ["locate", symbol]) or {}
+        except Exception as exc:
+            return {"ok": False, "why": f"locate failed ({type(exc).__name__})"}
+        if not loc.get("ok"):
+            return {"ok": False, "rows": loc.get("rows"),
+                    "why": _mask_public_text(loc.get("why") or "row not located")}
+        facts = loc.get("facts") or {}
+        bad = _row_facts_mismatch(facts, side, quantity, None, rel_tol=1e-6)
+        if bad:
+            return {"ok": False, "row": facts, "why": "row does not match the position: " + "; ".join(bad)}
+        try:
+            page.hover("[data-metis-close-row]", timeout=5_000)
+            page.wait_for_timeout(400)
+            ctl = page.evaluate(EDIT_DIALOG_JS, ["controls", symbol]) or {}
+        except Exception as exc:
+            return {"ok": False, "row": facts, "why": f"hover / controls failed ({type(exc).__name__})"}
+        return {"ok": bool(ctl.get("ok")), "row": facts, "controls": _mask_controls(ctl.get("controls")),
+                "chosen": ctl.get("chosen"),
+                "why": _mask_public_text(str(ctl.get("why") or "edit control located"))}
+
+    def _open_edit_dialog(self, page: Any, symbol: str) -> Dict[str, Any]:
+        """Mark the dialogs already showing, click the tagged edit control,
+        read the ONE dialog that appeared. A click that raised is OUTCOME
+        UNKNOWN (``clicked: "unknown"``): never treated as opened."""
+        try:
+            page.evaluate(EDIT_DIALOG_JS, ["snapshot", symbol])
+        except Exception as exc:
+            return {"ok": False, "clicked": False, "why": f"dialog snapshot failed ({type(exc).__name__})"}
+        try:
+            page.click("[data-metis-edit-ctl]", timeout=5_000)
+        except Exception as exc:
+            return {"ok": False, "clicked": "unknown", "why": f"edit control click raised {type(exc).__name__}; outcome unknown"}
+        page.wait_for_timeout(800)
+        return {"ok": True, "clicked": True, "dialog": self._read_edit_dialog(page, symbol)}
+
+    @staticmethod
+    def _read_edit_dialog(page: Any, symbol: str) -> Dict[str, Any]:
+        try:
+            return page.evaluate(EDIT_DIALOG_JS, ["dialog", symbol]) or {"ok": False, "why": "empty dialog read"}
+        except Exception as exc:
+            return {"ok": False, "why": f"dialog read failed ({type(exc).__name__})"}
+
+    @staticmethod
+    def _cancel_edit_dialog(page: Any) -> bool:
+        """Press the edit dialog's OWN cancel, fenced to INSIDE the dialog
+        EDIT_DIALOG_JS tagged (never ``close_order_ticket``'s page-wide
+        ``[data-metis-btn=close]``, which can be the sidebar ticket's: review
+        of #15327). Escape is the only fallback; it presses nothing."""
+        try:
+            loc = page.locator("[data-metis-edit-dialog] [data-metis-edit-btn=cancel]")
+            if loc.count() == 1:
+                loc.first.click(timeout=5_000)
+                return True
+        except Exception:
+            pass
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        return False
+
+    def probe_edit_dialog(self, page: Any, symbol: str, *, click: bool = False) -> Dict[str, Any]:
+        """MEASURE the position edit dialog (DIALOG-MEASURE). Submits nothing.
+        Locates our symbol's ONE Positions row and its pencil by icon name;
+        with ``click`` (and only when that row exists, i.e. a position is
+        open) clicks THAT pencil, reads the dialog that appeared, reports what
+        ``edit_dialog_mismatch`` would say about it, then presses the
+        dialog's own Cancel and re-reads that it closed. Never Bid/Ask,
+        Buy/Sell, a close control or the sidebar ticket."""
+        out: Dict[str, Any] = {"symbol": symbol, "click": click, "one_click": self.read_one_click(page)}
+        loc = self._locate_edit_control(page, symbol, None, None)
+        out["locate"] = loc
+        if not loc.get("ok") or not click:
+            out["stopped"] = "before any click" + ("" if loc.get("ok") else f" ({loc.get('why')})")
+            return out
+        opened = self._open_edit_dialog(page, symbol)
+        out["clicked"] = opened.get("clicked")
+        if not opened.get("ok"):
+            out["why"] = opened.get("why")
+            out["escape"] = self._cancel_edit_dialog(page) if opened.get("clicked") else None
+            return out
+        dlg = opened["dialog"]
+        out["dialog"] = dlg
+        out["would_refuse"] = edit_dialog_mismatch(dlg, symbol, parse_number((loc.get("row") or {}).get("size")))
+        out["cancel_pressed"] = self._cancel_edit_dialog(page)
+        page.wait_for_timeout(600)
+        after = self._read_edit_dialog(page, symbol)
+        out["closed_after_cancel"] = (not after.get("ok")) and after.get("fresh") == 0
+        return out
+
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
                        *, arm: bool = False) -> Dict[str, Any]:
-        """Set a position's SL/TP through its row's edit control and the same
-        read-back-verified form as ``place_bracket``."""
+        """Set a position's SL/TP through its row's pencil and the dialog it
+        opens, every step read back (go-live review of #15316):
+        the ONE row for the symbol, side and size matching the position ->
+        the pencil chosen by icon name -> the ONE dialog that APPEARED,
+        passing ``edit_dialog_mismatch`` (names the symbol, read-only qty ==
+        the position's, mode Price, its own boxed submit) -> type SL/TP into
+        ITS fields -> read back -> ITS submit. Any refusal presses the
+        dialog's own Cancel. A click that raised is refused as outcome
+        unknown. ``_find_form`` / ``close_order_ticket`` are never used here:
+        they anchor on the sidebar order ticket."""
         if stop_loss is None and take_profit is None:
             return {"ok": False, "clicked": False, "why": "nothing to modify"}
         # Diagnostic only (ORDER ENTRY rule 1): recorded on every result below,
         # gated on by nothing.
         oc = self.read_one_click(page)
-        self._show_tab(page, "tab_positions")
-        # Disarmed: locate the edit control and stop — no click at all.
-        opened = self._row_action(page, "positions", "Symbol", position.symbol,
-                                  r"^(edit|modify|✎|sl/tp|edit position)$", arm)
-        if not arm:
-            return {"ok": bool(opened.get("ok")), "clicked": False, "one_click": oc,
-                    "why": f"disarmed: stopped before the edit control ({opened.get('why')})"}
-        if not opened.get("clicked"):
-            return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit control: {opened.get('why')}"}
-        page.wait_for_timeout(1_000)
-        form = self._find_form(page)
         want = {k: v for k, v in (("stop_loss", stop_loss), ("take_profit", take_profit)) if v is not None}
-        missing = [k for k in want if k not in (form.get("fields") or {})]
-        if missing or "submit" not in (form.get("buttons") or {}):
-            self.close_order_ticket(page)
-            return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit form incomplete (missing {missing})"}
-        if form.get("submit_outside_form"):
-            # An edit dialog's submit must be its OWN: one found outside it
-            # could be the sidebar's order button (review of #13822).
-            self.close_order_ticket(page)
-            return {"ok": False, "clicked": False, "one_click": oc,
-                    "why": "edit form's submit is outside the form: refusing (could place a new order)"}
-        for k, v in want.items():
-            page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
-        form = self._find_form(page)
-        mism = verify_form_values(form.get("fields") or {}, want)
-        if form.get("submit_outside_form"):
-            mism = mism + ["submit is outside the form"]
-        if mism or not arm:
-            self.close_order_ticket(page)
-            return {"ok": not mism, "clicked": False, "one_click": oc,
-                    "why": ("read-back mismatch: " + "; ".join(mism)) if mism else "disarmed: stopped before submit"}
-        page.click("[data-metis-btn=submit]", timeout=5_000)
+        loc = self._locate_edit_control(page, position.symbol, position.side, position.quantity)
+        seen = {"one_click": oc, "row": loc.get("row"), "controls": loc.get("controls"), "chosen": loc.get("chosen")}
+        if not loc.get("ok"):
+            return {"ok": False, "clicked": False, **seen, "why": f"edit control: {loc.get('why')}"}
+        if not arm:
+            return {"ok": True, "clicked": False, **seen, "why": "disarmed: stopped before the edit control"}
+        if not self.EDIT_DIALOG_MEASURED:
+            # PROP-TRAIL go-live review (manager, 2026-10-01): refuse before
+            # any click until a measured run has proven the dialog.
+            return {"ok": False, "clicked": False, **seen,
+                    "why": "refused: the SL/TP edit dialog is unmeasured (an armed walk could "
+                           "submit the sidebar order ticket instead)"}
+        if position.quantity is None:
+            return {"ok": False, "clicked": False, **seen, "why": "position size unknown: refusing"}
+        opened = self._open_edit_dialog(page, position.symbol)
+        if not opened.get("ok"):
+            if opened.get("clicked"):
+                self._cancel_edit_dialog(page)
+            return {"ok": False, "clicked": bool(opened.get("clicked")), **seen, "why": opened.get("why")}
+        dlg = opened["dialog"]
+        bad = edit_dialog_mismatch(dlg, position.symbol, position.quantity, tuple(want))
+        if bad:
+            self._cancel_edit_dialog(page)
+            return {"ok": False, "clicked": True, **seen, "dialog": dlg,
+                    "why": _mask_public_text("edit dialog refused: " + "; ".join(bad)) + "; Cancel pressed"}
+        try:
+            for k, v in want.items():
+                page.fill(f"[data-metis-edit-dialog] [data-metis-edit-field={k}]", _fmt_num(v), timeout=5_000)
+        except Exception as exc:
+            self._cancel_edit_dialog(page)
+            return {"ok": False, "clicked": True, **seen, "why": f"fill raised {type(exc).__name__}; Cancel pressed"}
+        dlg = self._read_edit_dialog(page, position.symbol)
+        bad = edit_dialog_mismatch(dlg, position.symbol, position.quantity, tuple(want)) \
+            + verify_form_values(dlg.get("fields") or {}, want)
+        if bad:
+            self._cancel_edit_dialog(page)
+            return {"ok": False, "clicked": True, **seen, "dialog": dlg,
+                    "why": _mask_public_text("read-back refused: " + "; ".join(bad)) + "; Cancel pressed"}
+        try:
+            page.click("[data-metis-edit-dialog] [data-metis-edit-btn=submit]", timeout=5_000)
+        except Exception as exc:
+            return {"ok": False, "clicked": True, **seen,
+                    "why": f"submit click raised {type(exc).__name__}; outcome unknown"}
         self._confirm_dialog(page)
-        return {"ok": True, "clicked": True, "one_click": oc, "why": "submit clicked"}
+        return {"ok": True, "clicked": True, **seen, "why": "submit clicked"}

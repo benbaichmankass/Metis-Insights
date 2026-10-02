@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; live order path on breakout_1 (modify_bracket, the _contain repair and the PROP-TRAIL trail). Lane DIALOG-MEASURE step 2; stacked on #15327. EDIT_DIALOG_MEASURED stays False in this PR: the flip is a separate held PR after a measured edit-dialog-probe run.",
+  "why": "Hardens DXtradeAdapter.modify_bracket to the go-live review of #15316: the pencil is chosen by icon name on the ONE symbol row whose side/size match; a click that raised is refused as outcome unknown; the dialog must have APPEARED after the click, name the symbol, show a read-only qty equal to the position's, read its SL/TP mode as Price, hold no Buy/Sell or sidebar-ticket control, and own one enabled submit boxed inside it; SL/TP are typed into and submitted from fields tagged INSIDE that dialog; every refusal presses the dialog's own Cancel (never close_order_ticket's page-wide close). Adds the read-only edit-dialog-dry / edit-dialog-probe measurement modes (one pencil click + the dialog's Cancel; submits nothing)."
+}

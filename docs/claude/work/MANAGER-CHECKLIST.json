@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-01T20:55:00Z",
+  "updated_at": "2026-10-01T17:36:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -4013,16 +4013,20 @@
       "id": "ORDER-AUDIT-2",
       "title": "Order-path audit leftovers, re-verified unfixed: pairs sleeve ignores halt (CA-A02), safe_place_order guards, order_monitor dry_run cfg (CA-A04), IBClient.close vs resting bracket, reconcile_orphan_history double-attribution, CA-A15 bybit spot category, summarize fabricated zeros, PassthroughAllocator flat risk fraction 0.005 (a code constant, not a measurement), stray journal fallback",
       "phase": "W6",
-      "state": "in_flight",
-      "owner": "fix lane",
+      "state": "landed_unproven",
+      "owner": "lane session_01MEyTMDNj3ZYV2ziDq1hLJd",
       "lane": "session_01MEyTMDNj3ZYV2ziDq1hLJd",
-      "model": "claude-opus-5-5",
+      "model": null,
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        15306,
+        15311,
+        15343
+      ],
       "blocked_on": [],
-      "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched, operator popup ~20:55Z (wave 2). Opus: live order path. Re-verify each item first; Tier-2 fixes come to the manager as held PRs; item 8 (PassthroughAllocator 0.005) is sizing/Tier 3: proposal only. || 2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here."
+      "note": "2026-09-30 ~05:22Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Queued, not yet dispatched; cluster from SA-ROUTE. Source: SA-ROUTE report 05:18Z (lane session_01TS7BCzqWEkmwLXESEmZ6fg), which dispositioned 211 due unrouted items (27 killed, 71 routed, 113 proposed for new rows); SA-ROUTE routes the items here. | 2026-10-01 ~21:00Z: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv to lane session_01MEyTMDNj3ZYV2ziDq1hLJd (ceiling $40). Items -> pipeline ids: (1) PI-20260927-ECILBBVH-0001 (2) ECILBBVH-0002 (3) KRAKE1TG-0002 (4) KRAKE1TG-0003 (5) DPSCDUBQ-0002 (6) RLBXQDGK-0001 (7) RLBXQDGK-0003 (8) RLBXQDGK-0004 (9) RLBXQDGK-0005. Re-verifying on main first. | 2026-10-01 ~21:15Z lane: RE-VERIFIED all 9 UNFIXED on main (none closed since 09-30). PR #15306 (Tier 2, held): (1) pairs halt, (2) halt check in multi_account_execute + comments, (3) order_monitor mode from acc.dry_run, (4) IB close refuses on unreadable book, (6) Bybit get_positions category. PR #15311 (held): (5) reconcile_orphan_history one-package-one-trade + size gate, (7) run_backtest summarize measured/NULL, (9) stray repo-root journal fallback dropped in 3 modules. (8) NOT CHANGED (Tier 3): proposal sent to manager; dormant (CENTRALIZED_ALLOCATOR default false, unset in config). Follow-ups filed: PI-20261001-IDQ1HLJD-0001 (dead safe_place_order guards: delete vs wire), -0002 (_cancel_oca_group_for_symbol same collapse). Each fix has a test that fails on old code. Row closes when both PRs merge AND deploy (git_sha on /api/diag/version) -- merged != deployed. | 2026-10-01 ~22:40Z lane: #15306 MERGED 21:51Z, #15311 MERGED (squash fb8dfd06). NOT verified deployed. Follow-up PR #15343 (held): IBClient.close already-flat branch no longer returns OK when the pre-cancel book read is 'unreadable'; scripts/daily_heartbeat.py read the stale /tmp/trader_halt.flag, now mirrors runtime_flags.halt_flag_path() with a parity test. place_protective's symbol-wide pre-cancel (ib_client ~1884) deliberately NOT changed: refusing to arm protection on an unreadable book could leave a position naked; that trade-off is PI-20261001-IDQ1HLJD-0002. CLOSES (done) when /api/diag/version git_sha on the live trader is at or after the follow-up PR's merge commit; item 8 stays a Tier-3 proposal with the manager."
     },
     {
       "id": "ICT-SCALP-HTF",
@@ -4492,6 +4496,53 @@
       "note": "[2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator-directed manager handoff (docs/claude/work/MANAGER-HANDOFF-2026-10-01.md, PR #15219): the owning manager is now session_01MM8o5js6TcDFeNAPBY4Ntv, replacing session_01HYq6XtfesZ57VyaQrK6CL1. || 2026-09-30 ~21:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR PRE-APPROVAL (popup ~21:00Z, answer verbatim: \"Approve both, as written (Recommended)\"). Milestone-gated go-live for both prop accounts; each step proceeds ONLY when its criteria are met. ALWAYS: independent review MERGE-OK + green CI + deploy observed before the next step; every click run on a funded terminal ONCE, no retries; STOP and wait for the operator on: an executor latch, any unexpected click or unintended order, a review BLOCK whose fix is not clear-cut, any change to caps/sizing or a strategy outside the approved roster; an auto-mode classifier denial is never worked around; caps and sizing stay as in config and the PRs. BREAKOUT (breakout_1, live) add ETHUSD: B1 merge #14885 after re-review, deploy observed (tick on new sha, halted null). B2 one ETH symbol-switch-dry: all guards, quote read, ETH selected+verified, SOL restored+verified, zero order controls, next tick clean. B3 price_step from quote decimals, only if unambiguous. B4 one ETH round-trip-dry: form filled, all fields read back, never submitted, next tick clean. B5 PR enabling ETHUSD with measured specs: review, CI, merge, deploy observed -> real ETH tickets automated; $75/ticket cap unchanged. TRADEIFY (tradeify_1, $10k eval) dry -> live: T1 merge B #14672 and F1 #14756 after review. T2 build+review+merge the rule guards (leverage caps; daily floor prior close -3% reset 22:00 UTC; PI-BHYHMK2D-0001/-BHYHMK2E-0001) and the price-band check (PI-KMYJ5XC7-0003, both accounts). T3 deploy observed; read-only login check on tradeify_1 passes; feed on, rows appear. T4 per symbol ETH/SOL/XRP: specs measured, one symbol-switch-dry, one round-trip-dry; a symbol that fails stays disabled. T5 executor dry mode, at least one full ticket cycle observed end to end, zero errors. T6 C #14673 after review: merge, PROP_EXECUTOR_MODE_TRADEIFY_1 -> live via the system action, first live tick observed. Roster: the planned B3 book (trend_donchian_eth_prop, trend_donchian_sol_prop, ict_scalp_xrp_15m) at 0.5% risk. Notify the operator at each go-live (what changed, evidence, merged/deployed/observed, revert). Expected overnight: Breakout ETH possibly live; Tradeify likely to T5 (guards not yet built). || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Progress overnight. BREAKOUT: B1 done (#14885 merged d75ea912 after two independent reviews; one-click gate on the live switch, watchlist-scoped row scan and quote_raw, guarded restore). B2 blocked by the system-actions allowlist missing symbol-switch-dry: fix #14947 (CI green, conflicted with main; lane merging main). ETH lane was stuck 00:45-02:12Z on a create_trigger permission prompt (operator-only); manager interrupted it and redirected its reports to PR comments. Gates landed for both accounts: price-band check #14908 (93365993, deployed 22:04Z, not yet observed on a live ticket) + band_ok log #14925 (385befe3, deployed). TRADEIFY: F1 #14756 merged d87cdc1a, B #14672 merged 24266cb0 (both after independent review BLOCK + fixes: default_prop_account falls back to the single live account; failed ticket match leaves the fill unlinked). T2 guards #14910 next (needs slot claim), then T3/T4/T5. Nothing new is live yet. || 2026-10-01 ~06:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): BREAKOUT ETH: B1 done (#14885). #14947 merged 847034b3. B2 PASSED (#14999 run 36807550409: SOL->ETH->SOL, 2 clicks, next tick clean). B3 price_step 0.01 MEASURED (quote decimals). #15002 merged 28a287ac (dry round trip no longer gated on enabled_venue_symbols; armed paths still refuse ETHUSD; independent review MERGE). B4 PASSED (#15021 run 36813539419: form_verified, never submitted; min_lots 0.01 MEASURED). STOP: terminal left linked to ETHUSD; one SOLUSD symbol-switch-dry (#15022) clicked but the link did not move. Read-only link-state-dump #15034 merged 35d9a81d, run #15046: ticket hypothesis ruled out, watchlist table had 0 rows -> cause not measured. Live SOL impact: next SOL ticket's switch likely refuses -> place-by-hand alert; no wrong-symbol order possible; account flat. OPERATOR 06:13Z (popup, verbatim): \"We need to fix this - there's no way that we are unable to switch between symbols, this is a very simple functionality\" -> no by-hand fallback; ETH lane builds a robust select_linked_symbol (row wait, polled verify, <=3 in-routine attempts, toolbar symbol_input fallback), ONE dispatch after deploy. B5 held until SOLUSD re-linked and verified. #15020 (restore+verify after dry round trip) under review. TRADEIFY: #14910 T2 merged 61a06af9; #15035 T2 nits merged 8368eb4a (touches execute.py, Tier-3 path; data-backed correctness fix, operator notified). T3 DONE (login #14993, feed timer #14995, snapshots every 5 min). T4 BLOCKED: instrument-info-dry #15033 refused '0 Symbol/Bid/Ask tables' -- Tradeify's watchlist DOM differs; #15048 (click-free watchlist_dump) under review; resolver fix follows. C #14673 held. || 2026-10-01 ~07:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR DIRECTIVE, chat ~06:17Z (verbatim): \"No, the lane should keep retrying until it succeeds - there's no reason for me to specifically authorize each test run, I just want us to figure this out already and get the account going live\". This SUPERSEDES the 'every click run on a funded terminal ONCE, no retries' clause above for dry/diagnostic runs (symbol-switch-dry, link-state-dump, instrument-info-dry, read-only dumps, round-trip-dry) on BOTH breakout_1 and tradeify_1: lanes iterate without a per-run go. Safety limits that still bind: no submit and no order-ticket control in dry runs; one-click must read OFF before every click; STOP on an executor latch, an unintended order/position, or an unrecognised dialog; keep login.lock; every code change is a Tier-2 hold PR with an independent review before merge. Live enables (B5, Tradeify C) still go through review + merge + first-tick observation. Progress: #15070 (robust symbol switch) review BLOCK \u2014 toolbar fallback could click a Positions/Orders row; fix pending. #15075 (Tradeify table_column_* resolver) under review. #14777 applied (row 6131 closed; lane archived). #15008 merged 5ba448d4. || 2026-10-01 ~11:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR GO-LIVE RULE, chat ~10:50Z (verbatim): \"Not everything has to be 100% completely finished. The question is, do we have the capability to execute the trades? If the answer is yes, we should go live. And if there are other bugs that need to be fixed, then we can continue working on it after it goes live. But if we're, like if we're holding back the going live because of mistakes that might happen, but probably won't, then that's like not a good reason to, for it to not go live. We should go live anyway, and we can monitor and keep working on it once it's already live.\" Applied: #15070 (robust symbol switch, ticket-Symbol-field primary route) MERGED 1fc6aecb after operator popup \"Merge now, fix after (Recommended)\" with 4 Fable-review follow-ups open (pre-existing role=grid rows / button-scoped leaves; variant (b) when the empty watchlist table is absent; canonical slash compare; restore field when a pick is unverified) -> follow-up PR, not blocking. OPERATOR, chat ~11:00Z: ONE-CLICK IS NOT A GATE -- it only arms instant-trade controls (chart quick Buy/Sell, Bid/Ask cells), which the ticket flow never clicks; every one-click refusal becomes an informational reading + one alert (follow-up PR); exclusion of quick-trade bar / Bid-Ask cells stays. Merged today: #15020 (dry round trip restores link, exit 3 on failure), #15034 (link-state dump), #15048 (Tradeify watchlist_dump), #15075 (table_column resolver), #15101 (slash names ETH/USD->ETHUSD). Next: ETH lane re-links SOLUSD (symbol-switch-dry, iterate freely) then opens B5; Tradeify lane drives T4/T5 to proof of correct execution then C (#14673)."
     },
     {
+      "id": "DIALOG-MEASURE",
+      "title": "Make DXtrade modify_bracket safe to arm: measure the position edit dialog, harden to it, then flip EDIT_DIALOG_MEASURED",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "build lane",
+      "lane": "session_01PNFmCa7dgP1ykmsBd5s8kE",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 43,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        15327,
+        15347,
+        15348
+      ],
+      "blocked_on": [],
+      "note": "#15327 (refuse armed modify while unmeasured) and #15347 (hardened modify_bracket + read-only edit-dialog-dry / edit-dialog-probe modes; squash f9c5363d, CI green) are MERGED. EDIT_DIALOG_MEASURED is still False on main, so an armed modify_bracket refuses before any click. NOT done: the dialog has never been measured -- breakout_1 was flat at 22:12Z 2026-10-01. CLOSING OBSERVATION: the first edit-dialog-probe readout on a live breakout_1 position (PI-20261001-SBD5S8KE-0001), then the held Tier-2 flip PR. That flip PR must carry the manager's #15347 review items: drop `place` from the SUBMIT names, exclude password inputs, add the several-rows and sidebar-surfaces tests."
+    },
+    {
+      "id": "PROP-TRAIL",
+      "title": "Apply the prop legs' declared chandelier trail by amending the resting SL (operator 2026-10-01 'Build the trail instead')",
+      "phase": "E",
+      "state": "blocked",
+      "owner": "build lane",
+      "lane": "session_01PNFmCa7dgP1ykmsBd5s8kE",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        15316
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "DIALOG-MEASURE",
+          "what": "the trail is inert on the venue until EDIT_DIALOG_MEASURED is flipped after a measured edit-dialog-probe readout"
+        },
+        {
+          "kind": "work_item",
+          "ref": "PROP-TRAIL-VENV",
+          "what": "pre-arming check: pandas/ccxt must import in the executor venv (--system-site-packages, pip-installs only playwright); verify via executor-dry-run on breakout_1 with no 'trail: step failed (ModuleNotFoundError)' alert"
+        }
+      ],
+      "note": "#15316 HELD for the manager, carrying the go-live re-review fixes: cycle output + session save before the trail step; decision_bar: forming legs start the trail one bar after the signal bar (harness entry_i+1). Rollout once unblocked: >=1 day read_only, one watched single-step tighten, then live. | [manager wave-2 note, carried over 2026-10-02T02:20Z session_01MM8o5js6TcDFeNAPBY4Ntv] [2026-10-01T22:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session_012X4AJaScSxML6HaJLuXpzV closed (handoff, ~$30 of $40). Found a LIVE hazard in existing code: _contain's armed modify_bracket could fill+submit the sidebar order ticket -> fix #15327 (armed modify refuses while EDIT_DIALOG_MEASURED=False; repair falls to verified flatten next cycle), reviewed MERGE-WITH-NOTE, merges when CI green. #15316 (trail) reworked, re-review MERGE-WITH-NOTE but HELD: inert until the dialog is measured; carried by DIALOG-MEASURE session_01PNFmCa7dgP1ykmsBd5s8kE (also: emit cycle output before the trail step, signal_time vs entry_i+1, venv deps). MANAGER DECISION (data-backed): ETH stale_exit_bars=12 is NOT approximated by an SL band; ETH SL+TP-only measured +21.28R vs +10.63R with declared levers, so no evidence the stale exit is needed on the prop bracket. SOL's declared exits are fully covered by the trail. Rollout: >=1 day read_only, one watched single-step tighten, then live. || [2026-10-01T21:23Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR DECISION (popup ~21:23Z), verbatim choice: \"Build the trail instead\" (options were keep-live-and-retest / shadow SOL now / build the trail). SOLUSD stays LIVE on breakout_1 at $75 meanwhile. Evidence: PROP-JOURNAL (PR #15301, PI-20261001-S8DMYMUN-0001): prop bracket is static SL+TP; SL+TP-only re-run on one window ETH +21.28R n=100, SOL -0.49R n=53 vs declared-lever baseline ETH +10.63, SOL +3.69. Mechanism: amend the resting SL by the declared trail/stale lever, tighten-only, via the tested modify path; held PR reviewed by the manager under the go-live rule."
+    },
+    {
       "id": "STAMP-RACE",
       "title": "research-queue-dispatch 'Land the dispatch stamps on main' fails on a 30-min wait race (run 70): re-check main once before failing",
       "phase": "W7",
@@ -4505,24 +4556,6 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched. Run 70 (36910217777) red although stamp PR #15276 merged 13 s after the wait expired. Manager decision: re-check once, do not raise the timeout or change stamp-PR checks. Closes PI-20261001-1MX1RCZS-0003."
-    },
-    {
-      "id": "PROP-TRAIL",
-      "title": "Give breakout_1's prop bracket the trailing/stale exit the Stage-0 evidence assumed (SOL first)",
-      "phase": "W7",
-      "state": "in_flight",
-      "owner": "build lane",
-      "lane": "session_01PNFmCa7dgP1ykmsBd5s8kE",
-      "model": "claude-opus-5-5",
-      "ceiling_usd": 40,
-      "spend_usd": null,
-      "tier": 3,
-      "prs": [
-        15316,
-        15327
-      ],
-      "blocked_on": [],
-      "note": "[2026-10-01T22:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session_012X4AJaScSxML6HaJLuXpzV closed (handoff, ~$30 of $40). Found a LIVE hazard in existing code: _contain's armed modify_bracket could fill+submit the sidebar order ticket -> fix #15327 (armed modify refuses while EDIT_DIALOG_MEASURED=False; repair falls to verified flatten next cycle), reviewed MERGE-WITH-NOTE, merges when CI green. #15316 (trail) reworked, re-review MERGE-WITH-NOTE but HELD: inert until the dialog is measured; carried by DIALOG-MEASURE session_01PNFmCa7dgP1ykmsBd5s8kE (also: emit cycle output before the trail step, signal_time vs entry_i+1, venv deps). MANAGER DECISION (data-backed): ETH stale_exit_bars=12 is NOT approximated by an SL band; ETH SL+TP-only measured +21.28R vs +10.63R with declared levers, so no evidence the stale exit is needed on the prop bracket. SOL's declared exits are fully covered by the trail. Rollout: >=1 day read_only, one watched single-step tighten, then live. || [2026-10-01T21:23Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR DECISION (popup ~21:23Z), verbatim choice: \"Build the trail instead\" (options were keep-live-and-retest / shadow SOL now / build the trail). SOLUSD stays LIVE on breakout_1 at $75 meanwhile. Evidence: PROP-JOURNAL (PR #15301, PI-20261001-S8DMYMUN-0001): prop bracket is static SL+TP; SL+TP-only re-run on one window ETH +21.28R n=100, SOL -0.49R n=53 vs declared-lever baseline ETH +10.63, SOL +3.69. Mechanism: amend the resting SL by the declared trail/stale lever, tighten-only, via the tested modify path; held PR reviewed by the manager under the go-live rule."
     }
   ]
 }

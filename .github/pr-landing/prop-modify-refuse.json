@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; live order path on breakout_1 (containment). Split out of the PROP-TRAIL go-live review BLOCK on #15316 (manager 2026-10-01 ~21:50Z: fix _contain first in its own small held PR).",
+  "why": "DXtradeAdapter.modify_bracket(arm=True) is refused BEFORE any click until the SL/TP edit dialog is measured (EDIT_DIALOG_MEASURED=False): _find_form anchors on the first quantity input and the docked sidebar order ticket is always one, so an armed walk could fill SL/TP into the sidebar and submit a NEW order. Its only caller is the executor's _contain partial_no_sl_tp repair, reachable live whenever a watched ticket re-reads with SL or TP missing/off >2%. That path now records the repair as refused (alert carries the reason) and the existing one-repair-then-close step follows next cycle unchanged."
+}

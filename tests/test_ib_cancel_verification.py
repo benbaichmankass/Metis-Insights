@@ -579,3 +579,79 @@ def test_a_confirmed_leg_is_not_counted_as_still_resting_with_a_refusal():
     still = {int(r["order_id"]): r for r in result["still_resting"]}
     assert 466 not in still, "the confirmed cancel actually removed the leg"
     assert still[417]["refusal"]["code"] == 10147
+
+
+# ---------------------------------------------------------------------------
+# ORDER-AUDIT-2 item 4 (AUD-20260927-CA-A04-ib-close-precancel-read-failure-
+# collapsed): an UNREADABLE book must not read as "nothing to cancel", and
+# close() must not flatten over a bracket it could not see.
+# ---------------------------------------------------------------------------
+
+class _UnreadableBookIB(FakeIB):
+    def openTrades(self):
+        raise RuntimeError("gateway read failed")
+
+
+def test_unreadable_book_is_not_reported_as_nothing_resting():
+    fake = _UnreadableBookIB(_mhg_legs(597, "oca-protect-416", 417, 1179890976))
+    client = _client_for(fake)
+    res = client._cancel_resting_orders_for_symbol(fake, "MHG")
+    assert res["verify_state"] == "unreadable"
+    assert res["seen"] is None          # not 0: we did not look
+    assert fake.cancel_calls == []
+
+
+def test_close_refuses_to_flatten_when_book_unreadable():
+    fake = _UnreadableBookIB(_mhg_legs(597, "oca-protect-416", 417, 1179890976))
+    client = _client_for(fake)
+    res = client.close("MHG", "long", 1)
+    assert res["retCode"] == 1
+    assert "unreadable" in res["retMsg"]
+    # Must NOT be worded as a defer — order_monitor would then not count it
+    # toward the close-failure streak and nothing would ever page.
+    low = res["retMsg"].lower()
+    assert "exit deferred" not in low and "deferring" not in low
+    assert "market closed" not in low
+    assert fake.placed == []            # no opposing MarketOrder
+
+
+def test_close_flattens_when_book_readable():
+    """Positive control: the same close on a readable book cancels the
+    bracket and DOES send the opposing order."""
+    fake = FakeIB(_mhg_legs(597, "oca-protect-416", 417, 1179890976))
+    client = _client_for(fake)
+    client.close("MHG", "long", 1)
+    assert fake.cancel_calls            # bracket cancelled first
+    assert len(fake.placed) == 1        # then the flattening order
+
+
+def test_cancel_resting_protection_unreadable_is_not_ok():
+    fake = _UnreadableBookIB([])
+    client = _client_for(fake)
+    res = client.cancel_resting_protection("MHG")
+    assert res["retCode"] == 1
+
+
+def test_already_flat_close_is_not_ok_when_book_unreadable():
+    """ORDER-AUDIT-2 follow-up: the already-flat branch of close() also sweeps
+    the book; an unreadable sweep must not report OK over legs it never saw."""
+    fake = _UnreadableBookIB(_mhg_legs(597, "oca-protect-416", 417, 1179890976))
+    client = _client_for(fake)
+    client._live_position_qty = lambda sym: 0.0  # type: ignore[method-assign]
+    res = client.close("MHG", "long", 1)
+    assert res["retCode"] == 1
+    assert "unreadable" in res["retMsg"]
+    low = res["retMsg"].lower()
+    assert "exit deferred" not in low and "deferring" not in low
+    assert fake.placed == []
+
+
+def test_already_flat_close_ok_when_book_readable():
+    """Positive control: readable book, flat position -> legs swept, OK."""
+    fake = FakeIB(_mhg_legs(597, "oca-protect-416", 417, 1179890976))
+    client = _client_for(fake)
+    client._live_position_qty = lambda sym: 0.0  # type: ignore[method-assign]
+    res = client.close("MHG", "long", 1)
+    assert res["retCode"] == 0
+    assert fake.cancel_calls
+    assert fake.placed == []

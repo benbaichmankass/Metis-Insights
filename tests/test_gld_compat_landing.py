@@ -400,3 +400,19 @@ def test_e35_assertion_guards_on_both_committed_and_branch():
         "CORPUS_TARGET is gone with the push step; reading it would make the "
         "guard always fire"
     )
+
+
+def test_the_wait_rechecks_once_after_expiry_before_failing():
+    """Run 36910217777: the stamp PR merged 13 s after the 30m wait expired.
+
+    The expiry path must take one final look (PR state, then main) after a
+    settle before it reports failure, without looping or raising the timeout.
+    """
+    body = (REPO / ".github/actions/commit-to-main/action.yml").read_text()
+    tail = body.partition("landed_on_main() {")[2]
+    assert tail, "the expiry path lost its landed_on_main check"
+    assert "FINAL_STATE" in tail and '"MERGED"' in tail, "no final PR-state re-check"
+    assert tail.index("FINAL_STATE") < tail.index("did not merge within"), (
+        "the re-check must run before the failure message is emitted"
+    )
+    assert tail.count("sleep 45") == 1, "the re-check is a single bounded settle"

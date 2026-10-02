@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "a dispatch-order test for both orders is merged with the decided expected state, or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20261001-EFKI6YYD-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "PR #14673 blocker F2; PR #15035 body ('closes the live-branch half of F2 ... but not the dispatch-order test')",
+    "rerun": "In a temp DB, insert one order package; call execute_pkg's prop branch for tradeify_1 (live) then db.update_order_package(pkg, {'linked_trade_id': N}) as bybit_1 would; read status/close_reason/linked_trade_id. Repeat in the opposite order. Compare."
+  },
+  "state": "queued",
+  "what": "TRADEIFY-WIRE F2 (named PI-20260930-BHYHMK2G-0001 in go-live PR #14673's blocker list, but that row was never written to the store -- verified by git grep on main 2026-10-01). The prop leg's order-package write must be correct independent of DISPATCH ORDER across accounts sharing one order_package_id (e.g. ict_scalp_xrp_15m on bybit_1 and tradeify_1). #15035 closed the live-branch half (mark_order_package_if_untouched: a prop leg never overwrites another account's linked trade). Still open: a test pinning BOTH orders -- (a) prop leg first stamps emitted/shadow, then the other account's trade links via update_order_package (unconditional) -> the row carries a linked trade under a prop status; (b) other account first, prop second -> no overwrite (pinned by #15035). Decide what (a) should read and pin it. Journaling only: no order, size or price effect, so a NOTE under the go-live rule, not a blocker."
+}

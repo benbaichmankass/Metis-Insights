@@ -246,3 +246,50 @@ def test_apply_is_idempotent(script, real_schema_db, capsys):
     script.run(str(db), apply=True, gap_hours=6.0, entry_tol=0.02)
     out = capsys.readouterr().out
     assert "wrote 0 row(s)." in out
+
+
+# ── one package, one trade (ORDER-AUDIT-2 item 5) ─────────────────────────
+# AUD-20260927-CA-A12-orphan-history-package-double-attribution: matching on
+# symbol+direction+entry only, one --apply wrote ONE package onto two trades.
+
+def test_one_package_is_never_attributed_to_two_accounts(script, real_schema_db):
+    db = real_schema_db()
+    insert_order_package(
+        db, order_package_id="pkg-1", symbol="BTCUSDT", direction="long",
+        entry=60000.0, status="closed", strategy_name="vwap")
+    a = insert_trade(
+        db, timestamp="2026-06-20T10:00:00Z", created_at="2026-06-20T10:00:00Z",
+        symbol="BTCUSDT", direction="long", entry_price=60010.0,
+        position_size=1, status="orphaned", setup_type="adopted_orphan",
+        account_id="bybit_1", is_backtest=0)
+    b = insert_trade(
+        db, timestamp="2026-06-20T10:00:00Z", created_at="2026-06-20T10:00:00Z",
+        symbol="BTCUSDT", direction="long", entry_price=60020.0,
+        position_size=100, status="orphaned", setup_type="adopted_orphan",
+        account_id="bybit_2", is_backtest=0)
+
+    script.run(str(db), apply=True, gap_hours=6.0, entry_tol=0.02)
+    rows = _rows(db)
+    linked = [i for i in (a, b) if rows[i]["order_package_id"] == "pkg-1"]
+    assert len(linked) == 1, rows
+    other = b if linked == [a] else a
+    assert rows[other]["reconcile_status"] == "unreconciled"
+
+
+def test_package_linked_to_another_trade_is_not_reattributed(script, real_schema_db):
+    db = real_schema_db()
+    insert_order_package(
+        db, order_package_id="pkg-L", symbol="ETHUSDT", direction="short",
+        entry=3000.0, status="closed", strategy_name="vwap")
+    insert_trade(
+        db, timestamp="2026-06-19T10:00:00Z", created_at="2026-06-19T10:00:00Z",
+        symbol="ETHUSDT", direction="short", entry_price=3000.0,
+        position_size=1, status="closed", strategy_name="vwap",
+        order_package_id="pkg-L", account_id="bybit_2", is_backtest=0)
+    o = insert_trade(
+        db, timestamp="2026-06-21T10:00:00Z", created_at="2026-06-21T10:00:00Z",
+        symbol="ETHUSDT", direction="short", entry_price=3001.0,
+        position_size=1, status="orphaned", setup_type="adopted_orphan",
+        account_id="bybit_1", is_backtest=0)
+    script.run(str(db), apply=True, gap_hours=6.0, entry_tol=0.02)
+    assert _rows(db)[o]["order_package_id"] in (None, "")

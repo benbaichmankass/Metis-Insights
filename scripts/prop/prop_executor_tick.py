@@ -93,7 +93,8 @@ EXIT_DEFERRED = 7
 #: 5931584062 on #14947: "if a live ticket is waiting, the tick wins").
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
-                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump",
+                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
+                         "edit_dialog_dry", "edit_dialog_probe",
                          "round_trip_dry", "round_trip_live"})
 
 # Headless viewport. Playwright's default (1280x720) clipped the sidebar
@@ -148,6 +149,18 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "symbol_switch_dry"
     if getattr(args, "link_state_dump", False):
         return "link_state_dump"
+    # DIALOG-MEASURE: submits nothing. The dry form hovers and locates only;
+    # the probe clicks ONE pencil (our symbol's row) and the dialog's Cancel.
+    if getattr(args, "edit_dialog_dry", ""):
+        return "edit_dialog_dry"
+    if getattr(args, "edit_dialog_probe", ""):
+        return "edit_dialog_probe"
+    if getattr(args, "widget_menu_probe", False):
+        return "widget_menu_probe"
+    if getattr(args, "add_watchlist_widget", False):
+        return "add_watchlist_widget"
+    if getattr(args, "watchlist_submenu_probe", False):
+        return "watchlist_submenu_probe"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -344,6 +357,20 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--link-state-dump", action="store_true",
                    help="READ-ONLY: watchlist rows (element hit at each Symbol cell's centre), symbol_input(s), "
                         "and the sidebar ticket's buttons; clicks nothing")
+    g.add_argument("--edit-dialog-dry", default="", metavar="VENUE_SYMBOL",
+                   help="locate the symbol's Positions row and its edit pencil (by icon name); click nothing")
+    g.add_argument("--edit-dialog-probe", default="", metavar="VENUE_SYMBOL",
+                   help="MEASURE the position edit dialog: click that pencil, read the dialog, press its Cancel; "
+                        "submits nothing")
+    g.add_argument("--widget-menu-probe", action="store_true",
+                   help="MEASURE the add-widget ('+') menu: one click on the top-most widget_tab_add_button, "
+                        "dump the menu (masked), Escape; clicks no menu item, no order/price/delete control")
+    g.add_argument("--add-watchlist-widget", action="store_true",
+                   help="add the Watchlist widget to 'My Trading Account': the '+' then the measured "
+                        "'Watchlist' menu entry only; refused unless one-click reads OFF; verified click-free")
+    g.add_argument("--watchlist-submenu-probe", action="store_true",
+                   help="MEASURE the Watchlist submenu: '+', 'Watchlist' (both measured), then HOVER each of "
+                        "Private/Public and dump; clicks no submenu entry; Escape + layout re-read")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -510,6 +537,29 @@ def main(argv: Optional[list] = None) -> int:
                 got = adapter.link_state_dump(page)
                 emit({"link_state_dump": got}, *secrets)
                 return EXIT_OK if "error" not in got else EXIT_UNPARSED
+
+            if mode in ("edit_dialog_dry", "edit_dialog_probe"):
+                sym = args.edit_dialog_dry or args.edit_dialog_probe
+                got = adapter.probe_edit_dialog(page, sym, click=(mode == "edit_dialog_probe"))
+                emit({"edit_dialog": got}, *secrets)
+                return EXIT_OK if (got.get("locate") or {}).get("ok") else EXIT_UNPARSED
+            if mode == "widget_menu_probe":
+                got = adapter.widget_menu_probe(page)
+                emit({"widget_menu_probe": got}, *secrets)
+                ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "watchlist_submenu_probe":
+                got = adapter.watchlist_submenu_probe(page)
+                emit({"watchlist_submenu_probe": got}, *secrets)
+                ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "add_watchlist_widget":
+                got = adapter.add_watchlist_widget(page)
+                emit({"add_watchlist_widget": got}, *secrets)
+                ok = got.get("added") is True or got.get("already_present") is True
+                return EXIT_OK if ok and "error" not in got else EXIT_UNPARSED
 
             if mode == "symbol_switch_dry":
                 got = adapter.symbol_switch_dry(page, args.symbol_switch_dry,

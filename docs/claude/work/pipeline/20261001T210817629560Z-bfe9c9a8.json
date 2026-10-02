@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "both fixed with tests and merged, or killed with a reason; check before tradeify_1 T5 (executor dry cycle)",
+    "kind": "event"
+  },
+  "id": "PI-20260930-BHYHMK2H-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "src/prop/prop_rule_guards.py::load_limits; src/prop/breakout_executor.py::emit_prop_ticket (PR #14910)",
+    "rerun": "(1) Point tradeify_1's backtest_ruleset at an unreadable file and call breakout_executor._leverage_refusal: today it returns None (no rule) instead of refusing. (2) Emit a tradeify_1 XRPUSDT ticket over the 2:1 cap and read the order_packages row: check whether it is stamped emitted although the ticket was refused."
+  },
+  "routed_to": "claude/tradeify-rule-guard-nits (TRADEIFY-WIRE lane, held for manager review)",
+  "state": "done",
+  "terminal_reason": "Fixed by #15035 (merged 2026-10-01 05:18Z as 8368eb4a): refused prop tickets stamp the package rejected/prop_ticket_skipped; _leverage_refusal refuses 'could not look' on a missing/unreadable declared ruleset; tests in test_prop_shadow_package_status.py and test_prop_rule_guards.py. MERGED and DEPLOYED (VM executor code_sha e39ea9e9f, a descendant of 8368eb4a, issue #15296 2026-10-01 20:47Z); not yet OBSERVED on a live tradeify_1 ticket. Closed by TRADEIFY-GOLIVE.",
+  "what": "TRADEIFY-WIRE T2 optional nits from the manager's 23:37Z review of #14910. (1) load_limits returns {} on an unreadable ruleset, which reads as 'no rule declared' (fail-soft); for an account that declares a backtest_ruleset it should refuse instead. (2) A leverage-refused emit returns trade_id like the existing CAP_REFUSED path, so the caller may still stamp the order package emitted; the package should record the refusal. Neither changes a cap or sizing."
+}

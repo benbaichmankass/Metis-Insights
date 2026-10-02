@@ -30,10 +30,16 @@ class BybitConnector:
     If testnet param is omitted, the env var is read.
     """
 
-    def __init__(self, api_key=None, api_secret=None, testnet=None):
+    def __init__(self, api_key=None, api_secret=None, testnet=None,
+                 market_type="linear"):
         if testnet is None:
             testnet = _read_testnet_flag()
         self.testnet = testnet
+        # The account's config/accounts.yaml ``market_type`` — decides the V5
+        # ``category`` for position reads (see get_positions). Default
+        # ``linear``: every Bybit account in config/accounts.yaml is linear
+        # (bybit_1, bybit_2, bybit_portfolio; 2026-10-01).
+        self.market_type = market_type
 
         self.exchange = ccxt.bybit({
             "apiKey": api_key,
@@ -86,20 +92,26 @@ class BybitConnector:
     def get_positions(self):
         """Return only positions with non-zero size.
 
-        On Bybit's Unified Trading Account (UTA), linear perpetuals require
-        params={"category": "spot"} so ccxt routes to the v5 /position/list
-        endpoint for the correct contract type.  Without this explicit param,
-        ccxt may fall back to the spot endpoint (even with defaultType=linear
-        set at construction time) and return an empty list for open perpetual
-        positions.  The contracts > 0 filter matches the Binance connector's
-        schema exactly.
+        The V5 ``category`` comes from this connector's ``market_type``, via
+        the same resolver the order path uses (``execute._bybit_category``).
+        It was hardcoded ``"spot"`` — for a linear-perp account that is the
+        wrong book, so the read silently returned ``[]``
+        (AUD-20260927-CA-A15-bybit-positions-spot-category, ORDER-AUDIT-2
+        item 6). Spot has no positions on V5 (a spot holding is a wallet
+        balance), so a spot connector returns ``[]`` without a call.
+
+        A failed read RAISES. It used to return ``[]``, which made "could not
+        read" and "no positions" the same answer; the only consumer
+        (``risk_counters.inject_runtime_counters``) already catches, reports,
+        and leaves the counter absent. The contracts > 0 filter matches the
+        Binance connector's schema exactly.
         """
-        try:
-            positions = self.exchange.fetch_positions(params={"category": "spot"})
-            return [p for p in positions if float(p.get("contracts", 0) or 0) > 0]
-        except Exception as e:
-            logger.warning("Bybit: error fetching positions — %s", e)
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category({"market_type": self.market_type})
+        if category == "spot":
             return []
+        positions = self.exchange.fetch_positions(params={"category": category})
+        return [p for p in positions if float(p.get("contracts", 0) or 0) > 0]
 
     def place_market_order(self, symbol, side, amount, params=None):
         try:
