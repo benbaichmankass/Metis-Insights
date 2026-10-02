@@ -1102,7 +1102,8 @@ jobs:
           # cell, the info button and the panel's close control),
           # executor-dry-run,watched-click,round-trip-dry,
           # round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,
-          # executor-clear-halt,
+          # executor-clear-halt (AUTO-REVERT latch only), executor-clear-rollout
+          # (modify-rollout latch only; the one way it is cleared),
           # dump-tables (read-only table dump of the positions / orders read path)
           # symbol-switch-dry (PROP-ETH-DOM #14885: click-free quote read, select one symbol's watchlist cell, verify, restore; no order form; needs symbols: with ONE symbol)
           # link-state-dump (PROP-ETH-DOM 2026-10-01: READ-ONLY watchlist rows / symbol_input / sidebar ticket dump; clicks nothing)
@@ -1122,8 +1123,8 @@ jobs:
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|edit-dialog-dry|edit-dialog-probe|edit-surface-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|instrument-page-dump|add-watchlist-symbol-dry|add-watchlist-symbol|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|edit-dialog-dry|edit-dialog-probe|edit-surface-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|instrument-page-dump|add-watchlist-symbol-dry|add-watchlist-symbol|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)){0,10}$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,instrument-info-dry,instrument-info-probe,symbol-switch-dry,link-state-dump,edit-dialog-dry,edit-dialog-probe,edit-surface-probe,widget-menu-probe,add-watchlist-widget,watchlist-submenu-probe,instrument-page-dump,add-watchlist-symbol-dry,add-watchlist-symbol,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,feed-enable-timer,feed-disable-timer,close-position,close-position-live (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|edit-dialog-dry|edit-dialog-probe|edit-surface-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|instrument-page-dump|add-watchlist-symbol-dry|add-watchlist-symbol|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|executor-clear-rollout|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|edit-dialog-dry|edit-dialog-probe|edit-surface-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|instrument-page-dump|add-watchlist-symbol-dry|add-watchlist-symbol|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|executor-clear-rollout|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)){0,10}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,instrument-info-dry,instrument-info-probe,symbol-switch-dry,link-state-dump,edit-dialog-dry,edit-dialog-probe,edit-surface-probe,widget-menu-probe,add-watchlist-widget,watchlist-submenu-probe,instrument-page-dump,add-watchlist-symbol-dry,add-watchlist-symbol,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,executor-clear-halt,executor-clear-rollout,dump-tables,feed-enable-timer,feed-disable-timer,close-position,close-position-live (got '${ACTION_APPLY}')."
               exit 1
             fi
             case ",${ACTION_APPLY:-}," in *",symbol-switch-dry,"*|*",edit-dialog-dry,"*|*",edit-dialog-probe,"*|*",edit-surface-probe,"*|*",instrument-probe,"*|*",add-watchlist-symbol-dry,"*|*",add-watchlist-symbol,"*|*",instrument-page-dump,"*|*",instrument-info-dry,"*|*",instrument-info-probe,"*)
@@ -1840,12 +1841,13 @@ jobs:
           fi
           if [ "${ACTION}" = "breakout-login-check" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_SYMBOLS=$(printf '%q' "${ACTION_SYMBOLS:-}") ${REMOTE_CMD}"
-            case ",${ACTION_APPLY:-}," in *",executor-clear-halt,"*)
+            case ",${ACTION_APPLY:-}," in *",executor-clear-halt,"*|*",executor-clear-rollout,"*)
               # Clearing the executor's AUTO-REVERT latch is a person's
               # decision (manager / operator): the reason text IS the record,
               # so it is required and forwarded with who asked and where.
               if [ -z "${REASON// }" ]; then
                 echo "::error::executor-clear-halt requires a 'reason:' line (who clears the latch and why)."
+                echo "::error::(executor-clear-rollout has the same requirement.)"
                 exit 1
               fi
               REMOTE_CMD="ACTION_REASON=$(printf '%q' "${REASON}") ACTION_ACTOR=$(printf '%q' "${CLEAR_HALT_ACTOR:-}") ACTION_ISSUE=$(printf '%q' "${CLEAR_HALT_ISSUE:-}") ${REMOTE_CMD}"
