@@ -75,6 +75,12 @@
 #                        entry (#15350) — two clicks, nothing else; refused
 #                        unless one-click reads OFF; a no-op when a watchlist
 #                        is already present; verified click-free.
+#     instrument-page-dump — READ-ONLY (TRADEIFY-GOLIVE (b), tradeify-only;
+#                          needs symbols: with ONE symbol): types the base
+#                          asset key by key into the watchlist search (never
+#                          Enter), dumps every visible text leaf on the page
+#                          (masked, <=400, tbody included), resets + blurs.
+#                          Clicks nothing.
 #     watchlist-submenu-probe — MEASUREMENT (TRADEIFY-GOLIVE, #15373 found the
 #                        "Watchlist" entry opens a Private/Public submenu): "+",
 #                        "Watchlist", then HOVER each submenu entry and dump;
@@ -190,7 +196,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe instrument-page-dump executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt \
          feed-enable-timer feed-disable-timer; do
@@ -253,7 +259,8 @@ if { [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executo
     log "${EXEC_MODE}: refused for ${ACCOUNT} — the executor timer is breakout_1's; a per-account executor timer is not built"
     exit 1
 fi
-if { [ "${EXEC_MODE}" = "add-watchlist-widget" ] || [ "${EXEC_MODE}" = "watchlist-submenu-probe" ]; } \
+if { [ "${EXEC_MODE}" = "add-watchlist-widget" ] || [ "${EXEC_MODE}" = "watchlist-submenu-probe" ] \
+     || [ "${EXEC_MODE}" = "instrument-page-dump" ]; } \
         && [ "${ACCOUNT}" = "breakout_1" ]; then
     # A layout change on breakout_1's LIVE real-money terminal is never made
     # by these modes (TRADEIFY-GOLIVE, manager review of #15354).
@@ -473,6 +480,9 @@ if [ -n "${EXEC_MODE}" ]; then
         widget-menu-probe)   EARGS+=(--widget-menu-probe) ;;
         add-watchlist-widget) EARGS+=(--add-watchlist-widget) ;;
         watchlist-submenu-probe) EARGS+=(--watchlist-submenu-probe) ;;
+        instrument-page-dump)
+            case "${ACTION_SYMBOLS// /}" in ""|*,*) log "instrument-page-dump: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--instrument-page-dump "${ACTION_SYMBOLS// /}") ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")

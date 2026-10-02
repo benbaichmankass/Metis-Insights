@@ -1810,6 +1810,65 @@ SUGGESTION_ROWS_JS = r"""
 }
 """
 
+# Read-only FULL-PAGE leaf-text dump (TRADEIFY-GOLIVE (b), manager 12:58Z
+# 2026-10-02). Every key-by-key form of ETH / SOL / XRP left the suggestion
+# table under "Asset Class" with an EMPTY tbody (#15491/#15493/#15494). This
+# reads every visible text LEAF on the page, INCLUDING ones inside a <tbody>,
+# a [role=row] or a virtualized grid, to show where (if anywhere) results
+# render. Per leaf: tag, its box (rounded px), its nearest table/grid-like
+# ancestor (tag, role, masked data-test-id, whether it sits in a tbody) and
+# its masked text: emails masked and EVERY digit replaced by '#' (manager
+# review of #15550: balances, P&L, prices and sizes never reach the public
+# run log), 80 chars. A node whose own
+# or parent class/data-test-id looks personal (user/profile/account/login/
+# email) is skipped. At most 400 leaves in document order, plus up to 50
+# ``matches``: leaves whose text contains the typed query, collected whatever
+# the cap. It clicks nothing and reads no input value.
+PAGE_LEAF_DUMP_JS = r"""
+(query) => {
+  const maskRuns = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80) : null;
+  // EVERY digit masked in leaf text (manager review of #15550): a page-wide
+  // dump would otherwise print balances, P&L, prices and sizes into public
+  // run logs. Matching uses the RAW text, so the query still matches.
+  const maskAll = v => { const m = maskRuns(v); return (m === null) ? null : m.replace(/\d/g, '#'); };
+  const personal = /user|profile|account|login|email/i;
+  const looksPersonal = el => {
+    for (const e of [el, el.parentElement]) {
+      if (!e) continue;
+      const cls = typeof e.className === 'string' ? e.className : '';
+      if (personal.test(cls) || personal.test(e.getAttribute('data-test-id') || '')) return true;
+    }
+    return false;
+  };
+  const gridSel = 'table, [role=grid], [role=treegrid], [role=table], [role=listbox], [role=rowgroup], [role=row], [role=list]';
+  const q = String(query || '').trim().toUpperCase();
+  const leaves = [], matches = [];
+  let seen = 0;
+  for (const el of document.body.querySelectorAll('*')) {
+    if (el.children.length > 0) continue;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'script' || tag === 'style' || tag === 'input' || tag === 'textarea') continue;
+    const t = (el.innerText || el.textContent || '').trim();
+    if (!t) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    if (looksPersonal(el)) continue;
+    seen++;
+    const g = el.closest(gridSel);
+    const row = {tag, box: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+                 grid: g ? {tag: g.tagName.toLowerCase(), role: maskRuns(g.getAttribute('role')),
+                            tid: maskAll(g.getAttribute('data-test-id') || ''), in_tbody: !!el.closest('tbody')} : null,
+                 text: maskAll(t)};
+    if (leaves.length < 400) leaves.push(row);
+    if (q && t.toUpperCase().includes(q) && matches.length < 50) matches.push(row);
+  }
+  return {found: leaves.length > 0, query: q, n_seen: seen, n: leaves.length, capped: seen > leaves.length,
+          n_matches: matches.length, matches, leaves};
+}
+"""
+
 CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 () => {
   document.querySelectorAll('[data-metis-search-hit]').forEach(
@@ -6328,6 +6387,50 @@ class DXtradeAdapter(PropPlatformAdapter):
                 except Exception as exc:
                     row["error"] = type(exc).__name__
                 result["variants"].append(row)
+        except Exception as exc:
+            result["error"] = type(exc).__name__
+        finally:
+            if result["searched"]:
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                except Exception:
+                    result["reset"] = False
+                try:
+                    result["blurred"] = bool(hit.first.evaluate(
+                        "el => { el.blur(); return document.activeElement !== el; }"))
+                except Exception:
+                    result["blurred"] = False
+            try:
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
+            except Exception:
+                pass
+        return result
+
+    def probe_page_leaf_dump(self, page: Any, venue_symbol: str, *, query: Optional[str] = None,
+                             settle_ms: int = 3_000, key_delay_ms: int = 80) -> Dict[str, Any]:
+        """READ-ONLY (TRADEIFY-GOLIVE (b)): type ``query`` (default: the base
+        asset, ``ETH`` for ``ETHUSD``) KEY BY KEY into the verified watchlist
+        search (characters only, never Enter), wait ``settle_ms``, take
+        PAGE_LEAF_DUMP_JS of the whole page while the text is in, then clear,
+        blur and untag the field like ``probe_search_variants``. Clicks
+        nothing."""
+        loc = self._find_instrument_search(page)
+        if not loc.get("found"):
+            return {"searched": False, "reset": None, **loc}
+        hit = page.locator("[data-metis-search-hit='1']")
+        q = (query or self.search_query_variants(venue_symbol)[0]).strip()
+        result: Dict[str, Any] = {"searched": False, "via": loc.get("via"), "reset": None, "query": q}
+        try:
+            if hit.count() != 1:
+                result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
+                return result
+            result["searched"] = True
+            hit.first.fill("", timeout=5_000)
+            hit.first.press_sequentially(q, delay=key_delay_ms, timeout=10_000)
+            page.wait_for_timeout(settle_ms)
+            result["readback_matches"] = (hit.first.input_value(timeout=5_000).strip().upper() == q.upper())
+            result["page"] = page.evaluate(PAGE_LEAF_DUMP_JS, q) or {"found": False}
         except Exception as exc:
             result["error"] = type(exc).__name__
         finally:

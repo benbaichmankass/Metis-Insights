@@ -94,6 +94,7 @@ EXIT_DEFERRED = 7
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
                          "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
+                         "instrument_page_dump",
                          "edit_dialog_dry", "edit_dialog_probe",
                          "round_trip_dry", "round_trip_live"})
 
@@ -161,6 +162,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "add_watchlist_widget"
     if getattr(args, "watchlist_submenu_probe", False):
         return "watchlist_submenu_probe"
+    if getattr(args, "instrument_page_dump", ""):
+        return "instrument_page_dump"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -371,6 +374,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--watchlist-submenu-probe", action="store_true",
                    help="MEASURE the Watchlist submenu: '+', 'Watchlist' (both measured), then HOVER each of "
                         "Private/Public and dump; clicks no submenu entry; Escape + layout re-read")
+    g.add_argument("--instrument-page-dump", default="", metavar="VENUE_SYMBOL",
+                   help="READ-ONLY: type the base asset key by key into the watchlist search (never Enter), "
+                        "dump every visible text leaf on the page (masked, <=400), reset + blur; clicks nothing")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -560,6 +566,11 @@ def main(argv: Optional[list] = None) -> int:
                 emit({"widget_menu_probe": got}, *secrets)
                 ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
                 return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "instrument_page_dump":
+                sym = args.instrument_page_dump.strip()
+                emit({"page_dump": {"symbol": sym, **adapter.probe_page_leaf_dump(page, sym)}}, *secrets)
+                return EXIT_OK
 
             if mode == "watchlist_submenu_probe":
                 got = adapter.watchlist_submenu_probe(page)
