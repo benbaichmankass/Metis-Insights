@@ -1626,13 +1626,22 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
     if (cells.length !== headers.length) continue;
     if (symLike.test((cells[symbolIdx] || '').trim())) { anchorRow = r; break; }
   }
-  if (!anchorRow) {
-    return {found: false, why: 'no measured watchlist row aligned with the header'};
-  }
+  // An EMPTY watchlist has no row to align (tradeify_1's restored
+  // "Favourites" list, #15426/#15431: readable, 0 symbols). Then the header
+  // table itself is the anchor; every widget-level check below still applies
+  // (one Symbol-headed table, no positions/orders table, no BUY+SELL overlap,
+  // the input must carry BOTH measured attributes), and the widget walk gets
+  // EMPTY_EXTRA_UP more levels because it starts lower than a row's panel.
+  const EMPTY_EXTRA_UP = 4;
+  const headerAnchor = !anchorRow;
 
   let watchlistPanel = null;
-  for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
-    if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+  if (headerAnchor) {
+    watchlistPanel = headerTable.parentElement;
+  } else {
+    for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+    }
   }
   if (!watchlistPanel) {
     return {found: false, why: 'no common ancestor of the watchlist header and its row'};
@@ -1678,12 +1687,13 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   const clsTokens = e => (typeof e.className === 'string' ? e.className : '').split(/\s+/);
   let widget = null;
   let up = 0;
-  for (let e = watchlistPanel.parentElement; e && e !== document.body && up < WIDGET_MAX_UP;
+  const maxUp = WIDGET_MAX_UP + (headerAnchor ? EMPTY_EXTRA_UP : 0);
+  for (let e = watchlistPanel.parentElement; e && e !== document.body && up < maxUp;
        e = e.parentElement, up++) {
     if (clsTokens(e).some(c => /^widget(New)?__container/.test(c))) { widget = e; break; }
   }
   if (!widget) {
-    return {found: false, why: `no widget__container ancestor within ${WIDGET_MAX_UP} levels of the watchlist panel`};
+    return {found: false, why: `no widget__container ancestor within ${maxUp} levels of the watchlist panel`};
   }
   const tablesInWidget = [...widget.querySelectorAll('table')];
   const symbolTablesInWidget = tablesInWidget.filter(t =>
@@ -1717,7 +1727,7 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   }
   if (hit.length === 1) {
     hit[0].setAttribute('data-metis-search-hit', '1');
-    return {found: true, via: `placeholder+tid`};
+    return {found: true, via: headerAnchor ? 'placeholder+tid (empty watchlist: header anchor)' : 'placeholder+tid'};
   }
   return {found: false, n_candidate_inputs: inputs.length,
           why: `no visible input in the watchlist widget has placeholder '${wantPlaceholder}' AND a `
