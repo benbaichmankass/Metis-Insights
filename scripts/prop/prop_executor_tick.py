@@ -93,7 +93,7 @@ EXIT_DEFERRED = 7
 #: 5931584062 on #14947: "if a live ticket is waiting, the tick wins").
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
-                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget",
+                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
                          "edit_dialog_dry", "edit_dialog_probe",
                          "round_trip_dry", "round_trip_live"})
 
@@ -159,6 +159,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "widget_menu_probe"
     if getattr(args, "add_watchlist_widget", False):
         return "add_watchlist_widget"
+    if getattr(args, "watchlist_submenu_probe", False):
+        return "watchlist_submenu_probe"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -366,6 +368,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--add-watchlist-widget", action="store_true",
                    help="add the Watchlist widget to 'My Trading Account': the '+' then the measured "
                         "'Watchlist' menu entry only; refused unless one-click reads OFF; verified click-free")
+    g.add_argument("--watchlist-submenu-probe", action="store_true",
+                   help="MEASURE the Watchlist submenu: '+', 'Watchlist' (both measured), then HOVER each of "
+                        "Private/Public and dump; clicks no submenu entry; Escape + layout re-read")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -541,6 +546,12 @@ def main(argv: Optional[list] = None) -> int:
             if mode == "widget_menu_probe":
                 got = adapter.widget_menu_probe(page)
                 emit({"widget_menu_probe": got}, *secrets)
+                ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "watchlist_submenu_probe":
+                got = adapter.watchlist_submenu_probe(page)
+                emit({"watchlist_submenu_probe": got}, *secrets)
                 ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
                 return EXIT_OK if ok else EXIT_UNPARSED
 

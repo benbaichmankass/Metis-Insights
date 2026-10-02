@@ -3723,6 +3723,24 @@ WIDGET_MENU_PICK_JS = r"""
 WIDGET_MENU_MEASURED: Tuple[str, ...] = ("Chart", "Positions", "Watchlist", "Orders", "Order History",
                                          "Trade History", "Messages", "Market Depth", "Alerts")
 
+#: Click-free: how many visible text leaves read exactly one of ``labels``
+#: (labels that only ever appear inside the add-widget menu / its Watchlist
+#: submenu), so "is a menu still open?" needs no snapshot.
+MENU_LABELS_VISIBLE_JS = r"""
+(labels) => {
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const own = el => (el.innerText || '').trim();
+  const want = new Set(labels);
+  const hits = [...document.querySelectorAll('body *')].filter(el => vis(el) && want.has(own(el))
+    && ![...el.children].some(c => own(c) === own(el)));
+  return {n: hits.length, labels: [...new Set(hits.map(own))]};
+}
+"""
+
+#: Labels MEASURED only inside the add-widget menu (#15350) and the Watchlist
+#: submenu (#15373) -- never a widget tab or panel title on the terminal.
+MENU_ONLY_LABELS: Tuple[str, ...] = ("Cash Movements", "Market Depth", "Time and Sales", "Private", "Public")
+
 INFO_PROBE_CLEANUP_JS = r"""
 () => {
   for (const a of ['data-metis-row-cell', 'data-metis-info-btn', 'data-metis-sym-input', 'data-metis-wl-row',
@@ -5321,6 +5339,99 @@ class DXtradeAdapter(PropPlatformAdapter):
             try:
                 page.evaluate("() => { document.querySelectorAll('[data-metis-wadd]')"
                               ".forEach(e => e.removeAttribute('data-metis-wadd')); delete window.__metisWmPre; }")
+            except Exception:
+                pass
+        return out
+
+    #: MEASURED by add-watchlist-widget #15373 (code aaa7ff4ee): the menu's
+    #: "Watchlist" entry opens a SUBMENU, not a widget.
+    WATCHLIST_SUBMENU: Tuple[str, ...] = ("Private", "Public")
+
+    def watchlist_submenu_probe(self, page: Any, *, expect_workspace: str = "My Trading Account",
+                                settle_ms: int = 800) -> Dict[str, Any]:
+        """MEASURE the Watchlist submenu (TRADEIFY-GOLIVE option B, manager
+        step 3 "measure first"). Two clicks, both already measured: the
+        top-most "+" and the menu leaf "Watchlist" (#15350/#15373). Then it
+        HOVERS -- never clicks -- each submenu entry in ``WATCHLIST_SUBMENU``
+        in turn and dumps what appeared (WIDGET_MENU_NEW_JS, masked), then
+        Escapes (at most three times) and re-reads the layout: ``restored`` =
+        menus gone and workspace / widget-tab / widget-close / table counts
+        unchanged. Refused unless one-click reads OFF and the workspace is
+        ``expect_workspace``."""
+        out: Dict[str, Any] = {"clicks": [], "hovers": {}, "refused": None}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if oc.get("state") != "off":
+            out["refused"] = f"one-click not confirmed OFF ({oc.get('state')})"
+            return out
+        try:
+            pre = page.evaluate(WIDGET_MENU_STATE_JS, True) or {}
+            out["before"] = pre
+            if pre.get("workspace") != expect_workspace:
+                out["refused"] = f"workspace is {pre.get('workspace')!r}, not {expect_workspace!r}"
+                return out
+            plus = page.locator("[data-metis-wadd='1']")
+            if not pre.get("add_buttons") or plus.count() != 1:
+                out["refused"] = "no single visible widget_tab_add_button"
+                return out
+            plus.first.click(timeout=5_000)
+            out["clicks"].append("add_widget_plus")
+            page.wait_for_timeout(settle_ms)
+            pick = page.evaluate(WIDGET_MENU_PICK_JS, ["Watchlist", list(WIDGET_MENU_MEASURED)]) or {}
+            out["pick"] = pick
+            item = page.locator("[data-metis-wpick='1']")
+            if not pick.get("tagged") or item.count() != 1:
+                out["refused"] = "menu did not match the measured menu (nothing picked)"
+                return out
+            item.first.click(timeout=5_000)
+            out["clicks"].append("menu:Watchlist")
+            page.wait_for_timeout(settle_ms)
+            # Tag each submenu entry against the pre-"+" snapshot (exact text,
+            # siblings required, never inside BUY/SELL / a table / a close).
+            for label in self.WATCHLIST_SUBMENU:
+                others = [x for x in self.WATCHLIST_SUBMENU if x != label] + ["Chart", "Positions"]
+                got = page.evaluate(WIDGET_MENU_PICK_JS, [label, others]) or {}
+                if got.get("tagged"):
+                    page.evaluate("(l) => { const e = document.querySelector('[data-metis-wpick]');"
+                                  " e.removeAttribute('data-metis-wpick'); e.setAttribute('data-metis-wsub', l); }",
+                                  label)
+                out["hovers"][label] = {"pick": got}
+            # A fresh snapshot with both menus open: each hover dump lists only
+            # what THAT hover made appear.
+            page.evaluate(WIDGET_MENU_STATE_JS, True)
+            for label in self.WATCHLIST_SUBMENU:
+                loc = page.locator(f"[data-metis-wsub='{label}']")
+                if loc.count() != 1:
+                    out["hovers"][label]["hovered"] = False
+                    continue
+                loc.first.hover(timeout=5_000)
+                page.wait_for_timeout(settle_ms)
+                out["hovers"][label].update(hovered=True, appeared=page.evaluate(WIDGET_MENU_NEW_JS) or {})
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+        finally:
+            if out["clicks"]:
+                try:
+                    for i in range(3):
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(400)
+                        out["escapes"] = i + 1
+                        still = page.evaluate(MENU_LABELS_VISIBLE_JS, list(MENU_ONLY_LABELS)) or {}
+                        if not still.get("n"):
+                            break
+                    post = page.evaluate(WIDGET_MENU_STATE_JS, False) or {}
+                    out["after"] = post
+                    out["menu_left_open"] = bool(still.get("n"))
+                    keys = ("workspace", "widget_tabs", "widget_close", "tables")
+                    out["restored"] = (not out["menu_left_open"]
+                                       and all(post.get(k) == out["before"].get(k) for k in keys))
+                except Exception as exc:
+                    out["restore_error"] = type(exc).__name__
+                    out["restored"] = False
+            try:
+                page.evaluate("() => { document.querySelectorAll('[data-metis-wadd],[data-metis-wpick],[data-metis-wsub]')"
+                              ".forEach(e => { e.removeAttribute('data-metis-wadd'); e.removeAttribute('data-metis-wpick');"
+                              " e.removeAttribute('data-metis-wsub'); }); delete window.__metisWmPre; }")
             except Exception:
                 pass
         return out
