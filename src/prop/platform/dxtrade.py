@@ -4822,6 +4822,92 @@ def position_panel_mismatch(panel: Mapping[str, Any], symbol: str,
         bad.append(f"{panel.get('discard')} 'Discard' buttons (need exactly 1)")
     return bad
 
+#: The first armed modifies on a real-money book are a ROLLOUT (manager
+#: 2026-10-02 21:30Z, flipping EDIT_DIALOG_MEASURED): one watched,
+#: tighten-only step at a time -- SL toward price, TP unchanged, the move at
+#: most this fraction of the current stop distance.
+ROLLOUT_MAX_TIGHTEN_FRACTION = 0.25
+
+
+def rollout_tighten_mismatch(side: Optional[str], current_sl: Optional[float], current_tp: Optional[float],
+                             new_sl: Optional[float], new_tp: Optional[float],
+                             quote: Optional[Mapping[str, float]]) -> List[str]:
+    """Pure: is this modify the single TIGHTEN-ONLY rollout step? Every reason
+    returned is a refusal. The stop must exist and move TOWARD the current
+    price (a long's SL up, a short's down) without crossing it; the move is at
+    most ROLLOUT_MAX_TIGHTEN_FRACTION of the stop's current distance from
+    price; the TP is not touched (``new_tp`` None or equal to the current)."""
+    bad: List[str] = []
+    if side not in ("long", "short"):
+        return [f"position side {side!r} unknown"]
+    if new_sl is None:
+        return ["rollout step must move the stop loss (no SL given)"]
+    if current_sl is None:
+        return ["current stop loss not readable on the row"]
+    if new_tp is not None and (current_tp is None or not math.isclose(float(new_tp), float(current_tp), rel_tol=1e-9)):
+        bad.append("rollout step must leave the take profit unchanged")
+    bid, ask = (quote or {}).get("bid"), (quote or {}).get("ask")
+    if bid is None or ask is None:
+        return bad + ["no live quote: cannot bound the tighten"]
+    price = float(bid) if side == "long" else float(ask)   # the side the stop would fill on
+    cur, new = float(current_sl), float(new_sl)
+    distance = abs(price - cur)
+    toward = (new > cur) if side == "long" else (new < cur)
+    crossed = (new >= price) if side == "long" else (new <= price)
+    if not toward:
+        bad.append(f"stop {_fmt_num(new)} does not move toward price from {_fmt_num(cur)} (tighten only)")
+    if crossed:
+        bad.append(f"stop {_fmt_num(new)} would cross the current price {_fmt_num(price)}")
+    if distance <= 0 or abs(new - cur) > ROLLOUT_MAX_TIGHTEN_FRACTION * distance + 1e-12:
+        bad.append(f"move {_fmt_num(abs(new - cur))} exceeds {int(ROLLOUT_MAX_TIGHTEN_FRACTION * 100)}% of the "
+                   f"stop distance {_fmt_num(distance)}")
+    return bad
+
+
+def rollout_verify_mismatch(before: "Position", after: Optional["Position"], new_sl: float) -> List[str]:
+    """Pure: the very next positions read after a rollout submit must show
+    the NEW stop, the UNCHANGED take profit and the UNCHANGED size."""
+    if after is None:
+        return ["position not found on the next read"]
+    bad: List[str] = []
+    if after.stop_loss is None or not math.isclose(float(after.stop_loss), float(new_sl), rel_tol=1e-6, abs_tol=1e-9):
+        bad.append(f"SL reads {after.stop_loss!r}, want {_fmt_num(new_sl)}")
+    if (after.take_profit is None) != (before.take_profit is None) or (
+            after.take_profit is not None and not math.isclose(float(after.take_profit), float(before.take_profit),
+                                                               rel_tol=1e-6, abs_tol=1e-9)):
+        bad.append(f"TP reads {after.take_profit!r}, want unchanged {before.take_profit!r}")
+    if after.quantity is None or not math.isclose(float(after.quantity), float(before.quantity), rel_tol=1e-6, abs_tol=1e-9):
+        bad.append(f"size reads {after.quantity!r}, want unchanged {before.quantity!r}")
+    return bad
+
+
+class ModifyRollout:
+    """The per-account latch of the modify rollout (a JSON file in the
+    executor's state dir). Its EXISTENCE blocks every further armed modify:
+    the single watched step has been used ("in_progress" written BEFORE the
+    click, so a crash cannot buy a second), "verified" or "verify_failed".
+    Only a reviewed removal of the file allows the next step."""
+
+    def __init__(self, path: Any) -> None:
+        from pathlib import Path
+        self.path = Path(path)
+
+    def blocked(self) -> Optional[str]:
+        if not self.path.exists():
+            return None
+        try:
+            state = json.loads(self.path.read_text()).get("state")
+        except (OSError, ValueError):
+            state = "unreadable"
+        return (f"rollout: the single watched modify step is used (state {state!r}); "
+                f"further modifies are halted until {self.path.name} is reviewed and cleared")
+
+    def record(self, state: str, **facts: Any) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"state": state, "at": time.time(), **facts}, default=str))
+        tmp.replace(self.path)
+
 def check_bracket_spec(spec: BracketSpec) -> List[str]:
     """Pure structural check of one bracket before any click: both legs, a
     positive size, and SL/TP on the correct sides of the entry. Anything
@@ -7569,6 +7655,11 @@ class DXtradeAdapter(PropPlatformAdapter):
     # ARMED modify_bracket locates the edit control and refuses before any
     # click. Flipping it is a held Tier-2 change (it arms a live click).
     EDIT_DIALOG_MEASURED = False
+    # When armed, the first modifies on a real-money book are a ROLLOUT
+    # (manager 2026-10-02 21:30Z): one watched, tighten-only step per reviewed
+    # clear of the per-account latch (ModifyRollout, cleared only by
+    # executor-clear-halt). Every armed modify is gated by it.
+    ROLLOUT_GUARD = True
 
     def _locate_edit_control(self, page: Any, symbol: str, side: Optional[str],
                              quantity: Optional[float]) -> Dict[str, Any]:
@@ -7769,7 +7860,7 @@ class DXtradeAdapter(PropPlatformAdapter):
 
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
-                       *, arm: bool = False) -> Dict[str, Any]:
+                       *, arm: bool = False, rollout: Optional["ModifyRollout"] = None) -> Dict[str, Any]:
         """Set a position's SL/TP through the MEASURED docked "Position
         Details" panel (#15657; manager's re-target decision 2026-10-02):
         the ONE Positions row for the symbol whose side AND size equal the
@@ -7799,12 +7890,36 @@ class DXtradeAdapter(PropPlatformAdapter):
                     "why": "refused: the SL/TP edit surface is unmeasured for armed use (EDIT_DIALOG_MEASURED is False)"}
         if position.quantity is None or position.side is None:
             return {"ok": False, "clicked": False, **seen, "why": "position side / size unknown: refusing"}
+        guarded = bool(self.ROLLOUT_GUARD)
+        if guarded:
+            # ROLLOUT: a single watched TIGHTEN-ONLY step, refused before any
+            # click unless the latch is clear and the move is bounded.
+            if rollout is None:
+                return {"ok": False, "clicked": False, **seen,
+                        "why": "refused: rollout guard needs the account's modify-rollout latch"}
+            blocked = rollout.blocked()
+            if blocked:
+                return {"ok": False, "clicked": False, **seen, "why": blocked}
+            try:
+                quote = self.read_quote(page, position.symbol)
+            except Exception:
+                quote = None
+            bad = rollout_tighten_mismatch(position.side, position.stop_loss, position.take_profit,
+                                           stop_loss, take_profit, quote)
+            if bad:
+                return {"ok": False, "clicked": False, **seen, "quote": quote,
+                        "why": "rollout refused: " + "; ".join(bad)}
+            want = {"stop_loss": float(stop_loss)}               # the TP is never typed
+            rollout.record("in_progress", symbol=position.symbol, side=position.side,
+                           from_sl=position.stop_loss, to_sl=float(stop_loss), quote=quote)
 
         def refuse(why: str, panel: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
             exit_ = self._discard_position_panel(page)
             tail = "; Discard pressed" if exit_["discard_pressed"] else "; no Discard found (Escape sent)"
             if not exit_["closed"]:
                 tail += "; PANEL STILL OPEN"
+            if guarded and rollout is not None:
+                rollout.record("refused", why=_mask_public_text(why) + tail)
             return {"ok": False, "clicked": True, **seen, "panel": panel, "exit": exit_,
                     "why": _mask_public_text(why) + tail}
 
@@ -7839,4 +7954,23 @@ class DXtradeAdapter(PropPlatformAdapter):
             return {"ok": False, "clicked": True, **seen, "panel": panel,
                     "why": f"'Modify Position' click raised {type(exc).__name__}; outcome unknown"}
         self._confirm_dialog(page)
-        return {"ok": True, "clicked": True, **seen, "panel": panel, "why": "Modify Position clicked"}
+        if not guarded:
+            return {"ok": True, "clicked": True, **seen, "panel": panel, "why": "Modify Position clicked"}
+        # ROLLOUT verify: the very next positions read must show the NEW stop,
+        # the UNCHANGED take profit and size -- else alert loudly and keep the
+        # latch (no further modify until it is reviewed and cleared).
+        page.wait_for_timeout(1_500)
+        try:
+            rows = [p for p in self.read_positions(page) if canonical_symbol(p.symbol) == canonical_symbol(position.symbol)]
+            why_read = None if len(rows) == 1 else f"{len(rows)} rows for {position.symbol} on the next read"
+        except Exception as exc:
+            rows, why_read = [], f"positions read failed ({type(exc).__name__})"
+        bad = [why_read] if why_read else rollout_verify_mismatch(position, rows[0], float(stop_loss))
+        if bad:
+            rollout.record("verify_failed", why="; ".join(bad))
+            return {"ok": False, "clicked": True, **seen, "panel": panel, "rollout": "verify_failed",
+                    "why": "ROLLOUT VERIFY FAILED after Modify Position: " + "; ".join(bad)
+                           + " -- further modifies halted"}
+        rollout.record("verified", sl=float(stop_loss))
+        return {"ok": True, "clicked": True, **seen, "panel": panel, "rollout": "verified",
+                "why": "Modify Position clicked; next read shows the new SL with TP and size unchanged"}
