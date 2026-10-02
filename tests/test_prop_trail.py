@@ -111,8 +111,12 @@ def test_unmodelled_sl_lever_skips_the_leg():
 
 
 class Adapter:
-    def __init__(self, positions: List[Position], apply: bool = True):
-        self.positions, self.apply, self.calls = positions, apply, []
+    """``guard=True`` behaves like the rollout guard on an armed step: it
+    writes the account's latch (here "verified"), which pauses the trail
+    until the latch is cleared. ``guard=False`` leaves the latch clear, as
+    if a reviewer cleared it after every step (the retry / restore paths)."""
+    def __init__(self, positions: List[Position], apply: bool = True, guard: bool = True):
+        self.positions, self.apply, self.guard, self.calls, self.rollouts = positions, apply, guard, [], []
 
     def read_positions(self, page):
         return [Position(**p.as_dict()) for p in self.positions]
@@ -122,12 +126,15 @@ class Adapter:
     def read_quote(self, page, venue_symbol):
         return self.quote
 
-    def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False):
+    def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
         self.calls.append((position.symbol, stop_loss, take_profit, arm))
+        self.rollouts.append(rollout)
         if arm and self.apply:
             for p in self.positions:
                 if p.symbol == position.symbol:
                     p.stop_loss = stop_loss
+        if arm and self.guard and rollout is not None:
+            rollout.record("verified", sl=stop_loss)
         return {"ok": True, "clicked": arm, "why": "x"}
 
 
@@ -163,15 +170,23 @@ def pos(sl=95.0):
     return Position(symbol="SOLUSD", side="long", quantity=1, entry_price=100, stop_loss=sl, take_profit=130)
 
 
-def test_live_amends_sl_only_confirms_and_reports(tmp_path):
-    a, api = Adapter([pos()]), Api()
+STEP_SL = 98.15   # resting 95, bid 109, target 103: one rollout step = 0.9 x 25% x 14 = 3.15
+
+
+def test_live_amends_one_bounded_sl_step_confirms_and_reports(tmp_path):
+    a, api = Adapter([pos()], guard=False), Api()
     res = run(a, api, "live", tmp_path)
-    assert a.calls == [("SOLUSD", pytest.approx(103.0), None, True)]   # TP untouched
-    assert api.posted and api.posted[0]["kind"] == "amend" and api.posted[0]["sl"] == pytest.approx(103.0)
+    assert a.calls == [("SOLUSD", pytest.approx(STEP_SL), None, True)]   # TP untouched, bounded step
+    assert api.posted and api.posted[0]["kind"] == "amend" and api.posted[0]["sl"] == pytest.approx(STEP_SL)
+    assert "rollout step toward 103" in api.posted[0]["reason"]
     assert not res.alerts
     a.calls.clear()
+    for _ in range(5):                            # latch cleared each time: steps walk to the target
+        run(a, api, "live", tmp_path)
+    assert a.positions[0].stop_loss == pytest.approx(103.0)
+    n = len(a.calls)
     run(a, api, "live", tmp_path)                 # resting SL now equals the replay
-    assert a.calls == []
+    assert len(a.calls) == n
 
 
 def test_read_only_walks_disarmed_and_writes_nothing(tmp_path):
@@ -181,7 +196,7 @@ def test_read_only_walks_disarmed_and_writes_nothing(tmp_path):
 
 
 def test_unconfirmed_amend_alerts_and_is_capped(tmp_path):
-    a, api = Adapter([pos()], apply=False), Api()
+    a, api = Adapter([pos()], apply=False, guard=False), Api()
     alerts = []
     for _ in range(4):
         alerts += run(a, api, "live", tmp_path).alerts
@@ -203,8 +218,8 @@ def test_off_does_nothing(tmp_path):
 
 class LooseningAdapter(Adapter):
     """Simulates an edit form whose SL field is not a price: the venue ends
-    up with a stop far below the one we had."""
-    def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False):
+    up with a stop far below the one we had (unguarded adapter path)."""
+    def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
         self.calls.append((position.symbol, stop_loss, take_profit, arm))
         if arm:
             self.positions[0].stop_loss = 50.0 if len(self.calls) == 1 else stop_loss
@@ -212,7 +227,7 @@ class LooseningAdapter(Adapter):
 
 
 def test_loosened_stop_is_restored_and_the_ticket_locks(tmp_path):
-    a, api = LooseningAdapter([pos()]), Api()
+    a, api = LooseningAdapter([pos()], guard=False), Api()
     res = run(a, api, "live", tmp_path)
     assert a.calls[1] == ("SOLUSD", 95.0, None, True)          # restore to the prior SL
     assert a.positions[0].stop_loss == 95.0
@@ -238,7 +253,7 @@ def test_stop_within_buffer_of_venue_bid_is_not_amended(tmp_path):
 
 def test_adapter_refusal_alerts_once_and_counts_nothing(tmp_path):
     class Refusing(Adapter):
-        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False):
+        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
             self.calls.append((position.symbol, stop_loss, take_profit, arm))
             return {"ok": False, "clicked": False, "why": "refused: the SL/TP edit dialog is unmeasured"}
     a, api = Refusing([pos()]), Api()
@@ -258,7 +273,7 @@ def test_an_exception_inside_the_step_is_contained(tmp_path):
 
 def test_unparsed_sl_after_amend_is_not_treated_as_loosened(tmp_path):
     class Blank(Adapter):
-        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False):
+        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
             self.calls.append((position.symbol, stop_loss, take_profit, arm))
             if arm:
                 self.positions[0].stop_loss = None
@@ -284,3 +299,66 @@ def test_forming_leg_does_not_manage_its_signal_bar():
                            resting_sl=95, candles=c, now=now_after(2), price_step=0.01)
     assert closed.bars == 2                                  # a closed-bar leg manages from the T0 bar
     assert closed.replay_sl == pytest.approx(130 - 7.0)
+
+
+# ── the rollout guard (manager 2026-10-02 23:30Z) ────────────────────────
+
+
+def test_every_step_carries_the_accounts_rollout_latch(tmp_path):
+    a = Adapter([pos()])
+    run(a, Api(), "live", tmp_path)
+    assert a.rollouts and a.rollouts[0] is not None
+    assert a.rollouts[0].path == tmp_path / "modify_rollout.json"     # the file _contain uses too
+
+
+def test_one_watched_step_then_paused_until_the_latch_is_cleared(tmp_path):
+    a, api = Adapter([pos()]), Api()
+    first = run(a, api, "live", tmp_path)
+    assert len(a.calls) == 1 and not first.alerts
+    alerts = []
+    for _ in range(3):
+        alerts += run(a, api, "live", tmp_path).alerts
+    assert len(a.calls) == 1                                            # paused: no further modify
+    assert sum("trail PAUSED" in x and "executor-clear-rollout" in x for x in alerts) == 1
+    (tmp_path / "modify_rollout.json").unlink()                         # the reviewed clear
+    run(a, api, "live", tmp_path)
+    assert len(a.calls) == 2 and a.calls[1][1] > a.calls[0][1]          # the next bounded step
+
+
+def test_read_only_walks_even_with_the_latch_set(tmp_path):
+    (tmp_path / "modify_rollout.json").write_text('{"state": "verified"}')
+    a = Adapter([pos()])
+    run(a, Api(), "read_only", tmp_path)
+    assert a.calls == [("SOLUSD", pytest.approx(103.0), None, False)]
+
+
+def test_a_guard_verify_failure_locks_the_ticket_without_a_restore(tmp_path):
+    class Failing(Adapter):
+        def modify_bracket(self, page, position, stop_loss, take_profit, *, arm=False, rollout=None):
+            self.calls.append((position.symbol, stop_loss, take_profit, arm))
+            rollout.record("verify_failed", why="next read shows SL 95")
+            return {"ok": False, "clicked": True, "rollout": "verify_failed",
+                    "why": "ROLLOUT VERIFY FAILED after Modify Position: x -- further modifies halted"}
+    a, api = Failing([pos()]), Api()
+    res = run(a, api, "live", tmp_path)
+    assert len(a.calls) == 1 and api.posted == []
+    assert any("ROLLOUT VERIFY FAILED" in x and "trail locked" in x for x in res.alerts)
+    (tmp_path / "modify_rollout.json").unlink()
+    run(a, api, "live", tmp_path)
+    assert len(a.calls) == 1                                            # locked for this ticket
+
+
+@pytest.mark.parametrize("side,resting,target,price", [("long", 95.0, 103.0, 109.0),
+                                                        ("short", 105.0, 97.0, 91.0)])
+def test_bounded_step_always_passes_the_guards_own_check(side, resting, target, price):
+    from src.prop.platform.dxtrade import rollout_tighten_mismatch
+    sl = pt.bounded_rollout_sl(side, resting, target, price, 0.01)
+    assert sl is not None and abs(sl - resting) <= 0.25 * abs(price - resting)
+    assert (sl > resting) if side == "long" else (sl < resting)
+    quote = {"bid": price, "ask": price + 0.02} if side == "long" else {"bid": price - 0.02, "ask": price}
+    assert rollout_tighten_mismatch(side, resting, 130.0, sl, None, quote) == []
+
+
+def test_bounded_step_keeps_a_near_target_and_refuses_a_sub_step_move():
+    assert pt.bounded_rollout_sl("long", 95.0, 96.0, 109.0, 0.01) == pytest.approx(96.0)
+    assert pt.bounded_rollout_sl("long", 95.0, 95.004, 109.0, 0.01) is None

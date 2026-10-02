@@ -677,10 +677,22 @@ def main(argv: Optional[list] = None) -> int:
                 # the entry halt. Its own reports / alerts are emitted after it.
                 n_rep, n_al = len(res.reports), len(res.alerts)
                 try:
+                    # PROP-TRAIL-VENV: import the trail's deps EXPLICITLY (the
+                    # candle feed builds its ccxt client lazily, per call) and
+                    # emit a POSITIVE line, so executor-dry-run proves the venv
+                    # rather than relying on an absent alert.
+                    import ccxt  # noqa: F401
+                    import pandas  # noqa: F401
+
                     from src.prop import prop_trail
+                    candles_fn = prop_trail.default_candles_fn()
+                    emit({"trail": {"deps": "importable (pandas, ccxt)", "mode": res.mode}})
                     prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
-                                              state_dir=state_dir, candles_fn=prop_trail.default_candles_fn(),
-                                              res=res)
+                                              state_dir=state_dir, candles_fn=candles_fn, res=res)
+                except ImportError as exc:
+                    res.alerts.append(f"trail: step failed ({type(exc).__name__}: {exc.name or exc}) -- "
+                                      "PROP-TRAIL-VENV: the executor venv cannot import the trail's deps; "
+                                      "entries unaffected")
                 except Exception as exc:  # noqa: BLE001
                     res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
                 for r in res.reports[n_rep:]:

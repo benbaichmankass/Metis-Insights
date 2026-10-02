@@ -24,6 +24,17 @@ never delays a ticket:
    adapter's ``modify_bracket`` (TP is not touched), then re-read and confirm.
    A stop is never loosened, never removed, and no close control is clicked.
 
+ROLLOUT (manager 2026-10-02 23:30Z, DIALOG-MEASURE #15693/#15705). Every
+armed step goes through ``modify_bracket(..., rollout=ModifyRollout(...))`` on
+the account's ONE modify-rollout latch (``<state dir>/modify_rollout.json``,
+the same file the executor's containment uses). The guard admits only a
+single SL-only tighten of at most ``ROLLOUT_MAX_TIGHTEN_FRACTION`` of the
+stop's distance from the venue price, so a replayed target further than that
+is STEPPED toward (never past it), and after any armed step -- verified or
+not -- the latch stays set and the trail PAUSES for every ticket until a
+person reviews it and runs ``executor-clear-rollout``. One watched step per
+clear is the first-week rollout; the trail never clears the latch itself.
+
 Levers this step cannot apply by an SL amend are never approximated:
 
 * a CLOSE-type lever (``stale_exit_bars``, ``giveback_*``) exits at a bar
@@ -46,6 +57,7 @@ from typing import Any, Callable, Dict, Mapping, Optional
 import pandas as pd
 
 from src.prop.platform.base import Position
+from src.prop.platform.dxtrade import ROLLOUT_MAX_TIGHTEN_FRACTION, ModifyRollout
 from src.prop.prop_executor import CycleResult, ExecutorConfig, _dir, _f, _parse_ts, _report
 from src.research.trail_levers import effective_trail_mult
 
@@ -230,6 +242,30 @@ MAX_ATTEMPTS_PER_TARGET = 2
 MAX_ARMED_ATTEMPTS_PER_TICKET = 24
 # The new stop must clear the venue quote by this many entry-ATRs.
 QUOTE_BUFFER_ATR = 0.1
+# The rollout guard bounds one step to ROLLOUT_MAX_TIGHTEN_FRACTION of the
+# stop's distance from the venue price; the trail aims inside it by this
+# factor so a tick of quote movement between its read and the guard's does
+# not turn a bounded step into a refusal.
+ROLLOUT_STEP_MARGIN = 0.9
+ROLLOUT_FILE = "modify_rollout.json"
+
+
+def bounded_rollout_sl(side: str, resting_sl: float, target_sl: float, price: float,
+                       step: Optional[float]) -> Optional[float]:
+    """Pure: the stop for ONE rollout step from ``resting_sl`` toward
+    ``target_sl``, moving at most ``ROLLOUT_STEP_MARGIN x
+    ROLLOUT_MAX_TIGHTEN_FRACTION`` of the distance to ``price`` (bid for a
+    long, ask for a short), rounded to the price step toward the LOOSE side.
+    None when that is less than one step of tightening."""
+    long_ = side == "long"
+    cap = ROLLOUT_STEP_MARGIN * ROLLOUT_MAX_TIGHTEN_FRACTION * abs(price - resting_sl)
+    sl = min(target_sl, resting_sl + cap) if long_ else max(target_sl, resting_sl - cap)
+    if step and step > 0:
+        sl = (math.floor(sl / step + 1e-9) * step) if long_ else (math.ceil(sl / step - 1e-9) * step)
+        sl = round(sl, 10)
+    min_move = step if step and step > 0 else 1e-9
+    tighter = (sl >= resting_sl + min_move) if long_ else (sl <= resting_sl - min_move)
+    return sl if tighter else None
 
 
 def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: str,
@@ -257,6 +293,7 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
         res.alerts.append(f"trail: read failed ({type(exc).__name__}); no trail this tick")
         return res
     st = _load_state(state_dir)
+    rollout = ModifyRollout(Path(state_dir) / ROLLOUT_FILE)
     jr = {(str(j.get("symbol") or "").upper(), _dir(j.get("direction"))): j for j in journal}
 
     def _one(p: Position) -> None:
@@ -308,49 +345,79 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
             res.log("trail_skip", ticket_id=tid, why="venue quote missing or within the buffer of the new stop",
                     bid=bid, ask=ask, buffer=buf, new_sl=plan.sl)
             return
+        target = plan.sl
+        if live:
+            # ROLLOUT: one watched step per reviewed clear (module docstring).
+            blocked = rollout.blocked()
+            if blocked:
+                res.log("trail_skip", ticket_id=tid, why="rollout latch set: " + blocked, new_sl=plan.sl)
+                if not tst.get("rollout_paused_alerted"):
+                    res.alerts.append(f"{tid}: trail PAUSED at SL {p.stop_loss} (target {plan.sl}): one watched "
+                                      "modify step per reviewed clear; review it, then executor-clear-rollout")
+                    tst["rollout_paused_alerted"] = True
+                return
+            tst.pop("rollout_paused_alerted", None)
+            px = bid if p.side == "long" else ask
+            target = bounded_rollout_sl(p.side, float(p.stop_loss), plan.sl, float(px), step)
+            if target is None:
+                res.log("trail_skip", ticket_id=tid, why="the bounded rollout step is under one price step",
+                        new_sl=plan.sl, bid=bid, ask=ask)
+                return
+            if target != plan.sl:
+                res.log("trail_bounded", ticket_id=tid, target=plan.sl, step_sl=target,
+                        fraction=ROLLOUT_STEP_MARGIN * ROLLOUT_MAX_TIGHTEN_FRACTION)
         if int(tst.get("armed_attempts") or 0) >= MAX_ARMED_ATTEMPTS_PER_TICKET:
             res.log("trail_skip", ticket_id=tid, why=f"{MAX_ARMED_ATTEMPTS_PER_TICKET} armed attempts used for this ticket")
             return
-        tries = tst.get("tries") if tst.get("target") == plan.sl else 0
+        tries = tst.get("tries") if tst.get("target") == target else 0
         if (tries or 0) >= MAX_ATTEMPTS_PER_TARGET:
-            res.log("trail_skip", ticket_id=tid, why=f"amend to {plan.sl} already tried {tries}x; alerted")
+            res.log("trail_skip", ticket_id=tid, why=f"amend to {target} already tried {tries}x; alerted")
             return
-        r = adapter.modify_bracket(page, p, plan.sl, None, arm=live)
-        res.log("trail_amend", ticket_id=tid, venue=venue, sl=plan.sl, result=r)
+        r = adapter.modify_bracket(page, p, target, None, arm=live, rollout=rollout)
+        res.log("trail_amend", ticket_id=tid, venue=venue, sl=target, result=r)
         if not live:
             return
         if isinstance(r, dict) and not r.get("clicked"):
             # Refused before any click (e.g. the edit dialog is unmeasured):
             # nothing changed on the venue. One alert per ticket, no count.
             if not tst.get("refused_alerted"):
-                res.alerts.append(f"{tid}: trail amend to {plan.sl} refused by the adapter ({r.get('why')})")
+                res.alerts.append(f"{tid}: trail amend to {target} refused by the adapter ({r.get('why')})")
                 tst["refused_alerted"] = True
             return
-        tst.update(target=plan.sl, tries=(tries or 0) + 1,
+        tst.update(target=target, tries=(tries or 0) + 1,
                    armed_attempts=int(tst.get("armed_attempts") or 0) + 1)
-        confirmed = _confirm(adapter, page, p, plan.sl, step)
+        if isinstance(r, dict) and r.get("rollout") == "verify_failed":
+            # The guard's own next-read check failed and its latch halts every
+            # further modify: a "restore" would be a second blind modify the
+            # rollout forbids. Lock this ticket and leave it to the reviewer.
+            tst["locked"] = True
+            res.alerts.append(f"{tid}: trail step to {target}: {r.get('why')}; trail locked for this ticket, "
+                              "containment and the reviewer decide")
+            return
+        confirmed = _confirm(adapter, page, p, target, step)
         if confirmed is None and _loosened(adapter, page, p):
             # The edit flow's armed path is unmeasured on the venue (only its
             # disarmed walk is tested): a stop that came back LOOSER than
             # before, or missing, is restored once and the trail locks for
             # this ticket until a person clears trail_state.json.
-            back = adapter.modify_bracket(page, p, p.stop_loss, None, arm=True)
+            back = adapter.modify_bracket(page, p, p.stop_loss, None, arm=True, rollout=rollout)
             tst["locked"] = True
-            res.alerts.append(f"{tid}: SL LOOSENED after the trail amend to {plan.sl} "
+            res.alerts.append(f"{tid}: SL LOOSENED after the trail amend to {target} "
                               f"(was {p.stop_loss}); restore attempted ({back.get('why') if isinstance(back, dict) else back}); "
                               "trail locked for this ticket")
             return
         if confirmed is None:
-            res.alerts.append(f"{tid}: trail amend to {plan.sl} not confirmed on re-read (result: {r.get('why') if isinstance(r, dict) else r})")
+            res.alerts.append(f"{tid}: trail amend to {target} not confirmed on re-read (result: {r.get('why') if isinstance(r, dict) else r})")
             return
         if confirmed.take_profit is None and p.take_profit is not None:
             res.alerts.append(f"{tid}: TP missing after the trail amend — the executor's containment will act")
-        tst.update(applied_sl=plan.sl, tries=0)
+        tst.update(applied_sl=target, tries=0)
         _report(res, post, {"kind": "amend", "account_id": cfg.account_id, "ticket_id": tid,
                             "symbol": bot_sym, "direction": p.side, "sl": confirmed.stop_loss,
                             "tp": confirmed.take_profit,
                             "reason": f"trail: {leg.get('timeframe')} chandelier replay "
-                                      f"(bars={plan.bars}, mfe_r={plan.detail.get('mfe_r')})",
+                                      f"(bars={plan.bars}, mfe_r={plan.detail.get('mfe_r')}"
+                                      + (f", rollout step toward {plan.sl}" if target != plan.sl else "") + ")",
                             "source": "prop_trail"})
     for p in positions:
         try:
@@ -410,4 +477,5 @@ def default_candles_fn(limit: int = 300) -> Callable[[str, str], Optional[pd.Dat
     return fn
 
 
-__all__ = ["TrailPlan", "plan_trail", "run_trail_step", "default_candles_fn", "MAX_ATTEMPTS_PER_TARGET"]
+__all__ = ["TrailPlan", "plan_trail", "run_trail_step", "default_candles_fn", "bounded_rollout_sl",
+           "MAX_ATTEMPTS_PER_TARGET"]
