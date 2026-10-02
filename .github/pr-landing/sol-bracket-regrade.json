@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Research queue unit RQ-20261002-050 (rule registered before the run), two evidence records, a readout and the static trade files under docs/research/prop-journal/, plus the pipeline record closing PI-20261001-S8DMYMUN-0001. No src, config, order-path or account-mode change; no roster or execution change is made or proposed as applied."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Research/evidence/pipeline only, but the diff adds research/queue/RQ-20261002-050.yaml, which check_pr_landing.py refuses to vouch for ('a new queue unit is a registration, not a stamp'). The unit has to live there because it is the pre-run rule registration the task required. Reviewer's one question: does this diff touch src, config, an order path or an account mode? It does not. Manager merges.",
+  "why": "RQ-20261002-050 bracket-faithful re-grade of the two prop legs: rule registered before the run, two evidence records, a readout, the static trade files, and the pipeline record closing PI-20261001-S8DMYMUN-0001. No src/config/order-path/account-mode change."
 }
