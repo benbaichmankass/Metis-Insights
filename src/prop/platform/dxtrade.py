@@ -2001,24 +2001,49 @@ INSTRUMENT_DETAILS_DUMP_JS = r"""
 }
 """
 
-# The ticket's submit control, which on the live sidebar can sit BELOW THE FOLD
-# once the SL / TP rows are switched on (operator 2026-09-28 ~19:55Z). Ops:
-#  "scroll_step": scroll the form's own scroll container (never the page or
-#                 the chart) down by ~80% of its height; returns whether it moved.
+# The ticket's submit control, which on the live sidebar is a FOOTER OUTSIDE
+# the fields' container (`submit_search` has reported `in_form: false` on
+# every live measurement) and can sit below the fold once the SL / TP rows
+# are switched on (operator 2026-09-28 ~19:55Z). Ops:
+#  "scroll_step": scroll the SUBMIT's own scroll container when it is already
+#                 tagged, else the form's (never the page or the chart), down
+#                 by ~80% of its height; returns whether it moved.
 #  "mark":        tag the current [data-metis-btn=submit] with a one-time token
 #                 and bring it to the centre of its scroll container.
+#  "reveal":      scroll every scrollable ancestor of the BUTTON so the button
+#                 lands on that ancestor's centre, then one scrollIntoView.
 #  "check":       is the element carrying the submit tag the SAME (token) one,
-#                 visible at its centre point, enabled; and its text.
-# Clicks nothing.
+#                 visible at its centre point, enabled; and its text. When it
+#                 is NOT visible, also WHY -- the viewport, the button's rect,
+#                 what is painted at its centre, and its clip chain.
+# Clicks nothing, fills nothing, dismisses nothing.
 SUBMIT_JS = r"""
 (args) => {
   const [op, token] = args;
   const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const mask = s => String(s || '').replace(/\d{5,}/g, d => '#'.repeat(d.length)).slice(0, 40);
+  const bx = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
+  const cls = el => (typeof el.className === 'string' ? el.className.split(/\s+/) : [])
+                      .filter(Boolean).slice(0, 6).map(c => mask(c.replace(/\d/g, '#')));
+  // Tag / class / test-id / box only: never the occluder's TEXT, which on this
+  // terminal can carry account numbers (the public run log rule).
+  const desc = el => el ? {tag: el.tagName.toLowerCase(), cls: cls(el), tid: mask(el.getAttribute('data-test-id')), box: bx(el)} : null;
+  const clips = el => { const out = [];
+    for (let e = el && el.parentElement; e && e !== document.body; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (!/(auto|scroll|hidden|clip)/.test(cs.overflowY + ' ' + cs.overflowX)) continue;
+      out.push(Object.assign(desc(e), {overflow_y: cs.overflowY, scroll_top: Math.round(e.scrollTop),
+               scroll_height: Math.round(e.scrollHeight), client_height: Math.round(e.clientHeight)}));
+      if (out.length >= 6) break;
+    }
+    return out; };
   const form = document.querySelector('[data-metis-form]');
   if (!form) return {ok: false, why: 'no tagged form'};
+  const tagged = document.querySelector('[data-metis-btn=submit]');
   if (op === 'scroll_step') {
+    const anchor = tagged || form;
     let sc = null;
-    for (let e = form; e && e !== document.body; e = e.parentElement) {
+    for (let e = anchor; e && e !== document.body; e = e.parentElement) {
       const cs = getComputedStyle(e);
       if (e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(cs.overflowY)) { sc = e; break; }
     }
@@ -2027,8 +2052,23 @@ SUBMIT_JS = r"""
     sc.scrollTop = before + Math.max(40, Math.floor(sc.clientHeight * 0.8));
     return {ok: true, moved: sc.scrollTop !== before, top: sc.scrollTop, max: sc.scrollHeight - sc.clientHeight};
   }
-  const btn = document.querySelector('[data-metis-btn=submit]');
+  const btn = tagged;
   if (!btn) return {ok: false, why: 'no tagged submit'};
+  if (op === 'reveal') {
+    const moved = [];
+    for (let e = btn.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.scrollHeight <= e.clientHeight + 1) continue;
+      const er = e.getBoundingClientRect(), br = btn.getBoundingClientRect();
+      const delta = Math.round((br.top + br.height / 2) - (er.top + er.height / 2));
+      if (Math.abs(delta) < 2) continue;
+      const before = e.scrollTop;
+      e.scrollTop = before + delta;
+      if (e.scrollTop !== before) moved.push(Object.assign(desc(e), {from: Math.round(before), to: Math.round(e.scrollTop)}));
+      if (moved.length >= 6) break;
+    }
+    btn.scrollIntoView({block: 'center', inline: 'nearest'});
+    return {ok: true, moved: moved};
+  }
   if (op === 'mark') {
     document.querySelectorAll('[data-metis-submit-token]').forEach(e => e.removeAttribute('data-metis-submit-token'));
     btn.setAttribute('data-metis-submit-token', token);
@@ -2041,10 +2081,19 @@ SUBMIT_JS = r"""
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   const inView = r.width > 0 && r.height > 0 && cx >= 0 && cy >= 0 && cx <= window.innerWidth && cy <= window.innerHeight;
   const hit = inView ? document.elementFromPoint(cx, cy) : null;
-  return {ok: true, same: btn.getAttribute('data-metis-submit-token') === token,
-          visible: !!(hit && (hit === btn || btn.contains(hit))),
-          enabled: !(btn.disabled || btn.getAttribute('aria-disabled') === 'true'),
-          text: txt(btn)};
+  const visible = !!(hit && (hit === btn || btn.contains(hit)));
+  const out = {ok: true, same: btn.getAttribute('data-metis-submit-token') === token, visible: visible,
+               enabled: !(btn.disabled || btn.getAttribute('aria-disabled') === 'true'), text: txt(btn)};
+  if (!visible) {
+    out.why_not = {viewport: [window.innerWidth, window.innerHeight], rect: bx(btn),
+                   centre: [Math.round(cx), Math.round(cy)], in_viewport: inView,
+                   occluder: hit ? Object.assign(desc(hit),
+                     {rel: hit.contains(btn) ? 'ancestor' : (btn.contains(hit) ? 'descendant' : 'unrelated')}) : null,
+                   clip_chain: clips(btn),
+                   dialogs: [...document.querySelectorAll('[role=dialog], [role=alertdialog], [aria-modal=true]')]
+                              .filter(e => { const q = e.getBoundingClientRect(); return q.width > 0 && q.height > 0; }).length};
+  }
+  return out;
 }
 """
 
@@ -3992,6 +4041,35 @@ def verify_buttons_in_panel(form: Mapping[str, Any], keys: Sequence[str] = (
         if not inside:
             bad.append(f"{k}: at {list(b)} is outside the ticket panel (fields column {list(fb)})")
     return bad
+
+
+def submit_not_visible_why(why_not: Optional[Mapping[str, Any]]) -> str:
+    """Pure: render ``SUBMIT_JS`` ``check``'s ``why_not`` block as ONE clause
+    naming WHICH state blocked the submit.
+
+    ``"submit: not visible at its centre"`` on its own collapses three states
+    with three different fixes: the centre is OFF the viewport (scroll / size
+    the viewport), a clipping ancestor does not paint it (scroll that
+    ancestor), or something else is painted ON TOP of it (nothing to scroll --
+    find out what). MEASURED 2026-10-02 on breakout_1: two live ETH LIMIT
+    tickets refused six times between 04:34Z and 05:15Z with the submit box
+    [1559, 1537, 298, 48], and the round-trip dry walk at 06:14Z (system-action
+    issue #15464) reached ``form_verified`` on the IDENTICAL box -- so the
+    geometry was never the problem and the refusal could not say what was.
+    Returns "" when there is nothing to say."""
+    if not why_not:
+        return ""
+    centre = list(why_not.get("centre") or [])
+    if why_not.get("in_viewport") is False:
+        return f"its centre {centre} is outside the {list(why_not.get('viewport') or [])} viewport"
+    occ = why_not.get("occluder") or {}
+    if occ:
+        tid = f"[{occ.get('tid')}]" if occ.get("tid") else ""
+        dialogs = why_not.get("dialogs") or 0
+        extra = f", {dialogs} dialog(s) open" if dialogs else ""
+        return (f"its centre {centre} paints {occ.get('tag')}{tid} at "
+                f"{list(occ.get('box') or [])} ({occ.get('rel')}){extra}")
+    return f"nothing is painted at its centre {centre}"
 
 
 def form_names_symbol(form: Mapping[str, Any], venue_symbol: str) -> bool:
@@ -6483,30 +6561,62 @@ class DXtradeAdapter(PropPlatformAdapter):
                 break
         return form
 
-    def _ready_submit(self, page: Any, spec: BracketSpec, want: Mapping[str, float]
+    def _ready_submit(self, page: Any, spec: BracketSpec, want: Mapping[str, float],
+                      *, attempts: int = 4, settle_ms: int = 500
                       ) -> Tuple[bool, str, Dict[str, Any], Dict[str, Any]]:
         """Centre the submit control, then prove, right before the click
         point: it is the SAME element (a one-time token), visible at its
         centre, enabled, its text names the intended side, and the full
-        read-back still holds after the scroll."""
+        read-back still holds after the scroll.
+
+        The centre hit-test is POLLED -- up to ``attempts`` tries, ``settle_ms``
+        apart, with a scroll-only ``reveal`` of the BUTTON's own scroll
+        ancestors between tries -- and a final refusal NAMES what the centre
+        hit (``submit_not_visible_why``). Both come from the same measurement:
+        on 2026-10-02 the identical submit box refused six live ETH tickets
+        between 04:34Z and 05:15Z and passed the dry walk at 06:14Z, so what
+        blocked it was TRANSIENT and the refusal could not say what it was.
+        ``reveal`` scrolls the button's ancestors rather than the form's
+        because the live submit is a footer OUTSIDE the fields' container
+        (``in_form: false`` on every measurement), so the form's chain is not
+        necessarily the scroller that moves it.
+
+        Clicks nothing, fills nothing, dismisses nothing -- a dry walk measures
+        exactly what an armed run would click."""
         token = f"t{time.time_ns()}"
-        try:
-            marked = page.evaluate(SUBMIT_JS, ["mark", token]) or {}
-        except Exception as exc:
-            return False, f"submit: could not mark ({type(exc).__name__})", {}, {}
-        if not marked.get("ok"):
-            return False, f"submit: {marked.get('why')}", {}, {}
-        page.wait_for_timeout(300)
-        form = self._find_form(page)          # re-tags; the token stays on the element
-        try:
-            chk = page.evaluate(SUBMIT_JS, ["check", token]) or {}
-        except Exception as exc:
-            return False, f"submit: could not check ({type(exc).__name__})", form, {}
-        info = {"scrolled": bool(marked.get("scrolled")), "text": chk.get("text"), "token": token}
-        if not chk.get("same"):
-            return False, "submit: the control changed after scrolling", form, info
-        if not chk.get("visible"):
-            return False, "submit: not visible at its centre after scrolling", form, info
+        tries = max(1, int(attempts))
+        form: Dict[str, Any] = {}
+        info: Dict[str, Any] = {"token": token}
+        chk: Dict[str, Any] = {}
+        for attempt in range(1, tries + 1):
+            try:
+                marked = page.evaluate(SUBMIT_JS, ["mark", token]) or {}
+            except Exception as exc:
+                return False, f"submit: could not mark ({type(exc).__name__})", form, info
+            if not marked.get("ok"):
+                return False, f"submit: {marked.get('why')}", form, info
+            page.wait_for_timeout(300)
+            form = self._find_form(page)      # re-tags; the token stays on the element
+            try:
+                chk = page.evaluate(SUBMIT_JS, ["check", token]) or {}
+            except Exception as exc:
+                return False, f"submit: could not check ({type(exc).__name__})", form, info
+            info.update({"scrolled": bool(marked.get("scrolled")), "text": chk.get("text"), "tries": attempt})
+            if not chk.get("same"):
+                return False, "submit: the control changed after scrolling", form, info
+            if chk.get("visible"):
+                info.pop("why_not", None)
+                break
+            info["why_not"] = chk.get("why_not") or {}
+            if attempt >= tries:
+                why = submit_not_visible_why(info["why_not"])
+                return (False, "submit: not visible at its centre after scrolling"
+                        + (f" \u2014 {why}" if why else ""), form, info)
+            try:
+                info.setdefault("reveal", []).append(page.evaluate(SUBMIT_JS, ["reveal", ""]) or {})
+            except Exception:
+                pass
+            page.wait_for_timeout(settle_ms)
         if not chk.get("enabled"):
             return False, "submit: disabled", form, info
         text = str(chk.get("text") or "").lower()

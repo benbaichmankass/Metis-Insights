@@ -46,6 +46,7 @@ from src.prop.platform.dxtrade import (
     redact_text,
     render_page_shape,
     render_structure,
+    submit_not_visible_why,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -1765,3 +1766,187 @@ def test_only_tradeify_1_declares_the_slash_query_style():
     from src.prop.platform import load_platform_config
     assert load_platform_config("tradeify_1").get("search_query_style") == "slash"
     assert load_platform_config("breakout_1").get("search_query_style") is None
+
+
+# ── BREAKOUT-SUBMIT-VIS: the submit hit-test says WHICH state blocked it ───
+
+
+def _spec(**kw):
+    from src.prop.platform.base import BracketSpec
+    base = dict(ticket_id="t1", venue_symbol="ETHUSD", side="long", quantity=0.01,
+                stop_loss=2696.51, take_profit=2750.99, order_type="limit",
+                limit_price=2723.74, price_step=0.01)
+    base.update(kw)
+    return BracketSpec(**base)
+
+
+class _SubmitPage:
+    """A page whose ``check`` reports ``visible`` from a scripted list, so the
+    poll in ``_ready_submit`` is exercised without a browser. Records every
+    op; ``click``/``fill`` raise, because this path must press nothing."""
+
+    def __init__(self, visibles, text="Buy 0.01 ETHUSD at 2,723.74", why_not=None):
+        self.visibles = list(visibles)
+        self.text = text
+        self.why_not = why_not or {}
+        self.ops = []
+
+    def evaluate(self, js, args=None):
+        op = (args or [None])[0]
+        self.ops.append(op)
+        if op in ("mark", "reveal"):
+            return {"ok": True, "scrolled": True, "text": self.text, "moved": []}
+        if op == "check":
+            vis = self.visibles.pop(0) if self.visibles else False
+            out = {"ok": True, "same": True, "visible": vis, "enabled": True, "text": self.text}
+            if not vis:
+                out["why_not"] = self.why_not
+            return out
+        return {}
+
+    def wait_for_timeout(self, *a):
+        pass
+
+    def click(self, *a, **k):            # pragma: no cover - must never run
+        raise AssertionError("_ready_submit clicked something")
+
+    def fill(self, *a, **k):             # pragma: no cover - must never run
+        raise AssertionError("_ready_submit filled something")
+
+
+def _ready(page, **kw):
+    a = DXtradeAdapter()
+    a._find_form = lambda p: {"found": True, "fields_box": [1543, 103, 330, 708],
+                              "button_boxes": {"submit": [1559, 1537, 298, 48]}}
+    a._read_back = lambda form, spec, want: []
+    return a._ready_submit(page, _spec(), {"quantity": 0.01}, **kw)
+
+
+def test_ready_submit_polls_a_transient_blocker_and_scrolls_the_buttons_own_container():
+    # MEASURED 2026-10-02: the same submit box [1559, 1537, 298, 48] refused six
+    # live ETH tickets 04:34-05:15Z and passed the dry walk at 06:14Z (#15464),
+    # so a single instantaneous hit-test turns a transient blocker into a lost
+    # ticket. The retry reveals the button's OWN scroll ancestors, not the
+    # form's -- the live submit is a footer outside the fields' container.
+    page = _SubmitPage([False, False, True])
+    ready, why, _form, info = _ready(page)
+    assert ready is True and why == ""
+    assert info["tries"] == 3 and "why_not" not in info
+    assert page.ops.count("reveal") == 2
+
+
+def test_ready_submit_refusal_names_the_occluder_instead_of_only_not_visible():
+    page = _SubmitPage([False], why_not={
+        "viewport": [1920, 1600], "rect": [1559, 1537, 298, 48], "centre": [1708, 1561],
+        "in_viewport": True, "clip_chain": [], "dialogs": 1,
+        "occluder": {"tag": "div", "cls": ["toast"], "tid": "notification", "box": [1500, 1500, 420, 100],
+                     "rel": "unrelated"}})
+    ready, why, _form, info = _ready(page, attempts=1)
+    assert ready is False
+    assert why.startswith("submit: not visible at its centre after scrolling")
+    assert "div[notification]" in why and "1 dialog(s) open" in why
+    assert info["why_not"]["centre"] == [1708, 1561]
+
+
+def test_ready_submit_still_refuses_a_control_that_changed_and_a_disabled_one():
+    class _Changed(_SubmitPage):
+        def evaluate(self, js, args=None):
+            got = super().evaluate(js, args)
+            if (args or [None])[0] == "check":
+                got["same"] = False
+            return got
+
+    ready, why, _f, _i = _ready(_Changed([True]))
+    assert ready is False and why == "submit: the control changed after scrolling"
+
+    class _Disabled(_SubmitPage):
+        def evaluate(self, js, args=None):
+            got = super().evaluate(js, args)
+            if (args or [None])[0] == "check":
+                got["enabled"] = False
+            return got
+
+    ready, why, _f, _i = _ready(_Disabled([True]))
+    assert ready is False and why == "submit: disabled"
+
+
+def test_ready_submit_refuses_the_wrong_side_after_the_poll():
+    page = _SubmitPage([True], text="Sell 0.01 ETHUSD at 2,723.74")
+    ready, why, _f, _i = _ready(page)
+    assert ready is False and "does not name the intended side (buy)" in why
+
+
+def test_submit_not_visible_why_tells_the_three_states_apart():
+    assert submit_not_visible_why(None) == ""
+    assert submit_not_visible_why({}) == ""
+    off = submit_not_visible_why({"in_viewport": False, "centre": [1708, 1561], "viewport": [1920, 900]})
+    assert "outside the [1920, 900] viewport" in off
+    over = submit_not_visible_why({"in_viewport": True, "centre": [1708, 1561],
+                                   "occluder": {"tag": "section", "box": [0, 0, 10, 10], "rel": "ancestor"}})
+    assert "paints section at [0, 0, 10, 10] (ancestor)" in over and "dialog" not in over
+    none = submit_not_visible_why({"in_viewport": True, "centre": [1708, 1561], "occluder": None})
+    assert none == "nothing is painted at its centre [1708, 1561]"
+
+
+# A real Chromium against a page that REPRODUCES the live geometry measured on
+# breakout_1 (panel [1543, 103, 330, 708], submit [1559, 1537, 298, 48], viewport
+# 1920x1600): the ticket's clip box is 708 tall, the submit is a footer in its
+# overflowing content, and the only difference between the two cases is whether
+# something is painted on top. Skipped where playwright / Chromium is absent.
+_SUBMIT_PAGE = """<!doctype html><meta charset=utf-8><style>
+ html,body{margin:0;height:100%;overflow:hidden;font:14px sans-serif}
+ #col{position:absolute;left:1543px;top:103px;width:330px;height:1497px;background:#eee}
+ #clip{height:708px;overflow:hidden;position:relative}
+ #content{height:1482px}
+ #fields{height:708px}
+ #submit{position:absolute;left:16px;top:1434px;width:298px;height:48px}
+ OVERLAY_CSS
+</style>
+<div id=col><div id=clip><div id=content>
+ <div id=fields data-metis-form=1>
+  <button data-test-id=BUY data-metis-btn=side_buy>Buy</button>
+  <button data-test-id=SELL data-metis-btn=side_sell>Sell</button>
+  <input data-test-id=symbol_input value=ETHUSD></div>
+ <button id=submit data-metis-btn=submit>Buy 0.01 ETHUSD at 2,723.74</button>
+</div></div></div>OVERLAY_HTML"""
+
+
+def _submit_js_on(html: str):
+    sync_playwright = pytest.importorskip("playwright.sync_api").sync_playwright
+    from src.prop.platform.dxtrade import SUBMIT_JS
+    exe = next((str(c) for c in Path("/opt/pw-browsers").glob("chromium-*/chrome-linux/chrome")), None)
+    if exe is None:
+        pytest.skip("no Chromium under /opt/pw-browsers")
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, executable_path=exe)
+        try:
+            page = browser.new_context(viewport={"width": 1920, "height": 1600}).new_page()
+            page.set_content(html)
+            box = page.evaluate("() => { const r = document.querySelector('#submit').getBoundingClientRect();"
+                                " return [r.left, r.top, r.width, r.height].map(Math.round); }")
+            page.evaluate(SUBMIT_JS, ["mark", "tok"])
+            first = page.evaluate(SUBMIT_JS, ["check", "tok"])
+            revealed = page.evaluate(SUBMIT_JS, ["reveal", ""])
+            return box, first, revealed, page.evaluate(SUBMIT_JS, ["check", "tok"])
+        finally:
+            browser.close()
+
+
+def test_submit_js_reaches_the_live_footer_geometry_when_nothing_is_on_top():
+    box, first, _rev, _after = _submit_js_on(
+        _SUBMIT_PAGE.replace("OVERLAY_CSS", "").replace("OVERLAY_HTML", ""))
+    assert box == [1559, 1537, 298, 48]      # the live measurement, reproduced
+    assert first["visible"] is True and "why_not" not in first
+
+
+def test_submit_js_names_what_is_painted_over_the_live_footer_geometry():
+    box, first, _rev, after = _submit_js_on(
+        _SUBMIT_PAGE
+        .replace("OVERLAY_CSS", "#over{position:fixed;inset:0;background:rgba(0,0,0,.2)}")
+        .replace("OVERLAY_HTML", "<div id=over data-test-id=order_warning></div>"))
+    assert box == [1559, 1537, 298, 48]
+    assert first["visible"] is False
+    why = submit_not_visible_why(first["why_not"])
+    assert "paints div[order_warning]" in why and "(unrelated)" in why
+    # An overlay is not something a scroll can clear: it must still refuse.
+    assert after["visible"] is False
