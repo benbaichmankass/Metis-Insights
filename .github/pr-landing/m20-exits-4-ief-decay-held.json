@@ -1,7 +1,7 @@
 {
   "tier": 3,
   "landing": "hold",
-  "hold_reason": "tier3_exit_config_real_money",
+  "hold_reason": "tier_2_3_needs_approval",
   "hold_text": "Tier-3 exit-lever change on a real-money leg (ief_pullback_1d on alpaca_live). Held for the manager: merge only after the evidence PR #15592 is on main and the manager has read the corpus rows under run 2026-10-02T17:03:50.",
   "why": "Adds trail_decay_stall_bars=10 and trail_decay_tight_mult=2.5 to ief_pullback_1d. Evidence: decay_stall10_t2.5 passed IS+OOS and the yearly walk-forward on two independent partitions (2026-08-15 split 2017-01-20 OOS n=36 WF 4/6; 2026-10-02 split 2015-12-10 OOS n=39 WF 4/6 effective). OOS dNetR +0.705, OOS maxDD -5.455 against a base maxDD of 8.48."
 }
