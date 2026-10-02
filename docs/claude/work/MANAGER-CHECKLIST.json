@@ -4543,6 +4543,36 @@
       "note": "#15316 HELD for the manager, carrying the go-live re-review fixes: cycle output + session save before the trail step; decision_bar: forming legs start the trail one bar after the signal bar (harness entry_i+1). Rollout once unblocked: >=1 day read_only, one watched single-step tighten, then live. | [manager wave-2 note, carried over 2026-10-02T02:20Z session_01MM8o5js6TcDFeNAPBY4Ntv] [2026-10-01T22:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session_012X4AJaScSxML6HaJLuXpzV closed (handoff, ~$30 of $40). Found a LIVE hazard in existing code: _contain's armed modify_bracket could fill+submit the sidebar order ticket -> fix #15327 (armed modify refuses while EDIT_DIALOG_MEASURED=False; repair falls to verified flatten next cycle), reviewed MERGE-WITH-NOTE, merges when CI green. #15316 (trail) reworked, re-review MERGE-WITH-NOTE but HELD: inert until the dialog is measured; carried by DIALOG-MEASURE session_01PNFmCa7dgP1ykmsBd5s8kE (also: emit cycle output before the trail step, signal_time vs entry_i+1, venv deps). MANAGER DECISION (data-backed): ETH stale_exit_bars=12 is NOT approximated by an SL band; ETH SL+TP-only measured +21.28R vs +10.63R with declared levers, so no evidence the stale exit is needed on the prop bracket. SOL's declared exits are fully covered by the trail. Rollout: >=1 day read_only, one watched single-step tighten, then live. || [2026-10-01T21:23Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR DECISION (popup ~21:23Z), verbatim choice: \"Build the trail instead\" (options were keep-live-and-retest / shadow SOL now / build the trail). SOLUSD stays LIVE on breakout_1 at $75 meanwhile. Evidence: PROP-JOURNAL (PR #15301, PI-20261001-S8DMYMUN-0001): prop bracket is static SL+TP; SL+TP-only re-run on one window ETH +21.28R n=100, SOL -0.49R n=53 vs declared-lever baseline ETH +10.63, SOL +3.69. Mechanism: amend the resting SL by the declared trail/stale lever, tighten-only, via the tested modify path; held PR reviewed by the manager under the go-live rule."
     },
     {
+      "id": "BREAKOUT-CAP-ROUND",
+      "title": "breakout_1 executor drops a ticket whose risk rounds a few cents over the $75 cap instead of sizing it down (prop-manual-00e7ecbd6bd4, SOL, 2026-10-02 04:04Z)",
+      "lane": "session_01PmaNf2jXagFToXuLPhZHhq",
+      "ceiling_usd": 25,
+      "phase": "W7",
+      "state": "in_flight",
+      "owner": "build lane",
+      "model": "claude-opus-5",
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. MEASURED in prop_fills: reason 'risk cap: resized (... $75.11 exceeds the flat-mode cap $75.00 — resized to the cap)' with status skipped. Code on main: prop_executor.py ~L493 appends any non-'unchanged' cap action to reasons, so 'resized' is never applied and fits=False. Deliverable: HELD Tier-2 PR that rounds quantity down so risk <= cap, keeps gross over-cap refused, and adds tests, plus a pipeline row that clears on the first resize-path ticket PLACED after deploy."
+    },
+    {
+      "id": "BREAKOUT-SUBMIT-VIS",
+      "title": "breakout_1 executor cannot click submit on ETH: 'submit: not visible at its centre after scrolling (after 3 attempts)' (prop-manual-5f9892cb95db 04:44Z, prop-manual-74591fb6f6b1 05:15Z, 2026-10-02)",
+      "lane": "session_01WrKWEMWR3yfoSr9K6GM4e9",
+      "ceiling_usd": 30,
+      "phase": "W7",
+      "state": "in_flight",
+      "owner": "build lane",
+      "model": "claude-opus-5",
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. Two consecutive ETH long tickets were skipped pre-submit with the dxtrade.py:6509 reason. Lane root-causes the failure (layout, viewport or overlay; and whether a 10-01 merge caused it), reproduces it with a dry walk (submitted false), and opens a HELD Tier-2 PR plus a pipeline row that clears on the first ETH ticket PLACED after deploy. It must also state whether SOL is exposed."
+    },
+    {
       "id": "STAMP-RACE",
       "title": "research-queue-dispatch 'Land the dispatch stamps on main' fails on a 30-min wait race (run 70): re-check main once before failing",
       "phase": "W7",
