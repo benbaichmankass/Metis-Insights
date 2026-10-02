@@ -92,4 +92,4 @@ generated:
     symbol: SOLUSDT
     timeframe: 1h
     trades_file: comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol__trades.jsonl
-last_dispatched_at: null
+last_dispatched_at: '2026-10-02T15:00:04+00:00'
