@@ -5346,6 +5346,23 @@ class DXtradeAdapter(PropPlatformAdapter):
     #: MEASURED by add-watchlist-widget #15373 (code aaa7ff4ee): the menu's
     #: "Watchlist" entry opens a SUBMENU, not a widget.
     WATCHLIST_SUBMENU: Tuple[str, ...] = ("Private", "Public")
+    #: The submenu entry add-watchlist-widget clicks (manager review of the
+    #: #15390 dumps): the user's own (editable) lists, where the removed
+    #: "Default Watchlist" lived, so missing symbols can be added later.
+    WATCHLIST_SUBMENU_PICK = "Private"
+
+    def _escape_menus(self, page: Any, out: Dict[str, Any], *, tries: int = 3) -> None:
+        """Escape (a key, never a click) until no menu-only label is visible,
+        at most ``tries`` times; records ``escapes`` / ``menu_left_open``."""
+        left: Dict[str, Any] = {}
+        for i in range(tries):
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(400)
+            out["escapes"] = i + 1
+            left = page.evaluate(MENU_LABELS_VISIBLE_JS, list(MENU_ONLY_LABELS)) or {}
+            if not left.get("n"):
+                break
+        out["menu_left_open"] = bool(left.get("n"))
 
     def watchlist_submenu_probe(self, page: Any, *, expect_workspace: str = "My Trading Account",
                                 settle_ms: int = 800) -> Dict[str, Any]:
@@ -5441,9 +5458,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         """Add the Watchlist widget to ``expect_workspace`` (TRADEIFY-GOLIVE
         option B step 2; operator ~21:50Z 2026-10-01 "Runner does it").
 
-        Exactly TWO clicks, both on MEASURED targets (#15350): the top-most
-        add-widget "+", then the ONE menu leaf whose text is exactly
-        ``Watchlist`` in a menu that shows every measured sibling. Refused
+        At most THREE clicks, all on MEASURED targets: the top-most add-widget
+        "+", the ONE menu leaf whose text is exactly ``Watchlist`` in a menu
+        that shows every measured sibling (#15350), and -- because that entry
+        opens a Private/Public submenu (#15373; hover opens nothing, #15390) --
+        the ONE submenu leaf ``WATCHLIST_SUBMENU_PICK`` with its sibling
+        present. Anything that opens after that is dumped and Escaped, never
+        clicked into. Refused
         unless one-click reads OFF, the workspace is ``expect_workspace`` and
         no Symbol/Bid/Ask table is already present (then it is a no-op).
         Verified by the click-free WATCHLIST_SYMBOLS_JS read (exactly one
@@ -5489,6 +5510,24 @@ class DXtradeAdapter(PropPlatformAdapter):
                 return out
             item.first.click(timeout=5_000)
             out["clicks"].append("menu:Watchlist")
+            page.wait_for_timeout(settle_ms)
+            # MEASURED (#15373, #15390): "Watchlist" opens a Private/Public
+            # SUBMENU whose entries open nothing on hover. Click the ONE exact
+            # ``WATCHLIST_SUBMENU_PICK`` leaf (the user's own lists -- the
+            # removed "Default Watchlist" was one), with its measured sibling
+            # present. A submenu that does not match is Escaped, nothing picked.
+            if not self.watchlist_symbols(page).get("readable"):
+                sub = page.evaluate(WIDGET_MENU_PICK_JS, [self.WATCHLIST_SUBMENU_PICK,
+                                    [x for x in self.WATCHLIST_SUBMENU if x != self.WATCHLIST_SUBMENU_PICK]]) or {}
+                out["submenu_pick"] = sub
+                sub_item = page.locator("[data-metis-wpick='1']")
+                if not sub.get("tagged") or sub_item.count() != 1:
+                    out["refused"] = "Watchlist submenu did not match the measured submenu (nothing picked)"
+                    out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                    self._escape_menus(page, out)
+                    return out
+                sub_item.first.click(timeout=5_000)
+                out["clicks"].append(f"submenu:{self.WATCHLIST_SUBMENU_PICK}")
             waited = 0
             while True:
                 page.wait_for_timeout(500)
@@ -5504,7 +5543,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 # Whatever opened instead is dumped, then one Escape; it is
                 # REPORTED, never closed by a click (a close control is a delete).
                 out["new_after"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
-                page.keyboard.press("Escape")
+                self._escape_menus(page, out)
         except Exception as exc:
             out["error"] = type(exc).__name__
             # A menu (or whatever the click opened) may still be up: one

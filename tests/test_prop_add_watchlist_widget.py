@@ -41,7 +41,9 @@ def page(browser, *, one_click_on=False, menu=MENU, workspace="My Trading Accoun
         {WATCHLIST if present else ''}
       </div>
       <div id="menu" style="display:none">{items}</div>
-      <div id="sub" style="display:none"><span>Default Watchlist</span><span>Create New</span></div>
+      <div id="sub" style="display:none"><span data-s="Private">Private</span><span data-s="Public">Public</span></div>
+      <div id="other" style="display:none"><span>Default Watchlist</span><span>Create New</span></div>
+      <div id="third" style="display:none"><span>Default Watchlist</span><span>Create New</span></div>
       <script>
         window.__picked = [];
         document.querySelector('[data-test-id=widget_tab_add_button]').addEventListener('click', () => {{
@@ -53,12 +55,22 @@ def page(browser, *, one_click_on=False, menu=MENU, workspace="My Trading Accoun
           document.getElementById('menu').style.display = 'none';
           if (sp.dataset.label !== 'Watchlist') return;
           if ('{watchlist_opens}' === 'widget') document.getElementById('top').insertAdjacentHTML('beforeend', `{WATCHLIST}`);
+          else if ('{watchlist_opens}' === 'other') document.getElementById('other').style.display = 'block';
           else document.getElementById('sub').style.display = 'block';
         }}));
+        document.querySelectorAll('#sub span').forEach(sp => sp.addEventListener('click', () => {{
+          window.__picked.push('SUB:' + sp.dataset.s);
+          document.getElementById('sub').style.display = 'none';
+          document.getElementById('menu').style.display = 'none';
+          if ('{watchlist_opens}' === 'submenu') document.getElementById('top').insertAdjacentHTML('beforeend', `{WATCHLIST}`);
+          else if ('{watchlist_opens}' === 'third') document.getElementById('third').style.display = 'block';
+        }}));
+        document.querySelectorAll('#other span, #third span').forEach(sp => sp.addEventListener('click', () =>
+          window.__picked.push('X:' + sp.textContent)));
         document.addEventListener('keydown', e => {{
           window.__keys = (window.__keys || []).concat([e.key]);
-          if (e.key === 'Escape') {{ document.getElementById('menu').style.display = 'none';
-                                     document.getElementById('sub').style.display = 'none'; }}
+          if (e.key === 'Escape') ['menu', 'sub', 'other', 'third'].forEach(i =>
+            document.getElementById(i).style.display = 'none');
         }});
       </script></body></html>"""
     p = browser.new_page()
@@ -121,13 +133,36 @@ def test_an_unmeasured_menu_is_escaped_with_nothing_picked(browser):  # noqa: F8
     assert st["picked"] == [] and st["del"] == 0 and "Escape" in st["keys"]
 
 
-def test_a_submenu_instead_of_a_widget_is_reported_never_click_closed(browser):  # noqa: F811
+def test_the_measured_submenu_adds_the_watchlist_via_private(browser):  # noqa: F811
+    # #15373/#15390: "Watchlist" opens Private/Public; Private is clicked.
     p = page(browser, watchlist_opens="submenu")
     got = add(p)
     st = state(p)
     p.close()
+    assert got["added"] is True and got["clicks"] == ["add_widget_plus", "menu:Watchlist", "submenu:Private"]
+    assert got["watchlist_after"]["symbols"] == ["BTCUSD", "ETHUSD"]
+    assert st["picked"] == ["Watchlist", "SUB:Private"] and st["del"] == 0 and st["keys"] == []
+
+
+def test_a_third_level_after_private_is_reported_never_clicked_into(browser):  # noqa: F811
+    p = page(browser, watchlist_opens="third")
+    got = add(p)
+    st = state(p)
+    p.close()
     assert got["added"] is False and got["watchlist_after"]["readable"] is False
-    assert st["picked"] == ["Watchlist"] and st["del"] == 0 and st["keys"] == ["Escape"]
+    assert "Default Watchlist" in [i["text"] for i in got["new_after"]["items"]]
+    assert st["picked"] == ["Watchlist", "SUB:Private"] and st["del"] == 0
+    assert st["keys"] == ["Escape"] and got["menu_left_open"] is False
+
+
+def test_an_unmeasured_submenu_is_escaped_with_nothing_picked(browser):  # noqa: F811
+    p = page(browser, watchlist_opens="other")
+    got = add(p)
+    st = state(p)
+    p.close()
+    assert got["refused"] == "Watchlist submenu did not match the measured submenu (nothing picked)"
+    assert got["clicks"] == ["add_widget_plus", "menu:Watchlist"]
+    assert st["picked"] == ["Watchlist"] and st["del"] == 0 and "Escape" in st["keys"]
 
 
 def test_measured_menu_constant_matches_the_measurement():
