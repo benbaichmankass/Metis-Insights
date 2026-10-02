@@ -4553,9 +4553,11 @@
       "model": "claude-opus-5",
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        15465
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. MEASURED in prop_fills: reason 'risk cap: resized (... $75.11 exceeds the flat-mode cap $75.00 — resized to the cap)' with status skipped. Code on main: prop_executor.py ~L493 appends any non-'unchanged' cap action to reasons, so 'resized' is never applied and fits=False. Deliverable: HELD Tier-2 PR that rounds quantity down so risk <= cap, keeps gross over-cap refused, and adds tests, plus a pipeline row that clears on the first resize-path ticket PLACED after deploy."
+      "note": "2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. MEASURED in prop_fills: reason 'risk cap: resized (... $75.11 exceeds the flat-mode cap $75.00 \u2014 resized to the cap)' with status skipped. Code on main: prop_executor.py ~L493 appends any non-'unchanged' cap action to reasons, so 'resized' is never applied and fits=False. Deliverable: HELD Tier-2 PR that rounds quantity down so risk <= cap, keeps gross over-cap refused, and adds tests, plus a pipeline row that clears on the first resize-path ticket PLACED after deploy. LANE 2026-10-02 07:25Z: HELD PR #15465 open (tier_2_3_needs_approval; manager merges). ROOT CAUSE is the PRICE step, not the lot step: size_lots floors qty 28.45528451 -> 28.45 lots ($74.99 at the raw prices, UNDER cap), then rounding the stop to price_step 0.01 (118.59428571 -> 118.59) widens the stop 2.63571429 -> 2.64 and risk recomputes from the typed values to 28.45 x 2.64 = $75.11. Fix cuts the size to 28.40 lots ($74.98) where the size is decided, bounded by the ticket's own ask so a gross over-cap ticket is still REFUSED. Pipeline row PI-20261002-ULPHZHHQ-0001 clears on the first resize-path ticket PLACED. MEASURED over all 77 prop_fills rows: exactly 1 ticket ever lost to this reason."
     },
     {
       "id": "BREAKOUT-SUBMIT-VIS",
