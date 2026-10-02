@@ -506,8 +506,14 @@ def main(argv: Optional[list] = None) -> int:
                 # did typing into its search box persist anything server-side?
                 # (manager review of #14563)
                 wl_before = adapter.watchlist_symbols(page)
+                # The account's declared search form (prop_platforms.yaml
+                # ``search_query_style``; tradeify_1: ``slash``, #15444) and a
+                # longer settle for the async result panel when it is set.
+                qstyle = cfg_plat.get("search_query_style")
                 for sym in syms:
-                    got = adapter.probe_instrument_details(page, sym)
+                    got = adapter.probe_instrument_details(
+                        page, sym, query=adapter.search_query_for(sym, qstyle),
+                        settle_ms=3_000 if qstyle else 1_000)
                     emit({"instrument_probe": {"symbol": sym, **got}}, *secrets)
                 page.wait_for_timeout(2_000)
                 wl_after = adapter.watchlist_symbols(page)
