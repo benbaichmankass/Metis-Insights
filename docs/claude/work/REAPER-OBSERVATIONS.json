@@ -14,6 +14,38 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-02T22:12:04Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-10-02T22:04:42Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-02T21:58:19Z",
       "rows_graded": 0,
       "by_state": {
@@ -940,43 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-02T14:45:56Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-10-02T14:39:02Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-02T21:58:19Z",
+  "updated_at": "2026-10-02T22:12:04Z",
   "latest": {
-    "generated_at": "2026-10-02T21:58:19Z",
+    "generated_at": "2026-10-02T22:12:04Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1980,7 +1980,7 @@
         "session_01PNFmCa7dgP1ykmsBd5s8kE": [
           "claude/pipeline-dialog-measure-2",
           "claude/pipeline-dialog-measure-3",
-          "claude/prop-submit-label-strict-wip"
+          "claude/prop-modify-rollout-guard"
         ],
         "session_01PT8KKSz3KzyN2hE5UpwTaU": [
           "claude/w6-ops-recurring-validations"
