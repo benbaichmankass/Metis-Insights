@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager reviews; live order path on breakout_1 (modify_bracket: the _contain repair and the PROP-TRAIL trail). EDIT_DIALOG_MEASURED stays False here; the flip is a separate one-line PR after review.",
+  "why": "Re-targets DXtradeAdapter.modify_bracket onto the MEASURED docked 'Position Details' panel (#15657): row symbol/side/size match, that row's modify control, exactly one panel naming the symbol, SL/TP inputs each with a 'Price' mode button, 'Modify Position' (exact name, boxed, enabled only after read-back) as the only submit, never a 'Close' control, 'Discard' to exit with the panel required closed. Folds in the edit-surface probe false-positive fix (digit-masked keys/names, residual printed on alert) and the #15347 review items (no 'place' submit name, no password inputs, several-rows and sidebar-surface tests)."
+}

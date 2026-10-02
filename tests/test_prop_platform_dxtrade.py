@@ -1578,37 +1578,6 @@ def test_edit_probe_with_no_position_row_stops_before_any_click(edit_page):
     assert edit_page.evaluate("window.__log") == []
 
 
-def test_measured_modify_types_into_and_submits_the_dialog_never_the_sidebar(edit_page):
-    from src.prop.platform.base import Position
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=0.5), 2925.0, None, arm=True)
-    assert r["ok"] is True, r["why"]
-    assert edit_page.evaluate("window.__log") == ["pencil", "dlg-save"]
-    assert edit_page.evaluate("document.getElementById('dsl').value") == "2925"
-    assert edit_page.evaluate("document.getElementById('ssl').value") == ""          # sidebar untouched
-
-
-def test_measured_modify_refuses_a_pencil_that_opens_no_dialog(edit_page):
-    from src.prop.platform.base import Position
-    edit_page.evaluate("() => { document.querySelector('.icon-pencil').parentElement.onclick = () => window.__log.push('pencil'); }")
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=0.5), 2925.0, None, arm=True)
-    assert r["ok"] is False and "0 new dialogs" in r["why"]
-    assert edit_page.evaluate("window.__log") == ["pencil"]                           # no Save, no sidebar click
-    assert edit_page.evaluate("document.getElementById('ssl').value") == ""
-
-
-def test_measured_modify_refuses_when_the_row_size_is_not_the_position(edit_page):
-    from src.prop.platform.base import Position
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=1.0), 2925.0, None, arm=True)
-    assert r["ok"] is False and r["clicked"] is False and "size" in r["why"]
-    assert edit_page.evaluate("window.__log") == []
-
-
 _GOOD_DIALOG = {"ok": True, "names_symbol": True, "fields": {
     "quantity": {"value": "0.5", "readonly": True}, "stop_loss": {"value": "1", "readonly": False},
     "take_profit": {"value": "2", "readonly": False}}, "ambiguous": [], "modes": [{"value": "Price"}],
@@ -1635,27 +1604,6 @@ def test_edit_dialog_mismatch_passes_only_the_positions_own_dialog():
         assert any(needle in g for g in got), (needle, got)
     assert edit_dialog_mismatch(_GOOD_DIALOG, "ETHUSD", None)                     # unknown size refuses
     assert edit_dialog_mismatch({"ok": False, "why": "0 new dialogs"}, "ETHUSD", 0.5) == ["0 new dialogs"]
-
-
-def test_measured_modify_refuses_an_edit_click_of_unknown_outcome():
-    from src.prop.platform.base import Position
-    calls = []
-
-    class P:
-        def wait_for_timeout(self, *a):
-            pass
-
-        def fill(self, *a, **k):
-            calls.append(("fill", a))
-
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    a._locate_edit_control = lambda *x: {"ok": True, "row": {}, "controls": [], "chosen": 1}
-    a._open_edit_dialog = lambda *x: {"ok": False, "clicked": "unknown", "why": "edit control click raised TimeoutError; outcome unknown"}
-    a._cancel_edit_dialog = lambda page: calls.append(("cancel",)) or True
-    r = a.modify_bracket(P(), Position(symbol="ETHUSD", side="long", quantity=0.5), 1.0, None, arm=True)
-    assert r["ok"] is False and "outcome unknown" in r["why"]
-    assert calls == [("cancel",)]                                                    # never typed
 
 
 def test_the_tick_resolves_the_edit_dialog_modes_and_defers_them_to_a_live_ticket():
@@ -2172,3 +2120,181 @@ def test_the_tick_resolves_the_edit_surface_probe_and_defers_it_to_a_live_ticket
     base = dict(probe_ticket="", dry_run=False, watched_click=False, round_trip="", close_position="")
     assert resolve_mode(SimpleNamespace(**base, edit_surface_probe="ETHUSD"), {}) == "edit_surface_probe"
     assert "edit_surface_probe" in YIELD_MODES
+
+
+# ── modify_bracket on the MEASURED "Position Details" panel (#15657) ──────
+# INVENTED layout shaped like the live readout: the row's modify control
+# opens a docked panel ("Position Details", the symbol, "Protection",
+# "Stop Loss:" / "Take Profit:" each beside a "Price" button, then
+# "Close Position" (enabled) beside "Modify Position" (disabled until a value
+# changes), "Discard" below). A docked ORDER-ENTRY sidebar with its own
+# SL/TP inputs and submit sits on the page throughout.
+
+PANEL_HTML = """
+<html><head><style>table { border-collapse: collapse; } #pp { position: absolute; left: 900px; top: 0; width: 330px; }</style></head><body>
+<div id="side"><input data-test-id="symbol_input" value="ETHUSD">
+  <button data-test-id="BUY" onclick="window.__log.push('buy')">Buy</button>
+  <button data-test-id="SELL" onclick="window.__log.push('sell')">Sell</button>
+  <span>Stop Loss</span><input id="ssl" value=""><button>Price</button>
+  <span>Take Profit</span><input id="stp" value=""><button>Price</button>
+  <button id="ssub" onclick="window.__log.push('sidebar-submit')">Sell 1.22 ETHUSD at 2,657.11</button></div>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open Price</th><th>Stop Loss</th><th>Take Profit</th><th></th></tr></thead>
+<tbody id="rows"><tr><td>ETHUSD</td><td>Sell</td><td>1.22</td><td>2,657.17</td><td>2,718.46</td><td>2,394.06</td>
+<td><button class="button-closeBy" disabled><i class="icon-close-by"></i></button><button data-test-id="position-table-modify"
+ onclick="window.__log.push('modify'); window.__open()"><i class="icon-replace-context"></i></button><button
+ class="button-closePosition" onclick="window.__log.push('row-close')"><i class="icon-close-position"></i></button></td></tr></tbody></table>
+<div id="pp" style="display:none"><div><h3>Position Details</h3></div>
+  <div><div>ETHUSD</div><div>ETH</div></div><div>Protection</div>
+  <div><div>Stop Loss:</div><div><input id="psl" value="2718.46" oninput="window.__dirty()"><button id="slmode">Price</button></div></div>
+  <div><div>Take Profit:</div><div><input id="ptp" value="2394.06" oninput="window.__dirty()"><button>Price</button></div></div>
+  <div><button id="pclose" onclick="window.__log.push('panel-close')">Close Position</button>
+       <button id="pmod" disabled onclick="window.__log.push('panel-modify')">Modify Position</button></div>
+  <button id="pdis" onclick="window.__log.push('discard'); window.__shut()">Discard</button></div>
+<script>
+window.__log = [];
+window.__open = () => { document.getElementById('pp').style.display = 'block'; };
+window.__shut = () => { document.getElementById('pp').style.display = 'none'; };
+window.__dirty = () => { if (!window.__stuckModify) document.getElementById('pmod').disabled = false; };
+</script></body></html>
+"""
+
+
+@pytest.fixture()
+def panel_page(chromium_page):
+    chromium_page.set_content(PANEL_HTML)
+    yield chromium_page
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def _armed():
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = True
+    return a
+
+
+def _eth_short(qty=1.22):
+    from src.prop.platform.base import Position
+    return Position(symbol="ETHUSD", side="short", quantity=qty)
+
+
+def test_panel_modify_types_into_the_panel_and_presses_only_modify_position(panel_page):
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is True, r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "panel-modify"]
+    assert panel_page.evaluate("document.getElementById('psl').value") == "2700"
+    assert panel_page.evaluate("document.getElementById('ssl').value") == ""        # sidebar untouched
+
+
+def test_panel_modify_refuses_when_close_position_is_the_only_enabled_button(panel_page):
+    # Modify Position never enables; Close Position sits beside it, enabled.
+    panel_page.evaluate("() => { window.__stuckModify = true; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "disabled after the values read back" in r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "discard"]              # never Close Position
+    assert r["exit"]["closed"] is True
+
+
+def test_panel_modify_refuses_a_mode_other_than_price(panel_page):
+    panel_page.evaluate("() => { document.getElementById('slmode').textContent = 'Pips'; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "stop_loss mode reads 'Pips'" in r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "discard"]
+    assert panel_page.evaluate("document.getElementById('psl').value") == "2718.46"  # nothing typed
+
+
+def test_panel_modify_refuses_a_modify_control_that_opens_no_panel(panel_page):
+    panel_page.evaluate("() => { window.__open = () => {}; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "0 Position Details panels" in r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify"]                         # no sidebar control touched
+    assert panel_page.evaluate("document.getElementById('ssl').value") == ""
+
+
+def test_panel_modify_refuses_several_rows_for_the_symbol_before_any_click(panel_page):
+    panel_page.evaluate("() => { const r = document.querySelector('#rows tr'); r.parentElement.appendChild(r.cloneNode(true)); }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "found 2" in r["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_panel_modify_refuses_when_the_row_size_is_not_the_position(panel_page):
+    r = _armed().modify_bracket(panel_page, _eth_short(qty=2.0), 2700.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "size" in r["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_panel_modify_reports_a_panel_that_discard_does_not_close(panel_page):
+    panel_page.evaluate("() => { window.__shut = () => {}; window.__stuckModify = true; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "PANEL STILL OPEN" in r["why"]
+
+
+def test_panel_modify_disarmed_and_unflagged_never_click(panel_page):
+    r = _edit_adapter().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "EDIT_DIALOG_MEASURED" in r["why"]
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=False)
+    assert r["ok"] is True and r["clicked"] is False
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_panel_modify_refuses_an_edit_click_of_unknown_outcome():
+    calls = []
+
+    class P:
+        keyboard = type("K", (), {"press": staticmethod(lambda *a: calls.append(("escape",)))})()
+
+        def click(self, *a, **k):
+            raise TimeoutError("x")
+
+        def fill(self, *a, **k):
+            calls.append(("fill", a))
+
+        def wait_for_timeout(self, *a):
+            pass
+
+        def locator(self, *a):
+            return type("L", (), {"count": staticmethod(lambda: 0)})()
+
+        def evaluate(self, *a):
+            return {"ok": False, "panels": 0}
+
+    a = _armed()
+    a._locate_edit_control = lambda *x: {"ok": True, "row": {}, "controls": [], "chosen": 1}
+    r = a.modify_bracket(P(), _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "outcome unknown" in r["why"]
+    assert ("fill",) not in [c[:1] for c in calls] and calls == [("escape",)]
+
+
+_GOOD_PANEL = {"ok": True, "panels": 1, "text": "Position Details ETHUSD ETH Protection", "ambiguous": [],
+               "fields": {"stop_loss": {"value": "1", "mode": "Price", "readonly": False},
+                          "take_profit": {"value": "2", "mode": "Price", "readonly": False}},
+               "submit": 1, "submit_name": "Modify Position", "submit_in_box": True, "submit_enabled": True, "discard": 1}
+
+
+def test_position_panel_mismatch_passes_only_the_positions_own_panel():
+    from src.prop.platform.dxtrade import position_panel_mismatch
+    assert position_panel_mismatch(_GOOD_PANEL, "ETHUSD", require_submit_enabled=True) == []
+    cases = {
+        "does not name": {"text": "Position Details SOLUSD"},
+        "mode reads 'Pips'": {"fields": {**_GOOD_PANEL["fields"], "stop_loss": {"value": "1", "mode": "Pips", "readonly": False}}},
+        "no take_profit field": {"fields": {"stop_loss": _GOOD_PANEL["fields"]["stop_loss"]}},
+        "read-only": {"fields": {**_GOOD_PANEL["fields"], "take_profit": {"value": "2", "mode": "Price", "readonly": True}}},
+        "need exactly 1": {"submit": 2},
+        "names Close": {"submit_name": "Close Position"},
+        "not boxed": {"submit_in_box": False},
+        "disabled after": {"submit_enabled": False},
+        "'Discard' buttons": {"discard": 0},
+    }
+    for needle, patch in cases.items():
+        got = position_panel_mismatch({**_GOOD_PANEL, **patch}, "ETHUSD", require_submit_enabled=True)
+        assert any(needle in g for g in got), (needle, got)
+    assert position_panel_mismatch({"ok": False, "why": "2 Position Details panels (need exactly 1)"}, "ETHUSD")
+
+
+def test_surface_probe_ignores_live_prices_in_control_names(surface_page):
+    # #15657: the quick-trade Bid/Ask buttons carry ticking prices; they must
+    # not read as a change (the probe restored, no alert).
+    surface_page.evaluate("() => { const b = document.createElement('button'); b.id = 'bid'; b.textContent = 'Sell 2,665.99';"
+                          " document.body.prepend(b); let n = 0; setInterval(() => { b.textContent = 'Sell 2,66' + (n++ % 10) + '.73'; }, 5); }")
+    got = _edit_adapter().probe_edit_surface(surface_page, "ETHUSD")
+    assert got["restored"] is True and got["alerts"] == [], got.get("residual")

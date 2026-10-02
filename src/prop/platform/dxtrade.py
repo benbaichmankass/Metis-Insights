@@ -2718,7 +2718,7 @@ EDIT_DIALOG_JS = r"""
     };
     const FIELDS = {stop_loss: /(stop\s*loss|^s\/?l\b)/i, take_profit: /(take\s*profit|^t\/?p\b)/i,
                     quantity: /(qty|quantity|lots?|volume|size|amount)/i};
-    const inputs = [...d.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
+    const inputs = [...d.querySelectorAll('input:not([type=hidden]):not([type=password]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
     const ins = inputs.map(el => ({el, label: prevLabel(el), value: el.value !== undefined ? String(el.value) : txt(el),
       readonly: !!(el.readOnly || el.disabled || attr(el, 'aria-readonly') === 'true' || attr(el, 'aria-disabled') === 'true')}));
     const fields = {}, ambiguous = [];
@@ -2738,7 +2738,7 @@ EDIT_DIALOG_JS = r"""
                   (el.type === 'radio' ? (prevLabel(el) || el.value) : txt(el))).slice(0, 30)}));
     const btns = [...d.querySelectorAll('button, [role=button], input[type=submit]')].filter(vis);
     const bname = b => txt(b) || attr(b, 'aria-label') || b.value || '';
-    const SUBMIT = /^(save|apply|modify|modify position|update|confirm|ok|place|submit)$/i, CANCEL = /^(cancel|discard)$/i;
+    const SUBMIT = /^(save|apply|modify|modify position|update|confirm|ok|submit)$/i, CANCEL = /^(cancel|discard)$/i;
     const sub = btns.filter(b => SUBMIT.test(bname(b).trim()));
     const can = btns.filter(b => CANCEL.test(bname(b).trim()));
     // The dialog's own x, never anything that reads "position" or buy / sell.
@@ -2788,6 +2788,9 @@ EDIT_SURFACE_JS = r"""
   const mask = s => String(s || '').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '<email>')
     .replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 60);
   const tid = el => mask(attr(el, 'data-test-id') || attr(el, 'data-testid'));
+  // Live prices in a control's name (quick-trade "Sell 2,665.99") tick on
+  // every snapshot: digits never key a control (#15657 false positive).
+  const nodigits = s => String(s || '').replace(/[0-9][0-9.,]*/g, '#');
   const SEL = 'input:not([type=hidden]):not([type=password]), select, textarea, button, [role=button], [role=combobox], h1, h2, h3, h4, [class*=title], [class*=header]';
   const excluded = el => !!(el.closest('table') || el.closest('[data-metis-close-row]') || el.closest('[role=row]') || el.closest('[role=grid]'));
   const labelOf = el => {
@@ -2810,9 +2813,9 @@ EDIT_SURFACE_JS = r"""
       const k = kindOf(el), b = box(el);
       const value = k === 'input' ? (el.value !== undefined ? el.value : txt(el))
         : k === 'select' ? (el.options && el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '') : '';
-      return {key: [k, tid(el), mask(k === 'button' || k === 'heading' ? nameOf(el) : labelOf(el)).slice(0, 30),
+      return {key: [k, tid(el), nodigits(mask(k === 'button' || k === 'heading' ? nameOf(el) : labelOf(el))).slice(0, 30),
                     Math.round(b[0] / 8), Math.round(b[1] / 8)].join('|'),
-              kind: k, tid: tid(el), name: mask(k === 'input' || k === 'select' ? labelOf(el) : nameOf(el)),
+              kind: k, tid: tid(el), name: nodigits(mask(k === 'input' || k === 'select' ? labelOf(el) : nameOf(el))),
               value: mask(value), readonly: !!(el.readOnly || attr(el, 'aria-readonly') === 'true'),
               disabled: !!(el.disabled || attr(el, 'aria-disabled') === 'true'), box: b};
     });
@@ -2820,7 +2823,7 @@ EDIT_SURFACE_JS = r"""
     const order_entry = {
       side_buttons: ['BUY', 'SELL'].every(t => [...document.querySelectorAll('[data-test-id=' + t + ']')].some(vis)),
       type_buttons: ['market', 'limit', 'stop'].filter(t => names.some(n => n === t)),
-      submit_label: items.some(i => i.kind === 'button' && /^(buy|sell)\s+[0-9.,]+\s+\S+\s+at\b/i.test(i.name)),
+      submit_label: items.some(i => i.kind === 'button' && /^(buy|sell)\s+#\s+\S+\s+at\b/i.test(i.name)),  // names are digit-masked
       modify_words: items.filter(i => /modify|edit position|update position/i.test(i.name)).map(i => i.name).slice(0, 5)};
     return {ok: true, n: items.length, items, order_entry, dialogs: document.querySelectorAll('[role=dialog], [aria-modal=true]').length};
   }
@@ -2830,7 +2833,7 @@ EDIT_SURFACE_JS = r"""
     const BAD = /(submit|modify|apply|confirm|place|save|update|position|buy|sell|ok\b)/i;
     const OK = /^(cancel|discard|close|×|✕|✖|x)$/i;
     const cands = [...document.querySelectorAll('button, [role=button]')].filter(el => vis(el) && !excluded(el)).filter(el => {
-      const b = box(el), k = ['button', tid(el), mask(nameOf(el)).slice(0, 30), Math.round(b[0] / 8), Math.round(b[1] / 8)].join('|');
+      const b = box(el), k = ['button', tid(el), String(mask(nameOf(el))).replace(/[0-9][0-9.,]*/g, '#').slice(0, 30), Math.round(b[0] / 8), Math.round(b[1] / 8)].join('|');
       const n = nameOf(el).trim(), cls = attr(el, 'class') + ' ' + attr(el, 'aria-label');
       return want.has(k) && !BAD.test(n + ' ' + cls) && (OK.test(n) || (!n && /(^|[\s_-])(close|cancel)([\s_-]|$)/i.test(cls)));
     });
@@ -2839,6 +2842,91 @@ EDIT_SURFACE_JS = r"""
     return {ok: true, name: mask(nameOf(cands[0]) || 'x')};
   }
   return {ok: false, why: 'unknown op'};
+}
+"""
+
+# The position's MEASURED edit surface (#15657, 2026-10-02): the Positions
+# row's modify control opens a docked "Position Details" panel -- headings
+# "Position Details", the symbol, "Protection"; a "Stop Loss:" and a "Take
+# Profit:" input, each beside its own "Price" mode button; "Close Position"
+# (enabled) and "Modify Position" (disabled until a value changes) side by
+# side, "Discard" below. No quantity field: the size is read from the row.
+#  "read": find EVERY panel (the smallest element holding a "Position
+#          Details" heading and exact "Modify Position" + "Discard"
+#          buttons), read the one panel's symbol text, SL / TP inputs (never
+#          a password input), each input's mode button, and its buttons with
+#          geometry; tag the panel, its fields, its submit and its discard.
+#          Clicks nothing.
+POSITION_PANEL_JS = r"""
+(args) => {
+  const [op] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const mask = s => String(s || '').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '<email>').replace(/\d{5,}/g, '#####').slice(0, 300);
+  const inBox = (i, o) => i[2] > 0 && i[3] > 0 && i[0] >= o[0] && i[1] >= o[1] && i[0] + i[2] <= o[0] + o[2] && i[1] + i[3] <= o[1] + o[3];
+  ['data-metis-pp', 'data-metis-pp-field', 'data-metis-pp-btn'].forEach(a =>
+    document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a)));
+  const BTN = 'button, [role=button]';
+  const bname = b => (txt(b) || b.getAttribute('aria-label') || '').trim();
+  const heads = [...document.querySelectorAll('body *')].filter(el => vis(el) && el.children.length <= 2
+    && /^position details$/i.test(txt(el)));
+  const panels = [];
+  for (const h of heads) {
+    for (let e = h.parentElement; e && e !== document.body; e = e.parentElement) {
+      const bs = [...e.querySelectorAll(BTN)].filter(vis).map(bname);
+      if (bs.some(n => /^modify position$/i.test(n)) && bs.some(n => /^discard$/i.test(n))) {
+        if (!panels.includes(e)) panels.push(e); break;
+      }
+    }
+  }
+  const outer = panels.filter(p => !panels.some(o => o !== p && p.contains(o)));
+  if (outer.length !== 1) return {ok: false, panels: outer.length, why: outer.length + ' Position Details panels (need exactly 1)'};
+  const P = outer[0], pb = box(P);
+  P.setAttribute('data-metis-pp', '1');
+  const prevLabel = inp => {
+    for (let e = inp, i = 0; i < 6 && e && e !== P; i++, e = e.parentElement)
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea') || s.querySelector('input, select, textarea')) break;
+        const t = txt(s); if (t) return t.split(/\n/)[0].trim();
+      }
+    return (inp.getAttribute('aria-label') || '').trim();
+  };
+  const FIELDS = {stop_loss: /^stop\s*loss\b/i, take_profit: /^take\s*profit\b/i};
+  const inputs = [...P.querySelectorAll('input:not([type=hidden]):not([type=password]):not([type=checkbox]):not([type=radio])')].filter(vis);
+  const fields = {}, ambiguous = [];
+  for (const [k, r] of Object.entries(FIELDS)) {
+    const m = inputs.filter(i => r.test(prevLabel(i)));
+    if (m.length > 1) { ambiguous.push(k); continue; }
+    if (!m.length) continue;
+    const el = m[0];
+    el.setAttribute('data-metis-pp-field', k);
+    // Its mode button: the nearest button in the input's own row (the
+    // smallest ancestor holding a button but no OTHER input).
+    let mode = null;
+    for (let e = el.parentElement; e && e !== P; e = e.parentElement) {
+      const others = [...e.querySelectorAll('input')].filter(x => x !== el && vis(x));
+      const btns = [...e.querySelectorAll(BTN)].filter(b => vis(b) && bname(b));
+      if (others.length) break;
+      if (btns.length) { mode = bname(btns[btns.length - 1]); break; }
+    }
+    fields[k] = {label: mask(prevLabel(el)).slice(0, 30), value: String(el.value || ''), mode: mode ? mask(mode).slice(0, 20) : null,
+                 readonly: !!(el.readOnly || el.disabled || el.getAttribute('aria-disabled') === 'true')};
+  }
+  const btns = [...P.querySelectorAll(BTN)].filter(vis);
+  const sub = btns.filter(b => /^modify position$/i.test(bname(b)));
+  const dis = btns.filter(b => /^discard$/i.test(bname(b)));
+  const closes = btns.filter(b => /close/i.test(bname(b)));
+  if (sub.length === 1) sub[0].setAttribute('data-metis-pp-btn', 'submit');
+  if (dis.length === 1) dis[0].setAttribute('data-metis-pp-btn', 'discard');
+  const enabled = b => !(b.disabled || b.getAttribute('aria-disabled') === 'true' || /\bdisabled\b/.test(b.className || ''));
+  const sb = sub.length === 1 ? box(sub[0]) : null;
+  return {ok: true, panels: 1, box: pb, text: mask(txt(P)), fields, ambiguous,
+          submit: sub.length, submit_enabled: sub.length === 1 && enabled(sub[0]), submit_in_box: sb ? inBox(sb, pb) : false,
+          submit_name: sub.length === 1 ? bname(sub[0]) : null, discard: dis.length,
+          close_buttons: closes.length, close_enabled: closes.filter(enabled).length,
+          buttons: btns.map(b => ({name: mask(bname(b)).slice(0, 30), enabled: enabled(b), box: box(b)}))};
 }
 """
 
@@ -4623,6 +4711,50 @@ def surface_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[st
     same = not (added or removed or changed)
     return {"same": same, "added": added, "removed": removed, "changed": changed,
             "summary": "no change" if same else f"{len(added)} added, {len(removed)} removed, {len(changed)} changed"}
+
+def position_panel_mismatch(panel: Mapping[str, Any], symbol: str,
+                            want: Sequence[str] = ("stop_loss", "take_profit"),
+                            *, require_submit_enabled: bool = False) -> List[str]:
+    """Pure: is POSITION_PANEL_JS's read the ONE docked "Position Details"
+    panel for ``symbol``, and safe to type SL/TP into and submit? Every
+    reason returned is a refusal (manager's re-target decision 2026-10-02,
+    after the live readout #15657). The panel must: be the only one; name
+    the symbol as a whole word; hold each SL/TP field we mean to type,
+    editable and unambiguous, its own mode button reading "Price"; own
+    exactly one "Modify Position" submit -- named exactly that, never a
+    "Close" control -- boxed inside the panel, and ENABLED once the typed
+    values read back (``require_submit_enabled``); and own one "Discard".
+    The quantity is NOT read here: the panel shows none, so the caller has
+    matched the Positions ROW's symbol / side / size before opening it."""
+    if not panel.get("ok"):
+        return [str(panel.get("why") or "panel not read")]
+    bad: List[str] = []
+    text = str(panel.get("text") or "")
+    if not re.search(rf"(?<![A-Za-z0-9]){re.escape(symbol)}(?![A-Za-z0-9])", text, re.IGNORECASE):
+        bad.append(f"panel does not name {symbol}")
+    if panel.get("ambiguous"):
+        bad.append(f"ambiguous fields: {sorted(panel['ambiguous'])}")
+    for k in want:
+        f = (panel.get("fields") or {}).get(k)
+        if not f:
+            bad.append(f"no {k} field in the panel")
+            continue
+        if f.get("readonly"):
+            bad.append(f"{k} field is read-only")
+        if str(f.get("mode") or "").strip().lower() != "price":
+            bad.append(f"{k} mode reads {f.get('mode')!r} (need Price)")
+    if panel.get("submit") != 1:
+        bad.append(f"{panel.get('submit')} 'Modify Position' buttons (need exactly 1)")
+    else:
+        if re.search(r"close", str(panel.get("submit_name") or ""), re.IGNORECASE):
+            bad.append("the submit names Close")
+        if not panel.get("submit_in_box"):
+            bad.append("'Modify Position' is not boxed inside the panel")
+        if require_submit_enabled and not panel.get("submit_enabled"):
+            bad.append("'Modify Position' is disabled after the values read back")
+    if panel.get("discard") != 1:
+        bad.append(f"{panel.get('discard')} 'Discard' buttons (need exactly 1)")
+    return bad
 
 def check_bracket_spec(spec: BracketSpec) -> List[str]:
     """Pure structural check of one bracket before any click: both legs, a
@@ -7517,22 +7649,54 @@ class DXtradeAdapter(PropPlatformAdapter):
                 back = surface_diff(before, self._surface_snap(page))
         out["restored"] = back["same"]
         if not back["same"]:
+            out["residual"] = {part: [{f: i.get(f) for f in ("kind", "name", "tid", "box")} for i in back.get(part) or []][:20]
+                               for part in ("added", "removed")}
+            out["residual"]["changed"] = (back.get("changed") or [])[:20]
             out["alerts"].append("PAGE NOT BACK AT BASELINE after the probe: " + back["summary"])
         return out
+
+    def _read_position_panel(self, page: Any) -> Dict[str, Any]:
+        try:
+            return page.evaluate(POSITION_PANEL_JS, ["read"]) or {"ok": False, "why": "empty panel read"}
+        except Exception as exc:
+            return {"ok": False, "why": f"panel read failed ({type(exc).__name__})"}
+
+    def _discard_position_panel(self, page: Any) -> Dict[str, Any]:
+        """Leave the Position Details panel by ITS OWN "Discard" (fenced to
+        inside the tagged panel; never Close / Modify Position), then REQUIRE
+        the panel to have closed. Escape is the only fallback (#15657: Escape
+        alone does not close it)."""
+        pressed = False
+        try:
+            loc = page.locator("[data-metis-pp] [data-metis-pp-btn=discard]")
+            if loc.count() == 1:
+                loc.first.click(timeout=5_000)
+                pressed = True
+        except Exception:
+            pass
+        if not pressed:
+            try:
+                page.keyboard.press("Escape")
+            except Exception:
+                pass
+        page.wait_for_timeout(600)
+        after = self._read_position_panel(page)
+        closed = (not after.get("ok")) and after.get("panels") == 0
+        return {"discard_pressed": pressed, "closed": closed}
 
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
                        *, arm: bool = False) -> Dict[str, Any]:
-        """Set a position's SL/TP through its row's pencil and the dialog it
-        opens, every step read back (go-live review of #15316):
-        the ONE row for the symbol, side and size matching the position ->
-        the pencil chosen by icon name -> the ONE dialog that APPEARED,
-        passing ``edit_dialog_mismatch`` (names the symbol, read-only qty ==
-        the position's, mode Price, its own boxed submit) -> type SL/TP into
-        ITS fields -> read back -> ITS submit. Any refusal presses the
-        dialog's own Cancel. A click that raised is refused as outcome
-        unknown. ``_find_form`` / ``close_order_ticket`` are never used here:
-        they anchor on the sidebar order ticket."""
+        """Set a position's SL/TP through the MEASURED docked "Position
+        Details" panel (#15657; manager's re-target decision 2026-10-02):
+        the ONE Positions row for the symbol whose side AND size equal the
+        position's (the panel shows no quantity, so the row is the size
+        check) -> THAT row's modify control -> the ONE Position Details
+        panel, passing ``position_panel_mismatch`` (names the symbol, SL/TP
+        inputs each with mode "Price", one "Modify Position" boxed inside,
+        one "Discard") -> type SL/TP into ITS fields -> read back -> require
+        "Modify Position" ENABLED -> press it. Never a "Close" control. Any
+        refusal presses the panel's own "Discard" and requires it closed."""
         if stop_loss is None and take_profit is None:
             return {"ok": False, "clicked": False, "why": "nothing to modify"}
         # Diagnostic only (ORDER ENTRY rule 1): recorded on every result below,
@@ -7547,40 +7711,49 @@ class DXtradeAdapter(PropPlatformAdapter):
             return {"ok": True, "clicked": False, **seen, "why": "disarmed: stopped before the edit control"}
         if not self.EDIT_DIALOG_MEASURED:
             # PROP-TRAIL go-live review (manager, 2026-10-01): refuse before
-            # any click until a measured run has proven the dialog.
+            # any click until the manager flips the measured-surface flag.
             return {"ok": False, "clicked": False, **seen,
-                    "why": "refused: the SL/TP edit dialog is unmeasured (an armed walk could "
-                           "submit the sidebar order ticket instead)"}
-        if position.quantity is None:
-            return {"ok": False, "clicked": False, **seen, "why": "position size unknown: refusing"}
-        opened = self._open_edit_dialog(page, position.symbol)
-        if not opened.get("ok"):
-            if opened.get("clicked"):
-                self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": bool(opened.get("clicked")), **seen, "why": opened.get("why")}
-        dlg = opened["dialog"]
-        bad = edit_dialog_mismatch(dlg, position.symbol, position.quantity, tuple(want))
+                    "why": "refused: the SL/TP edit surface is unmeasured for armed use (EDIT_DIALOG_MEASURED is False)"}
+        if position.quantity is None or position.side is None:
+            return {"ok": False, "clicked": False, **seen, "why": "position side / size unknown: refusing"}
+
+        def refuse(why: str, panel: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+            exit_ = self._discard_position_panel(page)
+            tail = "; Discard pressed" if exit_["discard_pressed"] else "; no Discard found (Escape sent)"
+            if not exit_["closed"]:
+                tail += "; PANEL STILL OPEN"
+            return {"ok": False, "clicked": True, **seen, "panel": panel, "exit": exit_,
+                    "why": _mask_public_text(why) + tail}
+
+        try:
+            page.click("[data-metis-edit-ctl]", timeout=5_000)
+        except Exception as exc:
+            return refuse(f"edit control click raised {type(exc).__name__}; outcome unknown")
+        page.wait_for_timeout(1_000)
+        panel = self._read_position_panel(page)
+        bad = position_panel_mismatch(panel, position.symbol, tuple(want))
         if bad:
-            self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": True, **seen, "dialog": dlg,
-                    "why": _mask_public_text("edit dialog refused: " + "; ".join(bad)) + "; Cancel pressed"}
+            return refuse("position panel refused: " + "; ".join(bad), panel)
         try:
             for k, v in want.items():
-                page.fill(f"[data-metis-edit-dialog] [data-metis-edit-field={k}]", _fmt_num(v), timeout=5_000)
+                sel = f"[data-metis-pp] [data-metis-pp-field={k}]"
+                page.fill(sel, _fmt_num(v), timeout=5_000)
+                try:
+                    page.locator(sel).blur()
+                except Exception:
+                    pass
         except Exception as exc:
-            self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": True, **seen, "why": f"fill raised {type(exc).__name__}; Cancel pressed"}
-        dlg = self._read_edit_dialog(page, position.symbol)
-        bad = edit_dialog_mismatch(dlg, position.symbol, position.quantity, tuple(want)) \
-            + verify_form_values(dlg.get("fields") or {}, want)
+            return refuse(f"fill raised {type(exc).__name__}", panel)
+        page.wait_for_timeout(400)
+        panel = self._read_position_panel(page)
+        bad = position_panel_mismatch(panel, position.symbol, tuple(want), require_submit_enabled=True) \
+            + verify_form_values(panel.get("fields") or {}, want)
         if bad:
-            self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": True, **seen, "dialog": dlg,
-                    "why": _mask_public_text("read-back refused: " + "; ".join(bad)) + "; Cancel pressed"}
+            return refuse("read-back refused: " + "; ".join(bad), panel)
         try:
-            page.click("[data-metis-edit-dialog] [data-metis-edit-btn=submit]", timeout=5_000)
+            page.click("[data-metis-pp] [data-metis-pp-btn=submit]", timeout=5_000)
         except Exception as exc:
-            return {"ok": False, "clicked": True, **seen,
-                    "why": f"submit click raised {type(exc).__name__}; outcome unknown"}
+            return {"ok": False, "clicked": True, **seen, "panel": panel,
+                    "why": f"'Modify Position' click raised {type(exc).__name__}; outcome unknown"}
         self._confirm_dialog(page)
-        return {"ok": True, "clicked": True, **seen, "why": "submit clicked"}
+        return {"ok": True, "clicked": True, **seen, "panel": panel, "why": "Modify Position clicked"}
