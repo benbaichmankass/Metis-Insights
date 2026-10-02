@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE step 2c). add-watchlist-widget gains ONE more measured click: after '+', 'Watchlist', 'Private', the ONE list leaf 'Favourites' (exact text, Private/Public still showing). Anything opening after it is dumped and Escaped, never clicked into. All refusals unchanged (one-click OFF, 'My Trading Account', breakout_1).",
+  "why": "add-watchlist-widget #15414 (code 5b0b486bb, includes #15394) clicked Private and found a third level holding a single list, 'Favourites'; no widget was added, one Escape, layout unchanged. Favourites is the only entry, so there is no choice to make."
+}

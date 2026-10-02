@@ -5350,6 +5350,10 @@ class DXtradeAdapter(PropPlatformAdapter):
     #: #15390 dumps): the user's own (editable) lists, where the removed
     #: "Default Watchlist" lived, so missing symbols can be added later.
     WATCHLIST_SUBMENU_PICK = "Private"
+    #: The ONE list under Private (MEASURED by add-watchlist-widget #15414,
+    #: code 5b0b486bb): clicking "Private" opened a third level holding only
+    #: "Favourites".
+    WATCHLIST_LIST_PICK = "Favourites"
 
     def _escape_menus(self, page: Any, out: Dict[str, Any], *, tries: int = 3) -> None:
         """Escape (a key, never a click) until no menu-only label is visible,
@@ -5463,8 +5467,10 @@ class DXtradeAdapter(PropPlatformAdapter):
         that shows every measured sibling (#15350), and -- because that entry
         opens a Private/Public submenu (#15373; hover opens nothing, #15390) --
         the ONE submenu leaf ``WATCHLIST_SUBMENU_PICK`` with its sibling
-        present. Anything that opens after that is dumped and Escaped, never
-        clicked into. Refused
+        present, and -- because Private opens a list level (#15414) -- the ONE
+        list leaf ``WATCHLIST_LIST_PICK`` with Private/Public still showing
+        (at most FOUR clicks). Anything that opens after that is dumped and
+        Escaped, never clicked into. Refused
         unless one-click reads OFF, the workspace is ``expect_workspace`` and
         no Symbol/Bid/Ask table is already present (then it is a no-op).
         Verified by the click-free WATCHLIST_SYMBOLS_JS read (exactly one
@@ -5528,6 +5534,22 @@ class DXtradeAdapter(PropPlatformAdapter):
                     return out
                 sub_item.first.click(timeout=5_000)
                 out["clicks"].append(f"submenu:{self.WATCHLIST_SUBMENU_PICK}")
+                page.wait_for_timeout(settle_ms)
+                # MEASURED (#15414): "Private" opens a third level holding ONE
+                # list, "Favourites". Click that exact leaf (new since "+",
+                # with Private/Public still showing); anything else -> Escape.
+                if not self.watchlist_symbols(page).get("readable"):
+                    lst = page.evaluate(WIDGET_MENU_PICK_JS, [self.WATCHLIST_LIST_PICK,
+                                        list(self.WATCHLIST_SUBMENU)]) or {}
+                    out["list_pick"] = lst
+                    lst_item = page.locator("[data-metis-wpick='1']")
+                    if not lst.get("tagged") or lst_item.count() != 1:
+                        out["refused"] = "Private submenu did not match the measured list level (nothing picked)"
+                        out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                        self._escape_menus(page, out)
+                        return out
+                    lst_item.first.click(timeout=5_000)
+                    out["clicks"].append(f"list:{self.WATCHLIST_LIST_PICK}")
             waited = 0
             while True:
                 page.wait_for_timeout(500)
