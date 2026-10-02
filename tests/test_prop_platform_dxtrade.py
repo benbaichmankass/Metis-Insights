@@ -2091,3 +2091,84 @@ def test_submit_js_names_what_is_painted_over_the_live_footer_geometry():
     assert "paints div[order_warning]" in why and "(unrelated)" in why
     # An overlay is not something a scroll can clear: it must still refuse.
     assert after["visible"] is False
+
+
+# ── edit-surface diff probe (DIALOG-MEASURE, after #15628) ─────────────────
+# INVENTED layout carrying the measured hazard: the row's modify control
+# opens NO new dialog; it switches the docked sidebar ticket into a modify
+# mode (heading, read-only qty, SL/TP, Save + Cancel), which Escape does not
+# leave.
+
+SURFACE_HTML = """
+<html><head><style>table { border-collapse: collapse; }</style></head><body>
+<div id="side"><h3 id="hd">Order Ticket</h3>
+  <div id="entry"><button data-test-id="BUY" onclick="window.__log.push('buy')">Buy</button>
+  <button data-test-id="SELL" onclick="window.__log.push('sell')">Sell</button>
+  <button>Market</button><button>Limit</button><button>Stop</button>
+  <span>Lots</span><input id="q" value="1">
+  <button id="sub" onclick="window.__log.push('submit')">Buy 1 ETHUSD at 2657.5</button></div>
+  <div id="mod" style="display:none"><span>Quantity</span><input value="1.22" readonly>
+  <span>Stop Loss</span><input id="msl" value="2718.46"><select><option selected>Price</option></select>
+  <button onclick="window.__log.push('save')">Save</button>
+  <button id="mcancel" onclick="window.__log.push('cancel'); window.__exit()">Cancel</button></div></div>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open Price</th><th></th></tr></thead>
+<tbody><tr><td>ETHUSD</td><td>Sell</td><td>1.22</td><td>2657.17</td>
+<td><button class="button-closeBy" disabled><i class="icon-close-by"></i></button><button data-test-id="position-table-modify"
+ onclick="window.__log.push('modify'); window.__enter()"><i class="icon-replace-context"></i></button><button
+ class="button-closePosition" onclick="window.__log.push('close')"><i class="icon-close-position"></i></button></td></tr></tbody></table>
+<script>
+window.__log = [];
+window.__enter = () => { document.getElementById('entry').style.display = 'none';
+  document.getElementById('mod').style.display = 'block'; document.getElementById('hd').textContent = 'Modify Position'; };
+window.__exit = () => { document.getElementById('entry').style.display = 'block';
+  document.getElementById('mod').style.display = 'none'; document.getElementById('hd').textContent = 'Order Ticket'; };
+</script></body></html>
+"""
+
+
+@pytest.fixture()
+def surface_page(chromium_page):
+    chromium_page.set_content(SURFACE_HTML)
+    yield chromium_page
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_surface_probe_measures_a_sidebar_modify_mode_and_leaves_by_its_own_cancel(surface_page):
+    got = _edit_adapter().probe_edit_surface(surface_page, "ETHUSD")
+    assert got["locate"]["ok"] and got["clicked"] is True
+    assert got["baseline_order_entry"]["side_buttons"] is True and got["baseline_order_entry"]["submit_label"] is True
+    assert got["after_order_entry"]["side_buttons"] is False and not got["diff"]["same"]
+    assert any(i["name"] == "Save" for i in got["diff"]["added"])
+    assert got["cancel"]["ok"] and got["restored"] is True and got["alerts"] == []
+    assert surface_page.evaluate("window.__log") == ["modify", "cancel"]       # never Save / submit / close
+
+
+def test_surface_probe_alerts_and_presses_nothing_when_the_surface_has_no_cancel(surface_page):
+    surface_page.evaluate("() => { document.getElementById('mcancel').remove(); }")
+    got = _edit_adapter().probe_edit_surface(surface_page, "ETHUSD")
+    assert got["restored"] is False and got["cancel"]["ok"] is False
+    assert any("NOT BACK AT BASELINE" in a for a in got["alerts"])
+    assert surface_page.evaluate("window.__log") == ["modify"]                  # Save never pressed
+
+
+def test_surface_probe_with_no_position_row_clicks_nothing(surface_page):
+    got = _edit_adapter().probe_edit_surface(surface_page, "SOLUSD")
+    assert got["locate"]["ok"] is False and "clicked" not in got
+    assert surface_page.evaluate("window.__log") == []
+
+
+def test_surface_diff_never_calls_an_unread_snapshot_the_same():
+    from src.prop.platform.dxtrade import surface_diff
+    snap = {"ok": True, "items": [{"key": "a", "value": "1", "readonly": False, "disabled": False}]}
+    assert surface_diff(snap, snap)["same"] is True
+    assert surface_diff(snap, {"ok": False, "why": "x"})["same"] is False
+    moved = {"ok": True, "items": [{"key": "a", "value": "2", "readonly": False, "disabled": False}]}
+    assert surface_diff(snap, moved)["changed"] and not surface_diff(snap, moved)["same"]
+
+
+def test_the_tick_resolves_the_edit_surface_probe_and_defers_it_to_a_live_ticket():
+    from types import SimpleNamespace
+    from scripts.prop.prop_executor_tick import YIELD_MODES, resolve_mode
+    base = dict(probe_ticket="", dry_run=False, watched_click=False, round_trip="", close_position="")
+    assert resolve_mode(SimpleNamespace(**base, edit_surface_probe="ETHUSD"), {}) == "edit_surface_probe"
+    assert "edit_surface_probe" in YIELD_MODES
