@@ -4557,7 +4557,7 @@
         15465
       ],
       "blocked_on": [],
-      "note": "2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. MEASURED in prop_fills: reason 'risk cap: resized (... $75.11 exceeds the flat-mode cap $75.00 \u2014 resized to the cap)' with status skipped. Code on main: prop_executor.py ~L493 appends any non-'unchanged' cap action to reasons, so 'resized' is never applied and fits=False. Deliverable: HELD Tier-2 PR that rounds quantity down so risk <= cap, keeps gross over-cap refused, and adds tests, plus a pipeline row that clears on the first resize-path ticket PLACED after deploy. LANE 2026-10-02 07:25Z: HELD PR #15465 open (tier_2_3_needs_approval; manager merges). ROOT CAUSE is the PRICE step, not the lot step: size_lots floors qty 28.45528451 -> 28.45 lots ($74.99 at the raw prices, UNDER cap), then rounding the stop to price_step 0.01 (118.59428571 -> 118.59) widens the stop 2.63571429 -> 2.64 and risk recomputes from the typed values to 28.45 x 2.64 = $75.11. Fix cuts the size to 28.40 lots ($74.98) where the size is decided, bounded by the ticket's own ask so a gross over-cap ticket is still REFUSED. Pipeline row PI-20261002-ULPHZHHQ-0001 clears on the first resize-path ticket PLACED. MEASURED over all 77 prop_fills rows: exactly 1 ticket ever lost to this reason. MERGED 2026-10-02T07:56Z as 196341a9d (#15465), CI green on 2640ab265 (guards/pytest-run/pytest-collect/repo-inventory all success). State is landed_unproven, NOT done: merged != deployed != observed. THE OBSERVATION THAT CLOSES IT: the first resize-path ticket seen PLACED in prop_fills -- a row with status open/filled for a ticket whose executor guards log carries facts.risk_cap_resize != null. No further 'risk cap' skip is NOT that observation (a quiet period looks identical to a working resize). Tracked by pipeline row PI-20261002-ULPHZHHQ-0001. STILL OWED: the live VM runs the merged code only after ict-trader-live restarts -- ict-git-sync pulls main but does not restart the service. MD-DEPLOY-AN-APPROVED-MERGE covers it; the lane did not fire it (out of its dispatch scope, and the trader unit is Tier-3)."
+      "note": "2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv) OBSERVED: the FIRST automated strategy trade on breakout_1. Ticket prop-manual-d27fbb0b2b25 (trend_donchian_eth_prop, ETHUSDT SHORT, created 18:47:40Z, entry 2657.11, SL 2718.46, TP 2394.06, qty 1.2225, risk $75). Executor tick 18:49-18:50Z on code_sha 3cfdd9bb7 (contains 196341a9 #15465 and 5acb8bb7 #15468): band_ok, guards fits (ticket_risk_usd 74.85, risk_cap unchanged), place_bracket stage submitted with fill_trace qty 1.22 / SL 2718.46 / TP 2394.06 / price 2657.11, confirm verdict placed (prop_fills id 78). Next tick 18:54Z: confirm verdict OPEN (prop_fills id 79, entry 2657.17); positions 1, orders 0. The open verdict requires the broker position row to carry SL and TP within 2% of the ticket (classify_confirmation), so the bracket is on the position. Ticket status filled. NOT the closing observation for this row: this ticket's risk_cap action was 'unchanged' (74.85 <= 75), so the resize path did not run. #15465 is DEPLOYED (in the placing code_sha) and its refusal branch did not misfire, but it is still not OBSERVED on a resize-path ticket. PI-20261002-ULPHZHHQ-0001 stays open. | 2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. MEASURED in prop_fills: reason 'risk cap: resized (... $75.11 exceeds the flat-mode cap $75.00 \u2014 resized to the cap)' with status skipped. Code on main: prop_executor.py ~L493 appends any non-'unchanged' cap action to reasons, so 'resized' is never applied and fits=False. Deliverable: HELD Tier-2 PR that rounds quantity down so risk <= cap, keeps gross over-cap refused, and adds tests, plus a pipeline row that clears on the first resize-path ticket PLACED after deploy. LANE 2026-10-02 07:25Z: HELD PR #15465 open (tier_2_3_needs_approval; manager merges). ROOT CAUSE is the PRICE step, not the lot step: size_lots floors qty 28.45528451 -> 28.45 lots ($74.99 at the raw prices, UNDER cap), then rounding the stop to price_step 0.01 (118.59428571 -> 118.59) widens the stop 2.63571429 -> 2.64 and risk recomputes from the typed values to 28.45 x 2.64 = $75.11. Fix cuts the size to 28.40 lots ($74.98) where the size is decided, bounded by the ticket's own ask so a gross over-cap ticket is still REFUSED. Pipeline row PI-20261002-ULPHZHHQ-0001 clears on the first resize-path ticket PLACED. MEASURED over all 77 prop_fills rows: exactly 1 ticket ever lost to this reason. MERGED 2026-10-02T07:56Z as 196341a9d (#15465), CI green on 2640ab265 (guards/pytest-run/pytest-collect/repo-inventory all success). State is landed_unproven, NOT done: merged != deployed != observed. THE OBSERVATION THAT CLOSES IT: the first resize-path ticket seen PLACED in prop_fills -- a row with status open/filled for a ticket whose executor guards log carries facts.risk_cap_resize != null. No further 'risk cap' skip is NOT that observation (a quiet period looks identical to a working resize). Tracked by pipeline row PI-20261002-ULPHZHHQ-0001. STILL OWED: the live VM runs the merged code only after ict-trader-live restarts -- ict-git-sync pulls main but does not restart the service. MD-DEPLOY-AN-APPROVED-MERGE covers it; the lane did not fire it (out of its dispatch scope, and the trader unit is Tier-3)."
     },
     {
       "id": "BREAKOUT-SUBMIT-VIS",
@@ -4565,14 +4565,16 @@
       "lane": "session_01WrKWEMWR3yfoSr9K6GM4e9",
       "ceiling_usd": 30,
       "phase": "W7",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "model": "claude-opus-5",
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        15468
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. Two consecutive ETH long tickets were skipped pre-submit with the dxtrade.py:6509 reason. Lane root-causes the failure (layout, viewport or overlay; and whether a 10-01 merge caused it), reproduces it with a dry walk (submitted false), and opens a HELD Tier-2 PR plus a pipeline row that clears on the first ETH ticket PLACED after deploy. It must also state whether SOL is exposed."
+      "note": "2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv) OBSERVED: the FIRST automated strategy trade on breakout_1. Ticket prop-manual-d27fbb0b2b25 (trend_donchian_eth_prop, ETHUSDT SHORT, created 18:47:40Z, entry 2657.11, SL 2718.46, TP 2394.06, qty 1.2225, risk $75). Executor tick 18:49-18:50Z on code_sha 3cfdd9bb7 (contains 196341a9 #15465 and 5acb8bb7 #15468): band_ok, guards fits (ticket_risk_usd 74.85, risk_cap unchanged), place_bracket stage submitted with fill_trace qty 1.22 / SL 2718.46 / TP 2394.06 / price 2657.11, confirm verdict placed (prop_fills id 78). Next tick 18:54Z: confirm verdict OPEN (prop_fills id 79, entry 2657.17); positions 1, orders 0. The open verdict requires the broker position row to carry SL and TP within 2% of the ticket (classify_confirmation), so the bracket is on the position. Ticket status filled. CLOSES this row: the submit was clicked on the same footer geometry (submit box at y=1537, below vis_bottom 811) that refused at 04:44Z and 05:15Z. Fix #15468 MERGED (5acb8bb7), DEPLOYED (in the placing code_sha), OBSERVED. PI-20261002-UBMITVIS-0001 closed done. The forensic-log follow-up stays open as PI-20261002-UBMITVIS-0002. | 2026-10-02 06:09Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): fresh Opus lane dispatched. Two consecutive ETH long tickets were skipped pre-submit with the dxtrade.py:6509 reason. Lane root-causes the failure (layout, viewport or overlay; and whether a 10-01 merge caused it), reproduces it with a dry walk (submitted false), and opens a HELD Tier-2 PR plus a pipeline row that clears on the first ETH ticket PLACED after deploy. It must also state whether SOL is exposed."
     },
     {
       "id": "STAMP-RACE",
@@ -4632,7 +4634,7 @@
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'PROP-FUNNEL (Recommended)'. Since 09-23: 20 tickets, 9 suppressed, 6 skipped, 2 expired, 2 expiry_prompted, 1 closed; the executor has placed 0 strategy trades. Held Tier-2 fix PRs plus an expired-unattempted alert."
+      "note": "2026-10-02 ~19:05Z (manager): the funnel produced its first executor-placed strategy trade, prop-manual-d27fbb0b2b25 ETHUSDT short, placed 18:50Z and open 18:54Z (prop_fills 78/79). Recount 'placed 0' accordingly; the earlier no-attempt/expiry questions stand. | 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'PROP-FUNNEL (Recommended)'. Since 09-23: 20 tickets, 9 suppressed, 6 skipped, 2 expired, 2 expiry_prompted, 1 closed; the executor has placed 0 strategy trades. Held Tier-2 fix PRs plus an expired-unattempted alert."
     },
     {
       "id": "UNPROVEN-SWEEP",
@@ -4678,6 +4680,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'M20 exit refinement'. #14053 stays held (shadow n>=25)."
+    },
+    {
+      "id": "PROP-EXIT-READ",
+      "title": "breakout_1 executor records a venue SL/TP exit as 'closed_on_terminal' with no exit price, P&L or TP/SL reason ('exit read from the terminal history is not built')",
+      "phase": "W8",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01RZaDZHQNxS61WpDu6FR2PG",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-02 19:03Z: lane session_01RZaDZHQNxS61WpDu6FR2PG dispatched (Opus, $30, HELD Tier-2 PR). | 2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): filed when the first automated breakout_1 trade opened (prop-manual-d27fbb0b2b25). MEASURED on origin/main 2ef65c6b6: src/prop/prop_executor.py::_reconcile_journal reports a position absent for 2 reads as status closed with reason 'closed_on_terminal (executor reconcile; exit read from the terminal history is not built)', with no exit_price, pnl or TP/SL reason; dxtrade.py knows the 'Trade History' tab but reads it only in dump-tables. So this trade's close, and every automated breakout_1 close after it, lands ungraded and with a close reason that is not TP/SL. Deliverable: a read-only Trade History reader and the executor close report carrying exit price, realised P&L and tp/sl/manual reason, as a HELD Tier-2 PR. Tracked by PI-20261002-APBY4NTV-0002."
     }
   ]
 }
