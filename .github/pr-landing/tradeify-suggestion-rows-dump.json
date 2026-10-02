@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE measure-first for adding ETH/SOL/XRP). instrument-probe now also reads the search's suggestion table (SUGGESTION_ROWS_JS, anchored on a visible 'Asset Class' header, masked, at most 40 rows). Read-only: clicks nothing, reads no input value. Used only by the manual instrument-probe; breakout_1's order path is untouched.",
+  "why": "instrument-probe ETH/USD #15457 (code_sha 81b131d1, including b5ecee74) typed ETH/USD (readback matched) and again dumped only the panel's tabs and header. INSTRUMENT_DETAILS_DUMP_JS skips everything inside a <tbody>, so the result rows, if present, were never read. The add PR's exact suggestion click cannot be built until they are."
+}

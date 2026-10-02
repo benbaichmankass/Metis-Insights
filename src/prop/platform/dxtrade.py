@@ -1741,6 +1741,62 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
 # or exception alike) so a tag from one symbol's probe can never linger and
 # throw off the tag-count check on the NEXT symbol's probe. Clicks nothing,
 # reads nothing, changes no value -- removes only the marker this file adds.
+# Read-only dump of the watchlist search's SUGGESTION table (TRADEIFY-GOLIVE,
+# MEASURED #15444/#15457: typing opens a panel whose header reads Symbol /
+# Description / Asset Class). INSTRUMENT_DETAILS_DUMP_JS deliberately skips
+# everything inside a <tbody> (positions/orders tables), and that would hide
+# the suggestion rows too. So this anchors ONLY on a visible "Asset Class"
+# header leaf, walks up (at most 8 levels) to the smallest container that
+# also shows a "Description" and a "Symbol" header, and reads that
+# container's rows: <tr> under a <tbody>, else [role=row]. Each row gives its
+# tag / data-test-id / role and its cells' text, with digit runs masked
+# (5+), emails masked and personal-looking controls skipped, like the other
+# dumps. It clicks nothing and reads no input value. At most 40 rows.
+SUGGESTION_ROWS_JS = r"""
+() => {
+  const maskRuns = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80) : null;
+  const personal = /user|profile|account|login|email/i;
+  const vis = el => { const r = el.getBoundingClientRect(); return !(r.width === 0 && r.height === 0); };
+  const leafText = el => (el.children.length === 0) ? (el.innerText || el.textContent || '').trim() : '';
+  const hasLeaf = (root, t) => Array.from(root.querySelectorAll('*')).some(e => leafText(e) === t && vis(e));
+  const anchors = Array.from(document.querySelectorAll('*')).filter(e => leafText(e) === 'Asset Class' && vis(e));
+  if (anchors.length === 0) return {found: false, why: 'no visible "Asset Class" header'};
+  const panels = [];
+  for (const a of anchors) {
+    let el = a.parentElement, hops = 0;
+    while (el && hops < 8 && !(hasLeaf(el, 'Description') && hasLeaf(el, 'Symbol'))) { el = el.parentElement; hops++; }
+    if (!el || hops >= 8) continue;
+    // Widen until the container also holds the rows (a <tbody> tr or a role=row).
+    let box = el, up = 0;
+    while (box && up < 4 && !box.querySelector('tbody tr, [role=row]')) { box = box.parentElement; up++; }
+    if (box && box.querySelector('tbody tr, [role=row]')) el = box;
+    if (!panels.includes(el)) panels.push(el);
+  }
+  if (panels.length === 0) return {found: false, n_anchors: anchors.length, why: 'no container shows Symbol + Description + Asset Class'};
+  const out = [];
+  for (const panel of panels) {
+    let rows = Array.from(panel.querySelectorAll('tbody tr'));
+    let via = 'tbody tr';
+    if (rows.length === 0) { rows = Array.from(panel.querySelectorAll('[role=row]')); via = 'role=row'; }
+    const got = [];
+    for (const r of rows) {
+      if (!vis(r)) continue;
+      const cls = typeof r.className === 'string' ? r.className : '';
+      const tid = r.getAttribute('data-test-id') || '';
+      if (personal.test(cls) || personal.test(tid)) continue;
+      const cells = Array.from(r.querySelectorAll('td, [role=cell], [role=gridcell]'));
+      const texts = (cells.length ? cells : [r]).map(c => maskRuns(c.innerText || c.textContent || ''));
+      got.push({tag: r.tagName.toLowerCase(), tid: maskRuns(tid), role: maskRuns(r.getAttribute('role')), cells: texts});
+      if (got.length >= 40) break;
+    }
+    out.push({via, n_rows: rows.length, n_visible: got.length, rows: got});
+  }
+  return {found: true, n_panels: panels.length, panels: out};
+}
+"""
+
 CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 () => {
   document.querySelectorAll('[data-metis-search-hit]').forEach(
@@ -6093,7 +6149,16 @@ class DXtradeAdapter(PropPlatformAdapter):
             result["readback_matches"] = (readback.strip().upper() == typed.upper())
             dump = self.instrument_details_dump(page)
             result["dump"] = dump
+            # The suggestion rows sit in a <tbody>, which the dump above
+            # skips (#15457), so they get a scoped read of their own.
+            try:
+                result["suggestions"] = page.evaluate(SUGGESTION_ROWS_JS) or {"found": False}
+            except Exception as exc:
+                result["suggestions"] = {"found": False, "error": type(exc).__name__}
             blob = " ".join((r.get("text") or "") for r in (dump.get("rows") or []))
+            for panel in (result["suggestions"].get("panels") or []):
+                for row in (panel.get("rows") or []):
+                    blob += " " + " ".join(c or "" for c in (row.get("cells") or []))
             result["symbol_echoed"] = any(bool(re.search(
                 r"(?<![A-Z0-9/])" + re.escape(form.upper()) + r"(?![A-Z0-9/])", blob.upper()))
                 for form in {venue_symbol.strip(), typed})
