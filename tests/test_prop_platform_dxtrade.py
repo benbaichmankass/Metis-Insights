@@ -2151,7 +2151,7 @@ PANEL_HTML = """
        <button id="pmod" disabled onclick="window.__log.push('panel-modify')">Modify Position</button></div>
   <button id="pdis" onclick="window.__log.push('discard'); window.__shut()">Discard</button></div>
 <script>
-window.__log = [];
+window.__log = []; window.__stuckModify = false;   // set_content keeps the window: reset what tests set
 window.__open = () => { document.getElementById('pp').style.display = 'block'; };
 window.__shut = () => { document.getElementById('pp').style.display = 'none'; };
 window.__dirty = () => { if (!window.__stuckModify) document.getElementById('pmod').disabled = false; };
@@ -2167,8 +2167,11 @@ def panel_page(chromium_page):
 
 
 def _armed():
+    # The panel FLOW, armed on the instance with the rollout guard off; the
+    # guard has its own tests below (_guarded).
     a = _edit_adapter()
     a.EDIT_DIALOG_MEASURED = True
+    a.ROLLOUT_GUARD = False
     return a
 
 
@@ -2310,6 +2313,7 @@ _QUOTE = {"bid": 2660.0, "ask": 2660.5}          # short: the stop fills on the 
 def _guarded(tmp_path, quote=_QUOTE):
     from src.prop.platform.dxtrade import ModifyRollout
     a = _armed()
+    a.ROLLOUT_GUARD = True
     a.read_quote = lambda page, sym: quote
     return a, ModifyRollout(tmp_path / "modify_rollout.json")
 
