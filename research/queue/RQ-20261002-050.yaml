@@ -1,0 +1,77 @@
+id: RQ-20261002-050
+title: 'Bracket-faithful re-grade: trend_donchian_eth_prop + trend_donchian_sol_prop on static SL+TP (Stage-0 + B6 V2)'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 1
+question: On the exit breakout_1 actually gets (one static SL+TP bracket; no trail, stale stop or decay), does each
+  prop leg still clear its Stage-0 bar (RULE-D1-STAGE0-NET-OF-FULL-COST) and RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2?
+why_this_matters: 'PI-20261001-S8DMYMUN-0001. The committed prop evidence records (fidelity faithful) grade
+  trail 3.5 + stale_stop + decay exits that src/prop/breakout_ticket.py never performs (the bracket is the exit).
+  A first measurement (docs/research/prop-journal/bracket-exit-model-*-2026-10-01.json, 2025-10-05..2026-09-30) read
+  ETH +21.28R n=100 and SOL -0.49R n=53 on static SL+TP, against +10.63R / +3.69R on the declared levers.
+  That measurement carried no registered rule and no power declaration; this unit is the graded re-run.
+  Tier-3 consequence of a SOL FAIL is PROPOSED to the manager only, never applied by this unit.'
+power:
+  expected_n: 100
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (the floor RQ-20260928-011/-012 and
+    RQ-20261001-049 registered, reused unchanged). The 365-day first measurement gave n=100 (ETH) and n=53 (SOL),
+    so SOL is expected to miss the floor on 365 days and is escalated to the 730-day window below. Below 88
+    after escalation the leg grades UNDERPOWERED, never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: Historical window fetched from data.binance.vision; nothing accrues.
+decision_rule:
+  id: RULE-PROP-BRACKET-REGRADE-STAGE0-B6V2
+  registered_at: '2026-10-02'
+  registered_before_run: true
+  statistic: 'Per leg, on the trades of scripts/research/prop_bracket_exit_model.py (static arm: initial ATR stop + TP
+    only; trail, stale-exit, trail-decay off; no time exit; harness venue-aware full cost stack fee + slippage +
+    funding). Bar 1 = RULE-D1-STAGE0-NET-OF-FULL-COST unchanged: pooled harness net_r > 0. Bar 2 =
+    RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 unchanged (scripts/research/prop_ev_sim.py grade_v2: path-mode outer
+    evidence p5 of mean net-USD per life > 0 PASS, p95 < 0 FAIL, else INDETERMINATE) run per leg alone with
+    --costs breakout --sizing room --room-frac 0.33 --min-risk 10 --modes realized,path,stop, fresh $5,000 account,
+    seeds 1-5 (the arm cost-headroom-2026-09-27.md section 5 used). Leg-level V2 = PASS iff 5/5 seeds pass, FAIL iff
+    5/5 seeds fail, else INDETERMINATE. VERDICT WINDOW = the 365-day window (--days 365) if its static n >= 88,
+    otherwise the 730-day window (--days 730). Both windows are run and reported; only the verdict window decides.'
+  rule: 'n = static-arm trade count in the verdict window. UNDERPOWERED IF n < 88 on BOTH windows (never FAIL).
+    Otherwise FAIL IF Bar 1 fails (net_r <= 0) OR Bar 2 is FAIL. PASS IF Bar 1 holds AND Bar 2 is not FAIL
+    (INDETERMINATE on Bar 2 is not a FAIL: the declared-lever baseline for both legs was already INDETERMINATE on
+    every seed in cost-headroom-2026-09-27.md section 5, so this re-grade is no stricter than the original).
+    A leg that FAILS has its exact Tier-3 change written in the readout and held for the manager; this unit
+    applies none. The base (declared-lever) arm is reported beside static as a control and does not enter the
+    predicate. If the base arm on the 365-day window drifts from the committed record by more than
+    10 trades or 5 R, say so in the readout (candle window moved) and still grade on the static arm.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.5
+  est_minutes: 60
+  basis: 2 windows x 2 legs of the trend harness (minutes), then prop_ev_sim 2 legs x 5 seeds on the verdict window.
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 120
+  command:
+  - python3
+  - scripts/research/prop_bracket_exit_model.py
+  - --leg
+  - trend_donchian_sol_prop
+  - --workdir
+  - '{out_dir}'
+  inputs:
+    research_unit: RQ-20261002-050
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- PI-20261001-S8DMYMUN-0001
+- docs/research/prop-journal/prop-journal-truth-2026-10-01.md
+- docs/research/b6-prop-ev/cost-headroom-2026-09-27.md
+- research/queue/RQ-20260928-011.yaml
