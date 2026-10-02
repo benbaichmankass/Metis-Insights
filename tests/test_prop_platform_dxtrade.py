@@ -949,6 +949,7 @@ def test_modify_bracket_disarmed_never_clicks_the_edit_control():
     a = DXtradeAdapter()
     a._show_tab = lambda *x: True
     a.read_one_click = lambda page: {"state": "off"}
+    a._locate_edit_control = lambda *x: {"ok": True, "row": {}, "controls": [], "chosen": 1}
     r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0)
     assert r["clicked"] is False and calls == []
     assert r["one_click"] == {"state": "off"}
@@ -973,6 +974,7 @@ def test_modify_bracket_records_an_unknown_one_click_and_does_not_gate_on_it():
     a = DXtradeAdapter()
     a._show_tab = lambda *x: True
     a.read_one_click = lambda page: {"state": "unknown", "why": "label not found"}
+    a._locate_edit_control = lambda *x: {"ok": True, "row": {}, "controls": [], "chosen": 1}
     r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0)
     assert r["ok"] is True and r["clicked"] is False and calls == []
     assert r["one_click"]["state"] == "unknown" and "one-click" not in r["why"]
@@ -1001,11 +1003,12 @@ def test_modify_bracket_armed_refuses_before_any_click_while_the_dialog_is_unmea
     a = DXtradeAdapter()
     a._show_tab = lambda *x: True
     a.read_one_click = lambda page: {"state": "off"}
-    clicked_rows = []
-    a._row_action = lambda *x: clicked_rows.append(x) or {"ok": True, "clicked": x[-1], "why": "x"}
+    located = []
+    a._locate_edit_control = lambda *x: located.append(x) or {"ok": True, "row": {}, "controls": [], "chosen": 1}
+    a._open_edit_dialog = lambda *x: calls.append(("open", x)) or {"ok": False}
     r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0, arm=True)
     assert r["ok"] is False and r["clicked"] is False and calls == []
-    assert clicked_rows and clicked_rows[0][-1] is False      # located, never clicked
+    assert located                                             # located, never clicked
     assert "unmeasured" in r["why"]
 
 
@@ -1503,3 +1506,159 @@ def test_instrument_details_dump_masks_personal_classed_text_leaves_too(chromium
     assert "8812" not in blob and "9911" not in blob and "4128" not in blob
     assert any(r.get("text") == "1" for r in dump.get("rows", []))
     chromium_page.set_content(DIVGRID.read_text())
+
+
+# ── DIALOG-MEASURE (2026-10-01): the position edit dialog ─────────────────
+# INVENTED layout (no run has measured the real dialog yet: that is what
+# edit-dialog-probe is for). It carries the hazard the go-live review of
+# #15316 named: a docked sidebar order ticket with its own quantity input,
+# Buy/Sell and submit, always on the page beside the dialog.
+
+EDIT_DIALOG_HTML = """
+<html><body>
+<div id="sidebar"><input data-test-id="symbol_input" value="SOLUSD">
+  <span>Lots</span><input id="sq" value="1"><span>Stop Loss:</span><input id="ssl" value="">
+  <span>Take Profit:</span><input id="stp" value="">
+  <button data-test-id="BUY" onclick="window.__log.push('sidebar-buy')">Buy</button>
+  <button data-test-id="SELL" onclick="window.__log.push('sidebar-sell')">Sell</button>
+  <button class="close" onclick="window.__log.push('sidebar-close')">Cancel</button></div>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open Price</th><th>Stop Loss</th><th>Take Profit</th><th></th></tr></thead>
+<tbody><tr><td>ETHUSD</td><td>Buy</td><td>0.5</td><td>2950</td><td>2900</td><td>3050</td>
+<td class="sticky--actions-cell"><button class="btn"><i class="icon-reverse"></i></button><button class="btn"
+ onclick="window.__log.push('pencil'); document.getElementById('dlg').style.display='block'"><i class="icon-pencil"></i></button><button
+ class="btn" onclick="window.__log.push('row-close')"><i class="icon-close"></i></button></td></tr></tbody></table>
+<div id="dlg" role="dialog" style="display:none; position:absolute; left:400px; top:100px; width:300px; height:260px">
+  <h3>Modify ETHUSD Buy Position</h3>
+  <span>Quantity</span><input id="dq" value="0.5" readonly>
+  <span>Stop Loss</span><input id="dsl" value="2900"><select><option selected>Price</option><option>Pips</option></select>
+  <span>Take Profit</span><input id="dtp" value="3050">
+  <button onclick="window.__log.push('dlg-save')">Save</button>
+  <button onclick="window.__log.push('dlg-cancel'); document.getElementById('dlg').style.display='none'">Cancel</button>
+</div></body></html>
+"""
+
+
+@pytest.fixture()
+def edit_page(chromium_page):
+    chromium_page.set_content(EDIT_DIALOG_HTML)
+    chromium_page.evaluate("window.__log = []")
+    yield chromium_page
+    chromium_page.set_content(DIVGRID.read_text())     # leave the module page as the other tests expect
+
+
+def _edit_adapter():
+    a = DXtradeAdapter(timeout_ms=2_000)
+    a._show_tab = lambda *x: True
+    a.read_one_click = lambda page: {"state": "off"}
+    return a
+
+
+def test_edit_probe_dry_finds_the_pencil_by_icon_name_and_clicks_nothing(edit_page):
+    got = _edit_adapter().probe_edit_dialog(edit_page, "ETHUSD", click=False)
+    assert got["locate"]["ok"] is True and got["locate"]["chosen"] == 1     # reverse . PENCIL . close
+    assert "before any click" in got["stopped"]
+    assert edit_page.evaluate("window.__log") == []
+
+
+def test_edit_probe_measures_the_dialog_and_presses_only_its_own_cancel(edit_page):
+    got = _edit_adapter().probe_edit_dialog(edit_page, "ETHUSD", click=True)
+    dlg = got["dialog"]
+    assert dlg["ok"] and dlg["names_symbol"] and dlg["fields"]["quantity"]["readonly"] is True
+    assert [m["value"] for m in dlg["modes"]] == ["Price"] and dlg["submit_in_box"] is True
+    assert got["would_refuse"] == [] and got["cancel_pressed"] is True and got["closed_after_cancel"] is True
+    assert edit_page.evaluate("window.__log") == ["pencil", "dlg-cancel"]
+
+
+def test_edit_probe_with_no_position_row_stops_before_any_click(edit_page):
+    got = _edit_adapter().probe_edit_dialog(edit_page, "SOLUSD", click=True)
+    assert got["locate"]["ok"] is False and "clicked" not in got
+    assert edit_page.evaluate("window.__log") == []
+
+
+def test_measured_modify_types_into_and_submits_the_dialog_never_the_sidebar(edit_page):
+    from src.prop.platform.base import Position
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = True
+    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=0.5), 2925.0, None, arm=True)
+    assert r["ok"] is True, r["why"]
+    assert edit_page.evaluate("window.__log") == ["pencil", "dlg-save"]
+    assert edit_page.evaluate("document.getElementById('dsl').value") == "2925"
+    assert edit_page.evaluate("document.getElementById('ssl').value") == ""          # sidebar untouched
+
+
+def test_measured_modify_refuses_a_pencil_that_opens_no_dialog(edit_page):
+    from src.prop.platform.base import Position
+    edit_page.evaluate("() => { document.querySelector('.icon-pencil').parentElement.onclick = () => window.__log.push('pencil'); }")
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = True
+    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=0.5), 2925.0, None, arm=True)
+    assert r["ok"] is False and "0 new dialogs" in r["why"]
+    assert edit_page.evaluate("window.__log") == ["pencil"]                           # no Save, no sidebar click
+    assert edit_page.evaluate("document.getElementById('ssl').value") == ""
+
+
+def test_measured_modify_refuses_when_the_row_size_is_not_the_position(edit_page):
+    from src.prop.platform.base import Position
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = True
+    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=1.0), 2925.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "size" in r["why"]
+    assert edit_page.evaluate("window.__log") == []
+
+
+_GOOD_DIALOG = {"ok": True, "names_symbol": True, "fields": {
+    "quantity": {"value": "0.5", "readonly": True}, "stop_loss": {"value": "1", "readonly": False},
+    "take_profit": {"value": "2", "readonly": False}}, "ambiguous": [], "modes": [{"value": "Price"}],
+    "submit": 1, "submit_in_box": True, "submit_enabled": True, "cancel": 1,
+    "buy_sell_buttons": 0, "sidebar_ticket_inside": False}
+
+
+def test_edit_dialog_mismatch_passes_only_the_positions_own_dialog():
+    from src.prop.platform.dxtrade import edit_dialog_mismatch
+    assert edit_dialog_mismatch(_GOOD_DIALOG, "ETHUSD", 0.5) == []
+    cases = {
+        "does not name": {"names_symbol": False},
+        "order-ticket controls": {"buy_sell_buttons": 2},
+        "editable": {"fields": {**_GOOD_DIALOG["fields"], "quantity": {"value": "0.5", "readonly": False}}},
+        "!= the position's": {"fields": {**_GOOD_DIALOG["fields"], "quantity": {"value": "1", "readonly": True}}},
+        "need Price": {"modes": [{"value": "Pips"}]},
+        "mode not readable": {"modes": []},
+        "not boxed": {"submit_in_box": False},
+        "submit buttons": {"submit": 2},
+        "cancel controls": {"cancel": 0},
+    }
+    for needle, patch in cases.items():
+        got = edit_dialog_mismatch({**_GOOD_DIALOG, **patch}, "ETHUSD", 0.5)
+        assert any(needle in g for g in got), (needle, got)
+    assert edit_dialog_mismatch(_GOOD_DIALOG, "ETHUSD", None)                     # unknown size refuses
+    assert edit_dialog_mismatch({"ok": False, "why": "0 new dialogs"}, "ETHUSD", 0.5) == ["0 new dialogs"]
+
+
+def test_measured_modify_refuses_an_edit_click_of_unknown_outcome():
+    from src.prop.platform.base import Position
+    calls = []
+
+    class P:
+        def wait_for_timeout(self, *a):
+            pass
+
+        def fill(self, *a, **k):
+            calls.append(("fill", a))
+
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = True
+    a._locate_edit_control = lambda *x: {"ok": True, "row": {}, "controls": [], "chosen": 1}
+    a._open_edit_dialog = lambda *x: {"ok": False, "clicked": "unknown", "why": "edit control click raised TimeoutError; outcome unknown"}
+    a._cancel_edit_dialog = lambda page: calls.append(("cancel",)) or True
+    r = a.modify_bracket(P(), Position(symbol="ETHUSD", side="long", quantity=0.5), 1.0, None, arm=True)
+    assert r["ok"] is False and "outcome unknown" in r["why"]
+    assert calls == [("cancel",)]                                                    # never typed
+
+
+def test_the_tick_resolves_the_edit_dialog_modes_and_defers_them_to_a_live_ticket():
+    from types import SimpleNamespace
+    from scripts.prop.prop_executor_tick import YIELD_MODES, resolve_mode
+    base = dict(probe_ticket="", dry_run=False, watched_click=False, round_trip="", close_position="")
+    assert resolve_mode(SimpleNamespace(**base, edit_dialog_dry="ETHUSD"), {"PROP_EXECUTOR_MODE": "off"}) == "edit_dialog_dry"
+    assert resolve_mode(SimpleNamespace(**base, edit_dialog_probe="ETHUSD"), {}) == "edit_dialog_probe"
+    assert {"edit_dialog_dry", "edit_dialog_probe"} <= YIELD_MODES

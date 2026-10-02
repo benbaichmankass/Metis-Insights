@@ -94,6 +94,7 @@ EXIT_DEFERRED = 7
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
                          "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
+                         "edit_dialog_dry", "edit_dialog_probe",
                          "round_trip_dry", "round_trip_live"})
 
 # Headless viewport. Playwright's default (1280x720) clipped the sidebar
@@ -148,6 +149,12 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "symbol_switch_dry"
     if getattr(args, "link_state_dump", False):
         return "link_state_dump"
+    # DIALOG-MEASURE: submits nothing. The dry form hovers and locates only;
+    # the probe clicks ONE pencil (our symbol's row) and the dialog's Cancel.
+    if getattr(args, "edit_dialog_dry", ""):
+        return "edit_dialog_dry"
+    if getattr(args, "edit_dialog_probe", ""):
+        return "edit_dialog_probe"
     if getattr(args, "widget_menu_probe", False):
         return "widget_menu_probe"
     if getattr(args, "add_watchlist_widget", False):
@@ -350,6 +357,11 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--link-state-dump", action="store_true",
                    help="READ-ONLY: watchlist rows (element hit at each Symbol cell's centre), symbol_input(s), "
                         "and the sidebar ticket's buttons; clicks nothing")
+    g.add_argument("--edit-dialog-dry", default="", metavar="VENUE_SYMBOL",
+                   help="locate the symbol's Positions row and its edit pencil (by icon name); click nothing")
+    g.add_argument("--edit-dialog-probe", default="", metavar="VENUE_SYMBOL",
+                   help="MEASURE the position edit dialog: click that pencil, read the dialog, press its Cancel; "
+                        "submits nothing")
     g.add_argument("--widget-menu-probe", action="store_true",
                    help="MEASURE the add-widget ('+') menu: one click on the top-most widget_tab_add_button, "
                         "dump the menu (masked), Escape; clicks no menu item, no order/price/delete control")
@@ -526,6 +538,11 @@ def main(argv: Optional[list] = None) -> int:
                 emit({"link_state_dump": got}, *secrets)
                 return EXIT_OK if "error" not in got else EXIT_UNPARSED
 
+            if mode in ("edit_dialog_dry", "edit_dialog_probe"):
+                sym = args.edit_dialog_dry or args.edit_dialog_probe
+                got = adapter.probe_edit_dialog(page, sym, click=(mode == "edit_dialog_probe"))
+                emit({"edit_dialog": got}, *secrets)
+                return EXIT_OK if (got.get("locate") or {}).get("ok") else EXIT_UNPARSED
             if mode == "widget_menu_probe":
                 got = adapter.widget_menu_probe(page)
                 emit({"widget_menu_probe": got}, *secrets)
