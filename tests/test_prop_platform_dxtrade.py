@@ -1662,3 +1662,39 @@ def test_the_tick_resolves_the_edit_dialog_modes_and_defers_them_to_a_live_ticke
     assert resolve_mode(SimpleNamespace(**base, edit_dialog_dry="ETHUSD"), {"PROP_EXECUTOR_MODE": "off"}) == "edit_dialog_dry"
     assert resolve_mode(SimpleNamespace(**base, edit_dialog_probe="ETHUSD"), {}) == "edit_dialog_probe"
     assert {"edit_dialog_dry", "edit_dialog_probe"} <= YIELD_MODES
+
+
+# ── EMPTY watchlist (TRADEIFY-GOLIVE, #15426/#15431): tradeify_1's restored
+# "Favourites" list reads 0 symbols, so there is no row to align; the header
+# table anchors instead and every widget-level check still applies. ─────────
+EMPTY_WATCHLIST_PAGE = """<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
+<div class="widget__header"><input id="wl-search" placeholder="Symbol..." data-test-id="watchlist_public_search_9" type="text"></div>
+<div class="watchlist-panel">
+  <table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th><th>Change</th></tr></thead><tbody></tbody></table>
+</div>
+</div>
+</body></html>"""
+
+
+def test_find_instrument_search_anchors_an_empty_watchlist_on_its_header(chromium_page):
+    chromium_page.set_content(EMPTY_WATCHLIST_PAGE)
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "ETHUSD")
+    assert res["searched"] is True
+    assert res["via"] == "placeholder+tid (empty watchlist: header anchor)"
+    assert res["reset"] is True and chromium_page.input_value("#wl-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_empty_watchlist_header_anchor_still_refuses_a_widget_with_a_positions_table(chromium_page):
+    # The positions-shaped table sits in the WIDGET, outside the grid panel,
+    # so the widget-level check is the one exercised.
+    chromium_page.set_content(EMPTY_WATCHLIST_PAGE.replace(
+        '</div>\n</div>\n</body>',
+        '</div>\n<table><thead><tr><th>Status</th><th>Side</th><th>Quantity</th></tr></thead></table>'
+        '\n</div>\n</body>'))
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "ETHUSD")
+    assert res["searched"] is False and res["found"] is False
+    assert res.get("why") == "widget also contains a positions/orders-shaped table"
+    assert chromium_page.input_value("#wl-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
