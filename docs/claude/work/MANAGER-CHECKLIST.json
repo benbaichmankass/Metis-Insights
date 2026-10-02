@@ -4512,7 +4512,7 @@
         15348
       ],
       "blocked_on": [],
-      "note": "#15327 (refuse armed modify while unmeasured) and #15347 (hardened modify_bracket + read-only edit-dialog-dry / edit-dialog-probe modes; squash f9c5363d, CI green) are MERGED. EDIT_DIALOG_MEASURED is still False on main, so an armed modify_bracket refuses before any click. NOT done: the dialog has never been measured -- breakout_1 was flat at 22:12Z 2026-10-01. CLOSING OBSERVATION: the first edit-dialog-probe readout on a live breakout_1 position (PI-20261001-SBD5S8KE-0001), then the held Tier-2 flip PR. That flip PR must carry the manager's #15347 review items: drop `place` from the SUBMIT names, exclude password inputs, add the several-rows and sidebar-surfaces tests."
+      "note": "2026-10-02 20:20Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv) MEASURED on a live position (ETHUSD short prop-manual-d27fbb0b2b25). edit-dialog-probe #15628 found no new dialog. edit-surface-probe (#15636, merged df3ba84f) issue #15657 run 37058159549: the row's modify control opens a docked 'Position Details' panel containing SL/TP price inputs (mode 'Price'), 'Close Position' (ENABLED) beside 'Modify Position' (disabled until edited), and 'Discard'. The probe exited via Discard. Post-state was unchanged (qty 1.22, SL 2718.46, TP 2394.06, 0 working orders). Its 'not back at baseline' alert is a probe false positive (live Bid/Ask labels in the snapshot keys). NEXT: a HELD Tier-2 modify_bracket re-target to this panel (submit only an enabled 'Modify Position' inside the panel, never 'Close'; qty from the Positions row; exit via Discard) plus the probe fix; lane ceiling +$25. EDIT_DIALOG_MEASURED stays False until a separate flip PR. | #15327 (refuse armed modify while unmeasured) and #15347 (hardened modify_bracket + read-only edit-dialog-dry / edit-dialog-probe modes; squash f9c5363d, CI green) are MERGED. EDIT_DIALOG_MEASURED is still False on main, so an armed modify_bracket refuses before any click. NOT done: the dialog has never been measured -- breakout_1 was flat at 22:12Z 2026-10-01. CLOSING OBSERVATION: the first edit-dialog-probe readout on a live breakout_1 position (PI-20261001-SBD5S8KE-0001), then the held Tier-2 flip PR. That flip PR must carry the manager's #15347 review items: drop `place` from the SUBMIT names, exclude password inputs, add the several-rows and sidebar-surfaces tests."
     },
     {
       "id": "PROP-TRAIL",
@@ -4695,6 +4695,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "2026-10-02 19:03Z: lane session_01RZaDZHQNxS61WpDu6FR2PG dispatched (Opus, $30, HELD Tier-2 PR). | 2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): filed when the first automated breakout_1 trade opened (prop-manual-d27fbb0b2b25). MEASURED on origin/main 2ef65c6b6: src/prop/prop_executor.py::_reconcile_journal reports a position absent for 2 reads as status closed with reason 'closed_on_terminal (executor reconcile; exit read from the terminal history is not built)', with no exit_price, pnl or TP/SL reason; dxtrade.py knows the 'Trade History' tab but reads it only in dump-tables. So this trade's close, and every automated breakout_1 close after it, lands ungraded and with a close reason that is not TP/SL. Deliverable: a read-only Trade History reader and the executor close report carrying exit price, realised P&L and tp/sl/manual reason, as a HELD Tier-2 PR. Tracked by PI-20261002-APBY4NTV-0002."
+    },
+    {
+      "id": "PROP-SUBMIT-LABEL",
+      "title": "place_bracket's submit_label_mismatch passes a submit label that is not '<Buy|Sell> <qty> <SYM>' (e.g. 'Save', 'Modify'): make it strict and rewrite the invented executor fixtures to the measured label shape",
+      "phase": "W8",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01PPCMtF1dfV9QSo9pJDHc9X",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 12,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-02 20:20Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): found by lane DIALOG-MEASURE. A modify-mode surface is ALREADY refused before submit by the side/type read-back (dxtrade.py verify_form_selection :4286, 'no side selector' :6737; the manager verified both on main), so this is defence in depth, not a live hazard. All 16 distinct measured live labels, plus 'Sell 1.22 ETHUSD at 2,657.11', parse under the strict rule. 25 executor tests use invented labels ('Place Order'). Operator-style decision (a): rewrite those fixtures honestly; no weaker rule. HELD Tier-2 PR from branch claude/prop-submit-label-strict-wip."
     }
   ]
 }
