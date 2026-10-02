@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research measurement and evidence-record rebuild only: two offline scripts under scripts/research/, an evidence-builder read path, a test, research readouts, evidence JSON for the two shadow prop legs, and register/pipeline rows. No runtime, order path, strategies.yaml/accounts.yaml, risk caps, mandates or deploy surface touched."
+}
