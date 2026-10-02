@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "the FIRST ETHUSDT ticket on breakout_1 after this PR is deployed reaches status PLACED in prop_fills; a further 'submit: not visible at its centre' skip instead keeps it open and the refusal now NAMES the blocker (occluder / viewport / clip chain) in the place_bracket stage log.",
+    "kind": "observation",
+    "check_every_days": 1
+  },
+  "id": "PI-20261002-UBMITVIS-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "prop_fills ids 76 (prop-manual-5f9892cb95db, 04:44:51Z) and 77 (prop-manual-74591fb6f6b1, 05:15:02Z) 2026-10-02, both 'not submitted: submit: not visible at its centre after scrolling (after 3 attempts)'; ict-prop-executor journal 04:34-05:15Z; round-trip dry walk system-action issue #15464 (06:14:37Z, code_sha 81b131d1f) which reached form_verified on the IDENTICAL submit box.",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/fills?limit=25' | python3 -c \"import json,sys; [print(r['id'], r['created_at'], r['symbol'], r['status'], r['reason']) for r in json.load(sys.stdin)]\" ; and bash scripts/ops/diag_fetch.sh 'journalctl?unit=ict-prop-executor&lines=1500' | python3 -c \"import json,sys; [print(l) for l in json.load(sys.stdin)['lines'] if 'place_bracket' in l]\""
+  },
+  "state": "done",
+  "what": "breakout_1 ETH tickets were skipped unplaced because the submit hit-test refused: MEASURED that the submit footer geometry is IDENTICAL (box [1559, 1537, 298, 48], panel [1543, 103, 330, 708], viewport 1920x1600) in the six failing live attempts and in the dry walk that PASSED 59 minutes later, so the blocker was transient and 'not visible at its centre' could not say what it was. The fix polls the hit-test with a scroll-only reveal of the BUTTON's own scroll ancestors (the live submit is a footer outside the fields container, so the form's chain was the wrong scroller) and names the blocker on a final refusal. NOT YET OBSERVED: a live ETH ticket PLACED on the fixed code. SOL rides the identical path and was exposed to the same refusal.",
+  "terminal_reason": "CLEARED 2026-10-02T19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv). clears_when MET, MEASURED by the origin.rerun: prop_fills id 78 status placed (18:50:29Z) and id 79 status open (18:54:39Z) for ETHUSDT ticket prop-manual-d27fbb0b2b25 (short, qty 1.22, SL 2718.46, TP 2394.06), placed by the executor on code_sha 3cfdd9bb7, which contains #15468 (5acb8bb7). The place_bracket line shows the submit 'Sell 1.22 ETHUSD at 2,657.11' at box y=1537, below vis_bottom 811 (the geometry that refused at 04:44Z and 05:15Z), with detail 'submit clicked'; confirm verdicts placed then open. The forensic-log gap (the submit block is not emitted) stays open separately as PI-20261002-UBMITVIS-0002."
+}
