@@ -1,0 +1,1 @@
+manager wave-3 lane rows; Tier-1 docs/claude/work only
