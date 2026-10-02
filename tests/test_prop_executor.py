@@ -688,6 +688,22 @@ def test_classify_ticket_surface():
 
 # ── dxtrade order controls in a real Chromium, against an INVENTED form ───
 
+# The live submit STATES the order: "<Side> <qty> <SYM> at <price>" (every
+# label measured live, breakout-login-check runs #13942 .. #15537), rewritten
+# by the terminal as the quantity / side change. These replicas predate that
+# measurement, so each carries this relabel: once a quantity is typed, the
+# submit reads "<side> <qty> <sym> at 120.00". The side is the one the label
+# already names (a terminal whose label IS the side read-back keeps it),
+# else the side picked. ``window.__noAutoLabel`` lets a test own the label.
+def _relabel_js(sym_js, side_js):
+    return ("<script>(()=>{const L=()=>{if(window.__noAutoLabel)return;const s=document.getElementById('sub'),"
+            "q=document.getElementById('q');if(!s||!q||!q.value)return;"
+            "const m=s.textContent.match(/\\b(Buy|Sell)\\b/i);const sd=m?m[1]:(" + side_js + ");if(!sd)return;"
+            "const t=sd[0].toUpperCase()+sd.slice(1).toLowerCase()+' '+parseFloat(q.value)+' '+(" + sym_js + ")+' at 120.00';"
+            "if(s.textContent!==t)s.textContent=t;};document.addEventListener('input',L,true);"
+            "document.addEventListener('click',()=>setTimeout(L,0),true);setInterval(L,20);})()</script>")
+
+
 TICKET_PAGE = """
 <html><body>
 <div class="bar"><span>One-click trading</span><input type="checkbox" id="oc" %s></div>
@@ -714,6 +730,8 @@ function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=
 </div>
 </body></html>
 """
+TICKET_PAGE = TICKET_PAGE.replace("</body>", _relabel_js(
+    "document.querySelector('.hdr').textContent.trim()", "window.__side") + "</body>")
 
 
 @pytest.fixture(scope="module")
@@ -796,8 +814,9 @@ def test_one_click_on_is_recorded_on_a_disarmed_walk(tpage):
 
 def test_place_bracket_refuses_when_side_is_not_readable_back(tpage):
     # side buttons that expose no pressed/selected state at all
+    # (this test owns its submit label: "Place Order" names no side)
     html = (TICKET_PAGE % "").replace("window.__side='buy';sel(this)", "window.__side='buy'") \
-                             .replace("window.__side='sell';sel(this)", "window.__side='sell'")
+                             .replace("window.__side='sell';sel(this)", "window.__side='sell'").replace("<body>", "<body><script>window.__noAutoLabel=1</script>", 1)
     p = tpage(html=html)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "side: not readable back" in att.detail
@@ -1371,6 +1390,9 @@ function tog(d){ if(!d.hasAttribute('data-stuck')) d.setAttribute('data-value', 
 </div>
 </body></html>
 """
+LIVE_SIDEBAR = LIVE_SIDEBAR.replace("</body>", _relabel_js(
+    "document.querySelector('.hdr').textContent.trim()",
+    "(document.querySelector('[data-g=side][aria-pressed=true]')||{}).textContent") + "</body>")
 SUBMIT_BTN = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
 
 
@@ -1384,7 +1406,7 @@ def test_live_shape_switches_both_toggles_on_scrolls_to_submit_and_verifies(tpag
     assert att.stage == "form_verified", att.detail
     assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
     assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
-    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy 0.5 SOLUSD at 120.00"
     assert p.evaluate("window.__submits") is None
 
 
@@ -1421,7 +1443,7 @@ def test_a_virtualised_submit_is_found_by_scrolling_the_panel(tpage):
 def test_a_field_changed_by_scrolling_refuses(tpage):
     # A panel that rewrites the quantity when scrolled: the post-scroll read-back must catch it.
     evil = ("<script>document.getElementById('panel').addEventListener('scroll', () => {"
-            " document.getElementById('q').value = '9'; });</script>")
+            " window.__noAutoLabel = 1; document.getElementById('q').value = '9'; });</script>")
     p = tpage(html=_live() + evil)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "read-back after scrolling to submit" in att.detail
@@ -1429,7 +1451,9 @@ def test_a_field_changed_by_scrolling_refuses(tpage):
 
 
 def test_a_submit_that_does_not_name_the_side_refuses(tpage):
-    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'"))
+    # (this test owns its submit label: "Place Order" names no side)
+    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'")
+              .replace("<script>", "<script>window.__noAutoLabel=1;", 1))
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "does not name the intended side" in att.detail
     assert p.evaluate("window.__submits") is None
@@ -1709,6 +1733,8 @@ function tog(d){ if(d.hasAttribute('data-stuck')) return; const on=d.getAttribut
 </div>
 </body></html>
 """
+MEASURED_SIDEBAR = MEASURED_SIDEBAR.replace("</body>", _relabel_js(
+    "'%SYM%'", "(document.querySelector('.sd[style*=background]')||{}).textContent") + "</body>")
 
 
 def _measured(sym="SOLUSD", symval="SOLUSD", slmode="Price"):
@@ -1798,7 +1824,7 @@ def test_measured_sidebar_disarmed_walk_passes_the_full_read_back(tpage):
     assert att.stage == "form_verified", att.detail
     assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
     assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
-    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy 0.01 SOLUSD at 120.00"
     assert p.evaluate("window.__submits") is None
 
 
@@ -1807,7 +1833,7 @@ def test_measured_sidebar_sell_is_selected_and_read_back_by_colour(tpage):
     spec = BracketSpec("t2", "SOLUSD", "short", 0.01, 126.0, 118.0, "market", None)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
     assert att.stage == "form_verified", att.detail
-    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell SOLUSD"
+    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell 0.01 SOLUSD at 120.00"
 
 
 def test_measured_sidebar_refuses_another_symbol(tpage):
@@ -1830,7 +1856,7 @@ def _measured_live_label(clamp_min=None):
     """The replica with the MEASURED label shape (probe #13855): the terminal
     writes "<Side> <qty> SOLUSD at <price>" from the quantity it accepted;
     ``clamp_min`` models a venue that silently raises a smaller size."""
-    js = ("<script>function relabel(){const b=document.querySelector('.sd[style*=background]');"
+    js = ("<script>window.__noAutoLabel=1;function relabel(){const b=document.querySelector('.sd[style*=background]');"
           "let q=parseFloat(document.getElementById('q').value)||0;"
           + (f"if(q>0&&q<{clamp_min})q={clamp_min};" if clamp_min else "") +
           "document.getElementById('sub').textContent=(b?b.textContent.trim():'Buy')+' '+q+' SOLUSD at 120.05'}"
@@ -1838,11 +1864,34 @@ def _measured_live_label(clamp_min=None):
     return _measured().replace("</body>", js + "</body>")
 
 
+def test_every_live_measured_submit_label_still_passes():
+    # Every submit label the LIVE terminal showed (breakout-login-check runs
+    # #13942, #13953, #13965, #13983, #13987, #14154, #14191, #14330, #14344,
+    # #14761, #15021, #15261, #15263, #15464, #15537 -- 16 distinct labels;
+    # plus the 2026-10-02 live ETH short): the tightening refuses none of them.
+    from types import SimpleNamespace
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    live = [("Buy 0.01 SOLUSD at 117.49", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 118.02", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 118.25", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 118.52", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 118.94", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 119.03", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 119.04", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 120.09", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 120.59", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 120.73", 0.01, "SOLUSD"),
+            ("Buy 49 SOLUSD at 117.52", 49, "SOLUSD"), ("Buy 49 SOLUSD at 117.77", 49, "SOLUSD"),
+            ("Buy 0.01 ETHUSD at 2,697.81", 0.01, "ETHUSD"), ("Buy 0.01 ETHUSD at 2,698.50", 0.01, "ETHUSD"),
+            ("Buy 0.01 ETHUSD at 2,723.74", 0.01, "ETHUSD"), ("Buy 0.01 ETHUSD at 2,749.46", 0.01, "ETHUSD"),
+            ("Sell 1.22 ETHUSD at 2,657.11", 1.22, "ETHUSD"), ("Buy 0.01 ETH/USD at 2,685.84", 0.01, "ETHUSD")]
+    for label, qty, sym in live:
+        assert submit_label_mismatch(label, SimpleNamespace(quantity=qty, venue_symbol=sym)) == "", label
+
+
 def test_submit_label_mismatch_reads_the_measured_label_shape():
     from src.prop.platform.dxtrade import submit_label_mismatch
     spec = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
     assert submit_label_mismatch("Buy 0.01 SOLUSD at 120.05", spec) == ""
-    assert submit_label_mismatch("Buy SOLUSD", spec) == ""                 # no qty stated: read-back alone
+    # A label that does not state "<Buy|Sell> <qty> <SYM>" is refused
+    # (DIALOG-MEASURE): a modify-mode surface's "Save" / "Modify" is no order.
+    for label in ("Buy SOLUSD", "Save", "Modify", "Modify Position", "Place Order", ""):
+        assert "does not read as" in submit_label_mismatch(label, spec), label
     assert "states quantity 0.1" in submit_label_mismatch("Buy 0.1 SOLUSD at 120.05", spec)
     assert "names 'ETHUSD'" in submit_label_mismatch("Buy 0.01 ETHUSD at 3000.1", spec)
 
