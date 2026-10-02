@@ -1626,13 +1626,22 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
     if (cells.length !== headers.length) continue;
     if (symLike.test((cells[symbolIdx] || '').trim())) { anchorRow = r; break; }
   }
-  if (!anchorRow) {
-    return {found: false, why: 'no measured watchlist row aligned with the header'};
-  }
+  // An EMPTY watchlist has no row to align (tradeify_1's restored
+  // "Favourites" list, #15426/#15431: readable, 0 symbols). Then the header
+  // table itself is the anchor; every widget-level check below still applies
+  // (one Symbol-headed table, no positions/orders table, no BUY+SELL overlap,
+  // the input must carry BOTH measured attributes), and the widget walk gets
+  // EMPTY_EXTRA_UP more levels because it starts lower than a row's panel.
+  const EMPTY_EXTRA_UP = 4;
+  const headerAnchor = !anchorRow;
 
   let watchlistPanel = null;
-  for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
-    if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+  if (headerAnchor) {
+    watchlistPanel = headerTable.parentElement;
+  } else {
+    for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+    }
   }
   if (!watchlistPanel) {
     return {found: false, why: 'no common ancestor of the watchlist header and its row'};
@@ -1678,12 +1687,13 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   const clsTokens = e => (typeof e.className === 'string' ? e.className : '').split(/\s+/);
   let widget = null;
   let up = 0;
-  for (let e = watchlistPanel.parentElement; e && e !== document.body && up < WIDGET_MAX_UP;
+  const maxUp = WIDGET_MAX_UP + (headerAnchor ? EMPTY_EXTRA_UP : 0);
+  for (let e = watchlistPanel.parentElement; e && e !== document.body && up < maxUp;
        e = e.parentElement, up++) {
     if (clsTokens(e).some(c => /^widget(New)?__container/.test(c))) { widget = e; break; }
   }
   if (!widget) {
-    return {found: false, why: `no widget__container ancestor within ${WIDGET_MAX_UP} levels of the watchlist panel`};
+    return {found: false, why: `no widget__container ancestor within ${maxUp} levels of the watchlist panel`};
   }
   const tablesInWidget = [...widget.querySelectorAll('table')];
   const symbolTablesInWidget = tablesInWidget.filter(t =>
@@ -1717,7 +1727,7 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   }
   if (hit.length === 1) {
     hit[0].setAttribute('data-metis-search-hit', '1');
-    return {found: true, via: `placeholder+tid`};
+    return {found: true, via: headerAnchor ? 'placeholder+tid (empty watchlist: header anchor)' : 'placeholder+tid'};
   }
   return {found: false, n_candidate_inputs: inputs.length,
           why: `no visible input in the watchlist widget has placeholder '${wantPlaceholder}' AND a `
@@ -5346,6 +5356,27 @@ class DXtradeAdapter(PropPlatformAdapter):
     #: MEASURED by add-watchlist-widget #15373 (code aaa7ff4ee): the menu's
     #: "Watchlist" entry opens a SUBMENU, not a widget.
     WATCHLIST_SUBMENU: Tuple[str, ...] = ("Private", "Public")
+    #: The submenu entry add-watchlist-widget clicks (manager review of the
+    #: #15390 dumps): the user's own (editable) lists, where the removed
+    #: "Default Watchlist" lived, so missing symbols can be added later.
+    WATCHLIST_SUBMENU_PICK = "Private"
+    #: The ONE list under Private (MEASURED by add-watchlist-widget #15414,
+    #: code 5b0b486bb): clicking "Private" opened a third level holding only
+    #: "Favourites".
+    WATCHLIST_LIST_PICK = "Favourites"
+
+    def _escape_menus(self, page: Any, out: Dict[str, Any], *, tries: int = 3) -> None:
+        """Escape (a key, never a click) until no menu-only label is visible,
+        at most ``tries`` times; records ``escapes`` / ``menu_left_open``."""
+        left: Dict[str, Any] = {}
+        for i in range(tries):
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(400)
+            out["escapes"] = i + 1
+            left = page.evaluate(MENU_LABELS_VISIBLE_JS, list(MENU_ONLY_LABELS)) or {}
+            if not left.get("n"):
+                break
+        out["menu_left_open"] = bool(left.get("n"))
 
     def watchlist_submenu_probe(self, page: Any, *, expect_workspace: str = "My Trading Account",
                                 settle_ms: int = 800) -> Dict[str, Any]:
@@ -5441,9 +5472,15 @@ class DXtradeAdapter(PropPlatformAdapter):
         """Add the Watchlist widget to ``expect_workspace`` (TRADEIFY-GOLIVE
         option B step 2; operator ~21:50Z 2026-10-01 "Runner does it").
 
-        Exactly TWO clicks, both on MEASURED targets (#15350): the top-most
-        add-widget "+", then the ONE menu leaf whose text is exactly
-        ``Watchlist`` in a menu that shows every measured sibling. Refused
+        At most THREE clicks, all on MEASURED targets: the top-most add-widget
+        "+", the ONE menu leaf whose text is exactly ``Watchlist`` in a menu
+        that shows every measured sibling (#15350), and -- because that entry
+        opens a Private/Public submenu (#15373; hover opens nothing, #15390) --
+        the ONE submenu leaf ``WATCHLIST_SUBMENU_PICK`` with its sibling
+        present, and -- because Private opens a list level (#15414) -- the ONE
+        list leaf ``WATCHLIST_LIST_PICK`` with Private/Public still showing
+        (at most FOUR clicks). Anything that opens after that is dumped and
+        Escaped, never clicked into. Refused
         unless one-click reads OFF, the workspace is ``expect_workspace`` and
         no Symbol/Bid/Ask table is already present (then it is a no-op).
         Verified by the click-free WATCHLIST_SYMBOLS_JS read (exactly one
@@ -5489,6 +5526,40 @@ class DXtradeAdapter(PropPlatformAdapter):
                 return out
             item.first.click(timeout=5_000)
             out["clicks"].append("menu:Watchlist")
+            page.wait_for_timeout(settle_ms)
+            # MEASURED (#15373, #15390): "Watchlist" opens a Private/Public
+            # SUBMENU whose entries open nothing on hover. Click the ONE exact
+            # ``WATCHLIST_SUBMENU_PICK`` leaf (the user's own lists -- the
+            # removed "Default Watchlist" was one), with its measured sibling
+            # present. A submenu that does not match is Escaped, nothing picked.
+            if not self.watchlist_symbols(page).get("readable"):
+                sub = page.evaluate(WIDGET_MENU_PICK_JS, [self.WATCHLIST_SUBMENU_PICK,
+                                    [x for x in self.WATCHLIST_SUBMENU if x != self.WATCHLIST_SUBMENU_PICK]]) or {}
+                out["submenu_pick"] = sub
+                sub_item = page.locator("[data-metis-wpick='1']")
+                if not sub.get("tagged") or sub_item.count() != 1:
+                    out["refused"] = "Watchlist submenu did not match the measured submenu (nothing picked)"
+                    out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                    self._escape_menus(page, out)
+                    return out
+                sub_item.first.click(timeout=5_000)
+                out["clicks"].append(f"submenu:{self.WATCHLIST_SUBMENU_PICK}")
+                page.wait_for_timeout(settle_ms)
+                # MEASURED (#15414): "Private" opens a third level holding ONE
+                # list, "Favourites". Click that exact leaf (new since "+",
+                # with Private/Public still showing); anything else -> Escape.
+                if not self.watchlist_symbols(page).get("readable"):
+                    lst = page.evaluate(WIDGET_MENU_PICK_JS, [self.WATCHLIST_LIST_PICK,
+                                        list(self.WATCHLIST_SUBMENU)]) or {}
+                    out["list_pick"] = lst
+                    lst_item = page.locator("[data-metis-wpick='1']")
+                    if not lst.get("tagged") or lst_item.count() != 1:
+                        out["refused"] = "Private submenu did not match the measured list level (nothing picked)"
+                        out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                        self._escape_menus(page, out)
+                        return out
+                    lst_item.first.click(timeout=5_000)
+                    out["clicks"].append(f"list:{self.WATCHLIST_LIST_PICK}")
             waited = 0
             while True:
                 page.wait_for_timeout(500)
@@ -5504,7 +5575,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 # Whatever opened instead is dumped, then one Escape; it is
                 # REPORTED, never closed by a click (a close control is a delete).
                 out["new_after"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
-                page.keyboard.press("Escape")
+                self._escape_menus(page, out)
         except Exception as exc:
             out["error"] = type(exc).__name__
             # A menu (or whatever the click opened) may still be up: one
@@ -5981,7 +6052,22 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"found": False, "error": type(exc).__name__}
 
-    def probe_instrument_details(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+    @staticmethod
+    def search_query_for(venue_symbol: str, style: Optional[str] = None) -> str:
+        """The text typed into the watchlist search for ``venue_symbol``.
+        ``style`` comes from the account's ``config/prop_platforms.yaml``
+        entry (``search_query_style``); ``slash`` types the terminal's own
+        display form, ``SOL/USD`` for ``SOLUSD`` (MEASURED on tradeify_1,
+        #15444: typing ``SOLUSD`` opened the result panel with NO rows).
+        Anything else, or no style, types the venue symbol unchanged."""
+        sym = str(venue_symbol or "").strip().upper()
+        if style == "slash" and len(sym) > 3 and sym.endswith(("USD", "USDT")) and "/" not in sym:
+            quote = "USDT" if sym.endswith("USDT") else "USD"
+            return f"{sym[:-len(quote)]}/{quote}"
+        return sym
+
+    def probe_instrument_details(self, page: Any, venue_symbol: str, *, query: Optional[str] = None,
+                                 settle_ms: int = 1_000) -> Dict[str, Any]:
         """READ-ONLY: search for ``venue_symbol`` in a search field found
         INSIDE the measured watchlist panel (never the order ticket's
         ``symbol_input``, never anything inside a BUY/SELL panel), dump
@@ -5998,16 +6084,19 @@ class DXtradeAdapter(PropPlatformAdapter):
             if hit.count() != 1:
                 result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
                 return result
-            hit.first.fill(venue_symbol, timeout=5_000)
-            page.wait_for_timeout(1_000)
+            typed = (query or venue_symbol).strip()
+            result["query"] = typed
+            hit.first.fill(typed, timeout=5_000)
+            page.wait_for_timeout(settle_ms)
             readback = hit.first.input_value(timeout=5_000)
             result["searched"] = True
-            result["readback_matches"] = (readback.strip().upper() == venue_symbol.strip().upper())
+            result["readback_matches"] = (readback.strip().upper() == typed.upper())
             dump = self.instrument_details_dump(page)
             result["dump"] = dump
             blob = " ".join((r.get("text") or "") for r in (dump.get("rows") or []))
-            result["symbol_echoed"] = bool(re.search(
-                r"(?<![A-Z0-9])" + re.escape(venue_symbol.upper()) + r"(?![A-Z0-9])", blob.upper()))
+            result["symbol_echoed"] = any(bool(re.search(
+                r"(?<![A-Z0-9/])" + re.escape(form.upper()) + r"(?![A-Z0-9/])", blob.upper()))
+                for form in {venue_symbol.strip(), typed})
         except Exception as exc:
             result["error"] = type(exc).__name__
         finally:

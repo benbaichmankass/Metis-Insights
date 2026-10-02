@@ -1662,3 +1662,106 @@ def test_the_tick_resolves_the_edit_dialog_modes_and_defers_them_to_a_live_ticke
     assert resolve_mode(SimpleNamespace(**base, edit_dialog_dry="ETHUSD"), {"PROP_EXECUTOR_MODE": "off"}) == "edit_dialog_dry"
     assert resolve_mode(SimpleNamespace(**base, edit_dialog_probe="ETHUSD"), {}) == "edit_dialog_probe"
     assert {"edit_dialog_dry", "edit_dialog_probe"} <= YIELD_MODES
+
+
+# ── EMPTY watchlist (TRADEIFY-GOLIVE, #15426/#15431): tradeify_1's restored
+# "Favourites" list reads 0 symbols, so there is no row to align; the header
+# table anchors instead and every widget-level check still applies. ─────────
+EMPTY_WATCHLIST_PAGE = """<html><body>
+<div class="widget__container___Ab1 widgetNew__container">
+<div class="widget__header"><input id="wl-search" placeholder="Symbol..." data-test-id="watchlist_public_search_9" type="text"></div>
+<div class="watchlist-panel">
+  <table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th><th>Change</th></tr></thead><tbody></tbody></table>
+</div>
+</div>
+</body></html>"""
+
+
+def test_find_instrument_search_anchors_an_empty_watchlist_on_its_header(chromium_page):
+    chromium_page.set_content(EMPTY_WATCHLIST_PAGE)
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "ETHUSD")
+    assert res["searched"] is True
+    assert res["via"] == "placeholder+tid (empty watchlist: header anchor)"
+    assert res["reset"] is True and chromium_page.input_value("#wl-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_empty_watchlist_header_anchor_still_refuses_a_widget_with_a_positions_table(chromium_page):
+    # The positions-shaped table sits in the WIDGET, outside the grid panel,
+    # so the widget-level check is the one exercised.
+    chromium_page.set_content(EMPTY_WATCHLIST_PAGE.replace(
+        '</div>\n</div>\n</body>',
+        '</div>\n<table><thead><tr><th>Status</th><th>Side</th><th>Quantity</th></tr></thead></table>'
+        '\n</div>\n</body>'))
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "ETHUSD")
+    assert res["searched"] is False and res["found"] is False
+    assert res.get("why") == "widget also contains a positions/orders-shaped table"
+    assert chromium_page.input_value("#wl-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+# ── SLASH-form query (TRADEIFY-GOLIVE, #15444): typing ``SOLUSD`` on
+# tradeify_1 opened the result panel with NO rows; the terminal names symbols
+# ``SOL/USD``. The account's ``search_query_style: slash`` types that form. ──
+def test_search_query_for_slash_style_types_the_display_form():
+    q = DXtradeAdapter.search_query_for
+    assert q("SOLUSD", "slash") == "SOL/USD"
+    assert q("ethusd", "slash") == "ETH/USD"
+    assert q("XRPUSDT", "slash") == "XRP/USDT"
+    assert q("SOL/USD", "slash") == "SOL/USD"      # already slashed: unchanged
+    assert q("USD", "slash") == "USD"              # nothing to split
+    assert q("MNQ", "slash") == "MNQ"              # no USD quote: unchanged
+
+
+def test_search_query_for_without_a_style_types_the_venue_symbol_unchanged():
+    # breakout_1 declares no style: its query is exactly what it typed before.
+    q = DXtradeAdapter.search_query_for
+    assert q("SOLUSD") == "SOLUSD"
+    assert q("SOLUSD", None) == "SOLUSD"
+    assert q("SOLUSD", "something-else") == "SOLUSD"
+
+
+SLASH_RESULT_PAGE = EMPTY_WATCHLIST_PAGE.replace("</body>", """<div id="results"></div>
+<script>
+document.getElementById('wl-search').addEventListener('input', function (e) {
+  var v = (e.target.value || '').toUpperCase();
+  var r = document.getElementById('results');
+  r.innerHTML = '';
+  if (v === 'SOL/USD') {
+    setTimeout(function () {   // async, like the venue's result panel
+      r.innerHTML = '<div class="row"><span>SOL/USD</span><span>Solana</span>'
+        + '<span>Cryptocurrencies</span></div>';
+    }, 400);
+  }
+});
+</script>
+</body>""")
+
+
+def test_probe_instrument_details_types_the_given_query_and_reads_it_back(chromium_page):
+    chromium_page.set_content(SLASH_RESULT_PAGE)
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(
+        chromium_page, "SOLUSD", query=a.search_query_for("SOLUSD", "slash"), settle_ms=1_500)
+    assert res["searched"] is True
+    assert res["query"] == "SOL/USD"
+    assert res["readback_matches"] is True        # compared against what was TYPED
+    assert res["reset"] is True and chromium_page.input_value("#wl-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_probe_instrument_details_default_query_is_the_venue_symbol(chromium_page):
+    chromium_page.set_content(SLASH_RESULT_PAGE)
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "SOLUSD")
+    assert res["searched"] is True
+    assert res["query"] == "SOLUSD"
+    assert res["readback_matches"] is True
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_only_tradeify_1_declares_the_slash_query_style():
+    # breakout_1 is LIVE and shares this adapter: its search must type the
+    # venue symbol exactly as before, so it declares no style.
+    from src.prop.platform import load_platform_config
+    assert load_platform_config("tradeify_1").get("search_query_style") == "slash"
+    assert load_platform_config("breakout_1").get("search_query_style") is None
