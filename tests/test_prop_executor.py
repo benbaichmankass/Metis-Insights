@@ -735,11 +735,47 @@ def browser():
         b.close()
 
 
+# The live terminal's submit states the order: "Buy 0.01 SOLUSD at 120.05"
+# (every label measured live, runs #13942 .. #15537). The invented fixtures
+# below predate that measurement ("Place Order", "Buy SOLUSD"); since
+# submit_label_mismatch refuses a label that does not read as
+# "<Buy|Sell> <qty> <SYM>" (DIALOG-MEASURE, 2026-10-02), each fixture page's
+# submit is relabelled the way the terminal does it, once a quantity is typed.
+LIVE_LABEL_JS = r"""
+() => {
+  const SUB = /^(place( (buy|sell))? order|buy|sell)( [A-Z][A-Z0-9/]+)?$/i;
+  const qtyInput = () => [...document.querySelectorAll('input')].find(i => i.id === 'q'
+      || /quantity|lots/i.test((i.getAttribute('aria-label') || '') + ' ' + (i.previousElementSibling ? i.previousElementSibling.textContent : '')
+      + ' ' + (i.parentElement ? i.parentElement.textContent : '')));
+  const relabel = () => {
+    const q = qtyInput(); const qty = q && String(q.value || '').trim();
+    document.querySelectorAll('button').forEach(b => {
+      const t = (b.dataset.metisOrig !== undefined ? b.dataset.metisOrig : b.textContent).trim();
+      if (!b.dataset.metisLabelled && !SUB.test(t)) return;
+      if (!b.dataset.metisLabelled) { b.dataset.metisLabelled = '1'; b.dataset.metisOrig = t; }
+      const cur = b.textContent.trim();
+      if (!/ at [0-9]/.test(cur) && SUB.test(cur)) b.dataset.metisOrig = cur;
+      if (!qty) { b.textContent = b.dataset.metisOrig; return; }
+      const o = b.dataset.metisOrig;
+      const side = (o.match(/\b(Buy|Sell)\b/i) || [])[1] || (window.__side === 'sell' ? 'Sell' : 'Buy');
+      const symIn = document.querySelector('[data-test-id=symbol_input]');
+      const sym = (o.match(/\b([A-Z]{3,}[A-Z0-9]*(?:\/[A-Z]+)?)\b/) || [])[1] || (symIn && symIn.value) || 'SOLUSD';
+      const want = side[0].toUpperCase() + side.slice(1).toLowerCase() + ' ' + qty + ' ' + sym + ' at 120.00';
+      if (b.textContent !== want) b.textContent = want;
+    });
+  };
+  relabel(); setInterval(relabel, 20);
+  document.addEventListener('input', relabel, true); document.addEventListener('click', () => setTimeout(relabel, 0), true);
+}
+"""
+
+
 @pytest.fixture
 def tpage(browser):
     def make(one_click_checked=False, html=None):
         p = browser.new_page()
         p.set_content(html or (TICKET_PAGE % ("checked" if one_click_checked else "")))
+        p.evaluate(LIVE_LABEL_JS)
         return p
     return make
 
@@ -1838,11 +1874,27 @@ def _measured_live_label(clamp_min=None):
     return _measured().replace("</body>", js + "</body>")
 
 
+def test_every_live_measured_submit_label_still_passes():
+    # Labels the live terminal showed (breakout-login-check runs #13942,
+    # #13953, #13965, #13983, #13987, #14154, #14191, #14330, #14344, #14761,
+    # #15021, #15261, #15263, #15464, #15537; the 2026-10-02 live ETH short):
+    # the tightening must not refuse any real ticket.
+    from types import SimpleNamespace
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    for label, qty, sym in [("Buy 0.01 SOLUSD at 117.49", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 120.73", 0.01, "SOLUSD"),
+                            ("Buy 49 SOLUSD at 117.52", 49, "SOLUSD"), ("Buy 0.01 ETHUSD at 2,749.46", 0.01, "ETHUSD"),
+                            ("Sell 1.22 ETHUSD at 2,657.11", 1.22, "ETHUSD")]:
+        assert submit_label_mismatch(label, SimpleNamespace(quantity=qty, venue_symbol=sym)) == "", label
+
+
 def test_submit_label_mismatch_reads_the_measured_label_shape():
     from src.prop.platform.dxtrade import submit_label_mismatch
     spec = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
     assert submit_label_mismatch("Buy 0.01 SOLUSD at 120.05", spec) == ""
-    assert submit_label_mismatch("Buy SOLUSD", spec) == ""                 # no qty stated: read-back alone
+    # A label that does not state "<Buy|Sell> <qty> <SYM>" is refused
+    # (DIALOG-MEASURE): a modify-mode sidebar's "Save" / "Modify" is no order.
+    for label in ("Buy SOLUSD", "Save", "Modify", "Modify Position", ""):
+        assert "does not read as" in submit_label_mismatch(label, spec), label
     assert "states quantity 0.1" in submit_label_mismatch("Buy 0.1 SOLUSD at 120.05", spec)
     assert "names 'ETHUSD'" in submit_label_mismatch("Buy 0.01 ETHUSD at 3000.1", spec)
 
