@@ -1831,6 +1831,62 @@ def test_suggestion_rows_read_only_reads_no_input_value_and_clicks_nothing():
     assert "dispatchEvent" not in SUGGESTION_ROWS_JS
 
 
+# ── KEY-BY-KEY variants (TRADEIFY-GOLIVE, #15472): ETH/USD typed with fill()
+# left the suggestion table's tbody empty. The variant probe types ETH,
+# ETHUSD and ETH/USD key by key and reads only the suggestion rows. ─────────
+def test_search_query_variants_base_venue_slash():
+    v = DXtradeAdapter.search_query_variants
+    assert v("ETHUSD") == ["ETH", "ETHUSD", "ETH/USD"]
+    assert v("xrpusdt") == ["XRP", "XRPUSDT", "XRP/USDT"]
+    assert v("MNQ") == ["MNQ"]
+
+
+KEYUP_SUGGESTION_PAGE = SUGGESTION_PAGE.replace(
+    "document.getElementById('wl-search').addEventListener('input',",
+    "document.getElementById('wl-search').addEventListener('keyup',").replace(
+    "if (v === 'ETH/USD') {", "if (v === 'ETH') {").replace(
+    # Like a debounced venue search: a late result only lands if the field
+    # still holds the query it was fetched for.
+    "      rows.innerHTML = '<tr", "      if ((document.getElementById('wl-search').value || '').toUpperCase() !== 'ETH') return;\n"
+    "      rows.innerHTML = '<tr")
+
+
+def test_probe_search_variants_types_key_by_key_and_reads_rows(chromium_page):
+    chromium_page.set_content(KEYUP_SUGGESTION_PAGE)
+    res = DXtradeAdapter().probe_search_variants(chromium_page, "ETHUSD", settle_ms=800, key_delay_ms=10)
+    assert res["searched"] is True
+    qs = [v["query"] for v in res["variants"]]
+    assert qs == ["ETH", "ETHUSD", "ETH/USD"]
+    eth = res["variants"][0]
+    assert eth["readback_matches"] is True
+    rows = eth["suggestions"]["panels"][0]["rows"]
+    assert rows[0]["cells"] == ["ETH/USD", "Ethereum", "Cryptocurrencies"]
+    assert res["variants"][1]["suggestions"]["panels"][0]["n_rows"] == 0   # ETHUSD: no rows
+    assert res["reset"] is True and res["blurred"] is True
+    assert chromium_page.input_value("#wl-search") == ""
+    assert chromium_page.locator("[data-metis-search-hit]").count() == 0
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_probe_search_variants_never_presses_enter_or_clicks():
+    import inspect
+    src = inspect.getsource(DXtradeAdapter.probe_search_variants)
+    assert ".click(" not in src and ".press(" not in src and "keyboard" not in src
+    assert "press_sequentially(q," in src           # characters of the query only
+
+
+def test_suggestion_rows_never_widen_into_another_table_when_results_are_empty(chromium_page):
+    # #15472 fix: an EMPTY suggestion tbody must read as 0 rows, never as the
+    # positions table's rows found by widening past it.
+    chromium_page.set_content(SUGGESTION_PAGE)
+    chromium_page.fill("#wl-search", "ZZZ")          # opens the panel, no results
+    from src.prop.platform.dxtrade import SUGGESTION_ROWS_JS
+    got = chromium_page.evaluate(SUGGESTION_ROWS_JS)
+    assert got["found"] is True and got["n_panels"] == 1
+    assert got["panels"][0]["n_rows"] == 0 and got["panels"][0]["rows"] == []
+    chromium_page.set_content(DIVGRID.read_text())
+
+
 # ── BREAKOUT-SUBMIT-VIS: the submit hit-test says WHICH state blocked it ───
 
 

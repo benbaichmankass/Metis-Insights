@@ -515,6 +515,12 @@ def main(argv: Optional[list] = None) -> int:
                         page, sym, query=adapter.search_query_for(sym, qstyle),
                         settle_ms=3_000 if qstyle else 1_000)
                     emit({"instrument_probe": {"symbol": sym, **got}}, *secrets)
+                    # An account that declares a query style also gets the
+                    # key-by-key variant read (#15472: the slash form typed
+                    # with fill() left the suggestion table empty).
+                    if qstyle:
+                        var = adapter.probe_search_variants(page, sym)
+                        emit({"instrument_probe_variants": {"symbol": sym, **var}}, *secrets)
                 page.wait_for_timeout(2_000)
                 wl_after = adapter.watchlist_symbols(page)
                 from src.prop.platform.dxtrade import watchlist_diff
