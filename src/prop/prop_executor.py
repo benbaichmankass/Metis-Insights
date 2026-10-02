@@ -991,6 +991,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         return res
 
     # 5. intake
+    # A validity that ran out with no attempt is never silent (BREAKOUT-NOATTEMPT):
+    # swept from the executor's own state, BEFORE intake, so it fires even on a
+    # cycle whose ticket read fails and regardless of the ticket's status.
+    _alert_unattempted_expiries(res, state, st, mode, now)
     try:
         tickets = api.tickets(cfg.account_id)
     except Exception as exc:
@@ -1034,10 +1038,17 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             res.log("skipped", ticket_id=t["ticket_id"], reason="symbol_not_enabled", venue=venue)
             if live:
                 ledger.record(t["ticket_id"], "skipped", reason="symbol_not_enabled")
+            # ...but its EXPIRY is not silent: nothing was attempted, so when the
+            # validity runs out the operator is told once (BREAKOUT-NOATTEMPT).
+            _note_unattempted(state, st, t, "symbol_not_enabled",
+                              f"{venue} not in executor.enabled_venue_symbols")
             continue
         vu = _parse_ts(t.get("valid_until"))
         if vu is not None and vu <= now:
             res.log("expired", ticket_id=t["ticket_id"])
+            # This branch DID report the expiry, so the no-attempt sweep must
+            # not alert about the same ticket as well.
+            _clear_unattempted(state, st, t["ticket_id"])
             if live:
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
@@ -1051,6 +1062,11 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             verdict, why = _entry_band_check(adapter, page, t, venue)
             if verdict in ("wait", "blind"):
                 res.log("band_wait", ticket_id=t["ticket_id"], why=why)
+                # A wait is not an attempt and records nothing, so remember it:
+                # a ticket that waits out its whole validity would otherwise
+                # expire with no row, no alert and no disposition at all
+                # (BREAKOUT-NOATTEMPT, measured 2026-10-02 on fb466451fd1f).
+                _note_unattempted(state, st, t, "band_wait", why)
                 # A quote we could not read would otherwise let the ticket
                 # expire with only a log line (manager review of #14908): one
                 # alert per ticket, on its first blind wait.
@@ -1062,8 +1078,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 # Logged with the quote it used, so a live pass is observable
                 # (manager 2026-09-30 22:06Z), not inferred from a guards line.
                 res.log("band_ok", ticket_id=t["ticket_id"], why=why)
+                _clear_unattempted(state, st, t["ticket_id"])
             if verdict == "refuse":
                 res.log("band_refused", ticket_id=t["ticket_id"], why=why)
+                _clear_unattempted(state, st, t["ticket_id"])
                 if live:
                     ledger.record(t["ticket_id"], "refused", reasons=[why])
                     _report(res, post, _skip_body(cfg, t, f"not submitted: {why}"))
@@ -1620,6 +1638,92 @@ def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
         return None
     lo, hi = float(m.group(1)), float(m.group(2))
     return (lo, hi) if lo <= hi else None
+
+
+#: Tickets the executor looked at but did not attempt, remembered until their
+#: validity passes so the expiry is not silent. Bounded: the newest N.
+_UNATTEMPTED_KEEP = 50
+_UNATTEMPTED_KEY = "unattempted"
+
+
+def _note_unattempted(state: "ExecutorState", st: Dict[str, Any], ticket: Mapping[str, Any],
+                      kind: str, why: str) -> None:
+    """Remember that this cycle declined *ticket* WITHOUT attempting it.
+
+    MEASURED 2026-10-02 (ict-prop-executor journal, 06:59Z-16:59Z, 121 ticks):
+    ETH ticket ``prop-manual-fb466451fd1f`` (08:19:49Z, valid_until 09:19:50Z)
+    was looked at on all 12 ticks inside its validity and declined every time
+    with ``band_wait`` (ask 2747.43..2760.52, entry band around 2774.55). A
+    wait records nothing by design, so the ticket aged out with NO
+    ``prop_fills`` row, NO alert and no terminal disposition -- indistinguishable
+    from an executor that never ran. Same shape on 2026-09-30 for ETH ticket
+    ``prop-manual-a22cb1d44517`` via ``skipped: symbol_not_enabled`` (12:34:59Z;
+    ETHUSD joined ``enabled_venue_symbols`` only on 2026-10-01, #15143).
+
+    The remembered entry is cleared the moment the executor DOES attempt the
+    ticket, so an alert fires only for a validity that ran out unattempted.
+    """
+    tid = str(ticket.get("ticket_id") or "")
+    if not tid:
+        return
+    rows = dict(st.get(_UNATTEMPTED_KEY) or {})
+    rows[tid] = {"kind": kind, "why": why,
+                 "valid_until": ticket.get("valid_until"),
+                 "symbol": ticket.get("symbol"), "direction": ticket.get("direction")}
+    if len(rows) > _UNATTEMPTED_KEEP:
+        rows = dict(list(rows.items())[-_UNATTEMPTED_KEEP:])
+    st[_UNATTEMPTED_KEY] = rows
+    state.save(st)
+
+
+def _clear_unattempted(state: "ExecutorState", st: Dict[str, Any], ticket_id: str) -> None:
+    """Drop the no-attempt note: the executor is attempting this ticket now."""
+    rows = dict(st.get(_UNATTEMPTED_KEY) or {})
+    if rows.pop(str(ticket_id or ""), None) is not None:
+        st[_UNATTEMPTED_KEY] = rows
+        state.save(st)
+
+
+def _alert_unattempted_expiries(res: "CycleResult", state: "ExecutorState", st: Dict[str, Any],
+                                mode: str, now: datetime) -> None:
+    """One NOT PLACED alert per ticket whose validity passed with no attempt.
+
+    The executor's own ``expired`` report branch cannot cover this: intake is
+    ``/api/bot/prop/tickets?status=emitted``, and the manual bridge's expiry
+    prompter flips a stale ticket to ``expiry_prompted`` at its ``valid_until``
+    -- so the ticket leaves intake before any tick sees it past its validity.
+    This sweep reads the executor's OWN state instead, so it is independent of
+    the ticket's status, and it only ALERTS: it posts no report and writes no
+    ticket status, because a ``skipped`` report would flip the ticket off
+    ``emitted`` and pull it out of every manual-bridge path that keys on it
+    (the price-invalidation warning, the expiry prompt, the reticket guard).
+    """
+    rows = dict(st.get(_UNATTEMPTED_KEY) or {})
+    if not rows:
+        return
+    fired = False
+    for tid, row in list(rows.items()):
+        vu = _parse_ts((row or {}).get("valid_until"))
+        if vu is None or vu > now:
+            continue
+        rows.pop(tid, None)
+        fired = True
+        if not _first_time(state, st, f"unattempted_expiry_{mode}", tid):
+            continue
+        kind = str((row or {}).get("kind") or "unknown")
+        detail = ("the executor waited on the entry band for the whole window"
+                  if kind == "band_wait" else
+                  "the symbol is not in the executor's enabled venue symbols, so it was never attempted"
+                  if kind == "symbol_not_enabled" else kind)
+        res.log("unattempted_expiry", ticket_id=tid, kind=kind,
+                valid_until=vu.isoformat(), why=(row or {}).get("why"))
+        res.alerts.append(
+            f"{tid}: NOT PLACED — its validity expired at {vu.isoformat()} with NO placement "
+            f"attempt ({detail}; last: {(row or {}).get('why')}). Nothing is resting on the "
+            f"terminal for it; place a fresh setup by hand if you still want the trade.")
+    if fired:
+        st[_UNATTEMPTED_KEY] = rows
+        state.save(st)
 
 
 def _first_time(state: "ExecutorState", st: Dict[str, Any], key: str, ticket_id: str,
