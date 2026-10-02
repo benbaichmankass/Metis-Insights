@@ -887,6 +887,13 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
+    # HTF trend filter EXPLICITLY OFF for this leg (manager review of #15340,
+    # 2026-10-01). The registered rule (docs/research/ict-scalp-htf-filter-
+    # decision-rule-2026-10-01.md) cleared on the 6 crypto legs only; MGC had no
+    # data source and is OUTSIDE that evidence, so its behaviour is kept exactly
+    # as before. Flip to true only if MGC clears the same rule on the fixed
+    # harness (pipeline row filed with this change).
+    htf_trend_filter_enabled: false
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20

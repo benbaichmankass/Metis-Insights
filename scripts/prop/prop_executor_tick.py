@@ -93,7 +93,7 @@ EXIT_DEFERRED = 7
 #: 5931584062 on #14947: "if a live ticket is waiting, the tick wins").
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
-                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe",
+                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget",
                          "edit_dialog_dry", "edit_dialog_probe",
                          "round_trip_dry", "round_trip_live"})
 
@@ -157,6 +157,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "edit_dialog_probe"
     if getattr(args, "widget_menu_probe", False):
         return "widget_menu_probe"
+    if getattr(args, "add_watchlist_widget", False):
+        return "add_watchlist_widget"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -361,6 +363,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--widget-menu-probe", action="store_true",
                    help="MEASURE the add-widget ('+') menu: one click on the top-most widget_tab_add_button, "
                         "dump the menu (masked), Escape; clicks no menu item, no order/price/delete control")
+    g.add_argument("--add-watchlist-widget", action="store_true",
+                   help="add the Watchlist widget to 'My Trading Account': the '+' then the measured "
+                        "'Watchlist' menu entry only; refused unless one-click reads OFF; verified click-free")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -538,6 +543,12 @@ def main(argv: Optional[list] = None) -> int:
                 emit({"widget_menu_probe": got}, *secrets)
                 ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
                 return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "add_watchlist_widget":
+                got = adapter.add_watchlist_widget(page)
+                emit({"add_watchlist_widget": got}, *secrets)
+                ok = got.get("added") is True or got.get("already_present") is True
+                return EXIT_OK if ok and "error" not in got else EXIT_UNPARSED
 
             if mode == "symbol_switch_dry":
                 got = adapter.symbol_switch_dry(page, args.symbol_switch_dry,
