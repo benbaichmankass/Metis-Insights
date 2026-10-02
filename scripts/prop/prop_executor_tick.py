@@ -94,6 +94,7 @@ EXIT_DEFERRED = 7
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
                          "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
+                         "add_watchlist_symbol_dry", "add_watchlist_symbol",
                          "instrument_page_dump",
                          "edit_dialog_dry", "edit_dialog_probe",
                          "round_trip_dry", "round_trip_live"})
@@ -162,6 +163,10 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "add_watchlist_widget"
     if getattr(args, "watchlist_submenu_probe", False):
         return "watchlist_submenu_probe"
+    if getattr(args, "add_watchlist_symbol_dry", ""):
+        return "add_watchlist_symbol_dry"
+    if getattr(args, "add_watchlist_symbol", ""):
+        return "add_watchlist_symbol"
     if getattr(args, "instrument_page_dump", ""):
         return "instrument_page_dump"
     if args.dry_run:
@@ -377,6 +382,12 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--instrument-page-dump", default="", metavar="VENUE_SYMBOL",
                    help="READ-ONLY: type the base asset key by key into the watchlist search (never Enter), "
                         "dump every visible text leaf on the page (masked, <=400), reset + blur; clicks nothing")
+    g.add_argument("--add-watchlist-symbol-dry", default="", metavar="VENUE_SYMBOL",
+                   help="DRY: type the base asset into the watchlist search, resolve the ONE suggestion row whose "
+                        "Symbol cell is exactly the slash form, report it + elementFromPoint; click nothing")
+    g.add_argument("--add-watchlist-symbol", default="", metavar="VENUE_SYMBOL",
+                   help="add ONE symbol to the watchlist: the resolved suggestion row's Symbol cell (one click), "
+                        "Escape; refused unless one-click OFF; verified: no ticket/dialog, only that symbol added")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -570,6 +581,12 @@ def main(argv: Optional[list] = None) -> int:
             if mode == "instrument_page_dump":
                 sym = args.instrument_page_dump.strip()
                 emit({"page_dump": {"symbol": sym, **adapter.probe_page_leaf_dump(page, sym)}}, *secrets)
+                return EXIT_OK
+
+            if mode in ("add_watchlist_symbol_dry", "add_watchlist_symbol"):
+                arm = mode == "add_watchlist_symbol"
+                sym = (args.add_watchlist_symbol if arm else args.add_watchlist_symbol_dry).strip()
+                emit({"add_symbol": adapter.add_watchlist_symbol(page, sym, arm=arm)}, *secrets)
                 return EXIT_OK
 
             if mode == "watchlist_submenu_probe":
