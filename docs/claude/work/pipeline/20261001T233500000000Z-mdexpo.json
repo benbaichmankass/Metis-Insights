@@ -1,0 +1,17 @@
+{
+ "due_when": {
+  "check_every_days": 3,
+  "clears_when": "comms/strategy_evidence/ict_scalp_xrp_15m.json is rebuilt on the causal HTF harness (PR #15341 merged) BEFORE comms/research/r3_cost_fidelity grades ict_scalp_xrp_15m consistent/divergent, OR a guard makes mandate_resolver refuse a record whose harness predates the causal-HTF fix",
+  "kind": "observation",
+  "last_checked": "2026-10-01"
+ },
+ "id": "PI-20261001-JWZSVYVS-0004",
+ "next_action": "dispatch_lane",
+ "origin": {
+  "kind": "session",
+  "ref": "lane ICT-SCALP-HTF session_01NpQatfW1eowJpoJwzSVYVs, manager exposure check 2026-10-01 22:58Z",
+  "rerun": "for l in ict_scalp_eth_15m ict_scalp_avax_5m ict_scalp_sol_15m ict_scalp_xrp_15m; do python3 scripts/ops/mandate_resolver.py --leg $l --from S1 --to S2 --account bybit_2; done  (read-only; do not pass --file-needs-data). Fires only if a leg's verdict flips to FIRE."
+ },
+ "state": "queued",
+ "what": "EXPOSURE (measured 2026-10-01 by running mandate_resolver.py over the 4 ict_scalp legs with positive committed records, S1->S2 onto bybit_2): n=4 legs, 0 FIRE. eth_15m REFUSE (R-FOLDS, positive in 2 of 4 folds); sol_15m REFUSE (R-FOLDS, 2 of 4 folds); avax_5m NEEDS-DATA (execution: shadow, no Stage-1 soak); xrp_15m NEEDS-DATA (R-COST-FIDELITY insufficient_n) -- its record (+4.08R, n=129 trades, 3 of 4 folds positive) PASSES the evidence clauses and is blocked ONLY by cost-fidelity data. That record was built on the lookahead HTF harness; the resolver keys on config_fingerprint (leg YAML), not harness, so once soak fills make cost fidelity gradeable, xrp_15m could FIRE on a lookahead-built record. Limits of the exposure: MD-PROMOTE-S1-S2 has no autoland field (a fire opens a human-merge PR) and no workflow calls the resolver for S1->S2 (only r4-demotion-gate and exit-cell-mandate use it). Not verified: whether any session path invokes the S1->S2 resolver automatically."
+}
