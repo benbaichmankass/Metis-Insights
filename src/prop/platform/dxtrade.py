@@ -1869,6 +1869,68 @@ PAGE_LEAF_DUMP_JS = r"""
 }
 """
 
+# Resolve the ONE suggestion row to add (TRADEIFY-GOLIVE, manager GO 17:39Z
+# 2026-10-02). MEASURED (#15602): the search's result panel draws its header
+# (Symbol / Description) and its rows as two SEPARATE tables; the header
+# table's own tbody is empty. This anchors on the visible header table (a
+# <th> text "Symbol" AND one "Description"), takes the FIRST table that
+# FOLLOWS it inside the nearest shared ancestor (at most 4 levels up) and has
+# <tbody> rows, and requires that table's rows to have as many cells as the
+# header has columns (so a positions/orders table never qualifies). The target
+# is the ONE row whose FIRST cell's whole text (whitespace collapsed) equals
+# ``target`` exactly (ETH/USD, never ETC/USD or ENA/USD); 0 or >1 is refused.
+# That cell is tagged data-metis-add-target. Returned for review: every row's
+# cells (EVERY digit masked, as in PAGE_LEAF_DUMP_JS), the target cell's box,
+# its centre, and what document.elementFromPoint returns there (tag, masked
+# text, whether it lies inside the target cell). Clicks nothing.
+ADD_SYMBOL_RESOLVE_JS = r"""
+([target]) => {
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 80) : null;
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const norm = el => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  document.querySelectorAll('[data-metis-add-target]').forEach(e => e.removeAttribute('data-metis-add-target'));
+  const heads = [...document.querySelectorAll('table')].filter(t => vis(t)).filter(t => {
+    const ths = [...t.querySelectorAll('th')].map(norm);
+    return ths.includes('Symbol') && ths.includes('Description');
+  });
+  if (heads.length !== 1) return {ok: false, why: heads.length + ' visible Symbol+Description header tables (need exactly 1)'};
+  const head = heads[0];
+  const ncols = head.querySelectorAll('th').length;
+  let body = null, anc = head.parentElement, up = 0;
+  while (anc && up < 4 && !body) {
+    for (const t of anc.querySelectorAll('table')) {
+      if (t === head || !vis(t)) continue;
+      if (!(head.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+      if (!t.tBodies.length || !t.tBodies[0].rows.length) continue;
+      body = t; break;
+    }
+    anc = anc.parentElement; up++;
+  }
+  if (!body) return {ok: false, why: 'no results table follows the header table (nothing to add)', ncols};
+  const rows = [...body.tBodies].flatMap(b => [...b.rows]).filter(vis);
+  const shape_ok = rows.every(r => r.cells.length === ncols);
+  const listed = rows.slice(0, 30).map(r => [...r.cells].map(c => mask(norm(c))));
+  const out = {ok: false, ncols, n_rows: rows.length, shape_ok, rows: listed, ancestor_hops: up};
+  if (!shape_ok) { out.why = 'results rows do not have the header column count'; return out; }
+  const hits = rows.filter(r => r.cells.length && norm(r.cells[0]) === target);
+  out.n_target = hits.length;
+  if (hits.length !== 1) { out.why = hits.length + ' rows whose Symbol cell is exactly ' + target + ' (need exactly 1)'; return out; }
+  const cell = hits[0].cells[0];
+  cell.setAttribute('data-metis-add-target', '1');
+  const r = cell.getBoundingClientRect();
+  const cx = Math.round(r.x + r.width / 2), cy = Math.round(r.y + r.height / 2);
+  const at = document.elementFromPoint(cx, cy);
+  out.target_cells = [...hits[0].cells].map(c => mask(norm(c)));
+  out.box = [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)];
+  out.point = [cx, cy];
+  out.at_point = at ? {tag: at.tagName.toLowerCase(), text: mask(norm(at)), inside_target: cell.contains(at)} : null;
+  out.ok = !!(at && cell.contains(at));
+  if (!out.ok) out.why = 'elementFromPoint at the cell centre is not inside the target cell';
+  return out;
+}
+"""
+
 CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 () => {
   document.querySelectorAll('[data-metis-search-hit]').forEach(
@@ -6450,6 +6512,132 @@ class DXtradeAdapter(PropPlatformAdapter):
             except Exception:
                 pass
         return result
+
+    @staticmethod
+    def _visible_dialogs(page: Any) -> Optional[int]:
+        """Visible [role=dialog]/[role=alertdialog]/[aria-modal] count (the
+        INFO_PROBE_SNAPSHOT_JS detector); None when it could not look."""
+        try:
+            return int(page.evaluate(INFO_PROBE_SNAPSHOT_JS))
+        except Exception:
+            return None
+
+    def add_watchlist_symbol(self, page: Any, venue_symbol: str, *, arm: bool = False,
+                             settle_ms: int = 3_000, key_delay_ms: int = 80,
+                             after_ms: int = 2_000) -> Dict[str, Any]:
+        """Add ``venue_symbol`` to the (Favourites) watchlist through its own
+        search's suggestion list (TRADEIFY-GOLIVE, manager GO 2026-10-02
+        17:39Z). One symbol per call.
+
+        Types the base asset key by key into the verified watchlist search
+        (never Enter), then resolves with ADD_SYMBOL_RESOLVE_JS the ONE result
+        row whose Symbol cell reads exactly the slash form (``ETH/USD``).
+        ``arm=False`` (the DRY run) reports that row, its box and what
+        ``elementFromPoint`` returns at the click point, then clears the field
+        and clicks NOTHING. ``arm=True`` additionally requires one-click OFF
+        and a clean resolve, makes ONE click on that Symbol cell, presses
+        Escape once, and verifies: no order ticket and no new dialog opened
+        (if one did: Escape, report, stop), and the watchlist re-read shows
+        exactly ``venue_symbol`` added and nothing else changed. It never
+        clicks an order / price / instant-trade / position control, or any
+        close / delete control."""
+        sym = str(venue_symbol or "").strip().upper()
+        target = self.search_query_for(sym, "slash")
+        out: Dict[str, Any] = {"symbol": sym, "target": target, "armed": bool(arm),
+                               "added": False, "refused": None, "clicks": []}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if arm and oc.get("state") != "off":
+            out["refused"] = f"one-click not confirmed OFF ({oc.get('state')})"
+            return out
+        before = self.watchlist_symbols(page)
+        out["watchlist_before"] = before
+        if arm and not before.get("readable"):
+            out["refused"] = "watchlist not readable before the click (could not verify an add)"
+            return out
+        if sym in (before.get("symbols") or []):
+            out["refused"] = f"{sym} already in the watchlist (nothing to add)"
+            out["already_present"] = True
+            return out
+        loc = self._find_instrument_search(page)
+        out["search"] = {k: loc.get(k) for k in ("found", "via", "why")}
+        if not loc.get("found"):
+            out["refused"] = "watchlist search not found"
+            return out
+        hit = page.locator("[data-metis-search-hit='1']")
+        typed = False
+        try:
+            if hit.count() != 1:
+                out["refused"] = f"{hit.count()} tagged search candidates (need exactly 1)"
+                return out
+            query = self.search_query_variants(sym)[0]
+            out["query"] = query
+            hit.first.fill("", timeout=5_000)
+            hit.first.press_sequentially(query, delay=key_delay_ms, timeout=10_000)
+            typed = True
+            page.wait_for_timeout(settle_ms)
+            res = page.evaluate(ADD_SYMBOL_RESOLVE_JS, [target]) or {"ok": False, "why": "no resolve result"}
+            out["resolve"] = res
+            if not res.get("ok"):
+                out["refused"] = res.get("why") or "resolve failed"
+                return out
+            if not arm:
+                out["dry"] = "resolved; nothing clicked"
+                return out
+            form_before = bool(self._find_form(page).get("found"))
+            dialogs_before = self._visible_dialogs(page)
+            page.locator("[data-metis-add-target='1']").first.click(timeout=5_000)
+            out["clicks"].append(f"suggestion:{target}")
+            page.wait_for_timeout(after_ms)
+            page.keyboard.press("Escape")
+            out["escaped"] = 1
+            page.wait_for_timeout(500)
+            form_after = bool(self._find_form(page).get("found"))
+            dialogs_after = self._visible_dialogs(page)
+            out["guard"] = {"form_before": form_before, "form_after": form_after,
+                            "dialogs_before": dialogs_before, "dialogs_after": dialogs_after}
+            if (form_after and not form_before) or (
+                    dialogs_after is None or (dialogs_before is not None and dialogs_after > dialogs_before)):
+                page.keyboard.press("Escape")
+                out["escaped"] = 2
+                out["refused"] = "an order ticket or dialog opened after the click (Escaped; stopped)"
+                return out
+            waited, after = 0, self.watchlist_symbols(page)
+            while sym not in (after.get("symbols") or []) and waited < 6_000:
+                page.wait_for_timeout(500)
+                waited += 500
+                after = self.watchlist_symbols(page)
+            out["watchlist_after"] = after
+            out["watchlist_diff"] = watchlist_diff(before, after)
+            d = out["watchlist_diff"]
+            out["added"] = (d.get("changed") is True and d.get("added") == [sym] and not d.get("removed"))
+            if not out["added"]:
+                out["refused"] = "watchlist re-read does not show exactly the one symbol added"
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+            if out["clicks"]:
+                try:
+                    page.keyboard.press("Escape")
+                    out["escaped_after_error"] = True
+                except Exception:
+                    out["escaped_after_error"] = False
+        finally:
+            if typed:
+                try:
+                    if hit.count() == 1:
+                        hit.first.fill("", timeout=5_000)
+                        out["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                        out["blurred"] = bool(hit.first.evaluate(
+                            "el => { el.blur(); return document.activeElement !== el; }"))
+                except Exception:
+                    out["reset"] = False
+            try:
+                page.evaluate("() => document.querySelectorAll('[data-metis-add-target]')"
+                              ".forEach(e => e.removeAttribute('data-metis-add-target'))")
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
+            except Exception:
+                pass
+        return out
 
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
         """One order with SL AND TP attached at entry.

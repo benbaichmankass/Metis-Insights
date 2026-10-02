@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE add ETH/SOL/XRP to tradeify_1's watchlist, manager GO 17:39Z 2026-10-02). New modes add-watchlist-symbol-dry (clicks nothing) and add-watchlist-symbol (ONE click on the resolved suggestion row's Symbol cell, exactly e.g. ETH/USD; Escape; refused unless one-click OFF; verified no order ticket / dialog opened and only that symbol added). tradeify-only, one symbol per dispatch; breakout_1 refused and untouched.",
+  "why": "instrument-page-dump #15602 measured the result panel: ETH/USD, ENA/USD and ETC/USD rows in a results table that follows a separate Symbol/Description header table. The add needs one exact click on the ETH/USD row; the dry readout is reviewed first."
+}
