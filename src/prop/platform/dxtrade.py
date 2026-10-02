@@ -1973,6 +1973,72 @@ ADD_SYMBOL_RESOLVE_JS = r"""
 }
 """
 
+# READ-ONLY order-surface dump (TRADEIFY-GOLIVE, manager 22:25Z 2026-10-02):
+# probe-ticket ETHUSD #15696 found NO order form on tradeify_1 (no
+# [data-test-id=BUY] anywhere). This reports, clicking/hovering/focusing
+# NOTHING: (1) the watchlist row(s) whose first cell is exactly ``target``
+# (slash form, whitespace ignored) -- per cell its header label, tag,
+# data-test-id, class tokens, title/aria/role, masked text, box, child
+# elements, and what elementFromPoint returns at its centre; (2) every
+# element anywhere in the DOM (hidden ones too, flagged) whose own text,
+# aria-label, title or data-test-id reads like an order surface (new order /
+# order entry / place order / trade / buy / sell), whether it sits in an
+# already-present [role=menu]; (3) the current and listed workspaces. EVERY
+# digit is masked; personal-looking nodes (user/profile/account/login/email)
+# are skipped. At most 80 term hits.
+ORDER_SURFACE_DUMP_JS = r"""
+([target]) => {
+  const m = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 80) : null;
+  const personal = /user|profile|account|login|email/i;
+  const cls = e => (typeof e.className === 'string' ? e.className : (e.getAttribute && e.getAttribute('class')) || '')
+    .split(/\s+/).filter(Boolean).slice(0, 6).map(c => c.replace(/\d/g, '#'));
+  const box = e => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; };
+  const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const txt = e => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim();
+  const compact = v => String(v || '').replace(/\s+/g, '');
+  const looksPersonal = e => [e, e.parentElement].some(x => x && (personal.test(cls(x).join(' ')) ||
+    personal.test(x.getAttribute('data-test-id') || '')));
+  const attrs = e => ({tag: e.tagName.toLowerCase(), tid: m(e.getAttribute('data-test-id') || ''), cls: cls(e),
+    role: m(e.getAttribute('role')), title: m(e.getAttribute('title')), aria: m(e.getAttribute('aria-label')),
+    type: m(e.getAttribute('type'))});
+  // (1) the target's watchlist row(s) and the quote header labels.
+  const quoteHead = [...document.querySelectorAll('table')].find(t => {
+    const hs = [...t.querySelectorAll('th')].map(h => txt(h).toLowerCase());
+    return hs.includes('symbol') && hs.includes('bid') && hs.includes('ask');
+  });
+  const headers = quoteHead ? [...quoteHead.querySelectorAll('th')].map(h => m(txt(h))) : null;
+  const rows = [...document.querySelectorAll('tr')].filter(r => r.cells && r.cells.length > 1 && r.cells[0].tagName === 'TD'
+    && compact(txt(r.cells[0])) === compact(target)).slice(0, 3).map(r => ({
+      row: attrs(r), box: box(r),
+      cells: [...r.cells].map((c, i) => {
+        const b = c.getBoundingClientRect(), cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+        const at = vis(c) ? document.elementFromPoint(cx, cy) : null;
+        return {i, header: headers ? headers[i] : null, ...attrs(c), text: m(txt(c)), box: box(c),
+                children: [...c.querySelectorAll('*')].slice(0, 6).map(ch => ({...attrs(ch), text: ch.children.length ? null : m(txt(ch))})),
+                at_point: at ? {...attrs(at), inside: c.contains(at)} : null};
+      })}));
+  // (2) order-surface terms anywhere, hidden included.
+  const term = /new order|order entry|place order|\btrade\b|\bbuy\b|\bsell\b/i;
+  const hits = [];
+  for (const e of document.body.querySelectorAll('*')) {
+    if (hits.length >= 80) break;
+    if (looksPersonal(e)) continue;
+    const own = e.children.length === 0 ? txt(e) : '';
+    const keys = [own, e.getAttribute('aria-label') || '', e.getAttribute('title') || '', e.getAttribute('data-test-id') || ''];
+    if (!keys.some(k => k && k.length <= 60 && term.test(k))) continue;
+    hits.push({...attrs(e), text: m(own), box: box(e), visible: vis(e),
+               in_menu: !!e.closest('[role=menu],[role=menuitem],[role=listbox]'),
+               in_table: !!e.closest('table')});
+  }
+  // (3) workspaces.
+  const current = document.querySelector('[data-test-id=workspace_current]');
+  const names = [...document.querySelectorAll('[data-test-id=workspace_name]')].map(e => m(txt(e)));
+  return {target, headers, rows, n_rows: rows.length, terms: hits, n_terms: hits.length,
+          workspace: current ? m(txt(current)) : null, workspaces: names};
+}
+"""
+
 CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 () => {
   document.querySelectorAll('[data-metis-search-hit]').forEach(
@@ -6920,6 +6986,23 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
             except Exception:
                 pass
+        return out
+
+    def order_surface_dump(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """READ-ONLY (TRADEIFY-GOLIVE, manager 22:25Z 2026-10-02): where does
+        this terminal let an order ticket open? ORDER_SURFACE_DUMP_JS on the
+        CURRENT page (no workspace switch, no click, hover, focus or typing),
+        plus the one-click state. The Technical Analysis workspace is only in
+        the DOM when it is the current one, so its chart controls show up
+        only then (the result says which workspace was read)."""
+        out: Dict[str, Any] = {"symbol": str(venue_symbol or "").strip().upper()}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        try:
+            out["surface"] = page.evaluate(
+                ORDER_SURFACE_DUMP_JS, [self.search_query_for(out["symbol"], "slash")]) or {}
+        except Exception as exc:
+            out["error"] = type(exc).__name__
         return out
 
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:

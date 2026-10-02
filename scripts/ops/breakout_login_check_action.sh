@@ -81,6 +81,11 @@
 #                        entry (#15350) — two clicks, nothing else; refused
 #                        unless one-click reads OFF; a no-op when a watchlist
 #                        is already present; verified click-free.
+#     order-surface-dump — READ-ONLY (TRADEIFY-GOLIVE, tradeify-only; ONE
+#                          symbol): the symbol's watchlist row cells (header,
+#                          tid, class, title/aria, children, elementFromPoint)
+#                          and every order-surface term on the current page.
+#                          Clicks, hovers, focuses and types nothing.
 #     instrument-page-dump — READ-ONLY (TRADEIFY-GOLIVE (b), tradeify-only;
 #                          needs symbols: with ONE symbol): types the base
 #                          asset key by key into the watchlist search (never
@@ -210,7 +215,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe edit-surface-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe instrument-page-dump add-watchlist-symbol-dry add-watchlist-symbol executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe edit-surface-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe instrument-page-dump order-surface-dump add-watchlist-symbol-dry add-watchlist-symbol executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt \
          feed-enable-timer feed-disable-timer; do
@@ -283,6 +288,7 @@ if [ "${EXEC_MODE}" = "probe-ticket" ] && [ -n "${ACTION_SYMBOLS// /}" ]; then
 fi
 if { [ "${EXEC_MODE}" = "add-watchlist-widget" ] || [ "${EXEC_MODE}" = "watchlist-submenu-probe" ] \
      || [ "${EXEC_MODE}" = "instrument-page-dump" ] \
+     || [ "${EXEC_MODE}" = "order-surface-dump" ] \
      || [ "${EXEC_MODE}" = "add-watchlist-symbol-dry" ] || [ "${EXEC_MODE}" = "add-watchlist-symbol" ]; } \
         && [ "${ACCOUNT}" = "breakout_1" ]; then
     # A layout change on breakout_1's LIVE real-money terminal is never made
@@ -506,6 +512,9 @@ if [ -n "${EXEC_MODE}" ]; then
         add-watchlist-symbol-dry|add-watchlist-symbol)
             case "${ACTION_SYMBOLS// /}" in ""|*,*) log "${EXEC_MODE}: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--"${EXEC_MODE}" "${ACTION_SYMBOLS// /}") ;;
+        order-surface-dump)
+            case "${ACTION_SYMBOLS// /}" in ""|*,*) log "order-surface-dump: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--order-surface-dump "${ACTION_SYMBOLS// /}") ;;
         instrument-page-dump)
             case "${ACTION_SYMBOLS// /}" in ""|*,*) log "instrument-page-dump: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--instrument-page-dump "${ACTION_SYMBOLS// /}") ;;
