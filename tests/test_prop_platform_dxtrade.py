@@ -1765,3 +1765,64 @@ def test_only_tradeify_1_declares_the_slash_query_style():
     from src.prop.platform import load_platform_config
     assert load_platform_config("tradeify_1").get("search_query_style") == "slash"
     assert load_platform_config("breakout_1").get("search_query_style") is None
+
+
+# ── SUGGESTION rows (TRADEIFY-GOLIVE, #15457): the result panel's rows sit in
+# a <tbody>, which INSTRUMENT_DETAILS_DUMP_JS skips, so the probe reads them
+# with a scoped SUGGESTION_ROWS_JS anchored on the "Asset Class" header. ────
+SUGGESTION_PAGE = EMPTY_WATCHLIST_PAGE.replace("</body>", """
+<table id="positions"><thead><tr><th>Symbol</th><th>Side</th><th>Quantity</th></tr></thead>
+<tbody><tr><td>BTC/USD</td><td>Buy</td><td>1</td></tr></tbody></table>
+<div id="dd" style="display:none">
+  <div><div>All</div><div>Cryptocurrencies</div><div>Stocks</div></div>
+  <table><thead><tr><th><span>Symbol</span></th><th><span>Description</span></th><th><span>Asset Class</span></th></tr></thead>
+  <tbody id="dd-rows"></tbody></table>
+</div>
+<script>
+document.getElementById('wl-search').addEventListener('input', function (e) {
+  var v = (e.target.value || '').toUpperCase();
+  var dd = document.getElementById('dd'), rows = document.getElementById('dd-rows');
+  rows.innerHTML = '';
+  dd.style.display = v ? '' : 'none';
+  if (v === 'ETH/USD') {
+    setTimeout(function () {
+      rows.innerHTML = '<tr data-test-id="search_row_1234567"><td>ETH/USD</td><td>Ethereum</td><td>Cryptocurrencies</td></tr>'
+        + '<tr><td>ETH/USDT</td><td>Ethereum Tether</td><td>Cryptocurrencies</td></tr>';
+    }, 300);
+  }
+});
+</script>
+</body>""")
+
+
+def test_probe_reads_the_suggestion_rows_the_details_dump_skips(chromium_page):
+    chromium_page.set_content(SUGGESTION_PAGE)
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(
+        chromium_page, "ETHUSD", query=a.search_query_for("ETHUSD", "slash"), settle_ms=1_000)
+    sug = res["suggestions"]
+    assert sug["found"] is True and sug["n_panels"] == 1
+    panel = sug["panels"][0]
+    assert panel["via"] == "tbody tr" and panel["n_visible"] == 2
+    assert panel["rows"][0]["cells"] == ["ETH/USD", "Ethereum", "Cryptocurrencies"]
+    assert panel["rows"][0]["tid"] == "search_row_#######"     # digit run masked
+    # The positions table has no "Asset Class" header: never read.
+    assert not any("BTC/USD" in (c or "") for r in panel["rows"] for c in r["cells"])
+    assert res["symbol_echoed"] is True                          # echoed via the rows
+    assert res["reset"] is True and chromium_page.input_value("#wl-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_suggestion_rows_report_not_found_when_no_result_panel_is_open(chromium_page):
+    chromium_page.set_content(EMPTY_WATCHLIST_PAGE)
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "ETHUSD")
+    assert res["suggestions"]["found"] is False
+    assert res["suggestions"]["why"] == 'no visible "Asset Class" header'
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_suggestion_rows_read_only_reads_no_input_value_and_clicks_nothing():
+    from src.prop.platform.dxtrade import SUGGESTION_ROWS_JS
+    assert ".click(" not in SUGGESTION_ROWS_JS
+    assert ".value" not in SUGGESTION_ROWS_JS
+    assert "dispatchEvent" not in SUGGESTION_ROWS_JS
