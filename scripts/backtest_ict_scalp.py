@@ -397,7 +397,7 @@ def _build_htf_series(
 ) -> Optional[pd.DataFrame]:
     """Resample the 5m OHLCV feed to ``htf_rule`` and return a per-row
     DataFrame containing (timestamp, htf_close, htf_ema) aligned to the
-    HTF bar. Caller forward-fills onto the 5m index.
+    HTF bar's CLOSE time. Caller forward-fills onto the 5m index.
 
     v2 backtest CLI: lets the strategy's HTF bias filter run without a
     second data feed. Returns None when the frame doesn't have a
@@ -412,7 +412,13 @@ def _build_htf_series(
         tmp = df.copy()
         tmp["timestamp"] = ts
         tmp = tmp.set_index("timestamp")
-        agg = tmp.resample(htf_rule).agg({"close": "last"}).dropna()
+        # Causal bar-close labelling (ICT-SCALP-HTF, 2026-10-01): the default
+        # label="left" stamped each HTF bar with its OPEN time, so the backward
+        # merge_asof in run_backtest handed e.g. the 10:00 bar's 10:55 close to
+        # the 10:05 base bar -- up to (htf - base) of lookahead. Bins are
+        # [open, close) labelled by their CLOSE time, so a base bar only ever
+        # sees HTF bars that have fully closed (timestamps are bar-open).
+        agg = tmp.resample(htf_rule, closed="left", label="right").agg({"close": "last"}).dropna()
         if len(agg) < ema_period + 1:
             return None
         agg["htf_ema"] = agg["close"].ewm(span=ema_period, adjust=False).mean()

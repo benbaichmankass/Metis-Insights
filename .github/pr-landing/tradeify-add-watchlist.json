@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE option B step 2). Tier-2: a new opt-in apply mode that CHANGES tradeify_1's terminal layout (adds the Watchlist widget: the '+' then the measured 'Watchlist' menu entry, two clicks, refused unless one-click reads OFF), plus a click-free layout canary in the non-breakout_1 prop feed (one ping on watchlist present->missing). breakout_1's feed and every trading path are unchanged.",
+  "why": "Operator decision ~21:50Z 2026-10-01 'Runner does it'. widget-menu-probe #15350 (code 6750a9451) measured the add-widget menu: 14 entries, Watchlist among them, NO order-entry widget -- the ticket is the dialog a watchlist row opens. tradeify_1's 'My Trading Account' lost its Watchlist (#15319/#15322), so no opener can run; the canary is the manager-approved self-check against a recurrence."
+}

@@ -216,11 +216,29 @@ def _redact(text: str, *secrets: str, limit: int = 0) -> str:
     return out if not limit or len(out) <= limit else out[:limit] + "…"
 
 
+def layout_watchlist_line(adapter: Any, page: Any, *, polls: int = 3, wait_ms: int = 1_000) -> str:
+    """``layout_watchlist: ok n=<k> symbols=<...>`` or ``layout_watchlist: MISSING (<why>)``.
+    Polls a slow-rendering watchlist a few times; a read that cannot look is
+    MISSING with its reason (the feed decides what to do with it)."""
+    wl: Dict[str, Any] = {}
+    for i in range(polls):
+        wl = adapter.watchlist_symbols(page) or {}
+        if wl.get("readable"):
+            syms = list(wl.get("symbols") or [])
+            return f"layout_watchlist: ok n={len(syms)} symbols={','.join(syms)}"
+        if i + 1 < polls:
+            page.wait_for_timeout(wait_ms)
+    return f"layout_watchlist: MISSING ({wl.get('why') or 'not readable'})"
+
+
 def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--account", default="breakout_1")
     ap.add_argument("--emit-status", action="store_true",
                     help="post ONE account_status through POST /api/bot/prop/report (default: off)")
+    ap.add_argument("--layout-canary", action="store_true",
+                    help="print a click-free 'layout_watchlist:' line (TRADEIFY-GOLIVE: the feed pings once "
+                         "when the watchlist widget disappears); never affects the exit code")
     ap.add_argument("--api-base", default="http://127.0.0.1:8001")
     ap.add_argument("--timeout-s", type=int, default=45)
     ap.add_argument("--dump-tables", action="store_true",
@@ -378,6 +396,13 @@ def main(argv: Optional[list] = None) -> int:
                 print(f"account_unparsed: {', '.join(snap['unparsed'])}")
             if snap.get("balance") is None or snap.get("equity") is None:
                 rc = EXIT_UNPARSED
+
+            # Layout canary (TRADEIFY-GOLIVE, manager-approved 2026-10-01):
+            # tradeify_1's "My Trading Account" lost its Watchlist between
+            # 16:33Z and 20:47Z for a cause nobody could see, and every opener
+            # silently had nothing to act on. Click-free; never affects rc.
+            if args.layout_canary and hasattr(adapter, "watchlist_symbols"):
+                print(layout_watchlist_line(adapter, page), flush=True)
 
             # None = the read raised (UNPARSED below) = "we did not look";
             # kept distinct from `[]` all the way into the posted report

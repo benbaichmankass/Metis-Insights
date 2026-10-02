@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Changes WHICH TRADES ARE TAKEN on 7 ict_scalp variant legs (bybit_1 soak, ib_paper, tradeify_1 dry_run; none on a real-money roster): wires the HTF trend-bias filter that ict_scalp._DEFAULTS turns on but _ict_scalp_variant_builder never fed. Strategy logic -> tier 3 (src/runtime/strategy_signal_builders.py). Manager/operator merge only; the measured effect is in the PR body.",
+  "why": "CA-A05-001 / JC-CA-02 research half (checklist row ICT-SCALP-HTF); lane session_01NpQatfW1eowJpoJwzSVYVs, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv."
+}
