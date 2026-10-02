@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane P2 round 2 was dispatched by the manager; the manager merges. Research results are still being added to this branch.",
+  "why": "Research only: a screen driver under scripts/research/, 49 pre-registered queue units, one evidence doc and a capability-index row. No config/, src/ or order-path change. Any roster change is Tier 3 and comes back as a separate proposal."
+}

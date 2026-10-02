@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register update only: two new in_flight rows in docs/claude/work/MANAGER-CHECKLIST.json for lanes BREAKOUT-CAP-ROUND and BREAKOUT-SUBMIT-VIS (provenance for the dispatched lanes). No runtime, order path, config or deploy surface touched."
+}

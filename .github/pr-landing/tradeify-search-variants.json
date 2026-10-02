@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE measure-first for adding ETH/SOL/XRP). (1) Fixes SUGGESTION_ROWS_JS (merged in #15458): a header inside a real <table> reads only that table's own tbody, so an empty result can no longer widen into a neighbouring positions table. (2) Adds a read-only key-by-key variant probe (ETH, ETHUSD, ETH/USD; characters only, never Enter, no clicks) for accounts with a search_query_style (tradeify_1 only). breakout_1's paths are untouched.",
+  "why": "instrument-probe ETH/USD #15472 (VM sha includes de5f118a) found the suggestion table but its tbody was EMPTY. Either the venue names the symbol differently or its search reacts only to key events, not fill(). The variant read tells which, and gives the rows the add PR's exact click needs."
+}

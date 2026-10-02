@@ -83,5 +83,27 @@
   "generated_by": "scripts/ops/build_strategy_evidence.py",
   "source_run": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
   "error": null,
-  "harness": "trend"
+  "harness": "trend",
+  "venue_bracket_arm": {
+    "exit_model": "static_sl_tp_only",
+    "n": 100,
+    "net_r": 21.28,
+    "net_r_fee_only": 25.55,
+    "by_exit": {
+      "stop": {
+        "n": 76,
+        "net_r": -81.63
+      },
+      "take_profit": {
+        "n": 24,
+        "net_r": 102.9
+      }
+    },
+    "window": [
+      "2025-10-05 02:00:00+00:00",
+      "2026-09-30 13:00:00+00:00"
+    ],
+    "provenance": "MEASURED (offline harness, venue-aware cost stack); window and candle source in 'window'",
+    "source": "comms/strategy_evidence/venue_bracket/trend_donchian_eth_prop.json"
+  }
 }

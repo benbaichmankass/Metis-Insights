@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three docs/claude/work/pipeline/ rows filed by lane PROP-FUNNEL from the breakout_1 executor funnel (PR #15597). Docs only — three JSON items in an existing append-only store, validated by scripts/ops/pipeline.py --check. No code, config, runtime or order-path change."
+}

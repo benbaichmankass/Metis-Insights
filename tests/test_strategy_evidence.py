@@ -360,3 +360,20 @@ def test_absent_and_measured_and_unrecognised_are_three_different_readings(tmp_p
     nolist = tmp_path / "list.json"
     nolist.write_text("[]")
     assert bse.existing_coverage_state(nolist) == "unreadable"
+
+
+def test_venue_bracket_arm_absent_is_none_not_zero(tmp_path, monkeypatch):
+    b = bse
+    monkeypatch.setattr(b, "VENUE_BRACKET_DIR", tmp_path)
+    assert b._venue_bracket_arm("any_leg") is None
+
+
+def test_venue_bracket_arm_reads_static_arm(tmp_path, monkeypatch):
+    import json
+    b = bse
+    monkeypatch.setattr(b, "VENUE_BRACKET_DIR", tmp_path)
+    (tmp_path / "leg.json").write_text(json.dumps({"static": {
+        "n": 3, "net_r": 1.5, "net_r_fee_only": 2.0, "by_exit": {"stop": {"n": 3, "net_r": 1.5}},
+        "window": ["a", "b"]}, "provenance": "MEASURED"}))
+    arm = b._venue_bracket_arm("leg")
+    assert arm["exit_model"] == "static_sl_tp_only" and arm["net_r"] == 1.5 and arm["n"] == 3

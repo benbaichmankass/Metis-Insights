@@ -1,0 +1,1 @@
+PROP-JOURNAL truth readout; Tier-1 research/evidence; manager-armed

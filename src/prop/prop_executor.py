@@ -306,7 +306,19 @@ def bracket_from_ticket(ticket: Mapping[str, Any], cfg: ExecutorConfig,
                         max_lots: Optional[float] = None) -> Tuple[Optional[BracketSpec], Dict[str, Any], str]:
     """(spec, facts, refusal). ``facts`` carries the sizing arithmetic the
     guards grade (``ticket_risk_usd`` is recomputed from the LOTS actually
-    typed, never taken from the ticket's own claim)."""
+    typed, never taken from the ticket's own claim).
+
+    The SIZE is also where the flat $-cap is applied, because the risk the
+    guards grade is computed from the TYPED values and typing can only be done
+    at the venue's increments. Rounding the stop to ``price_step`` WIDENS the
+    stop by up to one step, so a ticket the sizer built at exactly the cap can
+    land a few cents above it — which the guard then refuses, killing a valid
+    ticket (BREAKOUT-CAP-ROUND: ``prop-manual-00e7ecbd6bd4``, risk $75.11 vs
+    the $75.00 flat cap, skipped 2026-10-02T04:04:36Z). Cutting the quantity
+    DOWN to the lot step here keeps risk <= cap and leaves the guard to refuse
+    what is genuinely over-cap: the cut is bounded by the risk the TICKET
+    itself asked for, so a ticket that asks for more than the cap is never
+    quietly resized into one that fits. The size never grows."""
     bot = str(ticket.get("symbol") or "").upper()
     sym = cfg.symbols.get(bot)
     if not sym:
@@ -335,14 +347,40 @@ def bracket_from_ticket(ticket: Mapping[str, Any], cfg: ExecutorConfig,
     # Prices are typed at the venue's increment when it is declared; the risk
     # the guards grade is computed from the values actually typed.
     ps = _f(sym.get("price_step"))
+    raw_dist = abs(entry - sl)
     entry, sl, tp = round_to_step(entry, ps), round_to_step(sl, ps), round_to_step(tp, ps)
-    risk = units * abs(entry - sl) * cvpp
+    dist = abs(entry - sl)
+    if dist <= 0:
+        # A stop that rounds onto the entry is not a stop; risk would read 0
+        # and every cushion guard would pass on a position with no stop.
+        return None, {}, (f"entry {entry} and stop both round to the same price at the "
+                          f"{sym.get('venue')} increment {ps} — no stop distance to risk")
+    # The $-cap, at the size. ``requested`` is what the TICKET asked for, at its
+    # own (un-rounded) qty and prices: the cut below may not exceed it, so an
+    # over-cap ticket still reaches the guard over-cap and is refused there.
+    requested = (_f(ticket.get("qty")) or 0.0) * raw_dist * cvpp
+    resize: Optional[Dict[str, Any]] = None
+    cap_usd = cfg.risk_cap_usd
+    if cap_usd is not None and units * dist * cvpp > cap_usd + 0.005 and requested <= cap_usd + 0.005:
+        capped, why = size_lots(cap_usd / (dist * cvpp), sym)
+        if capped is None:
+            return None, {}, f"risk cap ${cap_usd:,.2f} at the typed stop distance {dist}: {why}"
+        if capped < lots:
+            resize = {"from_lots": lots, "to_lots": capped, "cap_usd": cap_usd,
+                      "risk_usd_before": round(units * dist * cvpp, 2),
+                      "cause": (f"typing the stop at the {sym.get('venue')} increment {ps} widened the "
+                                f"stop from {round(raw_dist, 10)} to {round(dist, 10)}; size cut to the "
+                                f"${cap_usd:,.2f} cap")}
+            lots = capped
+            units = lots * float(sym["lot_units"])
+    risk = units * dist * cvpp
     spec = BracketSpec(ticket_id=str(ticket.get("ticket_id") or ""), venue_symbol=sym["venue"],
                        side=side, quantity=lots, stop_loss=sl, take_profit=tp,
                        order_type="limit", limit_price=entry, price_step=ps)
     return spec, {"lots": lots, "units": units, "ticket_risk_usd": round(risk, 2),
                   "notional_usd": round(units * entry * cvpp, 2),
-                  "ticket_claimed_risk_usd": _f(ticket.get("risk_usd")), "cvpp": cvpp}, ""
+                  "ticket_claimed_risk_usd": _f(ticket.get("risk_usd")), "cvpp": cvpp,
+                  "risk_cap_resize": resize}, ""
 
 
 def open_risk(positions: Sequence[Position], orders: Sequence[WorkingOrder],
@@ -491,7 +529,19 @@ def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], f
         checks["risk_cap"] = {"action": cap.get("action"), "cap_usd": cfg.risk_cap_usd}
         # The $-cap is the SIZING decision (flat $75, operator), not a breach
         # guard: above it is HARD in every mode.
-        if cap.get("action") != "unchanged":
+        #
+        # ``bracket_from_ticket`` already cut the SIZE to the cap where a
+        # venue-increment overshoot put it over, bounded by the ticket's own
+        # ask. So a risk still above the cap HERE is what the TICKET asked for,
+        # and the executor refuses it rather than resizing it — say that,
+        # because the pure gate's ``cause`` describes what ENFORCE mode would
+        # do to the size, and reading "resized to the cap" on a skipped row is
+        # what made BREAKOUT-CAP-ROUND take a whole investigation.
+        if cap.get("action") == prop_risk_gate.CAP_RESIZED:
+            reasons.append(f"risk cap: ticket asks ${risk:,.2f}, above the flat-mode cap "
+                           f"${cfg.risk_cap_usd:,.2f} after sizing at the venue increments — REFUSED "
+                           f"(the size was already cut to the cap where rounding allowed)")
+        elif cap.get("action") != "unchanged":
             reasons.append(f"risk cap: {cap.get('action')} ({cap.get('cause')})")
     if cfg.breach_guards == "report":
         return GuardVerdict(fits=not reasons, reasons=reasons, checks=checks, breach_reports=breach)
@@ -1832,7 +1882,14 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         leg = (found["positions"] or found["orders"])[0]
         if not row.get("leg_fix_tried"):
             if isinstance(leg, Position):
-                r = adapter.modify_bracket(page, leg, spec.get("stop_loss"), spec.get("take_profit"), arm=live)
+                # The account's modify-rollout latch (DIALOG-MEASURE): with the
+                # edit surface armed, the guard allows ONE watched tighten-only
+                # SL step per reviewed clear. This repair types SL AND TP, so
+                # under the guard it is refused before any click and the next
+                # cycle's existing close-at-market below takes over.
+                from src.prop.platform.dxtrade import ModifyRollout
+                r = adapter.modify_bracket(page, leg, spec.get("stop_loss"), spec.get("take_profit"), arm=live,
+                                           rollout=ModifyRollout(Path(ledger.path).parent / "modify_rollout.json"))
             else:
                 # A resting entry without its bracket holds no position yet:
                 # cancelling it is the smaller action than editing it.

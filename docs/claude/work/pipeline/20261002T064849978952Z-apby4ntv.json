@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "alpaca_open_orders?account_id=alpaca_paper shows no GLD position, or the two order ids are no longer new/held.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-ZIFJ1RKM-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ALPACA-CLOSE-WEDGE session_01LLCqwwDGQM7BZMZifj1rkM; PR #14585; parent PI-20260930-ZPDIPMDA-0001",
+    "rerun": "scripts/ops/diag_fetch.sh 'alpaca_order_history?account_id=alpaca_paper&order_ids=2e843e04-5487-470c-a702-70e796fbd05e,891ddff0-b24d-4039-9322-8492bcd51e66' ; scripts/ops/diag_fetch.sh 'alpaca_open_orders?account_id=alpaca_paper'  # still status new/held with GLD position present = still wedged"
+  },
+  "state": "done",
+  "what": "[money-path/paper] alpaca_paper GLD 39 sh long (pkg-6a8e3fb325464be3, gld_pullback_1h, avg entry 419.51) is held by a ZOMBIE OCO submitted 2026-08-27 (limit 2e843e04… @461.27 'new', stop leg 891ddff0… @416.09 'held'). MEASURED 2026-09-30 via diag alpaca_order_history plus journalctl: GLD traded ~381-382 through 9/29 regular hours (14:00Z, 19:30Z). The stop sat ~$34 through the market and never triggered, and Alpaca 2xx-accepts cancels that do not move the orders (share_hold=cancel_accepted_ineffective). The position has had no working protection for weeks, with unrealised PnL about -$1,410 at 06:25Z. The monitor's close path cannot clear it: every close cancels first, the cancel is ineffective, and the flatten is rejected with 'insufficient qty available (available: 0)'. Needs a disposition outside the close path, for example an Alpaca paper support ticket, an account reset, or a deliberate kill of this record. Lanes may not place or cancel orders, so this goes to the manager/operator.",
+  "terminal_reason": "Operator decision 2026-10-02 ~06:50Z, AskUserQuestion popup in manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim: 'Mark it, keep going (Recommended)'. No account reset and no support ticket. The GLD position stays open and is flagged as venue-wedged, and it is excluded from gld_pullback_1h's Stage-1 cost and mechanics readout. Follow-through is PI-20261002-APBY4NTV-0001. Re-measured 06:45Z via diag alpaca_open_orders: still wedged (limit 2e843e04 'new', stop 891ddff0 'held', GLD 39 sh, unrealised -$1,416.42)."
+}

@@ -1598,7 +1598,12 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
 ([[wantPlaceholder, wantTidPrefix]]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const symLike = /^[A-Z0-9]{2,15}$/i;
+  // A venue that names symbols with a slash (tradeify_1: "ETH/USD", MEASURED
+  // #15648) must still align its rows: before this, the ETHUSD row failed
+  // ^[A-Z0-9]{2,15}$, so a NON-empty tradeify watchlist fell into the
+  // empty-watchlist header-anchor branch (manager review 19:47Z 2026-10-02).
+  // An unslashed symbol (breakout_1: BTCUSD) matches exactly as before.
+  const symLike = /^(?:[A-Z0-9]{2,15}|[A-Z0-9]{2,10}\/[A-Z0-9]{2,10})$/i;
   const posOrdHeaderRe = /\b(side|quantity|p&l|profit|order type|status)\b/;
 
   // The watchlist's own header table (Symbol/Bid/Ask). Refuse if more than
@@ -1626,13 +1631,22 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
     if (cells.length !== headers.length) continue;
     if (symLike.test((cells[symbolIdx] || '').trim())) { anchorRow = r; break; }
   }
-  if (!anchorRow) {
-    return {found: false, why: 'no measured watchlist row aligned with the header'};
-  }
+  // An EMPTY watchlist has no row to align (tradeify_1's restored
+  // "Favourites" list, #15426/#15431: readable, 0 symbols). Then the header
+  // table itself is the anchor; every widget-level check below still applies
+  // (one Symbol-headed table, no positions/orders table, no BUY+SELL overlap,
+  // the input must carry BOTH measured attributes), and the widget walk gets
+  // EMPTY_EXTRA_UP more levels because it starts lower than a row's panel.
+  const EMPTY_EXTRA_UP = 4;
+  const headerAnchor = !anchorRow;
 
   let watchlistPanel = null;
-  for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
-    if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+  if (headerAnchor) {
+    watchlistPanel = headerTable.parentElement;
+  } else {
+    for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+    }
   }
   if (!watchlistPanel) {
     return {found: false, why: 'no common ancestor of the watchlist header and its row'};
@@ -1678,12 +1692,13 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   const clsTokens = e => (typeof e.className === 'string' ? e.className : '').split(/\s+/);
   let widget = null;
   let up = 0;
-  for (let e = watchlistPanel.parentElement; e && e !== document.body && up < WIDGET_MAX_UP;
+  const maxUp = WIDGET_MAX_UP + (headerAnchor ? EMPTY_EXTRA_UP : 0);
+  for (let e = watchlistPanel.parentElement; e && e !== document.body && up < maxUp;
        e = e.parentElement, up++) {
     if (clsTokens(e).some(c => /^widget(New)?__container/.test(c))) { widget = e; break; }
   }
   if (!widget) {
-    return {found: false, why: `no widget__container ancestor within ${WIDGET_MAX_UP} levels of the watchlist panel`};
+    return {found: false, why: `no widget__container ancestor within ${maxUp} levels of the watchlist panel`};
   }
   const tablesInWidget = [...widget.querySelectorAll('table')];
   const symbolTablesInWidget = tablesInWidget.filter(t =>
@@ -1717,7 +1732,7 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
   }
   if (hit.length === 1) {
     hit[0].setAttribute('data-metis-search-hit', '1');
-    return {found: true, via: `placeholder+tid`};
+    return {found: true, via: headerAnchor ? 'placeholder+tid (empty watchlist: header anchor)' : 'placeholder+tid'};
   }
   return {found: false, n_candidate_inputs: inputs.length,
           why: `no visible input in the watchlist widget has placeholder '${wantPlaceholder}' AND a `
@@ -1731,6 +1746,233 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
 # or exception alike) so a tag from one symbol's probe can never linger and
 # throw off the tag-count check on the NEXT symbol's probe. Clicks nothing,
 # reads nothing, changes no value -- removes only the marker this file adds.
+# Read-only dump of the watchlist search's SUGGESTION table (TRADEIFY-GOLIVE,
+# MEASURED #15444/#15457: typing opens a panel whose header reads Symbol /
+# Description / Asset Class). INSTRUMENT_DETAILS_DUMP_JS deliberately skips
+# everything inside a <tbody> (positions/orders tables), and that would hide
+# the suggestion rows too. So this anchors ONLY on a visible "Asset Class"
+# header leaf, walks up (at most 8 levels) to the smallest container that
+# also shows a "Description" and a "Symbol" header. A header inside a real
+# <table> reads THAT table's own tbody rows (empty = no results; #15472's
+# fix: the first cut widened past an empty tbody and could reach another
+# table's rows). A div grid reads [role=row], widening only over containers
+# that hold no other table. Each row gives its
+# tag / data-test-id / role and its cells' text, with digit runs masked
+# (5+), emails masked and personal-looking controls skipped, like the other
+# dumps. It clicks nothing and reads no input value. At most 40 rows.
+SUGGESTION_ROWS_JS = r"""
+() => {
+  const maskRuns = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80) : null;
+  const personal = /user|profile|account|login|email/i;
+  const vis = el => { const r = el.getBoundingClientRect(); return !(r.width === 0 && r.height === 0); };
+  const leafText = el => (el.children.length === 0) ? (el.innerText || el.textContent || '').trim() : '';
+  const hasLeaf = (root, t) => Array.from(root.querySelectorAll('*')).some(e => leafText(e) === t && vis(e));
+  const anchors = Array.from(document.querySelectorAll('*')).filter(e => leafText(e) === 'Asset Class' && vis(e));
+  if (anchors.length === 0) return {found: false, why: 'no visible "Asset Class" header'};
+  const panels = [];
+  for (const a of anchors) {
+    let el = a.parentElement, hops = 0;
+    while (el && hops < 8 && !(hasLeaf(el, 'Description') && hasLeaf(el, 'Symbol'))) { el = el.parentElement; hops++; }
+    if (!el || hops >= 8) continue;
+    // A header inside a real <table>: that table IS the panel; its own tbody
+    // holds the rows (empty tbody = no results). Never widen past it.
+    const tbl = a.closest('table');
+    if (tbl) { if (!panels.includes(tbl)) panels.push(tbl); continue; }
+    // A div grid: widen until the container also holds role=row rows, but
+    // never over a container that holds ANOTHER table (positions/orders).
+    let box = el, up = 0;
+    while (box && up < 4 && !box.querySelector('[role=row]')) {
+      const nxt = box.parentElement;
+      if (!nxt || nxt.querySelector('table')) break;
+      box = nxt; up++;
+    }
+    if (box && box.querySelector('[role=row]')) el = box;
+    if (!panels.includes(el)) panels.push(el);
+  }
+  if (panels.length === 0) return {found: false, n_anchors: anchors.length, why: 'no container shows Symbol + Description + Asset Class'};
+  const out = [];
+  for (const panel of panels) {
+    let rows = (panel.tagName === 'TABLE')
+      ? Array.from(panel.tBodies).flatMap(b => Array.from(b.rows)) : [];
+    let via = 'tbody tr';
+    if (rows.length === 0) { rows = Array.from(panel.querySelectorAll('[role=row]')); via = 'role=row'; }
+    const got = [];
+    for (const r of rows) {
+      if (!vis(r)) continue;
+      const cls = typeof r.className === 'string' ? r.className : '';
+      const tid = r.getAttribute('data-test-id') || '';
+      if (personal.test(cls) || personal.test(tid)) continue;
+      const cells = Array.from(r.querySelectorAll('td, [role=cell], [role=gridcell]'));
+      const texts = (cells.length ? cells : [r]).map(c => maskRuns(c.innerText || c.textContent || ''));
+      got.push({tag: r.tagName.toLowerCase(), tid: maskRuns(tid), role: maskRuns(r.getAttribute('role')), cells: texts});
+      if (got.length >= 40) break;
+    }
+    out.push({via, n_rows: rows.length, n_visible: got.length, rows: got});
+  }
+  return {found: true, n_panels: panels.length, panels: out};
+}
+"""
+
+# Read-only FULL-PAGE leaf-text dump (TRADEIFY-GOLIVE (b), manager 12:58Z
+# 2026-10-02). Every key-by-key form of ETH / SOL / XRP left the suggestion
+# table under "Asset Class" with an EMPTY tbody (#15491/#15493/#15494). This
+# reads every visible text LEAF on the page, INCLUDING ones inside a <tbody>,
+# a [role=row] or a virtualized grid, to show where (if anywhere) results
+# render. Per leaf: tag, its box (rounded px), its nearest table/grid-like
+# ancestor (tag, role, masked data-test-id, whether it sits in a tbody) and
+# its masked text: emails masked and EVERY digit replaced by '#' (manager
+# review of #15550: balances, P&L, prices and sizes never reach the public
+# run log), 80 chars. A node whose own
+# or parent class/data-test-id looks personal (user/profile/account/login/
+# email) is skipped. At most 400 leaves in document order, plus up to 50
+# ``matches``: leaves whose text contains the typed query, collected whatever
+# the cap. It clicks nothing and reads no input value.
+PAGE_LEAF_DUMP_JS = r"""
+(query) => {
+  const maskRuns = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>')
+        .replace(/\d{5,}/g, m => '#'.repeat(m.length)).slice(0, 80) : null;
+  // EVERY digit masked in leaf text (manager review of #15550): a page-wide
+  // dump would otherwise print balances, P&L, prices and sizes into public
+  // run logs. Matching uses the RAW text, so the query still matches.
+  const maskAll = v => { const m = maskRuns(v); return (m === null) ? null : m.replace(/\d/g, '#'); };
+  const personal = /user|profile|account|login|email/i;
+  const looksPersonal = el => {
+    for (const e of [el, el.parentElement]) {
+      if (!e) continue;
+      const cls = typeof e.className === 'string' ? e.className : '';
+      if (personal.test(cls) || personal.test(e.getAttribute('data-test-id') || '')) return true;
+    }
+    return false;
+  };
+  const gridSel = 'table, [role=grid], [role=treegrid], [role=table], [role=listbox], [role=rowgroup], [role=row], [role=list]';
+  const q = String(query || '').trim().toUpperCase();
+  const leaves = [], matches = [];
+  let seen = 0;
+  for (const el of document.body.querySelectorAll('*')) {
+    if (el.children.length > 0) continue;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'script' || tag === 'style' || tag === 'input' || tag === 'textarea') continue;
+    const t = (el.innerText || el.textContent || '').trim();
+    if (!t) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    if (looksPersonal(el)) continue;
+    seen++;
+    const g = el.closest(gridSel);
+    const row = {tag, box: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+                 grid: g ? {tag: g.tagName.toLowerCase(), role: maskRuns(g.getAttribute('role')),
+                            tid: maskAll(g.getAttribute('data-test-id') || ''), in_tbody: !!el.closest('tbody')} : null,
+                 text: maskAll(t)};
+    if (leaves.length < 400) leaves.push(row);
+    if (q && t.toUpperCase().includes(q) && matches.length < 50) matches.push(row);
+  }
+  return {found: leaves.length > 0, query: q, n_seen: seen, n: leaves.length, capped: seen > leaves.length,
+          n_matches: matches.length, matches, leaves};
+}
+"""
+
+# Resolve the ONE suggestion row to add (TRADEIFY-GOLIVE, manager GO 17:39Z
+# 2026-10-02). MEASURED (#15602): the search's result panel draws its header
+# (Symbol / Description) and its rows as two SEPARATE tables; the header
+# table's own tbody is empty. This anchors on the visible header table (a
+# <th> text "Symbol" AND one "Description"), takes the FIRST table that
+# FOLLOWS it inside the nearest shared ancestor (at most 6 levels up) and has
+# <tbody> rows, and requires that table's rows to have as many cells as the
+# header has columns (so a positions/orders table never qualifies). The target
+# is the ONE row whose FIRST cell's whole text, with ALL whitespace removed
+# (live #15618 read "ETH /USD": <mark>ETH</mark> + "/USD"), equals ``target``
+# exactly (ETH/USD, never ETC/USD or ENA/USD); 0 or >1 is refused.
+# That cell is tagged data-metis-add-target. Returned for review: every row's
+# cells (EVERY digit masked, as in PAGE_LEAF_DUMP_JS), the target cell's box,
+# its centre, and what document.elementFromPoint returns there (tag, masked
+# text, whether it lies inside the target cell). Clicks nothing.
+ADD_SYMBOL_RESOLVE_JS = r"""
+([target, query]) => {
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 80) : null;
+  const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const norm = el => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  const compact = v => String(v || '').replace(/\s+/g, '');
+  const q = compact(query || String(target || '').split('/')[0]).toUpperCase();
+  document.querySelectorAll('[data-metis-add-target]').forEach(e => e.removeAttribute('data-metis-add-target'));
+  // SCOPED to the panel that holds the TYPED QUERY'S results (manager review
+  // 19:47Z 2026-10-02). MEASURED #15648: with ETHUSD in the watchlist, the
+  // watchlist's OWN header (Symbol | Bid | Ask | Change | Description) is a
+  // second Symbol+Description table, so "the one such header" refused. Each
+  // Symbol+Description header is now a CANDIDATE; it is kept only when the
+  // results table that follows it (at most 6 levels up) has rows with the
+  // header's column count AND contains a <mark> reading the typed query (the
+  // venue highlights the query in its results, #15602). A watchlist header
+  // has neither. Still exactly ONE kept candidate (by results table), or refuse.
+  const heads = [...document.querySelectorAll('table')].filter(t => vis(t)).filter(t => {
+    const ths = [...t.querySelectorAll('th')].map(norm);
+    return ths.includes('Symbol') && ths.includes('Description');
+  });
+  const findBody = head => {
+    let anc = head.parentElement, up = 0;
+    // 6 levels (manager review 18:41Z 2026-10-02): live #15618 found the body
+    // at ancestor_hops 4, the old limit.
+    while (anc && up < 6) {
+      for (const t of anc.querySelectorAll('table')) {
+        if (t === head || !vis(t)) continue;
+        if (!(head.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+        if (!t.tBodies.length || !t.tBodies[0].rows.length) continue;
+        return {body: t, up: up + 1};
+      }
+      anc = anc.parentElement; up++;
+    }
+    return {body: null, up};
+  };
+  const candidates = heads.map(head => {
+    const ncols = head.querySelectorAll('th').length;
+    const {body, up} = findBody(head);
+    const rows = body ? [...body.tBodies].flatMap(b => [...b.rows]).filter(vis) : [];
+    const shape_ok = !!body && rows.length > 0 && rows.every(r => r.cells.length === ncols);
+    const has_query_mark = !!body && [...body.querySelectorAll('mark')].some(m => compact(norm(m)).toUpperCase() === q);
+    return {head, body, ncols, up, shape_ok, has_query_mark,
+            summary: {headers: [...head.querySelectorAll('th')].map(h => mask(norm(h))), has_body: !!body,
+                      shape_ok, has_query_mark}};
+  });
+  const kept = [];
+  for (const c of candidates) {
+    if (c.shape_ok && c.has_query_mark && !kept.some(k => k.body === c.body)) kept.push(c);
+  }
+  if (kept.length !== 1) {
+    return {ok: false, why: kept.length + ' results panels holding the typed query (need exactly 1)',
+            n_header_tables: heads.length, candidates: candidates.map(c => c.summary)};
+  }
+  const head = kept[0].head, body = kept[0].body, ncols = kept[0].ncols, up = kept[0].up;
+  const rows = [...body.tBodies].flatMap(b => [...b.rows]).filter(vis);
+  const shape_ok = rows.every(r => r.cells.length === ncols);
+  const listed = rows.slice(0, 30).map(r => [...r.cells].map(c => mask(norm(c))));
+  const out = {ok: false, ncols, n_rows: rows.length, shape_ok, rows: listed, ancestor_hops: up,
+               n_header_tables: heads.length, candidates: candidates.map(c => c.summary)};
+  if (!shape_ok) { out.why = 'results rows do not have the header column count'; return out; }
+  // MEASURED live (#15618): the venue renders the Symbol cell as
+  // <mark>ETH</mark> + "/USD" and innerText reads "ETH /USD". Compare with ALL
+  // whitespace removed on both sides; anything else must still match exactly
+  // (ETC/USD, ENA/USD never equal ETH/USD).
+  const hits = rows.filter(r => r.cells.length && compact(norm(r.cells[0])) === compact(target));
+  out.n_target = hits.length;
+  if (hits.length !== 1) { out.why = hits.length + ' rows whose Symbol cell is exactly ' + target + ' (need exactly 1)'; return out; }
+  const cell = hits[0].cells[0];
+  cell.setAttribute('data-metis-add-target', '1');
+  const r = cell.getBoundingClientRect();
+  const cx = Math.round(r.x + r.width / 2), cy = Math.round(r.y + r.height / 2);
+  const at = document.elementFromPoint(cx, cy);
+  out.target_cells = [...hits[0].cells].map(c => mask(norm(c)));
+  out.box = [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)];
+  out.point = [cx, cy];
+  out.at_point = at ? {tag: at.tagName.toLowerCase(), text: mask(norm(at)), inside_target: cell.contains(at)} : null;
+  out.ok = !!(at && cell.contains(at));
+  if (!out.ok) out.why = 'elementFromPoint at the cell centre is not inside the target cell';
+  return out;
+}
+"""
+
 CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 () => {
   document.querySelectorAll('[data-metis-search-hit]').forEach(
@@ -1991,24 +2233,49 @@ INSTRUMENT_DETAILS_DUMP_JS = r"""
 }
 """
 
-# The ticket's submit control, which on the live sidebar can sit BELOW THE FOLD
-# once the SL / TP rows are switched on (operator 2026-09-28 ~19:55Z). Ops:
-#  "scroll_step": scroll the form's own scroll container (never the page or
-#                 the chart) down by ~80% of its height; returns whether it moved.
+# The ticket's submit control, which on the live sidebar is a FOOTER OUTSIDE
+# the fields' container (`submit_search` has reported `in_form: false` on
+# every live measurement) and can sit below the fold once the SL / TP rows
+# are switched on (operator 2026-09-28 ~19:55Z). Ops:
+#  "scroll_step": scroll the SUBMIT's own scroll container when it is already
+#                 tagged, else the form's (never the page or the chart), down
+#                 by ~80% of its height; returns whether it moved.
 #  "mark":        tag the current [data-metis-btn=submit] with a one-time token
 #                 and bring it to the centre of its scroll container.
+#  "reveal":      scroll every scrollable ancestor of the BUTTON so the button
+#                 lands on that ancestor's centre, then one scrollIntoView.
 #  "check":       is the element carrying the submit tag the SAME (token) one,
-#                 visible at its centre point, enabled; and its text.
-# Clicks nothing.
+#                 visible at its centre point, enabled; and its text. When it
+#                 is NOT visible, also WHY -- the viewport, the button's rect,
+#                 what is painted at its centre, and its clip chain.
+# Clicks nothing, fills nothing, dismisses nothing.
 SUBMIT_JS = r"""
 (args) => {
   const [op, token] = args;
   const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const mask = s => String(s || '').replace(/\d{5,}/g, d => '#'.repeat(d.length)).slice(0, 40);
+  const bx = el => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); };
+  const cls = el => (typeof el.className === 'string' ? el.className.split(/\s+/) : [])
+                      .filter(Boolean).slice(0, 6).map(c => mask(c.replace(/\d/g, '#')));
+  // Tag / class / test-id / box only: never the occluder's TEXT, which on this
+  // terminal can carry account numbers (the public run log rule).
+  const desc = el => el ? {tag: el.tagName.toLowerCase(), cls: cls(el), tid: mask(el.getAttribute('data-test-id')), box: bx(el)} : null;
+  const clips = el => { const out = [];
+    for (let e = el && el.parentElement; e && e !== document.body; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (!/(auto|scroll|hidden|clip)/.test(cs.overflowY + ' ' + cs.overflowX)) continue;
+      out.push(Object.assign(desc(e), {overflow_y: cs.overflowY, scroll_top: Math.round(e.scrollTop),
+               scroll_height: Math.round(e.scrollHeight), client_height: Math.round(e.clientHeight)}));
+      if (out.length >= 6) break;
+    }
+    return out; };
   const form = document.querySelector('[data-metis-form]');
   if (!form) return {ok: false, why: 'no tagged form'};
+  const tagged = document.querySelector('[data-metis-btn=submit]');
   if (op === 'scroll_step') {
+    const anchor = tagged || form;
     let sc = null;
-    for (let e = form; e && e !== document.body; e = e.parentElement) {
+    for (let e = anchor; e && e !== document.body; e = e.parentElement) {
       const cs = getComputedStyle(e);
       if (e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(cs.overflowY)) { sc = e; break; }
     }
@@ -2017,8 +2284,23 @@ SUBMIT_JS = r"""
     sc.scrollTop = before + Math.max(40, Math.floor(sc.clientHeight * 0.8));
     return {ok: true, moved: sc.scrollTop !== before, top: sc.scrollTop, max: sc.scrollHeight - sc.clientHeight};
   }
-  const btn = document.querySelector('[data-metis-btn=submit]');
+  const btn = tagged;
   if (!btn) return {ok: false, why: 'no tagged submit'};
+  if (op === 'reveal') {
+    const moved = [];
+    for (let e = btn.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.scrollHeight <= e.clientHeight + 1) continue;
+      const er = e.getBoundingClientRect(), br = btn.getBoundingClientRect();
+      const delta = Math.round((br.top + br.height / 2) - (er.top + er.height / 2));
+      if (Math.abs(delta) < 2) continue;
+      const before = e.scrollTop;
+      e.scrollTop = before + delta;
+      if (e.scrollTop !== before) moved.push(Object.assign(desc(e), {from: Math.round(before), to: Math.round(e.scrollTop)}));
+      if (moved.length >= 6) break;
+    }
+    btn.scrollIntoView({block: 'center', inline: 'nearest'});
+    return {ok: true, moved: moved};
+  }
   if (op === 'mark') {
     document.querySelectorAll('[data-metis-submit-token]').forEach(e => e.removeAttribute('data-metis-submit-token'));
     btn.setAttribute('data-metis-submit-token', token);
@@ -2031,10 +2313,19 @@ SUBMIT_JS = r"""
   const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   const inView = r.width > 0 && r.height > 0 && cx >= 0 && cy >= 0 && cx <= window.innerWidth && cy <= window.innerHeight;
   const hit = inView ? document.elementFromPoint(cx, cy) : null;
-  return {ok: true, same: btn.getAttribute('data-metis-submit-token') === token,
-          visible: !!(hit && (hit === btn || btn.contains(hit))),
-          enabled: !(btn.disabled || btn.getAttribute('aria-disabled') === 'true'),
-          text: txt(btn)};
+  const visible = !!(hit && (hit === btn || btn.contains(hit)));
+  const out = {ok: true, same: btn.getAttribute('data-metis-submit-token') === token, visible: visible,
+               enabled: !(btn.disabled || btn.getAttribute('aria-disabled') === 'true'), text: txt(btn)};
+  if (!visible) {
+    out.why_not = {viewport: [window.innerWidth, window.innerHeight], rect: bx(btn),
+                   centre: [Math.round(cx), Math.round(cy)], in_viewport: inView,
+                   occluder: hit ? Object.assign(desc(hit),
+                     {rel: hit.contains(btn) ? 'ancestor' : (btn.contains(hit) ? 'descendant' : 'unrelated')}) : null,
+                   clip_chain: clips(btn),
+                   dialogs: [...document.querySelectorAll('[role=dialog], [role=alertdialog], [aria-modal=true]')]
+                              .filter(e => { const q = e.getBoundingClientRect(); return q.width > 0 && q.height > 0; }).length};
+  }
+  return out;
 }
 """
 
@@ -2427,7 +2718,7 @@ EDIT_DIALOG_JS = r"""
     };
     const FIELDS = {stop_loss: /(stop\s*loss|^s\/?l\b)/i, take_profit: /(take\s*profit|^t\/?p\b)/i,
                     quantity: /(qty|quantity|lots?|volume|size|amount)/i};
-    const inputs = [...d.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
+    const inputs = [...d.querySelectorAll('input:not([type=hidden]):not([type=password]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
     const ins = inputs.map(el => ({el, label: prevLabel(el), value: el.value !== undefined ? String(el.value) : txt(el),
       readonly: !!(el.readOnly || el.disabled || attr(el, 'aria-readonly') === 'true' || attr(el, 'aria-disabled') === 'true')}));
     const fields = {}, ambiguous = [];
@@ -2447,7 +2738,7 @@ EDIT_DIALOG_JS = r"""
                   (el.type === 'radio' ? (prevLabel(el) || el.value) : txt(el))).slice(0, 30)}));
     const btns = [...d.querySelectorAll('button, [role=button], input[type=submit]')].filter(vis);
     const bname = b => txt(b) || attr(b, 'aria-label') || b.value || '';
-    const SUBMIT = /^(save|apply|modify|modify position|update|confirm|ok|place|submit)$/i, CANCEL = /^(cancel|discard)$/i;
+    const SUBMIT = /^(save|apply|modify|modify position|update|confirm|ok|submit)$/i, CANCEL = /^(cancel|discard)$/i;
     const sub = btns.filter(b => SUBMIT.test(bname(b).trim()));
     const can = btns.filter(b => CANCEL.test(bname(b).trim()));
     // The dialog's own x, never anything that reads "position" or buy / sell.
@@ -2468,6 +2759,174 @@ EDIT_DIALOG_JS = r"""
             sidebar_ticket_inside: !!d.querySelector('[data-test-id=BUY], [data-test-id=SELL], [data-test-id=symbol_input]')};
   }
   return {ok: false, why: 'unknown op'};
+}
+"""
+
+# The edit SURFACE (DIALOG-MEASURE live readout, #15628, 2026-10-02): the
+# Positions row's modify control ("position-table-modify",
+# #icon-replace-context) opened NO new dialog, so whatever it changes was
+# already on screen -- most likely the docked sidebar ticket switching into
+# a modify-position mode. These ops measure that READ-ONLY, by diff:
+#  "snap":   every visible input / select / button / heading OUTSIDE any
+#            table and outside the positions row, keyed by its place and
+#            name, with its label, value (masked), read-only / disabled and
+#            box; plus whether the ORDER-ENTRY ticket is showing (Buy / Sell
+#            side buttons, Market / Limit / Stop / OCO type buttons, a
+#            "Buy|Sell <qty> <SYM> at <px>" submit). Clicks nothing.
+#  "cancel": among the controls a diff found ADDED, tag the ONE whose own
+#            name is cancel / discard / close / x and that names nothing
+#            that submits, modifies, applies, confirms, places, saves or
+#            closes a position. Clicks nothing.
+EDIT_SURFACE_JS = r"""
+(args) => {
+  const [op, addedKeys] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
+  const mask = s => String(s || '').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '<email>')
+    .replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 60);
+  const tid = el => mask(attr(el, 'data-test-id') || attr(el, 'data-testid'));
+  // Live prices in a control's name (quick-trade "Sell 2,665.99") tick on
+  // every snapshot: digits never key a control (#15657 false positive).
+  const nodigits = s => String(s || '').replace(/[0-9][0-9.,]*/g, '#');
+  const SEL = 'input:not([type=hidden]):not([type=password]), select, textarea, button, [role=button], [role=combobox], h1, h2, h3, h4, [class*=title], [class*=header]';
+  const excluded = el => !!(el.closest('table') || el.closest('[data-metis-close-row]') || el.closest('[role=row]') || el.closest('[role=grid]'));
+  const labelOf = el => {
+    const a = attr(el, 'aria-label'); if (a) return a;
+    for (let e = el, i = 0; i < 4 && e; i++, e = e.parentElement)
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea, button')) break;
+        const t = txt(s); if (t) return t.split(/\n/)[0];
+      }
+    return attr(el, 'placeholder');
+  };
+  const kindOf = el => el.matches('input, textarea, [role=combobox]') ? 'input' : el.matches('select') ? 'select'
+    : el.matches('button, [role=button]') ? 'button' : 'heading';
+  const nameOf = el => txt(el) || attr(el, 'aria-label') || attr(el, 'title') || '';
+  if (op === 'snap') {
+    const els = [...document.querySelectorAll(SEL)].filter(el => vis(el) && !excluded(el));
+    // Headings: only leaf-ish text holders (a container whose text is all of
+    // its children's would duplicate them).
+    const items = els.filter(el => kindOf(el) !== 'heading' || el.children.length <= 2).map(el => {
+      const k = kindOf(el), b = box(el);
+      const value = k === 'input' ? (el.value !== undefined ? el.value : txt(el))
+        : k === 'select' ? (el.options && el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '') : '';
+      return {key: [k, tid(el), nodigits(mask(k === 'button' || k === 'heading' ? nameOf(el) : labelOf(el))).slice(0, 30),
+                    Math.round(b[0] / 8), Math.round(b[1] / 8)].join('|'),
+              kind: k, tid: tid(el), name: nodigits(mask(k === 'input' || k === 'select' ? labelOf(el) : nameOf(el))),
+              value: mask(value), readonly: !!(el.readOnly || attr(el, 'aria-readonly') === 'true'),
+              disabled: !!(el.disabled || attr(el, 'aria-disabled') === 'true'), box: b};
+    });
+    const names = items.filter(i => i.kind === 'button').map(i => i.name.toLowerCase());
+    const order_entry = {
+      side_buttons: ['BUY', 'SELL'].every(t => [...document.querySelectorAll('[data-test-id=' + t + ']')].some(vis)),
+      type_buttons: ['market', 'limit', 'stop'].filter(t => names.some(n => n === t)),
+      submit_label: items.some(i => i.kind === 'button' && /^(buy|sell)\s+#\s+\S+\s+at\b/i.test(i.name)),  // names are digit-masked
+      modify_words: items.filter(i => /modify|edit position|update position/i.test(i.name)).map(i => i.name).slice(0, 5)};
+    return {ok: true, n: items.length, items, order_entry, dialogs: document.querySelectorAll('[role=dialog], [aria-modal=true]').length};
+  }
+  if (op === 'cancel') {
+    document.querySelectorAll('[data-metis-surface-cancel]').forEach(e => e.removeAttribute('data-metis-surface-cancel'));
+    const want = new Set(addedKeys || []);
+    const BAD = /(submit|modify|apply|confirm|place|save|update|position|buy|sell|ok\b)/i;
+    const OK = /^(cancel|discard|close|×|✕|✖|x)$/i;
+    const cands = [...document.querySelectorAll('button, [role=button]')].filter(el => vis(el) && !excluded(el)).filter(el => {
+      const b = box(el), k = ['button', tid(el), String(mask(nameOf(el))).replace(/[0-9][0-9.,]*/g, '#').slice(0, 30), Math.round(b[0] / 8), Math.round(b[1] / 8)].join('|');
+      const n = nameOf(el).trim(), cls = attr(el, 'class') + ' ' + attr(el, 'aria-label');
+      return want.has(k) && !BAD.test(n + ' ' + cls) && (OK.test(n) || (!n && /(^|[\s_-])(close|cancel)([\s_-]|$)/i.test(cls)));
+    });
+    if (cands.length !== 1) return {ok: false, why: cands.length + ' cancel-type controls among the added ones (need exactly 1)'};
+    cands[0].setAttribute('data-metis-surface-cancel', '1');
+    return {ok: true, name: mask(nameOf(cands[0]) || 'x')};
+  }
+  return {ok: false, why: 'unknown op'};
+}
+"""
+
+# The position's MEASURED edit surface (#15657, 2026-10-02): the Positions
+# row's modify control opens a docked "Position Details" panel -- headings
+# "Position Details", the symbol, "Protection"; a "Stop Loss:" and a "Take
+# Profit:" input, each beside its own "Price" mode button; "Close Position"
+# (enabled) and "Modify Position" (disabled until a value changes) side by
+# side, "Discard" below. No quantity field: the size is read from the row.
+#  "read": find EVERY panel (the smallest element holding a "Position
+#          Details" heading and exact "Modify Position" + "Discard"
+#          buttons), read the one panel's symbol text, SL / TP inputs (never
+#          a password input), each input's mode button, and its buttons with
+#          geometry; tag the panel, its fields, its submit and its discard.
+#          Clicks nothing.
+POSITION_PANEL_JS = r"""
+(args) => {
+  const [op] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const mask = s => String(s || '').replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, '<email>').replace(/\d{5,}/g, '#####').slice(0, 300);
+  const inBox = (i, o) => i[2] > 0 && i[3] > 0 && i[0] >= o[0] && i[1] >= o[1] && i[0] + i[2] <= o[0] + o[2] && i[1] + i[3] <= o[1] + o[3];
+  ['data-metis-pp', 'data-metis-pp-field', 'data-metis-pp-btn'].forEach(a =>
+    document.querySelectorAll('[' + a + ']').forEach(e => e.removeAttribute(a)));
+  const BTN = 'button, [role=button]';
+  const bname = b => (txt(b) || b.getAttribute('aria-label') || '').trim();
+  const heads = [...document.querySelectorAll('body *')].filter(el => vis(el) && el.children.length <= 2
+    && /^position details$/i.test(txt(el)));
+  const panels = [];
+  for (const h of heads) {
+    for (let e = h.parentElement; e && e !== document.body; e = e.parentElement) {
+      const bs = [...e.querySelectorAll(BTN)].filter(vis).map(bname);
+      if (bs.some(n => /^modify position$/i.test(n)) && bs.some(n => /^discard$/i.test(n))) {
+        if (!panels.includes(e)) panels.push(e); break;
+      }
+    }
+  }
+  const outer = panels.filter(p => !panels.some(o => o !== p && p.contains(o)));
+  if (outer.length !== 1) return {ok: false, panels: outer.length, why: outer.length + ' Position Details panels (need exactly 1)'};
+  const P = outer[0], pb = box(P);
+  P.setAttribute('data-metis-pp', '1');
+  const prevLabel = inp => {
+    for (let e = inp, i = 0; i < 6 && e && e !== P; i++, e = e.parentElement)
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea') || s.querySelector('input, select, textarea')) break;
+        const t = txt(s); if (t) return t.split(/\n/)[0].trim();
+      }
+    return (inp.getAttribute('aria-label') || '').trim();
+  };
+  const FIELDS = {stop_loss: /^stop\s*loss\b/i, take_profit: /^take\s*profit\b/i};
+  const inputs = [...P.querySelectorAll('input:not([type=hidden]):not([type=password]):not([type=checkbox]):not([type=radio])')].filter(vis);
+  const fields = {}, ambiguous = [];
+  for (const [k, r] of Object.entries(FIELDS)) {
+    const m = inputs.filter(i => r.test(prevLabel(i)));
+    if (m.length > 1) { ambiguous.push(k); continue; }
+    if (!m.length) continue;
+    const el = m[0];
+    el.setAttribute('data-metis-pp-field', k);
+    // Its mode button: the nearest button in the input's own row (the
+    // smallest ancestor holding a button but no OTHER input).
+    let mode = null;
+    for (let e = el.parentElement; e && e !== P; e = e.parentElement) {
+      const others = [...e.querySelectorAll('input')].filter(x => x !== el && vis(x));
+      const btns = [...e.querySelectorAll(BTN)].filter(b => vis(b) && bname(b));
+      if (others.length) break;
+      if (btns.length) { mode = bname(btns[btns.length - 1]); break; }
+    }
+    fields[k] = {label: mask(prevLabel(el)).slice(0, 30), value: String(el.value || ''), mode: mode ? mask(mode).slice(0, 20) : null,
+                 readonly: !!(el.readOnly || el.disabled || el.getAttribute('aria-disabled') === 'true')};
+  }
+  const btns = [...P.querySelectorAll(BTN)].filter(vis);
+  const sub = btns.filter(b => /^modify position$/i.test(bname(b)));
+  const dis = btns.filter(b => /^discard$/i.test(bname(b)));
+  const closes = btns.filter(b => /close/i.test(bname(b)));
+  if (sub.length === 1) sub[0].setAttribute('data-metis-pp-btn', 'submit');
+  if (dis.length === 1) dis[0].setAttribute('data-metis-pp-btn', 'discard');
+  const enabled = b => !(b.disabled || b.getAttribute('aria-disabled') === 'true' || /\bdisabled\b/.test(b.className || ''));
+  const sb = sub.length === 1 ? box(sub[0]) : null;
+  return {ok: true, panels: 1, box: pb, text: mask(txt(P)), fields, ambiguous,
+          submit: sub.length, submit_enabled: sub.length === 1 && enabled(sub[0]), submit_in_box: sb ? inBox(sb, pb) : false,
+          submit_name: sub.length === 1 ? bname(sub[0]) : null, discard: dis.length,
+          close_buttons: closes.length, close_enabled: closes.filter(enabled).length,
+          buttons: btns.map(b => ({name: mask(bname(b)).slice(0, 30), enabled: enabled(b), box: box(b)}))};
 }
 """
 
@@ -3984,6 +4443,35 @@ def verify_buttons_in_panel(form: Mapping[str, Any], keys: Sequence[str] = (
     return bad
 
 
+def submit_not_visible_why(why_not: Optional[Mapping[str, Any]]) -> str:
+    """Pure: render ``SUBMIT_JS`` ``check``'s ``why_not`` block as ONE clause
+    naming WHICH state blocked the submit.
+
+    ``"submit: not visible at its centre"`` on its own collapses three states
+    with three different fixes: the centre is OFF the viewport (scroll / size
+    the viewport), a clipping ancestor does not paint it (scroll that
+    ancestor), or something else is painted ON TOP of it (nothing to scroll --
+    find out what). MEASURED 2026-10-02 on breakout_1: two live ETH LIMIT
+    tickets refused six times between 04:34Z and 05:15Z with the submit box
+    [1559, 1537, 298, 48], and the round-trip dry walk at 06:14Z (system-action
+    issue #15464) reached ``form_verified`` on the IDENTICAL box -- so the
+    geometry was never the problem and the refusal could not say what was.
+    Returns "" when there is nothing to say."""
+    if not why_not:
+        return ""
+    centre = list(why_not.get("centre") or [])
+    if why_not.get("in_viewport") is False:
+        return f"its centre {centre} is outside the {list(why_not.get('viewport') or [])} viewport"
+    occ = why_not.get("occluder") or {}
+    if occ:
+        tid = f"[{occ.get('tid')}]" if occ.get("tid") else ""
+        dialogs = why_not.get("dialogs") or 0
+        extra = f", {dialogs} dialog(s) open" if dialogs else ""
+        return (f"its centre {centre} paints {occ.get('tag')}{tid} at "
+                f"{list(occ.get('box') or [])} ({occ.get('rel')}){extra}")
+    return f"nothing is painted at its centre {centre}"
+
+
 def form_names_symbol(form: Mapping[str, Any], venue_symbol: str) -> bool:
     """Pure: the form's visible text names ``venue_symbol`` as a whole word.
     An order typed into a ticket for the wrong symbol is the worst silent
@@ -4036,12 +4524,21 @@ def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
     terminal says what quantity it ACCEPTED: a venue that clamps a
     below-minimum size up (or rounds it) changes this number, and the dry run
     at the lot step is only a measurement of the venue minimum if that change
-    would be caught. A label with no quantity passes (the check is then the
-    input read-back alone).
+    would be caught.
+
+    A label that does NOT parse as "<Buy|Sell> <qty> <SYM>" is REFUSED
+    (DIALOG-MEASURE, manager 2026-10-02): "Save", "Modify" or "" is not an
+    order-entry submit -- the row's modify control opens a docked "Position
+    Details" panel with its own "Modify Position" / "Close Position" buttons
+    (#15628, #15657), which must never be submitted on the strength of the
+    side/type read-back alone. Every label measured live
+    so far parses (Buy 0.01 SOLUSD at 117.49 .. 120.73, Buy 49 SOLUSD at
+    117.52 / 117.77, Buy 0.01 ETHUSD at 2,697.81 .. 2,749.46, Sell 1.22
+    ETHUSD at 2,657.11; tradeify_1's Buy 0.01 ETH/USD at 2,685.84).
     """
     m = _SUBMIT_LABEL.search(text or "")
     if not m:
-        return ""
+        return f"its text {str(text or '')[:60]!r} does not read as '<Buy|Sell> <qty> <SYM>' (not an order-entry submit)"
     try:
         qty = float(m.group(2).replace(",", "."))
     except ValueError:
@@ -4194,6 +4691,159 @@ def edit_dialog_mismatch(dlg: Mapping[str, Any], symbol: str, quantity: Optional
     if dlg.get("cancel") != 1:
         bad.append(f"{dlg.get('cancel')} cancel controls in the dialog (need exactly 1)")
     return bad
+
+def surface_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> Dict[str, Any]:
+    """Pure: what EDIT_SURFACE_JS "snap" ``after`` shows that ``before`` did
+    not (``added``), what it no longer shows (``removed``) and what kept its
+    key but changed value / read-only / disabled (``changed``). ``same`` only
+    when both snapshots were read and nothing differs -- a snapshot we could
+    not take is never "the same"."""
+    if not before.get("ok") or not after.get("ok"):
+        return {"same": False, "added": [], "removed": [], "changed": [],
+                "summary": "snapshot not read (" + str(before.get("why") or after.get("why")) + ")"}
+    b = {i["key"]: i for i in before.get("items") or []}
+    a = {i["key"]: i for i in after.get("items") or []}
+    added = [a[k] for k in a if k not in b]
+    removed = [b[k] for k in b if k not in a]
+    changed = [{"key": k, "before": {f: b[k].get(f) for f in ("value", "readonly", "disabled")},
+                "after": {f: a[k].get(f) for f in ("value", "readonly", "disabled")}}
+               for k in a if k in b and any(a[k].get(f) != b[k].get(f) for f in ("value", "readonly", "disabled"))]
+    same = not (added or removed or changed)
+    return {"same": same, "added": added, "removed": removed, "changed": changed,
+            "summary": "no change" if same else f"{len(added)} added, {len(removed)} removed, {len(changed)} changed"}
+
+def position_panel_mismatch(panel: Mapping[str, Any], symbol: str,
+                            want: Sequence[str] = ("stop_loss", "take_profit"),
+                            *, require_submit_enabled: bool = False) -> List[str]:
+    """Pure: is POSITION_PANEL_JS's read the ONE docked "Position Details"
+    panel for ``symbol``, and safe to type SL/TP into and submit? Every
+    reason returned is a refusal (manager's re-target decision 2026-10-02,
+    after the live readout #15657). The panel must: be the only one; name
+    the symbol as a whole word; hold each SL/TP field we mean to type,
+    editable and unambiguous, its own mode button reading "Price"; own
+    exactly one "Modify Position" submit -- named exactly that, never a
+    "Close" control -- boxed inside the panel, and ENABLED once the typed
+    values read back (``require_submit_enabled``); and own one "Discard".
+    The quantity is NOT read here: the panel shows none, so the caller has
+    matched the Positions ROW's symbol / side / size before opening it."""
+    if not panel.get("ok"):
+        return [str(panel.get("why") or "panel not read")]
+    bad: List[str] = []
+    text = str(panel.get("text") or "")
+    if not re.search(rf"(?<![A-Za-z0-9]){re.escape(symbol)}(?![A-Za-z0-9])", text, re.IGNORECASE):
+        bad.append(f"panel does not name {symbol}")
+    if panel.get("ambiguous"):
+        bad.append(f"ambiguous fields: {sorted(panel['ambiguous'])}")
+    for k in want:
+        f = (panel.get("fields") or {}).get(k)
+        if not f:
+            bad.append(f"no {k} field in the panel")
+            continue
+        if f.get("readonly"):
+            bad.append(f"{k} field is read-only")
+        if str(f.get("mode") or "").strip().lower() != "price":
+            bad.append(f"{k} mode reads {f.get('mode')!r} (need Price)")
+    if panel.get("submit") != 1:
+        bad.append(f"{panel.get('submit')} 'Modify Position' buttons (need exactly 1)")
+    else:
+        if re.search(r"close", str(panel.get("submit_name") or ""), re.IGNORECASE):
+            bad.append("the submit names Close")
+        if not panel.get("submit_in_box"):
+            bad.append("'Modify Position' is not boxed inside the panel")
+        if require_submit_enabled and not panel.get("submit_enabled"):
+            bad.append("'Modify Position' is disabled after the values read back")
+    if panel.get("discard") != 1:
+        bad.append(f"{panel.get('discard')} 'Discard' buttons (need exactly 1)")
+    return bad
+
+#: The first armed modifies on a real-money book are a ROLLOUT (manager
+#: 2026-10-02 21:30Z, flipping EDIT_DIALOG_MEASURED): one watched,
+#: tighten-only step at a time -- SL toward price, TP unchanged, the move at
+#: most this fraction of the current stop distance.
+ROLLOUT_MAX_TIGHTEN_FRACTION = 0.25
+
+
+def rollout_tighten_mismatch(side: Optional[str], current_sl: Optional[float], current_tp: Optional[float],
+                             new_sl: Optional[float], new_tp: Optional[float],
+                             quote: Optional[Mapping[str, float]]) -> List[str]:
+    """Pure: is this modify the single TIGHTEN-ONLY rollout step? Every reason
+    returned is a refusal. The stop must exist and move TOWARD the current
+    price (a long's SL up, a short's down) without crossing it; the move is at
+    most ROLLOUT_MAX_TIGHTEN_FRACTION of the stop's current distance from
+    price; the TP is not touched (``new_tp`` None or equal to the current)."""
+    bad: List[str] = []
+    if side not in ("long", "short"):
+        return [f"position side {side!r} unknown"]
+    if new_sl is None:
+        return ["rollout step must move the stop loss (no SL given)"]
+    if current_sl is None:
+        return ["current stop loss not readable on the row"]
+    if new_tp is not None and (current_tp is None or not math.isclose(float(new_tp), float(current_tp), rel_tol=1e-9)):
+        bad.append("rollout step must leave the take profit unchanged")
+    bid, ask = (quote or {}).get("bid"), (quote or {}).get("ask")
+    if bid is None or ask is None:
+        return bad + ["no live quote: cannot bound the tighten"]
+    price = float(bid) if side == "long" else float(ask)   # the side the stop would fill on
+    cur, new = float(current_sl), float(new_sl)
+    distance = abs(price - cur)
+    toward = (new > cur) if side == "long" else (new < cur)
+    crossed = (new >= price) if side == "long" else (new <= price)
+    if not toward:
+        bad.append(f"stop {_fmt_num(new)} does not move toward price from {_fmt_num(cur)} (tighten only)")
+    if crossed:
+        bad.append(f"stop {_fmt_num(new)} would cross the current price {_fmt_num(price)}")
+    if distance <= 0 or abs(new - cur) > ROLLOUT_MAX_TIGHTEN_FRACTION * distance + 1e-12:
+        bad.append(f"move {_fmt_num(abs(new - cur))} exceeds {int(ROLLOUT_MAX_TIGHTEN_FRACTION * 100)}% of the "
+                   f"stop distance {_fmt_num(distance)}")
+    return bad
+
+
+def rollout_verify_mismatch(before: "Position", after: Optional["Position"], new_sl: float) -> List[str]:
+    """Pure: the very next positions read after a rollout submit must show
+    the NEW stop, the UNCHANGED take profit and the UNCHANGED size."""
+    if after is None:
+        return ["position not found on the next read"]
+    bad: List[str] = []
+    if after.stop_loss is None or not math.isclose(float(after.stop_loss), float(new_sl), rel_tol=1e-6, abs_tol=1e-9):
+        bad.append(f"SL reads {after.stop_loss!r}, want {_fmt_num(new_sl)}")
+    if (after.take_profit is None) != (before.take_profit is None) or (
+            after.take_profit is not None and not math.isclose(float(after.take_profit), float(before.take_profit),
+                                                               rel_tol=1e-6, abs_tol=1e-9)):
+        bad.append(f"TP reads {after.take_profit!r}, want unchanged {before.take_profit!r}")
+    if after.quantity is None or not math.isclose(float(after.quantity), float(before.quantity), rel_tol=1e-6, abs_tol=1e-9):
+        bad.append(f"size reads {after.quantity!r}, want unchanged {before.quantity!r}")
+    return bad
+
+
+class ModifyRollout:
+    """The per-account latch of the modify rollout (a JSON file in the
+    executor's state dir). Its EXISTENCE blocks every further armed modify:
+    the single watched step has been used ("in_progress" written BEFORE the
+    click, so a crash cannot buy a second), "verified" or "verify_failed".
+    Only a reviewed removal of the file allows the next step: the
+    ``executor-clear-rollout`` system-action, which names this latch alone
+    (``executor-clear-halt`` never touches it)."""
+
+    def __init__(self, path: Any) -> None:
+        from pathlib import Path
+        self.path = Path(path)
+
+    def blocked(self) -> Optional[str]:
+        if not self.path.exists():
+            return None
+        try:
+            state = json.loads(self.path.read_text()).get("state")
+        except (OSError, ValueError):
+            state = "unreadable"
+        return (f"rollout: the single watched modify step is used (state {state!r}); "
+                f"further modifies are halted until {self.path.name} is reviewed and cleared "
+                "(executor-clear-rollout)")
+
+    def record(self, state: str, **facts: Any) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps({"state": state, "at": time.time(), **facts}, default=str))
+        tmp.replace(self.path)
 
 def check_bracket_spec(spec: BracketSpec) -> List[str]:
     """Pure structural check of one bracket before any click: both legs, a
@@ -5346,6 +5996,27 @@ class DXtradeAdapter(PropPlatformAdapter):
     #: MEASURED by add-watchlist-widget #15373 (code aaa7ff4ee): the menu's
     #: "Watchlist" entry opens a SUBMENU, not a widget.
     WATCHLIST_SUBMENU: Tuple[str, ...] = ("Private", "Public")
+    #: The submenu entry add-watchlist-widget clicks (manager review of the
+    #: #15390 dumps): the user's own (editable) lists, where the removed
+    #: "Default Watchlist" lived, so missing symbols can be added later.
+    WATCHLIST_SUBMENU_PICK = "Private"
+    #: The ONE list under Private (MEASURED by add-watchlist-widget #15414,
+    #: code 5b0b486bb): clicking "Private" opened a third level holding only
+    #: "Favourites".
+    WATCHLIST_LIST_PICK = "Favourites"
+
+    def _escape_menus(self, page: Any, out: Dict[str, Any], *, tries: int = 3) -> None:
+        """Escape (a key, never a click) until no menu-only label is visible,
+        at most ``tries`` times; records ``escapes`` / ``menu_left_open``."""
+        left: Dict[str, Any] = {}
+        for i in range(tries):
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(400)
+            out["escapes"] = i + 1
+            left = page.evaluate(MENU_LABELS_VISIBLE_JS, list(MENU_ONLY_LABELS)) or {}
+            if not left.get("n"):
+                break
+        out["menu_left_open"] = bool(left.get("n"))
 
     def watchlist_submenu_probe(self, page: Any, *, expect_workspace: str = "My Trading Account",
                                 settle_ms: int = 800) -> Dict[str, Any]:
@@ -5441,9 +6112,15 @@ class DXtradeAdapter(PropPlatformAdapter):
         """Add the Watchlist widget to ``expect_workspace`` (TRADEIFY-GOLIVE
         option B step 2; operator ~21:50Z 2026-10-01 "Runner does it").
 
-        Exactly TWO clicks, both on MEASURED targets (#15350): the top-most
-        add-widget "+", then the ONE menu leaf whose text is exactly
-        ``Watchlist`` in a menu that shows every measured sibling. Refused
+        At most THREE clicks, all on MEASURED targets: the top-most add-widget
+        "+", the ONE menu leaf whose text is exactly ``Watchlist`` in a menu
+        that shows every measured sibling (#15350), and -- because that entry
+        opens a Private/Public submenu (#15373; hover opens nothing, #15390) --
+        the ONE submenu leaf ``WATCHLIST_SUBMENU_PICK`` with its sibling
+        present, and -- because Private opens a list level (#15414) -- the ONE
+        list leaf ``WATCHLIST_LIST_PICK`` with Private/Public still showing
+        (at most FOUR clicks). Anything that opens after that is dumped and
+        Escaped, never clicked into. Refused
         unless one-click reads OFF, the workspace is ``expect_workspace`` and
         no Symbol/Bid/Ask table is already present (then it is a no-op).
         Verified by the click-free WATCHLIST_SYMBOLS_JS read (exactly one
@@ -5489,6 +6166,40 @@ class DXtradeAdapter(PropPlatformAdapter):
                 return out
             item.first.click(timeout=5_000)
             out["clicks"].append("menu:Watchlist")
+            page.wait_for_timeout(settle_ms)
+            # MEASURED (#15373, #15390): "Watchlist" opens a Private/Public
+            # SUBMENU whose entries open nothing on hover. Click the ONE exact
+            # ``WATCHLIST_SUBMENU_PICK`` leaf (the user's own lists -- the
+            # removed "Default Watchlist" was one), with its measured sibling
+            # present. A submenu that does not match is Escaped, nothing picked.
+            if not self.watchlist_symbols(page).get("readable"):
+                sub = page.evaluate(WIDGET_MENU_PICK_JS, [self.WATCHLIST_SUBMENU_PICK,
+                                    [x for x in self.WATCHLIST_SUBMENU if x != self.WATCHLIST_SUBMENU_PICK]]) or {}
+                out["submenu_pick"] = sub
+                sub_item = page.locator("[data-metis-wpick='1']")
+                if not sub.get("tagged") or sub_item.count() != 1:
+                    out["refused"] = "Watchlist submenu did not match the measured submenu (nothing picked)"
+                    out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                    self._escape_menus(page, out)
+                    return out
+                sub_item.first.click(timeout=5_000)
+                out["clicks"].append(f"submenu:{self.WATCHLIST_SUBMENU_PICK}")
+                page.wait_for_timeout(settle_ms)
+                # MEASURED (#15414): "Private" opens a third level holding ONE
+                # list, "Favourites". Click that exact leaf (new since "+",
+                # with Private/Public still showing); anything else -> Escape.
+                if not self.watchlist_symbols(page).get("readable"):
+                    lst = page.evaluate(WIDGET_MENU_PICK_JS, [self.WATCHLIST_LIST_PICK,
+                                        list(self.WATCHLIST_SUBMENU)]) or {}
+                    out["list_pick"] = lst
+                    lst_item = page.locator("[data-metis-wpick='1']")
+                    if not lst.get("tagged") or lst_item.count() != 1:
+                        out["refused"] = "Private submenu did not match the measured list level (nothing picked)"
+                        out["menu"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
+                        self._escape_menus(page, out)
+                        return out
+                    lst_item.first.click(timeout=5_000)
+                    out["clicks"].append(f"list:{self.WATCHLIST_LIST_PICK}")
             waited = 0
             while True:
                 page.wait_for_timeout(500)
@@ -5504,7 +6215,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 # Whatever opened instead is dumped, then one Escape; it is
                 # REPORTED, never closed by a click (a close control is a delete).
                 out["new_after"] = page.evaluate(WIDGET_MENU_NEW_JS) or {}
-                page.keyboard.press("Escape")
+                self._escape_menus(page, out)
         except Exception as exc:
             out["error"] = type(exc).__name__
             # A menu (or whatever the click opened) may still be up: one
@@ -5981,7 +6692,22 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"found": False, "error": type(exc).__name__}
 
-    def probe_instrument_details(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+    @staticmethod
+    def search_query_for(venue_symbol: str, style: Optional[str] = None) -> str:
+        """The text typed into the watchlist search for ``venue_symbol``.
+        ``style`` comes from the account's ``config/prop_platforms.yaml``
+        entry (``search_query_style``); ``slash`` types the terminal's own
+        display form, ``SOL/USD`` for ``SOLUSD`` (MEASURED on tradeify_1,
+        #15444: typing ``SOLUSD`` opened the result panel with NO rows).
+        Anything else, or no style, types the venue symbol unchanged."""
+        sym = str(venue_symbol or "").strip().upper()
+        if style == "slash" and len(sym) > 3 and sym.endswith(("USD", "USDT")) and "/" not in sym:
+            quote = "USDT" if sym.endswith("USDT") else "USD"
+            return f"{sym[:-len(quote)]}/{quote}"
+        return sym
+
+    def probe_instrument_details(self, page: Any, venue_symbol: str, *, query: Optional[str] = None,
+                                 settle_ms: int = 1_000) -> Dict[str, Any]:
         """READ-ONLY: search for ``venue_symbol`` in a search field found
         INSIDE the measured watchlist panel (never the order ticket's
         ``symbol_input``, never anything inside a BUY/SELL panel), dump
@@ -5998,16 +6724,28 @@ class DXtradeAdapter(PropPlatformAdapter):
             if hit.count() != 1:
                 result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
                 return result
-            hit.first.fill(venue_symbol, timeout=5_000)
-            page.wait_for_timeout(1_000)
+            typed = (query or venue_symbol).strip()
+            result["query"] = typed
+            hit.first.fill(typed, timeout=5_000)
+            page.wait_for_timeout(settle_ms)
             readback = hit.first.input_value(timeout=5_000)
             result["searched"] = True
-            result["readback_matches"] = (readback.strip().upper() == venue_symbol.strip().upper())
+            result["readback_matches"] = (readback.strip().upper() == typed.upper())
             dump = self.instrument_details_dump(page)
             result["dump"] = dump
+            # The suggestion rows sit in a <tbody>, which the dump above
+            # skips (#15457), so they get a scoped read of their own.
+            try:
+                result["suggestions"] = page.evaluate(SUGGESTION_ROWS_JS) or {"found": False}
+            except Exception as exc:
+                result["suggestions"] = {"found": False, "error": type(exc).__name__}
             blob = " ".join((r.get("text") or "") for r in (dump.get("rows") or []))
-            result["symbol_echoed"] = bool(re.search(
-                r"(?<![A-Z0-9])" + re.escape(venue_symbol.upper()) + r"(?![A-Z0-9])", blob.upper()))
+            for panel in (result["suggestions"].get("panels") or []):
+                for row in (panel.get("rows") or []):
+                    blob += " " + " ".join(c or "" for c in (row.get("cells") or []))
+            result["symbol_echoed"] = any(bool(re.search(
+                r"(?<![A-Z0-9/])" + re.escape(form.upper()) + r"(?![A-Z0-9/])", blob.upper()))
+                for form in {venue_symbol.strip(), typed})
         except Exception as exc:
             result["error"] = type(exc).__name__
         finally:
@@ -6036,6 +6774,242 @@ class DXtradeAdapter(PropPlatformAdapter):
             except Exception:
                 pass
         return result
+
+    @staticmethod
+    def search_query_variants(venue_symbol: str) -> List[str]:
+        """The query forms the variant probe types for ``venue_symbol``: the
+        base asset alone (a prefix every naming matches), the venue symbol,
+        then the slash display form. ``ETHUSD`` -> ``["ETH", "ETHUSD",
+        "ETH/USD"]``. De-duplicated, order kept."""
+        sym = str(venue_symbol or "").strip().upper()
+        slash = DXtradeAdapter.search_query_for(sym, "slash")
+        base = slash.split("/", 1)[0] if "/" in slash else sym
+        out: List[str] = []
+        for q in (base, sym, slash):
+            if q and q not in out:
+                out.append(q)
+        return out
+
+    def probe_search_variants(self, page: Any, venue_symbol: str, *, queries: Optional[List[str]] = None,
+                              settle_ms: int = 3_000, key_delay_ms: int = 80) -> Dict[str, Any]:
+        """READ-ONLY (TRADEIFY-GOLIVE, #15472): typing ``ETH/USD`` with
+        ``fill()`` left the suggestion table's tbody EMPTY. This types each
+        query form KEY BY KEY (``press_sequentially``: characters only, never
+        Enter) into the same verified watchlist search, waits ``settle_ms``,
+        reads only the scoped suggestion rows (SUGGESTION_ROWS_JS), and
+        clears the field before the next form. It ends with the field
+        cleared, blurred and the search tag removed, like
+        ``probe_instrument_details``. It never clicks anything."""
+        loc = self._find_instrument_search(page)
+        if not loc.get("found"):
+            return {"searched": False, "reset": None, **loc}
+        hit = page.locator("[data-metis-search-hit='1']")
+        result: Dict[str, Any] = {"searched": False, "via": loc.get("via"), "reset": None, "variants": []}
+        try:
+            if hit.count() != 1:
+                result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
+                return result
+            result["searched"] = True
+            for q in (queries or self.search_query_variants(venue_symbol)):
+                row: Dict[str, Any] = {"query": q}
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    hit.first.press_sequentially(q, delay=key_delay_ms, timeout=10_000)
+                    page.wait_for_timeout(settle_ms)
+                    row["readback_matches"] = (hit.first.input_value(timeout=5_000).strip().upper() == q.upper())
+                    row["suggestions"] = page.evaluate(SUGGESTION_ROWS_JS) or {"found": False}
+                except Exception as exc:
+                    row["error"] = type(exc).__name__
+                result["variants"].append(row)
+        except Exception as exc:
+            result["error"] = type(exc).__name__
+        finally:
+            if result["searched"]:
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                except Exception:
+                    result["reset"] = False
+                try:
+                    result["blurred"] = bool(hit.first.evaluate(
+                        "el => { el.blur(); return document.activeElement !== el; }"))
+                except Exception:
+                    result["blurred"] = False
+            try:
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
+            except Exception:
+                pass
+        return result
+
+    def probe_page_leaf_dump(self, page: Any, venue_symbol: str, *, query: Optional[str] = None,
+                             settle_ms: int = 3_000, key_delay_ms: int = 80) -> Dict[str, Any]:
+        """READ-ONLY (TRADEIFY-GOLIVE (b)): type ``query`` (default: the base
+        asset, ``ETH`` for ``ETHUSD``) KEY BY KEY into the verified watchlist
+        search (characters only, never Enter), wait ``settle_ms``, take
+        PAGE_LEAF_DUMP_JS of the whole page while the text is in, then clear,
+        blur and untag the field like ``probe_search_variants``. Clicks
+        nothing."""
+        loc = self._find_instrument_search(page)
+        if not loc.get("found"):
+            return {"searched": False, "reset": None, **loc}
+        hit = page.locator("[data-metis-search-hit='1']")
+        q = (query or self.search_query_variants(venue_symbol)[0]).strip()
+        result: Dict[str, Any] = {"searched": False, "via": loc.get("via"), "reset": None, "query": q}
+        try:
+            if hit.count() != 1:
+                result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
+                return result
+            result["searched"] = True
+            hit.first.fill("", timeout=5_000)
+            hit.first.press_sequentially(q, delay=key_delay_ms, timeout=10_000)
+            page.wait_for_timeout(settle_ms)
+            result["readback_matches"] = (hit.first.input_value(timeout=5_000).strip().upper() == q.upper())
+            result["page"] = page.evaluate(PAGE_LEAF_DUMP_JS, q) or {"found": False}
+        except Exception as exc:
+            result["error"] = type(exc).__name__
+        finally:
+            if result["searched"]:
+                try:
+                    hit.first.fill("", timeout=5_000)
+                    result["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                except Exception:
+                    result["reset"] = False
+                try:
+                    result["blurred"] = bool(hit.first.evaluate(
+                        "el => { el.blur(); return document.activeElement !== el; }"))
+                except Exception:
+                    result["blurred"] = False
+            try:
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
+            except Exception:
+                pass
+        return result
+
+    @staticmethod
+    def _visible_dialogs(page: Any) -> Optional[int]:
+        """Visible [role=dialog]/[role=alertdialog]/[aria-modal] count (the
+        INFO_PROBE_SNAPSHOT_JS detector); None when it could not look."""
+        try:
+            return int(page.evaluate(INFO_PROBE_SNAPSHOT_JS))
+        except Exception:
+            return None
+
+    def add_watchlist_symbol(self, page: Any, venue_symbol: str, *, arm: bool = False,
+                             settle_ms: int = 3_000, key_delay_ms: int = 80,
+                             after_ms: int = 2_000) -> Dict[str, Any]:
+        """Add ``venue_symbol`` to the (Favourites) watchlist through its own
+        search's suggestion list (TRADEIFY-GOLIVE, manager GO 2026-10-02
+        17:39Z). One symbol per call.
+
+        Types the base asset key by key into the verified watchlist search
+        (never Enter), then resolves with ADD_SYMBOL_RESOLVE_JS the ONE result
+        row whose Symbol cell reads exactly the slash form (``ETH/USD``).
+        ``arm=False`` (the DRY run) reports that row, its box and what
+        ``elementFromPoint`` returns at the click point, then clears the field
+        and clicks NOTHING. ``arm=True`` additionally requires one-click OFF
+        and a clean resolve, makes ONE click on that Symbol cell, presses
+        Escape once, and verifies: no order ticket and no new dialog opened
+        (if one did: Escape, report, stop), and the watchlist re-read shows
+        exactly ``venue_symbol`` added and nothing else changed. It never
+        clicks an order / price / instant-trade / position control, or any
+        close / delete control."""
+        sym = str(venue_symbol or "").strip().upper()
+        target = self.search_query_for(sym, "slash")
+        out: Dict[str, Any] = {"symbol": sym, "target": target, "armed": bool(arm),
+                               "added": False, "refused": None, "clicks": []}
+        oc = self.read_one_click(page)
+        out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+        if arm and oc.get("state") != "off":
+            out["refused"] = f"one-click not confirmed OFF ({oc.get('state')})"
+            return out
+        before = self.watchlist_symbols(page)
+        out["watchlist_before"] = before
+        if arm and not before.get("readable"):
+            out["refused"] = "watchlist not readable before the click (could not verify an add)"
+            return out
+        if sym in (before.get("symbols") or []):
+            out["refused"] = f"{sym} already in the watchlist (nothing to add)"
+            out["already_present"] = True
+            return out
+        loc = self._find_instrument_search(page)
+        out["search"] = {k: loc.get(k) for k in ("found", "via", "why")}
+        if not loc.get("found"):
+            out["refused"] = "watchlist search not found"
+            return out
+        hit = page.locator("[data-metis-search-hit='1']")
+        typed = False
+        try:
+            if hit.count() != 1:
+                out["refused"] = f"{hit.count()} tagged search candidates (need exactly 1)"
+                return out
+            query = self.search_query_variants(sym)[0]
+            out["query"] = query
+            hit.first.fill("", timeout=5_000)
+            hit.first.press_sequentially(query, delay=key_delay_ms, timeout=10_000)
+            typed = True
+            page.wait_for_timeout(settle_ms)
+            res = page.evaluate(ADD_SYMBOL_RESOLVE_JS, [target, query]) or {"ok": False, "why": "no resolve result"}
+            out["resolve"] = res
+            if not res.get("ok"):
+                out["refused"] = res.get("why") or "resolve failed"
+                return out
+            if not arm:
+                out["dry"] = "resolved; nothing clicked"
+                return out
+            form_before = bool(self._find_form(page).get("found"))
+            dialogs_before = self._visible_dialogs(page)
+            page.locator("[data-metis-add-target='1']").first.click(timeout=5_000)
+            out["clicks"].append(f"suggestion:{target}")
+            page.wait_for_timeout(after_ms)
+            page.keyboard.press("Escape")
+            out["escaped"] = 1
+            page.wait_for_timeout(500)
+            form_after = bool(self._find_form(page).get("found"))
+            dialogs_after = self._visible_dialogs(page)
+            out["guard"] = {"form_before": form_before, "form_after": form_after,
+                            "dialogs_before": dialogs_before, "dialogs_after": dialogs_after}
+            if (form_after and not form_before) or (
+                    dialogs_after is None or (dialogs_before is not None and dialogs_after > dialogs_before)):
+                page.keyboard.press("Escape")
+                out["escaped"] = 2
+                out["refused"] = "an order ticket or dialog opened after the click (Escaped; stopped)"
+                return out
+            waited, after = 0, self.watchlist_symbols(page)
+            while sym not in (after.get("symbols") or []) and waited < 6_000:
+                page.wait_for_timeout(500)
+                waited += 500
+                after = self.watchlist_symbols(page)
+            out["watchlist_after"] = after
+            out["watchlist_diff"] = watchlist_diff(before, after)
+            d = out["watchlist_diff"]
+            out["added"] = (d.get("changed") is True and d.get("added") == [sym] and not d.get("removed"))
+            if not out["added"]:
+                out["refused"] = "watchlist re-read does not show exactly the one symbol added"
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+            if out["clicks"]:
+                try:
+                    page.keyboard.press("Escape")
+                    out["escaped_after_error"] = True
+                except Exception:
+                    out["escaped_after_error"] = False
+        finally:
+            if typed:
+                try:
+                    if hit.count() == 1:
+                        hit.first.fill("", timeout=5_000)
+                        out["reset"] = (hit.first.input_value(timeout=2_000) == "")
+                        out["blurred"] = bool(hit.first.evaluate(
+                            "el => { el.blur(); return document.activeElement !== el; }"))
+                except Exception:
+                    out["reset"] = False
+            try:
+                page.evaluate("() => document.querySelectorAll('[data-metis-add-target]')"
+                              ".forEach(e => e.removeAttribute('data-metis-add-target'))")
+                page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
+            except Exception:
+                pass
+        return out
 
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
         """One order with SL AND TP attached at entry.
@@ -6394,30 +7368,62 @@ class DXtradeAdapter(PropPlatformAdapter):
                 break
         return form
 
-    def _ready_submit(self, page: Any, spec: BracketSpec, want: Mapping[str, float]
+    def _ready_submit(self, page: Any, spec: BracketSpec, want: Mapping[str, float],
+                      *, attempts: int = 4, settle_ms: int = 500
                       ) -> Tuple[bool, str, Dict[str, Any], Dict[str, Any]]:
         """Centre the submit control, then prove, right before the click
         point: it is the SAME element (a one-time token), visible at its
         centre, enabled, its text names the intended side, and the full
-        read-back still holds after the scroll."""
+        read-back still holds after the scroll.
+
+        The centre hit-test is POLLED -- up to ``attempts`` tries, ``settle_ms``
+        apart, with a scroll-only ``reveal`` of the BUTTON's own scroll
+        ancestors between tries -- and a final refusal NAMES what the centre
+        hit (``submit_not_visible_why``). Both come from the same measurement:
+        on 2026-10-02 the identical submit box refused six live ETH tickets
+        between 04:34Z and 05:15Z and passed the dry walk at 06:14Z, so what
+        blocked it was TRANSIENT and the refusal could not say what it was.
+        ``reveal`` scrolls the button's ancestors rather than the form's
+        because the live submit is a footer OUTSIDE the fields' container
+        (``in_form: false`` on every measurement), so the form's chain is not
+        necessarily the scroller that moves it.
+
+        Clicks nothing, fills nothing, dismisses nothing -- a dry walk measures
+        exactly what an armed run would click."""
         token = f"t{time.time_ns()}"
-        try:
-            marked = page.evaluate(SUBMIT_JS, ["mark", token]) or {}
-        except Exception as exc:
-            return False, f"submit: could not mark ({type(exc).__name__})", {}, {}
-        if not marked.get("ok"):
-            return False, f"submit: {marked.get('why')}", {}, {}
-        page.wait_for_timeout(300)
-        form = self._find_form(page)          # re-tags; the token stays on the element
-        try:
-            chk = page.evaluate(SUBMIT_JS, ["check", token]) or {}
-        except Exception as exc:
-            return False, f"submit: could not check ({type(exc).__name__})", form, {}
-        info = {"scrolled": bool(marked.get("scrolled")), "text": chk.get("text"), "token": token}
-        if not chk.get("same"):
-            return False, "submit: the control changed after scrolling", form, info
-        if not chk.get("visible"):
-            return False, "submit: not visible at its centre after scrolling", form, info
+        tries = max(1, int(attempts))
+        form: Dict[str, Any] = {}
+        info: Dict[str, Any] = {"token": token}
+        chk: Dict[str, Any] = {}
+        for attempt in range(1, tries + 1):
+            try:
+                marked = page.evaluate(SUBMIT_JS, ["mark", token]) or {}
+            except Exception as exc:
+                return False, f"submit: could not mark ({type(exc).__name__})", form, info
+            if not marked.get("ok"):
+                return False, f"submit: {marked.get('why')}", form, info
+            page.wait_for_timeout(300)
+            form = self._find_form(page)      # re-tags; the token stays on the element
+            try:
+                chk = page.evaluate(SUBMIT_JS, ["check", token]) or {}
+            except Exception as exc:
+                return False, f"submit: could not check ({type(exc).__name__})", form, info
+            info.update({"scrolled": bool(marked.get("scrolled")), "text": chk.get("text"), "tries": attempt})
+            if not chk.get("same"):
+                return False, "submit: the control changed after scrolling", form, info
+            if chk.get("visible"):
+                info.pop("why_not", None)
+                break
+            info["why_not"] = chk.get("why_not") or {}
+            if attempt >= tries:
+                why = submit_not_visible_why(info["why_not"])
+                return (False, "submit: not visible at its centre after scrolling"
+                        + (f" \u2014 {why}" if why else ""), form, info)
+            try:
+                info.setdefault("reveal", []).append(page.evaluate(SUBMIT_JS, ["reveal", ""]) or {})
+            except Exception:
+                pass
+            page.wait_for_timeout(settle_ms)
         if not chk.get("enabled"):
             return False, "submit: disabled", form, info
         text = str(chk.get("text") or "").lower()
@@ -6569,6 +7575,11 @@ class DXtradeAdapter(PropPlatformAdapter):
     # ARMED modify_bracket locates the edit control and refuses before any
     # click. Flipping it is a held Tier-2 change (it arms a live click).
     EDIT_DIALOG_MEASURED = False
+    # When armed, the first modifies on a real-money book are a ROLLOUT
+    # (manager 2026-10-02 21:30Z): one watched, tighten-only step per reviewed
+    # clear of the per-account latch (ModifyRollout, cleared only by
+    # executor-clear-rollout, never by executor-clear-halt). Every armed modify is gated by it.
+    ROLLOUT_GUARD = True
 
     def _locate_edit_control(self, page: Any, symbol: str, side: Optional[str],
                              quantity: Optional[float]) -> Dict[str, Any]:
@@ -6668,19 +7679,118 @@ class DXtradeAdapter(PropPlatformAdapter):
         out["closed_after_cancel"] = (not after.get("ok")) and after.get("fresh") == 0
         return out
 
+    @staticmethod
+    def _surface_snap(page: Any) -> Dict[str, Any]:
+        try:
+            return page.evaluate(EDIT_SURFACE_JS, ["snap", []]) or {"ok": False, "why": "empty snapshot"}
+        except Exception as exc:
+            return {"ok": False, "why": f"snapshot failed ({type(exc).__name__})"}
+
+    def probe_edit_surface(self, page: Any, symbol: str) -> Dict[str, Any]:
+        """MEASURE what the Positions row's modify control changes (DIALOG-
+        MEASURE, after #15628 found it opens no new dialog). READ-ONLY by
+        construction: snapshot the page's controls (outside every table and
+        the positions row), click THAT symbol's modify control, snapshot
+        again and report the diff, then leave via Escape -- and only if the
+        surface did not go back, via the ONE added control named cancel /
+        discard / close / x (never anything that submits, modifies, applies,
+        confirms, places, saves or closes a position). Then REQUIRE the page
+        to be back at the baseline; anything else is an alert."""
+        out: Dict[str, Any] = {"symbol": symbol, "one_click": self.read_one_click(page), "alerts": []}
+        loc = self._locate_edit_control(page, symbol, None, None)
+        out["locate"] = loc
+        if not loc.get("ok"):
+            out["stopped"] = f"before any click ({loc.get('why')})"
+            return out
+        before = self._surface_snap(page)
+        out["baseline_order_entry"] = before.get("order_entry")
+        if not before.get("ok"):
+            out["stopped"] = f"before any click ({before.get('why')})"
+            return out
+        try:
+            page.click("[data-metis-edit-ctl]", timeout=5_000)
+        except Exception as exc:
+            out["clicked"] = "unknown"
+            out["alerts"].append(f"modify control click raised {type(exc).__name__}; outcome unknown")
+            page.keyboard.press("Escape")
+            return out
+        out["clicked"] = True
+        page.wait_for_timeout(1_000)
+        after = self._surface_snap(page)
+        out["diff"] = surface_diff(before, after)
+        out["after_order_entry"] = after.get("order_entry")
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        page.wait_for_timeout(600)
+        back = surface_diff(before, self._surface_snap(page))
+        out["exit"] = "escape"
+        if not back["same"]:
+            got = {}
+            try:
+                got = page.evaluate(EDIT_SURFACE_JS, ["cancel", [i["key"] for i in out["diff"]["added"]]]) or {}
+            except Exception as exc:
+                got = {"ok": False, "why": f"cancel lookup failed ({type(exc).__name__})"}
+            out["cancel"] = got
+            if got.get("ok"):
+                try:
+                    page.click("[data-metis-surface-cancel]", timeout=5_000)
+                    out["exit"] = f"escape, then the surface's own {got.get('name')!r}"
+                except Exception as exc:
+                    out["alerts"].append(f"surface cancel click raised {type(exc).__name__}")
+                page.wait_for_timeout(600)
+                back = surface_diff(before, self._surface_snap(page))
+        out["restored"] = back["same"]
+        if not back["same"]:
+            out["residual"] = {part: [{f: i.get(f) for f in ("kind", "name", "tid", "box")} for i in back.get(part) or []][:20]
+                               for part in ("added", "removed")}
+            out["residual"]["changed"] = (back.get("changed") or [])[:20]
+            out["alerts"].append("PAGE NOT BACK AT BASELINE after the probe: " + back["summary"])
+        return out
+
+    def _read_position_panel(self, page: Any) -> Dict[str, Any]:
+        try:
+            return page.evaluate(POSITION_PANEL_JS, ["read"]) or {"ok": False, "why": "empty panel read"}
+        except Exception as exc:
+            return {"ok": False, "why": f"panel read failed ({type(exc).__name__})"}
+
+    def _discard_position_panel(self, page: Any) -> Dict[str, Any]:
+        """Leave the Position Details panel by ITS OWN "Discard" (fenced to
+        inside the tagged panel; never Close / Modify Position), then REQUIRE
+        the panel to have closed. Escape is the only fallback (#15657: Escape
+        alone does not close it)."""
+        pressed = False
+        try:
+            loc = page.locator("[data-metis-pp] [data-metis-pp-btn=discard]")
+            if loc.count() == 1:
+                loc.first.click(timeout=5_000)
+                pressed = True
+        except Exception:
+            pass
+        if not pressed:
+            try:
+                page.keyboard.press("Escape")
+            except Exception:
+                pass
+        page.wait_for_timeout(600)
+        after = self._read_position_panel(page)
+        closed = (not after.get("ok")) and after.get("panels") == 0
+        return {"discard_pressed": pressed, "closed": closed}
+
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
-                       *, arm: bool = False) -> Dict[str, Any]:
-        """Set a position's SL/TP through its row's pencil and the dialog it
-        opens, every step read back (go-live review of #15316):
-        the ONE row for the symbol, side and size matching the position ->
-        the pencil chosen by icon name -> the ONE dialog that APPEARED,
-        passing ``edit_dialog_mismatch`` (names the symbol, read-only qty ==
-        the position's, mode Price, its own boxed submit) -> type SL/TP into
-        ITS fields -> read back -> ITS submit. Any refusal presses the
-        dialog's own Cancel. A click that raised is refused as outcome
-        unknown. ``_find_form`` / ``close_order_ticket`` are never used here:
-        they anchor on the sidebar order ticket."""
+                       *, arm: bool = False, rollout: Optional["ModifyRollout"] = None) -> Dict[str, Any]:
+        """Set a position's SL/TP through the MEASURED docked "Position
+        Details" panel (#15657; manager's re-target decision 2026-10-02):
+        the ONE Positions row for the symbol whose side AND size equal the
+        position's (the panel shows no quantity, so the row is the size
+        check) -> THAT row's modify control -> the ONE Position Details
+        panel, passing ``position_panel_mismatch`` (names the symbol, SL/TP
+        inputs each with mode "Price", one "Modify Position" boxed inside,
+        one "Discard") -> type SL/TP into ITS fields -> read back -> require
+        "Modify Position" ENABLED -> press it. Never a "Close" control. Any
+        refusal presses the panel's own "Discard" and requires it closed."""
         if stop_loss is None and take_profit is None:
             return {"ok": False, "clicked": False, "why": "nothing to modify"}
         # Diagnostic only (ORDER ENTRY rule 1): recorded on every result below,
@@ -6695,40 +7805,92 @@ class DXtradeAdapter(PropPlatformAdapter):
             return {"ok": True, "clicked": False, **seen, "why": "disarmed: stopped before the edit control"}
         if not self.EDIT_DIALOG_MEASURED:
             # PROP-TRAIL go-live review (manager, 2026-10-01): refuse before
-            # any click until a measured run has proven the dialog.
+            # any click until the manager flips the measured-surface flag.
             return {"ok": False, "clicked": False, **seen,
-                    "why": "refused: the SL/TP edit dialog is unmeasured (an armed walk could "
-                           "submit the sidebar order ticket instead)"}
-        if position.quantity is None:
-            return {"ok": False, "clicked": False, **seen, "why": "position size unknown: refusing"}
-        opened = self._open_edit_dialog(page, position.symbol)
-        if not opened.get("ok"):
-            if opened.get("clicked"):
-                self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": bool(opened.get("clicked")), **seen, "why": opened.get("why")}
-        dlg = opened["dialog"]
-        bad = edit_dialog_mismatch(dlg, position.symbol, position.quantity, tuple(want))
+                    "why": "refused: the SL/TP edit surface is unmeasured for armed use (EDIT_DIALOG_MEASURED is False)"}
+        if position.quantity is None or position.side is None:
+            return {"ok": False, "clicked": False, **seen, "why": "position side / size unknown: refusing"}
+        guarded = bool(self.ROLLOUT_GUARD)
+        if guarded:
+            # ROLLOUT: a single watched TIGHTEN-ONLY step, refused before any
+            # click unless the latch is clear and the move is bounded.
+            if rollout is None:
+                return {"ok": False, "clicked": False, **seen,
+                        "why": "refused: rollout guard needs the account's modify-rollout latch"}
+            blocked = rollout.blocked()
+            if blocked:
+                return {"ok": False, "clicked": False, **seen, "why": blocked}
+            try:
+                quote = self.read_quote(page, position.symbol)
+            except Exception:
+                quote = None
+            bad = rollout_tighten_mismatch(position.side, position.stop_loss, position.take_profit,
+                                           stop_loss, take_profit, quote)
+            if bad:
+                return {"ok": False, "clicked": False, **seen, "quote": quote,
+                        "why": "rollout refused: " + "; ".join(bad)}
+            want = {"stop_loss": float(stop_loss)}               # the TP is never typed
+            rollout.record("in_progress", symbol=position.symbol, side=position.side,
+                           from_sl=position.stop_loss, to_sl=float(stop_loss), quote=quote)
+
+        def refuse(why: str, panel: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+            exit_ = self._discard_position_panel(page)
+            tail = "; Discard pressed" if exit_["discard_pressed"] else "; no Discard found (Escape sent)"
+            if not exit_["closed"]:
+                tail += "; PANEL STILL OPEN"
+            if guarded and rollout is not None:
+                rollout.record("refused", why=_mask_public_text(why) + tail)
+            return {"ok": False, "clicked": True, **seen, "panel": panel, "exit": exit_,
+                    "why": _mask_public_text(why) + tail}
+
+        try:
+            page.click("[data-metis-edit-ctl]", timeout=5_000)
+        except Exception as exc:
+            return refuse(f"edit control click raised {type(exc).__name__}; outcome unknown")
+        page.wait_for_timeout(1_000)
+        panel = self._read_position_panel(page)
+        bad = position_panel_mismatch(panel, position.symbol, tuple(want))
         if bad:
-            self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": True, **seen, "dialog": dlg,
-                    "why": _mask_public_text("edit dialog refused: " + "; ".join(bad)) + "; Cancel pressed"}
+            return refuse("position panel refused: " + "; ".join(bad), panel)
         try:
             for k, v in want.items():
-                page.fill(f"[data-metis-edit-dialog] [data-metis-edit-field={k}]", _fmt_num(v), timeout=5_000)
+                sel = f"[data-metis-pp] [data-metis-pp-field={k}]"
+                page.fill(sel, _fmt_num(v), timeout=5_000)
+                try:
+                    page.locator(sel).blur()
+                except Exception:
+                    pass
         except Exception as exc:
-            self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": True, **seen, "why": f"fill raised {type(exc).__name__}; Cancel pressed"}
-        dlg = self._read_edit_dialog(page, position.symbol)
-        bad = edit_dialog_mismatch(dlg, position.symbol, position.quantity, tuple(want)) \
-            + verify_form_values(dlg.get("fields") or {}, want)
+            return refuse(f"fill raised {type(exc).__name__}", panel)
+        page.wait_for_timeout(400)
+        panel = self._read_position_panel(page)
+        bad = position_panel_mismatch(panel, position.symbol, tuple(want), require_submit_enabled=True) \
+            + verify_form_values(panel.get("fields") or {}, want)
         if bad:
-            self._cancel_edit_dialog(page)
-            return {"ok": False, "clicked": True, **seen, "dialog": dlg,
-                    "why": _mask_public_text("read-back refused: " + "; ".join(bad)) + "; Cancel pressed"}
+            return refuse("read-back refused: " + "; ".join(bad), panel)
         try:
-            page.click("[data-metis-edit-dialog] [data-metis-edit-btn=submit]", timeout=5_000)
+            page.click("[data-metis-pp] [data-metis-pp-btn=submit]", timeout=5_000)
         except Exception as exc:
-            return {"ok": False, "clicked": True, **seen,
-                    "why": f"submit click raised {type(exc).__name__}; outcome unknown"}
+            return {"ok": False, "clicked": True, **seen, "panel": panel,
+                    "why": f"'Modify Position' click raised {type(exc).__name__}; outcome unknown"}
         self._confirm_dialog(page)
-        return {"ok": True, "clicked": True, **seen, "why": "submit clicked"}
+        if not guarded:
+            return {"ok": True, "clicked": True, **seen, "panel": panel, "why": "Modify Position clicked"}
+        # ROLLOUT verify: the very next positions read must show the NEW stop,
+        # the UNCHANGED take profit and size -- else alert loudly and keep the
+        # latch (no further modify until it is reviewed and cleared).
+        page.wait_for_timeout(1_500)
+        try:
+            rows = [p for p in self.read_positions(page) if canonical_symbol(p.symbol) == canonical_symbol(position.symbol)]
+            why_read = None if len(rows) == 1 else f"{len(rows)} rows for {position.symbol} on the next read"
+        except Exception as exc:
+            rows, why_read = [], f"positions read failed ({type(exc).__name__})"
+        bad = [why_read] if why_read else rollout_verify_mismatch(position, rows[0], float(stop_loss))
+        if bad:
+            rollout.record("verify_failed", why="; ".join(bad))
+            return {"ok": False, "clicked": True, **seen, "panel": panel, "rollout": "verify_failed",
+                    "why": "ROLLOUT VERIFY FAILED after Modify Position: " + "; ".join(bad)
+                           + " -- further modifies halted"}
+        rollout.record("verified", sl=float(stop_loss))
+        return {"ok": True, "clicked": True, **seen, "panel": panel, "rollout": "verified",
+                "why": "Modify Position clicked; next read shows the new SL with TP and size unchanged"}

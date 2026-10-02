@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE probe-ticket ETH/SOL/XRP). probe-ticket takes an optional symbols: line with EXACTLY ONE venue symbol (refused otherwise); without it the default SOLUSD is unchanged (breakout_1 behaviour unchanged). probe-ticket itself is unchanged: opens the ticket only with one-click OFF, types nothing, submits nothing, closes it.",
+  "why": "The manager approved probe-ticket ETHUSD first, but nothing forwarded PROBE_SYMBOL from an issue: every probe-ticket dispatch measured SOLUSD regardless of the request."
+}

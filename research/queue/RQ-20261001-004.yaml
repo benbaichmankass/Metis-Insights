@@ -1,0 +1,80 @@
+id: RQ-20261001-004
+title: 'P2r2 Breakout screen: ETHUSD x pb2 (2h)'
+status: done
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 2
+question: 'Does trend-pullback 2h, adx>=25 on ETHUSDT (2h, Breakout market ETHUSD), run untuned from its
+  donor config over 730 days, clear the prop bar under Breakout''s cost stack? Untested: no committed
+  evidence record or round-1 unit covers this cell.'
+why_this_matters: 'Operator priority 1 (row P2): widen breakout_1 beyond ETH/SOL. Candidates come ONLY
+  from the Breakout symbols list (docs/integrations/breakout-instruments-2026-09-27.md transcription of
+  breakoutprop.com/symbols). Round 1 (PR #14049) tested the live-roster legs on the watchlist and found
+  6 power-adequate nulls; this unit covers a cell round 1 did not.'
+power:
+  expected_n: 110
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (the floor RQ-20260928-011/-012 registered).
+    expected_n=110 is the donor leg's committed 365-day trade count scaled to the 730-day window (an estimate,
+    not a measurement on this symbol); below 88 the unit grades UNDERPOWERED, never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: Historical window fetched from data.binance.vision; nothing accrues.
+decision_rule:
+  id: RULE-P2R2-ETH-pb2
+  registered_at: '2026-10-01'
+  registered_before_run: true
+  statistic: 'Over a fresh 730-day harness run of trend-pullback 2h, adx>=25 (donor xrp_pullback_2h) re-pointed
+    at ETHUSDT (2h), data.binance.vision candles: Gate A on harness net_r (pooled and each chronological
+    half), then prop_ev_grid.py path-mode ev_net_usd_per_life and p_net_positive per seed, arms bal015
+    and room033.'
+  rule: 'Gate A: n >= 88 AND pooled harness net_r > 0 AND net_r > 0 in BOTH chronological halves of the
+    trade list (harness net_r is net of fee + slippage + funding). Gate B (only if A passes): prop_ev_grid.py
+    path-mode, --costs breakout (8 bps commission + 3 bps slippage round trip, 0.033%/day swap, dxtrade
+    swap model), 5 seeds, tool-default MC, arms bal015 (flat 1.5%, breakout_1''s current sizing) and room033
+    (next-instance sizing): an arm PASSES iff ev_net_usd_per_life > 0 AND P(net>0) >= 0.70 on ALL 5 seeds.
+    PASS IF Gate A holds and either arm passes. UNDERPOWERED IF n < 88 (never FAIL). FAIL IF n >= 88 and
+    (Gate A fails on net_r, or ev <= 0 on any seed of every arm). NULL otherwise. NOT_APPLICABLE IF the
+    feed or harness fails (read_state says which). A PASS is a Tier-3 roster proposal for breakout_1 held
+    for the manager, never applied by this unit; because ~49 cells are screened, a PASS is discovery-window
+    evidence and the proposal must carry the multiplicity count.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 40
+  basis: one fetch + one harness run, then (only if Gate A passes) 2 arms x 5 seeds of prop_ev_sim at
+    ~2.5 min per cell over 4 jobs.
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 90
+  command:
+  - python3
+  - scripts/research/p2_breakout_symbol_screen.py
+  - --symbol
+  - ETHUSDT
+  - --family
+  - pb2
+  - --days
+  - '730'
+  - --workdir
+  - '{out_dir}'
+  - --jobs
+  - '4'
+  inputs:
+    research_unit: RQ-20261001-004
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- research/queue/RQ-20260929-044.yaml (round 1 template unit)
+- docs/research/prop-candidates-2026-09-29.md
+- docs/research/p2-breakout-matrix-2026-10-01.md
+last_dispatched_at: null
+result: "GRADED 2026-10-02 by lane P2 r2 against the rule above, run session-local. Verdict FAIL, n=113, harness net_r pooled 0.538 (halves 4.355 / -3.817), arms None. Record: research/results/RQ-20261001-004/*.jsonl; per-seed cells: docs/research/p2-breakout-r2-cells-2026-10-02.jsonl."
