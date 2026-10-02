@@ -1,1 +1,1 @@
-auto-merge: pipeline record
+auto-merge: pipeline record + checklist rows DIALOG-MEASURE / PROP-TRAIL
