@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager reviews; changes the executor-clear-halt system-action on breakout_1's executor state. Must land BEFORE the EDIT_DIALOG_MEASURED flip.",
+  "why": "Latch selector (manager 2026-10-02 22:30Z): executor-clear-halt clears ONLY executor/halted; new executor-clear-rollout clears ONLY executor/modify_rollout.json and is the one way it is cleared, so clearing an unrelated halt can never silently re-arm a modify step."
+}

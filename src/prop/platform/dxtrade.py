@@ -4820,7 +4820,9 @@ class ModifyRollout:
     executor's state dir). Its EXISTENCE blocks every further armed modify:
     the single watched step has been used ("in_progress" written BEFORE the
     click, so a crash cannot buy a second), "verified" or "verify_failed".
-    Only a reviewed removal of the file allows the next step."""
+    Only a reviewed removal of the file allows the next step: the
+    ``executor-clear-rollout`` system-action, which names this latch alone
+    (``executor-clear-halt`` never touches it)."""
 
     def __init__(self, path: Any) -> None:
         from pathlib import Path
@@ -4834,7 +4836,8 @@ class ModifyRollout:
         except (OSError, ValueError):
             state = "unreadable"
         return (f"rollout: the single watched modify step is used (state {state!r}); "
-                f"further modifies are halted until {self.path.name} is reviewed and cleared")
+                f"further modifies are halted until {self.path.name} is reviewed and cleared "
+                "(executor-clear-rollout)")
 
     def record(self, state: str, **facts: Any) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -7575,7 +7578,7 @@ class DXtradeAdapter(PropPlatformAdapter):
     # When armed, the first modifies on a real-money book are a ROLLOUT
     # (manager 2026-10-02 21:30Z): one watched, tighten-only step per reviewed
     # clear of the per-account latch (ModifyRollout, cleared only by
-    # executor-clear-halt). Every armed modify is gated by it.
+    # executor-clear-rollout, never by executor-clear-halt). Every armed modify is gated by it.
     ROLLOUT_GUARD = True
 
     def _locate_edit_control(self, page: Any, symbol: str, side: Optional[str],
