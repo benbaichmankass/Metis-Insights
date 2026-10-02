@@ -1,0 +1,17 @@
+{
+ "due_when": {
+  "check_every_days": 7,
+  "clears_when": "a cause is established for the 2026-07-24 08:15 XRPUSDT 15m ict_scalp trade's ~0.002% stop distance (cost_total_r 54.6R on a Binance spot feed, 5.2R in the committed Bybit-feed record) and either a minimum stop-distance guard exists in backtest AND live order sizing or the trade is shown unreachable live",
+  "kind": "observation",
+  "last_checked": "2026-10-01"
+ },
+ "id": "PI-20261001-JWZSVYVS-0002",
+ "next_action": "dispatch_lane",
+ "origin": {
+  "kind": "session",
+  "ref": "lane ICT-SCALP-HTF session_01NpQatfW1eowJpoJwzSVYVs, 2026-10-01",
+  "rerun": "Re-run scripts/backtest_ict_scalp.py on ict_scalp_xrp_15m over a 365d XRPUSDT 15m feed (n=211 trades filter-off, window 2025-10-01 to 2026-10-01) and sort trades by cost_total_r: the 2026-07-24 08:15 entry has cost_total_r 54.57 vs 5.18 for the same entry in comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_15m__trades.jsonl."
+ },
+ "state": "queued",
+ "what": "MEASURED 2026-10-01 over n=211 trades (xrp_15m, window 2025-10-01 to 2026-10-01): one trade, XRPUSDT 15m entry 2026-07-24 08:15, costs 54.6R (gross -1R, net -55.6R) because its stop distance is ~0.002% of price; the committed Bybit-feed record has the same entry at 5.2R cost. Excluding the 3 worst trades flips the old-harness filter-ON total from -50.7R to +7.5R, so this one trade explains the gap between my full-window runs and the committed evidence record (+4.08R, n=129 trades). Open: is there a minimum stop-distance guard in the harness and in live sizing; would live ever size/take such a trade?"
+}

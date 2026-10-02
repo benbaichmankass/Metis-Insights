@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "moves and edits a research/queue unit (RQ-20260930-704 blocked -> done); a non-stamp queue edit, left to a human merge",
+  "why": "records the RQ-20260930-704 vol-axis result (comms record + unit disposition + pipeline row update); research only, no runtime, config, strategy, sizing or risk change"
+}

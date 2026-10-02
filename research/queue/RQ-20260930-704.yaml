@@ -3,21 +3,19 @@ title: >-
   Regime impact scoping, VOL axis: using the vol label the router actually reads (the advisory regime head's
   P(volatile) call, replayed at each trade's entry), would gating each leg's losing (vol x direction) cells add
   full-cost net R out of sample?
-status: blocked
+status: done
 cadence: once
 theme: regime
 priority: 2
-blocked_on: >-
-  (a) FEASIBILITY, established 2026-10-01 (RESEARCH-W7): the label the router reads is the ADVISORY-stage regime head's
-  P(volatile) >= 0.5 per SYMBOL (`ml_vol_regime_for_symbol`; scripts/research/ml_vol_label_replay.py mirrors it offline). The heads live in the
-  trainer's model registry (`ml.registry.model_registry.ModelRegistry`), and `git ls-files` holds no model spec or state file, so this
-  cannot run on a GitHub runner from the checkout: it is a TRAINER-VM unit. Do NOT substitute the frozen-edge `vol_detector.py`
-  label: ml_vol_label_replay.py's own docstring records that it is a different label (axis-fidelity rule, regime-selectivity skill).
-  (b) List which symbols have an advisory-stage regime head via the trainer-vm-diag relay (BTC is live since 2026-06-28 per that
-  docstring); only legs on those symbols can be measured, and the unit must name the rest not_attempted.
-  (c) `regime_impact_scoping.py` needs a `--vol-labels <replay jsonl>` input (label per (symbol, bar) from ml_vol_label_replay.py),
-  replacing the ADX label while keeping the same blocks, selection and bar. Build and test it before unblocking.
-  Unblock by `git mv` to research/queue/ with status: queued once (a)-(c) hold.
+status_reason: >-
+  2026-10-01 (RESEARCH-W7): RAN by hand on the trainer VM, graded FAIL (no_headroom_vol_axis). Record:
+  comms/research/RQ-20260930-704/trainer-20261001/verdict.json (transcribed summary; full output in trainer-vm-diag issue #15284).
+  8 head-covered legs (BTC 3, SOL 5), 673 test trades (< 785, power-bounded). Oracle pooled +9.17 R [-6.99, +25.78],
+  +0.0123 R/trade [-0.0102, +0.0326] vs bar 0.03 R/trade and p5 > 0. The gain is concentrated in ict_scalp_5m (BTC, +9.42 R).
+  Caveats: in-sample head labels, live_verified false, SOL head labels 51.96% of bars volatile vs BTC 7.98%.
+  Not dispatched by the queue (trainer-resident registry): the dispatcher never fired it.
+  PRECONDITION OF ANY FUTURE VOL-AXIS UNIT: live_verified is false; the replay `verify` against live audit rows must pass first
+  (not run now by manager decision: a power-bounded null cannot be turned into a decision by label verification).
 kind: experiment
 
 question: >-

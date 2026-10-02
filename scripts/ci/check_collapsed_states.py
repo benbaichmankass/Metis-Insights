@@ -1850,7 +1850,10 @@ CONTRACTS: List[Dict[str, object]] = [
         # evidence it sees is the tests.
         "consumer_token": (r"\bprecancel\b|\b_verify_cancel_effect\b|"
                            r"\b_log_cancel_verdict\b"),
-        "states": ["verified", "unverified", "not_attempted"],
+        # `unreadable` (ORDER-AUDIT-2 item 4): the PRE-cancel read of the
+        # book raised, so nothing was cancelled because nothing was seen —
+        # `_locked_close` refuses to flatten on it.
+        "states": ["verified", "unverified", "not_attempted", "unreadable"],
         "why": (
             "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT. "
             "`unverified` = the post-cancel re-read FAILED, which is 'we did not "

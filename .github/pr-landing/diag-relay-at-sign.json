@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: docs/claude/diag-relay.md records that '@' is not in the relay path charset (URL-encode templated units as %40) and that a prose body is read as a path. Measured 2026-10-02 by issues #15376/#15377 (rejected) and #15378 (ok)."
+}

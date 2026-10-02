@@ -1541,6 +1541,28 @@ def test_opener_restores_the_workspace_when_none_holds_a_ticket(browser):  # noq
     assert ws == "My Trading Account" and deleted == 0
 
 
+def test_opener_records_what_each_formless_workspace_showed(browser):  # noqa: F811
+    # tradeify_1 probe #15296: every other workspace "held no form" and the run
+    # said nothing about what they held. Each tried workspace now records a
+    # masked summary (counts + labels, never values); the ticket workspace
+    # here is "Trading Journal", so "Trading Dashboard" is the formless one.
+    p = workspace_page(browser, ticket_on="nowhere")
+    got = fast_adapter().open_order_ticket(p, "ETHUSD")
+    p.close()
+    summ = got["workspace_summary"]
+    assert set(summ) == {"Trading Dashboard", "Trading Journal"}
+    for s in summ.values():
+        assert s["buy"] == 0 and s["sell"] == 0 and isinstance(s["input_labels"], list)
+
+
+def test_probe_carries_the_workspace_summary(browser):  # noqa: F811
+    p = workspace_page(browser, ticket_on="nowhere")
+    got = fast_adapter().probe_order_ticket(p, "ETHUSD")
+    p.close()
+    assert got["surface"] == "not_opened" and got["workspace_restored"] is True
+    assert set(got["workspace_summary"]) == {"Trading Dashboard", "Trading Journal"}
+
+
 def test_switch_dry_round_trips_after_the_workspace_switch(browser):  # noqa: F811
     p = workspace_page(browser)
     got = fast_adapter().symbol_switch_dry(p, "ETHUSD", settle_ms=50)

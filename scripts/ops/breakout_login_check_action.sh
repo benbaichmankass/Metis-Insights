@@ -54,6 +54,31 @@
 #                        the element hit at each Symbol cell's centre, every
 #                        symbol_input, and the sidebar ticket's buttons. Clicks,
 #                        hovers and types nothing. No symbols: needed.
+#     edit-dialog-dry  — READ-ONLY (DIALOG-MEASURE 2026-10-01): hover the
+#                        Positions row for `symbols:` (ONE venue symbol, e.g.
+#                        ETHUSD) and locate its edit pencil by icon name.
+#                        Clicks nothing.
+#     edit-dialog-probe — MEASUREMENT: the same, then click THAT pencil, read
+#                        the dialog it opens (symbol, read-only qty, SL/TP
+#                        fields, Price/offset mode, submit/cancel geometry),
+#                        press the dialog's OWN Cancel. Submits nothing. Only
+#                        meaningful while a position is open on that symbol;
+#                        with no row it stops before any click.
+#     widget-menu-probe — MEASUREMENT (TRADEIFY-GOLIVE 2026-10-01): ONE click on
+#                        the current workspace's top-most add-widget "+", dump
+#                        the menu that appears (masked), Escape, re-read the
+#                        layout. Clicks no menu item, no order/price/delete
+#                        control; refused if one-click reads ON.
+#     add-watchlist-widget — LAYOUT CHANGE (TRADEIFY-GOLIVE option B step 2,
+#                        operator "Runner does it"): on "My Trading Account",
+#                        the add-widget "+" then the MEASURED "Watchlist" menu
+#                        entry (#15350) — two clicks, nothing else; refused
+#                        unless one-click reads OFF; a no-op when a watchlist
+#                        is already present; verified click-free.
+#     watchlist-submenu-probe — MEASUREMENT (TRADEIFY-GOLIVE, #15373 found the
+#                        "Watchlist" entry opens a Private/Public submenu): "+",
+#                        "Watchlist", then HOVER each submenu entry and dump;
+#                        clicks no submenu entry; Escape; layout re-read.
 #     round-trip-dry   — the END-TO-END test walked dry: read the quote, build
 #                        a minimum-size ETHUSD market bracket (add `sol` for
 #                        SOLUSD), fill + read back the form, locate the close
@@ -165,7 +190,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt \
          feed-enable-timer feed-disable-timer; do
@@ -226,6 +251,13 @@ if { [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executo
     # ict-prop-executor.timer runs breakout_1 only. A second account's executor
     # timer is its go-live step and is not built here (TRADEIFY-WIRE PR C).
     log "${EXEC_MODE}: refused for ${ACCOUNT} — the executor timer is breakout_1's; a per-account executor timer is not built"
+    exit 1
+fi
+if { [ "${EXEC_MODE}" = "add-watchlist-widget" ] || [ "${EXEC_MODE}" = "watchlist-submenu-probe" ]; } \
+        && [ "${ACCOUNT}" = "breakout_1" ]; then
+    # A layout change on breakout_1's LIVE real-money terminal is never made
+    # by these modes (TRADEIFY-GOLIVE, manager review of #15354).
+    log "${EXEC_MODE}: refused for breakout_1 — a tradeify-only layout step"
     exit 1
 fi
 if [ "${EXEC_MODE}" = "feed-enable-timer" ] || [ "${EXEC_MODE}" = "feed-disable-timer" ]; then
@@ -435,6 +467,12 @@ if [ -n "${EXEC_MODE}" ]; then
             case "${ACTION_SYMBOLS}" in *,*) log "symbol-switch-dry: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--symbol-switch-dry "${ACTION_SYMBOLS// /}") ;;
         link-state-dump)     EARGS+=(--link-state-dump) ;;
+        edit-dialog-dry|edit-dialog-probe)
+            case "${ACTION_SYMBOLS// /}" in ""|*,*) log "${EXEC_MODE}: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--"${EXEC_MODE}" "${ACTION_SYMBOLS// /}") ;;
+        widget-menu-probe)   EARGS+=(--widget-menu-probe) ;;
+        add-watchlist-widget) EARGS+=(--add-watchlist-widget) ;;
+        watchlist-submenu-probe) EARGS+=(--watchlist-submenu-probe) ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")

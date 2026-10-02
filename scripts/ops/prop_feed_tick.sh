@@ -175,6 +175,12 @@ if [ -f "${REPO_DIR}/.env" ]; then
 fi
 export PLAYWRIGHT_BROWSERS_PATH="${BASE}/browsers"
 
+# Layout canary (TRADEIFY-GOLIVE, manager-approved 2026-10-01): every account
+# but breakout_1 asks the check for a click-free `layout_watchlist:` line.
+# breakout_1's feed is unchanged.
+CANARY_ARG=""
+[ "${ACCOUNT}" != "breakout_1" ] && CANARY_ARG="--layout-canary"
+
 # The check's own (already redacted) output goes to the journal AND to a
 # scratch copy, read back only for its `session:` line.
 OUT="$(mktemp "${STATE_DIR}/.tick-out.XXXXXX")"
@@ -183,7 +189,7 @@ set +e
 ( cd "${REPO_DIR}" && timeout --kill-after=15 "${TIMEOUT_S}" \
     env PYTHONUNBUFFERED=1 "${VENV}/bin/python" -u scripts/prop/breakout_login_check.py \
     --account "${ACCOUNT}" --emit-status --symbols= \
-    --storage-state "${SESSION_STATE}" ) 2>&1 | tee "${OUT}"
+    --storage-state "${SESSION_STATE}" ${CANARY_ARG} ) 2>&1 | tee "${OUT}"
 rc=${PIPESTATUS[0]}
 set -e
 
@@ -260,6 +266,34 @@ if grep -q '^session: login_attempt$' "${OUT}"; then
         exit "${rc}"
     fi
 fi
+
+# Layout canary: ONE ping when the watchlist goes from present to MISSING
+# (marker `layout-missing`), one log line when it comes back. Never trips
+# the feed and never changes its exit code; no line = nothing decided.
+LAYOUT_MARK="${STATE_DIR}/layout-missing"
+layout_line="$(grep -m1 '^layout_watchlist: ' "${OUT}" || true)"
+case "${layout_line}" in
+    "layout_watchlist: MISSING"*)
+        if [ ! -f "${LAYOUT_MARK}" ]; then
+            # Like trip(): an empty marker still suppresses the repeat ping.
+            printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${layout_line}" > "${LAYOUT_MARK}" 2>/dev/null \
+                || : > "${LAYOUT_MARK}" 2>/dev/null \
+                || log "CANNOT write ${LAYOUT_MARK}; the next MISSING tick will ping again"
+            log "LAYOUT: ${layout_line} (first tick missing; pinging once)"
+            record_audit "prop-feed" "layout_watchlist_missing" \
+                "{\"account\": \"${ACCOUNT}\"}" >/dev/null || true
+            "${PING_PY}" "${REPO_DIR}/scripts/send_ping.py" --target claude --priority high \
+                --kind state_change \
+                --why "the terminal layout lost its watchlist; no ticket can open until it is back" \
+                "[prop-feed] ${ACCOUNT}: the watchlist widget is MISSING from the terminal (no Symbol/Bid/Ask table). Ticket openers have nothing to act on. Fix: breakout-login-check account: ${ACCOUNT} apply: add-watchlist-widget." \
+                >/dev/null 2>&1 || log "ping enqueue failed (marker + audit record still written)"
+        fi ;;
+    "layout_watchlist: ok"*)
+        if [ -f "${LAYOUT_MARK}" ]; then
+            rm -f "${LAYOUT_MARK}"
+            log "LAYOUT: watchlist back (${layout_line})"
+        fi ;;
+esac
 
 case "${rc}" in
     0) echo 0 > "${FAILS_FILE}"; log "ok (account_status posted)"; exit 0 ;;

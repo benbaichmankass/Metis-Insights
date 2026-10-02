@@ -48,6 +48,17 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
     """
     Validate order payload before real submission.
     Returns a structured status dict for logging/tests.
+
+    ⚠️ NO CALLER IN ``src/`` (re-verified 2026-10-01, ORDER-AUDIT-2 item 2,
+    AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers). Live entries
+    dispatch through ``Coordinator.multi_account_execute`` → ``execute_pkg``,
+    never through here, so NONE of the guards below (halt flag, daily loss,
+    open-position caps, overtrading throttle) protect a live order. The halt
+    flag's second, independent layer is in ``multi_account_execute`` itself
+    (plus ``pairs_executor.run_pairs_tick`` for the isolated pairs sleeve).
+    The ``MAX_*`` guards are unset in every config/env file, so they were
+    no-ops even before this was found; whether to wire or delete them is
+    filed against ORDER-AUDIT-2, not decided here.
     """
     if not isinstance(order, dict):
         return {

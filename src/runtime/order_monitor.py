@@ -1856,6 +1856,23 @@ def _close_trade_by_match(db, *, strategy: Optional[str], symbol: Optional[str],
 # ---------------------------------------------------------------------------
 
 
+def _account_mode(acc) -> str:
+    """``"dry_run"`` | ``"live"`` for a loaded account, from ``acc.dry_run``.
+
+    ⚠️ TradingAccount has NO ``.mode`` attribute — the resolved state is
+    ``acc.dry_run`` (``_resolve_mode``). Reading ``getattr(acc, "mode",
+    "live")`` resolved EVERY account to "live", ib_live and oanda_practice
+    included, so the monitor's dry_run short-circuit on close / partial-close /
+    modify could never fire (AUD-20260927-CA-A04, ORDER-AUDIT-2 item 3).
+    ``is True`` so a MagicMock's fabricated attribute never reads as dry; a
+    test double that sets a string ``.mode`` is still honoured.
+    """
+    if getattr(acc, "dry_run", None) is True:
+        return "dry_run"
+    mode = getattr(acc, "mode", None)
+    return mode if isinstance(mode, str) and mode else "live"
+
+
 def _build_account_client(account_id):
     """Resolve an exchange client + cfg for *account_id*.
 
@@ -1892,7 +1909,9 @@ def _build_account_client(account_id):
                 # exchange-side wiring (``_send_close_to_exchange``,
                 # ``_send_modify_to_exchange``) can short-circuit on
                 # paper accounts without ever calling ``place_order``.
-                "mode": getattr(acc, "mode", "live") or "live",
+                #
+                # See _account_mode: TradingAccount has no ``.mode``.
+                "mode": _account_mode(acc),
                 # Required by bybit_client_for() to route demo accounts to
                 # api-demo.bybit.com instead of api.bybit.com.
                 "demo": getattr(acc, "demo", False),

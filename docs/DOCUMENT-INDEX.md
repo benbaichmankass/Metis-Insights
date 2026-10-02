@@ -796,6 +796,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/ib-metals-native-backtest-2026-07-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ib-pipeline-stability-review-2026-07-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ict-scalp-5m-real-money-verdict-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/ict-scalp-htf-filter-decision-rule-2026-10-01.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ict-scalp-seam-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ict_scalp_5m-modernization-research-plan-2026-07-20.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/ict_scalp_5m-phase0-findings-2026-07-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

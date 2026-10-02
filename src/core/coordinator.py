@@ -958,6 +958,26 @@ class Coordinator:
         from src.units.accounts import load_accounts
         from src.units.accounts.account import RiskBreach
         import os as _os
+        from src.runtime.runtime_flags import is_halted
+
+        # TRADER HALT FLAG — the real second, independent layer
+        # (AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers,
+        # ORDER-AUDIT-2 item 2). The halt check documented as the order layer's
+        # "second, independent" one lives in
+        # ``src/runtime/orders.py::safe_place_order``, which has NO caller in
+        # src/ — so pipeline.run's check was the only one. Every entry package
+        # passes through this method, so a caller that reaches it without
+        # pipeline.run's check still cannot open a position while the flag is
+        # present. Entries only: exits run through order_monitor and are
+        # deliberately not halted (same scope as pipeline.run's halt).
+        if is_halted():
+            logger.warning(
+                "multi_account_execute: trader HALTED (flag present) — "
+                "refusing to dispatch %s %s %s to any account",
+                getattr(pkg, "strategy", "?"), getattr(pkg, "symbol", "?"),
+                getattr(pkg, "direction", "?"),
+            )
+            return []
 
         path = accounts_path or _os.path.join(_REPO_ROOT, "config", "accounts.yaml")
         try:

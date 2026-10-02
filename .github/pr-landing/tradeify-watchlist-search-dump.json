@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE measure-first for adding ETH/SOL/XRP). FIND_INSTRUMENT_SEARCH_JS may anchor an EMPTY watchlist on its header table; all widget-level checks still apply. Used only by the manual instrument-probe measurement (types into the watchlist search, dumps, resets; clicks nothing). A watchlist with rows (breakout_1's) anchors exactly as before.",
+  "why": "#15426 restored tradeify_1's watchlist (Favourites) but it reads 0 symbols; instrument-probe ETHUSD #15431 refused 'no measured watchlist row aligned with the header' before typing, so the add-symbol path cannot be measured until the finder can anchor an empty list."
+}
