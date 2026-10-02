@@ -1874,11 +1874,12 @@ PAGE_LEAF_DUMP_JS = r"""
 # (Symbol / Description) and its rows as two SEPARATE tables; the header
 # table's own tbody is empty. This anchors on the visible header table (a
 # <th> text "Symbol" AND one "Description"), takes the FIRST table that
-# FOLLOWS it inside the nearest shared ancestor (at most 4 levels up) and has
+# FOLLOWS it inside the nearest shared ancestor (at most 6 levels up) and has
 # <tbody> rows, and requires that table's rows to have as many cells as the
 # header has columns (so a positions/orders table never qualifies). The target
-# is the ONE row whose FIRST cell's whole text (whitespace collapsed) equals
-# ``target`` exactly (ETH/USD, never ETC/USD or ENA/USD); 0 or >1 is refused.
+# is the ONE row whose FIRST cell's whole text, with ALL whitespace removed
+# (live #15618 read "ETH /USD": <mark>ETH</mark> + "/USD"), equals ``target``
+# exactly (ETH/USD, never ETC/USD or ENA/USD); 0 or >1 is refused.
 # That cell is tagged data-metis-add-target. Returned for review: every row's
 # cells (EVERY digit masked, as in PAGE_LEAF_DUMP_JS), the target cell's box,
 # its centre, and what document.elementFromPoint returns there (tag, masked
@@ -1898,7 +1899,9 @@ ADD_SYMBOL_RESOLVE_JS = r"""
   const head = heads[0];
   const ncols = head.querySelectorAll('th').length;
   let body = null, anc = head.parentElement, up = 0;
-  while (anc && up < 4 && !body) {
+  // 6 levels (manager review 18:41Z 2026-10-02): live #15618 found the body at
+  // ancestor_hops 4, the old limit, so one layout level would have refused.
+  while (anc && up < 6 && !body) {
     for (const t of anc.querySelectorAll('table')) {
       if (t === head || !vis(t)) continue;
       if (!(head.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
@@ -1913,7 +1916,12 @@ ADD_SYMBOL_RESOLVE_JS = r"""
   const listed = rows.slice(0, 30).map(r => [...r.cells].map(c => mask(norm(c))));
   const out = {ok: false, ncols, n_rows: rows.length, shape_ok, rows: listed, ancestor_hops: up};
   if (!shape_ok) { out.why = 'results rows do not have the header column count'; return out; }
-  const hits = rows.filter(r => r.cells.length && norm(r.cells[0]) === target);
+  // MEASURED live (#15618): the venue renders the Symbol cell as
+  // <mark>ETH</mark> + "/USD" and innerText reads "ETH /USD". Compare with ALL
+  // whitespace removed on both sides; anything else must still match exactly
+  // (ETC/USD, ENA/USD never equal ETH/USD).
+  const compact = v => String(v || '').replace(/\s+/g, '');
+  const hits = rows.filter(r => r.cells.length && compact(norm(r.cells[0])) === compact(target));
   out.n_target = hits.length;
   if (hits.length !== 1) { out.why = hits.length + ' rows whose Symbol cell is exactly ' + target + ' (need exactly 1)'; return out; }
   const cell = hits[0].cells[0];

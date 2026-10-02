@@ -1,0 +1,1 @@
+{"tier": 1, "landing": "self", "why": "Register-only: rename 7 id-named pipeline records to timestamped names (content identical) so a later update is not shadowed by the filename-ordered fold; file PI-20261002-APBY4NTV-0003 for the root cause."}
