@@ -44,6 +44,7 @@ def page(browser, *, one_click_on=False, menu=MENU, workspace="My Trading Accoun
       <div id="sub" style="display:none"><span data-s="Private">Private</span><span data-s="Public">Public</span></div>
       <div id="other" style="display:none"><span>Default Watchlist</span><span>Create New</span></div>
       <div id="third" style="display:none"><span>Default Watchlist</span><span>Create New</span></div>
+      <div id="fav" style="display:none"><span data-l="Favourites">Favourites</span></div>
       <script>
         window.__picked = [];
         document.querySelector('[data-test-id=widget_tab_add_button]').addEventListener('click', () => {{
@@ -64,12 +65,23 @@ def page(browser, *, one_click_on=False, menu=MENU, workspace="My Trading Accoun
           document.getElementById('menu').style.display = 'none';
           if ('{watchlist_opens}' === 'submenu') document.getElementById('top').insertAdjacentHTML('beforeend', `{WATCHLIST}`);
           else if ('{watchlist_opens}' === 'third') document.getElementById('third').style.display = 'block';
+          else if ('{watchlist_opens}' === 'favourites' || '{watchlist_opens}' === 'fav_then_more') {{
+            document.getElementById('sub').style.display = 'block';
+            document.getElementById('menu').style.display = 'block';
+            document.getElementById('fav').style.display = 'block';
+          }}
         }}));
+        document.querySelector('[data-l=Favourites]').addEventListener('click', () => {{
+          window.__picked.push('LIST:Favourites');
+          ['menu', 'sub', 'fav'].forEach(i => document.getElementById(i).style.display = 'none');
+          if ('{watchlist_opens}' === 'favourites') document.getElementById('top').insertAdjacentHTML('beforeend', `{WATCHLIST}`);
+          else document.getElementById('third').style.display = 'block';
+        }});
         document.querySelectorAll('#other span, #third span').forEach(sp => sp.addEventListener('click', () =>
           window.__picked.push('X:' + sp.textContent)));
         document.addEventListener('keydown', e => {{
           window.__keys = (window.__keys || []).concat([e.key]);
-          if (e.key === 'Escape') ['menu', 'sub', 'other', 'third'].forEach(i =>
+          if (e.key === 'Escape') ['menu', 'sub', 'other', 'third', 'fav'].forEach(i =>
             document.getElementById(i).style.display = 'none');
         }});
       </script></body></html>"""
@@ -144,14 +156,38 @@ def test_the_measured_submenu_adds_the_watchlist_via_private(browser):  # noqa: 
     assert st["picked"] == ["Watchlist", "SUB:Private"] and st["del"] == 0 and st["keys"] == []
 
 
-def test_a_third_level_after_private_is_reported_never_clicked_into(browser):  # noqa: F811
+def test_an_unmeasured_level_after_private_is_escaped_with_nothing_picked(browser):  # noqa: F811
+    # Private opens something other than the measured "Favourites" list.
     p = page(browser, watchlist_opens="third")
+    got = add(p)
+    st = state(p)
+    p.close()
+    assert got["refused"] == "Private submenu did not match the measured list level (nothing picked)"
+    assert got["clicks"] == ["add_widget_plus", "menu:Watchlist", "submenu:Private"]
+    assert st["picked"] == ["Watchlist", "SUB:Private"] and st["del"] == 0
+    assert "Escape" in st["keys"] and got["menu_left_open"] is False
+
+
+def test_the_measured_path_adds_the_watchlist_via_private_favourites(browser):  # noqa: F811
+    # #15414: Private opens a third level holding only "Favourites".
+    p = page(browser, watchlist_opens="favourites")
+    got = add(p)
+    st = state(p)
+    p.close()
+    assert got["added"] is True
+    assert got["clicks"] == ["add_widget_plus", "menu:Watchlist", "submenu:Private", "list:Favourites"]
+    assert got["watchlist_after"]["symbols"] == ["BTCUSD", "ETHUSD"]
+    assert st["picked"] == ["Watchlist", "SUB:Private", "LIST:Favourites"] and st["del"] == 0 and st["keys"] == []
+
+
+def test_anything_after_favourites_is_reported_never_clicked_into(browser):  # noqa: F811
+    p = page(browser, watchlist_opens="fav_then_more")
     got = add(p)
     st = state(p)
     p.close()
     assert got["added"] is False and got["watchlist_after"]["readable"] is False
     assert "Default Watchlist" in [i["text"] for i in got["new_after"]["items"]]
-    assert st["picked"] == ["Watchlist", "SUB:Private"] and st["del"] == 0
+    assert st["picked"] == ["Watchlist", "SUB:Private", "LIST:Favourites"] and st["del"] == 0
     assert st["keys"] == ["Escape"] and got["menu_left_open"] is False
 
 
