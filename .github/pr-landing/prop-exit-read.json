@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/prop/prop_executor.py and src/prop/platform/dxtrade.py are the live breakout_1 prop executor (real prop account). Dispatched by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) as lane PROP-EXIT-READ (PI-20261002-APBY4NTV-0002), which requires a HELD PR; the manager reviews and merges. What changes on the live path: (1) on the cycle that ALREADY reports a close (unchanged: journal open, terminal absent on 2 consecutive reads), the executor clicks the Trade History VIEW tab once, reads it, and clicks back to the Orders tab; no order, position, instant-trade or delete control is reachable from that code; (2) the close report adds exit_price / pnl / closed_at / reason tp|sl|manual only when exactly one Closing trade matches, else it is byte-identical to today's; (3) the Trade History table no longer classifies as a working-orders table. Revert: git revert of the merge commit.",
+  "why": "PROP-EXIT-READ: every automated prop close landed ungraded (no exit_price, no pnl, reason 'closed_on_terminal ... not built'). The executor's first automated trade (ETHUSD short, 18:50Z 2026-10-02) is open and will close into that gap."
+}
