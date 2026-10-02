@@ -971,7 +971,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
 
     # 4. reconcile the journal against the terminal
     if journal_open is not None:
-        halted = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post) or halted
+        reader = getattr(adapter, "read_trade_history", None)
+        halted = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post,
+                                    read_history=(lambda: reader(page)) if reader else None,
+                                    now=now) or halted
     if halted and not state.halted() and live:
         state.halt(halted)
     res.halted = halted
@@ -1897,11 +1900,97 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
     return trip
 
 
+#: The close reason when the exit was not read: kept verbatim so the gap stays
+#: visible on every close the history read could not match.
+CLOSE_UNREAD_REASON = "closed_on_terminal (executor reconcile; exit read from the terminal history is not built)"
+#: How far before the journal row's own timestamp a closing trade may sit (the
+#: history shows minutes; the fill report is written after the confirm re-read).
+EXIT_MATCH_LOOKBACK = timedelta(minutes=10)
+#: Relative distance from the bracket level that still reads as that leg.
+EXIT_LEVEL_REL_TOL = 0.0005
+
+
+def exit_reason(direction: Optional[str], exit_price: Optional[float], sl: Optional[float],
+                tp: Optional[float], rel: float = EXIT_LEVEL_REL_TOL) -> str:
+    """``sl`` when the exit is at or beyond the stop (a stop fills at or past
+    its level), ``tp`` when at or beyond the target, else ``manual``. INFERRED
+    from prices: the Trade History row does not name the leg that closed."""
+    d = _dir(direction)
+    if exit_price is None or d is None:
+        return "manual"
+    if sl is not None:
+        tol = abs(sl) * rel
+        if (d == "long" and exit_price <= sl + tol) or (d == "short" and exit_price >= sl - tol):
+            return "sl"
+    if tp is not None:
+        tol = abs(tp) * rel
+        if (d == "long" and exit_price >= tp - tol) or (d == "short" and exit_price <= tp + tol):
+            return "tp"
+    return "manual"
+
+
+def match_exit(j: Mapping[str, Any], history: Sequence[Mapping[str, Any]],
+               now: Optional[datetime] = None) -> Tuple[Optional[Dict[str, Any]], str]:
+    """The ONE Trade History row that closed journal position ``j``, or
+    ``(None, why)``. A row matches when it is a Closing trade on the same
+    symbol, on the opposite side, of the journaled size, timed no earlier than
+    the journal row (less EXIT_MATCH_LOOKBACK) and no later than ``now``. Zero
+    or several matches (a partial close, two closes in the window, a row
+    without a time) is ``None``: an exit is never picked by guess."""
+    from src.prop.symbol_map import to_bot_symbol
+
+    sym = str(j.get("symbol") or "").upper()
+    d = _dir(j.get("direction"))
+    qty = _f(j.get("qty"))
+    since = _parse_ts(j.get("opened_at")) or _parse_ts(j.get("created_at"))
+    if not sym or d is None:
+        return None, "journal row has no symbol/direction"
+    if qty is None or since is None:
+        return None, "journal row has no qty or timestamp to match on"
+    close_side = "short" if d == "long" else "long"
+    lo = since.replace(second=0, microsecond=0) - EXIT_MATCH_LOOKBACK
+    hits = []
+    for r in history:
+        if r.get("effect") != "closing" or r.get("side") != close_side:
+            continue
+        if str(to_bot_symbol(r.get("symbol")) or r.get("symbol") or "").upper() != sym:
+            continue
+        ts = r.get("ts")
+        if ts is None or ts < lo or (now is not None and ts > now):
+            continue
+        if not _close(_f(r.get("volume")), qty, 1e-6):
+            continue
+        hits.append(r)
+    if len(hits) != 1:
+        return None, f"{len(hits)} closing trades match"
+    if _f(hits[0].get("price")) is None:
+        return None, "matched closing trade has no price"
+    return dict(hits[0]), "matched"
+
+
 def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any],
                        positions: Sequence[Position], journal_open: Sequence[Mapping[str, Any]],
-                       ledger: IntentLedger, claimed_keys: set, post: Any) -> Optional[str]:
-    """§ 3.2 step 4. Returns a halt reason, or None."""
+                       ledger: IntentLedger, claimed_keys: set, post: Any,
+                       read_history: Optional[Callable[[], Sequence[Mapping[str, Any]]]] = None,
+                       now: Optional[datetime] = None) -> Optional[str]:
+    """§ 3.2 step 4. Returns a halt reason, or None.
+
+    ``read_history`` (PROP-EXIT-READ): the terminal's Trade History, read at
+    most once per cycle and only when a close is reported. It changes WHAT the
+    close report says, never WHEN a position counts as closed."""
     from src.prop.symbol_map import to_bot_symbol
+
+    hist_cache: Dict[str, Any] = {}
+
+    def history() -> Tuple[Optional[Sequence[Mapping[str, Any]]], Optional[str]]:
+        if read_history is None:
+            return None, "no history reader"
+        if "rows" not in hist_cache:
+            try:
+                hist_cache["rows"], hist_cache["why"] = list(read_history()), None
+            except Exception as exc:
+                hist_cache["rows"], hist_cache["why"] = None, f"history read failed ({type(exc).__name__})"
+        return hist_cache["rows"], hist_cache["why"]
 
     term: Dict[Tuple[str, str], Position] = {}
     halt = None
@@ -1918,12 +2007,28 @@ def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any]
         if p is None:
             absent[k] = int(absent.get(k, 0)) + 1
             if absent[k] >= 2:
-                res.log("closed_on_terminal", key=k)
-                _report(res, post, {"kind": "fill", "status": "closed", "account_id": cfg.account_id,
-                                    "ticket_id": j.get("ticket_id"), "symbol": key[0], "direction": key[1],
-                                    "qty": j.get("qty"), "entry_price": j.get("entry_price"),
-                                    "reason": "closed_on_terminal (executor reconcile; exit read from the "
-                                              "terminal history is not built)", "source": "prop_executor"})
+                body = {"kind": "fill", "status": "closed", "account_id": cfg.account_id,
+                        "ticket_id": j.get("ticket_id"), "symbol": key[0], "direction": key[1],
+                        "qty": j.get("qty"), "entry_price": j.get("entry_price"),
+                        "reason": CLOSE_UNREAD_REASON, "source": "prop_executor"}
+                rows, why = history()
+                hit = None
+                if rows is not None:
+                    hit, why = match_exit(j, rows, now)
+                if hit is not None:
+                    px = _f(hit.get("price"))
+                    body.update({
+                        "exit_price": px,
+                        "pnl": _f(hit.get("net_closed_pnl")),
+                        "reason": exit_reason(key[1], px, _f(j.get("sl")), _f(j.get("tp"))),
+                        "closed_at": hit["ts"].isoformat(),
+                        "exit_source": "terminal Trade History (reason inferred from exit vs SL/TP)",
+                        "closed_pnl_gross": _f(hit.get("closed_pnl")),
+                        "commission": _f(hit.get("commission")),
+                    })
+                res.log("closed_on_terminal", key=k, exit_read=why,
+                        exit_price=body.get("exit_price"), reason=body["reason"])
+                _report(res, post, body)
                 absent.pop(k, None)
             continue
         absent.pop(k, None)
