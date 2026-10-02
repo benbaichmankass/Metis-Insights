@@ -1,5 +1,7 @@
 # Bracket-faithful re-grade of the two prop legs (RQ-20261002-050)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · lane SOL-BRACKET-REGRADE. Tier 1: no config, sizing, roster or order-path change.
+
 Closes PI-20261001-S8DMYMUN-0001. Rule `RULE-PROP-BRACKET-REGRADE-STAGE0-B6V2` was committed in
 `research/queue/RQ-20261002-050.yaml` (commit 2a0a3468) **before** any run. Exit model: one static
 SL+TP bracket, no trail / stale stop / decay, no time exit (what `breakout_1` actually gets).
