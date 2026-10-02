@@ -1,0 +1,17 @@
+{
+ "due_when": {
+  "check_every_days": 7,
+  "clears_when": "PR #15341 (causal HTF harness) is merged AND comms/strategy_evidence/ict_scalp_*.json are rebuilt with scripts/ops/build_strategy_evidence.py on the Bybit feed from a runner that can reach Bybit, with the rebuilt net_r_oos committed",
+  "kind": "observation",
+  "last_checked": "2026-10-01"
+ },
+ "id": "PI-20261001-JWZSVYVS-0003",
+ "next_action": "dispatch_lane",
+ "origin": {
+  "kind": "session",
+  "ref": "lane ICT-SCALP-HTF session_01NpQatfW1eowJpoJwzSVYVs, 2026-10-01",
+  "rerun": "python3 scripts/ops/build_strategy_evidence.py --strategy ict_scalp_xrp_15m (on a Bybit-reachable runner) after #15341 merges, then compare n_trades_oos with the committed value (129 for xrp_15m, built on the lookahead harness)."
+ },
+ "state": "queued",
+ "what": "MEASURED 2026-10-01 on one leg: with the causal harness ict_scalp_xrp_15m takes n=87 trades vs n=140 on the old default harness (365d Binance feed, window 2025-10-01 to 2026-10-01), so the 7 committed ict_scalp evidence records (n=117 to n=259 trades each, 8 legs incl. harness_failed mgc_15m) were built on a materially different filter and cannot be read as evidence for the legs as live-wired. config_fingerprint hashes leg YAML, not the harness, so nothing marks them stale. This sandbox cannot reach Bybit (geo-block), so the rebuild needs a runner."
+}
