@@ -161,7 +161,90 @@ def test_account_not_read_refuses():
 
 def test_risk_gate_enforce_cap_refuses_above_flat_75():
     v = guards(t=ticket(qty=40.0), account=acct(9000.0, 9000.0), ds=9000.0)
-    assert any(r.startswith("risk cap: resized") for r in v.reasons)
+    assert any(r.startswith("risk cap: ticket asks $80.00") and "REFUSED" in r for r in v.reasons), v.reasons
+
+
+# ── the flat $-cap vs the venue increments (BREAKOUT-CAP-ROUND, 2026-10-02) ──
+#
+# The risk the guards grade is computed from the values actually TYPED, and the
+# stop can only be typed at the venue's price_step. Rounding it widens the stop
+# by up to one step, so a ticket the sizer built at exactly the $75 cap lands a
+# few cents above it. Before this, the guard refused that ticket outright:
+# prop-manual-00e7ecbd6bd4 (SOLUSDT long, trend_donchian_sol_prop) was skipped
+# at 2026-10-02T04:04:36Z for `risk cap: resized (... $75.11 ... cap $75.00)`
+# while the announced resize was never applied. The size is now cut instead.
+
+SOL_STEPPED = {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0, "min_lots": 0.01,
+               "lot_step": 0.01, "price_step": 0.01}
+
+# The live ticket's own numbers (GET /api/bot/prop/tickets, ticket_id
+# prop-manual-00e7ecbd6bd4): qty 28.45528451 at entry 121.23 / sl 118.59428571
+# is exactly $75.00 of risk. floor to 0.01 lots -> 28.45; the stop types as
+# 118.59, widening the stop 2.63571429 -> 2.64; 28.45 x 2.64 = $75.11.
+ROUNDING_TICKET = dict(entry=121.23, sl=118.59428571, tp=133.23177, qty=28.45528451, risk_usd=75.0)
+
+
+def test_venue_increment_overshoot_is_resized_down_and_placed():
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    spec, facts, refusal = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert refusal == ""
+    # one lot step at a time, DOWN, until the typed risk fits: 28.45 -> 28.40
+    assert (spec.quantity, spec.stop_loss, spec.limit_price) == (28.4, 118.59, 121.23)
+    assert facts["ticket_risk_usd"] == 74.98 <= c.risk_cap_usd
+    assert facts["risk_cap_resize"]["from_lots"] == 28.45
+    assert facts["risk_cap_resize"]["risk_usd_before"] == 75.11
+    # and the guard now PLACES it: no risk-cap reason at all
+    v = guards(t=ticket(**ROUNDING_TICKET), c=c)
+    assert v.fits, v.reasons
+    assert not any(r.startswith("risk cap") for r in v.reasons), v.reasons
+    assert v.checks["risk_cap"]["action"] == "unchanged"
+
+
+def test_one_more_lot_step_would_have_breached_the_cap():
+    # The cut is to the LAST size that fits, not a safe-looking round number:
+    # 28.41 lots x 2.64 = $75.0024, above the cap.
+    assert round(28.41 * 2.64, 4) > 75.0
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert facts["lots"] == 28.4
+
+
+def test_a_gross_over_cap_ticket_is_still_refused_never_resized():
+    # The ticket itself asks for $120 of risk (no rounding involved). Resizing
+    # it to the cap would place a trade nobody sized; it is refused.
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    t = ticket(entry=120.0, sl=118.0, tp=126.0, qty=60.0, risk_usd=120.0)
+    spec, facts, refusal = pe.bracket_from_ticket(t, c)
+    assert refusal == "" and facts["ticket_risk_usd"] == 120.0
+    assert facts["risk_cap_resize"] is None, "a ticket's own over-cap ask is never resized"
+    v = guards(t=t, c=c, account=acct(9000.0, 9000.0), ds=9000.0)
+    assert not v.fits
+    assert any(r.startswith("risk cap: ticket asks $120.00") and "REFUSED" in r for r in v.reasons), v.reasons
+
+
+def test_the_size_never_grows():
+    # A ticket well under the cap is typed as sized — the cap is a ceiling, and
+    # size_lots' floor is never walked back up to it.
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(entry=120.0, sl=118.0, tp=126.0, qty=1.0), c)
+    assert facts["lots"] == 1.0 and facts["ticket_risk_usd"] == 2.0
+    assert facts["risk_cap_resize"] is None
+
+
+def test_no_declared_cap_still_refuses_rather_than_emitting_an_unbounded_size():
+    c = cfg(risk_cap_usd=None, symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert facts["risk_cap_resize"] is None, "an unknown cap bounds nothing — nothing to resize to"
+    v = guards(t=ticket(**ROUNDING_TICKET), c=c)
+    assert not v.fits and any("no configured cap" in r for r in v.reasons), v.reasons
+
+
+def test_a_stop_that_rounds_onto_the_entry_is_refused_not_risk_zero():
+    # Otherwise risk reads 0.0 and every cushion guard passes a stopless trade.
+    c = cfg(symbols={"SOLUSDT": {**SOL_STEPPED, "price_step": 1.0}})
+    spec, facts, refusal = pe.bracket_from_ticket(
+        ticket(entry=120.2, sl=120.1, tp=126.0, qty=1.0), c)
+    assert spec is None and "no stop distance to risk" in refusal
 
 
 def test_risk_is_recomputed_from_lots_not_the_tickets_claim():
