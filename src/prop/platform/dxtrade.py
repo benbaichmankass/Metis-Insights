@@ -6052,7 +6052,22 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"found": False, "error": type(exc).__name__}
 
-    def probe_instrument_details(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+    @staticmethod
+    def search_query_for(venue_symbol: str, style: Optional[str] = None) -> str:
+        """The text typed into the watchlist search for ``venue_symbol``.
+        ``style`` comes from the account's ``config/prop_platforms.yaml``
+        entry (``search_query_style``); ``slash`` types the terminal's own
+        display form, ``SOL/USD`` for ``SOLUSD`` (MEASURED on tradeify_1,
+        #15444: typing ``SOLUSD`` opened the result panel with NO rows).
+        Anything else, or no style, types the venue symbol unchanged."""
+        sym = str(venue_symbol or "").strip().upper()
+        if style == "slash" and len(sym) > 3 and sym.endswith(("USD", "USDT")) and "/" not in sym:
+            quote = "USDT" if sym.endswith("USDT") else "USD"
+            return f"{sym[:-len(quote)]}/{quote}"
+        return sym
+
+    def probe_instrument_details(self, page: Any, venue_symbol: str, *, query: Optional[str] = None,
+                                 settle_ms: int = 1_000) -> Dict[str, Any]:
         """READ-ONLY: search for ``venue_symbol`` in a search field found
         INSIDE the measured watchlist panel (never the order ticket's
         ``symbol_input``, never anything inside a BUY/SELL panel), dump
@@ -6069,16 +6084,19 @@ class DXtradeAdapter(PropPlatformAdapter):
             if hit.count() != 1:
                 result["why"] = f"{hit.count()} tagged candidates (need exactly 1)"
                 return result
-            hit.first.fill(venue_symbol, timeout=5_000)
-            page.wait_for_timeout(1_000)
+            typed = (query or venue_symbol).strip()
+            result["query"] = typed
+            hit.first.fill(typed, timeout=5_000)
+            page.wait_for_timeout(settle_ms)
             readback = hit.first.input_value(timeout=5_000)
             result["searched"] = True
-            result["readback_matches"] = (readback.strip().upper() == venue_symbol.strip().upper())
+            result["readback_matches"] = (readback.strip().upper() == typed.upper())
             dump = self.instrument_details_dump(page)
             result["dump"] = dump
             blob = " ".join((r.get("text") or "") for r in (dump.get("rows") or []))
-            result["symbol_echoed"] = bool(re.search(
-                r"(?<![A-Z0-9])" + re.escape(venue_symbol.upper()) + r"(?![A-Z0-9])", blob.upper()))
+            result["symbol_echoed"] = any(bool(re.search(
+                r"(?<![A-Z0-9/])" + re.escape(form.upper()) + r"(?![A-Z0-9/])", blob.upper()))
+                for form in {venue_symbol.strip(), typed})
         except Exception as exc:
             result["error"] = type(exc).__name__
         finally:
