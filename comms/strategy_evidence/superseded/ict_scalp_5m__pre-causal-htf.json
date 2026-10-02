@@ -8,58 +8,58 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": -29.7133,
-  "expectancy_r_oos": -0.2049,
-  "n_trades_oos": 145,
+  "net_r_oos": -9.4826,
+  "expectancy_r_oos": -0.0491,
+  "n_trades_oos": 193,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 36,
-      "net_r": -12.9353,
-      "expectancy_r": -0.3593,
+      "trades": 48,
+      "net_r": -3.2446,
+      "expectancy_r": -0.0676,
       "start": "2025-10-02 15:10:00+00:00",
-      "end": "2026-01-05 17:55:00+00:00"
+      "end": "2025-12-29 14:55:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 36,
-      "net_r": -5.6867,
-      "expectancy_r": -0.158,
-      "start": "2026-01-08 02:20:00+00:00",
-      "end": "2026-03-27 03:05:00+00:00"
+      "trades": 48,
+      "net_r": 1.9447,
+      "expectancy_r": 0.0405,
+      "start": "2025-12-31 01:20:00+00:00",
+      "end": "2026-03-16 08:05:00+00:00"
     },
     {
       "fold": 3,
-      "trades": 36,
-      "net_r": -2.7208,
-      "expectancy_r": -0.0756,
-      "start": "2026-03-29 01:35:00+00:00",
-      "end": "2026-06-23 11:55:00+00:00"
+      "trades": 48,
+      "net_r": -4.1415,
+      "expectancy_r": -0.0863,
+      "start": "2026-03-18 22:00:00+00:00",
+      "end": "2026-06-22 17:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 37,
-      "net_r": -8.3705,
-      "expectancy_r": -0.2262,
-      "start": "2026-06-27 12:25:00+00:00",
-      "end": "2026-09-29 06:05:00+00:00"
+      "trades": 49,
+      "net_r": -4.0412,
+      "expectancy_r": -0.0825,
+      "start": "2026-06-23 11:55:00+00:00",
+      "end": "2026-09-23 14:10:00+00:00"
     }
   ],
-  "folds_positive": 0,
+  "folds_positive": 1,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 145,
-    "max_drawdown_r": 33.3851,
-    "max_drawdown_at_trade": 139,
-    "final_equity_r": -29.7133,
-    "max_equity_r": 1.2628,
+    "n": 193,
+    "max_drawdown_r": 15.4019,
+    "max_drawdown_at_trade": 188,
+    "final_equity_r": -9.4826,
+    "max_equity_r": 3.7164,
     "worst_trade_r": -1.9303,
     "best_trade_r": 1.4622,
-    "worst_day_r": -2.6011,
-    "worst_day_date": "2026-03-29",
+    "worst_day_r": -2.7264,
+    "worst_day_date": "2026-09-03",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
@@ -69,9 +69,9 @@
     "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-10-02/ict_scalp_5m__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_5m__bt.json"
   },
-  "net_r_oos_fee_only": -19.8188,
+  "net_r_oos_fee_only": 3.4459,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
@@ -79,10 +79,16 @@
     "verdict": "fail"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-10-02T17:10:43.549134+00:00",
+  "generated_at": "2026-09-25T09:59:11.540545+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-10-02/ict_scalp_5m__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_5m__trades.jsonl",
   "error": null,
   "harness": "ict_scalp",
-  "venue_bracket_arm": null
+  "superseded": {
+    "state": "superseded",
+    "reason": "built on the ict_scalp harness whose HTF bias filter had lookahead (PI-20261001-JWZSVYVS-0001, fixed in #15341); config_fingerprint does not mark this",
+    "superseded_by": "comms/strategy_evidence/ict_scalp_5m.json",
+    "rule": "RULE-ICTSCALP-CAUSAL-REBUILD (research/queue/RQ-20261002-001.yaml)",
+    "marked_at": "2026-10-02"
+  }
 }
