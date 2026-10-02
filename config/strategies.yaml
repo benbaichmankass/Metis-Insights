@@ -1476,7 +1476,7 @@ strategies:
     donchian: 20
     atr_period: 14
     atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell tp3_sm2 (path_b_wf_pass, wf 5/6, d_net_r +5.2067); was 2.5
-    trail_mult: 5.0
+    trail_mult: 4.0   # M20-EXITS-4 HELD Tier-3: was 5.0; trail4 passed on 1 of 3 partitions only (fragile). Rollback = 5.0.
     stale_exit_bars: 8
     stale_exit_below_r: 0.0
     tp_r: 3  # M20 e35 re-check 2026-08-29: cell tp3_sm2 (path_b_wf_pass, wf 5/6, d_net_r +5.2067); was 50.0
