@@ -22,22 +22,27 @@ REPO = Path(__file__).resolve().parents[1]
 chromium_page = _dx.chromium_page
 
 
-def _page(*, one_click_on=False, rows=("ETH/USD", "ENA/USD", "ETC/USD"), on_click="add", present=()):
+def _page(*, one_click_on=False, rows=("ETH/USD", "ENA/USD", "ETC/USD"), on_click="add", present=(),
+          wl_desc=False):
     toggle = (f'<div style="position:relative;height:17px">'
               f'<div data-test-id="one_click_trading" data-value="{"true" if one_click_on else "false"}" '
               f'style="position:absolute;left:0;top:0;width:26px;height:16px"></div>'
               f'<div style="position:absolute;left:{"12px" if one_click_on else "2px"};top:2px;width:12px;height:12px"></div>'
               f'<div style="margin-left:30px">One-click trading</div></div>')
-    wl_rows = "".join(f'<tr class="instrument" data-row-id="{i}"><td>{s}</td><td>1</td><td>2</td><td>0</td></tr>'
+    # wl_desc: the watchlist header as MEASURED live with a row (#15648):
+    # Symbol | Bid | Ask | Change | Description.
+    dcell = "<td>Some coin vs United States dollar</td>" if wl_desc else ""
+    wl_rows = "".join(f'<tr class="instrument" data-row-id="{i}"><td>{s}</td><td>1</td><td>2</td><td>0</td>{dcell}</tr>'
                       for i, s in enumerate(present))
+    wl_head = "<th>Symbol</th><th>Bid</th><th>Ask</th><th>Change</th>" + ("<th>Description</th>" if wl_desc else "")
     desc = {"ETH/USD": "Ethereum vs United States dollar", "ENA/USD": "Ethena vs United States dollar",
-            "ETC/USD": "Ethereum Classic vs United States dollar"}
+            "ETC/USD": "Ethereum Classic vs United States dollar", "SOL/USD": "Solana vs United States dollar"}
     js_rows = repr([[s, desc.get(s, s + " thing")] for s in rows])
     return f"""<html><body>{toggle}
 <div class="widget__container___Ab1 widgetNew__container">
 <div class="widget__header"><input id="wl-search" placeholder="Symbol..." data-test-id="watchlist_public_search_9" type="text"></div>
 <div class="watchlist-panel">
-  <table><thead><tr><th>Symbol</th><th>Bid</th><th>Ask</th><th>Change</th></tr></thead><tbody id="wl-body">{wl_rows}</tbody></table>
+  <table><thead><tr>{wl_head}</tr></thead><tbody id="wl-body">{wl_rows}</tbody></table>
 </div>
 </div>
 <div id="dd" style="display:none">
@@ -49,6 +54,9 @@ def _page(*, one_click_on=False, rows=("ETH/USD", "ENA/USD", "ETC/USD"), on_clic
 (() => {{  // an IIFE: set_content reuses the realm, so no top-level const
 window.__clicks = [];
 const ROWS = {js_rows};
+// Like the venue (#15602/#15648): the typed text is <mark>ed in the Description too.
+const hl = (d, v) => {{ const i = d.toUpperCase().indexOf(v);
+  return i < 0 ? d : d.slice(0, i) + '<mark>' + d.slice(i, i + v.length) + '</mark>' + d.slice(i + v.length); }};
 document.getElementById('wl-search').addEventListener('keyup', e => {{
   const v = (e.target.value || '').toUpperCase(), body = document.getElementById('dd-rows');
   document.getElementById('dd').style.display = v ? '' : 'none';
@@ -58,12 +66,13 @@ document.getElementById('wl-search').addEventListener('keyup', e => {{
     if (!s.startsWith(v) && !d.toUpperCase().includes(v)) continue;
     const tr = document.createElement('tr');
     tr.innerHTML = '<td><mark>' + s.slice(0, v.length) + '</mark><span>' + s.slice(v.length) + '</span></td>'
-      + '<td>' + d + '</td><td>Cryptocurrencies</td>';
+      + '<td>' + hl(d, v) + '</td><td>Cryptocurrencies</td>';
     tr.cells[0].addEventListener('click', () => {{
       window.__clicks.push(s);
       if ('{on_click}' === 'add') {{
         document.getElementById('wl-body').insertAdjacentHTML('beforeend',
-          '<tr class="instrument" data-row-id="9"><td>' + s + '</td><td>1</td><td>2</td><td>0</td></tr>');
+          '<tr class="instrument" data-row-id="9"><td>' + s + '</td><td>1</td><td>2</td><td>0</td>'
+          + ({'true' if wl_desc else 'false'} ? '<td>x vs United States dollar</td>' : '') + '</tr>');
       }} else if ('{on_click}' === 'dialog') {{
         document.body.insertAdjacentHTML('beforeend', '<div role="dialog" style="width:200px;height:100px">New Order</div>');
       }}
@@ -212,5 +221,63 @@ def test_results_table_five_levels_up_still_resolves(chromium_page):
     assert got["refused"] is None and got["resolve"]["n_target"] == 1
     assert got["resolve"]["ancestor_hops"] == 6               # found on the 6th level walked
     assert got["resolve"]["at_point"]["inside_target"] is True
+    assert chromium_page.evaluate("window.__clicks") == []
+    _done(chromium_page)
+
+
+# ── NON-EMPTY watchlist (manager review 19:47Z, MEASURED #15646/#15648): with
+# ETHUSD in the list the watchlist's own header reads Symbol | Bid | Ask |
+# Change | Description, a second Symbol+Description table, and "ETH/USD" in a
+# row failed the search finder's symbol test, so it fell into the empty-list
+# header-anchor branch. ──────────────────────────────────────────────────────
+NONEMPTY = dict(present=("ETH/USD",), wl_desc=True, rows=("SOL/USD",))
+
+
+def test_non_empty_watchlist_resolves_the_typed_querys_panel(chromium_page):
+    got = _run(chromium_page, _page(**NONEMPTY), sym="SOLUSD")
+    assert got["search"]["via"] == "placeholder+tid"           # aligned on the ETH/USD row, not the header
+    res = got["resolve"]
+    assert got["refused"] is None and res["ok"] is True and res["n_target"] == 1
+    assert res["n_header_tables"] == 2                          # the watchlist header IS a candidate ...
+    kept = [c for c in res["candidates"] if c["shape_ok"] and c["has_query_mark"]]
+    assert len(kept) == 1 and "Asset Class" in kept[0]["headers"]   # ... but only the results panel is kept
+    assert res["target_cells"] == ["SOL/USD", "Solana vs United States dollar", "Cryptocurrencies"]
+    assert chromium_page.evaluate("window.__clicks") == []
+    _done(chromium_page)
+
+
+def test_non_empty_watchlist_armed_adds_only_the_new_symbol(chromium_page):
+    got = _run(chromium_page, _page(**NONEMPTY), sym="SOLUSD", arm=True)
+    assert got["added"] is True and got["watchlist_diff"]["added"] == ["SOLUSD"]
+    assert got["watchlist_diff"]["removed"] == [] and got["watchlist_before"]["symbols"] == ["ETHUSD"]
+    _done(chromium_page)
+
+
+def test_main_resolver_refused_the_non_empty_case(chromium_page):
+    # The resolver on main before this change, verbatim from git: proves the
+    # new test exercises the measured failure, not a fixture artefact.
+    import re as _re
+    import subprocess as _sp
+    src = _sp.run(["git", "show", "cd9c895e:src/prop/platform/dxtrade.py"], cwd=REPO,
+                  capture_output=True, text=True)
+    if src.returncode != 0:
+        pytest.skip("cd9c895e not in this clone")
+    old = _re.search(r'ADD_SYMBOL_RESOLVE_JS = r"""\n(.*?)\n"""', src.stdout, _re.S).group(1)
+    chromium_page.set_content(_page(**NONEMPTY))
+    chromium_page.locator("#wl-search").press_sequentially("SOL", delay=5)
+    chromium_page.wait_for_timeout(100)
+    got = chromium_page.evaluate(old, ["SOL/USD"])
+    assert got["why"] == "2 visible Symbol+Description header tables (need exactly 1)"
+    _done(chromium_page)
+
+
+def test_two_results_panels_holding_the_query_still_refuse(chromium_page):
+    html = _page(**NONEMPTY).replace('<div class="bdy"><table><tbody id="dd-rows"></tbody></table></div>',
+        '<div class="bdy"><table><tbody id="dd-rows"></tbody></table></div></div>'
+        '<div id="dd2"><div class="hdr"><table><thead><tr><th>Symbol</th><th>Description</th><th>Asset Class</th>'
+        '</tr></thead><tbody></tbody></table></div><div class="bdy"><table><tbody><tr><td><mark>SOL</mark>/EUR</td>'
+        '<td>x</td><td>y</td></tr></tbody></table></div>')
+    got = _run(chromium_page, html, sym="SOLUSD", arm=True)
+    assert got["refused"] == "2 results panels holding the typed query (need exactly 1)"
     assert chromium_page.evaluate("window.__clicks") == []
     _done(chromium_page)

@@ -1598,7 +1598,12 @@ FIND_INSTRUMENT_SEARCH_JS = r"""
 ([[wantPlaceholder, wantTidPrefix]]) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const symLike = /^[A-Z0-9]{2,15}$/i;
+  // A venue that names symbols with a slash (tradeify_1: "ETH/USD", MEASURED
+  // #15648) must still align its rows: before this, the ETHUSD row failed
+  // ^[A-Z0-9]{2,15}$, so a NON-empty tradeify watchlist fell into the
+  // empty-watchlist header-anchor branch (manager review 19:47Z 2026-10-02).
+  // An unslashed symbol (breakout_1: BTCUSD) matches exactly as before.
+  const symLike = /^(?:[A-Z0-9]{2,15}|[A-Z0-9]{2,10}\/[A-Z0-9]{2,10})$/i;
   const posOrdHeaderRe = /\b(side|quantity|p&l|profit|order type|status)\b/;
 
   // The watchlist's own header table (Symbol/Bid/Ask). Refuse if more than
@@ -1885,42 +1890,71 @@ PAGE_LEAF_DUMP_JS = r"""
 # its centre, and what document.elementFromPoint returns there (tag, masked
 # text, whether it lies inside the target cell). Clicks nothing.
 ADD_SYMBOL_RESOLVE_JS = r"""
-([target]) => {
+([target, query]) => {
   const mask = v => (typeof v === 'string')
     ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 80) : null;
   const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const norm = el => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  const compact = v => String(v || '').replace(/\s+/g, '');
+  const q = compact(query || String(target || '').split('/')[0]).toUpperCase();
   document.querySelectorAll('[data-metis-add-target]').forEach(e => e.removeAttribute('data-metis-add-target'));
+  // SCOPED to the panel that holds the TYPED QUERY'S results (manager review
+  // 19:47Z 2026-10-02). MEASURED #15648: with ETHUSD in the watchlist, the
+  // watchlist's OWN header (Symbol | Bid | Ask | Change | Description) is a
+  // second Symbol+Description table, so "the one such header" refused. Each
+  // Symbol+Description header is now a CANDIDATE; it is kept only when the
+  // results table that follows it (at most 6 levels up) has rows with the
+  // header's column count AND contains a <mark> reading the typed query (the
+  // venue highlights the query in its results, #15602). A watchlist header
+  // has neither. Still exactly ONE kept candidate (by results table), or refuse.
   const heads = [...document.querySelectorAll('table')].filter(t => vis(t)).filter(t => {
     const ths = [...t.querySelectorAll('th')].map(norm);
     return ths.includes('Symbol') && ths.includes('Description');
   });
-  if (heads.length !== 1) return {ok: false, why: heads.length + ' visible Symbol+Description header tables (need exactly 1)'};
-  const head = heads[0];
-  const ncols = head.querySelectorAll('th').length;
-  let body = null, anc = head.parentElement, up = 0;
-  // 6 levels (manager review 18:41Z 2026-10-02): live #15618 found the body at
-  // ancestor_hops 4, the old limit, so one layout level would have refused.
-  while (anc && up < 6 && !body) {
-    for (const t of anc.querySelectorAll('table')) {
-      if (t === head || !vis(t)) continue;
-      if (!(head.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
-      if (!t.tBodies.length || !t.tBodies[0].rows.length) continue;
-      body = t; break;
+  const findBody = head => {
+    let anc = head.parentElement, up = 0;
+    // 6 levels (manager review 18:41Z 2026-10-02): live #15618 found the body
+    // at ancestor_hops 4, the old limit.
+    while (anc && up < 6) {
+      for (const t of anc.querySelectorAll('table')) {
+        if (t === head || !vis(t)) continue;
+        if (!(head.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+        if (!t.tBodies.length || !t.tBodies[0].rows.length) continue;
+        return {body: t, up: up + 1};
+      }
+      anc = anc.parentElement; up++;
     }
-    anc = anc.parentElement; up++;
+    return {body: null, up};
+  };
+  const candidates = heads.map(head => {
+    const ncols = head.querySelectorAll('th').length;
+    const {body, up} = findBody(head);
+    const rows = body ? [...body.tBodies].flatMap(b => [...b.rows]).filter(vis) : [];
+    const shape_ok = !!body && rows.length > 0 && rows.every(r => r.cells.length === ncols);
+    const has_query_mark = !!body && [...body.querySelectorAll('mark')].some(m => compact(norm(m)).toUpperCase() === q);
+    return {head, body, ncols, up, shape_ok, has_query_mark,
+            summary: {headers: [...head.querySelectorAll('th')].map(h => mask(norm(h))), has_body: !!body,
+                      shape_ok, has_query_mark}};
+  });
+  const kept = [];
+  for (const c of candidates) {
+    if (c.shape_ok && c.has_query_mark && !kept.some(k => k.body === c.body)) kept.push(c);
   }
-  if (!body) return {ok: false, why: 'no results table follows the header table (nothing to add)', ncols};
+  if (kept.length !== 1) {
+    return {ok: false, why: kept.length + ' results panels holding the typed query (need exactly 1)',
+            n_header_tables: heads.length, candidates: candidates.map(c => c.summary)};
+  }
+  const head = kept[0].head, body = kept[0].body, ncols = kept[0].ncols, up = kept[0].up;
   const rows = [...body.tBodies].flatMap(b => [...b.rows]).filter(vis);
   const shape_ok = rows.every(r => r.cells.length === ncols);
   const listed = rows.slice(0, 30).map(r => [...r.cells].map(c => mask(norm(c))));
-  const out = {ok: false, ncols, n_rows: rows.length, shape_ok, rows: listed, ancestor_hops: up};
+  const out = {ok: false, ncols, n_rows: rows.length, shape_ok, rows: listed, ancestor_hops: up,
+               n_header_tables: heads.length, candidates: candidates.map(c => c.summary)};
   if (!shape_ok) { out.why = 'results rows do not have the header column count'; return out; }
   // MEASURED live (#15618): the venue renders the Symbol cell as
   // <mark>ETH</mark> + "/USD" and innerText reads "ETH /USD". Compare with ALL
   // whitespace removed on both sides; anything else must still match exactly
   // (ETC/USD, ENA/USD never equal ETH/USD).
-  const compact = v => String(v || '').replace(/\s+/g, '');
   const hits = rows.filter(r => r.cells.length && compact(norm(r.cells[0])) === compact(target));
   out.n_target = hits.length;
   if (hits.length !== 1) { out.why = hits.length + ' rows whose Symbol cell is exactly ' + target + ' (need exactly 1)'; return out; }
@@ -6693,7 +6727,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             hit.first.press_sequentially(query, delay=key_delay_ms, timeout=10_000)
             typed = True
             page.wait_for_timeout(settle_ms)
-            res = page.evaluate(ADD_SYMBOL_RESOLVE_JS, [target]) or {"ok": False, "why": "no resolve result"}
+            res = page.evaluate(ADD_SYMBOL_RESOLVE_JS, [target, query]) or {"ok": False, "why": "no resolve result"}
             out["resolve"] = res
             if not res.get("ok"):
                 out["refused"] = res.get("why") or "resolve failed"

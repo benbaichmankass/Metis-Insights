@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE add SOL/XRP). (1) FIND_INSTRUMENT_SEARCH_JS aligns slashed watchlist symbols (ETH/USD); unslashed (breakout_1: BTCUSD) matches exactly as before. (2) ADD_SYMBOL_RESOLVE_JS is scoped to the ONE results panel holding the typed query (results rows with the header's column count AND a <mark> reading the query); still exactly 1 or refuse. Read paths only; the one click and its guards are unchanged.",
+  "why": "SOLUSD dry #15646 refused '2 visible Symbol+Description header tables' once ETHUSD was in the watchlist. instrument-page-dump #15648 measured the second table: the watchlist's own header (Symbol|Bid|Ask|Change|Description). The search finder also fell into the empty-list branch because 'ETH/USD' failed its symbol test."
+}
