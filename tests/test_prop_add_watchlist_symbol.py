@@ -198,3 +198,19 @@ def test_symbol_cell_rendered_with_a_space_after_the_mark_still_resolves(chromiu
     assert got["resolve"]["at_point"]["inside_target"] is True
     assert chromium_page.evaluate("window.__clicks") == []
     _done(chromium_page)
+
+
+def test_results_table_five_levels_up_still_resolves(chromium_page):
+    # Manager review 18:41Z: the ancestor search limit is 6 (live #15618 found
+    # the body at hops 4, the old limit). Header nested 4 more divs deep puts
+    # the shared ancestor 5 levels above the header's parent.
+    html = _page().replace(
+        '<div class="hdr"><table>', '<div class="a"><div><div><div><div class="hdr"><table>').replace(
+        '</tbody></table></div>\n  <div class="bdy">', '</tbody></table></div></div></div></div></div>\n  <div class="bdy">')
+    assert '<div class="a">' in html and '</div></div></div></div></div>\n  <div class="bdy">' in html
+    got = _run(chromium_page, html)
+    assert got["refused"] is None and got["resolve"]["n_target"] == 1
+    assert got["resolve"]["ancestor_hops"] == 6               # found on the 6th level walked
+    assert got["resolve"]["at_point"]["inside_target"] is True
+    assert chromium_page.evaluate("window.__clicks") == []
+    _done(chromium_page)

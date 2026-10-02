@@ -1874,7 +1874,7 @@ PAGE_LEAF_DUMP_JS = r"""
 # (Symbol / Description) and its rows as two SEPARATE tables; the header
 # table's own tbody is empty. This anchors on the visible header table (a
 # <th> text "Symbol" AND one "Description"), takes the FIRST table that
-# FOLLOWS it inside the nearest shared ancestor (at most 4 levels up) and has
+# FOLLOWS it inside the nearest shared ancestor (at most 6 levels up) and has
 # <tbody> rows, and requires that table's rows to have as many cells as the
 # header has columns (so a positions/orders table never qualifies). The target
 # is the ONE row whose FIRST cell's whole text, with ALL whitespace removed
@@ -1899,7 +1899,9 @@ ADD_SYMBOL_RESOLVE_JS = r"""
   const head = heads[0];
   const ncols = head.querySelectorAll('th').length;
   let body = null, anc = head.parentElement, up = 0;
-  while (anc && up < 4 && !body) {
+  // 6 levels (manager review 18:41Z 2026-10-02): live #15618 found the body at
+  // ancestor_hops 4, the old limit, so one layout level would have refused.
+  while (anc && up < 6 && !body) {
     for (const t of anc.querySelectorAll('table')) {
       if (t === head || !vis(t)) continue;
       if (!(head.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;

@@ -2,6 +2,6 @@
   "tier": 2,
   "landing": "hold",
   "hold_reason": "tier_2_3_needs_approval",
-  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE add ETH/SOL/XRP). ADD_SYMBOL_RESOLVE_JS compares the Symbol cell with ALL whitespace removed on both sides (live #15618 read 'ETH /USD' from <mark>ETH</mark>+'/USD'); every other condition is unchanged (exactly one row, header column count, elementFromPoint inside the cell). ETC/USD and ENA/USD still never match. tradeify-only; breakout_1 untouched.",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE add ETH/SOL/XRP). ADD_SYMBOL_RESOLVE_JS compares the Symbol cell with ALL whitespace removed on both sides (live #15618 read 'ETH /USD' from <mark>ETH</mark>+'/USD'); the results-table ancestor search limit rises from 4 to 6 levels (manager review 18:41Z; live #15618 found it at the old limit, 4); every other condition is unchanged (exactly one row, header column count, elementFromPoint inside the cell). ETC/USD and ENA/USD still never match. tradeify-only; breakout_1 untouched.",
   "why": "add-watchlist-symbol-dry ETHUSD #15618 refused safely with '0 rows whose Symbol cell is exactly ETH/USD' because innerText of the venue's Symbol cell is 'ETH /USD'."
 }
