@@ -1124,7 +1124,7 @@ jobs:
               echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,instrument-info-dry,instrument-info-probe,symbol-switch-dry,link-state-dump,edit-dialog-dry,edit-dialog-probe,widget-menu-probe,add-watchlist-widget,watchlist-submenu-probe,instrument-page-dump,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,feed-enable-timer,feed-disable-timer,close-position,close-position-live (got '${ACTION_APPLY}')."
               exit 1
             fi
-            case ",${ACTION_APPLY:-}," in *",symbol-switch-dry,"*|*",edit-dialog-dry,"*|*",edit-dialog-probe,"*|*",instrument-probe,"*|*",instrument-info-dry,"*|*",instrument-info-probe,"*|*",instrument-page-dump,"*)
+            case ",${ACTION_APPLY:-}," in *",symbol-switch-dry,"*|*",edit-dialog-dry,"*|*",edit-dialog-probe,"*|*",instrument-probe,"*|*",instrument-page-dump,"*|*",instrument-info-dry,"*|*",instrument-info-probe,"*)
               # instrument-probe needs 'symbols:' -- comma-separated venue
               # symbols, e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD. Validated here so
               # a malformed dispatch fails loudly instead of reaching the VM.
