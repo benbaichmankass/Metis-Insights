@@ -51,14 +51,8 @@ routing:
   est_minutes: 60
   basis: one data.binance.vision fetch + one harness run per leg (365d of 5m/15m, minutes each), session-local.
 run:
-  workflow: research-script-run.yml
-  timeout_minutes: 90
-  command:
-  - python3
-  - scripts/ops/build_strategy_evidence.py
-  - --strategy
-  - ict_scalp_xrp_15m
-  note: 'Run SESSION-LOCAL by lane ICT-EVIDENCE-REBUILD (status: done so the dispatcher, which fires only queued units, does not double-run it).'
+  workflow: session-local
+  note: 'Run SESSION-LOCAL by lane ICT-EVIDENCE-REBUILD with scripts/ops/build_strategy_evidence.py --strategy <leg> [--days 730 for the pre-registered escalation]. Not a research-script-run.yml unit: that runner executes only scripts/research/ and scripts/backtest*.py.'
 lands:
   store: comms/strategy_evidence/
   assert_field: coverage_state
