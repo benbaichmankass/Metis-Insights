@@ -75,6 +75,7 @@ import json
 import math
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
@@ -434,11 +435,10 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
 _HISTORY_TIME_FORMATS = ("%d/%m/%y %H:%M", "%d/%m/%y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S")
 
 
-def parse_history_time(text: Optional[str]) -> Optional["datetime"]:
+def parse_history_time(text: Optional[str]) -> Optional[datetime]:
     """``"29/09/26 18:18"`` → 2026-09-29T18:18Z. Day first, as the terminal
     renders it (#14348). Read as UTC: the 29/09 18:18 rows are the round trip
     journaled at 18:17–18:18Z (#14344). None when it does not parse."""
-    from datetime import datetime, timezone
     t = re.sub(r"\s+", " ", str(text or "").strip())
     for fmt in _HISTORY_TIME_FORMATS:
         try:
