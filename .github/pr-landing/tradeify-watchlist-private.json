@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE step 2b). add-watchlist-widget gains ONE more measured click: after '+' and 'Watchlist', the submenu leaf 'Private' (exact text, 'Public' sibling required). Anything opening after it is dumped and Escaped, never clicked into. Still refused unless one-click reads OFF, off 'My Trading Account', and for breakout_1.",
+  "why": "#15373 showed 'Watchlist' opens a Private/Public submenu; #15390 (code 6c872d724) showed hovering either opens nothing (n_new 0), so the entry itself must be clicked. Private = the user's own editable lists, where the removed 'Default Watchlist' lived, so ETH/SOL/XRP can be added to it afterwards."
+}
