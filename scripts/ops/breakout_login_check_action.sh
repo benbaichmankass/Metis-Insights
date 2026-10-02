@@ -59,6 +59,12 @@
 #                        ETHUSD) and locate its edit pencil by icon name.
 #                        Clicks nothing.
 #     edit-dialog-probe — MEASUREMENT: the same, then click THAT pencil, read
+#     edit-surface-probe — MEASUREMENT (DIALOG-MEASURE 2026-10-02, after
+#                        #15628 found no new dialog): snapshot the page's
+#                        controls, click THAT symbol's modify control, report
+#                        the diff, leave via Escape or the changed surface's
+#                        own cancel/close only, then REQUIRE the page back at
+#                        baseline (else an alert). Submits nothing.
 #                        the dialog it opens (symbol, read-only qty, SL/TP
 #                        fields, Price/offset mode, submit/cancel geometry),
 #                        press the dialog's OWN Cancel. Submits nothing. Only
@@ -204,7 +210,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe instrument-page-dump add-watchlist-symbol-dry add-watchlist-symbol executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe edit-surface-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe instrument-page-dump add-watchlist-symbol-dry add-watchlist-symbol executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt \
          feed-enable-timer feed-disable-timer; do
@@ -483,7 +489,7 @@ if [ -n "${EXEC_MODE}" ]; then
             case "${ACTION_SYMBOLS}" in *,*) log "symbol-switch-dry: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--symbol-switch-dry "${ACTION_SYMBOLS// /}") ;;
         link-state-dump)     EARGS+=(--link-state-dump) ;;
-        edit-dialog-dry|edit-dialog-probe)
+        edit-dialog-dry|edit-dialog-probe|edit-surface-probe)
             case "${ACTION_SYMBOLS// /}" in ""|*,*) log "${EXEC_MODE}: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--"${EXEC_MODE}" "${ACTION_SYMBOLS// /}") ;;
         widget-menu-probe)   EARGS+=(--widget-menu-probe) ;;

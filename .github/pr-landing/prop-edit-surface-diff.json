@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; adds a read-only measurement mode that clicks ONE modify control on breakout_1 (live book). Run it while the ETH short is open, after merge.",
+  "why": "DIALOG-MEASURE: #15628 found the Positions-row modify control opens no new dialog. New apply: edit-surface-probe snapshots the page's controls outside every table, clicks THAT symbol's modify control, reports the diff and whether the order-entry ticket shows before/after, leaves via Escape or (only if needed) the changed surface's own cancel/close, and requires the page back at baseline (else an alert, exit 3). Never submits, modifies, applies, confirms, places, saves or closes a position."
+}
