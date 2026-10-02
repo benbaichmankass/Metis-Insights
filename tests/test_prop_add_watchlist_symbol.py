@@ -185,3 +185,16 @@ def test_action_refuses_both_modes_for_breakout_1(tmp_path, mode):
     env = {"HOME": str(home), "PATH": "/usr/bin:/bin", "ACTION_APPLY": mode, "ACTION_SYMBOLS": "ETHUSD"}
     p = subprocess.run(["bash", str(d / "action.sh")], env=env, capture_output=True, text=True, timeout=30)
     assert p.returncode == 1 and f"{mode}: refused for breakout_1" in p.stdout + p.stderr
+
+
+def test_symbol_cell_rendered_with_a_space_after_the_mark_still_resolves(chromium_page):
+    # MEASURED live (#15618): innerText of the venue's Symbol cell read
+    # "ETH /USD" (<mark>ETH</mark> then "/USD"); the dry run refused 0 rows.
+    # Whitespace inside the cell is ignored; ETC/USD and ENA/USD still never match.
+    html = _page().replace("'</mark><span>'", "'</mark> <span>'")
+    got = _run(chromium_page, html)
+    assert got["refused"] is None and got["resolve"]["n_target"] == 1
+    assert got["resolve"]["rows"][0][0] == "ETH /USD"          # reported as the venue renders it
+    assert got["resolve"]["at_point"]["inside_target"] is True
+    assert chromium_page.evaluate("window.__clicks") == []
+    _done(chromium_page)
