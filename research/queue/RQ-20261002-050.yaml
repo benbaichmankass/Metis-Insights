@@ -1,6 +1,6 @@
 id: RQ-20261002-050
 title: 'Bracket-faithful re-grade: trend_donchian_eth_prop + trend_donchian_sol_prop on static SL+TP (Stage-0 + B6 V2)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -75,3 +75,4 @@ related:
 - docs/research/prop-journal/prop-journal-truth-2026-10-01.md
 - docs/research/b6-prop-ev/cost-headroom-2026-09-27.md
 - research/queue/RQ-20260928-011.yaml
+result: "GRADED 2026-10-02 against the rule above (registered at 2a0a3468 before the run). ETH PASS n=100 net_r +21.28 V2 INDETERMINATE x5; SOL PASS on the 730d verdict window n=105 net_r +13.37 V2 INDETERMINATE x5 (365d n=53 net_r -0.49 below the floor). Records: docs/research/prop-journal/bracket-regrade-*-2026-10-02.json; readout bracket-regrade-readout-2026-10-02.md."
