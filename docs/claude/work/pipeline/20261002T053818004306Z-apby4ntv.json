@@ -1,0 +1,18 @@
+{
+ "due_when": {
+  "check_every_days": 1,
+  "clears_when": "the operator decides JC-SA-01 in the daily brief and the chosen branch lands (grades newer than 3 days on main, or grading removed from the contract)",
+  "kind": "event"
+ },
+ "id": "PI-20260929-TWEW1FZJ-0004",
+ "next_action": "ask_operator",
+ "origin": {
+  "kind": "audit",
+  "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-01",
+  "rerun": "git show origin/main:comms/claude_strategy_scores.jsonl | python3 -c \"import sys,json;print(max(json.loads(l).get('reviewed_at','') for l in sys.stdin if l.strip()))\""
+ },
+ "routed_to": "GRADE",
+ "state": "done",
+ "what": "JC-SA-01 (HIGH, AUD-2): the trade-grading hop is dead: comms/claude_strategy_scores.jsonl max(reviewed_at)=2026-09-08T10:50Z; 4/328 closes since 09-15 have a grade row, all stale 'orphaned'. Operator: (a) resume grade-closed-trades on a schedule keyed on linked_trade_id + a staleness detector (recommended), or (b) retire grading and remove it from the pipeline contract, performance-review skill and SessionStart hook.",
+ "terminal_reason": "CLEARED 2026-10-02T05:40Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv). The decision was made 2026-09-29: option (a), resume grading. #14161 merged that day: the daily grade-closed-trades.yml workflow is keyed on linked_trade_id, with a 491-row backfill and the grading-freshness guard. The operator then chose alert-only for the guard (GRADE-ALERT). The clears_when is MEASURED as met: the origin.rerun on origin/main at 2026-10-02T05:39Z prints max(reviewed_at)=2026-10-02T03:42:50Z, newer than 3 days. This row stayed 'owed' only because no one closed it after the decision."
+}
