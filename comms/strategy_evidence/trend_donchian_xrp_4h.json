@@ -3,22 +3,22 @@
   "strategy": "trend_donchian_xrp_4h",
   "symbol": "XRPUSDT",
   "timeframe": "4h",
-  "config_fingerprint": "sha256:02970f3827937b68671b116a7f027ab4",
+  "config_fingerprint": "sha256:b9c2eef75b50f53e794fe46a78abeacf",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 8.9428,
-  "expectancy_r_oos": 0.5589,
+  "net_r_oos": 5.9389,
+  "expectancy_r_oos": 0.3712,
   "n_trades_oos": 16,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 4,
-      "net_r": 4.1357,
-      "expectancy_r": 1.0339,
-      "start": "2025-10-07 12:00:00+00:00",
+      "net_r": 1.1318,
+      "expectancy_r": 0.283,
+      "start": "2025-10-10 20:00:00+00:00",
       "end": "2025-12-15 12:00:00+00:00"
     },
     {
@@ -54,8 +54,8 @@
     "n": 16,
     "max_drawdown_r": 1.3007,
     "max_drawdown_at_trade": 16,
-    "final_equity_r": 8.9428,
-    "max_equity_r": 10.2435,
+    "final_equity_r": 5.9389,
+    "max_equity_r": 7.2396,
     "worst_trade_r": -1.0675,
     "best_trade_r": 2.9511,
     "worst_day_r": -1.0675,
@@ -69,9 +69,9 @@
     "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-30/trend_donchian_xrp_4h__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-10-02/trend_donchian_xrp_4h__bt.json"
   },
-  "net_r_oos_fee_only": 9.2886,
+  "net_r_oos_fee_only": 6.2527,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
@@ -79,9 +79,10 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-30T07:22:42.090510+00:00",
+  "generated_at": "2026-10-02T17:50:33.131328+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-30/trend_donchian_xrp_4h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-10-02/trend_donchian_xrp_4h__trades.jsonl",
   "error": null,
-  "harness": "trend"
+  "harness": "trend",
+  "venue_bracket_arm": null
 }
