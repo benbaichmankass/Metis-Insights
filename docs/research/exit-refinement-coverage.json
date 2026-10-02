@@ -795,7 +795,9 @@
    "giveback_stop": {
     "status": "honest_negative",
     "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) || EXPLODED 2026-08-09 from bundled row 'trend_donchian_{eth,sol,xrp,ada,avax}_4h' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || M20-EXITS-4 RE-SWEEP 2026-10-02 (run 37037846659 (2026-10-02, branch claude/m20-exits-4-resweep), corpus rows in docs/research/m20-sweep-corpus.jsonl; tp_cap_pct=0.099 live parity, harness-default fee 7.5bps RT, split derived oos-trades target 50, rule registered in .github/exit-lever-sweep-request before the run): gb1R_afterMFE1R and gb1R_afterMFE2R both is_oos_fail (base n IS=95 OOS=49). Pre-TP-fix verdict reproduced at live parity; status unchanged.",
-    "denominator_unstated": true
+    "tp_geometry": "live_parity",
+    "base_is": 95,
+    "base_oos": 49
    },
    "exit_ladder": {
     "status": "honest_negative",
@@ -1745,7 +1747,9 @@
    "trail_geometry": {
     "status": "honest_negative",
     "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — ALL 1d equities legs fail every lever — existing trails already capture the exit value || EXPLODED 2026-08-09 from bundled row 'equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; g' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || M20-EXITS-4 RE-SWEEP 2026-10-02 (run 37037846659 (2026-10-02, branch claude/m20-exits-4-resweep), corpus rows in docs/research/m20-sweep-corpus.jsonl; tp_cap_pct=0.099 live parity, harness-default fee 7.5bps RT, split derived oos-trades target 50, rule registered in .github/exit-lever-sweep-request before the run): trail4/trail6 both is_oos_fail (base n IS=41 OOS=39, split 2015-12-10). Pre-TP-fix verdict reproduced at live parity; status unchanged.",
-    "denominator_unstated": true
+    "tp_geometry": "live_parity",
+    "base_is": 41,
+    "base_oos": 39
    },
    "stale_stop": {
     "status": "honest_negative",
@@ -2999,8 +3003,8 @@
   "ABSENT_means_unrecorded": "⚠️ A MISSING tp_geometry MEANS 'WE DID NOT LOOK', NOT 'presumably fine'. Absence collapses three different conditions — (a) measured at live parity and nobody stamped it, (b) measured on the pre-cutover no-TP default, which is the DEFAULT EXPECTATION for anything dated before the cutover, and (c) nobody looked. The reassuring reading is the one that is wrong for most of the population. The roll-up counts these as `unrecorded` and reports the fraction rather than listing marked cells, so completeness is never inferred from the cells that happen to carry a value.",
   "_coverage_2026_08_16": "170 of 416 cells (40.9%) carry a value: live_parity 167, no_take_profit 3, absent 246. Measured directly off this file. The roll-up's own figure is over the LIVE-leg population (a different, smaller denominator) — both are correct and neither is the other.",
   "_remaining_work": "Stamping the 246 absent cells is NOT done here and must not be guessed from dates: BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING criterion (2) requires each cell's own `ref` to establish live_parity or no_take_profit, with `unrecorded` stamped only where the ref establishes neither. A date is a proxy, and that row exists because a proxy was trusted.",
-  "_unstamped_ceiling": 193,
-  "_unstamped_ceiling_note": "229 -> 193 on 2026-09-28 (lane EXIT-OPS), and the REASON matters more than the number, same discipline as every prior move on this field. Six legs were demoted live -> shadow in this diff (PI-20260924-TJTOJHYE-0001: trend_donchian_ada_4h/avax_4h/sol_4h; PI-20260922-UTN353OZ-0001: ict_scalp_5m/sol_5m/avax_5m), taking their cells out of the live_only denominator. Leaving the ceiling at 229 would have left slack in which a live cell could silently lose its tp_geometry stamp with the guard still green -- exactly the loosening this field exists to make visible rather than absorb silently. Measured via `python3 scripts/research/m20_coverage_rollup.py --check` on this diff: unstamped-live count is 193 with the six rows `shadow`. PRIOR NOTES, PRESERVED: STAYED 229 on 2026-09-22 (avax_pullback_2h promotion declined same day); 234 -> 229 on 2026-08-24 (slv_trend_1h demoted, 5 unstamped cells left the denominator)."
+  "_unstamped_ceiling": 191,
+  "_unstamped_ceiling_note": "193 -> 191 on 2026-10-02 (lane M20-EXITS-4): two cells (trend_donchian_xrp_4h/giveback_stop, ief_pullback_1d/trail_geometry) were re-swept at live parity and stamped tp_geometry=live_parity with base counts as fields; no leg left the denominator. PRIOR NOTES, PRESERVED: 229 -> 193 on 2026-09-28 (lane EXIT-OPS), and the REASON matters more than the number, same discipline as every prior move on this field. Six legs were demoted live -> shadow in this diff (PI-20260924-TJTOJHYE-0001: trend_donchian_ada_4h/avax_4h/sol_4h; PI-20260922-UTN353OZ-0001: ict_scalp_5m/sol_5m/avax_5m), taking their cells out of the live_only denominator. Leaving the ceiling at 229 would have left slack in which a live cell could silently lose its tp_geometry stamp with the guard still green -- exactly the loosening this field exists to make visible rather than absorb silently. Measured via `python3 scripts/research/m20_coverage_rollup.py --check` on this diff: unstamped-live count is 193 with the six rows `shadow`. PRIOR NOTES, PRESERVED: STAYED 229 on 2026-09-22 (avax_pullback_2h promotion declined same day); 234 -> 229 on 2026-08-24 (slv_trend_1h demoted, 5 unstamped cells left the denominator)."
  },
  "legend_bracket_geometry": "bracket_geometry is the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) — a new DIMENSION, not a ninth lever. The eight lever columns beside it are all POST-ENTRY OVERRIDES on a bracket fixed at entry; this column grades that bracket itself. Added 2026-08-20 closing BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT. Graded NET OF FEES, unlike the fee-free R basis the lever columns use, because a lower target raises turnover and a fee-free comparison would flatter it exactly where it is most likely to pass.",
  "known_caveats": {
