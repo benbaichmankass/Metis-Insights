@@ -4018,3 +4018,138 @@ def test_contain_passes_the_accounts_rollout_latch_and_a_guard_refusal_falls_thr
     assert any("rollout refused" in al for al in res.alerts)
     run(ad, FakeApi(), env)
     assert ("flatten", "SOLUSD", True) in ad.calls
+
+
+# ── BREAKOUT-NOATTEMPT: a validity that ran out unattempted is never silent ──
+#
+# MEASURED 2026-10-02 from the ict-prop-executor journal (06:59Z-16:59Z, 121
+# ticks, read via /api/diag/journalctl): ETH ticket prop-manual-fb466451fd1f
+# (created 08:19:49Z, valid_until 09:19:50Z) was looked at on all 12 ticks
+# inside its validity and declined every one with band_wait (ask 2747.43 ..
+# 2760.52 against an entry band around 2774.55). It reached expiry_prompted
+# with NO prop_fills row and NO alert, which reads exactly like an executor
+# that never attempted it. These tests pin the alert that distinguishes them.
+
+
+def test_a_ticket_that_waits_out_its_whole_validity_alerts_once(env):
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})        # outside ticket()'s 119.5..120.5 band
+    api = FakeApi([ticket()])
+    # inside the validity (valid_until = NOW + 30m): waits, and stays quiet
+    for k in (0, 1, 2):
+        res = _band_cycle(ad, api, env, k)
+        assert _places(ad) == [] and ledger.latest() == {}
+        assert [a for a in res.alerts if "NOT PLACED" in a] == []
+    # the expiry prompter has since flipped it off `emitted`, so intake is empty
+    api._tickets = []
+    res = _band_cycle(ad, api, env, 7)                           # NOW + 35m > valid_until
+    hit = [a for a in res.alerts if "NOT PLACED" in a]
+    assert len(hit) == 1 and "prop-manual-aaa" in hit[0]
+    assert "NO placement attempt" in hit[0] and "entry band" in hit[0]
+    assert any(a["what"] == "unattempted_expiry" and a["ticket_id"] == "prop-manual-aaa"
+               for a in res.actions)
+    # ...and only once, however many cycles follow
+    for k in (8, 9):
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_the_no_attempt_alert_posts_no_report_and_writes_no_ledger_row(env):
+    # A `skipped` report would flip the ticket off `emitted` and pull it out of
+    # every manual-bridge path that keys on it. The alert must not do that.
+    ledger, _ = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)
+    api._tickets = []
+    res = _band_cycle(ad, api, env, 7)
+    assert [a for a in res.alerts if "NOT PLACED" in a]
+    # the routine account_status report still goes; nothing about the TICKET does
+    assert [p for p in api.posts if p.get("kind") != "account_status"] == []
+    assert ledger.latest() == {}
+
+
+def test_a_ticket_that_comes_back_into_the_band_and_places_never_alerts(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)                                # waits
+    ad.quote = {"bid": 119.99, "ask": 120.0}                    # back inside
+    _band_cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    res = _band_cycle(ad, api, env, 7)                          # past valid_until
+    assert [a for a in res.alerts if "NOT PLACED" in a] == []
+
+
+def test_a_ticket_refused_on_its_band_does_not_also_get_the_no_attempt_alert(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)                                # waits: note taken
+    api._tickets = [ticket(message="no band in this text")]     # unreadable band → refuse
+    _band_cycle(ad, api, env, 1)
+    res = _band_cycle(ad, api, env, 7)
+    assert [a for a in res.alerts if "NO placement attempt" in a] == []
+
+
+def test_a_symbol_not_enabled_ticket_alerts_when_its_validity_runs_out(env):
+    # MEASURED 2026-09-30: ETH ticket prop-manual-a22cb1d44517 was skipped
+    # `symbol_not_enabled` at 12:34:59Z (ETHUSD joined enabled_venue_symbols
+    # only on 2026-10-01, #15143) and aged to expiry_prompted with no row.
+    ledger, state = env
+    c = cfg(enabled_venue_symbols=["SOLUSD"],
+            symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                 "min_lots": 0.01, "lot_step": 0.01},
+                     "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                 "min_lots": 0.01, "lot_step": 0.01}})
+    t = ticket(ticket_id="prop-manual-eth", symbol="ETHUSDT", entry=2774.55,
+               sl=2729.59, tp=3044.30)
+    api = FakeApi([t])
+    ad = FakeAdapter()
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW)
+    assert any(a["what"] == "skipped" and a.get("reason") == "symbol_not_enabled"
+               for a in res.actions)
+    assert [a for a in res.alerts if "NOT PLACED" in a] == []    # still inside its validity
+    api._tickets = []
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW + timedelta(minutes=35))
+    hit = [a for a in res.alerts if "NOT PLACED" in a]
+    assert len(hit) == 1 and "prop-manual-eth" in hit[0]
+    assert "enabled venue symbols" in hit[0]
+
+
+def test_the_sweep_fires_even_when_the_ticket_read_fails(env):
+    # The sweep runs BEFORE intake, so an API outage cannot hide the expiry.
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    _band_cycle(ad, FakeApi([ticket()]), env, 0)
+
+    class Dead(FakeApi):
+        def tickets(self, account_id):
+            raise OSError("api down")
+
+    res = _band_cycle(ad, Dead(), env, 7)
+    assert [a for a in res.alerts if "NO placement attempt" in a]
+    assert [a for a in res.alerts if "ticket intake failed" in a]
+
+
+def test_a_ticket_whose_validity_has_not_passed_is_not_alerted(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    for k in range(6):                                          # NOW .. NOW+25m, valid_until NOW+30m
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_a_ticket_with_no_readable_valid_until_is_never_swept(env):
+    # Fail-quiet: a validity we cannot read is not known to have passed, and a
+    # false "NOT PLACED" on a live setup is worse than silence.
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket(valid_until=None)])
+    for k in (0, 20):
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_the_no_attempt_note_store_is_bounded(env):
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    for i in range(pe._UNATTEMPTED_KEEP + 12):
+        _band_cycle(ad, FakeApi([ticket(ticket_id=f"prop-manual-{i:03d}")]), env, 0)
+    assert len(state.load().get(pe._UNATTEMPTED_KEY) or {}) <= pe._UNATTEMPTED_KEEP
