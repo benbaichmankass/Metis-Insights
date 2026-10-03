@@ -2421,3 +2421,42 @@ def test_rollout_pure_checks():
     bad = rollout_verify_mismatch(before, Position(symbol="X", quantity=1.0, stop_loss=95.0, take_profit=121.0), 96.0)
     assert len(bad) == 3
     assert rollout_verify_mismatch(before, None, 96.0) == ["position not found on the next read"]
+
+
+# ── TRADEIFY-EXECUTOR 2026-10-03: the submit's OWN state on a refusal ──────
+# Both tradeify_1 SOL dry walks (#16049 run 37147052900, #16053 run 37147522018)
+# refused with "paints footer at [1543, 1518, 330, 75] (ancestor)" on the SAME
+# submit box [1559, 1537, 298, 48] and panel the ETH walk (#16003) passed on,
+# with no code change between them. A disabled / pointer-events:none button is
+# skipped by elementFromPoint and reads exactly like that, so the refusal must
+# say which it is.
+
+def test_submit_not_visible_why_names_a_disabled_or_untargetable_submit():
+    base = {"in_viewport": True, "centre": [1708, 1561],
+            "occluder": {"tag": "footer", "box": [1543, 1518, 330, 75], "rel": "ancestor"}}
+    plain = submit_not_visible_why(dict(base, btn_state={"disabled": False, "pointer_events": "auto"}))
+    assert plain == "its centre [1708, 1561] paints footer at [1543, 1518, 330, 75] (ancestor)"
+    dis = submit_not_visible_why(dict(base, btn_state={"disabled": True, "pointer_events": "none"}))
+    assert "the submit is DISABLED" in dis and "pointer-events:none" in dis
+    aria = submit_not_visible_why(dict(base, btn_state={"aria_disabled": "true"}))
+    assert "the submit is DISABLED" in aria
+
+
+def test_submit_js_reports_a_pointer_events_none_submit_under_its_own_footer():
+    box, first, _rev, after = _submit_js_on(
+        _SUBMIT_PAGE
+        .replace("OVERLAY_CSS", "#submit{pointer-events:none;opacity:.5}")
+        .replace("OVERLAY_HTML", ""))
+    assert box == [1559, 1537, 298, 48]
+    assert first["visible"] is False and after["visible"] is False      # still refuses
+    st = first["why_not"]["btn_state"]
+    assert st["pointer_events"] == "none" and st["disabled"] is False
+    assert "pointer-events:none" in submit_not_visible_why(first["why_not"])
+
+
+def test_a_submit_stage_refusal_records_the_one_click_reading():
+    src = Path(__file__).resolve().parents[1].joinpath("src/prop/platform/dxtrade.py").read_text()
+    branch = src[src.index("ready, why, form, submit_info = self._ready_submit(page, spec, want)"):]
+    branch = branch[:branch.index("if not arm:")]
+    refusal = branch[:branch.index("# Diagnostic only")]
+    assert '"one_click": self.read_one_click(page)' in refusal

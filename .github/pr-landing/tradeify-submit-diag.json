@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane TRADEIFY-EXECUTOR (manager session_01MM8o5js6TcDFeNAPBY4Ntv, trigger trig_01FKXj96oWnwbmvgA6LuqyDP): measure the tradeify_1 SOL submit refusal before fixing it; HELD, the manager merges.",
+  "why": "Order-path file (src/prop/platform/dxtrade.py), DIAGNOSTIC ONLY: the submit hit-test's refusal now records the submit's own state (disabled / aria-disabled / computed pointer-events / opacity) and names it, and a submit-stage refusal carries the one_click reading. No pass/fail decision changes for any account; nothing new is clicked."
+}
