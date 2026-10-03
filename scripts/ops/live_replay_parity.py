@@ -429,6 +429,10 @@ class EvalRow:
     confidence: float | None
     close: float | None
     channel: tuple | None
+    #: explicit frame fingerprint, written by builders once the held Tier-2
+    #: writer change (``_stamp_regime`` → ``bar_open_ts`` / ``bar_close``) ships
+    bar_open: float | None = None
+    bar_close: float | None = None
 
 
 def _evals_and_events(rows: list[dict], leg: str) -> tuple[list[EvalRow], list[dict]]:
@@ -442,7 +446,9 @@ def _evals_and_events(rows: list[dict], leg: str) -> tuple[list[EvalRow], list[d
             reason = r.get("reason")
             evals.append(EvalRow(t=t, side=norm_side(r.get("side")), reason=reason,
                                  adx=r.get("adx_14"), confidence=r.get("confidence"),
-                                 close=parse_close(reason), channel=parse_channel(reason)))
+                                 close=parse_close(reason), channel=parse_channel(reason),
+                                 bar_open=to_epoch(r.get("bar_open_ts")),
+                                 bar_close=r.get("bar_close")))
         elif ev in DOWNSTREAM_GATE_EVENTS:
             events.append({"t": t, "event": ev, "row": r})
     evals.sort(key=lambda e: e.t)
@@ -624,7 +630,12 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
             for e in evs:
                 evals_checked += 1
                 cls = None
-                if e.side != d["side"]:
+                if e.bar_open is not None and int(e.bar_open) != int(b0):
+                    cls = "candle_mismatch"
+                elif e.bar_close is not None and not _close(float(e.bar_close),
+                                                            float(tf_rows[i]["close"])):
+                    cls = "candle_mismatch"
+                elif e.side != d["side"]:
                     cls = ("missed_signal" if e.side == "none" else
                            "live_only_signal" if d["side"] == "none" else "side_mismatch")
                 elif e.adx is not None and d.get("adx") is not None and abs(e.adx - d["adx"]) > 1e-3:
@@ -662,13 +673,17 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
                     continue
                 evaluated_fines.add(fstart)
                 evals_checked += 1
+                if e.bar_close is not None and e.close is None:
+                    e.close = float(e.bar_close)
                 extra = (e.close,) if e.close is not None else ()
                 vs = forming_variants(i, b0, fstart, extra)
                 pool = [v for v in vs if e.close is not None and _close(v["close"], e.close)] or vs
                 sides = {v["side"] for v in pool}
                 cls = None
                 c = fine_by_t[fstart]
-                if e.close is not None:
+                if e.bar_open is not None and int(e.bar_open) != int(b0):
+                    cls = "candle_mismatch"
+                if cls is None and e.close is not None:
                     tol = 1e-6 * max(1.0, e.close)
                     if not (float(c["low"]) - tol <= e.close <= float(c["high"]) + tol):
                         cls = "candle_mismatch"
