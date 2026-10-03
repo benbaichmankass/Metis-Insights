@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "An automated breakout_1 close lands in prop_fills (source prop_executor) with exit_price, pnl and a reason naming tp / sl / manual read from the terminal's Trade History, NOT 'closed_on_terminal (... exit read from the terminal history is not built)'. The first test case is the close of prop-manual-d27fbb0b2b25 (ETHUSDT short opened 2026-10-02 18:50Z). Killed only if the operator decides prop exits are graded from another source, named in the terminal_reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261002-APBY4NTV-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, verifying the first automated breakout_1 trade 2026-10-02 ~19:05Z: src/prop/prop_executor.py::_reconcile_journal (origin/main 2ef65c6b6), the closed_on_terminal report body; src/prop/platform/dxtrade.py tab_trade_history read only by dump-tables.",
+    "rerun": "git grep -n 'exit read from the' origin/main -- src/prop/prop_executor.py ; curl -s 'https://ict-bot.duckdns.org/api/bot/prop/fills?limit=25' | python3 -c \"import json,sys; [print(r['id'], r['ticket_id'], r['status'], r['exit_price'], r['pnl'], r['reason']) for r in json.load(sys.stdin)['fills'] if r['status']=='closed']\""
+  },
+  "pr": "#15649",
+  "progress": "2026-10-03 ~16:00Z: #15649 MERGED 15:42:59Z (d883f64f); ON DISK on the live VM (/api/diag/version git_sha_on_disk d883f64fa, #15984; the executor tick is a fresh process per tick) - running executor tick NOT yet observed. First test case MISSED: d27fbb0b2b25 closed 2026-10-03 00:34Z (Trade History, #15983) and was journaled at 00:39:41Z (fill #80) BEFORE the merge, so it carries no exit fields. MEASURED journal qty 1.22 (lots, = Trade Volume). The merged reader run offline on the real rows: matched, exit 2674.88, net pnl -25.31, closed_at 00:34Z, reason manual (exit was neither the 2718.46 stop nor the 2394.06 target). Row closes on the NEXT automated breakout_1 close landing with exit fields. Fill #80 is NOT corrected (a DB write; proposed to the manager).",
+  "routed_to": "PROP-EXIT-READ",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "The breakout_1 executor cannot record HOW an automated position closed. _reconcile_journal reports a journal-open position that is absent from the terminal for 2 reads as status 'closed' with reason 'closed_on_terminal (executor reconcile; exit read from the terminal history is not built)', with no exit_price, no pnl and no TP/SL reason. Now live: the first automated strategy trade (prop-manual-d27fbb0b2b25, ETHUSDT short, open since 18:54Z 2026-10-02, bracket SL 2718.46 / TP 2394.06) will close this way, and so will every one after it, so prop closes land ungraded with a close reason that is not TP/SL. Fix: a read-only DXtrade Trade History reader and an executor close report carrying exit price, realised P&L and the tp/sl/manual reason, HELD Tier-2."
+}

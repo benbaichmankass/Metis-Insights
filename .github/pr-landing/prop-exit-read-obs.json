@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only: PROP-EXIT-READ progress (PR #15649 merged + on disk, first test close missed pre-merge, reader validated on the real close) and one new finding (d27fbb0b2b25 closed by neither bracket leg, cause unknown). No code, config or order-path change."
+}
