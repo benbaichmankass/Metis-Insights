@@ -222,3 +222,8 @@ def test_findings_file_one_pipeline_row_each_and_never_twice(tmp_path):
         it = items[pid]
         assert it["due_when"]["kind"] == "observation" and it["origin"]["rerun"]
     assert P.file_pipeline(doc, store) == []  # open row already carries it
+
+
+def test_seeded_not_yet_run_artifact_reads_could_not_check():
+    line = P.summary_line({"schemaVersion": 1, "status": "not_yet_run", "note": "x"})
+    assert "COULD NOT CHECK" in line and "divergences = 0" not in line

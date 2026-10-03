@@ -1043,6 +1043,9 @@ def run(bundle: dict, legs: list[Leg], since: float, until: float) -> dict:
 def summary_line(doc: dict | None) -> str:
     if not doc:
         return "Live↔replay parity — COULD NOT CHECK (no result artifact: we did not look; this is not zero)"
+    if doc.get("status") == "not_yet_run" or "totals" not in doc:
+        return ("Live↔replay parity — COULD NOT CHECK (no run has completed yet: "
+                f"{doc.get('note') or 'the artifact holds no result'}; this is not zero)")
     t = doc["totals"]
     c = doc.get("controls") or {}
     day = (doc.get("generatedAt") or "")[:10]
