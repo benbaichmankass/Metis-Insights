@@ -28,11 +28,14 @@ def _isolated_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 # ── the account entry ─────────────────────────────────────────────────────
 
 
-def test_tradeify_ships_dry_with_the_b3_roster_at_half_percent():
+def test_tradeify_goes_live_with_the_eth_sol_roster_at_half_percent():
     t = ACCOUNTS["tradeify_1"]
     assert t["mode"] == "live"   # PR C go-live; PR B shipped dry_run
     assert t["exchange"] == "breakout" and t["type"] == "prop" and t["account_class"] == "prop"
-    assert t["strategies"] == ["trend_donchian_eth_prop", "trend_donchian_sol_prop", "ict_scalp_xrp_15m"]
+    # ict_scalp_xrp_15m dropped at go-live (operator 2026-10-03 "Drop it (Recommended)":
+    # it fails its causal rebuild, #15603); XRPUSDT left the pull list with it.
+    assert t["strategies"] == ["trend_donchian_eth_prop", "trend_donchian_sol_prop"]
+    assert t["symbols"] == ["ETHUSDT", "SOLUSDT"]
     assert t["risk"]["risk_pct"] == 0.005
     assert t["risk"]["max_dd_pct"] == 0.06 and t["risk"]["daily_loss_pct"] == 0.03
     assert t["backtest_ruleset"] == "prop_rulesets/tradeify_247_1step.yaml"

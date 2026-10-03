@@ -1929,8 +1929,12 @@ accounts:
                                        # tripped by two of our own legs.
       - trend_donchian_eth_prop        # ETH 1h (n=169, net R +13.03 after Tradeify costs)
       - trend_donchian_sol_prop        # SOL 1h (n=65, +4.97)
-      - ict_scalp_xrp_15m              # XRP 15m (n=129, +3.09)
-    symbols: [ETHUSDT, SOLUSDT, XRPUSDT]
+      # ict_scalp_xrp_15m DROPPED at go-live (OPERATOR DECISION 2026-10-03,
+      # popup relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim:
+      # "Drop it (Recommended)"): it fails its causal rebuild (#15603).
+      # XRPUSDT left the data-pull list with it: no tradeify_1 leg trades XRP,
+      # and `symbols:` is a pull list only (bybit_1 still pulls XRPUSDT).
+    symbols: [ETHUSDT, SOLUSDT]
     risk:
       max_dd_pct: 0.06                 # Tradeify 1-Step STATIC 6% = $600 floor at $9,400.
       daily_loss_pct: 0.03             # 3% daily = $300 (resets 22:00 UTC; ruleset limits).
