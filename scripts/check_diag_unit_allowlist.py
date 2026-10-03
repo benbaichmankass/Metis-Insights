@@ -60,6 +60,7 @@ EXEMPT: dict[str, str] = {
     "ict-env-check.service": "one-shot deploy-time env validation, not a recurring monitored unit (no timer)",
     "ict-notify-failure@.service": "systemd TEMPLATE (FIX-SA-08) fired only via OnFailure= as ict-notify-failure@<unit>.service; it has no bare instance to report state for, and its output is the pushed ping + runtime_logs/unit_failures.jsonl",
     "ict-prop-feed@.service": "systemd TEMPLATE (TRADEIFY-WIRE 2026-09-30) with no bare instance; its INSTANCES (ict-prop-feed@tradeify_1.service/.timer) are in _CANONICAL_UNITS so the per-account feed stays visible to /api/diag/services",
+    "ict-prop-executor@.service": "systemd TEMPLATE (TRADEIFY-EXECUTOR 2026-10-03) with no bare instance; its INSTANCES (ict-prop-executor@tradeify_1.service/.timer) are in _CANONICAL_UNITS so the per-account executor stays visible to /api/diag/services",
     "ict-smoke-once.service": "one-shot smoke test fired manually/at deploy, not a recurring monitored unit (no timer)",
 }
 

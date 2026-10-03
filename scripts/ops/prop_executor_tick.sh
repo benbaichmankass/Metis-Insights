@@ -20,6 +20,20 @@
 #     does not run either.
 #
 # Alerts the cycle prints ({"alert": ...}) are pinged once per tick.
+#
+# OTHER PROP ACCOUNTS (TRADEIFY-EXECUTOR, 2026-10-03; operator "Build executor,
+# then go live"): the templated unit deploy/ict-prop-executor@.service sets
+# PROP_EXECUTOR_ACCOUNT=<account> (e.g. tradeify_1). For any account but
+# breakout_1 EVERY path and key is that account's own, the SAME ones its
+# feed (ict-prop-feed@<account>) and breakout-login-check use:
+#   - session  ${BASE}/accounts/<account>/feed/session_state.json
+#   - trip     ${BASE}/accounts/<account>/feed/tripped
+#   - state    ${BASE}/accounts/<account>/executor
+#   - lock     ${BASE}/accounts/<account>/login.lock (never breakout_1's)
+#   - kill switch PROP_EXECUTOR_MODE_<ACCOUNT> (never the global
+#     PROP_EXECUTOR_MODE, which is breakout_1's and is not even exported).
+# An account with no config/prop_platforms.yaml entry is refused. breakout_1
+# takes the branch it always had: every value below is unchanged for it.
 set -euo pipefail
 
 SCRIPT_NAME="prop_executor_tick"
@@ -30,9 +44,27 @@ source "${SCRIPT_DIR}/_lib.sh"
 ACCOUNT="${PROP_EXECUTOR_ACCOUNT:-breakout_1}"
 BASE="${PROP_BROWSER_BASE:-${HOME}/.cache/metis-prop-browser}"
 VENV="${BASE}/venv"
-SESSION_STATE="${BASE}/feed/session_state.json"
-STATE_DIR="${BASE}/executor"
-LOCK_FILE="${BASE}/login.lock"
+if [ "${ACCOUNT}" = "breakout_1" ]; then
+    FEED_DIR="${BASE}/feed"
+    STATE_DIR="${BASE}/executor"
+    LOCK_FILE="${BASE}/login.lock"
+    MODE_KEY="PROP_EXECUTOR_MODE"
+else
+    # The account id becomes a path segment and an env-var suffix: refuse
+    # anything that is not a plain config key before using it as either.
+    case "${ACCOUNT}" in
+        ''|*[!a-z0-9_]*) log "account '${ACCOUNT}': not a plain prop account id; refusing"; exit 1 ;;
+    esac
+    if ! (cd "${REPO_DIR}" && python3 scripts/prop/prop_env_keys.py "${ACCOUNT}" >/dev/null); then
+        log "account ${ACCOUNT}: no entry in config/prop_platforms.yaml; not reading, not clicking"
+        exit 1
+    fi
+    FEED_DIR="${BASE}/accounts/${ACCOUNT}/feed"
+    STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"
+    LOCK_FILE="${BASE}/accounts/${ACCOUNT}/login.lock"
+    MODE_KEY="PROP_EXECUTOR_MODE_$(printf '%s' "${ACCOUNT}" | tr 'a-z' 'A-Z' | tr -c 'A-Z0-9\n' '_')"
+fi
+SESSION_STATE="${FEED_DIR}/session_state.json"
 TIMEOUT_S="${PROP_EXECUTOR_TIMEOUT_S:-150}"
 PING_PY="${PROP_EXECUTOR_PING_PY:-/usr/bin/python3}"
 
@@ -41,7 +73,7 @@ chmod 700 "${STATE_DIR}"
 
 # Kill switch from the VM .env (values of the credential keys never echoed).
 if [ -f "${REPO_DIR}/.env" ]; then
-    for ckey in PROP_EXECUTOR_MODE DASHBOARD_API_TOKEN; do
+    for ckey in ${MODE_KEY} DASHBOARD_API_TOKEN; do
         cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
         if [ -n "${cval}" ]; then
             cval="${cval%\"}"; cval="${cval#\"}"
@@ -51,13 +83,13 @@ if [ -f "${REPO_DIR}/.env" ]; then
     done
     unset cval
 fi
-if [ "${PROP_EXECUTOR_MODE:-read_only}" = "off" ]; then
-    log "PROP_EXECUTOR_MODE=off; not reading, not clicking"
+if [ "${!MODE_KEY:-read_only}" = "off" ]; then
+    log "${MODE_KEY}=off; not reading, not clicking"
     exit 0
 fi
 
-if [ -f "${BASE}/feed/tripped" ]; then
-    log "feed is TRIPPED ($(head -c 200 "${BASE}/feed/tripped")); the executor does not run without a maintained session"
+if [ -f "${FEED_DIR}/tripped" ]; then
+    log "feed is TRIPPED ($(head -c 200 "${FEED_DIR}/tripped")); the executor does not run without a maintained session"
     exit 0
 fi
 

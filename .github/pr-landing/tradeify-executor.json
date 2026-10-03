@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane TRADEIFY-EXECUTOR dispatch (manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator popup 2026-10-03 ~17:30Z 'Build executor, then go live'): build as a HELD Tier-2 PR; the manager merges.",
+  "why": "New systemd template unit + opt-in timer for a per-account prop executor, the executor tick wrapper parameterised by account, and the breakout-login-check executor-enable-timer path extended to non-breakout accounts: service/timer/runtime wrapper changes, Tier-2. Ships NOT enabled; breakout_1 unchanged."
+}

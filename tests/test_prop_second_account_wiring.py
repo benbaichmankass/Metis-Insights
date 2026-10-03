@@ -130,7 +130,7 @@ def test_tradeify_platform_entry_never_points_at_breakout():
         "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
-    assert ex["watched_click_max_lots"] == {"ETHUSD": 0.01}
+    assert ex["watched_click_max_lots"] == {"ETHUSD": 0.01, "SOLUSD": 0.01}
     b = load_platform_config("breakout_1")
     assert b["login_url"] == "https://wss.breakoutprop.com/"
     assert (b["username_env"], b["password_env"]) == ("BREAKOUT_DX_USERNAME", "BREAKOUT_DX_PASSWORD")
@@ -177,8 +177,10 @@ def test_action_wrapper_keeps_breakout_paths_and_scopes_others():
     assert 'FEED_DIR="${BASE}/feed"' in s and 'X_STATE_DIR="${BASE}/executor"' in s
     assert 'FEED_DIR="${BASE}/accounts/${ACCOUNT}/feed"' in s
     assert 'X_STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"' in s
-    # the executor timer stays breakout_1's; a second account's is refused
-    assert "the executor timer is breakout_1's" in s
+    # breakout_1 keeps ict-prop-executor.timer; a second account gets its own
+    # template instance, never breakout_1's timer (TRADEIFY-EXECUTOR)
+    assert 'X_UNIT="ict-prop-executor@${ACCOUNT}"' in s
+    assert "sudo -n systemctl enable --now ict-prop-executor.timer" in s
 
 
 def test_feed_wrapper_keeps_breakout_paths():
