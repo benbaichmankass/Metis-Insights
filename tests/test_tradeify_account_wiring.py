@@ -57,7 +57,7 @@ def test_one_leg_per_symbol_so_our_own_legs_cannot_hedge():
     for leg in ACCOUNTS["tradeify_1"]["strategies"]:
         s = blocks[leg].get("symbols") or [blocks[leg].get("symbol")]
         syms.extend(x for x in s if x)
-    assert len(syms) == len(set(syms)) == 3, syms
+    assert len(syms) == len(set(syms)) == 2, syms     # ETH + SOL; the XRP leg was dropped at go-live
     assert set(syms) == set(ACCOUNTS["tradeify_1"]["symbols"])
 
 
@@ -89,7 +89,9 @@ def test_tradeify_routes_through_its_own_map():
     tpath = REPO / "config" / "prop_rulesets" / "tradeify_247_1step.yaml"
     assert routing_path_for(str(tpath)).name == "tradeify_routing.yaml"
     r = yaml.safe_load((REPO / "config" / "prop_rulesets" / "tradeify_routing.yaml").read_text())
-    assert set(r["symbols"]) == set(ACCOUNTS["tradeify_1"]["symbols"])
+    # The routing map may name more symbols than the roster trades (XRPUSDT stays
+    # mapped after its leg was dropped); every symbol the account pulls must be mapped.
+    assert set(ACCOUNTS["tradeify_1"]["symbols"]) <= set(r["symbols"])
 
 
 # ── tickets: the runtime account_cfg shape (FLAT, as the coordinator builds it) ──
