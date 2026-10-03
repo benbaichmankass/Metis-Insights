@@ -1899,6 +1899,18 @@ def test_submit_label_mismatch_reads_the_measured_label_shape():
     assert "names 'ETHUSD'" in submit_label_mismatch("Buy 0.01 ETHUSD at 3000.1", spec)
 
 
+def test_submit_label_mismatch_refuses_the_opposite_side():
+    # TRADEIFY-DRY 2026-10-03: the label's own Buy/Sell must match the spec's
+    # side; before, "Sell 0.01 ETH/USD" passed a long spec.
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    long_eth = BracketSpec("t", "ETHUSD", "long", 0.01, 2600.0, 2800.0, "limit", 2680.0)
+    short_eth = BracketSpec("t", "ETHUSD", "short", 0.01, 2800.0, 2600.0, "limit", 2680.0)
+    assert submit_label_mismatch("Buy 0.01 ETH/USD at 2,678.650", long_eth) == ""
+    assert submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", short_eth) == ""
+    assert "states side 'Sell'" in submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", long_eth)
+    assert "states side 'Buy'" in submit_label_mismatch("Buy 0.01 ETH/USD at 2,678.650", short_eth)
+
+
 def test_measured_sidebar_label_stating_the_typed_qty_passes(tpage):
     p = tpage(html=_measured_live_label())
     spec = BracketSpec("t5", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)

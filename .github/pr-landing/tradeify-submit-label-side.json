@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane TRADEIFY-DRY (manager session_01MM8o5js6TcDFeNAPBY4Ntv): 'For any new mode or code change, open a HELD Tier-2 PR for the manager.' The diff changes the prop order-ticket opener path (src/prop/platform/dxtrade.py, scripts/prop/prop_executor_tick.py) and config/prop_platforms.yaml, and it widens the operator's ONE approved Ask click into the routine tradeify_1 opener, which is the manager's or operator's call. Nothing here should auto-merge.",
+  "why": "tradeify_1 guarded Ask-button ticket opener (opt-in, tradeify_1 only), submit-label side check, and a dry-only ETHUSD lot entry. Order-path code: Tier-2."
+}

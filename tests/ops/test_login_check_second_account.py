@@ -58,7 +58,12 @@ def test_tradeify_platform_entry_is_explicit_and_disarmed():
     t = load_platform_config("tradeify_1")
     assert t["platform"] == "dxtrade" and t["login_url"] == "https://dx.tradeify247.co/"
     assert (t["username_env"], t["password_env"]) == ("TRADEIFY_DX_USERNAME", "TRADEIFY_DX_PASSWORD")
-    assert t["executor"]["enabled_venue_symbols"] == [] and t["executor"]["lots"] == {}
+    # Nothing ENABLED is the arming gate. The only lot entry is the dry-only
+    # ETHUSD one (TRADEIFY-DRY, #15846) that lets round-trip-dry reach the form.
+    assert t["executor"]["enabled_venue_symbols"] == []
+    assert t["executor"]["lots"] == {
+        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.01}}
+    assert t["executor"]["watched_click_max_lots"] == {"ETHUSD": 0.01}
     assert load_platform_config("breakout_1")["login_url"] == "https://wss.breakoutprop.com/"
 
 

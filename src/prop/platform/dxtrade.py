@@ -4684,6 +4684,9 @@ def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
     at the lot step is only a measurement of the venue minimum if that change
     would be caught.
 
+    When the spec carries a side, the label's Buy/Sell must match it too
+    (long -> Buy, short -> Sell).
+
     A label that does NOT parse as "<Buy|Sell> <qty> <SYM>" is REFUSED
     (DIALOG-MEASURE, manager 2026-10-02): "Save", "Modify" or "" is not an
     order-entry submit -- the row's modify control opens a docked "Position
@@ -4705,6 +4708,15 @@ def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
         return f"its text {text!r} states quantity {qty}, not the typed {spec.quantity}"
     if canonical_symbol(m.group(3)) != canonical_symbol(spec.venue_symbol) or not canonical_symbol(m.group(3)):
         return f"its text {text!r} names {m.group(3)!r}, not {spec.venue_symbol}"
+    # The SIDE the label states must be the side we meant (TRADEIFY-DRY,
+    # 2026-10-03): the label is the terminal's own statement of what it is
+    # about to send, and "Sell 0.01 ETH/USD" passed a long spec when only the
+    # quantity and symbol were compared. verify_form_selection reads the side
+    # toggle; this reads the sentence the submit button itself carries. A spec
+    # with no readable side (a bare namespace in a test) skips only this check.
+    want = {"long": "buy", "short": "sell"}.get(str(getattr(spec, "side", "") or "").lower())
+    if want is not None and m.group(1).lower() != want:
+        return f"its text {text!r} states side {m.group(1)!r}, not the meant {want}"
     return ""
 
 
@@ -5036,6 +5048,11 @@ class DXtradeAdapter(PropPlatformAdapter):
 
     def __init__(self, timeout_ms: int = 30_000) -> None:
         self.timeout_ms = timeout_ms
+        # Per-account opt-in (prop_platforms.yaml ``ticket_opener: ask_button``;
+        # tradeify_1 only, TRADEIFY-DRY 2026-10-03): open_order_ticket may use
+        # the guarded watchlist Ask-button opener (_ask_button_open). Default
+        # OFF, so breakout_1's opener chain is unchanged.
+        self.ask_opener = False
 
     # ---- page probes ---------------------------------------------------
     @staticmethod
@@ -5431,6 +5448,27 @@ class DXtradeAdapter(PropPlatformAdapter):
                 out.update(opened=True, via="symbol_click", form=form)
                 return out
             self._dismiss_dialogs(page, out)
+        # tradeify_1 (opt-in, ``self.ask_opener``): the ONLY measured opener on
+        # that terminal is the symbol's watchlist Ask "Buy" price button
+        # (#15743, #15827: one click opened the docked New Order sidebar for
+        # ETH/USD; margin 0 and no order after). The sidebar does not persist
+        # into a new session (#15834: every other opener found 0 order
+        # panels), so every run must open it this way. Guarded click:
+        # _ask_button_open.
+        if self.ask_opener:
+            ask = self._ask_button_open(page, sym)
+            out["ask_button"] = ask
+            if ask.get("clicked"):
+                out["tried"].append("ask_button")
+            if ask.get("form"):
+                out.update(opened=True, via="ask_button", form=ask["form"])
+                return out
+            if ask.get("clicked"):
+                # Clicked but no form naming the symbol: never try further
+                # openers on top of an unknown surface.
+                out["form"] = self._find_form(page)
+                out["refused"] = f"ask_button: {ask.get('why')}"
+                return out
         for name in TICKET_OPENER_NAMES:
             try:
                 loc = page.get_by_role("button", name=name, exact=True)
@@ -5512,6 +5550,58 @@ class DXtradeAdapter(PropPlatformAdapter):
         out["form"] = form
         out["refused"] = f"no opener produced an order form (tried {out['tried']})"
         return out
+
+    def _ask_button_open(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """ONE guarded click on ``venue_symbol``'s watchlist Ask "Buy" price
+        button to open the order ticket (the probe_ask_ticket click, as an
+        opener; account opt-in ``ticket_opener: ask_button``). Clicks NOTHING
+        unless: no dialog is open; ASK_BUTTON_RESOLVE_JS tags exactly one
+        button; and one-click re-reads OFF on the MEASURED toggle immediately
+        before the click (a price button with one-click ON is an instant
+        trade). Returns ``{"clicked", "form", "why", ...}``; ``form`` is set
+        only when the form then opens AND names the symbol, else the surface
+        is dismissed with Escape (never a ticket button). Never submits."""
+        sym = str(venue_symbol or "").strip().upper()
+        target = self.search_query_for(sym, "slash")
+        out: Dict[str, Any] = {"target": target, "clicked": False, "form": None, "why": None}
+        try:
+            dialogs = self._visible_dialogs(page)
+            if dialogs:
+                out["why"] = f"{dialogs} dialog(s) open; no click"
+                return out
+            res = page.evaluate(ASK_BUTTON_RESOLVE_JS, [target]) or {}
+            out["resolve"] = {k: res.get(k) for k in ("ok", "why", "n_rows", "n_buttons", "label")}
+            btn = page.locator("[data-metis-ask-btn='1']")
+            if not res.get("ok") or btn.count() != 1:
+                out["why"] = res.get("why") or f"{btn.count()} tagged Ask button(s) (need exactly 1); no click"
+                return out
+            oc = self.read_one_click(page)
+            out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+            if not info_probe_one_click_off(oc):
+                out["why"] = (f"one-click not confirmed OFF immediately before the click "
+                              f"({oc.get('state')} via {oc.get('via')}); no click made")
+                return out
+            btn.first.click(timeout=5_000)
+            out["clicked"] = True
+            page.wait_for_timeout(1_500)
+            form = self._find_form(page)
+            if form.get("found") and form_names_symbol(form, sym):
+                out["form"] = form
+                return out
+            out["why"] = ("the click opened a form that does not name " + sym) if form.get("found") \
+                else "the click did not open a recognised order form"
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(500)
+            return out
+        except Exception as exc:
+            out["why"] = f"ask opener raised {type(exc).__name__}"
+            return out
+        finally:
+            try:
+                page.evaluate("() => document.querySelectorAll('[data-metis-ask-btn]')"
+                              ".forEach(e => e.removeAttribute('data-metis-ask-btn'))")
+            except Exception:
+                pass
 
     def _workspaces(self, page: Any) -> List[Dict[str, Any]]:
         """Click-free: the workspace tabs (``WORKSPACE_TABS_JS``)."""
