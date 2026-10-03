@@ -97,7 +97,7 @@ grading:
   decision_rule_id: RULE-TPL-PROP-FIT-B6V2-trend_donchian_eth_prop-bal010
   evidence:
   - research/results/RQ-20260929-028/37011034077.jsonl
-  graded_at: '2026-10-02'
+  graded_at: '2026-10-03'
   grader: scripts/research/queue_grade.py
   needs_review: true
   reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
