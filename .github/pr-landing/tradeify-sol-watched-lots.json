@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane TRADEIFY-EXECUTOR dispatch (manager session_01MM8o5js6TcDFeNAPBY4Ntv): 'a SMALL separate held PR'; the manager merges, then the lane runs round-trip-dry,limit SOLUSD (dry, no submit).",
+  "why": "One prop executor config entry: tradeify_1 executor.watched_click_max_lots gains SOLUSD 0.01 (the minimum lot) so a DRY round trip can reach the LIMIT form. Arms nothing: SOLUSD is not in enabled_venue_symbols, and armed paths also need PROP_EXECUTOR_MODE_TRADEIFY_1=live."
+}

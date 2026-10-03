@@ -65,7 +65,7 @@ def test_tradeify_platform_entry_is_explicit_and_disarmed():
         "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
-    assert t["executor"]["watched_click_max_lots"] == {"ETHUSD": 0.01}
+    assert t["executor"]["watched_click_max_lots"] == {"ETHUSD": 0.01, "SOLUSD": 0.01}
     assert load_platform_config("breakout_1")["login_url"] == "https://wss.breakoutprop.com/"
 
 

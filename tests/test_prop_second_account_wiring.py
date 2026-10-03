@@ -130,7 +130,7 @@ def test_tradeify_platform_entry_never_points_at_breakout():
         "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
-    assert ex["watched_click_max_lots"] == {"ETHUSD": 0.01}
+    assert ex["watched_click_max_lots"] == {"ETHUSD": 0.01, "SOLUSD": 0.01}
     b = load_platform_config("breakout_1")
     assert b["login_url"] == "https://wss.breakoutprop.com/"
     assert (b["username_env"], b["password_env"]) == ("BREAKOUT_DX_USERNAME", "BREAKOUT_DX_PASSWORD")
