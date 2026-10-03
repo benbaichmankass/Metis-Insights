@@ -1,7 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "hold_reason": "operator_asked_to_hold",
-  "hold_text": "Lane TRADEIFY-DRY reports to the manager (session_01MM8o5js6TcDFeNAPBY4Ntv), who merges register updates for its lanes; a direct push to main was refused (protected branch).",
-  "why": "One-row update of docs/claude/work/MANAGER-CHECKLIST.json (TRADEIFY-WIRE: lane, prs, dated note). Docs only, Tier-1 by path."
+  "landing": "self",
+  "why": "One-row update of docs/claude/work/MANAGER-CHECKLIST.json (TRADEIFY-WIRE: lane, prs, dated note incl. the operator's 2026-10-03 'Allow, dry only for now' answer). Docs only, Tier-1 by path; manager directed self-landing."
 }
