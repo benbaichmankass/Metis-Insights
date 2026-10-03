@@ -7653,11 +7653,17 @@ class DXtradeAdapter(PropPlatformAdapter):
             pass
         return False
 
-    # False until a measured run (edit-dialog-probe, DIALOG-MEASURE) has read
-    # the real dialog and edit_dialog_mismatch passes on it. While False an
-    # ARMED modify_bracket locates the edit control and refuses before any
-    # click. Flipping it is a held Tier-2 change (it arms a live click).
-    EDIT_DIALOG_MEASURED = False
+    # MEASURED (DIALOG-MEASURE): the live breakout_1 terminal's docked
+    # "Position Details" panel was read with a position open (issue #15657,
+    # run 37058159549: Stop Loss / Take Profit inputs with a Price mode,
+    # Close Position, Modify Position disabled until a value changes, Discard,
+    # no quantity field); modify_bracket targets exactly that surface (#15673).
+    # Flipped True on the operator's answer "Merge and switch on together"
+    # (2026-10-03, with the PROP-TRAIL merge #15316). Every armed modify still
+    # passes the ROLLOUT guard below (#15693): one watched, tighten-only SL
+    # step per reviewed executor-clear-rollout. Setting this back to False is
+    # the kill switch: an armed modify then refuses before any click.
+    EDIT_DIALOG_MEASURED = True
     # When armed, the first modifies on a real-money book are a ROLLOUT
     # (manager 2026-10-02 21:30Z): one watched, tighten-only step per reviewed
     # clear of the per-account latch (ModifyRollout, cleared only by
