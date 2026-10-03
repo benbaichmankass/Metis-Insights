@@ -72,6 +72,9 @@ TARGETS: dict[str, dict] = {
     # GRADE-ALERT (2026-09-30): the alarm for the grading hop had 0 runs ever;
     # its first 04:10Z slot never fired. An alarm that can be dropped is silent.
     "grading-freshness-alert.yml": {"stale_hours": 26},
+    # LIVE-PARITY (2026-10-03): the daily live-vs-replay parity check — a dropped
+    # slot would read on the brief as a stale result, so the keeper covers it.
+    "live-replay-parity.yml": {"stale_hours": 26},
     # RQ-OPS-2 (2026-09-28): added after the SAME lag/drop this module exists
     # for stranded a full day of research-queue-dispatch's own cron — its
     # 06:20 UTC slot had not fired by 13:14Z (measured: every other schedule-
