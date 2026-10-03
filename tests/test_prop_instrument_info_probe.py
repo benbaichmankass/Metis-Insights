@@ -1003,3 +1003,27 @@ def test_split_watchlist_menu_scope_holding_a_trade_menu_refuses(browser):
                   click=False)
     assert got["resolve"]["why"] == "the watchlist scope also holds an Orders / Positions widget"
     assert st["clicks"] == [] and st["tags"] == 0
+
+
+# ── tradeify_1 price cells carry their button's hidden label (TRADEIFY-DRY) ──
+
+def test_quote_reads_price_cells_that_carry_the_hidden_buy_sell_label():
+    # MEASURED, symbol-switch-dry #15901 run 37117766658: bid "Sell 2,680.940",
+    # ask "Buy 2,680.940"; read_quote returned None before the label was stripped.
+    from src.prop.platform.dxtrade import quote_from_watchlist_rows
+    hdr = ["symbol", "bid", "ask"]
+    got = quote_from_watchlist_rows({"headers": hdr, "rows": [["ETH/USD", "Sell 2,680.940", "Buy 2,680.950"]]},
+                                    "ETHUSD")
+    assert got == {"bid": 2680.94, "ask": 2680.95}
+    # breakout_1's unlabelled cells are unchanged.
+    assert quote_from_watchlist_rows({"headers": hdr, "rows": [["ETHUSD", "2,683.58", "2,683.59"]]},
+                                     "ETHUSD") == {"bid": 2683.58, "ask": 2683.59}
+
+
+def test_quote_refuses_a_price_cell_whose_label_belongs_to_the_other_column():
+    # "Buy" under Bid / "Sell" under Ask means the cells are not where the
+    # headers say: could not look, never a swapped quote.
+    from src.prop.platform.dxtrade import quote_from_watchlist_rows
+    hdr = ["symbol", "bid", "ask"]
+    assert quote_from_watchlist_rows({"headers": hdr, "rows": [["ETH/USD", "Buy 2,680.940", "Sell 2,680.950"]]},
+                                     "ETHUSD") is None
