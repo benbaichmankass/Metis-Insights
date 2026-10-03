@@ -2510,6 +2510,13 @@ SUBMIT_JS = r"""
                    occluder: hit ? Object.assign(desc(hit),
                      {rel: hit.contains(btn) ? 'ancestor' : (btn.contains(hit) ? 'descendant' : 'unrelated')}) : null,
                    clip_chain: clips(btn),
+                   // The submit's OWN state (TRADEIFY-EXECUTOR 2026-10-03): a
+                   // pointer-events:none / disabled button is skipped by
+                   // elementFromPoint, so the hit lands on its footer ANCESTOR
+                   // -- the same reading as an overlap, with a different fix.
+                   btn_state: (() => { const cs = getComputedStyle(btn);
+                     return {disabled: !!btn.disabled, aria_disabled: btn.getAttribute('aria-disabled'),
+                             pointer_events: cs.pointerEvents, opacity: cs.opacity, cursor: cs.cursor}; })(),
                    dialogs: [...document.querySelectorAll('[role=dialog], [role=alertdialog], [aria-modal=true]')]
                               .filter(e => { const q = e.getBoundingClientRect(); return q.width > 0 && q.height > 0; }).length};
   }
@@ -4759,6 +4766,14 @@ def submit_not_visible_why(why_not: Optional[Mapping[str, Any]]) -> str:
         tid = f"[{occ.get('tid')}]" if occ.get("tid") else ""
         dialogs = why_not.get("dialogs") or 0
         extra = f", {dialogs} dialog(s) open" if dialogs else ""
+        bs = why_not.get("btn_state") or {}
+        state = []
+        if bs.get("disabled") or str(bs.get("aria_disabled") or "").lower() == "true":
+            state.append("the submit is DISABLED")
+        if bs.get("pointer_events") == "none":
+            state.append("the submit has pointer-events:none (not hit-testable)")
+        if state:
+            extra += "; " + ", ".join(state)
         return (f"its centre {centre} paints {occ.get('tag')}{tid} at "
                 f"{list(occ.get('box') or [])} ({occ.get('rel')}){extra}")
     return f"nothing is painted at its centre {centre}"
@@ -7761,7 +7776,11 @@ class DXtradeAdapter(PropPlatformAdapter):
         # exactly what an armed run would click.
         ready, why, form, submit_info = self._ready_submit(page, spec, want)
         if not ready:
-            return refuse(why, form)
+            # The toggle's reading travels with a submit-stage refusal too, so
+            # the run log never shows one_click: null once the form has opened
+            # (TRADEIFY-EXECUTOR 2026-10-03: both SOL dry walks read null only
+            # because the read sat after this return). Diagnostic, as below.
+            return refuse(why, {**form, "one_click": self.read_one_click(page), "submit": submit_info})
         # Diagnostic only: the toggle's reading right before submit travels
         # with the attempt so the run log shows it. Nothing is gated on it.
         form = {**form, "one_click": self.read_one_click(page), "submit": submit_info, "fill_trace": trace}
