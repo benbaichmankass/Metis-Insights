@@ -119,6 +119,12 @@ SUPPORTED_UNITS = {
 LIVE_FETCH_LIMIT = 200
 FINE_INTERVAL = "15m"
 FINE_S = 900
+#: How stale a live frame can be: the candle cache TTL is min(10% of the bar,
+#: CANDLE_CACHE_TTL_MAX_S=60 by default) in src/runtime/market_data.py, but the
+#: VM value is env-overridable, so the bracket allows 300 s + fetch slop.
+STALE_S = 330
+#: ADX-14 hull tolerance for forming legs (see adx_range).
+ADX_TOL = 0.05
 CANDLE_LIMIT = 1000  # /api/bot/candles MAX_LIMIT
 
 #: Audit events that NAME why a live signal produced no package/order.
@@ -127,6 +133,9 @@ DOWNSTREAM_GATE_EVENTS = (
     "open_package_pair_coupled", "bar_debounce_blocked", "cooldown_blocked",
     "empty_sizing_refused", "regime_hard_gate",
 )
+
+#: pipeline_result statuses that NAME a non-dispatch (not a silent drop).
+_PIPELINE_SKIP = {"skipped", "rejected", "refused", "blocked", "error", "failed", "noop"}
 
 DIVERGENCE_CLASSES = (
     "missed_signal", "live_only_signal", "side_mismatch", "candle_mismatch",
@@ -451,6 +460,9 @@ def _evals_and_events(rows: list[dict], leg: str) -> tuple[list[EvalRow], list[d
                                  bar_close=r.get("bar_close")))
         elif ev in DOWNSTREAM_GATE_EVENTS:
             events.append({"t": t, "event": ev, "row": r})
+        elif ev == "pipeline_result" and str(r.get("status") or "").lower() in _PIPELINE_SKIP:
+            # the pipeline said why this leg's tick did not dispatch
+            events.append({"t": t, "event": f"pipeline_result:{r.get('reason')}", "row": r})
     evals.sort(key=lambda e: e.t)
     events.sort(key=lambda e: e["t"])
     return evals, events
@@ -676,31 +688,49 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
                 if e.bar_close is not None and e.close is None:
                     e.close = float(e.bar_close)
                 extra = (e.close,) if e.close is not None else ()
-                vs = forming_variants(i, b0, fstart, extra)
+                # The live frame may be up to STALE_S old (the candle cache):
+                # every 15m state overlapping [t - STALE_S, t] is a candidate,
+                # including the PREVIOUS bar's last state across a bar boundary.
+                cands = [(i, b0, fstart)]
+                if e.t - fstart < STALE_S:
+                    if fstart - FINE_S >= b0 and (fstart - FINE_S) in fine_by_t:
+                        cands.append((i, b0, fstart - FINE_S))
+                    elif fstart == b0 and i - 1 >= LIVE_FETCH_LIMIT - 1:
+                        pf = tf_times[i - 1] + tf_s - FINE_S
+                        if pf in fine_by_t:
+                            cands.append((i - 1, tf_times[i - 1], pf))
+                vs, adxs, cs = [], [], []
+                for (ci, cb, cf) in cands:
+                    vs += forming_variants(ci, cb, cf, extra)
+                    cs.append(fine_by_t[cf])
+                    if e.adx is not None:
+                        ar = adx_range(ci, cb, cf)
+                        if ar:
+                            adxs += list(ar)
                 pool = [v for v in vs if e.close is not None and _close(v["close"], e.close)] or vs
                 sides = {v["side"] for v in pool}
                 cls = None
                 c = fine_by_t[fstart]
-                if e.bar_open is not None and int(e.bar_open) != int(b0):
+                lo_c = min(float(x["low"]) for x in cs)
+                hi_c = max(float(x["high"]) for x in cs)
+                if e.bar_open is not None and int(e.bar_open) not in {int(cb) for _, cb, _ in cands}:
                     cls = "candle_mismatch"
                 if cls is None and e.close is not None:
                     tol = 1e-6 * max(1.0, e.close)
-                    if not (float(c["low"]) - tol <= e.close <= float(c["high"]) + tol):
+                    if not (lo_c - tol <= e.close <= hi_c + tol):
                         cls = "candle_mismatch"
                 if cls is None and e.side not in sides:
                     cls = ("missed_signal" if e.side == "none" else
                            "live_only_signal" if sides == {"none"} else "side_mismatch")
-                ar = adx_range(i, b0, fstart) if e.adx is not None else None
-                adxs = list(ar) if ar else []
                 if cls is None and e.adx is not None and adxs:
                     gap = max(0.0, min(adxs) - e.adx, e.adx - max(adxs))
                     adx_gap_max = max(adx_gap_max, gap)
-                    if gap > 0.05:
+                    if gap > ADX_TOL:
                         cls = "candle_mismatch"
                 if cls is None and e.channel:
                     rch = [parse_channel(v.get("reason")) for v in vs]
                     rch = [x for x in rch if x]
-                    if rch and not all(_close(a, b) for a, b in zip(e.channel, rch[0])):
+                    if rch and not any(all(_close(a, b) for a, b in zip(e.channel, x)) for x in rch):
                         cls = "candle_mismatch"
                 if cls:
                     kinds.append(cls)
@@ -709,6 +739,7 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
                                           "reason": e.reason},
                                  "replay": {"sides": sorted(sides),
                                             "adx_range": [min(adxs), max(adxs)] if adxs else None,
+                                            "candidates": [iso(cf) for _, _, cf in cands],
                                             "fine_candle": {k: c[k] for k in ("time", "low", "high")}}})
                 if e.side != "none":
                     signal_evals.append(e)
