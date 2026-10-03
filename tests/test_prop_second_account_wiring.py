@@ -177,8 +177,10 @@ def test_action_wrapper_keeps_breakout_paths_and_scopes_others():
     assert 'FEED_DIR="${BASE}/feed"' in s and 'X_STATE_DIR="${BASE}/executor"' in s
     assert 'FEED_DIR="${BASE}/accounts/${ACCOUNT}/feed"' in s
     assert 'X_STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"' in s
-    # the executor timer stays breakout_1's; a second account's is refused
-    assert "the executor timer is breakout_1's" in s
+    # breakout_1 keeps ict-prop-executor.timer; a second account gets its own
+    # template instance, never breakout_1's timer (TRADEIFY-EXECUTOR)
+    assert 'X_UNIT="ict-prop-executor@${ACCOUNT}"' in s
+    assert "sudo -n systemctl enable --now ict-prop-executor.timer" in s
 
 
 def test_feed_wrapper_keeps_breakout_paths():
