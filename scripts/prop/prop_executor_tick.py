@@ -333,6 +333,20 @@ def latch_info_probe(got: Dict[str, Any], state_dir: Path, *, armed: bool = Fals
     return reason
 
 
+LIMIT_PRICE_FILL_MODES = ("fill", "keys")
+
+
+def limit_price_fill_mode(cfg_plat: Any) -> str:
+    """The account's LIMIT price fill method from prop_platforms.yaml
+    ``limit_price_fill``: absent = ``fill`` (page.fill, every account's path
+    before TRADEIFY-PRICE-FILL); ``keys`` = typed key by key. Any other value
+    RAISES: a typo must not silently fall back to the method that failed."""
+    raw = str((cfg_plat or {}).get("limit_price_fill") or "fill").strip().lower()
+    if raw not in LIMIT_PRICE_FILL_MODES:
+        raise ValueError(f"limit_price_fill {raw!r} is not one of {LIMIT_PRICE_FILL_MODES}")
+    return raw
+
+
 def _code_sha() -> str:
     """The commit this tick runs from, so a run log proves WHICH code ran
     (three dry runs on 2026-09-29 could not tell a deploy lag from a wrong
@@ -480,6 +494,10 @@ def main(argv: Optional[list] = None) -> int:
     # tradeify_1: ``ask_button``, TRADEIFY-DRY). Absent = the default chain.
     if hasattr(adapter, "ask_opener"):
         adapter.ask_opener = str(cfg_plat.get("ticket_opener") or "").strip().lower() == "ask_button"
+    # Per-account LIMIT price fill (prop_platforms.yaml ``limit_price_fill``;
+    # tradeify_1: ``keys``, TRADEIFY-PRICE-FILL). Absent = page.fill, unchanged.
+    if hasattr(adapter, "limit_price_fill"):
+        adapter.limit_price_fill = limit_price_fill_mode(cfg_plat)
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:

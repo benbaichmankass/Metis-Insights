@@ -4556,6 +4556,38 @@ def classify_ticket_surface(form: Mapping[str, Any]) -> str:
     return "not_found"
 
 
+# READ-ONLY context of one tagged form field (TRADEIFY-PRICE-FILL): the
+# input's own attributes and every control within three ancestors of it --
+# text, aria-label, title, test id, pressed/checked/data-value state -- so a
+# "follow market" / "track price" toggle beside the limit price would be
+# named in the run log. Digits are masked (a control's text may carry a
+# price or an account figure); at most 12 controls. Clicks nothing.
+PRICE_FIELD_CONTEXT_JS = r"""
+(key) => {
+  const inp = document.querySelector('[data-metis-field=' + key + ']');
+  if (!inp) return {found: false};
+  const m = s => String(s || '').trim().replace(/\s+/g, ' ').replace(/\d/g, '#').slice(0, 40);
+  const out = {found: true, tag: inp.tagName.toLowerCase(), type: inp.getAttribute('type'),
+               readonly: !!inp.readOnly, inputmode: inp.getAttribute('inputmode'),
+               test_id: m(inp.getAttribute('data-test-id')), controls: []};
+  const seen = new Set();
+  const sel = 'button, [role=button], [role=switch], [role=checkbox], input[type=checkbox], [data-value="true"], [data-value="false"]';
+  for (let e = inp.parentElement, i = 0; e && e !== document.body && i < 3; e = e.parentElement, i++) {
+    for (const c of e.querySelectorAll(sel)) {
+      if (seen.has(c) || out.controls.length >= 12) continue;
+      seen.add(c);
+      out.controls.push({level: i, tag: c.tagName.toLowerCase(), text: m(c.innerText || c.textContent),
+                         aria: m(c.getAttribute('aria-label')), title: m(c.getAttribute('title')),
+                         test_id: m(c.getAttribute('data-test-id')),
+                         state: m(c.getAttribute('aria-pressed') || c.getAttribute('aria-checked')
+                                  || c.getAttribute('data-value') || (c.checked === undefined ? '' : String(c.checked)))});
+    }
+  }
+  return out;
+}
+"""
+
+
 def _fmt_num(x: float) -> str:
     """A number as the form should receive it: no exponent, no trailing zeros."""
     s = f"{float(x):.10f}".rstrip("0").rstrip(".")
@@ -5076,6 +5108,14 @@ class DXtradeAdapter(PropPlatformAdapter):
         # the guarded watchlist Ask-button opener (_ask_button_open). Default
         # OFF, so breakout_1's opener chain is unchanged.
         self.ask_opener = False
+        # Per-account opt-in (prop_platforms.yaml ``limit_price_fill: keys``;
+        # tradeify_1 only, TRADEIFY-PRICE-FILL 2026-10-03): the LIMIT price
+        # field is typed key by key (_fill_field_keys) instead of page.fill.
+        # Tradeify's field kept its own price after page.fill on every pass
+        # (#15975 run 37132594478: typed 2679.725, shown 2,679.719 x3) while
+        # SL / TP took the same call. Default "fill", so breakout_1's fill
+        # path is unchanged.
+        self.limit_price_fill = "fill"
 
     # ---- page probes ---------------------------------------------------
     @staticmethod
@@ -7581,7 +7621,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 if k == "quantity":
                     continue
                 step = f"{k} fill"
-                self._fill_field(page, k, v)
+                self._fill_one(page, k, v, trace)
             page.wait_for_timeout(300)
             form = self._find_form(page)
             # Verify every typed value; re-fill only the fields the form
@@ -7599,7 +7639,7 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.wait_for_timeout(500)
                 for k in bad:
                     step = f"{k} re-fill (pass {pass_no + 1})"
-                    self._fill_field(page, k, want[k])
+                    self._fill_one(page, k, want[k], trace)
                 page.wait_for_timeout(300)
                 form = self._find_form(page)
         except Exception as exc:
@@ -7768,6 +7808,73 @@ class DXtradeAdapter(PropPlatformAdapter):
             page.locator(sel).blur()
         except Exception:
             pass          # an older Playwright without Locator.blur: the read-back still decides
+
+    def _fill_one(self, page: Any, key: str, value: float, trace: List[Dict[str, Any]]) -> None:
+        """Route one field to its fill method. Only the LIMIT price field of an
+        account that opted in (``limit_price_fill: keys``) is typed key by key;
+        every other field, and every field of every other account, goes through
+        the unchanged _fill_field. The key path's step-by-step read-back is
+        appended to ``trace`` so the run log measures what the field did."""
+        if key == "price" and self.limit_price_fill == "keys":
+            trace.append({"price_fill": self._fill_field_keys(page, key, value)})
+        else:
+            self._fill_field(page, key, value)
+
+    @staticmethod
+    def _fill_field_keys(page: Any, key: str, value: float) -> Dict[str, Any]:
+        """Type one value into a tagged field THE WAY A PERSON DOES: focus,
+        select all, delete, type each character as a key event, blur.
+
+        page.fill sets the value and fires a single ``input`` event with no key
+        events; Tradeify's limit price field ignored that on all three passes
+        of #15975 (typed 2679.725, shown 2,679.719) while its SL / TP accepted
+        it. The cause is INFERRED, not measured: the field re-renders its own
+        (market-derived) price unless it sees typing. So this method MEASURES
+        as it goes and returns, for the run log: the value before, after the
+        clear, after the keys, after the blur and after a settle, plus the
+        field's attributes and every control within three ancestors of it
+        (a follow / track-price toggle would show here; digits masked).
+
+        Never presses Enter (it could submit the ticket) and clicks nothing:
+        focus is Locator.focus (no pointer event), the clear is Control+A then
+        Backspace inside the focused input, the blur is Locator.blur."""
+        sel = f"[data-metis-field={key}]"
+        loc = page.locator(sel)
+        out: Dict[str, Any] = {"field": key, "typed": _fmt_num(value)}
+
+        def val() -> Optional[str]:
+            try:
+                return loc.input_value(timeout=2_000)
+            except Exception as exc:
+                return f"(unreadable: {type(exc).__name__})"
+
+        try:
+            out["context"] = page.evaluate(PRICE_FIELD_CONTEXT_JS, key)
+        except Exception as exc:
+            out["context"] = {"error": type(exc).__name__}
+        out["before"] = val()
+        loc.focus(timeout=5_000)
+        out["focused"] = bool(page.evaluate(
+            "(k) => document.activeElement === document.querySelector('[data-metis-field=' + k + ']')", key))
+        if not out["focused"]:
+            # Typing without focus on the field could land keys elsewhere on
+            # the page: stop here and let the read-back refuse.
+            out["why"] = "the field did not take focus; nothing typed"
+            return out
+        page.keyboard.press("Control+a")
+        page.keyboard.press("Backspace")
+        out["after_clear"] = val()
+        loc.press_sequentially(_fmt_num(value), delay=40, timeout=10_000)
+        out["after_keys"] = val()
+        try:
+            loc.blur()
+        except Exception:
+            pass          # an older Playwright without Locator.blur: the read-back still decides
+        page.wait_for_timeout(300)
+        out["after_blur"] = val()
+        page.wait_for_timeout(700)
+        out["after_settle"] = val()
+        return out
 
     @staticmethod
     def _read_back(form: Mapping[str, Any], spec: BracketSpec, want: Mapping[str, float]) -> List[str]:
