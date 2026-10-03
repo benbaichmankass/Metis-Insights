@@ -1,0 +1,229 @@
+name: live-replay-parity
+
+# LIVE-vs-REPLAY PARITY — the standing answer to "is it really no signals, or a
+# bug that only looks like silence?" (operator directive 2026-10-03; lane
+# LIVE-PARITY, turning lane LIVE-SILENCE's one-off replay, PR #15805, into a
+# daily mechanical check).
+#
+# What it does (read-only, Tier-1):
+#   1. Opens an SSH tunnel to the live VM's web-api (127.0.0.1:8001) and runs
+#      scripts/ops/live_replay_parity.py ON THE RUNNER. The replay CPU never
+#      lands on the 2-OCPU money box; the VM only serves paged diag reads
+#      (/api/diag/audit_query, /api/diag/journal, /api/bot/candles).
+#   2. For every execution:live leg on a real-money roster (+ cheap paper legs)
+#      it replays the LIVE order_package() over the same bars and diffs it
+#      against the canonical decision record (trade_journal.db::signals).
+#   3. Commits comms/live_parity/{latest.json,latest.md,<date>.json}; the
+#      operator's brief (§4) renders ONE line from latest.json.
+#   4. Files a pipeline row per NEW finding (scripts/ops/pipeline.py) in the
+#      same commit, and pings via the send-ping system-action when a real-money
+#      leg diverged, could not be checked, or a positive control failed.
+#
+# Exit code of the script: 0 ok · 1 divergence / failed control · 2 could not
+# check. A run that could not look says so — it never reports 0 divergences.
+#
+# Triggers: daily schedule (06:35 UTC — clear of probes 05:20, due-list 05:50,
+# strategy-review-packets 04:40, health-snapshot on the hour), workflow_dispatch,
+# and an issue labelled `live-replay-parity` (the Claude-session path).
+# An issue body line `ref: <branch>` runs THAT branch's script (iteration);
+# such a run posts its result on the issue and commits nothing.
+
+on:
+  schedule:
+    - cron: "35 6 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Window length in days"
+        required: false
+        default: "7"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: write   # gh workflow run system-actions.yml (send-ping)
+
+concurrency:
+  group: live-replay-parity
+  cancel-in-progress: false
+
+jobs:
+  # schedule-keeper (scripts/ops/schedule_keeper.py): skips the LATE scheduled
+  # run of a slot the keeper already dispatched. Fails open.
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
+  parity:
+    needs: dedupe
+    if: |
+      !cancelled() && needs.dedupe.outputs.skip != 'true' && (
+      github.event_name != 'issues' ||
+      ((github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'live-replay-parity'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_USER: ubuntu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Resolve inputs (days, optional script ref)
+        id: inp
+        env:
+          BODY: ${{ github.event.issue.body }}
+          DAYS_IN: ${{ github.event.inputs.days }}
+        run: |
+          set -euo pipefail
+          DAYS="${DAYS_IN:-7}"
+          REF=""
+          if [ -n "${BODY:-}" ]; then
+            REF="$(printf '%s\n' "$BODY" | sed -n 's/^ref:[[:space:]]*\([A-Za-z0-9._/-]*\).*$/\1/p' | head -1)"
+            D2="$(printf '%s\n' "$BODY" | sed -n 's/^days:[[:space:]]*\([0-9.]*\).*$/\1/p' | head -1)"
+            [ -n "$D2" ] && DAYS="$D2"
+          fi
+          echo "days=$DAYS" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          if [ -n "$REF" ]; then
+            git fetch --depth=1 origin "$REF"
+            git checkout FETCH_HEAD -- scripts/ops/live_replay_parity.py
+            echo "running scripts/ops/live_replay_parity.py from ref $REF (no commit)"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install replay dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet "pandas>=2.0.0" "numpy>=1.24.0" "pyyaml>=6.0"
+
+      - name: Set up SSH key + tunnel to the live web-api
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+              -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+              -f -N -L 18001:127.0.0.1:8001 "$VM_USER@$VM_HOST"
+          # prove the tunnel answers before the run depends on it
+          curl -sS --fail --max-time 30 -o /dev/null http://127.0.0.1:18001/api/bot/candles?symbol=BTCUSDT\&interval=1h\&limit=1
+
+      - name: Run the parity check
+        id: run
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          REF: ${{ steps.inp.outputs.ref }}
+        run: |
+          set -uo pipefail
+          OUT=comms/live_parity
+          PIPE_ARGS="--file-pipeline docs/claude/work/pipeline"
+          if [ -n "$REF" ]; then OUT=/tmp/live_parity; PIPE_ARGS=""; fi
+          python scripts/ops/live_replay_parity.py --base-url http://127.0.0.1:18001 \
+              --token-env DIAG_READ_TOKEN --days "${{ steps.inp.outputs.days }}" \
+              --out "$OUT" --save-bundle /tmp/bundle.json $PIPE_ARGS | tee /tmp/run.log
+          rc=${PIPESTATUS[0]}
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "out=$OUT" >> "$GITHUB_OUTPUT"
+          # 0 ok, 1 divergence/failed control, 2 could not check: all three are
+          # RESULTS to commit and report. Anything else is a crash.
+          if [ "$rc" -gt 2 ]; then echo "::error::parity script crashed (rc=$rc)"; exit "$rc"; fi
+          test -s "$OUT/latest.json" || { echo "::error::no latest.json written"; exit 1; }
+
+      - name: Upload the raw bundle + result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-replay-parity-${{ github.run_id }}
+          path: |
+            /tmp/bundle.json
+            /tmp/run.log
+            ${{ steps.run.outputs.out }}
+          retention-days: 30
+
+      - name: Land on main (auto-merge PR)
+        id: commit
+        if: steps.inp.outputs.ref == ''
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/live_parity docs/claude/work/pipeline
+          message: "chore(parity): live-vs-replay parity result"
+          pr-title: "chore(parity): live-vs-replay parity (auto)"
+          pr-body: >
+            Daily live-vs-replay parity result (scripts/ops/live_replay_parity.py)
+            plus a pipeline row per new finding. Data-only, no live-path change.
+          branch-prefix: automation/live-parity
+          verify-merged: "true"
+
+      - name: Ping when a real-money leg diverged / could not be checked / a control failed
+        if: steps.inp.outputs.ref == '' && steps.run.outputs.ping_needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEADLINE: ${{ steps.run.outputs.headline }}
+        run: |
+          set -euo pipefail
+          gh workflow run system-actions.yml -f action=send-ping \
+            -f "message=🔁 ${HEADLINE} — details comms/live_parity/latest.md; pipeline rows filed." \
+            -f priority=high -f target=claude
+
+      - name: Comment + close issue (issue-driven path)
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          OUT: ${{ steps.run.outputs.out }}
+          RC: ${{ steps.run.outputs.rc }}
+          REF: ${{ steps.inp.outputs.ref }}
+          PR: ${{ steps.commit.outputs.pr }}
+        with:
+          script: |
+            const fs = require('fs');
+            let md = '(no latest.md written)';
+            try { md = fs.readFileSync(`${process.env.OUT}/latest.md`, 'utf8'); } catch (e) {}
+            if (md.length > 60000) md = md.slice(0, 60000) + '\n\n_(truncated — full result in the run artifact)_';
+            const body = [
+              `🔁 **live-replay-parity** rc=${process.env.RC || 'n/a'}` +
+                (process.env.REF ? ` · script ref \`${process.env.REF}\` (not committed)` : '') +
+                (process.env.PR ? ` · landed via ${process.env.PR}` : ''),
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '', md, '', '---', '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });
