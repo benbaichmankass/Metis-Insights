@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A tradeify_1 round-trip-dry that reaches form_verified with no other alert exits 0 (then done), or the manager decides the exit-3 is acceptable for go-live (then killed with that reason).",
+    "kind": "event"
+  },
+  "id": "PI-20261003-DEIFYDRY-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH, step 4 round-trip-dry #15930 (2026-10-03).",
+    "rerun": "Dispatch a system-action issue: action: breakout-login-check / account: tradeify_1 / apply: round-trip-dry,limit ; read the last JSON lines for 'linked symbol could not be read' and the wrapper exit code."
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "tradeify_1's round-trip-dry ALWAYS exits 3 on a structural alert, so a real dry-walk failure is indistinguishable from a clean one. #15930 (run 37121646646, code 07d28188a) reached form_verified, stopped before submit, then raised 'linked symbol could not be read before the dry walk; not restored' because tradeify_1 has NO chart link (0 instrument_info_button / symbol_input, #15096/#15126). prop_executor.round_trip_failed() counts that alert (LINK_RESTORE_ALERTS) as a failure. Proposed fix (Tier-2, held): when the adapter reports the link unavailable for the account (as symbol_switch_dry already does via link_unavailable), record it as a note and skip the restore, keeping RESTORE FAILED fatal when a link WAS read."
+}
