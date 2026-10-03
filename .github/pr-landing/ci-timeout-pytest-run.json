@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI tooling only: pytest-run.yml timeout-minutes 30 -> 50. Measured: 6 full-suite PR runs cancelled at the 30-min limit and 11 successes with median 26.5 min, max 30.0. No runtime, order path or config touched."
+}
