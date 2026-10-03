@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane TRADEIFY-DRY (manager session_01MM8o5js6TcDFeNAPBY4Ntv): code changes go in a HELD Tier-2 PR for the manager. This changes the prop quote read (src/prop/platform/dxtrade.py quote_from_tables), which the executor uses to price brackets for both prop accounts.",
+  "why": "tradeify_1's watchlist price cells start with their button's hidden label ('Sell 2,680.940' / 'Buy 2,680.940', #15901), so read_quote returned None and round-trip-dry would stop at 'no bid/ask'. Strips only the label that belongs to the column; refuses a swapped one."
+}

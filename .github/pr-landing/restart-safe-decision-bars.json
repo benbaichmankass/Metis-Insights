@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane RESTART-SAFE, dispatched by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) on pipeline row PI-20261003-OJTPWGCC-0001: 'Code changes go in HELD Tier-2 PRs for the manager to review and merge. Never merge, never deploy, never restart services.' This diff changes order-path behaviour (when a live leg may decide a bar after a restart: src/runtime/strategy_signal_builders.py, src/runtime/intent_multiplexer.py, src/runtime/market_data.py) and the live VM's deploy/restart decision (scripts/deploy_pull_restart.sh). Nothing here should auto-merge; the manager merges.",
+  "why": "RESTART-SAFE: (A) git-sync stops restarting the live trader for commits that only touch research/, runtime_logs/, scripts/research|ci/, comms/research|strategy_evidence/ (45 of 112 restarts in 2026-09-30..10-03); (B) every live leg decides its bar from candle history + an on-disk ledger, so a restart neither skips nor repeats a decision, with a written staleness bound and price check. Tier-2 by path (src/runtime order path + deploy script)."
+}

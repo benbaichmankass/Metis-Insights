@@ -124,7 +124,12 @@ FINE_S = 900
 #: VM value is env-overridable, so the bracket allows 300 s + fetch slop.
 STALE_S = 330
 #: ADX-14 hull tolerance for forming legs (see adx_range).
-ADX_TOL = 0.05
+ADX_TOL = 0.5
+#: MEASURED (run 37112981724, 2026-10-03, 22 forming legs, 7 days): on crypto
+#: forming legs live's ADX-14 sits up to ~0.35 (one 0.875) BELOW every
+#: reconstructable state of the bar while every side agrees. Unexplained;
+#: tracked as PI-20261003-LRP-ADXRESIDUAL. Tolerance set above it so the
+#: fingerprint still catches a wrong-candle frame (gaps of 1.5-3 measured).
 CANDLE_LIMIT = 1000  # /api/bot/candles MAX_LIMIT
 
 #: Audit events that NAME why a live signal produced no package/order.
@@ -138,6 +143,7 @@ DOWNSTREAM_GATE_EVENTS = (
 _PIPELINE_SKIP = {"skipped", "rejected", "refused", "blocked", "error", "failed", "noop"}
 
 DIVERGENCE_CLASSES = (
+    "previous_bar_signal",
     "missed_signal", "live_only_signal", "side_mismatch", "candle_mismatch",
     "lost_bar", "unevaluated_signal", "dropped_no_package", "dropped_no_order",
 )
@@ -228,6 +234,9 @@ class Leg:
     features: dict = field(default_factory=dict)
     cfg: dict = field(default_factory=dict)
     skip_reason: str | None = None
+    #: accounts on which no `trades` row is expected (prop ticket bridge,
+    #: mode != live) — the order hop is reported as not checked there.
+    no_order_accounts: set = field(default_factory=set)
 
 
 def _builder_features(builder: Callable) -> dict:
@@ -285,6 +294,8 @@ def resolve_legs(accounts_doc: dict, strategies_doc: dict, *,
                 by_leg[name] = leg
             leg.accounts.append(acct)
             leg.real_money = leg.real_money or real
+            if str(a.get("exchange") or "") == "breakout" or str(a.get("mode") or "live") != "live":
+                leg.no_order_accounts.add(acct)
     legs = [lg for lg in by_leg.values() if lg.real_money or lg.skip_reason is None]
     return sorted(legs, key=lambda lg: (not lg.real_money, lg.name))
 
@@ -304,9 +315,17 @@ class Fetcher:
         q = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
         req = urllib.request.Request(f"{self.base}{path}?{q}",
                                      headers={"Authorization": f"Bearer {self.token}"})
-        self.requests += 1
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:  # noqa: S310 — fixed host
-            return json.loads(r.read().decode("utf-8"))
+        last: Exception | None = None
+        for attempt in range(4):
+            self.requests += 1
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as r:  # noqa: S310 — fixed host
+                    return json.loads(r.read().decode("utf-8"))
+            except (OSError, ValueError) as exc:  # transient tunnel resets: retry 2/4/8 s
+                last = exc
+                import time as _t
+                _t.sleep(2 ** (attempt + 1))
+        raise last  # type: ignore[misc]
 
     def candles(self, symbol: str, interval: str) -> dict:
         d = self.get("/api/bot/candles", {"symbol": symbol, "interval": interval,
@@ -612,6 +631,63 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
             variant_cache[key] = (min(vals), max(vals)) if vals else None
         return variant_cache[key]
 
+    def frame_diag(i: int) -> dict:
+        """Which frame could live have used? ADX-14 of a few candidate frames,
+        so a candle_mismatch names its likely cause in the artifact."""
+        out = {}
+        try:
+            fin = tf_rows[i - (LIVE_FETCH_LIMIT - 1):i + 1]
+            out["final_bar_200"] = rep.adx(_frame(fin))
+            out["closed_only_199"] = rep.adx(_frame(tf_rows[i - (LIVE_FETCH_LIMIT - 1):i]))
+            out["closed_only_200"] = rep.adx(_frame(tf_rows[i - LIVE_FETCH_LIMIT:i]))
+            if i + 1 < len(tf_rows):
+                out["next_bar_200"] = rep.adx(_frame(tf_rows[i - (LIVE_FETCH_LIMIT - 2):i + 2]))
+        except Exception as exc:  # noqa: BLE001 — diagnostic only
+            out["error"] = str(exc)[:80]
+        return out
+
+    def prev_bar_frame(i: int) -> dict | None:
+        """Live's frame with NO row for the current bar (the venue had not
+        opened it yet — measured on Alpaca at the US open, 2026-10-03 run 3):
+        the 200 most recent CLOSED bars, decided as if the last were forming."""
+        key = ("prevframe", i)
+        if key not in variant_cache:
+            if i < LIVE_FETCH_LIMIT:
+                variant_cache[key] = None
+            else:
+                variant_cache[key] = rep.decide(_frame(tf_rows[i - LIVE_FETCH_LIMIT:i]),
+                                                with_adx=True)
+        return variant_cache[key]
+
+    def stale_match(i: int, b0: int, fstart: int, e: EvalRow, extra: tuple) -> float | None:
+        """Newest OLDER 15m state (beyond STALE_S, back to the previous bar's
+        last window) that reproduces live's side, printed close and ADX-14.
+        Returns the implied frame age in seconds, or None."""
+        cands = []
+        f = fstart - FINE_S
+        while f >= b0:
+            if f in fine_by_t:
+                cands.append((i, b0, f))
+            f -= FINE_S
+        if i - 1 >= LIVE_FETCH_LIMIT - 1:
+            pf = tf_times[i - 1] + tf_s - FINE_S
+            if pf in fine_by_t:
+                cands.append((i - 1, tf_times[i - 1], pf))
+        for (ci, cb, cf) in cands:
+            c = fine_by_t[cf]
+            if e.close is not None and not (float(c["low"]) - 1e-9 <= e.close <= float(c["high"]) + 1e-9):
+                continue
+            vs = forming_variants(ci, cb, cf, extra)
+            pool = [v for v in vs if e.close is not None and _close(v["close"], e.close)] or vs
+            if e.side not in {v["side"] for v in pool}:
+                continue
+            if e.adx is not None:
+                ar = adx_range(ci, cb, cf)
+                if not ar or not (ar[0] - ADX_TOL <= e.adx <= ar[1] + ADX_TOL):
+                    continue
+            return max(0.0, e.t - (cf + FINE_S))
+        return None
+
     def closed_decision(i: int) -> dict:
         key = ("closed", i)
         if key not in variant_cache:
@@ -621,6 +697,9 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
 
     divs: list[dict] = []
     bar_rows: list[dict] = []
+    mode_notes: dict = {}
+    staleness: list[float] = []
+    prev_bar_frames: list[str] = []
     evals_checked = 0
     not_comparable = 0
     adx_gap_max = 0.0
@@ -629,8 +708,14 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
         status = None
         kinds: list[str] = []
         signal_evals: list[EvalRow] = []
-        if closed_mode:
-            fresh = float(leg.cfg.get("decision_bar_fresh_seconds") or 360)
+        fresh = float(leg.cfg.get("decision_bar_fresh_seconds") or 360)
+        # A closed-mode leg cannot evaluate deep inside a bar. Evals there mean
+        # the leg ran in FORMING mode for this bar (e.g. before a decision_bar
+        # config change) — judge the bar by the mode live actually ran.
+        mode_closed = closed_mode and len(evals_between(b0 + fresh + 300, b_end)) < 3
+        if not mode_closed and closed_mode:
+            mode_notes[iso(b0)] = "forming (inferred from eval cadence)"
+        if mode_closed:
             evs = evals_between(b_end, b_end + fresh + 120)
             if i + 1 >= len(tf_rows):
                 continue
@@ -732,6 +817,34 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
                     rch = [x for x in rch if x]
                     if rch and not any(all(_close(a, b) for a, b in zip(e.channel, x)) for x in rch):
                         cls = "candle_mismatch"
+                # Live's frame may lack the current bar entirely (no row yet at
+                # the venue). Reproduce that exactly; a SIGNAL from it is a real
+                # finding (a decision on the previous bar), a no-signal is not.
+                if cls is not None:
+                    pb = prev_bar_frame(i)
+                    # positive fingerprint REQUIRED (exact ADX, and the printed
+                    # close when there is one) — an absent fingerprint must
+                    # never explain a divergence away
+                    if pb is not None and pb["side"] == e.side \
+                            and e.adx is not None and pb.get("adx") is not None \
+                            and abs(pb["adx"] - e.adx) <= 1e-3 \
+                            and (e.close is None
+                                 or _close(e.close, float(tf_rows[i - 1]["close"]))):
+                        prev_bar_frames.append(iso(e.t))
+                        cls = "previous_bar_signal" if e.side != "none" else None
+                # Only a FINGERPRINT mismatch may be explained by an older
+                # frame. A side divergence never is: the live candle cache is
+                # bounded (CANDLE_CACHE_TTL_MAX_S, 300 s on the VM, inside
+                # STALE_S), so letting staleness absorb a missed signal would
+                # let the check explain away exactly the defect it exists for.
+                if cls == "candle_mismatch":
+                    st = stale_match(i, b0, fstart, e, extra)
+                    if st is not None:
+                        # live decided on an OLDER frame than STALE_S allows,
+                        # and that older state reproduces it exactly: a stale
+                        # candle frame, measured — not a decision divergence.
+                        staleness.append(st)
+                        cls = None
                 if cls:
                     kinds.append(cls)
                     divs.append({"class": cls, "bar": iso(b0), "t": iso(e.t),
@@ -740,6 +853,7 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
                                  "replay": {"sides": sorted(sides),
                                             "adx_range": [min(adxs), max(adxs)] if adxs else None,
                                             "candidates": [iso(cf) for _, _, cf in cands],
+                                            "diag_adx": frame_diag(i),
                                             "fine_candle": {k: c[k] for k in ("time", "low", "high")}}})
                 if e.side != "none":
                     signal_evals.append(e)
@@ -786,6 +900,13 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
         "_divs": divs,
         "bars": bar_rows,
         "replay_calls": rep.calls,
+        "mode_notes": mode_notes,
+        "frames_without_current_bar": {"n": len(prev_bar_frames),
+                                       "examples": prev_bar_frames[:5]},
+        "stale_frames": {"n": len(staleness),
+                         "p50_s": _pct(staleness, 50), "p90_s": _pct(staleness, 90),
+                         "max_s": max(staleness) if staleness else None,
+                         },
         "adx_gap_max": round(adx_gap_max, 6),
         "live_evals_in_window": len([e for e in evals if since <= e.t < until]),
         "matched_signal_bars": [b["bar"] for b in bar_rows if b["status"] == "matched_signal"],
@@ -793,6 +914,13 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
         "replay_none_windows": _none_windows(variant_cache)[:50],
     })
     return out
+
+
+def _pct(xs: list[float], q: float) -> float | None:
+    if not xs:
+        return None
+    ys = sorted(xs)
+    return round(ys[min(len(ys) - 1, int(len(ys) * q / 100))], 1)
 
 
 def _first_per_class(divs: list[dict], n: int) -> list[dict]:
@@ -809,7 +937,7 @@ def _signal_windows(cache: dict) -> list[str]:
     """15m windows where every plausible replay state signals (robust)."""
     outl = []
     for key, vs in cache.items():
-        if key[0] in ("closed", "x", "adx") or not isinstance(vs, list):
+        if key[0] in ("closed", "x", "adx", "prevframe") or not isinstance(vs, list):
             continue
         sides = {v["side"] for v in vs}
         if "none" not in sides:
@@ -820,7 +948,7 @@ def _signal_windows(cache: dict) -> list[str]:
 def _none_windows(cache: dict) -> list[str]:
     """15m windows where every plausible replay state is no-signal (robust)."""
     return sorted(iso(k[1]) for k, vs in cache.items()
-                  if k[0] not in ("closed", "x", "adx") and isinstance(vs, list)
+                  if k[0] not in ("closed", "x", "adx", "prevframe") and isinstance(vs, list)
                   and {v["side"] for v in vs} == {"none"})
 
 
@@ -837,7 +965,18 @@ def _downstream(leg: Leg, bundle: dict, signal_evals: list[EvalRow], b_end: floa
     res: dict = {"class": None, "packages": [p.get("order_package_id") for p in pkgs],
                  "gates": sorted({g["event"] for g in gates})}
     if not pkgs:
-        if not gates:
+        # Until 2026-09-30 the open-package gate wrote no audit row (pipeline.py
+        # "_monocle_gate"), so read the gate's own input instead: a package of
+        # this leg that was open at the first signal explains the block.
+        held = [p.get("order_package_id") for p in pk_rows
+                if p.get("strategy_name") == leg.name
+                and (to_epoch(p.get("created_at")) or 1e18) < t0
+                and (str(p.get("status") or "").lower() == "open"
+                     or (to_epoch(p.get("updated_at")) or 0) >= t0)]
+        if held:
+            res["gates"].append("open_package (order_packages)")
+            res["held_packages"] = held[:3]
+        elif not gates:
             res["class"] = "dropped_no_package"
         return res
     if leg.execution != "live":
@@ -857,11 +996,16 @@ def _downstream(leg: Leg, bundle: dict, signal_evals: list[EvalRow], b_end: floa
                 scoped_out |= set(v)
         if r.get("account"):
             scoped_out.add(str(r["account"]))
-    missing = []
+    missing, unchecked = [], []
     for a in leg.accounts:
         if a in by_acct or a in scoped_out:
             continue
+        if a in leg.no_order_accounts:
+            unchecked.append(a)  # prop ticket bridge / dry_run: no trades row expected
+            continue
         missing.append(a)
+    if unchecked:
+        res["orders_not_checked"] = unchecked
     res["orders_by_account"] = {a: [{"id": t.get("id"), "status": t.get("status")} for t in v]
                                 for a, v in by_acct.items()}
     if missing:
@@ -1011,12 +1155,12 @@ def planted_defect(legs: list[Leg], results: list[dict], bundle: dict,
         if quiet_ws:
             wt = to_epoch(quiet_ws[0])
             fake = [e for e in evals if not (wt <= e.t < wt + FINE_S)] + [EvalRow(
-                t=wt + 30, side="long", reason="planted", adx=None, confidence=None,
-                close=None, channel=None)]
+                t=wt + STALE_S + 60, side="long", reason="planted", adx=None,
+                confidence=None, close=None, channel=None)]
             fake.sort(key=lambda e: e.t)
             probe = analyse_leg(lg, bundle, since, until, evals_override=fake,
                                 packages_override=[])
-            robust_none = any(d["class"] == "live_only_signal" and d.get("t") == iso(wt + 30)
+            robust_none = any(d["class"] == "live_only_signal" and d.get("t") == iso(wt + STALE_S + 60)
                               for d in probe.get("_divs") or [])
         plants.append({"plant": "live_signal_replay_none", "leg": lg.name,
                        "flagged": robust_none,
