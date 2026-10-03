@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20261001-APBY4NTV-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "M16-RESCOPE lane session_01LF3eUyxahXxpH7bKnLRhe9 report to manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-01 16:52Z; RQ-20260930-601 FAIL (run 36732230587)",
+    "rerun": "Read research/results/RQ-20260930-601/36732230587.jsonl (FAIL: rho 0.019, perm p 0.197, n_eval 2328); then grep config/strategies.yaml and config/accounts.yaml for the conviction-sizing arm on bybit_1 and name the evidence record it was enabled on."
+  },
+  "state": "done",
+  "terminal_reason": "Question answered 2026-10-02 by lane M16-ARM-BASIS: the arm has NO independent committed evidence record. It is enabled by VM env vars (CONVICTION_SIZING_MODE=apply, _DIRECTION=reductive, _ACCOUNTS=bybit_1), not by any config/ key, flipped 2026-08-05 per docs/research/C1-conviction-sizing-evidence-2026-08-04.md (PR #8470/#8492). Its only evidence is the C1 365d A/B on the same M16 c_strat conviction signal, verdict PARTIAL (BTC wins, SOL worse maxDD, ETH n=11/12 below floor, net-negative population), graded on portfolio maxDD and never on the within-leg ranking question RQ-20260930-601 then tested and failed. Follow-through, the Tier-3 retirement decision with the exact revert, is PI-20261002-7FTEG7QN-0001",
+  "what": "TIER-3 EVIDENCE GAP (unfiled until now, per the M16 lane; its search for 'conviction' with M16/601 found no row, which is not proof of absence): RQ-20260930-601 (M16 conviction -> outcome) FAILED on measured data, and the confirmatory RQ-20260930-602 is blocked until >=500 more eval trades accrue. Does the live reductive conviction-sizing arm on bybit_1 (demo/Stage 1) still have any evidential basis? Settle by reading what evidence record enabled it: if it rests on M16's conviction signal alone, propose the exact revert as a data-backed Tier-3 change (Stage-1 soak book, reversible); if it has an independent committed record, kill this with that record named."
+}
