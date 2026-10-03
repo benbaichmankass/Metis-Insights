@@ -153,6 +153,9 @@ accounts:
     # click, only with exactly one matching button, no dialog, and one-click
     # re-read OFF on the measured toggle immediately before the click.
     # breakout_1 declares none and keeps the default chain.
+    # OPERATOR DECISION 2026-10-03 (popup, relayed by the manager), verbatim:
+    # "Allow, dry only for now (Recommended)". DRY runs only; its use on LIVE
+    # orders is NOT approved and goes back to the operator with go-live #14673.
     ticket_opener: ask_button
     # Kill switch: PROP_EXECUTOR_MODE_TRADEIFY_1 (off | read_only | live,
     # default read_only). It NEVER reads breakout_1's PROP_EXECUTOR_MODE.
