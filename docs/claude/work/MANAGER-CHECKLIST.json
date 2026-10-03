@@ -4391,10 +4391,11 @@
         14756,
         14910,
         15903,
-        15909
+        15909,
+        15976
       ],
       "blocked_on": [],
-      "note": "[2026-10-03T12:10Z lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH] After #15903 merged (9ded940a; VM 07d28188a, diag #15929), ALL DRY, 0 submits. STEP 4 round-trip-dry,limit ETHUSD #15930 run 37121646646: quote read WORKS (bid=ask 2683.59); Limit form walked to form_verified, STOPPED before submit (submitted=false), SL+TP toggles ON, Buy+Limit selected, qty 0.01, SL 2656.75, TP 2710.43; strict submit label 'Buy 0.01 ETH/USD at 2,683.584' accepted with matching side. Exit 3 ONLY from the structural 'linked symbol could not be read' alert (tradeify_1 has no chart link) -> PI-20261003-DEIFYDRY-0001. FINDING: typed limit 2683.59 read back as the terminal's 2,683.584; passed only because price_step was 0.01 -> #15909 now sets ETH to the measured 0.001 (head 10b395340) and PI-20261003-DEIFYDRY-0002 re-checks the fill after it lands. T5 executor-dry-run #15931 run 37121749985: exit 0, no_ticket, halted null (form walk not exercised: no tradeify_1 ticket waiting). OPEN: held #15909 (SOL/XRP lots + ETH tick 0.001). Live use of the ask_button opener still needs operator re-confirmation at go-live #14673. || [2026-10-03T11:05Z lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH] After #15846 merged (f2d2b469; VM e4792f60a, diag #15900), ALL DRY, 0 submits, one-click OFF every run. STEP 3 symbol-switch-dry PASSED x3 via the ask_button opener: ETHUSD #15901 run 37117766658, SOLUSD #15902 run 37117832301, XRPUSD #15904 run 37117947501. SPECS (probe-ticket-ask, flat before+after; exit 3 only the known 'form still open' alert): SOL #15905 run 37117995552 'Lots x 1 SOL', XRP #15907 run 37118069890 'Lots x 1 XRP'; default 0.01 with decrement disabled; tick from SL/TP default ETH/SOL 0.001, XRP 0.00001 (= quote decimals 3/3/5). Held PR #15909 adds SOL/XRP lot entries (nothing enabled). BUG FOUND: tradeify price cells read 'Sell 2,680.940'/'Buy 2,680.940' (hidden button label), so read_quote returns None and round-trip-dry would stop at 'no bid/ask'. Held PR #15903 strips only the column's own label. STEP 4 round-trip-dry,limit ETHUSD: NOT RUN, blocked on #15903 merge+sync. STEP 5 T5 executor-dry-run #15910 run 37118191310: exit 0, 0 errors, action no_ticket (no tradeify_1 ticket waiting, so the form walk was not exercised). Go-live note: lot_units 1 XRP means a risk-sized XRP order is thousands of lots; max volume unmeasured (flagged in #15909 for #14673). || [2026-10-03T05:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15703 order-surface-dump MERGED (3f0b9fde). Dump issue #15743 run 37085875821: the only order surface is the watchlist Bid \"Sell\" / Ask \"Buy\" price buttons; one_click OFF. OPERATOR POPUP answer, verbatim: \"Approve the guarded click\": ONE click on the ETHUSD Ask button, via a held probe-ticket opener PR (re-read one_click OFF, exactly one match, submit nothing, close via the ticket cancel, verify 0 orders and margin 0). Lane sent the task (trig_014dbvq39qyWi52KFrZnpqu5). The manager reviews the PR before the single run. || [2026-10-03T01:30Z lane TRADEIFY-GOLIVE session_01Db47kLwhEpWPNaEfki6yYD] order-surface-dump ETHUSD #15743 (run 37085875821, code_sha 3f0b9fded = #15703 merge; read-only, 0 clicks): one_click OFF; ETHUSD watchlist row found. Its Bid and Ask cells each hold button[data-test-id=watchlist_cell_button] (type=submit, classes button-tertiary/button-priceValue) with hidden labels 'Sell' (Bid) and 'Buy' (Ask); elementFromPoint at the cell centre is that button's price span. No other order surface: no New Order/Order Entry/Place Order element; the only other hit is the 'Trade History' tab. So the price buttons are the only order-ticket opener candidate, and they are trade controls (instant trade if one-click were ON). Blocker for the submit path: no ticket opens without clicking one, which needs manager approval. Chart dump branch claude/tradeify-chart-surface-dump is parked. Steps 3-7 and #14673 are still blocked. || [2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane handed over: TRADEIFY-WIRE session_01BBHxEYiMMJtEhnCBhyhmk2 idle since 16:52Z at 773k/1M context ($148); successor TRADEIFY-GOLIVE session_01Db47kLwhEpWPNaEfki6yYD owns deploy confirm, probe-ticket, symbol-switch-dry ETH/SOL/XRP, specs, round-trip-dry, T5, go-live PR #14673. || 2026-09-30 ~08:24Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP (Tradeify pilot; VM reachability MEASURED by PROP-DXTRADE-FIRMS, system-action run 36687556587: dx.tradeify247.co/ HTTP 200, no cf-mitigated, login form present; landing only, no login tested), answer verbatim: \"Buy the $10k pilot (Recommended)\". The operator buys the evaluation and adds GitHub Actions secrets TRADEIFY_DX_USERNAME / TRADEIFY_DX_PASSWORD. Lane builds held PRs: account + ruleset + roster at the TRADEIFY-PORTFOLIO recommendation, dry_run first, a read-only login check, then a separate go-live PR after dry evidence. breakout_1 behaviour must not change. Model opus: order path. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR ~09:22Z, verbatim: \"ok, tradeify account purchased and secretes added - lets verify the login\". The manager's answer to the operator (in chat): buy the 247 tab, 1-Step, $10k, DXtrade; the B3 roster at 0.5% risk. The lane is running a read-only login check from the VM egress (never print the secrets; mask the account id; also try dx.tradeify247.co/specs). || 2026-09-30 ~13:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Login verified: issue #14691, run 36702582805. Balance and equity $10,000, 0 positions, 0 orders, symbols BTC/ETH/SOL/ADA/XRP/AVAX. PRs #14663 (A), #14672 (B), #14673 (C GO-LIVE, HELD), #14674, #14692 are green per the lane. C stays held on PI-20260930-BHYHMK2D-0001 / -BHYHMK2E-0001 (leverage caps; daily floor = prior close -3% reset 22:00 UTC; breach_guards refuse). An independent re-review of the A/B heads, including whether any cross-account journal overwrite path exists on main, is running. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Independent review of #14663 at 3c76f9f2: MERGE-OK (per-account state/lock/session keyed by account, breakout_1 unchanged, 86+360 tests). F1 is real on main (prop_reconcile.match_fill_to_ticket:92 accepts ticket_id without an account check; prop_report.py:196) but not reachable via A: #14756 must land before C, not before A/B. Manager claimed the slot (727571a1), un-drafted, enabled squash auto-merge 19:00Z; #14841 then conflicted docs/claude/system-actions.md -> lane merging main. Operator (chat 19:13Z): symbol switching on DX 'should not be a huge blocker' -> reuse the PROP-ETH per-ticket switching, no parallel build. || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): A #14663 merged ab777e59 (20:20Z). F1 #14756 merged d87cdc1a, B #14672 merged 24266cb0 (02:11Z) after independent review BLOCKs fixed. T2 #14910 pending."
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] TRADEIFY-DRY lane (session_01YR8T4rF9SJWp3p2b4EeDiH, $28.90 of $40, archived) closed. #15903 (quote label) and #15909 (SOL/XRP lots, ETH tick 0.001) merged by manager. round-trip-dry,limit ETHUSD #15975 run 37132594478 REFUSED: typed 2679.725, form shows 2679.719 on 3 passes; SL/TP read back exactly. The live executor enters LIMIT (prop_executor.bracket_from_ticket), so this BLOCKS go-live -> TRADEIFY-PRICE-FILL. Go-live #14673 also needs: operator re-confirm of the ask_button opener for live; XRP sizing vs unmeasured max volume; ict_scalp_xrp_15m on the tradeify_1 roster now FAILS its causal rebuild (#15603). Predecessor lane TRADEIFY-GOLIVE (session_01Db47kLwhEpWPNaEfki6yYD) archived at $108.73 against a $40 ceiling (overrun, before this cycle); its register PR #15828 closed as superseded. || [2026-10-03T12:10Z lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH] After #15903 merged (9ded940a; VM 07d28188a, diag #15929), ALL DRY, 0 submits. STEP 4 round-trip-dry,limit ETHUSD #15930 run 37121646646: quote read WORKS (bid=ask 2683.59); Limit form walked to form_verified, STOPPED before submit (submitted=false), SL+TP toggles ON, Buy+Limit selected, qty 0.01, SL 2656.75, TP 2710.43; strict submit label 'Buy 0.01 ETH/USD at 2,683.584' accepted with matching side. Exit 3 ONLY from the structural 'linked symbol could not be read' alert (tradeify_1 has no chart link) -> PI-20261003-DEIFYDRY-0001. FINDING: typed limit 2683.59 read back as the terminal's 2,683.584; passed only because price_step was 0.01 -> #15909 now sets ETH to the measured 0.001 (head 10b395340) and PI-20261003-DEIFYDRY-0002 re-checks the fill after it lands. T5 executor-dry-run #15931 run 37121749985: exit 0, no_ticket, halted null (form walk not exercised: no tradeify_1 ticket waiting). OPEN: held #15909 (SOL/XRP lots + ETH tick 0.001). Live use of the ask_button opener still needs operator re-confirmation at go-live #14673. || [2026-10-03T11:05Z lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH] After #15846 merged (f2d2b469; VM e4792f60a, diag #15900), ALL DRY, 0 submits, one-click OFF every run. STEP 3 symbol-switch-dry PASSED x3 via the ask_button opener: ETHUSD #15901 run 37117766658, SOLUSD #15902 run 37117832301, XRPUSD #15904 run 37117947501. SPECS (probe-ticket-ask, flat before+after; exit 3 only the known 'form still open' alert): SOL #15905 run 37117995552 'Lots x 1 SOL', XRP #15907 run 37118069890 'Lots x 1 XRP'; default 0.01 with decrement disabled; tick from SL/TP default ETH/SOL 0.001, XRP 0.00001 (= quote decimals 3/3/5). Held PR #15909 adds SOL/XRP lot entries (nothing enabled). BUG FOUND: tradeify price cells read 'Sell 2,680.940'/'Buy 2,680.940' (hidden button label), so read_quote returns None and round-trip-dry would stop at 'no bid/ask'. Held PR #15903 strips only the column's own label. STEP 4 round-trip-dry,limit ETHUSD: NOT RUN, blocked on #15903 merge+sync. STEP 5 T5 executor-dry-run #15910 run 37118191310: exit 0, 0 errors, action no_ticket (no tradeify_1 ticket waiting, so the form walk was not exercised). Go-live note: lot_units 1 XRP means a risk-sized XRP order is thousands of lots; max volume unmeasured (flagged in #15909 for #14673). || [2026-10-03T05:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15703 order-surface-dump MERGED (3f0b9fde). Dump issue #15743 run 37085875821: the only order surface is the watchlist Bid \"Sell\" / Ask \"Buy\" price buttons; one_click OFF. OPERATOR POPUP answer, verbatim: \"Approve the guarded click\": ONE click on the ETHUSD Ask button, via a held probe-ticket opener PR (re-read one_click OFF, exactly one match, submit nothing, close via the ticket cancel, verify 0 orders and margin 0). Lane sent the task (trig_014dbvq39qyWi52KFrZnpqu5). The manager reviews the PR before the single run. || [2026-10-03T01:30Z lane TRADEIFY-GOLIVE session_01Db47kLwhEpWPNaEfki6yYD] order-surface-dump ETHUSD #15743 (run 37085875821, code_sha 3f0b9fded = #15703 merge; read-only, 0 clicks): one_click OFF; ETHUSD watchlist row found. Its Bid and Ask cells each hold button[data-test-id=watchlist_cell_button] (type=submit, classes button-tertiary/button-priceValue) with hidden labels 'Sell' (Bid) and 'Buy' (Ask); elementFromPoint at the cell centre is that button's price span. No other order surface: no New Order/Order Entry/Place Order element; the only other hit is the 'Trade History' tab. So the price buttons are the only order-ticket opener candidate, and they are trade controls (instant trade if one-click were ON). Blocker for the submit path: no ticket opens without clicking one, which needs manager approval. Chart dump branch claude/tradeify-chart-surface-dump is parked. Steps 3-7 and #14673 are still blocked. || [2026-10-01T20:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane handed over: TRADEIFY-WIRE session_01BBHxEYiMMJtEhnCBhyhmk2 idle since 16:52Z at 773k/1M context ($148); successor TRADEIFY-GOLIVE session_01Db47kLwhEpWPNaEfki6yYD owns deploy confirm, probe-ticket, symbol-switch-dry ETH/SOL/XRP, specs, round-trip-dry, T5, go-live PR #14673. || 2026-09-30 ~08:24Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP (Tradeify pilot; VM reachability MEASURED by PROP-DXTRADE-FIRMS, system-action run 36687556587: dx.tradeify247.co/ HTTP 200, no cf-mitigated, login form present; landing only, no login tested), answer verbatim: \"Buy the $10k pilot (Recommended)\". The operator buys the evaluation and adds GitHub Actions secrets TRADEIFY_DX_USERNAME / TRADEIFY_DX_PASSWORD. Lane builds held PRs: account + ruleset + roster at the TRADEIFY-PORTFOLIO recommendation, dry_run first, a read-only login check, then a separate go-live PR after dry evidence. breakout_1 behaviour must not change. Model opus: order path. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR ~09:22Z, verbatim: \"ok, tradeify account purchased and secretes added - lets verify the login\". The manager's answer to the operator (in chat): buy the 247 tab, 1-Step, $10k, DXtrade; the B3 roster at 0.5% risk. The lane is running a read-only login check from the VM egress (never print the secrets; mask the account id; also try dx.tradeify247.co/specs). || 2026-09-30 ~13:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Login verified: issue #14691, run 36702582805. Balance and equity $10,000, 0 positions, 0 orders, symbols BTC/ETH/SOL/ADA/XRP/AVAX. PRs #14663 (A), #14672 (B), #14673 (C GO-LIVE, HELD), #14674, #14692 are green per the lane. C stays held on PI-20260930-BHYHMK2D-0001 / -BHYHMK2E-0001 (leverage caps; daily floor = prior close -3% reset 22:00 UTC; breach_guards refuse). An independent re-review of the A/B heads, including whether any cross-account journal overwrite path exists on main, is running. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): Independent review of #14663 at 3c76f9f2: MERGE-OK (per-account state/lock/session keyed by account, breakout_1 unchanged, 86+360 tests). F1 is real on main (prop_reconcile.match_fill_to_ticket:92 accepts ticket_id without an account check; prop_report.py:196) but not reachable via A: #14756 must land before C, not before A/B. Manager claimed the slot (727571a1), un-drafted, enabled squash auto-merge 19:00Z; #14841 then conflicted docs/claude/system-actions.md -> lane merging main. Operator (chat 19:13Z): symbol switching on DX 'should not be a huge blocker' -> reuse the PROP-ETH per-ticket switching, no parallel build. || 2026-10-01 ~02:15Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): A #14663 merged ab777e59 (20:20Z). F1 #14756 merged d87cdc1a, B #14672 merged 24266cb0 (02:11Z) after independent review BLOCKs fixed. T2 #14910 pending."
     },
     {
       "id": "PACE-W40",
@@ -4597,46 +4598,52 @@
       "id": "SOL-BRACKET-REGRADE",
       "title": "Re-grade the breakout_1 prop legs (SOL, ETH) on the static SL+TP exit the bracket actually performs (PI-20261001-S8DMYMUN-0001)",
       "phase": "W8",
-      "state": "in_flight",
+      "state": "done",
       "owner": "research lane",
       "lane": "session_01FDKSBG6aQnf416DXVHEUaU",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        15589
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched. Operator popup verbatim: 'Keep SOL live until re-grade (Recommended)'. If SOL FAILS, the lane writes the exact shadow diff (not applied) and the manager brings it to the operator."
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15589 MERGED (f203e1b1). Verdict under the pre-registered rule: ETH PASS (365d n=100, +21.28R), SOL PASS on the 730d pool (n=105, +13.37R). SOL stays live (operator popup 'Keep SOL live until re-grade'). Recent-year SOL weakness (365d -0.49R, n=53) filed as PI-20261003-APBY4NTV-0002. || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched. Operator popup verbatim: 'Keep SOL live until re-grade (Recommended)'. If SOL FAILS, the lane writes the exact shadow diff (not applied) and the manager brings it to the operator."
     },
     {
       "id": "M16-ARM-BASIS",
       "title": "Does bybit_1's conviction-sizing arm have any evidential basis after RQ-20260930-601 FAILED? (PI-20261001-APBY4NTV-0001)",
       "phase": "W8",
-      "state": "in_flight",
+      "state": "done",
       "owner": "research lane",
       "lane": "session_01PAxCW84tr1SV8q7FTEG7QN",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 8,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        15586
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; read-and-propose only, the revert diff is not applied."
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15586 MERGED (3f637047): PI-20261001-APBY4NTV-0001 closed; PI-20261002-7FTEG7QN-0001 filed (bybit_1 conviction-arm retirement, Tier-3, revert written not applied). || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; read-and-propose only, the revert diff is not applied."
     },
     {
       "id": "PROP-FUNNEL",
       "title": "breakout_1 ticket->executor funnel since 09-29; root-cause no-attempt/expired tickets (08:19Z ETH fb466451 expiry_prompted with no prop_fills row)",
       "phase": "W8",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_018JiqKhEVf8Jgj2xa75rbeb",
       "model": "claude-opus-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        15595
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 ~19:05Z (manager): the funnel produced its first executor-placed strategy trade, prop-manual-d27fbb0b2b25 ETHUSDT short, placed 18:50Z and open 18:54Z (prop_fills 78/79). Recount 'placed 0' accordingly; the earlier no-attempt/expiry questions stand. | 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'PROP-FUNNEL (Recommended)'. Since 09-23: 20 tickets, 9 suppressed, 6 skipped, 2 expired, 2 expiry_prompted, 1 closed; the executor has placed 0 strategy trades. Held Tier-2 fix PRs plus an expired-unattempted alert."
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15595 MERGED by manager (d2942162) under the standing data-backed authorization (alert only; no order, report or ticket-status change). Tested merged with #15649: 408 passed. NOT yet observed. Closing observation: the next breakout_1 ticket that expires unattempted produces exactly one 'NOT PLACED ... NO placement attempt' alert. || 2026-10-02 ~19:05Z (manager): the funnel produced its first executor-placed strategy trade, prop-manual-d27fbb0b2b25 ETHUSDT short, placed 18:50Z and open 18:54Z (prop_fills 78/79). Recount 'placed 0' accordingly; the earlier no-attempt/expiry questions stand. | 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'PROP-FUNNEL (Recommended)'. Since 09-23: 20 tickets, 9 suppressed, 6 skipped, 2 expired, 2 expiry_prompted, 1 closed; the executor has placed 0 strategy trades. Held Tier-2 fix PRs plus an expired-unattempted alert."
     },
     {
       "id": "UNPROVEN-SWEEP",
@@ -4664,9 +4671,11 @@
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        15603
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Evidence rebuild (xrp_15m)'."
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15603 result approved (0 PASS of 7 ict_scalp records on the causal harness). It cannot merge: its unit id RQ-20261002-001 collides with a generated unit on main. Lane told to renumber and re-push; the manager merges on green. None of the 7 legs is on a real-money roster (bybit_1 soak; ict_scalp_xrp_15m on tradeify_1, which is dry). || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'Evidence rebuild (xrp_15m)'."
     },
     {
       "id": "M20-EXITS-4",
@@ -4679,24 +4688,29 @@
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        15593,
+        15594
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'M20 exit refinement'. #14053 stays held (shadow n>=25)."
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15593 (ief_pullback_1d decay_stall10_t2.5, alpaca_live) APPROVED by manager under the standing authorization (clears the pre-registered gate, replicated on a 2nd partition); it conflicts on docs/research/exit-refinement-coverage.json, so the lane was told to merge main and resolve; the manager merges on green. #15594 (xrp_4h trail 4.0) CLOSED unmerged per the lane's own recommendation (1 of 3 partitions); the lane files a re-sweep pipeline row. || 2026-10-02 ~17:00Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): dispatched; operator popup verbatim 'M20 exit refinement'. #14053 stays held (shadow n>=25)."
     },
     {
       "id": "PROP-EXIT-READ",
       "title": "breakout_1 executor records a venue SL/TP exit as 'closed_on_terminal' with no exit price, P&L or TP/SL reason ('exit read from the terminal history is not built')",
       "phase": "W8",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_01RZaDZHQNxS61WpDu6FR2PG",
       "model": "claude-opus-5-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        15649
+      ],
       "blocked_on": [],
-      "note": "2026-10-02 19:03Z: lane session_01RZaDZHQNxS61WpDu6FR2PG dispatched (Opus, $30, HELD Tier-2 PR). | 2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): filed when the first automated breakout_1 trade opened (prop-manual-d27fbb0b2b25). MEASURED on origin/main 2ef65c6b6: src/prop/prop_executor.py::_reconcile_journal reports a position absent for 2 reads as status closed with reason 'closed_on_terminal (executor reconcile; exit read from the terminal history is not built)', with no exit_price, pnl or TP/SL reason; dxtrade.py knows the 'Trade History' tab but reads it only in dump-tables. So this trade's close, and every automated breakout_1 close after it, lands ungraded and with a close reason that is not TP/SL. Deliverable: a read-only Trade History reader and the executor close report carrying exit price, realised P&L and tp/sl/manual reason, as a HELD Tier-2 PR. Tracked by PI-20261002-APBY4NTV-0002."
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #15649 MERGED by manager (d883f64f). Merged onto main d883f64f-parent and tested locally: 492 of 492 prop tests passed. Go-live review: only clicks the exact-text Trade History VIEW tab (existing _show_tab, never a button) and restores Orders; a failed read keeps today's report; close detection (absent>=2) unchanged; id columns dropped. NOT yet deployed/observed. Closing observation: the next automated breakout_1 close lands in prop_fills with exit_price/pnl/reason and exit_source set. || 2026-10-02 19:03Z: lane session_01RZaDZHQNxS61WpDu6FR2PG dispatched (Opus, $30, HELD Tier-2 PR). | 2026-10-02 ~19:05Z (manager session_01MM8o5js6TcDFeNAPBY4Ntv): filed when the first automated breakout_1 trade opened (prop-manual-d27fbb0b2b25). MEASURED on origin/main 2ef65c6b6: src/prop/prop_executor.py::_reconcile_journal reports a position absent for 2 reads as status closed with reason 'closed_on_terminal (executor reconcile; exit read from the terminal history is not built)', with no exit_price, pnl or TP/SL reason; dxtrade.py knows the 'Trade History' tab but reads it only in dump-tables. So this trade's close, and every automated breakout_1 close after it, lands ungraded and with a close reason that is not TP/SL. Deliverable: a read-only Trade History reader and the executor close report carrying exit price, realised P&L and tp/sl/manual reason, as a HELD Tier-2 PR. Tracked by PI-20261002-APBY4NTV-0002."
     },
     {
       "id": "PROP-SUBMIT-LABEL",
@@ -4767,6 +4781,21 @@
       ],
       "blocked_on": [],
       "note": "[2026-10-03T12:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MERGED #15820, #15845 and #15882 (d61f13af, calibration + alerts on). DEPLOYED: it is a GitHub workflow, not a VM change; scheduled daily 06:35Z. NOT OBSERVED: comms/live_parity/latest.json on main still reads status 'not_yet_run' (seeded by #15820). Closing observation: the 2026-10-04 06:35Z scheduled run commits latest.json with 3 of 3 controls passing and a leg/bar/divergence count. || [2026-10-03T06:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (chat 2026-10-03 ~06:10Z): wants mechanical verification that silence is really no signals, not a bug that looks like silence. Builds on LIVE-SILENCE replay.py. Done = a daily workflow plus a committed artifact plus one line on the brief (legs, bars, divergences; 'could not check' never reads as 0); planted-defect self-test FAILS; known pre-09-28 live fires reported MATCHED; an end-to-end liveness assertion (signal -> package -> order on some account in N days); one real 7-day run reported. Any writer change is a HELD Tier-2 PR."
+    },
+    {
+      "id": "TRADEIFY-PRICE-FILL",
+      "title": "Make the tradeify_1 limit-price field hold the typed price (keystroke fill), proven by round-trip-dry, as a HELD Tier-2 PR",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01VK9t8x6wQCkdyEyNBSL94J",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched. Source: PI-20261003-DEIFYDRY-0002 (round-trip-dry #15975 run 37132594478 refused: typed 2679.725, form shows 2679.719). The executor enters LIMIT, so this blocks tradeify_1 go-live. Done = a held PR, opt-in for tradeify_1 only (breakout_1 fill path unchanged unless proven), plus a dry run with the read-back within one 0.001 tick. If the field cannot hold a price, the alternative (market-only entry) is a manager/operator call."
     }
   ]
 }
