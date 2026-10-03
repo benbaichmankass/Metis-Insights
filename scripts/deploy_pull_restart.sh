@@ -328,7 +328,10 @@ if [ "${DEPLOY_FORCE_RESTART:-0}" != "1" ]; then
     # than PRE_SYNC_HEAD, so a drift deploy (HEAD didn't move this fetch, but
     # the marker is behind) evaluates the files that changed since the running
     # processes started — not an empty PRE..POST diff.
-    CHANGED_FILES="$(git diff --name-only "${RUNTIME_BASE}" "${POST_SYNC_HEAD}" 2>/dev/null || true)"
+    # --no-renames: a rename is reported as BOTH paths, so moving a runtime file
+    # into a non-runtime directory (src/x.py -> scripts/research/x.py) still
+    # restarts — rename detection would otherwise show only the new path.
+    CHANGED_FILES="$(git diff --no-renames --name-only "${RUNTIME_BASE}" "${POST_SYNC_HEAD}" 2>/dev/null || true)"
     if [ -n "${CHANGED_FILES}" ]; then
         # Strip the known-safe non-runtime paths; anything left needs a restart.
         RUNTIME_CHANGES="$(printf '%s\n' "${CHANGED_FILES}" \

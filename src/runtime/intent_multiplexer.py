@@ -542,15 +542,17 @@ def _forming_catchup_asof(name: str, key: str, tf_s: float, now: float,
     """
     from src.runtime import decision_bar_ledger as ledger
     row = ledger.get(key)
-    if not row or row.get("at") is None or row.get("bar_open") is None:
-        return None
+    row_at, row_open = ledger.num((row or {}).get("at")), ledger.num((row or {}).get("bar_open"))
+    if row_at is None or row_open is None:
+        return None   # absent or corrupt row: treated as missing, overwritten this tick
     cur_open = (now // tf_s) * tf_s
     prev_open = cur_open - tf_s
-    if float(row["bar_open"]) >= cur_open:
+    if row_open >= cur_open:
         return None
-    if row.get("catchup_open") is not None and float(row["catchup_open"]) >= prev_open:
+    caught = ledger.num(row.get("catchup_open"))
+    if caught is not None and caught >= prev_open:
         return None
-    unseen = cur_open - float(row["at"])
+    unseen = cur_open - row_at
     if unseen <= _forming_tail_gap_seconds(row):
         return None
     age = now - cur_open
@@ -574,6 +576,22 @@ def _forming_catchup_asof(name: str, key: str, tf_s: float, now: float,
             "%.0fs ago, beyond the %.0fs catch-up bound",
             key, prev_open, who, unseen, age, bound)
         return None
+    # The strategy may already have ENTERED bar N before the restart (e.g. at
+    # 3:55 for the 4:00 close). The dispatch-side same-bar guard keys on the
+    # CURRENT bar, so it cannot see that; check bar N's own window here. An
+    # unreadable journal refuses the catch-up (it is an extra decision; never
+    # risk a repeat entry for it).
+    symbol = key.split("|", 1)[1] if "|" in key else None
+    entered = _entry_in_bar(name, symbol, prev_open, tf_s)
+    if entered is None or entered:
+        why = ("already entered that bar (order package %s)" % entered if entered
+               else "journal unreadable, cannot rule out an entry in that bar")
+        ledger.update(key, catchup_open=prev_open,
+                      catchup_disposition="already_entered" if entered else "journal_unreadable",
+                      catchup_at=now)
+        logger.info("intent_multiplexer: '%s' bar opened %s closed during a gap — not "
+                    "caught up: %s", key, prev_open, why)
+        return None
     ledger.update(key, catchup_open=prev_open, catchup_disposition="evaluated",
                   catchup_at=now)
     logger.info(
@@ -581,6 +599,33 @@ def _forming_catchup_asof(name: str, key: str, tf_s: float, now: float,
         "opened %s as of its close (last evaluated by %s %.0fs before the close; "
         "closed %.0fs ago, bound %.0fs)", key, prev_open, who, unseen, age, bound)
     return cur_open
+
+
+def _entry_in_bar(strategy: str, symbol: Optional[str], bar_open: float,
+                  bar_seconds: float):
+    """The id of an order package ``strategy`` created for ``symbol`` inside
+    ``[bar_open, bar_open + bar_seconds)``; ``""`` when none; ``None`` when the
+    journal cannot be read. Same source as strategy_monocle's same-bar guard."""
+    try:
+        from datetime import datetime, timezone
+        from src.units.db.database import Database
+        from src.utils.paths import trade_journal_db_path
+        rows = Database(db_path=trade_journal_db_path()).get_order_packages_by_strategy(
+            strategy, status=None, limit=20, symbol=symbol)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("intent_multiplexer: entry-in-bar read failed for %s: %s",
+                       strategy, exc)
+        return None
+    for row in rows or []:
+        try:
+            ts = datetime.fromisoformat(str(row.get("created_at")).replace("Z", "+00:00"))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        if bar_open <= ts.timestamp() < bar_open + bar_seconds:
+            return str(row.get("order_package_id") or "?")
+    return ""
 
 
 def _run_forming_catchup(name: str, builder: IntentBuilder, settings: dict, *,
@@ -782,8 +827,9 @@ def _record_forming_evaluations(seen: Dict[str, dict]) -> None:
         from src.runtime import decision_bar_ledger as ledger
         for key, fields in seen.items():
             prev = ledger.get(key)
-            if prev and not ledger.by_previous_process(prev) and prev.get("at") is not None:
-                fields["cadence_s"] = round(fields["at"] - float(prev["at"]), 1)
+            prev_at = ledger.num((prev or {}).get("at"))
+            if prev_at is not None and not ledger.by_previous_process(prev):
+                fields["cadence_s"] = round(fields["at"] - prev_at, 1)
         ledger.update_many(seen)
     except Exception:  # noqa: BLE001
         logger.exception("intent_multiplexer: forming decision-bar record failed")

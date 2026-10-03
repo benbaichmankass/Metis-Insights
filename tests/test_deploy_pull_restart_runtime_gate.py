@@ -250,3 +250,34 @@ def test_runtime_paths_next_to_the_widened_set_still_restart(fake_repo, path):
     res = _run(fake_repo)
     assert res.returncode == 0, res.stderr
     assert "ict-trader-live.service" in _restarted(fake_repo)
+
+
+def test_diff_reports_both_sides_of_a_rename_so_a_move_out_of_src_restarts(tmp_path):
+    """Review 3: with rename detection `git diff --name-only` names only the NEW
+    path, so src/x.py -> scripts/research/x.py would read as research-only and
+    skip the restart. Runs the script's own diff command + filter on a real repo."""
+    import re as _re
+    text = DEPLOY_SCRIPT.read_text()
+    diff_line = next(ln for ln in text.splitlines() if "CHANGED_FILES=\"$(git diff" in ln)
+    assert "--no-renames" in diff_line
+    regex = _re.search(r"grep -vE '([^']+)'", text).group(1)
+    repo = tmp_path / "r"
+    repo.mkdir()
+    run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True, text=True)  # noqa: E731
+    run("git", "init", "-q")
+    run("git", "config", "user.email", "t@t")
+    run("git", "config", "user.name", "t")
+    (repo / "src").mkdir()
+    (repo / "src" / "x.py").write_text("print('runtime code')\n" * 20)
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "a")
+    base = run("git", "rev-parse", "HEAD").stdout.strip()
+    (repo / "scripts" / "research").mkdir(parents=True)
+    run("git", "mv", "src/x.py", "scripts/research/x.py")
+    run("git", "commit", "-qm", "b")
+    head = run("git", "rev-parse", "HEAD").stdout.strip()
+    with_renames = run("git", "diff", "--name-only", base, head).stdout.split()
+    no_renames = run("git", "diff", "--no-renames", "--name-only", base, head).stdout.split()
+    keep = lambda files: [f for f in files if not _re.match(regex, f)]  # noqa: E731
+    assert keep(with_renames) == []                     # the defect: would skip the restart
+    assert keep(no_renames) == ["src/x.py"]             # the fix: restarts

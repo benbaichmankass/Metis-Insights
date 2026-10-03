@@ -175,6 +175,7 @@ def _forming_env(monkeypatch, now, live=1.0):
     monkeypatch.setattr(im, "_strategy_timeframe_seconds", lambda name: H1)
     monkeypatch.setattr(im, "_strategy_symbol_scope", lambda: {})
     monkeypatch.setattr(im, "_strategy_cfgs", lambda: {"legF": {"timeframe": "1h"}})
+    monkeypatch.setattr(im, "_entry_in_bar", lambda *a, **k: "")   # journal: no entry
     seen = []
     venue = _Venue(now, live)
 
@@ -382,3 +383,105 @@ def test_real_breakout_caught_up_is_price_checked(monkeypatch, real, tmp_path):
         else:
             assert out["side"] == "none"
             assert out["meta"]["reason"].startswith("closed_bar_catchup_stale_price")
+
+
+# ------------------------------------------------ manager review fixes (#15830)
+
+def test_forming_catchup_never_repeats_an_entry_made_before_the_restart(monkeypatch, caplog):
+    """Review 1: the old process ENTERED forming bar N at :55; a restart spans
+    the close; the catch-up must not re-decide bar N (the dispatch-side guard
+    keys on the CURRENT bar and cannot see it)."""
+    from datetime import datetime, timezone
+    from src.units.db import database
+    builder, _ = _forming_env(monkeypatch, B - 300)
+    _collect(builder)
+    _restart(monkeypatch)
+    builder, seen = _forming_env(monkeypatch, B + 60, live=1.01)
+    monkeypatch.setattr(im, "_entry_in_bar", _REAL_ENTRY_IN_BAR)   # the REAL check
+    entered_at = datetime.fromtimestamp(B - 300, tz=timezone.utc).isoformat()
+    monkeypatch.setattr(database.Database, "__init__", lambda self, *a, **k: None)
+    monkeypatch.setattr(database.Database, "get_order_packages_by_strategy",
+                        lambda self, *a, **k: [{"order_package_id": "pkg-N",
+                                                "created_at": entered_at}])
+    with caplog.at_level("INFO"):
+        out = _collect(builder)
+    assert out == [] and seen == [B]                   # no as-of evaluation at all
+    row = ledger.get("legF|XRPUSDT")
+    assert row["catchup_disposition"] == "already_entered" and row["catchup_open"] == B - H1
+    assert any("already entered that bar (order package pkg-N)" in r.getMessage()
+               for r in caplog.records)
+
+
+def test_forming_catchup_refused_when_the_journal_cannot_be_read(monkeypatch):
+    from src.units.db import database
+    builder, _ = _forming_env(monkeypatch, B - 300)
+    _collect(builder)
+    _restart(monkeypatch)
+    builder, seen = _forming_env(monkeypatch, B + 60, live=1.01)
+    monkeypatch.setattr(im, "_entry_in_bar", _REAL_ENTRY_IN_BAR)
+
+    def boom(self, *a, **k):
+        raise OSError("db locked")
+    monkeypatch.setattr(database.Database, "__init__", lambda self, *a, **k: None)
+    monkeypatch.setattr(database.Database, "get_order_packages_by_strategy", boom)
+    assert _collect(builder) == [] and seen == [B]
+    assert ledger.get("legF|XRPUSDT")["catchup_disposition"] == "journal_unreadable"
+
+
+def test_entry_in_bar_reads_only_bar_ns_window(monkeypatch):
+    from datetime import datetime, timezone
+    from src.units.db import database
+    iso = lambda t: datetime.fromtimestamp(t, tz=timezone.utc).isoformat()  # noqa: E731
+    rows = [{"order_package_id": "later", "created_at": iso(B + 10)},
+            {"order_package_id": "earlier", "created_at": iso(B - H1 - 10)}]
+    monkeypatch.setattr(database.Database, "__init__", lambda self, *a, **k: None)
+    monkeypatch.setattr(database.Database, "get_order_packages_by_strategy",
+                        lambda self, *a, **k: rows)
+    assert _REAL_ENTRY_IN_BAR("legF", "XRPUSDT", B - H1, H1) == ""
+    rows.append({"order_package_id": "inside", "created_at": iso(B - 1)})
+    assert _REAL_ENTRY_IN_BAR("legF", "XRPUSDT", B - H1, H1) == "inside"
+
+
+def test_closed_bar_is_not_lost_when_the_builder_raises(monkeypatch, real):
+    """Review 2: the bar is recorded only once the decision COMPLETES; an
+    exception inside order_package leaves it undecided for the next tick."""
+    import src.units.strategies.trend_donchian as td
+    calls = {"n": 0}
+    real_op = td.order_package
+
+    def flaky(cfg, candles_df=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("venue hiccup inside the strategy")
+        return real_op(cfg, candles_df=candles_df)
+    monkeypatch.setattr(td, "order_package", flaky)
+    t1 = CLOSE_20Z + 127
+    venue = _real_venue(real, CLOSE_20Z, _price_at(real, "5m_2026-09-30", t1))
+    with pytest.raises(RuntimeError):
+        _replay(monkeypatch, t1, venue)
+    assert ledger.get("trend_donchian_xrp_4h") is None            # not lost: undecided
+    t2 = CLOSE_20Z + 247
+    out = _replay(monkeypatch, t2, _real_venue(real, CLOSE_20Z, _price_at(real, "5m_2026-09-30", t2)))
+    assert "no breakout" in out["meta"]["reason"]                   # decided on the retry
+    assert ledger.get("trend_donchian_xrp_4h")["bar_open"] == BAR_16Z
+
+
+@pytest.mark.parametrize("bad", ["abc", "", [1], {"x": 1}, "nan"])
+def test_corrupt_ledger_row_reads_as_missing_and_is_overwritten(monkeypatch, bad):
+    """Review 4: a non-numeric bar_open must not raise every tick."""
+    ledger.update("legA", bar_open=bad, at=bad, disposition="evaluated")
+    assert _decide("legA", CLOSE + 120) is None                    # decided, no raise
+    assert ledger.get("legA")["bar_open"] == CLOSE - H4             # overwritten
+    ledger.update("legF|XRPUSDT", bar_open=bad, at=bad, catchup_open=bad)
+    builder, seen = _forming_env(monkeypatch, B + 60)
+    assert _collect(builder) == [] and seen == [B]                  # no raise, no catch-up
+    assert ledger.get("legF|XRPUSDT")["bar_open"] == B
+
+
+def test_ledger_num():
+    assert ledger.num("12.5") == 12.5 and ledger.num(3) == 3.0
+    for bad in (None, "abc", "nan", True, [1]):
+        assert ledger.num(bad) is None
+
+
+_REAL_ENTRY_IN_BAR = im._entry_in_bar

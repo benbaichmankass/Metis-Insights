@@ -1778,7 +1778,8 @@ def _closed_bar_disposition(name: str, open_s: float, tf_s: float, vcfg: dict,
     """
     from src.runtime import decision_bar_ledger as ledger
     row = ledger.get(name)
-    if row and row.get("bar_open") is not None and float(row["bar_open"]) >= open_s:
+    row_open = ledger.num((row or {}).get("bar_open"))
+    if row_open is not None and row_open >= open_s:
         disposition = str(row.get("disposition") or "evaluated")
         if ledger.by_previous_process(row) and _CLOSED_BAR_INFO_LOGGED.get(name) != open_s:
             _CLOSED_BAR_INFO_LOGGED[name] = open_s
@@ -1796,7 +1797,7 @@ def _closed_bar_disposition(name: str, open_s: float, tf_s: float, vcfg: dict,
     if ledger.PROCESS_STARTED > close_s:
         why = (f"this process started {ledger.PROCESS_STARTED - close_s:.0f}s after the close "
                f"(restart longer than the bound)")
-    elif row and row.get("at") is not None:
+    elif ledger.num((row or {}).get("at")) is not None:
         why = f"no tick reached it in time (tick gap; last evaluation {_utc_iso(row['at'])})"
     else:
         why = "no tick reached it in time (tick gap)"
@@ -1849,7 +1850,8 @@ def _closed_catchup_age(frame: Any, timeframe: str, vcfg: dict,
 
 
 def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
-                    name: str = "", now: float | None = None) -> tuple[Any, str | None]:
+                    name: str = "", now: float | None = None,
+                    record: bool = True) -> tuple[Any, str | None]:
     """Frame the leg's entry decision runs on: ``(frame, skip_reason)``.
 
     ``decision_bar: forming`` (default — unchanged behaviour) evaluates the
@@ -1858,8 +1860,11 @@ def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
     on the CLOSED bar exactly as the Stage-0 harness scores it
     (PI-20260930-QZSE4AMA-0002), and returns a ``skip_reason`` once that bar
     was already decided (by this or a previous process) or is beyond the
-    staleness bound. A bar decided here is recorded in the on-disk ledger
-    BEFORE the strategy runs, so no restart can decide it twice.
+    staleness bound. ``record=True`` writes the decided bar to the on-disk
+    ledger here; a builder passes ``record=False`` and calls
+    ``_record_closed_decision`` once the decision has COMPLETED (a signal or a
+    clean no-signal), so a builder that raises leaves the bar undecided and the
+    next tick retries it — no restart, and no exception, can lose or repeat it.
     """
     mode = str(vcfg.get("decision_bar") or "forming").lower()
     if mode == "forming":
@@ -1867,7 +1872,6 @@ def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
     if mode != "closed":
         raise ValueError(f"decision_bar={mode!r} (expected closed|forming)")
     import time as _time
-    from src.runtime import decision_bar_ledger as ledger
     from src.runtime.closed_bars import (
         TF_SECONDS, _epoch_seconds, _last_timestamp, drop_forming_bar,
         last_bar_is_forming,
@@ -1889,16 +1893,31 @@ def _decision_frame(candles_df: Any, timeframe: str, vcfg: dict, *,
     # the next tick retries.
     if not last_bar_is_forming(candles_df, timeframe, now=now_s):
         return frame, "closed_bar_unconfirmed"
-    age = now_s - (open_s + tf_s)
+    if record:
+        _record_closed_decision(name, frame, timeframe, vcfg, now_s)
+    return frame, None
+
+
+def _record_closed_decision(name: str, frame: Any, timeframe: str, vcfg: dict,
+                            now: float) -> None:
+    """Write the closed bar ``frame`` ends in as DECIDED (call only once the
+    decision completed). Logs the caught-up line for a decision past the
+    normal window."""
+    from src.runtime import decision_bar_ledger as ledger
+    from src.runtime.closed_bars import TF_SECONDS, _epoch_seconds, _last_timestamp
+    tf_s = TF_SECONDS.get(str(timeframe))
+    open_s = _epoch_seconds(_last_timestamp(frame))
+    if not tf_s or open_s is None:
+        return
+    age = float(now) - (open_s + tf_s)
     catchup = age > _closed_fresh_seconds(vcfg)
     ledger.update(name, bar_open=open_s, tf_s=tf_s, disposition="evaluated",
-                  at=now_s, catchup=catchup)
+                  at=float(now), catchup=catchup)
     if catchup:
         logger.info(
-            "%s: caught up after restart/tick gap — deciding closed bar opened %s, "
+            "%s: caught up after restart/tick gap — decided closed bar opened %s, "
             "closed %.0fs ago (bound %.0fs)", name, _utc_iso(open_s), age,
             ledger.catchup_bound_seconds(tf_s, vcfg, floor_s=_closed_fresh_seconds(vcfg)))
-    return frame, None
 
 
 def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]:
@@ -1956,7 +1975,8 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
     cfg["strategy_label"] = name
 
     _fetched_df = candles_df
-    candles_df, _skip = _decision_frame(candles_df, timeframe, vcfg, name=name, now=_now)
+    candles_df, _skip = _decision_frame(candles_df, timeframe, vcfg, name=name, now=_now,
+                                        record=False)
     if _skip is not None:
         return _with_signal_package(name, {
             "symbol": symbol, "side": "none",
@@ -1968,6 +1988,8 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
     try:
         pkg = order_package(cfg, candles_df=candles_df)
     except ValueError as exc:
+        if _closed:   # a clean no-signal IS a completed decision
+            _record_closed_decision(name, candles_df, timeframe, vcfg, _now)
         logger.info("%s: no actionable signal (%s)", name, exc)
         try:
             log_signal(_stamp_regime({
@@ -1980,6 +2002,9 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
             "symbol": symbol, "side": "none",
             "meta": {"strategy_name": name, "reason": str(exc)},
         })
+
+    if _closed:   # the decision completed (any other exception above retries)
+        _record_closed_decision(name, candles_df, timeframe, vcfg, _now)
 
     # A caught-up closed-bar decision enters at TODAY's price, not the close the
     # strategy read: refuse it unless the live price (the forming bar the venue

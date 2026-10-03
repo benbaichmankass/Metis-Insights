@@ -48,8 +48,8 @@ strategy read. Two bounds, both checked:
    15m → 56 s), never below a closed leg's own ``decision_bar_fresh_seconds``
    window (default 360 s) and never a full bar. Price diffuses roughly as
    ``ATR(tf) · sqrt(t / tf)``, so ``t = tf/16`` keeps the EXPECTED drift near
-   0.25·ATR — a sixth of the 1.5·ATR stop on the only closed leg today
-   (``trend_donchian_xrp_4h``, ``atr_stop_mult`` 1.5). For 4h it also covers
+   0.25·ATR — an eighth of the 2·ATR stop on the only closed leg today
+   (``trend_donchian_xrp_4h``, ``atr_stop_mult: 2`` in config/strategies.yaml). For 4h it also covers
    the measured restart join (max 267 s over 1,100 soak boundaries) plus a
    tick and the settle delay. INFERRED from those named inputs; override per
    leg with ``decision_bar_catchup_seconds``.
@@ -136,6 +136,19 @@ def get(key: str) -> Optional[dict]:
     with _LOCK:
         row = _load_locked()["legs"].get(key)
         return dict(row) if isinstance(row, dict) else None
+
+
+def num(value: Any) -> Optional[float]:
+    """A ledger field as a float, or ``None`` when absent or unreadable. A
+    corrupt value reads as MISSING (and is overwritten by the next record), so
+    it can never raise on every tick."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return f if f == f else None
 
 
 def update(key: str, **fields: Any) -> dict:
@@ -281,5 +294,5 @@ __all__ = [
     "CATCHUP_BAR_FRACTION", "DEFAULT_MAX_DRIFT_STOP_FRAC", "LEDGER_NAME", "PID",
     "PROCESS_STARTED", "by_previous_process", "catchup_bound_seconds",
     "catchup_price_check", "current_asof", "evaluate_as_of", "get",
-    "ledger_path", "reset_for_tests", "trim_to_asof", "update", "update_many",
+    "ledger_path", "num", "reset_for_tests", "trim_to_asof", "update", "update_many",
 ]
