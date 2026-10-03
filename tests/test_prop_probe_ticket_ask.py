@@ -183,3 +183,63 @@ def test_action_refusals(tmp_path, acct, symbols, msg):
         env["ACCOUNT_ID"] = acct
     p = subprocess.run(["bash", str(d / "action.sh")], env=env, capture_output=True, text=True, timeout=30)
     assert p.returncode == 1 and msg in p.stdout + p.stderr
+
+
+# ── the Ask-button OPENER (TRADEIFY-DRY 2026-10-03; opt-in ticket_opener: ask_button) ──
+
+def _opener(monkeypatch, page, one_click=OFF, opt_in=True):
+    ad = _adapter(monkeypatch, page, one_click=one_click)
+    ad.ask_opener = opt_in
+    monkeypatch.setattr(ad, "_visible_dialogs", lambda p: 0)
+    monkeypatch.setattr(ad, "_symbol_cell_click", lambda p, s, double: False)
+    monkeypatch.setattr(ad, "_open_ticket_on_another_workspace", lambda p, o: None)
+    return ad
+
+
+def test_ask_opener_opens_the_ticket_and_never_submits(chromium_page, monkeypatch):
+    chromium_page.set_content(_page(_row("ETH/USD") + _row("SOL/USD")))
+    got = _opener(monkeypatch, chromium_page).open_order_ticket(chromium_page, "ETHUSD")
+    assert got["opened"] is True and got["via"] == "ask_button"
+    assert chromium_page.evaluate("window.__clicks") == ["ETH/USD-0"]        # never 'place'
+    assert chromium_page.locator("[data-metis-ask-btn]").count() == 0         # tag cleaned up
+    chromium_page.set_content(_dx.DIVGRID.read_text())
+
+
+@pytest.mark.parametrize("oc", [{"state": "on", "via": "data-value+knob"},
+                                {"state": "unknown", "via": None},
+                                {"state": "off", "via": "checkbox"}])
+def test_ask_opener_makes_no_click_unless_one_click_reads_off(chromium_page, monkeypatch, oc):
+    chromium_page.set_content(_page(_row("ETH/USD")))
+    got = _opener(monkeypatch, chromium_page, one_click=oc).open_order_ticket(chromium_page, "ETHUSD")
+    assert got["opened"] is False and "no click made" in got["ask_button"]["why"]
+    assert got["ask_button"]["clicked"] is False
+    assert "ETH/USD-0" not in chromium_page.evaluate("window.__clicks")
+    chromium_page.set_content(_dx.DIVGRID.read_text())
+
+
+def test_ask_opener_refuses_on_two_matches_and_is_off_by_default(chromium_page, monkeypatch):
+    chromium_page.set_content(_page(_row("ETH/USD", n_buttons=2)))
+    got = _opener(monkeypatch, chromium_page).open_order_ticket(chromium_page, "ETHUSD")
+    assert got["opened"] is False and got["ask_button"]["clicked"] is False
+    chromium_page.set_content(_page(_row("ETH/USD")))
+    got = _opener(monkeypatch, chromium_page, opt_in=False).open_order_ticket(chromium_page, "ETHUSD")
+    assert "ask_button" not in got and "ETH/USD-0" not in chromium_page.evaluate("window.__clicks")
+    chromium_page.set_content(_dx.DIVGRID.read_text())
+
+
+def test_ask_opener_stops_when_the_form_names_another_symbol(chromium_page, monkeypatch):
+    chromium_page.set_content(_page(_row("ETH/USD")))
+    ad = _opener(monkeypatch, chromium_page)
+    shown = {"found": True, "fields": {}, "buttons": {"close": "Cancel"}, "symbol_value": "SOL/USD"}
+    monkeypatch.setattr(ad, "_find_form", lambda p: dict(shown) if p.evaluate(
+        "getComputedStyle(document.getElementById('ticket')).display") != "none" else {"found": False})
+    got = ad.open_order_ticket(chromium_page, "ETHUSD")
+    assert got["opened"] is False and got["refused"].startswith("ask_button:")
+    assert got["tried"] == ["ask_button"]                                     # no opener stacked on top
+    chromium_page.set_content(_dx.DIVGRID.read_text())
+
+
+def test_only_tradeify_declares_the_ask_opener():
+    from src.prop.platform import load_platform_config
+    assert load_platform_config("tradeify_1").get("ticket_opener") == "ask_button"
+    assert load_platform_config("breakout_1").get("ticket_opener") is None

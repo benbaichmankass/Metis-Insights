@@ -471,6 +471,10 @@ def main(argv: Optional[list] = None) -> int:
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000
+    # Per-account ticket opener (prop_platforms.yaml ``ticket_opener``;
+    # tradeify_1: ``ask_button``, TRADEIFY-DRY). Absent = the default chain.
+    if hasattr(adapter, "ask_opener"):
+        adapter.ask_opener = str(cfg_plat.get("ticket_opener") or "").strip().lower() == "ask_button"
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
