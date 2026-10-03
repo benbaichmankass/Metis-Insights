@@ -95,7 +95,7 @@ EXIT_DEFERRED = 7
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
                          "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
                          "add_watchlist_symbol_dry", "add_watchlist_symbol",
-                         "instrument_page_dump", "order_surface_dump",
+                         "instrument_page_dump", "order_surface_dump", "probe_ticket_ask",
                          "edit_dialog_dry", "edit_dialog_probe", "edit_surface_probe",
                          "round_trip_dry", "round_trip_live"})
 
@@ -173,6 +173,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "instrument_page_dump"
     if getattr(args, "order_surface_dump", ""):
         return "order_surface_dump"
+    if getattr(args, "probe_ticket_ask", ""):
+        return "probe_ticket_ask"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -386,6 +388,10 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--watchlist-submenu-probe", action="store_true",
                    help="MEASURE the Watchlist submenu: '+', 'Watchlist' (both measured), then HOVER each of "
                         "Private/Public and dump; clicks no submenu entry; Escape + layout re-read")
+    g.add_argument("--probe-ticket-ask", default="", metavar="VENUE_SYMBOL",
+                   help="ONE guarded click on the symbol's watchlist Ask 'Buy' price button (exactly one match, "
+                        "account flat, one-click re-read OFF right before it): record the order form, submit "
+                        "nothing, close via the ticket's own Cancel/Close, verify flat + no dialog")
     g.add_argument("--order-surface-dump", default="", metavar="VENUE_SYMBOL",
                    help="READ-ONLY: dump the symbol's watchlist row cells and every order-surface term "
                         "(new order / trade / buy / sell) on the current page; clicks nothing")
@@ -594,6 +600,13 @@ def main(argv: Optional[list] = None) -> int:
                 got = adapter.widget_menu_probe(page)
                 emit({"widget_menu_probe": got}, *secrets)
                 ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "probe_ticket_ask":
+                got = adapter.probe_ask_ticket(page, args.probe_ticket_ask.strip())
+                emit({"ask_ticket": got}, *secrets)
+                ok = (got.get("refused") is None and got.get("aborted") is None and got.get("opened")
+                      and not got.get("alerts") and "error" not in got)
                 return EXIT_OK if ok else EXIT_UNPARSED
 
             if mode == "order_surface_dump":
