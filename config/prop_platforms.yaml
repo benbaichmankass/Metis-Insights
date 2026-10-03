@@ -219,7 +219,12 @@ accounts:
         ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         XRPUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.00001}
-      watched_click_max_lots: {ETHUSD: 0.01}
+      # SOLUSD 0.01 (TRADEIFY-EXECUTOR, 2026-10-03): the minimum lot, so the
+      # DRY round-trip-dry,limit SOLUSD can reach the form and read back the
+      # LIMIT fill (the dry proof the go-live PR #14673 needs for SOL). Arms
+      # nothing: SOLUSD is not in enabled_venue_symbols, and every armed path
+      # needs PROP_EXECUTOR_MODE_TRADEIFY_1=live as well.
+      watched_click_max_lots: {ETHUSD: 0.01, SOLUSD: 0.01}
       # Nothing enabled: every ticket is SKIPPED `symbol_not_enabled` before
       # the form is touched. Set in the go-live PR only, after the dry evidence.
       enabled_venue_symbols: []
