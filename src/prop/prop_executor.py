@@ -624,6 +624,14 @@ class LocalApi:
             raise RuntimeError("ticket store not readable (present:false)")
         return list(got.get("tickets") or [])
 
+    def all_tickets(self, account_id: str, limit: int = 200) -> List[Dict[str, Any]]:
+        """Recent tickets in ANY status: the trail step (``prop_trail``) needs
+        the ticket of a position that already filled."""
+        got = self._transport("GET", f"/api/bot/prop/tickets?account_id={account_id}&limit={limit}", None)
+        if not got.get("present", True) and not got.get("tickets"):
+            raise RuntimeError("ticket store not readable (present:false)")
+        return list(got.get("tickets") or [])
+
     def open_fills(self, account_id: str) -> List[Dict[str, Any]]:
         got = self._transport("GET", f"/api/bot/prop/fills?account_id={account_id}&limit=500", None)
         if not got.get("present", True):
