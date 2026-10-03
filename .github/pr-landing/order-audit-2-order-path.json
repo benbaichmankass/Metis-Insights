@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane ORDER-AUDIT-2 (manager session_01MM8o5js6TcDFeNAPBY4Ntv): Tier-2 live order-path fixes are held and sent to the manager for review/merge; the operator's standing grant covers data-backed Tier-2 changes and the manager notifies the operator.",
+  "why": "Five order-path fixes from the 2026-09-27 code audit, each re-verified unfixed on main 2026-10-01: (1) pairs sleeve refuses live OPENS while the trader halt flag is present; (2) Coordinator.multi_account_execute refuses dispatch while halted (the documented second halt layer lived in safe_place_order, which has no caller); (3) order_monitor cfg['mode'] read an attribute TradingAccount does not have, so dry_run accounts resolved to live; (4) IBClient.close refuses to flatten when the pre-cancel could not read the open-order book; (6) BybitConnector.get_positions read category 'spot' on linear accounts and returned [] on failure. Each has a test that fails on the old code plus a positive control. No default-off flag, no new gate, nothing switches the trader off."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 CI/tooling: research_queue.validate gains an opt-in is_new refusal (a NEW queued unit must not carry last_dispatched_at), wired into the existing decision-rule guard which already grades new-vs-merge-base; plus the pipeline record closing PI-20261001-1MX1RCZS-0003 (fixed by #15298). Existing validate callers are unchanged; no runtime, order-path or config change."
+}

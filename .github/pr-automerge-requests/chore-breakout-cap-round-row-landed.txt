@@ -1,0 +1,1 @@
+Tier-1 register correction: BREAKOUT-CAP-ROUND read in_flight after #15465 merged (196341a9d); close-out check 3 requires a true state and a named observation.

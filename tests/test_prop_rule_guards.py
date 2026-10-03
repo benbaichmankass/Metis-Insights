@@ -181,3 +181,17 @@ def test_rule_distance_daily_amount_is_three_percent_of_size_for_tradeify(tmp_pa
     assert t["daily_loss_limit_usd"] == pytest.approx(300.0)
     b = prop_reconcile.compute_rule_distance("breakout_1", status=status)
     assert b["daily_loss_limit_usd"] == pytest.approx(0.03 * 10_200.0)
+
+
+def test_emitter_refuses_when_the_declared_ruleset_is_unreadable(tmp_path):
+    from src.prop import breakout_executor as be
+
+    missing = SimpleNamespace(source=tmp_path / "gone.yaml", account_size_usd=10_000.0, ruleset=None)
+    assert "unreadable" in be._leverage_refusal("tradeify_1", missing, "ETHUSDT", 1.0, 2_500.0, 1.0)
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("limits: [unclosed\n")
+    broken = SimpleNamespace(source=bad, account_size_usd=10_000.0, ruleset=None)
+    assert "could not look" in be._leverage_refusal("tradeify_1", broken, "ETHUSDT", 1.0, 2_500.0, 1.0)
+    # no declared ruleset at all: nothing to enforce (unchanged)
+    none = SimpleNamespace(source=None, account_size_usd=10_000.0, ruleset=None)
+    assert be._leverage_refusal("breakout_1", none, "XRPUSDT", 1e9, 1.0, 1.0) is None

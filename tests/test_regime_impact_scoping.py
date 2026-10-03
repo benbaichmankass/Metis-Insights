@@ -96,3 +96,71 @@ def test_policy_cell_legs_reads_real_policy():
     keys = R.policy_cell_legs()
     assert "trend_donchian" in keys and "gld_pullback_1h" in keys
     assert "trend_donchian_eth_4h" not in keys   # an uncovered live leg
+
+
+def test_default_selection_is_the_701_rule_and_conservative_selects_fewer():
+    assert R.SELECTION == {"min_cell_n": 8, "loss_se": 0.0}
+    rng = np.random.default_rng(5)
+    n = 200
+    lab = rng.integers(0, 3, n)
+    direction = np.where(rng.random(n) < 0.5, "long", "short")
+    net = rng.normal(-0.02, 1.0, n)            # barely negative everywhere: noise, not a loss
+    cell = R.cell_ids(lab, direction)
+    train = np.arange(0, 150)
+    loose = R.select_cells(cell, net, train)
+    try:
+        R.SELECTION.update(min_cell_n=20, loss_se=1.0)
+        strict = R.select_cells(cell, net, train)
+    finally:
+        R.SELECTION.update(min_cell_n=8, loss_se=0.0)
+    assert len(strict) <= len(loose) and set(strict) <= set(loose)
+
+
+def test_conservative_selection_keeps_a_real_planted_loss():
+    legs = {f"l{i}": _leg(seed=i) for i in range(8)}      # planted trending+long loss of -0.8 R
+    try:
+        R.SELECTION.update(min_cell_n=20, loss_se=1.0)
+        out = R.scope(legs, seeds=200)["results"]["ordinal"]
+    finally:
+        R.SELECTION.update(min_cell_n=8, loss_se=0.0)
+    assert out["oracle"]["pooled_delta_r"]["mean"] > 3
+
+
+# ── vol axis (RQ-20260930-704) ────────────────────────────────────────────
+def test_two_class_confusion_is_row_stochastic():
+    for model in ("ordinal", "uniform"):
+        c = R.confusion(model, 0.7, 2)
+        assert c.shape == (2, 2) and np.allclose(c.sum(axis=1), 1.0)
+    assert R.confusion("ordinal", 0.7).shape == (3, 3)   # default unchanged
+
+
+def test_vol_labels_use_last_closed_bar_and_refuse_stale():
+    base = pd.Timestamp("2026-01-01T00:00:00Z")
+    rows = {(base + pd.Timedelta(minutes=15 * i)).isoformat(): ("volatile" if i % 2 else "calm")
+            for i in range(8)}
+    # bar 2 opens 00:30, closes 00:45 -> a 00:44 entry must read bar 1 (volatile), a 00:45 entry bar 2 (calm)
+    times = pd.Series([base + pd.Timedelta(minutes=44), base + pd.Timedelta(minutes=45),
+                       base + pd.Timedelta(minutes=5),            # before any bar closed
+                       base + pd.Timedelta(days=30)])             # far past the file's end
+    out = R.vol_axis_labels(rows, times)
+    assert out == ["volatile", "calm", None, None]
+
+
+def test_vol_axis_requires_labels_and_skips_unlabelled_symbols(tmp_path):
+    import pytest
+    with pytest.raises(SystemExit):
+        R.main(["--out", str(tmp_path), "--axis", "vol"])
+
+
+def test_vol_axis_grades_on_oracle_arm_with_three_leg_floor():
+    def res(oracle_mean, p5):
+        arm = {"pooled_delta_r_per_test_trade": {"mean": oracle_mean, "p5": p5, "p95": 1.0}}
+        bad = {"pooled_delta_r_per_test_trade": {"mean": -1.0, "p5": -2.0, "p95": 0.0}}
+        return {"ordinal": {"oracle": arm, "A=0.70": bad}}
+    R.AXIS.update(name="vol", labels=R.VOL_LABELS)
+    try:
+        assert R.grade(res(0.05, 0.01), 3) == ("pass", "vol_axis_headroom")   # A=0.70 arm is bad; oracle decides
+        assert R.grade(res(0.05, -0.01), 3) == ("fail", "no_headroom_vol_axis")
+        assert R.grade(res(0.05, 0.01), 2) == ("indeterminate", "could_not_measure")
+    finally:
+        R.AXIS.update(name="trend", labels=R.LABELS)

@@ -122,11 +122,13 @@ def test_the_info_probe_dry_run_passes_the_one_click_gate_on_the_measured_toggle
     assert got["refused"] is None and "one_click_dump" not in got and st["clicks"] == []
 
 
-def test_the_measured_toggle_reading_on_still_refuses(browser):  # noqa: F811
+def test_the_measured_toggle_reading_on_is_one_alert_never_a_refusal(browser):  # noqa: F811
+    # Operator directive 2026-10-01 (manager comment 5930025023 on #14947).
     html = measured_page(one_click="checked")
     assert 'data-value="true"' in html
     got, st = run(browser, html, click=False)
-    assert "does not read OFF (reads 'on')" in got["refused"] and st["clicks"] == []
+    assert got["one_click"]["state"] == "on" and got["refused"] is None
+    assert sum("one-click trading reads ON" in a for a in got["alerts"]) == 1 and st["clicks"] == []
 
 
 # ── the Orders-widget ancestor dump (read-only measurement) ────────────────
@@ -222,13 +224,14 @@ def test_the_info_probe_gate_accepts_only_the_measured_toggle(browser):  # noqa:
     assert not info_probe_one_click_off({"state": "off", "via": "aria"})
     assert not info_probe_one_click_off({"state": "on", "via": "data-value+knob"})
     assert not info_probe_one_click_off(None)
-    # a checkbox-only terminal reads 'off' via aria, and the probe still refuses
+    # a checkbox-only terminal reads 'off' via aria: recorded, never a refusal
+    # (operator directive 2026-10-01, manager comment 5930025023 on #14947)
     html = re.sub(r'<div style="position:relative;height:17px">.*?One-click trading</div></div>',
                   '<label><input type="checkbox"><span>One-click trading</span></label>', page_html(), flags=re.S)
     assert 'data-test-id="one_click_trading"' not in html
     got, st = run(browser, html, click=False)
     assert got["one_click"]["state"] == "off" and got["one_click"]["via"] == "aria"
-    assert "from the measured toggle" in got["refused"] and st["clicks"] == []
+    assert got["refused"] is None and not any("one-click" in a for a in got["alerts"]) and st["clicks"] == []
 
 
 # ── manager review of #14764: a hidden Orders grid is never "no orders" ────

@@ -166,7 +166,7 @@ class PropPlatformAdapter:
 
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
-                       *, arm: bool = False) -> Any:
+                       *, arm: bool = False, rollout: Any = None) -> Any:
         raise NotImplementedError("order modification is not built for this platform")
 
     def cancel_order(self, page: Any, order: WorkingOrder, *, arm: bool = False) -> Any:

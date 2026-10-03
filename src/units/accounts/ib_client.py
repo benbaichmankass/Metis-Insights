@@ -2612,7 +2612,22 @@ class IBClient:
                 # IB reports flat already — nothing to close. Still cancel
                 # any stray resting protective orders, then return success
                 # (idempotent close, matching the Alpaca 404 → ok mapping).
-                self._cancel_resting_orders_for_symbol(ib, sym)
+                swept = self._cancel_resting_orders_for_symbol(ib, sym)
+                # ...unless the book could not be READ: then a stray bracket
+                # may still rest over the flat position and later fill into a
+                # reverse one, so "OK" would be a claim nobody checked. Fail
+                # the same way _locked_close Step 1 does (ORDER-AUDIT-2 item 4
+                # follow-up): a failure, not a defer, so the monitor retries
+                # and pages if the Gateway stays unreadable.
+                if (swept or {}).get("verify_state") == "unreadable":
+                    return {
+                        "retCode": 1,
+                        "retMsg": (
+                            f"IBClient.close: {sym} already flat but open-order "
+                            "book unreadable — stray protective legs may still "
+                            "rest; nothing cancelled, retry next tick"
+                        ),
+                    }
                 return {
                     "retCode": 0,
                     "result": {"orderId": None, "note": "already flat"},
@@ -2739,7 +2754,23 @@ class IBClient:
 
         # Step 1 — cancel resting protective orders for the symbol so the
         # opposing market order can't leave a naked working order behind.
-        self._cancel_resting_orders_for_symbol(ib, sym)
+        precancel = self._cancel_resting_orders_for_symbol(ib, sym)
+        # If Step 1 could not even READ the book, the bracket may still rest:
+        # flattening now could leave it over a flat position to fill later
+        # and open a reverse one. Refuse — a FAILURE, deliberately not worded
+        # as a defer, so order_monitor counts it toward the close-failure
+        # streak and pages if the Gateway stays unreadable. The position
+        # stays protected by its own bracket meanwhile (ORDER-AUDIT-2 item 4).
+        if (precancel or {}).get("verify_state") == "unreadable":
+            return {
+                "retCode": 1,
+                "retMsg": (
+                    f"IBClient.close: open-order book for {sym} unreadable — "
+                    "refusing to flatten while protective legs may still rest "
+                    "(a leftover bracket could fill into a reverse position); "
+                    "no order sent, retry next tick"
+                ),
+            }
 
         # Step 2 — opposing market order to flatten.
         try:
@@ -3646,9 +3677,28 @@ class IBClient:
         cancelled = 0
         failed = 0
         attempted: Dict[str, Dict[str, Any]] = {}
+        # READ THE BOOK DIRECTLY, not via ``_open_trades`` (AUD-20260927-CA-A04
+        # -ib-close-precancel-read-failure-collapsed, ORDER-AUDIT-2 item 4).
+        # ``_open_trades`` swallows an ``ib.openTrades()`` failure into ``[]``,
+        # so "the Gateway read failed" and "nothing is resting" were the same
+        # result — and ``_locked_close`` then sent the opposing MarketOrder
+        # over a bracket that could later fill and OPEN a reverse position
+        # (the BL-20260624-MHG-FLIP class). ``unreadable`` is "we did not
+        # look"; it is never folded into ``not_attempted``.
+        try:
+            book = list(ib.openTrades() or [])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "IBClient: could not read open orders for %s before cancelling "
+                "— resting legs UNKNOWN (this is 'we did not look', NOT "
+                "'nothing is resting'): %s", sym or "(all)", exc,
+            )
+            return {"verify_state": "unreadable", "still_resting": [],
+                    "confirmed_gone": [], "seen": None, "cancelled": 0,
+                    "failed": 0, "account_wide_seen": None}
         refusals, confirmations, detach = self._cancel_error_capture(ib)
         try:
-            for trade in self._open_trades(ib):
+            for trade in book:
                 try:
                     contract = getattr(trade, "contract", None)
                     trade_sym = str(getattr(contract, "symbol", "") or "").upper()
@@ -3728,9 +3778,14 @@ class IBClient:
         except Exception as exc:  # noqa: BLE001
             return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
         try:
-            self._cancel_resting_orders_for_symbol(ib, sym)
+            precancel = self._cancel_resting_orders_for_symbol(ib, sym)
         except Exception as exc:  # noqa: BLE001
             return {"retCode": 1, "retMsg": f"cancel-resting failed: {exc}"}
+        if (precancel or {}).get("verify_state") == "unreadable":
+            # Not "OK": nothing was cancelled because nothing could be read.
+            return {"retCode": 1, "retMsg": (
+                f"cancel-resting: open-order book for {sym} unreadable — "
+                "resting legs unknown, nothing cancelled")}
         return {"retCode": 0, "result": {"symbol": sym}, "retMsg": "OK"}
 
     def cancel_trade_protection(

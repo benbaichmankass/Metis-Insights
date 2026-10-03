@@ -97,7 +97,7 @@ grading:
   decision_rule_id: RULE-TPL-PROP-FIT-B6V2-eth_pullback_2h-bal010
   evidence:
   - research/results/RQ-20260928-027/36653156637.jsonl
-  graded_at: '2026-10-01'
+  graded_at: '2026-10-03'
   grader: scripts/research/queue_grade.py
   needs_review: true
   reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'

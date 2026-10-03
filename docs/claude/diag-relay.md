@@ -157,6 +157,11 @@ So:
   `:` (and `.`, `%`, `=`, `&`), so an ISO timestamp in a query value (e.g.
   `journalctl?...&since=2026-05-10T21:13:00Z`) is valid. **One bad path fails
   the whole batch** (`sys.exit(1)`), so keep prose out entirely.
+- **`@` is NOT in the set**, so a templated systemd unit must be URL-encoded:
+  `journalctl?unit=ict-prop-feed%40tradeify_1.service&lines=120` works,
+  `...ict-prop-feed@tradeify_1...` is rejected at validation (issues #15377
+  rejected / #15378 ok, 2026-10-02). An explanatory sentence in the issue
+  **body** is also read as a path and rejected (#15376) -- put only paths there.
 - `/api/bot/...` paths are allowed only from the relay's **read-only
   allowlist** in the same step (it mirrors the `workflow_dispatch` allowlist —
   keep the two in sync). It covers the soak surfaces (`pairs/soak`,

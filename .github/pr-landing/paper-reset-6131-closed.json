@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only. Records in PI-20260930-3QNHBGND-0001 the measured close of SPY row 6131 (#15061 dry run, #15062 apply, journal notes verified via diag, package swept), and re-dates the item to the GLD GTC-expiry observation (~2026-11-25). Appends a wrapper-echo nit to PI-20260930-3QNHBGND-0004. No code, config or order-path change."
+}

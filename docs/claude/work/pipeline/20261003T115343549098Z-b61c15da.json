@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the warning cannot fire for a bar an earlier process evaluated (marker persisted or warning reworded, with a test), or killed with a reason",
+    "kind": "observation"
+  },
+  "id": "PI-20261003-OJTPWGCC-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane LIVE-SILENCE session_01Upz38GpgyiMYCjojTpwGCC (manager session_01MM8o5js6TcDFeNAPBY4Ntv)",
+    "rerun": "For each 4h boundary B since the last deploy, fetch diag journalctl?unit=ict-trader-live&since=B&until=B+8min and grep trend_donchian_xrp_4h. Count boundaries with a 'never evaluated' WARNING where an earlier PID had already logged 'no actionable signal' (false warning), and boundaries with no evaluation by any PID (lost bar)."
+  },
+  "state": "done",
+  "terminal_reason": "Fixed by #15830 (cdd9c3a8): evaluated-bar marker persisted to runtime_state/decision_bar_ledger.json, with tests. Deployed 2026-10-03 11:25Z (git_sha_running=cdd9c3a8). Observed: 0 'never evaluated' WARNINGs in journalctl ict-trader-live 11:20-11:49Z across that restart. The next-restart observation is tracked on checklist row RESTART-SAFE.",
+  "what": "decision_bar: closed legs (today: trend_donchian_xrp_4h) keep 'already evaluated this closed bar' only in process memory (_CLOSED_BAR_EVALUATED in src/runtime/strategy_signal_builders.py). MEASURED 2026-10-03 (lane LIVE-SILENCE): ict-trader-live ran under a new PID at all 15 sampled 4h boundaries 2026-09-30T20:00Z..2026-10-03T04:00Z. On 2026-09-30 the 20:00Z bar was evaluated (no breakout), the service restarted at 20:06:39, and the new process logged WARNING 'closed bar opened 1790784000.0 was never evaluated inside its 360s window ... entry is skipped'. That WARNING is false: the bar was evaluated before the restart. The real-loss case is a restart gap that spans the whole 360s window; no lost bar was observed in the 15 boundaries sampled. Fix: persist the evaluated marker, or reword the warning to say 'not evaluated by THIS process'. Tier-2 runtime change."
+}

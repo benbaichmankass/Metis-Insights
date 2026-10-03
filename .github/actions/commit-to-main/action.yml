@@ -774,13 +774,36 @@ runs:
         # COMMITTED on main, byte-identical to what we wrote? That is
         # squash-safe, needs no `gh`, and is the claim itself rather than a
         # proxy for it.
-        LANDED="unknown"
-        if git fetch -q origin main 2>/dev/null; then
-          # shellcheck disable=SC2086 — PATHS is a space-separated pathspec list.
-          if git diff --quiet HEAD FETCH_HEAD -- ${PATHS} 2>/dev/null; then
+        landed_on_main() {
+          LANDED="unknown"
+          if git fetch -q origin main 2>/dev/null; then
+            # shellcheck disable=SC2086 — PATHS is a space-separated pathspec list.
+            if git diff --quiet HEAD FETCH_HEAD -- ${PATHS} 2>/dev/null; then
+              LANDED="yes"
+            else
+              LANDED="no"
+            fi
+          fi
+          [ "${LANDED}" = "yes" ]
+        }
+        # ⚠️ ONE FINAL RE-CHECK, AFTER A SETTLE (research-queue-dispatch run
+        # 36910217777, 2026-10-01): stamp PR #15276 MERGED 13 s AFTER the 30m wait
+        # expired (its pytest-run took 28.5m), and the single check above ran at
+        # the expiry instant, so the job failed on a stamp that landed seconds
+        # later. The last poll is up to a full 30 s `sleep` stale, so an immediate
+        # second look would miss the same race: wait one poll interval, then
+        # re-read the PR state and the main paths exactly once. This does NOT
+        # extend the timeout (it is one bounded, non-looping look) and does not
+        # change which checks run; a PR that is still not merged fails as before.
+        if ! landed_on_main; then
+          sleep 45
+          FINAL_STATE="$(gh pr view "${PR_URL}" --json state --jq .state 2>/dev/null || echo UNKNOWN)"
+          [ "${FINAL_STATE}" = "UNKNOWN" ] || STATE_EVER_READ=1
+          if [ "${FINAL_STATE}" = "MERGED" ]; then
+            git fetch -q origin main 2>/dev/null || true
             LANDED="yes"
           else
-            LANDED="no"
+            landed_on_main || true
           fi
         fi
 

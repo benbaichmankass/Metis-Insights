@@ -1,0 +1,1 @@
+manager register: two breakout_1 lane rows; Tier-1 docs/claude/work only

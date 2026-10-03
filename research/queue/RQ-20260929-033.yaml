@@ -92,4 +92,15 @@ generated:
     symbol: SOLUSDT
     timeframe: 1h
     trades_file: comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol__trades.jsonl
-last_dispatched_at: null
+last_dispatched_at: '2026-10-02T15:00:04+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-PROP-FIT-B6V2-trend_donchian_sol-room033
+  evidence:
+  - research/results/RQ-20260929-033/37023848280.jsonl
+  graded_at: '2026-10-03'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  rows: 1
+  verdict: null

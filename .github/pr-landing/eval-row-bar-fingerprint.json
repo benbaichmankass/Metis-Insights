@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/runtime/strategy_signal_builders.py runs in ict-trader-live. Lane LIVE-PARITY (manager session_01MM8o5js6TcDFeNAPBY4Ntv) was told the durable-decision-record writer change is a HELD Tier-2 PR for the manager. The change: _stamp_regime() (the single chokepoint every <leg>_eval audit row passes through) also setdefaults bar_open_ts (epoch of the decision frame's last row) and bar_close (its close). It runs inside try/except, writes only extra keys into the audit row (they land in signals.meta), and never changes a decision, a frame, an order or sizing. Consumer: scripts/ops/live_replay_parity.py (PR #15820), which turns these into exact candle checks. Today it only brackets the forming close inside a 15m candle. Revert: git revert of the merge commit.",
+  "why": "LIVE-PARITY: make the per-eval decision record carry the exact bar it decided on, so live-vs-replay candle mismatch is exact rather than bracketed."
+}

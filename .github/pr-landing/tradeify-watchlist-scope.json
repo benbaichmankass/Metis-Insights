@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's merge (TRADEIFY-WIRE T4; code changes as Tier-2 hold PRs). Tier-2: the DXtrade adapter's watchlist row scope on the live VM. Consulted only when no widget(New)__container ancestor exists (breakout_1 always has one). No order path, no submit, no new click.",
+  "why": "instrument-info-dry #15126 (run 36851647092) MEASURED tradeify_1's watchlist: a Symbol/Bid/Ask/Change/Chg%/Description header table with a separate 9-row body table (BTC/USD..LINK/USD), as on Breakout, but no widget(New)__container ancestor, so the row scope collapsed to the header table and 0 rows resolved. The scope now falls back to the nearest ancestor holding exactly ONE widget_menu_WATCHLIST; the Orders/Positions refusal still applies."
+}

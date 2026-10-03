@@ -1,0 +1,17 @@
+{
+ "due_when": {
+  "check_every_days": 7,
+  "clears_when": "ict_scalp_mgc_15m is measured OFF vs ON on the causal harness (PR #15341 merged) over a MGC 15m feed (Yahoo lane serves ~60d, so a futures feed source must be established first) against the rule registered in docs/research/ict-scalp-htf-filter-decision-rule-2026-10-01.md, and config/strategies.yaml::ict_scalp_mgc_15m.htf_trend_filter_enabled is flipped to true if it clears or the explicit false is kept with the result recorded",
+  "kind": "observation",
+  "last_checked": "2026-10-01"
+ },
+ "id": "PI-20261001-JWZSVYVS-0005",
+ "next_action": "dispatch_lane",
+ "origin": {
+  "kind": "session",
+  "ref": "lane ICT-SCALP-HTF session_01NpQatfW1eowJpoJwzSVYVs, manager review of #15340 2026-10-01 23:34Z",
+  "rerun": "grep -n htf_trend_filter_enabled config/strategies.yaml near ict_scalp_mgc_15m (currently an explicit false); then python3 scripts/ops/build_strategy_evidence.py --dry-run --strategy ict_scalp_mgc_15m to see whether the MGC harness run works (committed record is coverage_state harness_failed)."
+ },
+ "state": "queued",
+ "what": "ict_scalp_mgc_15m (ib_paper, execution live) is OUTSIDE the registered-rule evidence for wiring the HTF trend filter: the 6 crypto legs cleared the rule (n=2168 trades filter-off vs n=813 filter-on, 365d Binance spot, ON >= OFF on 5 of 6 legs) but MGC had no data source in the sandbox and its committed evidence record is harness_failed (the Yahoo 15m lane serves ~60d against a 365d window). #15340 therefore pins MGC to an explicit htf_trend_filter_enabled: false so its behaviour is unchanged. Open: establish a futures 15m feed, measure OFF vs ON on the fixed harness against the same rule, flip if it clears."
+}

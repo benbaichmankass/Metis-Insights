@@ -100,9 +100,9 @@ def test_real_config_loads_and_keeps_flat_75_and_unmeasured_lots_refuse():
     assert c.symbols["ADAUSDT"]["min_lots"] == 10
     spec, _, why = pe.bracket_from_ticket(ticket(symbol="BTCUSDT"), c)
     assert spec is None and "not declared" in why
-    # The lot step: SOLUSD (#13855); ETHUSD for its dry round trip only (PROP-ETH-DOM B4), not enabled.
+    # The lot step: SOLUSD (#13855); ETHUSD (PROP-ETH-DOM B4) -- enabled since B5 (2026-10-01).
     assert c.watched_click_max_lots == {"SOLUSD": 0.01, "ETHUSD": 0.01}
-    assert "ETHUSD" not in c.enabled_venue_symbols
+    assert "ETHUSD" in c.enabled_venue_symbols
 
 
 # ── § 3.3 guards, one at a time ───────────────────────────────────────────
@@ -161,7 +161,90 @@ def test_account_not_read_refuses():
 
 def test_risk_gate_enforce_cap_refuses_above_flat_75():
     v = guards(t=ticket(qty=40.0), account=acct(9000.0, 9000.0), ds=9000.0)
-    assert any(r.startswith("risk cap: resized") for r in v.reasons)
+    assert any(r.startswith("risk cap: ticket asks $80.00") and "REFUSED" in r for r in v.reasons), v.reasons
+
+
+# ── the flat $-cap vs the venue increments (BREAKOUT-CAP-ROUND, 2026-10-02) ──
+#
+# The risk the guards grade is computed from the values actually TYPED, and the
+# stop can only be typed at the venue's price_step. Rounding it widens the stop
+# by up to one step, so a ticket the sizer built at exactly the $75 cap lands a
+# few cents above it. Before this, the guard refused that ticket outright:
+# prop-manual-00e7ecbd6bd4 (SOLUSDT long, trend_donchian_sol_prop) was skipped
+# at 2026-10-02T04:04:36Z for `risk cap: resized (... $75.11 ... cap $75.00)`
+# while the announced resize was never applied. The size is now cut instead.
+
+SOL_STEPPED = {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0, "min_lots": 0.01,
+               "lot_step": 0.01, "price_step": 0.01}
+
+# The live ticket's own numbers (GET /api/bot/prop/tickets, ticket_id
+# prop-manual-00e7ecbd6bd4): qty 28.45528451 at entry 121.23 / sl 118.59428571
+# is exactly $75.00 of risk. floor to 0.01 lots -> 28.45; the stop types as
+# 118.59, widening the stop 2.63571429 -> 2.64; 28.45 x 2.64 = $75.11.
+ROUNDING_TICKET = dict(entry=121.23, sl=118.59428571, tp=133.23177, qty=28.45528451, risk_usd=75.0)
+
+
+def test_venue_increment_overshoot_is_resized_down_and_placed():
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    spec, facts, refusal = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert refusal == ""
+    # one lot step at a time, DOWN, until the typed risk fits: 28.45 -> 28.40
+    assert (spec.quantity, spec.stop_loss, spec.limit_price) == (28.4, 118.59, 121.23)
+    assert facts["ticket_risk_usd"] == 74.98 <= c.risk_cap_usd
+    assert facts["risk_cap_resize"]["from_lots"] == 28.45
+    assert facts["risk_cap_resize"]["risk_usd_before"] == 75.11
+    # and the guard now PLACES it: no risk-cap reason at all
+    v = guards(t=ticket(**ROUNDING_TICKET), c=c)
+    assert v.fits, v.reasons
+    assert not any(r.startswith("risk cap") for r in v.reasons), v.reasons
+    assert v.checks["risk_cap"]["action"] == "unchanged"
+
+
+def test_one_more_lot_step_would_have_breached_the_cap():
+    # The cut is to the LAST size that fits, not a safe-looking round number:
+    # 28.41 lots x 2.64 = $75.0024, above the cap.
+    assert round(28.41 * 2.64, 4) > 75.0
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert facts["lots"] == 28.4
+
+
+def test_a_gross_over_cap_ticket_is_still_refused_never_resized():
+    # The ticket itself asks for $120 of risk (no rounding involved). Resizing
+    # it to the cap would place a trade nobody sized; it is refused.
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    t = ticket(entry=120.0, sl=118.0, tp=126.0, qty=60.0, risk_usd=120.0)
+    spec, facts, refusal = pe.bracket_from_ticket(t, c)
+    assert refusal == "" and facts["ticket_risk_usd"] == 120.0
+    assert facts["risk_cap_resize"] is None, "a ticket's own over-cap ask is never resized"
+    v = guards(t=t, c=c, account=acct(9000.0, 9000.0), ds=9000.0)
+    assert not v.fits
+    assert any(r.startswith("risk cap: ticket asks $120.00") and "REFUSED" in r for r in v.reasons), v.reasons
+
+
+def test_the_size_never_grows():
+    # A ticket well under the cap is typed as sized — the cap is a ceiling, and
+    # size_lots' floor is never walked back up to it.
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(entry=120.0, sl=118.0, tp=126.0, qty=1.0), c)
+    assert facts["lots"] == 1.0 and facts["ticket_risk_usd"] == 2.0
+    assert facts["risk_cap_resize"] is None
+
+
+def test_no_declared_cap_still_refuses_rather_than_emitting_an_unbounded_size():
+    c = cfg(risk_cap_usd=None, symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert facts["risk_cap_resize"] is None, "an unknown cap bounds nothing — nothing to resize to"
+    v = guards(t=ticket(**ROUNDING_TICKET), c=c)
+    assert not v.fits and any("no configured cap" in r for r in v.reasons), v.reasons
+
+
+def test_a_stop_that_rounds_onto_the_entry_is_refused_not_risk_zero():
+    # Otherwise risk reads 0.0 and every cushion guard passes a stopless trade.
+    c = cfg(symbols={"SOLUSDT": {**SOL_STEPPED, "price_step": 1.0}})
+    spec, facts, refusal = pe.bracket_from_ticket(
+        ticket(entry=120.2, sl=120.1, tp=126.0, qty=1.0), c)
+    assert spec is None and "no stop distance to risk" in refusal
 
 
 def test_risk_is_recomputed_from_lots_not_the_tickets_claim():
@@ -319,8 +402,11 @@ class FakeAdapter:
         self.flatten_facts = facts
         return {"ok": True, "clicked": arm}
 
-    def modify_bracket(self, page, position, sl, tp, *, arm=False):
+    def modify_bracket(self, page, position, sl, tp, *, arm=False, rollout=None):
         self.calls.append(("modify_bracket", position.symbol, arm))
+        self.rollout = rollout
+        if getattr(self, "modify_result", None) is not None:
+            return self.modify_result
         return {"ok": True, "clicked": arm}
 
 
@@ -605,6 +691,22 @@ def test_classify_ticket_surface():
 
 # ── dxtrade order controls in a real Chromium, against an INVENTED form ───
 
+# The live submit STATES the order: "<Side> <qty> <SYM> at <price>" (every
+# label measured live, breakout-login-check runs #13942 .. #15537), rewritten
+# by the terminal as the quantity / side change. These replicas predate that
+# measurement, so each carries this relabel: once a quantity is typed, the
+# submit reads "<side> <qty> <sym> at 120.00". The side is the one the label
+# already names (a terminal whose label IS the side read-back keeps it),
+# else the side picked. ``window.__noAutoLabel`` lets a test own the label.
+def _relabel_js(sym_js, side_js):
+    return ("<script>(()=>{const L=()=>{if(window.__noAutoLabel)return;const s=document.getElementById('sub'),"
+            "q=document.getElementById('q');if(!s||!q||!q.value)return;"
+            "const m=s.textContent.match(/\\b(Buy|Sell)\\b/i);const sd=m?m[1]:(" + side_js + ");if(!sd)return;"
+            "const t=sd[0].toUpperCase()+sd.slice(1).toLowerCase()+' '+parseFloat(q.value)+' '+(" + sym_js + ")+' at 120.00';"
+            "if(s.textContent!==t)s.textContent=t;};document.addEventListener('input',L,true);"
+            "document.addEventListener('click',()=>setTimeout(L,0),true);setInterval(L,20);})()</script>")
+
+
 TICKET_PAGE = """
 <html><body>
 <div class="bar"><span>One-click trading</span><input type="checkbox" id="oc" %s></div>
@@ -631,6 +733,8 @@ function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=
 </div>
 </body></html>
 """
+TICKET_PAGE = TICKET_PAGE.replace("</body>", _relabel_js(
+    "document.querySelector('.hdr').textContent.trim()", "window.__side") + "</body>")
 
 
 @pytest.fixture(scope="module")
@@ -713,8 +817,9 @@ def test_one_click_on_is_recorded_on_a_disarmed_walk(tpage):
 
 def test_place_bracket_refuses_when_side_is_not_readable_back(tpage):
     # side buttons that expose no pressed/selected state at all
+    # (this test owns its submit label: "Place Order" names no side)
     html = (TICKET_PAGE % "").replace("window.__side='buy';sel(this)", "window.__side='buy'") \
-                             .replace("window.__side='sell';sel(this)", "window.__side='sell'")
+                             .replace("window.__side='sell';sel(this)", "window.__side='sell'").replace("<body>", "<body><script>window.__noAutoLabel=1</script>", 1)
     p = tpage(html=html)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "side: not readable back" in att.detail
@@ -1162,8 +1267,9 @@ def test_live_output_never_carries_the_raw_form(env):
 
 def test_real_config_eth_sol_lots_are_the_measured_ones():
     c = pe.load_config("breakout_1")
-    for s in ("ETHUSDT", "SOLUSDT"):
-        assert (c.symbols[s]["lot_units"], c.symbols[s]["lot_step"], c.symbols[s]["min_lots"]) == (1, 0.01, None)
+    # ETHUSD min_lots 0.01 MEASURED by B4 (#15021, no clamp at 0.01 = the lot step); SOLUSD's stays null.
+    for s, mn in (("ETHUSDT", 0.01), ("SOLUSDT", None)):
+        assert (c.symbols[s]["lot_units"], c.symbols[s]["lot_step"], c.symbols[s]["min_lots"]) == (1, 0.01, mn)
 
 
 def test_one_click_dump_reads_structure_never_values(tpage):
@@ -1287,6 +1393,9 @@ function tog(d){ if(!d.hasAttribute('data-stuck')) d.setAttribute('data-value', 
 </div>
 </body></html>
 """
+LIVE_SIDEBAR = LIVE_SIDEBAR.replace("</body>", _relabel_js(
+    "document.querySelector('.hdr').textContent.trim()",
+    "(document.querySelector('[data-g=side][aria-pressed=true]')||{}).textContent") + "</body>")
 SUBMIT_BTN = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
 
 
@@ -1300,7 +1409,7 @@ def test_live_shape_switches_both_toggles_on_scrolls_to_submit_and_verifies(tpag
     assert att.stage == "form_verified", att.detail
     assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
     assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
-    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy 0.5 SOLUSD at 120.00"
     assert p.evaluate("window.__submits") is None
 
 
@@ -1337,7 +1446,7 @@ def test_a_virtualised_submit_is_found_by_scrolling_the_panel(tpage):
 def test_a_field_changed_by_scrolling_refuses(tpage):
     # A panel that rewrites the quantity when scrolled: the post-scroll read-back must catch it.
     evil = ("<script>document.getElementById('panel').addEventListener('scroll', () => {"
-            " document.getElementById('q').value = '9'; });</script>")
+            " window.__noAutoLabel = 1; document.getElementById('q').value = '9'; });</script>")
     p = tpage(html=_live() + evil)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "read-back after scrolling to submit" in att.detail
@@ -1345,7 +1454,9 @@ def test_a_field_changed_by_scrolling_refuses(tpage):
 
 
 def test_a_submit_that_does_not_name_the_side_refuses(tpage):
-    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'"))
+    # (this test owns its submit label: "Place Order" names no side)
+    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'")
+              .replace("<script>", "<script>window.__noAutoLabel=1;", 1))
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "does not name the intended side" in att.detail
     assert p.evaluate("window.__submits") is None
@@ -1625,6 +1736,8 @@ function tog(d){ if(d.hasAttribute('data-stuck')) return; const on=d.getAttribut
 </div>
 </body></html>
 """
+MEASURED_SIDEBAR = MEASURED_SIDEBAR.replace("</body>", _relabel_js(
+    "'%SYM%'", "(document.querySelector('.sd[style*=background]')||{}).textContent") + "</body>")
 
 
 def _measured(sym="SOLUSD", symval="SOLUSD", slmode="Price"):
@@ -1714,7 +1827,7 @@ def test_measured_sidebar_disarmed_walk_passes_the_full_read_back(tpage):
     assert att.stage == "form_verified", att.detail
     assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
     assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
-    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy 0.01 SOLUSD at 120.00"
     assert p.evaluate("window.__submits") is None
 
 
@@ -1723,7 +1836,7 @@ def test_measured_sidebar_sell_is_selected_and_read_back_by_colour(tpage):
     spec = BracketSpec("t2", "SOLUSD", "short", 0.01, 126.0, 118.0, "market", None)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
     assert att.stage == "form_verified", att.detail
-    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell SOLUSD"
+    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell 0.01 SOLUSD at 120.00"
 
 
 def test_measured_sidebar_refuses_another_symbol(tpage):
@@ -1746,7 +1859,7 @@ def _measured_live_label(clamp_min=None):
     """The replica with the MEASURED label shape (probe #13855): the terminal
     writes "<Side> <qty> SOLUSD at <price>" from the quantity it accepted;
     ``clamp_min`` models a venue that silently raises a smaller size."""
-    js = ("<script>function relabel(){const b=document.querySelector('.sd[style*=background]');"
+    js = ("<script>window.__noAutoLabel=1;function relabel(){const b=document.querySelector('.sd[style*=background]');"
           "let q=parseFloat(document.getElementById('q').value)||0;"
           + (f"if(q>0&&q<{clamp_min})q={clamp_min};" if clamp_min else "") +
           "document.getElementById('sub').textContent=(b?b.textContent.trim():'Buy')+' '+q+' SOLUSD at 120.05'}"
@@ -1754,13 +1867,48 @@ def _measured_live_label(clamp_min=None):
     return _measured().replace("</body>", js + "</body>")
 
 
+def test_every_live_measured_submit_label_still_passes():
+    # Every submit label the LIVE terminal showed (breakout-login-check runs
+    # #13942, #13953, #13965, #13983, #13987, #14154, #14191, #14330, #14344,
+    # #14761, #15021, #15261, #15263, #15464, #15537 -- 16 distinct labels;
+    # plus the 2026-10-02 live ETH short): the tightening refuses none of them.
+    from types import SimpleNamespace
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    live = [("Buy 0.01 SOLUSD at 117.49", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 118.02", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 118.25", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 118.52", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 118.94", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 119.03", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 119.04", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 120.09", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 120.59", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 120.73", 0.01, "SOLUSD"),
+            ("Buy 49 SOLUSD at 117.52", 49, "SOLUSD"), ("Buy 49 SOLUSD at 117.77", 49, "SOLUSD"),
+            ("Buy 0.01 ETHUSD at 2,697.81", 0.01, "ETHUSD"), ("Buy 0.01 ETHUSD at 2,698.50", 0.01, "ETHUSD"),
+            ("Buy 0.01 ETHUSD at 2,723.74", 0.01, "ETHUSD"), ("Buy 0.01 ETHUSD at 2,749.46", 0.01, "ETHUSD"),
+            ("Sell 1.22 ETHUSD at 2,657.11", 1.22, "ETHUSD"), ("Buy 0.01 ETH/USD at 2,685.84", 0.01, "ETHUSD")]
+    for label, qty, sym in live:
+        assert submit_label_mismatch(label, SimpleNamespace(quantity=qty, venue_symbol=sym)) == "", label
+
+
 def test_submit_label_mismatch_reads_the_measured_label_shape():
     from src.prop.platform.dxtrade import submit_label_mismatch
     spec = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
     assert submit_label_mismatch("Buy 0.01 SOLUSD at 120.05", spec) == ""
-    assert submit_label_mismatch("Buy SOLUSD", spec) == ""                 # no qty stated: read-back alone
+    # A label that does not state "<Buy|Sell> <qty> <SYM>" is refused
+    # (DIALOG-MEASURE): a modify-mode surface's "Save" / "Modify" is no order.
+    for label in ("Buy SOLUSD", "Save", "Modify", "Modify Position", "Place Order", ""):
+        assert "does not read as" in submit_label_mismatch(label, spec), label
     assert "states quantity 0.1" in submit_label_mismatch("Buy 0.1 SOLUSD at 120.05", spec)
     assert "names 'ETHUSD'" in submit_label_mismatch("Buy 0.01 ETHUSD at 3000.1", spec)
+
+
+def test_submit_label_mismatch_refuses_the_opposite_side():
+    # TRADEIFY-DRY 2026-10-03: the label's own Buy/Sell must match the spec's
+    # side; before, "Sell 0.01 ETH/USD" passed a long spec.
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    long_eth = BracketSpec("t", "ETHUSD", "long", 0.01, 2600.0, 2800.0, "limit", 2680.0)
+    short_eth = BracketSpec("t", "ETHUSD", "short", 0.01, 2800.0, 2600.0, "limit", 2680.0)
+    assert submit_label_mismatch("Buy 0.01 ETH/USD at 2,678.650", long_eth) == ""
+    assert submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", short_eth) == ""
+    assert "states side 'Sell'" in submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", long_eth)
+    assert "states side 'Buy'" in submit_label_mismatch("Buy 0.01 ETH/USD at 2,678.650", short_eth)
 
 
 def test_measured_sidebar_label_stating_the_typed_qty_passes(tpage):
@@ -1880,9 +2028,14 @@ def test_enabled_venues_env_overrides_config_and_missing_enables_nothing():
     assert pe.enabled_venues({}, env={}) == []
 
 
-def test_the_real_config_enables_sol_only():
+def test_the_real_config_enables_sol_and_eth():
+    # PROP-ETH-DOM B5 (2026-10-01): ETHUSD joins with every spec measured.
     c = pe.load_config("breakout_1")
-    assert c.enabled_venue_symbols == ["SOLUSD"]
+    assert c.enabled_venue_symbols == ["ETHUSD", "SOLUSD"]
+    eth = c.symbols["ETHUSDT"]
+    assert eth == {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1, "min_lots": 0.01, "lot_step": 0.01,
+                   "price_step": 0.01}
+    assert c.watched_click_max_lots["ETHUSD"] == 0.01 and c.risk_cap_usd == 75.0
 
 
 def _eth_not_enabled():
@@ -3656,3 +3809,347 @@ def test_a_passing_band_check_is_logged_with_the_quote_it_used(env):
     ok = [a for a in res.actions if a["what"] == "band_ok"]
     assert len(ok) == 1 and ok[0]["why"] == "ask 120.0 inside the ticket's entry band 119.5..120.5"
     assert len(_places(ad)) == 1
+
+
+# ── the dry round trip restores the linked symbol it moved (manager review of #15002) ──
+
+
+class _LinkingAdapter(FakeAdapter):
+    """Models the terminal's linked symbol: the dry place_bracket switches it to the ticket's symbol."""
+
+    def __init__(self, linked="SOLUSD", fail_restore=False, raise_in_place=False, **kw):
+        super().__init__(**kw)
+        self.linked, self.fail_restore, self.raise_in_place = linked, fail_restore, raise_in_place
+
+    def read_linked_symbol(self, page):
+        self.calls.append(("read_linked_symbol",))
+        return self.linked
+
+    def select_linked_symbol(self, page, sym):
+        self.calls.append(("select_linked_symbol", sym))
+        before = self.linked
+        if self.fail_restore:
+            return {"ok": False, "clicked": True, "before": before, "after": before, "why": "did not follow"}
+        self.linked = sym
+        return {"ok": True, "clicked": before != sym, "before": before, "after": sym}
+
+    def place_bracket(self, page, spec, *, arm=False):
+        self.linked = spec.venue_symbol
+        if self.raise_in_place:
+            self.calls.append(("place_bracket", spec.ticket_id, arm))
+            raise RuntimeError("terminal went away")
+        return super().place_bracket(page, spec, arm=arm)
+
+
+def test_dry_round_trip_restores_and_verifies_the_original_linked_symbol(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD")
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    names = [c[0] for c in ad.calls]
+    assert names.index("read_linked_symbol") < names.index("place_bracket") < names.index("select_linked_symbol")
+    assert ("select_linked_symbol", "SOLUSD") in ad.calls and ad.linked == "SOLUSD"
+    assert not any("RESTORE" in a for a in res.alerts)
+
+
+def test_dry_round_trip_restores_even_when_the_walk_raises(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD", raise_in_place=True)
+    with pytest.raises(RuntimeError):
+        pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                          venue_symbol="ETHUSD", arm=False)
+    assert ("select_linked_symbol", "SOLUSD") in ad.calls and ad.linked == "SOLUSD"
+
+
+def test_a_failed_restore_is_an_alert(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD", fail_restore=True)
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert any("RESTORE FAILED" in a and "SOLUSD" in a for a in res.alerts)
+
+
+def test_an_unreadable_link_before_the_walk_is_an_alert_and_nothing_is_reselected(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked=None)
+    res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert not any(c[0] == "select_linked_symbol" for c in ad.calls)
+    assert any("could not be read" in a for a in res.alerts)
+
+
+def test_review_a_failed_or_unreadable_restore_fails_the_round_trip_exit(env):
+    # Manager review of #15020: a failed restore exited 0 because the tick's
+    # round-trip branch only checked res.halted. Both link alerts must fail it.
+    ledger, _ = env
+    for ad in (_LinkingAdapter(linked="SOLUSD", fail_restore=True), _LinkingAdapter(linked=None)):
+        res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                                venue_symbol="ETHUSD", arm=False)
+        assert not res.halted and pe.round_trip_failed(res) is True
+    ok = pe.run_round_trip(adapter=_LinkingAdapter(linked="SOLUSD"), page=None, api=FakeApi(),
+                           cfg=_eth_not_enabled(), ledger=ledger, venue_symbol="ETHUSD", arm=False)
+    assert not any(str(a).startswith(pe.LINK_RESTORE_ALERTS) for a in ok.alerts)
+    assert pe.round_trip_failed(ok) is False
+
+
+def test_review_the_tick_exits_3_when_a_dry_restore_fails(env, capsys):
+    # CLI-level (manager re-review of #15020): the tick's round-trip branch
+    # returns emit_round_trip(res); a real dry round trip whose restore fails
+    # (or whose link is unreadable) must exit 3, and a clean one 0.
+    from scripts.prop import prop_executor_tick as tick
+    ledger, _ = env
+    for ad, want in ((_LinkingAdapter(linked="SOLUSD", fail_restore=True), tick.EXIT_UNPARSED),
+                     (_LinkingAdapter(linked=None), tick.EXIT_UNPARSED),
+                     (_LinkingAdapter(linked="SOLUSD"), tick.EXIT_OK)):
+        res = pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_eth_not_enabled(), ledger=ledger,
+                                venue_symbol="ETHUSD", arm=False)
+        assert not res.halted and tick.emit_round_trip(res) == want
+    out = capsys.readouterr().out
+    assert "RESTORE FAILED" in out and '"executor": "done"' in out
+    src = (Path(__file__).resolve().parents[1] / "scripts/prop/prop_executor_tick.py").read_text()
+    branch = src[src.index('if mode.startswith("round_trip") or mode.startswith("close_position"):'):
+                 src.index("res = pe.run_cycle(")]
+    assert "code = emit_round_trip(res, *secrets)" in branch and "return code" in branch
+    assert "if res.halted else" not in branch
+
+
+@pytest.mark.parametrize("fail_restore,linked,want", [(True, "SOLUSD", 3), (False, None, 3), (False, "SOLUSD", 0)])
+def test_review_cli_round_trip_dry_exit_code_follows_the_restore(tmp_path, monkeypatch, capsys,
+                                                                 fail_restore, linked, want):
+    # REAL CLI (manager re-review of #15020): the whole tick.main(["--round-trip", ...]) path --
+    # argument parsing, mode resolution, the session branch, run_round_trip and the exit code -- with
+    # only the outside world faked: the browser (a no-op page), the platform config, the adapter, the
+    # executor config and the local API.
+    import contextlib
+    import types
+    pytest.importorskip("playwright.sync_api")
+    import playwright.sync_api as pw_api
+    from scripts.prop import prop_executor_tick as tick
+
+    page = types.SimpleNamespace(wait_for_timeout=lambda ms: None)
+    context = types.SimpleNamespace(new_page=lambda: page)
+    browser = types.SimpleNamespace(new_context=lambda **kw: context, close=lambda: None)
+    monkeypatch.setattr(pw_api, "sync_playwright", lambda: contextlib.nullcontext(
+        types.SimpleNamespace(chromium=types.SimpleNamespace(launch=lambda **kw: browser))))
+
+    class _CliAdapter(_LinkingAdapter):
+        timeout_ms = 3_000
+
+        def login(self, page, url, username, password):
+            self.calls.append(("login",))
+
+        def wait_ready(self, page, timeout_ms=None):
+            return True
+
+    ad = _CliAdapter(linked=linked, fail_restore=fail_restore)
+    monkeypatch.setenv("METIS_TEST_USER", "zq9-fake-user")
+    monkeypatch.setenv("METIS_TEST_PASS", "zq9-fake-pass")
+    monkeypatch.setattr(tick, "load_platform_config", lambda account: {
+        "platform": "fake", "login_url": "about:blank", "username_env": "METIS_TEST_USER",
+        "password_env": "METIS_TEST_PASS"})
+    monkeypatch.setattr(tick, "adapter_for_platform", lambda platform: ad)
+    monkeypatch.setattr(pe, "load_config", lambda account: _eth_not_enabled())
+    monkeypatch.setattr(pe, "LocalApi", lambda *a, **k: FakeApi())
+    code = tick.main(["--round-trip", "ETHUSD", "--login", "fresh", "--state-dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert ("login",) in ad.calls and any(c[0] == "place_bracket" for c in ad.calls), out
+    assert code == want, out
+    assert ('RESTORE FAILED' in out or 'could not be read' in out) == (want == 3)
+
+
+def test_an_armed_round_trip_does_not_read_or_restore_the_link(env):
+    ledger, _ = env
+    ad = _LinkingAdapter(linked="SOLUSD")
+    pe.run_round_trip(adapter=ad, page=None, api=FakeApi(), cfg=_sol_only(), ledger=ledger,
+                      venue_symbol="SOLUSD", arm=True, reads=1)
+    assert not any(c[0] in ("read_linked_symbol", "select_linked_symbol") for c in ad.calls)
+
+
+# ── the live tick wins over a secondary test (operator directive ~12:35Z
+# 2026-10-01, manager comment 5931584062 on #14947) ─────────────────────────
+
+
+def test_pending_live_tickets_uses_the_cycles_own_intake_filters(tmp_path):
+    led = pe.IntentLedger(tmp_path / "ledger.jsonl")
+    led.record("prop-done", "submitted")
+    led.record("prop-retry", pe.RETRY_STATE, attempts=1)
+    c = cfg(enabled_venue_symbols=["SOLUSD"])
+    api = FakeApi(tickets=[
+        ticket(ticket_id="prop-fresh"),
+        ticket(ticket_id="prop-done"),                                        # final in the ledger
+        ticket(ticket_id="prop-retry"),                                       # retry_pending: still waiting
+        ticket(ticket_id="prop-stale", valid_until=(NOW - timedelta(minutes=1)).isoformat()),
+        ticket(ticket_id="prop-eth", symbol="ETHUSDT"),                       # no enabled venue
+    ])
+    assert pe.pending_live_tickets(api, c, led, now=NOW) == ["prop-fresh", "prop-retry"]
+
+
+def test_a_secondary_mode_defers_before_any_browser_while_a_live_ticket_waits(tmp_path, monkeypatch, capsys):
+    import scripts.prop.prop_executor_tick as tick
+    monkeypatch.setattr(pe, "pending_live_tickets", lambda api, cfg, ledger, now=None: ["prop-x"])
+    monkeypatch.setattr(tick, "adapter_for_platform", lambda name: (_ for _ in ()).throw(AssertionError("no browser")))
+    storage = tmp_path / "s.json"
+    storage.write_text("{}")
+    code = tick.main(["--symbol-switch-dry", "ETHUSD", "--state-dir", str(tmp_path),
+                      "--storage-state", str(storage)])
+    assert code == tick.EXIT_DEFERRED and "the executor tick wins" in capsys.readouterr().out
+    assert "close_position_dry" not in tick.YIELD_MODES and "live" not in tick.YIELD_MODES
+
+
+def test_the_action_wrapper_reports_a_deferred_test_as_deferred_not_failed():
+    sh = (Path(__file__).resolve().parents[1] / "scripts/ops/breakout_login_check_action.sh").read_text()
+    i = sh.index('if [ "${rc}" -eq 7 ]; then')
+    block = sh[i:i + 400]
+    assert "deferred" in block and "exit 0" in block
+
+
+def test_contain_passes_the_accounts_rollout_latch_and_a_guard_refusal_falls_through_to_close(env):
+    # DIALOG-MEASURE rollout guard (manager 2026-10-02): the partial_no_sl_tp
+    # repair types SL AND TP, so under the guard it is refused before any
+    # click; the existing next-cycle close-at-market then takes over.
+    ledger, _ = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    ad.modify_result = {"ok": False, "clicked": False,
+                        "why": "rollout refused: rollout step must leave the take profit unchanged"}
+    res = run(ad, FakeApi(), env)
+    assert ("modify_bracket", "SOLUSD", True) in ad.calls
+    assert ad.rollout.path == Path(ledger.path).parent / "modify_rollout.json"
+    assert any("rollout refused" in al for al in res.alerts)
+    run(ad, FakeApi(), env)
+    assert ("flatten", "SOLUSD", True) in ad.calls
+
+
+# ── BREAKOUT-NOATTEMPT: a validity that ran out unattempted is never silent ──
+#
+# MEASURED 2026-10-02 from the ict-prop-executor journal (06:59Z-16:59Z, 121
+# ticks, read via /api/diag/journalctl): ETH ticket prop-manual-fb466451fd1f
+# (created 08:19:49Z, valid_until 09:19:50Z) was looked at on all 12 ticks
+# inside its validity and declined every one with band_wait (ask 2747.43 ..
+# 2760.52 against an entry band around 2774.55). It reached expiry_prompted
+# with NO prop_fills row and NO alert, which reads exactly like an executor
+# that never attempted it. These tests pin the alert that distinguishes them.
+
+
+def test_a_ticket_that_waits_out_its_whole_validity_alerts_once(env):
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})        # outside ticket()'s 119.5..120.5 band
+    api = FakeApi([ticket()])
+    # inside the validity (valid_until = NOW + 30m): waits, and stays quiet
+    for k in (0, 1, 2):
+        res = _band_cycle(ad, api, env, k)
+        assert _places(ad) == [] and ledger.latest() == {}
+        assert [a for a in res.alerts if "NOT PLACED" in a] == []
+    # the expiry prompter has since flipped it off `emitted`, so intake is empty
+    api._tickets = []
+    res = _band_cycle(ad, api, env, 7)                           # NOW + 35m > valid_until
+    hit = [a for a in res.alerts if "NOT PLACED" in a]
+    assert len(hit) == 1 and "prop-manual-aaa" in hit[0]
+    assert "NO placement attempt" in hit[0] and "entry band" in hit[0]
+    assert any(a["what"] == "unattempted_expiry" and a["ticket_id"] == "prop-manual-aaa"
+               for a in res.actions)
+    # ...and only once, however many cycles follow
+    for k in (8, 9):
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_the_no_attempt_alert_posts_no_report_and_writes_no_ledger_row(env):
+    # A `skipped` report would flip the ticket off `emitted` and pull it out of
+    # every manual-bridge path that keys on it. The alert must not do that.
+    ledger, _ = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)
+    api._tickets = []
+    res = _band_cycle(ad, api, env, 7)
+    assert [a for a in res.alerts if "NOT PLACED" in a]
+    # the routine account_status report still goes; nothing about the TICKET does
+    assert [p for p in api.posts if p.get("kind") != "account_status"] == []
+    assert ledger.latest() == {}
+
+
+def test_a_ticket_that_comes_back_into_the_band_and_places_never_alerts(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)                                # waits
+    ad.quote = {"bid": 119.99, "ask": 120.0}                    # back inside
+    _band_cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    res = _band_cycle(ad, api, env, 7)                          # past valid_until
+    assert [a for a in res.alerts if "NOT PLACED" in a] == []
+
+
+def test_a_ticket_refused_on_its_band_does_not_also_get_the_no_attempt_alert(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)                                # waits: note taken
+    api._tickets = [ticket(message="no band in this text")]     # unreadable band → refuse
+    _band_cycle(ad, api, env, 1)
+    res = _band_cycle(ad, api, env, 7)
+    assert [a for a in res.alerts if "NO placement attempt" in a] == []
+
+
+def test_a_symbol_not_enabled_ticket_alerts_when_its_validity_runs_out(env):
+    # MEASURED 2026-09-30: ETH ticket prop-manual-a22cb1d44517 was skipped
+    # `symbol_not_enabled` at 12:34:59Z (ETHUSD joined enabled_venue_symbols
+    # only on 2026-10-01, #15143) and aged to expiry_prompted with no row.
+    ledger, state = env
+    c = cfg(enabled_venue_symbols=["SOLUSD"],
+            symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                 "min_lots": 0.01, "lot_step": 0.01},
+                     "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                 "min_lots": 0.01, "lot_step": 0.01}})
+    t = ticket(ticket_id="prop-manual-eth", symbol="ETHUSDT", entry=2774.55,
+               sl=2729.59, tp=3044.30)
+    api = FakeApi([t])
+    ad = FakeAdapter()
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW)
+    assert any(a["what"] == "skipped" and a.get("reason") == "symbol_not_enabled"
+               for a in res.actions)
+    assert [a for a in res.alerts if "NOT PLACED" in a] == []    # still inside its validity
+    api._tickets = []
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW + timedelta(minutes=35))
+    hit = [a for a in res.alerts if "NOT PLACED" in a]
+    assert len(hit) == 1 and "prop-manual-eth" in hit[0]
+    assert "enabled venue symbols" in hit[0]
+
+
+def test_the_sweep_fires_even_when_the_ticket_read_fails(env):
+    # The sweep runs BEFORE intake, so an API outage cannot hide the expiry.
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    _band_cycle(ad, FakeApi([ticket()]), env, 0)
+
+    class Dead(FakeApi):
+        def tickets(self, account_id):
+            raise OSError("api down")
+
+    res = _band_cycle(ad, Dead(), env, 7)
+    assert [a for a in res.alerts if "NO placement attempt" in a]
+    assert [a for a in res.alerts if "ticket intake failed" in a]
+
+
+def test_a_ticket_whose_validity_has_not_passed_is_not_alerted(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    for k in range(6):                                          # NOW .. NOW+25m, valid_until NOW+30m
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_a_ticket_with_no_readable_valid_until_is_never_swept(env):
+    # Fail-quiet: a validity we cannot read is not known to have passed, and a
+    # false "NOT PLACED" on a live setup is worse than silence.
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket(valid_until=None)])
+    for k in (0, 20):
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_the_no_attempt_note_store_is_bounded(env):
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    for i in range(pe._UNATTEMPTED_KEEP + 12):
+        _band_cycle(ad, FakeApi([ticket(ticket_id=f"prop-manual-{i:03d}")]), env, 0)
+    assert len(state.load().get(pe._UNATTEMPTED_KEY) or {}) <= pe._UNATTEMPTED_KEEP

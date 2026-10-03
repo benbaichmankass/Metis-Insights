@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline item under docs/claude/work/pipeline/ only. No src/, tests/, scripts/, workflows, config or deploy; nothing executes from this merge."
+}

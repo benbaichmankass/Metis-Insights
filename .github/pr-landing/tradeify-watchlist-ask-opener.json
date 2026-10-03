@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE; operator popup 2026-10-03 \"Approve the guarded click\"). New mode probe-ticket-ask (tradeify-only, one symbol): ONE click on the symbol's watchlist Ask \"Buy\" price button to open the order ticket, only when exactly one matches, the account is flat with no dialog, and one-click re-reads OFF right before the click (else aborted, no click). Records the form, submits nothing, closes via the ticket's own Cancel/Close, verifies flat + no dialog. breakout_1 refused; open_order_ticket (the live path) unchanged.",
+  "why": "order-surface-dump #15743 found the Bid/Ask price buttons are tradeify_1's only order-ticket opener; the go-live steps need the ticket's fields measured."
+}

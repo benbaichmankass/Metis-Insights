@@ -92,3 +92,14 @@ generated:
     timeframe: 15m
     trades_file: comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_15m__trades.jsonl
 last_dispatched_at: '2026-09-30T18:54:34+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-PROP-FIT-B6V2-ict_scalp_sol_15m-bal010
+  evidence:
+  - research/results/RQ-20260929-014/36761946645.jsonl
+  graded_at: '2026-10-03'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  rows: 1
+  verdict: null

@@ -81,6 +81,8 @@ def test_success_invokes_the_read_only_check_exactly(tmp_path):
         "-u scripts/prop/breakout_login_check.py --account breakout_1 --emit-status --symbols= "
         f"--storage-state {base}/feed/session_state.json"
     ]
+    # breakout_1's feed never asks for the layout canary (TRADEIFY-GOLIVE #15354).
+    assert all("--layout-canary" not in c for c in _lines(calls))
     assert not (base / "feed" / "tripped").exists()
     assert (base / "feed" / "consecutive_failures").read_text().strip() == "0"
     assert _lines(pings) == []
@@ -424,7 +426,7 @@ def test_second_account_uses_its_own_state_dir(tmp_path):
     sdir = base / "accounts" / "tradeify_1" / "feed"
     assert _lines(calls) == [
         "-u scripts/prop/breakout_login_check.py --account tradeify_1 --emit-status --symbols= "
-        f"--storage-state {sdir}/session_state.json"
+        f"--storage-state {sdir}/session_state.json --layout-canary"
     ]
     assert (sdir / "consecutive_failures").read_text().strip() == "0"
     assert not (base / "feed").exists()   # breakout_1's dir is never touched

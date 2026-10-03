@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A held fix to the tradeify_1 limit-price fill is merged and synced and round-trip-dry,limit ETHUSD reads back the typed limit within 0.001 (then done); or the manager records tradeify_1 as MARKET-only for go-live (then killed with that reason).",
+    "kind": "event"
+  },
+  "id": "PI-20261003-DEIFYDRY-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH, step 4 round-trip-dry #15930 (2026-10-03).",
+    "rerun": "After #15909 merges and the VM git_sha_on_disk contains it (diag status): dispatch action: breakout-login-check / account: tradeify_1 / apply: round-trip-dry,limit ; compare spec.limit_price with fill_trace[-1].shown.price."
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "tradeify_1 LIMIT price fill may not stick. round-trip-dry,limit ETHUSD #15930 (run 37121646646) typed limit 2683.59 and read back 2,683.584 (the terminal's own price), and the read-back passed only because the declared price_step was 0.01 (tolerance one tick; gap 0.006). A typed 2683.59 cannot round to 2683.584, so the terminal most likely kept or re-synced its own price. Held PR #15909 sets tradeify_1 ETHUSD price_step to the measured 0.001, at which this read-back refuses. Before any live LIMIT entry on tradeify_1, the dry walk must show the typed limit price reading back exactly. || UPDATE 2026-10-03 15:16Z: CONFIRMED at the measured tick 0.001 (#15975, run 37132594478, code bc377c508): the LIMIT price fill does NOT stick. Typed 2679.725; after 3 fill passes the form still read 2679.719; place_bracket REFUSED ('price: typed 2679.725, form shows 2679.719 (more than one tick of 0.001 away)'), submitted=false (fail-closed). SL 2652.928 and TP 2706.522 read back EXACTLY, so only the limit-price field resists. Likely cause (INFERRED): _fill_field uses page.fill() (no key events) and the field keeps tracking the live price until real keystrokes. NEXT BUILD (held Tier-2): price field = focus + select-all + key-by-key type + blur, measured first with round-trip-dry,limit. No live LIMIT entry on tradeify_1 until fixed (a live attempt refuses before submit, it does not misprice)."
+}

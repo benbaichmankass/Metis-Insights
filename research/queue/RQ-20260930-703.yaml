@@ -1,0 +1,118 @@
+id: RQ-20260930-703
+title: >-
+  Regime impact scoping, SELECTION-SENSITIVITY arm of RQ-20260930-701: is the trend-axis null an artifact of the
+  selection rule? Same harness, conservative selection (train n >= 20 and a train loss beyond 1 SE).
+status: queued
+cadence: once
+theme: regime
+priority: 2
+kind: experiment
+
+question: >-
+  RQ-20260930-701 (run 36830663475) graded no_headroom_trend_axis: with its pre-registered selection rule (a cell is
+  gated when train n >= 8 and train net R < 0) even the ORACLE classifier lost out of sample, pooled -44.1 R
+  [-81.5, -6.4] over 1,764 test trades, because that rule drops 37% of test trades (647) on cells that are only a little
+  negative on thin samples. Is the null the SELECTION RULE or the AXIS? Re-run the identical harness, population, folds,
+  seeds and confusion model with a conservative rule: a cell is gated only when its train n >= 20 AND its train mean
+  net R is below -1 standard error. What is the pooled and per-leg change in full-cost net R at A in {0.55, 0.60, 0.70,
+  oracle}?
+
+why_this_matters: >-
+  UPPER-BOUND SCOPING INSTRUMENT, NOT A PROMOTION CASE. 701 and 702 together (plus E38 and RQ-0928-002) are four trend-axis
+  nulls, but 701's null rests on one aggressive selection rule, so it cannot yet separate 'no headroom on this axis' from
+  'the rule over-gates'. This arm changes ONLY that rule. If it clears the bar, regime work on the trend axis stays open and
+  the rule is the lever; if it does not, the trend axis is closed for ADX-14 cell gating with a null that survives a
+  strict rule. VOL AXIS NOT COVERED (see the vol-axis unit).
+
+power:
+  expected_n: 1775
+  min_detectable_effect: 0.1
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Unit of analysis is the test-block trade (blocks 1..3 of 4, per leg). d = 0.1 sd per-trade delta needs
+    (1.96 + 0.8416)^2 / 0.1^2 = 784.9 trades. MEASURED on main 2026-09-30 by the harness's own population
+    filter (newest committed ledger per leg, n >= 30, USDT perp with a resolvable timeframe): 22 legs,
+    2,367 trades, 1,775 in test blocks - clears the floor on paper. The normal-approximation floor is optimistic
+    here: legs sharing a symbol share regimes and trades (ETH has 7 legs, SOL 6), so the EFFECTIVE n is lower
+    and the pooled band is optimistic; the verdict note says so. 7 further legs with n >= 30 (equity / futures:
+    gld_pullback_1h, mgc_trend_1h, qqq_pullback_1h, ...) have no committed candle source and are
+    not_attempted, not dropped silently.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Re-grading of committed trade ledgers with fetched public candles (Binance vision); nothing accrues.
+      n is measured above, not assumed.
+
+decision_rule:
+  id: RULE-RQ0930-703-REGIME-HEADROOM-CONSERVATIVE-SELECTION
+  registered_at: '2026-10-01'
+  registered_before_run: true
+  statistic: >-
+    Pooled DeltaNetR per test trade under the ORDINAL confusion model (errors go to the adjacent class;
+    transitional splits chop/trending evenly), pooled by re-sampling legs with replacement per seed, >= 200
+    seeds (300 run). Reported for A = 0.55, 0.60, 0.70 and oracle; the UNIFORM confusion model is reported as
+    a sensitivity arm and does not enter the verdict. Per-leg DeltaNetR is also reported (noise-only band).
+    Cells: (ADX-14 label on the last bar CLOSED at entry [chop < 20, transitional < 25, trending >= 25] x
+    direction). Selection: cell has train n >= 8 and train net R < 0, train = earlier blocks only (expanding,
+    K = 4 chronological blocks).
+  rule: >-
+    Identical ladder and bar to RQ-20260930-701; ONLY the selection changed (train n >= 20, train mean net R < -1 SE).
+    IF fewer than 5 legs are measured -> could_not_measure (read_state no_data).
+    ELSE IF A=0.70 pooled mean >= 0.03 R per test trade AND its 5th percentile > 0 -> `headroom_at_realistic_accuracy`
+      (pass): the 701 null was the selection rule; trend-axis gating stays open, next unit is a walk-forward on the
+      real cells, NOT a flip.
+    ELSE IF oracle pooled mean >= 0.03 R per test trade AND 5th percentile > 0 -> `headroom_only_with_oracle`
+      (indeterminate): conservative selection recovers headroom only with a perfect classifier.
+    ELSE -> `no_headroom_trend_axis` (fail): the trend-axis null survives a strict selection rule; ADX-14 cell gating is
+      closed as a research line (the vol axis is separate).
+    Reported beside the verdict, not graded: the oracle's pooled change versus 701 (-44.1 R), the number of test trades
+    dropped (701: 647 of 1,764), and per-leg changes.
+  min_n: >-
+    5 measured legs; 30 trades per leg; 8 training trades per cell; 200 seeds. Below any of these the
+    corresponding leg/cell is excluded and listed, never imputed.
+  what_it_does_not_do: >-
+    Cuts nothing and flips no live gate. NOT A PROMOTION CASE: an upper bound (selection is honest
+    out-of-sample, but dropping a trade is assumed to leave later trades unchanged, the oracle uses the
+    same ADX label the cells are defined on, and pooled legs on one symbol are not independent). It says
+    nothing about the vol axis, about equity/futures legs, or about whether any specific cell generalizes.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: >-
+    Committed ledgers + ~5 (symbol, timeframe) public candle series fetched from Binance vision on a runner
+    (no VM-resident data); 300 seeds x 4 arms x 2 confusion models x 22 legs of a numpy loop.
+
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 60
+  command:
+  - python3
+  - scripts/research/regime_impact_scoping.py
+  - --out
+  - '{out_dir}'
+  - --seeds
+  - '300'
+  - --min-cell-n
+  - '20'
+  - --loss-se
+  - '1.0'
+  inputs:
+    research_unit: RQ-20260930-703
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+references:
+  - RQ-20260928-002 (within-cell veto FAIL)
+  - docs/research/e38-regime/ (E38 power-bounded null, 22 crypto legs)
+  - .claude/skills/regime-selectivity/SKILL.md
+
+last_dispatched_at: '2026-10-02T01:33:01+00:00'

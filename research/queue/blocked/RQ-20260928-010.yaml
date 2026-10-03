@@ -1,0 +1,174 @@
+id: RQ-20260928-010
+title: >-
+  M28 P4 rescore at a REALISTIC (nonzero) options cost stack — does the
+  event-blind value thesis clear calibration/edge once fee_frac and
+  carry_frac_per_day stop being the zero-cost placeholder CAA05-0003 flagged?
+status: blocked
+cadence: once
+theme: macro
+priority: 2
+blocked_on: >-
+  (a) the options round-trip cost figure (`design.cost_figure`) is DECIDED: a debit-vertical commission plus
+  bid/ask width for the alpaca_options_paper 5-symbol universe, or a clearly labelled conservative proxy; AND
+  (b) `run.inputs` is rewritten to what `.github/workflows/macro-valuation-backfill.yml` declares
+  (start_date, cadence_days, fee_frac, carry_frac_per_day), with real numbers, no `research_unit` /
+  `label_trigger` / `note` keys. Moved here 2026-10-01 (RESEARCH-W7): in `research/queue/` it failed dispatch on
+  EVERY cycle (HTTP 422: the workflow declares none of research_unit/label_trigger/note/power_state) and
+  carried `fee_frac: "NOT YET DECIDED"`, which would have been sent as a numeric input. Unblock by `git mv` back
+  to research/queue/ with status: queued once both hold.
+kind: experiment
+
+question: >-
+  PI-20260927-CAA05-0003 (HIGH, code audit CA-A05-005, 2026-09-27): the
+  committed P4 evidence (comms/macro/thesis_p4_scorecard.json) was generated
+  with fee_frac=0.0 and carry_frac_per_day=0.0 — "the most favorable possible
+  cost assumption", per the finding's own wording, more optimistic than the
+  fee-only corpus CLAUDE.md already flags as incomplete. Both CLI levers
+  (--fee-frac, --carry-frac-per-day) already exist and are already wired into
+  run_thesis_backtest — no new code, unlike RQ-20260928-009. Question: at a
+  cost stack that actually reflects the intended venue (alpaca_options_paper,
+  debit_vertical per config/macro_theses.yaml), does calibration_rank /
+  edge_vs_baseline move further negative (the expected direction — costs can
+  only hurt an already-non-positive edge), and by how much?
+
+why_this_matters: >-
+  This is NOT expected to flip CAA05-0003's verdict to PASS — the zero-cost
+  baseline was already at essentially zero (calibration_rank=-0.0037,
+  edge_vs_baseline=-0.0047), and a real cost stack can only push those further
+  negative. The value is closing the finding HONESTLY: today's `clears_when`
+  ("a freshly rerun P4 backtest clears calibration_rank > 0 and
+  edge_vs_baseline > 0 out-of-sample") is unreachable at zero cost by
+  construction, and re-running at the SAME zero cost would not test anything
+  new. Running once at a real cost stack lets CAA05-0003 close as `killed`
+  with a stated, quantified reason (worse under realistic cost, by X) instead
+  of sitting `queued` indefinitely because nobody ran the one arm that would
+  actually move it.
+
+power:
+  expected_n: 1104
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same fixed population as the committed baseline (n=1104, 263 rebalance
+    dates) — this changes a cost parameter, not the sample. The comparison is
+    over the per-entry PAIRED DIFFERENCE (cost stack A vs B on the same
+    entries), which is a one-sample test on that difference series, so power
+    is bounded by n=1104 regardless. Floor at d=0.3 (the same standard floor
+    RQ-20260927-005's power
+    block uses): required n for a paired test at alpha=0.05/power=0.8 is
+    ~87-90, comfortably cleared by the fixed n=1104. The raw statistics of
+    interest (calibration_rank, edge_vs_baseline) are reported in their own
+    units in `decision_rule`, not standardised — this power block only checks
+    the gate has enough n to detect a real move, not the effect's practical
+    size, which the decision_rule's explicit +/-0.02 band already covers.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Not a per-leg strategy_evidence corpus (`source: corpus` is for that
+      shape, per-leg min/median/max) — this is one fixed historical replay
+      dataset, already fully committed, re-run at a different cost parameter.
+      Re-run of the identical committed replay
+      (comms/macro/valuation_snapshots_backfill.jsonl, already 10,125 lines)
+      with different --fee-frac/--carry-frac-per-day values — nothing new to
+      fetch except the same historical candles the baseline already used
+      (data/macro_candles, regenerated each backfill run, gitignored).
+
+design:
+  cost_figure: >-
+    NOT yet decided in this registration and deliberately left as the run's
+    first step, not guessed here: a debit vertical's round-trip cost is
+    commission + bid/ask on TWO legs, materially different from a single-leg
+    equity fee_frac. Before dispatch, pull Alpaca's actual options commission
+    schedule and a representative bid/ask width for the 5-symbol universe's
+    options chains (or, if that data is not available point-in-time, use a
+    clearly-labeled conservative proxy and say so in the landed record) —
+    the run must not silently reuse an equity-style fee_frac=0.001 guess.
+  workflow_change_needed: >-
+    .github/workflows/macro-valuation-backfill.yml's "Run the M28 P4
+    value-thesis gate" step hardcodes fee_frac=0.0/carry=0.0 (its defaults)
+    and its landing step OVERWRITES comms/macro/thesis_p4_scorecard.json in
+    place via commit-to-main. Verified this session: adding --fee-frac/
+    --carry-frac-per-day as workflow_dispatch inputs is a small, additive
+    change, but this unit must NOT let a nonzero-cost run overwrite the
+    zero-cost baseline that CAA05-0003 itself references by value — the
+    workflow needs a distinct output path (e.g.
+    comms/macro/thesis_p4_scorecard_realistic_cost.json) for a nonzero-cost
+    run, landed ALONGSIDE the existing zero-cost file, never replacing it.
+
+decision_rule:
+  id: RULE-RQ0928-010-REALISTIC-COST-P4-RESCORE
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    calibration_rank and edge_vs_baseline from run_thesis_backtest at the
+    realistic cost stack, same rebalance-every 30 / horizon-days 30 as the
+    committed baseline, compared against the baseline's own committed values
+    (-0.003723 / -0.004678).
+  rule: >-
+    PASS (would reopen M28 promotion) IF calibration_rank > 0 AND
+    edge_vs_baseline > 0 at the realistic cost stack -- not expected, stated
+    for completeness.
+    KILLED_HONESTLY IF both statistics move further negative than the
+    baseline (the expected outcome) -- PI-20260927-CAA05-0003 closes `killed`
+    with the quantified realistic-cost figures as the stated reason, and the
+    M28 design doc's DONE-status pairing (CAA05-0003's own fix) cites this
+    number instead of the zero-cost one.
+    NULL IF either statistic improves (moves toward positive) relative to the
+    zero-cost baseline -- would be a surprising, cost-model-dependent result
+    needing the cost figure itself re-checked before trusting it, not a
+    thesis-verdict change.
+  what_it_does_not_do: >-
+    Does not touch config/strategies.yaml, accounts.yaml, or any live/paper
+    account. Does not decide M29 (dormant per the operator's 2026-09-28
+    ruling until M28 reads out). A KILLED_HONESTLY verdict does not preclude
+    RQ-20260928-009 (the event-wired rescore) from later reopening M28 on a
+    different feature — this closes the zero-cost-evidence gap, not the M28
+    idea itself.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 45
+  basis: >-
+    Dominated by the small workflow-input addition + one CI run of the
+    existing (already-fast) P4 replay; no new research code, unlike
+    RQ-20260928-009.
+
+run:
+  workflow: .github/workflows/macro-valuation-backfill.yml
+  inputs:
+    research_unit: RQ-20260928-010
+    label_trigger: macro-valuation-backfill-now
+    fee_frac: 'NOT YET DECIDED -- see design.cost_figure'
+    carry_frac_per_day: 'NOT YET DECIDED -- see design.cost_figure'
+    note: >-
+      design.workflow_change_needed CLEARED and OBSERVED 2026-09-29: PR
+      #14043 (merged c61f13d6, verified on origin/main this session via
+      `git show origin/main:.github/workflows/macro-valuation-backfill.yml`)
+      added the fee_frac/carry_frac_per_day workflow_dispatch inputs and
+      routes a nonzero-cost run's scorecard to
+      comms/macro/thesis_p4_scorecard_realistic_cost.json, landed alongside
+      (never overwriting) the zero-cost comms/macro/thesis_p4_scorecard.json
+      baseline -- the workflow can now run this unit without risk to the
+      CAA05-0003 baseline. STILL NOT DISPATCHED: design.cost_figure (a
+      debit-vertical round-trip options cost for the alpaca_options_paper
+      venue) remains undecided -- this run must not silently reuse an
+      equity-style fee_frac guess. Next session: pull Alpaca's actual
+      options commission schedule + a representative bid/ask width for the
+      5-symbol universe (or a clearly-labeled conservative proxy, stated as
+      such), then dispatch via the label trigger with the decided figure.
+
+lands:
+  store: comms/macro/thesis_p4_scorecard_realistic_cost.json
+  assert_field: calibration_rank
+  min_rows: 1
+
+related:
+  - 'PI-20260927-CAA05-0003 (the zero-cost finding this unit closes honestly)'
+  - 'comms/macro/thesis_p4_scorecard.json (the zero-cost baseline — NOT to be overwritten)'
+  - 'docs/research/M28-macro-value-speculation-DESIGN.md'
+last_dispatched_at: null

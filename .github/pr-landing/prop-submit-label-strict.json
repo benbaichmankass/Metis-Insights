@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; live order path on breakout_1 (place_bracket's pre-submit check).",
+  "why": "submit_label_mismatch now REFUSES a submit label that does not read as '<Buy|Sell> <qty> <SYM>' ('Save', 'Modify', 'Place Order', ''), instead of passing it. Every live-measured label parses (16 from breakout-login-check runs #13942..#15537, the 2026-10-02 'Sell 1.22 ETHUSD at 2,657.11', tradeify_1's 'Buy 0.01 ETH/USD at 2,685.84'). Test replicas that predated the measurement now carry the measured live label."
+}

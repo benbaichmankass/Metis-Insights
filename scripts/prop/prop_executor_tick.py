@@ -85,6 +85,19 @@ from src.prop import prop_executor as pe  # noqa: E402
 from src.prop.platform import FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV, EXIT_NO_SESSION = 0, 1, 3, 4, 5, 6
+# A secondary test that stood aside for a live ticket (the tick wins).
+EXIT_DEFERRED = 7
+#: Modes that are TESTS / measurements, never the live cycle: each defers
+#: while a live ticket is waiting, so it cannot hold login.lock across the
+#: executor's tick (operator directive ~12:35Z 2026-10-01, manager comment
+#: 5931584062 on #14947: "if a live ticket is waiting, the tick wins").
+#: ``close_position_*`` is NOT here: closing a position is never deferred.
+YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
+                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "page_status", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
+                         "add_watchlist_symbol_dry", "add_watchlist_symbol",
+                         "instrument_page_dump", "order_surface_dump", "probe_ticket_ask",
+                         "edit_dialog_dry", "edit_dialog_probe", "edit_surface_probe",
+                         "round_trip_dry", "round_trip_live"})
 
 # Headless viewport. Playwright's default (1280x720) clipped the sidebar
 # ticket at y 640 with the submit footer at y 659 (dry runs #13917, #13965);
@@ -136,6 +149,34 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "instrument_info_probe"
     if getattr(args, "symbol_switch_dry", ""):
         return "symbol_switch_dry"
+    if getattr(args, "link_state_dump", False):
+        return "link_state_dump"
+    if getattr(args, "page_status", False):
+        return "page_status"
+    # DIALOG-MEASURE: submits nothing. The dry form hovers and locates only;
+    # the probe clicks ONE pencil (our symbol's row) and the dialog's Cancel.
+    if getattr(args, "edit_dialog_dry", ""):
+        return "edit_dialog_dry"
+    if getattr(args, "edit_dialog_probe", ""):
+        return "edit_dialog_probe"
+    if getattr(args, "edit_surface_probe", ""):
+        return "edit_surface_probe"
+    if getattr(args, "widget_menu_probe", False):
+        return "widget_menu_probe"
+    if getattr(args, "add_watchlist_widget", False):
+        return "add_watchlist_widget"
+    if getattr(args, "watchlist_submenu_probe", False):
+        return "watchlist_submenu_probe"
+    if getattr(args, "add_watchlist_symbol_dry", ""):
+        return "add_watchlist_symbol_dry"
+    if getattr(args, "add_watchlist_symbol", ""):
+        return "add_watchlist_symbol"
+    if getattr(args, "instrument_page_dump", ""):
+        return "instrument_page_dump"
+    if getattr(args, "order_surface_dump", ""):
+        return "order_surface_dump"
+    if getattr(args, "probe_ticket_ask", ""):
+        return "probe_ticket_ask"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -177,6 +218,40 @@ def emit_search_dump(dump: Dict[str, Any], *secrets: str) -> None:
         emit({"instrument_search_dump": fr}, *secrets)
 
 
+def switch_dry_home(cfg: Any, adapter: Any, page: Any) -> Optional[str]:
+    """Where symbol-switch-dry leaves the terminal: the CURRENT linked symbol
+    when it is one of the account's enabled venue symbols, else the first
+    enabled one (PROP-ETH-DOM: a link stuck on a NOT-enabled symbol --
+    ETHUSD after B4 -- is restored to SOLUSD). None (the adapter's own
+    default, the original link) when nothing is enabled or the link is
+    unreadable."""
+    enabled = [str(s).upper() for s in (getattr(cfg, "enabled_venue_symbols", None) or [])]
+    if not enabled:
+        return None
+    reader = getattr(adapter, "read_linked_symbol", None)
+    try:
+        linked = str(reader(page) or "").upper() if reader else ""
+    except Exception:
+        linked = ""
+    if not linked:
+        return None
+    return linked if linked in enabled else enabled[0]
+
+
+def emit_round_trip(res: Any, *secrets: str) -> int:
+    """Print a round-trip / close-position result (reads, actions, reports,
+    alerts, then the ``done`` line) and return the tick's exit code:
+    ``EXIT_UNPARSED`` when it halted OR the linked symbol was not restored
+    and verified (``pe.round_trip_failed``; manager review of #15020 -- a
+    failed restore used to exit 0 because only ``halted`` was checked)."""
+    emit({"reads": res.reads}, *secrets)
+    for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):
+        for it in items:
+            emit({key: it}, *secrets)
+    emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+    return EXIT_UNPARSED if pe.round_trip_failed(res) else EXIT_OK
+
+
 def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
     """Print a ``probe_instrument_info`` result: one line per symbol, then the
     summary (alerts, restore, watchlist diff) LAST so a tail-read log keeps
@@ -184,6 +259,10 @@ def emit_info_probe(got: Dict[str, Any], *secrets: str) -> int:
     got = dict(got)
     for sym, r in (got.pop("results", None) or {}).items():
         emit({"instrument_info": {"symbol": sym, **r}}, *secrets)
+    if "watchlist_dump" in got:
+        # Click-free watchlist shape (issue #15033), on its own line so the
+        # summary stays last for a tail-read log.
+        emit({"watchlist_dump": got.pop("watchlist_dump")}, *secrets)
     emit({"instrument_info_summary": got}, *secrets)
     return EXIT_UNPARSED if got.get("alerts") else EXIT_OK
 
@@ -254,6 +333,20 @@ def latch_info_probe(got: Dict[str, Any], state_dir: Path, *, armed: bool = Fals
     return reason
 
 
+LIMIT_PRICE_FILL_MODES = ("fill", "keys")
+
+
+def limit_price_fill_mode(cfg_plat: Any) -> str:
+    """The account's LIMIT price fill method from prop_platforms.yaml
+    ``limit_price_fill``: absent = ``fill`` (page.fill, every account's path
+    before TRADEIFY-PRICE-FILL); ``keys`` = typed key by key. Any other value
+    RAISES: a typo must not silently fall back to the method that failed."""
+    raw = str((cfg_plat or {}).get("limit_price_fill") or "fill").strip().lower()
+    if raw not in LIMIT_PRICE_FILL_MODES:
+        raise ValueError(f"limit_price_fill {raw!r} is not one of {LIMIT_PRICE_FILL_MODES}")
+    return raw
+
+
 def _code_sha() -> str:
     """The commit this tick runs from, so a run log proves WHICH code ran
     (three dry runs on 2026-09-29 could not tell a deploy lag from a wrong
@@ -291,6 +384,45 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--symbol-switch-dry", default="", metavar="VENUE_SYMBOL",
                    help="per-ticket symbol switch, DRY: select this symbol, verify, re-select the original and "
                         "verify; opens no order form")
+    g.add_argument("--link-state-dump", action="store_true",
+                   help="READ-ONLY: watchlist rows (element hit at each Symbol cell's centre), symbol_input(s), "
+                        "and the sidebar ticket's buttons; clicks nothing")
+    g.add_argument("--page-status", action="store_true",
+                   help="READ-ONLY, zero interaction: capped masked body text, alert/status/banner/toast "
+                        "elements, breach-like lines and the Buy/Sell controls' enabled state")
+    g.add_argument("--edit-dialog-dry", default="", metavar="VENUE_SYMBOL",
+                   help="locate the symbol's Positions row and its edit pencil (by icon name); click nothing")
+    g.add_argument("--edit-surface-probe", default="", metavar="VENUE_SYMBOL",
+                   help="MEASURE what the row's modify control changes (snapshot diff), leave via Escape or the "
+                        "surface's own cancel, require the page back at baseline; submits nothing")
+    g.add_argument("--edit-dialog-probe", default="", metavar="VENUE_SYMBOL",
+                   help="MEASURE the position edit dialog: click that pencil, read the dialog, press its Cancel; "
+                        "submits nothing")
+    g.add_argument("--widget-menu-probe", action="store_true",
+                   help="MEASURE the add-widget ('+') menu: one click on the top-most widget_tab_add_button, "
+                        "dump the menu (masked), Escape; clicks no menu item, no order/price/delete control")
+    g.add_argument("--add-watchlist-widget", action="store_true",
+                   help="add the Watchlist widget to 'My Trading Account': the '+' then the measured "
+                        "'Watchlist' menu entry only; refused unless one-click reads OFF; verified click-free")
+    g.add_argument("--watchlist-submenu-probe", action="store_true",
+                   help="MEASURE the Watchlist submenu: '+', 'Watchlist' (both measured), then HOVER each of "
+                        "Private/Public and dump; clicks no submenu entry; Escape + layout re-read")
+    g.add_argument("--probe-ticket-ask", default="", metavar="VENUE_SYMBOL",
+                   help="ONE guarded click on the symbol's watchlist Ask 'Buy' price button (exactly one match, "
+                        "account flat, one-click re-read OFF right before it): record the order form, submit "
+                        "nothing, close via the ticket's own Cancel/Close, verify flat + no dialog")
+    g.add_argument("--order-surface-dump", default="", metavar="VENUE_SYMBOL",
+                   help="READ-ONLY: dump the symbol's watchlist row cells and every order-surface term "
+                        "(new order / trade / buy / sell) on the current page; clicks nothing")
+    g.add_argument("--instrument-page-dump", default="", metavar="VENUE_SYMBOL",
+                   help="READ-ONLY: type the base asset key by key into the watchlist search (never Enter), "
+                        "dump every visible text leaf on the page (masked, <=400), reset + blur; clicks nothing")
+    g.add_argument("--add-watchlist-symbol-dry", default="", metavar="VENUE_SYMBOL",
+                   help="DRY: type the base asset into the watchlist search, resolve the ONE suggestion row whose "
+                        "Symbol cell is exactly the slash form, report it + elementFromPoint; click nothing")
+    g.add_argument("--add-watchlist-symbol", default="", metavar="VENUE_SYMBOL",
+                   help="add ONE symbol to the watchlist: the resolved suggestion row's Symbol cell (one click), "
+                        "Escape; refused unless one-click OFF; verified: no ticket/dialog, only that symbol added")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -342,9 +474,30 @@ def main(argv: Optional[list] = None) -> int:
             emit({"config": f"no executor config for {args.account} ({exc}); nothing read, nothing clicked"})
             return EXIT_ERROR
         cfg = None
+    if mode in YIELD_MODES and cfg is not None:
+        # Before any browser: a few seconds under the lock, never a tick's worth.
+        try:
+            waiting = pe.pending_live_tickets(
+                pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip()), cfg,
+                pe.IntentLedger(Path(args.state_dir) / "intent_ledger.jsonl"))
+        except Exception as exc:
+            waiting = []
+            emit({"yield_check": f"ticket read failed ({type(exc).__name__}); not deferring"})
+        if waiting:
+            emit({"deferred": f"{len(waiting)} live ticket(s) waiting ({', '.join(waiting[:3])}); "
+                              f"the executor tick wins -- re-dispatch this {mode} after it is placed"})
+            return EXIT_DEFERRED
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000
+    # Per-account ticket opener (prop_platforms.yaml ``ticket_opener``;
+    # tradeify_1: ``ask_button``, TRADEIFY-DRY). Absent = the default chain.
+    if hasattr(adapter, "ask_opener"):
+        adapter.ask_opener = str(cfg_plat.get("ticket_opener") or "").strip().lower() == "ask_button"
+    # Per-account LIMIT price fill (prop_platforms.yaml ``limit_price_fill``;
+    # tradeify_1: ``keys``, TRADEIFY-PRICE-FILL). Absent = page.fill, unchanged.
+    if hasattr(adapter, "limit_price_fill"):
+        adapter.limit_price_fill = limit_price_fill_mode(cfg_plat)
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
@@ -413,9 +566,21 @@ def main(argv: Optional[list] = None) -> int:
                 # did typing into its search box persist anything server-side?
                 # (manager review of #14563)
                 wl_before = adapter.watchlist_symbols(page)
+                # The account's declared search form (prop_platforms.yaml
+                # ``search_query_style``; tradeify_1: ``slash``, #15444) and a
+                # longer settle for the async result panel when it is set.
+                qstyle = cfg_plat.get("search_query_style")
                 for sym in syms:
-                    got = adapter.probe_instrument_details(page, sym)
+                    got = adapter.probe_instrument_details(
+                        page, sym, query=adapter.search_query_for(sym, qstyle),
+                        settle_ms=3_000 if qstyle else 1_000)
                     emit({"instrument_probe": {"symbol": sym, **got}}, *secrets)
+                    # An account that declares a query style also gets the
+                    # key-by-key variant read (#15472: the slash form typed
+                    # with fill() left the suggestion table empty).
+                    if qstyle:
+                        var = adapter.probe_search_variants(page, sym)
+                        emit({"instrument_probe_variants": {"symbol": sym, **var}}, *secrets)
                 page.wait_for_timeout(2_000)
                 wl_after = adapter.watchlist_symbols(page)
                 from src.prop.platform.dxtrade import watchlist_diff
@@ -440,8 +605,72 @@ def main(argv: Optional[list] = None) -> int:
                 latch_info_probe(got, Path(args.state_dir), armed=armed)
                 return emit_info_probe(got, *secrets)
 
+            if mode == "page_status":
+                got = adapter.page_status(page)
+                emit({"page_status": got}, *secrets)
+                return EXIT_OK if "error" not in got else EXIT_UNPARSED
+
+            if mode == "link_state_dump":
+                got = adapter.link_state_dump(page)
+                emit({"link_state_dump": got}, *secrets)
+                return EXIT_OK if "error" not in got else EXIT_UNPARSED
+
+            if mode == "edit_surface_probe":
+                got = adapter.probe_edit_surface(page, args.edit_surface_probe)
+                emit({"edit_surface": got}, *secrets)
+                for al in got.get("alerts") or []:
+                    emit({"alert": f"edit-surface-probe: {al}"}, *secrets)
+                ok = (got.get("locate") or {}).get("ok") and got.get("restored") is True and not got.get("alerts")
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode in ("edit_dialog_dry", "edit_dialog_probe"):
+                sym = args.edit_dialog_dry or args.edit_dialog_probe
+                got = adapter.probe_edit_dialog(page, sym, click=(mode == "edit_dialog_probe"))
+                emit({"edit_dialog": got}, *secrets)
+                return EXIT_OK if (got.get("locate") or {}).get("ok") else EXIT_UNPARSED
+            if mode == "widget_menu_probe":
+                got = adapter.widget_menu_probe(page)
+                emit({"widget_menu_probe": got}, *secrets)
+                ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "probe_ticket_ask":
+                got = adapter.probe_ask_ticket(page, args.probe_ticket_ask.strip())
+                emit({"ask_ticket": got}, *secrets)
+                ok = (got.get("refused") is None and got.get("aborted") is None and got.get("opened")
+                      and not got.get("alerts") and "error" not in got)
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "order_surface_dump":
+                emit({"order_surface": adapter.order_surface_dump(page, args.order_surface_dump.strip())}, *secrets)
+                return EXIT_OK
+
+            if mode == "instrument_page_dump":
+                sym = args.instrument_page_dump.strip()
+                emit({"page_dump": {"symbol": sym, **adapter.probe_page_leaf_dump(page, sym)}}, *secrets)
+                return EXIT_OK
+
+            if mode in ("add_watchlist_symbol_dry", "add_watchlist_symbol"):
+                arm = mode == "add_watchlist_symbol"
+                sym = (args.add_watchlist_symbol if arm else args.add_watchlist_symbol_dry).strip()
+                emit({"add_symbol": adapter.add_watchlist_symbol(page, sym, arm=arm)}, *secrets)
+                return EXIT_OK
+
+            if mode == "watchlist_submenu_probe":
+                got = adapter.watchlist_submenu_probe(page)
+                emit({"watchlist_submenu_probe": got}, *secrets)
+                ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
+                return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "add_watchlist_widget":
+                got = adapter.add_watchlist_widget(page)
+                emit({"add_watchlist_widget": got}, *secrets)
+                ok = got.get("added") is True or got.get("already_present") is True
+                return EXIT_OK if ok and "error" not in got else EXIT_UNPARSED
+
             if mode == "symbol_switch_dry":
-                got = adapter.symbol_switch_dry(page, args.symbol_switch_dry)
+                got = adapter.symbol_switch_dry(page, args.symbol_switch_dry,
+                                                home=switch_dry_home(cfg, adapter, page))
                 emit({"symbol_switch_dry": got}, *secrets)
                 return EXIT_OK if got.get("refused") is None and not got.get("alerts") else EXIT_UNPARSED
 
@@ -461,17 +690,13 @@ def main(argv: Optional[list] = None) -> int:
                         venue_symbol=args.round_trip, side=args.side, lots=args.lots,
                         arm=(mode == "round_trip_live"), order_type=args.order_type,
                         sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
-                emit({"reads": res.reads}, *secrets)
-                for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):
-                    for it in items:
-                        emit({key: it}, *secrets)
-                emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+                code = emit_round_trip(res, *secrets)
                 if args.login == "reuse":
                     try:
                         save_storage_state(context, args.storage_state)
                     except Exception as exc:
                         emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
-                return EXIT_UNPARSED if res.halted else EXIT_OK
+                return code
             res = pe.run_cycle(
                 adapter=adapter, page=page, api=api, cfg=cfg, mode=mode,
                 ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
@@ -480,6 +705,10 @@ def main(argv: Optional[list] = None) -> int:
                 max_lots=cfg.watched_click_max_lots if args.watched_click else None,
                 only_ticket_id=args.ticket_id or None,
                 sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
+            # The cycle's reads / actions / reports / alerts are emitted and the
+            # session saved BEFORE the trail step (manager re-review of #15316):
+            # a trail step that hangs past the wrapper's wall clock must not
+            # lose this tick's alert lines or its ping.
             emit({"reads": res.reads}, *secrets)
             for a in res.actions:
                 emit({"action": a}, *secrets)
@@ -493,6 +722,37 @@ def main(argv: Optional[list] = None) -> int:
                     save_storage_state(context, args.storage_state)
                 except Exception as exc:
                     emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
+            if not (args.watched_click or args.ticket_id):
+                # PROP-TRAIL: the leg's declared trail, by amending the resting
+                # SL. AFTER the cycle and its output, so it never delays a
+                # ticket or an alert; same mode (read_only walks to the edit
+                # control and stops). Fully contained: an exception here must
+                # not reach the outer handler, whose record_tick_error trips
+                # the entry halt. Its own reports / alerts are emitted after it.
+                n_rep, n_al = len(res.reports), len(res.alerts)
+                try:
+                    # PROP-TRAIL-VENV: import the trail's deps EXPLICITLY (the
+                    # candle feed builds its ccxt client lazily, per call) and
+                    # emit a POSITIVE line, so executor-dry-run proves the venv
+                    # rather than relying on an absent alert.
+                    import ccxt  # noqa: F401
+                    import pandas  # noqa: F401
+
+                    from src.prop import prop_trail
+                    candles_fn = prop_trail.default_candles_fn()
+                    emit({"trail": {"deps": "importable (pandas, ccxt)", "mode": res.mode}})
+                    prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
+                                              state_dir=state_dir, candles_fn=candles_fn, res=res)
+                except ImportError as exc:
+                    res.alerts.append(f"trail: step failed ({type(exc).__name__}: {exc.name or exc}) -- "
+                                      "PROP-TRAIL-VENV: the executor venv cannot import the trail's deps; "
+                                      "entries unaffected")
+                except Exception as exc:  # noqa: BLE001
+                    res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
+                for r in res.reports[n_rep:]:
+                    emit({"report": r}, *secrets)
+                for al in res.alerts[n_al:]:
+                    emit({"alert": al}, *secrets)
             return EXIT_UNPARSED if res.halted else EXIT_OK
         except Exception as exc:
             emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)

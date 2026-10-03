@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Register note for the manager to merge (lanes route through the manager). Docs only.",
+  "why": "docs/claude/work/MANAGER-CHECKLIST.json only: prepends the TRADEIFY-GOLIVE order-surface-dump result (#15743) to the TRADEIFY-WIRE row note. No src/, config/, order path or runtime file."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges. Live order path on breakout_1: it changes the gate that decides whether the ticket's submit control may be clicked (DXtradeAdapter._ready_submit + SUBMIT_JS). Lane BREAKOUT-SUBMIT-VIS. No new click, fill or dismiss is added anywhere, and every existing refusal (identity token, side, submit label, full read-back, disabled) is unchanged.",
+  "why": "Two ETHUSDT tickets on breakout_1 (prop_fills 76/77) were skipped unplaced with 'submit: not visible at its centre after scrolling (after 3 attempts)'. MEASURED: the submit footer geometry is IDENTICAL in the six failing live attempts and in the round-trip dry walk 59 minutes later that reached form_verified (issue #15464), so the blocker was transient and the refusal could not say what it was. The hit-test is now POLLED (4 tries, 500 ms apart) with a scroll-only reveal of the BUTTON's own scroll ancestors — the live submit is a footer OUTSIDE the fields' container, so the old form-anchored scroll path was not necessarily touching the scroller that moves it — and a final refusal NAMES the state: centre outside the viewport, painted over by a named element, or nothing painted there, plus the button's clip chain."
+}

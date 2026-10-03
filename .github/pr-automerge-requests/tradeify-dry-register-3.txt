@@ -1,0 +1,1 @@
+auto-merge: TRADEIFY-DRY register update 3 (TRADEIFY-WIRE row + 2 pipeline rows)

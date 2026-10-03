@@ -1,0 +1,1552 @@
+{
+  "verdict": "fail",
+  "read_state": "measured",
+  "population": "22 crypto-perp legs with n>=30 in the newest committed ledger; 27 other ledgers not measured (reasons in measurement.skipped); trend (ADX-14); vol NOT covered",
+  "n": 1764,
+  "measurement": {
+    "label": "no_headroom_trend_axis",
+    "scoping_only_not_a_promotion_case": true,
+    "axis": "trend (ADX-14); vol NOT covered",
+    "selection": {
+      "min_cell_n": 20,
+      "loss_se": 1.0
+    },
+    "bar": {
+      "per_test_trade_r": 0.03,
+      "p5_gt": 0,
+      "min_cell_n": 20,
+      "min_leg_n": 30,
+      "min_legs": 5,
+      "blocks": 4,
+      "seeds": 300
+    },
+    "skipped": {
+      "fade_breakout_4h": "n=27 < 30",
+      "fvg_range_15m": "n=17 < 30",
+      "gdx_pullback_1d": "n=10 < 30",
+      "gld_pullback_1d": "n=5 < 30",
+      "gld_pullback_1h": "symbol 'GLD' is not a Binance-vision USDT perp (no committed candle source) \u2014 not_attempted",
+      "iaum_pullback_1d": "n=7 < 30",
+      "ief_pullback_1d": "n=3 < 30",
+      "iwm_trend_long_1d": "n=8 < 30",
+      "mes_trend_long_1d": "n=5 < 30",
+      "mgc_pullback_1d": "n=8 < 30",
+      "mgc_trend_1h": "symbol 'MGC' is not a Binance-vision USDT perp (no committed candle source) \u2014 not_attempted",
+      "mhg_pullback_1d": "n=10 < 30",
+      "qld_trend_long_1d": "n=9 < 30",
+      "qqq_pullback_1h": "symbol 'QQQ' is not a Binance-vision USDT perp (no committed candle source) \u2014 not_attempted",
+      "qqq_trend_long_1d": "n=5 < 30",
+      "scha_trend_long_1d": "n=7 < 30",
+      "slv_pullback_1d": "n=11 < 30",
+      "slv_trend_1h": "symbol 'SLV' is not a Binance-vision USDT perp (no committed candle source) \u2014 not_attempted",
+      "sol_pullback_2h": "n=18 < 30",
+      "spy_pullback_1h": "symbol 'SPY' is not a Binance-vision USDT perp (no committed candle source) \u2014 not_attempted",
+      "spy_trend_long_1d": "n=11 < 30",
+      "squeeze_breakout_4h": "n=10 < 30",
+      "tlt_pullback_1d": "n=8 < 30",
+      "tlt_pullback_1h": "symbol 'TLT' is not a Binance-vision USDT perp (no committed candle source) \u2014 not_attempted",
+      "tqqq_trend_long_1d": "n=12 < 30",
+      "trend_donchian_xrp_4h": "n=16 < 30",
+      "uso_trend_1h": "symbol 'USO' is not a Binance-vision USDT perp (no committed candle source) \u2014 not_attempted"
+    },
+    "legs": {
+      "ada_pullback_2h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/ada_pullback_2h__trades.jsonl",
+        "symbol": "ADAUSDT",
+        "timeframe": "2h",
+        "n": 57,
+        "label_counts": {
+          "chop": 0,
+          "transitional": 0,
+          "trending": 57
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "avax_pullback_2h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/avax_pullback_2h__trades.jsonl",
+        "symbol": "AVAXUSDT",
+        "timeframe": "2h",
+        "n": 57,
+        "label_counts": {
+          "chop": 0,
+          "transitional": 1,
+          "trending": 56
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "eth_pullback_2h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/eth_pullback_2h__trades.jsonl",
+        "symbol": "ETHUSDT",
+        "timeframe": "2h",
+        "n": 62,
+        "label_counts": {
+          "chop": 0,
+          "transitional": 0,
+          "trending": 62
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "eth_pullback_prop_2h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/eth_pullback_prop_2h__trades.jsonl",
+        "symbol": "ETHUSDT",
+        "timeframe": "2h",
+        "n": 70,
+        "label_counts": {
+          "chop": 0,
+          "transitional": 0,
+          "trending": 70
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "htf_pullback_trend_2h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/htf_pullback_trend_2h__trades.jsonl",
+        "symbol": "BTCUSDT",
+        "timeframe": "2h",
+        "n": 86,
+        "label_counts": {
+          "chop": 9,
+          "transitional": 11,
+          "trending": 66
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": true
+      },
+      "ict_scalp_5m": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_5m__trades.jsonl",
+        "symbol": "BTCUSDT",
+        "timeframe": "5m",
+        "n": 193,
+        "label_counts": {
+          "chop": 78,
+          "transitional": 46,
+          "trending": 69
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": true
+      },
+      "ict_scalp_avax_5m": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-28/ict_scalp_avax_5m__trades.jsonl",
+        "symbol": "AVAXUSDT",
+        "timeframe": "5m",
+        "n": 257,
+        "label_counts": {
+          "chop": 99,
+          "transitional": 67,
+          "trending": 91
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "ict_scalp_eth_15m": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_eth_15m__trades.jsonl",
+        "symbol": "ETHUSDT",
+        "timeframe": "15m",
+        "n": 117,
+        "label_counts": {
+          "chop": 53,
+          "transitional": 28,
+          "trending": 36
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "ict_scalp_sol_15m": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_15m__trades.jsonl",
+        "symbol": "SOLUSDT",
+        "timeframe": "15m",
+        "n": 132,
+        "label_counts": {
+          "chop": 61,
+          "transitional": 32,
+          "trending": 39
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "ict_scalp_sol_5m": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_5m__trades.jsonl",
+        "symbol": "SOLUSDT",
+        "timeframe": "5m",
+        "n": 259,
+        "label_counts": {
+          "chop": 123,
+          "transitional": 65,
+          "trending": 71
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "ict_scalp_xrp_15m": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_15m__trades.jsonl",
+        "symbol": "XRPUSDT",
+        "timeframe": "15m",
+        "n": 129,
+        "label_counts": {
+          "chop": 61,
+          "transitional": 29,
+          "trending": 39
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "ict_scalp_xrp_5m": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_5m__trades.jsonl",
+        "symbol": "XRPUSDT",
+        "timeframe": "5m",
+        "n": 243,
+        "label_counts": {
+          "chop": 125,
+          "transitional": 53,
+          "trending": 65
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/trend_donchian__trades.jsonl",
+        "symbol": "BTCUSDT",
+        "timeframe": "1h",
+        "n": 73,
+        "label_counts": {
+          "chop": 31,
+          "transitional": 22,
+          "trending": 20
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": true
+      },
+      "trend_donchian_ada_4h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_ada_4h__trades.jsonl",
+        "symbol": "ADAUSDT",
+        "timeframe": "4h",
+        "n": 46,
+        "label_counts": {
+          "chop": 17,
+          "transitional": 11,
+          "trending": 18
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian_avax_4h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_avax_4h__trades.jsonl",
+        "symbol": "AVAXUSDT",
+        "timeframe": "4h",
+        "n": 50,
+        "label_counts": {
+          "chop": 25,
+          "transitional": 10,
+          "trending": 15
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian_eth": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_eth__trades.jsonl",
+        "symbol": "ETHUSDT",
+        "timeframe": "1h",
+        "n": 107,
+        "label_counts": {
+          "chop": 40,
+          "transitional": 20,
+          "trending": 47
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian_eth_4h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_eth_4h__trades.jsonl",
+        "symbol": "ETHUSDT",
+        "timeframe": "4h",
+        "n": 44,
+        "label_counts": {
+          "chop": 20,
+          "transitional": 14,
+          "trending": 10
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian_eth_prop": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+        "symbol": "ETHUSDT",
+        "timeframe": "1h",
+        "n": 169,
+        "label_counts": {
+          "chop": 69,
+          "transitional": 30,
+          "trending": 70
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian_sol": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol__trades.jsonl",
+        "symbol": "SOLUSDT",
+        "timeframe": "1h",
+        "n": 59,
+        "label_counts": {
+          "chop": 22,
+          "transitional": 15,
+          "trending": 22
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian_sol_4h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_sol_4h__trades.jsonl",
+        "symbol": "SOLUSDT",
+        "timeframe": "4h",
+        "n": 35,
+        "label_counts": {
+          "chop": 11,
+          "transitional": 11,
+          "trending": 13
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "trend_donchian_sol_prop": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl",
+        "symbol": "SOLUSDT",
+        "timeframe": "1h",
+        "n": 65,
+        "label_counts": {
+          "chop": 24,
+          "transitional": 18,
+          "trending": 23
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      },
+      "xrp_pullback_2h": {
+        "ledger": "comms/strategy_evidence/runs/2026-09-25/xrp_pullback_2h__trades.jsonl",
+        "symbol": "XRPUSDT",
+        "timeframe": "2h",
+        "n": 57,
+        "label_counts": {
+          "chop": 0,
+          "transitional": 0,
+          "trending": 57
+        },
+        "unlabelled": 0,
+        "has_live_policy_cell": false
+      }
+    },
+    "n_legs": 22,
+    "test_trades_total": 1764,
+    "ungated_test_net_r_total": -13.016,
+    "ungated_test_net_r_per_leg": {
+      "ada_pullback_2h": 11.237,
+      "avax_pullback_2h": -8.72,
+      "eth_pullback_2h": -4.179,
+      "eth_pullback_prop_2h": -5.659,
+      "htf_pullback_trend_2h": -5.082,
+      "ict_scalp_5m": -5.76,
+      "ict_scalp_avax_5m": -6.907,
+      "ict_scalp_eth_15m": 0.513,
+      "ict_scalp_sol_15m": -0.445,
+      "ict_scalp_sol_5m": -4.485,
+      "ict_scalp_xrp_15m": 1.434,
+      "ict_scalp_xrp_5m": 0.476,
+      "trend_donchian": -3.021,
+      "trend_donchian_ada_4h": -8.017,
+      "trend_donchian_avax_4h": -9.751,
+      "trend_donchian_eth": -2.311,
+      "trend_donchian_eth_4h": 8.96,
+      "trend_donchian_eth_prop": 9.898,
+      "trend_donchian_sol": 5.294,
+      "trend_donchian_sol_4h": -0.084,
+      "trend_donchian_sol_prop": 4.884,
+      "xrp_pullback_2h": 8.71
+    },
+    "seeds": 300,
+    "results": {
+      "ordinal": {
+        "oracle": {
+          "pooled_delta_r": {
+            "mean": 5.6029,
+            "p5": -5.9871,
+            "p95": 20.4307
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.003,
+            "p5": -0.0033,
+            "p95": 0.011
+          },
+          "mean_dropped_trades_total": 89.0,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 0.5948,
+              "p5": 0.5948,
+              "p95": 0.5948,
+              "mean_dropped": 16.0
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -1.5429,
+              "p5": -1.5429,
+              "p95": -1.5429,
+              "mean_dropped": 10.0
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 9.1353,
+              "p5": 9.1353,
+              "p95": 9.1353,
+              "mean_dropped": 49.0
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -2.0431,
+              "p5": -2.0431,
+              "p95": -2.0431,
+              "mean_dropped": 14.0
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        },
+        "A=0.55": {
+          "pooled_delta_r": {
+            "mean": 6.2007,
+            "p5": -6.7064,
+            "p95": 21.3928
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.0034,
+            "p5": -0.0037,
+            "p95": 0.0113
+          },
+          "mean_dropped_trades_total": 58.14,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 1.1077,
+              "p5": -2.5913,
+              "p95": 4.3254,
+              "mean_dropped": 10.37
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -0.2679,
+              "p5": -3.0362,
+              "p95": 2.1224,
+              "mean_dropped": 6.78
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 7.3394,
+              "p5": 1.953,
+              "p95": 13.457,
+              "mean_dropped": 32.26
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -1.5962,
+              "p5": -4.4852,
+              "p95": 1.3523,
+              "mean_dropped": 8.73
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        },
+        "A=0.60": {
+          "pooled_delta_r": {
+            "mean": 5.954,
+            "p5": -6.5313,
+            "p95": 20.8972
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.0033,
+            "p5": -0.0035,
+            "p95": 0.0116
+          },
+          "mean_dropped_trades_total": 61.75,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 0.9105,
+              "p5": -2.6524,
+              "p95": 4.0751,
+              "mean_dropped": 11.04
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -0.3305,
+              "p5": -2.8799,
+              "p95": 2.0529,
+              "mean_dropped": 7.18
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 7.5305,
+              "p5": 2.2473,
+              "p95": 13.2724,
+              "mean_dropped": 34.23
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -1.6567,
+              "p5": -4.4727,
+              "p95": 1.3141,
+              "mean_dropped": 9.29
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        },
+        "A=0.70": {
+          "pooled_delta_r": {
+            "mean": 5.9894,
+            "p5": -6.6863,
+            "p95": 22.5729
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.0033,
+            "p5": -0.0038,
+            "p95": 0.012
+          },
+          "mean_dropped_trades_total": 68.49,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 0.7362,
+              "p5": -2.3359,
+              "p95": 4.0948,
+              "mean_dropped": 12.16
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -0.664,
+              "p5": -2.9787,
+              "p95": 1.9067,
+              "mean_dropped": 7.87
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 8.0193,
+              "p5": 2.9321,
+              "p95": 13.2346,
+              "mean_dropped": 38.06
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -1.706,
+              "p5": -4.4343,
+              "p95": 1.111,
+              "mean_dropped": 10.39
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        }
+      },
+      "uniform": {
+        "oracle": {
+          "pooled_delta_r": {
+            "mean": 5.6029,
+            "p5": -5.9871,
+            "p95": 20.4307
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.003,
+            "p5": -0.0033,
+            "p95": 0.011
+          },
+          "mean_dropped_trades_total": 89.0,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 0.5948,
+              "p5": 0.5948,
+              "p95": 0.5948,
+              "mean_dropped": 16.0
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -1.5429,
+              "p5": -1.5429,
+              "p95": -1.5429,
+              "mean_dropped": 10.0
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 9.1353,
+              "p5": 9.1353,
+              "p95": 9.1353,
+              "mean_dropped": 49.0
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -2.0431,
+              "p5": -2.0431,
+              "p95": -2.0431,
+              "mean_dropped": 14.0
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        },
+        "A=0.55": {
+          "pooled_delta_r": {
+            "mean": 6.1138,
+            "p5": -6.8257,
+            "p95": 21.0337
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.0034,
+            "p5": -0.0037,
+            "p95": 0.0108
+          },
+          "mean_dropped_trades_total": 71.45,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 1.6503,
+              "p5": -2.3758,
+              "p95": 5.5291,
+              "mean_dropped": 11.71
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -0.1889,
+              "p5": -3.1821,
+              "p95": 3.303,
+              "mean_dropped": 9.06
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 5.8751,
+              "p5": -0.6583,
+              "p95": 13.0041,
+              "mean_dropped": 38.17
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -1.085,
+              "p5": -4.6104,
+              "p95": 3.1277,
+              "mean_dropped": 12.51
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        },
+        "A=0.60": {
+          "pooled_delta_r": {
+            "mean": 5.9102,
+            "p5": -6.2905,
+            "p95": 20.4381
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.0032,
+            "p5": -0.0033,
+            "p95": 0.0111
+          },
+          "mean_dropped_trades_total": 73.63,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 1.3832,
+              "p5": -2.6364,
+              "p95": 5.3131,
+              "mean_dropped": 12.25
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -0.2806,
+              "p5": -3.3922,
+              "p95": 2.961,
+              "mean_dropped": 9.26
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 6.2148,
+              "p5": 0.0668,
+              "p95": 12.9399,
+              "mean_dropped": 39.5
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -1.2193,
+              "p5": -4.9409,
+              "p95": 2.7998,
+              "mean_dropped": 12.62
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        },
+        "A=0.70": {
+          "pooled_delta_r": {
+            "mean": 5.9567,
+            "p5": -7.0047,
+            "p95": 21.9545
+          },
+          "pooled_delta_r_per_test_trade": {
+            "mean": 0.0033,
+            "p5": -0.0038,
+            "p95": 0.0117
+          },
+          "mean_dropped_trades_total": 77.45,
+          "per_leg": {
+            "ada_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "avax_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "eth_pullback_prop_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "htf_pullback_trend_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_5m": {
+              "mean": 1.1001,
+              "p5": -2.5083,
+              "p95": 4.8411,
+              "mean_dropped": 13.09
+            },
+            "ict_scalp_avax_5m": {
+              "mean": -0.5886,
+              "p5": -3.501,
+              "p95": 2.3338,
+              "mean_dropped": 9.46
+            },
+            "ict_scalp_eth_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_sol_5m": {
+              "mean": 7.0132,
+              "p5": 1.3886,
+              "p95": 12.8203,
+              "mean_dropped": 42.09
+            },
+            "ict_scalp_xrp_15m": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "ict_scalp_xrp_5m": {
+              "mean": -1.4418,
+              "p5": -5.3061,
+              "p95": 2.378,
+              "mean_dropped": 12.81
+            },
+            "trend_donchian": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_ada_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_avax_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_eth_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_4h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "trend_donchian_sol_prop": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            },
+            "xrp_pullback_2h": {
+              "mean": 0.0,
+              "p5": 0.0,
+              "p95": 0.0,
+              "mean_dropped": 0.0
+            }
+          }
+        }
+      }
+    }
+  },
+  "note": "no_headroom_trend_axis. Upper-bound scoping, NOT a promotion case: \u0394netR = net R of dropped test-block trades negated, cells selected on earlier blocks only. Pooled legs share symbols, so the pooled band is optimistic. trend (ADX-14); vol NOT covered."
+}

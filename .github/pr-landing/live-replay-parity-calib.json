@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 CI/observability only: fixes the live-replay-parity workflow step aborting on the script's documented exit 1 (bash -e), gates pipeline filing + ping while the check is calibrating (first real run reported 4094 divergences / historical_positive fail), richer per-class breakdown in the committed md, and one pipeline row tracking the calibration. No runtime, order path, strategy, risk or VM change."
+}

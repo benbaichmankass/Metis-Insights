@@ -1,0 +1,1 @@
+auto-merge: diag-relay doc note (TRADEIFY-GOLIVE)

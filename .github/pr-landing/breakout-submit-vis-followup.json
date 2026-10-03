@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline register row (docs/claude/work/pipeline/PI-20261002-UBMITVIS-0002.json) filing the submit-diagnostics observability gap found in #15468's post-merge dry walk. Register content only: no runtime, no order path, no config, no code, no test. Nothing the live trader or the prop executor reads."
+}

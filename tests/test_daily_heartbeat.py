@@ -200,3 +200,25 @@ def test_main_returns_1_when_no_token(monkeypatch):
         rc = hb.main()
 
     assert rc == 1
+
+
+# ── halt-flag path parity (ORDER-AUDIT-2 follow-up) ─────────────────────────
+# The digest hardcoded /tmp/trader_halt.flag while the pipeline checks
+# runtime_flags.halt_flag_path(); it could report RUNNING while halted.
+
+def test_halt_flag_path_matches_runtime_flags(monkeypatch):
+    from src.runtime.runtime_flags import halt_flag_path
+    hb = _import_heartbeat()
+    monkeypatch.delenv("HALT_FLAG_PATH", raising=False)
+    assert hb._halt_flag_path() == halt_flag_path()
+    monkeypatch.setenv("HALT_FLAG_PATH", "/x/custom.flag")
+    assert hb._halt_flag_path() == halt_flag_path() == "/x/custom.flag"
+
+
+def test_kill_switch_reads_the_canonical_flag(tmp_path, monkeypatch):
+    hb = _import_heartbeat()
+    flag = tmp_path / "trader_halt.flag"
+    monkeypatch.setenv("HALT_FLAG_PATH", str(flag))
+    assert "RUNNING" in hb._kill_switch_state()
+    flag.write_text("halt")
+    assert "HALTED" in hb._kill_switch_state()
