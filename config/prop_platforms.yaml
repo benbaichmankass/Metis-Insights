@@ -185,9 +185,25 @@ accounts:
       #                 0.01 is a multiple of either, so a typed SL/TP is
       #                 always a valid price.
       # The passive spec read did not run on a reused session (#15839).
-      # SOLUSD / XRPUSD: UNMEASURED, so no entry.
+      #
+      # SOLUSD / XRPUSD (TRADEIFY-DRY 2026-10-03, after #15846): read from the
+      # tickets the guarded Ask click opened (probe-ticket-ask SOLUSD #15905
+      # run 37117995552; XRPUSD #15907 run 37118069890; both flat after, 0
+      # orders, nothing submitted). Neither is in enabled_venue_symbols or
+      # watched_click_max_lots, so this arms nothing.
+      #   lot_units 1   MEASURED: quantity labels "Lots x 1 SOL" / "Lots x 1 XRP".
+      #   min_lots 0.01 MEASURED-ish: each field opened at 0.01 with its
+      #                 decrement button disabled.
+      #   lot_step 0.01 INFERRED: 2-decimal default; increment unmeasured.
+      #   price_step    MEASURED-ish: the disabled SL/TP fields default to one
+      #                 tick -- SOL 0.001, XRP 0.00001 -- matching the quote
+      #                 decimals (symbol-switch-dry #15902 "119.475", #15904
+      #                 "1.48335"). ETHUSD's tick read the same way is 0.001; its
+      #                 entry keeps the coarser 0.01 (a valid multiple).
       lots:
         ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.01}
+        SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
+        XRPUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.00001}
       watched_click_max_lots: {ETHUSD: 0.01}
       # Nothing enabled: every ticket is SKIPPED `symbol_not_enabled` before
       # the form is touched. Set in the go-live PR only, after the dry evidence.

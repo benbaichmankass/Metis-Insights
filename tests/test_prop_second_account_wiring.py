@@ -126,7 +126,10 @@ def test_tradeify_platform_entry_never_points_at_breakout():
     # ETHUSD one (TRADEIFY-DRY, #15846) that lets round-trip-dry reach the
     # form; any other symbol appearing here must be a deliberate, reviewed edit.
     assert ex["enabled_venue_symbols"] == []
-    assert ex["lots"] == {"ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.01}}
+    assert ex["lots"] == {
+        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.01},
+        "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
+        "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
     assert ex["watched_click_max_lots"] == {"ETHUSD": 0.01}
     b = load_platform_config("breakout_1")
     assert b["login_url"] == "https://wss.breakoutprop.com/"
