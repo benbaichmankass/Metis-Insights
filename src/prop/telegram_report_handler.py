@@ -69,7 +69,13 @@ def default_prop_account() -> Optional[str]:
     # `mode` defaults to live (the account gate is default-permissive).
     live = [aid for aid in prop_ids
             if str(accts[aid].get("mode") or "live").strip().lower() == "live"]
-    return live[0] if len(live) == 1 else None
+    if len(live) == 1:
+        return live[0]
+    # Several LIVE prop accounts (tradeify_1 beside breakout_1 after go-live):
+    # the one declaring `report_default: true` in accounts.yaml takes a bare
+    # report; none or several declaring it → None (ask, never guess).
+    flagged = [aid for aid in live if accts[aid].get("report_default") is True]
+    return flagged[0] if len(flagged) == 1 else None
 
 
 def resolve_open_ticket(account_id: str, canonical_symbol: str) -> Tuple[
