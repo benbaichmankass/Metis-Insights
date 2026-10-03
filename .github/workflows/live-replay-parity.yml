@@ -103,15 +103,12 @@ jobs:
     env:
       VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_USER: ubuntu
-      # CALIBRATING (2026-10-03): the first real run (37106253401) reported
-      # 4094 divergences over 1311 bars and historical_positive=fail — the
-      # instrument, not the market, until proven otherwise. While "calibrating"
-      # the result is still COMMITTED (and shown on the brief), but no pipeline
-      # rows are filed and no ping is sent, so a mis-calibrated check cannot
-      # flood the operator. Tracked by the LIVE-PARITY checklist row and
-      # pipeline item PI-20261003-LRP-CALIBRATE; set to "on" in the PR that
-      # shows a clean planted/historical calibration.
-      PARITY_ALERTS: calibrating
+      # ON since calibration run 4 (run 37114827476, issue #15881, 2026-10-03):
+      # planted_defect / historical_positive (36/36 packages) / liveness all
+      # pass, 20 divergences over 1307 bars on 27 legs, each one explained or
+      # filed. "calibrating" (results committed, no pipeline rows, no ping)
+      # remains the sanctioned way to quiet it while re-calibrating.
+      PARITY_ALERTS: "on"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
