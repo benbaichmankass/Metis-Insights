@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "After #15909 is merged and synced, a round-trip-dry,limit ETHUSD reads back the typed limit price within 0.001 (then done), or it refuses with a price read-back mismatch (then a fix to the price fill is the next build: route to the manager).",
+    "kind": "event"
+  },
+  "id": "PI-20261003-DEIFYDRY-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH, step 4 round-trip-dry #15930 (2026-10-03).",
+    "rerun": "After #15909 merges and the VM git_sha_on_disk contains it (diag status): dispatch action: breakout-login-check / account: tradeify_1 / apply: round-trip-dry,limit ; compare spec.limit_price with fill_trace[-1].shown.price."
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "tradeify_1 LIMIT price fill may not stick. round-trip-dry,limit ETHUSD #15930 (run 37121646646) typed limit 2683.59 and read back 2,683.584 (the terminal's own price), and the read-back passed only because the declared price_step was 0.01 (tolerance one tick; gap 0.006). A typed 2683.59 cannot round to 2683.584, so the terminal most likely kept or re-synced its own price. Held PR #15909 sets tradeify_1 ETHUSD price_step to the measured 0.001, at which this read-back refuses. Before any live LIMIT entry on tradeify_1, the dry walk must show the typed limit price reading back exactly."
+}
