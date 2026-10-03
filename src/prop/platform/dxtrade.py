@@ -3530,6 +3530,55 @@ INFO_PROBE_RESOLVE_JS = r"""
 # aria-label, title, text; close / dismiss / cancel wording flagged). Dialogs
 # counted. Every class token has its digits masked; every text value is capped
 # and runs of 5+ digits are masked (the log is public).
+# PAGE-STATUS (manager 2026-10-03 ~07:25Z, after breakout_1's ETH short closed
+# at the static drawdown floor with no SL/TP fill): a ZERO-INTERACTION read of
+# what the terminal is SAYING -- capped, masked visible body text; every
+# alert / status / live region and banner/toast/notification-like element;
+# lines naming liquidation, stop-out, margin, violation, breach, disabled,
+# drawdown; and whether the sidebar ticket's Buy / Sell controls render
+# enabled. No click, hover, focus, scroll or key press: page.evaluate only.
+PAGE_STATUS_JS = r"""
+(cap) => {
+  const m = v => String(v == null ? '' : v).replace(/\S+@\S+/g, '<email>')
+                   .replace(/\d{5,}/g, d => '#'.repeat(d.length));
+  const one = v => m(v).replace(/\s+/g, ' ').trim();
+  const vis = el => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const clsOf = el => (typeof el.className === 'string' ? el.className : '');
+  const out = {};
+  const body = document.body ? (document.body.innerText || '') : '';
+  const flat = one(body);
+  out.body_chars = flat.length;
+  out.body_text = flat.slice(0, cap);
+  out.body_truncated = flat.length > cap;
+  const kw = /liquidat|stop[\s-]?out|margin call|violat|breach|disabled|suspend|blocked|read[\s-]?only|drawdown|daily loss|max(imum)? loss|account (is )?(closed|locked|failed)|rule/i;
+  out.flagged_lines = [...new Set(body.split(/\n+/).map(one).filter(l => l && kw.test(l)))].slice(0, 40)
+                        .map(l => l.slice(0, 200));
+  const sel = '[role=alert],[role=alertdialog],[role=status],[aria-live]:not([aria-live=off])';
+  const clsRe = /banner|toast|notif|snackbar|alert|warning|violation|breach|message-bar|announcement/i;
+  const cands = [...document.querySelectorAll(sel)];
+  for (const el of document.querySelectorAll('body *')) if (clsRe.test(clsOf(el))) cands.push(el);
+  const picked = [];
+  for (const el of cands) {
+    if (picked.includes(el) || picked.some(p => p.contains(el))) continue;
+    picked.push(el);
+  }
+  out.notices = picked.filter(el => txt(el)).slice(0, 30).map(el => ({
+    tag: el.tagName.toLowerCase(), role: el.getAttribute('role') || '', live: el.getAttribute('aria-live') || '',
+    cls: clsOf(el).split(/\s+/).filter(Boolean).slice(0, 6).map(c => c.replace(/\d/g, '#')),
+    visible: vis(el), text: one(txt(el)).slice(0, 300)}));
+  const dis = b => !!(b.disabled || b.getAttribute('aria-disabled') === 'true' || /\bdisabled\b/i.test(clsOf(b)));
+  out.trade_buttons = [...document.querySelectorAll('[data-test-id=BUY],[data-test-id=SELL]')].slice(0, 10).map(b => ({
+    tid: b.getAttribute('data-test-id'), label: one(txt(b)).slice(0, 40), visible: vis(b), disabled: dis(b)}));
+  out.inputs_disabled = [...document.querySelectorAll('input')].filter(vis).filter(i => i.disabled || i.readOnly).length;
+  out.dialogs = [...document.querySelectorAll('[role=dialog],[role=alertdialog]')].filter(vis)
+                  .map(d => one(txt(d)).slice(0, 300)).slice(0, 10);
+  return out;
+}
+"""
+
+
 LINK_STATE_DUMP_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim();
@@ -6043,6 +6092,19 @@ class DXtradeAdapter(PropPlatformAdapter):
                 waited += 500
         except Exception as exc:
             return {"error": f"{type(exc).__name__} (code=link_state_dump_exception)"}
+
+    PAGE_STATUS_TEXT_CAP = 4000
+
+    def page_status(self, page: Any) -> Dict[str, Any]:
+        """READ-ONLY, ZERO INTERACTION (PAGE_STATUS_JS): what the terminal is
+        saying -- capped masked body text, alert / status / banner / toast
+        elements, lines naming a breach / liquidation / disabled state, and
+        whether the ticket's Buy / Sell controls render enabled. One
+        ``page.evaluate``; no click, hover, focus, scroll or key press."""
+        try:
+            return page.evaluate(PAGE_STATUS_JS, self.PAGE_STATUS_TEXT_CAP) or {"error": "no result"}
+        except Exception as exc:
+            return {"error": f"{type(exc).__name__} (code=page_status_exception)"}
 
     def widget_menu_probe(self, page: Any, *, settle_ms: int = 800) -> Dict[str, Any]:
         """MEASURE the current workspace's add-widget ("+") menu: ONE click on
