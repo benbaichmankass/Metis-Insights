@@ -1,0 +1,17 @@
+{
+ "due_when": {
+  "check_every_days": 7,
+  "clears_when": "scripts/ops/build_strategy_evidence.py stamps a harness revision (or the causal-HTF commit) into each record AND mandate_resolver / check_roster_promotion_evidence refuse an ict_scalp record without it, with a test",
+  "kind": "observation",
+  "last_checked": "2026-10-02"
+ },
+ "id": "PI-20261002-EXI7AXXN-0001",
+ "next_action": "dispatch_lane",
+ "origin": {
+  "kind": "session",
+  "ref": "lane ICT-EVIDENCE-REBUILD session_01Vaq4L8zaozp2cyEXi7AXXN, 2026-10-02, closing PI-20261001-JWZSVYVS-0004",
+  "rerun": "grep -c harness_revision comms/strategy_evidence/ict_scalp_*.json; then python3 scripts/ops/mandate_resolver.py --leg ict_scalp_xrp_15m --from S1 --to S2 --account bybit_2 on a record with the stamp removed must REFUSE"
+ },
+ "state": "queued",
+ "what": "config_fingerprint hashes leg YAML, not the harness, and the record carries no harness revision, so a record built on a pre-fix ict_scalp harness is indistinguishable from a causal one to mandate_resolver and the roster-promotion guard. Measured 2026-10-02: the rebuilt records have 25-41% fewer trades than the old ones; xrp_15m kept net +4.07R at 365d but on n=76 (was 129) and 2/4 folds, and is -4.60R at 730d (n=132). Rebuilding fixed the 7 records but nothing stops the next harness bug from doing the same silently. Tier-1 tooling change in scripts/ops/build_strategy_evidence.py + the resolver; not done in this evidence-only lane."
+}
