@@ -93,7 +93,7 @@ EXIT_DEFERRED = 7
 #: 5931584062 on #14947: "if a live ticket is waiting, the tick wins").
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
-                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
+                         "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "page_status", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
                          "add_watchlist_symbol_dry", "add_watchlist_symbol",
                          "instrument_page_dump", "order_surface_dump", "probe_ticket_ask",
                          "edit_dialog_dry", "edit_dialog_probe", "edit_surface_probe",
@@ -151,6 +151,8 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "symbol_switch_dry"
     if getattr(args, "link_state_dump", False):
         return "link_state_dump"
+    if getattr(args, "page_status", False):
+        return "page_status"
     # DIALOG-MEASURE: submits nothing. The dry form hovers and locates only;
     # the probe clicks ONE pencil (our symbol's row) and the dialog's Cancel.
     if getattr(args, "edit_dialog_dry", ""):
@@ -371,6 +373,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--link-state-dump", action="store_true",
                    help="READ-ONLY: watchlist rows (element hit at each Symbol cell's centre), symbol_input(s), "
                         "and the sidebar ticket's buttons; clicks nothing")
+    g.add_argument("--page-status", action="store_true",
+                   help="READ-ONLY, zero interaction: capped masked body text, alert/status/banner/toast "
+                        "elements, breach-like lines and the Buy/Sell controls' enabled state")
     g.add_argument("--edit-dialog-dry", default="", metavar="VENUE_SYMBOL",
                    help="locate the symbol's Positions row and its edit pencil (by icon name); click nothing")
     g.add_argument("--edit-surface-probe", default="", metavar="VENUE_SYMBOL",
@@ -577,6 +582,11 @@ def main(argv: Optional[list] = None) -> int:
                     fresh_page_recheck(got, adapter, context, page, cfg_plat["login_url"])
                 latch_info_probe(got, Path(args.state_dir), armed=armed)
                 return emit_info_probe(got, *secrets)
+
+            if mode == "page_status":
+                got = adapter.page_status(page)
+                emit({"page_status": got}, *secrets)
+                return EXIT_OK if "error" not in got else EXIT_UNPARSED
 
             if mode == "link_state_dump":
                 got = adapter.link_state_dump(page)

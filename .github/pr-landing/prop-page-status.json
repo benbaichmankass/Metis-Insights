@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager reviews and merges; not run on the terminal until merged. New system-action apply mode on breakout-login-check (a live prop terminal), zero interaction.",
+  "why": "page-status: a ZERO-INTERACTION read of what the DXtrade terminal is saying (capped masked body text, alert/status/banner/toast elements, breach/liquidation/disabled lines, open dialogs, Buy/Sell enabled state) via one page.evaluate. Built after breakout_1's ETH short closed at the static drawdown floor and no existing mode could read a breach banner without a click."
+}
