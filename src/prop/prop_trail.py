@@ -396,15 +396,15 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
             return
         confirmed = _confirm(adapter, page, p, target, step)
         if confirmed is None and _loosened(adapter, page, p):
-            # The edit flow's armed path is unmeasured on the venue (only its
-            # disarmed walk is tested): a stop that came back LOOSER than
-            # before, or missing, is restored once and the trail locks for
-            # this ticket until a person clears trail_state.json.
-            back = adapter.modify_bracket(page, p, p.stop_loss, None, arm=True, rollout=rollout)
+            # A stop that came back LOOSER than before is NOT restored: the
+            # step just used the account's single rollout modify (its latch
+            # refuses a second one, and a move back to a looser SL is not a
+            # tighten). The trail locks for this ticket; containment and the
+            # reviewer decide (manager review of #15316, 2026-10-03).
             tst["locked"] = True
-            res.alerts.append(f"{tid}: SL LOOSENED after the trail amend to {target} "
-                              f"(was {p.stop_loss}); restore attempted ({back.get('why') if isinstance(back, dict) else back}); "
-                              "trail locked for this ticket")
+            res.alerts.append(f"{tid}: SL LOOSENED after the trail amend to {target} (was {p.stop_loss}); "
+                              "NOT restored — the rollout latch forbids a second modify; containment and "
+                              "the reviewer decide; trail locked")
             return
         if confirmed is None:
             res.alerts.append(f"{tid}: trail amend to {target} not confirmed on re-read (result: {r.get('why') if isinstance(r, dict) else r})")

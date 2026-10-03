@@ -226,15 +226,17 @@ class LooseningAdapter(Adapter):
         return {"ok": True, "clicked": arm, "why": "x"}
 
 
-def test_loosened_stop_is_restored_and_the_ticket_locks(tmp_path):
+def test_loosened_stop_is_not_restored_and_the_ticket_locks(tmp_path):
+    # Manager review of #15316: no second modify_bracket call in this branch
+    # (the rollout latch forbids it); the alert says exactly that.
     a, api = LooseningAdapter([pos()], guard=False), Api()
     res = run(a, api, "live", tmp_path)
-    assert a.calls[1] == ("SOLUSD", 95.0, None, True)          # restore to the prior SL
-    assert a.positions[0].stop_loss == 95.0
-    assert any("LOOSENED" in x for x in res.alerts) and api.posted == []
-    a.calls.clear()
+    assert len(a.calls) == 1                                   # the step only, no "restore"
+    assert a.positions[0].stop_loss == 50.0                    # left as the venue has it
+    assert any("SL LOOSENED" in x and "NOT restored" in x and "trail locked" in x for x in res.alerts)
+    assert not any("restore attempted" in x for x in res.alerts) and api.posted == []
     run(a, api, "live", tmp_path)
-    assert a.calls == []                                       # locked
+    assert len(a.calls) == 1                                   # locked
 
 
 def test_no_venue_quote_means_no_amend(tmp_path):
