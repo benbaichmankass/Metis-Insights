@@ -92,3 +92,14 @@ generated:
     timeframe: 2h
     trades_file: comms/strategy_evidence/runs/2026-09-25/xrp_pullback_2h__trades.jsonl
 last_dispatched_at: '2026-10-03T12:55:18+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-PROP-FIT-B6V2-xrp_pullback_2h-bal015
+  evidence:
+  - research/results/RQ-20260929-041/37124451751.jsonl
+  graded_at: '2026-10-03'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  rows: 1
+  verdict: null
