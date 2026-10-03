@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 CI/observability only: calibration of scripts/ops/live_replay_parity.py against its real runs 37110699991/37112981724 (per-bar decision-mode inference, pre-09-30 open-package gate read from order_packages, prop/dry accounts' order hop reported as not checked, previous-bar frame detection with a required positive fingerprint, stale-frame measurement, ADX tolerance with a filed residual, fetch retry, frame diagnostics), plus the workflow's concurrency isolation and 50-min merge wait, and two pipeline rows. Alerts stay gated (PARITY_ALERTS=calibrating). No runtime, order path, strategy, risk or VM change."
+}

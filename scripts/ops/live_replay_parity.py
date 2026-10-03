@@ -124,7 +124,12 @@ FINE_S = 900
 #: VM value is env-overridable, so the bracket allows 300 s + fetch slop.
 STALE_S = 330
 #: ADX-14 hull tolerance for forming legs (see adx_range).
-ADX_TOL = 0.05
+ADX_TOL = 0.5
+#: MEASURED (run 37112981724, 2026-10-03, 22 forming legs, 7 days): on crypto
+#: forming legs live's ADX-14 sits up to ~0.35 (one 0.875) BELOW every
+#: reconstructable state of the bar while every side agrees. Unexplained;
+#: tracked as PI-20261003-LRP-ADXRESIDUAL. Tolerance set above it so the
+#: fingerprint still catches a wrong-candle frame (gaps of 1.5-3 measured).
 CANDLE_LIMIT = 1000  # /api/bot/candles MAX_LIMIT
 
 #: Audit events that NAME why a live signal produced no package/order.
@@ -138,6 +143,7 @@ DOWNSTREAM_GATE_EVENTS = (
 _PIPELINE_SKIP = {"skipped", "rejected", "refused", "blocked", "error", "failed", "noop"}
 
 DIVERGENCE_CLASSES = (
+    "previous_bar_signal",
     "missed_signal", "live_only_signal", "side_mismatch", "candle_mismatch",
     "lost_bar", "unevaluated_signal", "dropped_no_package", "dropped_no_order",
 )
@@ -640,6 +646,19 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
             out["error"] = str(exc)[:80]
         return out
 
+    def prev_bar_frame(i: int) -> dict | None:
+        """Live's frame with NO row for the current bar (the venue had not
+        opened it yet — measured on Alpaca at the US open, 2026-10-03 run 3):
+        the 200 most recent CLOSED bars, decided as if the last were forming."""
+        key = ("prevframe", i)
+        if key not in variant_cache:
+            if i < LIVE_FETCH_LIMIT:
+                variant_cache[key] = None
+            else:
+                variant_cache[key] = rep.decide(_frame(tf_rows[i - LIVE_FETCH_LIMIT:i]),
+                                                with_adx=True)
+        return variant_cache[key]
+
     def stale_match(i: int, b0: int, fstart: int, e: EvalRow, extra: tuple) -> float | None:
         """Newest OLDER 15m state (beyond STALE_S, back to the previous bar's
         last window) that reproduces live's side, printed close and ADX-14.
@@ -680,6 +699,7 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
     bar_rows: list[dict] = []
     mode_notes: dict = {}
     staleness: list[float] = []
+    prev_bar_frames: list[str] = []
     evals_checked = 0
     not_comparable = 0
     adx_gap_max = 0.0
@@ -797,6 +817,21 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
                     rch = [x for x in rch if x]
                     if rch and not any(all(_close(a, b) for a, b in zip(e.channel, x)) for x in rch):
                         cls = "candle_mismatch"
+                # Live's frame may lack the current bar entirely (no row yet at
+                # the venue). Reproduce that exactly; a SIGNAL from it is a real
+                # finding (a decision on the previous bar), a no-signal is not.
+                if cls is not None:
+                    pb = prev_bar_frame(i)
+                    # positive fingerprint REQUIRED (exact ADX, and the printed
+                    # close when there is one) — an absent fingerprint must
+                    # never explain a divergence away
+                    if pb is not None and pb["side"] == e.side \
+                            and e.adx is not None and pb.get("adx") is not None \
+                            and abs(pb["adx"] - e.adx) <= 1e-3 \
+                            and (e.close is None
+                                 or _close(e.close, float(tf_rows[i - 1]["close"]))):
+                        prev_bar_frames.append(iso(e.t))
+                        cls = "previous_bar_signal" if e.side != "none" else None
                 # Only a FINGERPRINT mismatch may be explained by an older
                 # frame. A side divergence never is: the live candle cache is
                 # bounded (CANDLE_CACHE_TTL_MAX_S, 300 s on the VM, inside
@@ -866,6 +901,8 @@ def analyse_leg(leg: Leg, bundle: dict, since: float, until: float, *,
         "bars": bar_rows,
         "replay_calls": rep.calls,
         "mode_notes": mode_notes,
+        "frames_without_current_bar": {"n": len(prev_bar_frames),
+                                       "examples": prev_bar_frames[:5]},
         "stale_frames": {"n": len(staleness),
                          "p50_s": _pct(staleness, 50), "p90_s": _pct(staleness, 90),
                          "max_s": max(staleness) if staleness else None,
@@ -900,7 +937,7 @@ def _signal_windows(cache: dict) -> list[str]:
     """15m windows where every plausible replay state signals (robust)."""
     outl = []
     for key, vs in cache.items():
-        if key[0] in ("closed", "x", "adx") or not isinstance(vs, list):
+        if key[0] in ("closed", "x", "adx", "prevframe") or not isinstance(vs, list):
             continue
         sides = {v["side"] for v in vs}
         if "none" not in sides:
@@ -911,7 +948,7 @@ def _signal_windows(cache: dict) -> list[str]:
 def _none_windows(cache: dict) -> list[str]:
     """15m windows where every plausible replay state is no-signal (robust)."""
     return sorted(iso(k[1]) for k, vs in cache.items()
-                  if k[0] not in ("closed", "x", "adx") and isinstance(vs, list)
+                  if k[0] not in ("closed", "x", "adx", "prevframe") and isinstance(vs, list)
                   and {v["side"] for v in vs} == {"none"})
 
 
