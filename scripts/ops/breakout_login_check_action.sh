@@ -191,7 +191,10 @@
 # refused), the kill switch is PROP_EXECUTOR_MODE_<ACCOUNT> (never the global
 # PROP_EXECUTOR_MODE), state lives under accounts/<account>/{feed,executor},
 # the login check SAVES a session there (--storage-state) for the executor
-# modes to reuse, and executor-enable/disable-timer refuse.
+# modes to reuse, and executor-enable/disable-timer install / enable / disable
+# that account's OWN instance ict-prop-executor@<account>.timer (never
+# breakout_1's ict-prop-executor.timer); enable is refused unless the account's
+# ict-prop-feed@<account>.timer is active (TRADEIFY-EXECUTOR, 2026-10-03).
 #
 # Takes the same flock as the scheduled feed (${BASE}/login.lock; for a
 # non-breakout account only around the venv/Chromium bootstrap, then its own
@@ -302,10 +305,46 @@ fi
 TIMER_SRC="${REPO_DIR}/deploy/opt-in/ict-prop-executor.timer"
 if { [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executor-disable-timer" ]; } \
         && [ "${ACCOUNT}" != "breakout_1" ]; then
-    # ict-prop-executor.timer runs breakout_1 only. A second account's executor
-    # timer is its go-live step and is not built here (TRADEIFY-WIRE PR C).
-    log "${EXEC_MODE}: refused for ${ACCOUNT} — the executor timer is breakout_1's; a per-account executor timer is not built"
-    exit 1
+    # ict-prop-executor.timer runs breakout_1 only and is untouched here. Any
+    # other account gets its OWN instance of the template
+    # ict-prop-executor@<account> (TRADEIFY-EXECUTOR, 2026-10-03), whose tick
+    # uses only that account's session, state, lock and
+    # PROP_EXECUTOR_MODE_<ACCOUNT> (scripts/ops/prop_executor_tick.sh).
+    case "${ACCOUNT}" in
+        ''|*[!a-z0-9_]*) log "${EXEC_MODE}: refused — '${ACCOUNT}' is not a plain prop account id"; exit 1 ;;
+    esac
+    if ! (cd "${REPO_DIR}" && python3 scripts/prop/prop_env_keys.py "${ACCOUNT}" >/dev/null); then
+        log "${EXEC_MODE}: refused — ${ACCOUNT} has no entry in config/prop_platforms.yaml"
+        exit 1
+    fi
+    if ! sudo -n true >/dev/null 2>&1; then
+        log "environment: ${EXEC_MODE} needs passwordless sudo"
+        exit 5
+    fi
+    X_UNIT="ict-prop-executor@${ACCOUNT}"
+    if [ "${EXEC_MODE}" = "executor-enable-timer" ]; then
+        # The executor never logs in: without the account's own feed keeping a
+        # session it could only exit 6 every tick. Enable the feed first.
+        feed_state="$(systemctl is-active "ict-prop-feed@${ACCOUNT}.timer" 2>/dev/null || true)"
+        if [ "${feed_state}" != "active" ]; then
+            log "${EXEC_MODE}: refused — ict-prop-feed@${ACCOUNT}.timer is '${feed_state:-unknown}', not active (enable it first: apply: feed-enable-timer)"
+            exit 1
+        fi
+        for f in deploy/ict-prop-executor@.service deploy/opt-in/ict-prop-executor@.timer; do
+            [ -f "${REPO_DIR}/${f}" ] || { log "missing ${f}"; exit 1; }
+        done
+        sudo -n install -m 0644 "${REPO_DIR}/deploy/ict-prop-executor@.service" /etc/systemd/system/ict-prop-executor@.service
+        sudo -n install -m 0644 "${REPO_DIR}/deploy/opt-in/ict-prop-executor@.timer" /etc/systemd/system/ict-prop-executor@.timer
+        sudo -n systemctl daemon-reload
+        sudo -n systemctl enable --now "${X_UNIT}.timer"
+    else
+        sudo -n systemctl disable --now "${X_UNIT}.timer" 2>/dev/null || true
+    fi
+    state="$(systemctl is-active "${X_UNIT}.timer" 2>/dev/null || true)"
+    log "${EXEC_MODE}: ${X_UNIT}.timer is now '${state}' (the mode itself is ${MODE_KEY} in .env; read it with get-env)"
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"timer\": \"${state}\", \"unit\": \"${X_UNIT}.timer\"}" >/dev/null || true
+    exit 0
 fi
 # probe-ticket's symbol (TRADEIFY-GOLIVE, manager 21:35Z 2026-10-02): an
 # optional ``symbols:`` line with EXACTLY ONE venue symbol selects it; nothing

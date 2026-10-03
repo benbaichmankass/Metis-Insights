@@ -134,6 +134,11 @@ EXPECTED_SERVICES = {
     # deploy/opt-in/ (never auto-enabled); the unit is in DEFAULT_SKIP because
     # a live-mode cycle can place orders.
     "ict-prop-executor.service",
+    # 2026-10-03 (TRADEIFY-EXECUTOR): per-account TEMPLATE of the same executor
+    # (ict-prop-executor@<account>). install_systemd_units.sh skips *@*;
+    # installed and enabled only by breakout-login-check apply:
+    # executor-enable-timer for a non-breakout account.
+    "ict-prop-executor@.service",
     # 2026-07-19: daily Bybit funding pull (BL-20260719-FUNDING-NO-TIMER, PR #6901).
     # Timer-fired oneshot (ict-exchange-funding-pull.timer) that runs the funding
     # puller so the M24 go-forward fee+funding capture accrues without manual runs.

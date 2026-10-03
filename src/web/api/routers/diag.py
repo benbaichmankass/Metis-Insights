@@ -336,6 +336,12 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # confirm it is off, and tail its redacted cycle journal once enabled.
     "ict-prop-executor.service",
     "ict-prop-executor.timer",
+    # 2026-10-03 (TRADEIFY-EXECUTOR) — the per-account executor INSTANCE for
+    # tradeify_1 (template deploy/ict-prop-executor@.service, opt-in timer);
+    # queryable so a session can confirm it is on/off and tail its cycle
+    # journal (account, env_mode) without SSH.
+    "ict-prop-executor@tradeify_1.service",
+    "ict-prop-executor@tradeify_1.timer",
     "ict-exchange-funding-pull.service",
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",
