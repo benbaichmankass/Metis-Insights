@@ -2951,6 +2951,56 @@ def mgc_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
 
 
 
+#: leg -> open (epoch s) of the stale last bar this process already logged.
+_SESSION_BAR_LOGGED: dict[str, float] = {}
+
+
+def _fetch_session_frame(name: str, symbol: str, timeframe: str, exchange: Any,
+                         *, now: float | None = None) -> tuple[Any, str | None]:
+    """Candles for a US-session ``decision_bar: forming`` leg: ``(frame, skip)``.
+
+    WHY (PREVBAR, 2026-10-03): such a leg decides on the frame's LAST row as the
+    session's still-forming bar. At the US open that row was the PREVIOUS
+    session's bar. On 2026-09-28 the first fetch after the 13:30Z open (13:31Z)
+    returned a 1d frame ending in Friday 09-25's bar. The candle cache
+    (``CANDLE_CACHE_TTL_MAX_S`` = 300 s live) then served that frame to the
+    13:33Z and 13:35Z ticks. ``slv_pullback_1d`` and ``gdx_pullback_1d`` each
+    printed three buys on Friday's bar, each with an identical adx_14
+    fingerprint. Both flipped to ``none`` at 13:37Z on the first fresh frame,
+    which held Monday's bar. Source: ``signals`` rows via ``/api/diag/audit_query``,
+    read 2026-10-03.
+
+    So: a frame whose last bar has already CLOSED (``closed_bars.last_bar_is_forming``
+    is False) is not this session's decision bar. Re-read it once, bypassing
+    the cache, because a cached copy may predate the bar's publication. If the
+    venue still has not published the session's bar, return the skip reason
+    ``session_bar_not_published``: no decision is made on the old bar, and the
+    next tick tries again. An unknown timeframe or an unreadable timestamp is
+    passed through unchanged, because refusing needs certainty.
+    """
+    from src.runtime.closed_bars import TF_SECONDS, _epoch_seconds, _last_timestamp, last_bar_is_forming
+    from src.runtime.market_data import fetch_candles
+    import time as _time
+    frame = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if frame is None or not TF_SECONDS.get(str(timeframe)):
+        return frame, None
+    now_s = _time.time() if now is None else float(now)
+    if last_bar_is_forming(frame, timeframe, now=now_s) or _epoch_seconds(_last_timestamp(frame)) is None:
+        return frame, None
+    frame = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200,
+                          bypass_cache=True)
+    if frame is None or last_bar_is_forming(frame, timeframe, now=now_s):
+        return frame, None
+    last_open = _epoch_seconds(_last_timestamp(frame))
+    if _SESSION_BAR_LOGGED.get(name) != last_open:
+        _SESSION_BAR_LOGGED[name] = last_open
+        logger.info(
+            "%s: venue has not published this session's %s bar yet (last bar opened "
+            "%s is already closed) — not deciding on the previous bar; retrying next tick",
+            name, timeframe, last_open)
+    return frame, "session_bar_not_published"
+
+
 def spy_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """SPY daily LONG-ONLY trend-follower (M15 Phase 4 buildout, S-M15-PHASE4).
 
@@ -2966,7 +3016,6 @@ def spy_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -3000,7 +3049,13 @@ def spy_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("spy_trend_long_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("spy_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "spy_trend_long_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"spy_trend_long_1d: no candle data returned for symbol={symbol} "
@@ -3114,7 +3169,6 @@ def iwm_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -3148,7 +3202,13 @@ def iwm_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("iwm_trend_long_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("iwm_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "iwm_trend_long_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"iwm_trend_long_1d: no candle data returned for symbol={symbol} "
@@ -3262,7 +3322,6 @@ def splg_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -3296,7 +3355,13 @@ def splg_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("splg_trend_long_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("splg_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "splg_trend_long_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"splg_trend_long_1d: no candle data returned for symbol={symbol} "
@@ -3411,7 +3476,6 @@ def scha_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -3445,7 +3509,13 @@ def scha_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("scha_trend_long_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("scha_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "scha_trend_long_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"scha_trend_long_1d: no candle data returned for symbol={symbol} "
@@ -3556,7 +3626,6 @@ def qqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -3590,7 +3659,13 @@ def qqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("qqq_trend_long_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("qqq_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "qqq_trend_long_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"qqq_trend_long_1d: no candle data returned for symbol={symbol} "
@@ -3702,7 +3777,6 @@ def tqqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -3736,7 +3810,13 @@ def tqqq_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("tqqq_trend_long_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("tqqq_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "tqqq_trend_long_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"tqqq_trend_long_1d: no candle data returned for symbol={symbol} "
@@ -3842,7 +3922,6 @@ def qld_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -3876,7 +3955,13 @@ def qld_trend_long_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("qld_trend_long_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("qld_trend_long_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "qld_trend_long_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"qld_trend_long_1d: no candle data returned for symbol={symbol} "
@@ -3985,7 +4070,6 @@ def gld_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4019,7 +4103,13 @@ def gld_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("gld_pullback_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("gld_pullback_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "gld_pullback_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"gld_pullback_1d: no candle data returned for symbol={symbol} "
@@ -4112,7 +4202,6 @@ def iaum_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4146,7 +4235,13 @@ def iaum_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("iaum_pullback_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("iaum_pullback_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "iaum_pullback_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"iaum_pullback_1d: no candle data returned for symbol={symbol} "
@@ -4239,7 +4334,6 @@ def tlt_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4273,7 +4367,13 @@ def tlt_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("tlt_pullback_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("tlt_pullback_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "tlt_pullback_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"tlt_pullback_1d: no candle data returned for symbol={symbol} "
@@ -4366,7 +4466,6 @@ def slv_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4400,7 +4499,13 @@ def slv_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("slv_pullback_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("slv_pullback_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "slv_pullback_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"slv_pullback_1d: no candle data returned for symbol={symbol} "
@@ -4493,7 +4598,6 @@ def gdx_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4527,7 +4631,13 @@ def gdx_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("gdx_pullback_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("gdx_pullback_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "gdx_pullback_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"gdx_pullback_1d: no candle data returned for symbol={symbol} "
@@ -4621,7 +4731,6 @@ def ief_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4655,7 +4764,13 @@ def ief_pullback_1d_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1d")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("ief_pullback_1d", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("ief_pullback_1d", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "ief_pullback_1d", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"ief_pullback_1d: no candle data returned for symbol={symbol} "
@@ -4750,7 +4865,6 @@ def gld_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4784,7 +4898,13 @@ def gld_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1h")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("gld_pullback_1h", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("gld_pullback_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "gld_pullback_1h", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"gld_pullback_1h: no candle data returned for symbol={symbol} "
@@ -4880,7 +5000,6 @@ def slv_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -4914,7 +5033,13 @@ def slv_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1h")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("slv_trend_1h", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("slv_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "slv_trend_1h", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"slv_trend_1h: no candle data returned for symbol={symbol} "
@@ -5012,7 +5137,6 @@ def spy_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -5046,7 +5170,13 @@ def spy_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1h")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("spy_pullback_1h", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("spy_pullback_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "spy_pullback_1h", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"spy_pullback_1h: no candle data returned for symbol={symbol} "
@@ -5142,7 +5272,6 @@ def qqq_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -5176,7 +5305,13 @@ def qqq_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1h")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("qqq_pullback_1h", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("qqq_pullback_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "qqq_pullback_1h", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"qqq_pullback_1h: no candle data returned for symbol={symbol} "
@@ -5272,7 +5407,6 @@ def tlt_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.htf_pullback_trend_2h import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -5306,7 +5440,13 @@ def tlt_pullback_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1h")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("tlt_pullback_1h", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("tlt_pullback_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "tlt_pullback_1h", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"tlt_pullback_1h: no candle data returned for symbol={symbol} "
@@ -5403,7 +5543,6 @@ def uso_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     from src.units.strategies import load_strategy_config
     from src.units.strategies.trend_donchian import order_package
-    from src.runtime.market_data import fetch_candles
     from src.runtime.market_hours import is_market_open
 
     try:
@@ -5437,7 +5576,13 @@ def uso_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     timeframe = str(cfg_yaml.get("timeframe") or "1h")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df, _session_skip = _fetch_session_frame("uso_trend_1h", symbol, timeframe, exchange)
+    if _session_skip is not None:
+        return _with_signal_package("uso_trend_1h", {
+            "symbol": symbol,
+            "side": "none",
+            "meta": {"strategy_name": "uso_trend_1h", "reason": _session_skip},
+        })
     if candles_df is None:
         raise RuntimeError(
             f"uso_trend_1h: no candle data returned for symbol={symbol} "
