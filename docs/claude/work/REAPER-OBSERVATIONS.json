@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-03T05:45:47Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-03T05:41:05Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-02T23:33:14Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-03T05:41:05Z",
+  "updated_at": "2026-10-03T05:45:47Z",
   "latest": {
-    "generated_at": "2026-10-03T05:41:05Z",
+    "generated_at": "2026-10-03T05:45:47Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 352,
+      "unregistered_but_attributable_sessions": 351,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1069,9 +1069,6 @@
         ],
         "session_012TCEVvu215RLhuY5EkAy8k": [
           "claude/m12-s1-followups"
-        ],
-        "session_012X4AJaScSxML6HaJLuXpzV": [
-          "claude/prop-trail"
         ],
         "session_012atopaewbCQy8Fn3ex9obD": [
           "claude/e5-research-result-contract",
