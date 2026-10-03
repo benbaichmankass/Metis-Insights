@@ -97,8 +97,9 @@ jobs:
        contains(github.event.issue.labels.*.name, 'live-replay-parity'))
       )
     runs-on: ubuntu-latest
-    # the commit-to-main wait below is 50 min: this repo's pytest-run alone has
-    # taken >30 min on an automation PR (#15863, 2026-10-03)
+    # the commit-to-main step owns its own merge wait (shared default — callers
+    # may not override it, tests/test_commit_to_main_callers.py); the job
+    # budget leaves room for the replay plus that wait.
     timeout-minutes: 80
     env:
       VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
@@ -211,7 +212,6 @@ jobs:
             plus a pipeline row per new finding. Data-only, no live-path change.
           branch-prefix: automation/live-parity
           verify-merged: "true"
-          verify-timeout-minutes: "50"
 
       - name: Ping when a real-money leg diverged / could not be checked / a control failed
         if: steps.inp.outputs.ref == '' && env.PARITY_ALERTS == 'on' && steps.run.outputs.ping_needed == 'true'
