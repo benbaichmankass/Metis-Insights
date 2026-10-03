@@ -861,7 +861,7 @@ def liveness(bundle: dict, since: float) -> dict:
             "accounts_seen": sorted({a for c in chains for a in c["accounts"]})}
 
 
-def historical_positive(results: list[dict], bundle: dict, legs: list[Leg]) -> dict:
+def historical_positive(results: list[dict], bundle: dict) -> dict:
     """Every live package of a covered leg, inside the checked bars, must sit in
     a matched_signal bar. Plus the named ANCHORS, individually."""
     by_leg = {r["leg"]: r for r in results}
@@ -1003,7 +1003,7 @@ def run(bundle: dict, legs: list[Leg], since: float, until: float) -> dict:
     divs_all = sum(r["divergences"] or 0 for r in results if r["state"] == "checked")
     controls = {
         "planted_defect": planted_defect(legs, results, bundle, since, until),
-        "historical_positive": historical_positive(results, bundle, legs),
+        "historical_positive": historical_positive(results, bundle),
         "liveness": liveness(bundle, since),
     }
     ctl_bad = [k for k, v in controls.items() if v["state"] in ("fail",)]

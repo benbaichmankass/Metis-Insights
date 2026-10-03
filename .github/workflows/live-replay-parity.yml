@@ -28,6 +28,9 @@ name: live-replay-parity
 # An issue body line `ref: <branch>` runs THAT branch's script (iteration);
 # such a run posts its result on the issue and commits nothing.
 
+# no-durable-result: ops verification, not a research measurement; its result
+# IS durable — committed to comms/live_parity/ by the commit-to-main step below.
+
 on:
   schedule:
     - cron: "35 6 * * *"
