@@ -218,6 +218,7 @@ def build(*, today: date | None = None, root: Path | None = None) -> dict[str, A
         "forDate": today.isoformat(),
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "researchThroughput": _research_throughput(root),
+        "liveParity": _live_parity_line(root),
         "pipeline": {"stats": pipe_stats, "section0Lines": section0_lines,
                      "healthy": pipe_res.healthy},
         "checklistState": checklist_state,
@@ -336,6 +337,27 @@ def _research_throughput(root: Path | None) -> dict | None:
         return None
 
 
+_LIVE_PARITY = Path("comms/live_parity/latest.json")
+
+
+def _live_parity_line(root: Path | None) -> str:
+    """ONE line: legs checked, bars checked, divergences = N — or COULD NOT
+    CHECK. Rendered from the committed artifact of the daily
+    live-replay-parity workflow; an absent/unreadable artifact is a declared
+    hole, never "0 divergences"."""
+    doc, state = read_json(_LIVE_PARITY, root)
+    try:
+        from scripts.ops.live_replay_parity import summary_line
+    except Exception:  # noqa: BLE001 -- a hole, declared below, not a crash of the brief
+        return f"Live↔replay parity — COULD NOT BE READ (summary module failed to import; artifact {state})"
+    if state != "read":
+        return f"Live↔replay parity — COULD NOT CHECK ({_HOLE[state]} — `{_LIVE_PARITY}`)"
+    try:
+        return summary_line(doc)
+    except Exception:  # noqa: BLE001
+        return f"Live↔replay parity — COULD NOT BE READ (`{_LIVE_PARITY}` has an unexpected shape)"
+
+
 def _research_lines(b: dict) -> list[str]:
     t = b.get("researchThroughput")
     if t is None:
@@ -344,10 +366,15 @@ def _research_lines(b: dict) -> list[str]:
     return [f"### 🔬 {summary_line(t)}", ""]
 
 
+def _parity_lines(b: dict) -> list[str]:
+    line = b.get("liveParity") or "Live↔replay parity — COULD NOT CHECK (not computed)"
+    return [f"### 🔁 {line}", ""]
+
+
 def _section4(b: dict) -> list[str]:
     if b["checklistState"] != "read":
         return ["---", "", "## §4 — WHAT IS RUNNING", "",
-                f"{_HOLE[b['checklistState']]} — `docs/claude/work/MANAGER-CHECKLIST.json`.", ""] + _research_lines(b)
+                f"{_HOLE[b['checklistState']]} — `docs/claude/work/MANAGER-CHECKLIST.json`.", ""] + _research_lines(b) + _parity_lines(b)
     ck = b["checklist"]
     running_total = sum(len(ck["byState"].get(s, [])) for s in _RUNNING_STATES)
     L = ["---", "", f"## §4 — WHAT IS RUNNING ({running_total})", ""]
@@ -378,7 +405,7 @@ def _section4(b: dict) -> list[str]:
         L += ["_Everything else, by count only (nothing here needs your eyes "
               "this morning): " + ", ".join(f"`{k}` {v}" for k, v in other.items())
               + "._", ""]
-    return L + _research_lines(b)
+    return L + _research_lines(b) + _parity_lines(b)
 
 
 def _section5(b: dict) -> list[str]:
