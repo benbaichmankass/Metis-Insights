@@ -213,3 +213,71 @@ def test_empty_diff_fails_safe_to_restart(fake_repo):
     res = _run(fake_repo)
     assert res.returncode == 0, res.stderr
     assert "ict-trader-live.service" in _restarted(fake_repo)
+
+
+# RESTART-SAFE (PI-20261003-OJTPWGCC-0001): paths no long-running process
+# imports or caches. 45 of 112 trader restarts in 2026-09-30..10-03 changed only
+# these (research queue/results, CI-committed runtime_logs, evidence records).
+@pytest.mark.parametrize("path", [
+    "research/queue/RQ-20261002-001.yaml",
+    "research/results/RQ-20261002-002/37086545949.jsonl",
+    "research/THEMES.yaml",
+    "runtime_logs/replay_pregate/latest.json",
+    "scripts/research/regime_matrix.py",
+    "scripts/ci/check_wip_ceiling.py",
+    "comms/research/d3_realized_slippage/2026-09-24.json",
+    "comms/strategy_evidence/trend_donchian_sol_4h.json",
+])
+def test_widened_non_runtime_paths_skip_restart(fake_repo, path):
+    fake_repo["diff_files"].write_text(f"docs/x.md\n{path}\n")
+    res = _run(fake_repo)
+    assert res.returncode == 0, res.stderr
+    assert _restarted(fake_repo) == []
+    assert "Non-runtime commit" in res.stdout
+
+
+@pytest.mark.parametrize("path", [
+    "scripts/ops/pipeline.py",            # imported by the web API
+    "scripts/ml/replay_pregate_live.py",  # imported by src/
+    "scripts/prop/prop_executor_tick.py",  # coupled to src/prop
+    "comms/macro/valuation_snapshots.jsonl",
+    "comms/strategy_reviews/2026-09-01/INDEX.json",
+    "researchy/x.py",                      # prefix must be a directory
+    "config/strategies.yaml",
+])
+def test_runtime_paths_next_to_the_widened_set_still_restart(fake_repo, path):
+    fake_repo["diff_files"].write_text(f"research/queue/x.yaml\n{path}\n")
+    res = _run(fake_repo)
+    assert res.returncode == 0, res.stderr
+    assert "ict-trader-live.service" in _restarted(fake_repo)
+
+
+def test_diff_reports_both_sides_of_a_rename_so_a_move_out_of_src_restarts(tmp_path):
+    """Review 3: with rename detection `git diff --name-only` names only the NEW
+    path, so src/x.py -> scripts/research/x.py would read as research-only and
+    skip the restart. Runs the script's own diff command + filter on a real repo."""
+    import re as _re
+    text = DEPLOY_SCRIPT.read_text()
+    diff_line = next(ln for ln in text.splitlines() if "CHANGED_FILES=\"$(git diff" in ln)
+    assert "--no-renames" in diff_line
+    regex = _re.search(r"grep -vE '([^']+)'", text).group(1)
+    repo = tmp_path / "r"
+    repo.mkdir()
+    run = lambda *a: subprocess.run(a, cwd=repo, check=True, capture_output=True, text=True)  # noqa: E731
+    run("git", "init", "-q")
+    run("git", "config", "user.email", "t@t")
+    run("git", "config", "user.name", "t")
+    (repo / "src").mkdir()
+    (repo / "src" / "x.py").write_text("print('runtime code')\n" * 20)
+    run("git", "add", "-A")
+    run("git", "commit", "-qm", "a")
+    base = run("git", "rev-parse", "HEAD").stdout.strip()
+    (repo / "scripts" / "research").mkdir(parents=True)
+    run("git", "mv", "src/x.py", "scripts/research/x.py")
+    run("git", "commit", "-qm", "b")
+    head = run("git", "rev-parse", "HEAD").stdout.strip()
+    with_renames = run("git", "diff", "--name-only", base, head).stdout.split()
+    no_renames = run("git", "diff", "--no-renames", "--name-only", base, head).stdout.split()
+    keep = lambda files: [f for f in files if not _re.match(regex, f)]  # noqa: E731
+    assert keep(with_renames) == []                     # the defect: would skip the restart
+    assert keep(no_renames) == ["src/x.py"]             # the fix: restarts

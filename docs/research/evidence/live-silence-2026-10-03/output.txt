@@ -1,0 +1,96 @@
+
+=== xrp_pullback_2h closed-bar replay: 800 bars 2026-07-28 12:00:00+00:00 .. 2026-10-03 02:00:00+00:00  decision_bar=forming side_filter=both
+  SIG ('2026-09-19 22:00:00+00:00', 'long', 0.8513, True)
+  SIG ('2026-09-20 08:00:00+00:00', 'long', 0.4749, True)
+  SIG ('2026-09-20 14:00:00+00:00', 'long', 0.4267, True)
+  SIG ('2026-09-22 06:00:00+00:00', 'long', 0.4169, True)
+  SIG ('2026-09-23 12:00:00+00:00', 'long', 0.6353, True)
+  SIG ('2026-09-25 18:00:00+00:00', 'long', 0.1602, True)
+  SIG ('2026-09-25 22:00:00+00:00', 'long', 0.1677, True)
+  valid-side signals total 32 over 800 bars (0.0400/bar); since 09-28T03:35: 0 over 60 bars
+  post-09-28 no-signal reasons: {'no trend-pullback-confirmation setup on ': 61, 'ADX 11.97 < adx_min 25.0 — regime filter': 1}
+  forming-bar 15m-checkpoint signals since 2026-09-22 20:00:00+00:00: 22
+   F ('2026-09-23 11:00:00+00:00', '2026-09-23 10:00:00+00:00', 'long', 0.5124, True)
+   F ('2026-09-23 13:45:00+00:00', '2026-09-23 12:00:00+00:00', 'long', 0.6213, True)
+   F ('2026-09-24 14:15:00+00:00', '2026-09-24 14:00:00+00:00', 'short', 0.557, True)
+   F ('2026-09-24 15:00:00+00:00', '2026-09-24 14:00:00+00:00', 'short', 0.5246, True)
+   F ('2026-09-24 15:15:00+00:00', '2026-09-24 14:00:00+00:00', 'short', 0.5211, True)
+   F ('2026-09-24 16:15:00+00:00', '2026-09-24 16:00:00+00:00', 'short', 0.583, True)
+   F ('2026-09-25 18:15:00+00:00', '2026-09-25 18:00:00+00:00', 'long', 0.161, True)
+   F ('2026-09-25 18:30:00+00:00', '2026-09-25 18:00:00+00:00', 'long', 0.1614, True)
+   F ('2026-09-25 18:45:00+00:00', '2026-09-25 18:00:00+00:00', 'long', 0.1602, True)
+   F ('2026-09-25 19:00:00+00:00', '2026-09-25 18:00:00+00:00', 'long', 0.1632, True)
+   F ('2026-09-25 19:15:00+00:00', '2026-09-25 18:00:00+00:00', 'long', 0.1618, True)
+   F ('2026-09-25 19:30:00+00:00', '2026-09-25 18:00:00+00:00', 'long', 0.163, True)
+   F ('2026-09-25 19:45:00+00:00', '2026-09-25 18:00:00+00:00', 'long', 0.1641, True)
+   F ('2026-09-25 20:30:00+00:00', '2026-09-25 20:00:00+00:00', 'long', 0.1711, True)
+   F ('2026-09-25 22:15:00+00:00', '2026-09-25 22:00:00+00:00', 'long', 0.1723, True)
+   F ('2026-09-25 22:30:00+00:00', '2026-09-25 22:00:00+00:00', 'long', 0.1717, True)
+   F ('2026-09-25 22:45:00+00:00', '2026-09-25 22:00:00+00:00', 'long', 0.1667, True)
+   F ('2026-09-25 23:00:00+00:00', '2026-09-25 22:00:00+00:00', 'long', 0.1677, True)
+   F ('2026-09-25 23:15:00+00:00', '2026-09-25 22:00:00+00:00', 'long', 0.1674, True)
+   F ('2026-09-25 23:30:00+00:00', '2026-09-25 22:00:00+00:00', 'long', 0.1685, True)
+   F ('2026-09-25 23:45:00+00:00', '2026-09-25 22:00:00+00:00', 'long', 0.1673, True)
+   F ('2026-09-26 01:30:00+00:00', '2026-09-26 00:00:00+00:00', 'long', 0.1681, True)
+
+=== ada_pullback_2h closed-bar replay: 800 bars 2026-07-28 12:00:00+00:00 .. 2026-10-03 02:00:00+00:00  decision_bar=forming side_filter=both
+  SIG ('2026-09-19 08:00:00+00:00', 'long', 0.5113, True)
+  SIG ('2026-09-19 22:00:00+00:00', 'long', 0.5035, True)
+  SIG ('2026-09-20 08:00:00+00:00', 'long', 0.7193, True)
+  SIG ('2026-09-20 10:00:00+00:00', 'long', 0.6839, True)
+  SIG ('2026-09-20 12:00:00+00:00', 'long', 0.6389, True)
+  SIG ('2026-09-20 14:00:00+00:00', 'long', 0.5076, True)
+  SIG ('2026-09-24 16:00:00+00:00', 'short', 0.2696, True)
+  SIG ('2026-09-26 06:00:00+00:00', 'long', 0.4536, True)
+  SIG ('2026-09-26 10:00:00+00:00', 'long', 0.4269, True)
+  SIG ('2026-09-26 22:00:00+00:00', 'long', 0.348, True)
+  valid-side signals total 39 over 800 bars (0.0488/bar); since 09-28T03:35: 0 over 60 bars
+  post-09-28 no-signal reasons: {'no trend-pullback-confirmation setup on ': 62}
+  forming-bar 15m-checkpoint signals since 2026-09-22 20:00:00+00:00: 26
+   F ('2026-09-24 17:45:00+00:00', '2026-09-24 16:00:00+00:00', 'short', 0.267, True)
+   F ('2026-09-24 18:15:00+00:00', '2026-09-24 18:00:00+00:00', 'short', 0.2791, True)
+   F ('2026-09-26 04:15:00+00:00', '2026-09-26 04:00:00+00:00', 'long', 0.3562, True)
+   F ('2026-09-26 05:00:00+00:00', '2026-09-26 04:00:00+00:00', 'long', 0.3556, True)
+   F ('2026-09-26 07:15:00+00:00', '2026-09-26 06:00:00+00:00', 'long', 0.4628, True)
+   F ('2026-09-26 07:30:00+00:00', '2026-09-26 06:00:00+00:00', 'long', 0.4691, True)
+   F ('2026-09-26 07:45:00+00:00', '2026-09-26 06:00:00+00:00', 'long', 0.4616, True)
+   F ('2026-09-26 08:45:00+00:00', '2026-09-26 08:00:00+00:00', 'long', 0.4463, True)
+   F ('2026-09-26 10:15:00+00:00', '2026-09-26 10:00:00+00:00', 'long', 0.4457, True)
+   F ('2026-09-26 10:30:00+00:00', '2026-09-26 10:00:00+00:00', 'long', 0.4315, True)
+   F ('2026-09-26 10:45:00+00:00', '2026-09-26 10:00:00+00:00', 'long', 0.4404, True)
+   F ('2026-09-26 11:00:00+00:00', '2026-09-26 10:00:00+00:00', 'long', 0.4184, True)
+   F ('2026-09-26 11:15:00+00:00', '2026-09-26 10:00:00+00:00', 'long', 0.4386, True)
+   F ('2026-09-26 11:30:00+00:00', '2026-09-26 10:00:00+00:00', 'long', 0.4112, True)
+   F ('2026-09-26 11:45:00+00:00', '2026-09-26 10:00:00+00:00', 'long', 0.4087, True)
+   F ('2026-09-26 12:15:00+00:00', '2026-09-26 12:00:00+00:00', 'long', 0.5234, True)
+   F ('2026-09-26 14:15:00+00:00', '2026-09-26 14:00:00+00:00', 'long', 0.5634, True)
+   F ('2026-09-26 14:45:00+00:00', '2026-09-26 14:00:00+00:00', 'long', 0.5586, True)
+   F ('2026-09-26 15:00:00+00:00', '2026-09-26 14:00:00+00:00', 'long', 0.5336, True)
+   F ('2026-09-26 15:15:00+00:00', '2026-09-26 14:00:00+00:00', 'long', 0.5103, True)
+   F ('2026-09-26 18:15:00+00:00', '2026-09-26 18:00:00+00:00', 'long', 0.5791, True)
+   F ('2026-09-26 22:15:00+00:00', '2026-09-26 22:00:00+00:00', 'long', 0.3614, True)
+   F ('2026-09-26 22:30:00+00:00', '2026-09-26 22:00:00+00:00', 'long', 0.3651, True)
+   F ('2026-09-26 23:15:00+00:00', '2026-09-26 22:00:00+00:00', 'long', 0.3587, True)
+   F ('2026-09-26 23:30:00+00:00', '2026-09-26 22:00:00+00:00', 'long', 0.3599, True)
+   F ('2026-09-26 23:45:00+00:00', '2026-09-26 22:00:00+00:00', 'long', 0.3544, True)
+
+=== trend_donchian_eth_4h closed-bar replay: 800 bars 2026-05-22 20:00:00+00:00 .. 2026-10-03 00:00:00+00:00  decision_bar=forming side_filter=both
+  SIG ('2026-09-15 12:00:00+00:00', 'short', 0.8507, True)
+  SIG ('2026-09-18 12:00:00+00:00', 'long', 1.0, True)
+  SIG ('2026-09-18 16:00:00+00:00', 'long', 0.883, True)
+  valid-side signals total 27 over 800 bars (0.0338/bar); since 09-28T03:35: 0 over 30 bars
+  post-09-28 no-signal reasons: {'confidence 0.3679 below min_confidence 0': 1, 'no breakout on the latest bar (close=264': 1, 'no breakout on the latest bar (close=266': 5, 'no breakout on the latest bar (close=267': 7, 'no breakout on the latest bar (close=268': 5, 'no breakout on the latest bar (close=271': 2, 'confidence 0.2261 below min_confidence 0': 1, 'no breakout on the latest bar (close=269': 4, 'no breakout on the latest bar (close=270': 3, 'no breakout on the latest bar (close=273': 1, 'no breakout on the latest bar (close=274': 1}
+  forming-bar 15m-checkpoint signals since 2026-09-22 20:00:00+00:00: 1
+   F ('2026-09-28 03:30:00+00:00', '2026-09-28 00:00:00+00:00', 'short', 0.6102, True)
+
+=== trend_donchian_xrp_4h closed-bar replay: 800 bars 2026-05-22 20:00:00+00:00 .. 2026-10-03 00:00:00+00:00  decision_bar=closed side_filter=short
+  SIG ('2026-09-14 16:00:00+00:00', 'long', 1.0, False)
+  SIG ('2026-09-15 16:00:00+00:00', 'short', 0.8325, True)
+  SIG ('2026-09-21 08:00:00+00:00', 'long', 1.0, False)
+  valid-side signals total 6 over 800 bars (0.0075/bar); since 09-28T03:35: 0 over 30 bars
+  post-09-28 no-signal reasons: {'trigger bar hour 0 in skip_hours [0] — t': 1, 'confidence 0.4139 below min_confidence 0': 1, 'no breakout on the latest bar (close=1.4': 16, 'no breakout on the latest bar (close=1.5': 12, 'confidence 0.1322 below min_confidence 0': 1}
+xrp_pullback_2h: Binance-spot baseline 2026-04-01..09-27: 106 signals / 2160 closed bars (0.0491/bar, ~2.94 expected per 60-bar window); fraction of 60-bar windows with 0 signals = 0.20; gaps(bars) median 3, p90 72, max 146; proxy check vs Bybit on 800 common bars: bybit sigs 32, binance 35, both 29; binance since 09-28: 0
+ada_pullback_2h: Binance-spot baseline 2026-04-01..09-27: 97 signals / 2160 closed bars (0.0449/bar, ~2.69 expected per 60-bar window); fraction of 60-bar windows with 0 signals = 0.28; gaps(bars) median 4, p90 75, max 222; proxy check vs Bybit on 800 common bars: bybit sigs 39, binance 42, both 39; binance since 09-28: 0
+trend_donchian_eth_4h: Binance-spot baseline 2026-04-01..09-27: 42 signals / 1080 closed bars (0.0389/bar, ~1.17 expected per 30-bar window); fraction of 30-bar windows with 0 signals = 0.26; gaps(bars) median 18, p90 56, max 76; proxy check vs Bybit on 800 common bars: bybit sigs 27, binance 27, both 27; binance since 09-28: 0
+trend_donchian_xrp_4h: Binance-spot baseline 2026-04-01..09-27: 7 signals / 1080 closed bars (0.0065/bar, ~0.19 expected per 30-bar window); fraction of 30-bar windows with 0 signals = 0.82; gaps(bars) median 148, p90 254, max 299; proxy check vs Bybit on 800 common bars: bybit sigs 6, binance 6, both 6; binance since 09-28: 0
+JOINT: fraction of 122h windows (Apr-Sep) with zero signals on ALL four legs = 0.033 over 2100 windows; longest joint-silent run = 168h

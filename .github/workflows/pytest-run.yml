@@ -103,7 +103,14 @@ permissions:
 jobs:
   pytest-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 -> 50 (2026-10-03, lane CI-TIMEOUT). The full suite had no headroom:
+    # of the last 100 completed runs on this workflow (run ids 37104578054..
+    # 37115481899, one page of the API, 2026-10-03 06:54Z-10:10Z) 26 ran longer
+    # than 8 min. Of the full-suite runs that reached the end, 11 succeeded at
+    # a median of 26.5 min (range 19.4-30.0, the slowest AT the old limit), and
+    # 6 pull_request runs (attempts 1-2 of run 37110623445 among them) were
+    # cancelled at 30.4-30.6 min by this limit. 50 gives ~1.7x the median.
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -1121,7 +1121,7 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
 
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
-                       *, arm: bool = False) -> Dict[str, Any]:
+                       *, arm: bool = False, rollout: Any = None) -> Dict[str, Any]:
         """Not built: the SL/TP edit flow of this terminal is unmeasured, and
         a guessed edit control on a live position is the wrong risk to take.
         The executor treats this as "could not amend" (alert, no click)."""

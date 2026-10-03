@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a run with historical_positive=pass and a per-class divergence breakdown in which every remaining divergence is explained (real defect filed, or instrument fixed), after which PARITY_ALERTS is set to on in the workflow; or killed with a reason",
+    "kind": "observation"
+  },
+  "id": "PI-20261003-LRP-CALIBRATE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane LIVE-PARITY session_014bomc3Y6kgwMFSqqGojcCp (manager session_01MM8o5js6TcDFeNAPBY4Ntv)",
+    "rerun": "Open an issue labelled live-replay-parity (body: days: 7); read the per-leg by-class table in its comment / comms/live_parity/latest.md."
+  },
+  "state": "done",
+  "terminal_reason": "Calibrated. Run 4 (workflow live-replay-parity run 37114827476, issue #15881, script at claude/live-replay-parity-calib2): planted_defect pass (3/3 plants flagged), historical_positive pass (36/36 live packages in matched-signal bars), liveness pass (103 chains); divergences 4094 -> 20 over 1307 bars / 27 legs. Fixed instrument causes: bash -e abort, candle-cache staleness bracket, per-bar decision-mode inference (xrp_4h was forming before 09-30), pre-09-30 open-package gate read from order_packages, prop/dry accounts, previous-bar frame detection. Residual ADX offset filed as PI-20261003-LRP-ADXRESIDUAL. PARITY_ALERTS set to on.",
+  "what": "Live-vs-replay parity check (scripts/ops/live_replay_parity.py) is mis-calibrated until shown otherwise. MEASURED: first real run, workflow live-replay-parity run 37106253401 (2026-10-03, window 2026-09-26..10-03, 27 legs / 9 real-money, 1311 bars) reported divergences=4094 and controls planted_defect=pass, historical_positive=FAIL, liveness=pass, and would have filed 42 pipeline rows. INFERRED (not yet checked): most of the 4094 are instrument artefacts (bar membership / session / ADX hull / tolerance), not 4094 live bugs, because LIVE-SILENCE (#15805) found replay agreement within ~15 min on the 4 bybit_2 legs. Until calibrated the workflow runs with PARITY_ALERTS=calibrating: results committed, no pipeline rows, no ping."
+}

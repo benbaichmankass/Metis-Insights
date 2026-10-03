@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a live-replay-parity run (comms/live_parity/latest.json) shows 0 candle_mismatch/live_only divergences attributable to cache staleness across a bar boundary on crypto forming legs over >=7 days, or the cache is made boundary-aware with a test, or killed with a reason",
+    "kind": "observation"
+  },
+  "id": "PI-20261003-APBY4NTV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv relaying lane RESTART-SAFE session_01TF8g3Zypj92cTnPxDJvmGw (PR #15894 report)",
+    "rerun": "For each crypto forming leg, compare live signals rows at the first tick after each bar boundary with the replay on the frame ending at that boundary (scripts/ops/live_replay_parity.py --days 7); count decisions whose frame's last bar predates the boundary."
+  },
+  "state": "queued",
+  "what": "Crypto decision_bar: forming legs read candles through the same 300s live candle cache (CANDLE_CACHE_TTL_MAX_S) that caused PI-20261003-LRP-PREVBAR on the US-session 1d legs: a frame cached just before a bar boundary can be served just after it, so the leg may decide the new bar on the previous bar's frame. Same defect class as PREVBAR (fix #15894 covers only the 19 US-session builders). NOT MEASURED -- raised by lane RESTART-SAFE 2026-10-03 from the code path, no live instance observed."
+}

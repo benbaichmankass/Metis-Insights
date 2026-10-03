@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline state update for PI-20261003-DEIFYDRY-0002 (re-check result at tick 0.001: tradeify_1 limit-price fill does not stick; next build named). Register only, Tier-1 by path; same self-land route as #15847/#15911/#15933."
+}
