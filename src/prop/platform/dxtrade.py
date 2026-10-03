@@ -2039,6 +2039,49 @@ ORDER_SURFACE_DUMP_JS = r"""
 }
 """
 
+# The ONE watchlist Ask "Buy" price button for ``target`` (slash form, e.g.
+# ETH/USD; whitespace ignored), TRADEIFY-GOLIVE guarded click (operator
+# 2026-10-03 "Approve the guarded click"). MEASURED order-surface-dump #15743:
+# the row's Ask td holds div.table--cell-ask > button[data-test-id=
+# watchlist_cell_button] with a hidden span.priceLabel "Buy". Click-free: it
+# only tags the button ``data-metis-ask-btn=1`` when EVERY check holds --
+# exactly one row whose first cell is the target and which has an Ask cell,
+# exactly one Ask cell in it, exactly one such button in that cell, its label
+# reads Buy, and elementFromPoint at its centre lands inside it. Returns
+# counts and the reason it refused; never text beyond the label and symbol.
+ASK_BUTTON_RESOLVE_JS = r"""
+([target]) => {
+  document.querySelectorAll('[data-metis-ask-btn]').forEach(e => e.removeAttribute('data-metis-ask-btn'));
+  const txt = e => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim();
+  const compact = v => String(v || '').replace(/\s+/g, '');
+  const rows = [...document.querySelectorAll('tr')].filter(r => r.cells && r.cells.length > 1
+    && r.cells[0].tagName === 'TD' && compact(txt(r.cells[0])) === compact(target)
+    && r.querySelector('.table--cell-ask'));
+  const out = {target, n_rows: rows.length, n_ask_cells: null, n_buttons: null, label: null,
+               box: null, inside: null, ok: false, why: null};
+  if (rows.length !== 1) { out.why = `${rows.length} watchlist row(s) for ${target} (need exactly 1)`; return out; }
+  const cells = [...rows[0].cells].filter(c => c.querySelector('.table--cell-ask'));
+  out.n_ask_cells = cells.length;
+  if (cells.length !== 1) { out.why = `${cells.length} Ask cell(s) in the row (need exactly 1)`; return out; }
+  const btns = [...cells[0].querySelectorAll('button[data-test-id=watchlist_cell_button]')];
+  out.n_buttons = btns.length;
+  if (btns.length !== 1) { out.why = `${btns.length} watchlist_cell_button(s) in the Ask cell (need exactly 1)`; return out; }
+  const b = btns[0];
+  const lab = b.querySelector('.priceLabel');
+  out.label = lab ? txt(lab).slice(0, 20) : null;
+  if (!lab || !/^buy$/i.test(txt(lab))) { out.why = `the Ask button's label reads ${JSON.stringify(out.label)}, not Buy`; return out; }
+  const r = b.getBoundingClientRect();
+  out.box = [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)];
+  if (!(r.width > 0 && r.height > 0)) { out.why = 'the Ask button is not visible'; return out; }
+  const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+  out.inside = !!(at && b.contains(at));
+  if (!out.inside) { out.why = 'elementFromPoint at the Ask button centre is not inside it'; return out; }
+  b.setAttribute('data-metis-ask-btn', '1');
+  out.ok = true;
+  return out;
+}
+"""
+
 CLEAR_INSTRUMENT_SEARCH_HIT_JS = r"""
 () => {
   document.querySelectorAll('[data-metis-search-hit]').forEach(
@@ -7075,6 +7118,133 @@ class DXtradeAdapter(PropPlatformAdapter):
                 page.evaluate(CLEAR_INSTRUMENT_SEARCH_HIT_JS)
             except Exception:
                 pass
+        return out
+
+    def _post_state(self, page: Any) -> Dict[str, Any]:
+        """Click-free: Used Margin, the working-Orders widget and visible dialogs."""
+        acct = self.read_account(page)
+        try:
+            orders = page.evaluate(INFO_PROBE_ORDERS_JS) or {"found": False, "why": "no result"}
+        except Exception as exc:
+            orders = {"found": False, "why": type(exc).__name__}
+        return {"margin_used": acct.margin_used,
+                "orders": {k: orders.get(k) for k in ("found", "n_rows", "why")},
+                "dialogs": self._visible_dialogs(page),
+                "flat_why": info_probe_flat_guard(acct, orders)}
+
+    def probe_ask_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """ONE guarded click on ``venue_symbol``'s watchlist Ask "Buy" price
+        button to open the order ticket (TRADEIFY-GOLIVE; operator 2026-10-03
+        "Approve the guarded click"; tradeify_1 only, via the tick's
+        ``probe_ticket_ask`` mode). Separate from open_order_ticket, which the
+        live place_bracket path uses and this never changes.
+
+        Refuses, clicking nothing, unless: no order form is already open; the
+        account reads flat (Used Margin 0 and the Orders widget read with no
+        row) and no dialog is open; ASK_BUTTON_RESOLVE_JS finds exactly one
+        matching button. Then it re-reads one-click IMMEDIATELY before the
+        click and aborts (logged in ``aborted``) unless it reads OFF on the
+        measured toggle. After the ONE click it records the form's fields
+        (label + value), buttons and the redacted panel structure, submits
+        nothing, and closes the form only with the ticket's own Cancel/Close
+        (``data-metis-btn=close``), pressing Escape only if that control is
+        absent. A Buy, Sell, Place or Submit control is never clicked. The
+        post-state must read flat with no new dialog; any difference is an
+        entry in ``alerts``."""
+        sym = str(venue_symbol or "").strip().upper()
+        target = self.search_query_for(sym, "slash")
+        out: Dict[str, Any] = {"symbol": sym, "target": target, "clicks": [], "refused": None,
+                               "aborted": None, "opened": False, "closed_via": None, "alerts": []}
+        try:
+            if self._find_form(page).get("found"):
+                out["refused"] = "an order form is already open (nothing to measure from a clean state)"
+                return out
+            pre = self._post_state(page)
+            out["pre"] = pre
+            if pre["flat_why"]:
+                out["refused"] = f"account not confirmed flat before the click: {pre['flat_why']}"
+                return out
+            if pre["dialogs"]:
+                out["refused"] = f"{pre['dialogs']} dialog(s) already open"
+                return out
+            res = page.evaluate(ASK_BUTTON_RESOLVE_JS, [target]) or {}
+            out["resolve"] = res
+            if not res.get("ok"):
+                out["refused"] = res.get("why") or "Ask button not resolved"
+                return out
+            btn = page.locator("[data-metis-ask-btn='1']")
+            if btn.count() != 1:
+                out["refused"] = f"{btn.count()} tagged Ask button(s) (need exactly 1)"
+                return out
+            # The last read before the click: abort unless one-click is OFF.
+            oc = self.read_one_click(page)
+            out["one_click"] = {k: oc.get(k) for k in ("state", "via")}
+            if not info_probe_one_click_off(oc):
+                out["aborted"] = (f"one-click not confirmed OFF immediately before the click "
+                                  f"({oc.get('state')} via {oc.get('via')}); no click made")
+                return out
+            out["clicks"].append(f"ask:{target}")
+            btn.first.click(timeout=5_000)
+            page.wait_for_timeout(1_500)
+            form = self._find_form(page)
+            out["opened"] = bool(form.get("found"))
+            if out["opened"]:
+                out["form"] = {
+                    "fields": {k: {"label": v.get("label"), "value": v.get("value"), "disabled": v.get("disabled")}
+                               for k, v in (form.get("fields") or {}).items()},
+                    "buttons": form.get("buttons") or {},
+                    "selected": form.get("selected"),
+                    "symbol_value": form.get("symbol_value"),
+                    "ambiguous": form.get("ambiguous") or [],
+                    "checkboxes": form.get("checkboxes") or [],
+                }
+                panel = self.ticket_panel_dump(page)
+                if panel.get("found"):
+                    out["ticket_panel"] = panel
+                try:
+                    close = page.locator("[data-metis-btn=close]")
+                    if close.count() == 1:
+                        out["clicks"].append("close")
+                        close.first.click(timeout=5_000)
+                        out["closed_via"] = "close_button"
+                except Exception as exc:
+                    out["alerts"].append(f"close control click failed ({type(exc).__name__})")
+                page.wait_for_timeout(1_000)
+                if self._find_form(page).get("found"):
+                    page.keyboard.press("Escape")
+                    out["closed_via"] = f"{out['closed_via']}+escape" if out["closed_via"] else "escape"
+                    page.wait_for_timeout(1_000)
+            else:
+                # ORDER_FORM_JS needs visible quantity + SL + TP inputs; a
+                # ticket that hides SL/TP until toggled would read "not
+                # found". Record what the click DID show (redacted), then
+                # Escape -- never a ticket button, since none is identified.
+                out["alerts"].append("the click did not open a recognised order form")
+                panel = self.ticket_panel_dump(page)
+                out["ticket_panel"] = panel if panel.get("found") else {"why": panel.get("why") or panel.get("error")}
+                if not panel.get("found"):
+                    out["controls_dump"] = self.controls_dump(page)
+                page.keyboard.press("Escape")
+                out["closed_via"] = "escape"
+                page.wait_for_timeout(1_000)
+        except Exception as exc:
+            out["error"] = type(exc).__name__
+            out["alerts"].append(f"exception during the guarded click ({type(exc).__name__})")
+        finally:
+            try:
+                page.evaluate("() => document.querySelectorAll('[data-metis-ask-btn]')"
+                              ".forEach(e => e.removeAttribute('data-metis-ask-btn'))")
+            except Exception:
+                pass
+        if out["clicks"]:
+            post = self._post_state(page)
+            out["post"] = post
+            if self._find_form(page).get("found"):
+                out["alerts"].append("an order form is still open after closing")
+            if post["flat_why"]:
+                out["alerts"].append(f"post-state not flat: {post['flat_why']}")
+            if post["dialogs"]:
+                out["alerts"].append(f"{post['dialogs']} dialog(s) open after the probe")
         return out
 
     def order_surface_dump(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
