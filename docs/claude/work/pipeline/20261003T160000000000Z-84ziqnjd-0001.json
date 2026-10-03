@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The trail4 cell (trend_donchian_xrp_4h, trail_mult 5.0 -> 4.0) passes the pre-registered gate (Path A/B, >=25 OOS trades, yearly walk-forward >=2/3 effective folds) on a SECOND independent partition, at which point it is reopened as a held Tier-3 PR; or it fails again on a fresh partition and is killed with that reason.",
+    "kind": "date",
+    "due_date": "2026-11-03"
+  },
+  "id": "PI-20261003-84ZIQNJD-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane M20-EXITS-4 (session_01JLyScUje5s6PAN84ZiqnJd), run 37037846659 of m20-exit-lever-sweep on 2026-10-02. trail4 passed IS+OOS and WF 6/6 effective on ONE partition (split 2025-01-01, base OOS n=49, OOS dNetR +0.358, dmaxDD -0.246 on a +8.92R / 8.08 base) and was is_oos_fail on the two earlier partitions (2026-08-10 split 2025-07-01 OOS n=32; 2026-08-15 split 2025-06-16 OOS n=34). Held PR #15594 was closed unmerged by the manager on 2026-10-03 on that evidence.",
+    "rerun": "Dispatch m20-exit-lever-sweep for this leg (set `legs: trend_donchian_xrp_4h` in .github/exit-lever-sweep-request on a claude/** branch and push; defaults are live parity tp_cap_pct 0.099, 7.5 bps RT fee, derived split target 50), or run it directly: python3 scripts/research/m20_fleet_exit_sweep.py --only trend_donchian_xrp_4h --levers trail_geometry --tp-cap-pct 0.099 --data-dir <dir holding XRPUSDT candle csvs> --out runtime_logs/m20_fleet ; then read the trail4 row in docs/research/m20-sweep-corpus.jsonl and compare split, base_trades_OOS and wf_wins_effective against the three partitions above."
+  },
+  "state": "queued",
+  "what": "Monthly re-sweep of trend_donchian_xrp_4h trail4. The cell is a fragile pass (1 of 3 partitions, +0.36R on a +8.92R OOS base) so it was not shipped. New partitions come free as time passes: the derived split moves with the OOS-trade target, so a fresh monthly run is a genuinely different cut. Reopen as a held PR only if it passes again; kill with a stated reason if it fails. NOTE: refreshing this leg's Stage-0 edge record is a SEPARATE decision (PI-20261002-84ZIQNJD-0001): a config edit forces a refresh, and the refreshed record flips the mandate resolver's p10 sign."
+}

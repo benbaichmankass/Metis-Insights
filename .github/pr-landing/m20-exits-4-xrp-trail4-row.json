@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline record: monthly re-sweep of the closed #15594 trail4 cell. No code, config or order-path change."
+}
