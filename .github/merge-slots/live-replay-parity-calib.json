@@ -1,0 +1,6 @@
+{
+  "held_by": "session_014bomc3Y6kgwMFSqqGojcCp",
+  "branch": "claude/live-replay-parity-calib",
+  "claimed_at": "2026-10-03T07:38:52Z",
+  "purpose": "LIVE-PARITY calibration: workflow -e fix + alerts gated while calibrating"
+}

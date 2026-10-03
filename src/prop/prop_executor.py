@@ -624,6 +624,14 @@ class LocalApi:
             raise RuntimeError("ticket store not readable (present:false)")
         return list(got.get("tickets") or [])
 
+    def all_tickets(self, account_id: str, limit: int = 200) -> List[Dict[str, Any]]:
+        """Recent tickets in ANY status: the trail step (``prop_trail``) needs
+        the ticket of a position that already filled."""
+        got = self._transport("GET", f"/api/bot/prop/tickets?account_id={account_id}&limit={limit}", None)
+        if not got.get("present", True) and not got.get("tickets"):
+            raise RuntimeError("ticket store not readable (present:false)")
+        return list(got.get("tickets") or [])
+
     def open_fills(self, account_id: str) -> List[Dict[str, Any]]:
         got = self._transport("GET", f"/api/bot/prop/fills?account_id={account_id}&limit=500", None)
         if not got.get("present", True):
@@ -971,7 +979,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
 
     # 4. reconcile the journal against the terminal
     if journal_open is not None:
-        halted = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post) or halted
+        reader = getattr(adapter, "read_trade_history", None)
+        halted = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post,
+                                    read_history=(lambda: reader(page)) if reader else None,
+                                    now=now) or halted
     if halted and not state.halted() and live:
         state.halt(halted)
     res.halted = halted
@@ -991,6 +1002,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         return res
 
     # 5. intake
+    # A validity that ran out with no attempt is never silent (BREAKOUT-NOATTEMPT):
+    # swept from the executor's own state, BEFORE intake, so it fires even on a
+    # cycle whose ticket read fails and regardless of the ticket's status.
+    _alert_unattempted_expiries(res, state, st, mode, now)
     try:
         tickets = api.tickets(cfg.account_id)
     except Exception as exc:
@@ -1034,10 +1049,17 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             res.log("skipped", ticket_id=t["ticket_id"], reason="symbol_not_enabled", venue=venue)
             if live:
                 ledger.record(t["ticket_id"], "skipped", reason="symbol_not_enabled")
+            # ...but its EXPIRY is not silent: nothing was attempted, so when the
+            # validity runs out the operator is told once (BREAKOUT-NOATTEMPT).
+            _note_unattempted(state, st, t, "symbol_not_enabled",
+                              f"{venue} not in executor.enabled_venue_symbols")
             continue
         vu = _parse_ts(t.get("valid_until"))
         if vu is not None and vu <= now:
             res.log("expired", ticket_id=t["ticket_id"])
+            # This branch DID report the expiry, so the no-attempt sweep must
+            # not alert about the same ticket as well.
+            _clear_unattempted(state, st, t["ticket_id"])
             if live:
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
@@ -1051,6 +1073,11 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             verdict, why = _entry_band_check(adapter, page, t, venue)
             if verdict in ("wait", "blind"):
                 res.log("band_wait", ticket_id=t["ticket_id"], why=why)
+                # A wait is not an attempt and records nothing, so remember it:
+                # a ticket that waits out its whole validity would otherwise
+                # expire with no row, no alert and no disposition at all
+                # (BREAKOUT-NOATTEMPT, measured 2026-10-02 on fb466451fd1f).
+                _note_unattempted(state, st, t, "band_wait", why)
                 # A quote we could not read would otherwise let the ticket
                 # expire with only a log line (manager review of #14908): one
                 # alert per ticket, on its first blind wait.
@@ -1062,8 +1089,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 # Logged with the quote it used, so a live pass is observable
                 # (manager 2026-09-30 22:06Z), not inferred from a guards line.
                 res.log("band_ok", ticket_id=t["ticket_id"], why=why)
+                _clear_unattempted(state, st, t["ticket_id"])
             if verdict == "refuse":
                 res.log("band_refused", ticket_id=t["ticket_id"], why=why)
+                _clear_unattempted(state, st, t["ticket_id"])
                 if live:
                     ledger.record(t["ticket_id"], "refused", reasons=[why])
                     _report(res, post, _skip_body(cfg, t, f"not submitted: {why}"))
@@ -1622,6 +1651,92 @@ def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
     return (lo, hi) if lo <= hi else None
 
 
+#: Tickets the executor looked at but did not attempt, remembered until their
+#: validity passes so the expiry is not silent. Bounded: the newest N.
+_UNATTEMPTED_KEEP = 50
+_UNATTEMPTED_KEY = "unattempted"
+
+
+def _note_unattempted(state: "ExecutorState", st: Dict[str, Any], ticket: Mapping[str, Any],
+                      kind: str, why: str) -> None:
+    """Remember that this cycle declined *ticket* WITHOUT attempting it.
+
+    MEASURED 2026-10-02 (ict-prop-executor journal, 06:59Z-16:59Z, 121 ticks):
+    ETH ticket ``prop-manual-fb466451fd1f`` (08:19:49Z, valid_until 09:19:50Z)
+    was looked at on all 12 ticks inside its validity and declined every time
+    with ``band_wait`` (ask 2747.43..2760.52, entry band around 2774.55). A
+    wait records nothing by design, so the ticket aged out with NO
+    ``prop_fills`` row, NO alert and no terminal disposition -- indistinguishable
+    from an executor that never ran. Same shape on 2026-09-30 for ETH ticket
+    ``prop-manual-a22cb1d44517`` via ``skipped: symbol_not_enabled`` (12:34:59Z;
+    ETHUSD joined ``enabled_venue_symbols`` only on 2026-10-01, #15143).
+
+    The remembered entry is cleared the moment the executor DOES attempt the
+    ticket, so an alert fires only for a validity that ran out unattempted.
+    """
+    tid = str(ticket.get("ticket_id") or "")
+    if not tid:
+        return
+    rows = dict(st.get(_UNATTEMPTED_KEY) or {})
+    rows[tid] = {"kind": kind, "why": why,
+                 "valid_until": ticket.get("valid_until"),
+                 "symbol": ticket.get("symbol"), "direction": ticket.get("direction")}
+    if len(rows) > _UNATTEMPTED_KEEP:
+        rows = dict(list(rows.items())[-_UNATTEMPTED_KEEP:])
+    st[_UNATTEMPTED_KEY] = rows
+    state.save(st)
+
+
+def _clear_unattempted(state: "ExecutorState", st: Dict[str, Any], ticket_id: str) -> None:
+    """Drop the no-attempt note: the executor is attempting this ticket now."""
+    rows = dict(st.get(_UNATTEMPTED_KEY) or {})
+    if rows.pop(str(ticket_id or ""), None) is not None:
+        st[_UNATTEMPTED_KEY] = rows
+        state.save(st)
+
+
+def _alert_unattempted_expiries(res: "CycleResult", state: "ExecutorState", st: Dict[str, Any],
+                                mode: str, now: datetime) -> None:
+    """One NOT PLACED alert per ticket whose validity passed with no attempt.
+
+    The executor's own ``expired`` report branch cannot cover this: intake is
+    ``/api/bot/prop/tickets?status=emitted``, and the manual bridge's expiry
+    prompter flips a stale ticket to ``expiry_prompted`` at its ``valid_until``
+    -- so the ticket leaves intake before any tick sees it past its validity.
+    This sweep reads the executor's OWN state instead, so it is independent of
+    the ticket's status, and it only ALERTS: it posts no report and writes no
+    ticket status, because a ``skipped`` report would flip the ticket off
+    ``emitted`` and pull it out of every manual-bridge path that keys on it
+    (the price-invalidation warning, the expiry prompt, the reticket guard).
+    """
+    rows = dict(st.get(_UNATTEMPTED_KEY) or {})
+    if not rows:
+        return
+    fired = False
+    for tid, row in list(rows.items()):
+        vu = _parse_ts((row or {}).get("valid_until"))
+        if vu is None or vu > now:
+            continue
+        rows.pop(tid, None)
+        fired = True
+        if not _first_time(state, st, f"unattempted_expiry_{mode}", tid):
+            continue
+        kind = str((row or {}).get("kind") or "unknown")
+        detail = ("the executor waited on the entry band for the whole window"
+                  if kind == "band_wait" else
+                  "the symbol is not in the executor's enabled venue symbols, so it was never attempted"
+                  if kind == "symbol_not_enabled" else kind)
+        res.log("unattempted_expiry", ticket_id=tid, kind=kind,
+                valid_until=vu.isoformat(), why=(row or {}).get("why"))
+        res.alerts.append(
+            f"{tid}: NOT PLACED — its validity expired at {vu.isoformat()} with NO placement "
+            f"attempt ({detail}; last: {(row or {}).get('why')}). Nothing is resting on the "
+            f"terminal for it; place a fresh setup by hand if you still want the trade.")
+    if fired:
+        st[_UNATTEMPTED_KEY] = rows
+        state.save(st)
+
+
 def _first_time(state: "ExecutorState", st: Dict[str, Any], key: str, ticket_id: str,
                 keep: int = 50) -> bool:
     """True the first time ``ticket_id`` is seen under ``key`` (the last
@@ -1874,7 +1989,14 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         leg = (found["positions"] or found["orders"])[0]
         if not row.get("leg_fix_tried"):
             if isinstance(leg, Position):
-                r = adapter.modify_bracket(page, leg, spec.get("stop_loss"), spec.get("take_profit"), arm=live)
+                # The account's modify-rollout latch (DIALOG-MEASURE): with the
+                # edit surface armed, the guard allows ONE watched tighten-only
+                # SL step per reviewed clear. This repair types SL AND TP, so
+                # under the guard it is refused before any click and the next
+                # cycle's existing close-at-market below takes over.
+                from src.prop.platform.dxtrade import ModifyRollout
+                r = adapter.modify_bracket(page, leg, spec.get("stop_loss"), spec.get("take_profit"), arm=live,
+                                           rollout=ModifyRollout(Path(ledger.path).parent / "modify_rollout.json"))
             else:
                 # A resting entry without its bracket holds no position yet:
                 # cancelling it is the smaller action than editing it.
@@ -1897,11 +2019,97 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
     return trip
 
 
+#: The close reason when the exit was not read: kept verbatim so the gap stays
+#: visible on every close the history read could not match.
+CLOSE_UNREAD_REASON = "closed_on_terminal (executor reconcile; exit read from the terminal history is not built)"
+#: How far before the journal row's own timestamp a closing trade may sit (the
+#: history shows minutes; the fill report is written after the confirm re-read).
+EXIT_MATCH_LOOKBACK = timedelta(minutes=10)
+#: Relative distance from the bracket level that still reads as that leg.
+EXIT_LEVEL_REL_TOL = 0.0005
+
+
+def exit_reason(direction: Optional[str], exit_price: Optional[float], sl: Optional[float],
+                tp: Optional[float], rel: float = EXIT_LEVEL_REL_TOL) -> str:
+    """``sl`` when the exit is at or beyond the stop (a stop fills at or past
+    its level), ``tp`` when at or beyond the target, else ``manual``. INFERRED
+    from prices: the Trade History row does not name the leg that closed."""
+    d = _dir(direction)
+    if exit_price is None or d is None:
+        return "manual"
+    if sl is not None:
+        tol = abs(sl) * rel
+        if (d == "long" and exit_price <= sl + tol) or (d == "short" and exit_price >= sl - tol):
+            return "sl"
+    if tp is not None:
+        tol = abs(tp) * rel
+        if (d == "long" and exit_price >= tp - tol) or (d == "short" and exit_price <= tp + tol):
+            return "tp"
+    return "manual"
+
+
+def match_exit(j: Mapping[str, Any], history: Sequence[Mapping[str, Any]],
+               now: Optional[datetime] = None) -> Tuple[Optional[Dict[str, Any]], str]:
+    """The ONE Trade History row that closed journal position ``j``, or
+    ``(None, why)``. A row matches when it is a Closing trade on the same
+    symbol, on the opposite side, of the journaled size, timed no earlier than
+    the journal row (less EXIT_MATCH_LOOKBACK) and no later than ``now``. Zero
+    or several matches (a partial close, two closes in the window, a row
+    without a time) is ``None``: an exit is never picked by guess."""
+    from src.prop.symbol_map import to_bot_symbol
+
+    sym = str(j.get("symbol") or "").upper()
+    d = _dir(j.get("direction"))
+    qty = _f(j.get("qty"))
+    since = _parse_ts(j.get("opened_at")) or _parse_ts(j.get("created_at"))
+    if not sym or d is None:
+        return None, "journal row has no symbol/direction"
+    if qty is None or since is None:
+        return None, "journal row has no qty or timestamp to match on"
+    close_side = "short" if d == "long" else "long"
+    lo = since.replace(second=0, microsecond=0) - EXIT_MATCH_LOOKBACK
+    hits = []
+    for r in history:
+        if r.get("effect") != "closing" or r.get("side") != close_side:
+            continue
+        if str(to_bot_symbol(r.get("symbol")) or r.get("symbol") or "").upper() != sym:
+            continue
+        ts = r.get("ts")
+        if ts is None or ts < lo or (now is not None and ts > now):
+            continue
+        if not _close(_f(r.get("volume")), qty, 1e-6):
+            continue
+        hits.append(r)
+    if len(hits) != 1:
+        return None, f"{len(hits)} closing trades match"
+    if _f(hits[0].get("price")) is None:
+        return None, "matched closing trade has no price"
+    return dict(hits[0]), "matched"
+
+
 def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any],
                        positions: Sequence[Position], journal_open: Sequence[Mapping[str, Any]],
-                       ledger: IntentLedger, claimed_keys: set, post: Any) -> Optional[str]:
-    """§ 3.2 step 4. Returns a halt reason, or None."""
+                       ledger: IntentLedger, claimed_keys: set, post: Any,
+                       read_history: Optional[Callable[[], Sequence[Mapping[str, Any]]]] = None,
+                       now: Optional[datetime] = None) -> Optional[str]:
+    """§ 3.2 step 4. Returns a halt reason, or None.
+
+    ``read_history`` (PROP-EXIT-READ): the terminal's Trade History, read at
+    most once per cycle and only when a close is reported. It changes WHAT the
+    close report says, never WHEN a position counts as closed."""
     from src.prop.symbol_map import to_bot_symbol
+
+    hist_cache: Dict[str, Any] = {}
+
+    def history() -> Tuple[Optional[Sequence[Mapping[str, Any]]], Optional[str]]:
+        if read_history is None:
+            return None, "no history reader"
+        if "rows" not in hist_cache:
+            try:
+                hist_cache["rows"], hist_cache["why"] = list(read_history()), None
+            except Exception as exc:
+                hist_cache["rows"], hist_cache["why"] = None, f"history read failed ({type(exc).__name__})"
+        return hist_cache["rows"], hist_cache["why"]
 
     term: Dict[Tuple[str, str], Position] = {}
     halt = None
@@ -1918,12 +2126,28 @@ def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any]
         if p is None:
             absent[k] = int(absent.get(k, 0)) + 1
             if absent[k] >= 2:
-                res.log("closed_on_terminal", key=k)
-                _report(res, post, {"kind": "fill", "status": "closed", "account_id": cfg.account_id,
-                                    "ticket_id": j.get("ticket_id"), "symbol": key[0], "direction": key[1],
-                                    "qty": j.get("qty"), "entry_price": j.get("entry_price"),
-                                    "reason": "closed_on_terminal (executor reconcile; exit read from the "
-                                              "terminal history is not built)", "source": "prop_executor"})
+                body = {"kind": "fill", "status": "closed", "account_id": cfg.account_id,
+                        "ticket_id": j.get("ticket_id"), "symbol": key[0], "direction": key[1],
+                        "qty": j.get("qty"), "entry_price": j.get("entry_price"),
+                        "reason": CLOSE_UNREAD_REASON, "source": "prop_executor"}
+                rows, why = history()
+                hit = None
+                if rows is not None:
+                    hit, why = match_exit(j, rows, now)
+                if hit is not None:
+                    px = _f(hit.get("price"))
+                    body.update({
+                        "exit_price": px,
+                        "pnl": _f(hit.get("net_closed_pnl")),
+                        "reason": exit_reason(key[1], px, _f(j.get("sl")), _f(j.get("tp"))),
+                        "closed_at": hit["ts"].isoformat(),
+                        "exit_source": "terminal Trade History (reason inferred from exit vs SL/TP)",
+                        "closed_pnl_gross": _f(hit.get("closed_pnl")),
+                        "commission": _f(hit.get("commission")),
+                    })
+                res.log("closed_on_terminal", key=k, exit_read=why,
+                        exit_price=body.get("exit_price"), reason=body["reason"])
+                _report(res, post, body)
                 absent.pop(k, None)
             continue
         absent.pop(k, None)

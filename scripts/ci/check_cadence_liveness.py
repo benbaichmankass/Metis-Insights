@@ -298,6 +298,11 @@ CADENCE_REGISTRY: dict[str, dict] = {
                "does not itself commit to main, so no receipt path exists "
                "to declare",
     },
+    "live-replay-parity.yml": {
+        "receipt": "comms/live_parity/latest.json",
+        "why": "LIVE-PARITY 2026-10-03: the run overwrites this fixed path on "
+               "every main-ref run and lands it via commit-to-main",
+    },
     "strategy-review-packets.yml": {
         "receipt": "comms/strategy_reviews/latest.json",
         "why": "as of 2026-09-28 the 'Select what to commit' step also "

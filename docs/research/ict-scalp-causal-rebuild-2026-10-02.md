@@ -1,6 +1,6 @@
 # ict_scalp evidence rebuilt on the causal HTF harness — 2026-10-02
 
-> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · lane ICT-EVIDENCE-REBUILD · rule `RULE-ICTSCALP-CAUSAL-REBUILD` (`research/queue/RQ-20261002-001.yaml`, registered before any run)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · lane ICT-EVIDENCE-REBUILD · rule `RULE-ICTSCALP-CAUSAL-REBUILD` (`research/queue/RQ-20261002-701.yaml`, registered before any run)
 
 Population: 7 measured `ict_scalp_*` records, 365d Binance feed (window ends 2026-09-26..2026-10-01), 4 contiguous folds, cost stack fee 7.5 + slippage 3.0 + funding 1.0 bps, leg config as live. Bar: net_r_oos > 0, expectancy > 0, strict majority of folds positive, n >= 88 (d=0.3 at alpha 0.05 / power 0.8); n < 88 is UNDERPOWERED, escalated to 730d (pre-registered), never lowered.
 

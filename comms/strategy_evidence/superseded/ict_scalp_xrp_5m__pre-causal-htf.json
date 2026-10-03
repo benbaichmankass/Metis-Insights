@@ -91,7 +91,7 @@
     "state": "superseded",
     "reason": "built on the ict_scalp harness whose HTF bias filter had lookahead (PI-20261001-JWZSVYVS-0001, fixed in #15341); config_fingerprint does not mark this",
     "superseded_by": "comms/strategy_evidence/ict_scalp_xrp_5m.json",
-    "rule": "RULE-ICTSCALP-CAUSAL-REBUILD (research/queue/RQ-20261002-001.yaml)",
+    "rule": "RULE-ICTSCALP-CAUSAL-REBUILD (research/queue/RQ-20261002-701.yaml)",
     "marked_at": "2026-10-02"
   }
 }

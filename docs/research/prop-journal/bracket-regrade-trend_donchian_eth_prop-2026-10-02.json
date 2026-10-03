@@ -1,0 +1,192 @@
+{
+ "record": "bracket-faithful re-grade",
+ "leg": "trend_donchian_eth_prop",
+ "unit": "RQ-20261002-050",
+ "rule": "RULE-PROP-BRACKET-REGRADE-STAGE0-B6V2",
+ "rule_registered_commit": "2a0a3468 (before any run)",
+ "exit_model": "static SL+TP only (what breakout_1's venue bracket performs); trail/stale/decay off; no time exit",
+ "cost_stack": "harness venue-aware full stack (fee+slippage+funding) for net_r; prop_ev_sim --costs breakout (8 bps commission + 3 bps slippage + dxtrade swap) for Bar 2",
+ "provenance": "MEASURED offline harness (Binance Vision candles), single run this session",
+ "windows": {
+  "365d": {
+   "base": {
+    "n": 168,
+    "net_r": 10.63,
+    "net_r_fee_only": 14.62,
+    "by_exit": {
+     "trail_stop": {
+      "n": 88,
+      "net_r": 39.21
+     },
+     "stale_stop": {
+      "n": 35,
+      "net_r": -10.06
+     },
+     "take_profit": {
+      "n": 7,
+      "net_r": 22.29
+     },
+     "stop": {
+      "n": 38,
+      "net_r": -40.81
+     }
+    },
+    "quarter_net_r": [
+     1.65,
+     13.91,
+     -1.44,
+     -3.5
+    ],
+    "window": [
+     "2025-10-05 02:00:00+00:00",
+     "2026-09-30 13:00:00+00:00"
+    ]
+   },
+   "static": {
+    "n": 100,
+    "net_r": 21.28,
+    "net_r_fee_only": 25.55,
+    "by_exit": {
+     "stop": {
+      "n": 76,
+      "net_r": -81.63
+     },
+     "take_profit": {
+      "n": 24,
+      "net_r": 102.9
+     }
+    },
+    "quarter_net_r": [
+     -6.17,
+     19.98,
+     13.87,
+     -6.4
+    ],
+    "window": [
+     "2025-10-05 02:00:00+00:00",
+     "2026-09-30 13:00:00+00:00"
+    ]
+   }
+  },
+  "730d": {
+   "base": {
+    "n": 355,
+    "net_r": 13.38,
+    "net_r_fee_only": 21.0,
+    "by_exit": {
+     "trail_stop": {
+      "n": 187,
+      "net_r": 78.45
+     },
+     "stop": {
+      "n": 76,
+      "net_r": -80.73
+     },
+     "stale_stop": {
+      "n": 79,
+      "net_r": -22.82
+     },
+     "take_profit": {
+      "n": 13,
+      "net_r": 38.48
+     }
+    },
+    "quarter_net_r": [
+     2.64,
+     -5.43,
+     20.88,
+     -4.71
+    ],
+    "window": [
+     "2024-10-04 15:00:00+00:00",
+     "2026-09-30 13:00:00+00:00"
+    ]
+   },
+   "static": {
+    "n": 206,
+    "net_r": 28.17,
+    "net_r_fee_only": 36.19,
+    "by_exit": {
+     "stop": {
+      "n": 157,
+      "net_r": -167.43
+     },
+     "take_profit": {
+      "n": 49,
+      "net_r": 195.6
+     }
+    },
+    "quarter_net_r": [
+     7.99,
+     -10.65,
+     17.07,
+     13.76
+    ],
+    "window": [
+     "2024-10-04 15:00:00+00:00",
+     "2026-09-30 13:00:00+00:00"
+    ]
+   }
+  }
+ },
+ "verdict_window_days": 365,
+ "verdict_window_reason": "365d static n>=88",
+ "bar1_stage0": {
+  "n": 100,
+  "net_r": 21.28,
+  "pass": true
+ },
+ "bar2_b6_v2": {
+  "args": "--costs breakout --sizing room --room-frac 0.33 --min-risk 10 --modes realized,path,stop, fresh $5,000 account, trades=static verdict window",
+  "per_seed": [
+   {
+    "seed": 1,
+    "verdict": "indeterminate",
+    "path_ev_net_usd_per_life": 117.7,
+    "evidence_p5": -23.4,
+    "evidence_p95": 535.2,
+    "stop_bound_ev": 132.9,
+    "tool_commit": "2a0a3468db2a22ecec5e8a8178cd01ebf16b6a50"
+   },
+   {
+    "seed": 2,
+    "verdict": "indeterminate",
+    "path_ev_net_usd_per_life": 127.7,
+    "evidence_p5": -18.8,
+    "evidence_p95": 521.4,
+    "stop_bound_ev": 125.3,
+    "tool_commit": "2a0a3468db2a22ecec5e8a8178cd01ebf16b6a50"
+   },
+   {
+    "seed": 3,
+    "verdict": "indeterminate",
+    "path_ev_net_usd_per_life": 116.3,
+    "evidence_p5": -19.4,
+    "evidence_p95": 420.2,
+    "stop_bound_ev": 129.1,
+    "tool_commit": "2a0a3468db2a22ecec5e8a8178cd01ebf16b6a50"
+   },
+   {
+    "seed": 4,
+    "verdict": "indeterminate",
+    "path_ev_net_usd_per_life": 113.6,
+    "evidence_p5": -12.2,
+    "evidence_p95": 509.6,
+    "stop_bound_ev": 117.5,
+    "tool_commit": "2a0a3468db2a22ecec5e8a8178cd01ebf16b6a50"
+   },
+   {
+    "seed": 5,
+    "verdict": "indeterminate",
+    "path_ev_net_usd_per_life": 129.5,
+    "evidence_p5": -10.8,
+    "evidence_p95": 564.4,
+    "stop_bound_ev": 141.3,
+    "tool_commit": "2a0a3468db2a22ecec5e8a8178cd01ebf16b6a50"
+   }
+  ],
+  "leg_level": "INDETERMINATE"
+ },
+ "verdict": "PASS",
+ "n": 100
+}

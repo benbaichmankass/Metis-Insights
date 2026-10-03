@@ -1,63 +1,75 @@
 {
-  "generated_at": "2026-10-01T18:29:15Z",
+  "generated_at": "2026-10-03T05:29:06Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": "36907099712",
+    "run_id": "37099929057",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
       "findings": [
         {
-          "age_hours": 126.9,
+          "age_hours": 161.9,
           "branch": "automation/research-queue-stamp-36239222079-1",
           "pr": 12989,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 121.4,
+          "age_hours": 156.4,
           "branch": "automation/research-queue-stamp-36257853974-1",
           "pr": 13012,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 105.3,
+          "age_hours": 140.3,
           "branch": "automation/research-result-36308457855-1",
           "pr": 13105,
           "title": "research result: unattributed (run 36308457855)"
         },
         {
-          "age_hours": 69.7,
+          "age_hours": 104.7,
           "branch": "automation/research-queue-stamp-36477235568-1",
           "pr": 13792,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 52.4,
+          "age_hours": 87.4,
           "branch": "automation/e35-bracket-corpus-36571462010-1",
           "pr": 14228,
           "title": "corpus: e35 bracket sweep (run 36571462010)"
         },
         {
-          "age_hours": 35.1,
+          "age_hours": 70.1,
           "branch": "automation/research-queue-grade-36683285620-1",
           "pr": 14614,
           "title": "research-queue: mechanical grading (auto)"
         },
         {
-          "age_hours": 29.4,
+          "age_hours": 64.4,
           "branch": "automation/research-queue-grade-36718923692-1",
           "pr": 14736,
           "title": "research-queue: mechanical grading (auto)"
         },
         {
-          "age_hours": 11.0,
+          "age_hours": 46.0,
           "branch": "automation/research-queue-grade-36830378688-1",
           "pr": 15083,
           "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 23.3,
+          "branch": "automation/replay-pregate-36964965240-1",
+          "pr": 15463,
+          "title": "chore(ml): replay pre-gate fleet report (auto)"
+        },
+        {
+          "age_hours": 22.6,
+          "branch": "automation/research-results-batch-36975703821-1",
+          "pr": 15470,
+          "title": "research results: batch of 3 runner run(s) (dispatcher run 36975703821)"
         }
       ],
-      "population": "99 open PRs; 78 automation/*; 8 carry research; 70 automation/* carry none (not graded here)",
+      "population": "114 open PRs; 87 automation/*; 11 carry research; 76 automation/* carry none (not graded here)",
       "state": "findings",
       "threshold_hours": 6.0
     },
@@ -135,113 +147,13 @@
         },
         {
           "conclusion": "failure",
-          "created_at": "2026-09-24T11:17:24Z",
+          "created_at": "2026-10-02T23:45:19Z",
           "result_job": [
             "failure"
           ],
-          "run_id": "35992152280",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35992152280",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:50:59Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35983731519",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983731519",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:48:06Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35983442279",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983442279",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:45:23Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35983166835",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983166835",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:38:03Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35982418069",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982418069",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:37:50Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35982396299",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982396299",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:32:27Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35981853449",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981853449",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:32:08Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35981819756",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981819756",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:17:24Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35980322052",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35980322052",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:10:17Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35979604926",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35979604926",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T06:24:23Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35964326810",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35964326810",
-          "workflow": "research-exit-head-build.yml"
+          "run_id": "37079054699",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37079054699",
+          "workflow": "m20-exit-lever-sweep.yml"
         }
       ],
       "lost": [
@@ -314,125 +226,26 @@
           "run_id": "35999563824",
           "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35999563824",
           "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T11:17:24Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35992152280",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35992152280",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:50:59Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35983731519",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983731519",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:48:06Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35983442279",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983442279",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:45:23Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35983166835",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983166835",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:38:03Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35982418069",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982418069",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:37:50Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35982396299",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982396299",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:32:27Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35981853449",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981853449",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:32:08Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35981819756",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981819756",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:17:24Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35980322052",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35980322052",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T09:10:17Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35979604926",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35979604926",
-          "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-09-24T06:24:23Z",
-          "result_job": [
-            "failure"
-          ],
-          "run_id": "35964326810",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35964326810",
-          "workflow": "research-exit-head-build.yml"
         }
       ],
-      "pending_merge": [],
-      "population": "56 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-17 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1231 produced no result by design (skipped); 79 result file(s) on origin/main",
+      "pending_merge": [
+        {
+          "conclusion": "failure",
+          "created_at": "2026-10-02T23:45:19Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "37079054699",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37079054699",
+          "workflow": "m20-exit-lever-sweep.yml"
+        }
+      ],
+      "population": "48 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-19 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1435 produced no result by design (skipped); 99 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "2843 artifact(s) listed, 2843 unexpired, 2560 expire within 72.0h across 2560 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "2581 artifact(s) listed, 2581 unexpired, 2261 expire within 72.0h across 2261 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },

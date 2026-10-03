@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One docs/claude/work/pipeline/ item moved queued -> done with a terminal_reason, on an observation double-sourced from /api/bot/prop/fills and the ict-prop-executor journal. Also corrects that item's own probe, which could not distinguish executor-placed from operator-reported fills. Docs only; no runtime, order-path or config change."
+}
