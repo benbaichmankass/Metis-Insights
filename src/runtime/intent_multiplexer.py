@@ -488,6 +488,129 @@ def _strategy_symbol_scope() -> Dict[str, set]:
     return scope
 
 
+def _strategy_cfgs() -> Dict[str, dict]:
+    try:
+        from src.units.strategies import load_strategy_config
+        cfg = load_strategy_config() or {}
+    except Exception:  # noqa: BLE001
+        return {}
+    return {n: (c or {}) for n, c in cfg.items()} if isinstance(cfg, dict) else {}
+
+
+def _is_closed_decision_leg(vcfg: dict) -> bool:
+    """``decision_bar: closed`` legs decide their closed bar in the builder
+    (``_decision_frame``) and are left out of the forming catch-up."""
+    return str(vcfg.get("decision_bar") or "forming").lower() == "closed"
+
+
+def _forming_tail_gap_seconds(row: dict) -> float:
+    """How much of a bar's tail may go unevaluated before it counts as a GAP.
+
+    Two of the leg's own measured tick intervals (``cadence_s``, recorded by one
+    process between consecutive evaluations), never less than two configured
+    ticks. A forming leg's last look at a bar normally lands up to one tick
+    before the close, so normal spacing never triggers a catch-up — only a
+    restart or a stalled tick does."""
+    try:
+        tick = float(os.environ.get("TICK_INTERVAL_SECONDS", "60") or 60)
+    except ValueError:
+        tick = 60.0
+    cadence = row.get("cadence_s")
+    try:
+        cadence = float(cadence) if cadence is not None else 0.0
+    except (TypeError, ValueError):
+        cadence = 0.0
+    return 2.0 * max(tick, cadence)
+
+
+def _forming_catchup_asof(name: str, key: str, tf_s: float, now: float,
+                          vcfg: Optional[dict] = None) -> Optional[float]:
+    """RESTART-SAFE for ``decision_bar: forming`` legs (PI-20261003-OJTPWGCC-0001).
+
+    A forming leg re-decides on the forming bar every tick, so a restart costs it
+    only the TAIL of a bar that closed while it was not evaluating. When that
+    unseen tail is longer than the leg's normal tick spacing, return the close
+    (epoch s) to decide that bar AS OF its close, once; ``None`` otherwise.
+    The disposition (evaluated / stale_skipped) is written to the ledger before
+    the builder runs, so the bar is never decided twice, by any process.
+    """
+    from src.runtime import decision_bar_ledger as ledger
+    row = ledger.get(key)
+    if not row or row.get("at") is None or row.get("bar_open") is None:
+        return None
+    cur_open = (now // tf_s) * tf_s
+    prev_open = cur_open - tf_s
+    if float(row["bar_open"]) >= cur_open:
+        return None
+    if row.get("catchup_open") is not None and float(row["catchup_open"]) >= prev_open:
+        return None
+    unseen = cur_open - float(row["at"])
+    if unseen <= _forming_tail_gap_seconds(row):
+        return None
+    age = now - cur_open
+    bound = ledger.catchup_bound_seconds(tf_s, vcfg)
+    who = "a previous process" if ledger.by_previous_process(row) else "this process"
+    if age > bound:
+        ledger.update(key, catchup_open=prev_open, catchup_disposition="stale_skipped",
+                      catchup_at=now)
+        # INFO, not WARNING: the leg re-decides on the forming bar this tick
+        # anyway; what is skipped is only the as-of-close read of the bar that
+        # closed during the gap (closed legs, whose whole decision is that read,
+        # warn in _closed_bar_disposition).
+        logger.info(
+            "intent_multiplexer: '%s' bar opened %s closed during a gap (last "
+            "evaluated by %s %.0fs before the close) — skipped as stale: closed "
+            "%.0fs ago, beyond the %.0fs catch-up bound",
+            key, prev_open, who, unseen, age, bound)
+        return None
+    ledger.update(key, catchup_open=prev_open, catchup_disposition="evaluated",
+                  catchup_at=now)
+    logger.info(
+        "intent_multiplexer: '%s' caught up after restart/tick gap — deciding bar "
+        "opened %s as of its close (last evaluated by %s %.0fs before the close; "
+        "closed %.0fs ago, bound %.0fs)", key, prev_open, who, unseen, age, bound)
+    return cur_open
+
+
+def _run_forming_catchup(name: str, builder: IntentBuilder, settings: dict, *,
+                         asof: float, tf_s: float, target_qty_hint: float,
+                         now: float, vcfg: Optional[dict] = None
+                         ) -> Optional[StrategyIntent]:
+    """Run ``builder`` on frames cut at ``asof``; keep its intent only if the live
+    price passes the catch-up drift check (fail closed when it cannot be read)."""
+    from src.runtime import decision_bar_ledger as ledger
+    with ledger.evaluate_as_of(asof) as holder:
+        try:
+            signal = builder(settings)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "intent_multiplexer: '%s' catch-up evaluation raised %s — skipped",
+                name, exc)
+            return None
+    intent = intent_from_signal(
+        signal, strategy=name, target_qty=target_qty_hint,
+        priority=DEFAULT_PRIORITIES.get(name), timestamp=now,
+    )
+    if intent is None:
+        logger.info("intent_multiplexer: '%s' catch-up: no actionable signal on the "
+                    "bar that closed during the gap", name)
+        return None
+    current = holder["current"].get(
+        (str(intent.symbol or "").upper().replace("/", ""), int(tf_s)))
+    max_frac = float((vcfg or {}).get("decision_bar_catchup_max_drift_stop_frac")
+                     or ledger.DEFAULT_MAX_DRIFT_STOP_FRAC)
+    ok, why = ledger.catchup_price_check(intent.side, intent.entry, intent.sl,
+                                         intent.tp, current, max_frac)
+    if not ok:
+        logger.warning(
+            "intent_multiplexer: '%s' caught-up %s signal skipped as stale — %s",
+            name, intent.side, why)
+        return None
+    logger.info("intent_multiplexer: '%s' caught-up %s signal accepted — %s",
+                name, intent.side, why)
+    return intent
+
+
 def _collect_intents(
     settings: dict,
     *,
@@ -513,6 +636,8 @@ def _collect_intents(
         settings.get("SYMBOL") or settings.get("symbol") or ""
     ).upper().replace("/", "")
     symbol_scope = _strategy_symbol_scope()
+    leg_cfgs = _strategy_cfgs()
+    forming_seen: Dict[str, dict] = {}
     for name in strategies:
         if is_strategy_paused(name):
             logger.info(
@@ -541,6 +666,22 @@ def _collect_intents(
                 name,
             )
             continue
+        # RESTART-SAFE: a forming leg decides any bar that closed during a gap
+        # (restart / stalled tick) once, as of its close, before the normal tick.
+        vcfg = leg_cfgs.get(name) or {}
+        tf_s = None if _is_closed_decision_leg(vcfg) else _strategy_timeframe_seconds(name)
+        leg_key = f"{name}|{tick_symbol}" if tick_symbol else name
+        if tf_s:
+            try:
+                asof = _forming_catchup_asof(name, leg_key, float(tf_s), now, vcfg)
+                if asof is not None:
+                    caught = _run_forming_catchup(
+                        name, builder, settings, asof=asof, tf_s=float(tf_s),
+                        target_qty_hint=target_qty_hint, now=now, vcfg=vcfg)
+                    if caught is not None:
+                        intents.append(caught)
+            except Exception:  # noqa: BLE001 — never let catch-up break the tick
+                logger.exception("intent_multiplexer: '%s' catch-up failed", name)
         try:
             signal = builder(settings)
         except Exception as exc:  # noqa: BLE001
@@ -593,6 +734,9 @@ def _collect_intents(
                 )
             continue
 
+        if tf_s:
+            forming_seen[leg_key] = {"bar_open": (now // tf_s) * tf_s, "at": now,
+                                     "tf_s": float(tf_s)}
         intent = intent_from_signal(
             signal,
             strategy=name,
@@ -612,7 +756,24 @@ def _collect_intents(
             name, intent.side, intent.target_qty, intent.effective_priority(),
         )
         intents.append(intent)
+    _record_forming_evaluations(forming_seen)
     return intents
+
+
+def _record_forming_evaluations(seen: Dict[str, dict]) -> None:
+    """One ledger write per tick: which bar each forming leg just evaluated, and
+    its measured tick cadence (same-process gaps only — a restart is not a tick)."""
+    if not seen:
+        return
+    try:
+        from src.runtime import decision_bar_ledger as ledger
+        for key, fields in seen.items():
+            prev = ledger.get(key)
+            if prev and not ledger.by_previous_process(prev) and prev.get("at") is not None:
+                fields["cadence_s"] = round(fields["at"] - float(prev["at"]), 1)
+        ledger.update_many(seen)
+    except Exception:  # noqa: BLE001
+        logger.exception("intent_multiplexer: forming decision-bar record failed")
 
 
 def _debounce_emissions(

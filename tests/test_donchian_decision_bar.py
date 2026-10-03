@@ -40,14 +40,18 @@ def test_stale_after_in_window_eval_reads_already_evaluated():
     assert skip == "closed_bar_already_evaluated"
 
 
-def test_stale_without_in_window_eval_reads_missed_and_warns_once(caplog):
+def test_stale_without_in_window_eval_is_skipped_as_stale_and_warns_once(caplog):
+    # RESTART-SAFE: beyond the catch-up bound (4h -> 900 s) an undecided bar is
+    # recorded stale_skipped once, with its reason; the false "never evaluated"
+    # wording is gone.
     df = _frame(last_open=T0 + 10 * H4)
     cfg = {"decision_bar": "closed"}
     with caplog.at_level("WARNING"):
         for dt in (3600, 3700):
             _, skip = _decision_frame(df, TF, cfg, name="legB", now=T0 + 10 * H4 + dt)
-            assert skip == "closed_bar_stale_window_missed"
-    assert sum("never evaluated" in r.message for r in caplog.records) == 1
+            assert skip == "closed_bar_stale_skipped"
+    assert sum("skipped as stale" in r.message for r in caplog.records) == 1
+    assert not any("never evaluated" in r.message for r in caplog.records)
 
 
 def test_fresh_window_is_configurable():
@@ -114,8 +118,6 @@ def _builder_env(monkeypatch, decision_bar, now):
         calls.append(kw)
         return None                      # RuntimeError after the fetch: enough to observe it
     monkeypatch.setattr(md, "fetch_candles", fake_fetch)
-    sb._CLOSED_BAR_EVALUATED.clear()
-    sb._CLOSED_BAR_MISS_LOGGED.clear()
     return sb, calls
 
 
@@ -132,7 +134,7 @@ def test_builder_closed_leg_does_not_fetch_outside_window(monkeypatch):
     out = sb._trend_donchian_variant_builder("legX", {})
     assert calls == []                                    # no venue round-trip
     assert out["side"] == "none"
-    assert out["meta"]["reason"] == "closed_bar_stale_window_missed"
+    assert out["meta"]["reason"] == "closed_bar_stale_skipped"
 
 
 def test_builder_forming_leg_is_unchanged(monkeypatch):
@@ -147,7 +149,8 @@ def test_builder_closed_leg_waits_out_the_settle_seconds(monkeypatch):
     out = sb._trend_donchian_variant_builder("legX", {})
     assert calls == [] and out["meta"]["reason"] == "closed_bar_settling"
     # not recorded as evaluated: the next tick in the window still evaluates
-    assert "legX" not in sb._CLOSED_BAR_EVALUATED
+    from src.runtime import decision_bar_ledger
+    assert decision_bar_ledger.get("legX") is None
 
 
 def test_no_next_bar_in_the_frame_is_unconfirmed_not_evaluated():
@@ -161,13 +164,13 @@ def test_no_next_bar_in_the_frame_is_unconfirmed_not_evaluated():
     cfg = {"decision_bar": "closed"}
     out, skip = _decision_frame(df, TF, cfg, name="legC", now=now)
     assert skip == "closed_bar_unconfirmed"
-    from src.runtime.strategy_signal_builders import _CLOSED_BAR_EVALUATED
-    assert "legC" not in _CLOSED_BAR_EVALUATED                 # retried next tick
+    from src.runtime import decision_bar_ledger
+    assert decision_bar_ledger.get("legC") is None             # retried next tick
     # the next tick, venue has now opened the next bar: decided and recorded
     df2 = _frame(last_open=T0 + 10 * H4)
     out2, skip2 = _decision_frame(df2, TF, cfg, name="legC", now=T0 + 10 * H4 + 150)
     assert skip2 is None and len(out2) == len(df2) - 1
-    assert _CLOSED_BAR_EVALUATED["legC"] == T0 + 9 * H4
+    assert decision_bar_ledger.get("legC")["bar_open"] == T0 + 9 * H4
 
 
 def test_pre_close_cached_frame_is_accepted_by_drop_forming_bar_but_refused_here():

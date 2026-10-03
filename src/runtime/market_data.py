@@ -754,6 +754,14 @@ def fetch_candles(
             logger.warning("fetch_candles: connector init failed (%s)", exc)
             return None
 
+    # RESTART-SAFE: inside decision_bar_ledger.evaluate_as_of (a forming leg
+    # deciding the bar that closed while the trader was down) the frame must be
+    # fetched AFTER that close and cut to the bars that opened before it.
+    from src.runtime.decision_bar_ledger import current_asof, trim_to_asof
+    _asof = current_asof() if since is None else None
+    if _asof is not None:
+        bypass_cache = True
+
     cache_key = _candle_cache_key(exchange_client, symbol, timeframe, limit, since)
     cached = None if bypass_cache else _candle_cache_get(cache_key)
     if cached is not None:
@@ -767,9 +775,10 @@ def fetch_candles(
 
     _tf_label = str(timeframe).strip().lower() or "unknown"
     with _fetch_phase(_tf_label, _venue_of_client(exchange_client)):
-        return _fetch_candles_uncached(
+        frame = _fetch_candles_uncached(
             exchange_client, symbol, timeframe, limit, since, cache_key
         )
+    return trim_to_asof(frame, symbol, timeframe, _asof) if _asof is not None else frame
 
 
 def _fetch_candles_uncached(

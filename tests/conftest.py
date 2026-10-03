@@ -290,6 +290,18 @@ def _reset_intent_emission_debounce():
     _clear()
 
 
+# RESTART-SAFE: the decision-bar ledger is ON DISK by design (it must survive a
+# restart), so every test gets its own empty one — otherwise one test's decided
+# bar would read as "already evaluated by a previous process" in the next.
+@pytest.fixture(autouse=True)
+def _isolate_decision_bar_ledger(tmp_path):
+    from src.runtime import decision_bar_ledger as ledger
+    ledger.reset_for_tests(tmp_path / "decision_bar_ledger.json")
+    yield
+    ledger.reset_for_tests()
+    ledger._PATH_OVERRIDE = None
+
+
 # ---------------------------------------------------------------------------
 # Test-isolation audit (Lane A, 2026-08-28).
 #
