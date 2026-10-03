@@ -62,7 +62,7 @@ def test_tradeify_platform_entry_is_explicit_and_disarmed():
     # ETHUSD one (TRADEIFY-DRY, #15846) that lets round-trip-dry reach the form.
     assert t["executor"]["enabled_venue_symbols"] == []
     assert t["executor"]["lots"] == {
-        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.01},
+        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
     assert t["executor"]["watched_click_max_lots"] == {"ETHUSD": 0.01}

@@ -127,7 +127,7 @@ def test_tradeify_platform_entry_never_points_at_breakout():
     # form; any other symbol appearing here must be a deliberate, reviewed edit.
     assert ex["enabled_venue_symbols"] == []
     assert ex["lots"] == {
-        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.01},
+        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
     assert ex["watched_click_max_lots"] == {"ETHUSD": 0.01}

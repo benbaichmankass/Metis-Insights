@@ -198,10 +198,14 @@ accounts:
       #   price_step    MEASURED-ish: the disabled SL/TP fields default to one
       #                 tick -- SOL 0.001, XRP 0.00001 -- matching the quote
       #                 decimals (symbol-switch-dry #15902 "119.475", #15904
-      #                 "1.48335"). ETHUSD's tick read the same way is 0.001; its
-      #                 entry keeps the coarser 0.01 (a valid multiple).
+      #                 "1.48335"). ETHUSD's tick read the same way is 0.001.
+      # ETHUSD price_step 0.01 -> 0.001 (TRADEIFY-DRY 2026-10-03): the coarse
+      # 0.01 HID a fill that did not stick. round-trip-dry,limit (#15930 run
+      # 37121646646) typed limit 2683.59 and read back the terminal's own
+      # 2,683.584; the one-tick tolerance (0.01) accepted the 0.006 gap. At the
+      # measured tick (0.001) that read-back refuses.
       lots:
-        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.01}
+        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         XRPUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.00001}
       watched_click_max_lots: {ETHUSD: 0.01}
