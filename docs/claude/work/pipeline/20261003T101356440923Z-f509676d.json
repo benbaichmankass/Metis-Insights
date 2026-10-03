@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a held Tier-2 fix lands and a daily live-replay-parity run shows 0 previous_bar_signal on every 1d leg for 5 consecutive US sessions, or killed with a stated reason",
+    "kind": "observation"
+  },
+  "id": "PI-20261003-LRP-PREVBAR",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "live-replay-parity:slv_pullback_1d:previous_bar_signal",
+    "rerun": "Label an issue live-replay-parity (body: days: 7) and read class previous_bar_signal per leg in comms/live_parity/latest.md; for one instance, diag audit_query?strategy=<leg>&since=<day>T13:30:00Z&until=<day>T13:45:00Z and compare adx_14 against diag_adx.closed_only_200."
+  },
+  "state": "queued",
+  "what": "Daily (1d) forming legs decide on the PREVIOUS day's closed bar for the first minutes of the US session, because the venue has not opened the day's bar yet, and that can emit a SIGNAL the current bar does not support. MEASURED (diag issue #15887, signals table): slv_pullback_1d (REAL-MONEY alpaca_live + alpaca_portfolio) logged side=buy entry 58.14 conf 0.2844 at 2026-09-28T13:31:13Z, 13:33:20Z, 13:35:23Z with adx_14 11.673, exactly the ADX of the 200 closed bars WITHOUT a row for 09-28 (parity run 37114827476 diag closed_only_200=11.673); from 13:37:23Z the day's bar is present (adx 11.6365) and the decision is none. gdx_pullback_1d (paper) identical: buy 13:31-13:35Z adx 15.2446 = closed-only frame. The intent reached the intent layer (regime_ml_vol_shadow row 13:31:14Z side long). NOT YET CHECKED: whether an order package / Alpaca order resulted. Same frame shape (no current-bar row at the open) also seen as a no-signal on iaum/ief/gld/tlt/scha/qld 1d legs. Detected mechanically by scripts/ops/live_replay_parity.py class previous_bar_signal. Fix is a Tier-2 runtime change (e.g. require the frame's last row to be today's session bar before deciding, like _decision_frame's last_bar_is_forming check)."
+}
