@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges and watches the deploy. Arms the live SL edit on breakout_1 (operator, 2026-10-03: \"Merge and switch on together\"). Every armed modify still passes the rollout guard: the first armed step sets modify_rollout.json and the trail pauses until the manager reviews it and runs executor-clear-rollout.",
+  "why": "DXtradeAdapter.EDIT_DIALOG_MEASURED = True: the Position Details panel was measured live (issue #15657, run 37058159549) and modify_bracket targets it (#15673). ROLLOUT_GUARD and the rollout= requirement unchanged (#15693/#15705). Revert = this one line back to False (an armed modify then refuses before any click). Also fixes the stale prop-trail.json why: a looser SL is not restored; the ticket locks."
+}

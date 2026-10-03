@@ -1004,6 +1004,7 @@ def test_modify_bracket_armed_refuses_before_any_click_while_the_dialog_is_unmea
             pass
 
     a = DXtradeAdapter()
+    a.EDIT_DIALOG_MEASURED = False         # the kill switch (the repo flag is True since 2026-10-03)
     a._show_tab = lambda *x: True
     a.read_one_click = lambda page: {"state": "off"}
     located = []
@@ -2233,7 +2234,9 @@ def test_panel_modify_reports_a_panel_that_discard_does_not_close(panel_page):
 
 
 def test_panel_modify_disarmed_and_unflagged_never_click(panel_page):
-    r = _edit_adapter().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    unflagged = _edit_adapter()
+    unflagged.EDIT_DIALOG_MEASURED = False                 # the kill switch
+    r = unflagged.modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
     assert r["ok"] is False and r["clicked"] is False and "EDIT_DIALOG_MEASURED" in r["why"]
     r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=False)
     assert r["ok"] is True and r["clicked"] is False
@@ -2304,8 +2307,9 @@ def test_surface_probe_ignores_live_prices_in_control_names(surface_page):
 
 
 # ── ROLLOUT GUARD (manager 2026-10-02 21:45Z, option (c)) ─────────────────
-# EDIT_DIALOG_MEASURED stays False in the repo; these tests arm it on the
-# INSTANCE only, to exercise the guard the flip will rely on.
+# EDIT_DIALOG_MEASURED is True in the repo (operator 2026-10-03, "Merge and
+# switch on together"); ROLLOUT_GUARD stays True, so every armed modify needs
+# the account's latch and is one bounded tighten-only step.
 
 _QUOTE = {"bid": 2660.0, "ask": 2660.5}          # short: the stop fills on the ask
 
@@ -2329,11 +2333,26 @@ def _row_follows_the_panel(page):
                   " document.querySelector('#rows tr').children[4].textContent = document.getElementById('psl').value; }; }")
 
 
-def test_the_repo_flag_stays_false_and_refuses_before_any_click(panel_page, tmp_path):
+def test_the_repo_flag_is_on_and_the_guard_still_gates_every_armed_modify(panel_page, tmp_path):
     from src.prop.platform.dxtrade import DXtradeAdapter, ModifyRollout
-    assert DXtradeAdapter.EDIT_DIALOG_MEASURED is False and DXtradeAdapter.ROLLOUT_GUARD is True
+    assert DXtradeAdapter.EDIT_DIALOG_MEASURED is True and DXtradeAdapter.ROLLOUT_GUARD is True
+    # No latch: refused before any click.
+    r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "modify-rollout latch" in r["why"]
+    # A latch already set (the single watched step used): refused before any click.
+    (tmp_path / "l.json").write_text('{"state": "verified"}')
     r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True,
                                        rollout=ModifyRollout(tmp_path / "l.json"))
+    assert r["ok"] is False and r["clicked"] is False and "halted until" in r["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_the_kill_switch_refuses_before_any_click(panel_page, tmp_path):
+    from src.prop.platform.dxtrade import ModifyRollout
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = False
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True,
+                         rollout=ModifyRollout(tmp_path / "l.json"))
     assert r["ok"] is False and r["clicked"] is False and "EDIT_DIALOG_MEASURED is False" in r["why"]
     assert panel_page.evaluate("window.__log") == [] and not (tmp_path / "l.json").exists()
 
