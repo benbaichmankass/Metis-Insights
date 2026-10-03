@@ -1,5 +1,7 @@
 # LIVE-SILENCE replay, 2026-10-03
 
+> **Doc status:** `unknown` · category `evidence` · measured `2026-10-03T05:50Z` · lane LIVE-SILENCE (session_01Upz38GpgyiMYCjojTpwGCC) for manager session_01MM8o5js6TcDFeNAPBY4Ntv
+
 The question: why have `xrp_pullback_2h`, `ada_pullback_2h`, `trend_donchian_eth_4h` and
 `trend_donchian_xrp_4h` sent no order package on any account since 2026-09-28T03:35Z?
 
