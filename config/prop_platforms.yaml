@@ -223,14 +223,22 @@ accounts:
         ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         XRPUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.00001}
-      watched_click_max_lots: {ETHUSD: 0.01}
+      # SOLUSD 0.01 (TRADEIFY-EXECUTOR, 2026-10-03, #16035): the minimum lot, so
+      # the DRY round-trip-dry,limit SOLUSD can reach the form and read back the
+      # LIMIT fill. A watched-click cap only; what may be ACTED on is
+      # enabled_venue_symbols below, and every armed path also needs
+      # PROP_EXECUTOR_MODE_TRADEIFY_1=live on the VM.
+      watched_click_max_lots: {ETHUSD: 0.01, SOLUSD: 0.01}
       # GO-LIVE (TRADEIFY-WIRE C, #14673): operator 2026-10-03 "Allow, all 3
       # symbols". Dry evidence: ETHUSD round-trip-dry,limit form_verified with
-      # the key-by-key limit fill (#16003, run 37137185991). SOLUSD / XRPUSD:
-      # symbol-switch-dry only (#15902, #15904); no round-trip-dry on tradeify_1.
-      # XRPUSD has no rostered leg (ict_scalp_xrp_15m dropped, accounts.yaml),
-      # so it emits no ticket. The executor still acts only when
-      # PROP_EXECUTOR_MODE_TRADEIFY_1=live on the VM (default read_only).
+      # the key-by-key limit fill (#16003, run 37137185991). SOLUSD:
+      # round-trip-dry,limit read every field back exactly but REFUSED at the
+      # submit hit-test twice (#16049, #16053; PI-20261003-ILZMCTFQ-0002), so a
+      # live SOL ticket is refused at submit (no order) until that is fixed.
+      # XRPUSD: symbol-switch-dry only (#15904) and no rostered leg
+      # (ict_scalp_xrp_15m dropped, accounts.yaml), so it emits no ticket. The
+      # executor still acts only when PROP_EXECUTOR_MODE_TRADEIFY_1=live on the
+      # VM (default read_only).
       enabled_venue_symbols: [ETHUSD, SOLUSD, XRPUSD]
 
 # Read-only terminal PROBES (not traded accounts): run by the

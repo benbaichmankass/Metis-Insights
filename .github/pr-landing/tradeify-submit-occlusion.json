@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane TRADEIFY-EXECUTOR: lane PRs are merged by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv).",
+  "why": "One new pipeline record (docs/claude/work/pipeline/) filing the tradeify_1 SOLUSD submit hit-test refusal measured in dry runs #16049/#16053. Docs/record only; no runtime, config or order-path change."
+}
