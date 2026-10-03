@@ -1,0 +1,6 @@
+{
+ "schemaVersion": 1,
+ "status": "not_yet_run",
+ "generatedAt": null,
+ "note": "seeded by PR #15820 so the cadence receipt exists; the first live-replay-parity workflow run overwrites it. No legs, bars or controls have been checked yet"
+}

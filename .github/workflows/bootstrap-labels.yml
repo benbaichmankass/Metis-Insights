@@ -312,6 +312,11 @@ jobs:
                 description: 'Triggers vm-net-fix workflow — open VM-local firewall (ufw + iptables) for the dashboard API port.',
               },
               {
+                name: 'live-replay-parity',
+                color: '0e8a16',
+                description: 'Triggers live-replay-parity workflow — live-vs-replay decision parity over every real-money leg, landed under comms/live_parity/.',
+              },
+              {
                 name: 'strategy-review-packets',
                 color: '0e8a16',
                 description: 'Triggers strategy-review-packets workflow — M7 decision packets for every enabled strategy, landed under comms/strategy_reviews/.',
