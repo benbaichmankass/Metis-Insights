@@ -100,6 +100,20 @@ def _stamp_regime(payload: Dict[str, Any], candles_df: Any) -> Dict[str, Any]:
         payload.setdefault("regime", "unknown")
         payload.setdefault("adx_14", None)
         payload.setdefault("regime_source", "adx-14")
+    # Frame fingerprint for the live-vs-replay parity check
+    # (scripts/ops/live_replay_parity.py): the open time and close of the LAST
+    # row of the frame this decision ran on. Without them the replay has to
+    # infer the decision bar from logged_at_utc and can only bracket the
+    # forming-bar close inside a 15m candle; with them a candle mismatch is
+    # exact. Observability only, never raises, never changes a decision.
+    try:
+        last = candles_df.iloc[-1]
+        ts = last["timestamp"]
+        if hasattr(ts, "timestamp"):
+            payload.setdefault("bar_open_ts", float(ts.timestamp()))
+        payload.setdefault("bar_close", float(last["close"]))
+    except Exception:  # noqa: BLE001 — observability-only, never break a tick
+        pass
     return payload
 
 
