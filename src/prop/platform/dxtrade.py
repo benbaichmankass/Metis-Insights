@@ -75,6 +75,7 @@ import json
 import math
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
@@ -332,7 +333,22 @@ def _is_positions_table(headers: Sequence[str]) -> bool:
             and not _has_any(headers, _ORDER_ONLY))
 
 
+def _is_trade_history_table(headers: Sequence[str]) -> bool:
+    """The bottom panel's Trade History table. MEASURED (run 36611267485,
+    issue #14348): Date and Time, Symbol, Order ID, Trade Code, Side,
+    Position effect, Trade Volume, Trade Price, Commission, Closed P&L,
+    Net Closed P&L."""
+    return (_find_col(headers, "Symbol", "Instrument") is not None
+            and _has_any(headers, {"position effect"})
+            and _has_any(headers, {"trade price"}))
+
+
 def _is_orders_table(headers: Sequence[str]) -> bool:
+    # The Trade History table carries "Order ID", so without this it read as
+    # a working-orders table (#14348: reads_as=orders). Fills are not working
+    # orders: a history row must never reach the containment step.
+    if _is_trade_history_table(headers):
+        return False
     if _find_col(headers, "Symbol", "Instrument") is None or _has_any(headers, _POSITION_ONLY):
         return False
     return (_has_any(headers, _ORDER_ONLY)
@@ -413,6 +429,69 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
                 stop_loss=parse_number(_cell(row, c_sl)),
                 take_profit=parse_number(_cell(row, c_tp)),
             ))
+    return out if found else None
+
+
+_HISTORY_TIME_FORMATS = ("%d/%m/%y %H:%M", "%d/%m/%y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S")
+
+
+def parse_history_time(text: Optional[str]) -> Optional[datetime]:
+    """``"29/09/26 18:18"`` → 2026-09-29T18:18Z. Day first, as the terminal
+    renders it (#14348). Read as UTC: the 29/09 18:18 rows are the round trip
+    journaled at 18:17–18:18Z (#14344). None when it does not parse."""
+    t = re.sub(r"\s+", " ", str(text or "").strip())
+    for fmt in _HISTORY_TIME_FORMATS:
+        try:
+            return datetime.strptime(t, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def trade_history_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+    """Executed trades from the Trade History table; same ``None`` (no such
+    table: we could not look) vs ``[]`` (we looked; none) contract as the
+    positions reader. Each row: ``time`` (raw text), ``ts`` (datetime or
+    None), ``symbol`` (venue), ``side`` (long = Buy / short = Sell),
+    ``effect`` ("opening" / "closing" / None), ``volume``, ``price``,
+    ``commission``, ``closed_pnl``, ``net_closed_pnl``. The Order ID and
+    Trade Code columns are NOT carried: they identify the account's orders
+    and nothing downstream needs them."""
+    found = False
+    out: List[Dict[str, Any]] = []
+    for t in tables:
+        headers = list(t.get("headers") or [])
+        if not _is_trade_history_table(headers):
+            continue
+        found = True
+        c_time = _find_col(headers, "Date and Time", "Time")
+        c_sym = _find_col(headers, "Symbol", "Instrument")
+        c_side = _find_col(headers, "Side")
+        c_eff = _find_col(headers, "Position effect")
+        c_vol = _find_col(headers, "Trade Volume", "Volume", "Size")
+        c_px = _find_col(headers, "Trade Price")
+        c_com = _find_col(headers, "Commission")
+        c_net = _find_col(headers, "Net Closed P&L")
+        norm = [_norm(h) for h in headers]
+        c_gross = norm.index("closed p&l") if "closed p&l" in norm else None
+        for row in t.get("rows") or []:
+            sym = (_cell(row, c_sym) or "").strip()
+            if not sym:
+                continue
+            eff = _norm(_cell(row, c_eff) or "")
+            vol = parse_number(_cell(row, c_vol))
+            out.append({
+                "time": (_cell(row, c_time) or "").strip(),
+                "ts": parse_history_time(_cell(row, c_time)),
+                "symbol": sym,
+                "side": _side(_cell(row, c_side)),
+                "effect": "opening" if eff.startswith("open") else "closing" if eff.startswith("clos") else None,
+                "volume": abs(vol) if vol is not None else None,
+                "price": parse_number(_cell(row, c_px)),
+                "commission": parse_number(_cell(row, c_com)),
+                "closed_pnl": parse_number(_cell(row, c_gross)),
+                "net_closed_pnl": parse_number(_cell(row, c_net)),
+            })
     return out if found else None
 
 
@@ -5316,6 +5395,28 @@ class DXtradeAdapter(PropPlatformAdapter):
         got = orders_from_tables(self._tables(page))
         if got is None:
             raise LookupError("no orders table found on the page (selector drift or unmeasured layout)")
+        return got
+
+    def read_trade_history(self, page: Any, restore: Optional[str] = "tab_orders") -> List[Dict[str, Any]]:
+        """READ-ONLY: the Trade History tab's executed trades
+        (:func:`trade_history_from_tables`). The only clicks are the two VIEW
+        tabs (:meth:`_show_tab`: never a button, never a row control): Trade
+        History, then ``restore`` (the Orders tab the cycle's own read left
+        showing), so the next read finds the page as it left it. Raises
+        LookupError when the tab or its table is not found; the caller then
+        keeps the close unread rather than guessing it."""
+        try:
+            if not self._show_tab(page, "tab_trade_history"):
+                raise LookupError("Trade History tab not found")
+            got = trade_history_from_tables(self._tables(page))
+        finally:
+            if restore:
+                try:
+                    self._show_tab(page, restore)
+                except Exception:
+                    pass
+        if got is None:
+            raise LookupError("no Trade History table found on the page (selector drift or unmeasured layout)")
         return got
 
     # ---- instrument specs via network response sniffing (see the
