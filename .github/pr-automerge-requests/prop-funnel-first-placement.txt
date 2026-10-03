@@ -1,0 +1,3 @@
+auto-merge: PROP-FUNNEL close OPFUNNEL-0001 (first observed executor placement)
+branch: claude/prop-funnel-first-placement
+slug: prop-funnel-first-placement

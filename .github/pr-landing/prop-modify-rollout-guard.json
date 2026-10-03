@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager reviews; live order path on breakout_1 (modify_bracket guard + executor-clear-halt). EDIT_DIALOG_MEASURED stays False: the one-line flip is the manager's/operator's separate decision.",
+  "why": "Rollout guard for the first armed modifies (manager 2026-10-02 21:45Z, option (c)): per-account ModifyRollout latch (in_progress before the click; verified / verify_failed / refused after), tighten-only SL step <=25% of the stop distance with TP untouched, next-read verification with a loud alert, reviewed clear via executor-clear-halt. Behaviour change once armed: _contain's SL+TP repair is refused by the guard and falls through to the existing close-at-market."
+}

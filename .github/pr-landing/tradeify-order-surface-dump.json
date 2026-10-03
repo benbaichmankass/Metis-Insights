@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE order-surface hunt, manager 22:25Z). New READ-ONLY mode order-surface-dump (tradeify-only, one symbol): the symbol's watchlist row cells (header, tid, class, title/aria, children, elementFromPoint) and every order-surface term on the current page, hidden ones flagged. Clicks, hovers, focuses and types nothing; every digit masked; breakout_1 refused.",
+  "why": "probe-ticket ETHUSD #15696 found no order form on tradeify_1 (no [data-test-id=BUY] on any workspace). Before approving ONE measured opener click, the manager wants the Bid/Ask cells and any New Order / Trade affordance measured read-only."
+}

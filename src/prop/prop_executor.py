@@ -1978,7 +1978,14 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         leg = (found["positions"] or found["orders"])[0]
         if not row.get("leg_fix_tried"):
             if isinstance(leg, Position):
-                r = adapter.modify_bracket(page, leg, spec.get("stop_loss"), spec.get("take_profit"), arm=live)
+                # The account's modify-rollout latch (DIALOG-MEASURE): with the
+                # edit surface armed, the guard allows ONE watched tighten-only
+                # SL step per reviewed clear. This repair types SL AND TP, so
+                # under the guard it is refused before any click and the next
+                # cycle's existing close-at-market below takes over.
+                from src.prop.platform.dxtrade import ModifyRollout
+                r = adapter.modify_bracket(page, leg, spec.get("stop_loss"), spec.get("take_profit"), arm=live,
+                                           rollout=ModifyRollout(Path(ledger.path).parent / "modify_rollout.json"))
             else:
                 # A resting entry without its bracket holds no position yet:
                 # cancelling it is the smaller action than editing it.

@@ -14,7 +14,7 @@
   "schema_version": 1,
   "runs": [
     {
-      "generated_at": "2026-10-02T16:52:55Z",
+      "generated_at": "2026-10-03T02:09:23Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -30,7 +30,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:46:39Z",
+      "generated_at": "2026-10-03T02:02:40Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -46,7 +46,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:40:28Z",
+      "generated_at": "2026-10-03T01:57:33Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -62,7 +62,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:33:33Z",
+      "generated_at": "2026-10-03T01:51:23Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -78,7 +78,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:26:23Z",
+      "generated_at": "2026-10-03T01:45:07Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -94,7 +94,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:19:42Z",
+      "generated_at": "2026-10-03T01:40:31Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -110,7 +110,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:12:50Z",
+      "generated_at": "2026-10-03T01:32:20Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -126,7 +126,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:07:24Z",
+      "generated_at": "2026-10-03T01:26:26Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -142,7 +142,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T16:01:33Z",
+      "generated_at": "2026-10-03T01:16:57Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -158,7 +158,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T15:56:49Z",
+      "generated_at": "2026-10-03T01:10:37Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -174,7 +174,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T15:49:57Z",
+      "generated_at": "2026-10-03T01:04:13Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -190,7 +190,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T15:44:43Z",
+      "generated_at": "2026-10-03T00:58:07Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -206,7 +206,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T15:38:28Z",
+      "generated_at": "2026-10-03T00:51:58Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -222,7 +222,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T15:30:39Z",
+      "generated_at": "2026-10-03T00:45:40Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -238,7 +238,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T14:51:32Z",
+      "generated_at": "2026-10-03T00:39:38Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -254,7 +254,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T14:45:56Z",
+      "generated_at": "2026-10-03T00:33:33Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -270,7 +270,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T14:39:02Z",
+      "generated_at": "2026-10-03T00:27:38Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -286,7 +286,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T14:33:42Z",
+      "generated_at": "2026-10-03T00:21:01Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -302,7 +302,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T14:25:51Z",
+      "generated_at": "2026-10-03T00:14:51Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -318,7 +318,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T14:19:02Z",
+      "generated_at": "2026-10-03T00:08:28Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -334,7 +334,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T14:06:08Z",
+      "generated_at": "2026-10-03T00:02:17Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -350,7 +350,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:59:19Z",
+      "generated_at": "2026-10-02T23:57:36Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -366,7 +366,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:52:56Z",
+      "generated_at": "2026-10-02T23:52:25Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -382,7 +382,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:46:57Z",
+      "generated_at": "2026-10-02T23:46:14Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -398,7 +398,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:40:28Z",
+      "generated_at": "2026-10-02T23:39:22Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -414,7 +414,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:34:38Z",
+      "generated_at": "2026-10-02T23:33:14Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -430,7 +430,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:26:44Z",
+      "generated_at": "2026-10-02T23:28:15Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -446,7 +446,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:17:18Z",
+      "generated_at": "2026-10-02T23:22:05Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -462,7 +462,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:09:57Z",
+      "generated_at": "2026-10-02T23:14:52Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -478,7 +478,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T13:01:56Z",
+      "generated_at": "2026-10-02T23:08:39Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -494,7 +494,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T12:55:03Z",
+      "generated_at": "2026-10-02T23:02:00Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -510,7 +510,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:48:11Z",
+      "generated_at": "2026-10-02T22:57:27Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -526,7 +526,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:42:31Z",
+      "generated_at": "2026-10-02T22:52:13Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -542,7 +542,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:36:15Z",
+      "generated_at": "2026-10-02T22:47:23Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -558,7 +558,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:29:41Z",
+      "generated_at": "2026-10-02T22:41:33Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -574,7 +574,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:23:27Z",
+      "generated_at": "2026-10-02T22:35:18Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -590,7 +590,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:17:11Z",
+      "generated_at": "2026-10-02T22:29:41Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -606,7 +606,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:10:19Z",
+      "generated_at": "2026-10-02T22:25:00Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -622,7 +622,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T11:04:36Z",
+      "generated_at": "2026-10-02T22:18:28Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -638,7 +638,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:56:25Z",
+      "generated_at": "2026-10-02T22:12:04Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -654,7 +654,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:49:16Z",
+      "generated_at": "2026-10-02T22:04:42Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -670,7 +670,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:43:02Z",
+      "generated_at": "2026-10-02T21:58:19Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -686,7 +686,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:36:35Z",
+      "generated_at": "2026-10-02T21:51:22Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -702,7 +702,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:29:33Z",
+      "generated_at": "2026-10-02T21:19:48Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -718,7 +718,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:23:08Z",
+      "generated_at": "2026-10-02T21:14:10Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -734,7 +734,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:16:45Z",
+      "generated_at": "2026-10-02T21:08:22Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -750,7 +750,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:10:33Z",
+      "generated_at": "2026-10-02T21:01:36Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -766,7 +766,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T10:04:24Z",
+      "generated_at": "2026-10-02T20:55:14Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -782,7 +782,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:58:26Z",
+      "generated_at": "2026-10-02T20:47:58Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -798,7 +798,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:52:34Z",
+      "generated_at": "2026-10-02T20:41:31Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -814,7 +814,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:46:07Z",
+      "generated_at": "2026-10-02T20:34:00Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -830,7 +830,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:40:18Z",
+      "generated_at": "2026-10-02T20:27:37Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -846,7 +846,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:34:58Z",
+      "generated_at": "2026-10-02T20:21:17Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -862,7 +862,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:29:02Z",
+      "generated_at": "2026-10-02T20:15:55Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -878,7 +878,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:20:33Z",
+      "generated_at": "2026-10-02T20:10:34Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -894,7 +894,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:14:44Z",
+      "generated_at": "2026-10-02T20:05:05Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -910,7 +910,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:10:27Z",
+      "generated_at": "2026-10-02T19:57:42Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -926,7 +926,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T09:04:22Z",
+      "generated_at": "2026-10-02T19:51:53Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -942,7 +942,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T08:59:15Z",
+      "generated_at": "2026-10-02T19:45:03Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -958,7 +958,7 @@
       }
     },
     {
-      "generated_at": "2026-10-02T08:53:11Z",
+      "generated_at": "2026-10-02T19:38:38Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -974,9 +974,9 @@
       }
     }
   ],
-  "updated_at": "2026-10-02T16:52:55Z",
+  "updated_at": "2026-10-03T02:09:23Z",
   "latest": {
-    "generated_at": "2026-10-02T16:52:55Z",
+    "generated_at": "2026-10-03T02:09:23Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1262,
+      "unregistered_claude_branches": 1280,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 346,
+      "unregistered_but_attributable_sessions": 352,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -1317,6 +1317,10 @@
           "claude/triage-2-ask-operator-2026-09-28",
           "claude/triage-2-checklist-close-20260928"
         ],
+        "session_018JiqKhEVf8Jgj2xa75rbeb": [
+          "claude/prop-funnel-first-placement",
+          "claude/prop-funnel-pipeline-rows"
+        ],
         "session_018b6dC9uUk1z5KDDaN41uJ2": [
           "claude/system-review-backlog-xsg81e"
         ],
@@ -1508,8 +1512,8 @@
         ],
         "session_01Db47kLwhEpWPNaEfki6yYD": [
           "claude/diag-relay-at-sign",
-          "claude/tradeify-golive-pipeline",
-          "claude/tradeify-golive-ws-finding"
+          "claude/tradeify-chart-surface-dump",
+          "claude/tradeify-golive-pipeline"
         ],
         "session_01DkqJWZsHsYTkP7ba49Gepj": [
           "claude/fix-ca-09-measure"
@@ -1548,6 +1552,9 @@
         ],
         "session_01FAJhh5Q47LA1zhpPyXQ27c": [
           "claude/android-overview-page-Ghkyw"
+        ],
+        "session_01FDKSBG6aQnf416DXVHEUaU": [
+          "claude/sol-bracket-regrade"
         ],
         "session_01FEyBLv4xbJQoAzTRs4df3M": [
           "claude/ca-lead-report",
@@ -1720,6 +1727,11 @@
         "session_01JHFDpaWxaGw4BaxMGgtF9A": [
           "claude/mi307-offline-mfe-distribution"
         ],
+        "session_01JLyScUje5s6PAN84ZiqnJd": [
+          "claude/m20-exits-4-ief-decay-held",
+          "claude/m20-exits-4-xrp-p10-finding",
+          "claude/m20-exits-4-xrp4h-trail-held"
+        ],
         "session_01JTqmnBwmw3nfKaHxo9WPvh": [
           "claude/sa-prov-pipeline-leftovers"
         ],
@@ -1849,9 +1861,9 @@
           "claude/mi-157-board-post"
         ],
         "session_01MM8o5js6TcDFeNAPBY4Ntv": [
+          "claude/breakout-first-auto-trade-20261002",
           "claude/e44-lane-supervisor-build",
-          "claude/mgr-703-stamp-reset",
-          "claude/mgr-breakout-skips-20261002"
+          "claude/mgr-703-stamp-reset"
         ],
         "session_01MQ2EzPomkBsM6uxJMCrJbF": [
           "claude/mi238-live-observation"
@@ -1951,6 +1963,9 @@
           "claude/mi161-board-post-20260907",
           "claude/mi161-document-library-20260907"
         ],
+        "session_01PAxCW84tr1SV8q7FTEG7QN": [
+          "claude/m16-arm-basis-0001"
+        ],
         "session_01PEYVqTaCY92C3HmtHwxYff": [
           "claude/decision-push-back"
         ],
@@ -1963,7 +1978,9 @@
           "claude/recon-reduce-leg-null-pnl"
         ],
         "session_01PNFmCa7dgP1ykmsBd5s8kE": [
-          "claude/prop-trail"
+          "claude/pipeline-dialog-measure-2",
+          "claude/pipeline-dialog-measure-3",
+          "claude/prop-submit-label-strict-wip"
         ],
         "session_01PT8KKSz3KzyN2hE5UpwTaU": [
           "claude/w6-ops-recurring-validations"
@@ -2046,6 +2063,10 @@
           "claude/mi92-board-ci-green",
           "claude/mi92-observed-on-the-fleet",
           "claude/mi92-operator-commands-off-trader-bot"
+        ],
+        "session_01RZaDZHQNxS61WpDu6FR2PG": [
+          "claude/prop-exit-read",
+          "claude/prop-exit-read-pi"
         ],
         "session_01RiFXCLYtZRFT7Zn64zJM46": [
           "claude/webapi-restart-pipeline-close-20260929",
@@ -2190,6 +2211,9 @@
         "session_01VQCPCfUdFFZ5N6B5EH5DbV": [
           "claude/ca-b06-audit"
         ],
+        "session_01Vaq4L8zaozp2cyEXi7AXXN": [
+          "claude/ict-evidence-rebuild-causal-htf"
+        ],
         "session_01VsAt1BzrdspLn6hDzFTGh2": [
           "claude/e44-lane-supervisor",
           "claude/e44-lane-supervisor-build"
@@ -2293,7 +2317,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 0,
-      "origin_head_count": 1628,
+      "origin_head_count": 1650,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",

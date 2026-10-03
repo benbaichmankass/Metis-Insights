@@ -94,7 +94,9 @@ EXIT_DEFERRED = 7
 #: ``close_position_*`` is NOT here: closing a position is never deferred.
 YIELD_MODES = frozenset({"probe", "instrument_probe", "instrument_search_dump", "instrument_info_dry",
                          "instrument_info_probe", "symbol_switch_dry", "link_state_dump", "widget_menu_probe", "add_watchlist_widget", "watchlist_submenu_probe",
-                         "edit_dialog_dry", "edit_dialog_probe",
+                         "add_watchlist_symbol_dry", "add_watchlist_symbol",
+                         "instrument_page_dump", "order_surface_dump",
+                         "edit_dialog_dry", "edit_dialog_probe", "edit_surface_probe",
                          "round_trip_dry", "round_trip_live"})
 
 # Headless viewport. Playwright's default (1280x720) clipped the sidebar
@@ -155,12 +157,22 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "edit_dialog_dry"
     if getattr(args, "edit_dialog_probe", ""):
         return "edit_dialog_probe"
+    if getattr(args, "edit_surface_probe", ""):
+        return "edit_surface_probe"
     if getattr(args, "widget_menu_probe", False):
         return "widget_menu_probe"
     if getattr(args, "add_watchlist_widget", False):
         return "add_watchlist_widget"
     if getattr(args, "watchlist_submenu_probe", False):
         return "watchlist_submenu_probe"
+    if getattr(args, "add_watchlist_symbol_dry", ""):
+        return "add_watchlist_symbol_dry"
+    if getattr(args, "add_watchlist_symbol", ""):
+        return "add_watchlist_symbol"
+    if getattr(args, "instrument_page_dump", ""):
+        return "instrument_page_dump"
+    if getattr(args, "order_surface_dump", ""):
+        return "order_surface_dump"
     if args.dry_run:
         return "read_only"
     # A manual LIVE run (watched click, live round trip) needs the kill switch
@@ -359,6 +371,9 @@ def main(argv: Optional[list] = None) -> int:
                         "and the sidebar ticket's buttons; clicks nothing")
     g.add_argument("--edit-dialog-dry", default="", metavar="VENUE_SYMBOL",
                    help="locate the symbol's Positions row and its edit pencil (by icon name); click nothing")
+    g.add_argument("--edit-surface-probe", default="", metavar="VENUE_SYMBOL",
+                   help="MEASURE what the row's modify control changes (snapshot diff), leave via Escape or the "
+                        "surface's own cancel, require the page back at baseline; submits nothing")
     g.add_argument("--edit-dialog-probe", default="", metavar="VENUE_SYMBOL",
                    help="MEASURE the position edit dialog: click that pencil, read the dialog, press its Cancel; "
                         "submits nothing")
@@ -371,6 +386,18 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--watchlist-submenu-probe", action="store_true",
                    help="MEASURE the Watchlist submenu: '+', 'Watchlist' (both measured), then HOVER each of "
                         "Private/Public and dump; clicks no submenu entry; Escape + layout re-read")
+    g.add_argument("--order-surface-dump", default="", metavar="VENUE_SYMBOL",
+                   help="READ-ONLY: dump the symbol's watchlist row cells and every order-surface term "
+                        "(new order / trade / buy / sell) on the current page; clicks nothing")
+    g.add_argument("--instrument-page-dump", default="", metavar="VENUE_SYMBOL",
+                   help="READ-ONLY: type the base asset key by key into the watchlist search (never Enter), "
+                        "dump every visible text leaf on the page (masked, <=400), reset + blur; clicks nothing")
+    g.add_argument("--add-watchlist-symbol-dry", default="", metavar="VENUE_SYMBOL",
+                   help="DRY: type the base asset into the watchlist search, resolve the ONE suggestion row whose "
+                        "Symbol cell is exactly the slash form, report it + elementFromPoint; click nothing")
+    g.add_argument("--add-watchlist-symbol", default="", metavar="VENUE_SYMBOL",
+                   help="add ONE symbol to the watchlist: the resolved suggestion row's Symbol cell (one click), "
+                        "Escape; refused unless one-click OFF; verified: no ticket/dialog, only that symbol added")
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
@@ -550,6 +577,14 @@ def main(argv: Optional[list] = None) -> int:
                 emit({"link_state_dump": got}, *secrets)
                 return EXIT_OK if "error" not in got else EXIT_UNPARSED
 
+            if mode == "edit_surface_probe":
+                got = adapter.probe_edit_surface(page, args.edit_surface_probe)
+                emit({"edit_surface": got}, *secrets)
+                for al in got.get("alerts") or []:
+                    emit({"alert": f"edit-surface-probe: {al}"}, *secrets)
+                ok = (got.get("locate") or {}).get("ok") and got.get("restored") is True and not got.get("alerts")
+                return EXIT_OK if ok else EXIT_UNPARSED
+
             if mode in ("edit_dialog_dry", "edit_dialog_probe"):
                 sym = args.edit_dialog_dry or args.edit_dialog_probe
                 got = adapter.probe_edit_dialog(page, sym, click=(mode == "edit_dialog_probe"))
@@ -560,6 +595,21 @@ def main(argv: Optional[list] = None) -> int:
                 emit({"widget_menu_probe": got}, *secrets)
                 ok = got.get("refused") is None and got.get("restored") is True and "error" not in got
                 return EXIT_OK if ok else EXIT_UNPARSED
+
+            if mode == "order_surface_dump":
+                emit({"order_surface": adapter.order_surface_dump(page, args.order_surface_dump.strip())}, *secrets)
+                return EXIT_OK
+
+            if mode == "instrument_page_dump":
+                sym = args.instrument_page_dump.strip()
+                emit({"page_dump": {"symbol": sym, **adapter.probe_page_leaf_dump(page, sym)}}, *secrets)
+                return EXIT_OK
+
+            if mode in ("add_watchlist_symbol_dry", "add_watchlist_symbol"):
+                arm = mode == "add_watchlist_symbol"
+                sym = (args.add_watchlist_symbol if arm else args.add_watchlist_symbol_dry).strip()
+                emit({"add_symbol": adapter.add_watchlist_symbol(page, sym, arm=arm)}, *secrets)
+                return EXIT_OK
 
             if mode == "watchlist_submenu_probe":
                 got = adapter.watchlist_submenu_probe(page)

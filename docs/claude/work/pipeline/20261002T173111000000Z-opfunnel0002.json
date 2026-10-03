@@ -1,0 +1,17 @@
+{
+    "due_when": {
+        "check_every_days": 3,
+        "clears_when": "An `unattempted_expiry` action line, or a 'NOT PLACED -- its validity expired' alert, appears in the ict-prop-executor journal for a real prop-manual-* ticket after #15595 is merged and ict-git-sync has pulled it (confirm the tick's code_sha contains the merge). Killable with a reason if #15595 is rejected by the operator, or if the band_wait path is removed instead.",
+        "kind": "event"
+    },
+    "id": "PI-20261002-OPFUNNEL-0002",
+    "next_action": "check_observation",
+    "origin": {
+        "kind": "session",
+        "ref": "Lane PROP-FUNNEL, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-02; PR #15595, branch prop-noattempt-expiry-alert, commit e2f32acf7.",
+        "rerun": "Check PR #15595 state; if merged, curl -sS -H \"Authorization: Bearer $DIAG_READ_TOKEN\" 'https://ict-bot.duckdns.org/api/diag/journalctl?unit=ict-prop-executor&lines=2000' | grep -c 'unattempted_expiry\\|validity expired'"
+    },
+    "state": "queued",
+    "terminal_reason": null,
+    "what": "THE NO-ATTEMPT EXPIRY ALERT IS HELD, NOT OBSERVED. PR #15595 (Tier-2 HELD, branch prop-noattempt-expiry-alert) makes a breakout_1 ticket whose validity runs out with no executor placement attempt raise exactly one NOT PLACED alert, instead of reaching expiry_prompted with no prop_fills row, no alert and no terminal disposition. MEASURED cause: prop-manual-fb466451fd1f (created 2026-10-02T08:19:49Z, valid_until 09:19:50Z) was looked at on all 12 ticks inside its validity and declined every one with band_wait; a wait records nothing by design, and the executor's own `expired` report branch is unreachable because intake is /api/bot/prop/tickets?status=emitted and the expiry prompter flips the ticket to expiry_prompted AT its valid_until. Until #15595 merges AND an alert is seen in the journal, this failure mode is still silent in production. Merged != deployed != observed: this row closes on OBSERVED."
+}

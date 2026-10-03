@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager's go-live review and merge (TRADEIFY-GOLIVE (b)). New READ-ONLY system-action mode instrument-page-dump (tradeify-only, refused for breakout_1, one symbol): types the base asset key by key (never Enter), dumps every visible text leaf on the page (tbody / role=row / virtualized grids included; masked; <=400 + <=50 query matches), then resets, blurs and untags the field. Clicks nothing. breakout_1's paths are untouched.",
+  "why": "Every key-by-key form of ETH/SOL/XRP left tradeify_1's suggestion table EMPTY (#15491/#15493/#15494). A full-page dump while ETH is typed shows whether results render elsewhere (b) or nowhere, which points to the account's instrument list (a)."
+}
