@@ -157,6 +157,17 @@ accounts:
     # "Allow, dry only for now (Recommended)". DRY runs only; its use on LIVE
     # orders is NOT approved and goes back to the operator with go-live #14673.
     ticket_opener: ask_button
+    # The LIMIT price field's fill method (TRADEIFY-PRICE-FILL 2026-10-03).
+    # MEASURED: round-trip-dry,limit ETHUSD #15975 (run 37132594478, code
+    # bc377c508) typed 2679.725 and the field read back 2,679.719 on all 3
+    # fill passes (submit label "Buy 0.01 ETH/USD at 2,679.719"); #15930 typed
+    # 2683.59 and read back 2,683.584. SL / TP took the same page.fill exactly.
+    # INFERRED, not measured: the field keeps its own price unless it sees key
+    # events. ``keys`` types the limit price key by key (focus, select all,
+    # delete, type, blur; never Enter) and logs each step's read-back.
+    # breakout_1 declares none and keeps page.fill (scripts/prop/
+    # prop_executor_tick.py::limit_price_fill_mode; an unknown value raises).
+    limit_price_fill: keys
     # Kill switch: PROP_EXECUTOR_MODE_TRADEIFY_1 (off | read_only | live,
     # default read_only). It NEVER reads breakout_1's PROP_EXECUTOR_MODE.
     # Ruleset + routing: accounts.yaml::tradeify_1.backtest_ruleset and that

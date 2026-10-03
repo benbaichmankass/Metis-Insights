@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: it changes the prop order path (src/prop/platform/dxtrade.py place_bracket's fill of the LIMIT price field) and its config (config/prop_platforms.yaml). Approval sought from the manager (session_01MM8o5js6TcDFeNAPBY4Ntv), and through it the operator, to land it so the dry proof can run: the system-action runs the VM's checkout of main, so a round-trip-dry on this PR's code is only possible once it is on main. Live effect of landing: none on breakout_1 (no limit_price_fill key; page.fill path unchanged) and none live on tradeify_1 (enabled_venue_symbols: [], executor read_only, and a LIMIT round trip refuses arm).",
+  "why": "TRADEIFY-PRICE-FILL (manager lane, 2026-10-03). Opt-in key-by-key fill for the LIMIT price field, tradeify_1 only, with a step-by-step read-back logged to fill_trace. MEASURED: round-trip-dry,limit ETHUSD #15975 run 37132594478 (code bc377c508) typed 2679.725 and read back 2,679.719 on all 3 passes; SL/TP exact. Cause INFERRED (page.fill sends no key events), not measured."
+}
