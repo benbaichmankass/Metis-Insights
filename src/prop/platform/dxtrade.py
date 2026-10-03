@@ -7215,11 +7215,18 @@ class DXtradeAdapter(PropPlatformAdapter):
                     out["closed_via"] = f"{out['closed_via']}+escape" if out["closed_via"] else "escape"
                     page.wait_for_timeout(1_000)
             else:
-                out["alerts"].append("the click did not open an order form")
-                if self._visible_dialogs(page):
-                    page.keyboard.press("Escape")
-                    out["closed_via"] = "escape"
-                    page.wait_for_timeout(1_000)
+                # ORDER_FORM_JS needs visible quantity + SL + TP inputs; a
+                # ticket that hides SL/TP until toggled would read "not
+                # found". Record what the click DID show (redacted), then
+                # Escape -- never a ticket button, since none is identified.
+                out["alerts"].append("the click did not open a recognised order form")
+                panel = self.ticket_panel_dump(page)
+                out["ticket_panel"] = panel if panel.get("found") else {"why": panel.get("why") or panel.get("error")}
+                if not panel.get("found"):
+                    out["controls_dump"] = self.controls_dump(page)
+                page.keyboard.press("Escape")
+                out["closed_via"] = "escape"
+                page.wait_for_timeout(1_000)
         except Exception as exc:
             out["error"] = type(exc).__name__
             out["alerts"].append(f"exception during the guarded click ({type(exc).__name__})")

@@ -131,6 +131,18 @@ def test_refuses_before_any_click_when_not_flat_or_form_open(chromium_page, monk
     chromium_page.set_content(_dx.DIVGRID.read_text())
 
 
+def test_unrecognised_ticket_is_dumped_and_escaped_never_a_ticket_button(chromium_page, monkeypatch):
+    chromium_page.set_content(_page(_row("ETH/USD")))
+    ad = _adapter(monkeypatch, chromium_page)
+    monkeypatch.setattr(ad, "_find_form", lambda p: {"found": False})
+    got = ad.probe_ask_ticket(chromium_page, "ETHUSD")
+    assert got["opened"] is False and got["closed_via"] == "escape"
+    assert any("did not open a recognised order form" in a for a in got["alerts"])
+    assert "controls_dump" in got
+    assert chromium_page.evaluate("window.__clicks") == ["ETH/USD-0"]          # no cancel/place click
+    chromium_page.set_content(_dx.DIVGRID.read_text())
+
+
 def test_post_state_difference_is_an_alert(chromium_page, monkeypatch):
     chromium_page.set_content(_page(_row("ETH/USD")))
     ad = _adapter(monkeypatch, chromium_page)
