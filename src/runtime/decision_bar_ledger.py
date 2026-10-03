@@ -201,9 +201,13 @@ def catchup_price_check(side: str, entry: Any, sl: Any, tp: Any, current: Any,
                         max_frac: float = DEFAULT_MAX_DRIFT_STOP_FRAC) -> tuple[bool, str]:
     """``(ok, reason)`` for entering a caught-up signal at ``current`` (bound 2)."""
     try:
-        entry_f, sl_f, cur = float(entry), float(sl), float(current)
+        entry_f, sl_f = float(entry), float(sl)
     except (TypeError, ValueError):
-        return False, "current_price_unreadable"
+        return False, "entry/SL unreadable"
+    try:
+        cur = float(current)
+    except (TypeError, ValueError):
+        return False, "current price unreadable"
     stop = abs(entry_f - sl_f)
     if not stop > 0:
         return False, "stop_distance_unreadable"

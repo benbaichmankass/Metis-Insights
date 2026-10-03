@@ -230,6 +230,18 @@ def test_forming_catchup_beyond_bound_is_skipped(monkeypatch):
     assert ledger.get("legF|XRPUSDT")["catchup_disposition"] == "stale_skipped"
 
 
+def test_forming_catchup_waits_out_the_settle_seconds(monkeypatch):
+    builder, _ = _forming_env(monkeypatch, B - 300)
+    _collect(builder)
+    _restart(monkeypatch)
+    builder, seen = _forming_env(monkeypatch, B + 2)
+    assert _collect(builder) == [] and seen == [B]               # not yet, not disposed
+    assert ledger.get("legF|XRPUSDT").get("catchup_open") is None
+    builder, seen = _forming_env(monkeypatch, B + 70, live=1.01)
+    out = _collect(builder)                  # the settle tick did not erase the gap
+    assert seen == [B - H1, B] and [i.side for i in out] == ["long"]
+
+
 def test_forming_normal_tick_spacing_never_triggers_catchup(monkeypatch):
     builder, _ = _forming_env(monkeypatch, B - 100)              # last look 100 s pre-close
     _collect(builder)

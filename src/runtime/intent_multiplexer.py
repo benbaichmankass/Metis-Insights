@@ -523,6 +523,12 @@ def _forming_tail_gap_seconds(row: dict) -> float:
     return 2.0 * max(tick, cadence)
 
 
+#: Mirrors strategy_signal_builders._CLOSED_DECISION_SETTLE_SECONDS.
+_CATCHUP_SETTLE_SECONDS = 5.0
+#: _forming_catchup_asof's "a catch-up is pending but not yet decidable".
+_CATCHUP_DEFER = -1.0
+
+
 def _forming_catchup_asof(name: str, key: str, tf_s: float, now: float,
                           vcfg: Optional[dict] = None) -> Optional[float]:
     """RESTART-SAFE for ``decision_bar: forming`` legs (PI-20261003-OJTPWGCC-0001).
@@ -548,6 +554,11 @@ def _forming_catchup_asof(name: str, key: str, tf_s: float, now: float,
     if unseen <= _forming_tail_gap_seconds(row):
         return None
     age = now - cur_open
+    if age < _CATCHUP_SETTLE_SECONDS:
+        # Same settle rule as the closed-bar gate: the venue may not have folded
+        # the bar's last trades in yet. Not disposed — the next tick decides,
+        # and the caller must not record this tick (it would erase the gap).
+        return _CATCHUP_DEFER
     bound = ledger.catchup_bound_seconds(tf_s, vcfg)
     who = "a previous process" if ledger.by_previous_process(row) else "this process"
     if age > bound:
@@ -671,10 +682,12 @@ def _collect_intents(
         vcfg = leg_cfgs.get(name) or {}
         tf_s = None if _is_closed_decision_leg(vcfg) else _strategy_timeframe_seconds(name)
         leg_key = f"{name}|{tick_symbol}" if tick_symbol else name
+        defer_record = False
         if tf_s:
             try:
                 asof = _forming_catchup_asof(name, leg_key, float(tf_s), now, vcfg)
-                if asof is not None:
+                defer_record = asof == _CATCHUP_DEFER
+                if asof is not None and not defer_record:
                     caught = _run_forming_catchup(
                         name, builder, settings, asof=asof, tf_s=float(tf_s),
                         target_qty_hint=target_qty_hint, now=now, vcfg=vcfg)
@@ -734,7 +747,7 @@ def _collect_intents(
                 )
             continue
 
-        if tf_s:
+        if tf_s and not defer_record:
             forming_seen[leg_key] = {"bar_open": (now // tf_s) * tf_s, "at": now,
                                      "tf_s": float(tf_s)}
         intent = intent_from_signal(
