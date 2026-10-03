@@ -4480,6 +4480,28 @@ def canonical_symbol(text: Any) -> str:
     return c if re.fullmatch(r"[A-Z0-9]{2,15}", c) else ""
 
 
+_PRICE_LABEL_RE = re.compile(r"^\s*(buy|sell)\s+(?=\d)", re.IGNORECASE)
+
+
+def _strip_price_label(text: Optional[str], expected: str) -> Optional[str]:
+    """A watchlist price cell with its button's hidden label removed.
+
+    tradeify_1's Bid/Ask cells are price BUTTONS whose innerText starts with a
+    hidden label (MEASURED, symbol-switch-dry #15901 run 37117766658: bid
+    ``"Sell 2,680.940"``, ask ``"Buy 2,680.940"``; dump #15743), so the bare
+    number never parsed and ``read_quote`` returned None. Only the label that
+    belongs to the column is stripped (bid -> Sell, ask -> Buy). The opposite
+    label means the cells are not where the headers say, so the cell is
+    returned unchanged and fails to parse (could not look). A cell with no
+    label (breakout_1) is returned unchanged."""
+    if text is None:
+        return None
+    m = _PRICE_LABEL_RE.match(str(text))
+    if not m:
+        return text
+    return str(text)[m.end():] if m.group(1).lower() == expected else text
+
+
 def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
     """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
     (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
@@ -4515,7 +4537,8 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
     if len(hits) != 1:
         return None
     (row, (c_sym, c_bid, c_ask)), = hits.items()
-    bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
+    bid = parse_price(_strip_price_label(_cell(row, c_bid), "sell"))
+    ask = parse_price(_strip_price_label(_cell(row, c_ask), "buy"))
     if (bid is not None and ask is not None and 0 < bid <= ask
             and (ask - bid) / ask <= MAX_QUOTE_SPREAD_FRAC):
         return {"bid": bid, "ask": ask}
