@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Register-only (no code): WORK-SYSTEM row -> landed_unproven with the #16470 one-shot observation form, plus the #16430 observation. Held for the manager, who owns the register merge.",
+  "why": "WORK-SYSTEM lane close-out."
+}
