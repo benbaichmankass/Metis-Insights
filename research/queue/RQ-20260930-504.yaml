@@ -1,6 +1,6 @@
 id: RQ-20260930-504
 title: 'Strategy development (general research mandate): is there ANY profitable <=1h crypto-perp strategy in the existing harness families? Two-stage, family-wise-corrected search (blocked on the sweep orchestrator)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -160,3 +160,15 @@ related:
   - RQ-20260930-503
   - docs/research/hyro-strategy-feasibility-2026-09-30.md
 last_dispatched_at: '2026-09-30T08:42:40+00:00'
+grading:
+  auto: false
+  evidence:
+  - research/results/RQ-20260930-504/36691408944.jsonl
+  - research/results/RQ-20260930-504/manual-20260930-smoke-label-correction.jsonl
+  graded_at: '2026-10-04'
+  graded_by: 'RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf (hand-written unit: not mechanically
+    gradable)'
+  needs_review: false
+  reason: 2 measured record(s), all fail. Read by a session against the unit's pre-registered rule (not
+    rewritten); the verdict is the record's own.
+  verdict: fail
