@@ -191,7 +191,7 @@ def test_the_cli_json_flag_emits_the_envelope():
 
 
 # ── BRIEF-FIX (2026-10-04): ranked, capped, truthful ───────────────────────
-from datetime import date, timedelta  # noqa: E402
+from datetime import date  # noqa: E402
 
 TODAY = date(2026, 10, 4)
 
@@ -307,12 +307,12 @@ def test_read_soaks_imports_soak_state_live(tmp_path, monkeypatch):
     mod.soak_states = lambda: [{"leg": "L", "account": "a", "state": "overdue",
                                 "end_date": "2026-10-01", "reason": "r", "started": "2026-10-01"}]
     monkeypatch.setitem(sys.modules, "scripts.ops.soak_state", mod)
-    got = rdb.read_soaks(tmp_path, TODAY)
+    got = rdb.read_soaks(TODAY)
     assert got["state"] == "read" and got["rows"][0]["days_in"] == 3
     mod.soak_states = lambda: 1 / 0
-    assert rdb.read_soaks(tmp_path, TODAY)["state"] == "unreadable"
+    assert rdb.read_soaks(TODAY)["state"] == "unreadable"
     monkeypatch.setitem(sys.modules, "scripts.ops.soak_state", None)  # import raises
-    assert rdb.read_soaks(tmp_path, TODAY)["state"] in ("absent", "unreadable")
+    assert rdb.read_soaks(TODAY)["state"] in ("absent", "unreadable")
 
 
 def test_git_activity_is_cached_on_head_sha(monkeypatch):
@@ -321,7 +321,8 @@ def test_git_activity_is_cached_on_head_sha(monkeypatch):
     monkeypatch.setattr(rdb, "_git_activity_uncached",
                         lambda root, today, days=45: calls.append(1) or {"state": "read", "commits": [], "coversDays": 9})
     rdb._ACTIVITY_CACHE.clear()
-    rdb.git_activity(REPO_ROOT, TODAY); rdb.git_activity(REPO_ROOT, TODAY)
+    rdb.git_activity(REPO_ROOT, TODAY)
+    rdb.git_activity(REPO_ROOT, TODAY)
     assert len(calls) == 1
     monkeypatch.setattr(rdb, "_head_sha", lambda root: "def")
     rdb.git_activity(REPO_ROOT, TODAY)

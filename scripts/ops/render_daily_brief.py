@@ -80,7 +80,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -419,7 +419,7 @@ def row_last_evidence(it: dict, act: dict, today: date) -> tuple[date | None, st
 # Module absent => "soak state source absent (we looked)", never "no soaks";
 # import/call failure => "could not look". Missing fields render "—", never 0.
 
-def read_soaks(root: Path, today: date) -> dict[str, Any]:
+def read_soaks(today: date) -> dict[str, Any]:
     import importlib
     try:
         mod = importlib.import_module("scripts.ops.soak_state")
@@ -503,7 +503,7 @@ def build(*, today: date | None = None, root: Path | None = None) -> dict[str, A
         "pipeline": {"stats": pipe_stats, "section0Lines": section0,
                      "healthy": pipe_res.healthy, "askOperator": ask_operator},
         "activity": git_activity(root, today),
-        "soaks": read_soaks(root, today),
+        "soaks": read_soaks(today),
         "checklistState": checklist_state,
         "checklist": ck,
         "mandatesState": mandates_state,
