@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane OPS-AUDIT (manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04): Tier-2 deploy-unit change on the two LIVE prop executors; held for the manager / operator OK. Deploy after merge: breakout_1's unit is reinstalled by install_systemd_units.sh on sync; tradeify_1's template needs `breakout-login-check account: tradeify_1 apply: executor-enable-timer` re-run (it reinstalls the template + daemon-reload).",
+  "why": "Adds OnFailure=ict-notify-failure@%n.service to deploy/ict-prop-executor.service and deploy/ict-prop-executor@.service. FIX-SA-08's drop-in loop covers deploy/*.timer only; both prop executor timers live in deploy/opt-in/, so a failed live-executor tick (halted latch exit 3, crash, timeout) pinged nothing. Observed 2026-10-04: ict-prop-executor.service has read `failed` every 5 min since 03:49Z with zero alerts after the first tick. No order-path code touched."
+}
