@@ -426,8 +426,10 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
     msgs: list[tuple[str, str]] = []
     first_run = "seen_ask_operator" not in state
 
-    # (b1) new ask_operator items — edge-triggered. The first run seeds
-    # silently: the backlog it would otherwise flood is in the digest instead.
+    # (b1) new ask_operator items — edge-triggered. The first run SEEDS, but
+    # never silently (manager, 2026-10-04: seeding an actionable set without a
+    # word is the "things exist and nobody is told" pattern) — it sends ONE
+    # count line instead of one line per item.
     seen = set(state.get("seen_ask_operator", []))
     cur = {i["id"]: i for i in v["ask_operator"]}
     fresh = [cur[k] for k in sorted(cur) if k not in seen]
@@ -438,6 +440,10 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
         if len(fresh) > 6:
             L.append(f"…and {len(fresh) - 6} more — see the daily digest.")
         msgs.append(("high", "\n".join(L)))
+    if first_run and cur:
+        n_due = sum(1 for i in cur.values() if pipeline.is_due(i, v["today"]))
+        msgs.append(("high", f"❓ ask_operator at deploy: {len(cur)} open ({n_due} due) — "
+                             f"see the report (GET /api/bot/work/report)"))
     new["seen_ask_operator"] = sorted(seen | set(cur))
 
     # (b2) soak transitions into ready / overdue / dead.
@@ -455,6 +461,13 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
                          f" {_short(r.get('reason'), 100)}")
             pri = "high" if any(str(r.get("state")) in ("overdue", "dead") for r in moved) else "normal"
             msgs.append((pri, "\n".join(L)))
+        if "soak_states" not in state:
+            # Seed line, same rule as ask_operator above: one count line.
+            n = {k: sum(1 for s in cur_s.values() if s == k) for k in ALERT_SOAK_STATES}
+            if any(n.values()):
+                msgs.append(("high" if n["overdue"] or n["dead"] else "normal",
+                             f"🧪 Soaks at deploy: {n['ready']} ready · {n['overdue']} overdue · "
+                             f"{n['dead']} dead (see report)"))
         new["soak_states"] = cur_s
 
     # (c) silence alarms — send on breach, re-send every REALERT_HOURS, one clear.
@@ -602,8 +615,9 @@ def _self_test() -> int:
         return base
 
     msgs, st = plan_messages(view(), {})
-    check("first run sends the digest and does NOT flood ask_operator alerts",
-          len(msgs) == 1 and msgs[0][1].startswith("📋"), msgs)
+    check("first run sends the digest plus ONE ask_operator seed line, not one per item",
+          len(msgs) == 2 and msgs[0][1].startswith("📋")
+          and msgs[1][1].startswith("❓ ask_operator at deploy: 1 open"), msgs)
     check("absent soak source is said, never rendered as zero",
           "ABSENT" in msgs[0][1], msgs[0][1])
     msgs2, st2 = plan_messages(view(), st)
@@ -624,6 +638,10 @@ def _self_test() -> int:
     check("unknown does not silently clear a breach; the later OK sends one clear",
           len(msgs7) == 1 and msgs7[0][1].startswith("✅"), msgs7)
     s1 = {"leg": "a", "account": "bybit_1", "state": "accruing"}
+    d1 = {"leg": "b", "account": "bybit_1", "state": "dead"}
+    seed, _ = plan_messages(view(soak_read="read", soaks=[s1, d1]), st2)
+    check("first soak read sends ONE seed line with the counts",
+          [b for _, b in seed] == ["🧪 Soaks at deploy: 0 ready · 0 overdue · 1 dead (see report)"], seed)
     _, st8 = plan_messages(view(soak_read="read", soaks=[s1]), st2)
     msgs9, _ = plan_messages(view(soak_read="read", soaks=[{**s1, "state": "dead"}]), st8)
     check("a soak moving to dead alerts high",
@@ -632,7 +650,8 @@ def _self_test() -> int:
     msgs10, _ = plan_messages(later, st2)
     check("next day sends the next digest", len(msgs10) == 1 and msgs10[0][1].startswith("📋"), msgs10)
     early = view(now=now.replace(hour=2))
-    check("no digest before DIGEST_HOUR_UTC", plan_messages(early, {})[0] == [], "")
+    check("no digest before DIGEST_HOUR_UTC",
+          not any(b.startswith("📋") for _, b in plan_messages(early, {})[0]), "")
     blk, pri, new_items = compose_block(view(), [])
     check("nothing new → ONE quiet line", blk.startswith("🟢") and "\n" not in blk and not new_items, blk)
     blk2, pri2, _ = compose_block(view(), [("high", "❓ 1 new decision"), ("normal", "📋 Daily")])
