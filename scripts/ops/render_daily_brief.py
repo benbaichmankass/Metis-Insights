@@ -465,11 +465,23 @@ def _soak_lines(b: dict) -> list[str]:
     if not n:
         return L + ["_None declared._", ""]
     dash = lambda v: "—" if v in (None, "") else v  # noqa: E731
-    for r in sk["rows"]:
+    # Only the states that owe a decision are listed in full; `accruing` is a
+    # count plus the nearest end date (the soak alarm rule: accruing stays
+    # quiet). 48 full rows took the brief past its 16 KB cap on 2026-10-04.
+    loud = [r for r in sk["rows"] if r.get("state") != "accruing"]
+    order = {"ready": 0, "overdue": 1, "dead": 2, "unknown": 3}
+    for r in sorted(loud, key=lambda r: (order.get(str(r.get("state")), 9), str(r.get("id")))):
         L.append(f"- **{dash(r.get('id'))}** {dash(r.get('leg'))} @{dash(r.get('account'))} · "
                  f"{dash(r.get('state'))} · started {dash(r.get('started'))} · "
                  f"day {dash(r.get('days_in'))} · {_clip(dash(r.get('progress')), 40)} · "
                  f"ends {dash(r.get('end_date'))} · {_clip(dash(r.get('reason')), 50)}")
+    acc = [r for r in sk["rows"] if r.get("state") == "accruing"]
+    if acc:
+        ends = sorted(str(r["end_date"]) for r in acc if r.get("end_date"))
+        nearest = next((r for r in acc if str(r.get("end_date")) == ends[0]), None) if ends else None
+        L.append(f"- _{len(acc)} accruing (quiet); nearest end "
+                 + (f"{ends[0]} (`{dash(nearest.get('id'))}`)" if nearest else "—")
+                 + ". Full table: `docs/claude/work/SOAK-REPORT.md`._")
     L.append("")
     return L
 

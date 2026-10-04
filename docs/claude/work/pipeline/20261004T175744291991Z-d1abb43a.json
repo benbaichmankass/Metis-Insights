@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "config/strategies.yaml::slv_trend_1h.execution is not 'shadow' AND slv_trend_1h is on 'alpaca_paper''s roster, with enough real fills there to clear RULE-R3-GATE1-COST-FIDELITY-v1's floor (>=10 measured entries and >=10 exits per side)",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-JC8KDKLF-0010",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01JqGq9ffmH9ZCU5jc8kDkLF",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg slv_trend_1h --from S1 --to S2 --account alpaca_live --json"
+  },
+  "state": "queued",
+  "what": "MD-PROMOTE-S1-S2: slv_trend_1h (S1 -> S2, alpaca_live) is NEEDS-DATA at R-EXECUTION-SHADOW -- slv_trend_1h needs a genuine Stage-1 soak on 'alpaca_paper' before MD-PROMOTE-S1-S2 can decide slv_trend_1h -> alpaca_live: it must be `execution: live` (not `shadow`) on that roster, then accrue real fills there -- 'Never a leg that has not soaked at Stage 1' (the mandate's own `never:`)."
+}
