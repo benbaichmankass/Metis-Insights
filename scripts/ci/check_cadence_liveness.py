@@ -356,6 +356,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "ict-trainer-git-sync.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-web-api-watchdog.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-work-digest.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
+    "ict-work-report.timer": {"receipt": None, "why": "VM-side (WORK-SYSTEM); its receipt is the report itself, runtime_logs/work_reports/latest.json, served by GET /api/bot/work/report and alarmed by attention_watch probe_report"},
 }
 
 #: The day-one debt, by name and the state it held on 2026-09-22.

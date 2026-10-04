@@ -1,0 +1,27 @@
+# ============================================
+# ICT WORK REPORT SYSTEMD SERVICE (WORK-SYSTEM, 2026-10-04)
+# Generates + persists the daily concentrated work report
+# (scripts/ops/work_report.py) to runtime_logs/work_reports/<report_id>.json and
+# latest.json; served by GET /api/bot/work/report. The manager's 05:52Z review
+# routine reads it. Design: docs/plans/work-system-2026-10-04.md
+# Save to: /etc/systemd/system/ict-work-report.service
+# ============================================
+
+[Unit]
+Description=ICT daily work report — generate and persist for the manager's review
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+Environment=PYTHONPATH=/home/ubuntu/ict-trading-bot
+# DELIBERATELY NO data-dir drop-in: writes under the repo root's runtime_logs/,
+# where the web-api route reads via repo_root().
+ExecStart=/usr/bin/python3 /home/ubuntu/ict-trading-bot/scripts/ops/work_report.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

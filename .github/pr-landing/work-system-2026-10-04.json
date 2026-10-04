@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane WORK-SYSTEM (dispatched by Manager Session 2026-10-04, session_01MM8o5js6TcDFeNAPBY4Ntv), told Tier-2 runtime changes are HELD for the manager to merge. Tier-2 by path: (1) new code in the EXISTING hourly ict-work-digest carrier on the live VM — work_digest_now.py now prepends scripts/ops/attention_watch.py's block (new ask_operator, soak transitions, silence alarms; daily summary; else one quiet line) to its ONE hourly Telegram message, per operator decision 2026-10-04 ~15:30Z; (2) one NEW generator timer deploy/ict-work-report.{service,timer} (05:30 UTC, sends nothing) persisting runtime_logs/work_reports/; (3) a new read-only route GET /api/bot/work/report[?report_id=|?since=] and diag allowlist entries in src/web/api/routers/. No order path, no strategy/risk/account config, no DB write. Revert: git revert of the merge commit, then systemctl disable --now ict-work-report.timer.",
+  "why": "WORK-SYSTEM, the operator's top-priority structural fix (2026-10-04): a persisted daily work report, a pushed daily summary, edge alerts (new ask_operator, soak ready/overdue/dead) and expected-signal-missing alarms on the ONE existing digest carrier, plus the manager-skill and canonical rules that make managers act on them."
+}
