@@ -217,8 +217,9 @@ def test_one_message_carries_the_attention_block_first_and_commits_after_send(mo
     attention block leads it; its state is committed only after the enqueue."""
     mod = _load(monkeypatch, tmp_path)
     sent = []
-    sys.modules["send_ping"] = type(sys)("send_ping")
-    sys.modules["send_ping"].enqueue = lambda body, **k: sent.append((body, k)) or Path("queued")
+    fake = type(sys)("send_ping")
+    fake.enqueue = lambda body, **k: sent.append((body, k)) or Path("queued")
+    monkeypatch.setitem(sys.modules, "send_ping", fake)
     assert mod.run(force=True) == 0
     assert len(sent) == 1 and sent[0][0].startswith("🟢 No new actionable items")
     assert "— what changed —" in sent[0][0]
@@ -227,10 +228,10 @@ def test_one_message_carries_the_attention_block_first_and_commits_after_send(mo
 
 def test_a_failed_send_does_not_commit_attention_state(monkeypatch, tmp_path):
     mod = _load(monkeypatch, tmp_path)
-    sys.modules["send_ping"] = type(sys)("send_ping")
-
     def boom(*a, **k):
         raise OSError("inbox gone")
-    sys.modules["send_ping"].enqueue = boom
+    fake = type(sys)("send_ping")
+    fake.enqueue = boom
+    monkeypatch.setitem(sys.modules, "send_ping", fake)
     assert mod.run(force=True) == 1
     assert mod._attention_calls == ["enqueue_failed"]

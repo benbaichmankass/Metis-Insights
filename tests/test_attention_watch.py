@@ -8,15 +8,23 @@ def test_self_test_passes():
     assert a._self_test() == 0
 
 
+def _fake_send_ping(monkeypatch, enqueue):
+    import sys
+    import types
+    mod = types.ModuleType("send_ping")
+    mod.enqueue = enqueue
+    # setitem, not setattr on an import path: the bare `send_ping` name is only
+    # importable when scripts/ is on sys.path, which depends on test order.
+    monkeypatch.setitem(sys.modules, "send_ping", mod)
+
+
 def test_run_sends_through_claude_inbox_and_advances_state(tmp_path, monkeypatch):
     sent = []
-    monkeypatch.setattr("scripts.send_ping.enqueue",
-                        lambda body, priority="normal", target="trader": sent.append((target, priority)))
-    monkeypatch.setattr("send_ping.enqueue",
-                        lambda body, priority="normal", target="trader": sent.append((target, priority)),
-                        raising=False)
+    _fake_send_ping(monkeypatch, lambda body, priority="normal", target="trader":
+                    sent.append((target, priority)))
     monkeypatch.setattr(a, "STATE", tmp_path / "state.json")
     monkeypatch.setattr(a, "RECEIPT", tmp_path / "receipt.json")
+    monkeypatch.setattr("scripts.ops.work_report.DIGEST_LOG", tmp_path / "digest_log.jsonl")
     assert a.run(digest_now=True) == 0
     assert sent and all(t == "claude" for t, _ in sent)
     assert (tmp_path / "state.json").exists() and (tmp_path / "receipt.json").exists()
@@ -25,7 +33,7 @@ def test_run_sends_through_claude_inbox_and_advances_state(tmp_path, monkeypatch
 def test_failed_send_does_not_advance_state(tmp_path, monkeypatch):
     def boom(*_a, **_k):
         raise OSError("inbox gone")
-    monkeypatch.setattr("send_ping.enqueue", boom, raising=False)
+    _fake_send_ping(monkeypatch, boom)
     monkeypatch.setattr(a, "STATE", tmp_path / "state.json")
     monkeypatch.setattr(a, "RECEIPT", tmp_path / "receipt.json")
     assert a.run(digest_now=True) == 1
