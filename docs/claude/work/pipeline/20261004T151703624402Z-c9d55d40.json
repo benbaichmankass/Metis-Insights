@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "alpaca_live/iaum_pullback_1d is shown either to receive orders for its actionable intents (no drop on real money), or to drop them -- in which case the drop is escalated as a real-money P1 under ORDER-AUDIT-2",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-JC8KDKLF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 docs/plans/soak-decisions-2026-10-04.md",
+    "rerun": "python3 scripts/ops/leg_flow_report.py --window-hours 720  # then filter account_id=alpaca_live strategy=iaum_pullback_1d"
+  },
+  "state": "queued",
+  "what": "SOAK-WATCH S1: alpaca_live/iaum_pullback_1d (REAL MONEY) may share the silent dispatch drop its Stage-1 twin shows -- alpaca_paper/iaum_pullback_1d turned 93 actionable intents into 0 orders over the 168h R5 window ending 2026-09-26 with NO same-account same-symbol live contender (the cause of the other starved legs). Not checked this session (no diag token in a web session). Read alpaca_live's leg_flow / 30d of iaum_pullback_1d order packages; if 0 orders against N intents, it is a real-money leg not trading -- escalate under ORDER-AUDIT-2 (PI-20260926-X3QEGPJL-0004). Evidence: docs/plans/soak-decisions-2026-10-04.md S1."
+}

@@ -716,6 +716,23 @@ STILL READING THE ARCHIVED REGISTER** as of 2026-09-22. Only the registration
 guard was re-pointed by E45. Filed rather than left implied — do not read the
 `ready`/`not_writing`/`unknown`/`accruing` table as something running today.
 
+⚠️ **PORTED 2026-10-04 (SOAK-WATCH) — for the soaks the R5 grade can see.**
+`soak_alarm.py` itself still reads the archived register and grades nothing.
+The live port works like this:
+- `scripts/ops/soak_report.py` grades every Stage-1 leg and every
+  `execution: shadow` strategy into `ready` / `dead` (was `not_writing`) /
+  `could-not-look` (was `unknown`) / `accruing`.
+- It writes the result to `docs/claude/work/soak-state.json` and
+  `docs/claude/work/SOAK-REPORT.md`, and files one `PI-SOAK-*` pipeline item per
+  soak, carrying `due_when.soak`.
+- `pipeline.py::is_due` makes such an item due on ready/dead/could-not-look and
+  keeps it quiet on accruing. `render_section_0` lists ready/dead first.
+- It runs weekly, after the R5 grade, in the same landing commit.
+
+What it does NOT cover: checklist `landed_unproven` rows and free-text
+`check_observation` items. No predicate here can evaluate their exit
+conditions, so the report lists them as `could-not-look` and says so.
+
 ⚠️ **Its honest limit, stated rather than hidden.** The pre-2026-09-02 debt —
 **16 soak logs, of which ZERO carried an alarm on that date** — is carried in an
 explicit dated `BASELINE` inside the script. That list is an escape hatch, and

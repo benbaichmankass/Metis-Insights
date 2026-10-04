@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1)",
+    "kind": "observation",
+    "soak": {
+      "declared_at": "2026-07-22",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "bybit_1/ict_scalp_sol_15m"
+    }
+  },
+  "id": "PI-SOAK-20261004-bybit_1-ict_scalp_sol_15m",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "queued",
+  "what": "SOAK (stage1): bybit_1/ict_scalp_sol_15m — Stage-1 soak leg. Exit: Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}

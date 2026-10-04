@@ -146,6 +146,7 @@ Check:      python3 scripts/ops/pipeline.py --check
 from __future__ import annotations
 
 import argparse
+import collections
 import contextlib
 import io
 import json
@@ -331,6 +332,14 @@ def validate(item: dict) -> dict:
             raise PipelineError(
                 "due_when.clears_when: required for observation/event items — "
                 "reason (2). What would have to be TRUE for this to be over?"
+            )
+    soak = due_when.get("soak")
+    if soak is not None:
+        if kind != "observation" or not isinstance(soak, dict) or \
+                not isinstance(soak.get("subject"), str) or not soak["subject"].strip():
+            raise PipelineError(
+                "due_when.soak: an observation item's soak block needs a non-empty "
+                "`subject` (the key scripts/ops/soak_report.py grades it under)"
             )
     every = due_when.get("check_every_days")
     if every is not None and (not isinstance(every, int) or every < 1):
@@ -651,7 +660,55 @@ def mint_id(session_ref: str, *, today: date | None = None, store: Path = STORE)
     return f"{prefix}{nxt:04d}"
 
 
-def is_due(item: dict, today: date | None = None) -> bool:
+# ── SOAK-WATCH (2026-10-04): a soak's due-ness comes from its GRADED STATE ───
+# `scripts/ops/soak_alarm.py`'s four states, ported onto this store (that module
+# read the archived OPEN-ITEMS.json and graded nothing after 2026-09-21). An item
+# carrying `due_when.soak.subject` is due when `scripts/ops/soak_report.py`
+# grades that subject ready / dead / could-not-look, and NOT due while it is
+# accruing — a weekly "not ready yet" row is the desensitised alarm the canonical
+# rule refuses. A subject the state file does not carry, or no state file at
+# all, is could-not-look -> due: the safe direction for a missing read.
+SOAK_STATE = Path("docs/claude/work/soak-state.json")
+SOAK_DUE_VERDICTS = ("ready", "dead", "could-not-look")
+_soak_cache: tuple[float, dict] | None = None
+
+
+def load_soak_states(path: Path = SOAK_STATE) -> dict:
+    """``{subject: verdict}`` from the soak state file; ``{}`` if unreadable."""
+    try:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        return {k: v.get("verdict") for k, v in (doc.get("subjects") or {}).items()}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def _default_soak_states() -> dict:
+    """Re-read when the file changes. The brief route runs inside the long-lived
+    web API process and ict-git-sync rewrites the file weekly, so a process-
+    lifetime cache would serve last week's grades. Anchored at the repo root,
+    not the cwd, for the same reason."""
+    global _soak_cache
+    path = Path(__file__).resolve().parents[2] / SOAK_STATE
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        mtime = -1.0
+    if _soak_cache is None or _soak_cache[0] != mtime:
+        _soak_cache = (mtime, load_soak_states(path))
+    return _soak_cache[1]
+
+
+def soak_verdict(item: dict, soak_states: dict | None = None) -> str | None:
+    """The graded verdict for a soak item, ``could-not-look`` if ungraded, or
+    ``None`` for an item that is not a soak."""
+    subj = ((item.get("due_when") or {}).get("soak") or {}).get("subject")
+    if not subj:
+        return None
+    states = _default_soak_states() if soak_states is None else soak_states
+    return states.get(subj) or "could-not-look"
+
+
+def is_due(item: dict, today: date | None = None, soak_states: dict | None = None) -> bool:
     """Is this item asking for attention now?
 
     ⚠️ COMPUTED, NOT DECLARED — this is reason (1). An item does not become due
@@ -662,6 +719,10 @@ def is_due(item: dict, today: date | None = None) -> bool:
         return False
     dw = item.get("due_when") or {}
     today = _today(today)
+
+    sv = soak_verdict(item, soak_states)
+    if sv is not None:
+        return sv in SOAK_DUE_VERDICTS
 
     if dw.get("kind") == "date":
         try:
@@ -825,6 +886,14 @@ def render_section_0(res: LoadResult, today: date | None = None,
     if alarm["undated"]:
         L += [f"> {alarm['undated']} unrouted item(s) carry no date in their id — "
               f"their age could not be read and is not in the oldest-age figure.", ""]
+    soaks = [i for i in res.items.values()
+             if i.get("state") in OPEN_STATES and soak_verdict(i) is not None]
+    if soaks:
+        c = collections.Counter(soak_verdict(i) for i in soaks)
+        L += [f"> **Soaks ({len(soaks)} tracked):** {c.get('ready', 0)} ready · {c.get('dead', 0)} dead · "
+              f"{c.get('could-not-look', 0)} could-not-look · {c.get('accruing', 0)} accruing (quiet). "
+              f"Ready/dead/could-not-look are listed below as due; the full table is "
+              f"`docs/claude/work/SOAK-REPORT.md`.", ""]
     rows = due(res.items.values(), today)
     if not rows:
         L += ["Nothing came due." if res.healthy else
@@ -832,11 +901,17 @@ def render_section_0(res: LoadResult, today: date | None = None,
         return L
     L += [f"**{len(rows)} item(s) due. Each needs a disposition today.**", ""]
     far = date.max
-    ordered = sorted(rows, key=lambda r: (r.get("state") == "routed",
+    # A READY or DEAD soak is a decision owed now — listed first so the cap never
+    # hides it behind older unrouted rows (SOAK-WATCH 2026-10-04).
+    ordered = sorted(rows, key=lambda r: (soak_verdict(r) not in ("ready", "dead"),
+                                          r.get("state") == "routed",
                                           filed_date(r) or far, r.get("id", "")))
     shown = ordered if limit is None else ordered[:limit]
     for i in shown:
         owner = f" → `{i['routed_to']}`" if i.get("routed_to") else ""
+        sv = soak_verdict(i)
+        if sv is not None:
+            owner += f" · **soak: {sv}**"
         what = str(i.get("what"))
         if limit is not None and len(what) > 300:
             what = what[:300].rstrip() + "…"
@@ -998,6 +1073,20 @@ def _selftest() -> int:
     check("a killed item is never due, whatever its clock says",
           not is_due(base(state="killed", terminal_reason="r",
                           due_when={"kind": "date", "due_date": "2020-01-01"}), t))
+
+    print("— SOAK-WATCH: a soak item's due-ness is its graded state —")
+    sk = base(due_when={"kind": "observation", "clears_when": "gate 2", "check_every_days": 7,
+                        "last_checked": "2026-09-01", "soak": {"subject": "bybit_1/x"}})
+    check("an ACCRUING soak is quiet even with its timer long elapsed",
+          not is_due(sk, t, soak_states={"bybit_1/x": "accruing"}))
+    for v in ("ready", "dead", "could-not-look"):
+        check(f"a {v} soak is due", is_due(sk, t, soak_states={"bybit_1/x": v}))
+    check("⚠️ an UNGRADED soak (absent from the state file) is could-not-look -> due, never quiet",
+          is_due(sk, t, soak_states={}))
+    refuses("a soak block with no subject is refused",
+            base(due_when={"kind": "observation", "clears_when": "x", "soak": {}}), "due_when.soak")
+    check("a non-soak item ignores soak states entirely",
+          soak_verdict(base(), {"bybit_1/x": "dead"}) is None)
 
     print("— reason (5): the number the operator's page reports —")
     pool = [base(id="A", state="queued"),
