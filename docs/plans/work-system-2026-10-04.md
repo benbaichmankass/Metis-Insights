@@ -1,6 +1,6 @@
 # The work system — how due work reaches someone who acts
 
-> **Doc status:** `live` · category `plan` · adopted `2026-10-04` · checklist row **WORK-SYSTEM**
+> **Doc status:** `unknown` · category `plan` · last verified `never` · adopted `2026-10-04` · checklist row **WORK-SYSTEM**
 > Operator, 2026-10-04 ~15:05Z, approving it: *"that's not a band-aid, that's a
 > structural fix … make sure it's canonized correctly in the manager skill so all
 > the managers pick it up … this is highest priority."*
