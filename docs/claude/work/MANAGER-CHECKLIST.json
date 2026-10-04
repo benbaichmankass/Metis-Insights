@@ -65,7 +65,7 @@
       "id": "BRIEF-FIX",
       "title": "Make the VM daily brief short, ranked and truthful (component of WORK-SYSTEM)",
       "phase": "floor",
-      "state": "in_flight",
+      "state": "done",
       "owner": "lane BRIEF-FIX",
       "lane": "session_01Py2sFzVRkYX3BG9MUAUJTB",
       "model": "claude-sonnet-5-5",
@@ -74,7 +74,7 @@
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Builder under WORK-SYSTEM. Brief measured 737 KB at 14:58Z."
+      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Builder under WORK-SYSTEM. Brief measured 737 KB at 14:58Z. || [2026-10-04T16:35Z BRIEF-FIX] DONE, observed: #16384 merged 46f93b4a 16:26Z; served by 16:30Z. LIVE GET /api/bot/work/brief: 739,695 B -> 15,692 B (<16 KB cap), top-15 + bucket counts present, SOAKS reads 'source absent (we looked)' pending soak_state.py, 2nd request 0.76 s, STALE flag on 3 in_flight rows (VM git window 45 d, so provable). Not covered: persisted 05:30Z snapshot (WORK-SYSTEM design), full-due endpoint (router, Tier-2)."
     },
     {
       "id": "SOAK-WATCH",
