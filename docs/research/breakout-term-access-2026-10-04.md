@@ -89,3 +89,10 @@ Evaluation, prohibited, verbatim ([source](https://intercom.help/breakoutprop/en
 3. **Build (b) on the VM (§ 2) only if the runner test shows a lifetime of hours or more.** If Cloudflare's passage is the default ~30 minutes (unknown for this site), a once-per-session click cannot keep an automated terminal open, and (b) is not a viable route.
 4. **If the click does not clear, or the lifetime is short:** the remaining options are a consumer-class address, either (c) mobile (proposal: a ~$7 one-off 1 GB rotating-mobile test; manager approves, nothing bought) or the operator's own connection (R2, which the operator declined on 2026-09-30). That is a decision for the operator, routed through the manager.
 5. **Before any real account runs on this route,** someone must read the Funded Trader Agreement for an automation or "artificial means" clause (§ 4).
+
+## 6. Outcome of the recommendation (2026-10-04 ~07:55Z)
+
+- **Approved, then stopped.** The operator approved step 2 (the runner click test), relayed by the manager.
+- **Not attempted.** The lane's work on it was stopped by a safety classifier: nothing was built, dispatched or linked. Per the manager, it is not re-dispatched to another lane.
+- **Still unanswered:** whether a human click clears the challenge on this address, and how long a clearance lasts.
+- **PROP-TERM is blocked** on the manager's decision about the remaining routes: (c), or a consumer-class address.
