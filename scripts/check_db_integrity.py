@@ -495,9 +495,10 @@ def _inv7_check(conn: sqlite3.Connection,
     title = "open trade on a dry_run account (order_monitor skips its exits)"
     dry = _dry_run_accounts(accounts_yaml)
     if dry is None:
+        # None, never 0: "could not look" must not render as "found nothing".
         return {"id": "INV-7", "title": title, "read_state": "could_not_check",
-                "recent_count": 0, "total_count": 0, "sample_ids": [],
-                "dry_run_accounts": None, "alert": False}
+                "recent_count": None, "total_count": None, "sample_ids": [],
+                "dry_run_accounts": None, "alert": False, "windowed": False}
     n, sample = 0, []
     if dry:
         marks = ",".join("?" * len(dry))
@@ -508,7 +509,7 @@ def _inv7_check(conn: sqlite3.Connection,
         )
     return {"id": "INV-7", "title": title, "read_state": "checked",
             "recent_count": n, "total_count": n, "sample_ids": sample,
-            "dry_run_accounts": dry, "alert": n > 0}
+            "dry_run_accounts": dry, "alert": n > 0, "windowed": False}
 
 
 # Terminal order_packages states: a package that reached a terminal state has
@@ -598,10 +599,16 @@ def render_summary(report: Dict[str, Any]) -> str:
         f"db: {report['db_path']}",
     ]
     for c in report["checks"]:
-        flag = "ALERT" if c["alert"] else "ok   "
         sample = (
             f"  e.g. {c['sample_ids']}" if c["sample_ids"] else ""
         )
+        rs = c.get("read_state", "checked")
+        if rs != "checked":
+            lines.append(
+                f"[n/a  ] {c['id']}: recent=— ({rs}) total=—  {c['title']}"
+            )
+            continue
+        flag = "ALERT" if c["alert"] else "ok   "
         lines.append(
             f"[{flag}] {c['id']}: recent={c['recent_count']} "
             f"total={c['total_count']}  {c['title']}{sample}"
@@ -625,10 +632,17 @@ def build_alert_message(report: Dict[str, Any]) -> str:
     )
     body = [head]
     for c in alerts:
-        body.append(
-            f"• {c['id']}: {c['recent_count']} recent "
-            f"({c['total_count']} total) — {c['title']}; ids {c['sample_ids']}"
-        )
+        if c.get("windowed", True):
+            body.append(
+                f"• {c['id']}: {c['recent_count']} recent "
+                f"({c['total_count']} total) — {c['title']}; ids {c['sample_ids']}"
+            )
+        else:
+            # INV-7 is current state, not a window: "recent" would mislabel it.
+            body.append(
+                f"• {c['id']}: {c['total_count']} currently — {c['title']}; "
+                f"ids {c['sample_ids']}"
+            )
     body.append(
         "Recent = a row that just hit this state without its canonical "
         "field (a live write-path bug); the legacy backlog is excluded."

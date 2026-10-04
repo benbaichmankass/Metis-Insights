@@ -587,6 +587,21 @@ def test_inv7_unreadable_accounts_yaml_is_could_not_check_not_zero(real_schema_d
         conn.close()
     assert c["read_state"] == "could_not_check"
     assert c["dry_run_accounts"] is None and c["alert"] is False
+    # "could not look" is None, never 0, and renders as such.
+    assert c["recent_count"] is None and c["total_count"] is None
+    rep = {"generated_at": "x", "window_hours": 48, "pnl_grace_hours": 6,
+           "db_path": "x", "checks": [c], "any_alert": False}
+    line = [ln for ln in cdi.render_summary(rep).splitlines() if "INV-7" in ln][0]
+    assert "recent=— (could_not_check)" in line and "[ok" not in line
+
+
+def test_inv7_alert_message_is_not_labelled_recent():
+    c = {"id": "INV-7", "title": "t", "recent_count": 2, "total_count": 2,
+         "sample_ids": [1, 2], "alert": True, "windowed": False,
+         "read_state": "checked"}
+    msg = cdi.build_alert_message({"window_hours": 48, "checks": [c]})
+    line = [ln for ln in msg.splitlines() if "INV-7" in ln][0]
+    assert "2 currently" in line and "recent" not in line
 
 
 def test_inv7_runs_in_the_report(real_schema_db):
