@@ -1,0 +1,6 @@
+{
+  "held_by": "lane OPS-FIXES sub-agent",
+  "branch": "ops-fixes-research-verdicts",
+  "claimed_at": "2026-10-04T15:12:24Z",
+  "purpose": "Tier-1 self-land: harness-dispatch results apply the unit's own rule (PI-20261004-FOJGFIZF-0004)"
+}

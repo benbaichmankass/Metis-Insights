@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "A merged change makes non-pass controls non-ok, with a test.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-GCFA5DOR-0008",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: run() now yields status controls_unproven (exit 2) when any control is not pass and none failed; findings() emits control_<name>_unproven (real_money -> ping). Tests: unproven(could_not_check|partial) -> not ok + finding; all-pass twin -> ok. Closes when merged (clears_when is the merged change + test)."
+  ],
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "python3 -c \"import re;s=open('scripts/ops/live_replay_parity.py').read();print('(\\\"fail\\\",)' in s)\" -- True = still open."
+  },
+  "routed_to": "lane OPS-FIXES PR branch ops-fixes-t1-parity (Tier-1 self-land)",
+  "state": "routed",
+  "what": "OA-13 (MED, Tier-1). The live-vs-replay parity check reads ok when its own controls could not run. Verified by the lane: scripts/ops/live_replay_parity.py:1197 counts a control as bad only on state=='fail', and findings() (~1309) only emits a failed control. So planted_defect=could_not_check (any quiet week) or historical_positive=partial still yields status=ok, exit 0 and no ping, a green while the check could not look. Proposed: map could_not_check/partial controls to a distinct status 'controls_unproven' (exit 2) and include them in findings(). Coordinate with lane LIVE-SILENCE-2, which owns the parity divergences."
+}

@@ -1,0 +1,1 @@
+{"tier": 1, "landing": "self", "why": "Tier-1 research tooling: the harness-dispatch result mapper applies the queue unit's own pre-registered net_total_r/n rule (or lands wiring_only, which the grader never closes on). Reads research/queue, writes research/results only; no live, order or config path. PI-20261004-FOJGFIZF-0004."}

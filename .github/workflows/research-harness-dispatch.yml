@@ -251,12 +251,18 @@ jobs:
           IN_HARNESS: ${{ inputs.harness }}
           IN_SYMBOL: ${{ inputs.harness == 'xsec_momentum' && 'SPY,QQQ,GLD,TLT,IWM' || inputs.symbol }}
           IN_TF: ${{ inputs.harness == 'xsec_momentum' && '1d' || inputs.timeframe }}
+          IN_UNIT: ${{ inputs.research_unit }}
+        # With a research_unit, the mapper applies THAT unit's pre-registered
+        # rule (pass/fail/indeterminate under its own rule id) or lands
+        # `wiring_only` -- never the bare E7 `no_action_warranted`
+        # (PI-20261004-FOJGFIZF-0004). The rule id it graded under is an output.
         run: |
           set -euo pipefail
           python3 scripts/research/harness_dispatch_result.py \
             --harness "${IN_HARNESS}" --symbol "${IN_SYMBOL}" --timeframe "${IN_TF}" \
             --build-result "${{ needs.build.result }}" \
             --result-json collected/result.json \
+            --research-unit "${IN_UNIT}" \
             --out-dir rr
 
       - name: Land the result on main
@@ -265,8 +271,8 @@ jobs:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
           research-unit: ${{ inputs.research_unit }}
           power-state: ${{ inputs.power_state }}
-          decision-rule-id: RULE-E7-HARNESS-DISPATCHABLE
-          decision-rule-registered-at: '2026-09-27'
+          decision-rule-id: ${{ steps.derive.outputs.decision_rule_id }}
+          decision-rule-registered-at: ${{ steps.derive.outputs.decision_rule_registered_at }}
           verdict: ${{ steps.derive.outputs.verdict }}
           read-state: ${{ steps.derive.outputs.read_state }}
           population: ${{ steps.derive.outputs.population }}
