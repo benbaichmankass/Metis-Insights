@@ -135,13 +135,26 @@ def grade_e5(rows: List[Tuple[str, Dict[str, Any]]], min_rows: int) -> Dict[str,
     files = sorted({f for f, _ in rows})
     if n < max(1, min_rows):
         return {"verdict": None, "reason": f"{n} result row(s) on main, lands.min_rows is {min_rows}", "rows": n, "files": files}
+    # ⚠️ A `producer_failed` row is "we looked and it broke", not a result, so it cannot
+    # veto a `measured` row from a LATER run of the same unit. Until 2026-10-04 any mix
+    # read "read_state not unanimously measured" -> needs_review forever: MEASURED, the 3
+    # prop-fit units whose first run died and whose re-run measured (RQ-20260928-025/-026/
+    # -029) and RQ-20260930-501 (a malformed verdict.json, then a clean pass) never closed.
+    # When at least one measured row exists, grade the measured rows and NAME the failures
+    # skipped; with none, every state still lands in the reason as before.
+    measured = [(f, r) for f, r in rows if str(r.get("read_state")) == "measured"]
+    superseded = n - len(measured) if measured else 0
+    if measured:
+        rows = measured
+    n = len(rows)
     states = sorted({str(r.get("read_state")) for _, r in rows})
     verdicts = sorted({str(r.get("verdict")) for _, r in rows})
     if states != ["measured"]:
         return {"verdict": None, "reason": f"read_state not unanimously measured: {states}", "rows": n, "files": files}
-    if len(verdicts) != 1 or verdicts[0] not in MECHANICAL:
+    if len(verdicts) != 1 or verdicts[0] not in MECHANICAL + ("indeterminate",):
         return {"verdict": None, "reason": f"verdicts not unanimous-mechanical: {verdicts}", "rows": n, "files": files}
-    return {"verdict": verdicts[0], "reason": f"{n} row(s), all measured, all {verdicts[0]}", "rows": n, "files": files}
+    tail = f" ({superseded} earlier producer_failed row(s) superseded)" if superseded else ""
+    return {"verdict": verdicts[0], "reason": f"{n} row(s), all measured, all {verdicts[0]}{tail}", "rows": n, "files": files}
 
 
 def grade_e35(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -186,6 +199,17 @@ def decide(unit: Dict[str, Any], g: Dict[str, Any], graded_at: str) -> Optional[
                                     "unanimous -> needs_review, not closed"}}
     if v in ("pass", "no_action_warranted"):
         return {"status": "done", "reset_stamp": False, "grading": {**base, "verdict": v}}
+    if v == "indeterminate" and not prior.get("confirmatory_run"):
+        # ⚠️ `indeterminate` (UNDERPOWERED / NULL) is a branch the unit's own rule registered
+        # BEFORE the run, and a `once` unit never runs again -- so leaving it `queued` closed
+        # nothing and parked it in needs_review forever (MEASURED 2026-10-04: 33 prop-fit
+        # units, n=57 < the 88 floor, stayed queued for 6 days). The unit is COMPLETE; what
+        # it is NOT is a pass or a kill, which `verdict: indeterminate` + `awaiting` says in
+        # the record itself. Getting the missing data is the follow-up, not this unit's job.
+        return {"status": "done", "reset_stamp": False,
+                "grading": {**base, "verdict": "indeterminate", "awaiting": "more_data",
+                            "note": "indeterminate is the pre-registered under-powered/null outcome: "
+                                    "complete, but NOT a pass and NOT a kill"}}
     if v == "fail":
         if int(prior.get("confirmatory_run") or 0) >= 1:
             return {"status": "done", "reset_stamp": False,
@@ -340,6 +364,12 @@ def _self_test() -> int:
     assert grade_e5([row("pass"), row("fail")], 1)["verdict"] is None
     assert grade_e5([row("not_applicable", "producer_failed")], 1)["verdict"] is None
     assert grade_e5([row("fail")], 1)["verdict"] == "fail"
+    # a producer_failed row is superseded by a later measured one; alone it still is not a result
+    g = grade_e5([row("not_applicable", "producer_failed"), row("pass")], 1)
+    assert g["verdict"] == "pass" and "superseded" in g["reason"], g
+    assert grade_e5([row("not_applicable", "producer_failed"), row("not_applicable", "producer_failed")], 1)["verdict"] is None
+    assert grade_e5([row("indeterminate")], 1)["verdict"] == "indeterminate"
+    assert grade_e5([row("indeterminate"), row("pass")], 1)["verdict"] is None   # measured but not unanimous
     assert grade_e35([{"gate_verdict": "is_oos_pass", "base_oos_trades": 49, "leg": "l", "cell": "c"}])["verdict"] == "pass"
     assert grade_e35([{"gate_verdict": "is_oos_fail", "base_oos_trades": 49}])["verdict"] == "no_action_warranted"
     assert grade_e35([{"gate_verdict": "is_oos_pass", "base_oos_trades": 10}])["verdict"] == "indeterminate"
@@ -350,6 +380,10 @@ def _self_test() -> int:
     assert d["status"] is None and d["reset_stamp"] and d["grading"]["confirmatory_run"] == 1
     d2 = decide({**u, "grading": {"confirmatory_run": 1}}, {"verdict": "fail", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")
     assert d2["status"] == "done" and d2["grading"]["verdict"] == "fail"
+    di = decide(u, {"verdict": "indeterminate", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")
+    assert di["status"] == "done" and di["grading"]["awaiting"] == "more_data" and not di["grading"].get("needs_review"), di
+    dr = decide({**u, "cadence": "monthly"}, {"verdict": "indeterminate", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")
+    assert dr["status"] is None and dr["grading"]["needs_review"], dr   # a recurring unit is never closed
     d3 = decide({**u, "grading": {"confirmatory_run": 1}}, {"verdict": "pass", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")
     assert d3["status"] is None and d3["grading"]["needs_review"] and "not unanimous" in d3["grading"]["note"], d3
     assert decide({**u, "cadence": "monthly"}, {"verdict": "fail", "rows": 1, "files": [], "reason": "r"}, "2030-01-01")["status"] is None

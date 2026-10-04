@@ -130,12 +130,34 @@ def repo_facts(root: Path) -> Dict[str, Any]:
 
 
 # ── expansion ───────────────────────────────────────────────────────────────
+def root_data_dir() -> Path:
+    """`plan_legs` needs a data dir only to resolve candles, which `ignore_missing_data`
+    waives; the scope decision it returns here is config-only."""
+    return Path("data")
+
+
 def _leg_source(name: str, tpl: Dict[str, Any], facts: Dict[str, Any]) -> List[Dict[str, Any]]:
     legs, ev = facts["legs"], facts["evidence"]
     out: List[Dict[str, Any]] = []
     if name == "live_roster_legs":
         for leg, info in legs.items():
             out.append({"leg": leg, **info})
+    elif name == "live_roster_legs_e35_sweepable":
+        # ⚠️ THE E35 SWEEP HAS A SCOPE, AND THE TEMPLATE MUST ASK IT RATHER THAN RESTATE IT.
+        # `live_roster_legs` fed `ict_scalp_*` legs to e35-bracket-sweep.yml, whose planner
+        # refuses the `scalp`/`fvg` families (out_of_scope_family): the run died in its
+        # `plan` job after ~90 s with "shard-plan produced ZERO jobs", the dispatcher had
+        # already stamped the unit, and the corpus stopped growing -- MEASURED 2026-10-04:
+        # RQ-20261002-001 (ict_scalp_mgc_15m) and RQ-20261003-001 (ict_scalp_sol_15m), runs
+        # 37086544045 / 37106772916, both red in `plan`; RQ-20260929-005 and -20261003-006
+        # carry the same legs. The sweep's OWN resolver (`plan_legs`) is the one scope, so
+        # a leg it would refuse is never generated.
+        from scripts.research.e35_bracket_geometry_sweep import plan_legs
+        runnable, _skipped = plan_legs(root_data_dir(), None, 0.099, ignore_missing_data=True)
+        sweepable = {r["leg"] for r in runnable}
+        for leg, info in legs.items():
+            if leg in sweepable:
+                out.append({"leg": leg, **info})
     elif name == "evidence_legs_with_breakout_market":
         markets = tpl.get("markets") or {}
         for leg, info in legs.items():
