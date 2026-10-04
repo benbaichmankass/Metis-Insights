@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the bybit_2 ledger entry is no longer stale (as_of_age_days small) and a daily journal-vs-wallet delta exists for bybit_1 and bybit_portfolio",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-HXO9WPVH-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29/AUD-3.findings.jsonl",
+    "rerun": "GET /api/bot/performance?window=all -> journalTrust (accountsKnownDivergent, readState) and /api/bot/pnl/broker-truth as_of_age_days / stale for bybit_2; compare against a fresh /api/diag/broker_account_status wallet figure"
+  },
+  "routed_to": "LEDGER-REFRESH | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: live read 2026-10-04 ~22:5xZ: /api/bot/pnl/broker-truth: bybit_2 as_of 2026-07-13, as_of_age_days 83, stale=true. Still applies.",
+  "state": "routed",
+  "what": "Two data-hygiene rows the audit filed with FIX-SA-06 and this lane did not do: (a) SA-AUD-3-broker-truth-ledger-stale-bybit2-flag: refresh comms/broker_truth_ledger.json's bybit_2 flag from current wallet truth (Tier 1 register content; journalTrust publishes it on every /trades/closed and /performance read); (b) SA-AUD-3-bybit1-portfolio-journal-vs-wallet-gap: add a daily journal-vs-wallet delta for bybit_1 and bybit_portfolio so a widening gap is observed rather than found by audit."
+}

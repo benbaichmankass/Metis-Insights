@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "no /api/bot/signals row carries an empty-string timestamp",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-AQRK6CL1-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager-local live-trade check 2026-09-29 16:31-16:37Z, direct HTTPS pulls of https://ict-bot.duckdns.org/api/bot/*",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/signals | python3 -c \"import json,sys;d=json.load(sys.stdin);rows=d if isinstance(d,list) else d.get('signals',[]);print(sum(1 for r in rows if r.get('timestamp')==''),'of',len(rows))\""
+  },
+  "routed_to": "GUARD-FIDELITY | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: live read 2026-10-04 ~22:5xZ: /api/bot/signals?limit=50 -> 2 rows, 2 with empty timestamp; handler dashboard.py:973 reads ts/timestamp only. Still applies.",
+  "state": "routed",
+  "what": "[api][collapsed-state] /api/bot/signals returns \"timestamp\": \"\" on every row (read 2026-09-29 ~16:33Z). An empty string is neither the real signal time nor null ('—'); fix in the signals route under src/web/api."
+}
