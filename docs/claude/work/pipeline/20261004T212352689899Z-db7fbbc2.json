@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present)",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "declared_at": "2026-08-23",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "htf_pullback_trend_2h"
+    }
+  },
+  "id": "PI-SOAK-20261004-htf_pullback_trend_2h",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "routed_to": "SOAK-WATCH — shadow soak graded weekly by soak_report.py; due only when not accruing (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "SOAK (shadow): htf_pullback_trend_2h — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}

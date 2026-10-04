@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The rerun prints 0 no-trade packages reading real_money AND the router emits an explicit read-state for the no-trade case (test present), OR the operator decides the collapse is acceptable and says so on this row.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-ZBHFJG6X-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "PERFORMANCE-REVIEW lane 2026-10-04 (session_013rQhqo11aVJrH3zbHFJg6X), comms/reviews/performance-review-20261004-*.json",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/order-packages?limit=200&include_paper=true' | python3 -c \"import json,sys; r=[x for x in json.load(sys.stdin)['rows'] if x['linkedTradeId'] is None and x['accountClass']=='real_money']; print(len(r),'no-trade packages read real_money'); [print(x['orderPackageId'],x['strategy'],x['status']) for x in r[:10]]\""
+  },
+  "routed_to": "PERFORMANCE-REVIEW — no-trade package renders real_money (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": "1",
+  "what": "[performance] An order package with NO linked trade reads `accountClass: real_money` / `isDemo: false` on GET /api/bot/order-packages. MEASURED 2026-10-04 (endpoint read with include_paper=true): pkg-389f8c6f3dd84347 and pkg-f8e7b3df361b4951 (pairs_bnb_btc_a, status orphaned, orphaned_reason 'BUG-049 -- no linked_trade_id after 5 min; package was never executed') both render real_money although config/pairs.yaml routes every pairs leg to bybit_1 (paper) and no real-money account rosters a pairs leg. CAUSE (src/web/api/routers/order_packages.py, the SELECT): `COALESCE(t.is_demo, 0) AS trade_is_demo` on a LEFT JOIN that found no trade, then `_account_class_wire(None, 0)` -> real_money. This is the 'we did not look' -> 'real money' collapse CLAUDE.md § Three things forbids, on the surface the Decisions tab and this review's real_money split read. FIX (Tier-1, read path): when `t.id IS NULL`, emit `accountClass: null` plus `accountClassReadState: 'no_linked_trade'` (or derive from the strategy's declared account roster in config/accounts.yaml), and register the three-way state with collapsed-state-guard; add a test with an orphaned package."
+}

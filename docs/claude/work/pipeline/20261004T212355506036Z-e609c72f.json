@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "that command returns REFUSE with a Stage-0 clause, not NEEDS-DATA R-EXECUTION-SHADOW",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-JC8KDKLF-0013",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg ict_scalp_sol_5m --from S1 --to S2 --account bybit_2 --json"
+  },
+  "routed_to": "BACKLOG-BURNDOWN-2 — Tier-1 fix to mandate_resolver clause order, self-landing in batch 2 (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "mandate_resolver.py clause order returns NEEDS-DATA (R-EXECUTION-SHADOW, 'flip to execution: live and accrue fills') for shadow legs whose committed Stage-0 record already FAILS (RULE-D1 verdict fail, or a fold minority). It should return REFUSE on the decisive Stage-0 clause first. MEASURED 2026-10-04 on 6 legs: avax_pullback_2h, fade_breakout_4h, htf_pullback_trend_2h, ict_scalp_avax_5m, ict_scalp_sol_5m and mgc_trend_1h. With --file-needs-data it files a data task proposing a Tier-3 live flip of a leg the evidence refuses (PI-20261004-JC8KDKLF-0005..0009 and -0012, killed). Fix: evaluate the Stage-0 clauses (R-B1-C4, R-FOLDS, R-N) before R-EXECUTION-SHADOW, and add a self-test for a shadow leg with a failing record."
+}
