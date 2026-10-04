@@ -1143,6 +1143,27 @@ def test_round_trip_dry_clicks_nothing(tmp_path):
     assert api.posts == []
 
 
+def test_dry_walk_cap_sizes_only_the_dry_walk(tmp_path):
+    """TRADEIFY-SOL-SIZE: dry_walk_max_lots lets the DRY walk use a realistic
+    size; the armed round trip still uses (and is capped by) watched_click_max_lots."""
+    c = rt_cfg(dry_walk_max_lots={"SOLUSD": 1.0})
+    ad = RTAdapter()
+    res = rt(ad, FakeApi(), tmp_path, arm=False, c=c)
+    assert res.halted is None, res.actions
+    assert ad.calls[0][0] == "place_bracket" and ad.calls[0][2] is False
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]["spec"]
+    assert spec["quantity"] == 1.0
+    ad2 = RTAdapter()
+    res2 = rt(ad2, FakeApi(), tmp_path, arm=True, c=c, lots=1.0)
+    assert "must be > 0 and <= watched_click_max_lots 0.1" in (res2.halted or "") and ad2.calls == []
+
+
+def test_tradeify_1_dry_walk_cap_arms_nothing():
+    c = pe.load_config("tradeify_1")
+    assert c.watched_click_max_lots == {"ETHUSD": 0.01, "SOLUSD": 0.01}
+    assert c.dry_walk_max_lots == {"SOLUSD": 1.0}
+
+
 @pytest.mark.parametrize("setup,needle", [
     (dict(c=cfg(watched_click_max_lots={"SOLUSD": 0.1},
                 symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": None,
