@@ -130,6 +130,21 @@ jobs:
             exit "$rc"
           fi
 
+      - id: report
+        name: Regenerate the soak report and sync PI-SOAK pipeline items
+        # continue-on-error so a report bug never costs the GRADE its landing;
+        # the "Fail on a report error" step below turns the run red AFTER the
+        # grade has landed, so the failure is loud, not swallowed.
+        continue-on-error: true
+        # SOAK-WATCH 2026-10-04: one report of everything soaking, graded off the
+        # record this run just wrote, plus one pipeline item per soak whose
+        # due-ness is its graded state (scripts/ops/pipeline.py::is_due). Both
+        # land in the SAME commit as the grade (extra-paths below).
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/soak_report.py --write --sync-pipeline \
+            --grade-file "${{ steps.run.outputs.out_path }}"
+
       - id: derive
         name: Derive the research-result fields from the report
         run: |
@@ -185,3 +200,48 @@ jobs:
           artifact-locator: "the full per-leg record; this pointer's population/n summarize it"
           tool: scripts/ops/soak_book_grade.py
           note: ${{ steps.derive.outputs.note }}
+          # The per-leg record itself, in the SAME landing commit as its pointer.
+          # Until 2026-10-04 only the pointer was committed, so `artifact-store`
+          # named a file that existed only on the runner and no weekly grade
+          # ever reached main from this workflow (check_cadence_liveness.py
+          # recorded the gap 2026-09-28; the 09-26 record came via a sweep).
+          extra-paths: >-
+            ${{ steps.run.outputs.out_path }}
+            docs/claude/work/SOAK-REPORT.md
+            docs/claude/work/SOAK-REPORT-observations.md
+            docs/claude/work/soak-state.json
+            docs/claude/work/pipeline
+
+      - name: Fail on a report error (after the grade has landed)
+        if: steps.report.outcome == 'failure'
+        run: |
+          echo "::error::soak_report.py failed — the grade landed, the soak report/pipeline sync did not. See the 'Regenerate the soak report' step."
+          exit 1
+
+  # R2 for THIS workflow: a run is done when its record is readable on main,
+  # not when it exits 0. Runs for the DEDUPED scheduled run too — on
+  # 2026-10-04 the keeper's dispatch run crashed and the late scheduled run
+  # skipped `grade` and finished `success`, so green sat over nothing.
+  # scripts/ops/soak_grade_landed.py fails on: no record, a stale newest
+  # record, or a landed record that measured neither dimension.
+  verify-landed:
+    # Deliberately NOT `needs: dedupe`: every job needing dedupe must honour its
+    # skip (tests/test_schedule_keeper.py), and this job's purpose is to run on
+    # exactly the deduped scheduled run. Any `schedule` run therefore verifies,
+    # as does any run whose grade actually ran.
+    needs: [grade]
+    if: |
+      !cancelled() && (needs.grade.result != 'skipped' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Assert a measured record for this slot is on main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          python3 scripts/ops/soak_grade_landed.py --ref origin/main --max-age-days 1

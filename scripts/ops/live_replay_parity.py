@@ -1195,12 +1195,18 @@ def run(bundle: dict, legs: list[Leg], since: float, until: float) -> dict:
         "liveness": liveness(bundle, since),
     }
     ctl_bad = [k for k, v in controls.items() if v["state"] in ("fail",)]
+    # OA-13 (PI-20261004-GCFA5DOR-0008): a control that could not run (or ran
+    # only partly) has not proven the check can see a defect, so the run is not
+    # `ok` -- "we did not look" must not render as green.
+    ctl_unproven = [k for k, v in controls.items() if v["state"] != "pass" and k not in ctl_bad]
     if real_cnc:
         status = "could_not_check"
     elif divs_all:
         status = "divergent"
     elif ctl_bad:
         status = "controls_failed"
+    elif ctl_unproven:
+        status = "controls_unproven"
     else:
         status = "ok"
     doc = {
@@ -1310,6 +1316,12 @@ def findings(doc: dict) -> list[dict]:
             out.append({"ref": f"live-replay-parity:control:{name}", "leg": None,
                         "class": f"control_{name}_failed", "n": None, "real_money": True,
                         "detail": json.dumps(c, default=str)[:900]})
+        elif c.get("state") != "pass":
+            # could_not_check / partial: the control did not prove the check can
+            # flag a defect this run -- a finding, not a silent pass (OA-13).
+            out.append({"ref": f"live-replay-parity:control:{name}:unproven", "leg": None,
+                        "class": f"control_{name}_unproven", "n": None, "real_money": True,
+                        "detail": json.dumps(c, default=str)[:900]})
     return out
 
 
@@ -1413,7 +1425,8 @@ def main(argv: list[str] | None = None) -> int:
         with open(gho, "a", encoding="utf-8") as fh:
             fh.write(f"status={doc['status']}\nping_needed={'true' if ping else 'false'}\n")
             fh.write(f"headline={doc['headline'].replace(chr(10), ' ')}\n")
-    # exit: 0 ok · 1 divergence or failed control · 2 could not check
+    # exit: 0 ok · 1 divergence or failed control · 2 could not check (a leg
+    # or a control: controls_unproven also exits 2)
     return {"ok": 0, "divergent": 1, "controls_failed": 1}.get(doc["status"], 2)
 
 
