@@ -2,18 +2,18 @@
 
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · *generated weekly by `scripts/ops/soak_report.py` — the generation time below is its freshness*
 
-> **Generated** 2026-10-04T15:18:34+00:00 by `scripts/ops/soak_report.py` (weekly, after the R5 grade). Do not hand-edit — regenerate.
+> **Generated** 2026-10-04T15:29:18+00:00 by `scripts/ops/soak_report.py` (weekly, after the R5 grade). Do not hand-edit — regenerate.
 
 > **R5 grade read:** `comms/research/soak_book_grade/2026-09-26.json` — 8d old — usable.
 
 ## Summary
 
-| population | n | ready | dead | could-not-look | accruing |
-|---|---|---|---|---|---|
-| Stage-1 soak legs (bybit_1, alpaca_paper) | 45 | 1 | 6 | 0 | 25 |
-| `execution: shadow` strategies (config/strategies.yaml field) | 16 | 0 | 3 | 13 | 0 |
-| Checklist rows in `landed_unproven` | 77 | 0 | 0 | 77 | 0 |
-| Open pipeline items with `next_action: check_observation` | 624 | 0 | 0 | 624 | 0 |
+| population | n | ready | dead | could-not-look | accruing | graded under shadow |
+|---|---|---|---|---|---|---|
+| Stage-1 soak legs (bybit_1, alpaca_paper) | 45 | 1 | 6 | 0 | 25 | 13 |
+| `execution: shadow` strategies (config/strategies.yaml field) | 16 | 0 | 3 | 13 | 0 | 0 |
+| Checklist rows in `landed_unproven` | 77 | 0 | 0 | 77 | 0 | 0 |
+| Open pipeline items with `next_action: check_observation` | 624 | 0 | 0 | 624 | 0 | 0 |
 
 States are `soak_alarm.py`'s four, ported: **ready** and **dead** are loud (a decision is owed); **could-not-look** means nothing read it — *not* that it is empty; **accruing** is quiet by design.
 

@@ -398,11 +398,13 @@ def render(b: Dict[str, Any]) -> str:
          f"> **R5 grade read:** `{b['grade_file']}` — {b['grade_age_days']}d old — "
          f"{'usable' if b['grade_usable'] else '**NOT USABLE (missing, stale or unmeasured) → Stage-1 legs read could-not-look**'}.",
          "", "## Summary", "",
-         "| population | n | ready | dead | could-not-look | accruing |", "|---|---|---|---|---|---|"]
+         "| population | n | ready | dead | could-not-look | accruing | graded under shadow |",
+         "|---|---|---|---|---|---|---|"]
     for pop, title in POP_TITLES.items():
         rows = [s for s in soaks if s.population == pop]
-        c = {v: sum(1 for s in rows if s.verdict == v) for v in (READY, DEAD, CNL, ACCRUING)}
-        L.append(f"| {title} | {len(rows)} | {c[READY]} | {c[DEAD]} | {c[CNL]} | {c[ACCRUING]} |")
+        c = {v: sum(1 for s in rows if s.verdict == v) for v in (READY, DEAD, CNL, ACCRUING, "see-shadow")}
+        L.append(f"| {title} | {len(rows)} | {c[READY]} | {c[DEAD]} | {c[CNL]} | {c[ACCRUING]} "
+                 f"| {c['see-shadow']} |")
     L += ["", "States are `soak_alarm.py`'s four, ported: **ready** and **dead** are loud (a decision is "
           "owed); **could-not-look** means nothing read it — *not* that it is empty; **accruing** is quiet "
           "by design.", "", "## Needs a decision (ready or dead)", ""]
