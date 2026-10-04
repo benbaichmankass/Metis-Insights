@@ -1,0 +1,6 @@
+{
+  "held_by": "lane OPS-FIXES session_012jcgSkwaVqQVCJshfa88uk",
+  "branch": "ops-fixes-notify-pull-noise",
+  "claimed_at": "2026-10-04T15:03:58Z",
+  "purpose": "HELD Tier-2: notify_on_pull journald noise"
+}
