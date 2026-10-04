@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The journal exit_reason of 5874 vs 5875 is read and either (a) they are the same mechanism rendered differently (then the API closeReason mapping is fixed) or (b) the mirror exited by a different path and a mirror-equality check covering exit mechanism is added to tests/test_paper_portfolio_accounts.py or the live-parity workflow.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-ZBHFJG6X-0005",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "PERFORMANCE-REVIEW lane 2026-10-04 (session_013rQhqo11aVJrH3zbHFJg6X), comms/reviews/performance-review-20261004-*.json",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/trades/closed?account_id=alpaca_portfolio&limit=5' | python3 -c \"import json,sys; [print(r['id'],r['pattern'],r['closedAt'],r['closeReason']) for r in json.load(sys.stdin)['rows']]\"; curl -sS 'https://ict-bot.duckdns.org/api/bot/trades/closed?account_id=alpaca_live&limit=5' | python3 -c \"import json,sys; [print(r['id'],r['pattern'],r['closedAt'],r['closeReason']) for r in json.load(sys.stdin)['rows']]\""
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "1",
+  "what": "[performance] Live/mirror exit-reason divergence on the Alpaca pair: alpaca_live trade 5875 (slv_pullback_1d, SLV long, opened 2026-09-17T13:36Z) closed 2026-09-28T13:33Z with closeReason `sl`; its mirror alpaca_portfolio trade 5874 (same leg, same open minute) closed 2026-09-28T13:36Z with closeReason `other`. Also alpaca_portfolio 5350 (gdx_pullback_1d, opened 2026-09-02) closed `other` the same minute with no live counterpart -- expected, gdx was cut from the portfolio roster by B2, but the close reason should then say roster-removal, not `other`. MEASURED from GET /api/bot/trades/closed?account_id=alpaca_live|alpaca_portfolio (read 2026-10-04). Stage-2 doctrine (CLAUDE.md § promotion ladder) is IDENTICAL trades on live and mirror; a mirror that exits by a different mechanism three minutes later is not identical, and the coarse API `closeReason` cannot say which mechanism. Needs the journal `exit_reason` + `notes.exit_reason_source` for ids 5874/5875/5350 (older than the 200-row diag journal tail, so a targeted pull)."
+}

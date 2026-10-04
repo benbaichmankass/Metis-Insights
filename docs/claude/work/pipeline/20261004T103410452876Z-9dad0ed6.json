@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "ml-review/SKILL.md and health-review/SKILL.md's coordination paragraph is corrected to match performance-review/SKILL.md's already-fixed language (manager-checklist model, no board posting).",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-CAB09-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-coordination-board-retired-in-ml-health-review",
+    "rerun": "grep -n 'coordination-board\\|issue #6927' .claude/skills/ml-review/SKILL.md .claude/skills/health-review/SKILL.md .claude/skills/performance-review/SKILL.md; test -f docs/claude/board-pointer.json (expect: missing); sed -n '1,15p' docs/claude/coordination-board.md"
+  },
+  "routed_to": "DOCS-DRIFT",
+  "state": "routed",
+  "what": "[operating-model] .claude/skills/ml-review/SKILL.md and .claude/skills/health-review/SKILL.md (both last-verified 2026-09-07) instruct a session to, before its first trainer-VM/diag pull, 'read + post to the live coordination board (GitHub issue #6927, docs/claude/coordination-board.md)'. docs/claude/coordination-board.md itself states #6927 was retired 2026-09-07T11:28:17Z, 'readable, takes no writes... Do not post there,' and its named successor pointer file docs/claude/board-pointer.json does not exist on disk. CLAUDE.md's 2026-09-21 reset explicitly lists the coordination board among retired mechanisms; the live model is one manager session plus scoped lanes reading docs/claude/work/MANAGER-CHECKLIST.json. .claude/skills/performance-review/SKILL.md (last-verified 2026-09-24) already carries the fix; ml-review and health-review do not. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=2): /bin/sh: 1: Syntax error: \"(\" unexpected"
+}
