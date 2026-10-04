@@ -385,7 +385,7 @@ def positions_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[
             if side is None and qty is not None:
                 side = "short" if qty < 0 else "long"
             out.append(Position(
-                symbol=sym, side=side,
+                symbol=canonical_symbol(sym) or sym, side=side,
                 quantity=abs(qty) if qty is not None else None,
                 entry_price=parse_number(_cell(row, c_open)),
                 stop_loss=parse_number(_cell(row, c_sl)),
@@ -420,7 +420,7 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
             qty = parse_number(_cell(row, c_qty))
             oid = (_cell(row, c_id) or "").strip() or None
             out.append(WorkingOrder(
-                symbol=sym, side=_side(_cell(row, c_side)),
+                symbol=canonical_symbol(sym) or sym, side=_side(_cell(row, c_side)),
                 order_type=(_cell(row, c_type) or "").strip() or None,
                 quantity=abs(qty) if qty is not None else None,
                 price=parse_number(_cell(row, c_px)),
@@ -483,7 +483,7 @@ def trade_history_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[L
             out.append({
                 "time": (_cell(row, c_time) or "").strip(),
                 "ts": parse_history_time(_cell(row, c_time)),
-                "symbol": sym,
+                "symbol": canonical_symbol(sym) or sym,
                 "side": _side(_cell(row, c_side)),
                 "effect": "opening" if eff.startswith("open") else "closing" if eff.startswith("clos") else None,
                 "volume": abs(vol) if vol is not None else None,
@@ -2676,6 +2676,7 @@ CLOSE_ROW_JS = r"""
         QUAL_RE = /(^|\s)all(\s|$)|(^|\s)close\s+(?!(icon|btn|button|svg|position|x|×|✕)(\s|$))\S/i;
   const isQualified = el => [...labelParts(el), ...calledParts(el)].some(s => QUAL_RE.test(s));
   const isClose = el => (CLOSE_RE.test(label(el)) || CLOSE_NAME_RE.test(called(el))) && !BAD_RE.test(hint(el)) && !isQualified(el);
+  const symKey = v => String(v == null ? '' : v).trim().toUpperCase().replace(/^([A-Z0-9]{2,10})\/([A-Z0-9]{2,10})$/, '$1$2');
   if (op === 'locate') {
     document.querySelectorAll('[data-metis-close-row]').forEach(e => e.removeAttribute('data-metis-close-row'));
     const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
@@ -2686,7 +2687,9 @@ CLOSE_ROW_JS = r"""
       const ci = hs.indexOf('symbol'); if (ci < 0) continue;
       for (const r of p.trs) {
         const cells = [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt);
-        if ((cells[ci] || '').toUpperCase() === String(symbol).toUpperCase()) rows.push({r, hs, cells});
+        // tradeify_1 shows ETH/USD for ETHUSD (OPS-AUDIT 2026-10-04 OA-02): ONE slash
+        // between two alphanumeric parts is dropped on both sides, as __metisSym does.
+        if (symKey(cells[ci]) === symKey(symbol)) rows.push({r, hs, cells});
       }
     }
     if (rows.length !== 1) return {ok: false, rows: rows.length, why: 'need exactly 1 row for ' + symbol + ' (found ' + rows.length + ')'};
@@ -2898,7 +2901,8 @@ EDIT_DIALOG_JS = r"""
     d.setAttribute('data-metis-edit-dialog', '1');
     const text = (d.innerText || '').replace(/\s+/g, ' ');
     const sym = String(symbol || '').toUpperCase();
-    const names_symbol = !!sym && new RegExp('(^|[^A-Z0-9])' + sym + '([^A-Z0-9]|$)').test(text.toUpperCase());
+    const names_symbol = !!sym && new RegExp('(^|[^A-Z0-9])' + sym + '([^A-Z0-9]|$)').test(
+      text.toUpperCase().replace(/([A-Z0-9]{2,10})\/([A-Z0-9]{2,10})/g, '$1$2'));  // ETH/USD names ETHUSD (OA-02)
     const prevLabel = inp => {
       const a = attr(inp, 'aria-label'); if (a) return a.trim();
       if (inp.id) { const l = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`); if (l) return txt(l); }
