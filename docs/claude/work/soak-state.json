@@ -1,0 +1,344 @@
+{
+ "generated_at": "2026-10-04T15:29:18+00:00",
+ "grade_age_days": 8,
+ "grade_file": "comms/research/soak_book_grade/2026-09-26.json",
+ "grade_usable": true,
+ "subjects": {
+  "alpaca_paper/gdx_pullback_1d": {
+   "days": 99,
+   "population": "stage1",
+   "start": "2026-06-27",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: starved (321 intent(s), 0 received) but ALREADY HOLDING a position opened before the window \u2014 leg_flow_report's own caveat: this is NOT reliably 'unreached', it may simply have needed no new entry this window while flat-"
+  },
+  "alpaca_paper/gld_pullback_1d": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "dead",
+   "why": "R5 kill: starved: 68 actionable intent(s) (2 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=1, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order reg"
+  },
+  "alpaca_paper/gld_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: starved (264 intent(s), 0 received) but ALREADY HOLDING a position opened before the window \u2014 leg_flow_report's own caveat: this is NOT reliably 'unreached', it may simply have needed no new entry this window while flat-"
+  },
+  "alpaca_paper/iaum_pullback_1d": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "dead",
+   "why": "R5 kill: starved: 93 actionable intent(s) (2 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=2, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order reg"
+  },
+  "alpaca_paper/ief_pullback_1d": {
+   "days": 106,
+   "population": "stage1",
+   "start": "2026-06-20",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "alpaca_paper/iwm_trend_long_1d": {
+   "days": 106,
+   "population": "stage1",
+   "start": "2026-06-20",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "alpaca_paper/qld_trend_long_1d": {
+   "days": 95,
+   "population": "stage1",
+   "start": "2026-07-01",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=2, exit n=0; need >= 10 each)"
+  },
+  "alpaca_paper/qqq_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=8, exit n=0; need >= 10 each)"
+  },
+  "alpaca_paper/qqq_trend_long_1d": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=2, exit n=0; need >= 10 each)"
+  },
+  "alpaca_paper/scha_trend_long_1d": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "alpaca_paper/slv_pullback_1d": {
+   "days": 99,
+   "population": "stage1",
+   "start": "2026-06-27",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: starved (179 intent(s), 0 received) but ALREADY HOLDING a position opened before the window \u2014 leg_flow_report's own caveat: this is NOT reliably 'unreached', it may simply have needed no new entry this window while flat-"
+  },
+  "alpaca_paper/splg_trend_long_1d": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "alpaca_paper/spy_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=2, exit n=0; need >= 10 each)"
+  },
+  "alpaca_paper/spy_trend_long_1d": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "alpaca_paper/tlt_pullback_1d": {
+   "days": 106,
+   "population": "stage1",
+   "start": "2026-06-20",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: starved (150 intent(s), 0 received) but ALREADY HOLDING a position opened before the window \u2014 leg_flow_report's own caveat: this is NOT reliably 'unreached', it may simply have needed no new entry this window while flat-"
+  },
+  "alpaca_paper/tlt_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "dead",
+   "why": "R5 kill: starved: 48 actionable intent(s) (6 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=1, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order reg"
+  },
+  "alpaca_paper/tqqq_trend_long_1d": {
+   "days": 95,
+   "population": "stage1",
+   "start": "2026-07-01",
+   "verdict": "dead",
+   "why": "R5 kill: starved: 308 actionable intent(s) (2 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=2, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order re"
+  },
+  "alpaca_paper/uso_trend_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=9, exit n=0; need >= 10 each)"
+  },
+  "avax_pullback_2h": {
+   "days": 73,
+   "population": "shadow",
+   "start": "2026-07-23",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "bybit_1/ada_pullback_2h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=21, exit n=3; need >= 10 each)"
+  },
+  "bybit_1/eth_pullback_2h": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=18, exit n=3; need >= 10 each)"
+  },
+  "bybit_1/ict_scalp_eth_15m": {
+   "days": 74,
+   "population": "stage1",
+   "start": "2026-07-22",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=30, exit n=7; need >= 10 each)"
+  },
+  "bybit_1/ict_scalp_sol_15m": {
+   "days": 74,
+   "population": "stage1",
+   "start": "2026-07-22",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=34, exit n=7; need >= 10 each)"
+  },
+  "bybit_1/ict_scalp_xrp_15m": {
+   "days": 74,
+   "population": "stage1",
+   "start": "2026-07-22",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=24, exit n=3; need >= 10 each)"
+  },
+  "bybit_1/ict_scalp_xrp_5m": {
+   "days": 75,
+   "population": "stage1",
+   "start": "2026-07-21",
+   "verdict": "ready",
+   "why": "R5 healthy: flowing (intents=30, received=5); cost fidelity consistent (n=12, roundtrip_mean=-0.621bps vs modelled 3.0bps)"
+  },
+  "bybit_1/sol_pullback_2h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "bybit_1/squeeze_breakout_4h": {
+   "days": 133,
+   "population": "stage1",
+   "start": "2026-05-24",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "bybit_1/trend_donchian": {
+   "days": 132,
+   "population": "stage1",
+   "start": "2026-05-25",
+   "verdict": "dead",
+   "why": "R5 kill: starved: 24 actionable intent(s) (3 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=0, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order reg"
+  },
+  "bybit_1/trend_donchian_eth": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=15, exit n=1; need >= 10 each)"
+  },
+  "bybit_1/trend_donchian_eth_4h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "dead",
+   "why": "R5 kill: starved: 25 actionable intent(s) (5 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=0, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order reg"
+  },
+  "bybit_1/trend_donchian_sol": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=7, exit n=2; need >= 10 each)"
+  },
+  "bybit_1/trend_donchian_xrp_4h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: no_intents: the strategy produced zero actionable signals this window \u2014 nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  "bybit_1/xrp_pullback_2h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: flowing; cost fidelity insufficient_n (entry n=14, exit n=1; need >= 10 each)"
+  },
+  "eth_pullback_prop_2h": {
+   "days": 42,
+   "population": "shadow",
+   "start": "2026-08-23",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "fade_breakout_4h": {
+   "days": 125,
+   "population": "shadow",
+   "start": "2026-06-01",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "fvg_range_15m": {
+   "days": 68,
+   "population": "shadow",
+   "start": "2026-07-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "htf_pullback_trend_2h": {
+   "days": 42,
+   "population": "shadow",
+   "start": "2026-08-23",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "ict_scalp_5m": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "ict_scalp_avax_5m": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "ict_scalp_sol_5m": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "mgc_trend_1h": {
+   "days": 108,
+   "population": "shadow",
+   "start": "2026-06-18",
+   "verdict": "could-not-look",
+   "why": "rostered on ['ib_paper']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "slv_trend_1h": {
+   "days": 41,
+   "population": "shadow",
+   "start": "2026-08-24",
+   "verdict": "could-not-look",
+   "why": "rostered on ['alpaca_paper', 'alpaca_options_paper']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "trend_donchian_1h": {
+   "days": 125,
+   "population": "shadow",
+   "start": "2026-06-01",
+   "verdict": "dead",
+   "why": "enabled: false \u2014 the shadow soak runs nothing and logs nothing"
+  },
+  "trend_donchian_ada_4h": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "trend_donchian_avax_4h": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "trend_donchian_sol_4h": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "turtle_soup": {
+   "days": 89,
+   "population": "shadow",
+   "start": "2026-07-07",
+   "verdict": "dead",
+   "why": "on NO account roster \u2014 nothing runs it, so nothing accrues"
+  },
+  "vwap": {
+   "days": 133,
+   "population": "shadow",
+   "start": "2026-05-24",
+   "verdict": "dead",
+   "why": "enabled: false \u2014 the shadow soak runs nothing and logs nothing"
+  }
+ }
+}

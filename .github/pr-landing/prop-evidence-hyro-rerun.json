@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "The diff edits research/queue/RQ-20260930-501.yaml beyond the dispatch stamp (status: queued -> done, plus the result text). research/queue/** is outside TIER1_SURFACE and STAMP_ONLY_SURFACE vouches only a last_dispatched_at edit, so the guard holds the whole PR for a human read. No rule text in the unit is changed; only status and result. Reviewer's one question: is the decision_rule block byte-identical to main? It is.",
+  "why": "Research evidence only: RQ-20260930-501 re-run on the causal HTF harness (FAIL), unit marked done, result row, and an append-only note on the parked HyroTrader pipeline item. No code, config, roster or runtime file touched. Declared hold (not self) by lane PROP-EVIDENCE-2 after the pr-landing guard refused the original self-land declaration (R5, unvouchable research/queue path)."
+}
