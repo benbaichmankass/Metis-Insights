@@ -272,6 +272,21 @@ def _iso(value: Any) -> Optional[str]:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+def _research_grade_blocks(record: Dict[str, Any]) -> bool:
+    """True when a `research_grading` block is present and does not read pass.
+
+    Absent block -> False (D1 alone decides). A block that is present but
+    malformed, or whose `powered_verdict` is anything but "pass", blocks:
+    unknown is not permission.
+    """
+    g = record.get("research_grading")
+    if g is None:
+        return False
+    if not isinstance(g, dict):
+        return True
+    return _iso(g.get("powered_verdict")) != "pass"
+
+
 def clause_verdicts(record: Optional[Dict[str, Any]]) -> List[Tuple[str, bool, str]]:
     """`[(clause, ok, detail)]` for the operator's four clauses, in order."""
     if record is None:
@@ -350,6 +365,20 @@ def clause_verdicts(record: Optional[Dict[str, Any]]) -> List[Tuple[str, bool, s
         elif verdict != "pass":
             out.append(("C4", False, f"decision_rule {rid!r} verdict={verdict!r} (not 'pass') "
                                      f"— the record does not say the rule was cleared"))
+        elif _research_grade_blocks(record):
+            # The producer stamps only RULE-D1 (net_r_oos > 0, no n floor, no fold
+            # majority). A research unit may have registered a STRICTER rule for
+            # the same record and graded it under that rule, including a powered
+            # re-run. A D1 `pass` must not clear the bar over the unit's own
+            # FAIL/UNDERPOWERED. Measured 2026-10-04: ict_scalp_xrp_15m read D1
+            # pass at 365d while RQ-20261002-701 graded it FAIL at its
+            # pre-registered 730d escalation.
+            g = record["research_grading"]
+            g = g if isinstance(g, dict) else {"powered_verdict": f"malformed:{type(g).__name__}"}
+            out.append(("C4", False,
+                        f"decision_rule {rid!r} verdict=pass, but research_grading "
+                        f"{g.get('research_unit')!r} rule {g.get('rule_id')!r} graded "
+                        f"powered_verdict={g.get('powered_verdict')!r} (not 'pass')"))
         else:
             out.append(("C4", True, f"decision_rule {rid!r} registered {registered_at} "
                                     f"< run {generated_at}, verdict=pass"))
