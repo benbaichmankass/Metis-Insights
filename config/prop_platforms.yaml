@@ -229,6 +229,15 @@ accounts:
       # enabled_venue_symbols below, and every armed path also needs
       # PROP_EXECUTOR_MODE_TRADEIFY_1=live on the VM.
       watched_click_max_lots: {ETHUSD: 0.01, SOLUSD: 0.01}
+      # DRY WALK ONLY (TRADEIFY-SOL-SIZE 2026-10-04, PI-20261003-ILZMCTFQ-0002):
+      # round-trip-dry,limit SOLUSD at 0.01 (#16090, run 37156182423) found the
+      # Buy submit DISABLED (disabled + pointer-events:none) with every field
+      # read back exactly; ETHUSD at 0.01 passes. 1.0 SOL (~$120 notional) asks
+      # whether the disable is a minimum-size rule. Read ONLY by
+      # run_round_trip(arm=False), which never clicks submit; round-trip-live,
+      # the watched click and the ticket cycle never read it, so it arms
+      # nothing and watched_click_max_lots above is unchanged.
+      dry_walk_max_lots: {SOLUSD: 1.0}
       # GO-LIVE (TRADEIFY-WIRE C, #14673): operator 2026-10-03 "Allow, all 3
       # symbols". Dry evidence: ETHUSD round-trip-dry,limit form_verified with
       # the key-by-key limit fill (#16003, run 37137185991). SOLUSD:
