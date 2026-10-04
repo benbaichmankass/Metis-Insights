@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "_attempt_public in src/prop/prop_executor.py emits the submit block (tries / why_not / reveal), proven by a round-trip dry walk whose place_bracket line contains a \"submit\" key; or killed with a reason if the detail string is judged sufficient.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261002-UBMITVIS-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Found while reading the POST-MERGE dry walk for #15468 (squash 5acb8bb74) in system-action issue #15537, 11:53:06Z, code_sha df208b996: the place_bracket line carries form_fields, form_buttons, submit_search, fill_trace, panel and ticket_after, and NO \"submit\" key. src/prop/prop_executor.py::_attempt_public is an explicit whitelist and form[\"submit\"] is not in it.",
+    "rerun": "python3 -c \"import re,pathlib; s=pathlib.Path('src/prop/prop_executor.py').read_text(); print('submit key emitted:', '\\\"submit\\\":' in s.split('def _attempt_public')[1].split('def ')[0])\" ; then dispatch system-action breakout-login-check apply: round-trip-dry,limit and grep the place_bracket line of the issue comment for the string submit\":"
+  },
+  "routed_to": "PROP-EXEC [route; size S, value L, tier 1] BACKLOG-ROUTE 2026-10-04: Rerun prints 'submit key emitted: False': _attempt_public whitelist in src/prop/prop_executor.py still omits form['submit']. | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — _attempt_public (prop_executor.py:1690-1727) whitelist includes submit_search but no 'submit' key (tries/why_not/reveal)",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "OBSERVABILITY GAP IN WHAT #15468 JUST LANDED, filed rather than widened into that held PR. _ready_submit now records the full reason a submit hit-test failed (viewport, button rect and centre, the occluder's tag/class/test-id/box and whether it is an ancestor, the clip chain with each scroller's scrollTop/scrollHeight/clientHeight, the open-dialog count, the try count, and what reveal scrolled) in form['submit'] -- but src/prop/prop_executor.py::_attempt_public is a WHITELIST that does not include that key, so none of it reaches the run log or the journal. MEASURED: the post-merge dry walk's place_bracket line has no 'submit' key. WHAT STILL WORKS, so this is not urgent: the NAMED cause is appended to the refusal detail string by submit_not_visible_why, and detail IS emitted and also lands in prop_fills.reason -- so the next 'submit: not visible' skip will still say which of the three states blocked it, with the occluder's tag/test-id/box. WHAT IS LOST: the clip chain, the dialog count, the try count and the reveal trace, i.e. the forensic half. The fix is one whitelist entry; the block is shape-only (tags, classes, test-ids, boxes, all digit-masked) and carries no account text, which was deliberate, so it is safe for the public log. Cheapest route is to fold it into the next prop PR that already touches these files rather than open one for it."
+}
