@@ -1,6 +1,6 @@
 id: RQ-20260929-103
 title: 'Stage-0 backtest: fade harness on BNBUSDT 4h (uncovered symbol)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -79,4 +79,5 @@ lands:
 
 related:
   - 'fade_breakout_4h (config/strategies.yaml:224) -- the BTCUSDT-only, currently-shadow leg this checks a second symbol against'
-last_dispatched_at: '2026-10-04T13:36:00+00:00'
+last_dispatched_at: '2026-10-04T14:55:57+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN by hand against this unit's own rule. Re-run after the fetch-window fix (PI-20261004-APBY4NTV-0001), window 2023-10-05 to 2026-10-03. FAIL (first pass): net_total_r -28.0454, n_trades 256, expectancy -0.1096 R/trade, max drawdown 38.91 R. Record: research/results/RQ-20260929-103/37210879281.jsonl."

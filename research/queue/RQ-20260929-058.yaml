@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20260929-058
 title: 'Breakout prop fit: squeeze_breakout_4h at sizing flat 1.0% of balance under RULE-B6 V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -91,4 +91,5 @@ generated:
     symbol: BTCUSDT
     timeframe: 4h
     trades_file: comms/strategy_evidence/runs/2026-09-25/squeeze_breakout_4h__trades.jsonl
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T14:55:57+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against this unit's own rule. UNDERPOWERED (indeterminate): squeeze_breakout_4h: UNDERPOWERED: n=10 < floor 88 The run could not answer; this is 'could not answer', not 'no edge'. Source: research-script-run 37211065237 artifact (verdict.json, grid.json, sims/)."

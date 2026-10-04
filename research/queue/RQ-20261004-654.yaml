@@ -1,0 +1,59 @@
+id: RQ-20261004-654
+title: 'Confirm XRP exit candidate: trend_donchian_xrp_4h trail4 fee-survival arm (15 bps roundtrip)'
+status: done
+cadence: once
+theme: live_strategy
+priority: 2
+kind: experiment
+question: Does the trail4 improvement on trend_donchian_xrp_4h survive a doubled roundtrip fee (15 bps
+  vs the 7.5 default)?
+why_this_matters: A lever that only helps at the cheap fee is not an exit improvement. The harness corpus
+  is 7.5 bps throughout, so this arm was unrunnable until the fee input was added.
+power:
+  expected_n: 50
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: Same gate and floor as RQ-20261004-653; fee arm only.
+  feasibility:
+    source: none
+    accrual_basis: Runs on whatever history the trainer holds for the leg; nothing waits.
+decision_rule:
+  id: RULE-RQ1004-XRP-TRAIL4-CONFIRM-B-FEE15
+  registered_at: '2026-10-04'
+  registered_before_run: true
+  statistic: 'For cell trail4 of trend_donchian_xrp_4h in the landed m20 sweep record: is_oos_pass, d_net_r_OOS,
+    wf_wins (walk-forward folds won), and the base book''s OOS trade count. Run at fee_bps_roundtrip=15
+    (double the 7.5 default) as the fee-SURVIVAL arm.'
+  rule: SURVIVES IF trail4 d_net_r_OOS > 0 at 15 bps roundtrip AND base OOS trades >= 50 (the lever's
+    gain is a delta against a base book that pays the same fee, so this tests that the improvement does
+    not exist only at the cheap fee). FRAGILE IF d_net_r_OOS <= 0 at 15 bps with base OOS >= 50 -- file
+    for refinement, do not kill. INDETERMINATE IF base OOS < 50. Stage-0 evidence only; ships nothing.
+  what_it_does_not_do: Does not touch config/strategies.yaml. Not a live-parity check.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 40
+  basis: one leg, one lever family; the workflow scp's the leg's frames from the trainer and sweeps on
+    the runner.
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: trend_donchian_xrp_4h
+    levers: trail_geometry
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    split_target_oos: '60'
+    fee_bps_roundtrip: '15'
+    research_unit: RQ-20261004-654
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- PI-20261004-FOJGFIZF-0001
+- docs/research/m20-sweep-corpus.jsonl (trail4 rows for trend_donchian_xrp_4h)
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against RULE-RQ1004-XRP-TRAIL4-CONFIRM-B-FEE15. SURVIVES by the rule: trail4 d_net_r_OOS +0.3577 > 0 at 15 bps roundtrip with base OOS 60 >= 50 (delta IS +2.1093). CAVEAT: the arm is nearly uninformative for this lever. Doubling the fee moved delta OOS by 0.0001 R and delta IS by 0.0002 R, because trail4 changes how trades exit, not how many, so base and lever pay the same fee and it cancels. It cannot fail here; read it as 'no fee-specific artefact', not as fee robustness of the underlying leg. Stage-0 evidence only."

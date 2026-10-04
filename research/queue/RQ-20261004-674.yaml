@@ -1,0 +1,53 @@
+cadence: once
+decision_rule:
+  id: RULE-RQ1004-M20-GAP-scha_trend_long_1d
+  registered_at: '2026-10-04'
+  registered_before_run: true
+  rule: A cell PASSES iff it clears Path A (beats baseline on net_R AND maxDD in BOTH IS and OOS) OR Path B (improves
+    net_r_per_capital_day in BOTH IS and OOS with maxDD not worsening and net_R not falling more than the declared
+    floor), AND the base book holds >= 25 OOS trades, AND the drawdown grant is capped at the base book's own D_b.
+    Below the floor grades insufficient_base. No cell is shipped by this unit. Below the base floor the cell grades
+    insufficient_base, which is 'could not answer', not 'no lever'.
+  statistic: 'Per cell: IS and OOS delta net_R and delta maxDD vs the base book; base OOS trade count.'
+id: RQ-20261004-674
+kind: experiment
+lands:
+  assert_field: read_state
+  min_rows: 1
+  store: research/results/
+power:
+  alpha: 0.05
+  basis: MIN_OOS_TRADES=25 is the gate's own floor (RULE-EXIT-REFINEMENT-P2-GATE); a leg below it grades insufficient_base,
+    not fail. The sweep derives the IS/OOS boundary to target that OOS count (split_mode oos-trades).
+  design: one_sample
+  effect_units: sd
+  expected_n: 25
+  feasibility:
+    accrual_basis: Runs on whatever history the trainer holds for the leg; a shadow leg with few trades may grade
+      insufficient_base.
+    source: none
+  min_detectable_effect: 0.45
+  power: 0.8
+priority: 3
+question: scha_trend_long_1d (SCHA 1d) has little or no M20 exit-lever sweep coverage in docs/research/m20-sweep-corpus.jsonl
+  and no queued m20 unit. Which hard exit levers (stale_stop, giveback_stop, trail_geometry, trail_decay, vol_trail)
+  clear the exit-refinement P2 gate on it at live-parity TP geometry?
+routing:
+  basis: one leg per unit; the workflow scp's the leg's frames from the trainer and sweeps on the runner.
+  est_minutes: 40
+  needs_gpu: false
+  needs_trainer_resident_data: false
+  peak_memory_gb: 4.0
+run:
+  inputs:
+    legs: scha_trend_long_1d
+    tp_cap_pct: '0.099'
+    split_mode: oos-trades
+    research_unit: RQ-20261004-674
+  workflow: m20-exit-lever-sweep.yml
+status: queued
+theme: live_strategy
+title: 'M20 exit-lever coverage gap: scha_trend_long_1d (SCHA 1d) -- hand-authored, RULE-EXIT-REFINEMENT-P2-GATE'
+why_this_matters: The M20 done-condition is a fully processed coverage matrix (docs/research/exit-refinement-coverage.json);
+  a leg with no sweep rows is an open cell. A passing cell is only a Tier-3 declare proposal after the live-parity
+  check.

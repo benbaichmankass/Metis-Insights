@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20260929-057
 title: 'Breakout prop fit: sol_pullback_2h at sizing cushion-fit room 0.33 at 1.5% under RULE-B6 V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -91,4 +91,5 @@ generated:
     symbol: SOLUSDT
     timeframe: 2h
     trades_file: comms/strategy_evidence/runs/2026-09-25/sol_pullback_2h__trades.jsonl
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T14:55:57+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against this unit's own rule. UNDERPOWERED (indeterminate): sol_pullback_2h: UNDERPOWERED: n=18 < floor 88 The run could not answer; this is 'could not answer', not 'no edge'. Source: research-script-run 37211063766 artifact (verdict.json, grid.json, sims/)."

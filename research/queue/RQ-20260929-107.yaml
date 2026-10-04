@@ -1,6 +1,6 @@
 id: RQ-20260929-107
 title: 'Stage-0 backtest: chop_scalp harness on BTCUSDT 15m (harness with zero live-roster or queue history)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -87,4 +87,5 @@ lands:
 
 related:
   - RQ-20260929-108 (the orb harness's own equivalent first-dispatch question)
-last_dispatched_at: '2026-10-04T08:33:30+00:00'
+last_dispatched_at: '2026-10-04T14:55:57+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN by hand against this unit's own rule. First re-run (540 d window) landed n=36, INDETERMINATE (research/results/RQ-20260929-107/37210881210.jsonl). Second re-run on a 1095 d window (BTCUSDT 15m, 2023-10-05 to 2026-10-03): FAIL (first pass): net_total_r -13.9123, n_trades 45 (floor 39), expectancy -0.3092 R/trade, win rate 28.89%, max drawdown 9.0 R. Per the unit: re-queue a confirmatory run before reading as a kill. Record: research/results/RQ-20260929-107/37213645066.jsonl."
