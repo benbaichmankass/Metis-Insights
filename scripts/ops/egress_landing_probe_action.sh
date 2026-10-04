@@ -38,6 +38,15 @@ URLS=(
     "https://dx.tradeify247.co/"
     "https://dx.tradeify247.co/specs"
     "https://tradeify247.co/"
+    # Velotrade (lane PROP-FIRM-DEEP, 2026-10-04; pipeline PI-20261004-OZ9AAZSV-0001):
+    # the same three shapes -- DXtrade terminal landing, a DXtrade front-door path
+    # (the developer portal, which served the REST/Push/FIX docs from a sandbox
+    # egress), and the firm's site. Measured 200 / 200 / 200 from a Google-cloud
+    # egress on 2026-10-04 with no Cloudflare header; this run asks the same
+    # question from the VM's Oracle egress.
+    "https://dx.velotrade.com/"
+    "https://dx.velotrade.com/developers/"
+    "https://velotrade.com/"
 )
 
 TMP="$(mktemp -d)"
