@@ -472,16 +472,16 @@ def run_checks(
 def _dry_run_accounts(path: Optional[Path] = None) -> Optional[List[str]]:
     """Account ids whose ``mode`` is ``dry_run`` in config/accounts.yaml, or
     ``None`` when the file could not be read (never ``[]`` for that case:
-    "we could not look" must not read as "no dry account")."""
-    try:
-        import yaml
+    "we could not look" must not read as "no dry account"). Reads through
+    the canonical loader (canonical-config-loaders guard)."""
+    from src.config.accounts_loader import load_accounts_dict
 
-        doc = yaml.safe_load((path or _REPO_ROOT / "config" / "accounts.yaml")
-                             .read_text(encoding="utf-8")) or {}
-    except Exception:  # noqa: BLE001  # allow-silent: surfaced as read_state=could_not_check on the INV-7 row
+    yaml_path = path or _REPO_ROOT / "config" / "accounts.yaml"
+    if not Path(yaml_path).is_file():
         return None
-    accs = doc.get("accounts", doc) if isinstance(doc, dict) else {}
-    if not isinstance(accs, dict):
+    errors: List[Dict[str, Any]] = []
+    accs = load_accounts_dict(yaml_path, errors=errors)
+    if errors or not accs:
         return None
     return sorted(
         str(k) for k, v in accs.items()
