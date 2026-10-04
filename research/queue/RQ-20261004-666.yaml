@@ -1,7 +1,7 @@
 id: RQ-20261004-666
 title: 'Tradeify 247 1-Step prop fit: trend_donchian_eth_prop at sizing flat 0.35% of balance (follow-up to RQ-20261004-655/656
   NULL)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -80,3 +80,4 @@ related:
 - config/prop_rulesets/tradeify_247_1step.yaml
 - RQ-20261004-655
 - RQ-20261004-656
+result: 'GRADED 2026-10-04 by lane RESEARCH-RUN against RULE-RQ1004-TRADEIFY-FIT-trend_donchian_eth_prop-f0035. NULL (indeterminate): ev_net_usd_per_life > 0 on all 5 seeds (+80 to +94 USD per life) but P(net>0) is 0.360-0.378, below the 0.70 bar. Sizing curve for trend_donchian_eth_prop on Tradeify 1-Step, n=169 committed trades, 5 seeds each, P(net>0) / EV per life: 0.25% -> 0.15 / -$60; 0.35% -> 0.37 / +$85; 0.50% -> 0.51 / +$305 (RQ-20261004-655); 0.75% -> 0.48 / +$360 (RQ-20261004-656). P(net>0) peaks near 0.5 around 0.5% risk and never approaches the 0.70 bar, so sizing alone cannot clear it for this leg: smaller sizes cannot reach the 12% target before the fee and horizon bite (p_pass_eval 0.26 at 0.25%), larger ones raise death risk. Needs more edge or a multi-leg book, not a different flat size. Stage-0 evidence only; no roster proposal. Source: research-script-run 37219002275 artifact.'
