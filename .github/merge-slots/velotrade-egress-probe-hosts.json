@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01Fgr85LsozsKJp3oz9aAZsv",
+  "branch": "claude/velotrade-egress-probe-hosts",
+  "claimed_at": "2026-10-04T18:23:16Z",
+  "purpose": "PROP-FIRM-DEEP: Velotrade hosts on the VM egress probe"
+}

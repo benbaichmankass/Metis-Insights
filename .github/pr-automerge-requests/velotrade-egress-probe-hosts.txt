@@ -1,0 +1,1 @@
+auto-merge: egress-landing-probe allowlist + doc row (Tier 1, lane PROP-FIRM-DEEP)
