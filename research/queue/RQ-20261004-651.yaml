@@ -1,6 +1,6 @@
 id: RQ-20261004-651
 title: 'trend_donchian_sol_prop static-bracket lever test: does any tp_r / atr_stop_mult arm beat the live bracket net of cost on 730d AND replicate on the recent year?'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -85,4 +85,16 @@ related:
 - docs/claude/work/pipeline/20261003T155701146692Z-49268e08.json
 - research/queue/RQ-20261002-050.yaml
 - research/queue/RQ-20260927-003.yaml
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T08:12:00Z'
+result: >-
+  GRADED 2026-10-04 by lane PROP-EVIDENCE against RULE-RQ1004-651-SOL-BRACKET-LEVER (registered at
+  72bfd75, 08:08:41Z, before the sweep script existed). PASS by the letter: live arm tp6.0_stop2.5 n=106
+  pool +12.33R (older +11.76 / recent +0.57); exactly one arm qualifies, tp2.0_stop3.5 n=104 pool +17.97R
+  (older +12.02 / recent +5.95; deltas +5.64 / +0.26 / +5.39). FRAGILE: it clears the +5R margin by
+  0.64R, its older-year gain is +0.26R, and its grid neighbours (tp2.0_stop3.0 -7.29R, tp3.0_stop3.5
+  -1.56R, tp2.0_stop2.5 -8.60R vs live) are below live -- an isolated peak, not a plateau. B6 V2
+  (breakout ruleset, fresh $5,000, room 0.33, min risk $10, seeds 1-5): candidate 3 pass / 2
+  indeterminate -> leg-level INDETERMINATE (EV/life ~$227-237, P(pass eval) ~0.74); live 0 pass / 5
+  indeterminate (EV/life ~$43-54, P(pass eval) ~0.41). Not a FAIL, so the rule's V2 precondition holds.
+  Tier-3 change proposed as a HELD PR only; nothing applied. Not modelled: lot quantization, tradeify_1's
+  ruleset (V2 ran breakout only). Row: research/results/RQ-20261004-651/session-20261004.jsonl.

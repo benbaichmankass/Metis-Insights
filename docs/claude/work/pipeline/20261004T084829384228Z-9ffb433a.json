@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "a trailing-365d static-bracket re-grade of trend_donchian_sol_prop with n>=88 under a pre-registered rule, either PASS (close) or FAIL (Tier-3 shadow proposal to the operator)",
+    "kind": "observation"
+  },
+  "id": "PI-20261003-APBY4NTV-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv review of PR #15589 (lane SOL-BRACKET-REGRADE session_01FDKSBG6aQnf416DXVHEUaU)",
+    "rerun": "python3 scripts/research/prop_bracket_exit_model.py --leg trend_donchian_sol_prop --days 365 --workdir <dir>; read static n and net_r. Due when n>=88 or on the next check."
+  },
+  "state": "queued",
+  "what": "trend_donchian_sol_prop (breakout_1, live) PASSED the bracket-faithful re-grade only on the 730d pool (n=105, +13.37 R net, full cost; RQ-20261002-050, PR #15589). The most recent 365d on the real static bracket is -0.49 R (n=53, below the 88 floor so not gradeable alone); quarterly static net_r over that year: -5.51, +0.42, +0.05, +4.54. The registered rule did not test recency/stationarity, so this is not a FAIL and SOL stays live (operator popup 2026-10-02 'Keep SOL live until re-grade'). Open question: is SOL's bracket edge decaying? Re-grade the trailing 365d once it reaches n>=88 on the static bracket, under a rule registered before that run. | UPDATE 2026-10-04 (lane PROP-EVIDENCE, RQ-20261004-651, rule registered before the run): on the 730d static bracket the live levers (tp_r 6.0 / atr_stop_mult 2.5) read n=106 +12.33R, recent year +0.57R (n=52). A 30-arm tp_r x atr_stop_mult grid found ONE qualifying arm, tp_r 2.0 / atr_stop_mult 3.5 (+17.97R; recent +5.95R; older +12.02R), B6 V2 leg-level INDETERMINATE (3/5 seeds pass, EV/life ~$232 vs live ~$51). Fragile (isolated grid peak; older-year gain +0.26R). Proposed as a HELD Tier-3 PR, not applied. This item stays open: the trailing-365d re-grade at n>=88 it asks for has not run (recent n=52)."
+}

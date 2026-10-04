@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research evidence only: RQ-20261004-651 pre-registration, sweep script, measured grid + B6 V2, result row, pipeline note. No config change (the Tier-3 proposal is a separate HELD PR)."
+}
