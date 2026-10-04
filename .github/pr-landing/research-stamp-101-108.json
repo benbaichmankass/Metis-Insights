@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Dispatch stamps only: last_dispatched_at on RQ-20260929-101..108, recording that the eight harness runs were fired by hand via research-harness-dispatch.yml at 2026-10-04T08:33Z (runs 37188700428, 37188711243..37188720939), so the dispatcher does not fire them a second time. The one field E57 vouches for; no rule text touched."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "The operator has answered (a) and (b), and the executor's halted field is null or the timer is disabled by decision.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-GCFA5DOR-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "diag journalctl?unit=ict-prop-executor&lines=60 -- read the 'halted' field and rule_distance (balance vs static_dd_floor_usd) on the newest tick."
+  },
+  "state": "queued",
+  "what": "OA-03 breakout_1 is BELOW its static max-DD floor and its executor is latched. MEASURED via diag #16216 and #16213 (journalctl ict-prop-executor, 2026-10-04 03:39-07:24Z): balance $4,698 against a static_dd_floor of $4,700, distance -$2.00, rule_distance on every tick since at least 03:39Z. At 03:40Z the executor placed a SOLUSD long anyway: 65.78 lots, $74.99 risk, entry 120.91, SL 119.77, TP 127.75. It logged 'breach_guards=report, placing anyway'; breach_guards=report is the operator's 2026-09-28 policy and is not disputed here. The submit was clicked, but no order or position appeared after 3 re-reads (dialog_confirmed false). Positions 0, orders 0, balance unchanged, so there is NO exposure. The AUTO-REVERT latch was set at 03:49:36Z. Since then every 5-min tick exits 3 and the unit reads failed, with no further alert (see OA-01 / PR #16222). The PROP-EXEC protocol's env/timer revert has NOT been run: env_mode is still live and the timer is still active. Open, for the operator: (a) does Breakout treat a $4,698 balance under a $4,700 static floor as a failed account? If so, is a new account wanted ('we can breach the account and just buy a new one')? (b) clear the halt, or run the documented revert? (c) why did a clicked submit register nothing on the venue? This is a new failure on breakout_1, distinct from tradeify's disabled-submit PI-20261003-ILZMCTFQ-0002."
+}

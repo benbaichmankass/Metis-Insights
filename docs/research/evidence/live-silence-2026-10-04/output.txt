@@ -1,0 +1,147 @@
+
+=== xrp_pullback_2h [XRPUSDT 2h] decision_bar=forming leg side_filter=both account side_filter=both
+  closed bars evaluated 800 (2026-07-29 14:00:00+00:00 .. 2026-10-04 04:00:00+00:00); valid signals 30 (0.0375/bar)
+  since 09-28T03:35Z: 74 closed bars, 0 valid signals; reasons {'no trend-pullback-confirmation setup on the latest bar (non-': 72, 'ADX 11.97 < adx_min 25.0': 1, 'ADX 14.69 < adx_min 25.0': 1}
+  last valid closed-bar signal: ('2026-09-25 22:00:00+00:00', 'long', 0.1677, True); last any-side: ('2026-09-25 22:00:00+00:00', 'long', 0.1677, True)
+  forming-bar 15m checkpoints since 09-28T03:35Z: 513, signals 0, valid 0 []
+  NOW: last closed close 1.492 @ 2026-10-04 04:00:00+00:00, ATR 0.00666429 (0.45%)
+  pullback next-bar: midline 1.5004 (last is -1.26 ATR from it); range [1.4819,1.4957] pos_in_range(last)=0.73; pull_frac 0.5
+    LONG: close must be in (1.5004, 1.4888] -> EMPTY window (structurally impossible next bar; gap 1.74 ATR = 0.78%)
+    SHORT: close must be in (1.4888, 1.492] -> window open, 0.00 ATR from last
+    ADX(14) now 11.5 vs adx_min 25 -> FAIL
+
+=== ada_pullback_2h [ADAUSDT 2h] decision_bar=forming leg side_filter=both account side_filter=both
+  closed bars evaluated 800 (2026-07-29 14:00:00+00:00 .. 2026-10-04 04:00:00+00:00); valid signals 39 (0.0488/bar)
+  since 09-28T03:35Z: 74 closed bars, 0 valid signals; reasons {'no trend-pullback-confirmation setup on the latest bar (non-': 72, 'ADX 11.26 < adx_min 28.0': 1, 'trigger bar ATR percentile 0.075 < vol_skip_below_pctl 0.1': 1}
+  last valid closed-bar signal: ('2026-09-26 22:00:00+00:00', 'long', 0.348, True); last any-side: ('2026-09-26 22:00:00+00:00', 'long', 0.348, True)
+  forming-bar 15m checkpoints since 09-28T03:35Z: 513, signals 0, valid 0 []
+  NOW: last closed close 0.2439 @ 2026-10-04 04:00:00+00:00, ATR 0.00207857 (0.85%)
+  pullback next-bar: midline 0.248 (last is -1.97 ATR from it); range [0.2423,0.2468] pos_in_range(last)=0.36; pull_frac 0.5
+    LONG: close must be in (0.248, 0.24455] -> EMPTY window (structurally impossible next bar; gap 1.66 ATR = 1.41%)
+    SHORT: close must be in (0.24455, 0.2439] -> EMPTY window (structurally impossible next bar; gap 0.31 ATR = 0.27%)
+    ADX(14) now 9.5 vs adx_min 28 -> FAIL
+    ATR pctl now 0.005 vs vol_skip_below 0.1
+
+=== trend_donchian_eth_4h [ETHUSDT 4h] decision_bar=forming leg side_filter=both account side_filter=both
+  closed bars evaluated 800 (2026-05-23 20:00:00+00:00 .. 2026-10-04 00:00:00+00:00); valid signals 26 (0.0325/bar)
+  since 09-28T03:35Z: 37 closed bars, 0 valid signals; reasons {'confidence 0.3679 below min_confidence 0.6': 1, 'no breakout on the latest bar': 35, 'confidence 0.2261 below min_confidence 0.6': 1}
+  last valid closed-bar signal: ('2026-09-18 16:00:00+00:00', 'long', 0.883, True); last any-side: ('2026-09-18 16:00:00+00:00', 'long', 0.883, True)
+  forming-bar 15m checkpoints since 09-28T03:35Z: 550, signals 0, valid 0 []
+  NOW: last closed close 2694.68 @ 2026-10-04 00:00:00+00:00, ATR 25.1657 (0.93%)
+  donchian next-bar channel [2650.43, 2778.2], min_conf 0.6 -> long needs close > 2793.3 (+3.92 ATR, +3.66%), short needs close < 2635.33 (-2.36 ATR, -2.20%)
+
+=== trend_donchian_xrp_4h [XRPUSDT 4h] decision_bar=closed leg side_filter=short account side_filter=both
+  closed bars evaluated 800 (2026-05-23 20:00:00+00:00 .. 2026-10-04 00:00:00+00:00); valid signals 6 (0.0075/bar)
+  since 09-28T03:35Z: 37 closed bars, 0 valid signals; reasons {'trigger bar hour 0 in skip_hours [0]': 1, 'confidence 0.4139 below min_confidence 0.8': 1, 'no breakout on the latest bar': 34, 'confidence 0.1322 below min_confidence 0.8': 1}
+  last valid closed-bar signal: ('2026-09-15 16:00:00+00:00', 'short', 0.8325, True); last any-side: ('2026-09-21 08:00:00+00:00', 'long', 1.0, False)
+  NOW: last closed close 1.4899 @ 2026-10-04 00:00:00+00:00, ATR 0.0207857 (1.40%)
+  donchian next-bar channel [1.4453, 1.5555], min_conf 0.8 -> long needs close > 1.57213 (+3.96 ATR, +5.52%), short needs close < 1.42867 (-2.95 ATR, -4.11%)
+    ATR pctl now 0.075 vs vol_skip_above 0.9
+
+=== ief_pullback_1d [IEF 1d] decision_bar=forming leg side_filter=both account side_filter=long
+  closed bars evaluated 801 (2023-07-26 04:00:00+00:00 .. 2026-10-02 04:00:00+00:00); valid signals 29 (0.0362/bar)
+  since 09-28T03:35Z: 5 closed bars, 0 valid signals; reasons {'no trend-pullback-confirmation setup on the latest bar (non-': 5}
+  last valid closed-bar signal: ('2026-07-06 04:00:00+00:00', 'long', 0.3603, True); last any-side: ('2026-08-27 04:00:00+00:00', 'short', 0.2527, False)
+  forming-bar 15m checkpoints since 09-28T03:35Z: 136, signals 0, valid 0 []
+  NOW: last closed close 89.06 @ 2026-10-02 04:00:00+00:00, ATR 0.539643 (0.61%)
+  pullback next-bar: midline 91.085 (last is -3.75 ATR from it); range [88.64,91.23] pos_in_range(last)=0.16; pull_frac 0.5
+    LONG: close must be in (91.085, 89.935] -> EMPTY window (structurally impossible next bar; gap 2.13 ATR = 1.29%)
+    SHORT: close must be in (89.935, 89.06] -> EMPTY window (structurally impossible next bar; gap 1.62 ATR = 0.98%)
+
+=== slv_pullback_1d [SLV 1d] decision_bar=forming leg side_filter=both account side_filter=long
+  closed bars evaluated 801 (2023-07-26 04:00:00+00:00 .. 2026-10-02 04:00:00+00:00); valid signals 66 (0.0824/bar)
+  since 09-28T03:35Z: 5 closed bars, 0 valid signals; reasons {'no trend-pullback-confirmation setup on the latest bar (non-': 5}
+  last valid closed-bar signal: ('2026-09-25 04:00:00+00:00', 'long', 0.2844, True); last any-side: ('2026-09-25 04:00:00+00:00', 'long', 0.2844, True)
+  forming-bar 15m checkpoints since 09-28T03:35Z: 145, signals 0, valid 0 []
+  NOW: last closed close 54.735 @ 2026-10-02 04:00:00+00:00, ATR 1.635 (2.99%)
+  pullback next-bar: midline 59.085 (last is -2.66 ATR from it); range [53.905,61] pos_in_range(last)=0.12; pull_frac 0.618
+    LONG: close must be in (59.085, 58.2897] -> EMPTY window (structurally impossible next bar; gap 0.49 ATR = 1.45%)
+    SHORT: close must be in (56.6153, 54.735] -> EMPTY window (structurally impossible next bar; gap 1.15 ATR = 3.44%)
+
+=== iaum_pullback_1d [IAUM 1d] decision_bar=forming leg side_filter=both account side_filter=long
+  closed bars evaluated 801 (2023-07-26 04:00:00+00:00 .. 2026-10-02 04:00:00+00:00); valid signals 75 (0.0936/bar)
+  since 09-28T03:35Z: 5 closed bars, 0 valid signals; reasons {'no trend-pullback-confirmation setup on the latest bar (non-': 5}
+  last valid closed-bar signal: ('2026-09-22 04:00:00+00:00', 'long', 0.1907, True); last any-side: ('2026-09-22 04:00:00+00:00', 'long', 0.1907, True)
+  forming-bar 15m checkpoints since 09-28T03:35Z: 129, signals 0, valid 0 []
+  NOW: last closed close 41.32 @ 2026-10-02 04:00:00+00:00, ATR 0.673929 (1.63%)
+  pullback next-bar: midline 43.82 (last is -3.71 ATR from it); range [41,43.8] pos_in_range(last)=0.11; pull_frac 0.618
+    LONG: close must be in (43.82, 42.7304] -> EMPTY window (structurally impossible next bar; gap 1.62 ATR = 2.64%)
+    SHORT: close must be in (42.0696, 41.32] -> EMPTY window (structurally impossible next bar; gap 1.11 ATR = 1.81%)
+
+SUMMARY {
+ "xrp_pullback_2h": {
+  "closed_post": 74,
+  "sig_post": 0,
+  "forming_chk": 513,
+  "forming_valid": 0,
+  "last_valid": "2026-09-25 22:00:00+00:00"
+ },
+ "ada_pullback_2h": {
+  "closed_post": 74,
+  "sig_post": 0,
+  "forming_chk": 513,
+  "forming_valid": 0,
+  "last_valid": "2026-09-26 22:00:00+00:00"
+ },
+ "trend_donchian_eth_4h": {
+  "closed_post": 37,
+  "sig_post": 0,
+  "forming_chk": 550,
+  "forming_valid": 0,
+  "last_valid": "2026-09-18 16:00:00+00:00"
+ },
+ "trend_donchian_xrp_4h": {
+  "closed_post": 37,
+  "sig_post": 0,
+  "forming_chk": 0,
+  "forming_valid": 0,
+  "last_valid": "2026-09-15 16:00:00+00:00"
+ },
+ "ief_pullback_1d": {
+  "closed_post": 5,
+  "sig_post": 0,
+  "forming_chk": 136,
+  "forming_valid": 0,
+  "last_valid": "2026-07-06 04:00:00+00:00"
+ },
+ "slv_pullback_1d": {
+  "closed_post": 5,
+  "sig_post": 0,
+  "forming_chk": 145,
+  "forming_valid": 0,
+  "last_valid": "2026-09-25 04:00:00+00:00"
+ },
+ "iaum_pullback_1d": {
+  "closed_post": 5,
+  "sig_post": 0,
+  "forming_chk": 129,
+  "forming_valid": 0,
+  "last_valid": "2026-09-22 04:00:00+00:00"
+ }
+}
+xrp_pullback_2h: 430 valid signals on 7707 closed bars 2025-01-01..2026-09-27 (last data bar 2026-10-04 04:00:00+00:00); last valid signal 2026-09-25 20:00:00+00:00
+ada_pullback_2h: 314 valid signals on 7707 closed bars 2025-01-01..2026-09-27 (last data bar 2026-10-04 04:00:00+00:00); last valid signal 2026-09-27 00:00:00+00:00
+trend_donchian_eth_4h: 148 valid signals on 3853 closed bars 2025-01-01..2026-09-27 (last data bar 2026-10-04 00:00:00+00:00); last valid signal 2026-09-18 20:00:00+00:00
+trend_donchian_xrp_4h: 25 valid signals on 3853 closed bars 2025-01-01..2026-09-27 (last data bar 2026-10-04 00:00:00+00:00); last valid signal 2026-09-15 20:00:00+00:00
+ief_pullback_1d: 14 valid signals on 440 closed bars 2025-01-01..2026-09-27 (last data bar 2026-10-02 04:00:00+00:00); last valid signal 2026-07-06 20:00:00+00:00
+slv_pullback_1d: 34 valid signals on 440 closed bars 2025-01-01..2026-09-27 (last data bar 2026-10-02 04:00:00+00:00); last valid signal 2026-09-25 20:00:00+00:00
+iaum_pullback_1d: 46 valid signals on 440 closed bars 2025-01-01..2026-09-27 (last data bar 2026-10-02 04:00:00+00:00); last valid signal 2026-09-22 20:00:00+00:00
+
+[ALL 7 real-money legs] current silence 174h (since 2026-09-27 02:00:00+00:00); baseline 2025-01-01..2026-09-27: 7534 rolling 174h windows, 0.0027 fully silent; longest silent run 192h; 3 distinct silent episodes >= 174h: [(192, '2025-08-22 22:00'), (186, '2025-01-19 14:00'), (178, '2025-08-31 10:00')]
+    windows of 168h fully silent: 0.0041 of 7537
+    windows of 200h fully silent: 0.0000 of 7521
+    windows of 240h fully silent: 0.0000 of 7501
+
+[bybit_2 4 legs] current silence 174h (since 2026-09-27 02:00:00+00:00); baseline 2025-01-01..2026-09-27: 7534 rolling 174h windows, 0.0064 fully silent; longest silent run 202h; 5 distinct silent episodes >= 174h: [(202, '2025-04-14 06:00'), (198, '2025-10-18 16:00'), (192, '2025-08-22 22:00'), (186, '2025-01-19 14:00'), (178, '2025-08-31 10:00')]
+    windows of 168h fully silent: 0.0089 of 7537
+    windows of 200h fully silent: 0.0003 of 7521
+    windows of 240h fully silent: 0.0000 of 7501
+
+[alpaca_live 3 legs] current silence 202h (since 2026-09-25 22:00:00+00:00); baseline 2025-01-01..2026-09-27: 7520 rolling 202h windows, 0.5214 fully silent; longest silent run 1654h; 15 distinct silent episodes >= 202h: [(1654, '2026-04-24 22:00'), (1342, '2026-07-06 22:00'), (1318, '2025-01-02 22:00'), (1102, '2026-03-09 22:00'), (814, '2025-08-20 22:00'), (790, '2025-05-21 22:00'), (766, '2026-01-02 22:00'), (646, '2025-12-03 22:00')]
+    windows of 168h fully silent: 0.5573 of 7537
+    windows of 200h fully silent: 0.5233 of 7521
+    windows of 240h fully silent: 0.4879 of 7501
+proxy xrp_pullback_2h: since 2026-07-29 bybit 30 binance 34 both 27
+proxy ada_pullback_2h: since 2026-07-29 bybit 39 binance 42 both 39
+proxy trend_donchian_eth_4h: since 2026-05-23 bybit 26 binance 26 both 26
+proxy trend_donchian_xrp_4h: since 2026-05-23 bybit 6 binance 6 both 6

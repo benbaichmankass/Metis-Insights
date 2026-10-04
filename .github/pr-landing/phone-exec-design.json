@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Design document only (docs/integrations/breakout-phone-executor-DESIGN.md) plus its DOCUMENT-INDEX row. No code, config, workflow or order-path change."
+}

@@ -98,7 +98,7 @@ grading:
   evidence:
   - research/results/RQ-20260928-026/36505266800.jsonl
   - research/results/RQ-20260928-026/36653154027.jsonl
-  graded_at: '2026-10-03'
+  graded_at: '2026-10-04'
   grader: scripts/research/queue_grade.py
   needs_review: true
   reason: 'read_state not unanimously measured: [''measured'', ''producer_failed'']'
