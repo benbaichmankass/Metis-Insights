@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20261002-7FTEG7QN-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "lane M16-ARM-BASIS session_01PAxCW84tr1SV8q7FTEG7QN for manager session_01MM8o5js6TcDFeNAPBY4Ntv; parent PI-20261001-APBY4NTV-0001; RQ-20260930-601 FAIL run 36732230587",
+    "rerun": "scripts/ops/get_env.py (or get-env system action) for CONVICTION_SIZING_MODE/_DIRECTION/_ACCOUNTS on the live unit: still apply/reductive/bybit_1 = revert still pending. Then: git log --oneline -S'CONVICTION_SIZING_MODE=apply' -- docs and read docs/research/C1-conviction-sizing-evidence-2026-08-04.md."
+  },
+  "routed_to": "OPERATOR [operator; size None, value None, tier 3] BACKLOG-ROUTE 2026-10-04: Row routed to manager as Tier-3 (#15586), not applied. Live env not read this session (get_env needs system action). Evidence on file: RQ-20260930-601 FAILED the within-leg premise.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "TIER-3 RETIREMENT DECISION, data-backed, reversible. Arm: live reductive conviction sizing on bybit_1 (Stage-1 demo). Enabling mechanism: three env vars on the live VM (CONVICTION_SIZING_MODE=apply, CONVICTION_SIZING_DIRECTION=reductive, CONVICTION_SIZING_ACCOUNTS=bybit_1); no config/ key exists; the set-env issue is not in git, and this lane did NOT read the live value (UNVERIFIED this session; the get-env action must confirm it first). Only evidence: C1 A/B, same M16 conviction signal, PARTIAL, maxDD-graded. RQ-20260930-601 FAILED the within-leg premise (n_eval 2,328, rho 0.019, perm p 0.197; bars rho>=0.08, p<=0.05); the M16 re-scope memo pre-stated that a FAIL leaves the arm with no evidential basis. Audit F-52 (2026-09-09) also found 186 of 186 apply rows carry no trade join key, so live observation could not settle it either. PROPOSED CHANGE (NOT APPLIED), via set-env on the live VM: CONVICTION_SIZING_MODE  apply -> annotate. Keeps the observe-only meta.conviction_apply_decision stamp, returns qty unchanged. (off is the byte-for-byte default and also acceptable.) _DIRECTION and _ACCOUNTS stay untouched. REVERT-OF-THE-REVERT: CONVICTION_SIZING_MODE  annotate -> apply. Effect: bybit_1 sizes revert to the plain risk-based qty (applied rows had median final/risk 0.43) and the Stage-1 cost/mechanics soak sizes on the same basis as the roster it mirrors. Counter-note: informational RQ-601 delta_net_r +24R over 2,328 trades is not a pass condition and is not evidence for the arm."
+}
