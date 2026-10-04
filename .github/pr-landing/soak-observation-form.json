@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane SOAK-WATCH, manager 20:12Z: soak-contract-guard accepts a NON-SOAK definition of done, observation:{what,how_to_check,due_by} with due_by required and ISO, on a new check_observation pipeline item or a row entering landed_unproven. pipeline.is_due makes such an item due once due_by passes. Canonical soak rule documents both forms. CI/tooling/docs only; no config/**, src/** or order-path change."
+}

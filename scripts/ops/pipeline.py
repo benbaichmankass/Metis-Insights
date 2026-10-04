@@ -724,6 +724,17 @@ def is_due(item: dict, today: date | None = None, soak_states: dict | None = Non
     if sv is not None:
         return sv in SOAK_DUE_VERDICTS
 
+    # One-shot observation (non-soak definition of done, 2026-10-04): due once
+    # `observation.due_by` is reached, whatever the timer says; an unparseable
+    # due_by is DUE (the safe direction for a broken clock).
+    obs = item.get("observation")
+    if isinstance(obs, dict) and obs.get("due_by"):
+        try:
+            if _parse_date(str(obs["due_by"])[:10], "observation.due_by") <= today:
+                return True
+        except PipelineError:
+            return True
+
     if dw.get("kind") == "date":
         try:
             return _parse_date(dw.get("due_date"), "due_when.due_date") <= today
@@ -1085,6 +1096,13 @@ def _selftest() -> int:
           is_due(sk, t, soak_states={}))
     refuses("a soak block with no subject is refused",
             base(due_when={"kind": "observation", "clears_when": "x", "soak": {}}), "due_when.soak")
+    ob = base(observation={"what": "report produced", "how_to_check": "ls", "due_by": "2026-09-20"},
+              due_when={"kind": "observation", "clears_when": "x", "check_every_days": 30,
+                        "last_checked": "2026-09-20"})
+    check("a one-shot observation past its due_by is due even with its timer not elapsed",
+          is_due(ob, t))
+    check("a one-shot observation before its due_by follows its timer",
+          not is_due(dict(ob, observation=dict(ob["observation"], due_by="2026-12-01")), t))
     check("a non-soak item ignores soak states entirely",
           soak_verdict(base(), {"bybit_1/x": "dead"}) is None)
 
