@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "WORK-SYSTEM follow-up requested by the manager (2026-10-04 18:14Z) after #16387. Tier-2 by path only because scripts/ops/attention_watch.py runs inside the live hourly ict-work-digest carrier. Change: on its FIRST pass the attention block sends one count line per pre-existing edge set (ask_operator at deploy, soaks at deploy) instead of seeding them silently. No order path, config or DB write. Revert: git revert.",
+  "why": "No actionable set may be seeded without a word (manager directive relaying the operator's 'things don't get ignored')."
+}
