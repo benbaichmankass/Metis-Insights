@@ -5151,6 +5151,32 @@
         "how_to_check": "bash scripts/ops/diag_fetch.sh '/api/diag/journalctl?unit=ict-trader-live&lines=2000' and grep 'already flat\\|exchange-closed\\|flat-close cancel\\|venue SURPLUS\\|_check_broker_naked_ib_positions'; plus /api/diag/version git_sha descends from 70ec92b3",
         "due_by": "2026-10-11"
       }
+    },
+    {
+      "id": "CI-AUTOMERGE",
+      "title": "Unjam the automation/* PR backlog (research results first) and fix the root cause so new automation PRs land green unattended; then work PI-20261004-IRWQEEXT-0006",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "lane CI-AUTOMERGE",
+      "lane": "session_01MD7v8mG8doHqFYuTbsceQM",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16491,
+        16494,
+        16497,
+        16505
+      ],
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "docs/claude/work/CI-AUTOMERGE-CLOSE-LISTS-2026-10-04.json",
+          "what": "bulk close of 110 superseded automation PRs; classifier-denied to the lane"
+        }
+      ],
+      "note": "[2026-10-04T23:00Z lane CI-AUTOMERGE] ROOT CAUSES (MEASURED, 116 open automation/* PRs): (1) commit-to-main cut its branch from the caller's checkout, so research runs dispatched on a session branch carried it (21 PRs failed pr-landing R5/R12); (2) stale-automation-sweep refreshed 0/115, because it graded each PR absent_on_main on its own .github/merge-slots claim and its refresh() wrote the retired session-board.json. Both are fixed in #16494 (hold; manager merge). MERGED: #16491 (20 stranded research results, 22:16Z). MERGED: #16497 (append-only data rows) and #16505 (3 hygiene fixes, the 13 package dispositions, the close lists). NOT YET OBSERVED: sweeper refresh>0 after #16494 (pipeline PI-20261004-UTBSCEQM-0001). FINDING: GitHub has no jsonregister merge driver, so any PR that appends a checklist row re-conflicts every time main appends one (it struck #16494 twice); the row was therefore moved off #16494."
     }
   ]
 }
