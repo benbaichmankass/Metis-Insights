@@ -10,7 +10,7 @@
 
 | firm | platform we drive? | bots / VPS in the firm's own binding text | the rule that bites | purchase-worthy **now**? |
 |---|---|---|---|---|
-| **Velotrade** (CLASSIC 1-Step, $5k, $54) | **Yes, measured**: `dx.velotrade.com` is a real DXtrade deployment whose developer portal serves the DXtrade REST / Push / FIX API docs, and whose REST login endpoint answers (§ 1.1). | **Yes, both, verbatim** (Terms 8.3; rules "Expert advisors", "VPN and VPS use"). | **Five qualifying days at ≥ 0.8 % realised profit** per phase *and* again before the first funded payout; **first two payouts capped at 20× the fee, excess forfeited**; daily floor set from max(balance, equity). None of this was in the scan. | **Not yet — but it is the one firm worth a $54 pilot once two things are done** (§ 1.9): reachability from the VM's own egress (filed), and an operator decision on an INDETERMINATE rule. At 0.5 % risk the registered rule returns **INDETERMINATE on the full-size run** (path EV +$454 per life, evidence p5 −$37, P(net > 0) 0.69) — the same shape, slightly better, than the Tradeify memo's verdict for the same book (+$828 on a $10k account, p5 −$100). The reduced run said PASS (p5 +$77); the full run is the authority. Expect ~3.7 payouts per life and ~50 days of first-payout deferral from the qualifying-day gate. |
+| **Velotrade** (CLASSIC 1-Step, $5k, $54) | **Yes, measured**: `dx.velotrade.com` is a real DXtrade deployment whose developer portal serves the DXtrade REST / Push / FIX API docs, and whose REST login endpoint answers (§ 1.1). | **Yes, both, verbatim** (Terms 8.3; rules "Expert advisors", "VPN and VPS use"). | **Five qualifying days at ≥ 0.8 % realised profit** per phase *and* again before the first funded payout; **first two payouts capped at 20× the fee, excess forfeited**; daily floor set from max(balance, equity). None of this was in the scan. | **Not yet — but it is the one firm worth a $54 pilot, and the structural check is now done** (§ 1.9, A1): reachable from the VM's own egress with no Cloudflare (A1, measured 19:47Z); what remains is the operator's decision on an INDETERMINATE rule (A2). At 0.5 % risk the registered rule returns **INDETERMINATE on the full-size run** (path EV +$454 per life, evidence p5 −$37, P(net > 0) 0.69) — the same shape, slightly better, than the Tradeify memo's verdict for the same book (+$828 on a $10k account, p5 −$100). The reduced run said PASS (p5 +$77); the full run is the authority. Expect ~3.7 payouts per life and ~50 days of first-payout deferral from the qualifying-day gate. |
 | **Velotrade** (PRO 1-Step, $5k, $32) | same | same | 3 % static drawdown **and** 3 % daily on a book whose single stop is 0.5 % of balance. | **No** — see § 1.8: the 3 % floor turns the account into a coin-flip on the first drawdown cluster. |
 | **Propr** (Hyperliquid, Turbo $5k, $25) | **No.** Propr's own REST API (`api.propr.xyz/v1`, `X-API-Key`, 1,200 req/min) — a new broker package. | Bots: yes, broadest text found. VPS/IP: **not stated** anywhere read. | Every account is **"100 % simulated"**; Propr decides per trade whether to A-book it; off-the-shelf / structurally identical bots "may be flagged as coordinated trading" (Funded Terms 8.8(c)). | **No, not now.** Friendliest rules in the field and the smallest fee, but a 5–8 lane-day build for a firm eight months old whose own terms make the payout a "discretionary settlement for data generation". Revisit if Velotrade fails on reachability or the funded offer. |
 | **Crypto Fund Trader** (Bybit route, 1-Phase $5k, $58) | **Yes** (Bybit API, same class as HyroTrader). | Bots: allowed except HFT / tick-scalping / arbitrage EAs (1P). VPS: **not banned**, but "operating multiple accounts from the same ... IP address/VPS" is prohibited and the firm reserves "prohibitions or limitations on VPS/VPN or remote access" at any time (Terms 6, 7.1(viii)). | **Trailing** 6 % drawdown on the 1-Phase (the 2-Phase's 10 % is static); a **live-video / screen-share interview "at any time"** may be required; 15 traded days before the first reward. | **No.** Fallback to HyroTrader, as the scan said; the interview clause and the trailing floor make it worse than the scan rated it. |
@@ -18,7 +18,7 @@
 | **HyperPNL** (Hyperliquid) · **Carrot Funding** · **Solana Funded** · **GT Funded** | Hyperliquid / Solana; no API text found. | Carrot **bans** "automated software, high-frequency trading systems, AI-driven tools". GT Funded offline since June 2026. | — | **No.** Carrot is out by its own text; the others have no first-party automation text to stand on. |
 | **Tradeify 247** (`tradeify_1`, live) | baseline | own bots only | The scan's *"live video of you enabling the code on your own PC"* is **real but belongs to the Tradeify FUTURES brand's help centre**; Tradeify 247's own agreement asks for **"production of the tool's source files"** and reserves a **live video interview** before any payout (§ 4). | n/a (held). **One decision for the operator**: the repo is public, and B.18.3 bans bots "executing the same signals for multiple traders" (filed, § 7). |
 
-**Recommended next step, in one sentence:** keep Velotrade as the only candidate, record `PI-20261004-OZ9AAZSV-0001` (VM-egress reachability), then put a single $54 CLASSIC 1-Step pilot to the operator as a Tier-2 purchase **with the INDETERMINATE verdict stated beside it** — positive point EV on every model, an evidence interval that straddles zero, and a fee that bounds the downside at $54.
+**Recommended next step, in one sentence:** keep Velotrade as the only candidate — the VM-egress check is done (A1) — and put a single $54 CLASSIC 1-Step pilot to the operator as a Tier-2 purchase **with the INDETERMINATE verdict stated beside it** — positive point EV on every model, an evidence interval that straddles zero, and a fee that bounds the downside at $54.
 
 ## 1. Velotrade
 
@@ -44,7 +44,7 @@ One spec detail that matters for us: a MARKET order that has filled **cannot be 
 ### 1.2 Reachability from our egress — what was and was not tested
 
 - **Tested**: everything in § 1.1, from a Google-cloud datacenter egress through the session proxy. No Cloudflare, Turnstile or bot-management response was seen on any Velotrade host (`velotrade.com` is Netlify; `dx.velotrade.com` is Envoy-fronted).
-- **Not tested**: the live VM's Oracle egress, and a GitHub-runner (Microsoft) egress. `egress-chromium-landing-probe` exists but hard-codes Breakout's two hosts and its `--evaluate` PASS rule is written over per-host records for the parked PROP-TERM row; adding hosts to it inside this lane would have changed a parked measurement's semantics, so it was **not** done. Filed as `PI-20261004-OZ9AAZSV-0001` with the exact two commands and two routes (§ 7). *Expected* 200 given the firm's own VPS text; Breakout's DXtrade REST 403 is the reason to measure rather than assume.
+- **Not tested in the first pass** (now MEASURED in addendum A1, 2026-10-04 19:47Z: 200 / 200 / 200 from the VM, no Cloudflare): the live VM's Oracle egress, and a GitHub-runner (Microsoft) egress. `egress-chromium-landing-probe` exists but hard-codes Breakout's two hosts and its `--evaluate` PASS rule is written over per-host records for the parked PROP-TERM row; adding hosts to it inside this lane would have changed a parked measurement's semantics, so it was **not** done. Filed as `PI-20261004-OZ9AAZSV-0001` with the exact two commands and two routes (§ 7). *Expected* 200 given the firm's own VPS text; Breakout's DXtrade REST 403 is the reason to measure rather than assume.
 
 ### 1.3 Terms and Conditions — verbatim (`https://velotrade.com/terms`, 3,388 words, read 2026-10-04)
 
@@ -227,7 +227,7 @@ and its FAQ (`help.tradeify247.co/en/articles/13393249`): *Q: Can I use trading 
 
 ## 6. What this lane did **not** establish
 
-- Reachability from the **live VM's** egress or a GitHub runner (only this sandbox's Google-cloud egress). Filed.
+- Reachability from a GitHub runner's egress (the VM's is now measured, A1). A login or a browser session from the VM, which need a purchased credential.
 - That Velotrade's REST API is enabled for a **purchased** account (server-side it is on; per-user permission is a broker setting). Only the pilot can show it.
 - Anything about Velotrade's funded-offer discretion (Terms 5.3(b)) in practice, or its payout record beyond its own on-chain feed. Trustpilot was not re-read.
 - A second seed of the full-size run (the Tradeify memo ran two); the sweep rows are reduced-MC, the headline row is one full-size seed.
@@ -239,7 +239,7 @@ and its FAQ (`help.tradeify247.co/en/articles/13393249`): *Q: Can I use trading 
 
 | id | what | due | severity |
 |---|---|---|---|
-| `PI-20261004-OZ9AAZSV-0001` | Velotrade reachability from the VM's egress / a runner (two `curl`s; two routes named) | 2026-10-11 | low |
+| `PI-20261004-OZ9AAZSV-0001` | Velotrade reachability from the VM's egress — **done** (A1, issue #16458, run 37229332977) | closed | low |
 | `PI-20261004-OZ9AAZSV-0002` | Re-read Velotrade `/terms` + `/rules` before any purchase (rules dated 2026-08-22 / 2026-09-04 / 2026-09-30 moved recently) | 2026-11-04 | low |
 | `PI-20261004-OZ9AAZSV-0003` | `tradeify_1` public-repo exposure under 247 FTA B.18.3; operator decision | 2026-10-11 | medium |
 
@@ -256,6 +256,23 @@ Wider field (third-party): `https://roya-trading.com/decentralized-prop-firm/` �
 ---
 
 ## Addenda (manager questions, 2026-10-04 18:20Z: *"concrete questions only, not breadth"*)
+
+### A1. Velotrade from the VM's own egress — MEASURED, reachable, no Cloudflare
+
+Manager question 1. The read-only `egress-landing-probe` system-action (fixed allowlist, GET only, no credentials, no body printed) had its allowlist extended with the three Velotrade hosts in #16433 (merged 2026-10-04 19:36Z) and was dispatched once as issue #16458 after `ict-git-sync` had pulled it (run 37229332977, executed on the live VM at 19:47:51–19:47:58Z). The run's own output, verbatim:
+
+| URL (from the **VM's Oracle egress**) | http_status | server | cf-ray present | challenge marker | body bytes | markers |
+|---|---|---|---|---|---|---|
+| `https://dx.velotrade.com/` | **200** | envoy | no | none | 437,931 | `id="password" id="username" loginForm-main` |
+| `https://dx.velotrade.com/developers/` | **200** | envoy | no | none | 4,011 | — |
+| `https://velotrade.com/` | **200** | Netlify | no | none | 434,370 | — |
+| `https://dx.tradeify247.co/` (control, as on 2026-09-30) | 200 | cloudflare | yes | none | 437,935 | same three login markers |
+
+**What this establishes.** From the live VM's egress, Velotrade's DXtrade terminal landing page is served (the real terminal: the same three login-form markers our Breakout/Tradeify selectors were measured on, and a byte count identical to the sandbox read in § 1.1 — 437,931 — so the VM got the same page, not a block page), the developer portal is served (4,011 bytes, identical to the sandbox), and no Cloudflare layer sits in front of either DXtrade host at all (`server: envoy`, no `cf-ray`). The firm's site is Netlify-served and also 200. **The one structural blocker the manager named before any purchase is cleared.**
+
+**What it does not establish**, same caveats as the Tradeify measurement of 2026-09-30: a login from the VM (`POST /dxsca-web/login`) was not tried, because that needs a purchased credential; a real browser session was not tried (this was `curl`); and the per-user REST permission is a broker-side setting only a purchased account reveals. Population: one GET per URL from one egress at one moment.
+
+`PI-20261004-OZ9AAZSV-0001` is closed `done` with this run as its terminal reason.
 
 ### A2. Closing the Velotrade INDETERMINATE — 400-bootstrap full-size runs, two seeds
 
@@ -298,3 +315,14 @@ So a bracket is either (a) one batched request — entry + `stop_market` + `take
 **Rulesets written:** `config/prop_rulesets/propr_classic_1step.yaml` ($5k, $60, 10 % target, 3 % daily on the start-of-day *balance* at 00:00 UTC, 6 % static) and `propr_turbo_1step.yaml` ($5k, $25, 9 %, 3 %, 3 % static). Both `unconfirmed: true`, both load through `src.prop.ruleset.load_ruleset` and the simulator. No qualifying-day gate, no payout cap, no consistency rule, payouts on demand with a $20 minimum, full sweep, 80 % split. Not evaluated on the B3 book this lane (not asked; one reduced run per ruleset is ~4 CPU-minutes if wanted — but note the 15 bps round trip would be fed through `--commission-bps-rt 15`, and funding would need a venue-rate series the tool does not have).
 
 **What this does not change:** every Propr account is a simulated signal feed by the firm's own Terms (§ 2.1), the firm is eight months old, and the integration is a new broker package. The API being good makes the build cheaper (INFERRED 4–6 lane-days rather than 5–8: idempotent ids, native brackets, a WebSocket, an OpenAPI spec), not the firm safer.
+
+### A4. Closing table for the operator — purchase-worthy now?
+
+| firm · product | platform we drive | bots / VPS in binding text | VM-egress reachability | registered rule on the B3 book | fee | **purchase-worthy now** |
+|---|---|---|---|---|---|---|
+| **Velotrade CLASSIC 1-Step $5k** | DXtrade + REST/Push API (measured) | yes / yes (verbatim) | **200, no Cloudflare (measured from the VM, A1)** | **INDETERMINATE**, stable: EV +$454 ± $8 per life, P(positive re-drawn year) ≈ 0.90, P(net>0 per life) 0.69 (A2) | $54 | **Operator's call — the only candidate.** Yes if a ~1-in-10 chance of losing the fee on this history is acceptable; the data will not improve without a second year. Remaining before routing: buy, confirm the per-user API permission, 1-week shadow, qualifying-day + payout-cap guards (§ 1.9). |
+| Velotrade PRO 1-Step $5k | same | same | same | fails at every risk tried (P(pass) 0.46, 75 % die before first payout) | $32 | **No.** |
+| Propr Turbo / Classic 1-Step $5k | own REST API with native SL/TP brackets (A3), new broker package | yes / not stated | not measured (API-only venue; no terminal) | not run (rulesets drafted) | $25 / $60 | **No, not now.** Simulated signal feed by its own Terms; 4–6 lane-day build; firm eight months old. The right second track only if Velotrade is declined. |
+| Crypto Fund Trader 1-Phase $5k | Bybit sub-account API | prohibition list only / VPS limits imposable at will | n/a | not run | $58 | **No.** Trailing floor; any-time live-video interview. |
+| Hypernova · HyperPNL · Carrot · Solana Funded · GT Funded | Hyperliquid wallet / none | third-party or banned | n/a | — | — | **No.** Re-check Hypernova when its API ships. |
+| Tradeify 247 (`tradeify_1`, live) | DXtrade browser | own bots; source files on request; video interview reserved | 200 (control) | n/a | held | n/a — **one decision filed** (`PI-20261004-OZ9AAZSV-0003`): public repo vs the shared-bot clause. |
