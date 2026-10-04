@@ -1,6 +1,6 @@
 id: RQ-20260929-106
 title: 'Stage-0 backtest: pairs harness on SPY/QQQ 1h (pairs family has bybit-crypto history, zero alpaca-ETF history)'
-status: done
+status: queued
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -86,4 +86,3 @@ related:
   - RQ-20260929-105 (the GLD/GDX commodity-vs-miner analog of this same question)
   - 'spy_pullback_1h / qqq_pullback_1h (config/strategies.yaml) -- the two legs already live on these symbols individually'
 last_dispatched_at: '2026-10-04T13:36:00+00:00'
-result: "GRADED 2026-10-04 by lane RESEARCH-RUN by hand against the unit's own rule (net_total_r <= 0 with n >= floor is FAIL). FAIL (first pass): net_total_r -121.9644, n_trades 178, expectancy -0.6852 R/trade, win rate 31.46%, max drawdown 126.03 R, data 2024-10-14 to 2026-10-02, harness defaults. Per the repo convention this is one pass, not a kill: a confirmatory run on a different window or pair is owed before the SPY/QQQ spread is retired. Record: research/results/RQ-20260929-106/37205970522.jsonl."

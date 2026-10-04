@@ -1,6 +1,6 @@
 id: RQ-20260929-105
 title: 'Stage-0 backtest: pairs harness on GLD/GDX 1d (pairs family has bybit-crypto history, zero alpaca-ETF history)'
-status: done
+status: queued
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -103,4 +103,3 @@ related:
   - 'gld_pullback_1d / gdx_pullback_1d (config/strategies.yaml) -- the two legs already live on these symbols individually'
   - RQ-20260929-106 (the SPY/QQQ equity-index analog of this same question)
 last_dispatched_at: '2026-10-04T08:33:30+00:00'
-result: 'GRADED 2026-10-04 by lane RESEARCH-RUN by hand against RULE-RQ0929-105-GLD-GDX-PAIRS-STAGE0 (the dispatch record carries only the generic E7 rule). PASS: net_total_r +18.7231 > 0 with n_trades 144 >= 20 (expectancy +0.13 R/trade, win rate 62.5%, max drawdown 6.38 R, data 2016-10-06 to 2026-10-02, harness defaults 20/2.0/0.5/2.0/20, GLD 1d vs GDX 1d). Stage-0 evidence only, one pass, harness defaults, no parameter-neighbourhood or IS/OOS split run yet; not a promotion and no alpaca pairs executor exists. Record: research/results/RQ-20260929-105/37188716030.jsonl.'
