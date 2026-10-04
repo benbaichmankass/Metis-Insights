@@ -227,3 +227,42 @@ def test_findings_file_one_pipeline_row_each_and_never_twice(tmp_path):
 def test_seeded_not_yet_run_artifact_reads_could_not_check():
     line = P.summary_line({"schemaVersion": 1, "status": "not_yet_run", "note": "x"})
     assert "COULD NOT CHECK" in line and "divergences = 0" not in line
+
+
+def _clean_bundle(leg):
+    """A bundle with zero divergences: consistent evals plus a package and a
+    placed trade on every replay-signal bar."""
+    rows, robust = _consistent_evals(leg)
+    sig_bars = sorted({P.to_epoch(w) // TF_S * TF_S for w in robust})
+    pk = [{"order_package_id": f"p{b}", "strategy_name": leg.name,
+           "created_at": P.iso(b + 1900)} for b in sig_bars]
+    tr = [{"id": n, "order_package_id": p["order_package_id"], "account_id": "bybit_2",
+           "status": "open"} for n, p in enumerate(pk)]
+    return _bundle(rows, pk, tr)
+
+@pytest.mark.parametrize("unproven_state", ["could_not_check", "partial"])
+def test_unproven_control_is_not_ok_and_is_a_finding(monkeypatch, unproven_state):
+    """OA-13: a control that could not run (or ran partly) must not leave the
+    run `ok` / exit 0 / no ping -- that is a green while the check could not
+    look. Paired with the all-pass twin below so a status that is never `ok`
+    cannot pass either."""
+    leg = _leg()
+    monkeypatch.setattr(P, "planted_defect",
+                        lambda *a, **k: {"state": unproven_state, "plants": []})
+    monkeypatch.setattr(P, "historical_positive", lambda *a, **k: {"state": "pass"})
+    monkeypatch.setattr(P, "liveness", lambda *a, **k: {"state": "pass"})
+    doc = P.run(_clean_bundle(leg), [leg], SINCE, UNTIL)
+    assert doc["totals"]["divergences_all"] == 0
+    assert doc["status"] == "controls_unproven"
+    f = [x for x in P.findings(doc) if x["class"] == "control_planted_defect_unproven"]
+    assert len(f) == 1 and f[0]["real_money"] is True  # -> ping_needed
+
+
+def test_all_controls_pass_and_no_divergence_is_ok(monkeypatch):
+    leg = _leg()
+    for name in ("planted_defect", "historical_positive", "liveness"):
+        monkeypatch.setattr(P, name, lambda *a, **k: {"state": "pass"})
+    doc = P.run(_clean_bundle(leg), [leg], SINCE, UNTIL)
+    assert doc["totals"]["divergences_all"] == 0
+    assert doc["status"] == "ok"
+    assert not [x for x in P.findings(doc) if x["class"].startswith("control_")]
