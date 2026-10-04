@@ -4961,6 +4961,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched 2026-10-04 after the operator's research-queue review ask; write-ups/decisions (Breakout shortlist, 4 M20 exit PASSes, regime readout) queue behind it."
+    },
+    {
+      "id": "PERFORMANCE-REVIEW",
+      "title": "/performance-review 2026-10-04 (after HEALTH-REVIEW + OPS-AUDIT; reads the post-repair research pipeline)",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "lane PERFORMANCE-REVIEW",
+      "lane": "session_013rQhqo11aVJrH3zbHFJg6X",
+      "model": "claude-fable-5-1 (review, Fable headroom)",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-04T10:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched per the operator's 2026-10-04 ops plan (reviews paced on usage). Reports via a comment on its review PR (no triggers: default-mode prompts block lanes)."
     }
   ]
 }
