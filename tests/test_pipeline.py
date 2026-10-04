@@ -280,8 +280,8 @@ def test_check_grandfathers_the_one_known_collision_without_calling_it_clean(tmp
               origin={"kind": "audit", "ref": "#1", "rerun": "x"})
     b = _item(id=gid, what="finding B",
               origin={"kind": "session", "ref": "sess_2", "rerun": "y"})
-    (store / "0001-a.json").write_text(json.dumps(a), encoding="utf-8")
-    (store / "0002-b.json").write_text(json.dumps(b), encoding="utf-8")
+    (store / "20260101T000001000000Z-a.json").write_text(json.dumps(a), encoding="utf-8")
+    (store / "20260101T000002000000Z-b.json").write_text(json.dumps(b), encoding="utf-8")
 
     rc = P._check(store)
     out = capsys.readouterr().out

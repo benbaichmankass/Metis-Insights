@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20261004-UTBSCEQM-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane CI-AUTOMERGE 2026-10-04, Actions API read of e35-bracket-sweep.yml",
+    "rerun": "List the last 12 e35-bracket-sweep runs via the Actions API and count conclusion=failure; for each failure, read which step failed with list_workflow_jobs."
+  },
+  "state": "queued",
+  "what": "[research-producer] e35-bracket-sweep concluded `failure` on 7 of its last 12 runs (run_number 27, 29, 34, 35, 36, 37, 38; e.g. 37210924314 on 2026-10-04), yet corpus PRs from some of those runs still landed (#16326, #16400). Which step fails was NOT read. If it is the landing/verify step, the result may still land and the red is noise; if it is the sweep, evidence is being lost. Root-cause from the job steps."
+}
