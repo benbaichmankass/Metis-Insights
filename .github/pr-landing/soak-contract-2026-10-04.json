@@ -1,5 +1,0 @@
-{
-  "tier": 1,
-  "landing": "self",
-  "why": "Lane SOAK-WATCH, settled soak interface (Manager Session 2026-10-01, 15:25Z): docs/claude/work/SOAKS.json holds one committed CONTRACT per current soak (48: Stage-1 legs + shadow strategies; started measured from git, rate from the Stage-0 evidence record, n with stated power, computed end date, pass/fail rule, design verdict); scripts/ops/soak_state.py::soak_states() computes state LIVE from contracts + the journal DB (read-only, with a freshness gate so a stale DB reads unknown, never dead) for the brief, the work report and the attention watch; scripts/ci/check_soak_contracts.py (soak-contract-guard) refuses a roster/shadow soak without an admissible contract, and diff-scoped a new landed_unproven row or check_observation item without one. Tooling, CI and observability read paths only; no config/**, src/** or order-path change."
-}

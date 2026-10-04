@@ -1,1 +1,0 @@
-auto-merge: soak contract + soak_states() + soak-contract-guard
