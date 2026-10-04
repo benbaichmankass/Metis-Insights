@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "root cause named and fixed, or 50 consecutive self-test runs pass with the cause documented",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-MGR01HYQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "PR #14560 pipeline-guard failure 2026-09-30",
+    "rerun": "Run `python3 scripts/ops/pipeline.py --self-test` 50 times in a loop (and under a different TZ and cwd); any failure reproduces it. Also read the failing pipeline-guard job log on #14560."
+  },
+  "routed_to": "CI-AUTOMERGE (re-pointed from CI-AUTOMERGE (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "pipeline-guard CI (`python3 scripts/ops/pipeline.py --self-test`) failed once on PR #14560 on 2026-09-30, did not reproduce locally on the head or on head merged with main, and passed on its one re-run. A test that fails without a code change is a real defect (ordering, clock or temp-dir dependence), not a flake. Root-cause it from the failing job log and make the self-test deterministic."
+}

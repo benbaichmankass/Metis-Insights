@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0009",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-sweep-wave2-stale-json-reuse",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-sweep-wave2-stale-json-reuse against current scripts/research/sweep_wave2_momentum.py:52"
+  },
+  "routed_to": "RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "CA-B04 audit finding (high): scripts/research/sweep_wave2_momentum.py:52 — Sibling sweep to sweep_wave1_families.py, appending to the same results.jsonl \"so the final ranker sees waves 1 and 2 together\" — implicitly claiming the same robustness against ru"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "At least 3 executor-placed ETHUSD fills have closed and each fill's entry price is compared with the quote (bid/ask) read at placement, giving realized spread+slippage in bps against the 3 bps allowance; or the first executor fill's slippage already exceeds 10 bps and the manager is told.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261001-S8DMYMUN-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_1&limit=500' | python3 -c \"import json,sys;print([(f['id'],f['symbol'],f['entry_price'],f['ticket_id']) for f in json.load(sys.stdin)['fills'] if f['symbol']=='ETHUSDT' and f['id']>53])\"",
+    "what": "At least 3 executor-placed ETHUSD fills have closed and each fill's entry price is compared with the quote (bid/ask) read at placement, giving realized spread+slippage in bps against the 3 bps allowance; or the first executor fill's slippage already exceeds 10 bps and the manager is told."
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-journal/prop-journal-truth-2026-10-01.md#4",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_1&limit=500' | python3 -c \"import json,sys;print([(f['id'],f['symbol'],f['entry_price'],f['ticket_id']) for f in json.load(sys.stdin)['fills'] if f['symbol']=='ETHUSDT' and f['id']>53])\""
+  },
+  "routed_to": "PROP-EXEC (re-pointed from PROP-EXEC (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "ETH-prop executor-fill cost is unmeasured: no executor ETH fill exists (ETH live 2026-10-01). Measured so far: commission 8 bps RT, swap 3.3 bps/night (n=2), ETHUSD spread 1 tick = 0.037 bps (n=2 quiet-hour quotes); manual-fill entry deviation vs ticket mean +3.1 bps, mean abs 26 (human latency, not a cost estimate). The modelled 3 bps spread+slippage allowance is still an assumption for market orders."
+}

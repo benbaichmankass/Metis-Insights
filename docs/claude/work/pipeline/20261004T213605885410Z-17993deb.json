@@ -1,0 +1,26 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a harness-dispatch result for a unit whose rule is 'net_total_r > 0 AND n >= N' lands with verdict pass/fail/indeterminate per that rule (test plants net_total_r<0, n>=N and asserts fail), or the mapper stamps wiring_only so the grader refuses it; or killed with a reason",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-FOJGFIZF-0004",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES sub-agent: harness_dispatch_result.py now takes --research-unit and applies the unit's mechanical 'net_total_r > 0 AND n_trades >= N' rule (pass/fail/indeterminate under the unit's rule id), else lands verdict=wiring_only (added to research_result.VERDICTS, measured-only; queue_grade -> needs_review). Workflow passes research_unit and the derived rule id. Planted controls: net<0,n>=N -> fail; net>0,n>=N -> pass; n<N -> indeterminate. Against committed measurements: 105 -> pass, 106 -> fail, 107 -> indeterminate; template OOS-rule units (RQ-20260928-030, RQ-20261003-011) -> wiring_only. Merged != deployed != observed: closes when a real research-harness-dispatch run for a unit lands a pass/fail/indeterminate (or wiring_only) row. Existing committed rows were NOT re-graded."
+  ],
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "python3 - <<'E'\nimport json,glob\nfor f in glob.glob('research/results/RQ-20260929-10[5-7]/*.jsonl'):\n    r=json.loads(open(f).readline()); print(f, r['verdict'], r['measurement'].get('net_total_r'), r['population'].get('n'))\nE",
+    "what": "a harness-dispatch result for a unit whose rule is 'net_total_r > 0 AND n >= N' lands with verdict pass/fail/indeterminate per that rule (test plants net_total_r<0, n>=N and asserts fail), or the mapper stamps wiring_only so the grader refuses it; or killed with a reason"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04",
+    "rerun": "python3 - <<'E'\nimport json,glob\nfor f in glob.glob('research/results/RQ-20260929-10[5-7]/*.jsonl'):\n    r=json.loads(open(f).readline()); print(f, r['verdict'], r['measurement'].get('net_total_r'), r['population'].get('n'))\nE"
+  },
+  "routed_to": "RESEARCH-PIPELINE-REPAIR (re-pointed from RESEARCH-PIPELINE-REPAIR — harness verdict rule (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "research-harness-dispatch results carry verdict=no_action_warranted on ANY successful run (harness_dispatch_result.py: 'E7 wiring-proof dispatch: this run's only claim is that the harness ran'), so a unit's own pre-registered rule is never applied by the pipeline. 2026-10-04: RQ-20260929-106 (SPY/QQQ pairs 1h) landed measured/no_action_warranted with net_total_r -121.96R over n=178 (its rule: FAIL if net_total_r<=0 with n>=39); RQ-20260929-105 landed no_action_warranted with +18.72R n=144 (rule: PASS); RQ-20260929-107 landed n=10 (rule: indeterminate). Anyone reading the verdict field alone reads all three as the same. Sessions applied the rules by hand for those three; the mapper should apply a unit's declared decision_rule thresholds (net_total_r>0 and n>=floor) or stamp the verdict not_applicable/wiring_only so it cannot read as a result."
+}

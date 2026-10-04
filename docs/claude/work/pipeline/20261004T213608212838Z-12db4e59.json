@@ -1,0 +1,54 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Per-account exposure multiples are observable without a declared ceiling, and the operator has either set caps from observed data or explicitly decided the fleet runs uncapped.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE'), indent=2))\"",
+    "what": "Per-account exposure multiples are observable without a declared ceiling, and the operator has either set caps from observed data or explicitly decided the fleet runs uncapped."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE'), indent=2))\""
+  },
+  "routed_to": "DECIDE-AUTO — ceiling VALUES are a decision that is data-settled or becomes a data task; follow-up row PI-20260928-C4KXTCUS-0001 is open (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Confirmed /api/diag/exposure exists (src/web/api/routers/diag.py get_exposure) and RiskManager.report() emits policy_declared/exposure_multiple (src/units/accounts/risk.py:1303-1319). Confirmed no `max_gross_exposure_pct` is set anywhere in config/accounts.yaml, and grepped src/bot/telegram_query_bot.py for 'exposure' with zero hits, so the Telegram /accounts_status renderer still does not consume the field. Phase-1 observability plumbing exists; phase-2 (ceilings) is still genuinely undecided.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "low - config change",
+          "label": "Set caps now from current observed exposure multiples",
+          "risk": "caps set from a short observation window could be too tight or too loose",
+          "what_happens": "Operator reviews current per-account exposure via the diag endpoint and picks max_gross_exposure_pct values; a lane wires them into accounts.yaml."
+        },
+        {
+          "cost": "none",
+          "label": "Explicitly decide the fleet runs uncapped",
+          "risk": "no backstop against a runaway multiple",
+          "what_happens": "Row closes as a recorded decision rather than a gap; no enforcement added."
+        },
+        {
+          "cost": "low dev effort",
+          "label": "Wire the /accounts_status Telegram consumer first, watch, then decide",
+          "risk": "defers the decision again",
+          "what_happens": "Tier-1 lane adds the missing reader; caps decision deferred to next review with real observed data."
+        }
+      ],
+      "priority_tier": 6,
+      "question": "Per-account gross exposure is now observable (via /api/diag/exposure and RiskManager.report()['exposure']) but no ceiling (max_gross_exposure_pct) is set for any account, and the Telegram status renderer still doesn't surface it. Should we set caps from observed data, explicitly run uncapped, or wire the Telegram consumer first and decide caps after watching it for a period?",
+      "recommendation": "Wire the Telegram consumer (Tier-1, no risk) immediately via dispatch_lane, then bring the observed multiples back to the operator for a caps-vs-uncapped decision at the next sync."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] Gross-exposure governance is phase 1 of 2 — the ceiling VALUES were explicitly deferred, and the observability gap is why phase 2 stalled\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — Per-account gross exposure is now observable (via /api/diag/exposure and RiskManager.report()['exposure']) but no ceiling (max_gross_exposure_pct) is set for any account, and the Telegram status renderer still doesn't surface it. Should we set caps from observed data, explicitly run uncapped, or wire the Telegram consumer first and decide caps after watching it for a period? Recommendation: Wire the Telegram consumer (Tier-1, no risk) immediately via dispatch_lane, then bring the observed multiples back to the operator for a caps-vs-uncapped decision at the next sync.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: \"wire the /accounts_status Telegram view of per-account gross exposure first; caps decided later (file a check_observation to revisit with observed data).\" Built: a 'Gross exposure' line in the /accounts_status Telegram view, reading the existing RiskManager.report()['exposure'] block (no new risk computation) -- src/bot/telegram_query_bot.py::_accounts_view_data (exposure passthrough) and src/bot/menu.py::render_accounts_view / _exposure_str (rendering, '--' for unmeasured, never 0). No live VM access in this sandbox to confirm the deployed output; the observation follow-up is filed as PI-20260928-C4KXTCUS-0001."
+}

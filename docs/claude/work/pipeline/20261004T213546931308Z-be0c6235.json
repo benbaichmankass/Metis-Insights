@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for CA-A01-057 is merged with a test that fails on the old code (detector: bybit_coverage_soak verdicts_differ for bybit_2; get-env on the trader's /proc/<pid>/environ), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-KFWRL9R1-0014",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-057 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-057 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:L9224-L9304 (producer) on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "PROTECTION-HARDENING (re-pointed from PROTECTION-HARDENING (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "HIGH (code audit CA-A01-057, INFERRED): On every Bybit account not named in BYBIT_GRADED_COVERAGE_ACCOUNTS (shipped empty, so including mainnet bybit_2), the re-arm decision still reads the side-blind covered_qty, so in hedge mode an other-book SL leg can push coverage past size and a position whose own stop is gone is skipped as fully covered. LOCATION: src/runtime/order_monitor.py:L9224-L9304 (producer); caller L10330-L10470. PROPOSED FIX: Read the bybit_coverage_soak verdicts_differ rows for bybit_2 and, if clean, add bybit_2 to the allowlist (the staged change already built)."
+}
