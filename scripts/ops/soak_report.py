@@ -179,6 +179,23 @@ def latest_grade(ref: str) -> Tuple[Optional[str], Optional[dict]]:
         return names[-1], None
 
 
+def grade_shadow(pkgs: Optional[dict], window_days: Optional[int]) -> Tuple[str, str]:
+    """Verdict for an ``execution: shadow`` soak from the order packages R5
+    counted for it (``grade["shadow_packages"]["by_strategy"][name]``).
+
+    PI-20261004-JC8KDKLF-0002. >0 packages in the window -> accruing (the leg is
+    alive and logging). 0 is NOT graded dead: a daily/4h leg can be quiet for a
+    week, so a quiet window stays could-not-look (due), with the count stated.
+    ``None`` = nobody counted -> could-not-look."""
+    if pkgs is None or pkgs.get("n") is None:
+        return CNL, "no shadow order-package count in the R5 record — nobody is looking"
+    n, win = pkgs["n"], f"{window_days}d " if window_days else ""
+    if n > 0:
+        return ACCRUING, f"{n} shadow order packages logged in the {win}R5 window (last {pkgs.get('last_created_at')})"
+    return CNL, (f"0 shadow order packages in the {win}R5 window — a quiet leg or a silent one; "
+                 "not graded dead without a longer look")
+
+
 @dataclass
 class Soak:
     population: str
@@ -312,12 +329,15 @@ def build(today: date, ref: str = "HEAD", grade_file: Optional[Path] = None) -> 
                        else f"0 intents on {s1[0]} in the R5 window — writing nothing")
             prog = f"{n} intents / R5 window; shadow sends no order, so cost fidelity cannot accrue"
         else:
-            v, prog = CNL, "—"
             # MEASURED 2026-09-26 grade: R5 writes `mechanics: null` for every
-            # shadow leg — it does not read shadow order packages at all. That
-            # is "nobody looked", never "0 intents".
-            why = (f"rostered on {accts}; no reader grades a shadow leg's order packages "
-                   f"(R5 records mechanics: null for shadow) — nobody is looking")
+            # shadow leg. Since JC8KDKLF-0002 R5 also records shadow_packages
+            # (order packages per shadow strategy over the window); use it when
+            # the record is fresh and that read measured.
+            sp = (grade or {}).get("shadow_packages") or {}
+            pk = (sp.get("by_strategy") or {}).get(s) if (
+                gage is not None and gage <= GRADE_STALE_DAYS and sp.get("read_state") == "measured") else None
+            v, why = grade_shadow(pk, (sp.get("window_hours") or 0) // 24 or None)
+            prog = f"{pk['n']} shadow packages / R5 window" if pk else "—"
         ev = (REPO / "comms/strategy_evidence" / f"{s}.json").exists()
         soaks.append(Soak("shadow", s, "execution: shadow strategy", sh_start[s],
                           "Gate 1: a committed Stage-0 evidence record clearing its registered rule "
@@ -526,6 +546,9 @@ def _self_test() -> int:
        == {"bybit_1/x"})
     ck("shadow_members reads the field, not comments",
        shadow_members({"strategies": {"a": {"execution": "shadow"}, "b": {"execution": "live"}}}) == {"a"})
+    ck("shadow with logged packages grades accruing", grade_shadow({"n": 3, "last_created_at": "x"}, 7)[0] == ACCRUING)
+    ck("shadow with 0 packages is could-not-look, never dead", grade_shadow({"n": 0}, 7)[0] == CNL)
+    ck("shadow with no count is could-not-look", grade_shadow(None, 7)[0] == CNL)
     ck("exit_from_note finds a stated close condition",
        exit_from_note("blah. Closes when: one live fill shows exchange_fill. more").startswith("one live fill"))
     ck("exit_from_note says NOT STATED when absent", "NOT STATED" in exit_from_note("nothing here"))
