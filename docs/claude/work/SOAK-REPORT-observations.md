@@ -2,7 +2,7 @@
 
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · *generated weekly by `scripts/ops/soak_report.py` — the generation time below is its freshness*
 
-> Generated 2026-10-04T15:29:18+00:00 by `scripts/ops/soak_report.py`; companion to [`SOAK-REPORT.md`](SOAK-REPORT.md). 624 rows, every one **could-not-look** (no evaluator reads `clears_when`).
+> Generated 2026-10-04T17:33:46+00:00 by `scripts/ops/soak_report.py`; companion to [`SOAK-REPORT.md`](SOAK-REPORT.md). 629 rows, every one **could-not-look** (no evaluator reads `clears_when`).
 
 | id | start | days | clears_when | next review | state |
 |---|---|---|---|---|---|
@@ -73,7 +73,12 @@
 | `PI-20261003-APBY4NTV-0002` | 2026-10-03 | 1 | a trailing-365d static-bracket re-grade of trend_donchian_sol_prop with n>=88 under a pre-registered rule, either PASS (close) or FAIL (Tier | due now | state queued |
 | `PI-20261003-ILZMCTFQ-0002` | 2026-10-03 | 1 | After the retry-in-band PR merges and deploys: one live tradeify_1 ticket observed in the executor journal going awaiting_resting_price -> r | due now | state routed |
 | `PI-20261004-AHCVAAF5-0001` | 2026-10-04 | 0 | EITHER the mes-regime-5m-lgbm-v2 minus mes-regime-5m-baseline-v1 macro_f1 margin is back >= 5.0 points on a subsequent cycle (dataset settle | due now | state queued |
+| `PI-20261004-FOJGFIZF-0004` | 2026-10-04 | 0 | a harness-dispatch result for a unit whose rule is 'net_total_r > 0 AND n >= N' lands with verdict pass/fail/indeterminate per that rule (te | due now | state routed |
+| `PI-20261004-GCFA5DOR-0002` | 2026-10-04 | 0 | A merged change returns 'refused' from open_order_ticket on any ask_opener decline, with a test. | due now | state routed |
+| `PI-20261004-GCFA5DOR-0003` | 2026-10-04 | 0 | A merged change alerts and halts a naked open prop position, with a test. | due now | state routed |
+| `PI-20261004-GCFA5DOR-0008` | 2026-10-04 | 0 | A merged change makes non-pass controls non-ok, with a test. | due now | state routed |
 | `PI-20261004-GCFA5DOR-0009` | 2026-10-04 | 0 | Both read flat, or a warn-on-dry-account-with-open-trades lands. | due now | state queued |
+| `PI-20261004-GCFA5DOR-0011` | 2026-10-04 | 0 | A cancelled system-actions run leaves a comment on its issue (or is auto-re-dispatched), demonstrated once, with a test or a run link. | due now | state routed |
 | `PI-20261004-PUQ1APTH-0001` | 2026-10-04 | 0 | the held PR is merged AND an ict-db-integrity run on the VM after the deploy prints INV-2 recent=0 and an INV-2c line whose sample includes  | due now | state queued |
 | `PI-20261004-WGO5DRFX-0001` | 2026-10-04 | 0 | the first tradeify_1 ticket emitted after 2026-10-04T09:19Z is taken in by the tradeify_1 executor without a risk-cap refusal (placed, or re | due now | state queued |
 | `PI-20261004-ZBHFJG6X-0001` | 2026-10-04 | 0 | The rerun prints 0 no-trade packages reading real_money AND the router emits an explicit read-state for the no-trade case (test present), OR | due now | state queued |
