@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "A merged change returns 'refused' from open_order_ticket on any ask_opener decline, with a test.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-GCFA5DOR-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "grep -n 'if self.ask_opener' -A20 src/prop/platform/dxtrade.py -- open while an ask_opener=True path can reach TICKET_OPENER_NAMES / the row double-click after a non-click decline."
+  },
+  "state": "queued",
+  "what": "OA-04 (MED, prop order path, tradeify_1 live). Sub-agent read; the first half was re-checked by the lane at dxtrade.py:5637-5650. When the Ask-button opener declines WITHOUT clicking (e.g. one-click reads 'unknown'), open_order_ticket falls through to the later openers, including the watchlist row double-click (dxtrade.py ~5682-5704). That fallback is skipped only when one-click reads 'on'. If one-click is actually ON but reads 'unknown', a price-cell double-click can fire an instant, UNBRACKETED market order. Proposed fix (Tier-2): after the `if ask.get('clicked')` block, add `if self.ask_opener: out['refused'] = f\"ask_button: {ask.get('why')}\"; return out`. Also gate the last resort on a positive one-click OFF read, not on `!= 'on'`."
+}

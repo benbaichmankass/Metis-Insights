@@ -84,5 +84,26 @@
   "source_run": "comms/strategy_evidence/runs/2026-10-02/ict_scalp_xrp_15m__trades.jsonl",
   "error": null,
   "harness": "ict_scalp",
-  "venue_bracket_arm": null
+  "venue_bracket_arm": null,
+  "research_grading": {
+    "research_unit": "RQ-20261002-701",
+    "rule_id": "RULE-ICTSCALP-CAUSAL-REBUILD",
+    "rule_registered_at": "2026-10-02T17:03:00Z",
+    "rule_summary": "PASS iff measured AND n>=88 AND net_r_oos>0 AND expectancy_r_oos>0 AND 2*folds_positive>folds; n<88 at 365d is UNDERPOWERED and the pre-registered 730d/4-fold re-run decides the powered verdict.",
+    "primary_365d": {
+      "n": 76,
+      "net_r_oos": 4.0712,
+      "folds_positive": "2/4",
+      "state": "underpowered"
+    },
+    "escalation_730d": {
+      "n": 132,
+      "net_r_oos": -4.6006,
+      "expectancy_r_oos": -0.0349,
+      "folds_positive": "1/4",
+      "record": "comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_xrp_15m.json"
+    },
+    "powered_verdict": "fail",
+    "note": "decision_rule above is the producer's generic D1 predicate (net_r_oos > 0) on the 365d run only. This block is the research unit's registered grading; check_roster_promotion_evidence C4 refuses the record when powered_verdict != pass. Added 2026-10-04 by lane PROP-EVIDENCE."
+  }
 }

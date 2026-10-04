@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane OPS-AUDIT (manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04): prop order-path read change on the LIVE tradeify_1 executor; held for the manager / operator OK. Deploys on git-sync (the executor tick re-imports per run).",
+  "why": "tradeify_1 shows ETH/USD for ETHUSD (measured on the watchlist/ticket/submit label). positions/orders/trade-history parsers stored the cell verbatim and every executor match compares p.symbol.upper() with the venue symbol, so on a slash-named terminal row: a real fill reads unconfirmed_submit and halts, a fill with no SL/TP can never classify partial_no_sl_tp, stale LIMITs are not cancelled, the journal reconcile posts closed_on_terminal on an open position, and the trail skips. Canonicalises at the three parsers (identity for Breakout's SOLUSD/ETHUSD) and in CLOSE_ROW_JS locate + the edit-dialog names_symbol check. Whether tradeify's Positions/Orders tables show the slash is NOT yet observed (tradeify_1 has never held a position); the change is a no-op if they do not."
+}
