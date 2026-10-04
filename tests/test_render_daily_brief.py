@@ -311,3 +311,9 @@ def test_read_soaks_computes_days_in_from_started(tmp_path):
     assert rdb.read_soaks(tmp_path / "nope", TODAY)["state"] == "absent"
     (d / "SOAKS.json").write_text("{bad")
     assert rdb.read_soaks(tmp_path, TODAY)["state"] == "unreadable"
+
+
+def test_ranked_items_is_the_order_section0_uses():
+    items = [_pi(1, what="plain"), _pi(2, what="MONEY", severity="high")]
+    res = pipeline.LoadResult(items={i["id"]: i for i in items}, records=2)
+    assert [i["what"] for i in rdb.ranked_items(res, TODAY)] == ["MONEY", "plain"]

@@ -207,6 +207,13 @@ def _rank_key(it: dict) -> tuple:
             str(it.get("id", "")))
 
 
+def ranked_items(res: Any, today: date) -> list[dict]:
+    """Every due pipeline item in brief order (money-path → ask_operator →
+    unrouted → oldest). Public so other renderers (the Telegram digest) rank
+    identically to §0 instead of forking the order."""
+    return sorted(pipeline.due(list(res.items.values()), today), key=_rank_key)
+
+
 _BUCKETS = ("never-checked", "lapsed", "date-passed", "no-cadence")
 
 
@@ -237,7 +244,7 @@ def section0_lines(res: Any, today: date) -> list[str]:
     L += [f"**{len(rows)} item(s) due. Each needs a disposition today.** "
           f"Unrouted {n_un} · routed {len(rows) - n_un} · of {len(items)} items in the store.",
           "By why due: " + " · ".join(f"{k} {v}" for k, v in bk.items()) + ".", ""]
-    ordered = sorted(rows, key=_rank_key)
+    ordered = ranked_items(res, today)
     shown = ordered[:TOP_DUE]
     L.append(f"_Top {len(shown)} of {len(rows)}: money-path (`loud`/severity high/"
              "tier≥2) → `ask_operator` → unrouted → oldest._")
