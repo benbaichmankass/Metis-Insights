@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Evidence + CI guard only: adds the RQ-20261002-701 research_grading block to the three ict_scalp 15m records, and makes roster-promotion-evidence C4 refuse a record whose registered research grading reads anything but pass. No strategy config, roster, order path or runtime file touched."
+}
