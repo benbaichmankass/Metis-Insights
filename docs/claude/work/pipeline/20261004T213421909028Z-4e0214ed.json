@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "PI-20261004-FOJGFIZF-0001 is killed with a stated reason and the monthly trail4 re-sweep is tracked by exactly one row whose origin.rerun runs clean (python3 <rerun> exits 0 and prints the trail4 row); or killed",
+    "kind": "event"
+  },
+  "id": "PI-20261004-P24XMV4V-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "DECISION-BRIEF lane session_01XGZZ1RZsfiUwKap24xMV4v, manager session_01MM8o5js6TcDFeNAPBY4Ntv, docs/plans/decision-brief-2026-10-04.md",
+    "rerun": "python3 - <<'X'\nimport json\nrows=[json.loads(l) for l in open('docs/research/m20-sweep-corpus.jsonl')]\nprint([(r['cell'],r['d_net_r_OOS'],r['wf_wins'],r['wf_usable'],r['base_trades_OOS']) for r in rows if r['leg']=='trend_donchian_xrp_4h' and r.get('is_oos_pass')])\nX"
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-04: FOJGFIZF-0001 killed in this batch; the trail4 re-sweep is tracked by exactly one row, PI-20261003-84ZIQNJD-0001 (queued, due 2026-11-03).",
+  "what": "DEFECT in a filed row: PI-20261004-FOJGFIZF-0001 (monthly re-sweep of trend_donchian_xrp_4h trail4) carries an origin.rerun that cannot re-ask its question -- it reads r['wf_wins_effective'], a key that does not exist in docs/research/m20-sweep-corpus.jsonl (the field is wf_wins); run on 2026-10-04 it raises KeyError. Its `what` also says decay_stall6_t2.5 'wf 4/6' where the corpus row reads wf_wins 6 / wf_usable 6 (field beats comment). The row's identity (what + origin) cannot be edited by append(intent='update'), so the fix is: kill FOJGFIZF-0001 with reason 'refiled with a working rerun' and refile it against wf_wins, or merge it into PI-20261003-84ZIQNJD-0001 which already tracks the same monthly re-sweep."
+}

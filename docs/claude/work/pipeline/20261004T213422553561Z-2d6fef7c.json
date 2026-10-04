@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the first tradeify_1 ticket emitted after 2026-10-04T09:19Z is taken in by the tradeify_1 executor without a risk-cap refusal (placed, or refused for an unrelated stated reason)",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-WGO5DRFX-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "GET /api/bot/prop/tickets?account_id=tradeify_1 — the newest ticket must carry account_id tradeify_1 and risk_usd 50; then GET /api/bot/prop/fills?account_id=tradeify_1 — that ticket's executor row must not be status=skipped with a 'risk cap' message.",
+    "what": "the first tradeify_1 ticket emitted after 2026-10-04T09:19Z is taken in by the tradeify_1 executor without a risk-cap refusal (placed, or refused for an unrelated stated reason)"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane TRADEIFY-RISK-75 session_01PRvrUNAqLAPL6UWgo5DrfX; PR #16243",
+    "rerun": "GET /api/bot/prop/tickets?account_id=tradeify_1 — the newest ticket must carry account_id tradeify_1 and risk_usd 50; then GET /api/bot/prop/fills?account_id=tradeify_1 — that ticket's executor row must not be status=skipped with a 'risk cap' message."
+  },
+  "routed_to": "TRADEIFY-RISK-75 — closing observation = next tradeify_1 ticket (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "TRADEIFY-RISK-75 is landed_unproven. #16243 (aab5c817) scoped /api/bot/prop/tickets to the requested account. It was merged 09:07Z and deployed 09:19Z (VM sha ce43aaa69 contains it), and the live read now returns tradeify_1's own $50 ticket (qty 3.32) instead of breakout_1's $75 one. Its 08:01Z ticket had already expired at 09:01Z, so no tradeify_1 ticket has yet been placed under the fix. Close this when the next tradeify_1 ticket reaches its executor at risk_usd ~= 50 and is not refused by the $50 risk cap."
+}
