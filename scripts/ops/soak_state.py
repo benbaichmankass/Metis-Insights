@@ -259,10 +259,14 @@ def soak_states(today: Optional[date] = None, db_path: Optional[str] = None,
 
 
 # ── backfill ────────────────────────────────────────────────────────────────
+def _strategies() -> Dict[str, Any]:
+    import yaml  # noqa: PLC0415
+    return yaml.safe_load(open(REPO / "config/strategies.yaml"))["strategies"]
+
+
 def backfill(ref: str = "HEAD") -> Dict[str, Any]:
     """Contracts for every CURRENT Stage-1 (non-shadow) leg and shadow strategy.
     Start dates are measured from git (soak_report.start_dates)."""
-    import yaml  # noqa: PLC0415
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import soak_report as sr  # noqa: PLC0415
 
@@ -271,7 +275,7 @@ def backfill(ref: str = "HEAD") -> Dict[str, Any]:
     acc = load_accounts_dict()
     if not acc:
         raise SystemExit("soak_state --backfill: the accounts config is unreadable — refusing to write contracts")
-    strat = yaml.safe_load(open(REPO / "config/strategies.yaml"))["strategies"]
+    strat = _strategies()
     shadow = sorted(n for n, v in strat.items() if isinstance(v, dict) and v.get("execution") == "shadow")
     stage1 = sorted(f"{a}/{s}" for a in STAGE1_ACCOUNTS for s in (acc.get(a) or {}).get("strategies") or []
                     if s not in shadow)
