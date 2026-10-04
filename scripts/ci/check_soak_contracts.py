@@ -139,6 +139,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     a = ap.parse_args(argv)
     if a.self_test:
         return _self_test()
+    # The diff-scoped verdict is about the COMMITTED tree; say so when that is
+    # not the tree you edited (shared notice, see check_document_index.py).
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import _dirty_tree  # noqa: E402,PLC0415 — path shim above
+    _dirty_tree.warn()
     try:
         sys.path.insert(0, str(REPO))
         from src.config.accounts_loader import load_accounts_dict  # noqa: PLC0415
