@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane SOAK-WATCH (Manager Session 2026-10-01). CI/tooling and observability only: (1) the weekly R5 soak grade crashed on a malformed trade closed_at (r3_cost_fidelity now excludes+reports such rows; soak_book_grade always writes a record) and its landing step committed only the pointer (research-result gains extra-paths; the workflow now commits the per-leg record, the soak report and the PI-SOAK pipeline items); (2) a verify-landed job + scripts/ops/soak_grade_landed.py fail any run, deduped runs included, whose slot has no measured record on main; cadence-liveness now grades the store; (3) soak_alarm.py's four states ported onto the pipeline (soak_report.py -> soak-state.json -> pipeline.is_due/render_section_0); (4) SOAK-REPORT.md + soak-decisions-2026-10-04.md, where every roster change is a Tier-3 PROPOSAL, none applied. No config/**, src/**, deploy/** or order-path file touched."
+}

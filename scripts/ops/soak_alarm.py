@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 # wiring: docs/claude/OPEN-ITEMS.json `soak` block; read by scripts/ops/render_due_list.py::src_soaks
+# ⚠️ THAT REGISTER WAS ARCHIVED 2026-09-21 — this module has graded NOTHING since
+# (MEASURED 2026-10-04: docs/claude/OPEN-ITEMS.json does not exist on main). Its
+# four states are PORTED onto the live pipeline by SOAK-WATCH: scripts/ops/
+# soak_report.py grades soaks into docs/claude/work/soak-state.json, and
+# scripts/ops/pipeline.py::is_due makes a `due_when.soak` item due on
+# ready/dead/could-not-look (= ready/not_writing/unknown here) and quiet on
+# accruing. Kept for its self-test and its grading prose; do not re-wire it.
 """Grade a declared SOAK against a threshold, so a session is told when to come back.
 
 STANDING OPERATOR DIRECTIVE, 2026-09-02

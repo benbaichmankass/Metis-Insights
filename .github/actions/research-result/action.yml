@@ -159,6 +159,16 @@ inputs:
     description: Free text for a caveat the schema has no field for.
     required: false
     default: ""
+  extra-paths:
+    description: >
+      Space-separated additional repo paths committed IN THE SAME landing commit
+      as the result record — e.g. the measurement file this record points at
+      when that file is itself new. Without it only the pointer lands and
+      `artifact-store` names a file that exists only on the runner (MEASURED on
+      soak-book-grade-weekly: the per-leg record never reached `main` from the
+      workflow; the one on main arrived via a session sweep, #15941).
+    required: false
+    default: ""
   min-rows:
     description: >
       How many result records must be readable on `main` before this step
@@ -235,7 +245,7 @@ runs:
       uses: ./.github/actions/commit-to-main
       with:
         token: ${{ inputs.token }}
-        paths: ${{ steps.emit.outputs.path }}
+        paths: ${{ steps.emit.outputs.path }} ${{ inputs.extra-paths }}
         message: "research result: ${{ inputs.research-unit || 'unattributed' }} run ${{ github.run_id }}"
         pr-title: "research result: ${{ inputs.research-unit || 'unattributed' }} (run ${{ github.run_id }})"
         pr-body: |
