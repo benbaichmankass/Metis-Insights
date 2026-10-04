@@ -337,7 +337,7 @@ jobs:
     # A job budget shorter than the wait cancels the step mid-wait and reports
     # a timeout for a PR that was merging correctly — the run then looks broken
     # on a healthy landing. Was 20 while the wait was absent.
-    timeout-minutes: 45
+    timeout-minutes: 65
     permissions:
       # The ONLY job here that writes. Kept off the workflow's top-level
       # `contents: read` so the sweep shards stay read-only.

@@ -122,7 +122,7 @@ jobs:
     # kill the job mid-wait and report a false failure (which now pages, since
     # this workflow is on claude-run-failure-alert's watch list). Matches
     # econ-calendar-produce.yml, the sibling using the same action.
-    timeout-minutes: 45
+    timeout-minutes: 65
     env:
       VM_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_USER: ubuntu

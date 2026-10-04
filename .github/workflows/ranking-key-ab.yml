@@ -129,7 +129,7 @@ jobs:
     # cache) and the replay alone thereafter. A wider roster with 5m members is
     # several times that. A job that dies having produced nothing is the outcome
     # worth avoiding, and the runner is free either way.
-    timeout-minutes: 240
+    timeout-minutes: 260
     steps:
       - uses: actions/checkout@v4
         with:

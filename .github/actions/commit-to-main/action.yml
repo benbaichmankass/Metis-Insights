@@ -70,7 +70,17 @@ inputs:
       day on a genuinely stranded branch. Give the calling job a
       `timeout-minutes` above this or the job dies mid-wait — research-queue
       dispatch carries 35 for exactly that reason.
-    default: "30"
+
+      ⚠️ RAISED 30 -> 50 (lane OPS-FIXES 2026-10-04, PI-20261004-PUQ1APTH-0008,
+      PI-20261004-FOJGFIZF-0003). The suite grew ~2.4x since the 30 was sized:
+      MEASURED pytest-run 37 min on #16198 (07:29:38-08:06:35Z, auto-merged
+      08:06:56Z, verify failed at its 30-min deadline 08:00Z) and 34.6 min on
+      #16240 (21204 passed); dispatcher runs 37184231129 and 37166184601 went
+      red the same way after their PRs merged. The one-shot re-check after the
+      deadline (STAMP-RACE, below) cannot rescue a merge that lands minutes
+      later. 50 = ~37 run + queue time + margin. Every caller's job budget was
+      raised by the same 20 min so the work allowance each had is unchanged.
+    default: "50"
   refresh-command:
     description: >
       A shell command that RE-DERIVES this caller's generated file(s), run after

@@ -122,7 +122,7 @@ jobs:
     # hold both, so the job was structurally unable to finish.
     #
     #   poll deadline           100 min  (`DEADLINE=$(( SECONDS + 100*60 ))` below)
-    #   commit-to-main verify    30 min  (`verify-timeout-minutes` default)
+    #   commit-to-main verify    50 min  (`verify-timeout-minutes` default; 30 until 2026-10-04)
     #   checkout + ssh setup    ~1 min   (measured 08:26:50 -> 08:27:16, 26s)
     #   ------------------------------
     #   committed                69 min  against a 45-minute job
@@ -170,7 +170,7 @@ jobs:
     # 145 = 1 setup + 100 poll + 30 commit-to-main verify + ~3 classify/write
     # + 11 slack. The cause of the slowness (trainer memory pressure: 5568/5909
     # MB used, 4 GB swap in use on 09-26) is untouched by this and is filed.
-    timeout-minutes: 145
+    timeout-minutes: 165
     steps:
       - name: Resolve run parameters
         id: params
