@@ -344,8 +344,8 @@ def test_direct_mode_is_unchanged(world, monkeypatch, tmp_path, capsys):
 def test_schedule_is_gated(world, monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("GITHUB_EVENT_NAME", "schedule")
     monkeypatch.delenv("EGRESS_PROBE_PROXY", raising=False)
-    # Pin the window open: the real SCHEDULE_ACTIVE_UNTIL (2026-10-04) has passed, so the no-proxy branch would
-    # otherwise be unreachable and this assertion would depend on the date it runs.
+    # Pin the window open: the real SCHEDULE_ACTIVE_UNTIL is a calendar date, and
+    # this half of the test failed on every PR once the wall clock passed it.
     monkeypatch.setattr(probe, "SCHEDULE_ACTIVE_UNTIL", datetime(2999, 1, 1, tzinfo=timezone.utc))
     code, text, _ = probe.main(["--out", str(tmp_path / "r.json")]), capsys.readouterr().out, None
     assert code == 0 and "schedule_skipped" in text and world.launches == []
