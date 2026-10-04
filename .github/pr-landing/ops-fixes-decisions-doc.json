@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs + pipeline records only: docs/plans/ops-decisions-2026-10-04.md queues the Tier-3/operator questions and held-PR manager decisions from lane OPS-FIXES, and pipeline rows record each finding's disposition (routed to a PR or to the decision queue). No code, config or runtime path."
+}
