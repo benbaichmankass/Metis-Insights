@@ -159,7 +159,7 @@ def load_unit(unit_id: str, queue_dir: Path = QUEUE_DIR) -> dict[str, Any] | Non
     try:
         import yaml
         u = yaml.safe_load(p.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001 -- unreadable unit -> wiring_only, said so
+    except Exception as exc:  # noqa: BLE001  # allow-silent: unreadable unit -> logged ::warning:: and the result is stamped wiring_only (never a decisive verdict)
         print(f"::warning::harness_dispatch_result: {p} unreadable — "
               f"{type(exc).__name__}: {exc}")
         return None
