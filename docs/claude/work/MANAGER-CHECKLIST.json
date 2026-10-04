@@ -4817,11 +4817,13 @@
       "spend_usd": null,
       "tier": 2,
       "prs": [
+        16234,
         16222,
-        16223
+        16223,
+        16235
       ],
       "blocked_on": [],
-      "note": "[2026-10-04 ~08:40Z lane OPS-AUDIT, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv] Audit doc in the Tier-1 PR; OA-14 diag fix HELD on branch claude/ops-audit-2026-10-04-diag-restart-pending; HELD Tier-2 PRs #16222 (OA-01 OnFailure on both live prop executors) and #16223 (OA-02 tradeify ETH/USD symbol canonicalisation) await the manager. Pipeline PI-20261004-GCFA5DOR-0001..0010. FIRST for the manager: OA-03 (PI-...-0001) -- breakout_1 is $2 below its $4,700 static DD floor and its executor has been AUTO-REVERT-latched since 03:49Z with no further alert; the documented env/timer revert was not run. landed_unproven closes when: #16222 and #16223 are merged and deployed, `systemctl show -p OnFailure ict-prop-executor@tradeify_1` is non-empty (needs executor-enable-timer re-run), and diag /api/diag/version reads restart_pending=false on a research-only diff."
+      "note": "[2026-10-04 ~08:40Z lane OPS-AUDIT, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv] Audit doc in the Tier-1 PR; OA-14 diag fix HELD as #16235; this report self-lands as #16234; HELD Tier-2 PRs #16222 (OA-01 OnFailure on both live prop executors) and #16223 (OA-02 tradeify ETH/USD symbol canonicalisation) await the manager. Pipeline PI-20261004-GCFA5DOR-0001..0010. FIRST for the manager: OA-03 (PI-...-0001) -- breakout_1 is $2 below its $4,700 static DD floor and its executor has been AUTO-REVERT-latched since 03:49Z with no further alert; the documented env/timer revert was not run. landed_unproven closes when: #16222 and #16223 are merged and deployed, `systemctl show -p OnFailure ict-prop-executor@tradeify_1` is non-empty (needs executor-enable-timer re-run), and diag /api/diag/version reads restart_pending=false on a research-only diff."
     }
   ]
 }
