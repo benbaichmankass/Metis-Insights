@@ -62,7 +62,7 @@ EQUITY = "yfinance"
 PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
     # --- crypto (Bybit USDT linear perps; Binance-vision futures/um proxy) ---
     ("BTCUSDT", "1h"): (CRYPTO, "60", 180), ("BTCUSDT", "2h"): (CRYPTO, "120", 180),
-    ("BTCUSDT", "4h"): (CRYPTO, "240", 180), ("BTCUSDT", "15m"): (CRYPTO, "15", 540),
+    ("BTCUSDT", "4h"): (CRYPTO, "240", 180), ("BTCUSDT", "15m"): (CRYPTO, "15", 1095),
     ("BTCUSDT", "5m"): (CRYPTO, "5", 30),
     ("ETHUSDT", "1h"): (CRYPTO, "60", 180), ("ETHUSDT", "2h"): (CRYPTO, "120", 180),
     ("ETHUSDT", "4h"): (CRYPTO, "240", 180), ("ETHUSDT", "15m"): (CRYPTO, "15", 90),
