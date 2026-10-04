@@ -529,3 +529,66 @@ def test_build_alert_message_only_lists_alerts(real_schema_db):
     assert "INV-4" in msg
     # Non-alerting checks not enumerated.
     assert "INV-1:" not in msg
+
+
+# ---------------------------------------------------------------------------
+# INV-7 — open trade on a dry_run account (OA-15, PI-20261004-GCFA5DOR-0009)
+# ---------------------------------------------------------------------------
+
+
+def _accounts_yaml(tmp_path: Path) -> Path:
+    p = tmp_path / "accounts.yaml"
+    p.write_text("accounts:\n  live_a: {mode: live}\n  dry_b: {mode: dry_run}\n",
+                 encoding="utf-8")
+    return p
+
+
+def test_inv7_open_trade_on_dry_account_alerts_and_live_does_not(real_schema_db, tmp_path):
+    import sqlite3
+
+    db = real_schema_db()
+    dry_id = insert_trade(
+        db, is_backtest=0, status="open", account_class="real_money",
+        account_id="dry_b", symbol="SPY", direction="long", entry_price=1.0,
+        position_size=1.0, created_at=_legacy_ts(), timestamp=_legacy_ts(),
+    )
+    insert_trade(  # an open row on a LIVE account: monitored, not INV-7
+        db, is_backtest=0, status="open", account_class="real_money",
+        account_id="live_a", symbol="SPY", direction="long", entry_price=1.0,
+        position_size=1.0, created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    insert_trade(  # a CLOSED row on the dry account: nothing to monitor
+        db, is_backtest=0, status="closed", account_class="real_money",
+        account_id="dry_b", symbol="SPY", direction="long", entry_price=1.0,
+        position_size=1.0, pnl=1.0, closed_at=_recent_ts(),
+        created_at=_recent_ts(), timestamp=_recent_ts(),
+    )
+    conn = sqlite3.connect(str(db))
+    conn.row_factory = sqlite3.Row
+    try:
+        c = cdi._inv7_check(conn, _accounts_yaml(tmp_path))
+    finally:
+        conn.close()
+    assert c["read_state"] == "checked" and c["dry_run_accounts"] == ["dry_b"]
+    # Legacy-dated on purpose: an open row is current state, not windowed.
+    assert c["recent_count"] == 1 and c["alert"] is True
+    assert c["sample_ids"] == [dry_id]
+
+
+def test_inv7_unreadable_accounts_yaml_is_could_not_check_not_zero(real_schema_db, tmp_path):
+    import sqlite3
+
+    db = real_schema_db()
+    conn = sqlite3.connect(str(db))
+    conn.row_factory = sqlite3.Row
+    try:
+        c = cdi._inv7_check(conn, tmp_path / "missing.yaml")
+    finally:
+        conn.close()
+    assert c["read_state"] == "could_not_check"
+    assert c["dry_run_accounts"] is None and c["alert"] is False
+
+
+def test_inv7_runs_in_the_report(real_schema_db):
+    rep = _run(real_schema_db())
+    assert _check(rep, "INV-7")["read_state"] == "checked"
