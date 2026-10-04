@@ -5659,8 +5659,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         logged in ``tried``: a form already open; ONE click on the Symbol cell
         (kept only when the form then names the symbol); a ticket-opener
         button; the RESOLVED watchlist row's double-click (#13898 / #15139),
-        skipped only on a positive one-click ON read; a Symbol-cell
-        double-click."""
+        run only on a positive one-click OFF read (OA-04); a Symbol-cell
+        double-click. With ``ask_opener`` set, the Ask button is the only
+        opener after the Symbol click: a decline returns ``refused``."""
         out: Dict[str, Any] = {"opened": False, "via": None, "one_click": self.read_one_click(page), "form": {}}
         form = self._find_form(page)
         if form.get("found"):
@@ -5697,12 +5698,16 @@ class DXtradeAdapter(PropPlatformAdapter):
             if ask.get("form"):
                 out.update(opened=True, via="ask_button", form=ask["form"])
                 return out
-            if ask.get("clicked"):
-                # Clicked but no form naming the symbol: never try further
-                # openers on top of an unknown surface.
-                out["form"] = self._find_form(page)
-                out["refused"] = f"ask_button: {ask.get('why')}"
-                return out
+            # Clicked but no form naming the symbol, OR declined without a
+            # click: either way NO further opener runs. OA-04
+            # (PI-20261004-GCFA5DOR-0002): a decline used to fall through to
+            # the later openers, including the watchlist-row double-click,
+            # which on a one-click toggle that is ON but reads ``unknown``
+            # can fire an instant, UNBRACKETED market order. The Ask button
+            # is the only measured opener on an ask_opener terminal.
+            out["form"] = self._find_form(page)
+            out["refused"] = f"ask_button: {ask.get('why')}"
+            return out
         for name in TICKET_OPENER_NAMES:
             try:
                 loc = page.get_by_role("button", name=name, exact=True)
@@ -5724,11 +5729,12 @@ class DXtradeAdapter(PropPlatformAdapter):
         # read. And only on the ONE row INFO_PROBE_RESOLVE_JS resolved inside
         # the watchlist (``data-metis-wl-row``), never a page-wide row search
         # that could hit a Positions / Orders row (manager review 5932126267).
-        # It is SKIPPED only on a positive one-click ON read (the instant-trade
-        # case). An unreadable toggle does NOT skip it: live #15187 (dry run on
-        # 9f51c275) never reached it with one-click reading OFF at the start,
-        # and a trade must never be missed for want of an opener (manager
-        # 5931584062; before #15138 this opener ran with no one-click check).
+        # It runs ONLY on a positive one-click OFF read. OA-04
+        # (PI-20261004-GCFA5DOR-0002, OPS-FIXES 2026-10-04) reverses the
+        # earlier "an unreadable toggle does NOT skip it" (manager 5931584062,
+        # #15138): with one-click actually ON but read ``unknown``, the row
+        # centre is an instant-trade price cell, i.e. an UNBRACKETED market
+        # order. A ticket missed for want of an opener is the smaller harm.
         # Why it ran or not is RECORDED in ``last_resort``. It runs BEFORE the
         # Symbol-cell double-click: live #15214 (on 0e8d6e3de) resolved the
         # target row cleanly for both Symbol openers, then found it gone
@@ -5737,8 +5743,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         oc = self.read_one_click(page)
         lr: Dict[str, Any] = {"one_click": {k: oc.get(k) for k in ("state", "via")}}
         out["last_resort"] = lr
-        if oc.get("state") == "on":
-            lr["skipped"] = "one-click reads ON: the row centre may be an instant-trade price cell"
+        if oc.get("state") != "off":
+            lr["skipped"] = (f"one-click reads {str(oc.get('state') or 'unknown').upper()}, not a positive OFF: "
+                             "the row centre may be an instant-trade price cell")
         else:
             try:
                 res = page.evaluate(INFO_PROBE_RESOLVE_JS, [[sym]]) or {}

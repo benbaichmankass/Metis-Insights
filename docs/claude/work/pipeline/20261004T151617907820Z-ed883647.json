@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "7 consecutive days of ict-telegram-bot journal with 0 MIS-ROUTED lines after a named writer is fixed",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0003",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: writer NAMED (INFERRED from code, not from a log line naming it): scripts/ops/notify_run.sh, the transparency ping system-actions.yml/sync-vm-secrets.yml/rotate-account-keys.yml run over bare SSH after every action, set REPO_DIR but never sourced _lib.sh/load_runtime_env, so send_ping.py's runtime_logs_dir() had no DATA_DIR and resolved repo-relative -> the legacy inbox. Every other SSH-run ping wrapper (send_ping_action.sh, prop_feed_tick.sh) loads the env. Fixed in #16383 (smoke-tested: DATA_DIR resolves /data/bot-data under set -u). Clears on the row's own 7-day 0 MIS-ROUTED observation after deploy; if a MIS-ROUTED line recurs after deploy, the writer is something else."
+  ],
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); diag journalctl?unit=ict-telegram-bot.service 2026-10-04T08:02Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-telegram-bot.service&lines=1000' | grep -c MIS-ROUTED -- holds while nonzero"
+  },
+  "routed_to": "lane OPS-FIXES HELD PR branch ops-fixes-notify-pull-noise (#16383)",
+  "state": "routed",
+  "what": "[alerting/paths] A writer on the live VM still resolves runtime_logs without DATA_DIR (BL-20260726 class). MEASURED 2026-10-04T08:02:43Z (diag journalctl?unit=ict-telegram-bot.service): `src.bot.cloud_notifier WARNING ping inbox: delivering a MIS-ROUTED ping 724322626470-normal.json found in the legacy inbox /home/ubuntu/ict-trading-bot/runtime_logs/pending_claude_pings -- a writer resolved runtime_logs without DATA_DIR`. The ping WAS delivered (the notifier sweeps the legacy twin), so nothing was lost; the defect is the writer's environment. NOT identified this session: scripts/ops/send_ping_action.sh exports DATA_DIR itself; every systemd unit gets the data-dir drop-in (install_systemd_units: data-dir-nomount.conf); the candidate is a wrapper or ssh-invoked script calling scripts/send_ping.py at ~08:02Z without the export (OPS-AUDIT's breakout-login-check system-action ran 08:02:16Z; prop feed ticks ran 08:01-08:02Z). Fix: find the writer (the inbox JSON names the sender if one is caught before drain) and export DATA_DIR there, or make scripts/send_ping.py read /etc/ict-trader's data-dir drop-in as a fallback."
+}

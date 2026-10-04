@@ -295,10 +295,14 @@ def test_soak_slot_absent_read_and_missing_fields():
     absent = rdb.render(_brief([], []))
     assert "source absent (we looked" in absent and "not 'no soaks'" in absent
     soaks = {"state": "read", "asOf": "2026-10-04", "rows": [
-        {"leg": "L1", "account": "bybit_1", "state": "accruing", "days_in": 3}]}
+        {"leg": "L1", "account": "bybit_1", "state": "overdue", "days_in": 3},
+        {"id": "A1", "leg": "L2", "account": "bybit_1", "state": "accruing", "days_in": 5,
+         "end_date": "2026-12-01"}]}
     md = rdb.render(_brief([], [], soaks=soaks))
     assert "L1" in md and "day 3" in md and "ends —" in md and "ends 0" not in md
-    assert "accruing 1" in md
+    assert "accruing 1" in md and "overdue 1" in md
+    # accruing is a quiet count + nearest end date, never a full row (16 KB cap)
+    assert "1 accruing (quiet); nearest end 2026-12-01 (`A1`)" in md and "L2 @" not in md
 
 
 def test_read_soaks_imports_soak_state_live(tmp_path, monkeypatch):

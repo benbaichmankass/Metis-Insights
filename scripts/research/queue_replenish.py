@@ -176,12 +176,53 @@ def _leg_source(name: str, tpl: Dict[str, Any], facts: Dict[str, Any]) -> List[D
     return out
 
 
+def _int_or_none(v: Any) -> Optional[int]:
+    if isinstance(v, bool):
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def min_n_trades(tpl: Dict[str, Any]) -> Optional[int]:
+    """The template's declared `min_n_trades` floor, or None if it declares none.
+
+    When the template's run command also passes `--n-floor`, the two MUST agree:
+    a generator floor that differs from the one the unit grades against would
+    re-open exactly the gap this exists to close.
+    """
+    if "min_n_trades" not in tpl:
+        return None
+    floor = _int_or_none(tpl.get("min_n_trades"))
+    if floor is None or floor < 0:
+        raise ValueError(f"template {tpl.get('family')!r}: min_n_trades must be a non-negative int")
+    cmd = (tpl.get("run") or {}).get("command") or []
+    if isinstance(cmd, list) and "--n-floor" in cmd:
+        i = cmd.index("--n-floor")
+        graded = _int_or_none(cmd[i + 1]) if i + 1 < len(cmd) else None
+        if graded != floor:
+            raise ValueError(f"template {tpl.get('family')!r}: min_n_trades {floor} != "
+                             f"run.command --n-floor {graded!r}")
+    return floor
+
+
 def expand(tpl: Dict[str, Any], facts: Dict[str, Any]) -> List[Dict[str, Any]]:
     """All parameter points of a family, each a flat dict of placeholders."""
     grid = dict(tpl.get("grid") or {})
     points: List[Dict[str, Any]] = [{}]
     if "legs" in grid:
         points = _leg_source(str(grid.pop("legs")), tpl, facts)
+    floor = min_n_trades(tpl)
+    if floor is not None:
+        # ⚠️ A unit whose committed n is below its OWN registered n-floor can only
+        # ever grade UNDERPOWERED (PI-20261004-FOJGFIZF-0002: 33 prop-fit-breakout
+        # runs, legs at n=57 vs the 88 floor, zero decisions). Such a leg is not
+        # minted; because `point_key` excludes n_trades, it is minted on the first
+        # replenish after its committed evidence reaches the floor -- accruing,
+        # not dropped. A point with no readable n cannot show it clears the floor.
+        points = [p for p in points if _int_or_none(p.get("n_trades")) is not None
+                  and _int_or_none(p.get("n_trades")) >= floor]
     for axis in sorted(grid):
         values = grid[axis]
         if not isinstance(values, list) or not values:
@@ -533,6 +574,28 @@ def _self_test() -> int:
                 (q / f"{u['id']}.yaml").write_text(u["text"])
                 pl = script_run.plan(u["id"], run_id="st", queue_dir=q, repo=root)
                 assert pl.ok, (u["id"], pl.errors)
+    # PI-20261004-FOJGFIZF-0002: a leg below the template's own n-floor is never minted
+    # (planted: 57 < 88 skipped, 88 and 169 kept, unreadable n skipped), and a floor that
+    # disagrees with the run's --n-floor is refused rather than silently diverging.
+    ftpl = {"family": "f", "grid": {"legs": "evidence_legs_with_breakout_market"},
+            "markets": {"X": {"market": "XM", "swap_model": "s"}}, "min_n_trades": 88,
+            "run": {"command": ["p", "--n-floor", "88"]}}
+    ffacts = {"legs": {a: {"symbol": "X", "timeframe": "1h"} for a in ("lo", "eq", "hi", "bad")},
+              "evidence": {"lo": {"trades_file": "t", "n_trades": 57}, "eq": {"trades_file": "t", "n_trades": 88},
+                           "hi": {"trades_file": "t", "n_trades": 169}, "bad": {"trades_file": "t", "n_trades": "x"}}}
+    assert sorted(p["leg"] for p in expand(ftpl, ffacts)) == ["eq", "hi"], expand(ftpl, ffacts)
+    assert len(expand({k: v for k, v in ftpl.items() if k != "min_n_trades"}, ffacts)) == 4
+    try:
+        expand({**ftpl, "run": {"command": ["p", "--n-floor", "39"]}}, ffacts)
+    except ValueError as e:
+        assert "--n-floor" in str(e), e
+    else:
+        raise AssertionError("min_n_trades disagreeing with --n-floor was not refused")
+    for tpl_path_f, _sha_f, tpl_f in load_templates(root):
+        fl = min_n_trades(tpl_f)
+        if fl is not None:
+            for pt in expand(tpl_f, repo_facts(root)):
+                assert int(pt["n_trades"]) >= fl, (tpl_path_f, pt["leg"], pt["n_trades"], fl)
     # no live template leaves a placeholder unresolved (prop-fit-breakout did on 2026-09-28)
     for u in p1["new_units"]:
         assert unresolved_placeholders(u["text"]) == [], (u["id"], unresolved_placeholders(u["text"]))

@@ -75,6 +75,9 @@ def fake_repo(tmp_path: Path):
     # returns. Default empty (fail-safe restart) until a test sets it.
     diff_files = tmp_path / "diff_files"
     diff_files.write_text("")
+    prune_log = tmp_path / "prune.log"
+    prune_rc = tmp_path / "prune_rc"
+    prune_rc.write_text("0")
     _make_stub(
         bindir / "git",
         f"""#!/bin/bash
@@ -94,6 +97,7 @@ case "$1" in
     esac
     ;;
   diff) cat "{diff_files}" ;;
+  prune) echo "$*" >> "{prune_log}"; exit "$(cat "{prune_rc}")" ;;
   fetch|reset) exit 0 ;;
   *) exit 0 ;;
 esac
@@ -135,6 +139,8 @@ esac
         "bindir": bindir,
         "restart_log": restart_log,
         "diff_files": diff_files,
+        "prune_log": prune_log,
+        "prune_rc": prune_rc,
     }
 
 
@@ -227,6 +233,12 @@ def test_empty_diff_fails_safe_to_restart(fake_repo):
     "scripts/ci/check_wip_ceiling.py",
     "comms/research/d3_realized_slippage/2026-09-24.json",
     "comms/strategy_evidence/trend_donchian_sol_4h.json",
+    # PI-20261004-PUQ1APTH-0006: read per trader tick, never cached at import
+    "comms/macro/valuation_snapshots.jsonl",
+    "comms/macro/econ_calendar_captures/x.json",
+    # scripts/research/ outside the brief's import closure stays non-runtime
+    "scripts/research/queue_throughput_notes.py",
+    "scripts/research/x/queue_throughput.py",
 ])
 def test_widened_non_runtime_paths_skip_restart(fake_repo, path):
     fake_repo["diff_files"].write_text(f"docs/x.md\n{path}\n")
@@ -240,8 +252,12 @@ def test_widened_non_runtime_paths_skip_restart(fake_repo, path):
     "scripts/ops/pipeline.py",            # imported by the web API
     "scripts/ml/replay_pregate_live.py",  # imported by src/
     "scripts/prop/prop_executor_tick.py",  # coupled to src/prop
-    "comms/macro/valuation_snapshots.jsonl",
     "comms/strategy_reviews/2026-09-01/INDEX.json",
+    "comms/macroeconomics/x.json",         # prefix must be the comms/macro/ directory
+    # OA-16(d): imported in-process by the web-api brief (render_daily_brief.py)
+    "scripts/research/queue_throughput.py",
+    "scripts/research/queue_grade.py",
+    "scripts/research/m20_fleet_exit_sweep.py",
     "researchy/x.py",                      # prefix must be a directory
     "config/strategies.yaml",
 ])
@@ -281,3 +297,87 @@ def test_diff_reports_both_sides_of_a_rename_so_a_move_out_of_src_restarts(tmp_p
     keep = lambda files: [f for f in files if not _re.match(regex, f)]  # noqa: E731
     assert keep(with_renames) == []                     # the defect: would skip the restart
     assert keep(no_renames) == ["src/x.py"]             # the fix: restarts
+
+
+# --- PI-20261004-PUQ1APTH-0007 (2): stuck auto-gc ------------------------------
+
+def _seed_gc_log(fake) -> Path:
+    gc_log = fake["repo"] / ".git" / "gc.log"
+    gc_log.parent.mkdir(parents=True, exist_ok=True)
+    gc_log.write_text("warning: There are too many unreachable loose objects\n")
+    return gc_log
+
+
+def test_gc_log_triggers_a_bounded_prune_and_is_removed(fake_repo):
+    gc_log = _seed_gc_log(fake_repo)
+    fake_repo["diff_files"].write_text("docs/x.md\n")
+    res = _run(fake_repo)
+    assert res.returncode == 0, res.stderr
+    assert fake_repo["prune_log"].read_text().split() == ["prune", "--expire=1.hour.ago"]
+    assert not gc_log.exists()
+    assert "removed .git/gc.log" in res.stdout
+
+
+def test_failed_prune_never_blocks_the_pull_and_keeps_gc_log(fake_repo):
+    gc_log = _seed_gc_log(fake_repo)
+    fake_repo["prune_rc"].write_text("1")
+    fake_repo["diff_files"].write_text("src/main.py\n")
+    res = _run(fake_repo)
+    assert res.returncode == 0, res.stderr
+    assert gc_log.exists()  # retried on the next tick
+    assert "git prune failed" in res.stdout
+    assert "ict-trader-live.service" in _restarted(fake_repo)  # the deploy still ran
+
+
+def test_no_gc_log_means_no_prune(fake_repo):
+    fake_repo["diff_files"].write_text("docs/x.md\n")
+    res = _run(fake_repo)
+    assert res.returncode == 0, res.stderr
+    assert not fake_repo["prune_log"].exists()
+
+
+# --- OA-16(d): the web-api brief's in-process scripts/research closure ---------
+
+def _in_process_pattern() -> str:
+    import re as _re
+    m = _re.search(r"\| grep -E '(\^scripts/research/[^']+)' \|\| true\)\"", DEPLOY_SCRIPT.read_text())
+    assert m, "IN_PROCESS_CHANGES grep not found in deploy_pull_restart.sh"
+    return m.group(1)
+
+
+_CLOSURE_PROBE = """
+import json, os, sys
+sys.path.insert(0, os.getcwd())
+from pathlib import Path
+from scripts.ops import render_daily_brief as r
+b = r.build(root=Path('.'))
+r.render(b)
+root = os.path.join(os.getcwd(), 'scripts', 'research') + os.sep
+files = sorted({
+    os.path.relpath(os.path.abspath(m.__file__), os.getcwd())
+    for m in list(sys.modules.values())
+    if getattr(m, '__file__', None) and os.path.abspath(m.__file__).startswith(root)
+})
+print(json.dumps({'throughput': b.get('researchThroughput') is not None, 'files': files}))
+"""
+
+
+def test_every_scripts_research_module_the_brief_loads_is_runtime():
+    """MEASURE the closure instead of trusting the list. Build and render the
+    brief the way /api/bot/work/brief does, then collect every loaded file
+    under scripts/research/. Each one must be in the deploy's in-process
+    exception, or a change to it would leave the web-api serving stale code."""
+    import json as _json
+    import re as _re
+    import sys as _sys
+    out = subprocess.run([_sys.executable, "-c", _CLOSURE_PROBE], cwd=REPO_ROOT,
+                         capture_output=True, text=True, timeout=180)
+    assert out.returncode == 0, out.stderr[-2000:]
+    got = _json.loads(out.stdout.strip().splitlines()[-1])
+    # Positive control: the probe must actually reach queue_throughput, or an
+    # empty closure would pass vacuously.
+    assert got["throughput"], "brief could not compute researchThroughput; the probe proves nothing"
+    assert "scripts/research/queue_throughput.py" in got["files"]
+    pat = _re.compile(_in_process_pattern())
+    missing = [f for f in got["files"] if not pat.match(f)]
+    assert not missing, f"the brief loads these in-process but the deploy treats them as non-runtime: {missing}"

@@ -33,7 +33,8 @@ STATE (``soak_states()``), computed per call, never stored:
             against (no_backtest_rate). NEVER folded into dead or accruing.
   A ``too_long`` contract is STILL graded (it is running, and can go ready,
   overdue or dead); ``design`` travels beside ``state`` so a consumer shows both.
-  A ``not_soaking`` contract (disabled / unrostered shadow) reads ``dead``.
+  A ``not_soaking`` contract (disabled / unrostered shadow) is a recorded
+  decision, not a soak: ``soak_states()`` omits it.
 
 ``expected_per_week`` is INFERRED as ``n_trades_oos / window_days * 7`` from the
 leg's ``comms/strategy_evidence/<leg>.json`` — the harness's OOS trade count over
@@ -182,8 +183,21 @@ def _count(conn: sqlite3.Connection, c: Dict[str, Any]) -> int:
     return int(row[0])
 
 
-def grade(c: Dict[str, Any], observed: Optional[int], today: date) -> Dict[str, Any]:
-    """Pure: one contract + an observed count (None = could not read) -> a state row."""
+def _open_positions(conn: sqlite3.Connection, c: Dict[str, Any]) -> int:
+    if c["kind"] != "stage1":
+        return 0
+    row = conn.execute("SELECT COUNT(*) FROM trades WHERE account_id=? AND strategy_name=? "
+                       "AND status='open' AND COALESCE(is_backtest,0)=0",
+                       (c["account"], c["leg"])).fetchone()
+    return int(row[0])
+
+
+def grade(c: Dict[str, Any], observed: Optional[int], today: date,
+          open_positions: int = 0) -> Dict[str, Any]:
+    """Pure: one contract + an observed count (None = could not read) -> a state row.
+    ``open_positions`` > 0 is activity: a held position makes no close until it
+    exits (MEASURED 2026-10-04: spy_trend_long_1d read dead at 0 closes in 115d
+    while holding a long — a daily trend leg's normal state)."""
     out = {"id": c["id"], "leg": c["leg"], "account": c["account"], "kind": c["kind"],
            "started": c["started"], "end_date": c.get("end_date"), "design": c.get("design"),
            "progress": None, "state": "unknown", "reason": ""}
@@ -203,6 +217,9 @@ def grade(c: Dict[str, Any], observed: Optional[int], today: date) -> Dict[str, 
     end = date.fromisoformat(c["end_date"])
     if observed >= n:
         out["state"], out["reason"] = "ready", f"n reached ({observed}/{n}) — apply: {c['pass_rule']}"
+    elif observed == 0 and open_positions:
+        out["state"], out["reason"] = ("accruing", f"0 closes but {open_positions} position(s) open — "
+                                       f"a close is pending, not absent")
     elif observed == 0 and expected >= DEAD_EXPECTED:
         out["state"], out["reason"] = "dead", (f"0 events in {days_in}d; the backtest rate expected "
                                                f"~{expected:.1f}")
@@ -243,13 +260,20 @@ def soak_states(today: Optional[date] = None, db_path: Optional[str] = None,
             conn = None
     rows = []
     for c in contracts:
-        observed = None
+        if c.get("design") == "not_soaking":
+            # Not a soak (disabled / on no roster): its contract records that
+            # decision, but it is never reported as a soak — a permanent "dead"
+            # row for a thing nothing runs is noise, not an alarm (manager,
+            # 2026-10-04 17:52Z review).
+            continue
+        observed, held = None, 0
         if conn is not None and c.get("design") in ("ok", "too_long"):
             try:
                 observed = _count(conn, c)
+                held = _open_positions(conn, c)
             except sqlite3.Error:
                 observed = None
-        row = grade(c, observed, today)
+        row = grade(c, observed, today, held)
         if stale and row["state"] == "unknown" and c.get("design") in ("ok", "too_long"):
             row["reason"] = stale + " — we could not look"
         rows.append(row)
@@ -312,6 +336,7 @@ def _self_test() -> int:
     ck("0 events when ~4 expected -> dead", grade(c, 0, t)["state"] == "dead")
     ck("past end, short of n -> overdue", grade(dict(c, end_date="2026-10-01"), 2, t)["state"] == "overdue")
     ck("unreadable DB -> unknown, never dead", grade(c, None, t)["state"] == "unknown")
+    ck("0 closes but a position open -> accruing, not dead", grade(c, 0, t, 1)["state"] == "accruing")
     ck("design too_long is still graded (running soaks can die)",
        grade(dict(c, design="too_long", recommended_fix="pool"), 0, t)["state"] == "dead")
     ck("no_backtest_rate -> unknown", grade(dict(c, design="no_backtest_rate"), 5, t)["state"] == "unknown")

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "redact_text leaves a JSON key under the token length rule readable (the rerun prints the key), with a test that a 24+ char token VALUE is still masked; or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20261002-EFKI6YYD-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "TRADEIFY-GOLIVE lane session_01Db47kLwhEpWPNaEfki6yYD; manager trigger 2026-10-02 12:58Z; issue comments #15491 #15493 #15494",
+    "rerun": "python3 -c \"from src.prop.platform.dxtrade import redact_text; import json; print(redact_text(json.dumps({'instrument_probe_variants': 1})))\" -- prints <token> as the key while the bug stands."
+  },
+  "routed_to": "PROP-EXEC [route; size S, value L, tier 1] BACKLOG-ROUTE 2026-10-04: Rerun on main prints {\"<token>\": 1}: redact_text still masks 25-char JSON keys (positive control).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "The prop executor's output redactor (src/prop/platform/dxtrade.py redact_text, _TOKENISH_RE = [A-Za-z0-9_\\-.=+/]{24,}) masks long JSON KEYS as well as values: the key 'instrument_probe_variants' (25 chars) printed as '<token>' in system-action comments #15491/#15493/#15494 (2026-10-02), so a reader cannot tell which result a line is. The data under it was intact. Harmless (no leak, over-masking only) but misleading in logs. Fix options: exempt a JSON key position (\"...\":) from the token rule, or keep emitted keys under 24 chars (the TRADEIFY-GOLIVE page_dump mode already does). Must not weaken masking of real token VALUES."
+}

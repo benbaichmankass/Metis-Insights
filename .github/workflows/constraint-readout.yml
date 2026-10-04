@@ -87,7 +87,7 @@ jobs:
     # job mid-wait and reports a failure for a merge that was about to succeed.
     # 40 = ~5m of work + the 30m wait + 5m slack. tests/test_commit_to_main_callers.py
     # pins this floor across every caller.
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

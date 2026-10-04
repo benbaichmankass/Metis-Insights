@@ -1,0 +1,6 @@
+{
+  "held_by": "lane OPS-FIXES sub-agent",
+  "branch": "ops-fixes-propfit-floor",
+  "claimed_at": "2026-10-04T15:15:50Z",
+  "purpose": "HELD Tier-1 (landing machinery): prop-fit-breakout skips legs below its own n-floor (PI-20261004-FOJGFIZF-0002)"
+}

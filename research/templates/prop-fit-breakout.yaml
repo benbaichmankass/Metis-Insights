@@ -78,9 +78,17 @@ lands:
   store: research/results/
   assert_field: read_state
   min_rows: 1
+# PI-20261004-FOJGFIZF-0002: a leg whose committed n is below the unit's own
+# 88 floor can only grade UNDERPOWERED (33 such runs, zero decisions). The
+# generator skips it; since the unit key excludes n_trades, the leg is minted
+# on the first replenish after its committed evidence reaches 88 (accruing,
+# not dropped). MUST equal run.command's --n-floor -- queue_replenish refuses
+# a template where they differ.
+min_n_trades: 88
 grid:
   # Expanded by the generator: every live-roster leg whose evidence record
-  # exists AND whose symbol maps to a Breakout market (see `markets`).
+  # exists AND whose symbol maps to a Breakout market (see `markets`), and
+  # whose committed n_trades >= min_n_trades.
   legs: evidence_legs_with_breakout_market
   sizing_arm:
     - {key: bal010, label: "flat 1.0% of balance", args: "--sizing balance --risk-pct 0.010"}

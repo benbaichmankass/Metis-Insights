@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "clears_when": "The operator records a decision (accept the exposure as is, or name the mitigation and a checklist row carries it) in a checklist note or on the memo; OR tradeify_1 is closed.",
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261004-OZ9AAZSV-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-firm-deepdive-2026-10-04.md (lane PROP-FIRM-DEEP session_01Fgr85LsozsKJp3oz9aAZsv, manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator ask 2026-10-04 ~14:55Z 'keep doing research on other prop trading firms')",
+    "rerun": "Re-fetch https://tradeify247.co/funded-trader-agreement (Annex B.18, section 8.4) and https://help.tradeify247.co/en/articles/13393249-tradeify-247-faq ('Can I use trading bots?'); the finding stands while B.18.1 asks for ownership evidence 'including production of the tool's source files' and B.18.3 bans shared bots, and while the repo is public."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "tradeify_1 (LIVE, Tradeify 247) bot-ownership exposure, now read from primary sources: the 'live video of you enabling the code on your own PC' sentence is in the Tradeify FUTURES brand's help article 10468318 'Guidelines for Traders' (dated 2026-08-12), NOT in any Tradeify 247 document. Tradeify 247's own Funded Trader Agreement Annex B.18.1 says instead: 'The Company may at any time require evidence of such ownership or exclusive licence, including production of the tool's source files', and 8.4 reserves 'a live video interview with its risk or compliance team' as a condition of any payout. B.18.3 bans 'bots or tools shared among, or executing the same signals for, multiple traders'. OPEN QUESTION FOR THE OPERATOR: this repo is PUBLIC, so the bot's source is readable by anyone; if a third party ran it on Tradeify 247 the order-similarity scan would see two accounts with the same signals. Decide whether that exposure needs mitigation (e.g. a written ownership note ready to produce, or keeping prop-routing params out of the public tree) before the first tradeify_1 payout request."
+}

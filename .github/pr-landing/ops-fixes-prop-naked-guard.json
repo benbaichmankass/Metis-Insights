@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for manager review (lane OPS-FIXES). Tier-2: the prop (DXtrade: breakout_1 / tradeify_1) order path. open_order_ticket no longer falls through to later openers when the Ask-button opener declines, and the watchlist-row double-click runs only on a positive one-click OFF read. The executor alerts and contains a NAKED open position, closes in the same cycle when the one repair does not click, and retries a close that did not click (bounded) instead of parking it.",
+  "why": "OA-04 (PI-20261004-GCFA5DOR-0002): an Ask decline could reach the row double-click, an instant UNBRACKETED market order if one-click is ON but reads 'unknown'. OA-05/06 (PI-20261004-GCFA5DOR-0003): an SL/TP lost after 'open' was never alerted, the ROLLOUT_GUARD repair always refuses yet cost a tick, and a failed flatten parked the row 'contained' with no retry."
+}
