@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01NQGspf9jnJZ81SGcfA5doR",
+  "branch": "claude/ops-audit-oa17-sa-concurrency",
+  "claimed_at": "2026-10-04T10:38:00Z",
+  "purpose": "OA-17 system-actions concurrency + cancel guard (held for manager review)"
+}

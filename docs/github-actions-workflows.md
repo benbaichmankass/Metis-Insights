@@ -235,6 +235,7 @@ exists to arm CI, and read CI with `get_check_runs`, never `get_status`.
 | `provision-training-vm-auto-retry.yml` | AUTO | E (every 10 min) | — |
 | `deploy-trainer-bootstrap.yml` | AUTONOMOUS | B | `.github/triggers/deploy-trainer-bootstrap` |
 | `system-actions.yml` | OPERATOR-APPROVAL | A | `system-action` |
+| `system-actions-cancel-guard.yml` | AUTO | `workflow_run` (system-actions completed, cancelled) | — |
 | `vm-net-fix.yml` | OPERATOR-APPROVAL | A | `vm-net-fix-request` |
 | `vm-cloud-fix.yml` | OPERATOR-APPROVAL | A | `vm-cloud-fix-request` |
 | `vm-cloud-open-ib-port.yml` | OPERATOR-APPROVAL | A | `vm-cloud-open-ib-port` |
@@ -617,6 +618,22 @@ mcp__github__issue_write
 ---
 
 ### VM operations
+
+#### `system-actions-cancel-guard.yml`
+
+**Autonomy:** AUTO — runs on its own; never executes or re-files an action, it only comments
+and alerts.
+
+**Trigger:** `workflow_run` on `system-actions` completing with conclusion `cancelled`
+(issue-triggered runs only).
+
+**Purpose:** OA-17 (2026-10-04). GitHub keeps one pending run per concurrency group, so a newer
+request in the shared mutating lane cancels an older pending one. This reads the issue number the
+run's `route` job uploaded (`system-action-request` artifact) and runs
+`scripts/ops/system_action_cancel_guard.py`: a run whose main job never started and whose issue is
+still open gets a **"CANCELLED, NOT RUN"** comment naming the displacing run and one direct
+Telegram alert, and is NOT re-queued (that would invert request order); a run that had started is
+commented on only; a closed issue is left alone. See `docs/claude/system-actions.md` § 7.2.
 
 #### `system-actions.yml`
 
