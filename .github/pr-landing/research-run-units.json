@@ -1,5 +1,7 @@
 {
   "tier": 1,
   "landing": "hold",
-  "why": "New research-queue units (XRP trail4 confirmation 653/654, Tradeify prop-fit 655-664) with pre-registered decision rules, plus hand-grading of RQ-20260929-105 (PASS) and -106 (FAIL). A new unit is a registration and a status flip is a grade, so a human reads this rather than self-landing. No config, strategy or account file is touched."
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "New research-queue units are registrations and a status flip is a grade; the landing guard cannot vouch for either, so a human reads them. No config, strategy or account file is touched.",
+  "why": "New pre-registered units RQ-20261004-653..664 (XRP trail4 confirmation, Tradeify prop-fit) plus hand grades of RQ-20260929-105 (PASS) and -106 (FAIL)."
 }
