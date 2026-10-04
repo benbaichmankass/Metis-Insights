@@ -5132,12 +5132,12 @@
       "id": "PROTECTION-HARDENING",
       "title": "Order-path protection + orphan hardening: the 13 CA-A01/CA-A03 members of PI-20261004-IRWQEEXT-0001 (orphan flatten on read failure, venue surplus undetected, paper-orphan link overwrite, Bybit 110017 matcher, IB/hedge coverage, over-cover keeper qty)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "fix lane",
       "lane": "session_017nt865EQaLPJszJ4SFBKu9",
       "model": "claude-opus-5-5",
       "ceiling_usd": 40,
-      "spend_usd": null,
+      "spend_usd": 13.72,
       "tier": 2,
       "prs": [
         16492,
@@ -5145,7 +5145,12 @@
         16498
       ],
       "blocked_on": [],
-      "note": "2026-10-04 (lane session_017nt865EQaLPJszJ4SFBKu9, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv): re-verified all 13 members against main; PR-A (held) fixes KFWRL9R1-0006 (orphan flatten on package-read failure), -0002 (Bybit 110017 already-flat matcher), -0008 (paper orphan steals real-money package link), -0007 (venue surplus over journal, detect-only). Each test fails on main. Remaining members follow in PR-B/PR-C or are dispositioned with evidence on the pipeline. | 2026-10-04 ~22:00Z lane: THREE held PRs open, none merged/deployed/observed. #16492 orphan/reconciler (KFWRL9R1-0006/-0002/-0008/-0007). #16496 coverage (ENGC5EUD-0001, KFWRL9R1-0011/-0012; ENGC5EUD-0004 closed done, already fixed by #13251). #16498 Alpaca flat-finalise cancel (01CGDPN9-0002 part b) + pipeline routing notes for all 13 members. Residual, still open on the pipeline with re-verified evidence: 01CGDPN9-0002 part (a) _netting_apply_close (needs a decision), 3QJJAY5Y-0001 (Tier-3, needs journalctl count), KFWRL9R1-0010 (watchdog closed_at basis), KFWRL9R1-0013 (narrowed: >=3 naked rows / same-size siblings), ZCQTDZZG-0001 (diag-only). Row moves to landed_unproven when the PRs merge; done needs deploy + the observations named in each PR body."
+      "note": "2026-10-04 (lane session_017nt865EQaLPJszJ4SFBKu9, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv): re-verified all 13 members against main; PR-A (held) fixes KFWRL9R1-0006 (orphan flatten on package-read failure), -0002 (Bybit 110017 already-flat matcher), -0008 (paper orphan steals real-money package link), -0007 (venue surplus over journal, detect-only). Each test fails on main. Remaining members follow in PR-B/PR-C or are dispositioned with evidence on the pipeline. | 2026-10-04 ~22:00Z lane: THREE held PRs open, none merged/deployed/observed. #16492 orphan/reconciler (KFWRL9R1-0006/-0002/-0008/-0007). #16496 coverage (ENGC5EUD-0001, KFWRL9R1-0011/-0012; ENGC5EUD-0004 closed done, already fixed by #13251). #16498 Alpaca flat-finalise cancel (01CGDPN9-0002 part b) + pipeline routing notes for all 13 members. Residual, still open on the pipeline with re-verified evidence: 01CGDPN9-0002 part (a) _netting_apply_close (needs a decision), 3QJJAY5Y-0001 (Tier-3, needs journalctl count), KFWRL9R1-0010 (watchdog closed_at basis), KFWRL9R1-0013 (narrowed: >=3 naked rows / same-size siblings), ZCQTDZZG-0001 (diag-only). Row moves to landed_unproven when the PRs merge; done needs deploy + the observations named in each PR body. | 2026-10-04 23:15Z manager: MERGED #16492 (01dfd61), #16496 (6c465e0), #16498 (70ec92b). DEPLOYED: /api/diag/version git_sha 95c9faec2 contains all three, restart_pending false. OBSERVED in part: the IB stop-side sweep graded the ib_paper book covered=1 at 23:07Z, and held read_failed=1 on a gateway peer-close at 23:14Z. 0 tracebacks and 0 'venue SURPLUS' lines in the 23:04-23:14Z window. The Bybit 110017 and Alpaca flat-cancel paths have not fired yet. 01CGDPN9-0002(a) decided: leave (#16511). Lane spend $13.72 actual (get_session); the lane stopped believing it was at its $40 ceiling. Residuals on the pipeline: 3QJJAY5Y-0001 (observation due 10-07), KFWRL9R1-0010, -0013, ZCQTDZZG-0001. Revert: revert the three squash commits.",
+      "observation": {
+        "what": "each fixed path seen firing correctly on the live VM at least once: an IB stop-side coverage verdict on a real book (seen 23:07Z: 'swept 1 open IB position(s) - covered=1', and 23:14Z read_failed=1 on a gateway peer-close, held as could-not-look), plus EITHER a Bybit 110017 already-flat close logged as exchange-closed OR an Alpaca 'flat-close cancel of trade ... own Alpaca protection' line with a retCode; and no 'venue SURPLUS' false alarm from unit mismatch",
+        "how_to_check": "bash scripts/ops/diag_fetch.sh '/api/diag/journalctl?unit=ict-trader-live&lines=2000' and grep 'already flat\\|exchange-closed\\|flat-close cancel\\|venue SURPLUS\\|_check_broker_naked_ib_positions'; plus /api/diag/version git_sha descends from 70ec92b3",
+        "due_by": "2026-10-11"
+      }
     }
   ]
 }
