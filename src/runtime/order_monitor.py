@@ -51,6 +51,7 @@ import json
 import logging
 import math
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -896,6 +897,44 @@ def _legs_after_failed(legs: list, failed_id) -> list:
 _EXCHANGE_CLOSED_PENDING_DB: Dict[str, tuple] = {}
 
 
+# Bybit V5 codes meaning "there is no position to reduce": 30031 (position size
+# is zero) and 110017 (current position is zero, cannot fix reduce-only order
+# qty). 110025 is NOT one of them — it is "position mode not modified", unrelated
+# to flatness — and was dropped from the matcher (CA-A01-005).
+_BYBIT_ALREADY_FLAT_CODES = frozenset({30031, 110017})
+_BYBIT_ALREADY_FLAT_CODE_RE = re.compile(
+    r"(?:retCode\s*[=:]\s*|ErrCode:\s*)(\d+)\b", re.IGNORECASE,
+)
+
+
+def _venue_reports_position_already_flat(
+    err_str: str, exchange_response: Any = None,
+) -> bool:
+    """True when a refused close says the position is ALREADY flat on the venue.
+
+    ⚠️ The previous matcher looked for ``retCode=110017`` and ``position size is
+    zero``, but pybit raises ``InvalidRequestError: current position is zero,
+    cannot fix reduce-only order qty (ErrCode: 110017) ...`` and the non-raising
+    branch formats ``retMsg`` without the code — so the real rejection matched
+    NEITHER and an SL/TP-already-fired close was paged as a close FAILURE
+    (CA-A01-005, PI-20260927-KFWRL9R1-0002). This reads the structured
+    ``retCode`` when the envelope carries one, then the code in either text
+    format, then the message wording.
+    """
+    if isinstance(exchange_response, dict):
+        try:
+            if int(exchange_response.get("retCode")) in _BYBIT_ALREADY_FLAT_CODES:
+                return True
+        except (TypeError, ValueError):
+            pass
+    text = str(err_str or "")
+    for m in _BYBIT_ALREADY_FLAT_CODE_RE.finditer(text):
+        if int(m.group(1)) in _BYBIT_ALREADY_FLAT_CODES:
+            return True
+    low = text.lower()
+    return "position size is zero" in low or "current position is zero" in low
+
+
 def _finish_package_after_leg_close(db, open_pkg: dict, matched_trade: dict,
                                     reason: str,
                                     summary: _StrategyTickSummary) -> None:
@@ -1281,16 +1320,15 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 summary.no_change_count += 1
                 return
             # Bybit signals "position already gone" with retCode 30031
-            # (position size is zero) or 110017 / 110025. When the
-            # exchange's internal SL/TP fires before the monitor's close
-            # attempt, we get one of these. Treat as exchange-closed so
-            # the DB is updated and the reconciler doesn't have to clean
-            # up a stale open row.
-            _already_closed = (
-                "position size is zero" in err_str.lower()
-                or "retCode=30031" in err_str
-                or "retCode=110017" in err_str
-                or "retCode=110025" in err_str
+            # (position size is zero) or 110017 (current position is zero,
+            # cannot fix reduce-only order qty). When the exchange's internal
+            # SL/TP fires before the monitor's close attempt, we get one of
+            # these. Treat as exchange-closed so the DB is updated and the
+            # reconciler doesn't have to clean up a stale open row.
+            # Recognised in every format the close path actually emits
+            # (CA-A01-005) — see _venue_reports_position_already_flat.
+            _already_closed = _venue_reports_position_already_flat(
+                err_str, ex_result.get("exchange_response"),
             )
             if _already_closed:
                 logger.info(
@@ -2586,6 +2624,72 @@ _ACCOUNT_RESET_SNAPSHOT_THRESHOLD = 3
 # reattachable.
 _PENDING_ORPHAN_NOSTRAT_CLOSE: Dict[int, datetime] = {}
 
+# (account, symbol, side) → "armed" (seen once) / "alerted" (paged). A venue
+# surplus over the journal is paged once, on the SECOND consecutive pass that
+# sees it (an entry fill whose journal write is a moment behind must not page),
+# and re-armed only after it clears (CA-A01-020).
+_VENUE_SURPLUS_STATE: Dict[tuple, str] = {}
+
+
+def _check_venue_surplus(
+    *, aid: str, sym: str, side: str, venue_size: Any,
+    journal_size: Optional[float], entry_price: Any,
+    summary: Dict[str, int],
+) -> None:
+    """Detect a venue position LARGER than the journal's open rows on a known
+    (symbol, side) — the untracked surplus the membership-only orphan test
+    never saw (CA-A01-020, PI-20260927-KFWRL9R1-0007).
+
+    DETECT-ONLY: alerts, never adopts or closes. Unreadable sizes on either
+    side are "could not look" and neither arm nor clear the state.
+    """
+    key = (aid, sym, side)
+    try:
+        venue = abs(float(venue_size))
+    except (TypeError, ValueError):
+        return
+    if journal_size is None:
+        return
+    surplus = venue - journal_size
+    if surplus <= max(venue, journal_size) * _BYBIT_QTY_DIVERGENCE_FRAC:
+        _VENUE_SURPLUS_STATE.pop(key, None)
+        return
+    summary["surplus_found"] = summary.get("surplus_found", 0) + 1
+    state = _VENUE_SURPLUS_STATE.get(key)
+    if state is None:
+        _VENUE_SURPLUS_STATE[key] = "armed"
+        logger.warning(
+            "_reconcile_orphan_exchange_positions: venue SURPLUS seen — "
+            "account=%s symbol=%s side=%s venue=%s journal_open=%s "
+            "(awaiting a second confirming pass before alerting)",
+            aid, sym, side, venue, journal_size,
+        )
+        return
+    if state == "alerted":
+        return
+    _VENUE_SURPLUS_STATE[key] = "alerted"
+    note = (
+        f"venue {sym}/{side} size {venue:g} exceeds the journal's open rows "
+        f"({journal_size:g}) by {surplus:g} on two consecutive passes — the "
+        "surplus is NOT tracked by any journal row (no exits, no risk read). "
+        "Detect-only: nothing was adopted or closed (CA-A01-020)."
+    )
+    logger.error("_reconcile_orphan_exchange_positions: %s account=%s", note, aid)
+    try:
+        from src.runtime.execution_diagnostics import (
+            enqueue_exchange_orphan_adoption,
+        )
+        enqueue_exchange_orphan_adoption(
+            account=aid, symbol=sym, side=side, size=surplus,
+            entry_price=float(entry_price or 0.0), db_trade_id=None,
+            policy="detect_only", note=note,
+        )
+    except Exception as exc:  # noqa: BLE001 — a notify failure never aborts the sweep
+        logger.warning(
+            "_reconcile_orphan_exchange_positions: surplus alert enqueue "
+            "failed account=%s symbol=%s: %s", aid, sym, exc,
+        )
+
 # Reverse-reconciler half of the same idea (BL-20260614-ORPHANBLIP). The
 # close-on-disappear pass in ``_reconcile_orphan_exchange_positions`` must NOT
 # close an ``orphan_adopt`` row the first time the exchange snapshot omits its
@@ -3517,6 +3621,10 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
         "checked_accounts": 0,
         "checked_positions": 0,
         "orphans_found": 0,
+        # Venue size above the journal's summed open size on a KNOWN
+        # (symbol, side), beyond _BYBIT_QTY_DIVERGENCE_FRAC — confirmed on a
+        # 2nd pass, alerted (detect-only), never adopted (CA-A01-020).
+        "surplus_found": 0,
         "adopted": 0,
         "closed": 0,
         "detect_only": 0,
@@ -3654,6 +3762,9 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
             continue
 
         known: set = set()
+        # Summed open journal size per (symbol, side); None once any row's
+        # size is unreadable — "could not sum" is never "summed to less".
+        journal_qty: Dict[tuple, Optional[float]] = {}
         for r in open_rows:
             sym = r["symbol"]
             side = str(r["direction"] or "").lower()
@@ -3661,6 +3772,15 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                          "sell": "short", "short": "short"}.get(side)
             if sym and canonical:
                 known.add((sym, canonical))
+                _k = (sym, canonical)
+                try:
+                    _q = abs(float(r["position_size"]))
+                except (TypeError, ValueError):
+                    _q = None
+                if _q is None or (_k in journal_qty and journal_qty[_k] is None):
+                    journal_qty[_k] = None
+                else:
+                    journal_qty[_k] = (journal_qty.get(_k) or 0.0) + _q
 
         # Build the set of exchange-side (symbol, canonical_side) pairs
         # ONCE so both the adopt pass and the close-on-disappear pass
@@ -3717,7 +3837,14 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                         # flatten, which is strictly worse than the bug.
                         position_size=r["position_size"],
                     )
-                    if _attr.refused:
+                    if _attr.read_failed:
+                        # We could not look (package read raised). Unknown is
+                        # not "no candidate": hold the position on its static
+                        # stop and drop any armed no-strategy close, so a
+                        # flatten needs two clean reads again (CA-A01-019).
+                        _PENDING_ORPHAN_NOSTRAT_CLOSE.pop(tid_int, None)
+                        summary["errors"] += 1
+                    elif _attr.refused:
                         # A candidate EXISTS; we just cannot prove it owns this
                         # size. That is not "no rational exit strategy", so the
                         # position keeps resting on its static stop.
@@ -4065,6 +4192,12 @@ def _reconcile_orphan_exchange_positions(db) -> Dict[str, int]:
                 # Unrecognised position shape — skip, don't orphan.
                 continue
             if (sym, canonical_side) in known:
+                _check_venue_surplus(
+                    aid=aid, sym=str(sym), side=canonical_side,
+                    venue_size=p.get("size"),
+                    journal_size=journal_qty.get((sym, canonical_side)),
+                    entry_price=p.get("entry_price"), summary=summary,
+                )
                 continue
 
             # Orphan found.
@@ -4289,10 +4422,18 @@ class _OrphanAttribution:
       size.** The position has a plausible owner we simply cannot confirm.
       Flattening it would exit a live position for a bookkeeping reason, which
       is strictly worse than the mis-attribution this gate exists to prevent.
+    * ``read_failed=True`` — **we could not look.** The order-package read
+      raised (e.g. SQLite ``database is locked``), so whether a candidate
+      exists is UNKNOWN. This is NOT the ``refused=False`` "no candidate"
+      state and must never be acted on as one: a flatten on it would exit a
+      live position that a successful read might have reattached
+      (CA-A01-019, PI-20260927-KFWRL9R1-0006).
     """
 
     package: Optional[dict] = None
     refused: bool = False
+    #: The package read raised: "could not look", never "found nothing".
+    read_failed: bool = False
     #: The rejected candidate's claimed strategy, for the operator alert only.
     refused_strategy: Optional[str] = None
     detail: str = ""
@@ -4342,8 +4483,17 @@ def _recover_orphan_attribution(
         return _OrphanAttribution(detail="no direction or no entry price")
     try:
         candidates = db.get_recent_order_packages_for_symbol(symbol, limit=limit)
-    except Exception:  # noqa: BLE001 — best-effort; fall back to orphan_adopt
-        return _OrphanAttribution(detail="order-package read failed")
+    except Exception as exc:  # noqa: BLE001 — best-effort; fall back to orphan_adopt
+        # "Could not look" is its own state: the flatten probe in
+        # _reconcile_orphan_exchange_positions must not read it as "no
+        # candidate exists" (CA-A01-019).
+        logger.warning(
+            "_recover_orphan_attribution: order-package read failed for %s: %s "
+            "— attribution UNKNOWN (not 'no candidate')", symbol, exc,
+        )
+        return _OrphanAttribution(
+            read_failed=True, detail="order-package read failed",
+        )
     for c in candidates:
         if _canon_dir(c.get("direction")) != want:
             continue
@@ -4399,6 +4549,51 @@ def _recover_orphan_order_package(
         db=db, symbol=symbol, direction=direction, entry_price=entry_price,
         max_rel_diff=max_rel_diff, limit=limit,
     ).package
+
+
+def _relink_recovered_package(db, package: dict, trade_id: int) -> bool:
+    """Reopen a recovered orphan's package; link it ONLY if the link is free.
+
+    ⚠️ The adopt/reattach paths used to write ``linked_trade_id = <orphan>``
+    unconditionally. One package is shared by every account a signal fans out
+    to, and the orphan matcher is symbol-only, so a PAPER-mirror orphan (e.g.
+    ``bybit_portfolio``, which mirrors ``bybit_2`` exactly) stole the link from
+    the open REAL-MONEY leg — and ``_apply_partial_close`` resolves only
+    ``linked_trade_id`` (CA-A01-021, PI-20260927-KFWRL9R1-0008; invariant
+    BL-20260729 "the link points at the real trade").
+
+    Now the link is written only when it is empty, already names this trade,
+    or names a trade that is NOT open. If the current link names an open trade
+    — or we cannot read whether it is open — the link is kept; the orphan is
+    still a leg through its own ``trades.order_package_id``. The package is
+    reopened either way so ``run_monitor_tick`` governs the recovered leg.
+
+    Returns True when ``linked_trade_id`` was written.
+    """
+    opid = package.get("order_package_id")
+    current = package.get("linked_trade_id")
+    link_free = current in (None, "") or str(current) == str(trade_id)
+    if not link_free:
+        try:
+            hit = db.get_trades(filters={"id": int(current)})
+            link_free = not (hit and str(hit[0].get("status")) == "open")
+        except Exception as exc:  # noqa: BLE001 — could not look ≠ link free
+            logger.warning(
+                "_relink_recovered_package: read of linked trade %s for pkg=%s "
+                "failed (%s) — keeping the existing link", current, opid, exc,
+            )
+            link_free = False
+    updates: Dict[str, Any] = {"status": "open", "close_reason": None}
+    if link_free:
+        updates["linked_trade_id"] = int(trade_id)
+    else:
+        logger.info(
+            "_relink_recovered_package: pkg=%s keeps linked_trade_id=%s (an open "
+            "leg); recovered orphan trade %s joins as a leg via order_package_id",
+            opid, current, trade_id,
+        )
+    db.update_order_package(opid, updates)
+    return link_free
 
 
 def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
@@ -4479,12 +4674,13 @@ def _reattach_adopted_orphans(db, summary: Dict[str, int]) -> None:
                 "entry_reason": "reverse_reconciler_reattached_existing_orphan",
                 # Now tied back to its real strategy + order package (item #4).
                 "reconcile_status": "reconciled",
+                # The leg back-reference: _package_open_legs resolves a
+                # package's legs by trades.order_package_id, so the row is
+                # managed even when the package's linked_trade_id is (rightly)
+                # kept on another open leg (CA-A01-021).
+                "order_package_id": opid,
             })
-            db.update_order_package(opid, {
-                "status": "open",
-                "linked_trade_id": int(r["id"]),
-                "close_reason": None,
-            })
+            _relink_recovered_package(db, recovered, int(r["id"]))
         except Exception as exc:  # noqa: BLE001 — best-effort per row
             logger.warning(
                 "_reattach_adopted_orphans: re-attach of trade %s failed: %s",
@@ -4745,11 +4941,7 @@ def _adopt_orphan_position(
         # Reopen + re-link the original package so run_monitor_tick picks it
         # up under the recovered strategy and applies its monitor() exits.
         try:
-            db.update_order_package(opid, {
-                "status": "open",
-                "linked_trade_id": trade_id,
-                "close_reason": None,
-            })
+            _relink_recovered_package(db, recovered, trade_id)
         except Exception as exc:  # noqa: BLE001 — trade row already adopted; log only
             logger.warning(
                 "_adopt_orphan_position: re-link of package %s failed: %s",
