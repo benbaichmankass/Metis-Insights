@@ -68,7 +68,7 @@ grading:
   decision_rule_id: RULE-TPL-E35-BRACKET-IS-OOS-GATE
   evidence:
   - docs/research/e35-bracket-corpus.jsonl
-  graded_at: '2026-10-03'
+  graded_at: '2026-10-04'
   grader: scripts/research/queue_grade.py
   latest: true
   needs_review: false
