@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One pipeline record (OA-17: system-action requests silently cancelled while pending under the shared concurrency group). docs/claude/work/pipeline/ only, plus this declaration, arming file and slot claim."
+}
