@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-04T00:51:17Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-04T00:46:21Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-03T17:54:54Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-04T00:46:21Z",
+  "updated_at": "2026-10-04T00:51:17Z",
   "latest": {
-    "generated_at": "2026-10-04T00:46:21Z",
+    "generated_at": "2026-10-04T00:51:17Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -2222,8 +2222,7 @@
           "claude/ca-b06-audit"
         ],
         "session_01VsAt1BzrdspLn6hDzFTGh2": [
-          "claude/e44-lane-supervisor",
-          "claude/e44-lane-supervisor-build"
+          "claude/e44-lane-supervisor"
         ],
         "session_01Vy5PRPgQd3LRcex3qEGPjL": [
           "claude/w5n-r5-soak-reader"
