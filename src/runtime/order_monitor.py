@@ -10431,7 +10431,18 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 )
                 continue
             size = float(cov.get("size") or 0.0)
-            covered = float(cov.get("covered_qty") or 0.0)
+            # ⚠️ GRADED ON THE STOP SIDE (CA-A01-048,
+            # PI-20260927-KFWRL9R1-0011). `covered_qty` is stop OR target per
+            # OCA group, so a book holding a full take-profit and NO stop read
+            # fully covered: never re-armed, never paged. A take-profit cannot
+            # stop a loss. `stop_qty` is the side-aware figure the client
+            # returns; `covered_qty` is only the fallback for a coverage dict
+            # that predates it. `_rearm_credit` is this sweep's own re-arms.
+            _stop_side = cov.get("stop_qty")
+            covered = float(
+                (_stop_side if _stop_side is not None else cov.get("covered_qty"))
+                or 0.0
+            ) + float(cov.get("_rearm_credit") or 0.0)
             if size <= 0:
                 continue  # flat at the broker — nothing to protect
             if cov.get("unknown_qty_legs"):
@@ -10639,6 +10650,34 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
             if covered >= size - _IB_COVERAGE_EPSILON:
                 summary["covered"] += 1
                 continue  # fully covered (STOP side; see the target check above)
+            # Something rests but the STOP side is short of the position —
+            # partial stop cover, or a target-only book. Paged CRITICAL once per
+            # symbol per sweep, as the Alpaca sweep does: the uncovered qty can
+            # only run (CA-A01-048/-049).
+            if (cov.get("legs") or 0) > 0 and not cov.get("_partial_paged"):
+                cov["_partial_paged"] = True
+                summary["stop_short_paged"] = summary.get("stop_short_paged", 0) + 1
+                _emit_partial_stop_coverage_alert(
+                    account_id=account_id, symbol=protect_symbol, size=size,
+                    stop_qty=covered, target_qty=cov.get("target_qty"),
+                    trade_ids=[row["id"]], venue="ib",
+                )
+            # This row's OWN bracket is intact: its keyed group
+            # `oca-protect-t<id>` already rests a stop for its qty, so the
+            # shortfall belongs to a sibling. Re-arming it would cancel and
+            # re-place a good bracket every sweep while the genuinely naked
+            # sibling is skipped forever (CA-A01-049,
+            # PI-20260927-KFWRL9R1-0012).
+            _own = (cov.get("stop_groups") or {}).get(f"oca-protect-t{row['id']}")
+            try:
+                _own_intact = _own is not None and float(_own) >= (
+                    float(row["position_size"] or 0.0) - _IB_COVERAGE_EPSILON
+                ) > 0
+            except (TypeError, ValueError):
+                _own_intact = False
+            if _own_intact:
+                summary["own_group_intact"] = summary.get("own_group_intact", 0) + 1
+                continue
             # Partially covered is the case the old boolean could not see: a
             # surviving sibling leg made the whole netted position read
             # PROTECTED while this trade's own protection was gone.
@@ -10678,7 +10717,7 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
                 # that is the boolean defect in miniature. Crediting the qty
                 # keeps a still-uncovered sibling visible on this same sweep.
                 try:
-                    cov["covered_qty"] = float(cov.get("covered_qty") or 0.0) + float(
+                    cov["_rearm_credit"] = float(cov.get("_rearm_credit") or 0.0) + float(
                         row["position_size"] or 0.0
                     )
                 except (TypeError, ValueError):

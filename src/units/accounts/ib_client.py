@@ -4113,6 +4113,11 @@ class IBClient:
             "legs": legs,
             "unknown_qty_legs": unknown,
             "oca_groups": dict(oca_groups),
+            # {group: STOP qty} — the per-group stop side, so the naked sweep
+            # can tell WHICH journal row's own `oca-protect-t<id>` bracket is
+            # intact on a partially covered netted position (CA-A01-049).
+            # Additive; ungrouped stop legs are not in it.
+            "stop_groups": dict(stop_groups),
             # {group: clientId|None}. A `None` value is "unreadable", never
             # "this session" -- see the accumulator comment above.
             "oca_group_client_ids": dict(oca_group_client_ids),

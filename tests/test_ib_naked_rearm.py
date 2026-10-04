@@ -411,3 +411,89 @@ def test_rearm_threads_account_id_into_the_order_dict(tmp_path, monkeypatch):
     summary = om._check_broker_naked_ib_positions(db)
     assert summary["rearmed"] == 1, "the re-arm itself must still succeed"
     assert fake.rearmed[0]["account_id"] == "ib_paper"
+
+
+# ── CA-A01-048 / -049 (PI-20260927-KFWRL9R1-0011 / -0012) ────────────────────
+
+
+class _SidedIBClient(_FakeIBClient):
+    """Coverage with the SIDE-AWARE fields the real client returns."""
+
+    def __init__(self, *, size, stop_qty, target_qty, covered_qty, legs,
+                 stop_groups=None):
+        super().__init__(protected=True, size=size)
+        self._cov = {
+            "size": size, "covered_qty": covered_qty, "stop_qty": stop_qty,
+            "target_qty": target_qty, "legs": legs, "unknown_qty_legs": 0,
+            "oca_groups": {}, "stop_groups": dict(stop_groups or {}),
+            "source": "resting_legs",
+        }
+
+    def protection_coverage(self, symbol):
+        self.queried.append(symbol)
+        return dict(self._cov)
+
+
+def _capture_partial_pages(monkeypatch):
+    pages = []
+    monkeypatch.setattr(om, "_emit_partial_stop_coverage_alert",
+                        lambda **kw: pages.append(kw) or True)
+    monkeypatch.setattr(om, "_emit_target_naked_alert", lambda **kw: True)
+    return pages
+
+
+def test_ib_target_only_book_is_not_graded_covered(tmp_path, monkeypatch):
+    """A full take-profit and NO stop used to read covered (covered_qty is stop
+    OR target): never re-armed, never paged."""
+    pages = _capture_partial_pages(monkeypatch)
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="ib_paper", symbol="MHG", direction="long",
+            position_size=10, stop_loss=4.0, take_profit_1=6.0,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    fake = _SidedIBClient(size=10.0, stop_qty=0.0, target_qty=10.0,
+                          covered_qty=10.0, legs=1)
+    _patch_accounts(monkeypatch, fake)
+
+    summary = om._check_broker_naked_ib_positions(db)
+    assert summary["covered"] == 0
+    assert summary["rearmed"] == 1 and fake.rearmed[0]["sl"] == 4.0
+    assert len(pages) == 1 and pages[0]["venue"] == "ib"
+    assert pages[0]["stop_qty"] == 0.0
+
+
+def test_ib_partial_rearms_the_naked_row_not_the_protected_one(tmp_path, monkeypatch):
+    """Size 10: trade 1's own group oca-protect-t1 rests a 5-lot stop, trade 2
+    (5) is naked. Only trade 2 is re-armed, on every sweep order."""
+    pages = _capture_partial_pages(monkeypatch)
+    db = _FakeDB(tmp_path / "j.db")
+    for tid in (1, 2):
+        _insert(db, id=tid, account_id="ib_paper", symbol="MHG",
+                direction="long", position_size=5, stop_loss=4.0,
+                take_profit_1=6.0, created_at="2026-06-25T00:00:00+00:00",
+                status="open")
+    fake = _SidedIBClient(size=10.0, stop_qty=5.0, target_qty=5.0,
+                          covered_qty=5.0, legs=2,
+                          stop_groups={"oca-protect-t1": 5.0})
+    _patch_accounts(monkeypatch, fake)
+
+    for _ in range(3):
+        om._LAST_IB_BROKER_NAKED_CHECK_MONO = -1e9
+        om._check_broker_naked_ib_positions(db)
+
+    keys = [str(o.get("oca_key")) for o in fake.rearmed]
+    assert keys and set(keys) == {"2"}, keys
+    assert pages and all(p["venue"] == "ib" for p in pages)
+
+
+def test_ib_full_stop_cover_is_still_covered(tmp_path, monkeypatch):
+    pages = _capture_partial_pages(monkeypatch)
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="ib_paper", symbol="MHG", direction="long",
+            position_size=10, stop_loss=4.0, take_profit_1=6.0,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    fake = _SidedIBClient(size=10.0, stop_qty=10.0, target_qty=10.0,
+                          covered_qty=10.0, legs=2)
+    _patch_accounts(monkeypatch, fake)
+
+    summary = om._check_broker_naked_ib_positions(db)
+    assert summary["covered"] == 1 and fake.rearmed == [] and pages == []
