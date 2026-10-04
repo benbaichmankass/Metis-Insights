@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 (live order-path behaviour in src/prop/prop_executor.py). Behaviour approved by the OPERATOR 2026-10-04 ~12:42Z (popup, relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv), verbatim choice: 'Retry in band (Recommended)'. Manager dispatch: 'Build it as a Tier-3 PR, HELD for my review ... I merge after review.'",
+  "why": "A LIMIT the DXtrade terminal blocks because it sits at/through the market (submit disabled + footer 'Entry Price you set must be lower/higher than', MEASURED #16307/#16310/#16313, #16311) now waits in a new awaiting_resting_price ledger state instead of spending RETRY_MAX_ATTEMPTS and being refused: same limit, never MARKET, one alert at start, re-checked each tick against the quote with no click, placed through the normal guarded path once resting, NOT PLACED ('expired awaiting resting price') with one alert on band exit / valid_until. Any other disabled submit keeps the refuse+retry path. Also: redactor keeps the quote_after_submit_check action name. Pipeline PI-20261003-ILZMCTFQ-0002 re-scoped."
+}

@@ -713,6 +713,10 @@ def render_page_shape(shape: Mapping[str, Any], page_text: str,
 
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TOKENISH_RE = re.compile(r"[A-Za-z0-9_\-.=+/]{24,}")
+#: Our OWN log keys that are 24+ characters long, and so match the token rule
+#: (TRADEIFY-SOL-SIZE 2026-10-04: #16311/#16313 printed this action as
+#: "<token>"). Exact matches only; nothing derived from the page is listed.
+_SAFE_LONG_WORDS = frozenset({"quote_after_submit_check"})
 _URL_RE = re.compile(r"((?:https?|wss?)://[^\s/?#'\"]+)([/?#][^\s'\"]*)?", re.IGNORECASE)
 # A query string can carry a session id even with no scheme in front of it
 # (a bare "host.tld/path?sid=..." — _URL_RE only matches scheme://...).
@@ -744,7 +748,7 @@ def redact_text(text: str, *secrets: str) -> str:
     # any leftover query string on its own.
     out = _QUERY_STRING_RE.sub("?<query>", out)
     out = _EMAIL_RE.sub("<email>", out)
-    return _TOKENISH_RE.sub("<token>", out)
+    return _TOKENISH_RE.sub(lambda m: m.group(0) if m.group(0) in _SAFE_LONG_WORDS else "<token>", out)
 
 
 def render_structure(struct: Mapping[str, Any], frames: Sequence[Mapping[str, Any]],
