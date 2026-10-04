@@ -47,7 +47,7 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'crypto-signals-backfill-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 75
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

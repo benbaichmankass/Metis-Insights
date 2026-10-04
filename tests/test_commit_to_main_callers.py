@@ -115,6 +115,22 @@ def test_every_caller_budget_outlasts_the_merge_wait():
     )
 
 
+
+def test_budget_covers_every_wait_in_the_job():
+    """A job with N `verify-merged` calls can wait N times in sequence. The
+    floor above checks ONE wait; research-queue-dispatch holds three, and its
+    budget was hand-summed in a comment that went stale when the default
+    moved. Sum them here so a widened default fails CI instead."""
+    wait = _wait_minutes()
+    short = []
+    for wf, job_name, job in _caller_jobs():
+        n = sum(1 for s in job["steps"] if s.get("uses") == USES
+                and str((s.get("with") or {}).get("verify-merged", "")).lower() == "true")
+        budget = int(job.get("timeout-minutes", GITHUB_DEFAULT_TIMEOUT_MIN))
+        if budget < n * wait + MIN_SLACK_MIN:
+            short.append(f"{wf}:{job_name} budget={budget}m calls={n} wait={wait}m")
+    assert not short, "budget below the sum of its merge waits: " + "; ".join(short)
+
 def test_no_caller_overrides_the_wait_with_its_own_timeout():
     """The action owns the wait. A caller passing its own
     `verify-timeout-minutes` re-creates the per-caller drift this file exists to
