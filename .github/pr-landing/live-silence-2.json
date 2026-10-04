@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs/research evidence only. Adds docs/research/evidence/live-silence-2026-10-04/ (replay + rarity scripts, their output, live-audit summary, README) and indexes it. No runtime, order path, strategy config, risk cap, account mode or VM change."
+}
