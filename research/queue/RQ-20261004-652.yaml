@@ -1,6 +1,6 @@
 id: RQ-20261004-652
 title: 'Confirming test for the HELD SOL prop bracket change (#16269, tp_r 6.0->2.0, atr_stop_mult 2.5->3.5): out-of-sample, walk-forward, plateau, both prop rulesets, lot quantization'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -103,3 +103,17 @@ lands:
 related:
 - research/queue/RQ-20261004-651.yaml
 - docs/claude/work/pipeline/20261003T155701146692Z-49268e08.json
+last_dispatched_at: '2026-10-04T14:14:00Z'
+result: >-
+  GRADED 2026-10-04 by lane PROP-EVIDENCE-2 against RULE-RQ1004-652-SOL-BRACKET-CONFIRM (registered at
+  b13a6a5b, 14:13:45Z, before the script existed or ran). FAIL on 4 of 5 clauses. SOLUSDT 1h
+  2020-09-25..2026-10-03, static bracket, full cost stack. C1 FAIL: on PRE (entries before 2024-10-04,
+  the window RQ-651 never saw) candidate tp2.0/stop3.5 +32.54R n=226 vs live tp6.0/stop2.5 +45.41R n=243,
+  delta -12.87R, worse in F1/F3/F4 and better only in F2 (+6.54R). C2 FAIL: expanding-window selection over
+  the RQ-651 grid picked tp4.0/stop2.0 then tp8.0/stop2.0 (never the candidate); OOS +11.99R vs live +28.07R
+  over F3..F6. C3 FAIL: 0 of 9 plateau cells beat live on the 6y pool (median +40.84R vs live +57.73R).
+  C4 FAIL: breakout holds (median EV/life $221 vs live $199, 0 FAIL seeds) but tradeify_247_1step does not
+  (candidate median EV/life -$7.55, P(pass eval) ~0.37, vs live +$148, ~0.56). C5 holds (lot step 0.01,
+  $10 min risk: 0 sub-lot trades, worst risk ratio 0.967). Cross-check: the last-730d slice reproduces
+  RQ-651 exactly (live +12.33R, candidate +17.97R), so RQ-651's PASS is a selection-window artifact. Live
+  levers stand; #16269 closed. Row: research/results/RQ-20261004-652/session-20261004.jsonl.
