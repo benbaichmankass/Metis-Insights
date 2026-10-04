@@ -236,3 +236,44 @@ def test_malformed_notes_do_not_abort_the_report(tmp_path):
     # direction — they stay in the alert set rather than being silently cleared).
     assert checks["INV-2"]["total_count"] == 4
     assert checks["INV-2b"]["total_count"] == 0
+
+
+# ------------------------------------------- reduce legs: deferred by design
+# 2026-10-04 (health-review): INV-2 paged every hour on trade 6409, a
+# `setup_type=intent_reduce` row whose writer stamps
+# `pnl_source=deferred_intent_reduce` and leaves `pnl` NULL on purpose (the
+# reduce's PnL is absorbed into the parent row; see
+# src/units/accounts/execute.py and src/runtime/provenance.py::
+# _absorbed_partial_pnl). A designed state must not alert -- but it must stay
+# counted, so INV-2c reports it the way INV-2b reports `unmeasured`.
+def test_deferred_reduce_leg_does_not_alert_inv2(tmp_path):
+    checks = _checks(tmp_path, [(None, CDI._DEFERRED_REDUCE_MARKER)])
+    assert checks["INV-2"]["total_count"] == 0
+    assert checks["INV-2"]["alert"] is False
+
+
+def test_deferred_reduce_leg_is_counted_by_inv2c_not_inv2b(tmp_path):
+    checks = _checks(tmp_path, [(None, CDI._DEFERRED_REDUCE_MARKER)] * 4)
+    assert checks["INV-2c"]["total_count"] == 4
+    assert checks["INV-2c"]["sample_ids"], "INV-2c must carry example ids"
+    assert checks["INV-2c"]["alert"] is False
+    assert checks["INV-2b"]["total_count"] == 0   # a reduce leg is not `unmeasured`
+
+
+def test_deferred_marker_spelling_matches_the_writers():
+    """The writers (execute.py, order_monitor.py) and provenance.py all spell
+    it this way; a drift here would silently re-arm the false alert."""
+    assert CDI._DEFERRED_REDUCE_MARKER == "deferred_intent_reduce"
+
+
+def test_mixed_population_with_reduce_legs_splits_three_ways(tmp_path):
+    checks = _checks(tmp_path, [
+        (None, None),                           # undeclared       -> INV-2
+        (None, UNMEASURED_MARKER),              # declared         -> INV-2b
+        (None, CDI._DEFERRED_REDUCE_MARKER),    # reduce leg       -> INV-2c
+        (None, CDI._DEFERRED_REDUCE_MARKER),    # reduce leg       -> INV-2c
+        (3.0, "bybit_closed_pnl"),              # measured         -> none
+    ])
+    assert checks["INV-2"]["total_count"] == 1
+    assert checks["INV-2b"]["total_count"] == 1
+    assert checks["INV-2c"]["total_count"] == 2
