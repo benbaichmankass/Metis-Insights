@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261004-APBY4NTV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Manager Session 2026-10-01 (session_01MM8o5js6TcDFeNAPBY4Ntv), from lane RESEARCH-PIPELINE-REPAIR final report 2026-10-04 14:20Z",
+    "rerun": "for each of RQ-20260929-101,102,103,107,108 read its latest research/results record and compare n to the unit's rule min_trades (39); any still below = still open"
+  },
+  "state": "queued",
+  "what": "Research units RQ-20260929-101/102/103/107/108 (BNBUSDT pullback 2h / squeeze 4h / fade 4h, chop_scalp BTC 15m, orb ETHUSDT 5m) all returned INDETERMINATE on sample size (n 6-37 vs the 39-trade floor) because the dispatch fetch window (CANDIDATE_PAIRS, #16254) is only 30-180 days. That is 'could not answer', not 'no edge'. Lever: lengthen the fetch window for these pairs (one-line change per the RESEARCH-PIPELINE-REPAIR lane) and re-run the five units against their unchanged pre-registered rules. 104 (funding_carry) is separate: producer_failed because Bybit funding is geoblocked from GH runners."
+}
