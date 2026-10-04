@@ -382,6 +382,33 @@ might touch. If (a) or (b) forbids it, that is a structural blocker and should b
 
 ---
 
+### 7.6 Step zero: the operator's 2-minute browser test (no sign-in)
+
+Do **not** sign in, enter anything, or tap anything on the page. Do it twice: once on home Wi-Fi, once with Wi-Fi off (mobile data).
+
+1. On your phone, open **Chrome**. (If you use another browser, say which.)
+2. Type `app.breakoutprop.com` in the address bar and go.
+3. Wait up to 15 seconds. Look at what the page shows, and match it to **one** of these:
+   - **A.** The Breakout **login or dashboard page** (a sign-in form, logo, email box). *Served.*
+   - **B.** A page that says **"Just a moment…"**, "Verify you are human", or shows a checkbox/spinner. *Challenged.*
+   - **C.** A page that says **"Access denied"**, **"Error 1005"** or "you have been blocked". *Banned.*
+   - **D.** Anything else, or a blank page, or an error (say what it says in a few words).
+4. Close the tab. Do not tap the checkbox in B (that is a person solving a challenge by hand, which tells us less about an app).
+5. Reply with **one line**: `Wi-Fi: <A/B/C/D>; mobile data: <A/B/C/D>; browser: <Chrome or name>; phone model: <model>`.
+
+Reading the answer: A on both is a go for phase 1a. B means the public page challenges a real phone, so a WebView may be challenged too: ask for one more line from the Breakout mobile app if the operator has no account (nothing else to test), and treat B as a **likely blocker** for the WebView route. C is a **no-go** for that network. D needs a follow-up. This test says nothing about the WebView itself; that is phase 1a.
+
+### 7.7 Public-page evidence gathered 2026-10-04 (no login, no challenge-solving) and go/no-go
+
+| question | finding | source |
+|---|---|---|
+| Does the landing/login page work in an Android WebView, or must it be a full browser? | **Cannot be answered from public material.** A plain fetch from this session's network (not a phone) got a Cloudflare **managed challenge** (`HTTP 403`, `cf-mitigated: challenge`), whose own headers are the challenge page's, not the real app's: its CSP allows `challenges.cloudflare.com` frames, and `X-Frame-Options: SAMEORIGIN` (irrelevant to a top-level WebView). So we know a Turnstile-style check sits in front of the site for datacenter-like clients; whether a genuine phone WebView is passed is only answerable on the phone (steps 7.6 and 1a). No evasion or retry attempted. | live fetch this session; headers not stored |
+| Does Breakout publish a demo/practice terminal needing no paid account? | **None found.** The Terminal help collection has 6 articles; the access, two-terminals and mobile-app articles say nothing about demo or practice. | `intercom.help/breakoutprop` collection 19162084 and articles 14215682, 14215629, 14215706 |
+| What do the help articles say about mobile/app trading? | One article: "the Breakout terminal mobile app and the DXTrade terminal mobile app are two separate and distinct applications. They are not interchangeable." No platforms, features, login or automation detail. Access (web): "log in to your Breakout Dashboard and click the 'Open Terminal' button." New purchases are Breakout terminal only. | articles 14215706, 14215682, 14215629 |
+| Frame/CSP headers of the real app | **Not visible** (the challenge answered instead). Header checks from a GitHub runner would hit the same datacenter ban (measured earlier: Error 1005), so it was not run. | prior: `docs/research/breakout-terminal-egress-scoping-2026-09-30.md` § 2 |
+
+**Recommendation: GO for phase 0 and phase 1a only; no-go on spending anything.** Rationale: nothing found rules the WebView route out, nothing found confirms it works, and the decisive evidence (does the public page serve a real phone's WebView) costs the operator two minutes and one throwaway probe app. **Hard stops:** step zero returns B or C on both networks, or phase 1a's public page is challenged or blocked in the WebView. Cost of this recommendation so far: about a few dollars of lane spend; no purchase, no login, no build beyond what 1a needs.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |
