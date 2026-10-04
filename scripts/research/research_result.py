@@ -122,7 +122,15 @@ UNATTRIBUTED = "_unattributed"
 #: Closed set. `not_applicable` is NOT a verdict about the world; it is the
 #: only legal verdict when `read_state` says we could not look, and
 #: `validate()` refuses it in any other combination.
-VERDICTS = ("pass", "fail", "no_action_warranted", "indeterminate", "not_applicable")
+#:
+#: `wiring_only` (added 2026-10-04, PI-20261004-FOJGFIZF-0004) is its mirror
+#: image: legal ONLY with `read_state: measured`. The run measured something
+#: (n is real) but its producer could NOT apply the unit's pre-registered rule,
+#: so the row is explicitly NOT a decision. `queue_grade.grade_e5` treats any
+#: verdict outside pass/fail/no_action_warranted/indeterminate as
+#: non-mechanical -> `needs_review`, so it can never close a unit.
+VERDICTS = ("pass", "fail", "no_action_warranted", "indeterminate", "not_applicable",
+            "wiring_only")
 
 #: Closed set, ordered "we looked" first. See the module docstring.
 READ_STATES = ("measured", "no_data", "producer_failed", "not_attempted")

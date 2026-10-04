@@ -1,0 +1,1 @@
+auto-merge: Tier-1 research-result mapper fix (PI-20261004-FOJGFIZF-0004), tests green, no live path
