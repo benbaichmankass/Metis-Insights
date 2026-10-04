@@ -4397,3 +4397,92 @@ def test_redactor_keeps_the_quote_after_submit_check_action_name():
     assert redact_text(line) == line
     # anything else 24+ chars long is still masked, including a near-miss
     assert "<token>" in redact_text("quote_after_submit_checkX") and "<token>" in redact_text("a" * 30)
+
+
+# ── OA-05/06 (PI-20261004-GCFA5DOR-0003): a leg lost AFTER `open` is alerted
+# and contained; a repair that did not click closes in the SAME cycle; a close
+# that did not click stays retryable up to a bound, never parked silently. ──
+
+OPEN_FILL = [{"id": 1, "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+              "status": "open", "ticket_id": "t1", "sl": 118.0, "tp": 126.0}]
+REFUSED = {"ok": False, "clicked": False, "why": "rollout refused: current stop loss not readable on the row"}
+
+
+class _NoClose(FakeAdapter):
+    def flatten(self, page, symbol=None, *, arm=False, **facts):
+        self.calls.append(("flatten", symbol, arm))
+        return {"ok": False, "clicked": False, "why": "row not located"}
+
+
+def test_open_row_whose_sl_disappears_alerts_then_is_contained(env):
+    ledger, state = env
+    ledger.record("t1", "open", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    ad.modify_result = REFUSED
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert any("NAKED" in a and "NO SL" in a and "read 1/2" in a for a in res.alerts)
+    assert ad.calls == [] and state.halted() is None              # one read never clicks
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert [c[0] for c in ad.calls] == ["modify_bracket", "flatten"]   # repair refused -> same-cycle close
+    assert state.halted() and "t1: naked_open" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+    assert ledger.state("t1") == "contained" and ledger.latest()["t1"]["verdict"] == "naked_open"
+
+
+def test_open_row_missing_the_tp_the_journal_expects_is_naked(env):
+    ledger, state = env
+    ledger.record("t1", "open", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(take_profit=None)])
+    run(ad, FakeApi([], OPEN_FILL), env)
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert any("NO TP" in a for a in res.alerts) and state.halted()
+
+
+def test_open_row_with_no_sl_column_on_the_read_is_not_contained(env):
+    # No Stop Loss column = we could not look, not "no stop".
+    env[0].record("t1", "open", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None, take_profit=None,
+                                   raw={"Symbol": "SOLUSD", "Side": "Buy", "Size": "0.5"})])
+    for _ in range(3):
+        res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert ad.calls == [] and env[1].halted() is None
+    assert not any("NAKED" in a for a in res.alerts)
+    assert any(a["what"] == "naked_check_unreadable" for a in res.actions)
+
+
+def test_naked_open_position_without_a_ledger_row_halts_and_is_not_touched(env):
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    run(ad, FakeApi([], OPEN_FILL), env)
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert ad.calls == [] and env[1].halted() and "naked_open" in env[1].halted()
+    assert any("not touched" in a for a in res.alerts)
+
+
+def test_a_repair_that_did_not_click_closes_in_the_same_cycle(env):
+    ledger, _ = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    ad.modify_result = REFUSED
+    run(ad, FakeApi(), env)
+    assert [c[0] for c in ad.calls] == ["modify_bracket", "flatten"]
+    assert ledger.state("t1") == "contained"
+
+
+def test_a_close_that_did_not_click_is_retried_up_to_the_bound(env):
+    ledger, _ = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    ad = _NoClose(positions=[_p(stop_loss=None)])
+    ad.modify_result = REFUSED
+    for k in range(1, pe.NAKED_CLOSE_MAX_ATTEMPTS):
+        res = run(ad, FakeApi(), env)
+        assert ledger.state("t1") == "unconfirmed"                # still watched, not parked
+        assert ledger.latest()["t1"]["close_attempts"] == k
+        assert any(f"attempt {k}/{pe.NAKED_CLOSE_MAX_ATTEMPTS}" in a for a in res.alerts)
+    res = run(ad, FakeApi(), env)
+    assert ledger.state("t1") == "contained" and ledger.latest()["t1"]["close_gave_up"] is True
+    assert any("gave up" in a for a in res.alerts)
+    assert [c[0] for c in ad.calls].count("flatten") == pe.NAKED_CLOSE_MAX_ATTEMPTS
+    assert [c[0] for c in ad.calls].count("modify_bracket") == 1
+    n = len(ad.calls)
+    run(ad, FakeApi(), env)
+    assert len(ad.calls) == n                                       # parked: no further clicks
