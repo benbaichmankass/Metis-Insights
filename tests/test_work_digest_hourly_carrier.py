@@ -28,6 +28,18 @@ def _load(monkeypatch, tmp_path):
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     monkeypatch.setattr(mod, "RECEIPT", tmp_path / "work_digest_receipt.json")
+    # WORK-SYSTEM: the carrier also runs the attention pass, which has its own
+    # tests (tests/test_attention_watch.py). Isolated here so these tests count
+    # only the digest's own sends; the call itself is asserted below.
+    mod._attention_calls = []
+
+    class _FakeAW:
+        @staticmethod
+        def commit(prep, outcome):
+            mod._attention_calls.append(outcome)
+
+    monkeypatch.setattr(mod, "_attention_prepare", lambda dry_run: (
+        _FakeAW, {"block": "🟢 No new actionable items", "priority": "normal"}))
     return mod
 
 
@@ -198,3 +210,28 @@ def test_self_test_passes():
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     assert mod._self_test() == 0
+
+
+def test_one_message_carries_the_attention_block_first_and_commits_after_send(monkeypatch, tmp_path):
+    """WORK-SYSTEM (operator decision 2026-10-04): ONE hourly message. The
+    attention block leads it; its state is committed only after the enqueue."""
+    mod = _load(monkeypatch, tmp_path)
+    sent = []
+    fake = type(sys)("send_ping")
+    fake.enqueue = lambda body, **k: sent.append((body, k)) or Path("queued")
+    monkeypatch.setitem(sys.modules, "send_ping", fake)
+    assert mod.run(force=True) == 0
+    assert len(sent) == 1 and sent[0][0].startswith("🟢 No new actionable items")
+    assert "— what changed —" in sent[0][0]
+    assert mod._attention_calls == ["sent"]
+
+
+def test_a_failed_send_does_not_commit_attention_state(monkeypatch, tmp_path):
+    mod = _load(monkeypatch, tmp_path)
+    def boom(*a, **k):
+        raise OSError("inbox gone")
+    fake = type(sys)("send_ping")
+    fake.enqueue = boom
+    monkeypatch.setitem(sys.modules, "send_ping", fake)
+    assert mod.run(force=True) == 1
+    assert mod._attention_calls == ["enqueue_failed"]

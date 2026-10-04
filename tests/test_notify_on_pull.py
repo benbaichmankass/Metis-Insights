@@ -754,3 +754,24 @@ def test_commit_subjects_returns_empty_on_subprocess_error(monkeypatch):
     monkeypatch.setattr(nop.subprocess, "run", _raise)
     result = nop._commit_subjects("pre", "post")
     assert result == []
+
+
+def test_already_delivered_rows_log_one_summary_line_not_one_per_row(tmp_path, caplog):
+    """PI-20261004-PUQ1APTH-0002: ~500 delivered rows must not emit ~500 INFO
+    lines on every 5-min pull. One INFO summary; per-row detail at DEBUG."""
+    import json as _json
+    import logging
+
+    from scripts import notify_on_pull as nop
+
+    path = tmp_path / "pending-pings.jsonl"
+    rows = [_json.dumps({"event": "ping", "body": f"row {i}"}) for i in range(50)]
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    delivered = {nop._line_hash(r) for r in rows[:49]}
+    with caplog.at_level(logging.INFO, logger=nop.logger.name):
+        out = nop._drain_pending_pings(path, delivered)
+    assert len(out) == 1
+    info = [r for r in caplog.records if r.levelno >= logging.INFO
+            and "pending-pings" in r.getMessage()]
+    assert len(info) == 1, [r.getMessage() for r in info]
+    assert "49 already-delivered" in info[0].getMessage()

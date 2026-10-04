@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-3QJJAY5Y-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/13047",
+    "rerun": "grep -n 'NOT escalating to a symbol-wide' src/units/accounts/alpaca_client.py  (the refusal branch); then diag-relay journalctl -u ict-trader-live --since '-7d' | grep -c 'refused for want of available shares'  -- nonzero means it has fired live"
+  },
+  "routed_to": "ORDER-PATH-FIXES [route; size M, value M, tier 2] BACKLOG-ROUTE 2026-10-04: alpaca_client._close_partial docstring still says '2. NOTHING IS PRE-CANCELLED' (alpaca_client.py:1236) and the refusal branch 'NOT escalating to a symbol-wide' exists (:1265): defect unfixed. Live journalctl count of 'refused for want of available shares' not checked (needs diag relay).",
+  "state": "routed",
+  "terminal_reason": null,
+  "triage_2026_09_28": {
+    "checked": "Confirmed src/units/accounts/alpaca_client.py's _close_partial still pre-cancels nothing (docstring explicitly: 'NOTHING IS PRE-CANCELLED') -- the code defect is unfixed. Confirmed via MANAGER-CHECKLIST.json that PR #13047 (Alpaca GTC entry brackets) is now MERGED AND DEPLOYED (deploy #13118 at 63348e7a3, 2026-09-27) -- so the premise 'PR #13047 (GTC entry legs, HELD)' in the finding is stale: it is live now, not held, which extends this bug's exposure window past the RTH close as the finding warned. Attempted a live journalctl grep via diag for 'refused for want of available shares' but the endpoint's grep param did not appear to filter server-side within this session's time budget, so whether it has actually fired live is not established.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation -- the due_date (2026-10-04) hasn't arrived and this is fundamentally a wait-and-see item, but note the risk premise changed (PR #13047 deployed, not held) so it is now MORE likely to fire, not less. A lane with working diag/journalctl access should re-check nearer the due date; if it has fired, this becomes a genuine Tier-3 order-path decision for the operator (the candidate fix is described in the finding).",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "Alpaca trade-scoped PARTIAL close is refused while sibling tranches' protective legs hold all shares. AlpacaClient._close_partial (DELETE /v2/positions/{sym}?qty=N) deliberately pre-cancels nothing, so on a symbol with several open journal rows each carrying its own bracket, qty_available is 0 and the venue refuses 'insufficient qty available' (logged loudly, no over-close, no naked position). Happens intraday today with DAY legs; PR #13047 (GTC entry legs, HELD) extends it past the RTH close. Candidate fix (Tier-3, order path): cancel only the legs whose qty equals the closing trade's qty (the same identification heuristic modify_protective uses) before the partial DELETE, re-arming the remainder on failure. INFERRED from code reading (alpaca_client.py _close_partial docstring + body) -- not measured on a live multi-row position this session.\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation -- the due_date (2026-10-04) hasn't arrived and this is fundamentally a wait-and-see item, but note the risk premise changed (PR #13047 deployed, not held) so it is now MORE likely to fire, not less. A lane with working diag/journalctl access should re-check nearer the due date; if it has fired, this becomes a genuine Tier-3 order-path decision for the operator (the candidate fix is described in the finding)."
+}

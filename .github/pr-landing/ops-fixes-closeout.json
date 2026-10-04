@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register + pipeline records only: the OPS-FIXES checklist row (landed_unproven, with what is observed and what is not) and pipeline dispositions from the post-deploy verification diag reads (#16431, #16435), plus one new finding (ib-executions-pull failing, PI-20261004-SHFA88UK-0002). No code, config or runtime path."
+}

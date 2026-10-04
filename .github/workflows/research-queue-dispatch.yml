@@ -162,7 +162,11 @@ jobs:
     # ⚠️ RAISED 70 -> 105 (manager review 2026-09-29): a THIRD commit-to-main
     # call (the batch landing of the runner's results, below) adds its own
     # 30-min wait; 105 = 3 x 30 + ~15 observed queue/run overhead.
-    timeout-minutes: 105
+    # ⚠️ RAISED 105 -> 165 (lane OPS-FIXES 2026-10-04, PI-20261004-PUQ1APTH-0008
+    # / PI-20261004-FOJGFIZF-0003): the shared wait default moved 30 -> 50
+    # because pytest-run alone now takes ~35-37 min; 165 = 3 x 50 + 15. Pinned
+    # by tests/test_commit_to_main_callers.py::test_budget_covers_every_wait_in_the_job.
+    timeout-minutes: 165
     env:
       # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`
       # directly — see the header. A scheduled run fires; a hand dispatch fires

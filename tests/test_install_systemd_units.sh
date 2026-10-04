@@ -158,6 +158,30 @@ run_test_onfailure_dropins() {
     rm -rf "$tmp"
 }
 
+# ---------------------------------------------------------------------------
+# 7. PI-20261004-PUQ1APTH-0007 (1): a MISSING role file is silent (the live
+#    trader has none) and reads as non-gateway; a present one is still read.
+# ---------------------------------------------------------------------------
+run_test_missing_role_file_is_silent() {
+    local tmp; tmp=$(setup_temp_systemd)
+    local err; err=$(VM_ROLE_FILE="$tmp/no-such-role" REPO_DIR="$tmp" SYSTEMD_DIR="$tmp/systemd" \
+        bash "$tmp/install.sh" 2>&1 >/dev/null || true)
+    assert_eq "missing role file prints no error" \
+        "$(echo "$err" | grep -c 'no-such-role')" 0
+    local out; out=$(VM_ROLE_FILE="$tmp/no-such-role" REPO_DIR="$tmp" SYSTEMD_DIR="$tmp/systemd" \
+        bash "$tmp/install.sh" 2>/dev/null || true)
+    assert_eq "missing role file reads as unset (trader box)" \
+        "$(echo "$out" | grep -q "gateway-only; host role='unset'" && echo yes || echo no)" yes
+    # Positive control: the read still works when the file exists.
+    printf 'gateway\n' > "$tmp/role"
+    out=$(VM_ROLE_FILE="$tmp/role" REPO_DIR="$tmp" SYSTEMD_DIR="$tmp/systemd" \
+        bash "$tmp/install.sh" 2>/dev/null || true)
+    assert_eq "present role file is read (gateway path taken)" \
+        "$(echo "$out" | grep -q 'gateway isolation' && echo yes || echo no)" yes
+    rm -rf "$tmp"
+}
+
+run_test_missing_role_file_is_silent
 run_test_fresh
 run_test_idempotent
 run_test_refresh_on_change

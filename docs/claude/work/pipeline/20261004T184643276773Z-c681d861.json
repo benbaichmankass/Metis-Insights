@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "A merged change alerts and halts a naked open prop position, with a test.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-GCFA5DOR-0003",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: _reconcile_journal collects naked open positions; 2 consecutive naked reads -> alert + same-cycle repair-or-flatten + AUTO-REVERT; failed flatten retried up to 3 then parked with alert; prop_trail alert texts corrected. Not observed on a live terminal."
+  ],
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "pytest a run_cycle test with an 'open' ledger row whose terminal Position has stop_loss=None -- open while it raises no alert/halt."
+  },
+  "state": "done",
+  "terminal_reason": "Merged #16392 (bfe56119) with tests (2-read naked open -> alert + same-cycle repair-or-flatten + AUTO-REVERT; failed flatten bounded retry; prop_trail texts corrected). Deployed; tradeify_1 ticks 18:33Z/18:38Z exit 0 alerts=0 (no new refusals or alerts). clears_when (merged change that alerts and halts a naked open position, with a test) met. A real naked event has NOT occurred, so the containment path itself is unobserved live.",
+  "what": "OA-05/06 (MED, prop containment). Sub-agent read, not re-verified line by line. Two gaps. (1) An SL or TP that disappears AFTER a row reaches 'open' is never alerted. _contain only runs on watched states. _reconcile_journal skips the comparison when p.stop_loss is None (prop_executor.py ~2168), and prop_trail's alert text says 'containment will act', which is false for an open row. (2) The one SL/TP repair under ROLLOUT_GUARD always refuses ('current stop loss not readable', dxtrade.py ~5098) yet consumes leg_fix_tried. The flatten therefore waits a whole tick, and a failed flatten parks the row as 'contained', never retried (prop_executor.py ~2003-2031). Proposed fix (Tier-2): alert and halt on NAKED in _reconcile_journal; when the repair does not click, flatten in the same cycle; on a failed flatten keep the row 'unconfirmed' with a bounded retry; correct the two trail alert texts."
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The manager has decided, with the p10 sign in front of them, whether the committed trend_donchian_xrp_4h Stage-0 edge record is refreshed on the current 365d window; and tests/test_mandate_resolver.py::test_real_stage2_thresholds_match_the_operators_pricing is either still true on main or the operator's SIGNAL-0005 pricing is re-stated. Or killed with a reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261002-84ZIQNJD-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "Found by lane M20-EXITS-4 (session_01JLyScUje5s6PAN84ZiqnJd) while getting HELD PR #15594 (trend_donchian_xrp_4h trail_mult 5.0->4.0) green: its config change stales comms/strategy_evidence/trend_donchian_xrp_4h.json (fingerprint test), and rebuilding it with scripts/ops/build_strategy_evidence.py on 2026-10-02 flipped the mandate resolver's Stage-0 block-bootstrap p10 from positive (main record, generated 2026-09-30, net_r_oos +8.9428, n=16, window start 2025-10-07) to -0.73127 (net_r_oos +5.9389, n=16, window start 2025-10-10), tripping the operator-pricing pin test_real_stage2_thresholds_match_the_operators_pricing.",
+    "rerun": "git show origin/main:comms/strategy_evidence/trend_donchian_xrp_4h.json | python3 -c \"import sys,json;d=json.load(sys.stdin);print(d['net_r_oos'],d['n_trades_oos'],d['generated_at'])\" ; python3 scripts/ops/build_strategy_evidence.py --strategy trend_donchian_xrp_4h --out /tmp/ev --workdir /tmp/ev/runs ; python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import mandate_resolver as mr,pathlib;print(mr.stage0_block_p10('trend_donchian_xrp_4h',pathlib.Path('.')))\" (point the resolver at a copy of the repo with the rebuilt record; the rebuild alone does not move main)"
+  },
+  "routed_to": null,
+  "state": "killed",
+  "terminal_reason": "BACKLOG-ROUTE 2026-10-04: Decision resolved by option (b): #15594 closed; window-sensitivity carried by the monthly re-sweep row filed in #15994 (55c01b62).",
+  "what": "MEASURED, 2026-10-02. The sign flip is NOT caused by the trail4 proposal: a control rebuild at the committed trail_mult 5.0 gives the identical net_r_oos 5.9389 (n=16), so it comes purely from the 3-day-newer 365d window dropping early winners. Consequence: the committed xrp_4h Stage-0 record that the operator was told had a POSITIVE p10 (SIGNAL-0005) is window-sensitive, n=16, and the next time anything refreshes it the Stage-2 pricing for this real-money bybit_2 leg reads negative. The builder is manual-only (no cadence), so nothing refreshes it silently today; the exposure is that any config edit to this leg forces a refresh (fingerprint guard) and that edit then fails the pin. NOT DONE HERE: the pin was not loosened (it is the operator's priced fact) and the record on main was not touched. HELD PR #15594 is therefore red on exactly this test and stays so until the manager decides. Options for the manager: (a) accept the refresh and restate the pricing; (b) close #15594 (its trail4 case is already fragile: 1 of 3 partitions); (c) leave the leg's config alone."
+}

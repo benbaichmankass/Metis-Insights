@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for CA-A01-053 is merged with a test that fails on the old code (detector: unit test (as repro) asserting venue stop qty == position size after one sweep), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KFWRL9R1-0013",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-053 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-053 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:L8179-L8314 on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "ORDER-PATH-FIXES [route; size S, value M, tier 2] BACKLOG-ROUTE 2026-10-04: Partly superseded by _alpaca_top_up_uncovered (order_monitor.py:8555) but the naked re-arm still reads protection_state and converges in 2 sweeps; confirm the fix covers the CA-A01-053 case before closing. Alpaca sweep now grades quantity: order_monitor.py ~9755-9800 computes _stop_q vs _size, emits _emit_partial_stop_coverage_alert(venue='alpaca') and calls _alpaca_top_up_uncovered (adds OCO for uncove",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A01-053, MEASURED): On a netted Alpaca symbol with >=2 open journal rows, the equity naked sweep re-arms only the FIRST row's qty and then treats the symbol as protected, because the re-arm gate is AlpacaClient.protection_state (any stop leg of any side and qty) — so the sweep itself converts 'fully naked' into a permanent partial that is paged but never repaired. LOCATION: src/runtime/order_monitor.py:L8179-L8314. PROPOSED FIX: Gate the re-arm on the quantity grade already computed (stop_qty + eps < size) and re-arm the uncovered qty once per symbol (one OCO for size - stop_qty), not per-row protection_state; place_protective's symbol-wide pre-cancel must then be scoped or the OCO sized to the whole position."
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a read-only orders-table dump taken right after a resting entry is cancelled (the first real _expire_resting cancel, or a watched test the manager approved) shows no remaining SL/TP rows for that symbol; OR it shows leftovers, and a fix is filed.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, manager review of #14581 items 4(c)/4(d)",
+    "rerun": "grep -n 'Stop loss, Take profit' src/prop/platform/dxtrade.py; then the read-only dump-tables probe (breakout-login-check) after the next cancel_expired_resting action appears in the executor tick log"
+  },
+  "routed_to": "OBSERVATION [route; size S, value L, tier 2] BACKLOG-ROUTE 2026-10-04: Rerun on main: sm1.5 and sm1.5_to400 tuples identical (True; 2 rows each = 2 sweeps). Audit reads spy_pullback_1h clean. Question answered from corpus; keep/revert is -0006, doc correction is -0007.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "UNVERIFIED, review item 4(d): does cancelling an armed ENTRY order on the live DXtrade terminal also remove its attached SL/TP? What the code and dumps show: the MEASURED Breakout working-orders table (run 36358563148, issue #13385) carries 'Stop loss' and 'Take profit' as COLUMNS of the entry row, and orders_from_tables reads them as attributes of one WorkingOrder. So the legs are INFERRED to be part of the entry order, not separate rows; no dump shows separate leg rows. Not established: whether the venue leaves orphan SL/TP children after the entry is cancelled. Do NOT probe this on the live account without a plan the manager has seen."
+}

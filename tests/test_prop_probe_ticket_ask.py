@@ -243,3 +243,83 @@ def test_only_tradeify_declares_the_ask_opener():
     from src.prop.platform import load_platform_config
     assert load_platform_config("tradeify_1").get("ticket_opener") == "ask_button"
     assert load_platform_config("breakout_1").get("ticket_opener") is None
+
+
+# ── OA-04 (PI-20261004-GCFA5DOR-0002): no opener fallthrough on an Ask decline,
+# and the row double-click runs only on a POSITIVE one-click OFF read. Pure
+# fakes (no browser), so these run where playwright is not installed. ──
+
+class _Loc:
+    def __init__(self, page, sel, n):
+        self.page, self.sel, self.n = page, sel, n
+        self.first = self
+
+    def count(self):
+        return self.n
+
+    def click(self, **kw):
+        self.page.clicks.append(self.sel)
+
+    def dblclick(self, **kw):
+        self.page.dblclicks.append(self.sel)
+
+
+class _FakePage:
+    def __init__(self):
+        self.clicks, self.dblclicks = [], []
+
+    def wait_for_timeout(self, ms):
+        pass
+
+    def get_by_role(self, role, name=None, exact=False):
+        return _Loc(self, f"button:{name}", 0)
+
+    def evaluate(self, js, *a):
+        return {"ok": True}
+
+    def locator(self, sel):
+        return _Loc(self, sel, 1)
+
+
+def _fake_adapter(monkeypatch, one_click, ask=None):
+    ad = DXtradeAdapter()
+    calls = {"symbol_cell": [], "workspace": 0}
+    monkeypatch.setattr(ad, "read_one_click", lambda p: dict(one_click))
+    monkeypatch.setattr(ad, "_find_form", lambda p: {"found": False})
+    monkeypatch.setattr(ad, "_dismiss_dialogs", lambda p, o: None)
+
+    def cell(p, s, double):
+        calls["symbol_cell"].append(double)
+        return False
+    monkeypatch.setattr(ad, "_symbol_cell_click", cell)
+
+    def ws(p, o):
+        calls["workspace"] += 1
+        return None
+    monkeypatch.setattr(ad, "_open_ticket_on_another_workspace", ws)
+    if ask is not None:
+        ad.ask_opener = True
+        monkeypatch.setattr(ad, "_ask_button_open", lambda p, s: dict(ask))
+    return ad, calls
+
+
+@pytest.mark.parametrize("oc", ["on", "unknown", "off"])
+def test_ask_decline_without_a_click_refuses_and_runs_no_later_opener(monkeypatch, oc):
+    page = _FakePage()
+    ad, calls = _fake_adapter(monkeypatch, {"state": oc},
+                              ask={"clicked": False, "why": f"no click made: one-click reads {oc}"})
+    got = ad.open_order_ticket(page, "ETHUSD")
+    assert got["opened"] is False and got["refused"] == f"ask_button: no click made: one-click reads {oc}"
+    assert page.dblclicks == [] and page.clicks == []              # no row double-click, no opener button
+    assert calls["symbol_cell"] == [False] and calls["workspace"] == 0
+    assert "last_resort" not in got
+
+
+@pytest.mark.parametrize("oc,runs", [("on", False), ("unknown", False), (None, False), ("off", True)])
+def test_row_double_click_runs_only_on_a_positive_one_click_off_read(monkeypatch, oc, runs):
+    page = _FakePage()
+    ad, _ = _fake_adapter(monkeypatch, {"state": oc})
+    got = ad.open_order_ticket(page, "ETHUSD")
+    assert (page.dblclicks == ["tr[data-metis-wl-row='ETHUSD']"]) is runs
+    assert ("skipped" in got["last_resort"]) is (not runs)
+    assert got["opened"] is False and "refused" in got

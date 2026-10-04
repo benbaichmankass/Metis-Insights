@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "since_entry excludes the entry/signal bar (strictly-after), a parity test against backtest_trend asserts equal peak, merged AND deployed (git_sha on /api/diag/version)",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-ENGC5EUD-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A03 (session_01RjVA2i43wfnwqFEnGc5euD), finding AUD-20260927-CA-A03-since-entry-window-includes-signal-bar",
+    "rerun": "grep -n 'ts >= cutoff' src/runtime/exit_levers.py -- the finding holds while since_entry uses >=; then run a frame whose signal bar high exceeds every later high through exit_levers.giveback_verdict and compare to the backtest_trend loop's peak."
+  },
+  "routed_to": "PARITY [route; size S, value M, tier 3] BACKLOG-ROUTE 2026-10-04: src/runtime/exit_levers.py:115 still `filtered = candles_df[ts >= cutoff]`. Finding holds; parity test vs backtest_trend not checked.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A03): src/runtime/exit_levers.since_entry filters candles with `ts >= entry_time` (exit_levers.py:115). meta.entry_time is the SIGNAL bar's own label (trend_donchian.py:429, htf_pullback_trend_2h.py:388), so the pre-fill signal bar's high/low enters the since-entry peak/MFE used by giveback_verdict (live on uso_trend_1h), trail_decay and the donchian chandelier `ext`. The harness (scripts/backtest_trend.py:508-517) starts at entry_i+1 with ext=entry, and exit_head_shadow.py:476-482 already fixed the identical off-by-one with `ts > cutoff`. Crafted: signal-bar high 101.6, entry 100, risk 1, later highs <=100.2, price 99.5 -> live verdict close/giveback_stop; harness peak 0.2R < 1.0R arm -> no close. FIX (Tier-3, changes live stops): `ts > cutoff`, with a live-vs-harness parity test on one frame."
+}

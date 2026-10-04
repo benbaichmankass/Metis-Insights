@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "one git-sync pull logs fewer than 20 lines for the already-delivered set (count above reads < 20 of a full pull)",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0002",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: per-row skip line -> DEBUG, one INFO summary per pull; test pins 1 INFO line for 49 delivered rows. Pruning delivered rows from pending-pings.jsonl NOT done (would touch the dedupe contract). Closes on the clears_when journal read after deploy."
+  ],
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); diag journalctl?unit=ict-git-sync.service 2026-10-04T07:59Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-git-sync.service&lines=1000' | python3 -c \"import json,sys;L=json.load(sys.stdin)['lines'];print(sum('skipping already-delivered' in l for l in L),'of',len(L))\" -- holds while the count is in the hundreds"
+  },
+  "routed_to": "lane OPS-FIXES HELD PR branch ops-fixes-notify-pull-noise (Tier-2: merge restarts the trader once)",
+  "state": "routed",
+  "what": "[git-sync/journald] notify_on_pull floods the journal: MEASURED 2026-10-04 (diag journalctl?unit=ict-git-sync.service&lines=1000) ONE 5-min pull emitted >1000 lines, 959 of which read `pending-pings: skipping already-delivered line (hash=...)` -- one INFO line per row of docs/claude/pending-pings.jsonl (502 lines on main) on EVERY pull, ~276k journal lines/day at the 5-min cadence. journald's retention is shared, so this is a direct contributor to the ~2.5-day ict-trader-live retention PI-20261003-OJTPWGCC-0002 measured. It also buries the deploy decision lines (`>>> Code changed` / `>>> Non-runtime commit`) that answer 'did this pull restart the trader'. FIX (Tier-1 tooling, but scripts/notify_on_pull.py is outside TIER1_SURFACE so a human merges, and scripts/ is a runtime path for the deploy so the merge restarts the trader once): log ONE summary line per pull (`pending-pings: N already-delivered lines skipped`) and keep per-line detail at DEBUG; optionally prune delivered rows from pending-pings.jsonl."
+}

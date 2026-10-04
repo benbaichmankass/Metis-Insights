@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the manager decides keep-or-revert for #14332's atr_stop_mult on spy_pullback_1h with reasons 1-2 in hand, or kills this row with a stated reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-39SDYWCO-0006",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "python3 -c \"import json;r=[json.loads(l) for l in open('docs/research/e35-bracket-corpus.jsonl') if '\\\"spy_pullback_1h\\\"' in l and '\\\"cell\\\": \\\"sm1.5\\\"' in l];x=max(r,key=lambda z:z['sweep_generated_at']);print(x['gate_oos_d_net_r'],x['d_net_r'],[(f['fold'],f['d_net_r']) for f in x['wf_folds']])\""
+  },
+  "routed_to": "OPERATOR [operator; size S, value M, tier 3] BACKLOG-ROUTE 2026-10-04: Rerun on main: spy sm1.5 gate_oos_d_net_r 4.4566 of d_net_r 28.1569; folds 2023 +22.36, 2024 -12.33. config/strategies.yaml:2309 still atr_stop_mult 1.5 (shipped #14332). Proposal doc section 4.2 recommends DECLINE.",
+  "severity": "med",
+  "state": "routed",
+  "terminal_reason": null,
+  "tier": 3,
+  "what": "#14332 shipped spy_pullback_1h sm1.5 (atr_stop_mult 2.5 -> 1.5) although docs/research/e35-passed-unshipped-proposal-2026-08-31.md section 4.2 recommends DECLINE, and the PR body (\"genuinely open\", precedent = the 08-30 batch) does not mention that recommendation. TWO of its four reasons are independent of the contamination claim and are DATA in the committed corpus: (1) OOS retains +4.46R of the +28.16R headline (16%; base_oos_trades 58, 08-31 run) -- reason 3's contamination claim is NOT reproducible (re-derived from raw rows: 0 of 39 pairs bind; the note's '17 of 39' has no source, only trend_donchian_ada_4h has 17 binding, of 38); (2) fold dependence: 2023 contributes +22.36R and 2024 is -12.33R, so without 2023 the cell is roughly flat-to-negative (wf 5/6 is carried by one fold). ALSO the doc's own reasoning that sm1.5 == sm1.5_to400 'does not rescue the leg' is backwards: the 400 arm overrides the 200-bar default, so identity is direct evidence the default does not bind. NOT DONE / NOT CLAIMED: no revert is proposed here. Whether reasons 1-2 outweigh a Path-B ship on a paper-only soak leg is the manager's/operator's call; the data to decide it is in the corpus. NEXT ACTION: manager decides keep vs data-backed revert of #14332's key (roll back = restore atr_stop_mult 2.5); correct the matrix note's timeout_binding text for spy_pullback_1h (PI-20260930-39SDYWCO-0004)."
+}
