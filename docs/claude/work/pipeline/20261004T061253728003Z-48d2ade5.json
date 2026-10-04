@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "round-trip-dry,sol,limit for tradeify_1 reaches form_verified with one_click read OFF, or SOL is dropped from tradeify_1's go-live scope with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261003-ILZMCTFQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-EXECUTOR session_01TdVtbWqggtmZAGiLzmcTFQ, SOL dry proof, 2026-10-03 (#16049, #16053).",
+    "rerun": "breakout-login-check account: tradeify_1 apply: round-trip-dry,sol,limit (dry) -- place_bracket.attempt.stage 'refused' with 'paints footer ... (ancestor)' = still open; stage 'form_verified' = fixed."
+  },
+  "routed_to": "Lane TRADEIFY-SOL-SIZE (session_01PwDy1zXY32sBNggRmZw1Ki), PR #16183 (HELD, manager merges): executor.dry_walk_max_lots {SOLUSD: 1.0}, read only by the dry walk. After merge the lane runs round-trip-dry,limit SOLUSD at 1.0 and reports btn_state / read-backs / one_click. Disabled at 1.0 too = not a <=1 SOL minimum; enabled = 0.01 is below the venue minimum.",
+  "state": "routed",
+  "what": "tradeify_1 SOLUSD LIMIT ticket: the submit hit-test REFUSES DETERMINISTICALLY, so a live SOL ticket would be refused at submit (fail-closed, no order) -- a go-live blocker for SOL on #14673. MEASURED twice on main (ec26440c9 / c35a09839), round-trip-dry,sol,limit #16049 run 37147052900 (19:12Z) and #16053 run 37147522018 (19:20Z): price/SL/TP/qty read back EXACTLY (typed 119.72 -> 119.720; 119.755 -> 119.755), then place_bracket stage=refused 'submit: not visible at its centre after scrolling -- its centre [1708, 1561] paints footer at [1543, 1518, 330, 75] (ancestor)'; submit box [1559, 1537, 298, 48], panel [1543, 119, 330, 676], vis_bottom 795, viewport 1920x1600. Same submit box as PI-20261002-UBMITVIS-0001 (state done), so that fix (poll + reveal + name the occluder) does not cover this case: the hit-test lands on the submit's own FOOTER ANCESTOR, every try. Also one_click read null (not OFF) in both runs -- a could-not-look, not an OFF. Open questions to measure (read-only dump, no click): is the submit pointer-events:none / covered by a transparent footer layer until something settles; would treating a hit on the submit's own ancestor as visible be safe (Tier-2/3 decision for the manager)."
+}
