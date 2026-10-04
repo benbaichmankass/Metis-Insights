@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "a halted executor cycle leaves the unit inactive (not failed) and the halt is visible as its own state on /api/diag/services or /api/bot/prop/status, and a reminder ping is observed for a halt older than its interval",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); diag journalctl?unit=ict-prop-executor.service 2026-10-04T03:49Z..08:00Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-prop-executor.service&lines=60' | grep -c 'status=3/NOTIMPLEMENTED' -- holds while a halted cycle still ends in a failed unit"
+  },
+  "state": "queued",
+  "what": "[prop/breakout_1 observability] A HALTED executor is indistinguishable from a CRASHED one on every surface this review reads. Since the AUTO-REVERT halt at 2026-10-04T03:49:36Z (unconfirmed placement, not found after 3 re-reads) every 5-min breakout_1 cycle runs, reports `halted: ...`, and exits 3 (EXIT_UNPARSED) with alerts=0 -- so systemd logs `Main process exited, code=exited, status=3/NOTIMPLEMENTED`, `Failed with result exit-code`, `Failed to start ICT prop executor` every cycle (MEASURED diag journalctl?unit=ict-prop-executor.service 03:49-08:00Z, 50+ cycles) and /api/diag/services reads ict-prop-executor.service=failed. Collapsed state (CLAUDE-RULES 'Collapsed states'): halted-by-design and crashed share one value. And the halt alerted ONCE (03:49Z, 2 alerts, ping high); every later cycle is alerts=0, so nothing re-escalates a halt that has now stood >4h with the account flat. Tier-2 (scripts/prop/prop_executor_tick.py + the wrapper/unit). Proposal: a distinct EXIT_HALTED mapped via SuccessExitStatus= in deploy/ict-prop-executor*.service so the unit reads inactive-with-reason, and a bounded 'still halted since <ts>' reminder ping every N hours."
+}
