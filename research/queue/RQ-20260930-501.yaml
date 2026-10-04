@@ -1,6 +1,6 @@
 id: RQ-20260930-501
 title: 'HyroTrader fit, Stage 0: does the ict_scalp 15m book (ETH+SOL+XRP) clear a pre-registered edge AND rule-fit gate over ~5 years? (lane HYRO-STRATS)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -119,3 +119,16 @@ related:
   - config/prop_rulesets/hyrotrader.yaml
   - RQ-20260930-502 (blocked) and RQ-20260930-503 (blocked)
 last_dispatched_at: '2026-09-30T08:05:41+00:00'
+result: >-
+  GRADED 2026-10-04 by lane PROP-EVIDENCE (manager session_01MM8o5js6TcDFeNAPBY4Ntv) against
+  RULE-RQ0930-501-HYRO-15M-BOOK-STAGE0, unchanged: same command, legs, --days 1830, ruleset, seeds
+  and gates. FAIL. Re-run on the CAUSAL HTF harness (#15341, fixed 2026-10-02); the 2026-09-30 PASS
+  (run 36687577503) was built on the lookahead harness and is superseded. Pooled n=996 (was 1597),
+  full-cost net R -3.26 (was +62.84), P(both) gate B 0.137/0.147/0.114 (bar 0.25), gate C
+  0.063/0.084/0.073 (bar 0.10): A, B and C all fail. Per leg (1830d, 4 folds): eth_15m n=335
+  +6.27R 2/4, sol_15m n=359 -13.78R 1/4, xrp_15m n=302 +4.25R 3/4. The rule's "a FAIL re-queues
+  for a confirmatory run" clause is NOT taken: gate A is deterministic on this window (-3.26R) and
+  a re-run of the same harness on the same data cannot change it; B and C miss by 0.10+ and 0.02+
+  on every seed. RQ-20260930-502/-503 stay blocked. Row:
+  research/results/RQ-20260930-501/session-20261004.jsonl; artifacts
+  comms/research/RQ-20260930-501/session-20261004/.
