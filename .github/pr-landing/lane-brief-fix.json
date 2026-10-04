@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager Session 2026-10-04 to lane BRIEF-FIX: 'Fix these three, then mark it ready and wake me. I'll claim the slot and merge.' The manager merges; this lane does not self-land.",
+  "why": "Tooling/render code only: scripts/ops/render_daily_brief.py (ranked, capped, stale-flagged brief), scripts/ops/pipeline.py (adds due_bucket), tests, and one CLAUDE.md sentence. No router, runtime, order-path or config change."
+}
