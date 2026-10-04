@@ -59,6 +59,22 @@ On the 7 real-money legs the count is **0 drops of any kind**.
 
 - **Cost today:** none. An IEF long needs a close above the 91.085 midline, and the short's broker stop at 90.84 would fire first. The stop price is from the 09-30 measurement in that row; it was not re-read today.
 
+## Daily live-replay-parity run (scheduled 06:35Z, generated 07:18:49Z, PR #16198)
+
+**Overall: `divergent`.** The run checked 9 real-money legs (the 7 above plus breakout_1's `trend_donchian_eth_prop` and `trend_donchian_sol_prop`): 597 bars and 60,937 evals. It found 6 real-money divergences. All 3 controls pass. **None of the 6 changes a decision since the PREVBAR fix.**
+
+- **slv_pullback_1d: 3 × `previous_bar_signal`.**
+  - Bar: 2026-09-28 (04:00Z stamp), live evals at 13:31:13, 13:33:20 and 13:35:23Z.
+  - Live went long on Friday's bar (entry 58.14 = the 09-25 close). The replay on the right bar says none.
+  - This is the PREVBAR bug, and it **predates** #15894. Note 1 above shows why no order followed.
+  - The running build `f3c302ca5` contains #15894.
+- **trend_donchian_sol_prop (breakout_1): 3 × `candle_mismatch`.**
+  - Bar: 2026-10-01 07:00Z, live evals 07:21–07:25Z.
+  - Live and replay **agree on the decision**: no breakout (live close 118.16 inside [117.04, 122.83]), side none in both.
+  - Only the ADX differs: 9.77 live vs 10.64 in the replay. The candle data the bot saw at 07:21Z evidently differed from the stored bar.
+  - It is mid-bar, not at a bar boundary, and it is a crypto leg, so PREVBAR does not apply.
+- **The other 7 real-money legs: 0 divergences of any class.**
+
 ## Rarity (rarity.py)
 
 **Baseline:** closed-bar signals from 2025-01-01 to 2026-09-27, on a 2h grid. The data range is stated in `output.txt`.
