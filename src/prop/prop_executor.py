@@ -107,6 +107,12 @@ class ExecutorConfig:
     # bot symbol → {venue, cvpp, lot_units, min_lots, lot_step}
     symbols: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     watched_click_max_lots: Dict[str, float] = field(default_factory=dict)
+    # DRY-walk-only size per venue symbol (TRADEIFY-SOL-SIZE 2026-10-04). Read
+    # ONLY by run_round_trip(arm=False), which submits nothing; every armed
+    # path (round-trip-live, the watched click, the ticket cycle) never reads
+    # it, so raising it arms nothing. Empty = the dry walk uses
+    # watched_click_max_lots, as before.
+    dry_walk_max_lots: Dict[str, float] = field(default_factory=dict)
     # accounts.yaml risk.breach_guards (enforce | report), the SAME key the
     # RiskManager and the ticket caveat read. ``report`` = the static-DD /
     # daily-loss / cushion-exceeded verdicts are alerts, not refusals.
@@ -219,6 +225,8 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         symbols=syms,
         watched_click_max_lots={str(k): float(v) for k, v in (ex.get("watched_click_max_lots") or {}).items()
                                 if v is not None},
+        dry_walk_max_lots={str(k): float(v) for k, v in (ex.get("dry_walk_max_lots") or {}).items()
+                           if v is not None},
         breach_guards=_breach_guards_for(account_id),
         enabled_venue_symbols=enabled_venues(ex, account_id=account_id),
         leverage_caps=prop_rule_guards.leverage_caps(lim),
@@ -1285,6 +1293,11 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     venue = venue_symbol.upper()
     sym = next((v for v in cfg.symbols.values() if str(v["venue"]).upper() == venue), None)
     cap = cfg.watched_click_max_lots.get(venue_symbol, cfg.watched_click_max_lots.get(venue))
+    if not arm:
+        # A dry walk submits nothing, so it may walk a larger, realistic size
+        # (executor.dry_walk_max_lots) to see whether the terminal enables the
+        # submit there. The armed cap above is untouched.
+        cap = cfg.dry_walk_max_lots.get(venue_symbol, cfg.dry_walk_max_lots.get(venue, cap))
 
     def stop(why: str) -> CycleResult:
         res.halted = why
@@ -1304,7 +1317,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         return stop(f"no executor.watched_click_max_lots entry for {venue}")
     lots = cap if lots is None else lots
     if not (lots > 0) or lots > cap:
-        return stop(f"lots {lots} must be > 0 and <= watched_click_max_lots {cap}")
+        return stop(f"lots {lots} must be > 0 and <= {'watched_click_max_lots' if arm else 'the dry-walk cap'} {cap}")
     stepped, why = size_lots(lots * float(sym["lot_units"]), sym)
     if stepped is None or abs(stepped - lots) > 1e-9:
         return stop(f"lots {lots} is not a valid venue size ({why or f'nearest step is {stepped}'})")

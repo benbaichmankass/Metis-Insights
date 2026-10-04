@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 (order-path module src/prop/prop_executor.py, dry branch only, plus config/prop_platforms.yaml). Lane TRADEIFY-SOL-SIZE dispatch: 'A small HELD Tier-2 PR ... Report to the manager. After the manager merges it'. The manager (session_01MM8o5js6TcDFeNAPBY4Ntv) merges.",
+  "why": "Adds executor.dry_walk_max_lots, read only by run_round_trip(arm=False), and sets tradeify_1 {SOLUSD: 1.0} so round-trip-dry,limit SOLUSD can test whether the terminal enables the Buy submit at a realistic size (it is disabled at 0.01, #16090). watched_click_max_lots and every armed path are unchanged; tests pin both. Pipeline PI-20261003-ILZMCTFQ-0002."
+}
