@@ -97,6 +97,21 @@ PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
     ("MHG", "1d"): (EQUITY, "D", 3650),
 }
 
+# ⚠️ STAGE-0 CANDIDATE PAIRS -- NOT the roster. `PAIRS` is locked to the live roster by
+# `--roster-only` (drift in either direction fails), so a research-queue unit that asks a
+# harness about an instrument NO rostered leg trades was refused here by construction:
+# `no declared pair for symbol='BNBUSDT' timeframe='2h'` (exit 2 in the dispatch `build`
+# job). MEASURED 2026-10-04: RQ-20260929-101/-102/-103/-104 (BNBUSDT 2h/4h/4h/1h) and
+# RQ-20260929-108 (ETHUSDT 5m) all died there and landed `producer_failed`, five days after
+# being queued. A candidate is fetched ONLY when named with --symbol/--timeframe, never by the
+# default run, and never enters the manifest/roster drift check. Add a pair here when a queue
+# unit needs data for an instrument that is not (yet) on a roster.
+CANDIDATE_PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
+    ("BNBUSDT", "1h"): (CRYPTO, "60", 180), ("BNBUSDT", "2h"): (CRYPTO, "120", 180),
+    ("BNBUSDT", "4h"): (CRYPTO, "240", 180),
+    ("ETHUSDT", "5m"): (CRYPTO, "5", 30),
+}
+
 PROXY_WRITE_NAME = {"MGC": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 
 
@@ -165,7 +180,7 @@ def main(argv=None) -> int:
 
     targets = PAIRS
     if args.symbol:
-        targets = {k: v for k, v in PAIRS.items()
+        targets = {k: v for k, v in {**CANDIDATE_PAIRS, **PAIRS}.items()
                   if k[0] == args.symbol and (not args.timeframe or k[1] == args.timeframe)}
         if not targets:
             print(f"no declared pair for symbol={args.symbol!r} timeframe={args.timeframe!r}")

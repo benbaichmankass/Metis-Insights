@@ -377,21 +377,46 @@ def list_outbound_tickets(
                 (*sorted(strategies), cap),
             ).fetchall()
         tk_rows = []
+        # Sidecar rows for OTHER accounts on the same order package (the
+        # package id is shared across every account that rosters the leg) —
+        # read only to tell "this package was ticketed for someone else" from
+        # "this package predates the sidecar".
+        other_opids: set = set()
         if "prop_tickets" in present:
-            tk_rows = conn.execute(
-                "SELECT * FROM prop_tickets ORDER BY created_at DESC LIMIT ?",
-                (cap,),
-            ).fetchall()
+            # SCOPED TO THE ACCOUNT (TRADEIFY-RISK-75, 2026-10-04). This read was
+            # unfiltered and keyed by order_package_id alone, so when breakout_1
+            # and tradeify_1 both ticketed one package, ONE sidecar row won and
+            # BOTH accounts' views returned it: tradeify_1's executor fetched
+            # breakout_1's $75 ticket (1.5% x $5k) and refused it against its own
+            # $50 cap, so the live account could never trade.
+            if account_id:
+                tk_rows = conn.execute(
+                    "SELECT * FROM prop_tickets WHERE account_id = ? "
+                    "ORDER BY created_at DESC LIMIT ?",
+                    (account_id, cap),
+                ).fetchall()
+                other_opids = {
+                    r[0] for r in conn.execute(
+                        "SELECT DISTINCT order_package_id FROM prop_tickets "
+                        "WHERE account_id != ? AND order_package_id IS NOT NULL",
+                        (account_id,))
+                }
+            else:
+                tk_rows = conn.execute(
+                    "SELECT * FROM prop_tickets ORDER BY created_at DESC LIMIT ?",
+                    (cap,),
+                ).fetchall()
     finally:
         conn.close()
 
-    tk_by_op: Dict[str, Dict[str, Any]] = {}
+    # A LIST per package: one package can carry one ticket per account.
+    tk_by_op: Dict[str, List[Dict[str, Any]]] = {}
     tk_orphans: List[Dict[str, Any]] = []
     for r in tk_rows:
         d = _ticket_row(r)
         opid = d.get("order_package_id")
         if opid:
-            tk_by_op[opid] = d
+            tk_by_op.setdefault(opid, []).append(d)
         else:
             tk_orphans.append(d)
 
@@ -403,6 +428,7 @@ def list_outbound_tickets(
         return {
             "order_package_id": op.get("order_package_id") or tk.get("order_package_id"),
             "ticket_id": tk.get("ticket_id"),
+            "account_id": tk.get("account_id"),
             "created_at": op.get("created_at") or tk.get("created_at"),
             "signal_time": tk.get("signal_time") or op.get("created_at"),
             "strategy": op.get("strategy_name") or tk.get("strategy"),
@@ -427,12 +453,20 @@ def list_outbound_tickets(
         d = dict(r)
         opid = d.get("order_package_id")
         seen.add(opid)
-        out.append(_emit(d, tk_by_op.get(opid, {})))
+        tks = tk_by_op.get(opid)
+        if not tks:
+            if opid in other_opids:
+                # Ticketed for another account only: not this account's ticket.
+                continue
+            tks = [{}]  # pre-sidecar package: still visible, from order_packages
+        for tk in tks:
+            out.append(_emit(d, tk))
     # Sidecar tickets whose order package wasn't in the prop-strategy slice
     # (e.g. a strategy renamed, or scope couldn't resolve) — surface anyway.
-    for opid, tk in tk_by_op.items():
+    for opid, tks in tk_by_op.items():
         if opid not in seen:
-            out.append(_emit(None, tk))
+            for tk in tks:
+                out.append(_emit(None, tk))
     for tk in tk_orphans:
         out.append(_emit(None, tk))
 
