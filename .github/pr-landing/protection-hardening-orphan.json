@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order path: src/runtime/order_monitor.py reverse reconciler + monitor close branch. HELD for the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) to review and merge, per lane PROTECTION-HARDENING's dispatch brief.",
+  "why": "CA-A01-019/-005/-021/-020 money-path fixes: an unreadable order-package read no longer flattens an alive orphan; the real Bybit 110017 'current position is zero' rejection is recognised as already-flat (110025 dropped); an adopted/reattached orphan no longer steals linked_trade_id from another open (real-money) leg; a venue surplus over the journal on a known (symbol, side) is paged once, detect-only. No new order is sent by any change; two changes REMOVE a close (read-failure flatten) or a mis-attribution."
+}
