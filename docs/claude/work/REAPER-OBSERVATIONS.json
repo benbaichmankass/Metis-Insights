@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-10-04T07:29:12Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-10-04T07:23:02Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-10-04T00:39:23Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-10-04T07:23:02Z",
+  "updated_at": "2026-10-04T07:29:12Z",
   "latest": {
-    "generated_at": "2026-10-04T07:23:02Z",
+    "generated_at": "2026-10-04T07:29:12Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1292,
+      "unregistered_claude_branches": 1291,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 356,
+      "unregistered_but_attributable_sessions": 355,
       "unregistered_owner_map": {
         "session_01113oMBNikT5uJanU16K3yq": [
           "claude/correct-eth-prop-regime-flip-status",
@@ -2006,9 +2006,6 @@
           "claude/jc-sa-08-alpaca-mirror-exits",
           "claude/jc-sa-08-population",
           "claude/jc-sa-08-population-correction"
-        ],
-        "session_01PwDy1zXY32sBNggRmZw1Ki": [
-          "claude/tradeify-sol-dry-size"
         ],
         "session_01PyohkPdSE4VrqUd9R6qTdB": [
           "claude/pipeline-autoland-tmp-race",
