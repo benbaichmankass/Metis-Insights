@@ -1,0 +1,30 @@
+Live signals-audit (/api/diag/audit_query?strategy=<leg>&since=2026-09-27T00:00:00Z, paged), pulled 2026-10-04 ~06:14Z
+
+xrp_pullback_2h: 4299 eval rows since 09-28T03:35Z, first 2026-09-28T03:35:29, last 2026-10-04T06:13:38; actionable 0 []
+    3924  no trend#pullback#confirmation setup on the latest bar (non#actionable)#
+     375  ADX # < adx_min # — regime filter, non#actionable#
+
+ada_pullback_2h: 4299 eval rows since 09-28T03:35Z, first 2026-09-28T03:35:30, last 2026-10-04T06:13:40; actionable 0 []
+    4093  no trend#pullback#confirmation setup on the latest bar (non#actionable)#
+     153  ADX # < adx_min # — regime filter, non#actionable#
+      53  trigger bar ATR percentile # < vol_skip_below_pctl # — vol#at#entry gate (dead tail), non#
+
+trend_donchian_eth_4h: 4308 eval rows since 09-28T03:35Z, first 2026-09-28T03:35:15, last 2026-10-04T06:13:32; actionable 3 [('2026-09-28T03:39:40', 'sell', 2645.89), ('2026-09-28T03:37:40', 'sell', 2645.89), ('2026-09-28T03:35:15', 'sell', 2645.89)]
+    4227  no breakout on the latest bar (close=# within channel [#, #]) — non#actionable#
+      78  confidence # below min_confidence # — non#actionable#
+       3  
+
+trend_donchian_xrp_4h: 1662 eval rows since 09-28T03:35Z, first 2026-09-28T03:35:29, last 2026-10-04T04:01:52; actionable 0 []
+    1583  no breakout on the latest bar (close=# within channel [#, #]) — non#actionable#
+      64  confidence # below min_confidence # — non#actionable#
+      15  trigger bar hour # in skip_hours [#] — time#of#day gate, non#actionable#
+
+ief_pullback_1d: 949 eval rows since 09-28T03:35Z, first 2026-09-28T13:31:10, last 2026-10-02T19:58:51; actionable 0 []
+     949  no trend#pullback#confirmation setup on the latest bar (non#actionable)#
+
+slv_pullback_1d: 948 eval rows since 09-28T03:35Z, first 2026-09-28T13:31:13, last 2026-10-02T19:58:53; actionable 3 [('2026-09-28T13:35:23', 'buy', 58.14), ('2026-09-28T13:33:20', 'buy', 58.14), ('2026-09-28T13:31:13', 'buy', 58.14)]
+     945  no trend#pullback#confirmation setup on the latest bar (non#actionable)#
+       3  
+
+iaum_pullback_1d: 944 eval rows since 09-28T03:35Z, first 2026-09-28T13:31:23, last 2026-10-02T19:59:01; actionable 0 []
+     944  no trend#pullback#confirmation setup on the latest bar (non#actionable)#
