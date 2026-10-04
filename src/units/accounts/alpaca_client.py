@@ -2577,6 +2577,14 @@ class AlpacaClient:
             return {"retCode": 1,
                     "retMsg": f"unreadable direction/qty {direction!r}/{qty!r}"}
         sym = str(symbol or "").upper()
+        if sibling_qtys is None:
+            # _scoped_rearm_cancel would cancel nothing; say so rather than
+            # report "OK" — could not look is not success.
+            return {"retCode": 1,
+                    "retMsg": "cancelled nothing: could not look (sibling sizes unreadable)"}
+        if self._open_orders_for_symbol(sym) is None:
+            return {"retCode": 1,
+                    "retMsg": "cancelled nothing: could not look (open-orders read failed)"}
         try:
             refusal, _ = self._scoped_rearm_cancel(sym, want, q, sibling_qtys)
         except Exception as exc:  # noqa: BLE001

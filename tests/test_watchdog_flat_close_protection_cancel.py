@@ -349,7 +349,7 @@ def test_alpaca_same_size_sibling_cancels_nothing(tmp_db, monkeypatch):
 def test_alpaca_unreadable_siblings_or_orders_cancel_nothing(monkeypatch):
     venue, deleted = _alpaca_venue(monkeypatch, _SPY_LEGS)
     r = venue.cancel_row_protection("SPY", qty=16, direction="long", sibling_qtys=None)
-    assert deleted == [] and r["retCode"] == 0
+    assert deleted == [] and r["retCode"] == 1 and "could not look" in r["retMsg"]
     venue2, deleted2 = _alpaca_venue(monkeypatch, None)
-    venue2.cancel_row_protection("SPY", qty=16, direction="long", sibling_qtys=[])
-    assert deleted2 == []
+    r2 = venue2.cancel_row_protection("SPY", qty=16, direction="long", sibling_qtys=[])
+    assert deleted2 == [] and r2["retCode"] == 1 and "could not look" in r2["retMsg"]
