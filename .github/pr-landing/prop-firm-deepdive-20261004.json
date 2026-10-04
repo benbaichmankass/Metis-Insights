@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "HELD for the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) to read and merge. The dispatch granted Tier-1 self-land for 'docs, research and ruleset YAML drafts', but check_pr_landing.py bars config/prop_rulesets/** from self-landing by name (R5), and the lane does not route around a guard: the two Velotrade rulesets are UNCONFIRMED drafts read by nothing live (no accounts.yaml entry, no routing file, no executor path), so a human read is the whole cost. Everything else in the diff is on the Tier-1 surface.",
+  "why": "Docs, research and ruleset YAML drafts only: one research memo (docs/research/prop-firm-deepdive-2026-10-04.md) with its raw Monte Carlo JSON, its DOCUMENT-INDEX row, a one-line correction pointer on the 2026-10-04 scan memo, two UNCONFIRMED Velotrade rulesets under config/prop_rulesets/ (read by nothing live), an opt-in extension of the research simulator scripts/research/prop_ev_sim.py (every new gate is off unless a ruleset declares it; self-test section 8 and the existing tests prove the published Breakout/Tradeify/HyroTrader numbers are unchanged), three new pipeline records and one pipeline close. No code on the order path, no config an account reads, no account or mode change. Lane PROP-FIRM-DEEP."
+}

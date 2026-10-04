@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "clears_when": "A lane records on the scan doc (or a successor memo linked from it) the three measurements in section 2: egress reachability, the agreement clauses verbatim, and the P1 evaluator result on the two Velotrade rulesets; OR the manager kills it with a reason (e.g. operator declines any new prop firm, or the Terms forbid bots/VPS).",
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261004-BNWMXSJF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-firm-scan-2026-10-04.md section 2 (lane PROP-FIRM-SCAN session_019tHEHEzdqkL16zbNWmXSjf, manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator ask 2026-10-04 ~08:30Z)",
+    "rerun": "Re-fetch https://velotrade.com/api-access, https://velotrade.com/blog/best-crypto-prop-firms-algo-traders and https://propfirmmap.com/firms/velotrade; the finding stands while the firm still states API access on every account and 'VPS and VPN use is expressly permitted', and the ranking in section 1 of the scan doc still has no firm above it on platform fit."
+  },
+  "severity": "low",
+  "state": "done",
+  "terminal_reason": "Three measurements recorded in docs/research/prop-firm-deepdive-2026-10-04.md (lane PROP-FIRM-DEEP session_01Fgr85LsozsKJp3oz9aAZsv, 2026-10-04): (1) platform truth MEASURED -- dx.velotrade.com is a DXtrade deployment serving the REST/Push/FIX developer docs, REST login endpoint live, no Cloudflare; reachability measured from the sandbox's Google egress only, the VM-egress remainder is PI-20261004-OZ9AAZSV-0001; (2) Terms 4.3/5.3/5.4/8.2/8.3/9 and the rules bodies (Minimum Trading Days, Equity limits, EAs, VPN/VPS, hedging, weekend, overnight, news, inactivity) quoted verbatim -- bots and VPS permitted, but 5 qualifying days at >=0.8% per phase and before the first payout, payouts weekly/full/capped 20x fee for the first two; (3) config/prop_rulesets/velotrade_classic_1step.yaml and velotrade_pro_1step.yaml written (unconfirmed: true) and the P1 evaluator run on the B3 book with the new gates modelled -- CLASSIC at 0.5% risk: registered rule PASS on the reduced run (path p5 +$77), PRO: fails. Purchase remains the operator's Tier-2 decision.",
+  "tier": 1,
+  "what": "Velotrade (crypto perps on DXtrade, firm-published REST+WebSocket API open to every account, bots and VPS/VPN 'expressly permitted', 7% static DD / 4% daily / no consistency rule, $32-54 for the $5k 1-step -- rule figures as printed on 3 of 3 Velotrade pages read 2026-10-04 (home, /api-access, /blog/best-crypto-prop-firms-algo-traders), not measured by us) is the only firm in the 2026-10-04 prop-firm scan whose platform we already drive AND whose own text answers the two clauses that ruled out Topstep/Apex/FXIFY/BrightFunded. The firm is the risk: entity incorporated Nov 2025, Trustpilot 8 reviews / profile reported suspended, PropFirmMap grade D. Deep-dive, read-only, no purchase: (1) measure reachability of dx.velotrade.com/developers and the DXtrade login from our egress class via egress-chromium-landing-probe; (2) read the Terms / Trader Agreement bot, VPS and multi-account clauses verbatim and the min-days/payout-eligibility rules; (3) write config/prop_rulesets/velotrade_classic_1step.yaml and velotrade_pro_1step.yaml (unconfirmed: true) and run the P1 evaluator on the B3 book as tradeify-portfolio-feasibility did. Pilot purchase ($32-54) is a separate Tier-2 decision after all three come back. || [2026-10-04 PROP-FIRM-DEEP] measured; see terminal_reason."
+}
