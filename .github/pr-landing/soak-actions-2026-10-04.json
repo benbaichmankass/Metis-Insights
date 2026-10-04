@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane SOAK-WATCH, manager 17:52Z review: soak_states() omits not_soaking contracts and counts an open position as activity (a held daily trend leg read dead); the brief's SOAKS slot lists ready/overdue/dead/unknown in full and accruing as a count + nearest end (16 KB cap); docs/plans/soak-verdicts-2026-10-04.md gives every ready/dead/overdue soak a mandate_resolver outcome; NEEDS_DATA rows auto-filed by the resolver, six inappropriate flip-to-live rows killed with reason, two findings filed. Tooling/observability/docs only; no config/**, src/** or order-path change; every roster change is a Tier-3 proposal, none applied."
+}
