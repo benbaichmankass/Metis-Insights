@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "research/templates/prop-fit-breakout.yaml skips (or marks accruing and gates re-dispatch on n growth) legs whose committed n < the unit's n-floor, shown by queue_replenish.py --plan generating 0 sub-floor prop-fit units; or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20261004-FOJGFIZF-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04",
+    "rerun": "python3 scripts/research/queue_grade.py 2>&1 | grep -c 'verdict=indeterminate'   # dry run: counts units whose only outcome is indeterminate"
+  },
+  "state": "queued",
+  "what": "All 33 prop-fit-breakout template units that have run returned read_state measured / verdict indeterminate: the template generates a unit for every leg with committed evidence, but expected_n (the leg's committed trade count, e.g. 57) is below the 88 floor the unit itself registers, so each unit can only ever grade UNDERPOWERED. ~20 min of runner each, 33 times, zero decisions. The grader now closes them (done, awaiting: more_data) but the template should not mint a unit whose own n cannot reach its floor -- or should declare it accruing on purpose and be re-run only when the leg's n grows."
+}

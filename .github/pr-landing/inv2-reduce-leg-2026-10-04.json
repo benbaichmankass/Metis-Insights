@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "HELD for a human merge: scripts/check_db_integrity.py sits at scripts/ top level, outside pr-landing-guard's TIER1_SURFACE, so the guard cannot certify it for self-land even though the change is a read-only checker (mode=ro) plus its tests. Tier-1 in substance: no order path, no config, no service unit. Note for the merger: scripts/ is a runtime path for deploy_pull_restart.sh, so the deploy restarts the trader once (the same cost every scripts/ commit pays).",
+  "why": "health-review 2026-10-04: INV-2 pages hourly on trade 6409, a reduce leg whose pnl is NULL by design (pnl_source=deferred_intent_reduce; the writer's contract in src/units/accounts/execute.py). The checker only knew the `unmeasured` marker. Reduce legs now leave INV-2 and are counted by a new INV-2c (reported, never alerted) so the population stays visible. Pipeline row PI-20261004-PUQ1APTH-0001."
+}
