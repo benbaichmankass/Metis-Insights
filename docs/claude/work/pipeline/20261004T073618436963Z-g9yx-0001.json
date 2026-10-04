@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "The manager decides on the runner-side operator-click test (\u00a75 step 2 of docs/research/breakout-term-access-2026-10-04.md): APPROVED -> a lane builds it (Tier-1, GitHub runner only) and records 'clears on click: yes/no' plus the measured clearance lifetime on PROP-TERM (then done); DECLINED or the operator will not click -> killed with that reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-G9YXHVGJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-04; runs 37182179316 and 37186023422.",
+    "rerun": "Dispatch egress-chromium-landing-probe.yml on main with variants=baseline,hardened,patchright and read the per-lever summary: if app.breakoutprop.com is still 403 cf-mitigated=challenge with challenge_kind=interactive_widget on every lever, the finding stands."
+  },
+  "severity": "low",
+  "state": "queued",
+  "terminal_reason": null,
+  "tier": 1,
+  "what": "Breakout app.breakoutprop.com: fingerprint hardening is MEASURED DEAD on the ISP proxy (AS7849 US). Real Chrome 154 headed, persistent profile, webdriver=False, timezone matched, and patchright all got the same first-response 403 interactive Turnstile as baseline (run 37186023422), so the challenge is decided by address class before the browser is scored. Two questions remain open: does ONE human click clear it on this proxy address, and how long does cf_clearance last. Proposed next measurement, $0 and no VM: a GitHub runner behind the same proxy, with a 15-min noVNC link; the operator taps the link and clicks once; the runner reloads every 15 min for up to 5 h. Build the VM version (Tier-2, design in the memo \u00a72) only if the lifetime is hours or more."
+}
