@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record closing PI-20261003-ILZMCTFQ-0001 as done (fixed by #16175, merged; live effect not yet observed, stated in the terminal_reason). No code, config or order-path change."
+}
