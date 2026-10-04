@@ -91,5 +91,6 @@ Measured from the run logs:
 
 ## Filed
 - `PI-20261004-JC8KDKLF-0001`: check `alpaca_live/iaum_pullback_1d` order flow (S1).
+- `PI-20261004-JC8KDKLF-0003`: find and repair the trade row(s) with a malformed `closed_at`, and the writer that produced them; the next R5 record lists the ids.
 - `PI-20261004-JC8KDKLF-0002`: extend R5 to count shadow order packages, so shadow soaks can grade accruing or dead.
 - 48 `PI-SOAK-20261004-*` items: one per Stage-1 leg (non-shadow) and one per shadow strategy. Each becomes due from its graded state.
