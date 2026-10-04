@@ -1,0 +1,61 @@
+name: system-actions-cancel-guard
+
+# A system-action cancelled before it ran is never silent (OA-17, 2026-10-04).
+#
+# GitHub keeps ONE pending run per concurrency group; a newer system-actions
+# request cancels an older pending one in the shared (mutating) lane. Before
+# this guard the requester's issue stayed open with zero comments and the
+# action never happened (#16251 / #16263, both de-risk steps). On every
+# system-actions run that concludes `cancelled`, this reads the issue number the
+# run's `route` job recorded and hands it to scripts/ops/system_action_cancel_guard.py:
+#   main job never started + issue open -> comment "CANCELLED, NOT RUN",
+#     re-file it as a new system-action issue (max 3 re-queues), close the original;
+#   main job started, then cancelled   -> comment only (may have partially applied);
+#   issue closed                       -> nothing (closing is how to withdraw).
+# The re-queue issue is created with BRANCH_PROTECTION_TOKEN (a PAT): an issue
+# opened with GITHUB_TOKEN would not trigger system-actions (OA-10's trap).
+
+on:
+  workflow_run:
+    workflows: [system-actions]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  guard:
+    if: github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.event == 'issues'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/system_action_cancel_guard.py
+          sparse-checkout-cone-mode: false
+      - name: Fetch the cancelled run's request record
+        id: req
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: system-action-request
+          path: request
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Notify and re-queue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEUE_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          CANCELLED_RUN_ID: ${{ github.event.workflow_run.id }}
+          CANCELLED_RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          if [ -f request/issue_number ]; then
+            export ISSUE_NUMBER="$(head -c 20 request/issue_number | tr -dc '0-9')"
+          else
+            echo "::warning::cancelled run ${CANCELLED_RUN_ID} has no system-action-request artifact (cancelled before its route job ran); cannot name its issue"
+            export ISSUE_NUMBER=""
+          fi
+          python3 scripts/ops/system_action_cancel_guard.py

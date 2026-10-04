@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager session_01MM8o5js6TcDFeNAPBY4Ntv dispatch 2026-10-04 ~10:36Z ('OA-17 ... build it now. Workflow/CI change, Tier 1'): workflow changes go to the manager for review before merge.",
+  "why": "OA-17: system-actions.yml concurrency moves from one workflow-level group to a job-level group chosen by a new route job (read-only allowlist -> own group per run; everything else keeps the shared serial lane), plus system-actions-cancel-guard.yml, which comments CANCELLED, NOT RUN on a pending-cancelled run's issue and re-queues it with the PAT (max 3). CI/workflow + tooling + tests + docs; no runtime, order path or config."
+}
