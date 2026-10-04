@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "due_date": "2026-10-07",
+    "kind": "date"
+  },
+  "filed": "2026-10-04",
+  "id": "PI-20261004-APBY4NTV-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "kind": "operator",
+    "ref": "operator-pasted hourly snapshot 2026-10-04T20:00Z",
+    "rerun": "grep -n 'API ERROR' src/runtime/hourly_report.py; read the next Hourly Snapshot's Accounts section"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "Hourly Snapshot (src/runtime/hourly_report.py:891) prints 'API ERROR' for tradeify_1 and breakout_1 on every report (seen by the operator, 2026-10-04 20:00Z). These are browser-executor prop accounts with no broker API, so api_ok=False is by design, not an error. 'Could not look by design' collapses into 'API error', which trains the reader to ignore the line, including when it fires for real on ib_live. Fix: carry a read_state per account (no_api_by_design / api_error / ok) and render the prop accounts from the prop executor's own status (latched, balance, last tick), or '— (browser executor, see prop status)'. Also confirm whether ib_live's API ERROR is expected (dry_run account, gateway state) or a real fault."
+}
