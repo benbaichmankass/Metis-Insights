@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20260929-028
 title: 'Breakout prop fit: trend_donchian_eth_prop at sizing flat 1.0% of balance under RULE-B6 V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -94,12 +94,14 @@ generated:
 last_dispatched_at: '2026-10-02T13:08:24+00:00'
 grading:
   auto: true
+  awaiting: more_data
   decision_rule_id: RULE-TPL-PROP-FIT-B6V2-trend_donchian_eth_prop-bal010
   evidence:
   - research/results/RQ-20260929-028/37011034077.jsonl
   graded_at: '2026-10-04'
   grader: scripts/research/queue_grade.py
-  needs_review: true
-  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate
   rows: 1
-  verdict: null
+  verdict: indeterminate
