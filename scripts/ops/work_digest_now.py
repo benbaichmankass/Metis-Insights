@@ -177,7 +177,7 @@ def run(dry_run: bool = False, force: bool = False) -> int:
         _write_receipt(outcome="dry_run", hour=hour, base=base, windowBasis=basis,
                        digestState=digest.get("digestState"),
                        lastSentHour=prior.get("lastSentHour"))
-        return 0
+        return _attention_pass(dry_run=True)
 
     from send_ping import enqueue  # noqa: PLC0415
 
@@ -196,7 +196,21 @@ def run(dry_run: bool = False, force: bool = False) -> int:
                    windowBasis=basis, digestState=digest.get("digestState"),
                    queued=str(path))
     print(f"work-digest-now: queued {path} — the bot drains within ~5s")
-    return 0
+    return _attention_pass(dry_run=False)
+
+
+def _attention_pass(dry_run: bool) -> int:
+    """WORK-SYSTEM (2026-10-04): this carrier also runs the attention pass —
+    the daily report, the daily summary, edge alerts and silence alarms
+    (``attention_watch.run``). ONE scheduled carrier, not two timers. A failure
+    there must not undo the digest that already went out, so it is isolated.
+    Its own receipt (``attention_watch_receipt``) records what it did."""
+    try:
+        from scripts.ops import attention_watch  # noqa: PLC0415
+        return attention_watch.run(dry_run=dry_run)
+    except Exception as exc:  # noqa: BLE001 — loud, and the unit exits nonzero
+        print(f"work-digest-now: attention pass FAILED: {exc}")
+        return 1
 
 
 def _self_test() -> int:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# wiring: deploy/ict-attention-watch.service <- deploy/ict-attention-watch.timer
-# (OnCalendar=hourly). Installed by the deploy/*.timer glob in
-# scripts/install_systemd_units.sh. Receipt readable at
+# wiring: called once per hourly pass by scripts/ops/work_digest_now.py::run
+# (deploy/ict-work-digest.timer — the ONE scheduled carrier; this module has no
+# unit of its own, by decision, see the docstring). Receipt readable at
 # /api/diag/log_file?name=attention_watch_receipt. Guard:
 # scripts/ci/run_guards.py::attention-watch (--self-test).
 """THE ATTENTION WATCH — the VM tells people when something needs them.
@@ -15,11 +15,24 @@ this week's run landed nothing; the brief at ``GET /api/bot/work/brief`` was
 737 KB and nobody read it. Everything that was supposed to ask for attention
 was a PAGE someone had to choose to open. This module PUSHES.
 
-It does three things, every hour, on the VM's own clock (GitHub cron is not a
-clock in this repo — see ``scripts/ops/work_digest_now.py``):
+ONE CARRIER, NOT TWO (manager review of #16387, 2026-10-04). The VM already
+runs ``ict-work-digest.timer`` hourly → ``work_digest_now.py``, the hourly
+digest of state CHANGES (checklist transitions, the standing close-wedge
+ledger). A second timer with a second digest would double the Telegram noise.
+It would also be the "new register beside the old one" pattern this repo keeps
+paying for. So this module has NO unit. ``work_digest_now.run()`` calls
+``run()`` here once per pass, after its own digest. The two answer different
+questions: *what changed this hour* versus *what needs someone, and what did
+not arrive*.
 
-  (a) DAILY DIGEST — once per UTC day at/after ``DIGEST_HOUR_UTC``: counts plus
-      the top items that need the operator, ranked. Short by construction.
+Each pass:
+
+  (0) DAILY REPORT — on the first pass at/after ``REPORT_HOUR_UTC`` with no
+      report for today yet, generates and persists ``work_report.py``'s report
+      (the thing the manager's 05:52Z review reads).
+
+  (a) DAILY SUMMARY — once per UTC day at/after ``DIGEST_HOUR_UTC``: counts
+      plus the top items that need the operator, ranked. Short by construction.
   (b) EDGE ALERTS — sent when a thing CHANGES, not while it stays the same:
         * a new ``ask_operator`` pipeline item appears;
         * a soak leg moves into ``ready`` / ``overdue`` / ``dead``
@@ -32,7 +45,7 @@ clock in this repo — see ``scripts/ops/work_digest_now.py``):
           ``INFLIGHT_STALE_DAYS``;
         * the checklist itself (the manager's register) has not been written
           in ``MANAGER_SILENT_HOURS`` — the manager's daily review did not run;
-        * the scheduled 05:30Z work report (``work_report.py``) is missing,
+        * the daily work report (``work_report.py``) is missing,
           stale, or has an errored section.
       A breached alarm re-sends at most once per ``REALERT_HOURS`` while it
       stays breached, and sends one "cleared" line when it clears.
@@ -82,6 +95,7 @@ RESEARCH_RESULTS = "research/results"
 
 # Bounds. Constants, so moving one is a reviewed diff, not a tuning knob.
 DIGEST_HOUR_UTC = 6          # before the operator's day; after the 03:10Z grade slot
+REPORT_HOUR_UTC = 5          # the carrier fires ~05:00-05:02Z; the review routine reads at 05:52Z
 SOAK_GRADE_MAX_DAYS = 8      # weekly (Sun 03:00Z) + one day of grace
 RESEARCH_MAX_HOURS = 36      # dispatcher lands results several times a day when healthy
 INFLIGHT_STALE_DAYS = 3      # an in_flight row nobody has touched in 3 days is not in flight
@@ -248,11 +262,11 @@ def probe_manager(now: datetime) -> dict:
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
 
 
-REPORT_MAX_AGE_HOURS = 26     # daily 05:30Z + grace; a missed run breaches by ~07:30Z next day
-REPORT_DUE_UTC = (5, 50)
+REPORT_MAX_AGE_HOURS = 26     # daily ~05:0xZ + grace
+REPORT_DUE_UTC = (5, 50)      # today's report must exist by 05:50Z (review at 05:52Z)
 #: A report nobody can read in one sitting is the 737 KB brief again. BRIEF-FIX
 #: caps the brief at 16 KB; the report adds the attention summary on top.
-REPORT_MAX_BYTES = 64_000      # today's report must exist by 05:50Z (review at 05:52Z)
+REPORT_MAX_BYTES = 64_000
 
 
 def probe_report(now: datetime) -> dict:
@@ -274,7 +288,7 @@ def probe_report(now: datetime) -> dict:
     errs = rep.get("errored_sections") or []
     if age_h > REPORT_MAX_AGE_HOURS or missed_today:
         return {"status": BREACHED, "detail": f"latest report {rep['report_id']} is {age_h:.0f}h old "
-                                              f"— today's 05:30Z report was not produced"}
+                                              f"— today's ~05:00Z report was not produced"}
     if errs:
         return {"status": BREACHED, "detail": f"{rep['report_id']} has errored section(s): "
                                               f"{', '.join(errs)}"}
@@ -480,7 +494,28 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
     return msgs, new
 
 
+def ensure_daily_report(now: datetime, dry_run: bool = False) -> str:
+    """Generate + persist today's work report on the first pass at/after
+    REPORT_HOUR_UTC. Returns what happened (recorded on the receipt)."""
+    from scripts.ops import work_report  # noqa: PLC0415
+    if now.hour < REPORT_HOUR_UTC:
+        return "not_yet"
+    st, rep = work_report.read_latest()
+    if st == "read" and rep and str(rep.get("generated_at", ""))[:10] == now.date().isoformat():
+        return f"exists:{rep.get('report_id')}"
+    if dry_run:
+        return "would_generate"
+    try:
+        rep = work_report.generate(now)
+        work_report.persist(rep)
+    except Exception as exc:  # noqa: BLE001 — the report probe alarms on the absence
+        print(f"attention-watch: daily report generation FAILED: {exc}")
+        return f"failed:{type(exc).__name__}"
+    return f"generated:{rep['report_id']}"
+
+
 def run(dry_run: bool = False, digest_now: bool = False) -> int:
+    report_outcome = ensure_daily_report(_now(), dry_run=dry_run)
     v = build()
     state = _read_json(STATE)
     msgs, new_state = plan_messages(v, state, digest_now=digest_now)
@@ -491,7 +526,8 @@ def run(dry_run: bool = False, digest_now: bool = False) -> int:
                "soak_read": v["soak_read"], "due": v["stats"]["due"],
                "unrouted": v["stats"]["unrouted"],
                "ask_operator_open": len(v["ask_operator"]),
-               "pipeline_readable": v["pipeline_readable"]}
+               "pipeline_readable": v["pipeline_readable"],
+               "daily_report": report_outcome}
     if dry_run:
         _write_json(RECEIPT, {**receipt, "outcome": "dry_run"})
         return 0

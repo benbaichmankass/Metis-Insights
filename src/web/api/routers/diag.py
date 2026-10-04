@@ -277,12 +277,6 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # alive?" for the timer as well as the run.
     "ict-work-digest.service",
     "ict-work-digest.timer",
-    # WORK-SYSTEM (2026-10-04). The attention watch: daily digest, edge alerts
-    # and "expected signal missing" alarms. docs/plans/work-system-2026-10-04.md
-    "ict-attention-watch.service",
-    "ict-attention-watch.timer",
-    "ict-work-report.service",
-    "ict-work-report.timer",
     "ict-health-snapshot.service",
     "ict-health-snapshot.timer",
     # 2026-06-28 (full-system audit Workstream B) — two recurring trader-VM
@@ -541,8 +535,9 @@ _WORK_DIGEST_RECEIPT = (
     Path(repo_root()) / "runtime_logs" / "work_digest_receipt.json"
 )
 
-# WORK-SYSTEM (2026-10-04). The attention watch's receipt — stamped on every
-# pass, anchored to repo_root() for the same reason as the entry above.
+# WORK-SYSTEM (2026-10-04). The attention pass's receipt — stamped on every
+# pass. The pass rides ict-work-digest (no unit of its own), so it is anchored
+# to repo_root() for the same reason as the entry above.
 _ATTENTION_WATCH_RECEIPT = (
     Path(repo_root()) / "runtime_logs" / "attention_watch_receipt.json"
 )

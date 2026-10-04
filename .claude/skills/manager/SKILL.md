@@ -609,35 +609,48 @@ computes due and pushes it**, and **silence is itself an alarm**.
 
 ### What runs without you
 
-Two VM timers. Both outlive every session.
+There is **one scheduled carrier**: `ict-work-digest.timer`, hourly, which runs
+`scripts/ops/work_digest_now.py`. There is no second timer, and one must not be
+added (manager review of #16387: a parallel digest doubles the noise and is the
+"new register beside the old one" pattern). Each pass does two things:
 
-**`ict-work-report.timer`, daily at 05:30 UTC.** It runs `scripts/ops/work_report.py`
-and persists the **concentrated daily report** to
-`runtime_logs/work_reports/<report_id>.json`, served at
-`GET /api/bot/work/report`.
-- `report_id` = `WR-YYYYMMDD-HHMMZ`.
-- Contents: expected-signal alarms · soak states (dead/overdue/ready first) ·
-  open `ask_operator` items · due count + top 25 ranked · then the brief
-  verbatim. §3 of the brief is "what moved".
-- Every section carries `ok` / `empty` / `error`.
-- `GET /api/bot/work/brief` stays the live view. **The persisted report is the
-  one you review**, so what you saw and when is auditable.
+1. **It sends the hourly change digest**, which existed before this system:
+   checklist transitions and the standing close-wedge ledger.
+2. **It runs the attention pass**, `scripts/ops/attention_watch.py`:
+   - **The daily report.** On the first pass at or after 05:00 UTC, it
+     generates and persists `scripts/ops/work_report.py` to
+     `runtime_logs/work_reports/<report_id>.json`, served at
+     `GET /api/bot/work/report`.
+     - `report_id` = `WR-YYYYMMDD-HHMMZ`.
+     - Contents: expected-signal alarms · soak states (dead, overdue, ready
+       first) · open `ask_operator` items · due count + top 25 ranked · then
+       the brief verbatim. §3 of the brief is "what moved".
+     - Each section is marked `ok`, `empty` or `error`.
+     - `GET /api/bot/work/brief` stays the live view. **The persisted report is
+       the one you review.**
+   - **The daily summary** to the operator, after 06:00Z: counts plus the top
+     8, `ask_operator` first.
+   - **Edge alerts, sent immediately.** These go out when a new `ask_operator`
+     item is created, and when a soak moves to `ready`, `overdue` or `dead`.
+     Soak state is read from `docs/claude/work/SOAKS.json`, which SOAK-WATCH
+     publishes.
+   - **"Expected signal missing" alarms**, raised when:
+     - the R5 weekly soak grade is 8 or more days old;
+     - no research result has landed in 36h;
+     - an `in_flight` row has gone untouched for 3 days;
+     - the checklist has gone unwritten for 30h, meaning **no manager
+       reviewed**;
+     - the daily report is missing at 05:50Z, is over 26h old, has an errored
+       section, or is over 64 KB.
 
-**`ict-attention-watch.timer`, hourly.** It runs `scripts/ops/attention_watch.py`
-and sends to Telegram via @claude_ict_comms_bot:
-- **the daily digest** after 06:00Z: counts plus the top 8, with `ask_operator`
-  first. This goes to the operator;
-- **a push when a new `ask_operator` item is created**, and when a soak moves
-  to `ready`, `overdue` or `dead`. Soak state is read from
-  `docs/claude/work/SOAKS.json`, which SOAK-WATCH publishes; the watch never
-  computes it;
-- **"expected signal missing" alarms**, when:
-  - the R5 weekly soak grade is ≥ 8 days old;
-  - no research result has landed in 36h;
-  - an `in_flight` row has been untouched for 3 days;
-  - the checklist has been unwritten for 30h (**no manager reviewed**);
-  - **the daily report** is missing at 05:50Z, more than 26h old, has an
-    errored section, or is over 64 KB.
+⚠️ **The carrier's own silence is NOT self-detected.** If `ict-work-digest`
+stops, the alarms stop with it. The backstop is your review: a stale
+`generatedAt` on the report means the carrier is down.
+
+⚠️ **Cadence.** The hourly change digest was the operator's choice on
+2026-09-02 (*"I realize that's a lot of noise, but that's how I want it for now
+until we get a little more settled in"*). Whether it becomes daily is the
+operator's call. It is raised as a decision; do not flip it quietly.
 
 The watch's own receipt is at `/api/diag/log_file?name=attention_watch_receipt`.
 
@@ -653,8 +666,8 @@ manager's first act.
 
 1. **Fetch the latest persisted report**: `GET /api/bot/work/report`.
 2. **Check it before you trust it.**
-   - If `generatedAt` is not today at ≈05:30Z, the report is stale. Fixing
-     that is the first incident.
+   - If `generatedAt` is not today, between 05:00Z and 05:10Z, the report is
+     stale. Fixing that is the first incident.
    - If `present: false`, the report is missing. Same: fix it first.
    - If `erroredSections` is non-empty, fix those sections first too.
    - Compare its `reportId` with `last_review.report_id` at the top of
@@ -724,8 +737,8 @@ arrives twice in the same shape is raised as *"should this become a mandate?"*
 1. Title yourself and read the canonical docs (§ "Start of session").
 2. Run `curl -sS https://ict-bot.duckdns.org/api/bot/work/report`.
    - If it is `present: false` or stale, check `/api/diag/services`. If
-     `ict-work-report.timer` or `ict-attention-watch.timer` is not active,
-     fixing it comes before anything else.
+     `ict-work-digest.timer` is not active, fixing it comes before anything
+     else.
    - Read the watch receipt through the diag relay (`diag-data` skill).
 3. **Make sure the daily-review routine exists** (`list_triggers`). It should
    fire into the current manager session at 05:52Z with a prompt naming

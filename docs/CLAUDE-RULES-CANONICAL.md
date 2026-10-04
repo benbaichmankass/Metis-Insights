@@ -755,8 +755,10 @@ the pipeline had 366 items due and 151 unrouted, 25 `ask_operator` items had
 never reached the operator, and the brief was 737 KB and unread. Five rules
 bind:
 
-1. **Due is computed on the VM, and pushed.** `scripts/ops/attention_watch.py`
-   (hourly, `ict-attention-watch.timer`) sends the daily digest. It also sends
+1. **Due is computed on the VM, and pushed, through ONE carrier.**
+   `scripts/ops/attention_watch.py` runs on every hourly `ict-work-digest`
+   pass. It has no timer of its own, so there is one scheduled carrier and
+   not two. It sends the daily summary. It also sends
    a push on every new `ask_operator` item and on every soak that moves to
    `ready`, `overdue` or `dead`. Do not add a second notifier for these
    signals; extend this one.
@@ -772,8 +774,8 @@ bind:
    "A soak must carry its own alarm". It does not replace it: the alarm says
    *when to look*, and the contract says *what ends the wait*.
 4. **The manager reviews a persisted report, on a schedule.**
-   `scripts/ops/work_report.py` (`ict-work-report.timer`, 05:30 UTC) writes
-   `WR-YYYYMMDD-HHMMZ`, which is served at `GET /api/bot/work/report`. The
+   `scripts/ops/work_report.py` writes `WR-YYYYMMDD-HHMMZ` on the first carrier
+   pass at or after 05:00 UTC. It is served at `GET /api/bot/work/report`. The
    05:52Z daily-review routine reads it. The manager gets no push when the
    report is generated, so the routine is the check. A missing, stale or
    errored report is itself an alarm.

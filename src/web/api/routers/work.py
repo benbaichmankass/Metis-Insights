@@ -2298,8 +2298,8 @@ def get_work_schedule() -> dict[str, Any]:
 # ── /report — WORK-SYSTEM: the persisted, scheduled daily work report ───────
 #
 # Added 2026-10-04 (WORK-SYSTEM). `/brief` above is the LIVE view; this serves
-# the REVIEWED one — `scripts/ops/work_report.py`, generated daily at 05:30Z by
-# `ict-work-report.timer` and persisted under runtime_logs/work_reports/ with a
+# the REVIEWED one — `scripts/ops/work_report.py`, generated daily on the first
+# ict-work-digest pass at/after 05:00Z and persisted under runtime_logs/work_reports/ with a
 # `report_id` (WR-YYYYMMDD-HHMMZ) and `generated_at`, so "what did the manager
 # see, and when" is answerable after the fact. Read-only, file-backed, no DB,
 # no secrets, no write surface. Absent and unreadable are reported as such,
@@ -2322,7 +2322,7 @@ def get_work_report(report_id: str | None = None) -> dict[str, Any]:
     if rep is None:
         return {"present": False, "readState": state, "reportId": report_id,
                 "schedule": _wr.SCHEDULE,
-                "reason": ("no persisted report — ict-work-report has not produced one"
+                "reason": ("no persisted report — the daily carrier pass has not produced one"
                            if state == "absent" else "report file could not be parsed")}
     return {"present": True, "readState": "read", "reportId": rep.get("report_id"),
             "generatedAt": rep.get("generated_at"), "schedule": rep.get("schedule"),

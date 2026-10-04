@@ -49,12 +49,12 @@ Nothing is "due" because someone declared it. **The clock and the data decide.**
 
 | signal | surface | to | acts | within |
 |---|---|---|---|---|
-| daily digest (counts + top 8 ranked, ask_operator first) | Telegram via @claude_ict_comms_bot, after 06:00Z | operator | reads; answers any ❓ASK | same day |
+| daily summary (counts + top 8 ranked, ask_operator first) | Telegram via @claude_ict_comms_bot, after 06:00Z, on the existing carrier | operator | reads; answers any ❓ASK | same day |
 | new `ask_operator` item | Telegram, `high`, on creation | operator | answers, or says "make it a mandate" | 24h |
 | soak → `ready` | Telegram `normal` + brief soaks slot | manager | grade against the contract; promote/kill per mandate | next daily review |
 | soak → `overdue` / `dead` | Telegram `high` + brief | manager | kill, or redesign the contract | next daily review |
 | expected signal missing (§4) | Telegram `high`, re-sent every 24h while breached; one ✅ on clear | operator, and the manager at its review | dispatch a fix lane | next daily review |
-| everything due | the persisted daily report, `GET /api/bot/work/report` (05:30Z). The live view is `GET /api/bot/work/brief`, short and ranked with a soaks slot (**BRIEF-FIX**). | manager | dispatch, close or decide each one | daily review (05:52Z routine) |
+| everything due | the persisted daily report, `GET /api/bot/work/report` (≈05:00Z). The live view is `GET /api/bot/work/brief`, short and ranked with a soaks slot (**BRIEF-FIX**). | manager | dispatch, close or decide each one | daily review (05:52Z routine) |
 | lane finished / blocked | `create_trigger(persistent_session_id=<manager>)` + `fire_trigger` | manager | merge/archive, or re-dispatch | on wake |
 | urgent live trading issue | existing trader alerts (@bict_trading_bot) | operator | unchanged | unchanged |
 
@@ -68,7 +68,7 @@ review it."*
 
 | | |
 |---|---|
-| generator | `scripts/ops/work_report.py`, run by `ict-work-report.timer` **daily at 05:30 UTC** |
+| generator | `scripts/ops/work_report.py`, generated on the **first `ict-work-digest` pass at or after 05:00 UTC** (the one scheduled carrier; no timer of its own) |
 | stored at | VM `runtime_logs/work_reports/<report_id>.json` + `latest.json` (kept 45 days) |
 | served at | `GET /api/bot/work/report` (latest) · `?report_id=…` (a past one) |
 | `report_id` | `WR-YYYYMMDD-HHMMZ`, the generation time in UTC, e.g. `WR-20261005-0530Z` |
@@ -79,7 +79,7 @@ review it."*
 routine (05:52Z) is the "periodically check" path, and its prompt names
 `GET /api/bot/work/report`. It works like this:
 1. Fetch the latest report.
-2. Check `generatedAt`. If it is not today's ≈05:30Z, or `erroredSections` is
+2. Check `generatedAt`. If it is not today's ≈05:00–05:10Z, or `erroredSections` is
    non-empty, that is the first incident to fix.
 3. Work each item: dispatch, close or decide.
 4. Record `last_review` = `{report_id, reviewed_at, by, counts}` at the top
@@ -95,7 +95,7 @@ Anything due at a known time gets a `send_later` wake instead of a hope.
 
 ## 4. Silence detection — what alerts when nothing arrives
 
-`scripts/ops/attention_watch.py` runs hourly on `ict-attention-watch.timer`.
+`scripts/ops/attention_watch.py` runs on every hourly `ict-work-digest` pass (§ 7).
 Each probe reads `ok` / `breached` / `unknown`. **`unknown` never clears an
 alarm.**
 
@@ -136,15 +136,42 @@ says some were due) · `unknown` (could not read). Only `ready`, `overdue` and
 | piece | owner | state |
 |---|---|---|
 | this doc, skill + canonical rules, checklist row | WORK-SYSTEM | this PR |
-| `attention_watch.py` + `ict-attention-watch.{service,timer}`; `work_report.py` + `ict-work-report.{service,timer}` + `GET /api/bot/work/report`; diag allowlist | WORK-SYSTEM | this PR; **Tier-2 (new VM timers + a web-api route), held for the manager to merge** |
+| `attention_watch.py` + `work_report.py`, both run by the EXISTING `ict-work-digest` pass; `GET /api/bot/work/report`; receipt in the diag allowlist | WORK-SYSTEM | this PR; **Tier-2 (code on the existing VM carrier + a web-api route), held for the manager to merge** |
 | soak contract, `SOAKS.json` (with `state`), soak alarms on the pipeline, soak report, weekly grade producer | SOAK-WATCH | its own PR |
 | short, ranked, truthful brief with a soaks slot and size cap | BRIEF-FIX | its own PR |
 
 **Closes when** (row WORK-SYSTEM): (1) `/api/diag/services` shows
-`ict-attention-watch.timer` and `ict-work-report.timer` active; (1a)
-`GET /api/bot/work/report` returns a `WR-…-0530Z` report with no errored
+`ict-work-digest.timer` active, with `attention_watch_receipt` showing a pass; (1a)
+`GET /api/bot/work/report` returns a `WR-…-050xZ` report with no errored
 section; (2) the receipt shows `outcome: sent` with
 a digest; (3) the operator confirms a digest arrived in Telegram; (4) the brief
 is under BRIEF-FIX's size cap and its soaks slot is populated from
 `SOAKS.json`; (5) the first silence alarm has fired and later cleared. The
 soak-grade alarm is breached today, so it fires on the first pass.
+
+## 7. One carrier, not two (manager review of #16387, 2026-10-04)
+
+The VM already runs `ict-work-digest.timer` hourly. It drives
+`work_digest_now.py`, the hourly digest of state CHANGES: checklist
+transitions and the standing close-wedge ledger. MEASURED: its receipt read
+`sent` for hour 2026-10-04T15. Its content answers *what changed*. It never
+showed due items, `ask_operator`, soaks or silence, which is why things were
+still ignored while it ran.
+
+The first draft of this PR added a second timer and a second digest beside it.
+That draft was withdrawn, because it was the "new register beside the old one"
+shape and it doubled the noise. The design now:
+
+- **One timer.** `work_digest_now.run()` sends its change digest, then calls
+  `attention_watch.run()`. That one call produces the daily report (at or
+  after 05:00Z), the daily summary (at or after 06:00Z), and the edge alerts
+  and silence alarms, which go out immediately and only on change. No unit was
+  added, and none was retired.
+- **Known limit.** The carrier's own death silences the alarms too. The
+  backstop is the manager's 05:52Z review routine. It reads `generatedAt` and
+  treats a stale report as the first incident.
+- **Cadence is the operator's call, raised, not flipped.** The hourly change
+  digest is hourly because the operator chose it on 2026-09-02 (*"that's how
+  I want it for now until we get a little more settled in"*). The proposal is
+  daily for change summaries and immediate for edge alerts.
+

@@ -28,6 +28,12 @@ def _load(monkeypatch, tmp_path):
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     monkeypatch.setattr(mod, "RECEIPT", tmp_path / "work_digest_receipt.json")
+    # WORK-SYSTEM: the carrier also runs the attention pass, which has its own
+    # tests (tests/test_attention_watch.py). Isolated here so these tests count
+    # only the digest's own sends; the call itself is asserted below.
+    mod._attention_calls = []
+    monkeypatch.setattr(mod, "_attention_pass",
+                        lambda dry_run: mod._attention_calls.append(dry_run) or 0)
     return mod
 
 
@@ -198,3 +204,15 @@ def test_self_test_passes():
     sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     assert mod._self_test() == 0
+
+
+def test_the_carrier_runs_the_attention_pass_after_a_sent_digest(monkeypatch, tmp_path):
+    """WORK-SYSTEM: ONE scheduled carrier. The attention pass (daily report,
+    daily summary, edge alerts, silence alarms) rides this run, not a timer."""
+    mod = _load(monkeypatch, tmp_path)
+    sys.modules["send_ping"] = type(sys)("send_ping")
+    sys.modules["send_ping"].enqueue = lambda body, **k: Path("queued")
+    assert mod.run(force=True) == 0
+    assert mod._attention_calls == [False]
+    assert mod.run(dry_run=True, force=True) == 0
+    assert mod._attention_calls == [False, True]
