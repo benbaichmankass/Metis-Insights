@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only records from lane BACKLOG-BURNDOWN-2 batch 6 (re-routes 4 PROTECTION-HARDENING items as fixed-and-deployed-not-done per manager; files two new items — stale-snapshot overwrite in pipeline.append, and a Tier-2 diag log aggregate). No code, config or order-path change."
+}
