@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "clears_when": "A lane records on the scan doc (or a successor memo linked from it) the three measurements in section 2: egress reachability, the agreement clauses verbatim, and the P1 evaluator result on the two Velotrade rulesets; OR the manager kills it with a reason (e.g. operator declines any new prop firm, or the Terms forbid bots/VPS).",
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261004-BNWMXSJF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-firm-scan-2026-10-04.md section 2 (lane PROP-FIRM-SCAN session_019tHEHEzdqkL16zbNWmXSjf, manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator ask 2026-10-04 ~08:30Z)",
+    "rerun": "Re-fetch https://velotrade.com/api-access, https://velotrade.com/blog/best-crypto-prop-firms-algo-traders and https://propfirmmap.com/firms/velotrade; the finding stands while the firm still states API access on every account and 'VPS and VPN use is expressly permitted', and the ranking in section 1 of the scan doc still has no firm above it on platform fit."
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "Velotrade (crypto perps on DXtrade, firm-published REST+WebSocket API open to every account, bots and VPS/VPN 'expressly permitted', 7% static DD / 4% daily / no consistency rule, $32-54 for the $5k 1-step) is the only firm in the 2026-10-04 prop-firm scan whose platform we already drive AND whose own text answers the two clauses that ruled out Topstep/Apex/FXIFY/BrightFunded. The firm is the risk: entity incorporated Nov 2025, Trustpilot 8 reviews / profile reported suspended, PropFirmMap grade D. Deep-dive, read-only, no purchase: (1) measure reachability of dx.velotrade.com/developers and the DXtrade login from our egress class via egress-chromium-landing-probe; (2) read the Terms / Trader Agreement bot, VPS and multi-account clauses verbatim and the min-days/payout-eligibility rules; (3) write config/prop_rulesets/velotrade_classic_1step.yaml and velotrade_pro_1step.yaml (unconfirmed: true) and run the P1 evaluator on the B3 book as tradeify-portfolio-feasibility did. Pilot purchase ($32-54) is a separate Tier-2 decision after all three come back."
+}
