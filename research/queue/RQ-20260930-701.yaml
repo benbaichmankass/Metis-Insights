@@ -2,7 +2,7 @@ id: RQ-20260930-701
 title: >-
   Regime impact scoping (TREND axis): if a classifier of accuracy A in {0.55, 0.60, 0.70, oracle} gates each
   leg's losing ADX-14 cells, what is the change in full-cost net R?
-status: queued
+status: done
 cadence: once
 theme: regime
 priority: 1
@@ -118,3 +118,14 @@ references:
   - .claude/skills/regime-selectivity/SKILL.md
 
 last_dispatched_at: '2026-10-01T07:29:51+00:00'
+grading:
+  auto: false
+  evidence:
+  - research/results/RQ-20260930-701/36830663475.jsonl
+  graded_at: '2026-10-04'
+  graded_by: 'RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf (hand-written unit: not mechanically
+    gradable)'
+  needs_review: false
+  reason: 1 measured record(s), all fail. Read by a session against the unit's pre-registered rule (not
+    rewritten); the verdict is the record's own.
+  verdict: fail

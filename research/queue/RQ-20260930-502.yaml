@@ -1,6 +1,6 @@
 id: RQ-20260930-502
 title: 'HyroTrader fit: post-only LIMIT entries for the ict_scalp 15m book -- does the edge survive adverse selection and unfilled signals? (lane HYRO-STRATS)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 1
@@ -108,3 +108,14 @@ related:
   - RQ-20260930-501
   - docs/research/hyro-strategy-feasibility-2026-09-30.md
 last_dispatched_at: '2026-09-30T14:51:18+00:00'
+grading:
+  auto: false
+  evidence:
+  - research/results/RQ-20260930-502/36732222189.jsonl
+  graded_at: '2026-10-04'
+  graded_by: 'RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf (hand-written unit: not mechanically
+    gradable)'
+  needs_review: false
+  reason: 1 measured record(s), all fail. Read by a session against the unit's pre-registered rule (not
+    rewritten); the verdict is the record's own.
+  verdict: fail

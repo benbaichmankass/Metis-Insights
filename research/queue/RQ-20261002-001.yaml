@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20261002-001
 title: 'E35 bracket-geometry sweep: ict_scalp_mgc_15m (generated, monthly)'
-status: queued
+status: retired
 cadence: monthly
 kind: experiment
 theme: live_strategy
@@ -63,3 +63,7 @@ generated:
     symbol: MGC
     timeframe: 15m
 last_dispatched_at: '2026-10-03T01:33:17+00:00'
+retired_reason: '2026-10-04 RESEARCH-PIPELINE-REPAIR: ict_scalp_mgc_15m is family `scalp`, which e35_shard_plan
+  refuses as out_of_scope_family; the run dies in the `plan` job ("shard-plan produced ZERO jobs", ~90
+  s) after the dispatcher has stamped the unit, so it never wrote a corpus row. The template no longer
+  generates ict_scalp_* units and the dispatcher no longer fires them.'

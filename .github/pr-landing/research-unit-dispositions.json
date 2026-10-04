@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Edits 14 research/queue/*.yaml units beyond a dispatch stamp (status flips, retirements, two stamp resets); queue units hold pre-registered decision rules, so E57 requires a human merge. No decision rule text is touched."
+}
