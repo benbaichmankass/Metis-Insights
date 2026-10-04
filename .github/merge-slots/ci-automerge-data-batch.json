@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01MD7v8mG8doHqFYuTbsceQM",
+  "branch": "claude/ci-automerge-data-batch",
+  "claimed_at": "2026-10-04T21:41:42Z",
+  "purpose": "CI-AUTOMERGE: self-land the stranded append-only data batch"
+}

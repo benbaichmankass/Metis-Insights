@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane CI-AUTOMERGE (checklist row CI-AUTOMERGE). Recovers append-only rows stranded on 7 automation PRs that could not land (stale base; and the stale-automation-sweep graded every PR on its own R13 claim, so it never refreshed one). Appends to main's file, deduped, source order, every line parsed as JSON: valuation_snapshots +27 (#11956 #12996 #14233), econ_calendar_snapshots +904 (#12356 #16132), claude_strategy_scores +18 closed-trade grades, 0 of whose (trade, package) keys are on main (#16151), e35-bracket-corpus-history +398 (#14228); plus the two econ-calendar PIT capture files those PRs carried. No generated register is rewritten (main's are newer). Data only: no src/, config/ or order path."
+}

@@ -282,3 +282,74 @@ def test_ib_cancel_trade_protection_refuses_without_a_key(ib_client, monkeypatch
     for key in (None, "", "  "):
         assert ib_client.cancel_trade_protection("MES", key)["retCode"] == 1
     assert ib.cancelled == []
+
+
+# ── Alpaca (FIX-CA-01 follow-up, PI-20260927-01CGDPN9-0002) ──────────────────
+# AlpacaClient had no per-trade cancel, so an Alpaca row finalised flat by the
+# watchdog left its OCO legs resting — and a resting SELL stop on a flat equity
+# OPENS A SHORT. The row's own legs are identified by reducing side + unique
+# size, exactly as the re-arm's scoped cancel does.
+
+from src.units.accounts.alpaca_client import AlpacaClient  # noqa: E402
+
+
+def _alpaca_venue(monkeypatch, legs):
+    venue = AlpacaClient(api_key="k", api_secret="s", env="paper")
+    deleted = []
+    monkeypatch.setattr(venue, "_open_orders_for_symbol",
+                        lambda sym: None if legs is None else list(legs))
+
+    def _req(method, path, json_body=None):
+        if method == "DELETE":
+            deleted.append(path.rsplit("/", 1)[-1])
+        return {"retCode": 0}
+    monkeypatch.setattr(venue, "_request", _req)
+    return venue, deleted
+
+
+_SPY_LEGS = [
+    {"id": "stp-own", "type": "stop", "side": "sell", "qty": "16"},
+    {"id": "lmt-own", "type": "limit", "side": "sell", "qty": "16"},
+    {"id": "stp-sib", "type": "stop", "side": "sell", "qty": "9"},
+    {"id": "entry", "type": "limit", "side": "buy", "qty": "16"},
+]
+_ALPACA_CFG = {"account_id": "alpaca_live", "exchange": "alpaca", "mode": "live"}
+
+
+def test_watchdog_alpaca_flat_close_cancels_only_the_rows_own_legs(tmp_db, monkeypatch):
+    monkeypatch.setattr("src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+                        lambda: {"alpaca_live": dict(_ALPACA_CFG)})
+    tid = _insert_trade(tmp_db, account_id="alpaca_live", symbol="SPY", size=16)
+    _insert_stuck_pkg(tmp_db, pkg_id="pkg-spy", trade_id=tid, symbol="SPY")
+    venue, deleted = _alpaca_venue(monkeypatch, _SPY_LEGS)
+    _run_watchdog_flat(tmp_db, venue, _ALPACA_CFG)
+
+    assert _status(tmp_db, tid)[0] == "closed"
+    assert sorted(deleted) == ["lmt-own", "stp-own"]   # never the sibling or entry
+
+
+def test_alpaca_same_size_sibling_cancels_nothing(tmp_db, monkeypatch):
+    _insert_trade(tmp_db, account_id="alpaca_live", symbol="SPY", size=16)  # open sibling
+    tid = _insert_trade(tmp_db, account_id="alpaca_live", symbol="SPY", size=16)
+    conn = tmp_db.connect()  # _insert_trade leaves is_backtest at its default
+    try:
+        conn.execute("UPDATE trades SET is_backtest=0")
+        conn.commit()
+    finally:
+        conn.close()
+    venue, deleted = _alpaca_venue(monkeypatch, _SPY_LEGS)
+    with patch.object(om, "_build_account_client",
+                      return_value=(venue, _ALPACA_CFG)):
+        om._cancel_closed_row_protection(
+            {"id": tid, "account_id": "alpaca_live", "symbol": "SPY",
+             "position_size": 16, "direction": "long"}, tmp_db)
+    assert deleted == []
+
+
+def test_alpaca_unreadable_siblings_or_orders_cancel_nothing(monkeypatch):
+    venue, deleted = _alpaca_venue(monkeypatch, _SPY_LEGS)
+    r = venue.cancel_row_protection("SPY", qty=16, direction="long", sibling_qtys=None)
+    assert deleted == [] and r["retCode"] == 1 and "could not look" in r["retMsg"]
+    venue2, deleted2 = _alpaca_venue(monkeypatch, None)
+    r2 = venue2.cancel_row_protection("SPY", qty=16, direction="long", sibling_qtys=[])
+    assert deleted2 == [] and r2["retCode"] == 1 and "could not look" in r2["retMsg"]

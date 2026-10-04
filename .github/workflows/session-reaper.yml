@@ -5,6 +5,18 @@ name: session-reaper
 # docs/archive/2026-09-21-operating-reset/. Its cron is commented out below rather
 # than deleted, so re-arming it is one uncomment. `workflow_dispatch` still works.
 # Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+#
+# ⚠️ PUSH TRIGGER REMOVED 2026-10-04 (REAPER-NOISE). FIX-CA-17 (2026-09-27) had
+# dropped the `paths:` filter so this ran on EVERY push to main. Its concurrency
+# group cancels superseded pending runs, so a burst of merges cancelled most of
+# them (MEASURED by the operator's report: 16 of the last 30 runs `cancelled`),
+# and `claude-run-failure-alert` paged each as a "dead run". Worse, each run
+# landed its ledger as an auto-merge PR, which is itself a push to main.
+# NO LIVE READER: the only consumer of `REAPER-OBSERVATIONS.json` in the live tree
+# is `session_reaper.py` itself (which writes it), and that script grades the
+# archived `SESSIONS.json` registry. So the trigger was keeping a ledger no one
+# reads current. It is now `workflow_dispatch` only. It stays listed in the
+# failure alert so a deliberate manual run that dies is still reported.
 
 # THE REAPER'S CLOCK — the external, cadenced thing that records what a session
 # left behind, because the session that died cannot and the manager will not.
@@ -74,8 +86,6 @@ on:
   # work-digest.yml's own push-on-main fallback ("the ONLY carrier that can
   # fire while `main` is quiet" per that file's header) — every push to `main`
   # now re-reaps, same as every other push-driven producer in this repo.
-  push:
-    branches: [main]
 
 permissions:
   contents: write
