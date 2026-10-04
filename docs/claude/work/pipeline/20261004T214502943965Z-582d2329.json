@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A bybit_raw_positions read shows NO linear base_coin:* query in could_not_look with ErrCode 10001 -- either the query is replaced by one Bybit accepts on linear (settleCoin per settle coin the wallet holds, or symbol per instrument listed by /v5/market/instruments-info for that base), or it is removed and the docstring stops calling it decisive. MEASURED 2026-09-27: 4 of 4 linear base_coin queries could_not_look (10001); spot 4/4 could_not_look (181001, expected); inverse/option no_rows. The wallet totalPositionIM cross-check still works and matched the visible positions exactly (62.03198541), so the account is not blind today -- but the sweep's per-base reach is not what its docstring claims.",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-ZCQTDZZG-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "issue #13101 (/api/diag/bybit_raw_positions?account_id=bybit_2, 2026-09-27T08:48:13Z), W6 lane session_01GMjicpDPBwGg6JZcqtdzZG",
+    "rerun": "open a vm-diag-request issue titled '[diag-request] bybit_raw_positions?account_id=bybit_2' and read queries[] where query startswith 'base_coin:' and category=='linear'"
+  },
+  "routed_to": "PROTECTION-HARDENING (lane session_017nt865EQaLPJszJ4SFBKu9): re-verified 2026-10-04 -- clients.py baseCoin-only linear query unchanged; diag-only (no order path), not in this lane's money-path PRs.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "account_bybit_raw_positions' baseCoin sweep -- the query its own docstring calls 'the decisive one' -- ALWAYS fails on linear (Bybit 10001 'symbol or settleCoin required'), so the filter-independent position sweep is dead on the only category bybit accounts trade"
+}
