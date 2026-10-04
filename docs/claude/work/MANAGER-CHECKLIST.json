@@ -5118,9 +5118,13 @@
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16492,
+        16496,
+        16498
+      ],
       "blocked_on": [],
-      "note": "2026-10-04 (lane session_017nt865EQaLPJszJ4SFBKu9, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv): re-verified all 13 members against main; PR-A (held) fixes KFWRL9R1-0006 (orphan flatten on package-read failure), -0002 (Bybit 110017 already-flat matcher), -0008 (paper orphan steals real-money package link), -0007 (venue surplus over journal, detect-only). Each test fails on main. Remaining members follow in PR-B/PR-C or are dispositioned with evidence on the pipeline."
+      "note": "2026-10-04 (lane session_017nt865EQaLPJszJ4SFBKu9, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv): re-verified all 13 members against main; PR-A (held) fixes KFWRL9R1-0006 (orphan flatten on package-read failure), -0002 (Bybit 110017 already-flat matcher), -0008 (paper orphan steals real-money package link), -0007 (venue surplus over journal, detect-only). Each test fails on main. Remaining members follow in PR-B/PR-C or are dispositioned with evidence on the pipeline. | 2026-10-04 ~22:00Z lane: THREE held PRs open, none merged/deployed/observed. #16492 orphan/reconciler (KFWRL9R1-0006/-0002/-0008/-0007). #16496 coverage (ENGC5EUD-0001, KFWRL9R1-0011/-0012; ENGC5EUD-0004 closed done, already fixed by #13251). #16498 Alpaca flat-finalise cancel (01CGDPN9-0002 part b) + pipeline routing notes for all 13 members. Residual, still open on the pipeline with re-verified evidence: 01CGDPN9-0002 part (a) _netting_apply_close (needs a decision), 3QJJAY5Y-0001 (Tier-3, needs journalctl count), KFWRL9R1-0010 (watchdog closed_at basis), KFWRL9R1-0013 (narrowed: >=3 naked rows / same-size siblings), ZCQTDZZG-0001 (diag-only). Row moves to landed_unproven when the PRs merge; done needs deploy + the observations named in each PR body."
     }
   ]
 }
