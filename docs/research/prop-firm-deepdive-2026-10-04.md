@@ -104,11 +104,47 @@ Strictest readings chosen where the pages are silent: funded account restarts at
 
 **Population.** The three legs the Tradeify memo scored as B3, from the committed evidence records on `main` at `786352e8`: `trend_donchian_eth_prop` (`comms/strategy_evidence/runs/2026-09-26/…__trades.jsonl`, n = 169), `trend_donchian_sol_prop` (`runs/2026-09-25/…`, n = 65) and `ict_scalp_xrp_15m` (`runs/2026-10-02/…`, **n = 76** — the current record; the Tradeify memo used the 2026-09-25 record with n = 129, so the XRP leg is a different, smaller population here). Costs recomputed by the simulator with Velotrade's stack: commission 6 bps round trip, slippage 3 bps (the harness default, unchanged), swap 0.05 %/night at midnight crossings (the tool's `dxtrade` model; Velotrade charges at 00:30 UTC — a 30-minute approximation). Leverage caps ETH 5×, SOL 5×, XRP 2×. Hedging within an account is allowed on Velotrade, so `--no-hedge` was not set (B3 is one leg per symbol anyway). Reduced Monte Carlo as in the Tradeify memo's sweep: 1,000 lives + 30 × 100 evidence bootstrap, seed 7, 730-day horizon. Raw JSON beside this file in [`prop-firm-deepdive-2026-10-04/`](prop-firm-deepdive-2026-10-04/).
 
-{{SWEEP_TABLE}}
+All rows: $5k account, 730-day horizon, reduced MC (1,000 lives + 30 × 100 bootstrap, seed 7) unless marked FULL-SIZE. "V2 rule" is `RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2` (PASS if the evidence p5 under `path` > 0; FAIL if p95 < 0; else INDETERMINATE), graded by the tool itself and copied from the JSON. "deaths static / daily" counts lives (of 1,000) ended by the static floor vs the daily limit. "deferral days" is the mean number of daily re-asks before the funded 5-qualifying-day gate let the first payout through.
+
+| ruleset | risk / trade | model | EV net / life $ | evidence p5 / p95 | P(net>0) | P(pass) | median days to pass | payouts / life | P(death before 1st payout) | deaths static / daily | capped payouts · deferral days per life | V2 rule |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| CLASSIC 1-Step | 0.50% | `path` | +430 | +77 / +2,205 | 0.68 | 0.81 | 166 | 3.5 | 0.30 | 640 / 0 | 0 / 50 | **PASS** |
+| CLASSIC 1-Step | 0.50% | `stop` | +375 | -48 / +1,027 | 0.60 | 0.75 | 166 | 3.2 | 0.38 | 743 / 0 | 0 / 45 | **** |
+| CLASSIC 1-Step | 0.50% | `realized` | +469 | -6 / +1,687 | 0.69 | 0.82 | 188 | 3.8 | 0.28 | 573 / 0 | 0 / 50 | **** |
+| CLASSIC 1-Step | 0.75% | `path` | +344 | +22 / +1,639 | 0.49 | 0.67 | 88 | 2.5 | 0.51 | 975 / 0 | 0 / 15 | **PASS** |
+| CLASSIC 1-Step | 0.75% | `stop` | +233 | +0 / +1,085 | 0.43 | 0.60 | 82 | 1.7 | 0.56 | 997 / 0 | 0 / 12 | **** |
+| CLASSIC 1-Step | 0.75% | `realized` | +419 | -12 / +1,569 | 0.55 | 0.72 | 92 | 3.0 | 0.45 | 955 / 0 | 0 / 16 | **** |
+| CLASSIC 1-Step | 1.00% | `path` | +250 | -11 / +1,058 | 0.39 | 0.60 | 52 | 1.6 | 0.61 | 984 / 14 | 0 / 10 | **INDETERMINATE** |
+| CLASSIC 1-Step | 1.00% | `stop` | +68 | -35 / +533 | 0.21 | 0.44 | 43 | 0.6 | 0.79 | 762 / 238 | 0 / 5 | **** |
+| CLASSIC 1-Step | 1.00% | `realized` | +295 | +35 / +1,068 | 0.45 | 0.64 | 54 | 1.9 | 0.55 | 998 / 0 | 0 / 10 | **** |
+| CLASSIC 1-Step | 1.50% | `path` | +134 | -15 / +417 | 0.24 | 0.47 | 26 | 0.7 | 0.76 | 741 / 259 | 5 / 4 | **INDETERMINATE** |
+| CLASSIC 1-Step | 1.50% | `stop` | -54 | -54 / -49 | 0.00 | 0.05 | 20 | 0.0 | 1.00 | 303 / 697 | 0 / 0 | **** |
+| CLASSIC 1-Step | 1.50% | `realized` | +171 | +16 / +559 | 0.30 | 0.54 | 28 | 0.8 | 0.70 | 924 / 76 | 3 / 5 | **** |
+| PRO 1-Step | 0.50% | `path` | +74 | -27 / +401 | 0.25 | 0.46 | 126 | 0.7 | 0.75 | 997 / 0 | 0 / 18 | **INDETERMINATE** |
+| PRO 1-Step | 0.50% | `stop` | +25 | -31 / +60 | 0.16 | 0.41 | 104 | 0.3 | 0.84 | 999 / 0 | 0 / 10 | **** |
+| PRO 1-Step | 0.50% | `realized` | +100 | -18 / +408 | 0.29 | 0.53 | 135 | 0.9 | 0.71 | 996 / 0 | 0 / 21 | **** |
+| PRO 1-Step | 0.75% | `path` | +36 | -23 / +186 | 0.16 | 0.40 | 64 | 0.4 | 0.84 | 994 / 6 | 1 / 4 | **INDETERMINATE** |
+| PRO 1-Step | 0.75% | `stop` | -18 | -31 / +27 | 0.04 | 0.18 | 48 | 0.1 | 0.96 | 900 / 100 | 0 / 1 | **** |
+| PRO 1-Step | 0.75% | `realized` | +37 | -21 / +193 | 0.17 | 0.43 | 63 | 0.4 | 0.83 | 1000 / 0 | 3 / 4 | **** |
+| PRO 1-Step | 1.00% | `path` | +31 | -29 / +90 | 0.14 | 0.33 | 36 | 0.3 | 0.86 | 943 / 57 | 4 / 3 | **INDETERMINATE** |
+| PRO 1-Step | 1.00% | `stop` | -32 | -32 / -29 | 0.00 | 0.03 | 18 | 0.0 | 1.00 | 725 / 275 | 0 / 0 | **** |
+| PRO 1-Step | 1.00% | `realized` | +36 | -13 / +149 | 0.15 | 0.38 | 39 | 0.3 | 0.85 | 1000 / 0 | 9 / 3 | **** |
+| CLASSIC, gates OFF (counterfactual) | 0.50% | `path` | +428 | +30 / +1,408 | 0.70 | 0.81 | 177 | 3.8 | 0.27 | 632 / 0 | 0 / 0 | **PASS** |
+| CLASSIC, gates OFF (counterfactual) | 0.50% | `stop` | +370 | -8 / +1,442 | 0.62 | 0.75 | 167 | 3.3 | 0.36 | 741 / 0 | 0 / 0 | **** |
+| CLASSIC, gates OFF (counterfactual) | 0.50% | `realized` | +469 | +44 / +1,557 | 0.71 | 0.83 | 186 | 4.1 | 0.26 | 584 / 0 | 0 / 0 | **** |
 
 **Reading it.**
 
-{{SWEEP_READING}}
+1. **CLASSIC 1-Step at 0.5 % risk is the only configuration that clears the registered rule with room**: `path` EV **+$430 per $54 account life**, evidence p5 **+$77**, P(net > 0) 0.68, P(pass) 0.81, median 166 days to pass. The pessimistic `stop` bound is +$375 at the point but **−$48 at p5**, and the optimistic `realized` model's p5 is −$6, so the verdict rests on the `path` model exactly as the registered rule says it should, and the Tradeify memo's "INDETERMINATE at 0.5 %" becomes a reduced-MC **PASS** here. Three reasons the same book reads better on Velotrade than on Tradeify: the floor is 7 % not 6 %, the target is 10 % not 12 %, and the commission is 6 bps not 8 (the swap is dearer, 0.05 % vs 0.033 %, and nothing offsets that).
+2. **Every death is the static floor.** At 0.5 % and 0.75 % risk the 4 % daily limit never fires (0 of 1,000 lives); it starts to at 1 % (14) and dominates nowhere below 1.5 %. The max(balance, equity) basis therefore costs nothing at the risk we would run; it is modelled, not binding.
+3. **The qualifying-day gate costs time, not expectancy.** The counterfactual with every Velotrade-specific gate switched off (no 0.8 % days, no cap, balance basis) returns **+$428 vs +$430** — identical within Monte Carlo noise — but with the gates on, the first funded payout is deferred by **~50 days on average** and P(death before the first payout) rises from 0.27 to 0.30. At 0.5 % risk a 0.8 %-of-start day needs ≥ 1.6R realised inside one UTC day, which this book produces on a minority of days; the money is not lost, it waits in the account where a drawdown can still take it. (The gate's deferral falls to 15 days at 0.75 % and 10 at 1 % because bigger trades make qualifying days more frequent — at the price of dying sooner.)
+4. **The 20× payout cap never bound at $5k and ≤ 1 % risk** (0 capped payouts in 3,000 lives); it binds a handful of times at 1.5 %. At larger account tiers the cap scales with the fee, so this stays true. It is a rule for traders who 10× an account in a month, which this book does not do.
+5. **PRO 1-Step is the wrong shape**: at 0.5 % risk P(pass) is 0.46 and 75 % of lives die before the first payout; EV is +$74 at the point and negative at p5 on every model. A 3 % static floor is six of our stops; the first ordinary drawdown cluster ends the account. Purchase-worthy: no, at any risk tried.
+6. **Risk above 0.5 % buys speed and sells survival.** 0.75 % still PASSES (p5 +$22) with a median 88 days to pass but P(net > 0) drops to 0.49; 1 % and 1.5 % are INDETERMINATE with P(net > 0) 0.39 and 0.24. The Tradeify memo's conclusion holds here too: 0.5 % is the risk this book can carry on a 5–7 % static floor.
+7. **Population caveats that move these numbers.** The XRP leg is the current n = 76 record, not the n = 129 one the Tradeify memo used, so the two memos are not the same book; 36 % of `path` lives at 0.5 % were still alive at the 730-day horizon and are scored at what they banked (understates EV); the swap is charged at midnight crossings rather than 00:30 UTC; fills are assumed at the harness's prices plus 3 bps round trip, which Velotrade's simulated KuCoin-fed book has not been measured against; and the discretionary funded offer (Terms 5.3(b)) is not modelled at all — the EV above assumes every passer is funded.
+8. **Full-size run (4,000 lives + 100 × 200 bootstrap, seed 1) of CLASSIC at 0.5 %:** in progress when this revision was committed; its row and verdict are appended below when it lands, and until then the PASS above is a reduced-MC verdict only.
+
+<!-- FULL_RUN_RESULT -->
 
 ### 1.9 What a pilot would need, and what it would cost to build
 
