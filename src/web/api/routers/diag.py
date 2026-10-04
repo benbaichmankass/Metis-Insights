@@ -2214,8 +2214,20 @@ def get_journalctl(
 # OA-14); tests/test_diag_restart_pending_lockstep.py now pins the two equal.
 _NON_RUNTIME_PATHS_RE = re.compile(
     r"^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$|research/|runtime_logs/"
-    r"|scripts/research/|scripts/ci/|comms/research/|comms/strategy_evidence/)"
+    r"|scripts/research/|scripts/ci/|comms/research/|comms/strategy_evidence/|comms/macro/)"
 )
+# ...except these scripts/research modules, which the web-api's brief imports
+# in-process (OA-16(d), PI-20261004-GCFA5DOR-0010). They stay runtime. Mirrors
+# the deploy's IN_PROCESS_CHANGES grep. Same lock-step test as above.
+_IN_PROCESS_RUNTIME_PATHS_RE = re.compile(
+    r"^scripts/research/(dispatch_queue|e35_bracket_geometry_sweep|m20_fleet_exit_sweep|m20_wf_effective|queue_grade|queue_replenish|queue_throughput|research_queue)\.py$"
+)
+
+
+def _is_runtime_path(line: str) -> bool:
+    return bool(line) and (
+        not _NON_RUNTIME_PATHS_RE.match(line) or bool(_IN_PROCESS_RUNTIME_PATHS_RE.match(line))
+    )
 
 
 def _restart_pending(running: str, on_disk: str) -> bool | None:
@@ -2239,10 +2251,7 @@ def _restart_pending(running: str, on_disk: str) -> bool | None:
         return None
     if out.returncode != 0:
         return None
-    return any(
-        line and not _NON_RUNTIME_PATHS_RE.match(line)
-        for line in out.stdout.splitlines()
-    )
+    return any(_is_runtime_path(line) for line in out.stdout.splitlines())
 
 
 @router.get("/version")

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Edits the VM deploy scripts (deploy_pull_restart.sh, install_systemd_units.sh) and the diag restart_pending classifier; manager merge approval sought.",
+  "why": "Lane OPS-FIXES deploy hygiene. (1) PI-20261004-PUQ1APTH-0007: install_systemd_units.sh read /etc/ict-vm-role as `tr < file 2>/dev/null`, and bash applies the failing input redirect before the stderr redirect, so two error lines (lines 75 and 473) hit the git-sync journal on every live-VM unit refresh. Now `{ tr < file; } 2>/dev/null`: silent, empty role, otherwise identical. deploy_pull_restart.sh also gains a bounded `git prune --expire=1.hour.ago` when .git/gc.log exists, which never blocks the pull. (2) PI-20261004-PUQ1APTH-0006: comms/macro/ joins the non-runtime set. Grep proof: the only runtime reader, valuation_store.read_snapshot_records, opens the file per call from the per-tick run_macro_thesis_tick. (3) OA-16(d), PI-20261004-GCFA5DOR-0010: the 8 scripts/research modules the web-api brief imports in-process stay runtime. The list is measured by a test, and diag.py restart_pending mirrors both patterns in lock-step. OA-16(a) is NOT changed, because install_systemd_units.sh never runs on the trainer VM. Merging restarts ict-trader-live through the normal git-sync deploy, since scripts/ and src/ changed."
+}
