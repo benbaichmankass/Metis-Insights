@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the MES baselines either log predictions in the active shadow log again, or are demoted/retired with a stated reason after the cause of the silence is found",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-K85Q64SF-0005",
+  "ml_review_2026_10_04": "2026-10-04: still silent -- api/bot/shadow/stats returns records=[] for both MES baselines; trainer active shadow log (last 100k lines) has 0 rows for either while mes-regime-5m-lgbm-v2 has 1444, so MES candles and the MES regime scorer run. Hypothesis (unverified): these two score at setup/trade time on MES rows and no MES setup has fired since the 09-01 window (the api/bot/trades/scores 200-trade sample has 0 MES trades). Not yet decided: retire vs keep; carried as a decision item in the 2026-10-04 review.",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-02",
+    "rerun": "trainer-vm-diag: base64 probe over ml/registry-store/registry.jsonl + runtime_logs/shadow_predictions*.jsonl* (active+gz archives) — declared feature keys vs union of feature_row keys with non-null values; issue #14147 has the script; expect n>0 in archives and 0 in the 2026-09-26 archive"
+  },
+  "routed_to": "ML-HYGIENE",
+  "state": "routed",
+  "what": "JC-SA-02 NOT CONFIRMED for mes-setup-quality-baseline-v0 and mes-trade-outcome-winrate-baseline-v0 (lane ML-DEMOTE, left at shadow). The audit said 'zero logged predictions in the active log and archives'; re-measured 2026-09-29 on the trainer: 341 predictions EACH, all in archives (2026-08-05: 306, 2026-09-01: 35), 0 in the active log and 0 in the 2026-09-26 archive; the registry declares NO feature columns for either (baselines), so the served-vs-declared criterion does not apply. What IS true: they have logged nothing since the 2026-09-01 rotation window (~4 weeks), so their soak accrues nothing now. Decide: is MES scoring meant to be running (find why it stopped) or should these baselines be retired."
+}

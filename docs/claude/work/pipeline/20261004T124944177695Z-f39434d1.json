@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either a producer for btc-regime-1h-lgbm-funding-svble-v1 is built and it is promote-staged back to shadow with its declared features present in >=1 live shadow row, or the operator kills the head with a stated reason",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-K85Q64SF-0003",
+  "ml_review_2026_10_04": "2026-10-04: the live half is now OBSERVED -- api/bot/shadow/stats?model_id=btc-regime-1h-lgbm-funding-svble-v1 last_seen 2026-09-29T11:45:29Z, zero rows since; registry stage candidate (GET /api/bot/ml/registry). The soak stopped accruing as intended. Still owed: the producer-or-kill decision (ask_operator) -- surfaced as a decision in the 2026-10-04 ml-review record.",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-02",
+    "rerun": "trainer-vm-diag: base64 probe over ml/registry-store/registry.jsonl + runtime_logs/shadow_predictions*.jsonl* (active+gz archives) — declared feature keys vs union of feature_row keys with non-null values; issue #14147 has the script"
+  },
+  "routed_to": "ML-HYGIENE",
+  "state": "routed",
+  "what": "JC-SA-02 (a) DEMOTED shadow->candidate on the trainer registry 2026-09-29 (lane ML-DEMOTE): btc-regime-1h-lgbm-funding-svble-v1. Re-measured: 7 of 10 declared features served; funding_rate, funding_rate_zscore, funding_rate_abs_z absent from every one of n=4111 shadow rows (active 161 + 4 gz archives); no producer in src/. While the declared features are never served, its soak days measure nothing. To return: build a live funding-rate feature producer feeding regime_shadow.build_parity_feature_row (funding history is fetchable far back, per the manifest header), with a train/serve parity check, then promote-stage back to shadow. Option (b) applies only with a research case on the queue. Merged/deployed/observed: registry stage OBSERVED candidate on the trainer VM (issue #14152); the live shadow factory refusing it after the next registry-mirror sync is NOT yet observed."
+}
