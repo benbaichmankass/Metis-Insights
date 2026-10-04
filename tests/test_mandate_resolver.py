@@ -958,3 +958,18 @@ def test_afford_rejects_non_finite_equity(repo, field, bad):
                      snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
                 leg=EQ_LEG, account="alpaca_live")
     _needs_data(res, "R-AFFORD")
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_afford_needs_data_on_a_non_finite_setup_confidence(repo, bad):
+    """PI-20260930-MGR01HYQ-0001: an unreadable confidence used to default to
+    1.0 and size at full risk. Present-but-non-finite is NEEDS_DATA; a MISSING
+    confidence keeps the documented 1.0 default (positive control)."""
+    rows = {EQ_LEG: [dict(r, confidence=bad) for r in GLD_LIKE[EQ_LEG]]}
+    res = _s1s2(repo(setups=rows, r3=_r3(EQ_R3)), leg=EQ_LEG, account="alpaca_live")
+    _needs_data(res, "R-AFFORD")
+    assert "confidence" in res["detail"]
+    missing = {EQ_LEG: [{k: v for k, v in r.items() if k != "confidence"}
+                        for r in GLD_LIKE[EQ_LEG]]}
+    ok = _s1s2(repo(setups=missing, r3=_r3(EQ_R3)), leg=EQ_LEG, account="alpaca_live")
+    assert ok["verdict"] == "FIRE", ok
