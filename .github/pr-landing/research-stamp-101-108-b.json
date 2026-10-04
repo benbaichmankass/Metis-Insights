@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Dispatch stamps only (last_dispatched_at on RQ-20260929-101,102,103,104,106,108), recording that they were fired by hand via research-harness-dispatch.yml at 2026-10-04T13:36Z (runs 37205963859..37205972038) after the data-pair fix merged, so the dispatcher does not fire them a second time. The one field E57 vouches for."
+}
