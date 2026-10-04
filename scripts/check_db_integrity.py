@@ -132,6 +132,34 @@ _NOT_DECLARED_UNMEASURED = (
     f"'{_DECLARED_UNMEASURED_MARKER}'"
 )
 
+# A REDUCE LEG is a closed row whose PnL is absorbed into its parent by design:
+# `apply_intent_reduce_partial_close` (src/units/accounts/execute.py) and the
+# netted-flatten path in src/runtime/order_monitor.py both stamp
+# `notes.pnl_source = 'deferred_intent_reduce'` and leave `pnl` NULL on
+# purpose -- the reduce is a partial close of the parent position, not a
+# standalone entry->exit, so there is no per-row realised figure to write
+# (src/runtime/provenance.py::_absorbed_partial_pnl treats the marker the same
+# way, and scripts/ops/supersede_intent_reduce_phantom_pnl.py exists to STRIP a
+# pnl that lands on one of these rows). INV-2 only knew the `unmeasured`
+# marker, so every reduce leg older than the sweep grace read as an undeclared
+# NULL and paged the operator for a state the writer chose deliberately.
+# MEASURED 2026-10-04 (health-review, diag journalctl?unit=ict-db-integrity
+# .service): `[ALERT] INV-2: recent=1 ... e.g. [6409]` on every hourly run,
+# where trade 6409 is `setup_type=intent_reduce`, `pnl_source=
+# deferred_intent_reduce`, closed 2026-10-02T18:47Z on bybit_1. An alert that
+# fires on a designed state is the alarm-fatigue class CLAUDE-RULES calls a P1.
+#
+# Reduce legs leave INV-2 and are COUNTED by INV-2c below -- reported, never
+# alerted, same shape as INV-2b -- so the population stays visible and the
+# marker can never be used to quietly mute the check.
+_DEFERRED_REDUCE_MARKER = "deferred_intent_reduce"
+_IS_DEFERRED_REDUCE_LEG = (
+    "COALESCE("
+    "  CASE WHEN json_valid(t.notes) "
+    "       THEN json_extract(t.notes, '$.pnl_source') END, '') = "
+    f"'{_DEFERRED_REDUCE_MARKER}'"
+)
+
 
 def _resolve_db_path(explicit: Optional[str]) -> str:
     """Resolve the canonical DB path (``--db`` wins, else the resolver)."""
@@ -296,7 +324,8 @@ def run_checks(
                     f"{_NON_BACKTEST} AND t.status = 'closed' "
                     "AND t.pnl IS NULL "
                     f"AND {_WINDOW_TS} < '{pnl_cutoff_iso}' "
-                    f"AND {_NOT_DECLARED_UNMEASURED}"
+                    f"AND {_NOT_DECLARED_UNMEASURED} "
+                    f"AND NOT ({_IS_DEFERRED_REDUCE_LEG})"
                 ),
                 since_iso=since_iso,
             )
@@ -321,6 +350,28 @@ def run_checks(
         )
         inv2b["alert"] = False
         checks.append(inv2b)
+
+        # INV-2c -- closed REDUCE LEGS carrying the deferred marker (see
+        # _IS_DEFERRED_REDUCE_LEG). Their NULL pnl is the writer's design, not
+        # a gap, so they are reported and never alerted -- but counted, for
+        # the same reason INV-2b is: a population excluded from an alert must
+        # stay visible or the exclusion becomes a mute button.
+        inv2c = _check(
+            conn,
+            check_id="INV-2c",
+            title=(
+                "closed reduce leg with pnl deferred to its parent "
+                "(pnl_source=deferred_intent_reduce; reported, not alerted)"
+            ),
+            base_where=(
+                f"{_NON_BACKTEST} AND t.status = 'closed' "
+                "AND t.pnl IS NULL "
+                f"AND {_IS_DEFERRED_REDUCE_LEG}"
+            ),
+            since_iso=since_iso,
+        )
+        inv2c["alert"] = False
+        checks.append(inv2c)
 
         # INV-3 — open/closed real trade with NO resolvable package link by
         # EITHER direction. order_package_id NULL (forward link absent) AND
