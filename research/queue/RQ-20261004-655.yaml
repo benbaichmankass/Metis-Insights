@@ -1,6 +1,6 @@
 id: RQ-20261004-655
 title: 'Tradeify 247 1-Step prop fit: trend_donchian_eth_prop at sizing flat 0.5% of balance (hand-authored, RULE-TRADEIFY-FIT)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -80,3 +80,4 @@ lands:
 related:
 - docs/research/tradeify-portfolio-feasibility-2026-09-30.md
 - config/prop_rulesets/tradeify_247_1step.yaml
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against this unit's own rule. NULL (indeterminate) by the rule: trend_donchian_eth_prop, Tradeify 1-Step, flat 0.5%, n=169 (floor 88 met). ev_net_usd_per_life > 0 on all 5 seeds (+295 to +315 USD per life) but P(net>0) is only 0.505-0.509 on every seed, against the 0.70 bar. Positive expectation with a coin-flip chance of ending net positive: not a PASS and not a FAIL. Source: research-script-run 37211263281 artifact (verdict.json, grid.json, sims/)."

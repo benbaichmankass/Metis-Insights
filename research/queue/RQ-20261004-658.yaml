@@ -1,6 +1,6 @@
 id: RQ-20261004-658
 title: 'Tradeify 247 1-Step prop fit: trend_donchian_sol_prop at sizing flat 0.75% of balance (hand-authored, RULE-TRADEIFY-FIT)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -80,3 +80,4 @@ lands:
 related:
 - docs/research/tradeify-portfolio-feasibility-2026-09-30.md
 - config/prop_rulesets/tradeify_247_1step.yaml
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against this unit's own rule. UNDERPOWERED (indeterminate): trend_donchian_sol_prop: UNDERPOWERED: n=65 < floor 88 The run could not answer; this is 'could not answer', not 'no edge'. CAUSE OWED TO THE UNIT AUTHOR: expected_n was copied from the 2026-09-30 feasibility memo, but prop_ev_grid prices the newest committed evidence record, which holds fewer trades; the unit should have declared the committed n. Source: research-script-run 37211267657 artifact (verdict.json, grid.json, sims/)."
