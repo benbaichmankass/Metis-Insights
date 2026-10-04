@@ -27,8 +27,15 @@ ledger, not by "what minute is it in this process":
 
 * a closed bar is evaluated if, and only if, the ledger has not disposed of it
   AND it is still inside the staleness bound below;
-* it is recorded BEFORE the strategy runs (at-most-once: a crash mid-evaluation
-  loses that bar rather than evaluating it twice);
+* WHEN it is recorded depends on the path (OA-16(c), corrected 2026-10-04):
+  a ``decision_bar: forming`` leg's catch-up is recorded BEFORE its builder
+  runs (``intent_multiplexer`` writes ``catchup_disposition="evaluated"``
+  first -- at-most-once: a crash mid-evaluation loses that bar rather than
+  evaluating it twice), but a ``decision_bar: closed`` leg is recorded AFTER
+  its decision completes (``strategy_signal_builders._record_closed_decision``,
+  "call only once the decision completed") -- at-least-once: a crash
+  mid-evaluation re-decides the bar after restart, and the journal's
+  same-bar entry guard is what stops a repeat entry;
 * a bar that is too old is recorded as ``stale_skipped`` with its reason, so it
   is never evaluated later either.
 

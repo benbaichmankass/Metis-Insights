@@ -1078,6 +1078,12 @@ _LOG_FILES: dict[str, Path] = {
     # were still sent. A reader may conclude a hash PRESENT here was enqueued;
     # a reader may NOT conclude that a hash missing here was not.
     "pending_pings_delivered": _PENDING_PINGS_DELIVERED,
+    # OA-16(b) (PI-20261004-GCFA5DOR-0010): FIX-SA-08's OnFailure handler
+    # (scripts/ops/notify_unit_failure.py) appends one row per failed unit
+    # here, pinged or suppressed. Without this entry a session could not
+    # observe that the handler fired. ABSENT = no unit failure recorded on
+    # this VM since the file was last reset (VM-local, not in git).
+    "unit_failures": runtime_logs_dir() / "unit_failures.jsonl",
 }
 
 _DEFAULT_LIMIT = 100
