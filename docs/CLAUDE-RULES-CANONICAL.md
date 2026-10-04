@@ -752,7 +752,7 @@ Manager procedure: [`.claude/skills/manager/SKILL.md`](../.claude/skills/manager
 
 **A page someone has to choose to open is not an alarm.** MEASURED 2026-10-04:
 the pipeline had 366 items due and 151 unrouted, 25 `ask_operator` items had
-never reached the operator, and the brief was 737 KB and unread. Four rules
+never reached the operator, and the brief was 737 KB and unread. Five rules
 bind:
 
 1. **Due is computed on the VM, and pushed.** `scripts/ops/attention_watch.py`
@@ -771,9 +771,15 @@ bind:
    means the design is wrong and must be fixed before placement. This extends §
    "A soak must carry its own alarm". It does not replace it: the alarm says
    *when to look*, and the contract says *what ends the wait*.
-4. **Lanes wake the manager** on finish or block
+4. **The manager reviews a persisted report, on a schedule.**
+   `scripts/ops/work_report.py` (`ict-work-report.timer`, 05:30 UTC) writes
+   `WR-YYYYMMDD-HHMMZ`, which is served at `GET /api/bot/work/report`. The
+   05:52Z daily-review routine reads it. The manager gets no push when the
+   report is generated, so the routine is the check. A missing, stale or
+   errored report is itself an alarm.
+5. **Lanes wake the manager** on finish or block
    (`create_trigger(persistent_session_id=<manager>)` + `fire_trigger`, with a
-   PR comment as the fallback). The manager's daily review works the brief:
+   PR comment as the fallback). The manager's daily review works the report:
    **dispatch, close, or decide** every item it shows.
 
 ## Always state the population (2026-07-31, binding — every quantitative claim)

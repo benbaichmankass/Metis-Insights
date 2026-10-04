@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane WORK-SYSTEM (dispatched by Manager Session 2026-10-04, session_01MM8o5js6TcDFeNAPBY4Ntv), told that Tier-2 runtime/timer changes are HELD for the manager to merge. Tier-2 by path: two NEW VM systemd timers (deploy/ict-attention-watch.{service,timer} hourly; deploy/ict-work-report.{service,timer} daily 05:30 UTC) and a new read-only route GET /api/bot/work/report plus two diag allowlist entries in src/web/api/routers/ — new code on the live ict-web-api.service. No order path, no strategy/risk/account config, no DB write. The timers only read the repo working tree and write runtime_logs/attention_watch_*.json, runtime_logs/work_reports/*.json and the @claude_ict_comms_bot ping inbox. Revert: git revert of the merge commit, then systemctl disable --now ict-attention-watch.timer ict-work-report.timer.",
+  "why": "WORK-SYSTEM, the operator's top-priority structural fix (2026-10-04): a VM-computed persisted daily work report, a pushed Telegram digest, edge alerts (new ask_operator, soak ready/overdue/dead) and expected-signal-missing alarms, plus the manager-skill and canonical rules that make managers act on them."
+}

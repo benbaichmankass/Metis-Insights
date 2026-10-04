@@ -36,9 +36,9 @@ is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
    you as its manager (the reply channel is described under § "Every spawn
    carries provenance" below).
 4. **Run the daily review** (§ "The work system" below). It starts from the
-   brief, not from memory. Then schedule tomorrow's review with `send_later`
-   before you do anything else, so the next one does not depend on you
-   remembering.
+   persisted report (`GET /api/bot/work/report`), not from memory. Then
+   confirm the 05:52Z daily-review routine fires into THIS session. It is the
+   only thing that makes tomorrow's review happen.
 
 ## When Claude Code's auto-mode classifier refuses the manager (operator rule, 2026-09-27, binding)
 
@@ -609,40 +609,80 @@ computes due and pushes it**, and **silence is itself an alarm**.
 
 ### What runs without you
 
-`scripts/ops/attention_watch.py` runs hourly on `ict-attention-watch.timer` (VM
-clock) and sends to Telegram via @claude_ict_comms_bot:
-- **the daily digest**, once a day after 06:00Z: counts plus the top 8 due
-  items, `ask_operator` first;
-- **a push when a new `ask_operator` item is created**, and when a soak moves
-  to `ready`, `overdue` or `dead`. Soak state is computed by
-  `scripts/ops/soak_state.py`, not by the watch;
-- **"expected signal missing" alarms**: the R5 weekly soak grade is ≥ 8 days
-  old; no research result in 36h; an `in_flight` row untouched for 3 days; the
-  checklist unwritten for 30h, meaning **no manager reviewed**.
+Two VM timers. Both outlive every session.
 
-Its receipt is at `/api/diag/log_file?name=attention_watch_receipt`. Read it at
-every review. A stale receipt means the watch itself is dead, and that is
-yours to fix first.
+**`ict-work-report.timer`, daily at 05:30 UTC.** It runs `scripts/ops/work_report.py`
+and persists the **concentrated daily report** to
+`runtime_logs/work_reports/<report_id>.json`, served at
+`GET /api/bot/work/report`.
+- `report_id` = `WR-YYYYMMDD-HHMMZ`.
+- Contents: expected-signal alarms · soak states (dead/overdue/ready first) ·
+  open `ask_operator` items · due count + top 25 ranked · then the brief
+  verbatim. §3 of the brief is "what moved".
+- Every section carries `ok` / `empty` / `error`.
+- `GET /api/bot/work/brief` stays the live view. **The persisted report is the
+  one you review**, so what you saw and when is auditable.
+
+**`ict-attention-watch.timer`, hourly.** It runs `scripts/ops/attention_watch.py`
+and sends to Telegram via @claude_ict_comms_bot:
+- **the daily digest** after 06:00Z: counts plus the top 8, with `ask_operator`
+  first. This goes to the operator;
+- **a push when a new `ask_operator` item is created**, and when a soak moves
+  to `ready`, `overdue` or `dead`. Soak state is read from
+  `docs/claude/work/SOAKS.json`, which SOAK-WATCH publishes; the watch never
+  computes it;
+- **"expected signal missing" alarms**, when:
+  - the R5 weekly soak grade is ≥ 8 days old;
+  - no research result has landed in 36h;
+  - an `in_flight` row has been untouched for 3 days;
+  - the checklist has been unwritten for 30h (**no manager reviewed**);
+  - **the daily report** is missing at 05:50Z, more than 26h old, has an
+    errored section, or is over 64 KB.
+
+The watch's own receipt is at `/api/diag/log_file?name=attention_watch_receipt`.
+
+⚠️ **THE MANAGER GETS NO PUSH WHEN THE REPORT IS GENERATED** (operator,
+2026-10-04: *"if it's not getting a ping when the generation happens, then it at
+least needs to know to periodically check"*). **The daily-review routine IS the
+periodic check.** It fires at 05:52Z, and its prompt must name
+`GET /api/bot/work/report`. A manager that reviews only when it remembers to is
+the failure this replaces. If the routine is missing, recreating it is the
+manager's first act.
 
 ### The daily review — the manager's first act every day
 
-Start from the brief (`GET /api/bot/work/brief`) and the receipt, never from
-memory or last session's chat. For every item the brief shows, do one of
-three things:
-1. **Dispatch.** Route it to a lane: set `state: routed` and `routed_to:
-   <session id>` on the pipeline item, and add or update a checklist row if it
-   is a build.
-2. **Close.** Mark it `done` or `killed` with a `terminal_reason`. A dead item
-   closed with a reason is worth more than one carried.
-3. **Decide.** Classify it per § "Before any operator popup" below. Only a
-   genuine preference reaches the operator.
+1. **Fetch the latest persisted report**: `GET /api/bot/work/report`.
+2. **Check it before you trust it.**
+   - If `generatedAt` is not today at ≈05:30Z, the report is stale. Fixing
+     that is the first incident.
+   - If `present: false`, the report is missing. Same: fix it first.
+   - If `erroredSections` is non-empty, fix those sections first too.
+   - Compare its `reportId` with `last_review.report_id` at the top of
+     `MANAGER-CHECKLIST.json`. Items that were already dispositioned show as
+     routed or closed on the pipeline; everything else is new.
+3. **For every item, do one of three things:**
+   1. **Dispatch.** Route it to a lane: set `state: routed` and `routed_to:
+      <session id>` on the pipeline item, and add or update a checklist row if
+      it is a build.
+   2. **Close.** Mark it `done` or `killed` with a `terminal_reason`. A dead
+      item closed with a reason is worth more than one carried.
+   3. **Decide.** Classify it per § "Before any operator popup" below. Only a
+      genuine preference reaches the operator.
 
-`routed` does **not** end the obligation. A routed item that is still due
-means its lane has not delivered. Check the lane, then re-dispatch or kill it.
-
-Every silence alarm the watch raised gets a fix lane the same day. Anything
-due at a known time (a soak end date, a mandate expiry, a scheduled grade)
-gets a `send_later` wake for that time, not a hope.
+   `routed` does **not** end the obligation. A routed item that is still due
+   means its lane has not delivered. Check the lane, then re-dispatch or kill
+   it.
+4. **Record the review.** Set the top-level `last_review` on
+   `MANAGER-CHECKLIST.json` to
+   `{"report_id", "reviewed_at", "by", "counts": {"dispatched", "closed", "decided", "carried"}}`,
+   then push.
+   - Per-item dispositions live **on the pipeline items** (`state`,
+     `routed_to`, `terminal_reason`). That is where the next report and the
+     next manager read them, and copying them into the checklist would create
+     a second source.
+5. **Every silence alarm in the report gets a fix lane the same day.**
+6. **Anything due at a known time** (a soak end date, a mandate expiry, a
+   scheduled grade) **gets a `send_later` wake for that time**, not a hope.
 
 ### Lanes wake the manager — the reporting contract
 
@@ -674,7 +714,7 @@ just read.
 ### Decision batching
 
 Operator decisions go out **once a day, batched**, in the digest's ❓ASK lines
-and brief section 2, each with options and a recommendation. A decision is the
+and the report's ask_operator section, each with options and a recommendation. A decision is the
 exception to batching only when it blocks live money or a live incident. That
 one goes out at once via `send-ping` with `priority=urgent`. A decision that
 arrives twice in the same shape is raised as *"should this become a mandate?"*
@@ -682,14 +722,21 @@ arrives twice in the same shape is raised as *"should this become a mandate?"*
 ### Day one for a NEW manager
 
 1. Title yourself and read the canonical docs (§ "Start of session").
-2. `curl -sS https://ict-bot.duckdns.org/api/bot/work/brief | head -c 20000`.
-   Then read the attention-watch receipt through the diag relay (`diag-data`
-   skill). If `ict-attention-watch.timer` is not active in
-   `/api/diag/services`, fixing it comes before anything else.
-3. Work the brief top-down using the three dispositions above. Clear the
-   `ask_operator` items first, by classification, not by forwarding.
-4. Give every live lane the wake contract above (§ "Start of session" step 3).
-5. `send_later` tomorrow's review. Push the checklist. Then answer.
+2. Run `curl -sS https://ict-bot.duckdns.org/api/bot/work/report`.
+   - If it is `present: false` or stale, check `/api/diag/services`. If
+     `ict-work-report.timer` or `ict-attention-watch.timer` is not active,
+     fixing it comes before anything else.
+   - Read the watch receipt through the diag relay (`diag-data` skill).
+3. **Make sure the daily-review routine exists** (`list_triggers`). It should
+   fire into the current manager session at 05:52Z with a prompt naming
+   `GET /api/bot/work/report` and this section. If it is missing or bound to a
+   dead session, recreate or rebind it. A manager session change is exactly
+   when it silently stops.
+4. Work the report top-down using the three dispositions above. Clear the
+   `ask_operator` items first, by classification, not by forwarding. Record
+   `last_review`.
+5. Give every live lane the wake contract above (§ "Start of session" step 3).
+6. Push the checklist. Then answer.
 
 ## The ladder the manager is moving things along
 

@@ -157,6 +157,19 @@ def rank_attention(items: list[dict], today: date) -> list[dict]:
     return sorted(rows, key=key)
 
 
+def _ranked(res: Any, items: list[dict], today: date) -> list[dict]:
+    """Use BRIEF-FIX's ranking when it exists (PR #16384), so the digest, the
+    report and the brief rank identically; fall back to ``rank_attention``."""
+    try:
+        from scripts.ops import render_daily_brief as rdb  # noqa: PLC0415
+        fn = getattr(rdb, "ranked_items", None)
+        if callable(fn):
+            return list(fn(res, today))
+    except Exception as exc:  # noqa: BLE001 — fall back, loudly
+        print(f"attention-watch: render_daily_brief.ranked_items failed, using fallback: {exc}")
+    return rank_attention(items, today)
+
+
 def open_ask_operator(items: list[dict]) -> list[dict]:
     return [i for i in items if i.get("next_action") == "ask_operator"
             and i.get("state") not in pipeline.TERMINAL_STATES]
@@ -344,7 +357,7 @@ def build(now: datetime | None = None) -> dict:
         "now": now, "today": today, "pipeline_readable": res.healthy,
         "pipeline_unreadable": len(res.unreadable),
         "stats": pipeline.stats(res, today),
-        "ranked": rank_attention(items, today),
+        "ranked": _ranked(res, items, today),
         "ask_operator": open_ask_operator(items),
         "soak_read": soak_read, "soaks": soaks,
         "probes": {
