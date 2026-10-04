@@ -440,10 +440,14 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
         if len(fresh) > 6:
             L.append(f"…and {len(fresh) - 6} more — see the daily digest.")
         msgs.append(("high", "\n".join(L)))
-    if first_run and cur:
+    # ORDER-INDEPENDENT (manager, 2026-10-04 18:16Z): the seed line keys on its
+    # OWN marker, not on whether the set was already seeded — so it fires once
+    # even if an earlier pass (shipped without it) seeded the set silently.
+    if "seed_ask_sent_at" not in state:
         n_due = sum(1 for i in cur.values() if pipeline.is_due(i, v["today"]))
         msgs.append(("high", f"❓ ask_operator at deploy: {len(cur)} open ({n_due} due) — "
                              f"see the report (GET /api/bot/work/report)"))
+        new["seed_ask_sent_at"] = now.isoformat()
     new["seen_ask_operator"] = sorted(seen | set(cur))
 
     # (b2) soak transitions into ready / overdue / dead.
@@ -461,13 +465,15 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
                          f" {_short(r.get('reason'), 100)}")
             pri = "high" if any(str(r.get("state")) in ("overdue", "dead") for r in moved) else "normal"
             msgs.append((pri, "\n".join(L)))
-        if "soak_states" not in state:
-            # Seed line, same rule as ask_operator above: one count line.
+        if "seed_soaks_sent_at" not in state:
+            # Seed line, same rule as ask_operator above: one count line, keyed
+            # on its own marker — and only once the soak source was READ, so an
+            # absent/unreadable first pass does not burn it.
             n = {k: sum(1 for s in cur_s.values() if s == k) for k in ALERT_SOAK_STATES}
-            if any(n.values()):
-                msgs.append(("high" if n["overdue"] or n["dead"] else "normal",
-                             f"🧪 Soaks at deploy: {n['ready']} ready · {n['overdue']} overdue · "
-                             f"{n['dead']} dead (see report)"))
+            msgs.append(("high" if n["overdue"] or n["dead"] else "normal",
+                         f"🧪 Soaks at deploy: {n['ready']} ready · {n['overdue']} overdue · "
+                         f"{n['dead']} dead (see report)"))
+            new["seed_soaks_sent_at"] = now.isoformat()
         new["soak_states"] = cur_s
 
     # (c) silence alarms — send on breach, re-send every REALERT_HOURS, one clear.
@@ -642,6 +648,18 @@ def _self_test() -> int:
     seed, _ = plan_messages(view(soak_read="read", soaks=[s1, d1]), st2)
     check("first soak read sends ONE seed line with the counts",
           [b for _, b in seed] == ["🧪 Soaks at deploy: 0 ready · 0 overdue · 1 dead (see report)"], seed)
+    legacy = {k: v for k, v in st2.items() if not k.startswith("seed_")}
+    legacy["soak_states"] = {"bybit_1:b": "dead"}
+    late, late_st = plan_messages(view(soak_read="read", soaks=[d1]), legacy)
+    check("order-independent: a state seeded WITHOUT markers still gets both seed lines once",
+          sum(1 for _, b in late if "at deploy" in b) == 2, late)
+    again, _ = plan_messages(view(soak_read="read", soaks=[d1]), late_st)
+    check("…and never again once the markers are set",
+          not any("at deploy" in b for _, b in again), again)
+    absent_first, absent_st = plan_messages(view(), {k: v for k, v in st2.items()
+                                                    if k != "seed_soaks_sent_at"})
+    check("an absent soak source does not burn the soak seed marker",
+          "seed_soaks_sent_at" not in absent_st, absent_st)
     _, st8 = plan_messages(view(soak_read="read", soaks=[s1]), st2)
     msgs9, _ = plan_messages(view(soak_read="read", soaks=[{**s1, "state": "dead"}]), st8)
     check("a soak moving to dead alerts high",
