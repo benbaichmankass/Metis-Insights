@@ -173,10 +173,11 @@ def _count(conn: sqlite3.Connection, c: Dict[str, Any]) -> int:
     if c["kind"] == "stage1":
         row = conn.execute(
             "SELECT COUNT(*) FROM trades WHERE account_id=? AND strategy_name=? AND status='closed' "
-            "AND COALESCE(is_backtest,0)=0 AND closed_at >= ?",
+            "AND COALESCE(is_backtest,0)=0 AND datetime(closed_at) >= datetime(?)",
             (c["account"], c["leg"], c["started"])).fetchone()
     else:
-        row = conn.execute("SELECT COUNT(*) FROM order_packages WHERE strategy_name=? AND created_at >= ?",
+        row = conn.execute("SELECT COUNT(*) FROM order_packages WHERE strategy_name=? "
+                           "AND datetime(created_at) >= datetime(?)",
                            (c["leg"], c["started"])).fetchone()
     return int(row[0])
 
@@ -265,7 +266,11 @@ def backfill(ref: str = "HEAD") -> Dict[str, Any]:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import soak_report as sr  # noqa: PLC0415
 
-    acc = yaml.safe_load(open(REPO / "config/accounts.yaml"))["accounts"]
+    sys.path.insert(0, str(REPO))
+    from src.config.accounts_loader import load_accounts_dict  # noqa: PLC0415
+    acc = load_accounts_dict()
+    if not acc:
+        raise SystemExit("soak_state --backfill: the accounts config is unreadable — refusing to write contracts")
     strat = yaml.safe_load(open(REPO / "config/strategies.yaml"))["strategies"]
     shadow = sorted(n for n, v in strat.items() if isinstance(v, dict) and v.get("execution") == "shadow")
     stage1 = sorted(f"{a}/{s}" for a in STAGE1_ACCOUNTS for s in (acc.get(a) or {}).get("strategies") or []

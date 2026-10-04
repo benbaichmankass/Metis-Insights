@@ -140,7 +140,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     if a.self_test:
         return _self_test()
     try:
-        acc = yaml.safe_load(open(REPO / "config/accounts.yaml"))["accounts"]
+        sys.path.insert(0, str(REPO))
+        from src.config.accounts_loader import load_accounts_dict  # noqa: PLC0415
+        errs: list = []
+        acc = load_accounts_dict(errors=errs)
+        if errs or not acc:
+            # the loader returns {} on failure — an empty roster would pass this
+            # guard vacuously, so it is "could not check", never "clean"
+            raise ValueError(f"accounts config unreadable: {errs or 'no accounts'}")
         strat = yaml.safe_load(open(REPO / "config/strategies.yaml"))["strategies"]
         contracts = ss.load_contracts()
     except (OSError, ValueError, KeyError, yaml.YAMLError) as exc:
