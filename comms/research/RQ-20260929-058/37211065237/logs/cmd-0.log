@@ -1,0 +1,7 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  squeeze_breakout_4h          A        seed=1 exit=0 ev=-27.70 p=0.0770 (121.6s)
+  squeeze_breakout_4h          A        seed=2 exit=0 ev=-26.69 p=0.0815 (123.5s)
+  squeeze_breakout_4h          A        seed=3 exit=0 ev=-25.52 p=0.0803 (129.6s)
+  squeeze_breakout_4h          A        seed=4 exit=0 ev=-28.97 p=0.0715 (127.9s)
+  squeeze_breakout_4h          A        seed=5 exit=0 ev=-29.24 p=0.0690 (76.5s)
+prop_ev_grid: overall=indeterminate {"squeeze_breakout_4h": "indeterminate"}

@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20260929-056/37211062324/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20260929-056/37211062324",
+  "decision_rule_id": "RULE-TPL-PROP-FIT-B6V2-sol_pullback_2h-bal015",
+  "decision_rule_registered_at": "2026-09-29",
+  "measurement_file": "comms/research/RQ-20260929-056/37211062324/measurement.json",
+  "min_rows": "1",
+  "n": "18",
+  "note": "sol_pullback_2h: UNDERPOWERED: n=18 < floor 88",
+  "population": "1 leg(s) [sol_pullback_2h], 18 committed trades in total; grade=pass_all_seeds, overall=all",
+  "power_state": "",
+  "read_state": "measured",
+  "records_file": "comms/research/RQ-20260929-056/37211062324/records.jsonl",
+  "research_unit": "RQ-20260929-056",
+  "tool": "python3 scripts/research/prop_ev_grid.py",
+  "verdict": "indeterminate"
+}
