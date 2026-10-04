@@ -1,0 +1,429 @@
+# Breakout phone executor — Android WebView on the operator's own phone (DESIGN, 2026-10-04)
+
+> **Doc status:** `unknown` · category `architecture` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+> **Tier-1 design only.** Lane PHONE-EXEC-DESIGN, dispatched by the manager 2026-10-04 after the operator's popup answer
+> "Yes, design it". Nothing here is built, deployed or run. No code, no config, no VM change. Every effort figure is an
+> **estimate**. The repo is public: no secret, account id or address appears here, and the build must keep it that way.
+
+## 0. Summary
+
+**What:** an Android app on the operator's own phone. It hosts Breakout's web terminal (`app.breakoutprop.com`) in a
+`WebView`, the operator logs in by hand, and the app then pulls ticket packages from our API, types the bracket order into
+the terminal's form, submits it, and reports fills back. It is the phone-side twin of the VM's `breakout_terminal` adapter.
+
+**What it is not:** it does not bypass, solve or hide from any bot check. It runs on a genuine device and connection, with
+the stock WebView user agent and no stealth, spoofing or challenge-solving. If the page challenges the WebView
+(`challenge`, `captcha`, `email_code`, `2fa`, access denied), the app stops, alerts, and never retries in a loop. That is the
+same feasibility-stop posture as `src/prop/platform/base.py::FeasibilityError`.
+
+**The five findings that shape the design:**
+
+1. **The armed submit is not built on the VM adapter either.** `breakout_terminal.place_bracket(arm=True)` walks the
+   disarmed path and then *refuses* (rule 9 in the module docstring): the submit control, its confirmation, and the close
+   confirmation are **unmeasured**. The terminal DOM has never been captured (tests run on synthetic fixtures). So the
+   phone app's first job is **measurement**, not clicking. Phases 1a and 2 below are capture-only builds, and nothing before the purchase gate needs an account.
+2. **Keep the safety logic in Python, on the server.** The phone should be a typist and a reader, not a second
+   implementation of sizing, guards and read-back. The server already has tested versions (`bracket_from_ticket`,
+   `evaluate_guards`, `check_form_shape`, `read_back`). Section 3.4 has the phone send what it read and receive a
+   server-resolved spec and a short-lived, ticket-bound "go". Two implementations of the same guard drift; one does not.
+3. **There is no per-device auth today.** The only write credential is the shared `DASHBOARD_API_TOKEN`. Section 3.2 adds a
+   per-device, revocable, account-pinned token, paired once.
+4. **There is no server-side claim today.** Idempotency lives in the VM executor's local `IntentLedger` file. A phone
+   needs a server-side atomic claim so two devices, or a retry, can never both act on a ticket. Section 3.3.
+5. **Brackets live at the venue only if the terminal holds them there. That is unverified** for the proprietary
+   terminal (§ 5.4). The design treats it as an open measurement and does not rely on it.
+
+**Recommendation:** build it, in the phases of § 7, but gate Phase 3 (the first armed click) on three things: the
+Phase 2 DOM capture (after the account purchase), a first-party read of Breakout's terms (§ 6), and the operator's go. Everything before the purchase gate needs no account and
+costs about 8–10 lane-days; the whole path to a watched live click is about 15–20 lane-days (§ 7.2).
+
+---
+
+## 1. What can be reused (Q1)
+
+### 1.1 The retired Android app
+
+| item | state, with source |
+|---|---|
+| Repo | `benbaichmankass/ict-trader-android` (private). **Not checked out or re-read this session** (this session's GitHub scope is this repo only). The facts below come from `docs/research/breakout-phone-egress-and-leak-controls-2026-09-30.md` § 3, which read it at commit `df9910d4` dated 2026-08-13. Treat them as **stale until re-read**. |
+| Status | **On ice.** Its own `CLAUDE.md` says no speculative work and to reverse only on an explicit operator instruction. Retired from the live feed by operator decision 2026-09-01 (archived row `BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED`). **Un-freezing it needs an explicit operator instruction.** The 2026-10-04 popup said "design it", which this design treats as authority to design, not yet to thaw the repo. The manager should confirm. |
+| Contents | 67 Kotlin files; Jetpack Compose and Glance widgets; FCM push; WorkManager refresh; `minSdk 26`, `targetSdk 35`; only `INTERNET` and `POST_NOTIFICATIONS` permissions; **no foreground service, no boot receiver**; shipped as Firebase App Distribution debug builds. |
+| Product scope | A **read-only** dashboard consumer (M12 roadmap: `docs/sprint-plans/ROADMAP-ANDROID-COMPANION-APP-2026-05-26.md`, "holds no money-at-risk state of its own"). This design reverses that: the app holds the ability to place orders. That is a change of trust class, not a feature add, and it is why § 5 and § 6 exist. |
+
+**Reusable from the app (if the repo is thawed):** the Gradle/CI/App-Distribution scaffolding, the Compose shell, the FCM
+receiver, the API client and its settings screen. **Not reusable:** anything about order entry. There is no
+foreground service, no WebView, no JS bridge. **Alternative:** a new small app module in a fresh repo avoids thawing a
+frozen one and keeps a money-touching app out of a read-only app's history. The choice is the operator's (open question
+O1, § 8). My lean is **a new repo**, so the read-only app's "no money state" promise stays true.
+
+### 1.2 Server-side infrastructure that exists in this repo
+
+| piece | where | reuse |
+|---|---|---|
+| FCM publisher | `src/runtime/mobile_push/` (`notifier.py`, `event_kinds.py`, `trade_events.py`); runbook `docs/runbooks/mobile-push.md` | **Directly.** Unconditional, best-effort, side-observer. `prop_signal`, `prop_fill` and `prop_closed` kinds already exist in `event_kinds.py` (`prop_signal` is the ticket-emitted kind, emitted by `src/prop/breakout_notify.py::emit_prop_signal`). A new ticket can wake the phone with a data message. |
+| Device registry | `src/web/api/routers/devices.py` (`POST /api/bot/devices/register`, list, revoke, per-device subscriptions); table `device_tokens` | **For FCM routing only.** These are push tokens, **not auth credentials**. Do not overload them as the executor's identity (§ 3.2). |
+| FCM credential rotation | system-action `set-mobile-push-secrets` (Tier 2, `scripts/ops/set_mobile_push_secrets.sh`) | Already runs; the credential is a file on the VM. **Status of FCM delivery today was not verified this session**; the runbook header says "unknown / never verified" for itself. A Phase 0 step checks it end to end (§ 7). |
+| Prop routes | `src/web/api/routers/prop.py` | The report path (`POST /api/bot/prop/report` → `ingest_report`) and the read paths (`/tickets`, `/fills`, `/status`) are the contract the phone should use. |
+| Terminal adapter | `src/prop/platform/breakout_terminal.py` and the page-JS strings it imports from `dxtrade.py` | **Partly** (§ 3.5). |
+
+---
+
+## 2. Venue: does Breakout have its own mobile app, and is the web terminal still the right target? (Q2)
+
+**Measured this session** (fetched Breakout's Intercom article, `intercom.help/breakoutprop/en/articles/14215706`, 2026-10-04):
+Breakout offers a **"Breakout terminal mobile app"**, and *"the Breakout terminal mobile app and the DXTrade terminal mobile
+app are two separate and distinct applications. They are not interchangeable."* The page does not say which platforms
+(Android, iOS) the app supports. The Play Store listing `com.breakoutprop.app` is cited in
+`docs/research/prop-automation-options-2026-09-27.md` (S27, updated 2026-09-19); **not re-opened this session**.
+
+**Is the web terminal in a WebView still the right target?** Yes, for three reasons, none of them about evasion:
+
+1. **A native app cannot be driven in a supported way.** Automating another app's UI on Android means an
+   `AccessibilityService`. It is fragile (it reads view hierarchies the vendor can change per release), it needs a
+   broad permission the operator must grant, and Play policy restricts it. A WebView exposes the DOM to our own code,
+   inside our own process, which is the same model the VM adapter already uses.
+2. **The web terminal is the thing we have partly scoped.** Selectors, vocabulary and safety rules exist for it
+   (`breakout_terminal.py`), and its page JS is reusable. A native app would start from nothing.
+3. **Both are Breakout's own first-party client for the same account.** The web terminal is the documented route
+   ("Open Terminal" from the dashboard, S23).
+
+**Caveats, stated plainly:** a WebView is a different browser from Chrome (its user agent carries a `wv` marker, it
+shares no cookies with Chrome, and it may be served differently by Cloudflare or by Breakout's login). Whether the
+terminal and its login work inside a WebView at all is **unmeasured** and is phase 1a's first question (on the public page, no sign-in); the login itself is unverifiable until the purchase gate. If they do not
+(for example the login relies on a Chrome-only feature, or Turnstile rejects the WebView), the design **does not work around
+it**: the options are then the operator trading from the native app by hand with our Telegram tickets (today's manual
+bridge), or a different venue. The app must not change the user agent to look like Chrome.
+
+---
+
+## 3. The executor contract (Q3)
+
+### 3.1 Endpoints that exist today
+
+| route | auth | what the phone would use it for |
+|---|---|---|
+| `GET /api/bot/prop/tickets?account_id=&status=emitted&limit=` | none (Tier-1 read) | Ticket intake. Row fields (from `prop_tickets`): `ticket_id`, `account_id`, `strategy`, `symbol`, `direction`, `entry`, `sl`, `tp`, `qty`, `risk_usd`, `signal_time`, `valid_until`, `status`, `order_package_id`, `message`, `meta`. |
+| `GET /api/bot/prop/fills?account_id=` | none | Open positions as the journal sees them (reconcile). |
+| `GET /api/bot/prop/status?account_id=` | none | Account snapshot age and rule distance. |
+| `POST /api/bot/prop/report` | `Authorization: Bearer <DASHBOARD_API_TOKEN>`, **fail-closed** (503 when unset, 401 on wrong or missing) | Write-back: `kind=fill` with `status` in `placed/open/filled/closed/skipped`; `kind=amend`; `kind=account_status`. `ingest_report` **refuses** a position-bearing fill missing `account_id`, `symbol` or `direction` (the position identity), and links a fill to its ticket. |
+
+**Gaps this design must close** (they are the new server surface, Tier 2, built behind review):
+
+- `GET /tickets` is unauthenticated. That is fine for the VM executor on localhost; it is a public-internet read for a phone.
+  The phone must use the authenticated claim route below, not this one.
+- The write bearer is one shared secret that can post a report for **any** account. It must never be put on a phone.
+
+### 3.2 Per-device auth (never a pasted secret in chat)
+
+- **New table `prop_devices`** (device id, label, account scope, token hash, created, last seen, revoked). Hash at rest
+  (SHA-256 of a 256-bit random token); the raw token exists only on the phone. It needs the `new-table-wiring` guard's
+  declared relationship; it is a new store, so it needs an operator OK and no backfill (nothing to backfill).
+- **Pairing, one time, no secret typed or pasted into chat:** the operator triggers a system-action
+  `prop-phone-pair` (Tier 2). The server mints a **single-use pairing code with a 10-minute TTL** and shows it only on the
+  operator's own screen (the app's pairing screen displays a one-time code the operator *requests from the app*;
+  the server delivers it to the operator's Telegram DM, **not a repo, issue or Actions log**). The app redeems the
+  code over TLS for the long-lived token and stores it in Android **Keystore-backed `EncryptedSharedPreferences`**. The
+  code is useless after use or expiry.
+- **Scope:** the token can call only `/api/bot/prop/phone/*` (below), is **pinned to the account(s) named at pairing**
+  (the server ignores any `account_id` in the body that differs), and cannot call any other route. A leaked token
+  cannot post a report for another account or touch the trading API.
+- **Revocation:** system-action `prop-phone-revoke` (Tier 2), plus the app's own "unpair". Lost phone = revoke, and any
+  claimed-but-unreported ticket is alerted (§ 3.3). Rotation is re-pairing.
+- **TLS only.** The app talks to the existing HTTPS endpoint through Caddy; **certificate pinning is optional and costs
+  an outage on cert rotation, so recommended off** (O3).
+- **Logs and crash reports never contain the token.** Section 5 lists the checks.
+
+### 3.3 Idempotency and one attempt per ticket
+
+The ticket id is the idempotency key, exactly as on the VM (`IntentLedger`, spec § 3.2 in `docs/research/prop-automation-options-2026-09-27.md`). Phone-side
+needs two layers:
+
+1. **Server claim (new).** `POST /api/bot/prop/phone/claim {ticket_id, device_id}` atomically moves a ticket
+   `emitted → claimed` (single SQL `UPDATE … WHERE status='emitted' AND valid_until > now`, one row or none). The
+   response is the ticket plus `claimed_at`. A second claim, from any device or a retry, gets **409**. A claim is the
+   only way to obtain a go-token, and it is made **before the form is touched**, not after. This mirrors
+   "ledger `intended` is written and fsynced BEFORE the click".
+2. **On-device intent ledger (new).** An append-only local store (Room or a JSONL file with `fsync`) with the same states as
+   `IntentLedger`: `intended → submitted → placed/open (confirmed by re-read) | unconfirmed → skipped/contained`. Written
+   before the click. On app restart, any unresolved row is **never** retried; it triggers a re-read of the terminal and a
+   report.
+
+**One attempt, never two.** If the claim succeeds and the form step fails, refuses, times out, or the phone dies, the
+ticket is **spent**: the server marks it `skipped` with the refusal reason after a timeout (suggest 3 minutes without a
+report) and alerts the operator, who decides by hand. There is no auto-retry and no re-offer. A missed fill costs one
+trade; a duplicated order costs real money.
+
+**Server-side watchdog (new):** a claimed ticket with no `placed/open/filled/skipped` report within N minutes raises the
+same alert the VM executor raises for `unconfirmed_submit` (and is **never** silently re-emitted).
+
+### 3.4 Where each safety check runs
+
+The VM executor's order is: kill switch → read the terminal → reconcile → intake → local guards → act on at most one ticket
+→ re-read. The phone keeps that order, with the *decisions* on the server:
+
+| step | on the phone | on the server |
+|---|---|---|
+| Kill switch | Reads a mode from the claim response; honours `off`/`read_only`/`live`; default `read_only` | New `PROP_EXECUTOR_MODE_<ACCOUNT>` semantics reused: unparseable ⇒ `read_only`. A server-side "phone off" can never be bypassed by the app. |
+| Read the terminal | Parses balance, equity, positions, orders; **`null` not `0` for anything unread**, with the unparsed list | — |
+| Guards + sizing | Sends the read snapshot with the claim | Runs `evaluate_guards` and `bracket_from_ticket` (the *same Python*). Replies with a resolved `BracketSpec` or a refusal reason. **A stale (> 60 s) or partly unparsed snapshot is a refusal.** |
+| Fill the form | Types values; reads **every field back** | — |
+| Read-back | Sends the form dump (symbol, side, order type, quantity, price, SL/TP toggles and values, control locations) | Runs `check_form_shape` + `read_back` (the same Python). Replies with a **go-token bound to the ticket id and a hash of the verified form, valid 30 s**, or a refusal. |
+| Submit | Re-hashes the live form; clicks **only if** it equals the verified hash and the token is unexpired | Never. Network loss between verify and click ⇒ **no click** (fail closed). |
+| Confirm | Re-reads positions/orders; classifies `confirmed / partial_no_sl_tp / absent` | Receives the report; `partial_no_sl_tp` triggers containment and an alert. |
+
+Why server-side for read-back: it keeps one tested implementation and means a fix lands without shipping an APK. The cost
+is that the phone cannot place an order while offline; that is correct, since it could not report either. The click
+guard on the phone is deliberately dumb (an equality check on a hash).
+
+### 3.5 Mapping `breakout_terminal.py` to in-WebView JS
+
+| Playwright adapter | In the WebView | Notes |
+|---|---|---|
+| `page.evaluate(JS)` with the page-JS strings (`EXTRACT_TABLES_JS`, `ORDER_FORM_JS`, `ONE_CLICK_JS`, `PAGE_SHAPE_JS`, `STRUCTURE_JS`, `CLOSE_ROW_JS`, `CONTROLS_DUMP_JS`) | `webView.evaluateJavascript(JS)` returning JSON | They are plain read-only JS taking their vocabulary as an argument, so they are the most reusable piece. Store them as one shared asset generated from the Python constants so the two cannot drift (a CI test compares the hashes). |
+| Python parsers and verifiers (`parse_account_metrics`, `positions_from_tables`, `check_form_shape`, `read_back`, `classify_page`) | **Not ported.** The phone posts the raw JSON; the server parses and verifies | Single implementation; the existing fixtures and tests apply. |
+| `tp.fill(...)` (real typing) | Drive the field through real input events: `WebView.dispatchKeyEvent` / synthesised touch on the focused input, falling back to the native value setter plus `input`/`change` events **only if a measured field accepts it** | The terminal's framework may ignore JS-set values; measured in Phase 1. These are events inside our own app's view, not injected into another process. |
+| `tp.click(selector)` | A real touch event at the element's measured bounding box, or `element.click()` once measured safe | Same "one uniquely named control, inside the ticket panel" rule (rules 3 and 7). |
+| `_frames(page)` (the terminal may live in iframes) | **Risk.** `evaluateJavascript` runs in the main frame only. Cross-origin iframes need `androidx.webkit` `addDocumentStartJavaScript` with origin rules and `WebMessageListener` | Unknown whether the terminal uses iframes; phase 1a tests it on local fixtures and the public page; the real terminal is phase 2. If it does and the support is missing, the phone route is infeasible and that is reported. |
+| `classify_page` stop reasons | Run the same marker checks on each load; any of `challenge`, `captcha`, `email_code`, `2fa`, `asn_blocked`, `access_denied`, `login_rejected`, `unknown_page` ⇒ **stop, no retry, alert** | The app never reloads in a loop. |
+| `place_bracket(arm=True)` | **Does not exist yet on either side** (rule 9). Built in Phase 3 from the Phase 2 capture | Held Tier-2 change, as `PI-20260928-DRBVUUDJ-0001`. |
+| Selector/ARIA vocabulary | Labels and roles only, never class names | Same rule as the module docstring. |
+
+---
+
+## 4. The server surface to add (summary of § 3)
+
+Four routes under `/api/bot/prop/phone/*`, all per-device-bearer, account-pinned, rate-limited, each audit-logged without
+private data: `pair` (redeem), `claim`, `verify` (form dump → go-token), `report` (a thin wrapper over `ingest_report`
+that overwrites `account_id` from the token). Plus a kill-switch field, the claim watchdog, and the two system-actions
+(`prop-phone-pair`, `prop-phone-revoke`). All Tier 2: a new auth surface and a new write path to the order journal.
+**Nothing on the existing executor, `multi_account_execute` or the order path is touched**; the phone is a second consumer
+of the same ticket and report contract, so only one of {VM executor, phone} may be `live` for an account at a time
+(enforced server-side, § 5).
+
+---
+
+## 5. Reliability on Android (Q4)
+
+### 5.1 What I can and cannot state
+
+I have **not** tested any of this on a device, and I do not know the operator's phone model. OEM battery behaviour varies
+widely. The list below is design intent from Android's published model plus `docs/research/breakout-phone-egress-and-leak-controls-2026-09-30.md` § 4
+(itself marked from-memory in places). Phase 1b measures it on the actual phone for 72 hours.
+
+### 5.2 Design
+
+| concern | design |
+|---|---|
+| **Process lifetime** | A **foreground service** with a pinned notification showing state (`armed / read-only / stopped: <reason>`, last tick age, open-ticket count). The WebView needs a live process and a visible `Activity` or a service holding it; a WebView in a service is delicate. **Open question O2:** whether the WebView must stay in a foreground `Activity` ("keep the screen on, plugged in" kiosk mode) rather than a service. The reliable default is **kiosk mode: a dedicated screen-on, charging phone**. A background-only WebView is expected to be throttled. |
+| **Foreground service type** | A type that is not time-limited on Android 14/15. `dataSync` is capped per day at `targetSdk 35` (from memory, unverified); the app must choose and verify the type in Phase 1b. |
+| **Doze / App Standby** | Charging + screen on avoids most of it. Battery-optimisation exemption requested; `PARTIAL_WAKE_LOCK` held only while armed. FCM **high-priority** data messages wake the app for a new ticket. |
+| **OEM battery killers** | The operator must exempt the app per the OEM's settings; verified in Phase 1b by the 72-hour soak. |
+| **Network loss / Wi-Fi ↔ mobile handover** | The connection drops on handover. Rule: **on loss, no new claim and no click.** A claim already made but not yet verified expires (go-token 30 s). Reconnect → re-read the terminal before any action. |
+| **Terminal session expiry** | The terminal logs the session out. The app detects the login page (`classify_page`), **stops, alerts the operator, and waits for a manual login**; it never types credentials (it has none) and never automates a login or a 2FA / email code. Each logout is a missed-ticket window; the number per week is a Phase 2 metric. |
+| **Phone address churn** | On mobile data the address changes with handovers and geography; on home Wi-Fi it is stable. Recommended: **home Wi-Fi, charging, a dedicated device**, which also keeps the session-ban risk down. |
+| **Heartbeat** | The app posts a heartbeat (state, app version, terminal state) every 60 s. The server alerts on a missing heartbeat while a ticket is open or expected (latched, on-cross, with an `[OK]` on recovery, like `ACCOUNT_REACHABILITY_*`). |
+| **Updates** | Sideloaded APK or App Distribution. A version below the server's minimum is refused at claim (`min_app_version`), so a stale app cannot act. |
+
+### 5.3 What happens to an open position if the phone dies
+
+**Open positions are managed by their bracket, not by the phone.** Every ticket requires SL and TP attached at entry
+("never place without both"); the phone has no role in an exit that the bracket makes. Two things are therefore true if
+the phone dies after a fill:
+
+- **If the terminal holds the SL/TP orders on its own server (the normal expectation for a trading venue, § 5.4)**, the
+  position exits at its stop or target with no phone. No position is left naked by a dead phone **if both legs were
+  confirmed attached before the phone died**.
+- **What the phone's death costs:** no trailing amendments (`kind=amend` from `prop_trail`), no reconcile of the fill
+  into the journal until it returns or the operator reports by hand (the manual bridge via Telegram), and no flatten on an
+  anomaly. The server alerts on the missing heartbeat, and the **operator's existing path is to act from Breakout's own
+  app** or the web terminal.
+
+### 5.4 Not verified: where the bracket lives
+
+I found **no first-party statement and no measurement** that Breakout's proprietary terminal keeps SL/TP orders on its
+server rather than in the client. The VM go-live evidence is on DXtrade (`breakout_1`), not on this terminal. **This is the
+single most important fact to measure** before any unattended use: in Phase 2 (after the purchase gate) the operator places one tiny test position
+by hand in the terminal, closes the phone app *and* the terminal tab, and checks whether the exits still stand and fire
+(or checks the working-orders list from a different client). Until measured, the design assumes the **worst case** (the
+position has no exit if the client is gone) and limits the first live phase to one small ticket at a time, on a
+phone that is attended.
+
+### 5.5 Failure table
+
+| event | result |
+|---|---|
+| App killed by OS | Intent ledger shows any unresolved row; on restart: re-read, report, **no retry**; alert. |
+| Claim made, phone dies before the form | Ticket spent; watchdog marks `skipped: claimed_no_report`; alert. |
+| Click made, phone dies before the re-read | Position may exist with its bracket; the watchdog alerts `unconfirmed_submit`; the operator checks the terminal. Never re-offered. |
+| Server unreachable | No claim, no verify, no click. |
+| Terminal page changes (selector drift) | Form or table not found ⇒ refusal; 2 consecutive refusals ⇒ the server flips that account `read_only` (the VM auto-revert rule) and alerts. |
+
+---
+
+## 6. Safety checklist (Q5)
+
+The go-live rules for the VM executor (`prop_executor.py`, and the manager's registered D1–D7 / L1–L8 criteria, held in the
+`PROP-EXEC` checklist row) map onto the phone as follows. **Each line is a requirement and a test to write, none is built.**
+
+| rule | phone implementation | proof |
+|---|---|---|
+| **No wrong symbol** | Server `check_form_shape` / `form_names_symbol` on the live form; refuse on any mismatch or an ambiguous control. Symbol comes only from the server-resolved spec. | Unit tests on the server (existing) + a replay of captured forms. |
+| **No wrong side** | Side read back from the form as selected (`verify_form_selection`); a single "Buy" button that also submits is refused (rule 7). | Server test + captured forms of both sides. |
+| **No wrong size** | Server types the lot size from `bracket_from_ticket` (flat $-cap, venue lot step); read back equal; **risk recomputed from the typed values**, never the ticket's claim. | Existing tests; D3. |
+| **No wrong price** | Price rounded to the venue step and read back within one tick. | Existing `price_tolerances`. |
+| **No missing SL/TP** | Both toggles read **on** with values equal within a tick, before the click; after the click, `classify_confirmation == confirmed`. **`partial_no_sl_tp` is a failure** and is contained (close at market) and alerted. | L3. |
+| **No click without verification** | Go-token is ticket-bound, form-hash-bound, 30 s. | Mutation test: change one field after verify ⇒ no click. |
+| **One attempt per ticket** | § 3.3. | Test with two devices and a retry storm: exactly one claim wins. |
+| **Fail closed** | Any unread, null, stale, unparsed or unexpected state is a refusal, never a guess or a `0`. | Collapsed-state guard analogue. |
+| **Kill switch** | Server mode, default `read_only`, typo ⇒ `read_only`. | As `executor_mode`. |
+| **One executor per account** | The server refuses a phone claim while the VM executor is `live` for that account, and vice versa. | Test. |
+| **No private data in logs** | Never log: the device token, pairing code, Breakout credentials, cookies, URL paths, position or order ids, balances, account ids or IP addresses. Logs carry ticket id, state, and refusal code only. Crash reports and screenshots are off by default (Android `FLAG_SECURE` on the WebView window). The WebView's storage is app-private; `android:allowBackup=false`. | A CI grep over the build for logging calls; a log-capture test during the soak that scans for the account id and any 6+ digit id. |
+| **No challenge handling** | Challenge/captcha/2FA/email-code ⇒ stop and alert; no automated solve, no UA change, no reload loop. | Test with a challenge fixture page. |
+| **No credentials in the app** | The operator types the password and any code **in the WebView by hand**. The app does not save, autofill or read them. | Review + test. |
+| **Public repo hygiene** | The APK repo and this repo carry no secret, address, package signing key or account id. | `run_secret_scanning` + review. |
+
+**Account-level risk** (not a bug class): breach-and-re-buy is already accepted for `breakout_1` (operator, 2026-09-28).
+Whether it is accepted for a *funded* account that is a device-and-IP change is a separate question (§ 6.1).
+
+### 6.1 Terms (Q6)
+
+- **What I verified:** Breakout's Intercom article on the two mobile apps (read this session) says nothing about
+  automation, bots, devices or IP addresses.
+- **What I did not read:** the **Funded Trader Agreement / Terms of Service** and any account-sharing or device/IP policy.
+  `www.breakoutprop.com/terms` returned a Cloudflare challenge to previous sessions
+  (`docs/research/breakout-terminal-egress-scoping-2026-09-30.md` § 1). **They have never been read by any session.**
+- **What needs reading, and by whom:** the operator (or a session fed the text by the operator) should read, in the
+  Funded Trader Agreement and the ToS: (a) any clause on **automated, algorithmic or bot trading**, and on "trade
+  copiers" or "third-party tools"; (b) any clause on **access from multiple devices or IP addresses**, VPNs, or jurisdiction
+  concealment, and whether it applies to a phone browser; (c) **account sharing and credential handling** (the app never
+  holds credentials, but the operator logs in on a second device); (d) any **one-session-at-a-time** rule (a phone WebView and
+  the operator's own browser at once); (e) the consequence clause (account closure, profit forfeiture, KYC re-verification);
+  (f) latency/"exploiting the platform" language that a scripted submit might touch.
+- **Why this design is better on the evasion axis than the VM routes:** the operator's own genuine phone and home or mobile
+  connection, a human login, stock WebView identity, no stealth. It is **not** "routing around a ban", which was the
+  open concern with the home-tunnel and phone-egress options. It still is **automation on the account**, which the
+  operator accepted on 2026-09-27, and whether the terms permit it is unread.
+- **Third-party summaries** (vendor blogs: bots "allowed", VPN conditional) are leads, not terms
+  (egress scoping § 1).
+
+---
+
+## 7. Build plan (Q7)
+
+**Operator constraint (2026-10-04, via the manager):** the operator has **no Breakout account yet** and will buy one only
+after we have verified there are **no structural blockers**. So the plan is ordered to settle every blocker that can be
+settled **without a login**, then stops at an explicit **OPERATOR GATE: purchase account now**. Nothing before the gate
+signs in, types a credential, or needs an account.
+
+### 7.1 What can be verified with no account, and how
+
+| blocker question | no-account method | status today |
+|---|---|---|
+| Does Breakout have a native app? | Breakout's own help article | **Done:** yes, a separate "Breakout terminal mobile app" (§ 2). Platforms not stated. |
+| Is there a demo / practice mode we could use instead of an account? | Breakout help centre, Terminal collection (6 articles: migration, rules, two terminals, swap fees, access, mobile app) | **None found.** No article mentions demo, practice, free or trial. (Absence in six titles, not a statement that none exists; the operator can ask Breakout support once at purchase time.) |
+| Does the terminal's public page load in the phone WebView on the operator's connection (no challenge, no 1005)? | The phase 1a shell loads the **public landing and login pages** and runs the page-state classifier. No sign-in. | Open. This is the first real test. |
+| Does the WebView get served the same page as Chrome (user-agent and bot check differences)? | Load the same public page in the phone's Chrome and in the shell; compare **classifier state only**, no UA change | Open. |
+| Can injected JS reach the page, including iframes? | `evaluateJavascript` and `addDocumentStartJavaScript` / `WebMessageListener` against (a) the public pages and (b) a **local test page with a cross-origin iframe** served from the app's own assets | Open. Settles the framework question for the main frame and for iframes. |
+| Can we type into a React-style form so the page registers it? | A **synthetic fixture** terminal page (input, toggles, side buttons, a submit) built to the `breakout_terminal` vocabulary and hosted inside the app. Compare real key events against JS value-setting | Open. Proves the mechanics, **not** Breakout's layout. |
+| VM-to-phone contract: pairing, claim, one attempt, go-token, kill switch, heartbeat, watchdog | Server routes and the app run against the **synthetic ticket stream and the synthetic terminal fixture**; two-device claim race; network-loss and kill-app tests | Open. Fully testable with no Breakout. |
+| Android background reliability | 72-hour soak on the operator's phone with the foreground/kiosk shell holding the **public** page and a heartbeat: OEM kills, Doze, handovers, re-login-page detection | Open. |
+
+### 7.2 Phases
+
+| phase | what | account? | est. (lane-days) | exit gate |
+|---|---|---|---|---|
+| **0. Decide** | Operator answers O1–O5 (§ 8). **Step zero, ~2 min, no sign-in:** open `app.breakoutprop.com` in the phone's browser on home Wi-Fi and on mobile data and report which page appears (served / "Just a moment…" / access denied). Confirm FCM delivery to the phone. | none | 0.5 | Operator go for 1a. |
+| **1a. Public-page shell** | New app: WebView + kiosk shell, page-state classifier, redacted page-shape capture of the **public** pages only (same redaction posture as `scripts/prop/breakout_terminal_probe.py`), the iframe and typing tests on local fixtures. | none | 2–3 | Answers the first three rows of § 7.1 and the iframe and typing rows. **If the public page is challenged or blocked in the WebView, stop: a structural blocker, no purchase.** |
+| **1b. Contract and reliability** | Server: `prop_devices`, pairing, per-device auth, `claim`/`verify`/`report`, heartbeat, watchdog, kill switch. Phone: ticket intake, intent ledger, alerts, running against **synthetic** tickets and the synthetic terminal. 72-hour soak. | none | 5–6 | Two-device claim race, fail-closed tests, and the soak table (uptime, kills, handovers) all pass. |
+| **OPERATOR GATE: "purchase account now"** | Reached only when 1a and 1b pass. The manager asks the operator to purchase a Breakout terminal account, **after the operator has read the terms (§ 7.4)**. | **purchase** | — | Operator buys; the manager records it. |
+| **2. Capture with login** | The operator logs in **by hand** in the WebView. Redacted DOM capture of the real terminal; read-only: positions, orders, account snapshot. Measures § 5.4 (do SL/TP survive the client being closed) with one tiny hand-placed position. Session-expiry and any email-code or 2FA behaviour recorded. | **yes** | 2–3 | Captured, redacted fixtures committed; the questions in § 7.3 answered. |
+| **3. Armed click, dry then one watched live** | Held Tier-2: the submit and its confirmation built from the phase 2 capture; dry round trip (D1–D7 analogue), then **one** minimum-size live round trip under criteria registered before the run. The operator present. | yes | 3–4 | D and L criteria pass; auto-revert armed. |
+| **4. Soak** | Probation (first 5 trades or 72 h), trade-by-trade reports, then steady state; auto-revert to `read_only` on the VM executor's triggers. | yes | 2 + observation | Gate 1-style review. |
+
+**Effort (estimate):** before the gate ≈ **8–10 lane-days** (0.5 + 2–3 + 5–6); after it ≈ **7–10** (2–3 + 3–4 + 2). Total
+**≈ 15–20 lane-days**, with independent review rounds likely the long pole. Everything before the gate costs **no account
+fee**; the gate is the first spend.
+
+### 7.3 What stays unverifiable without an account
+
+1. Whether the **login** works inside a WebView (the sign-in submit may trigger a bot check the public page did not).
+2. Any **email code, number-match or 2FA** at sign-in, and how often it recurs (a human step on every login makes unattended
+   use infeasible; `breakout_terminal` lists `email_code` as a stop).
+3. The **post-login terminal**: its DOM, whether it uses iframes or a canvas order ticket (`canvas_ticket` is a stop), the real
+   field, toggle and submit controls, and the submit **confirmation** flow.
+4. **Where SL/TP live** and whether they survive the client being closed (§ 5.4).
+5. **Session lifetime** and what a logout looks like; behaviour with the operator's own browser open at once.
+6. Whether the account's **rules or the platform** block the order types the tickets need (limit with bracket), and the
+   venue's lot step and price increment for each instrument.
+7. **Latency and fill behaviour** at the venue.
+
+None of these can be answered from a landing page or a fixture, and all of them are phase 2 on.
+
+### 7.4 Terms the operator should read at purchase
+
+Read the **Funded Trader Agreement and the Terms of Service** before paying (no session has read them, § 6.1). Look for:
+(a) any **automated, algorithmic or bot-trading** clause, and anything on trade copiers or third-party tools; (b) any
+**one-device or one-IP** rule, VPN or jurisdiction-concealment language, and whether a phone WebView counts;
+(c) **account sharing and credential** handling; (d) any **one-session-at-a-time** rule; (e) the **consequence** clause
+(closure, profit forfeiture, KYC re-verification); (f) language on "exploiting the platform" or speed that a scripted submit
+might touch. If (a) or (b) forbids it, that is a structural blocker and should be found **before** the purchase, not after.
+
+### 7.5 What the operator does
+
+1. Decides O1–O5 (§ 8).
+2. **Step zero** (browser, ~2 min, no sign-in) on Wi-Fi and mobile data.
+3. Installs the APK (sideload; "install unknown apps" once for the source). Tells us the **phone model**.
+4. Dedicates the phone for the 72-hour soak: screen on, charging, home Wi-Fi, battery-optimisation exemption, app pinned.
+5. **At the gate:** reads the terms (§ 7.4), then **purchases the account**.
+6. After the gate: **logs in by hand** in the WebView (and again after each expiry); supplies any email code or 2FA by
+   hand; pairs the device (one-time code via Telegram); places one tiny test position by hand for § 5.4.
+7. **Explicitly authorises phase 3**, the first real-money click path.
+
+---
+
+### 7.6 Step zero: the operator's 2-minute browser test (no sign-in)
+
+Do **not** sign in, enter anything, or tap anything on the page. Do it twice: once on home Wi-Fi, once with Wi-Fi off (mobile data).
+
+1. On your phone, open **Chrome**. (If you use another browser, say which.)
+2. Type `app.breakoutprop.com` in the address bar and go.
+3. Wait up to 15 seconds. Look at what the page shows, and match it to **one** of these:
+   - **A.** The Breakout **login or dashboard page** (a sign-in form, logo, email box). *Served.*
+   - **B.** A page that says **"Just a moment…"**, "Verify you are human", or shows a checkbox/spinner. *Challenged.*
+   - **C.** A page that says **"Access denied"**, **"Error 1005"** or "you have been blocked". *Banned.*
+   - **D.** Anything else, or a blank page, or an error (say what it says in a few words).
+4. Close the tab. Do not tap the checkbox in B (that is a person solving a challenge by hand, which tells us less about an app).
+5. Reply with **one line**: `Wi-Fi: <A/B/C/D>; mobile data: <A/B/C/D>; browser: <Chrome or name>; phone model: <model>`.
+
+Reading the answer: A on both is a go for phase 1a. B means the public page challenges a real phone, so a WebView may be challenged too: ask for one more line from the Breakout mobile app if the operator has no account (nothing else to test), and treat B as a **likely blocker** for the WebView route. C is a **no-go** for that network. D needs a follow-up. This test says nothing about the WebView itself; that is phase 1a.
+
+### 7.7 Public-page evidence gathered 2026-10-04 (no login, no challenge-solving) and go/no-go
+
+| question | finding | source |
+|---|---|---|
+| Does the landing/login page work in an Android WebView, or must it be a full browser? | **Cannot be answered from public material.** A plain fetch from this session's network (not a phone) got a Cloudflare **managed challenge** (`HTTP 403`, `cf-mitigated: challenge`), whose own headers are the challenge page's, not the real app's: its CSP allows `challenges.cloudflare.com` frames, and `X-Frame-Options: SAMEORIGIN` (irrelevant to a top-level WebView). So we know a Turnstile-style check sits in front of the site for datacenter-like clients; whether a genuine phone WebView is passed is only answerable on the phone (steps 7.6 and 1a). No evasion or retry attempted. | live fetch this session; headers not stored |
+| Does Breakout publish a demo/practice terminal needing no paid account? | **None found.** The Terminal help collection has 6 articles; the access, two-terminals and mobile-app articles say nothing about demo or practice. | `intercom.help/breakoutprop` collection 19162084 and articles 14215682, 14215629, 14215706 |
+| What do the help articles say about mobile/app trading? | One article: "the Breakout terminal mobile app and the DXTrade terminal mobile app are two separate and distinct applications. They are not interchangeable." No platforms, features, login or automation detail. Access (web): "log in to your Breakout Dashboard and click the 'Open Terminal' button." New purchases are Breakout terminal only. | articles 14215706, 14215682, 14215629 |
+| Frame/CSP headers of the real app | **Not visible** (the challenge answered instead). Header checks from a GitHub runner would hit the same datacenter ban (measured earlier: Error 1005), so it was not run. | prior: `docs/research/breakout-terminal-egress-scoping-2026-09-30.md` § 2 |
+
+**Recommendation: GO for phase 0 and phase 1a only; no-go on spending anything.** Rationale: nothing found rules the WebView route out, nothing found confirms it works, and the decisive evidence (does the public page serve a real phone's WebView) costs the operator two minutes and one throwaway probe app. **Hard stops:** step zero returns B or C on both networks, or phase 1a's public page is challenged or blocked in the WebView. Cost of this recommendation so far: about a few dollars of lane spend; no purchase, no login, no build beyond what 1a needs.
+
+## 8. Open questions for the operator / manager
+
+| # | question | my lean |
+|---|---|---|
+| O1 | Thaw `ict-trader-android` or a new repo? | **New repo** (keeps the read-only app's promise true). Thawing needs the explicit instruction its `CLAUDE.md` demands. |
+| O2 | Kiosk (screen-on, charging dedicated phone) or a background service? | **Kiosk.** A background WebView is the likeliest thing to be throttled and killed. |
+| O3 | Certificate pinning on the API? | Off; rotation outage risk outweighs the benefit here. |
+| O4 | Which accounts may the phone drive, and is the VM executor to be `read_only` while it does? (Both cannot be live.) | One executor per account, server-enforced. |
+| O5 | Does the operator accept phone-as-second-device against the unread terms? | Read the terms first; Phase 0 gate. |
+
+## 9. Honest limits of this document
+
+- **Not measured:** WebView load/login of the terminal; DOM; iframes; bracket-at-venue behaviour; OEM behaviour; FCM
+  delivery today; whether Breakout's terminal app exists on Android (the page did not say; the Play listing is cited
+  from an earlier research table, not re-opened).
+- **Not read:** the Funded Trader Agreement, the Terms of Service, the private Android repo (this session).
+- **Inherited without re-checking:** the Android app facts in § 1.1 (a 2026-09-30 reading of a commit dated 2026-08-13).
+- **Not claimed:** that any part of this works. It is a plan with a stop at Phase 1.
