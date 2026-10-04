@@ -76,8 +76,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import subprocess
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -97,6 +99,20 @@ BRIEF_DIR = REPO_ROOT / "comms" / "briefs"
 _CHECKLIST = Path("docs/claude/work/MANAGER-CHECKLIST.json")
 _MANDATES = Path("config/mandates.yaml")
 _PIPELINE_STORE = pipeline.STORE
+_SOAKS = Path("docs/claude/work/SOAKS.json")
+
+# ── size discipline (BRIEF-FIX, 2026-10-04) ────────────────────────────────
+# MEASURED 2026-10-04 on the live tree: 738,748 B, of which §3 WHAT MOVED was
+# 673,254 B (every done/landed row with its full note) and §2 was 38,299 B for
+# 6 rows (full notes). A brief nobody can read is a brief nobody acts on, so
+# every section is ranked-and-capped and SAYS what it left out. The cap below
+# is pinned by tests/test_render_daily_brief.py on a synthetic worst case.
+BRIEF_SIZE_CAP_BYTES = 16 * 1024
+TOP_DUE = 15            # §0 rows shown
+MOVED_PER_STATE = 5     # §3 rows shown per state
+STALE_AFTER_DAYS = 3    # §4: no row/git activity this long => STALE
+_LINE = 100             # one-line truncation for list rows
+_NOTE = 90             # truncation for a note excerpt in §2
 
 #: Terminal-ish checklist states that read as "moved" rather than "running".
 #: `landed_unproven` is terminal-ish (a lane stopped being worked) but is NOT
@@ -138,6 +154,103 @@ def read_yaml(path: Path, root: Path | None = None) -> tuple[Any, str]:
     except (yaml.YAMLError, OSError, UnicodeDecodeError):
         return None, "unreadable"
 
+
+
+# ── small shared helpers ────────────────────────────────────────────────────
+
+def _clip(text: Any, n: int) -> str:
+    t = " ".join(str(text if text is not None else "").split())
+    return t if len(t) <= n else t[: n - 1].rstrip() + "…"
+
+
+_TS = re.compile(r"\[(20\d\d-\d\d-\d\d)")
+
+
+def _latest_note_date(it: dict, today: date | None = None) -> date | None:
+    """Newest `[YYYY-MM-DD…` update stamp in a row's `note` (sessions stamp
+    their updates `[2026-10-01T16:45Z …]`). Only the bracketed form counts —
+    bare dates in prose are deadlines, and a future one must not read as
+    activity (MEASURED: PACE-W40's note named 2026-10-07 while today is 10-04).
+    Stamps after today are ignored. None when the row carries no stamp."""
+    best: date | None = None
+    for m in _TS.finditer(str(it.get("note") or "")):
+        try:
+            d = date.fromisoformat(m.group(1))
+        except ValueError:
+            continue
+        if today is not None and d > today:
+            continue
+        if best is None or d > best:
+            best = d
+    return best
+
+
+# ── §0 — ranked, bucketed, denominator kept ─────────────────────────────────
+
+def _money_path(it: dict) -> bool:
+    """STRUCTURED fields only — `loud`, severity high/critical, or tier >= 2
+    (Tier-2/3 = runtime/order-path/strategy by path). Deliberately NOT a
+    keyword match over the prose: MEASURED 253 of 366 due rows mention
+    live/order/risk/position, so a keyword rule would rank everything first."""
+    sev = str(it.get("severity") or "").lower()
+    try:
+        tier = int(it.get("tier"))
+    except (TypeError, ValueError):
+        tier = 0
+    return bool(it.get("loud")) or sev in ("high", "critical") or tier >= 2
+
+
+def _rank_key(it: dict) -> tuple:
+    far = date.max
+    return (not _money_path(it), it.get("next_action") != "ask_operator",
+            it.get("state") == "routed", pipeline.filed_date(it) or far,
+            str(it.get("id", "")))
+
+
+_BUCKETS = ("never-checked", "lapsed", "date-passed", "no-cadence")
+
+
+def section0_lines(res: Any, today: date) -> list[str]:
+    """§0 — top TOP_DUE by priority + counts by bucket and routed/unrouted.
+    Reuses `pipeline.due` / `due_bucket` / `unrouted_alarm`: due-ness is never
+    re-derived here. Full list: `python3 scripts/ops/pipeline.py --due --all`."""
+    items = list(res.items.values())
+    rows = pipeline.due(items, today)
+    L = ["## §0 — WHAT CAME DUE", ""]
+    if not res.healthy:
+        L += [f"> ⚠️ **{len(res.unreadable)} RECORD(S) COULD NOT BE PARSED** — counts "
+              "below are a floor, not a total.", ""]
+    alarm = pipeline.unrouted_alarm(items, today)
+    if alarm["breached"]:
+        L += ["> 🚨 **ROUTING ALARM** — " + "; ".join(alarm["breached"]) + ".", ""]
+    if alarm["undated"]:
+        L += [f"> {alarm['undated']} unrouted item(s) carry no date in their id — age unread.", ""]
+    if not rows:
+        L += ["Nothing came due." if res.healthy else
+              "Nothing came due **among the records that parsed**.", ""]
+        return L
+    n_un = sum(1 for r in rows if r.get("state") != "routed")
+    bk = {b: 0 for b in _BUCKETS}
+    for r in rows:
+        b = pipeline.due_bucket(r, today)
+        bk[b] = bk.get(b, 0) + 1
+    L += [f"**{len(rows)} item(s) due. Each needs a disposition today.** "
+          f"Unrouted {n_un} · routed {len(rows) - n_un} · of {len(items)} items in the store.",
+          "By why due: " + " · ".join(f"{k} {v}" for k, v in bk.items()) + ".", ""]
+    ordered = sorted(rows, key=_rank_key)
+    shown = ordered[:TOP_DUE]
+    L.append(f"_Top {len(shown)} of {len(rows)}: money-path (`loud`/severity high/"
+             "tier≥2) → `ask_operator` → unrouted → oldest._")
+    for i in shown:
+        owner = f" → `{_clip(i['routed_to'], 22)}`" if i.get("routed_to") else ""
+        L.append(f"- **{i.get('id')}** [{i.get('state')}{owner}] "
+                 f"{_clip(i.get('what'), _LINE)} · `{i.get('next_action')}`")
+    rest = len(ordered) - len(shown)
+    if rest > 0:
+        L += ["", f"**{rest} more due, not shown.** Full list: "
+              "`python3 scripts/ops/pipeline.py --due --all`."]
+    L.append("")
+    return L
 
 # ── §2/§3/§4 — checklist views ─────────────────────────────────────────────
 
@@ -197,6 +310,123 @@ def mandates_view(doc: Any, state: str) -> dict[str, Any]:
     return {"state": "read", "mandates": rows if isinstance(rows, list) else []}
 
 
+
+# ── §4 evidence: git, because the VM cannot see sessions ────────────────────
+
+def git_activity(root: Path, today: date, days: int = 45) -> dict[str, Any]:
+    """Commit dates + text over the last `days`, from ONE `git log`. The VM can
+    not see sessions; commits (and the PR numbers in their subjects) are what
+    it can see. `coversDays` is how far back the clone actually reaches — a
+    shallow clone reaching back 2 days cannot prove a row quiet for 3, and says
+    so (`state: short`) instead of calling everything stale."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "log", f"--since={days} days ago", "-n", "6000",
+             "--format=%cs%x1f%s%x1f%b%x1e"],
+            capture_output=True, text=True, timeout=20, check=True).stdout
+        shallow = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--is-shallow-repository"],
+            capture_output=True, text=True, timeout=5).stdout.strip() == "true"
+    except (OSError, subprocess.SubprocessError):
+        return {"state": "unreadable", "commits": [], "coversDays": None}
+    commits = []
+    for rec in out.split("\x1e"):
+        parts = rec.strip("\n").split("\x1f")
+        if len(parts) < 2:
+            continue
+        try:
+            commits.append((date.fromisoformat(parts[0].strip()), parts[1],
+                            parts[2] if len(parts) > 2 else ""))
+        except ValueError:
+            continue
+    if not commits:
+        return {"state": "unreadable", "commits": [], "coversDays": None}
+    covers = (today - min(c[0] for c in commits)).days
+    short = shallow and covers < STALE_AFTER_DAYS
+    return {"state": "short" if short else "read", "commits": commits,
+            "coversDays": covers}
+
+
+def _token(tok: str) -> "re.Pattern[str]":
+    return re.compile(r"(?<![A-Za-z0-9])" + re.escape(tok) + r"(?![A-Za-z0-9])")
+
+
+def row_last_evidence(it: dict, act: dict, today: date) -> tuple[date | None, str]:
+    """(latest date, what it came from) for one in_flight row: the newest of
+    its own note stamp and any commit naming its id/lane/PRs."""
+    best: date | None = _latest_note_date(it, today)
+    src = "row note" if best else ""
+    pats = []
+    if it.get("id"):
+        pats.append((_token(str(it["id"])), "subject"))
+    if it.get("lane"):
+        pats.append((_token(str(it["lane"])), "any"))
+    for pr in it.get("prs") or []:
+        m = re.search(r"\d+", str(pr.get("number") if isinstance(pr, dict) else pr))
+        if m:
+            pats.append((re.compile(r"#" + m.group(0) + r"(?!\d)"), "any"))
+    for d, subj, body in act.get("commits", []):
+        if best is not None and d <= best:
+            continue
+        if any(rx.search(subj if where == "subject" else subj + "\n" + body)
+               for rx, where in pats):
+            best, src = d, "git commit"
+    return best, src
+
+
+# ── SOAKS — the slot lane SOAK-WATCH fills ──────────────────────────────────
+# INTERFACE (agreed contract; SOAK-WATCH owns the writer, this module only reads):
+#   docs/claude/work/SOAKS.json
+#   {"as_of": "YYYY-MM-DD[THH:MMZ]",
+#    "soaks": [{"id": str, "what": str, "started": "YYYY-MM-DD",
+#               "end_date": "YYYY-MM-DD" | null, "progress": str,
+#               "verdict": str}]}
+# `days_in` is COMPUTED from `started` (never trusted from the file). Absent
+# file => "SOAK-WATCH has not published", never "no soaks". Unreadable =>
+# "could not look". Any missing field renders "—", never 0.
+
+def read_soaks(root: Path, today: date) -> dict[str, Any]:
+    doc, state = read_json(_SOAKS, root)
+    if state != "read":
+        return {"state": state, "rows": [], "asOf": None}
+    rows_in = (doc or {}).get("soaks") if isinstance(doc, dict) else None
+    if not isinstance(rows_in, list):
+        return {"state": "unreadable", "rows": [], "asOf": None}
+    rows = []
+    for r in rows_in:
+        if not isinstance(r, dict):
+            continue
+        days_in = None
+        try:
+            days_in = (today - date.fromisoformat(str(r.get("started"))[:10])).days
+        except ValueError:
+            pass
+        rows.append({**r, "days_in": days_in})
+    return {"state": "read", "rows": rows, "asOf": doc.get("as_of")}
+
+
+def _soak_lines(b: dict) -> list[str]:
+    sk = b.get("soaks") or {"state": "absent", "rows": []}
+    L = ["### 🌱 SOAKS", ""]
+    if sk["state"] == "absent":
+        return L + ["_SOAK-WATCH has not published `docs/claude/work/SOAKS.json` "
+                    "(we looked; it is not there) — this is not 'no soaks'._", ""]
+    if sk["state"] != "read":
+        return L + [f"{_HOLE['unreadable']} — `{_SOAKS}`.", ""]
+    L.append(f"_{len(sk['rows'])} soak(s), as of {sk.get('asOf') or '—'}. "
+             "Days-in is computed from `started`._")
+    if not sk["rows"]:
+        return L + ["_None declared._", ""]
+    dash = lambda v: "—" if v in (None, "") else v  # noqa: E731
+    for r in sk["rows"]:
+        L.append(f"- **{dash(r.get('id'))}** {_clip(dash(r.get('what')), 70)} · started "
+                 f"{dash(r.get('started'))} · day {dash(r.get('days_in'))} · "
+                 f"{_clip(dash(r.get('progress')), 60)} · ends {dash(r.get('end_date'))} · "
+                 f"verdict {_clip(dash(r.get('verdict')), 40)}")
+    L.append("")
+    return L
+
+
 # ── assembly ─────────────────────────────────────────────────────────────
 
 def build(*, today: date | None = None, root: Path | None = None) -> dict[str, Any]:
@@ -206,7 +436,11 @@ def build(*, today: date | None = None, root: Path | None = None) -> dict[str, A
 
     pipe_res = pipeline.read_log(root / _PIPELINE_STORE)
     pipe_stats = pipeline.stats(pipe_res, today)
-    section0_lines = pipeline.render_section_0(pipe_res, today)
+    section0 = section0_lines(pipe_res, today)
+    pipe_items = list(pipe_res.items.values())
+    ask_operator = sorted(
+        (i for i in pipeline.due(pipe_items, today) if i.get("next_action") == "ask_operator"),
+        key=_rank_key)
 
     checklist_doc, checklist_state = read_json(_CHECKLIST, root)
     ck = checklist_view(checklist_doc) if checklist_state == "read" else checklist_view({})
@@ -219,8 +453,10 @@ def build(*, today: date | None = None, root: Path | None = None) -> dict[str, A
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "researchThroughput": _research_throughput(root),
         "liveParity": _live_parity_line(root),
-        "pipeline": {"stats": pipe_stats, "section0Lines": section0_lines,
-                     "healthy": pipe_res.healthy},
+        "pipeline": {"stats": pipe_stats, "section0Lines": section0,
+                     "healthy": pipe_res.healthy, "askOperator": ask_operator},
+        "activity": git_activity(root, today),
+        "soaks": read_soaks(root, today),
         "checklistState": checklist_state,
         "checklist": ck,
         "mandatesState": mandates_state,
@@ -260,41 +496,52 @@ def _section1(b: dict) -> list[str]:
         L += ["`config/mandates.yaml` exists and declares **no mandates**. "
               "That is a reading, not a hole.", ""]
     else:
-        L += [f"{len(mv['mandates'])} mandate(s) declared. This module does "
-              "not yet read a firing/evidence log — none exists on disk — so "
-              "it reports the declared mandates only; **a report of what "
-              "fired is a separate, not-yet-built surface, not zero "
-              "firings.**", ""]
-        for m in mv["mandates"]:
-            if isinstance(m, dict):
-                L.append(f"- `{m.get('id', '?')}` — {m.get('grants', m)}")
-        L.append("")
+        L += [f"{len(mv['mandates'])} mandate(s) declared. No firing/evidence log "
+              "is read — **what fired is not-yet-built, not zero firings.**", ""]
+        ids = [f"`{m.get('id', '?')}`" for m in mv["mandates"] if isinstance(m, dict)]
+        L += [", ".join(ids) + " (grants: `config/mandates.yaml`).", ""]
     return L
 
 
 def _section2(b: dict) -> list[str]:
+    ask = b["pipeline"].get("askOperator") or []
     if b["checklistState"] != "read":
         return ["---", "", "## §2 — DECISIONS FOR YOU", "",
                 f"{_HOLE[b['checklistState']]} — `docs/claude/work/MANAGER-CHECKLIST.json`. "
-                "The standing picture below is missing its centre.", ""]
+                f"(Pipeline `ask_operator` items below are still shown: {len(ask)}.)", ""] + _ask_lines(ask)
     rows = decisions_for_you(b["checklist"])
-    L = ["---", "", f"## §2 — DECISIONS FOR YOU ({len(rows)})", "",
-         "_Checklist rows owned (in full or in part) by the operator and not "
-         "yet `done`/`dropped`. **No cap** — a queue outrunning one person is "
-         "an argument for a mandate, not for shortening this list._", ""]
-    if not rows:
-        L += ["_None._", ""]
-        return L
+    L = ["---", "", f"## §2 — DECISIONS FOR YOU ({len(rows)} checklist + {len(ask)} pipeline)", "",
+         "_Operator-owned checklist rows, then due pipeline items with "
+         "`ask_operator`. **No cap on rows** (a queue outrunning one person argues "
+         "for a mandate, not a shorter list); only prose is clipped — full text "
+         "`GET /api/bot/work/checklist`._", ""]
+    if not rows and not ask:
+        return L + ["_None._", ""]
     for it in rows:
-        L.append(f"- **{it.get('id')}** [{it.get('state')}] {it.get('title') or '(untitled)'}"
-                 f" · owner `{it.get('owner')}`")
+        L.append(f"- **{it.get('id')}** [{it.get('state')}] {_clip(it.get('title') or '(untitled)', 90)}")
         if it.get("note"):
-            L.append(f"  - {it['note']}")
+            L.append(f"  - {_clip(it['note'], 80)}")
         bo = _blocked_on_text(it)
         if bo:
-            L.append(f"  - blocked on: {bo}")
+            L.append(f"  - blocked on: {_clip(bo, 120)}")
+    L += _ask_lines(ask)
     L.append("")
     return L
+
+
+def _ask_lines(ask: list) -> list[str]:
+    if not ask:
+        return []
+    L = ["", f"**Pipeline items awaiting you ({len(ask)}):**"]
+    for i in ask:
+        L.append(f"- **{i.get('id')}** {_clip(i.get('what'), 100)}")
+    return L
+
+
+def _recency_key(item: tuple[int, dict]) -> tuple:
+    pos, it = item
+    d = _latest_note_date(it)
+    return (d is not None, d or date.min, pos)  # dated newest first; undated by file order
 
 
 def _section3(b: dict) -> list[str]:
@@ -305,7 +552,9 @@ def _section3(b: dict) -> list[str]:
     ck = b["checklist"]
     L += [f"> ⚠️ **`{_NOT_DONE_BUT_MERGED}` ({ck['mergedEffectUnobservedCount']}) is "
           f"NOT `done` ({ck['doneCount']}).** A merge is a deploy, not an "
-          "observation; the two are never added together.", ""]
+          "observation; the two are never added together.", "",
+          f"_Newest {MOVED_PER_STATE} per state; counts are full populations. "
+          "All: `GET /api/bot/work/checklist`._", ""]
     for state in ("done", "dropped", _NOT_DONE_BUT_MERGED):
         rows = ck["byState"].get(state, [])
         head = {"done": "✅ DONE — merged and observed",
@@ -316,13 +565,11 @@ def _section3(b: dict) -> list[str]:
         if not rows:
             L += ["_None._", ""]
             continue
-        for it in rows:
-            line = f"- **{it.get('id')}** — {it.get('title') or '(untitled)'}"
-            if it.get("owner"):
-                line += f" · owner `{it['owner']}`"
-            L.append(line)
-            if it.get("note"):
-                L.append(f"  - {it['note']}")
+        top = sorted(enumerate(rows), key=_recency_key, reverse=True)[:MOVED_PER_STATE]
+        for _, it in top:
+            L.append(f"- **{it.get('id')}** — {_clip(it.get('title') or '(untitled)', 100)}")
+        if len(rows) > len(top):
+            L.append(f"- _…and {len(rows) - len(top)} more._")
         L.append("")
     return L
 
@@ -374,38 +621,52 @@ def _parity_lines(b: dict) -> list[str]:
 def _section4(b: dict) -> list[str]:
     if b["checklistState"] != "read":
         return ["---", "", "## §4 — WHAT IS RUNNING", "",
-                f"{_HOLE[b['checklistState']]} — `docs/claude/work/MANAGER-CHECKLIST.json`.", ""] + _research_lines(b) + _parity_lines(b)
+                f"{_HOLE[b['checklistState']]} — `docs/claude/work/MANAGER-CHECKLIST.json`.", ""] + _soak_lines(b) + _research_lines(b) + _parity_lines(b)
     ck = b["checklist"]
+    today = date.fromisoformat(b["forDate"])
+    act = b.get("activity") or {"state": "unreadable", "commits": [], "coversDays": None}
     running_total = sum(len(ck["byState"].get(s, [])) for s in _RUNNING_STATES)
     L = ["---", "", f"## §4 — WHAT IS RUNNING ({running_total})", ""]
-    for state in _RUNNING_STATES:
-        rows = ck["byState"].get(state, [])
-        head = {"in_flight": "🔧 IN FLIGHT — a session is actively working it",
-                "blocked": "⛔ BLOCKED — waiting on a named thing"}[state]
-        L += [f"### {head} ({len(rows)})", ""]
-        if not rows:
-            L += ["_None._", ""]
-            continue
-        for it in rows:
-            line = f"- **{it.get('id')}** — {it.get('title') or '(untitled)'}"
-            if it.get("lane"):
-                line += f" · lane `{it['lane']}`"
-            if it.get("model"):
-                line += f" · model `{it['model']}`"
-            if it.get("spend_usd") is not None or it.get("ceiling_usd") is not None:
-                line += (f" · spend ${it.get('spend_usd')} / "
-                         f"ceiling ${it.get('ceiling_usd')}")
-            L.append(line)
-            bo = _blocked_on_text(it)
-            if bo:
-                L.append(f"  - blocked on: {bo}")
-        L.append("")
+
+    live, stale = [], []
+    for it in ck["byState"].get("in_flight", []):
+        last, src = row_last_evidence(it, act, today)
+        if last is None or (today - last).days > STALE_AFTER_DAYS:
+            stale.append((it, last, src))
+        else:
+            live.append((it, last, src))
+    basis = {"read": f"git log over the last {act.get('coversDays')} d",
+             "short": f"git log, but this clone reaches back only {act.get('coversDays')} d "
+                      f"(< {STALE_AFTER_DAYS} d) — STALE below is **not provable** here",
+             "unreadable": "git log UNREADABLE — only the row's own note stamp was available"}[act["state"]]
+    L += [f"_Basis (VM cannot see sessions): running = a `[date` stamp in the row note "
+          f"or a commit naming its id/lane/PR within {STALE_AFTER_DAYS} d. {basis}. "
+          "PR comments and CI are not visible._", ""]
+
+    L += [f"### 🔧 IN FLIGHT — evidence of activity ({len(live)})", ""]
+    L += ([f"- **{it.get('id')}** — {_clip(it.get('title') or '(untitled)', 60)} · last "
+           f"{last.isoformat()} ({src})" for it, last, src in live] or ["_None._"]) + [""]
+    L += [f"### 🕸️ STALE — no live evidence ({len(stale)})", ""]
+    for it, last, src in stale:
+        seen = f"last {last.isoformat()} ({src}, {(today - last).days} d)" if last else "no stamp or commit found"
+        L.append(f"- **{it.get('id')}** — {_clip(it.get('title') or '(untitled)', 60)} · {seen}")
+    if not stale:
+        L.append("_None._")
+    L.append("")
+
+    blocked = ck["byState"].get("blocked", [])
+    L += [f"### ⛔ BLOCKED — waiting on a named thing ({len(blocked)})", ""]
+    for it in blocked:
+        L.append(f"- **{it.get('id')}** — {_clip(it.get('title') or '(untitled)', 70)}"
+                 f" · on: {_clip(_blocked_on_text(it) or '— (none named)', 80)}")
+    if not blocked:
+        L.append("_None._")
+    L.append("")
     other = {k: v for k, v in ck["counts"].items() if k not in _RUNNING_STATES}
     if other:
-        L += ["_Everything else, by count only (nothing here needs your eyes "
-              "this morning): " + ", ".join(f"`{k}` {v}" for k, v in other.items())
-              + "._", ""]
-    return L + _research_lines(b) + _parity_lines(b)
+        L += ["_Everything else, by count only: "
+              + ", ".join(f"`{k}` {v}" for k, v in other.items()) + "._", ""]
+    return L + _soak_lines(b) + _research_lines(b) + _parity_lines(b)
 
 
 def _section5(b: dict) -> list[str]:
@@ -413,14 +674,8 @@ def _section5(b: dict) -> list[str]:
     L = ["---", "", "## §5 — SPEND", "",
          "**Cost/budget figures: not measured — A1 (cost meter) is not "
          "built.** This is a declared gap, never a fabricated `$0`.", "",
-         f"**Unrouted pipeline items: {unrouted}.** From "
-         "`scripts/ops/pipeline.py::unrouted_count()` — due, and nobody has "
-         "taken it. This is the number that must never quietly grow: a rising "
-         "count on this page is the structural difference between this "
-         "pipeline and `DUE.md`, whose due-list nobody read.", ""]
-    alarm = b["pipeline"]["stats"].get("unrouted_alarm") or {}
-    if alarm.get("breached"):
-        L += ["> 🚨 **ROUTING ALARM:** " + "; ".join(alarm["breached"]) + ".", ""]
+         f"**Unrouted pipeline items: {unrouted}.** (`pipeline.unrouted_count()` — "
+         "due, nobody has taken it; must never quietly grow; alarm text in §0).", ""]
     if not b["pipeline"]["healthy"]:
         L += ["> ⚠️ The pipeline store has unreadable records (see §0) — "
               "the unrouted count above is a **floor**, not a total.", ""]
@@ -429,11 +684,10 @@ def _section5(b: dict) -> list[str]:
 
 def _hdr(b: dict) -> list[str]:
     return [f"# DAILY BRIEF — {b['forDate']}", "",
-            f"_Generated `{b['generatedAt']}` by `scripts/ops/render_daily_brief.py`, "
-            "served live by `GET /api/bot/work/brief`._", "",
-            "_**GENERATED — do not hand-edit.** Six fixed sections: what came "
-            "due · taken under mandate · decisions for you · what moved · "
-            "what is running · spend._", ""]
+            f"_Generated `{b['generatedAt']}` · `GET /api/bot/work/brief`._", "",
+            "_**GENERATED — do not hand-edit.** Six sections: due · mandate · "
+            "decisions · moved · running · spend. Ranked and capped to stay "
+            "readable; every cap names its full list._", ""]
 
 
 def _footer(b: dict) -> list[str]:
@@ -442,11 +696,12 @@ def _footer(b: dict) -> list[str]:
             f"| `pipeline` | `{'read' if b['pipeline']['healthy'] else 'partial'}` "
             f"| `{_PIPELINE_STORE}` |",
             f"| `checklist` | `{b['checklistState']}` | `{_CHECKLIST}` |",
-            f"| `mandates` | `{b['mandatesState']}` | `{_MANDATES}` |", "",
-            "⚠️ **`coverageComplete` is `false`.** This reads the pipeline "
-            "store, the checklist and `config/mandates.yaml`. It does not "
-            "read `src/`, either VM, or the three review backlogs. A reader "
-            "treating it as the whole of system state has misread it.", ""]
+            f"| `mandates` | `{b['mandatesState']}` | `{_MANDATES}` |",
+            f"| `soaks` | `{(b.get('soaks') or {}).get('state', 'absent')}` | `{_SOAKS}` |",
+            f"| `git activity` | `{(b.get('activity') or {}).get('state', 'unreadable')}` | `git log` |", "",
+            "⚠️ **`coverageComplete` is `false`.** Reads the pipeline store, "
+            "checklist, mandates, SOAKS.json and git log only — not `src/`, "
+            "either VM or the review backlogs.", ""]
 
 
 def render(b: dict) -> str:

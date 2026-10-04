@@ -684,6 +684,26 @@ def is_due(item: dict, today: date | None = None) -> bool:
         return True
 
 
+def due_bucket(item: dict, today: date | None = None) -> str | None:
+    """WHY an item is due — the same branches as ``is_due``, named. ``None`` iff
+    ``is_due`` is False (a test pins the two together, so this cannot fork the
+    definition of "due"). Buckets: ``date-passed`` · ``no-cadence`` (observation
+    or event with no usable ``check_every_days``) · ``never-checked`` (cadence
+    declared, ``last_checked`` blank) · ``lapsed`` (checked, cadence elapsed)."""
+    if not is_due(item, today):
+        return None
+    dw = item.get("due_when") or {}
+    if dw.get("kind") == "date":
+        return "date-passed"
+    every = dw.get("check_every_days")
+    if not isinstance(every, int) or every < 1:
+        return "no-cadence"
+    last = dw.get("last_checked")
+    if not isinstance(last, str) or not last.strip():
+        return "never-checked"
+    return "lapsed"
+
+
 def due(items: Iterable[dict], today: date | None = None) -> list[dict]:
     return [i for i in items if is_due(i, today)]
 
