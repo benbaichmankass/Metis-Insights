@@ -29,6 +29,7 @@ those four are printed as separate counters for exactly that reason.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -95,6 +96,37 @@ def precondition_met(entry: Dict[str, Any], root: Optional[Path] = None) -> tupl
 _PLACEHOLDER_RE = re.compile(r"NOT YET DECIDED|\bTBD\b|\bTODO\b|\bFIXME\b", re.I)
 
 
+@functools.lru_cache(maxsize=1)
+def _e35_sweepable_legs() -> frozenset:
+    """The legs e35-bracket-sweep's own planner would accept -- the sweep's resolver
+    (`plan_legs`), never a second copy of its scope. Config-only: `ignore_missing_data`."""
+    from scripts.research.e35_bracket_geometry_sweep import plan_legs
+    runnable, _ = plan_legs(Path("data"), None, 0.099, ignore_missing_data=True)
+    return frozenset(r["leg"] for r in runnable)
+
+
+def _e35_scope_problem(workflow: str, inputs: Dict[str, Any], repo: Optional[Path]) -> Optional[str]:
+    """A unit naming an e35 leg the planner refuses is DETERMINISTICALLY doomed: the run dies in
+    its `plan` job (~90 s, "shard-plan produced ZERO jobs") AFTER the dispatcher stamped the
+    unit, so it reads as dispatched while the corpus never grows. MEASURED 2026-10-04:
+    RQ-20260929-005 / RQ-20261002-001 / RQ-20261003-001 / RQ-20261003-006 name `ict_scalp_*`
+    legs (family `scalp`, out_of_scope_family) -- runs 37086544045 and 37106772916, red in `plan`."""
+    if workflow.split("/")[-1] != "e35-bracket-sweep.yml" or (repo is not None and repo != _REPO):
+        return None
+    only = [x.strip() for x in str(inputs.get("only") or "").split(",") if x.strip()]
+    if not only:
+        return None
+    try:
+        sweepable = _e35_sweepable_legs()
+    except Exception:  # noqa: BLE001 -- could not look: never doom a unit on an unreadable scope
+        return None
+    out = sorted(x for x in only if x not in sweepable)
+    if out:
+        return (f"misconfigured: run.inputs.only {out} are outside the e35 sweep's scope "
+                "(its planner refuses them as out_of_scope_family) -- the run would fail in `plan`")
+    return None
+
+
 def config_problem(entry: Dict[str, Any], repo: Optional[Path] = None) -> Optional[str]:
     """Why this unit's dispatch is DETERMINISTICALLY doomed, or None.
 
@@ -130,6 +162,14 @@ def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
     problem = config_problem(entry)
     if problem:
         return False, problem
+    # Scope is a different class from a misconfigured input: the unit is well-formed and
+    # the workflow would accept it, then refuse the LEG. Kept out of config_problem so the
+    # "committed queue has no doomed unit" test keeps meaning "no malformed unit"; the
+    # out-of-scope units already on main are listed for retirement, not hidden.
+    scope = _e35_scope_problem(str((entry.get("run") or {}).get("workflow") or ""),
+                               (entry.get("run") or {}).get("inputs") or {}, None)
+    if scope:
+        return False, scope
     cadence = str(entry.get("cadence") or "once")
     last = entry.get("last_dispatched_at")
     if not last:
@@ -203,7 +243,13 @@ def fair_order(jobs: List[Any], now: datetime, themes_doc: Dict[str, Any]) -> Li
                     and not any(ch.isspace() for ch in wf) and _is_due(e, now)[0])
         (cand.setdefault(th, []) if fireable else rest).append(j)
     for th in cand:
-        cand[th].sort(key=lambda x: (effective_priority(x.raw, x.id, now, aging), x.id))
+        # Within one effective priority a hand-written unit (someone ASKED this question) goes
+        # before a template-generated one (the refill keeps the queue stocked): MEASURED
+        # 2026-10-04, RQ-20260929-101..108 -- eight pre-registered Stage-0 units the operator
+        # asked for -- sat behind ~15 generated prop-fit units in the same theme for five days,
+        # because ids sort by creation and the 09-29 replenish batch numbered 025..060 < 101.
+        cand[th].sort(key=lambda x: (effective_priority(x.raw, x.id, now, aging),
+                                     isinstance(x.raw.get("generated"), dict), x.id))
     out: List[Any] = []
     while any(cand.values()):
         th = min((t for t in cand if cand[t]),
@@ -340,10 +386,17 @@ def dispatch_inputs(entry: Dict[str, Any], *, power_state: str = "",
     """
     run = entry.get("run") or {}
     inputs = dict(run.get("inputs") or {})
-    if inputs.get("research_unit") and power_state:
-        inputs["power_state"] = power_state
     workflow = str(run.get("workflow"))
     declared = declared_inputs(workflow, repo=repo)
+    # A unit that forgot `research_unit` in its inputs lands its result under
+    # research/results/_unattributed/ -- MEASURED 2026-10-04: RQ-20260928-006/-007 fired
+    # m20-exit-lever-sweep runs 36434140504 / 36434144288, which sit in _unattributed/ although
+    # their unit ids were known to the dispatcher. The dispatcher knows the id, so when the
+    # workflow declares the input it supplies it (declared_inputs None = unreadable: never guess).
+    if declared and "research_unit" in declared and not inputs.get("research_unit") and entry.get("id"):
+        inputs["research_unit"] = str(entry["id"])
+    if inputs.get("research_unit") and power_state:
+        inputs["power_state"] = power_state
     if declared is None or workflow != "research-script-run.yml":
         return inputs, []
     dropped = sorted(k for k in inputs if k not in declared)

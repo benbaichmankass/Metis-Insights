@@ -220,6 +220,15 @@ had been created the day before). The operator's direction: regime first, but *e
   hold as `requires_result`, or it is not a gate.
 - Intake, planning and the weekly re-weighting: [`PLANNING.md`](PLANNING.md).
 
+## Allocating a unit id (RQ-ID-ALLOCATOR)
+
+`python3 scripts/research/next_rq_id.py --fetch` prints the next free `RQ-YYYYMMDD-NNN`, counting ids already
+claimed in the working tree, on `main` AND on every `origin/*` branch (unit files and result directories).
+Picking "the next number" from your own checkout cannot see another lane's unmerged id -- that is how
+#14103 / #14131 / #14049 and #15603 collided. It is not a lock: push the unit file first (the push is the
+claim) and `--fetch` right before you allocate. `queue_replenish` does not use it (its ids must reproduce
+byte-for-byte at the merge-base for the E58 `--verify`).
+
 ## Running it
 
 ```bash
