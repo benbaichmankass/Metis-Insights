@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Data/records only: two result files moved to the unit that dispatched them (research_unit field filled, validated by research-results-guard), a README for the unattributed directory, 24 research-disposition ledger appends written through research_disposition.py --record (append's own refusals applied), and three PIPELINE.jsonl rows via pipeline.append. No code, config, queue unit or decision rule is changed."
+}
