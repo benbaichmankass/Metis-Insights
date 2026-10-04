@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: re-queues PI-20261003-ILZMCTFQ-0002 with the measured 1.0-lot dry-walk result (#16202, submit still disabled) and the next discriminating dry probes. No code, config, order path or runtime file touched."
+}
