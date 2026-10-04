@@ -19,6 +19,7 @@ deliberately NOT routed through this: its ids must be reproducible from the merg
     python3 scripts/research/next_rq_id.py --fetch            # next id for today (UTC)
     python3 scripts/research/next_rq_id.py --day 2026-10-04 --count 3
 """
+# wiring: manual-only - a lane runs it by hand just before creating a research/queue unit; no workflow picks a lane's id
 from __future__ import annotations
 
 import argparse

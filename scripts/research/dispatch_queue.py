@@ -118,7 +118,10 @@ def _e35_scope_problem(workflow: str, inputs: Dict[str, Any], repo: Optional[Pat
         return None
     try:
         sweepable = _e35_sweepable_legs()
-    except Exception:  # noqa: BLE001 -- could not look: never doom a unit on an unreadable scope
+    except (ImportError, OSError, ValueError, KeyError, TypeError) as exc:
+        # could not look: never doom a unit on an unreadable scope -- but say so
+        print(f"::warning::e35 scope unreadable ({type(exc).__name__}: {exc}); not applying the scope check",
+              file=sys.stderr)
         return None
     out = sorted(x for x in only if x not in sweepable)
     if out:
