@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a fresh account-wide ib_open_orders read (read_state orders_read) shows no order in group oca-protect-t5836 on ib_paper",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-01CGDPN9-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 CA-A01-001; lane FIX-CA-01; issue #13165",
+    "rerun": "scripts/ops/diag_fetch.sh '/api/diag/ib_open_orders' (ib_paper orders with oca_group oca-protect-t5836) AND scripts/ops/diag_fetch.sh '/api/diag/exchange_positions' (ib_paper MES). Holds while either order 906/907 rests and MES is flat. A failed read is not absence."
+  },
+  "routed_to": "FIX-CA-01",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-04: live read 2026-10-04T22:5xZ via diag: /api/diag/ib_open_orders (all accounts): ib_paper read_state=orders_read, 2 orders, only MHG oca_group 248275453; no order in group oca-protect-t5836 anywhere (checked every account row). That is this row's own clears_when. The flat-close-cancels-the-group half stays on PI-20260927-KFWRL9R1-0001.",
+  "what": "CRITICAL, TIME-BOUND (FIX-CA-01 part 1, MEASURED 2026-09-27T13:20Z): ib_paper still holds OCA group oca-protect-t5836 -- order 906 SELL STP 15 MESZ6 @7602.5 + 907 SELL LMT 15 @8390.5, GTC, clientId 497 -- on a FLAT MES book (exchange_positions: MHG short 22, MGC long 90 only). Trade 5836 closed stuck_strategy_watchdog 2026-09-19. Either leg filling opens an unintended 15-lot MES short; CME reopens Sun ~22:00Z. NOT CANCELLED: cancel-ib-order dry-run (issue #13165) found the order and refused on both guards. clientId 497 is the trader's LIVE exec session (ib_state 13:19Z: 497 connected), so IBKR refuses a duplicate connect (Error 326) and the only documented path is pause-autoheal -> stop-bot-service -> cancel-ib-order order 906 apply:true force_protective:true force_client_id:true (verify 907 went with it via OCA, else cancel 907) -> restart-bot-service -> resume-autoheal. That stops the whole trader (incl. real-money bybit_2/bybit_portfolio/alpaca_live) for the window; the lane was told not to disrupt the trader, so this is the manager's call. Cheapest: fold it into the trader restart that deploys PR #13187."
+}

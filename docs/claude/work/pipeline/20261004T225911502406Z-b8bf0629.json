@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the rerun prints N 0 (no row with an empty timestamp) on the live VM after deploy, or the field is null for rows with no time",
+    "kind": "event"
+  },
+  "filed": "2026-10-04",
+  "id": "PI-20261004-4GA8WQPA-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-2 2026-10-04, closing PI-20260922-E32-SIGNALS-RETURNS-ZERO-ROWS",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/signals?limit=50' | python3 -c \"import sys,json;d=json.load(sys.stdin);print(len(d),sum(1 for r in d if not r.get('timestamp')))\""
+  },
+  "routed_to": "BACKLOG-BURNDOWN-2 (small Tier-1 read-path fix; self-land)",
+  "severity": "low",
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-04: duplicate of PI-20260929-AQRK6CL1-0007 (same defect, filed 2026-09-29, routed to GUARD-FIDELITY); re-read today that it still reproduces (2 of 2 rows empty). Filed in error before I read the full due list.",
+  "tier": 1,
+  "what": "GET /api/bot/signals returns \"timestamp\": \"\" for every row (live 2026-10-04: 2 of 2 rows). The handler (src/web/api/routers/dashboard.py:~973) reads e.get(\"ts\", e.get(\"timestamp\", \"\")) and the audit signal rows evidently carry neither key, so a consumer cannot tell when a signal fired. Fix: read the key the writer (src/runtime/pipeline.py log_signal) actually writes, or render null instead of \"\" (a missing field must not read as an empty value)."
+}

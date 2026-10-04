@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-09-28",
+    "kind": "date"
+  },
+  "id": "PI-20260928-W6OPSR-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "issue #13511 vs #13106 (W6-OPS-R)",
+    "rerun": "open a vm-diag-request issue with body `timers`; 401 in the reply = still broken"
+  },
+  "routed_to": "GUARD-FIDELITY",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-04: live read 2026-10-04 ~22:5xZ: /api/diag/timers served 24 timers, 0 could_not_look, and /api/diag/version, /snapshot, /log_file all answered with the token; the 401 of 2026-09-28T07:03Z is gone. The row's date (2026-09-28) has long passed and the surface it reported down is up.",
+  "what": "[ops] The /api/diag relay is DOWN: vm-diag-snapshot got HTTP 401 on /api/diag/timers at 2026-09-28T07:03Z (issue #13511, run 36389586149; stage=http_error, curl_exit 0 so the VM answered). The identical request returned 200 on 2026-09-27T09:18Z (#13106). The sandbox's DIAG_READ_TOKEN is 401 too. So the DIAG_READ_TOKEN Actions secret and the VM's token disagree -- every session and cron that reads /api/diag/* through the relay is blind until they match. Credential matter: check sync-vm-secrets.yml's last run / whether the VM token was rotated; the operator originates a value only if one must be re-minted."
+}

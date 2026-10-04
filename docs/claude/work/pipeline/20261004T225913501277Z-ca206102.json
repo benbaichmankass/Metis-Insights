@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "retention horizon is at least 7 days, or a stated decision names the canonical per-tick decision record instead of journalctl, or killed with a reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261003-OJTPWGCC-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane LIVE-SILENCE session_01Upz38GpgyiMYCjojTpwGCC",
+    "rerun": "Fetch diag journalctl?unit=ict-trader-live&lines=1&since=<now minus 7 days>. The first returned line's timestamp is the retention horizon."
+  },
+  "routed_to": "CI-INFRA [route; size M, value M, tier 2] BACKLOG-ROUTE 2026-10-04: Diag journalctl ict-trader-live since=2026-09-27 returned first line 2026-10-01T22:39:19Z (now 2026-10-04 ~15:00Z): ~2.7 day horizon. Still applies; denominator is one query. | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: live read 2026-10-04 ~22:5xZ: journalctl ict-trader-live since 2026-09-25 returns its first line at 2026-10-02T04:34Z (~2.7 days of retention, not 7). Still applies.",
+  "state": "routed",
+  "what": "ict-trader-live journal retention is ~2.5 days. MEASURED 2026-10-03 ~05:55Z: diag journalctl?unit=ict-trader-live&since=2026-09-29T00:00:00Z returns its first line at 2026-09-30T15:58:42Z, and windows on 09-25 and 09-28 return '-- No entries --'. The trader writes ~2000 lines per 8 minutes. As a result, the lane LIVE-SILENCE forensic step (match a replay signal bar to its live log line) could not reach 2026-09-28T03:35Z..2026-09-30T15:58Z. Decide: raise the journald cap for the unit (vm config, Tier-2), cut per-tick INFO volume, or state that signal_audit is the canonical decision record and journalctl is not. || RE-VALIDATED by health-review 2026-10-04: still true -- ssh.service journal windows on 09-24..10-01 return `-- No entries --` and the first readable lines are 2026-10-02T09:05Z (10 one-hour samples). A CAUSE IS NOW MEASURED: ict-git-sync's notify_on_pull writes ~959 `skipping already-delivered` INFO lines per 5-min pull (~276k lines/day) into the same journald (filed as PI-20261004-PUQ1APTH-0002). Fixing that spam is the cheapest of the three options this row lists and should be tried before raising the per-unit cap. || lane CI-AUTOMERGE (session_01MD7v8mG8doHqFYuTbsceQM) 2026-10-04: not a CI item: a Tier-2 VM journald cap decision vs. naming signal_audit as the canonical decision record. Next step: the manager puts it to the operator as one decision."
+}
