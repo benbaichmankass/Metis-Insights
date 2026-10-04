@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Register + pipeline records only (no code): WORK-SYSTEM row note gains the post-deploy observations for #16387, and two observation items for what is not yet observed. Held because the manager owns the register merge and #16430 (same row) is still open.",
+  "why": "Record merged/deployed/observed for #16387 and file the owed observations."
+}
