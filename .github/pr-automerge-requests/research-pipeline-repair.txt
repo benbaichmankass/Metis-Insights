@@ -1,0 +1,1 @@
+auto-merge: research-pipeline repair (grader closes units, e35 scope, dispatch order, attribution, id allocator)
