@@ -4815,7 +4815,7 @@
     },
     {
       "id": "TRADEIFY-RISK-75",
-      "title": "tradeify_1 tickets size at $75 vs the configured 0.5% ($50) and are refused at the executor cap: root-cause, fix with a test, sweep every prop/real-money account for the same mismatch",
+      "title": "tradeify_1 tickets size at $75 vs the configured risk_pct 0.005 x account_size_usd 10000 = $50 (config/accounts.yaml) and are refused at the executor cap: root-cause, fix with a test, sweep every prop/real-money account for the same mismatch",
       "phase": "floor",
       "state": "in_flight",
       "owner": "lane TRADEIFY-RISK-75",
