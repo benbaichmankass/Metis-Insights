@@ -284,6 +284,22 @@ GUARDS: List[Dict[str, Any]] = [
     # for the reason each one carries.
     # ─────────────────────────────────────────────────────────────────────
     {
+        # SOAK-WATCH 2026-10-04 (operator: "we can't set something to soak if we
+        # don't know when it's done"). Refuses a Stage-1 roster leg / shadow
+        # strategy with no contract in docs/claude/work/SOAKS.json, an
+        # inadmissible contract (no end date, >14d marked ok), and — diff-scoped —
+        # a checklist row entering landed_unproven or a new check_observation
+        # pipeline item without one. Whole-tree on the roster: keyed on
+        # MEMBERSHIP, so editing the list cannot walk around it.
+        "name": "soak-contract-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_soak_contracts.py", "--self-test"],
+            ["python3", "scripts/ci/check_soak_contracts.py", "--base", "origin/main"],
+            ["python3", "scripts/ops/soak_state.py", "--self-test"],
+        ],
+    },
+    {
         # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
         #
         # `artifact-validity-guard`, `recurrence-ledger-guard` and

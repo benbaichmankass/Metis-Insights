@@ -94,3 +94,77 @@ Measured from the run logs:
 - `PI-20261004-JC8KDKLF-0003`: find and repair the trade row(s) with a malformed `closed_at`, and the writer that produced them; the next R5 record lists the ids.
 - `PI-20261004-JC8KDKLF-0002`: extend R5 to count shadow order packages, so shadow soaks can grade accruing or dead.
 - 48 `PI-SOAK-20261004-*` items: one per Stage-1 leg (non-shadow) and one per shadow strategy. Each becomes due from its graded state.
+
+## Soak contracts, backfilled: every current soak is design-wrong
+
+The operator's rule (2026-10-04): a soak only checks that live results match the backtest, so it must be SHORT, at most 14 days. I applied the contract retroactively (`docs/claude/work/SOAKS.json`, built by `scripts/ops/soak_state.py --backfill`):
+- **n:** 10 closes for a Stage-1 leg (the R3 floor), or 10 packages for a shadow strategy.
+- **Event rate:** taken from each leg's Stage-0 evidence record, as `n_trades_oos / window_days`. This is INFERRED; if the OOS folds span less than the window, the true rate is higher, so the end date errs late.
+- **Duration:** n divided by the rate.
+
+**Result:** 0 of 48 contracts are `ok`. 44 are `too_long`, 3 are `not_soaking`, and 1 has no backtest rate. **No current soak can finish within 14 days at its own backtest rate.** That is why 36 of 45 legs read `insufficient-data` with no end date: the soaks were never designed to end.
+
+| id | started | events/week (backtest) | days to n | design |
+|---|---|---|---|---|
+| `SOAK-shadow-ict_scalp_sol_5m` | 2026-09-28 | 3.64 | 20 | too_long |
+| `SOAK-shadow-ict_scalp_avax_5m` | 2026-09-28 | 3.39 | 21 | too_long |
+| `SOAK-stage1-bybit_1-ict_scalp_xrp_5m` | 2026-07-21 | 3.24 | 22 | too_long |
+| `SOAK-shadow-ict_scalp_5m` | 2026-09-28 | 2.78 | 26 | too_long |
+| `SOAK-shadow-mgc_trend_1h` | 2026-06-18 | 2.26 | 31 | too_long |
+| `SOAK-stage1-bybit_1-trend_donchian_eth` | 2026-07-07 | 2.05 | 35 | too_long |
+| `SOAK-stage1-alpaca_paper-tlt_pullback_1h` | 2026-06-21 | 1.8 | 39 | too_long |
+| `SOAK-stage1-alpaca_paper-gld_pullback_1h` | 2026-06-21 | 1.73 | 41 | too_long |
+| `SOAK-shadow-htf_pullback_trend_2h` | 2026-08-23 | 1.65 | 43 | too_long |
+| `SOAK-stage1-bybit_1-ict_scalp_sol_15m` | 2026-07-22 | 1.61 | 44 | too_long |
+| `SOAK-stage1-bybit_1-ict_scalp_eth_15m` | 2026-07-22 | 1.5 | 47 | too_long |
+| `SOAK-stage1-alpaca_paper-spy_pullback_1h` | 2026-06-21 | 1.44 | 49 | too_long |
+| `SOAK-stage1-bybit_1-ict_scalp_xrp_15m` | 2026-07-22 | 1.46 | 49 | too_long |
+| `SOAK-stage1-bybit_1-trend_donchian` | 2026-05-25 | 1.4 | 50 | too_long |
+| `SOAK-shadow-eth_pullback_prop_2h` | 2026-08-23 | 1.34 | 53 | too_long |
+| `SOAK-shadow-slv_trend_1h` | 2026-08-24 | 1.3 | 54 | too_long |
+| `SOAK-stage1-bybit_1-eth_pullback_2h` | 2026-06-11 | 1.19 | 59 | too_long |
+| `SOAK-stage1-bybit_1-trend_donchian_sol` | 2026-07-07 | 1.13 | 62 | too_long |
+| `SOAK-stage1-bybit_1-ada_pullback_2h` | 2026-06-18 | 1.09 | 65 | too_long |
+| `SOAK-stage1-bybit_1-xrp_pullback_2h` | 2026-06-18 | 1.09 | 65 | too_long |
+| `SOAK-shadow-avax_pullback_2h` | 2026-07-23 | 1.09 | 65 | too_long |
+| `SOAK-stage1-alpaca_paper-uso_trend_1h` | 2026-06-21 | 1.07 | 66 | too_long |
+| `SOAK-stage1-alpaca_paper-qqq_pullback_1h` | 2026-06-21 | 1.05 | 67 | too_long |
+| `SOAK-shadow-trend_donchian_avax_4h` | 2026-09-28 | 0.96 | 73 | too_long |
+| `SOAK-shadow-trend_donchian_ada_4h` | 2026-09-28 | 0.88 | 80 | too_long |
+| `SOAK-stage1-bybit_1-trend_donchian_eth_4h` | 2026-06-18 | 0.84 | 83 | too_long |
+| `SOAK-shadow-trend_donchian_sol_4h` | 2026-09-28 | 0.67 | 105 | too_long |
+| `SOAK-shadow-fade_breakout_4h` | 2026-06-01 | 0.52 | 136 | too_long |
+| `SOAK-stage1-bybit_1-sol_pullback_2h` | 2026-06-18 | 0.35 | 203 | too_long |
+| `SOAK-shadow-fvg_range_15m` | 2026-07-28 | 0.33 | 215 | too_long |
+| `SOAK-stage1-bybit_1-trend_donchian_xrp_4h` | 2026-06-18 | 0.31 | 229 | too_long |
+| `SOAK-stage1-alpaca_paper-tqqq_trend_long_1d` | 2026-07-01 | 0.23 | 305 | too_long |
+| `SOAK-stage1-alpaca_paper-slv_pullback_1d` | 2026-06-27 | 0.21 | 332 | too_long |
+| `SOAK-stage1-alpaca_paper-spy_trend_long_1d` | 2026-06-11 | 0.21 | 332 | too_long |
+| `SOAK-stage1-alpaca_paper-gdx_pullback_1d` | 2026-06-27 | 0.19 | 365 | too_long |
+| `SOAK-stage1-bybit_1-squeeze_breakout_4h` | 2026-05-24 | 0.19 | 365 | too_long |
+| `SOAK-stage1-alpaca_paper-qld_trend_long_1d` | 2026-07-01 | 0.17 | 406 | too_long |
+| `SOAK-stage1-alpaca_paper-iwm_trend_long_1d` | 2026-06-20 | 0.15 | 457 | too_long |
+| `SOAK-stage1-alpaca_paper-qqq_trend_long_1d` | 2026-06-11 | 0.15 | 457 | too_long |
+| `SOAK-stage1-alpaca_paper-tlt_pullback_1d` | 2026-06-20 | 0.15 | 457 | too_long |
+| `SOAK-stage1-alpaca_paper-gld_pullback_1d` | 2026-06-11 | 0.13 | 522 | too_long |
+| `SOAK-stage1-alpaca_paper-iaum_pullback_1d` | 2026-07-07 | 0.13 | 522 | too_long |
+| `SOAK-stage1-alpaca_paper-scha_trend_long_1d` | 2026-07-07 | 0.13 | 522 | too_long |
+| `SOAK-stage1-alpaca_paper-ief_pullback_1d` | 2026-06-20 | 0.06 | 1217 | too_long |
+| `SOAK-stage1-alpaca_paper-splg_trend_long_1d` | 2026-07-07 | — | — | no_backtest_rate |
+| `SOAK-shadow-trend_donchian_1h` | 2026-06-01 | — | — | not_soaking |
+| `SOAK-shadow-turtle_soup` | 2026-07-07 | — | — | not_soaking |
+| `SOAK-shadow-vwap` | 2026-05-24 | — | — | not_soaking |
+
+**Recommended redesign (Tier-1 tooling, then a Tier-3 roster call):**
+1. **Stop measuring Stage-1 cost fidelity per leg; measure it per venue.**
+   - R3 already computes `per_venue` cells: fills pooled across every leg on a venue, floor n=20.
+   - Slippage is a property of venue × order type, not of the strategy.
+   - Pooled, the bybit_1 legs reach n=20 in days, not months.
+   - The per-leg soak then shrinks to MECHANICS only: did each actionable intent become an order? That needs a few intents, not 10 closes, and the backtest's signal rate supports it within a week for most legs.
+2. **Verify shadow strategies by replay, not by waiting for packages.**
+   - Signal parity can be checked by running the harness over the same live candles and comparing it to the logged packages.
+   - That takes one run, not 3 to 17 months.
+3. **Daily-bar ETF legs:** most of the 200 to 1,200-day contracts are alpaca_paper daily-bar legs. **Recommend not soaking them per leg at all;** the venue pool and the mechanics check cover them.
+4. **The 3 `not_soaking` shadow strategies:** retire them (S7).
+
+Until (1) is built, every contract stays `too_long`. `soak_states()` still grades those soaks live (ready, overdue or dead), so a dead one still raises an alarm.
