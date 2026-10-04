@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ADM2F2AD-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/FIX-CA-26-m21-regrade.json",
+    "rerun": "re-dispatch the trainer-vm-diag command in issue #13310 and feed the fold rows to scripts/research/m21_entry_sweep.py::grade_walkforward"
+  },
+  "routed_to": "RESEARCH-HARNESS [route; size M, value L, tier 1] BACKLOG-ROUTE 2026-10-04: Operator decided 2026-09-28 'Re-test, keep for now'. No queue unit found: queue files mentioning avax_pullback_2h (RQ-20260929-101,302) are different units (BNB pullback; recombination). m21_entry_sweep.py::grade_walkforward re-run with more folds not found done (not checked on trainer).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "FIX-CA-26 re-grade: 3 non-real-money M21 entry declares cited as wf PASS fail the effective (inert-excluded) walk-forward — avax_pullback_2h vol_lo10 (shadow) 4/6 -> 3/5, mgc_trend_1h confirm_1 (shadow) 5/6 -> 2/3, xauusd_trend_1h confirm_1 (no roster) 5/6 -> 2/3. Keep/remove of each lever is Tier-3 (manager decides or takes under data-backed authorization). Real-money cells hold. | OPERATOR DECISION 2026-09-28 ~06:25Z (chat, manager session_01KAQRJxRbRwpYTkPgBjNVyQ): 'Re-test, keep for now' -- all three levers stay as configured (none trades real money); re-run each cell's walk-forward with more folds before any keep/remove call. Per the operator's rule, no idea is killed on one bad pass."
+}

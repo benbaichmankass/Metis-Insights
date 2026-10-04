@@ -31,6 +31,20 @@ set -uo pipefail
 REPO_DIR="${REPO_DIR:-/home/ubuntu/ict-trading-bot}"
 SEND_PING="${REPO_DIR}/scripts/send_ping.py"
 
+# PI-20261004-PUQ1APTH-0003: this script runs over a bare SSH session from
+# the system-actions / sync-vm-secrets / rotate-account-keys workflows, which
+# carry NO systemd data-dir drop-in -- so without this send_ping.py resolved
+# runtime_logs_dir() repo-relative and wrote into the LEGACY inbox, which
+# ict-telegram-bot logs as "delivering a MIS-ROUTED ping ... a writer resolved
+# runtime_logs without DATA_DIR". Load the same runtime env every other
+# wrapper does (send_ping_action.sh, prop_feed_tick.sh). Best-effort: a
+# failure here must not stop the ping (the drainer still sweeps the legacy
+# twin).
+# shellcheck source=scripts/ops/_lib.sh
+if source "${REPO_DIR}/scripts/ops/_lib.sh" 2>/dev/null; then
+    load_runtime_env || true
+fi
+
 action="${1:-unknown}"
 exit_code="${2:-0}"
 run_url="${3:-}"

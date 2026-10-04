@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "the operator decides whether to widen TIER1_SURFACE to include scripts/ml/** (or declines to), OR another PR touching scripts/ml/** trips the same self-land refusal again -- either way this stops being open.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-QBHR1EYJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Bf9Xnenv6vF5rSqbhr1EYj / PR #13093 (checklist row B4)",
+    "rerun": "python3 -c \"import sys; sys.path.insert(0,'scripts/ci'); import check_pr_landing as c; print('scripts/ml/**' in c.TIER1_SURFACE)\"  # False today"
+  },
+  "routed_to": null,
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN 2026-10-04: Resolved by narrow named-file widening of TIER1_SURFACE (check_pr_landing.py:374-388); decision made, no open question.",
+  "what": "scripts/ci/check_pr_landing.py::TIER1_SURFACE excludes scripts/ml/**, even though root CLAUDE.md's own Tier-1 examples plainly cover review tooling like scripts/ml/strategy_review_packet.py (which documents itself as Tier-1 in its own module docstring). Surfaced 2026-09-27 while landing checklist row B4: an in-place edit to that file would have been refused self-land on R5's 'diff outside TIER1_SURFACE' clause, so B4's fix was built as a new scripts/ops/ module instead. Mirrors the MI-242 precedent (scripts/backtest_*.py was in the same gap until an operator-approved widening). Not fixed here: widening TIER1_SURFACE is the operator's act, not a session's -- the same asymmetry CLAUDE.md names for granting a mandate.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — scripts/ml/** is excluded from TIER1_SURFACE even though some files in it (e.g. strategy_review_packet.py) self-document as Tier-1 review tooling, forcing workarounds like building new scripts/ops/ modules instead of editing in place. Should TIER1_SURFACE be widened to include scripts/ml/**? Recommendation: Option 3 (narrow widening) — gets the concrete benefit (B4-style fixes land in place) without exposing training/promotion-adjacent files in the same directory to accidental self-land.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: narrow TIER1_SURFACE widening to scripts/ml/*review*.py and scripts/ml/*report*.py only (landing machinery -> hold). Built in scripts/ci/check_pr_landing.py (TIER1_SURFACE); PR #13624 is held pending manager/operator merge.\n\n-- MANAGER REVIEW FIX-UP 2026-09-28 (APPROVE-WITH-NITS on PR #13624): replaced the two glob entries (`scripts/ml/*review*.py`, `scripts/ml/*report*.py`) with the exact filenames `scripts/ml/strategy_review_packet.py` and `scripts/ml/evidence_floor_report.py`. A glob widens silently as new files land in scripts/ml/ (e.g. a future `promotion_review.py` would have been admitted without anyone re-approving the widening); naming the two files exactly keeps the grant scoped to what this finding's own Option 3 approved. Confirmed strategy_review_packet.py::decide() (~line 966) is the advisory M7 KILL/DEMOTE/PROMOTE grader (mechanical gate per docs/strategy-review-gate.md § Threshold table) -- exactly the kind of promotion-adjacent logic Option 3 said to keep out of a wide scripts/ml/** grant, now documented inline at the TIER1_SURFACE entry. No further human decision needed on this finding; closing once PR #13624 merges."
+}

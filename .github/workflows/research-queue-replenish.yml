@@ -67,7 +67,7 @@ jobs:
       )
     runs-on: ubuntu-latest
     # one commit-to-main wait (30) + slack, per tests/test_commit_to_main_callers.py
-    timeout-minutes: 45
+    timeout-minutes: 65
     permissions:
       contents: write
       pull-requests: write

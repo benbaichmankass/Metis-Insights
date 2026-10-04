@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "An alert fires (observed in a test that injects N consecutive read failures, and the ping path is the production one) when open_package_read_failed persists past the threshold; OR the operator decides no alert is wanted, recorded with the reason.",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-MEK2XMWT-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GATE-SCOPE (session_01C4qod5gogYDwASmek2XMWT), manager post-merge review of #14590 / 2926c22f3 (session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-30",
+    "rerun": "scripts/ops/diag_fetch.sh 'audit_query?event=open_package_read_failed&limit=50' ; grep -n 'open_package_read_failed' src/runtime/pipeline.py"
+  },
+  "routed_to": "ORDER-PATH-FIXES [route; size S, value M, tier 2] BACKLOG-ROUTE 2026-10-04: grep: open_package_read_failed appears only in pipeline.py:978/991 (log+signals row) and a parity-script list; no ping/alert path. Live diag audit_query?event=open_package_read_failed&limit=5 on 2026-10-04 -> count 0 (latent gap).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[alerting] A PERSISTENT open-package read failure silently halts entries on every strategy. Since 2926c22f3 (#14590) both open-package journal reads FAIL CLOSED: src/runtime/pipeline.py::_open_package_round returns status=skipped reason=open_package_read_failed and writes one WARNING log line + one signals row (event=open_package_read_failed) per gated round. Nothing pages the operator. A schema error or a stuck SQLite lock would refuse every entry on every account every tick with no alert; and because the intent layer emits a leg once per bar, even ONE transient 'database is locked' loses that bar's entry -- a whole day on a 1d leg. Observed 2026-09-30 ~08:10Z: 0 open_package_read_failed rows on the live VM (audit_query), so this is a latent gap, not a live incident. Proposal: page via the existing ping path when open_package_read_failed persists for > N consecutive ticks (N ~ 3) or recurs > M times in an hour. || RE-VALIDATED by health-review 2026-10-04: diag audit_query?event=open_package_read_failed&limit=20 at 2026-10-04T08:08Z -> count 0. Still latent (no live incident); the alerting gap stands.",
+  "why_it_matters": "Fail-closed is the right direction for stacking, but without an alert it converts a DB fault into a silent, account-wide no-trade state -- the exact failure LIVE-NO-TRADES was dispatched to find."
+}

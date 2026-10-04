@@ -1,0 +1,6 @@
+{
+  "held_by": "lane OPS-FIXES session_012jcgSkwaVqQVCJshfa88uk",
+  "branch": "ops-fixes-ciwait-held",
+  "claimed_at": "2026-10-04T15:02:28Z",
+  "purpose": "HELD Tier-1: commit-to-main wait 30->50"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-03",
+    "kind": "date"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0012",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq; manager 16:59Z directive after the 16:05Z executor latch",
+    "rerun": "grep -rn -E '127\\.0\\.0\\.1:8001|localhost:8001' src scripts deploy; scripts/ops/diag_fetch.sh 'journalctl?unit=ict-web-api&since=<T>&until=<T+6h>&lines=2000' | grep 'Stopping ICT Trading Bot' (count restarts per window)"
+  },
+  "routed_to": "CI-INFRA [route; size M, value M, tier 2] BACKLOG-ROUTE 2026-10-04: No retry found: grep 'retry|backoff' in telegram_decisions.py only L1294 (unrelated); scripts/ops/strategy_liveness.py, leg_flow_report.py none. deploy_pull_restart.sh still restarts ict-web-api; 127.0.0.1:8001 clients: telegram_decisions.py:227, prop_executor.py:613 (+ops scripts). Runtime latch behaviour not checked.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "MEASURED 2026-09-30: every runtime-touching deploy restarts ict-web-api (scripts/deploy_pull_restart.sh, run by ict-git-sync, restarts ict-trader-live / ict-telegram-bot / ict-web-api when the diff touches anything outside docs/ tests/ .claude/ .github/ *.md). That leaves localhost:8001 down for about 2-4 s (16:05:05 Stopping to 16:05:09 Uvicorn running). ict-web-api stopped at least 63 times from 2026-09-29 18:40Z to 2026-09-30 16:50Z (a floor: 4 of 9 six-hour journal windows hit the 2000-line diag cap). One such window latched the prop executor (PI-20260930-KMYJ5XC7-0011, fix #14813). QUESTION: which OTHER local-API clients on the VM latch, drop data or mis-report on ONE refused call? The first pass is a grep only, NOT exhaustive and NOT verified against runtime behaviour. Grep of src/ scripts/ deploy/ for 127.0.0.1:8001 / localhost:8001 / API base: src/runtime/telegram_decisions.py (POSTs operator decisions; its docstring says every failure path reports 'nothing was submitted', so a decision sent during the window may be lost and need re-sending — verify); scripts/ops/strategy_liveness.py (unreachable API = 'unknown'); scripts/ops/leg_flow_report.py (unreachable = None, 'did not look'); scripts/check_web_api.py (the watchdog; restarts only after consecutive failures); scripts/prop/prop_executor_tick.py and src/prop/prop_executor.py (the executor: open_fills fixed in #14813; tickets and post_report only alert). Still to check: any timer or service not matched by that grep, the ict-trader-live -> API path if any, and the SPA through Caddy (browser-side retry). GENERAL FIX OPTIONS: a graceful restart or socket handoff for ict-web-api (e.g. systemd socket activation, or uvicorn reload without dropping the listener), or retry-once with a short backoff in the shared local-API client(s)."
+}

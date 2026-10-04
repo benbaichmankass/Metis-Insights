@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "scripts/check_db_integrity.py runs on the live VM (ict-db-integrity timer) and scripts/ is runtime-classified, so merging restarts ict-trader-live once; the manager's merge approval is sought.",
+  "why": "Read-only integrity invariant INV-7: an open trade row on a dry_run account (OA-15, PI-20261004-GCFA5DOR-0009). order_monitor skips dry accounts (since #15306) and the broker read never dials dry IB, so such a row's exits are unmonitored and nothing says so. Pure SELECT plus a YAML read; no write path, order path or config is touched."
+}

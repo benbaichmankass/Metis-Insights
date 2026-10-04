@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a CI run on main shows tests/test_prop_executor.py with 0 skipped browser-fixture tests (count stated beside the total).",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, manager round-2 review of #14581",
+    "rerun": "python3 -m pytest -q tests/test_prop_executor.py -rs | tail -5 in the CI environment; grep -n playwright requirements*.txt .github/workflows/pytest-run.yml"
+  },
+  "routed_to": "CI-INFRA [route; size M, value M, tier 1] BACKLOG-ROUTE 2026-10-04: grep playwright in requirements*.txt and pytest-run.yml: no match (only egress-chromium-landing-probe.yml installs it). Probe positive: grep found playwright in that workflow. 129-skip count not re-run.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "CI gap on a real-money path: tests/test_prop_executor.py has 129 browser-fixture tests (the DXtrade page scripts: form locate, read-back, submit label, row actions) that SKIP in CI because playwright is not in requirements*.txt, so pytest-run skips them. MEASURED 2026-09-30: 129 skipped locally without playwright. The page scripts that click on the live prop terminal therefore have zero CI coverage. Fix: add playwright + a chromium install to CI (a dedicated job is acceptable), and fail the job if the count of skipped browser tests is > 0."
+}

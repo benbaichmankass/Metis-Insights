@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Adds three Velotrade hosts (dx.velotrade.com/, dx.velotrade.com/developers/, velotrade.com/) to the FIXED allowlist of the read-only egress-landing-probe system-action (scripts/ops/egress_landing_probe_action.sh) and its docs/claude/system-actions.md row, exactly the 'reviewed PR' the script's own comment asks for. GET only, no credentials, no url parameter, no order path, no service, no config an account reads. Lane PROP-FIRM-DEEP, manager instruction 2026-10-04 18:20Z (question 1: Velotrade reachability from the VM's egress), pipeline PI-20261004-OZ9AAZSV-0001."
+}

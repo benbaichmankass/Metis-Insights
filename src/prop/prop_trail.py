@@ -392,7 +392,7 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
             # rollout forbids. Lock this ticket and leave it to the reviewer.
             tst["locked"] = True
             res.alerts.append(f"{tid}: trail step to {target}: {r.get('why')}; trail locked for this ticket, "
-                              "containment and the reviewer decide")
+                              "the reviewer decides (containment acts only if the SL or TP goes missing)")
             return
         confirmed = _confirm(adapter, page, p, target, step)
         if confirmed is None and _loosened(adapter, page, p):
@@ -403,14 +403,16 @@ def run_trail_step(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mo
             # reviewer decide (manager review of #15316, 2026-10-03).
             tst["locked"] = True
             res.alerts.append(f"{tid}: SL LOOSENED after the trail amend to {target} (was {p.stop_loss}); "
-                              "NOT restored — the rollout latch forbids a second modify; containment and "
-                              "the reviewer decide; trail locked")
+                              "NOT restored — the rollout latch forbids a second modify; the reviewer decides "
+                              "(containment acts only if the SL or TP goes missing); trail locked")
             return
         if confirmed is None:
             res.alerts.append(f"{tid}: trail amend to {target} not confirmed on re-read (result: {r.get('why') if isinstance(r, dict) else r})")
             return
         if confirmed.take_profit is None and p.take_profit is not None:
-            res.alerts.append(f"{tid}: TP missing after the trail amend — the executor's containment will act")
+            res.alerts.append(f"{tid}: TP missing after the trail amend — the executor's journal reconcile "
+                                  "reads it as NAKED and contains it (one repair, else close at market) once "
+                                  "two consecutive reads agree")
         tst.update(applied_sl=target, tries=0)
         _report(res, post, {"kind": "amend", "account_id": cfg.account_id, "ticket_id": tid,
                             "symbol": bot_sym, "direction": p.side, "sl": confirmed.stop_loss,

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "a round-trip-dry on tradeify_1 reads back Limit, SL and TP enabled in price units and the target symbol, merged and deployed; or killed with a reason. Blocks TRADEIFY-WIRE T4/T5 and PR #14673.",
+    "kind": "event"
+  },
+  "id": "PI-20261001-CBHYHMK2-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "operator",
+    "ref": "manager comment 5927610447 on #14910 (operator screenshots of the tradeify_1 terminal)",
+    "rerun": "Dispatch breakout-login-check account: tradeify_1, apply: round-trip-dry, symbols: ETHUSD (never submits) and read the form read-back fields (order type, SL/TP enabled, SL/TP unit, symbol named)."
+  },
+  "routed_to": null,
+  "state": "done",
+  "terminal_reason": "BACKLOG-ROUTE 2026-10-04: round-trip-dry read-back proved Limit + SL/TP enabled with price values and symbol on tradeify_1; merged and deployed (#15987, e31ea957)",
+  "what": "TRADEIFY-WIRE T4: tradeify_1's New Order ticket differs from Breakout's (operator screenshots 2026-10-01, manager comment 5927610447 on #14910, INFERRED until measured): it defaults to MARKET (Market/Limit/Stop/OCO), Stop Loss and Take Profit are TOGGLES defaulting OFF with values in PIPS (dropdown), lots 'x 1 BTC' step 0.01, and the button reads 'Buy 0.01 BTC/USD at ...'. The executor's limit + SL/TP fill and form_names_symbol were built on Breakout's ticket; the round-trip-dry form read-back must prove Limit selected, both toggles ON and the unit set to price (not pips) before any tradeify_1 ticket is enabled."
+}

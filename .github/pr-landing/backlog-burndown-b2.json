@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: 7 new queued items, each a proposed work package (lane proposal) grouping the BACKLOG-ROUTE lane-type routings for the manager to dispatch. No code, config or order-path change."
+}

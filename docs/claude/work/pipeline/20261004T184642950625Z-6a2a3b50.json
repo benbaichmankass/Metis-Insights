@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "Both read flat, or a warn-on-dry-account-with-open-trades lands.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-GCFA5DOR-0009",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: MEASURED diag #16382 exchange_positions for ib_live and oanda_practice both read positions=null (could not read; clients.py never dials a dry IB account), so the broker cannot answer this from a session. Fix chosen: the hourly ict-db-integrity run gains INV-7 (open journal rows on a dry_run account alert every run, not windowed). Closes when the first post-deploy ict-db-integrity run prints INV-7 recent=0 (both read flat in the journal) or, if it alerts, the named rows are closed/adopted."
+  ],
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "diag exchange_positions (or broker_account_status) for ib_live and oanda_practice -- any non-zero position = open."
+  },
+  "state": "done",
+  "terminal_reason": "Merged #16385 (dc14a31e), deployed (VM deploy 18:21:55Z on 2fe7188b7, which contains it). OBSERVED diag #16435: ict-db-integrity 18:21:23Z prints '[ok] INV-7: recent=0 total=0 open trade on a dry_run account' with a real read (dry accounts resolved via the canonical loader) -- both dry_run accounts read flat in the journal, the row's clears_when.",
+  "what": "OA-15 (MED). Since ORDER-AUDIT-2 (#15306), order_monitor honours accounts.yaml dry_run (_account_mode, src/runtime/order_monitor.py ~1914). ib_live and oanda_practice are dry_run (diag #16213 status), so closes, stop modifies and reverse reconciliation now SKIP them. If either still holds a real broker position (an adopted orphan, or a past live period), it silently loses its monitor exits. Needs one read."
+}

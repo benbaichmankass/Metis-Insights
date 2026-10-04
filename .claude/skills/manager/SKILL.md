@@ -623,11 +623,6 @@ second digest timer, ever. The message is built in this order:
 2. **Once a day, after 06:00Z: the ranked summary.** Counts plus the top 8,
    `ask_operator` first.
 3. **Otherwise one line:** "🟢 No new actionable items", plus the open counts.
-   - **No edge set is seeded silently.** On its first pass, the watch sends one
-     count line for each set that already exists at deploy, e.g. "❓
-     ask_operator at deploy: N open", "🧪 Soaks at deploy: N ready · N overdue
-     · N dead". Alarms need no seed line: the first pass reports every alarm
-     that is breached.
 4. **Then "what changed".** This is the change digest that existed before:
    checklist transitions and the standing close-wedge ledger.
 
