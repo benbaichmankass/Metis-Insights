@@ -2021,6 +2021,9 @@ def _cancel_resting_protection_after_flat(
     trade_id: Optional[Any] = None,
     sl_order_id: Optional[str] = None,
     tp_order_id: Optional[str] = None,
+    row_qty: Any = None,
+    row_direction: Any = None,
+    sibling_qtys: Any = None,
 ) -> None:
     """Cancel resting protective bracket legs for (account, symbol) after the
     RECONCILER concludes the position is flat on the exchange. Best-effort.
@@ -2100,6 +2103,8 @@ def _cancel_resting_protection_after_flat(
         _cancel_trade_scoped_protection(
             client, cfg, account_id, symbol, trade_id=trade_id,
             sl_order_id=sl_order_id, tp_order_id=tp_order_id,
+            row_qty=row_qty, row_direction=row_direction,
+            sibling_qtys=sibling_qtys,
         )
         return
     cancel_fn = getattr(client, "cancel_resting_protection", None)
@@ -2123,6 +2128,7 @@ def _cancel_resting_protection_after_flat(
 def _cancel_trade_scoped_protection(
     client: Any, cfg: Dict[str, Any], account_id: str, symbol: str,
     *, trade_id: Any, sl_order_id: Optional[str], tp_order_id: Optional[str],
+    row_qty: Any = None, row_direction: Any = None, sibling_qtys: Any = None,
 ) -> None:
     """The ``trade_id`` half of :func:`_cancel_resting_protection_after_flat`.
 
@@ -2132,6 +2138,20 @@ def _cancel_trade_scoped_protection(
     per-trade resting leg this path can address and is a no-op. Never raises.
     """
     try:
+        # Alpaca: no per-trade group or tracked leg id, so the row's own legs
+        # are identified by reducing side + unique size (FIX-CA-01 follow-up,
+        # PI-20260927-01CGDPN9-0002). Siblings unknown → cancels nothing.
+        row_fn = getattr(client, "cancel_row_protection", None)
+        if callable(row_fn):
+            resp = row_fn(symbol, qty=row_qty, direction=row_direction,
+                          sibling_qtys=sibling_qtys) or {}
+            logger.warning(
+                "order_monitor: flat-close cancel of trade %s's own Alpaca "
+                "protection on %s/%s (qty=%s dir=%s siblings=%s) → retCode=%s %s",
+                trade_id, account_id, symbol, row_qty, row_direction,
+                sibling_qtys, resp.get("retCode"), resp.get("retMsg"),
+            )
+            return
         group_fn = getattr(client, "cancel_trade_protection", None)
         if callable(group_fn):
             resp = group_fn(symbol, trade_id) or {}
@@ -2208,6 +2228,11 @@ def _cancel_closed_row_protection(row: Any, db: Any = None) -> None:
         _cancel_resting_protection_after_flat(
             _g("account_id"), _g("symbol"), trade_id=int(tid),
             sl_order_id=sl_id, tp_order_id=tp_id,
+            row_qty=_g("position_size"), row_direction=_g("direction"),
+            # The re-arm's own sibling read: None (never []) when unreadable,
+            # so a size-scoped Alpaca cancel then cancels nothing.
+            sibling_qtys=_open_sibling_qtys(
+                db, {"id": tid}, _g("account_id"), _g("symbol")),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: _cancel_closed_row_protection raised: %s", exc)

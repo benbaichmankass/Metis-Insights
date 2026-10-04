@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order path: src/units/accounts/alpaca_client.py (new cancel_row_protection, reusing the reviewed _scoped_rearm_cancel ownership rule) wired into src/runtime/order_monitor.py's trade-scoped flat-close cancel. HELD for the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) per lane PROTECTION-HARDENING's dispatch brief.",
+  "why": "FIX-CA-01 follow-up (PI-20260927-01CGDPN9-0002 part b): an Alpaca row finalised flat by the watchdog/reconciler left its OCO legs resting; a resting SELL stop on a flat equity opens a short. Cancels only the row's own reducing-side legs of a unique size; unknown siblings or a failed orders read cancel nothing. Also records the lane's dispositions for every member of PI-20261004-IRWQEEXT-0001."
+}
