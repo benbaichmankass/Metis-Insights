@@ -122,10 +122,11 @@ def test_tradeify_platform_entry_never_points_at_breakout():
     assert t["login_url"] == "https://dx.tradeify247.co/"
     assert (t["username_env"], t["password_env"]) == ("TRADEIFY_DX_USERNAME", "TRADEIFY_DX_PASSWORD")
     ex = t["executor"]
-    # Nothing ENABLED is the arming gate. The only lot entry is the dry-only
-    # ETHUSD one (TRADEIFY-DRY, #15846) that lets round-trip-dry reach the
-    # form; any other symbol appearing here must be a deliberate, reviewed edit.
-    assert ex["enabled_venue_symbols"] == []
+    # GO-LIVE (#14673): the operator enabled all three venue symbols together
+    # (2026-10-03, verbatim "Allow, all 3 symbols"). Any change to this list
+    # must be a deliberate, reviewed edit. The executor still acts only under
+    # PROP_EXECUTOR_MODE_TRADEIFY_1=live on the VM.
+    assert ex["enabled_venue_symbols"] == ["ETHUSD", "SOLUSD", "XRPUSD"]
     assert ex["lots"] == {
         "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},

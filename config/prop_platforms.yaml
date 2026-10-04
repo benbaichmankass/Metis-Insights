@@ -154,8 +154,12 @@ accounts:
     # re-read OFF on the measured toggle immediately before the click.
     # breakout_1 declares none and keeps the default chain.
     # OPERATOR DECISION 2026-10-03 (popup, relayed by the manager), verbatim:
-    # "Allow, dry only for now (Recommended)". DRY runs only; its use on LIVE
-    # orders is NOT approved and goes back to the operator with go-live #14673.
+    # "Allow, dry only for now (Recommended)" -- SUPERSEDED for live orders by
+    # OPERATOR DECISION 2026-10-03 ~16:55Z (popup, relayed by manager
+    # session_01MM8o5js6TcDFeNAPBY4Ntv), verbatim: "Allow, all 3 symbols".
+    # The ask_button opener is approved for LIVE orders on ETHUSD, SOLUSD and
+    # XRPUSD. Its guards are unchanged (one-click re-read OFF, exactly one
+    # matching button, no dialog).
     ticket_opener: ask_button
     # The LIMIT price field's fill method (TRADEIFY-PRICE-FILL 2026-10-03).
     # MEASURED: round-trip-dry,limit ETHUSD #15975 (run 37132594478, code
@@ -219,15 +223,23 @@ accounts:
         ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.001}
         XRPUSD: {lot_units: 1, lot_step: 0.01, min_lots: 0.01, price_step: 0.00001}
-      # SOLUSD 0.01 (TRADEIFY-EXECUTOR, 2026-10-03): the minimum lot, so the
-      # DRY round-trip-dry,limit SOLUSD can reach the form and read back the
-      # LIMIT fill (the dry proof the go-live PR #14673 needs for SOL). Arms
-      # nothing: SOLUSD is not in enabled_venue_symbols, and every armed path
-      # needs PROP_EXECUTOR_MODE_TRADEIFY_1=live as well.
+      # SOLUSD 0.01 (TRADEIFY-EXECUTOR, 2026-10-03, #16035): the minimum lot, so
+      # the DRY round-trip-dry,limit SOLUSD can reach the form and read back the
+      # LIMIT fill. A watched-click cap only; what may be ACTED on is
+      # enabled_venue_symbols below, and every armed path also needs
+      # PROP_EXECUTOR_MODE_TRADEIFY_1=live on the VM.
       watched_click_max_lots: {ETHUSD: 0.01, SOLUSD: 0.01}
-      # Nothing enabled: every ticket is SKIPPED `symbol_not_enabled` before
-      # the form is touched. Set in the go-live PR only, after the dry evidence.
-      enabled_venue_symbols: []
+      # GO-LIVE (TRADEIFY-WIRE C, #14673): operator 2026-10-03 "Allow, all 3
+      # symbols". Dry evidence: ETHUSD round-trip-dry,limit form_verified with
+      # the key-by-key limit fill (#16003, run 37137185991). SOLUSD:
+      # round-trip-dry,limit read every field back exactly but REFUSED at the
+      # submit hit-test twice (#16049, #16053; PI-20261003-ILZMCTFQ-0002), so a
+      # live SOL ticket is refused at submit (no order) until that is fixed.
+      # XRPUSD: symbol-switch-dry only (#15904) and no rostered leg
+      # (ict_scalp_xrp_15m dropped, accounts.yaml), so it emits no ticket. The
+      # executor still acts only when PROP_EXECUTOR_MODE_TRADEIFY_1=live on the
+      # VM (default read_only).
+      enabled_venue_symbols: [ETHUSD, SOLUSD, XRPUSD]
 
 # Read-only terminal PROBES (not traded accounts): run by the
 # `breakout-terminal-probe` system-action (scripts/prop/breakout_terminal_probe.py)

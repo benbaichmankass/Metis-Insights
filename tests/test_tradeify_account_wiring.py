@@ -28,11 +28,14 @@ def _isolated_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 # ── the account entry ─────────────────────────────────────────────────────
 
 
-def test_tradeify_ships_dry_with_the_b3_roster_at_half_percent():
+def test_tradeify_goes_live_with_the_eth_sol_roster_at_half_percent():
     t = ACCOUNTS["tradeify_1"]
-    assert t["mode"] == "dry_run"
+    assert t["mode"] == "live"   # PR C go-live; PR B shipped dry_run
     assert t["exchange"] == "breakout" and t["type"] == "prop" and t["account_class"] == "prop"
-    assert t["strategies"] == ["trend_donchian_eth_prop", "trend_donchian_sol_prop", "ict_scalp_xrp_15m"]
+    # ict_scalp_xrp_15m dropped at go-live (operator 2026-10-03 "Drop it (Recommended)":
+    # it fails its causal rebuild, #15603); XRPUSDT left the pull list with it.
+    assert t["strategies"] == ["trend_donchian_eth_prop", "trend_donchian_sol_prop"]
+    assert t["symbols"] == ["ETHUSDT", "SOLUSDT"]
     assert t["risk"]["risk_pct"] == 0.005
     assert t["risk"]["max_dd_pct"] == 0.06 and t["risk"]["daily_loss_pct"] == 0.03
     assert t["backtest_ruleset"] == "prop_rulesets/tradeify_247_1step.yaml"
@@ -54,7 +57,7 @@ def test_one_leg_per_symbol_so_our_own_legs_cannot_hedge():
     for leg in ACCOUNTS["tradeify_1"]["strategies"]:
         s = blocks[leg].get("symbols") or [blocks[leg].get("symbol")]
         syms.extend(x for x in s if x)
-    assert len(syms) == len(set(syms)) == 3, syms
+    assert len(syms) == len(set(syms)) == 2, syms     # ETH + SOL; the XRP leg was dropped at go-live
     assert set(syms) == set(ACCOUNTS["tradeify_1"]["symbols"])
 
 
@@ -86,7 +89,9 @@ def test_tradeify_routes_through_its_own_map():
     tpath = REPO / "config" / "prop_rulesets" / "tradeify_247_1step.yaml"
     assert routing_path_for(str(tpath)).name == "tradeify_routing.yaml"
     r = yaml.safe_load((REPO / "config" / "prop_rulesets" / "tradeify_routing.yaml").read_text())
-    assert set(r["symbols"]) == set(ACCOUNTS["tradeify_1"]["symbols"])
+    # The routing map may name more symbols than the roster trades (XRPUSDT stays
+    # mapped after its leg was dropped); every symbol the account pulls must be mapped.
+    assert set(ACCOUNTS["tradeify_1"]["symbols"]) <= set(r["symbols"])
 
 
 # ── tickets: the runtime account_cfg shape (FLAT, as the coordinator builds it) ──
@@ -164,10 +169,10 @@ def test_dry_account_emits_nothing():
 # ── a bare Telegram report still resolves to the LIVE prop account ───────────
 
 
-def test_bare_prop_report_defaults_to_breakout_1_while_tradeify_is_dry(monkeypatch):
-    """Manager review B-1: with tradeify_1 declared (dry_run), a bare fill
-    report / screenshot must still resolve to the live breakout_1, from the
-    accounts file alone (no env pin)."""
+def test_bare_prop_report_defaults_to_breakout_1_with_tradeify_live(monkeypatch):
+    """Manager review B-1, carried into the go-live: with tradeify_1 LIVE
+    too, a bare fill report / screenshot must still resolve to breakout_1,
+    from the accounts file alone (its `report_default: true`; no env pin)."""
     from src.prop import telegram_report_handler as h
 
     monkeypatch.delenv("PROP_DEFAULT_ACCOUNT", raising=False)
@@ -192,3 +197,17 @@ def test_default_prop_account_rules(monkeypatch):
     assert h.default_prop_account() is None
     use({"a": {**prop, "mode": "dry_run"}})                   # the only prop account
     assert h.default_prop_account() == "a"
+
+
+def test_report_default_breaks_a_tie_between_live_prop_accounts(monkeypatch):
+    from src.config import accounts_loader
+    from src.prop import telegram_report_handler as h
+
+    monkeypatch.delenv("PROP_DEFAULT_ACCOUNT", raising=False)
+    prop = {"exchange": "breakout", "type": "prop", "account_class": "prop", "mode": "live"}
+    monkeypatch.setattr(accounts_loader, "load_accounts_dict", lambda *a, **k: {
+        "a": {**prop, "report_default": True}, "b": {**prop}})
+    assert h.default_prop_account() == "a"
+    monkeypatch.setattr(accounts_loader, "load_accounts_dict", lambda *a, **k: {
+        "a": {**prop, "report_default": True}, "b": {**prop, "report_default": True}})
+    assert h.default_prop_account() is None                   # two defaults: ask

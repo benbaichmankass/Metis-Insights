@@ -55,14 +55,15 @@ def test_other_accounts_never_touch_breakout_1_state():
     assert "ict-prop-executor.timer" not in other and "ict-prop-executor.service" not in other
 
 
-def test_tradeify_platform_entry_is_explicit_and_disarmed():
+def test_tradeify_platform_entry_is_explicit_and_enabled_at_go_live():
     from src.prop.platform import load_platform_config
     t = load_platform_config("tradeify_1")
     assert t["platform"] == "dxtrade" and t["login_url"] == "https://dx.tradeify247.co/"
     assert (t["username_env"], t["password_env"]) == ("TRADEIFY_DX_USERNAME", "TRADEIFY_DX_PASSWORD")
-    # Nothing ENABLED is the arming gate. The only lot entry is the dry-only
-    # ETHUSD one (TRADEIFY-DRY, #15846) that lets round-trip-dry reach the form.
-    assert t["executor"]["enabled_venue_symbols"] == []
+    # GO-LIVE (#14673): all three venue symbols enabled together (operator
+    # 2026-10-03, verbatim "Allow, all 3 symbols"). The arming gate is now the
+    # VM kill switch PROP_EXECUTOR_MODE_TRADEIFY_1 (default read_only).
+    assert t["executor"]["enabled_venue_symbols"] == ["ETHUSD", "SOLUSD", "XRPUSD"]
     assert t["executor"]["lots"] == {
         "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
         "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},

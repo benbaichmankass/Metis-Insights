@@ -67,7 +67,7 @@ def _open_fill() -> Dict[str, Any]:
     }
 
 
-def test_pings_when_no_snapshot_ever(isolated_env: Path, captured) -> None:
+def test_pings_when_no_snapshot_ever(isolated_env: Path, captured, declared) -> None:
     from src.prop import prop_journal
     from src.prop.prop_status_request import run_prop_status_request
 
@@ -77,7 +77,7 @@ def test_pings_when_no_snapshot_ever(isolated_env: Path, captured) -> None:
     assert captured[0]["age_hours"] is None  # never reported
 
 
-def test_fresh_snapshot_suppresses(isolated_env: Path, captured) -> None:
+def test_fresh_snapshot_suppresses(isolated_env: Path, captured, declared) -> None:
     from src.prop import prop_journal
     from src.prop.prop_status_request import run_prop_status_request
 
@@ -89,7 +89,7 @@ def test_fresh_snapshot_suppresses(isolated_env: Path, captured) -> None:
     assert captured == []
 
 
-def test_cooldown_prevents_nagging(isolated_env: Path, captured) -> None:
+def test_cooldown_prevents_nagging(isolated_env: Path, captured, declared) -> None:
     from src.prop import prop_journal
     from src.prop.prop_status_request import run_prop_status_request
 
@@ -100,7 +100,7 @@ def test_cooldown_prevents_nagging(isolated_env: Path, captured) -> None:
     assert len(captured) == 1
 
 
-def test_reasks_after_cooldown(isolated_env: Path, captured) -> None:
+def test_reasks_after_cooldown(isolated_env: Path, captured, declared) -> None:
     from src.prop import prop_journal
     from src.prop.prop_status_request import run_prop_status_request
 
@@ -248,7 +248,7 @@ def test_template_contains_both_reply_formats(isolated_env: Path) -> None:
 
 
 def test_stale_snapshot_reasks(isolated_env: Path, captured,
-                               monkeypatch: pytest.MonkeyPatch) -> None:
+                               monkeypatch: pytest.MonkeyPatch, declared) -> None:
     from src.prop import prop_journal
     from src.prop.prop_status_request import run_prop_status_request
 
