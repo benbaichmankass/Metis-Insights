@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "PR #14106 merged AND deployed AND OBSERVED: a post-deploy alpaca/ib close first written exchange_flat_reconciled reads exit_reason sl|tp with notes.pre_label_exit_reason='exchange_flat_reconciled' and exit_reason_source='price_vs_pkg_bracket' (journal?table=trades); AND backfill-exit-labels --apply run with its audit showing the relabel count (dry run 2026-09-29: 49).",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-BOFCWBO7-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "session_01Unv4EErU84GXjyboFcwbo7, checklist row E62, branch lane/e62-equity-futures-slippage",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/e62 && python3 scripts/research/e62_slippage_accrual.py --in-dir /tmp/e62 --as-of <pull time> --out /tmp/e62/out.json"
+  },
+  "routed_to": "OBSERVATION [observe; size S, value M, tier 2] BACKLOG-BURNDOWN 2026-10-04: PR #14106 is merged (REST: state closed, merged true). Deploy and observation not checked; 'order_monitor.py:5912 price_vs_pkg_bracket' exists but is the pre-existing value. Needs journal read and backfill-exit-labels --apply (Tier-2).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[cost-model] The live Alpaca roster's measurable slippage n is bounded by a LABELLING gap as well as by the held sl_cross fix. MEASURED (trades ids <= 6141, 60 days to 2026-09-24): the 3 alpaca_live legs (ief/slv/iaum_pullback_1d) closed 5 times on alpaca_paper. 4 were exchange_flat_reconciled (none of the 4 carries an exit price) and 1 was sl_cross. D3's method prices only sl/tp-family exits, because they have a harness reference level. _classify_broker_exit re-derives a bracket label only for exit_reason '' or 'reconciler_filled' (order_monitor _sweep_pending_pnl_from_bybit, guard 2), never for exchange_flat_reconciled. So a broker-side stop or target that fills and is then noticed by the reconciler is never counted as a stop or target fill. In the pull, 46 exchange_flat_reconciled closes carry a MEASURED exit and no label: 37 Alpaca (exchange_fill, alpaca_paper 12 + alpaca_portfolio 25) and 9 ib_paper (ib_execution). Likely Tier-2 (src/ close path). Record: comms/research/e62_equity_futures_slippage/2026-09-24.json. | 2026-09-29 (lane EXIT-CLUSTER, session_01XpKxKGrnBP9u4xwL2hiWVs): ROOT-CAUSED, LABELLING not protection. MEASURED over 77 exchange_flat_reconciled closes (closed non-backtest, closed_at >= 2026-07-31, of 1,191 closes; source: realized_slippage.py pull incl. /api/bot/pnl/exchange/fills): 48 at/through a package level, 16 within 0.0-8.3 bps of one (Alpaca .2f level rounding), 10 >= 42 bps from both, 3 no fill. Bybit has 0. Fix = PR #14106 (Tier-2, landing hold): _sweep_pending_pnl_from_bybit relabels exchange_flat_reconciled off MEASURED prices with a 10 bps tolerance; json_notes cap no longer wipes all keys (trade 4711). Backfill dry run: 49 of 129 historical rows would relabel. MERGED no, DEPLOYED no, OBSERVED no."
+}

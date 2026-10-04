@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a unit-refreshing deploy logs neither line",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0007",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: (1) FIXED in scripts/install_systemd_units.sh. The role read at line 75 AND a second copy at line 473 (_VM_ROLE) both leaked. The read is now `{ tr -d '[:space:]' < $VM_ROLE_FILE; } 2>/dev/null || true`, so a missing file is silent and the role reads empty, as before. Negative control: the origin/main script printed 2 ict-vm-role lines on stderr and the fixed one prints 0. tests/test_install_systemd_units.sh adds 3 checks, including a positive control that a present 'gateway' file still takes the gateway path. (2) FIXED in scripts/deploy_pull_restart.sh. Before the fetch, when .git/gc.log exists, it runs `timeout ${GIT_PRUNE_TIMEOUT_S:-300} git prune --expire=1.hour.ago`, removes gc.log only on success, and only warns on failure, so the pull is never blocked. 3 tests cover this, including the failure path. Observation that clears the row: after merge and deploy, an ict-git-sync journal for a unit-refreshing deploy shows neither 'ict-vm-role: No such file' nor 'gc.log'. One log line, 'running a bounded git prune', is expected on the first tick."
+  ],
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); diag journalctl?unit=ict-git-sync.service 2026-10-03T10:21Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-git-sync.service&lines=1000' | grep -cE 'ict-vm-role: No such file|gc.log' -- holds while nonzero on a deploy that refreshed units"
+  },
+  "routed_to": "OBSERVATION [observe; size None, value None, tier None] BACKLOG-BURNDOWN 2026-10-04: Both fixes on main in 5c2f99e8 (#16391): install_systemd_units.sh _read_vm_role group redirect (lines 75-86) and deploy_pull_restart.sh gc.log prune (~95). Journal not rechecked after deploy.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[deploy hygiene, low] Two noise lines on every git-sync deploy of the live VM, MEASURED 2026-10-03T10:21Z (diag journalctl?unit=ict-git-sync.service): (1) `scripts/install_systemd_units.sh: line 75: /etc/ict-vm-role: No such file or directory` -- the `2>/dev/null` on that line guards `tr`, not the shell's input redirect, so the missing role file prints an error on every unit refresh and _VM_ROLE_EARLY silently reads empty; (2) git on the VM clone warns `The last gc run reported ... remove .git/gc.log` / `too many unreachable loose objects; run git prune` on every fetch -- auto-gc is disabled until the file is removed, so the clone's object store only grows (disk 39.6% free today, so not urgent). Fix: redirect the role read as `$(cat /etc/ict-vm-role 2>/dev/null | tr -d ...)` or test -r first; add a `git prune && rm -f .git/gc.log` step (or a system-action) once. || BASIS for the disk figure (claim-basis guard, 2026-10-04): 39.6% free = 17.8 GB free of 45.0 GB on / (health snapshot 2026-10-04T07:58:10Z, check `disk`, ctx free_gb 17.83 / free_pct 39.65; n=1 snapshot, the latest at review time)."
+}

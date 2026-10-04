@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a live per-tick account-election trace shows whether tlt_pullback_1h ever wins alpaca_paper's TLT election slot against tlt_pullback_1d -- confirms or rules out same-account contention as the sole cause",
+    "kind": "observation"
+  },
+  "id": "PI-20260926-X3QEGPJL-0005",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "R5 soak-book-grade 2026-09-26",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json"
+  },
+  "routed_to": "OBSERVATION [observe; size S, value L, tier 1] BACKLOG-BURNDOWN 2026-10-04: Both legs still on alpaca_paper roster (accounts.yaml:1115-1124). Item itself says contention is PLAUSIBLE, unconfirmed; PR #13044 only downgraded the kill proposal. E35 (per-account election) is landed_unproven, so no live trace read. tlt_pullback_1h vs tlt_pullback_1d.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "R5 soak-book grade PROPOSES kill: alpaca_paper/tlt_pullback_1h — starved (48 actionable intent(s), 6 episode(s), 0 order(s)/ticket(s) received, held_back=1, no open position held) over the 168h window ending 2026-09-26T22:39:52.948694+00:00. Cost fidelity insufficient_n (0 fills) — consistent with zero orders reaching the exchange. This is Stage-1 soak mechanics, NOT an expectancy call; the leg is a PROPOSAL to remove from the alpaca_paper roster as mechanically dead, Tier-3, operator-approved only. -- UPDATE 2026-09-27 (w5d-starved-legs lane, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): mechanics finding, NOT a strategy verdict -- re-routed off the kill proposal. PLAUSIBLE ROOT CAUSE (same-account symbol contention, NOT independently confirmed at tick-level this session): alpaca_paper declares two TLT strategies, tlt_pullback_1d and tlt_pullback_1h (both execution:live per /api/diag/status's strategies_yaml.execution), the same per-account, per-symbol single-winner election named in PI-20260926-X3QEGPJL-0001/-0002/-0003 applies here too. NOT directly observed winning/losing live this session -- reported as PLAUSIBLE, not confirmed. FIX shipped: PR #13044 (claude/w5d-starved-legs) (Tier-1, self-landed) grades a starved leg with a live same-symbol contender as insufficient-data rather than kill."
+}

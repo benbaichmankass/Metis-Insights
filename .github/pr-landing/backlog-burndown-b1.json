@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: 60 append-only update records from lane BACKLOG-BURNDOWN batch 1 (13 killed, 16 done, 7 reopened to a live row or proposed lane, 22 routed to observation, 2 to operator). No code, config or order-path change."
+}

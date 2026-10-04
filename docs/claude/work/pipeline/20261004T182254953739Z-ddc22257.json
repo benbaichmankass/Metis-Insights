@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "the next armed close's run log shows controls[] and chosen on the 'Close Position confirmed' result",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-2PNSPDNU-0004",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-EXEC session_01WDQADTgoiLiDKc2PNSPdNU, live test #14344 log vs manager ask 18:16Z; code read dxtrade.py flatten on main fc14116",
+    "rerun": "on the next armed close (round-trip-live or close-position-live), read the 'close' action's result in the run log: it must carry controls[] (tag, hint, html masked) and chosen; if absent the fix is not deployed"
+  },
+  "routed_to": "OBSERVATION [observe; size S, value L, tier 1] BACKLOG-BURNDOWN 2026-10-04: Code fixed on main: src/prop/platform/dxtrade.py:8243-8275 flatten builds seen={controls,chosen} and the armed success return includes **seen. Closing requires an armed close's run log showing controls[]/chosen (deploy proof); none read.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[prop][watched-close][observability] DXtradeAdapter.flatten's ARMED SUCCESS result carried no `controls` / `chosen` — only a refusal or a disarmed run did (src/prop/platform/dxtrade.py, the returns after the CLOSE_ROW_JS 'controls' op). Live test #14344 (2026-09-29 18:17Z, the first pass of the merged close path) therefore logged 'Close Position confirmed' with the modal read-back but NOT the row's control tags / masked markup, so the manager's ask 'report the controls' tag and masked markup from the run log and whether a wrapper existed' could not be answered from the run. Fix: the masked controls list and the chosen index ride every result after the controls op, the armed success included (log size ≤ 8 controls × ~300 chars, already the refusal-path size)."
+}
