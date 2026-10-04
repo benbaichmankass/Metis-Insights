@@ -250,6 +250,42 @@ accounts:
       # VM (default read_only).
       enabled_venue_symbols: [ETHUSD, SOLUSD, XRPUSD]
 
+  # velotrade_1: Velotrade CLASSIC 1-Step $5k crypto evaluation on Velotrade's
+  # DXtrade deployment (VELOTRADE-WIRE, 2026-10-04; operator decision ~21:25Z
+  # "Buy one ($54)", relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv).
+  # Memo: docs/research/prop-firm-deepdive-2026-10-04.md § 1 + addenda.
+  #
+  # login_url MUST be explicit: the dxtrade DEFAULT is Breakout's host.
+  # MEASURED 2026-10-04 19:47Z (addendum A1, issue #16458, run 37229332977, one
+  # GET per URL from the live VM egress): GET https://dx.velotrade.com/ -> 200,
+  # server envoy, no Cloudflare, loginForm-main / #username / #password -- the
+  # same login markers the Breakout/Tradeify selectors were measured on.
+  # NOT measured: a login, the post-login DOM, symbol display names, lots,
+  # price steps, the order-ticket opener, one-click state.
+  # Velotrade also serves the DXtrade REST API (/dxsca-web, deep-dive § 1.1);
+  # this entry drives the BROWSER terminal like tradeify_1, nothing else.
+  velotrade_1:
+    platform: dxtrade
+    login_url: https://dx.velotrade.com/
+    username_env: VELOTRADE_DX_USERNAME
+    password_env: VELOTRADE_DX_PASSWORD
+    # Kill switch: PROP_EXECUTOR_MODE_VELOTRADE_1 (off | read_only | live,
+    # default read_only when unset). It NEVER reads breakout_1's
+    # PROP_EXECUTOR_MODE or tradeify_1's.
+    # No search_query_style / ticket_opener / limit_price_fill yet: each was a
+    # MEASURED Tradeify quirk; set them only from velotrade_1's own probes.
+    executor:
+      safety_margin_usd: 5
+      unconfirmed_reads: 3
+      confirm_rel_tol: 0.02
+      # EMPTY ON PURPOSE: no Velotrade lot size, step, minimum or price step
+      # is measured. A symbol with no entry is REFUSED by the structure guard.
+      lots: {}
+      watched_click_max_lots: {}
+      # Nothing may be acted on. A symbol joins only after its lots are
+      # measured AND it passes the dry round trip, in a separate go-live PR.
+      enabled_venue_symbols: []
+
 # Read-only terminal PROBES (not traded accounts): run by the
 # `breakout-terminal-probe` system-action (scripts/prop/breakout_terminal_probe.py)
 # to MEASURE a terminal before any account runs on it. PROP-TERM 2026-09-28:

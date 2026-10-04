@@ -60,11 +60,15 @@ limits:
   daily_loss_reset_basis: max_balance_equity     # "whichever is higher, your balance or your equity"
   # Max notional / balance per position: FUNDED figures from /crypto (challenge is looser:
   # BTC 10x, ETH 6x, SOL 6x, XRP 3x). Strictest = funded.
+  # Keyed by the BOT symbol (BTCUSDT, ...): src/prop/prop_rule_guards.py looks the
+  # cap up by the ticket's symbol, which is the bot's. Keyed by the venue name
+  # (BTCUSD) as first written, every symbol fell through to `default: 2`
+  # (VELOTRADE-WIRE 2026-10-04: fails safe, but ETH/SOL sized at 2x not 5x).
   leverage_caps:
-    BTCUSD: 5
-    ETHUSD: 5
-    SOLUSD: 5
-    XRPUSD: 2
+    BTCUSDT: 5
+    ETHUSDT: 5
+    SOLUSDT: 5
+    XRPUSDT: 2
     default: 2
   max_drawdown_pct: 0.07          # "Max drawdown 7% Static" -- "Calculated once on your initial balance and fixed for the life of the account"
   drawdown_type: static
@@ -98,3 +102,11 @@ economics:
     buffer_usd: 0
     bank_asap: true               # "All Payouts are full withdrawals ... Partial withdrawals are not permitted"
     cadence_days: 7
+# Live-path keys (VELOTRADE-WIRE 2026-10-04, account velotrade_1). Read by
+# src/prop/prop_executor.py::load_config and the ticket emitter; the simulator
+# ignores both.
+routing: prop_rulesets/velotrade_routing.yaml
+sizing:
+  mode: flat
+  flat:
+    max_risk_usd: 25              # 0.5% of $5,000: the risk the deep-dive (§ 1.8 item 6) says this book can carry
