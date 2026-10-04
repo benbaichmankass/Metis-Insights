@@ -22,7 +22,7 @@ same feasibility-stop posture as `src/prop/platform/base.py::FeasibilityError`.
 1. **The armed submit is not built on the VM adapter either.** `breakout_terminal.place_bracket(arm=True)` walks the
    disarmed path and then *refuses* (rule 9 in the module docstring): the submit control, its confirmation, and the close
    confirmation are **unmeasured**. The terminal DOM has never been captured (tests run on synthetic fixtures). So the
-   phone app's first job is **measurement**, not clicking. Phase 1 below is a capture-only build.
+   phone app's first job is **measurement**, not clicking. Phases 1a and 2 below are capture-only builds, and nothing before the purchase gate needs an account.
 2. **Keep the safety logic in Python, on the server.** The phone should be a typist and a reader, not a second
    implementation of sizing, guards and read-back. The server already has tested versions (`bracket_from_ticket`,
    `evaluate_guards`, `check_form_shape`, `read_back`). Section 3.4 has the phone send what it read and receive a
@@ -35,8 +35,8 @@ same feasibility-stop posture as `src/prop/platform/base.py::FeasibilityError`.
    terminal (§ 5.4). The design treats it as an open measurement and does not rely on it.
 
 **Recommendation:** build it, in the phases of § 7, but gate Phase 3 (the first armed click) on three things: the
-Phase 1 DOM capture, a first-party read of Breakout's terms (§ 6), and the operator's go. Phases 0–2 are read-only and
-cost about 6 lane-days; the whole path to a watched live click is about 14–17 lane-days (§ 7.2).
+Phase 2 DOM capture (after the account purchase), a first-party read of Breakout's terms (§ 6), and the operator's go. Everything before the purchase gate needs no account and
+costs about 8–10 lane-days; the whole path to a watched live click is about 15–20 lane-days (§ 7.2).
 
 ---
 
@@ -90,7 +90,7 @@ app are two separate and distinct applications. They are not interchangeable."* 
 
 **Caveats, stated plainly:** a WebView is a different browser from Chrome (its user agent carries a `wv` marker, it
 shares no cookies with Chrome, and it may be served differently by Cloudflare or by Breakout's login). Whether the
-terminal and its login work inside a WebView at all is **unmeasured** and is Phase 1's first question. If they do not
+terminal and its login work inside a WebView at all is **unmeasured** and is phase 1a's first question (on the public page, no sign-in); the login itself is unverifiable until the purchase gate. If they do not
 (for example the login relies on a Chrome-only feature, or Turnstile rejects the WebView), the design **does not work around
 it**: the options are then the operator trading from the native app by hand with our Telegram tickets (today's manual
 bridge), or a different venue. The app must not change the user agent to look like Chrome.
@@ -184,9 +184,9 @@ guard on the phone is deliberately dumb (an equality check on a hash).
 | Python parsers and verifiers (`parse_account_metrics`, `positions_from_tables`, `check_form_shape`, `read_back`, `classify_page`) | **Not ported.** The phone posts the raw JSON; the server parses and verifies | Single implementation; the existing fixtures and tests apply. |
 | `tp.fill(...)` (real typing) | Drive the field through real input events: `WebView.dispatchKeyEvent` / synthesised touch on the focused input, falling back to the native value setter plus `input`/`change` events **only if a measured field accepts it** | The terminal's framework may ignore JS-set values; measured in Phase 1. These are events inside our own app's view, not injected into another process. |
 | `tp.click(selector)` | A real touch event at the element's measured bounding box, or `element.click()` once measured safe | Same "one uniquely named control, inside the ticket panel" rule (rules 3 and 7). |
-| `_frames(page)` (the terminal may live in iframes) | **Risk.** `evaluateJavascript` runs in the main frame only. Cross-origin iframes need `androidx.webkit` `addDocumentStartJavaScript` with origin rules and `WebMessageListener` | Unknown whether the terminal uses iframes; Phase 1 finds out. If it does and the support is missing, the phone route is infeasible and that is reported. |
+| `_frames(page)` (the terminal may live in iframes) | **Risk.** `evaluateJavascript` runs in the main frame only. Cross-origin iframes need `androidx.webkit` `addDocumentStartJavaScript` with origin rules and `WebMessageListener` | Unknown whether the terminal uses iframes; phase 1a tests it on local fixtures and the public page; the real terminal is phase 2. If it does and the support is missing, the phone route is infeasible and that is reported. |
 | `classify_page` stop reasons | Run the same marker checks on each load; any of `challenge`, `captcha`, `email_code`, `2fa`, `asn_blocked`, `access_denied`, `login_rejected`, `unknown_page` ⇒ **stop, no retry, alert** | The app never reloads in a loop. |
-| `place_bracket(arm=True)` | **Does not exist yet on either side** (rule 9). Built in Phase 3 from the Phase 1 capture | Held Tier-2 change, as `PI-20260928-DRBVUUDJ-0001`. |
+| `place_bracket(arm=True)` | **Does not exist yet on either side** (rule 9). Built in Phase 3 from the Phase 2 capture | Held Tier-2 change, as `PI-20260928-DRBVUUDJ-0001`. |
 | Selector/ARIA vocabulary | Labels and roles only, never class names | Same rule as the module docstring. |
 
 ---
@@ -209,16 +209,16 @@ of the same ticket and report contract, so only one of {VM executor, phone} may 
 
 I have **not** tested any of this on a device, and I do not know the operator's phone model. OEM battery behaviour varies
 widely. The list below is design intent from Android's published model plus `docs/research/breakout-phone-egress-and-leak-controls-2026-09-30.md` § 4
-(itself marked from-memory in places). Phase 2 measures it on the actual phone for 72 hours.
+(itself marked from-memory in places). Phase 1b measures it on the actual phone for 72 hours.
 
 ### 5.2 Design
 
 | concern | design |
 |---|---|
 | **Process lifetime** | A **foreground service** with a pinned notification showing state (`armed / read-only / stopped: <reason>`, last tick age, open-ticket count). The WebView needs a live process and a visible `Activity` or a service holding it; a WebView in a service is delicate. **Open question O2:** whether the WebView must stay in a foreground `Activity` ("keep the screen on, plugged in" kiosk mode) rather than a service. The reliable default is **kiosk mode: a dedicated screen-on, charging phone**. A background-only WebView is expected to be throttled. |
-| **Foreground service type** | A type that is not time-limited on Android 14/15. `dataSync` is capped per day at `targetSdk 35` (from memory, unverified); the app must choose and verify the type in Phase 2. |
+| **Foreground service type** | A type that is not time-limited on Android 14/15. `dataSync` is capped per day at `targetSdk 35` (from memory, unverified); the app must choose and verify the type in Phase 1b. |
 | **Doze / App Standby** | Charging + screen on avoids most of it. Battery-optimisation exemption requested; `PARTIAL_WAKE_LOCK` held only while armed. FCM **high-priority** data messages wake the app for a new ticket. |
-| **OEM battery killers** | The operator must exempt the app per the OEM's settings; verified in Phase 2 by the 72-hour soak. |
+| **OEM battery killers** | The operator must exempt the app per the OEM's settings; verified in Phase 1b by the 72-hour soak. |
 | **Network loss / Wi-Fi ↔ mobile handover** | The connection drops on handover. Rule: **on loss, no new claim and no click.** A claim already made but not yet verified expires (go-token 30 s). Reconnect → re-read the terminal before any action. |
 | **Terminal session expiry** | The terminal logs the session out. The app detects the login page (`classify_page`), **stops, alerts the operator, and waits for a manual login**; it never types credentials (it has none) and never automates a login or a 2FA / email code. Each logout is a missed-ticket window; the number per week is a Phase 2 metric. |
 | **Phone address churn** | On mobile data the address changes with handovers and geography; on home Wi-Fi it is stable. Recommended: **home Wi-Fi, charging, a dedicated device**, which also keeps the session-ban risk down. |
@@ -243,7 +243,7 @@ the phone dies after a fill:
 
 I found **no first-party statement and no measurement** that Breakout's proprietary terminal keeps SL/TP orders on its
 server rather than in the client. The VM go-live evidence is on DXtrade (`breakout_1`), not on this terminal. **This is the
-single most important fact to measure** before any unattended use: in Phase 1/2 the operator places one tiny test position
+single most important fact to measure** before any unattended use: in Phase 2 (after the purchase gate) the operator places one tiny test position
 by hand in the terminal, closes the phone app *and* the terminal tab, and checks whether the exits still stand and fire
 (or checks the working-orders list from a different client). Until measured, the design assumes the **worst case** (the
 position has no exit if the client is gone) and limits the first live phase to one small ticket at a time, on a
@@ -311,43 +311,74 @@ Whether it is accepted for a *funded* account that is a device-and-IP change is 
 
 ## 7. Build plan (Q7)
 
-### 7.1 Phases
+**Operator constraint (2026-10-04, via the manager):** the operator has **no Breakout account yet** and will buy one only
+after we have verified there are **no structural blockers**. So the plan is ordered to settle every blocker that can be
+settled **without a login**, then stops at an explicit **OPERATOR GATE: purchase account now**. Nothing before the gate
+signs in, types a credential, or needs an account.
 
-| phase | what | read-only? | est. (lane-days) | exit gate |
+### 7.1 What can be verified with no account, and how
+
+| blocker question | no-account method | status today |
+|---|---|---|
+| Does Breakout have a native app? | Breakout's own help article | **Done:** yes, a separate "Breakout terminal mobile app" (§ 2). Platforms not stated. |
+| Is there a demo / practice mode we could use instead of an account? | Breakout help centre, Terminal collection (6 articles: migration, rules, two terminals, swap fees, access, mobile app) | **None found.** No article mentions demo, practice, free or trial. (Absence in six titles, not a statement that none exists; the operator can ask Breakout support once at purchase time.) |
+| Does the terminal's public page load in the phone WebView on the operator's connection (no challenge, no 1005)? | The phase 1a shell loads the **public landing and login pages** and runs the page-state classifier. No sign-in. | Open. This is the first real test. |
+| Does the WebView get served the same page as Chrome (user-agent and bot check differences)? | Load the same public page in the phone's Chrome and in the shell; compare **classifier state only**, no UA change | Open. |
+| Can injected JS reach the page, including iframes? | `evaluateJavascript` and `addDocumentStartJavaScript` / `WebMessageListener` against (a) the public pages and (b) a **local test page with a cross-origin iframe** served from the app's own assets | Open. Settles the framework question for the main frame and for iframes. |
+| Can we type into a React-style form so the page registers it? | A **synthetic fixture** terminal page (input, toggles, side buttons, a submit) built to the `breakout_terminal` vocabulary and hosted inside the app. Compare real key events against JS value-setting | Open. Proves the mechanics, **not** Breakout's layout. |
+| VM-to-phone contract: pairing, claim, one attempt, go-token, kill switch, heartbeat, watchdog | Server routes and the app run against the **synthetic ticket stream and the synthetic terminal fixture**; two-device claim race; network-loss and kill-app tests | Open. Fully testable with no Breakout. |
+| Android background reliability | 72-hour soak on the operator's phone with the foreground/kiosk shell holding the **public** page and a heartbeat: OEM kills, Doze, handovers, re-login-page detection | Open. |
+
+### 7.2 Phases
+
+| phase | what | account? | est. (lane-days) | exit gate |
 |---|---|---|---|---|
-| **0. Decide and prepare** | Operator answers O1–O4 (§ 8). Read the terms (§ 6.1). **Step zero, ~2 min, no login:** open `app.breakoutprop.com` in the phone's browser on home Wi-Fi and mobile data and report which page appears (served / "Just a moment…" / access denied) — what the operator already said works. Confirm FCM delivery to the phone today (runbook check). | yes | 0.5 | Terms read; operator go for Phase 1. |
-| **1. Capture-only app** | New app: WebView + foreground/kiosk shell, manual login, **page-state classifier**, and a **redacted DOM capture** (same redaction posture as `scripts/prop/breakout_terminal_probe.py`: no URL paths, tokens, cookies, ids, balances) uploaded to a draft-only endpoint or shared as a file. Answers: does the terminal load and log in inside a WebView; iframes?; the order form's real fields, the submit and its confirmation; where SL/TP toggles are; which input method works. **No ticket intake, no clicks.** | yes | 3–4 | A captured, redacted DOM committed as fixtures; the Q "does a WebView load and log in" answered **yes/no**. If **no**, stop here. |
-| **2. Read-only executor** | Server: `prop_devices`, pairing, per-device auth, `claim`/`verify`/`report`, heartbeat, watchdog, mode `read_only`. Phone: ticket intake, terminal read (account, positions, orders), reconcile, heartbeat, intent ledger, alerts. It computes and logs what it **would** do (the VM's `read_only` mode); **no click, no write to the order journal beyond account-status**. 72-hour soak on the real phone: uptime, session expiries, OEM kills, handovers. Measures § 5.4 (does the bracket survive the client). | read-only | 5–6 | 72 h with an uptime/expiry/kill table; server tests incl. two-device claim race; the bracket-survival measurement. |
-| **3. Armed click, dry then one watched live** | Held Tier-2: the submit and confirmation built against the Phase 1 capture; dry round trip (D1–D7 analogue), then **one** minimum-size live round trip under the pre-registered L1–L8 criteria (registered **before** the run, may be tightened, not loosened); the operator present. | no | 3–4 | D and L criteria pass; auto-revert armed. |
-| **4. Soak** | Probation (first 5 trades or 72 h), trade-by-trade reports, then steady-state. Auto-revert to `read_only` on the same triggers as the VM executor. | no | 2 + observation time | Gate 1-style review. |
+| **0. Decide** | Operator answers O1–O5 (§ 8). **Step zero, ~2 min, no sign-in:** open `app.breakoutprop.com` in the phone's browser on home Wi-Fi and on mobile data and report which page appears (served / "Just a moment…" / access denied). Confirm FCM delivery to the phone. | none | 0.5 | Operator go for 1a. |
+| **1a. Public-page shell** | New app: WebView + kiosk shell, page-state classifier, redacted page-shape capture of the **public** pages only (same redaction posture as `scripts/prop/breakout_terminal_probe.py`), the iframe and typing tests on local fixtures. | none | 2–3 | Answers the first three rows of § 7.1 and the iframe and typing rows. **If the public page is challenged or blocked in the WebView, stop: a structural blocker, no purchase.** |
+| **1b. Contract and reliability** | Server: `prop_devices`, pairing, per-device auth, `claim`/`verify`/`report`, heartbeat, watchdog, kill switch. Phone: ticket intake, intent ledger, alerts, running against **synthetic** tickets and the synthetic terminal. 72-hour soak. | none | 5–6 | Two-device claim race, fail-closed tests, and the soak table (uptime, kills, handovers) all pass. |
+| **OPERATOR GATE: "purchase account now"** | Reached only when 1a and 1b pass. The manager asks the operator to purchase a Breakout terminal account, **after the operator has read the terms (§ 7.4)**. | **purchase** | — | Operator buys; the manager records it. |
+| **2. Capture with login** | The operator logs in **by hand** in the WebView. Redacted DOM capture of the real terminal; read-only: positions, orders, account snapshot. Measures § 5.4 (do SL/TP survive the client being closed) with one tiny hand-placed position. Session-expiry and any email-code or 2FA behaviour recorded. | **yes** | 2–3 | Captured, redacted fixtures committed; the questions in § 7.3 answered. |
+| **3. Armed click, dry then one watched live** | Held Tier-2: the submit and its confirmation built from the phase 2 capture; dry round trip (D1–D7 analogue), then **one** minimum-size live round trip under criteria registered before the run. The operator present. | yes | 3–4 | D and L criteria pass; auto-revert armed. |
+| **4. Soak** | Probation (first 5 trades or 72 h), trade-by-trade reports, then steady state; auto-revert to `read_only` on the VM executor's triggers. | yes | 2 + observation | Gate 1-style review. |
 
-### 7.2 Effort
+**Effort (estimate):** before the gate ≈ **8–10 lane-days** (0.5 + 2–3 + 5–6); after it ≈ **7–10** (2–3 + 3–4 + 2). Total
+**≈ 15–20 lane-days**, with independent review rounds likely the long pole. Everything before the gate costs **no account
+fee**; the gate is the first spend.
 
-| bucket | lane-days (estimate) |
-|---|---|
-| Phase 0 | 0.5 |
-| Phase 1 | 3–4 |
-| Phase 2 (server 2.5–3, app 2.5–3) | 5–6 |
-| Phase 3 | 3–4 |
-| Phase 4 active work | 2 |
-| Independent review rounds (every held Tier-2 PR got several on the VM executor: 5 rounds on `#14216`) | included above at ~15%, but **likely to be the long pole** |
-| **Total** | **≈ 14–17 lane-days** (Phases 0–2 ≈ 9–10.5 of those) |
+### 7.3 What stays unverifiable without an account
 
-**Biggest uncertainties:** whether the terminal and login work in a WebView at all (Phase 1 gate); iframe reachability; the
-armed submit's confirmation flow (still unmeasured); OEM kill behaviour; the unread terms.
+1. Whether the **login** works inside a WebView (the sign-in submit may trigger a bot check the public page did not).
+2. Any **email code, number-match or 2FA** at sign-in, and how often it recurs (a human step on every login makes unattended
+   use infeasible; `breakout_terminal` lists `email_code` as a stop).
+3. The **post-login terminal**: its DOM, whether it uses iframes or a canvas order ticket (`canvas_ticket` is a stop), the real
+   field, toggle and submit controls, and the submit **confirmation** flow.
+4. **Where SL/TP live** and whether they survive the client being closed (§ 5.4).
+5. **Session lifetime** and what a logout looks like; behaviour with the operator's own browser open at once.
+6. Whether the account's **rules or the platform** block the order types the tickets need (limit with bracket), and the
+   venue's lot step and price increment for each instrument.
+7. **Latency and fill behaviour** at the venue.
 
-### 7.3 What the operator does
+None of these can be answered from a landing page or a fixture, and all of them are phase 2 on.
 
-1. **Decides** O1–O4 and **reads or forwards the terms** (§ 6.1).
-2. **Phase 0 step zero** (browser, ~2 min, no sign-in), on both Wi-Fi and mobile data.
-3. **Installs the APK** (sideload from App Distribution or a link): turns on "install unknown apps" for the source, once.
-4. **Logs in once by hand** in the app's WebView, and re-does it after each session expiry (the app stops and alerts; it
-   never types credentials). Provide any email code or 2FA by hand.
-5. **Pairs the device** (the app shows a pairing screen; the one-time code arrives in the operator's Telegram).
-6. **Dedicates the phone** (Phase 2 on): screen on, charging, home Wi-Fi, battery-optimisation exemption set, the app
-   pinned. Tells us the **phone model** (OEM behaviour).
-7. In Phase 2: **place one tiny test position by hand** in the terminal and close the app to measure § 5.4.
-8. **Authorises Phase 3** explicitly. It is a real-money click path.
+### 7.4 Terms the operator should read at purchase
+
+Read the **Funded Trader Agreement and the Terms of Service** before paying (no session has read them, § 6.1). Look for:
+(a) any **automated, algorithmic or bot-trading** clause, and anything on trade copiers or third-party tools; (b) any
+**one-device or one-IP** rule, VPN or jurisdiction-concealment language, and whether a phone WebView counts;
+(c) **account sharing and credential** handling; (d) any **one-session-at-a-time** rule; (e) the **consequence** clause
+(closure, profit forfeiture, KYC re-verification); (f) language on "exploiting the platform" or speed that a scripted submit
+might touch. If (a) or (b) forbids it, that is a structural blocker and should be found **before** the purchase, not after.
+
+### 7.5 What the operator does
+
+1. Decides O1–O5 (§ 8).
+2. **Step zero** (browser, ~2 min, no sign-in) on Wi-Fi and mobile data.
+3. Installs the APK (sideload; "install unknown apps" once for the source). Tells us the **phone model**.
+4. Dedicates the phone for the 72-hour soak: screen on, charging, home Wi-Fi, battery-optimisation exemption, app pinned.
+5. **At the gate:** reads the terms (§ 7.4), then **purchases the account**.
+6. After the gate: **logs in by hand** in the WebView (and again after each expiry); supplies any email code or 2FA by
+   hand; pairs the device (one-time code via Telegram); places one tiny test position by hand for § 5.4.
+7. **Explicitly authorises phase 3**, the first real-money click path.
 
 ---
 
