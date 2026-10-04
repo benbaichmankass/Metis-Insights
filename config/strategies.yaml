@@ -1281,9 +1281,19 @@ strategies:
       - SOLUSDT
     donchian: 20
     atr_period: 14
-    atr_stop_mult: 2.5
+    # BRACKET LEVERS (Tier-3, PROPOSED 2026-10-04, HELD PR -- operator decides).
+    # Was atr_stop_mult 2.5 / tp_r 6.0. RQ-20261004-651 (rule registered before
+    # the run, 72bfd75): 30-arm grid on the STATIC bracket breakout_1/tradeify_1
+    # actually place, 730d SOLUSDT 1h, full cost stack. Only qualifier 3.5 / 2.0:
+    # n=104 +17.97R vs live n=106 +12.33R; older year +12.02 vs +11.76; recent
+    # year +5.95 vs +0.57. B6 V2 (breakout, fresh $5k): 3/5 seeds pass vs 0/5,
+    # EV/life ~$232 vs ~$51. FRAGILE: isolated grid peak (neighbours below live),
+    # older-year gain +0.26R. Supersedes the 2026-08-24 "DO NOT TIGHTEN" sweep
+    # below, which graded trail/stale/decay exits the bracket never performs.
+    # Revert: atr_stop_mult 2.5, tp_r 6.0.
+    atr_stop_mult: 3.5
     trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
-    tp_r: 6.0               # ⚠️ NOT a "6R cap". The OPERATIVE target is
+    tp_r: 2.0               # (was 6.0; see BRACKET LEVERS above) ⚠️ NOT a "6R cap". The OPERATIVE target is
                             # min(cap_r, 6.0), where cap_r = 0.099*entry/risk --
                             # the _TP_SENTINEL_CAP_PCT clamp in trend_donchian.py
                             # (applied in order_package, BEFORE the account is

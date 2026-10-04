@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 strategy-param change on a live prop leg (trend_donchian_sol_prop on breakout_1 + tradeify_1). Manager dispatch 2026-10-04: 'Any config change only as a HELD Tier-3 PR with the evidence.' The evidence passes its pre-registered rule but is fragile (isolated grid peak), so this is the operator's call.",
+  "why": "tp_r 6.0 -> 2.0, atr_stop_mult 2.5 -> 3.5 on trend_donchian_sol_prop, per RQ-20261004-651. Evidence record rebuilt at the new params by the producer (no fingerprint laundering)."
+}
