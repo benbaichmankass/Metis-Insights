@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI-only fix (PI-20261003-ILZMCTFQ-0001): m20-exit-lever-sweep.yml now proceeds on a push only when the sentinel differs from the default branch's, so a claude/** branch that merely merged main no longer receives a bot corpus commit. Adds a gate script and a test. No runtime, order-path, config or strategy change."
+}

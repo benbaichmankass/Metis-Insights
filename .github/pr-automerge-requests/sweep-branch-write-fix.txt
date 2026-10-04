@@ -1,0 +1,1 @@
+auto-merge: m20 sweep sentinel gate (CI only)
