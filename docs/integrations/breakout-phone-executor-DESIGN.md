@@ -409,6 +409,49 @@ Reading the answer: A on both is a go for phase 1a. B means the public page chal
 
 **Recommendation: GO for phase 0 and phase 1a only; no-go on spending anything.** Rationale: nothing found rules the WebView route out, nothing found confirms it works, and the decisive evidence (does the public page serve a real phone's WebView) costs the operator two minutes and one throwaway probe app. **Hard stops:** step zero returns B or C on both networks, or phase 1a's public page is challenged or blocked in the WebView. Cost of this recommendation so far: about a few dollars of lane spend; no purchase, no login, no build beyond what 1a needs.
 
+### 7.8 Step-zero result, 2026-10-04 (operator's own phone; relayed by the manager, not independently observed)
+
+**Result: reachable, with caveats. Not a pass for the WebView question and not a check of the new terminal.**
+
+What the operator reported, as relayed: on their own Android phone, over LTE, in the **Comet** browser (not Chrome; whether Chrome was tried is
+being asked), `app.breakoutprop.com` **loaded fully with no Cloudflare wall**. It showed a mobile terminal with the banner
+"Beta version of the mobile platform with limited functionality", a portfolio, a watchlist, charts, Sell/Buy buttons, and an order ticket:
+a Market Order dropdown, a Sell/Buy toggle, Quantity in Lots with plus/minus buttons, a Protection section with Stop Loss and Take Profit
+toggles and price fields (with a "Price" mode dropdown), and a "Send Order" button. No account identifier, balance or screenshot is recorded here.
+
+What this establishes, and what it does not:
+
+| | |
+|---|---|
+| **Established** | From a genuine phone connection (LTE), the site is **served**, not challenged. The datacenter ban and challenge seen from our servers and sandbox did not apply to the operator's phone. This is the first real evidence for the premise of this design. |
+| **Established (by description)** | The mobile ticket **as described** has the same field vocabulary the executor already handles (side, order type, quantity in lots, SL and TP toggles with a price mode, a distinct send control). **No DOM was captured**, so this is a match of labels, not of selectors; the desktop DXtrade DOM was what `dxtrade.py` was measured on. |
+| **Not established** | That it works in an **Android WebView** (Comet is a full browser, Chrome is untested, and neither is a WebView). That a WebView is not challenged or served differently. That login works in a WebView. Wi-Fi was not reported. |
+| **Not the target** | The operator's session was on the **existing DXtrade-backed account (`breakout_1`)**, which is not the new native Breakout terminal. The new terminal is still unverified, and verifying it needs a new account (the OPERATOR GATE). |
+
+**Open risks this adds:**
+
+1. **Beta, limited functionality.** The page calls itself a *beta* mobile platform with limited functionality. Its layout and controls may change without notice, may differ from the desktop DXtrade DOM, and may lack features the executor relies on (for example the position table, row close controls, or an amend path). Treat every selector as unmeasured until captured on this surface.
+2. **DXtrade versus new terminal gap.** What loads at this address for a DXtrade account may not be what a new-terminal account sees. Nothing seen so far says the new terminal's mobile web looks the same. A design fitted to the DXtrade-shaped mobile page could suit `breakout_1` and still not suit the account the operator would buy.
+3. **One account, two clients.** `breakout_1` has a live VM executor. A phone session on the same account at the same time may be refused or may disturb the VM's session (a one-session rule is unread). Any probe on that account needs the VM executor held first, and is the operator's call.
+
+**Updated state of the no-account checks:**
+
+| check | state |
+|---|---|
+| Native app exists | done (§ 2) |
+| Demo/practice terminal | none found (§ 7.7) |
+| Site reachable from the operator's phone IP | **done: served in Comet over LTE.** Chrome and Wi-Fi not yet reported. |
+| Page in an Android WebView | **open**: phase 1a probe |
+| Injected-JS reach, iframes; typing into a React-style form (local fixtures) | open: phase 1a |
+| VM-to-phone contract on synthetic tickets | open: phase 1b |
+| 72-hour Android soak | open: phase 1b |
+| Terms read | open: operator, before purchase |
+
+**Left before the "purchase account now" gate:** the phase 1a probe (WebView on the public page, plus the iframe and typing fixtures), phase 1b
+(contract and soak against synthetic data), and the terms read. One optional addition for the operator to decide: a WebView probe on the
+operator's **existing** DXtrade account would answer the WebView-login and mobile-ticket questions early, but it is a login (outside the
+no-account scope) and touches the live `breakout_1` account (risk 3), so it is **not planned**.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |
