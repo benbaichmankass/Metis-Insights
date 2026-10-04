@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-03T16:40:00Z",
-  "updated_by": "lane TRADEIFY-PRICE-FILL session_01VK9t8x6wQCkdyEyNBSL94J",
+  "updated_at": "2026-10-04T08:40:00Z",
+  "updated_by": "lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "priorities": {
@@ -4804,6 +4804,24 @@
       ],
       "blocked_on": [],
       "note": "[2026-10-03T16:40Z lane TRADEIFY-PRICE-FILL session_01VK9t8x6wQCkdyEyNBSL94J] DONE: merged (#15987 e31ea957), deployed (executor code_sha d48f073e1 contains e31ea957, checked with git merge-base) and observed in a dry run. round-trip-dry,limit ETHUSD #16003 (run 37137185991): limit typed 2680.645 KEY BY KEY; price_fill trace before '2,680.689' / after_clear '' / after_keys '2680.645' / after_blur '2,680.645' / after_settle '2,680.645'; pass 1 shown price '2,680.645', refilled [] -> form_verified, submitted=false, submit label 'Buy 0.01 ETH/USD at 2,680.645', one-click off. MEASURED: the typed limit holds exactly (0 ticks off). Neighbouring controls: 2 unlabelled buttons at level 0 (no text, aria, title, test id or state), so no track-price toggle is named. Exit 3 came ONLY from the known 'linked symbol could not be read' alert (PI-20261003-DEIFYDRY-0001). SOLUSD NOT run: tradeify_1 watched_click_max_lots lists only ETHUSD, so a SOL round trip refuses without a config change. bid = ask: order-surface-dump #16006 (run 37137296388, read-only) shows Bid and Ask as SEPARATE td cells (i=1 class table--cell-bid, i=2 class table--cell-ask, each with its own priceValue span); quote_from_tables indexes them by header, so it is NOT one cell read twice (MEASURED structure). The dump masks digits, so equal DISPLAYED values are INFERRED from read_quote parsing the two separate cells to the same number in #15930/#15975/#16003: a zero spread at 3-decimal display precision. || [2026-10-03T16:20Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched. Source: PI-20261003-DEIFYDRY-0002 (round-trip-dry #15975 run 37132594478 refused: typed 2679.725, form shows 2679.719). The executor enters LIMIT, so this blocks tradeify_1 go-live. Done = a held PR, opt-in for tradeify_1 only (breakout_1 fill path unchanged unless proven), plus a dry run with the read-back within one 0.001 tick. If the field cannot hold a price, the alternative (market-only entry) is a manager/operator call."
+    },
+    {
+      "id": "OPS-AUDIT",
+      "title": "System audit of everything merged since 2026-09-27 (prop order path live on tradeify_1, trader path, earlier fixes re-verified, governance) -> docs/audits/system-audit-2026-10-04.md",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane session_01NQGspf9jnJZ81SGcfA5doR",
+      "lane": "session_01NQGspf9jnJZ81SGcfA5doR",
+      "model": null,
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16222,
+        16223
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-04 ~08:40Z lane OPS-AUDIT, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv] Audit doc in the Tier-1 PR; OA-14 diag fix HELD on branch claude/ops-audit-2026-10-04-diag-restart-pending; HELD Tier-2 PRs #16222 (OA-01 OnFailure on both live prop executors) and #16223 (OA-02 tradeify ETH/USD symbol canonicalisation) await the manager. Pipeline PI-20261004-GCFA5DOR-0001..0010. FIRST for the manager: OA-03 (PI-...-0001) -- breakout_1 is $2 below its $4,700 static DD floor and its executor has been AUTO-REVERT-latched since 03:49Z with no further alert; the documented env/timer revert was not run. landed_unproven closes when: #16222 and #16223 are merged and deployed, `systemctl show -p OnFailure ict-prop-executor@tradeify_1` is non-empty (needs executor-enable-timer re-run), and diag /api/diag/version reads restart_pending=false on a research-only diff."
     }
   ]
 }
