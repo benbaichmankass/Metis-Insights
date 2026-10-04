@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path: src/prop/prop_journal.py::list_outbound_tickets is the read the live prop executor uses to fetch its tickets (GET /api/bot/prop/tickets?account_id=...). Lane TRADEIFY-RISK-75, dispatched by Manager Session 2026-10-01 (session_01MM8o5js6TcDFeNAPBY4Ntv). Operator chose 'Let the lane ship it' in the 2026-10-04 ~08:35Z popup, so the lane merges this by hand after CI is green; no auto-merge is armed. What changes: the prop_tickets sidecar read is filtered to the requested account_id, a package ticketed only for another account is no longer returned, and one order package can carry one ticket per account in the unscoped view. Nothing about sizing, placement or the executor changes. Revert: git revert of the merge commit.",
+  "why": "tradeify_1's first live ticket was refused ('ticket asks $74.85, above the flat-mode cap $50.00'): its executor was handed breakout_1's $75 ticket, because list_outbound_tickets read prop_tickets unfiltered and keyed it by the shared order_package_id."
+}
