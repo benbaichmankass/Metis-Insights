@@ -5071,7 +5071,7 @@
       "id": "OPS-FIXES",
       "title": "Implement every fix from the 2026-10-04 reviews/audits (OPS-AUDIT, HEALTH-REVIEW, ML-REVIEW, PERFORMANCE-REVIEW, RESEARCH-PIPELINE-REPAIR rows)",
       "phase": "floor",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "lane OPS-FIXES",
       "lane": "session_012jcgSkwaVqQVCJshfa88uk",
       "model": "claude-opus-5-5",
@@ -5091,7 +5091,7 @@
         16394
       ],
       "blocked_on": [],
-      "note": "[2026-10-04T18:55Z lane OPS-FIXES] ALL 10 PRs MERGED (#16380 #16394 #16388 self-land; #16381 #16383 #16393 #16391 #16389 #16385 #16392 by manager). DEPLOYED: VM deploy 18:21:55Z on 2fe7188b7 (contains all four 18:19Z merges); web-api git_sha matches; ict-trader-live restarted and ticking clean (18:45Z); all units active except ict-prop-executor.service=failed, which is breakout_1's pre-existing halted state (timer disabled since 10:15Z, PI-20261004-PUQ1APTH-0005). OBSERVED (diag #16431/#16435): #16392 tradeify_1 ticks 18:33Z/18:38Z exit 0 alerts=0; #16385 INV-7 '[ok] recent=0' with a real read; INV-2 recent=0 + INV-2c [6409]; #16383 one 'pending-pings: 512 ... skipped' line per pull; #16389 log_file unit_failures readable (and it shows OnFailure firing -> PI-20261004-SHFA88UK-0002, ib-executions-pull exit 2). STILL UNOBSERVED, each on its own pipeline row: parity controls_unproven on the 2026-10-05 06:35Z run; commit-to-main green after a normal auto-merge (PUQ1APTH-0008/FOJGFIZF-0003); 7 days with 0 MIS-ROUTED pings (PUQ1APTH-0003); role-file/gc.log noise on the next unit-refresh deploy (PUQ1APTH-0007); harness verdicts on the next real dispatch (FOJGFIZF-0004). Not done: OA-07 a/b, OA-16(a), PUQ1APTH-0005 (docs/plans/ops-decisions-2026-10-04.md section C); review nits PI-20261004-SHFA88UK-0001. Spend: manager count ~$35.6 at 18:20Z + verification."
+      "note": "[2026-10-04T18:55Z lane OPS-FIXES] DONE as a lane: the manager's three verification asks (#16392, #16391, #16385) are observed; every effect not yet observable is owned by its own pipeline row with a clears_when (listed below), so this row carries no open observation of its own. ALL 10 PRs MERGED (#16380 #16394 #16388 self-land; #16381 #16383 #16393 #16391 #16389 #16385 #16392 by manager). DEPLOYED: VM deploy 18:21:55Z on 2fe7188b7 (contains all four 18:19Z merges); web-api git_sha matches; ict-trader-live restarted and ticking clean (18:45Z); all units active except ict-prop-executor.service=failed, which is breakout_1's pre-existing halted state (timer disabled since 10:15Z, PI-20261004-PUQ1APTH-0005). OBSERVED (diag #16431/#16435): #16392 tradeify_1 ticks 18:33Z/18:38Z exit 0 alerts=0; #16385 INV-7 '[ok] recent=0' with a real read; INV-2 recent=0 + INV-2c [6409]; #16383 one 'pending-pings: 512 ... skipped' line per pull; #16389 log_file unit_failures readable (and it shows OnFailure firing -> PI-20261004-SHFA88UK-0002, ib-executions-pull exit 2). STILL UNOBSERVED, each on its own pipeline row: parity controls_unproven on the 2026-10-05 06:35Z run; commit-to-main green after a normal auto-merge (PUQ1APTH-0008/FOJGFIZF-0003); 7 days with 0 MIS-ROUTED pings (PUQ1APTH-0003); role-file/gc.log noise on the next unit-refresh deploy (PUQ1APTH-0007); harness verdicts on the next real dispatch (FOJGFIZF-0004). Not done: OA-07 a/b, OA-16(a), PUQ1APTH-0005 (docs/plans/ops-decisions-2026-10-04.md section C); review nits PI-20261004-SHFA88UK-0001. Spend: manager count ~$35.6 at 18:20Z + verification."
     }
   ]
 }

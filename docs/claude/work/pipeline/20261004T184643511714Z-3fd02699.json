@@ -5,7 +5,7 @@
     "kind": "date"
   },
   "id": "PI-20261004-SHFA88UK-0002",
-  "next_action": "check_observation",
+  "next_action": "dispatch_lane",
   "origin": {
     "kind": "session",
     "ref": "lane OPS-FIXES verification 2026-10-04 diag #16435",
