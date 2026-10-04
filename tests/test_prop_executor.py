@@ -4242,3 +4242,158 @@ def test_live_ticket_path_cannot_carry_a_limit_offset():
 def test_market_round_trip_does_not_read_the_quote_twice(tmp_path):
     res = rt(RTAdapter(), FakeApi(), tmp_path, arm=False)
     assert not [a for a in res.actions if a["what"] == "quote_after_submit_check"]
+
+
+# ── retry in band: a LIMIT blocked at/through the market (operator 2026-10-04) ──
+# MEASURED tradeify_1 SOLUSD (#16307/#16310/#16313): the submit is DISABLED and
+# the footer reads "Entry Price you set must be lower than ...".
+
+def _blocked(text="Entry Price you set must be lower than ###.###"):
+    return PlaceAttempt(stage="refused", submitted=False,
+                        detail="submit: not visible at its centre after scrolling — ...; the submit is DISABLED, "
+                               "the submit has pointer-events:none (not hit-testable)",
+                        form={"sidebar_text": {"found": True, "rows": [{"text": "Buy"}, {"text": text, "hint": True}]}})
+
+
+class SpecAdapter(QuoteAdapter):
+    """Records every spec handed to place_bracket (order type, limit)."""
+    def place_bracket(self, page, spec, *, arm=False):
+        self.specs = getattr(self, "specs", []) + [spec]
+        return super().place_bracket(page, spec, arm=arm)
+
+
+def _await_alerts(alerts):
+    return [a for al in alerts for a in al if "sits at/through the market" in a]
+
+
+def _end_alerts(alerts):
+    return [a for al in alerts for a in al if pe.AWAIT_REST_EXPIRED in a]
+
+
+def test_marketable_limit_block_needs_disabled_and_the_footer_text():
+    assert pe.marketable_limit_block(_blocked()) and pe.marketable_limit_block(
+        _blocked("Entry Price you set must be higher than ###.###"))
+    other = PlaceAttempt(stage="refused", detail="submit: disabled", form={"sidebar_text": {"rows": [{"text": "x"}]}})
+    assert pe.marketable_limit_block(other) is None                         # disabled, other cause
+    not_disabled = PlaceAttempt(stage="refused", detail="form read-back mismatch",
+                                form=_blocked().form)
+    assert pe.marketable_limit_block(not_disabled) is None                  # text alone is not enough
+    assert pe.marketable_limit_block(PlaceAttempt(stage="submitted", submitted=True, detail="disabled",
+                                                  form=_blocked().form)) is None
+
+
+def test_blocked_marketable_limit_waits_then_is_placed_when_resting(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())                 # default quote ask 120.0 == limit 120.0
+    api = FakeApi([ticket()])
+    alerts = [_rcycle(ad, api, env, 0).alerts]
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert len(_await_alerts(alerts)) == 1 and not [p for p in api.posts if p.get("ticket_id")]
+    ad.attempt = None
+    res = _rcycle(ad, api, env, 1)                       # ask still == limit: no form, no click
+    alerts.append(res.alerts)
+    assert len(_places(ad)) == 1 and any(a["what"] == "awaiting_resting_price" for a in res.actions)
+    ad.quote, ad.after_submit = {"bid": 120.1, "ask": 120.2}, ([], [_o()])
+    alerts.append(_rcycle(ad, api, env, 2).alerts)       # ask above the limit, inside the band
+    assert len(_places(ad)) == 2 and ledger.state("prop-manual-aaa") == "placed"
+    assert {s.order_type for s in ad.specs} == {"limit"} and {s.limit_price for s in ad.specs} == {120.0}
+    assert len(_await_alerts(alerts)) == 1 and not _end_alerts(alerts)
+
+
+def test_blocked_marketable_limit_expires_not_placed_with_one_alert(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())
+    api = FakeApi([ticket(valid_until=(NOW + timedelta(minutes=12)).isoformat())])
+    alerts = [_rcycle(ad, api, env, k).alerts for k in (0, 1, 2)]      # blocked, then still marketable
+    alerts += [_rcycle(ad, api, env, k).alerts for k in (3, 4)]         # NOW+15/+20 > valid_until
+    assert len(_places(ad)) == 1
+    row = ledger.latest()["prop-manual-aaa"]
+    assert row["state"] == "refused" and pe.AWAIT_REST_EXPIRED in row["reasons"][0]
+    assert len(_end_alerts(alerts)) == 1 and len(_await_alerts(alerts)) == 1
+    skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and pe.AWAIT_REST_EXPIRED in skips[0]["reason"]
+
+
+def test_an_awaiting_ticket_that_left_intake_still_ends_once_at_valid_until(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())
+    api = FakeApi([ticket(valid_until=(NOW + timedelta(minutes=7)).isoformat())])
+    _rcycle(ad, api, env, 0)
+    api._tickets = []                                    # expiry prompt flipped it off `emitted`
+    alerts = [_rcycle(ad, api, env, k).alerts for k in (2, 3)]
+    assert ledger.state("prop-manual-aaa") == "refused" and len(_end_alerts(alerts)) == 1
+    assert not [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]   # never flipped once out of intake
+
+
+def test_an_awaiting_ticket_ends_when_price_leaves_the_band(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    ad.attempt, ad.quote = None, {"bid": 120.9, "ask": 121.0}         # band 119.5..120.5
+    alerts = [_rcycle(ad, api, env, k).alerts for k in (1, 2)]
+    assert len(_places(ad)) == 1 and ledger.state("prop-manual-aaa") == "refused"
+    assert len(_end_alerts(alerts)) == 1 and "left the entry band" in _end_alerts(alerts)[0]
+
+
+def test_an_unrelated_disabled_submit_keeps_the_refuse_and_retry_path(env):
+    ledger, _ = env
+    other = PlaceAttempt(stage="refused", detail="submit: disabled",
+                         form={"sidebar_text": {"rows": [{"text": "Insufficient margin"}]}})
+    ad = SpecAdapter(attempt=other)
+    api = FakeApi([ticket()])
+    res = _rcycle(ad, api, env, 0)
+    assert ledger.state("prop-manual-aaa") == pe.RETRY_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    assert any("NOT PLACED yet" in a and "1/3" in a for a in res.alerts) and not _await_alerts([res.alerts])
+
+
+def test_awaiting_does_not_spend_the_retry_budget(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=PRE)                        # a real pre-submit failure: attempt 1
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    ad.attempt = _blocked()
+    _rcycle(ad, api, env, 1)                             # blocked: awaiting, budget untouched
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    ad.quote = {"bid": 120.1, "ask": 120.2}
+    _rcycle(ad, api, env, 2)                             # resting -> attempted again, blocked again (race)
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    ad.attempt = PRE
+    _rcycle(ad, api, env, 3)                             # the next REAL failure is attempt 2, not 4
+    assert ledger.state("prop-manual-aaa") == pe.RETRY_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 2
+
+
+def test_a_watched_click_that_is_blocked_is_refused_not_awaited(env):
+    ledger, state = env
+    ad = SpecAdapter(attempt=_blocked())
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([ticket()]), cfg=cfg(watched_click_max_lots={"SOLUSD": 0.1}),
+                 mode="live", ledger=ledger, state=state, now=NOW,
+                 max_lots={"SOLUSD": 0.1})
+    assert ledger.state("prop-manual-aaa") == "refused"
+
+
+def test_no_live_ticket_path_sends_market():
+    import inspect
+    src = inspect.getsource(pe.run_cycle) + inspect.getsource(pe.bracket_from_ticket)
+    assert 'order_type="market"' not in src and "order_type='market'" not in src
+    spec, _, why = pe.bracket_from_ticket(ticket(), cfg())
+    assert not why and spec.order_type == "limit" and spec.limit_price == 120.0
+
+
+def test_pending_live_tickets_counts_an_awaiting_ticket(env):
+    ledger, _ = env
+    ledger.record("prop-manual-aaa", pe.AWAIT_REST_STATE, attempts=0)
+    assert pe.pending_live_tickets(FakeApi([ticket()]), cfg(), ledger, now=NOW) == ["prop-manual-aaa"]
+
+
+def test_redactor_keeps_the_quote_after_submit_check_action_name():
+    from src.prop.platform.dxtrade import redact_text
+    line = '{"action": {"what": "quote_after_submit_check", "quote": {"ask": 121.5}}}'
+    assert redact_text(line) == line
+    # anything else 24+ chars long is still masked, including a near-miss
+    assert "<token>" in redact_text("quote_after_submit_checkX") and "<token>" in redact_text("a" * 30)
