@@ -102,4 +102,4 @@ related:
   - 'config/pairs.yaml -- the bybit-only M22 pairs sleeve this checks a second asset class against'
   - 'gld_pullback_1d / gdx_pullback_1d (config/strategies.yaml) -- the two legs already live on these symbols individually'
   - RQ-20260929-106 (the SPY/QQQ equity-index analog of this same question)
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T08:33:30+00:00'
