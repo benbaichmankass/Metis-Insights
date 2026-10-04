@@ -1,0 +1,105 @@
+id: RQ-20261004-652
+title: 'Confirming test for the HELD SOL prop bracket change (#16269, tp_r 6.0->2.0, atr_stop_mult 2.5->3.5): out-of-sample, walk-forward, plateau, both prop rulesets, lot quantization'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 1
+question: >-
+  RQ-20261004-651 found exactly one of 29 static-bracket arms, tp_r 2.0 / atr_stop_mult 3.5, beating the
+  live bracket (6.0 / 2.5) for trend_donchian_sol_prop on the 730d pool, clearing its +5R margin by 0.64R,
+  with grid neighbours below live. Does that change survive a confirming test on data it was NOT selected
+  on (the ~4 years of SOLUSDT 1h history before the 730d pool), under a walk-forward selection procedure,
+  across a neighbourhood plateau, under BOTH prop rulesets the leg trades on (breakout_1 and tradeify_1),
+  and under the venue lot step and $10 minimum-risk floor?
+why_this_matters: >-
+  #16269 is a HELD Tier-3 PR changing a leg live on two prop accounts. Its own evidence calls the arm an
+  isolated grid peak, the classic signature of selection luck. Operator priority "Prop evidence fixes",
+  relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04 (lane PROP-EVIDENCE-2). A PASS gives the
+  operator a clean recommendation for #16269; a FAIL closes it and the live levers stand.
+power:
+  expected_n: 200
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.3 needs ~88 trades at alpha 0.05 / power 0.8 (the floor RQ-20261004-651 registered). The live arm
+    made n=106 in 730d, so the ~4-year pre-pool window should give ~200 trades per arm. Each clause checks
+    its own n.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Historical window fetched from data.binance.vision; nothing accrues. Probed before registration:
+      --days 2200 returns 52,680 SOLUSDT 1h bars, 2020-09-25 .. 2026-10-03, which is the full listed history.
+decision_rule:
+  id: RULE-RQ1004-652-SOL-BRACKET-CONFIRM
+  registered_at: '2026-10-04T14:13:36Z'
+  registered_before_run: true
+  statistic: >-
+    scripts/research/prop_bracket_confirm.py --leg trend_donchian_sol_prop --days 2200. One candle fetch
+    (regime_debt_matrix.run_one, the plumbing RQ-20261004-651 used), then scripts/backtest_trend.py once per
+    arm on the STATIC bracket exactly as RQ-651 ran it (stale/decay flags stripped, --trail-mult 1000,
+    --timeout-bars 1000000, the leg's own venue-aware cost stack: fee + slippage + funding), overriding only
+    --tp-r and --atr-stop-mult. ARMS: the 30-arm RQ-651 grid (tp_r {2,3,4,5,6,8} x stop {1.5,2,2.5,3,3.5})
+    UNION the plateau N = tp_r {1.5,2.0,2.5} x stop {3.0,3.5,4.0}. LIVE = (6.0, 2.5); CANDIDATE = (2.0, 3.5).
+    FOLDS: six 365-day folds counted back from the last candle; F6 is the most recent, F1 holds the
+    remainder back to the first candle. Trades are bucketed by entry_time. PRE = trades with entry_time
+    before (last candle - 730 days), i.e. the window RQ-651 never saw. net R is per-trade R at fixed
+    fractional risk.
+  rule: >-
+    UNDERPOWERED IF the live arm's PRE n < 88 (never PASS). Otherwise PASS iff ALL of C1..C5 hold; FAIL if
+    any fails.
+    C1 UNSEEN-DATA REPLICATION: on PRE, candidate n >= 88; candidate net R > 0; delta = candidate - live > 0;
+    and delta with the PRE fold of largest delta removed is still > 0.
+    C2 WALK-FORWARD SELECTION: for each test fold k in {F3, F4, F5, F6}, train on all trades with entry before
+    fold k starts (expanding window); select the arm of the 30-arm RQ-651 grid with the largest training net R
+    among arms with training n >= 30 (ties: lower tp_r, then lower stop). OOS_sel = sum over k of the selected
+    arm's net R in fold k; OOS_live = live's net R summed over F3..F6. Holds iff OOS_sel - OOS_live > 0 AND
+    OOS_sel > 0.
+    C3 PLATEAU: over the 9 cells of N on the full pool, at least 6 have net R > live's full-pool net R AND the
+    median cell net R > live's; AND on PRE the median of N's 9 cells > live's PRE net R.
+    C4 PROP SURVIVAL, BOTH RULESETS: scripts/research/prop_ev_sim.py --rule v2, seeds 1..5, horizon 730d, fed
+    the PRE trades of each arm (not the selection window). breakout: config/prop_rulesets/breakout.yaml,
+    --sizing room --room-frac 0.33 --risk-pct 0.015 --min-risk 10 (as RQ-651). tradeify_1:
+    config/prop_rulesets/tradeify_247_1step.yaml, --sizing start --risk-pct 0.005 (tradeify_routing.yaml flat
+    max_risk_usd 50 on 10,000) --min-risk 10 --lev-cap trend_donchian_sol_prop=2 (its default leverage cap).
+    Holds iff, on EACH ruleset, no candidate seed returns FAIL AND the candidate's median EV per account life
+    >= live's median.
+    C5 LOT QUANTIZATION + MINIMUM RISK at stop 3.5: over the candidate's full-pool trades, qty =
+    floor(R_usd / |entry - sl| / 0.01) * 0.01 SOL (SOLUSD lot_step 0.01, lot_units 1, config/prop_platforms.yaml).
+    Holds iff at R_usd = 10 every trade has qty >= 0.01 and >= 99% of trades keep realised/intended risk >= 0.95,
+    AND at R_usd = 50 >= 99% of trades have notional qty*entry <= 2 x 10,000.
+    No clause is relaxed after a result is seen. A PASS supports #16269 for the operator's Tier-3 decision; it
+    applies no config change. A FAIL closes #16269 and the live levers stand. UNDERPOWERED leaves #16269 held,
+    unmerged, with the reason stated.
+  what_it_does_not_do: >-
+    Does not test trail, stale-stop or decay levers (the bracket performs none). Does not model per-account
+    daily-loss refusals beyond what prop_ev_sim models. Venue data is Binance SOLUSDT, not the prop venues'
+    own SOLUSD feed. Changes no config.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 30
+  basis: one 2200d 1h fetch + 38 trend-harness passes + 20 prop_ev_sim runs, session-local.
+run:
+  workflow: session-local
+  note: Run SESSION-LOCAL by lane PROP-EVIDENCE-2.
+  command:
+  - python3
+  - scripts/research/prop_bracket_confirm.py
+  - --leg
+  - trend_donchian_sol_prop
+  - --days
+  - '2200'
+  - --out
+  - '{out_dir}/confirm.json'
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- research/queue/RQ-20261004-651.yaml
+- docs/claude/work/pipeline/20261003T155701146692Z-49268e08.json
