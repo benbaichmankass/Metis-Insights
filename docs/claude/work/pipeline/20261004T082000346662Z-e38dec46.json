@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a m20 re-sweep of trend_donchian_xrp_4h at OOS trades >= 50 re-reads trail4 as is_oos_pass with wf >= 5/6 and the exit-refinement live-parity check is run, then the Tier-3 flip is shipped or killed with the reason; or killed if the re-sweep does not reproduce the pass",
+    "kind": "event"
+  },
+  "id": "PI-20261004-FOJGFIZF-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04",
+    "rerun": "python3 - <<'E'\nimport json\nrows=[json.loads(l) for l in open('docs/research/m20-sweep-corpus.jsonl')]\nprint([(r['cell'],r['d_net_r_OOS'],r['wf_wins_effective']) for r in rows if r['leg']=='trend_donchian_xrp_4h' and r.get('is_oos_pass')])\nE"
+  },
+  "state": "queued",
+  "what": "trend_donchian_xrp_4h cleared the IS/OOS gate on 2 of 16 m20 exit-lever cells in the M20-EXITS-4 re-sweep (run 37037846659, 2026-10-02): trail4 d_net_r_OOS +0.358R with walk-forward 6/6, decay_stall6_t2.5 +0.318R wf 4/6, at OOS trades 49 (power floor 49.06 -- borderline). Not applied. Next step per the exit-refinement skill is the confirmatory re-measure + live-parity check; any flip is Tier-3 (data-backed Tier-3 may ship on a committed evidence record)."
+}

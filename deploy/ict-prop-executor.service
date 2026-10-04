@@ -23,6 +23,12 @@
 Description=ICT prop executor — one breakout_1 cycle (PROP_EXECUTOR_MODE, default read_only)
 After=network-online.target ict-web-api.service
 Wants=network-online.target
+# A failed tick (a halted AUTO-REVERT latch exits 3, a crash or timeout with
+# no {"alert"} line) pinged NOTHING: install_systemd_units.sh's FIX-SA-08
+# drop-in loop covers deploy/*.timer only, and this unit's timer is under
+# deploy/opt-in/ (OPS-AUDIT 2026-10-04, OA-01). Declared here so every
+# install path carries it; notify_unit_failure.py pings once per unit per 6h.
+OnFailure=ict-notify-failure@%n.service
 
 [Service]
 Type=oneshot

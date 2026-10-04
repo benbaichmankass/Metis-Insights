@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-queue dispatcher tooling only: dispatch_queue.py (hand-written units outrank generated at equal priority; research_unit supplied when the workflow declares it; an e35 unit naming a leg its planner refuses is not due) and a new next_rq_id.py helper, plus tests and docs. No queue unit, template, grader or replenisher is edited; no decision rule, live path, order path, config or VM is touched."
+}

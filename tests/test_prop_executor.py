@@ -4174,3 +4174,19 @@ def test_the_no_attempt_note_store_is_bounded(env):
     for i in range(pe._UNATTEMPTED_KEEP + 12):
         _band_cycle(ad, FakeApi([ticket(ticket_id=f"prop-manual-{i:03d}")]), env, 0)
     assert len(state.load().get(pe._UNATTEMPTED_KEY) or {}) <= pe._UNATTEMPTED_KEEP
+
+
+def test_attempt_public_carries_the_masked_sidebar_text():
+    """TRADEIFY-SOL-SIZE: a submit-stage refusal records the ticket column's
+    visible text (digits masked) so the run log can show a validation line."""
+    sb = {"found": True, "n": 1, "rows": [{"tag": "div", "text": "Minimum quantity is ## lots", "hint": True}]}
+    att = PlaceAttempt(stage="refused", detail="submit: disabled", form={"sidebar_text": sb})
+    assert pe._attempt_public(att)["sidebar_text"] == sb
+    assert pe._attempt_public(PlaceAttempt(stage="refused", detail="x", form={}))["sidebar_text"] is None
+
+
+def test_sidebar_text_js_masks_digits_and_skips_personal():
+    from src.prop.platform.dxtrade import SIDEBAR_TEXT_JS
+    assert "replace(/\\d/g, '#')" in SIDEBAR_TEXT_JS
+    assert "user|profile|account|login|email" in SIDEBAR_TEXT_JS
+    assert ".value" not in SIDEBAR_TEXT_JS        # input values are never read

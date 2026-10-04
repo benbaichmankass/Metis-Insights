@@ -385,7 +385,7 @@ def positions_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[
             if side is None and qty is not None:
                 side = "short" if qty < 0 else "long"
             out.append(Position(
-                symbol=sym, side=side,
+                symbol=canonical_symbol(sym) or sym, side=side,
                 quantity=abs(qty) if qty is not None else None,
                 entry_price=parse_number(_cell(row, c_open)),
                 stop_loss=parse_number(_cell(row, c_sl)),
@@ -420,7 +420,7 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
             qty = parse_number(_cell(row, c_qty))
             oid = (_cell(row, c_id) or "").strip() or None
             out.append(WorkingOrder(
-                symbol=sym, side=_side(_cell(row, c_side)),
+                symbol=canonical_symbol(sym) or sym, side=_side(_cell(row, c_side)),
                 order_type=(_cell(row, c_type) or "").strip() or None,
                 quantity=abs(qty) if qty is not None else None,
                 price=parse_number(_cell(row, c_px)),
@@ -483,7 +483,7 @@ def trade_history_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[L
             out.append({
                 "time": (_cell(row, c_time) or "").strip(),
                 "ts": parse_history_time(_cell(row, c_time)),
-                "symbol": sym,
+                "symbol": canonical_symbol(sym) or sym,
                 "side": _side(_cell(row, c_side)),
                 "effect": "opening" if eff.startswith("open") else "closing" if eff.startswith("clos") else None,
                 "volume": abs(vol) if vol is not None else None,
@@ -2524,6 +2524,53 @@ SUBMIT_JS = r"""
 }
 """
 
+# The ticket COLUMN's visible text when the submit refuses (TRADEIFY-SOL-SIZE
+# 2026-10-04): the SOLUSD submit is disabled at 0.01 and 1.0 lot with every
+# field read back exactly, and nothing recorded WHY. A validation / warning
+# line (quantity, margin, market status) would sit somewhere in the sidebar
+# column, often in the footer OUTSIDE the panel, so this reads every visible
+# element whose box lies inside the column of the ticket's BUY button, keeps
+# only those with their OWN text, and records that text with the same
+# redaction as TICKET_PANEL_DUMP_JS: every digit is '#', emails are '<email>',
+# a user/profile/account/login element is skipped, input values are never
+# read, tables are skipped. Clicks nothing.
+SIDEBAR_TEXT_JS = r"""
+() => {
+  const mask = v => String(v || '').trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 80);
+  const personal = /user|profile|account|login|email/i;
+  const buys = document.querySelectorAll('[data-test-id=BUY]');
+  if (buys.length !== 1) return {found: false, why: buys.length + ' [data-test-id=BUY] elements (need exactly 1)'};
+  let col = null;
+  for (let e = buys[0].parentElement; e && e !== document.body; e = e.parentElement) {
+    if (e.querySelector('[data-test-id=SELL]') && e.querySelector('[data-test-id=symbol_input]')) { col = e; break; }
+  }
+  if (!col) return {found: false, why: 'no ancestor of BUY holds SELL and symbol_input'};
+  const cr = col.getBoundingClientRect();
+  const rows = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('table') || el.closest('svg')) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    if (r.left < cr.left - 10 || r.right > cr.right + 10 || r.top < cr.top - 10) continue;
+    const tid = el.getAttribute('data-test-id') || '';
+    const cls = typeof el.className === 'string' ? el.className : '';
+    if (personal.test(tid) || personal.test(cls)) continue;
+    const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ');
+    const t = mask(own);
+    const hint = /error|warn|invalid|alert|disabled|notice|message/i.test(cls + ' ' + (el.getAttribute('role') || '')) ;
+    if (!t && !hint) continue;
+    rows.push({tag: el.tagName.toLowerCase(), tid: mask(tid) || undefined, text: t || undefined,
+               role: el.getAttribute('role') || undefined, hint: hint || undefined,
+               cls: hint ? mask(cls) : undefined,
+               disabled: (el.disabled || el.getAttribute('aria-disabled') === 'true') || undefined,
+               box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]});
+    if (rows.length >= 120) break;
+  }
+  return {found: true, column: [Math.round(cr.left), Math.round(cr.top), Math.round(cr.width), Math.round(cr.height)],
+          n: rows.length, truncated: rows.length >= 120, rows};
+}
+"""
+
 # What the submit click PRODUCED (live test #13987, 2026-09-29: submit was
 # clicked, then no position and no order appeared, and the run log could not
 # say what the terminal showed). "tag": mark every visible button present
@@ -2676,6 +2723,7 @@ CLOSE_ROW_JS = r"""
         QUAL_RE = /(^|\s)all(\s|$)|(^|\s)close\s+(?!(icon|btn|button|svg|position|x|×|✕)(\s|$))\S/i;
   const isQualified = el => [...labelParts(el), ...calledParts(el)].some(s => QUAL_RE.test(s));
   const isClose = el => (CLOSE_RE.test(label(el)) || CLOSE_NAME_RE.test(called(el))) && !BAD_RE.test(hint(el)) && !isQualified(el);
+  const symKey = v => String(v == null ? '' : v).trim().toUpperCase().replace(/^([A-Z0-9]{2,10})\/([A-Z0-9]{2,10})$/, '$1$2');
   if (op === 'locate') {
     document.querySelectorAll('[data-metis-close-row]').forEach(e => e.removeAttribute('data-metis-close-row'));
     const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
@@ -2686,7 +2734,9 @@ CLOSE_ROW_JS = r"""
       const ci = hs.indexOf('symbol'); if (ci < 0) continue;
       for (const r of p.trs) {
         const cells = [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt);
-        if ((cells[ci] || '').toUpperCase() === String(symbol).toUpperCase()) rows.push({r, hs, cells});
+        // tradeify_1 shows ETH/USD for ETHUSD (OPS-AUDIT 2026-10-04 OA-02): ONE slash
+        // between two alphanumeric parts is dropped on both sides, as __metisSym does.
+        if (symKey(cells[ci]) === symKey(symbol)) rows.push({r, hs, cells});
       }
     }
     if (rows.length !== 1) return {ok: false, rows: rows.length, why: 'need exactly 1 row for ' + symbol + ' (found ' + rows.length + ')'};
@@ -2898,7 +2948,8 @@ EDIT_DIALOG_JS = r"""
     d.setAttribute('data-metis-edit-dialog', '1');
     const text = (d.innerText || '').replace(/\s+/g, ' ');
     const sym = String(symbol || '').toUpperCase();
-    const names_symbol = !!sym && new RegExp('(^|[^A-Z0-9])' + sym + '([^A-Z0-9]|$)').test(text.toUpperCase());
+    const names_symbol = !!sym && new RegExp('(^|[^A-Z0-9])' + sym + '([^A-Z0-9]|$)').test(
+      text.toUpperCase().replace(/([A-Z0-9]{2,10})\/([A-Z0-9]{2,10})/g, '$1$2'));  // ETH/USD names ETHUSD (OA-02)
     const prevLabel = inp => {
       const a = attr(inp, 'aria-label'); if (a) return a.trim();
       if (inp.id) { const l = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`); if (l) return txt(l); }
@@ -5889,6 +5940,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"found": False, "error": type(exc).__name__}
 
+    def sidebar_text(self, page: Any) -> Dict[str, Any]:
+        """Read-only, digit-masked visible text of the ticket column (SIDEBAR_TEXT_JS)."""
+        try:
+            return page.evaluate(SIDEBAR_TEXT_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
     def ticket_panel_dump(self, page: Any) -> Dict[str, Any]:
         """Read-only, redacted structure of the order-ticket sidebar (TICKET_PANEL_DUMP_JS)."""
         try:
@@ -7780,7 +7838,8 @@ class DXtradeAdapter(PropPlatformAdapter):
             # the run log never shows one_click: null once the form has opened
             # (TRADEIFY-EXECUTOR 2026-10-03: both SOL dry walks read null only
             # because the read sat after this return). Diagnostic, as below.
-            return refuse(why, {**form, "one_click": self.read_one_click(page), "submit": submit_info})
+            return refuse(why, {**form, "one_click": self.read_one_click(page), "submit": submit_info,
+                                "sidebar_text": self.sidebar_text(page)})
         # Diagnostic only: the toggle's reading right before submit travels
         # with the attempt so the run log shows it. Nothing is gated on it.
         form = {**form, "one_click": self.read_one_click(page), "submit": submit_info, "fill_trace": trace}

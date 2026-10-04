@@ -85,4 +85,4 @@ lands:
 related:
   - RQ-20260929-105 (the GLD/GDX commodity-vs-miner analog of this same question)
   - 'spy_pullback_1h / qqq_pullback_1h (config/strategies.yaml) -- the two legs already live on these symbols individually'
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T08:33:30+00:00'
