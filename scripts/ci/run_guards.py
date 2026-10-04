@@ -251,9 +251,11 @@ GUARDS: List[Dict[str, Any]] = [
         # edge alerts, "expected signal missing" alarms). Self-test exercises
         # every send/suppress path, including "unknown never clears a breach".
         "name": "attention-watch",
-        "when": {"globs": ["scripts/ops/attention_watch.py", "scripts/ops/pipeline.py",
-                            "deploy/ict-attention-watch.*"]},
-        "steps": [["python3", "scripts/ops/attention_watch.py", "--self-test"]],
+        "when": {"globs": ["scripts/ops/attention_watch.py", "scripts/ops/work_report.py",
+                            "scripts/ops/pipeline.py", "scripts/ops/render_daily_brief.py",
+                            "deploy/ict-attention-watch.*", "deploy/ict-work-report.*"]},
+        "steps": [["python3", "scripts/ops/attention_watch.py", "--self-test"],
+                  ["python3", "scripts/ops/work_report.py", "--self-test"]],
     },
     {
         # FIX-SA-09, 2026-09-29: the SessionStart hook, three slash commands and

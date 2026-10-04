@@ -23,15 +23,17 @@ clock in this repo — see ``scripts/ops/work_digest_now.py``):
   (b) EDGE ALERTS — sent when a thing CHANGES, not while it stays the same:
         * a new ``ask_operator`` pipeline item appears;
         * a soak leg moves into ``ready`` / ``overdue`` / ``dead``
-          (state is computed by SOAK-WATCH's ``scripts/ops/soak_state.py`` —
-          this module never computes soak state itself).
+          (state is published by SOAK-WATCH in ``docs/claude/work/SOAKS.json``,
+          the same file the brief reads — this module never computes it).
   (c) SILENCE ALARMS — "an expected signal did NOT arrive":
         * the R5 weekly soak grade has not landed in ``SOAK_GRADE_MAX_DAYS``;
         * no research result has landed in ``RESEARCH_MAX_HOURS``;
         * a checklist row is ``in_flight`` with no change to it in
           ``INFLIGHT_STALE_DAYS``;
         * the checklist itself (the manager's register) has not been written
-          in ``MANAGER_SILENT_HOURS`` — the manager's daily review did not run.
+          in ``MANAGER_SILENT_HOURS`` — the manager's daily review did not run;
+        * the scheduled 05:30Z work report (``work_report.py``) is missing,
+          stale, or has an errored section.
       A breached alarm re-sends at most once per ``REALERT_HOURS`` while it
       stays breached, and sends one "cleared" line when it clears.
 
@@ -161,25 +163,36 @@ def open_ask_operator(items: list[dict]) -> list[dict]:
 
 
 # ── soak state (owned by SOAK-WATCH; consumed, never computed, here) ─────────
-def read_soak_states() -> tuple[str, list[dict]]:
+#: ONE file, read by the brief (BRIEF-FIX) and by this watch alike:
+#: {"as_of": ..., "soaks": [{"id", "what", "started", "end_date", "progress",
+#:  "verdict", "state"}]}, where state is one of accruing / ready / overdue / dead /
+#: unknown. SOAK-WATCH publishes it.
+SOAKS_FILE = REPO_ROOT / "docs" / "claude" / "work" / "SOAKS.json"
+SOAK_STATES = ("accruing", "ready", "overdue", "dead", "unknown")
+
+
+def read_soak_states(path: Path | None = None) -> tuple[str, list[dict]]:
     """``(read_state, rows)``. read_state ∈ read / absent / unreadable."""
-    try:
-        from scripts.ops import soak_state  # noqa: PLC0415
-    except ImportError:
-        return "absent", []
-    fn = getattr(soak_state, "soak_states", None)
-    if not callable(fn):
+    path = path or SOAKS_FILE
+    if not path.exists():
         return "absent", []
     try:
-        rows = fn()
-        return "read", [r for r in rows if isinstance(r, dict)]
-    except Exception as exc:  # noqa: BLE001 — a broken producer is "unreadable", loud
-        print(f"attention-watch: soak_state.soak_states() raised: {exc}")
+        d = json.loads(path.read_text(encoding="utf-8"))
+        rows = d.get("soaks") if isinstance(d, dict) else None
+        if not isinstance(rows, list):
+            return "unreadable", []
+    except (OSError, ValueError):
         return "unreadable", []
+    out = []
+    for r in rows:
+        if isinstance(r, dict):
+            st = str(r.get("state") or "unknown")
+            out.append({**r, "state": st if st in SOAK_STATES else "unknown"})
+    return "read", out
 
 
 def _soak_key(r: dict) -> str:
-    return f"{r.get('account', '?')}:{r.get('leg', '?')}"
+    return str(r.get("id") or f"{r.get('account', '?')}:{r.get('leg', '?')}")
 
 
 # ── silence probes ───────────────────────────────────────────────────────────
@@ -220,6 +233,43 @@ def probe_manager(now: datetime) -> dict:
     st = BREACHED if hours > MANAGER_SILENT_HOURS else OK
     return {"status": st, "detail": f"checklist last written {hours:.0f}h ago "
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
+
+
+REPORT_MAX_AGE_HOURS = 26     # daily 05:30Z + grace; a missed run breaches by ~07:30Z next day
+REPORT_DUE_UTC = (5, 50)
+#: A report nobody can read in one sitting is the 737 KB brief again. BRIEF-FIX
+#: caps the brief at 16 KB; the report adds the attention summary on top.
+REPORT_MAX_BYTES = 64_000      # today's report must exist by 05:50Z (review at 05:52Z)
+
+
+def probe_report(now: datetime) -> dict:
+    """The scheduled work report (scripts/ops/work_report.py) exists, is fresh,
+    and has no errored section. An absent or unreadable report is BREACHED:
+    the report is an expected signal, and its absence is the finding."""
+    from scripts.ops import work_report  # noqa: PLC0415
+    st, rep = work_report.read_latest()
+    if st != "read" or rep is None:
+        return {"status": BREACHED, "detail": f"latest work report {st}"}
+    try:
+        gen = datetime.fromisoformat(rep["generated_at"])
+    except (KeyError, ValueError):
+        return {"status": BREACHED, "detail": f"{rep.get('report_id')} has no readable generated_at"}
+    age_h = (now - gen).total_seconds() / 3600
+    due_today = now.replace(hour=REPORT_DUE_UTC[0], minute=REPORT_DUE_UTC[1], second=0,
+                            microsecond=0)
+    missed_today = now >= due_today and gen < due_today - timedelta(minutes=30)
+    errs = rep.get("errored_sections") or []
+    if age_h > REPORT_MAX_AGE_HOURS or missed_today:
+        return {"status": BREACHED, "detail": f"latest report {rep['report_id']} is {age_h:.0f}h old "
+                                              f"— today's 05:30Z report was not produced"}
+    if errs:
+        return {"status": BREACHED, "detail": f"{rep['report_id']} has errored section(s): "
+                                              f"{', '.join(errs)}"}
+    size = rep.get("bytes")
+    if isinstance(size, int) and size > REPORT_MAX_BYTES:
+        return {"status": BREACHED, "detail": f"{rep['report_id']} is {size // 1000} KB "
+                                              f"(> {REPORT_MAX_BYTES // 1000} KB — too long to be read)"}
+    return {"status": OK, "detail": f"{rep['report_id']} ({age_h:.0f}h old, all sections built)"}
 
 
 def _row_line_ranges(lines: list[str]) -> dict[str, tuple[int, int]]:
@@ -302,6 +352,7 @@ def build(now: datetime | None = None) -> dict:
             "research": probe_research(now, shallow),
             "inflight": probe_inflight(now, shallow),
             "manager": probe_manager(now),
+            "report": probe_report(now),
         },
     }
 
@@ -311,12 +362,15 @@ PROBE_LABEL = {
     "research": "research results not landing",
     "inflight": "in_flight rows gone quiet",
     "manager": "manager's register not written",
+    "report": "scheduled work report missing or broken",
 }
 
 
 def render_digest(v: dict) -> str:
     s = v["stats"]
-    L = [f"📋 Daily work digest {v['today']}"]
+    rep = v["probes"].get("report", {})
+    L = [f"📋 Daily work digest {v['today']}"
+         + (f" — {rep['detail'].split(' ')[0]}" if rep.get("status") == OK else "")]
     if not v["pipeline_readable"]:
         L.append(f"⚠️ {v['pipeline_unreadable']} pipeline record(s) UNREADABLE — counts are a floor.")
     ao_due = [i for i in v["ask_operator"] if pipeline.is_due(i, v["today"])]
@@ -340,7 +394,7 @@ def render_digest(v: dict) -> str:
     for i in v["ranked"][:TOP_N]:
         tag = "❓ASK" if i.get("next_action") == "ask_operator" else i.get("state")
         L.append(f"• [{tag}] {i.get('id')}: {_short(i.get('what'), 120)}")
-    L.append("Full brief: /api/bot/work/brief · all due: pipeline.py --due --all")
+    L.append("Reviewed report: /api/bot/work/report · live: /api/bot/work/brief")
     return "\n".join(L)
 
 

@@ -281,6 +281,8 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # and "expected signal missing" alarms. docs/plans/work-system-2026-10-04.md
     "ict-attention-watch.service",
     "ict-attention-watch.timer",
+    "ict-work-report.service",
+    "ict-work-report.timer",
     "ict-health-snapshot.service",
     "ict-health-snapshot.timer",
     # 2026-06-28 (full-system audit Workstream B) — two recurring trader-VM
