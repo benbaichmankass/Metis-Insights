@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "the held PR is merged AND an ict-db-integrity run on the VM after the deploy prints INV-2 recent=0 and an INV-2c line whose sample includes 6409",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); diag journalctl?unit=ict-db-integrity.service 2026-10-04T07:27Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-db-integrity.service&lines=40' | grep -E 'INV-2[bc]?:' -- the finding holds while INV-2 reports recent>0 naming 6409 and no INV-2c line exists"
+  },
+  "state": "queued",
+  "what": "[db-integrity] INV-2 pages hourly on a DESIGNED state: trade 6409 (bybit_1, setup_type=intent_reduce, closed 2026-10-02T18:47Z) carries pnl NULL with notes.pnl_source=deferred_intent_reduce, which the reduce-leg writers (src/units/accounts/execute.py apply_intent_reduce_partial_close; src/runtime/order_monitor.py netted-flatten) stamp on purpose because the reduce's PnL is absorbed into the parent row (provenance.py _absorbed_partial_pnl agrees; scripts/ops/supersede_intent_reduce_phantom_pnl.py exists to STRIP a pnl from such rows). scripts/check_db_integrity.py only recognised the `unmeasured` marker, so MEASURED 2026-10-04 (diag journalctl?unit=ict-db-integrity.service, runs 06:39Z and 07:27Z): `[ALERT] INV-2: recent=1 total=199 ... e.g. [6409]` every hour, `same alert fingerprint; not re-pinging`. An alert on a designed state is the alarm-fatigue class CLAUDE-RULES calls a P1. FIX SHIPPED by health-review 2026-10-04 as a HELD Tier-1 PR (scripts/check_db_integrity.py is outside TIER1_SURFACE so a human merges): reduce legs leave INV-2 and are COUNTED by a new INV-2c (reported, never alerted), tests in tests/test_db_integrity_inv2_unmeasured.py. The row stays open until the fix is OBSERVED on the VM, because merged != deployed != observed."
+}

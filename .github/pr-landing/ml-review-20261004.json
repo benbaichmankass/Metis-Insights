@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "ML-review record for 2026-10-04 (comms/reviews/ml-review-20261004-125000.json), pipeline records (33 state changes on the open ML population + 2 new findings, all through scripts/ops/pipeline.py), and the ml-review SKILL.md correction of its retired coordination-board paragraph and its backlog-gate population (closes PI-20260927-CAB09-0005/-0006). No code, config, manifest, order-path or live-VM change; every promotion/demotion is a PROPOSAL in the record, none applied. Tier-1 by the canonical doc's own list (docs, review records, pipeline filings)."
+}

@@ -62,7 +62,7 @@ generated:
     leg: ada_pullback_2h
     symbol: ADAUSDT
     timeframe: 2h
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T12:28:07+00:00'
 grading:
   auto: true
   decision_rule_id: RULE-TPL-E35-BRACKET-IS-OOS-GATE

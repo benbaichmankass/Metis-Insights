@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a unit-refreshing deploy logs neither line",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); diag journalctl?unit=ict-git-sync.service 2026-10-03T10:21Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-git-sync.service&lines=1000' | grep -cE 'ict-vm-role: No such file|gc.log' -- holds while nonzero on a deploy that refreshed units"
+  },
+  "state": "queued",
+  "what": "[deploy hygiene, low] Two noise lines on every git-sync deploy of the live VM, MEASURED 2026-10-03T10:21Z (diag journalctl?unit=ict-git-sync.service): (1) `scripts/install_systemd_units.sh: line 75: /etc/ict-vm-role: No such file or directory` -- the `2>/dev/null` on that line guards `tr`, not the shell's input redirect, so the missing role file prints an error on every unit refresh and _VM_ROLE_EARLY silently reads empty; (2) git on the VM clone warns `The last gc run reported ... remove .git/gc.log` / `too many unreachable loose objects; run git prune` on every fetch -- auto-gc is disabled until the file is removed, so the clone's object store only grows (disk 39.6% free today, so not urgent). Fix: redirect the role read as `$(cat /etc/ict-vm-role 2>/dev/null | tr -d ...)` or test -r first; add a `git prune && rm -f .git/gc.log` step (or a system-action) once. || BASIS for the disk figure (claim-basis guard, 2026-10-04): 39.6% free = 17.8 GB free of 45.0 GB on / (health snapshot 2026-10-04T07:58:10Z, check `disk`, ctx free_gb 17.83 / free_pct 39.65; n=1 snapshot, the latest at review time)."
+}

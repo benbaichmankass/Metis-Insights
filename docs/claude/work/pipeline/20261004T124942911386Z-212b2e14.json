@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A subsequent shadow/drift read for conviction-meta-v1 returns verdict=stable/minor (drift resolved), OR a gate-check + root-cause investigation produces a disposition (hold-and-monitor with a stated reason, or a refinement-lifecycle [refinement] item per docs/claude/model-refinement-lifecycle.md).",
+    "kind": "event"
+  },
+  "id": "PI-20260929-UAOAYGBB-0002",
+  "ml_review_2026_10_04": "superseded by the demotion; refinement tracked in PI-20260929-K85Q64SF-0001.",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "ml-review W7 lane (dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ), session_0193d6xZVThefpX6UaoAyGbb, comms/reviews/ml-review-20260929.json",
+    "rerun": "vm-diag: api/bot/shadow/drift?model_id=conviction-meta-v1 -- re-check ks_verdict/psi_verdict; trainer-vm-diag: python -m ml gate-check conviction-meta-v1 --db data/trade_journal.db --datasets-root datasets-out for the definitive promotion-gate read."
+  },
+  "routed_to": "ML-HYGIENE",
+  "severity": "medium",
+  "state": "done",
+  "terminal_reason": "Disposition reached per clears_when branch 2: conviction-meta-v1 was demoted shadow->candidate on 2026-09-29 (lane ML-DEMOTE, #14166) and the live shadow factory stopped serving it (last row 2026-09-29T09:27:45Z, api/bot/shadow/stats 2026-10-04). gate-check 2026-10-04 (trainer-vm-diag #16327): ready=false, blocking non_degenerate (min f1 0.286), live_parity (artifact refuses to load at candidate), labels_accruing, drift_clean (KS 0.5356 / PSI 1.2034 on a current window that is the un-served tail, n=217). Training macro_f1 0.4875 (run 20261004T0100, n_eval 254), down from 0.4961. The refinement path (build the c_reg/c_setup/c_strat/c_wr producer, retrain, re-stage) is carried by PI-20260929-K85Q64SF-0001; this drift row has nothing further to watch.",
+  "tier": 1,
+  "what": "conviction-meta-v1 (shadow, the LightGBM stacker that is the target of the unified-confidence framework's v2 learned-conviction switch -- per docs/unified-confidence-risk-DESIGN.md, its shadow->advisory promotion is THE switch that replaces the formulaic conviction blend) shows a SIGNIFICANT window-over-window score-distribution drift 98 days into its shadow soak (soak_started_at 2026-06-23). MEASURED this session, api/bot/shadow/drift?model_id=conviction-meta-v1: ks=0.3685 (ks_verdict=significant), psi=0.4073 (psi_verdict=significant), overall verdict=significant; reference_mean 0.6747 (Aug 23-Sep 22 window, n=11403) vs current_mean 0.7296 (Sep 22-29 window, n=2091) -- this read is now trustworthy (uses the D1-fixed rotated-archive union, PI-20260927-YZRZQ725-0001, not the blind pre-fix window). Because conviction-meta-v1 is at shadow (not advisory), this does not trip a stage_guard DEMOTE trigger -- but it should gate its own PROMOTION readiness, and 98 days with no promotion decision and now a significant drift read is exactly the 'soak with no accruing destination decision' pattern the ml-review soak-integrity-audit section calls out as wasted rather than merely slow. Root cause not established this session (could be genuine upstream feature drift from the lens models it stacks over being retrained daily, or a real distributional shift in the live order-package population) -- needs `ml gate-check conviction-meta-v1` on the trainer plus a look at whether its input lens models' own score distributions moved over the same window."
+}

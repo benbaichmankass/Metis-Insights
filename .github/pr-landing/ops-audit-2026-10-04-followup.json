@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist-only: the OPS-AUDIT row's note records the merged / deployed / observed state of the audit follow-through (OA-03 revert, OA-01 template reinstall). docs/claude/work/MANAGER-CHECKLIST.json only, plus this declaration, arming file and slot claim."
+}

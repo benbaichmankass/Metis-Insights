@@ -1017,8 +1017,13 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     try:
         tickets = api.tickets(cfg.account_id)
     except Exception as exc:
+        _sweep_await_expiries(res, state, st, ledger, live, now)
         res.alerts.append(f"ticket intake failed ({type(exc).__name__}); no entries this cycle")
         return res
+    # Awaiting rows that LEFT intake end here; the ones still in intake end in
+    # the loop below, which also posts their skip report.
+    _sweep_await_expiries(res, state, st, ledger, live, now,
+                          skip_ids={str(t.get("ticket_id") or "") for t in tickets})
     seen = ledger.latest()
     # A ticket whose placement failed BEFORE any submit click is `retry_pending`
     # in the ledger and is taken in again until its valid_until (operator
@@ -1028,7 +1033,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     # § 3.3 guards, the LIMIT at entry, and the entry-band check below, which
     # applies to both attempt kinds alike (no retry-only price rule).
     fresh = [t for t in tickets if t.get("ticket_id")
-             and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") == RETRY_STATE)]
+             and (t["ticket_id"] not in seen or (seen[t["ticket_id"]] or {}).get("state") in REINTAKE_STATES)]
     if only_ticket_id:
         fresh = [t for t in fresh if t["ticket_id"] == only_ticket_id]
     fresh.sort(key=lambda t: str(t.get("created_at") or ""))
@@ -1062,7 +1067,12 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             _note_unattempted(state, st, t, "symbol_not_enabled",
                               f"{venue} not in executor.enabled_venue_symbols")
             continue
+        awaiting = (seen.get(t["ticket_id"]) or {}).get("state") == AWAIT_REST_STATE
         vu = _parse_ts(t.get("valid_until"))
+        if vu is not None and vu <= now and awaiting:
+            _end_await(res, state, st, ledger, live, post, cfg, t, t["ticket_id"],
+                       f"valid_until {vu.isoformat()} passed", report=True)
+            continue
         if vu is not None and vu <= now:
             res.log("expired", ticket_id=t["ticket_id"])
             # This branch DID report the expiry, so the no-attempt sweep must
@@ -1079,6 +1089,38 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             # valid_until. A ticket with no venue is left to the guards,
             # which refuse it.
             verdict, why = _entry_band_check(adapter, page, t, venue)
+            if awaiting and verdict in ("wait", "refuse"):
+                # The price left the entry band (or the band is unreadable):
+                # the wait ends, NOT PLACED, one alert.
+                _end_await(res, state, st, ledger, live, post, cfg, t, t["ticket_id"],
+                           f"price left the entry band: {why}" if verdict == "wait" else why, report=True)
+                continue
+            if awaiting and verdict == "blind":
+                # Could not look: keep waiting, click nothing. No unattempted
+                # note (this ticket WAS attempted; its own sweep ends it).
+                res.log("awaiting_resting_price", ticket_id=t["ticket_id"], why=why,
+                        valid_until=t.get("valid_until"))
+                continue
+            if awaiting and verdict == "ok":
+                row = seen.get(t["ticket_id"]) or {}
+                spec_row = row.get("spec") or {}
+                checks = int((st.get("await_rest_checks") or {}).get(t["ticket_id"]) or 0) + 1
+                counts = {**dict(st.get("await_rest_checks") or {}), t["ticket_id"]: checks}
+                st["await_rest_checks"] = dict(list(counts.items())[-_UNATTEMPTED_KEEP:])
+                state.save(st)
+                if checks > AWAIT_REST_MAX_CHECKS:
+                    _end_await(res, state, st, ledger, live, post, cfg, t, t["ticket_id"],
+                               f"{AWAIT_REST_MAX_CHECKS} checks without a resting price", report=True)
+                    continue
+                still, qwhy = _still_marketable(adapter, page, venue, spec_row.get("side"),
+                                                _f(spec_row.get("limit_price")))
+                if still is not False:
+                    # At/through the market still (or could not look): no form,
+                    # no click, no attempt spent. Logged every tick.
+                    res.log("awaiting_resting_price", ticket_id=t["ticket_id"], check=checks,
+                            why=qwhy, limit=spec_row.get("limit_price"), valid_until=t.get("valid_until"))
+                    continue
+                res.log("resting_price_reached", ticket_id=t["ticket_id"], why=qwhy, check=checks)
             if verdict in ("wait", "blind"):
                 res.log("band_wait", ticket_id=t["ticket_id"], why=why)
                 # A wait is not an attempt and records nothing, so remember it:
@@ -1193,11 +1235,28 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         # off: nothing is reported, the ticket stays `emitted`. It was silent
         # on 2026-09-30 12:44Z (only the two breach reports alerted), so each
         # failure alerts.
-        n = int((seen.get(spec.ticket_id) or {}).get("attempts") or 0) + 1
+        prior = int((seen.get(spec.ticket_id) or {}).get("attempts") or 0)
+        n = prior + 1
         # A WATCHED click (max_lots / only_ticket_id: the minimum-size test) is
         # never retried: an unattended retry would place the ticket at its FULL
         # size, not the watched cap (review of #14737, 2026-09-30).
         watched = max_lots is not None or bool(only_ticket_id)
+        block = None if watched else marketable_limit_block(att)
+        if block:
+            # The LIMIT sits at/through the market (operator 2026-10-04: retry
+            # in band). Not a failure: the attempts budget is NOT spent, the
+            # limit is NOT changed, nothing else is clicked. ONE alert, at start.
+            ledger.record(spec.ticket_id, AWAIT_REST_STATE, attempts=prior, spec=spec.as_dict(),
+                          valid_until=candidate.get("valid_until"), last_detail=block)
+            res.log("awaiting_resting_price", ticket_id=spec.ticket_id, check=0, why=block,
+                    limit=spec.limit_price, valid_until=candidate.get("valid_until"))
+            if _first_time(state, st, "await_rest_start", spec.ticket_id):
+                res.alerts.append(f"{spec.ticket_id}: NOT PLACED yet — the terminal blocks the LIMIT at "
+                                  f"{spec.limit_price} because it sits at/through the market ({block}). The "
+                                  f"executor keeps the ticket and places it at the SAME limit once the market "
+                                  f"moves past it, while price stays in the entry band, until "
+                                  f"{candidate.get('valid_until')} — do NOT place by hand")
+            return res
         if n < RETRY_MAX_ATTEMPTS and not watched:
             ledger.record(spec.ticket_id, RETRY_STATE, attempts=n, last_detail=att.detail)
             # The ticket is still `emitted` and the executor WILL try again:
@@ -1271,7 +1330,8 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
                    venue_symbol: str, side: str = "long", lots: Optional[float] = None,
                    bracket_pct: float = 0.01, arm: bool = False, reads: int = 20,
                    sleep: Callable[[float], None] = lambda s: None,
-                   now: Optional[datetime] = None, order_type: str = "market") -> CycleResult:
+                   now: Optional[datetime] = None, order_type: str = "market",
+                   limit_offset_pct: Optional[float] = None) -> CycleResult:
     """The end-to-end test (operator 2026-09-28 ~13:40Z, relayed by the
     manager, approved by the operator in this lane's popup): place ONE
     minimum-size MARKET bracket with SL and TP attached → confirm the position
@@ -1330,6 +1390,19 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         return stop(f"order_type {order_type!r} is not market/limit")
     if order_type == "limit" and arm:
         return stop("a LIMIT round trip is dry-only (walk the form; never armed)")
+    # DRY-ONLY limit offset (TRADEIFY-SOL-SIZE 2026-10-04, manager): place the
+    # walked LIMIT ``limit_offset_pct`` percent from the touch (negative = below,
+    # i.e. a resting long) to test whether the terminal disables a buy Limit
+    # priced through the market. Refused with any armed walk and with MARKET, so
+    # no live order can carry it; run_cycle (the live ticket path) has no such
+    # parameter at all.
+    if limit_offset_pct is not None:
+        if arm:
+            return stop("limit_offset_pct is dry-only (never armed)")
+        if order_type != "limit":
+            return stop("limit_offset_pct needs order_type 'limit'")
+        if not (abs(float(limit_offset_pct)) <= 5.0):
+            return stop(f"limit_offset_pct {limit_offset_pct} is outside +/-5%")
     try:
         acct = adapter.read_account(page)
         positions = adapter.read_positions(page)
@@ -1361,11 +1434,18 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         # Resting side of the book (a long bids at the bid), as a ticket's
         # entry usually sits away from the touch.
         limit_px = round_to_step(round(quote["bid"] if side == "long" else quote["ask"], 6), ps)
+        if limit_offset_pct is not None:
+            # Offset from the side a buy would fill against (the ask for a long,
+            # the bid for a short), so "below the ask" / "above the ask" is exact.
+            touch = quote["ask"] if side == "long" else quote["bid"]
+            limit_px = round_to_step(round(touch * (1 + float(limit_offset_pct) / 100.0), 6), ps)
     spec = BracketSpec(ticket_id=tid, venue_symbol=venue, side=side, quantity=float(lots),
                        stop_loss=sl, take_profit=tp, order_type=order_type, limit_price=limit_px,
                        price_step=ps)
     risk = float(lots) * float(sym["lot_units"]) * float(_f(sym.get("cvpp")) or 1.0) * abs(ref - sl)
-    res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2))
+    res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2),
+            **({"limit_offset_pct": float(limit_offset_pct), "quote_at_spec": quote}
+               if limit_offset_pct is not None else {}))
 
     if arm:
         ledger.record(tid, "intended", spec=spec.as_dict(), purpose="round_trip_test")
@@ -1379,6 +1459,16 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
             att = adapter.place_bracket(page, spec, arm=False)
             res.log("place_bracket", ticket_id=tid, attempt=_attempt_public(att))
             _one_click_alert(res, adapter)
+            if order_type == "limit":
+                # The quote again, right after the submit check: a LIMIT fixed
+                # from the pre-fill quote may sit through the market by the
+                # time the terminal judges it (the ~20 s fill). Read-only.
+                try:
+                    q_after = adapter.read_quote(page, venue)
+                except Exception as exc:
+                    q_after = {"error": type(exc).__name__}
+                res.log("quote_after_submit_check", ticket_id=tid, quote=q_after,
+                        limit_price=limit_px, side=side)
             res.log("would_close", ticket_id=tid, result=adapter.flatten(page, venue, arm=False))
         finally:
             _restore_linked_symbol(res, adapter, page, original)
@@ -1570,7 +1660,7 @@ def pending_live_tickets(api: Any, cfg: ExecutorConfig, ledger: "IntentLedger",
     out: List[str] = []
     for t in api.tickets(cfg.account_id) or []:
         tid = t.get("ticket_id")
-        if not tid or (tid in seen and (seen[tid] or {}).get("state") != RETRY_STATE):
+        if not tid or (tid in seen and (seen[tid] or {}).get("state") not in REINTAKE_STATES):
             continue
         venue = (cfg.symbols.get(str(t.get("symbol") or "").upper()) or {}).get("venue")
         if cfg.enabled_venue_symbols is not None and str(venue or "").upper() not in cfg.enabled_venue_symbols:
@@ -1650,6 +1740,98 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
 RETRY_STATE = "retry_pending"
 #: Placement attempts per ticket before the pre-submit failure is final.
 RETRY_MAX_ATTEMPTS = 3
+
+#: OPERATOR DECISION 2026-10-04 ~12:42Z (popup, relayed by manager
+#: session_01MM8o5js6TcDFeNAPBY4Ntv), verbatim choice: "Retry in band
+#: (Recommended)". A LIMIT the terminal blocks because it sits AT or THROUGH
+#: the market (MEASURED tradeify_1 SOLUSD: footer "Entry Price you set must be
+#: lower than ..." with the submit disabled, #16307/#16310/#16313; a limit
+#: 0.5% below the ask enabled it, #16311) is NOT a failure: the ticket waits
+#: in this state, without spending RETRY_MAX_ATTEMPTS, until the market moves
+#: past its entry (then it is placed through the normal path with every
+#: guard), or the price leaves the entry band / valid_until passes (then it is
+#: NOT PLACED). The limit price is never changed and MARKET is never sent.
+AWAIT_REST_STATE = "awaiting_resting_price"
+#: Belt over valid_until: checks of one awaiting ticket before it is given up.
+AWAIT_REST_MAX_CHECKS = 48
+#: NOT PLACED reason when the wait ends without a resting price.
+AWAIT_REST_EXPIRED = "expired awaiting resting price"
+#: Ledger states the intake takes in again (everything else is final).
+REINTAKE_STATES = (RETRY_STATE, AWAIT_REST_STATE)
+
+_MARKETABLE_LIMIT_RE = re.compile(r"entry price you set must be (lower|higher) than", re.IGNORECASE)
+
+
+def marketable_limit_block(att: Any) -> Optional[str]:
+    """Pure. The footer text when ``att`` is a submit-stage refusal caused by
+    a LIMIT priced at/through the market -- the submit DISABLED **and** the
+    ticket column showing "Entry Price you set must be lower/higher than"
+    (``sidebar_text``, digits masked) -- else None. Any other disabled submit
+    (or any other refusal) is None and keeps the refuse + alert path."""
+    if att is None or getattr(att, "submitted", False) or getattr(att, "stage", "") != "refused":
+        return None
+    if "disabled" not in str(getattr(att, "detail", "") or "").lower():
+        return None
+    sb = (getattr(att, "form", None) or {}).get("sidebar_text") or {}
+    for row in sb.get("rows") or []:
+        text = str((row or {}).get("text") or "")
+        if _MARKETABLE_LIMIT_RE.search(text):
+            return text
+    return None
+
+
+def _still_marketable(adapter: Any, page: Any, venue: str, side: Optional[str],
+                      limit: Optional[float]) -> Tuple[Optional[bool], str]:
+    """Is a LIMIT at ``limit`` still at/through the market? A long needs the
+    ask strictly above it, a short the bid strictly below it (the terminal's
+    own rule, "must be lower/higher than"). None = could not look (the ticket
+    keeps waiting; nothing is clicked)."""
+    if limit is None or side not in ("long", "short"):
+        return None, "no limit/side on the awaiting row (could not look)"
+    try:
+        q = adapter.read_quote(page, venue)
+    except Exception as exc:
+        return None, f"no quote ({type(exc).__name__}; could not look)"
+    key = "ask" if side == "long" else "bid"
+    px = _f((q or {}).get(key))
+    if px is None:
+        return None, "no quote (could not look)"
+    if side == "long":
+        return (px <= limit), f"ask {px} vs limit {limit}"
+    return (px >= limit), f"bid {px} vs limit {limit}"
+
+
+def _end_await(res: "CycleResult", state: "ExecutorState", st: Dict[str, Any], ledger: "IntentLedger",
+               live: bool, post: Any, cfg: Optional["ExecutorConfig"], ticket: Mapping[str, Any], tid: str,
+               why: str, report: bool) -> None:
+    """Stop waiting: the ticket is NOT PLACED (``AWAIT_REST_EXPIRED``), recorded
+    final, alerted ONCE. ``report`` posts the skip only while the ticket is
+    still in intake (a ticket that already left intake is not flipped off its
+    status, the BREAKOUT-NOATTEMPT rule)."""
+    reason = f"{AWAIT_REST_EXPIRED} ({why})"
+    res.log("await_rest_ended", ticket_id=tid, reason=reason)
+    if live:
+        ledger.record(tid, "refused", reasons=[reason])
+        if report and cfg is not None:
+            _report(res, post, _skip_body(cfg, ticket, f"not submitted: {reason}"))
+    if _first_time(state, st, "await_rest_end", tid):
+        res.alerts.append(f"{tid}: NOT PLACED — {reason}. The LIMIT was never placed (the market never moved "
+                          f"past the entry); nothing rests on the terminal for it.")
+
+
+def _sweep_await_expiries(res: "CycleResult", state: "ExecutorState", st: Dict[str, Any],
+                          ledger: "IntentLedger", live: bool, now: datetime,
+                          skip_ids: Optional[set] = None) -> None:
+    """End every awaiting row whose valid_until passed, from the executor's
+    OWN ledger: the ticket can leave intake at its validity (the manual
+    bridge's expiry prompt), so the intake loop alone would let it go silent."""
+    for tid, row in ledger.latest().items():
+        if (row or {}).get("state") != AWAIT_REST_STATE or tid in (skip_ids or set()):
+            continue
+        vu = _parse_ts(row.get("valid_until"))
+        if vu is not None and vu <= now:
+            _end_await(res, state, st, ledger, live, None, None, row, tid,
+                       f"valid_until {vu.isoformat()} passed", report=False)
 
 #: The ticket's own entry band as ``breakout_ticket`` renders it in the
 #: message: "(only if live price is within <min> … <max>)".

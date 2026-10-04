@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: docs/claude/work/MANAGER-CHECKLIST.json adds 8 lane rows dispatched 2026-10-04 (TRADEIFY-RISK-75, TRADEIFY-SOL-SIZE, PHONE-EXEC-DESIGN, PROP-FIRM-SCAN, HEALTH-REVIEW, OPS-AUDIT, PROP-EVIDENCE, RESEARCH-PIPELINE-REPAIR), marks LIVE-SILENCE done (#16208 merged) and re-points PROP-TERM's blocker at PHONE-EXEC-DESIGN (#16205 merged). No code, config or roster change."
+}

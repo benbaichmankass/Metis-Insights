@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The rerun prints no module under the six prefixes AND no web-API reader caches a file under them at import (then kill: inference confirmed), OR a reader is found and is either made per-request or its prefix is removed from deploy_pull_restart.sh's non-runtime regex (then done).",
+    "kind": "event"
+  },
+  "id": "PI-20261003-PXDJVMGW-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane RESTART-SAFE, manager session_01MM8o5js6TcDFeNAPBY4Ntv review of PR #15830 (2026-10-03, item 'the web-API research import', marked non-blocking: 'File the last one in the pipeline').",
+    "rerun": "python3 -c \"import sys,pathlib; sys.path.insert(0,'.'); import src.web.api.app; R=pathlib.Path('.').resolve(); P=('research/','runtime_logs/','scripts/research/','scripts/ci/','comms/research/','comms/strategy_evidence/'); [print('IMPORTED AT STARTUP:',n) for n,m in list(sys.modules.items()) if str(pathlib.Path(getattr(m,'__file__','') or '/').resolve()).startswith(tuple(str(R/x) for x in P))]\"; grep -rn 'research/\\|strategy_evidence\\|replay_pregate' src/web scripts/ops | grep -v '#'"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "NON-BLOCKING FOLLOW-UP OF #15830 (manager review, 2026-10-03): the web-API research import. #15830 widens ict-git-sync's non-runtime set (research/, runtime_logs/, scripts/research/, scripts/ci/, comms/research/, comms/strategy_evidence/) on the INFERENCE that no long-running process imports or caches those paths (src/ imports only scripts.ops and scripts.ml — grep of src/, 2026-10-03). The manager's review names a web-API research import that this inference may have missed; I could not locate it by grep (no `scripts.research` / `research/` import under src/web). If ict-web-api imports a module that caches anything under those six prefixes at import time, a commit touching only those paths would now leave the web API serving stale content until the next runtime deploy. Not a trading-path risk (the trader's decision code is untouched by those paths). || RE-CHECKED by health-review 2026-10-04: static grep of src/web/**/*.py for the six prefixes (research/, runtime_logs/, scripts/research/, scripts/ci/, comms/research/, comms/strategy_evidence/) = 0 string hits. The import-time check in this row's rerun could NOT be run in the review sandbox (fastapi not installed; `import src.web.api.main` fails), so the question is still open -- run the rerun on a host with the web-api deps."
+}
