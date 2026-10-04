@@ -77,8 +77,10 @@ inputs:
   verdict:
     description: >
       One of `pass` · `fail` · `no_action_warranted` · `indeterminate` ·
-      `not_applicable`. `not_applicable` is legal ONLY when `read-state` says we
-      could not look; the validator refuses every other combination.
+      `not_applicable` · `wiring_only`. `not_applicable` is legal ONLY when
+      `read-state` says we could not look; `wiring_only` (measured, but the
+      producer could not apply the unit's rule -- NOT a decision) is legal ONLY
+      with `read-state: measured`; the validator refuses every other combination.
     required: true
   read-state:
     description: >
