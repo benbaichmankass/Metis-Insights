@@ -55,8 +55,11 @@ LEVERS (``--variants a,b,c --out-dir DIR``; diagnostics for choosing how the bro
   ``js_or_managed`` / ``interactive_widget`` / ``other``: a Turnstile widget is only OBSERVED, never clicked),
   ``cf_clearance_set`` (cookie NAME presence only) and, in proxy mode, ``exit_country`` (the ``loc=`` value only) read from
   Cloudflare's trace page (the ``ip=`` line on it is never kept). ``--evaluate --variant NAME`` judges one lever at a
-  time (results with no ``variant`` are ``baseline``), so the PASS rule is unchanged. NOT built, on purpose: any option
-  that HIDES automation (webdriver / User-Agent overrides, AutomationControlled): that needs an operator decision.
+  time (results with no ``variant`` are ``baseline``), so the PASS rule is unchanged. ``hardened`` and ``patchright``
+  (operator decision 2026-10-04, "option three", checklist row PROP-TERM) DO hide automation tells: real Chrome, headed,
+  persistent profile, navigator.webdriver false, locale/timezone matched to the exit country; patchright also removes
+  the CDP leaks. They record what the page itself reports (``signals``) and, when served, whether a reload in the same
+  profile stays served (``reload_served``). Still never: typing, clicking a widget, or a CAPTCHA-solving service.
 
 EVERY PROXY-MODE EXIT WRITES A RESULT (``proxy_state`` ok / proxy_unreachable /
 org_unreadable / error / format_invalid), so a crash can never be mistaken for a
@@ -90,14 +93,56 @@ APP_HOST = "app.breakoutprop.com"
 #: launched and how long the landing page is observed. ``wait_s``: keep observing a "Just a moment..." page up to
 #: this long, because a JS/managed challenge often clears by itself. ``channel="chromium"``: Chromium's own
 #: "new headless" mode instead of Playwright's separate headless shell. ``headed``: a real window (needs a display,
-#: e.g. xvfb on a runner). Deliberately NOT here: options that HIDE automation (webdriver / User-Agent overrides,
-#: AutomationControlled): that needs an explicit operator decision and was not built.
+#: e.g. xvfb on a runner). The first four hide nothing; ``hardened`` / ``patchright`` below do, under the operator's
+#: 2026-10-04 decision (checklist row PROP-TERM).
 VARIANTS = {
     "baseline": {"wait_s": 0},
     "wait": {"wait_s": 30},
     "newheadless": {"wait_s": 30, "channel": "chromium"},
     "headed": {"wait_s": 30, "channel": "chromium", "headed": True},
+    # HARDENED levers (operator decision 2026-10-04, "option three": make the VM's browser pass Cloudflare for our
+    # own account; recorded on checklist row PROP-TERM). They change how a REAL browser presents itself and still
+    # type nothing, click nothing (a Turnstile widget is only observed) and never use a solving service.
+    #   hardened:   real Google Chrome (channel "chrome"), headed, a persistent profile, no `--enable-automation`,
+    #               `AutomationControlled` blink feature off (so navigator.webdriver is false), and locale/timezone
+    #               matched to the proxy's exit country. No User-Agent override: a headed Chrome's own UA is
+    #               already consistent, and a spoofed one is a mismatch Cloudflare can score.
+    #   patchright: the same, driven by patchright (a Playwright fork that removes the CDP Runtime.enable leak and
+    #               the other automation tells Playwright itself cannot switch off).
+    "hardened": {"wait_s": 45, "channel": "chrome", "headed": True, "persistent": True, "harden": True},
+    "patchright": {"wait_s": 45, "channel": "chrome", "headed": True, "persistent": True, "harden": True,
+                   "engine": "patchright"},
 }
+
+#: Exit country -> IANA timezone for the hardened levers (a browser timezone that disagrees with the address is a
+#: signal). Unknown countries keep the machine's own timezone rather than guess.
+COUNTRY_TZ = {"US": "America/New_York", "BG": "Europe/Sofia", "GB": "Europe/London", "DE": "Europe/Berlin",
+              "NL": "Europe/Amsterdam", "FR": "Europe/Paris", "CA": "America/Toronto", "IL": "Asia/Jerusalem"}
+HARDEN_ARGS = ["--disable-blink-features=AutomationControlled"]
+HARDEN_DROP_DEFAULTS = ["--enable-automation"]
+
+#: What the page itself reports, read in the page after the landing observation. These are the signals bot scoring
+#: is known to read; recording them is how a lever is judged on what it CHANGED, not on what it was meant to change.
+#: No value here can carry the proxy or the address.
+SIGNALS_JS = """() => {
+  let webgl = 'none';
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    const d = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    webgl = d ? String(gl.getParameter(d.UNMASKED_RENDERER_WEBGL)).slice(0, 80) : 'no_debug_info';
+  } catch (e) { webgl = 'error'; }
+  return {
+    webdriver: navigator.webdriver === true,
+    headless_ua: /HeadlessChrome/.test(navigator.userAgent),
+    ua_major: (navigator.userAgent.match(/Chrome\/(\d+)/) || [null, ''])[1],
+    languages: (navigator.languages || []).slice(0, 4).join(','),
+    plugins: navigator.plugins ? navigator.plugins.length : -1,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    window_chrome: typeof window.chrome === 'object',
+    hardware_concurrency: navigator.hardwareConcurrency || -1,
+    webgl_renderer: webgl,
+  };
+}"""
 TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
 MARKERS = {
     "cloudflare_1005_asn_ban": re.compile(r"banned the autonomous system number|error code:?\s*1005", re.I),
@@ -228,10 +273,23 @@ def app_pass(host: dict) -> bool:
     )
 
 
-def _load_playwright():
+def _load_playwright(engine: str = "playwright"):
+    if engine == "patchright":
+        from patchright.sync_api import Error as PlaywrightError
+        from patchright.sync_api import sync_playwright
+        return sync_playwright, PlaywrightError
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
     return sync_playwright, PlaywrightError
+
+
+def _read_signals(page, PlaywrightError, secrets) -> dict:
+    """The page's own view of the browser (see SIGNALS_JS). Any failure is a token, never a traceback."""
+    try:
+        raw = page.evaluate(SIGNALS_JS) or {}
+    except PlaywrightError as exc:
+        return {"error": error_token(exc, secrets)}
+    return {k: scrub(v, secrets)[:80] if isinstance(v, str) else v for k, v in raw.items()}
 
 
 def _new_result(spec, now=None) -> dict:
@@ -305,12 +363,16 @@ def _challenge_kind(title, markers, login, widget, body) -> str:
     return "other"
 
 
-def _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result):
+def _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result, ctx=None):
+    """One landing observation. ``ctx``: a persistent context the caller owns (hardened levers); otherwise a fresh
+    context is opened on ``browser`` and closed here."""
     rec = {"http_status": "", "cf_mitigated": "", "server": "", "title": "", "markers": [],
            "login_form_rendered": False, "navigation_error": "", "first_http_status": "", "first_cf_mitigated": "",
            "first_title": "", "challenged_at_first_load": None, "cleared_after_s": None, "challenge_kind": "unknown",
            "cf_clearance_set": False}
-    ctx = browser.new_context(viewport={"width": 1280, "height": 800})
+    owned = ctx is None
+    if owned:
+        ctx = browser.new_context(viewport={"width": 1280, "height": 800})
     page = ctx.new_page()
     last_nav = {}
 
@@ -350,13 +412,40 @@ def _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result):
         rec["title"], rec["markers"], rec["login_form_rendered"] = title, markers, login
         rec["challenge_kind"] = _challenge_kind(title, markers, login, widget, body)
         rec["cf_clearance_set"] = any(c.get("name") == "cf_clearance" for c in ctx.cookies())  # name only, never the value
+        if cfg.get("harden"):
+            rec["signals"] = _read_signals(page, PlaywrightError, secrets)
+            if rec["login_form_rendered"]:
+                # Does the clearance carry to a fresh load in the same profile? (The lifetime ACROSS hours is a VM
+                # measurement: a runner's profile dies with the job.)
+                page.wait_for_timeout(10_000)
+                page.reload(wait_until="domcontentloaded", timeout=45_000)
+                page.wait_for_timeout(5_000)
+                t2, _m2, login2, _w2, _b2 = _observe(page, secrets)
+                rec["reload_served"] = bool(login2 and not _is_challenge_title(t2))
     except PlaywrightError as exc:
         rec["navigation_error"] = error_token(exc, secrets)
         if spec and is_proxy_error(rec["navigation_error"]):
             result["proxy_state"] = "proxy_unreachable"
     finally:
-        ctx.close()
+        if owned:
+            ctx.close()
+        else:
+            page.close()
     return rec
+
+
+def _launch_hardened(p, cfg, spec, country, profile_dir):
+    """A persistent, headed, real-Chrome context. Locale/timezone follow the exit country when it is known."""
+    kw = {"headless": not cfg.get("headed", False), "channel": cfg.get("channel") or None, "no_viewport": True,
+          "args": list(HARDEN_ARGS), "ignore_default_args": list(HARDEN_DROP_DEFAULTS), "locale": "en-US"}
+    if not kw["channel"]:
+        kw.pop("channel")
+    tz = COUNTRY_TZ.get(country or "")
+    if tz:
+        kw["timezone_id"] = tz
+    if spec:
+        kw["proxy"] = spec.playwright_proxy()  # explicit proxy: Chromium has no direct fallback
+    return p.chromium.launch_persistent_context(str(profile_dir), **kw), tz or "machine_default"
 
 
 def run_probe(spec, now=None, urls=URLS, variant="baseline"):
@@ -369,17 +458,18 @@ def run_probe(spec, now=None, urls=URLS, variant="baseline"):
     result = _new_result(spec, now)
     result["variant"] = variant
     secrets = spec.secrets() if spec else []
+    engine = cfg.get("engine", "playwright")
     try:
-        sync_playwright, PlaywrightError = _load_playwright()
+        sync_playwright, PlaywrightError = _load_playwright(engine)
     except ImportError as exc:
-        print(f"environment: playwright not importable ({type(exc).__name__})")
+        print(f"environment: {engine} not importable ({type(exc).__name__})")
         result["proxy_state"] = "error" if spec else "none"
-        result["proxy_error"] = "playwright_not_importable"
+        result["proxy_error"] = f"{engine}_not_importable"
         return result, 1
     with sync_playwright() as p:
         try:
-            launch_kw = {"headless": not cfg.get("headed", False)}
-            if cfg.get("channel"):
+            launch_kw = {"headless": True} if cfg.get("persistent") else {"headless": not cfg.get("headed", False)}
+            if cfg.get("channel") and not cfg.get("persistent"):
                 launch_kw["channel"] = cfg["channel"]
             if spec:
                 launch_kw["proxy"] = spec.playwright_proxy()  # explicit proxy: Chromium has no direct fallback
@@ -407,10 +497,33 @@ def run_probe(spec, now=None, urls=URLS, variant="baseline"):
                 return result, 0  # fail-closed: no navigation to the targets, no direct fallback
         else:
             result["egress_org"] = direct_egress_org()
-        for url in urls:
-            host_key = url.split("//", 1)[1].rstrip("/")
-            result["hosts"][host_key] = _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result)
-        browser.close()
+        if cfg.get("persistent"):
+            # The lookup browser above (plain headless, same proxy, fail-closed) is done; the hardened profile is a
+            # separate, persistent real-Chrome context so its timezone can follow the exit country just measured.
+            browser.close()
+            import tempfile
+            with tempfile.TemporaryDirectory(prefix="probe-profile-") as profile_dir:
+                try:
+                    ctx, tz = _launch_hardened(p, cfg, spec, result.get("exit_country"), profile_dir)
+                except PlaywrightError as exc:
+                    token = error_token(exc, secrets)
+                    print(f"environment: hardened browser failed to launch ({token})")
+                    result["proxy_state"] = "error" if spec else "none"
+                    result["proxy_error"] = token
+                    return result, 1
+                result["timezone_applied"] = tz
+                try:
+                    for url in urls:
+                        host_key = url.split("//", 1)[1].rstrip("/")
+                        result["hosts"][host_key] = _probe_url(None, url, cfg, secrets, PlaywrightError, spec,
+                                                               result, ctx=ctx)
+                finally:
+                    ctx.close()
+        else:
+            for url in urls:
+                host_key = url.split("//", 1)[1].rstrip("/")
+                result["hosts"][host_key] = _probe_url(browser, url, cfg, secrets, PlaywrightError, spec, result)
+            browser.close()
     result["app_pass"] = app_pass(result["hosts"].get(APP_HOST)) and (not spec or result["proxy_state"] == "ok")
     return result, 0
 
@@ -423,6 +536,8 @@ def print_result(result: dict) -> None:
         print(f"variant={result['variant']}")
     if result.get("exit_country"):
         print(f"exit_country={result['exit_country']}")
+    if result.get("timezone_applied"):
+        print(f"timezone_applied={result['timezone_applied']}")
     for host, rec in result["hosts"].items():
         print(f"--- {host}")
         print(f"  http_status={rec['http_status'] or 'none'}")
@@ -437,6 +552,10 @@ def print_result(result: dict) -> None:
             print(f"  first_load={first} title={rec['first_title']!r} challenged_at_first_load={'yes' if rec['challenged_at_first_load'] else 'no'}")
             print(f"  cleared_after_s={rec['cleared_after_s'] if rec['cleared_after_s'] is not None else 'never'}"
                   f" challenge_kind={rec['challenge_kind']} cf_clearance_set={'yes' if rec['cf_clearance_set'] else 'no'}")
+        if rec.get("signals"):
+            print("  signals=" + " ".join(f"{k}={v}" for k, v in sorted(rec["signals"].items())))
+        if "reload_served" in rec:
+            print(f"  reload_served={'yes' if rec['reload_served'] else 'no'}")
         if rec["navigation_error"]:
             print(f"  navigation_error={rec['navigation_error']}")
     print(f"app_pass={'yes' if result['app_pass'] else 'no'}")

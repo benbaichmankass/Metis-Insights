@@ -44,7 +44,7 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: "Comma-separated levers to try on the SAME proxy in this one run: baseline, wait, newheadless, headed (see the script). The PASS rule counts only `baseline`; the others are diagnostics."
+        description: "Comma-separated levers to try on the SAME proxy in this one run: baseline, wait, newheadless, headed, hardened, patchright (see the script). The PASS rule counts only `baseline`; the others are diagnostics."
         type: string
         default: "baseline"
 
@@ -102,8 +102,10 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         run: |
           set -euo pipefail
-          pip install playwright
+          pip install playwright patchright
           playwright install --with-deps chromium
+          # hardened / patchright levers drive real Google Chrome (channel "chrome"); the runner image ships it
+          command -v google-chrome >/dev/null || playwright install chrome
           command -v xvfb-run >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }   # the `headed` lever needs a display
       - name: Landing-only probe (no credentials, nothing clicked)
         if: steps.gate.outputs.run == 'true'

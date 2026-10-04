@@ -93,6 +93,16 @@ class _Page:
     def title(self):
         return self.cur.get("title", "")
 
+    def evaluate(self, js):
+        self.w.evaluated.append(js)
+        return dict(self.w.signals)
+
+    def reload(self, **kw):
+        self.w.reloads += 1
+
+    def close(self):
+        pass
+
     def inner_text(self, sel):
         return self.cur.get("body", "")
 
@@ -144,6 +154,12 @@ class _Chromium:
     def __init__(self, world):
         self.w = world
 
+    def launch_persistent_context(self, user_data_dir, **kw):
+        self.w.persistent.append((user_data_dir, kw))
+        if self.w.persistent_error:
+            raise self.w.persistent_error
+        return _Ctx(self.w)
+
     def launch(self, **kw):
         self.w.launches.append(kw)
         if self.w.launch_error:
@@ -167,6 +183,9 @@ class World:
         self.launches, self.navigations, self.routes, self.launch_error = [], [], {}, None
         self.new_context_error = self.new_page_error = self.ctx_close_error = self.browser_close_error = None
         self.cookies = []
+        self.persistent, self.persistent_error, self.evaluated, self.reloads = [], None, [], 0
+        self.signals = {"webdriver": False, "headless_ua": False, "timezone": "America/New_York",
+                        "webgl_renderer": f"leak-test {HOST}"}
 
 
 def served():
@@ -176,7 +195,7 @@ def served():
 @pytest.fixture
 def world(monkeypatch):
     w = World()
-    monkeypatch.setattr(probe, "_load_playwright", lambda: (lambda: _PW(w), FakeError))
+    monkeypatch.setattr(probe, "_load_playwright", lambda *a: (lambda: _PW(w), FakeError))
 
     def _no_direct():
         raise AssertionError("the direct route was asked for the egress organisation")
@@ -761,3 +780,58 @@ def test_a_clearance_cookie_also_ends_the_wait_once_the_challenge_page_is_gone(w
     _, _, d = run_variants(monkeypatch, tmp_path, capsys, "wait")
     app = load(d, "wait")["hosts"]["app.breakoutprop.com"]
     assert app["cleared_after_s"] == 12 and app["login_form_rendered"] is False and app["cf_clearance_set"] is True
+
+
+# ---------------------------------------------------------------- hardened levers (operator decision 2026-10-04)
+def test_hardened_lever_uses_real_chrome_persistent_profile_and_matches_timezone(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = {"body": ORG}
+    world.routes[TRACE] = {"body": TRACE_BODY}
+    world.routes[APP], world.routes[WSS] = served(), served()
+    code, text, d = run_variants(monkeypatch, tmp_path, capsys, "hardened")
+    assert code == 0
+    # the plain lookup browser (fail-closed org/country read) + ONE persistent real-Chrome context
+    assert len(world.launches) == 1 and len(world.persistent) == 1
+    _dir, kw = world.persistent[0]
+    assert kw["channel"] == "chrome" and kw["headless"] is False
+    assert "--disable-blink-features=AutomationControlled" in kw["args"]
+    assert kw["ignore_default_args"] == ["--enable-automation"]
+    assert kw["timezone_id"] == "America/New_York" and kw["locale"] == "en-US"
+    assert kw["proxy"]["server"] == f"http://{HOST}:{PORT}"
+    assert "user_agent" not in kw, "no UA override: a spoofed UA is itself a mismatch"
+    r = load(d, "hardened")
+    app = r["hosts"]["app.breakoutprop.com"]
+    assert r["timezone_applied"] == "America/New_York" and r["app_pass"] is True
+    assert app["signals"]["webdriver"] is False and app["reload_served"] is True
+    assert "signals=" in text and "reload_served=yes" in text
+    assert_clean(text)   # a signal value that echoes the proxy host is scrubbed
+    assert all_clean_files(d)
+
+
+def test_hardened_lever_is_fail_closed_on_an_unusable_proxy(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = FakeError(f"net::ERR_PROXY_CONNECTION_FAILED {RAW_URL}")
+    code, text, d = run_variants(monkeypatch, tmp_path, capsys, "hardened,patchright")
+    assert world.persistent == [], "no hardened browser is opened when the proxy cannot be used"
+    assert APP not in world.navigations
+    assert load(d, "hardened")["proxy_state"] == "proxy_unreachable"
+    assert_clean(text)
+
+
+def test_hardened_launch_failure_is_a_token_and_never_goes_direct(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = {"body": ORG}
+    world.persistent_error = FakeError(f"chrome not found; --proxy-server={HOST}:{PORT} {PW}")
+    code, text, d = run_variants(monkeypatch, tmp_path, capsys, "hardened")
+    assert code == 1 and load(d, "hardened")["proxy_state"] == "error"
+    assert APP not in world.navigations
+    assert_clean(text)
+    assert all_clean_files(d)
+
+
+def test_hardened_never_clicks_a_turnstile_widget(world, monkeypatch, tmp_path, capsys):
+    world.routes["https://ipinfo.io/org"] = {"body": ORG}
+    world.routes[APP], world.routes[WSS] = challenged(widget=True), served()
+    code, text, d = run_variants(monkeypatch, tmp_path, capsys, "hardened")
+    r = load(d, "hardened")
+    app = r["hosts"]["app.breakoutprop.com"]
+    assert app["challenge_kind"] == "interactive_widget" and r["app_pass"] is False
+    assert "reload_served" not in app          # only measured once served
+    assert not hasattr(_Page, "click") and not hasattr(_Page, "fill"), "the fake has no click/fill: any call would raise"
