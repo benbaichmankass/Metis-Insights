@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-WJUTENGU-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "SA-DOCS lane close-out 2026-09-29",
+    "rerun": "grep -n 'HARD COMPLETION GATE\\|count_untriaged' .claude/skills/*/SKILL.md"
+  },
+  "state": "queued",
+  "what": "Residual stale text in review skills: ml-review/SKILL.md and performance-review/SKILL.md keep 'Draining the backlog - a HARD COMPLETION GATE' / backlog_coverage.count_untriaged wording that assumes the archived review backlogs (FIX-SA-09 repointed only the file paths). Rewrite the gate against PIPELINE.jsonl rows or drop it. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] performance-review/SKILL.md half addressed in the 2026-10-04 performance-review PR (limit=500 -> 200 with offset paging, classifier input shape, tracker gap). The ml-review/SKILL.md half is not this lane's file and is untouched; row stays open for it."
+}

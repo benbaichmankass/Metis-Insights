@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "RECURRING — not closed by a single run. Retire only if the operator drops the real-money-allocation gate. Each run records real_money_allocation_benchmark in the response and refreshes this item's verdict.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='SRQ-20260715-REALMONEY-ALLOC-BENCHMARK'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Scanned every comms/reviews/performance-review-*.json for a populated real_money_allocation_benchmark field. Only one exists, from 2026-08-11 (bybit_2 vs an Alpaca ETF-sleeve proxy, candidate figures mostly null, verdict 'does_not_...'). Every review since, including the most recent (2026-09-27, yesterday), has this field as null -- the recurring benchmark has not actually been run/populated in over 6 weeks, despite alpaca_live now carrying a real 3-leg roster (verified in config/accounts.yaml) that makes the comparison newly relevant.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: wire the real_money_allocation_benchmark computation into the performance-review cycle (or a standalone script) so it actually populates each run, now that there is a live Alpaca roster worth benchmarking against bybit-only -- the recurring intent this item declares is not being met mechanically, independent of what the answer turns out to be.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] [recurring] Real-money allocation benchmark — does a ready-for-live portfolio beat the incumbent live book (bybit-only) on risk-adjusted PnL, incl. regime diversification?\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: wire the real_money_allocation_benchmark computation into the performance-review cycle (or a standalone script) so it actually populates each run, now that there is a live Alpaca roster worth benchmarking against bybit-only -- the recurring intent this item declares is not being met mechanically, independent of what the answer turns out to be. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] this run: incumbent real-money book (bybit_2 + alpaca_live) closed 5 trades in the window 2026-09-27T07:29Z..2026-10-04, 0 wins, -$18.90 (all SL, each -$3.4..-$4.4; source /api/bot/trades/closed?since=...&include_paper=true read 2026-10-04); candidate ETF sleeve on alpaca_paper closed 4, 0 wins, -$2,848.96. Verdict does_not_clear at this n: neither side has enough closes for a correlation or drawdown estimate; capital stays where it is. Recurring row stays open."
+}

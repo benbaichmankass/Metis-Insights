@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either a Tier-3 PR proposing a TLT-only min_confidence floor citing live + out-of-sample evidence, OR a documented decision (here) that the in-sample edge does not hold up and the sleeve stays uniformly min_confidence: 0.0.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260622-002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260622-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260622-002'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "comms/strategy_evidence/tlt_pullback_1d.json (n_trades_oos=8, folds_positive=1/4, verdict=fail) and tlt_pullback_1h.json (n=94, folds_positive=1/4, verdict=fail), both generated 2026-09-24. No min_confidence override for either leg found in config/strategies.yaml (defaults to 0.0, consistent with the item's premise). n=8 for the daily leg is far too small to test a confidence-floor hypothesis either way.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — this is exactly the accrual case the item's own check_every_days=14 cadence is for: too little live/OOS data (n=8 daily) to decide the floor question yet, not a judgment call.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] Revisit a TLT-only min_confidence ~0.10 floor on tlt_pullback_1d (and the 1h sibling) once live data accrues\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — this is exactly the accrual case the item's own check_every_days=14 cadence is for: too little live/OOS data (n=8 daily) to decide the floor question yet, not a judgment call. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ed: scripts/ops/accrual_clock.py \\u2014 plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8.\" |   } | }"
+}

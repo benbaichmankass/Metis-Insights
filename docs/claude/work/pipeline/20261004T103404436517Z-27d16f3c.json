@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either a re-run of scripts/backtest_funding_carry.py on an elevated-funding window clears the robustness bar and a market-neutral carry cell is proposed (Tier-3, account_compat-gated), or the carry idea is re-confirmed dormant with fresh evidence and snoozed again.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260620-002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260620-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260620-002'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed scripts/backtest_funding_carry.py exists on disk. This is a standing 'wait for perp funding to elevate, then re-run' item with no code/config action available today — a market-regime-dependent research idea, not a stale claim.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — per the operator's standing rule an idea is never killed after one inconclusive/dormant pass; this stays a monitored condition (funding regime) until it elevates, then scripts/backtest_funding_carry.py is re-run.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] Funding-carry sleeve is dormant/regime-dependent — revisit wiring a market-neutral carry cell when perp funding elevates\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — per the operator's standing rule an idea is never killed after one inconclusive/dormant pass; this stays a monitored condition (funding regime) until it elevates, then scripts/backtest_funding_carry.py is re-run. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): n\": \"snoozed\", |       \"note\": \"Re-validated: dormant BY DESIGN, regime-dependent. Trigger = perp funding elevating. Nothing to do meanwhile.\" |     } |   ], |   \"severity\": \"low\", |   \"disposition\": \"snoozed\", |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\" | }"
+}

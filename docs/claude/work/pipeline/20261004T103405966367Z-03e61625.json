@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) an operator Tier-3 decision on xrp_pullback_2h.pullback_frac made against a PRE-REGISTERED admission criterion, with the four non-generalizing legs explicitly left alone and that recorded; or (b) a fresh walk-forward over >= 3 of the 5 legs whose criterion was fixed before the candidates were measured, resolving whether the 1-of-5 survivor is an edge or a lucky draw over ~120 measured cells. Closing requires one of those two, not a re-read of the existing corpus.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/strategies.yaml has no pullback_frac entry for xrp_pullback_2h (or any of the 5 crypto legs) -- no config change has been made. No RQ item or dated doc found re-running a pre-registered walk-forward over the 5 legs since 2026-08-24; the pipeline store's own copy of this row is unchanged.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "research/queue: run option (b) from the row's own clears_when -- a fresh walk-forward over >=3 of the 5 pullback-depth-filter legs with the admission criterion fixed BEFORE the candidates are measured. This is buildable now and resolves the question more cheaply than an operator popup on ~120-cell-mined evidence.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] The htf_pullback_trend_2h family's pullback-DEPTH filter is a net negative on all 5 crypto legs on full history, but removing it survives split dispersion on only 1 (xrp)\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — research/queue: run option (b) from the row's own clears_when -- a fresh walk-forward over >=3 of the 5 pullback-depth-filter legs with the admission criterion fixed BEFORE the candidates are measured. This is buildable now and resolves the question more cheaply than an operator popup on ~120-cell-mined evidence. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): CISION (Tier-3), not work a review can drain. Carried with the blocker named. One leg clearing a gate four siblings fail is exactly the cosmetic-cell shape the regime-selectivity rules warn about; recommend NOT acting on the single-leg pass.\" |     } |   ] | }"
+}

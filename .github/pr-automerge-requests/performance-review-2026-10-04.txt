@@ -1,0 +1,1 @@
+auto-merge: performance-review record + grades + pipeline records + skill doc fix
