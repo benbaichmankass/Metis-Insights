@@ -1,0 +1,82 @@
+id: RQ-20261004-661
+title: 'Tradeify 247 1-Step prop fit: ict_scalp_eth_15m at sizing flat 0.5% of balance (hand-authored, RULE-TRADEIFY-FIT)'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 2
+question: 'Does ict_scalp_eth_15m (ETHUSDT 15m) clear the operator''s prop bar -- E[net $ banked before the account
+  dies] > 0 with P(net>0) >= 0.70 on every seed -- under Tradeify 247 1-Step''s own rules (config/prop_rulesets/tradeify_247_1step.yaml:
+  3% daily / 6% static max, 12% target, 22:00 UTC reset, 5:1 BTC/ETH and 2:1 alt notional cap, hedging banned, 0.04%/side
+  commission, prorated swap) when sized flat 0.5% of balance? Re-prices the leg''s committed trade evidence; no
+  new backtest.'
+why_this_matters: The 2026-09-30 Tradeify feasibility doc scored a 3- and 5-leg book at 0.5% only and called it
+  MARGINAL, with 3 of 5 legs losing sign without their best fold. tradeify_1 is already a live dry account (TRADEIFY-WIRE),
+  so which individual legs clear the bar, and at which sizing, is the roster question that decides what it should
+  carry. This unit gives one leg x one sizing arm a graded record instead of a paragraph in a memo.
+power:
+  expected_n: 117
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (the floor the Breakout prop-fit family registered,
+    RQ-20260928-011/-012). expected_n is the leg's committed trade count in the 2026-09-30 feasibility doc; below
+    88 the unit grades UNDERPOWERED (indeterminate), never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: Re-grading of committed trade evidence; nothing accrues.
+decision_rule:
+  id: RULE-RQ1004-TRADEIFY-FIT-ict_scalp_eth_15m-f050
+  registered_at: '2026-10-04'
+  registered_before_run: true
+  statistic: 'Per seed: prop_ev_sim path-mode ev_net_usd_per_life and p_net_positive over ict_scalp_eth_15m''s committed
+    trades, under config/prop_rulesets/tradeify_247_1step.yaml, --lev-cap ict_scalp_eth_15m=5, --no-hedge, sizing
+    flat 0.5% of balance.'
+  rule: PASS IF ev_net_usd_per_life > 0 on ALL 5 seeds AND P(net>0) >= 0.70 on ALL 5 seeds. UNDERPOWERED (indeterminate)
+    IF n < 88. FAIL IF ev <= 0 on any seed. NULL (indeterminate) otherwise. A PASS is a Tier-3 roster proposal for
+    tradeify_1 and is NOT applied by this unit; a FAIL is one pass and re-queues for a confirmatory run before it
+    is read as a kill.
+  what_it_does_not_do: Does not touch config/accounts.yaml, config/strategies.yaml or the tradeify_1 roster. Prices
+    committed trades; it is not a fresh backtest and not a live-parity check.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 20
+  basis: 1 leg x 1 arm x 5 seeds of prop_ev_sim, same shape and cost as the generated Breakout prop-fit units.
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 90
+  command:
+  - python3
+  - scripts/research/prop_ev_grid.py
+  - --leg
+  - ict_scalp_eth_15m
+  - --arm
+  - A=--sizing balance --risk-pct 0.005
+  - --common
+  - --ruleset config/prop_rulesets/tradeify_247_1step.yaml --lev-cap ict_scalp_eth_15m=5 --no-hedge --swap-model
+    prorated --funded-start fresh
+  - --seeds
+  - 1,2,3,4,5
+  - --grade
+  - pass_all_seeds
+  - --p-floor
+  - '0.70'
+  - --n-floor
+  - '88'
+  - --out
+  - '{out_dir}'
+  - --jobs
+  - '4'
+  inputs:
+    research_unit: RQ-20261004-661
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- docs/research/tradeify-portfolio-feasibility-2026-09-30.md
+- config/prop_rulesets/tradeify_247_1step.yaml
