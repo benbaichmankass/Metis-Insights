@@ -420,12 +420,13 @@ class _SidedIBClient(_FakeIBClient):
     """Coverage with the SIDE-AWARE fields the real client returns."""
 
     def __init__(self, *, size, stop_qty, target_qty, covered_qty, legs,
-                 stop_groups=None):
+                 stop_groups=None, target_groups=None):
         super().__init__(protected=True, size=size)
         self._cov = {
             "size": size, "covered_qty": covered_qty, "stop_qty": stop_qty,
             "target_qty": target_qty, "legs": legs, "unknown_qty_legs": 0,
             "oca_groups": {}, "stop_groups": dict(stop_groups or {}),
+            "target_groups": dict(target_groups or {}),
             "source": "resting_legs",
         }
 
@@ -450,8 +451,10 @@ def test_ib_target_only_book_is_not_graded_covered(tmp_path, monkeypatch):
     _insert(db, id=1, account_id="ib_paper", symbol="MHG", direction="long",
             position_size=10, stop_loss=4.0, take_profit_1=6.0,
             created_at="2026-06-25T00:00:00+00:00", status="open")
+    # The full TP rests in the row's OWN group, so a re-arm replaces it.
     fake = _SidedIBClient(size=10.0, stop_qty=0.0, target_qty=10.0,
-                          covered_qty=10.0, legs=1)
+                          covered_qty=10.0, legs=1,
+                          target_groups={"oca-protect-t1": 10.0})
     _patch_accounts(monkeypatch, fake)
 
     summary = om._check_broker_naked_ib_positions(db)
@@ -459,6 +462,33 @@ def test_ib_target_only_book_is_not_graded_covered(tmp_path, monkeypatch):
     assert summary["rearmed"] == 1 and fake.rearmed[0]["sl"] == 4.0
     assert len(pages) == 1 and pages[0]["venue"] == "ib"
     assert pages[0]["stop_qty"] == 0.0
+
+
+@pytest.mark.parametrize("target_groups", [
+    {"oca-protect-446": 10.0},   # full TP in a FOREIGN group
+    {},                          # full TP ungrouped
+])
+def test_ib_foreign_full_target_pages_but_never_rearms(tmp_path, monkeypatch,
+                                                      target_groups):
+    """#16496 review: a full-qty target outside the row's own group plus a
+    re-armed bracket's target would be two full targets; IB limits are not
+    reduce-only, so both could fill into a reverse position. Page, never arm."""
+    pages = _capture_partial_pages(monkeypatch)
+    called = []
+    monkeypatch.setattr(om, "_attempt_naked_autoprotect",
+                        lambda *a, **k: called.append(a) or True)
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="ib_paper", symbol="MHG", direction="long",
+            position_size=10, stop_loss=4.0, take_profit_1=6.0,
+            created_at="2026-06-25T00:00:00+00:00", status="open")
+    fake = _SidedIBClient(size=10.0, stop_qty=0.0, target_qty=10.0,
+                          covered_qty=10.0, legs=1, target_groups=target_groups)
+    _patch_accounts(monkeypatch, fake)
+
+    summary = om._check_broker_naked_ib_positions(db)
+    assert called == [] and fake.rearmed == []
+    assert summary["rearm_blocked_foreign_target"] == 1
+    assert len(pages) == 1 and pages[0]["venue"] == "ib"
 
 
 def test_ib_partial_rearms_the_naked_row_not_the_protected_one(tmp_path, monkeypatch):
@@ -473,7 +503,8 @@ def test_ib_partial_rearms_the_naked_row_not_the_protected_one(tmp_path, monkeyp
                 status="open")
     fake = _SidedIBClient(size=10.0, stop_qty=5.0, target_qty=5.0,
                           covered_qty=5.0, legs=2,
-                          stop_groups={"oca-protect-t1": 5.0})
+                          stop_groups={"oca-protect-t1": 5.0},
+                          target_groups={"oca-protect-t1": 5.0})
     _patch_accounts(monkeypatch, fake)
 
     for _ in range(3):

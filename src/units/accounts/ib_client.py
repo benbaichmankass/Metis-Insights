@@ -4118,6 +4118,11 @@ class IBClient:
             # intact on a partially covered netted position (CA-A01-049).
             # Additive; ungrouped stop legs are not in it.
             "stop_groups": dict(stop_groups),
+            # {group: TARGET qty}, same shape. Ungrouped target legs are not in
+            # it, so `target_qty - sum(target_groups)` is the ungrouped target
+            # qty. The naked sweep uses it to refuse a re-arm that would stack
+            # a second full-qty target beside a foreign one (#16496 review).
+            "target_groups": dict(target_groups),
             # {group: clientId|None}. A `None` value is "unreadable", never
             # "this session" -- see the accumulator comment above.
             "oca_group_client_ids": dict(oca_group_client_ids),

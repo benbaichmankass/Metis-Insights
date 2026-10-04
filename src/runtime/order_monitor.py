@@ -10678,6 +10678,47 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
             if _own_intact:
                 summary["own_group_intact"] = summary.get("own_group_intact", 0) + 1
                 continue
+            # ⚠️ A FOREIGN TARGET CAN BLOCK THE RE-ARM (#16496 review).
+            # place_protective arms a stop AND a full-row-qty target in
+            # `oca-protect-t<id>`. Target qty already resting OUTSIDE that group
+            # (another group, or ungrouped), plus targets this sweep already
+            # re-armed, plus this row's new one must not exceed the position:
+            # IB limit orders are not reduce-only, so an over-covered target
+            # side can fill past flat into a reverse position — the reason the
+            # target-naked branch above alerts and does not re-arm. A sibling's
+            # own bracket (target == its share) still leaves room, so the
+            # partial-netted repair is unaffected. Unreadable side-aware fields
+            # are "could not look" and block. The CRITICAL page above has fired.
+            _tq = cov.get("target_qty")
+            _tg = cov.get("target_groups")
+            try:
+                if _tq is None or _tg is None:
+                    # A coverage dict predating the side-aware fields: only a
+                    # combined figure above the stop side reveals a target.
+                    _outside = max(
+                        0.0, float(cov.get("covered_qty") or 0.0) - covered)
+                else:
+                    _outside = float(_tq) - float(
+                        _tg.get(f"oca-protect-t{row['id']}") or 0.0)
+                _outside += float(cov.get("_rearm_credit") or 0.0)
+                _target_overfill = (
+                    _outside + float(row["position_size"] or 0.0)
+                    > size + _IB_COVERAGE_EPSILON
+                )
+            except (TypeError, ValueError, AttributeError):
+                _target_overfill = True
+            if _target_overfill:
+                summary["rearm_blocked_foreign_target"] = (
+                    summary.get("rearm_blocked_foreign_target", 0) + 1)
+                logger.error(
+                    "_check_broker_naked_ib_positions: %s/%s stop short "
+                    "(%s of %s) but target qty resting outside trade %s's own "
+                    "group would push the target side past the position — NOT "
+                    "re-arming (a second target could open a reverse "
+                    "position); paged, resolve by hand",
+                    account_id, protect_symbol, covered, size, row["id"],
+                )
+                continue
             # Partially covered is the case the old boolean could not see: a
             # surviving sibling leg made the whole netted position read
             # PROTECTED while this trade's own protection was gone.
