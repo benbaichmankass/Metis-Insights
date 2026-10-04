@@ -5146,6 +5146,32 @@
       ],
       "blocked_on": [],
       "note": "2026-10-04 (lane session_017nt865EQaLPJszJ4SFBKu9, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv): re-verified all 13 members against main; PR-A (held) fixes KFWRL9R1-0006 (orphan flatten on package-read failure), -0002 (Bybit 110017 already-flat matcher), -0008 (paper orphan steals real-money package link), -0007 (venue surplus over journal, detect-only). Each test fails on main. Remaining members follow in PR-B/PR-C or are dispositioned with evidence on the pipeline. | 2026-10-04 ~22:00Z lane: THREE held PRs open, none merged/deployed/observed. #16492 orphan/reconciler (KFWRL9R1-0006/-0002/-0008/-0007). #16496 coverage (ENGC5EUD-0001, KFWRL9R1-0011/-0012; ENGC5EUD-0004 closed done, already fixed by #13251). #16498 Alpaca flat-finalise cancel (01CGDPN9-0002 part b) + pipeline routing notes for all 13 members. Residual, still open on the pipeline with re-verified evidence: 01CGDPN9-0002 part (a) _netting_apply_close (needs a decision), 3QJJAY5Y-0001 (Tier-3, needs journalctl count), KFWRL9R1-0010 (watchdog closed_at basis), KFWRL9R1-0013 (narrowed: >=3 naked rows / same-size siblings), ZCQTDZZG-0001 (diag-only). Row moves to landed_unproven when the PRs merge; done needs deploy + the observations named in each PR body."
+    },
+    {
+      "id": "CI-AUTOMERGE",
+      "title": "Unjam the automation/* PR backlog (research results first) and fix the root cause so new automation PRs land green unattended; then work PI-20261004-IRWQEEXT-0006",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "lane CI-AUTOMERGE",
+      "lane": "session_01MD7v8mG8doHqFYuTbsceQM",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16491,
+        16494,
+        16497,
+        16505
+      ],
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "docs/claude/work/CI-AUTOMERGE-CLOSE-LISTS-2026-10-04.json",
+          "what": "bulk close of 110 superseded automation PRs; classifier-denied to the lane"
+        }
+      ],
+      "note": "[2026-10-04T23:00Z lane CI-AUTOMERGE] ROOT CAUSES (MEASURED, 116 open automation/* PRs): (1) commit-to-main cut its branch from the caller's checkout, so research runs dispatched on a session branch carried it (21 PRs failed pr-landing R5/R12); (2) stale-automation-sweep refreshed 0/115, because it graded each PR absent_on_main on its own .github/merge-slots claim and its refresh() wrote the retired session-board.json. Both are fixed in #16494 (hold; manager merge). MERGED: #16491 (20 stranded research results, 22:16Z). MERGED: #16497 (append-only data rows) and #16505 (3 hygiene fixes, the 13 package dispositions, the close lists). NOT YET OBSERVED: sweeper refresh>0 after #16494 (pipeline PI-20261004-UTBSCEQM-0001). FINDING: GitHub has no jsonregister merge driver, so any PR that appends a checklist row re-conflicts every time main appends one (it struck #16494 twice); the row was therefore moved off #16494."
     }
   ]
 }
