@@ -1,0 +1,88 @@
+id: RQ-20261004-651
+title: 'trend_donchian_sol_prop static-bracket lever test: does any tp_r / atr_stop_mult arm beat the live bracket net of cost on 730d AND replicate on the recent year?'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 1
+question: >-
+  On the exit breakout_1 / tradeify_1 actually perform for trend_donchian_sol_prop (one static SL+TP
+  bracket: initial ATR stop + TP = min(venue cap, tp_r*risk); no trail, stale stop, decay or time exit),
+  does any arm of a pre-registered grid over the two bracket levers (tp_r, atr_stop_mult) improve pooled
+  net R over the live arm (tp_r 6.0, atr_stop_mult 2.5) on the 730-day pool, net of the full cost stack,
+  AND improve it in BOTH the older year and the most recent year of that pool?
+why_this_matters: >-
+  PI-20261003-APBY4NTV-0002. RQ-20261002-050 (#15589) passed SOL on the 730d static bracket (n=105,
+  +13.37R) but the trailing 365d read -0.49R (n=53), quarterly -5.51 / +0.42 / +0.05 / +4.54. The leg is
+  live on two prop accounts. If a bracket lever fixes the recent year as well as the older one, it is a
+  Tier-3 proposal; if no arm does, the live levers stand and the decay question stays with the 365d
+  re-grade the pipeline item already tracks. Operator priority "Prop evidence fixes", relayed by manager
+  session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04 (lane PROP-EVIDENCE, question 3).
+power:
+  expected_n: 105
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.3 needs ~88 trades at alpha 0.05 / power 0.8 (the floor RQ-20260928-011/-012 and RQ-20261002-050
+    registered). The live arm measured n=105 on the 730d pool in RQ-20261002-050; arms that widen the stop
+    or move the target change trade counts slightly (one position at a time), so each arm's own n is checked.
+  feasibility:
+    source: none
+    accrual_basis: Historical window fetched from data.binance.vision; nothing accrues. n is bounded by --days.
+decision_rule:
+  id: RULE-RQ1004-651-SOL-BRACKET-LEVER
+  registered_at: '2026-10-04T08:08:22Z'
+  registered_before_run: true
+  statistic: >-
+    scripts/research/prop_bracket_lever_sweep.py --leg trend_donchian_sol_prop --days 730. One candle fetch
+    (scripts/research/regime_debt_matrix.run_one, same plumbing as prop_bracket_exit_model.py), then
+    scripts/backtest_trend.py once per arm on the STATIC bracket (stale/decay flags stripped, --trail-mult 1000,
+    --timeout-bars 1000000, the leg's own venue-aware cost stack: fee + slippage + funding), overriding only
+    --tp-r and --atr-stop-mult. GRID (fixed here, 30 arms): tp_r in {2.0, 3.0, 4.0, 5.0, 6.0, 8.0} x
+    atr_stop_mult in {1.5, 2.0, 2.5, 3.0, 3.5}. LIVE arm = (6.0, 2.5). Per arm: n and pooled net_r over the
+    whole pool; RECENT = trades with entry_time >= (last candle timestamp - 365 days); OLDER = the rest.
+    delta_X = arm net_r_X - live net_r_X for X in {pool, older, recent}. Net R is per-trade R at fixed
+    fractional risk, so arms are compared at equal money risk per trade.
+  rule: >-
+    UNDERPOWERED IF the live arm's pool n < 88 (never FAIL). An arm QUALIFIES iff ALL of: its pool n >= 88;
+    its pool net_r > 0; delta_pool >= +5.0 R; delta_older > 0; delta_recent > 0; and its own recent net_r > 0.
+    PASS IF at least one non-live arm qualifies; the reported candidate is the qualifying arm with the largest
+    delta_pool, with every qualifying arm listed. FAIL IF none qualifies: the live levers stand.
+    The +5 R margin and the both-halves requirement are the guard against picking a winner out of 29 arms
+    by chance; neither is relaxed after seeing a result. A PASS is evidence for a Tier-3 proposal only (a
+    HELD PR changing config/strategies.yaml::trend_donchian_sol_prop); this unit applies no config change.
+    Prop survival (prop_ev_sim V2) is NOT part of this predicate; a PASS candidate must still be run through
+    RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 before any change is merged.
+  what_it_does_not_do: >-
+    Does not test trail, stale-stop or decay levers (the bracket performs none of them). Does not model
+    Breakout/Tradeify lot quantization or the per-account daily-loss refusals. Does not change any config.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 15
+  basis: one 730d 1h fetch + 30 trend-harness passes (seconds each), session-local.
+run:
+  workflow: session-local
+  note: Run SESSION-LOCAL by lane PROP-EVIDENCE.
+  command:
+  - python3
+  - scripts/research/prop_bracket_lever_sweep.py
+  - --leg
+  - trend_donchian_sol_prop
+  - --days
+  - '730'
+  - --out
+  - '{out_dir}/lever_sweep.json'
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- docs/claude/work/pipeline/20261003T155701146692Z-49268e08.json
+- research/queue/RQ-20261002-050.yaml
+- research/queue/RQ-20260927-003.yaml
+last_dispatched_at: null
