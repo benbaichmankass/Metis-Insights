@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "New research-queue units (XRP trail4 confirmation 653/654, Tradeify prop-fit 655-664) with pre-registered decision rules, plus hand-grading of RQ-20260929-105 (PASS) and -106 (FAIL). A new unit is a registration and a status flip is a grade, so a human reads this rather than self-landing. No config, strategy or account file is touched."
+}
