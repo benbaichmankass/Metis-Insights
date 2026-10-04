@@ -1,17 +1,13 @@
 """`backtest_results` dataset family (WS3).
 
 Reads aggregate backtest run summaries from the live
-`trade_journal.db` (table `backtest_results`). ⚠️ The M5 backtest consumer
-writer was REMOVED 2026-08-20, and rows written before then carry FABRICATED
-`0.0` values for sharpe_ratio / total_pnl_pct / max_drawdown_pct, so this
-family must not be trained on without reading that first. CORRECTED
-2026-10-04 (PI-20261001-IDQ1HLJD-0003): a producer DOES remain —
-`src/backtest/run_backtest.py::run_backtest()` still INSERTs into
-`backtest_results` (line ~181), and since #15311 its rows carry MEASURED
-drawdown / sharpe / pnl%. It is invoked by `scripts/ops/run_serious_baseline.sh`
-against a scratch DB (`TRADE_JOURNAL_DB=$DATA_DIR/backtest_baseline.db`), not the
-live journal. Rows from before #15311 stay untrustworthy. This builder emits the
-table as a versioned dataset under the canonical layout. Only stable columns are exported; the schema below
+`trade_journal.db` (table `backtest_results` — ⚠️ HISTORICAL ONLY, the
+writer was REMOVED 2026-08-20 and no producer remains; the rows it holds
+carry FABRICATED `0.0` values for sharpe_ratio / total_pnl_pct /
+max_drawdown_pct, so this family must not be trained on without reading
+that first. It was populated by the M5
+backtest consumer) and emits them as a versioned dataset under the
+canonical layout. Only stable columns are exported; the schema below
 is the contract.
 
 Safety: this builder is read-only. It opens the SQLite file in URI

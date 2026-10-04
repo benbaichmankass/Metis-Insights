@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Tier-1 docs only: dated CORRECTION blocks on two research notes and a docstring correction in ml/datasets/families/backtest_results.py (no behaviour change), plus 2 pipeline records closing the findings they fix. No config, runtime or order-path change."
+  "why": "Tier-1 docs only: dated CORRECTION blocks on two research notes plus 1 pipeline record closing the finding they fix. No code, config, runtime or order-path change."
 }
