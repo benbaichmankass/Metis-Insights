@@ -1,0 +1,221 @@
+{
+  "tool": "scripts/research/prop_ev_grid.py",
+  "sim": "scripts/research/prop_ev_sim.py",
+  "mode": "path",
+  "common": [
+    "--ruleset",
+    "config/prop_rulesets/breakout.yaml",
+    "--costs",
+    "breakout",
+    "--funded-start",
+    "fresh",
+    "--swap-model",
+    "prorated"
+  ],
+  "arms": {
+    "A": [
+      "--sizing",
+      "balance",
+      "--risk-pct",
+      "0.015"
+    ]
+  },
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "grade": "pass_all_seeds",
+  "overall": "all",
+  "legs": {
+    "qld_trend_long_1d": {
+      "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/qld_trend_long_1d__trades.jsonl",
+      "resolved_by": "evidence record comms/strategy_evidence/qld_trend_long_1d.json -> cost_stack.source",
+      "n_trades": 9
+    }
+  },
+  "cells": [
+    {
+      "leg": "qld_trend_long_1d",
+      "arm": "A",
+      "seed": 1,
+      "exit_code": 0,
+      "seconds": 245.9,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "qld_trend_long_1d=comms/strategy_evidence/runs/2026-09-24-e55/qld_trend_long_1d__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "prorated",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.015",
+        "--seed",
+        "1",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed1.json"
+      ],
+      "out": "comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed1.json",
+      "stats": {
+        "ev": -13.7,
+        "ev_se": 1.35,
+        "p_net_positive": 0.1643,
+        "p_alive_at_horizon": 0.8802,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "qld_trend_long_1d",
+      "arm": "A",
+      "seed": 2,
+      "exit_code": 0,
+      "seconds": 244.7,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "qld_trend_long_1d=comms/strategy_evidence/runs/2026-09-24-e55/qld_trend_long_1d__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "prorated",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.015",
+        "--seed",
+        "2",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed2.json"
+      ],
+      "out": "comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed2.json",
+      "stats": {
+        "ev": -11.14,
+        "ev_se": 1.46,
+        "p_net_positive": 0.1698,
+        "p_alive_at_horizon": 0.8765,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "qld_trend_long_1d",
+      "arm": "A",
+      "seed": 3,
+      "exit_code": 0,
+      "seconds": 238.2,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "qld_trend_long_1d=comms/strategy_evidence/runs/2026-09-24-e55/qld_trend_long_1d__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "prorated",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.015",
+        "--seed",
+        "3",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed3.json"
+      ],
+      "out": "comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed3.json",
+      "stats": {
+        "ev": -13.62,
+        "ev_se": 1.33,
+        "p_net_positive": 0.1713,
+        "p_alive_at_horizon": 0.8762,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "qld_trend_long_1d",
+      "arm": "A",
+      "seed": 4,
+      "exit_code": 0,
+      "seconds": 240.2,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "qld_trend_long_1d=comms/strategy_evidence/runs/2026-09-24-e55/qld_trend_long_1d__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "prorated",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.015",
+        "--seed",
+        "4",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed4.json"
+      ],
+      "out": "comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed4.json",
+      "stats": {
+        "ev": -13.41,
+        "ev_se": 1.39,
+        "p_net_positive": 0.1685,
+        "p_alive_at_horizon": 0.8795,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "qld_trend_long_1d",
+      "arm": "A",
+      "seed": 5,
+      "exit_code": 0,
+      "seconds": 139.5,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "qld_trend_long_1d=comms/strategy_evidence/runs/2026-09-24-e55/qld_trend_long_1d__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "prorated",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.015",
+        "--seed",
+        "5",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed5.json"
+      ],
+      "out": "comms/research/RQ-20261003-010/37211078765/sims/qld_trend_long_1d__A__seed5.json",
+      "stats": {
+        "ev": -11.4,
+        "ev_se": 1.42,
+        "p_net_positive": 0.174,
+        "p_alive_at_horizon": 0.8722,
+        "rule_v2_verdict": "indeterminate"
+      }
+    }
+  ]
+}

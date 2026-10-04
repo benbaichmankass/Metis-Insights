@@ -1,0 +1,67 @@
+{
+  "verdict": "indeterminate",
+  "read_state": "measured",
+  "population": "1 leg(s) [sol_pullback_2h], 18 committed trades in total; grade=pass_all_seeds, overall=all",
+  "n": 18,
+  "measurement": {
+    "leg_verdicts": {
+      "sol_pullback_2h": "indeterminate"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "all",
+    "cells": 5
+  },
+  "note": "sol_pullback_2h: UNDERPOWERED: n=18 < floor 88",
+  "records": [
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "sol_pullback_2h: 18 committed trades from comms/strategy_evidence/runs/2026-09-25/sol_pullback_2h__trades.jsonl (evidence record comms/strategy_evidence/sol_pullback_2h.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 18,
+      "measurement": {
+        "leg": "sol_pullback_2h",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-25/sol_pullback_2h__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 230.42,
+              "ev_se": 6.42,
+              "p_net_positive": 0.4955,
+              "p_alive_at_horizon": 0.1855,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 233.61,
+              "ev_se": 6.56,
+              "p_net_positive": 0.49,
+              "p_alive_at_horizon": 0.1908,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 232.03,
+              "ev_se": 6.44,
+              "p_net_positive": 0.4915,
+              "p_alive_at_horizon": 0.188,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 231.01,
+              "ev_se": 6.6,
+              "p_net_positive": 0.4803,
+              "p_alive_at_horizon": 0.1885,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 221.28,
+              "ev_se": 6.38,
+              "p_net_positive": 0.48,
+              "p_alive_at_horizon": 0.191,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=18 < floor 88"
+    }
+  ]
+}

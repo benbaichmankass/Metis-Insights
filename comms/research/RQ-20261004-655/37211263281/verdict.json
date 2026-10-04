@@ -1,0 +1,67 @@
+{
+  "verdict": "indeterminate",
+  "read_state": "measured",
+  "population": "1 leg(s) [trend_donchian_eth_prop], 169 committed trades in total; grade=pass_all_seeds, overall=all",
+  "n": 169,
+  "measurement": {
+    "leg_verdicts": {
+      "trend_donchian_eth_prop": "indeterminate"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "all",
+    "cells": 5
+  },
+  "note": "trend_donchian_eth_prop: NULL: ev > 0 on all seeds but P(net>0) < 0.7 on at least one",
+  "records": [
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "trend_donchian_eth_prop: 169 committed trades from comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl (evidence record comms/strategy_evidence/trend_donchian_eth_prop.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/tradeify_247_1step.yaml --lev-cap trend_donchian_eth_prop=5 --no-hedge --swap-model prorated --funded-start fresh",
+      "n": 169,
+      "measurement": {
+        "leg": "trend_donchian_eth_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 315.39,
+              "ev_se": 9.29,
+              "p_net_positive": 0.5072,
+              "p_alive_at_horizon": 0.404,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 309.25,
+              "ev_se": 9.29,
+              "p_net_positive": 0.505,
+              "p_alive_at_horizon": 0.3832,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 297.64,
+              "ev_se": 8.97,
+              "p_net_positive": 0.5082,
+              "p_alive_at_horizon": 0.4057,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 307.16,
+              "ev_se": 9.18,
+              "p_net_positive": 0.5088,
+              "p_alive_at_horizon": 0.404,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 294.98,
+              "ev_se": 8.95,
+              "p_net_positive": 0.5068,
+              "p_alive_at_horizon": 0.3897,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "NULL: ev > 0 on all seeds but P(net>0) < 0.7 on at least one"
+    }
+  ]
+}
