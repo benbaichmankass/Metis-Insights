@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present)",
+    "kind": "observation",
+    "soak": {
+      "declared_at": "2026-09-28",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "ict_scalp_5m"
+    }
+  },
+  "id": "PI-SOAK-20261004-ict_scalp_5m",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "queued",
+  "what": "SOAK (shadow): ict_scalp_5m — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}
