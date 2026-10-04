@@ -1,0 +1,1 @@
+auto-merge: prop-firm scan memo + index row + one pipeline record (Tier-1 docs)
