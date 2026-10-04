@@ -31,6 +31,7 @@ Exit: 0 clean · 1 refused · 2 could not check.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import subprocess
 import sys
@@ -74,6 +75,25 @@ def tree_findings(acc: dict, strat: dict, contracts: List[dict]) -> List[str]:
     return out
 
 
+def observation_problems(obs: object) -> List[str]:
+    """The NON-SOAK definition of done (manager, 2026-10-04 20:12Z): a one-shot
+    check ("the 05:30Z report was produced", "the tick ran clean on the new sha")
+    has one observable event plus a due time, not a trade count. Shape:
+    ``observation: {what, how_to_check, due_by}``. ``due_by`` is REQUIRED and an
+    ISO date/datetime, so an overdue one alarms (pipeline.is_due) instead of
+    sitting quietly in_flight. Empty list = admissible."""
+    if not isinstance(obs, dict):
+        return ["`observation` must be an object {what, how_to_check, due_by}"]
+    p = [f"`observation.{k}` missing or empty" for k in ("what", "how_to_check", "due_by")
+         if not str(obs.get(k) or "").strip()]
+    if obs.get("due_by"):
+        try:
+            date.fromisoformat(str(obs["due_by"])[:10])
+        except ValueError:
+            p.append(f"`observation.due_by` {obs['due_by']!r} is not an ISO date")
+    return p
+
+
 def diff_findings(base: str, contracts: List[dict]) -> List[str]:
     ids = {c.get("id") for c in contracts}
     out = []
@@ -85,9 +105,13 @@ def diff_findings(base: str, contracts: List[dict]) -> List[str]:
     for r in new_rows:
         if r.get("state") == "landed_unproven" and old_state.get(r.get("id")) != "landed_unproven" \
                 and r.get("id") not in ids:
+            if "observation" in r:
+                out += [f"checklist row {r.get('id')}: {p}" for p in observation_problems(r["observation"])]
+                continue
             out.append(f"checklist row {r.get('id')} enters landed_unproven with no soak contract "
                        f"(add a contract with id {r.get('id')!r} to docs/claude/work/SOAKS.json: what "
-                       f"observation proves it, n, end date, pass/fail rule).")
+                       f"observation proves it, n, end date, pass/fail rule) — or, for a one-shot "
+                       f"check, an `observation: {{what, how_to_check, due_by}}` on the row.")
     added = _git("diff", "--name-only", "--diff-filter=A", f"{base}...HEAD", "--", PIPE_DIR)
     for name in added.stdout.split():
         try:
@@ -98,8 +122,12 @@ def diff_findings(base: str, contracts: List[dict]) -> List[str]:
             continue
         if (item.get("due_when") or {}).get("soak") or item.get("id") in ids:
             continue
-        out.append(f"new pipeline item {item.get('id')} ({name}) is a check_observation soak with "
-                   f"neither due_when.soak nor a contract in docs/claude/work/SOAKS.json.")
+        if "observation" in item:
+            out += [f"new pipeline item {item.get('id')}: {p}" for p in observation_problems(item["observation"])]
+            continue
+        out.append(f"new pipeline item {item.get('id')} ({name}) is a check_observation with no "
+                   f"definition of done: add due_when.soak or a SOAKS.json contract (something "
+                   f"that ACCRUES), or `observation: {{what, how_to_check, due_by}}` (a one-shot check).")
     return out
 
 
@@ -128,6 +156,13 @@ def _self_test() -> int:
                                                               good[1]])))
     ck("a removed leg needs nothing (removal is free)",
        tree_findings({"bybit_1": {"strategies": ["s"]}}, strat, good) == [])
+    ck("a one-shot observation with due_by is admissible",
+       observation_problems({"what": "05:30Z report produced", "how_to_check": "ls comms/x",
+                             "due_by": "2026-10-05T06:00Z"}) == [])
+    ck("an observation without due_by is refused",
+       any("due_by" in p for p in observation_problems({"what": "w", "how_to_check": "h"})))
+    ck("an observation with a non-date due_by is refused",
+       any("ISO" in p for p in observation_problems({"what": "w", "how_to_check": "h", "due_by": "soon"})))
     print("soak-contract-guard self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
