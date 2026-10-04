@@ -72,7 +72,18 @@ heal_devnull() {
 heal_devnull || true
 
 changed=0
-_VM_ROLE_EARLY="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
+# Host role marker (/etc/ict-vm-role; "gateway" on the IB-Gateway VM, ABSENT on
+# the live trader). PI-20261004-PUQ1APTH-0007: the read used to be
+# `tr ... < /etc/ict-vm-role 2>/dev/null`. bash applies redirections left to
+# right, so the failing `<` was reported on the ORIGINAL stderr before the
+# `2>/dev/null` took effect -- one "No such file or directory" line in the
+# ict-git-sync journal on every unit refresh of the live VM. The `{ ...; }`
+# group puts the stderr redirect OUTSIDE the input redirect, so a missing file
+# is silent and the role reads empty (= non-gateway), exactly as before.
+# VM_ROLE_FILE is overridable for tests only.
+VM_ROLE_FILE=${VM_ROLE_FILE:-/etc/ict-vm-role}
+_read_vm_role() { { tr -d '[:space:]' < "$VM_ROLE_FILE"; } 2>/dev/null || true; }
+_VM_ROLE_EARLY="$(_read_vm_role)"
 
 # ---------------------------------------------------------------------------
 # Select the data-dir drop-in flavor by mount topology.
@@ -470,7 +481,7 @@ _GATEWAY_ONLY_TIMERS=" ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer 
 # ict-web-api (crash-looping) + several timer services (failed) on the gateway.
 _GATEWAY_ALLOWED_TIMERS=" ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer ict-git-sync.timer ict-devnull-guard.timer "
 _GATEWAY_ALLOWED_SERVICES=" ict-ib-gateway-watchdog.service ict-ib-gateway-reset.service ict-git-sync.service ict-devnull-guard.service "
-_VM_ROLE="$(tr -d '[:space:]' < /etc/ict-vm-role 2>/dev/null || true)"
+_VM_ROLE="$(_read_vm_role)"  # same silent read as _VM_ROLE_EARLY above
 
 # Gateway isolation pruning: on the gateway VM, actively disable/stop any
 # non-allowlisted ict-* unit a prior run or a stray deploy left

@@ -267,20 +267,17 @@ CADENCE_REGISTRY: dict[str, dict] = {
                "only advances on a run that reached a real verdict",
     },
     "soak-book-grade-weekly.yml": {
-        "receipt": None,
-        "why": "CORRECTED 2026-09-28: the dated measurement file "
-               "(comms/research/soak_book_grade/<date>.json) is written "
-               "to the runner's checkout but this workflow's own steps "
-               "never commit it -- only the research-result composite "
-               "action's pointer record lands, at a run_id-keyed path "
-               "under research/results/_unattributed/ that is new every "
-               "run and so cannot serve as a fixed receipt either. The "
-               "2026-09-26 measurement file that IS in git history landed "
-               "through an unrelated stray-file sweep commit (#13553), not "
-               "through this workflow. Adding a real commit step for the "
-               "measurement file is a workflow-behavior change, not a "
-               "registry declaration, and is left as a follow-up rather "
-               "than rushed here.",
+        "receipt": "comms/research/soak_book_grade",
+        "why": "FIXED 2026-10-04 (SOAK-WATCH): the dated per-leg record "
+               "(comms/research/soak_book_grade/<date>.json) now lands in "
+               "the same commit as its research-result pointer "
+               "(`extra-paths`), so the STORE DIRECTORY's last commit "
+               "advances on every run that graded. Until then only the "
+               "pointer landed and this entry was `receipt: None` (the "
+               "2026-09-26 record arrived via a stray-file sweep, #13553). "
+               "Residual: a session sweep committing into this directory "
+               "would also refresh it -- the workflow's own verify-landed "
+               "job (scripts/ops/soak_grade_landed.py) is the per-run check.",
     },
     "research-queue-dispatch.yml": {
         "receipt": "docs/claude/work/research-queue-dispatch-receipt.json",
@@ -376,6 +373,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
 REGISTERED_AFTER_BASELINE: frozenset[str] = frozenset({
     "research-loss-detector.yml",   # E57, 2026-09-24
     "account-broker-reconcile.yml",  # RECON, 2026-09-29
+    "soak-book-grade-weekly.yml",    # SOAK-WATCH, 2026-10-04 (was receipt: None)
 })
 
 BASELINE_2026_09_22: dict[str, str] = {

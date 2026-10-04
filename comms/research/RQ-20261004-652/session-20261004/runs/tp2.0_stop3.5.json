@@ -1,0 +1,89 @@
+{
+  "strategy": "trend_donchian",
+  "symbol": "SOLUSDT",
+  "timeframe": "1h",
+  "params": {
+    "donchian": 20,
+    "atr_stop_mult": 3.5,
+    "trail_mult": 1000.0,
+    "min_confidence": 0.8
+  },
+  "total_trades": 330,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2020-09-25 00:00:00+00:00",
+  "data_end": "2026-10-03 23:00:00+00:00",
+  "run_date": "2026-10-04",
+  "tp_r_effective_n": 330,
+  "tp_r_effective_median": 2.0,
+  "tp_r_effective_min": 0.558,
+  "tp_r_effective_max": 2.0,
+  "rr_floor_state": "off",
+  "rr_min_n": 326,
+  "rr_min_p10": 0.061,
+  "rr_min_median": 0.399,
+  "rr_min_p90": 2.063,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 45.15,
+  "total_r": 62.6668,
+  "net_total_r": 50.5116,
+  "net_total_r_long": 50.5116,
+  "net_total_r_short": 0,
+  "net_expectancy_r": 0.1531,
+  "net_total_r_fee_only": 56.8939,
+  "net_expectancy_r_fee_only": 0.1724,
+  "mean_cost_r": {
+    "fee_r": 0.01749,
+    "slippage_r": 0.007,
+    "funding_r": 0.01234,
+    "total_cost_r": 0.03683,
+    "funding_windows": 5.74848
+  },
+  "trades_long": 330,
+  "trades_short": 0,
+  "avg_win_r": 1.6353,
+  "max_mfe_r": 1.994,
+  "max_drawdown_r": 10.5089,
+  "by_outcome": {
+    "stop": 181,
+    "take_profit": 148,
+    "timeout": 1
+  },
+  "by_year": {
+    "2020": {
+      "trades": 12,
+      "net_r": 4.5613
+    },
+    "2021": {
+      "trades": 70,
+      "net_r": 8.1031
+    },
+    "2022": {
+      "trades": 44,
+      "net_r": 9.0992
+    },
+    "2023": {
+      "trades": 61,
+      "net_r": 10.9286
+    },
+    "2024": {
+      "trades": 51,
+      "net_r": 2.2097
+    },
+    "2025": {
+      "trades": 50,
+      "net_r": 7.8349
+    },
+    "2026": {
+      "trades": 42,
+      "net_r": 7.7743
+    }
+  },
+  "bar_minutes": 60.0,
+  "position_days": 628.25,
+  "capital_days": 628.25,
+  "mean_bars_held": 45.691,
+  "net_r_per_position_day": 0.0804,
+  "net_r_per_capital_day": 0.0804
+}

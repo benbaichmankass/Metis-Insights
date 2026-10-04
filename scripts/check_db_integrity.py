@@ -49,6 +49,10 @@ Invariants
   be impossible now the char-slice footgun is gone + the json-notes-cap guard
   is a merge gate). Legacy ⇒ pre-fix backlog, cleared by
   ``scripts/ops/repair_malformed_notes.py``.
+- **INV-7**  ``status='open'`` on an account whose ``config/accounts.yaml``
+  ``mode`` is ``dry_run`` (OA-15). order_monitor skips dry accounts, so such a
+  row's exits are unmonitored. Current state, not windowed: every such row
+  alerts. An unreadable accounts.yaml reads ``read_state: could_not_check``.
 
 Output
 ------
@@ -441,6 +445,17 @@ def run_checks(
             )
         )
 
+        # INV-7 -- an OPEN trade row on an account whose config/accounts.yaml
+        # mode is dry_run (OA-15, PI-20261004-GCFA5DOR-0009). Since
+        # ORDER-AUDIT-2 (#15306) order_monitor honours dry_run and SKIPS those
+        # accounts for closes, stop modifies and reverse reconciliation, and
+        # the read path never dials a dry IB account -- so a real broker
+        # position left over from a live period or an adopted orphan would
+        # lose its monitor exits with nothing saying so. Current state, not a
+        # window: every such row alerts until it is closed or the account is
+        # live again.
+        checks.append(_inv7_check(conn))
+
         any_alert = any(c["alert"] for c in checks)
         return {
             "generated_at": _iso(now),
@@ -452,6 +467,49 @@ def run_checks(
         }
     finally:
         conn.close()
+
+
+def _dry_run_accounts(path: Optional[Path] = None) -> Optional[List[str]]:
+    """Account ids whose ``mode`` is ``dry_run`` in config/accounts.yaml, or
+    ``None`` when the file could not be read (never ``[]`` for that case:
+    "we could not look" must not read as "no dry account"). Reads through
+    the canonical loader (canonical-config-loaders guard)."""
+    from src.config.accounts_loader import load_accounts_dict
+
+    yaml_path = path or _REPO_ROOT / "config" / "accounts.yaml"
+    if not Path(yaml_path).is_file():
+        return None
+    errors: List[Dict[str, Any]] = []
+    accs = load_accounts_dict(yaml_path, errors=errors)
+    if errors or not accs:
+        return None
+    return sorted(
+        str(k) for k, v in accs.items()
+        if isinstance(v, dict) and str(v.get("mode") or "live").lower() == "dry_run"
+    )
+
+
+def _inv7_check(conn: sqlite3.Connection,
+                accounts_yaml: Optional[Path] = None) -> Dict[str, Any]:
+    """INV-7: open trade rows on a dry_run account (see run_checks)."""
+    title = "open trade on a dry_run account (order_monitor skips its exits)"
+    dry = _dry_run_accounts(accounts_yaml)
+    if dry is None:
+        # None, never 0: "could not look" must not render as "found nothing".
+        return {"id": "INV-7", "title": title, "read_state": "could_not_check",
+                "recent_count": None, "total_count": None, "sample_ids": [],
+                "dry_run_accounts": None, "alert": False, "windowed": False}
+    n, sample = 0, []
+    if dry:
+        marks = ",".join("?" * len(dry))
+        n, sample = _count_and_sample(
+            conn,
+            f"{_NON_BACKTEST} AND t.status = 'open' AND t.account_id IN ({marks})",
+            list(dry),
+        )
+    return {"id": "INV-7", "title": title, "read_state": "checked",
+            "recent_count": n, "total_count": n, "sample_ids": sample,
+            "dry_run_accounts": dry, "alert": n > 0, "windowed": False}
 
 
 # Terminal order_packages states: a package that reached a terminal state has
@@ -541,10 +599,16 @@ def render_summary(report: Dict[str, Any]) -> str:
         f"db: {report['db_path']}",
     ]
     for c in report["checks"]:
-        flag = "ALERT" if c["alert"] else "ok   "
         sample = (
             f"  e.g. {c['sample_ids']}" if c["sample_ids"] else ""
         )
+        rs = c.get("read_state", "checked")
+        if rs != "checked":
+            lines.append(
+                f"[n/a  ] {c['id']}: recent=— ({rs}) total=—  {c['title']}"
+            )
+            continue
+        flag = "ALERT" if c["alert"] else "ok   "
         lines.append(
             f"[{flag}] {c['id']}: recent={c['recent_count']} "
             f"total={c['total_count']}  {c['title']}{sample}"
@@ -568,10 +632,17 @@ def build_alert_message(report: Dict[str, Any]) -> str:
     )
     body = [head]
     for c in alerts:
-        body.append(
-            f"• {c['id']}: {c['recent_count']} recent "
-            f"({c['total_count']} total) — {c['title']}; ids {c['sample_ids']}"
-        )
+        if c.get("windowed", True):
+            body.append(
+                f"• {c['id']}: {c['recent_count']} recent "
+                f"({c['total_count']} total) — {c['title']}; ids {c['sample_ids']}"
+            )
+        else:
+            # INV-7 is current state, not a window: "recent" would mislabel it.
+            body.append(
+                f"• {c['id']}: {c['total_count']} currently — {c['title']}; "
+                f"ids {c['sample_ids']}"
+            )
     body.append(
         "Recent = a row that just hit this state without its canonical "
         "field (a live write-path bug); the legacy backlog is excluded."

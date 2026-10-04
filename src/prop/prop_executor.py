@@ -935,8 +935,10 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
 
     # 3. reconcile the ledger (confirm by re-read, contain per § 3.5)
     claimed_keys = set()
+    handled: set = set()
     cancelled_this_cycle = False
     for tid, row in ledger.watched().items():
+        handled.add(tid)
         spec = row.get("spec") or {}
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
         verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
@@ -988,9 +990,14 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     # 4. reconcile the journal against the terminal
     if journal_open is not None:
         reader = getattr(adapter, "read_trade_history", None)
+        naked: List[Tuple[Mapping[str, Any], Position, List[str], int]] = []
         halted = _reconcile_journal(res, cfg, st, positions, journal_open, ledger, claimed_keys, post,
                                     read_history=(lambda: reader(page)) if reader else None,
-                                    now=now) or halted
+                                    now=now, naked=naked) or halted
+        for j, p, missing, n_reads in naked:
+            why, alert = _contain_naked_open(res, adapter, page, live, ledger, j, p, missing, n_reads, handled)
+            if why:
+                halted = halted or (_trip(res, state, live, why) if alert else f"AUTO-REVERT: {why}")
     if halted and not state.halted() and live:
         state.halt(halted)
     res.halted = halted
@@ -2185,36 +2192,128 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         return trip
     if verdict == "partial_no_sl_tp":
         leg = (found["positions"] or found["orders"])[0]
-        if not row.get("leg_fix_tried"):
-            if isinstance(leg, Position):
-                # The account's modify-rollout latch (DIALOG-MEASURE): with the
-                # edit surface armed, the guard allows ONE watched tighten-only
-                # SL step per reviewed clear. This repair types SL AND TP, so
-                # under the guard it is refused before any click and the next
-                # cycle's existing close-at-market below takes over.
-                from src.prop.platform.dxtrade import ModifyRollout
-                r = adapter.modify_bracket(page, leg, spec.get("stop_loss"), spec.get("take_profit"), arm=live,
-                                           rollout=ModifyRollout(Path(ledger.path).parent / "modify_rollout.json"))
-            else:
-                # A resting entry without its bracket holds no position yet:
-                # cancelling it is the smaller action than editing it.
-                r = adapter.cancel_order(page, leg, arm=live)
-            res.log("place_missing_leg", ticket_id=tid, result=r)
-            if live:
-                ledger.record(tid, "unconfirmed", leg_fix_tried=True)
-            res.alerts.append(f"{tid}: bracket leg missing — one repair attempted "
-                              f"({r.get('why') if isinstance(r, dict) else r})")
-            return trip
-        # still missing after the one repair: close at market and alert
-        if isinstance(leg, Position):
-            r = adapter.flatten(page, leg.symbol, arm=live)
-        else:
-            r = adapter.cancel_order(page, leg, arm=live)
-        res.log("close_naked", ticket_id=tid, result=r)
-        res.alerts.append(f"{tid}: bracket leg still missing after one repair — closed/cancelled and alerted")
-        if live:
-            ledger.record(tid, "contained", verdict=verdict)
+        _repair_or_flatten(res, adapter, page, live, ledger, tid, row, leg,
+                           spec.get("stop_loss"), spec.get("take_profit"),
+                           retry_state="unconfirmed", verdict=verdict)
     return trip
+
+
+#: Close attempts on a naked leg (no SL or no TP) before the row is parked
+#: ``contained`` and left to the operator (OA-05/06, PI-20261004-GCFA5DOR-0003).
+#: Until then a close that did not click keeps the row in its retry state, so
+#: the next cycle tries again instead of the row going quiet.
+NAKED_CLOSE_MAX_ATTEMPTS = 3
+
+
+def _repair_or_flatten(res: CycleResult, adapter: Any, page: Any, live: bool, ledger: IntentLedger,
+                       tid: str, row: Mapping[str, Any], leg: Any, sl: Optional[float],
+                       tp: Optional[float], *, retry_state: str, verdict: str) -> None:
+    """§ 3.5 containment of ONE leg with no SL or no TP (a position or a
+    resting entry): ONE repair, then close at market / cancel.
+
+    OA-05/06 (PI-20261004-GCFA5DOR-0003): the repair under the account's
+    modify-rollout latch types SL AND TP, so the guard refuses it before any
+    click ("current stop loss not readable" when the SL is the missing leg).
+    A repair that did NOT click changed nothing on the venue, so the close
+    runs in the SAME cycle rather than a tick later. A close that did not
+    click keeps the row in ``retry_state`` with ``close_attempts`` counted,
+    retried every cycle up to :data:`NAKED_CLOSE_MAX_ATTEMPTS`; only then is
+    it parked ``contained`` with an alert saying it gave up."""
+    if not row.get("leg_fix_tried"):
+        if isinstance(leg, Position):
+            # The account's modify-rollout latch (DIALOG-MEASURE): with the
+            # edit surface armed, the guard allows ONE watched tighten-only
+            # SL step per reviewed clear. This repair types SL AND TP, so
+            # under the guard it is refused before any click and the close
+            # below takes over in this same cycle.
+            from src.prop.platform.dxtrade import ModifyRollout
+            r = adapter.modify_bracket(page, leg, sl, tp, arm=live,
+                                       rollout=ModifyRollout(Path(ledger.path).parent / "modify_rollout.json"))
+        else:
+            # A resting entry without its bracket holds no position yet:
+            # cancelling it is the smaller action than editing it.
+            r = adapter.cancel_order(page, leg, arm=live)
+        res.log("place_missing_leg", ticket_id=tid, result=r)
+        if live:
+            ledger.record(tid, retry_state, leg_fix_tried=True)
+        why = r.get("why") if isinstance(r, dict) else r
+        if isinstance(r, dict) and r.get("clicked"):
+            res.alerts.append(f"{tid}: bracket leg missing — one repair attempted ({why})")
+            return
+        res.alerts.append(f"{tid}: bracket leg missing — repair not clicked ({why}); closing it this cycle")
+    n = int(row.get("close_attempts") or 0) + 1
+    if isinstance(leg, Position):
+        r = adapter.flatten(page, leg.symbol, arm=live)
+    else:
+        r = adapter.cancel_order(page, leg, arm=live)
+    res.log("close_naked", ticket_id=tid, result=r, attempt=n)
+    if not live:
+        return
+    if isinstance(r, dict) and r.get("ok") and r.get("clicked"):
+        res.alerts.append(f"{tid}: bracket leg still missing — closed/cancelled and alerted")
+        ledger.record(tid, "contained", verdict=verdict, close_attempts=n)
+        return
+    why = r.get("why") if isinstance(r, dict) else r
+    if n >= NAKED_CLOSE_MAX_ATTEMPTS:
+        res.alerts.append(f"{tid}: ⚠️ NAKED leg NOT closed after {n} attempts ({why}); executor gave up — "
+                          "close or protect it on the terminal by hand")
+        ledger.record(tid, "contained", verdict=verdict, close_attempts=n, close_gave_up=True)
+        return
+    res.alerts.append(f"{tid}: ⚠️ close of the naked leg did not click ({why}); attempt "
+                      f"{n}/{NAKED_CLOSE_MAX_ATTEMPTS}, retrying next cycle")
+    ledger.record(tid, retry_state, leg_fix_tried=True, close_attempts=n)
+
+
+def _bracket_columns_read(p: Position) -> bool:
+    """True unless the position came from a table read whose headers carry no
+    Stop Loss / Take Profit column (a parsed row with no ``raw`` is taken as
+    read: only the DXtrade table reader fills ``raw``)."""
+    if not p.raw:
+        return True
+    from src.prop.platform.dxtrade import _find_col
+    headers = list(p.raw)
+    return _find_col(headers, "Stop Loss", "SL") is not None and _find_col(headers, "Take Profit", "TP") is not None
+
+
+#: Consecutive naked reads of an OPEN row before containment acts. One read
+#: alerts; the second consecutive one contains, so a single torn read of the
+#: Positions table never closes a protected position.
+NAKED_OPEN_READS = 2
+
+
+def _contain_naked_open(res: CycleResult, adapter: Any, page: Any, live: bool, ledger: IntentLedger,
+                        j: Mapping[str, Any], p: Position, missing: List[str], n_reads: int,
+                        handled: set) -> Tuple[Optional[str], bool]:
+    """OA-05/06 (PI-20261004-GCFA5DOR-0003): a journal-OPEN position whose
+    terminal row has no SL (or no TP the journal expects) is NAKED. Routed
+    into the same § 3.5 containment the watched states use
+    (:func:`_repair_or_flatten`: one repair, else close at market), keyed on
+    the ledger row of the ticket that opened it. Returns ``(halt_reason,
+    alert)``: ``alert`` says whether the caller trips the latch WITH an alert
+    this cycle (False: still halted, already said)."""
+    tid = str(j.get("ticket_id") or "")
+    venue = p.symbol.upper()
+    what = f"{venue} {p.side} open with NO {'/'.join(missing)} on the terminal"
+    if tid and tid in handled:
+        return None, False  # step 3 already contained this ticket this cycle
+    if n_reads < NAKED_OPEN_READS:
+        res.alerts.append(f"{tid or venue}: ⚠️ NAKED position — {what} (read {n_reads}/{NAKED_OPEN_READS}); "
+                          "containment acts if the next read agrees")
+        return None, False
+    row = ledger.latest().get(tid) if tid else None
+    if not row or row.get("state") != "open":
+        why = f"{tid or venue}: naked_open ({what})"
+        if row and row.get("state") == "contained":
+            res.log("naked_open_contained", ticket_id=tid, why=what, close_attempts=row.get("close_attempts"))
+            return why, False
+        if n_reads == NAKED_OPEN_READS:
+            res.alerts.append(f"{why}: no executor ledger row for this position (state "
+                              f"{(row or {}).get('state')!r}) — not touched; close or protect it by hand")
+        return why, n_reads == NAKED_OPEN_READS
+    res.alerts.append(f"{tid}: ⚠️ NAKED position — {what}; containing it (one repair, else close at market)")
+    _repair_or_flatten(res, adapter, page, live, ledger, tid, row, p, _f(j.get("sl")), _f(j.get("tp")),
+                       retry_state="open", verdict="naked_open")
+    return f"{tid}: naked_open ({what})", True
 
 
 #: The close reason when the exit was not read: kept verbatim so the gap stays
@@ -2289,8 +2388,17 @@ def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any]
                        positions: Sequence[Position], journal_open: Sequence[Mapping[str, Any]],
                        ledger: IntentLedger, claimed_keys: set, post: Any,
                        read_history: Optional[Callable[[], Sequence[Mapping[str, Any]]]] = None,
-                       now: Optional[datetime] = None) -> Optional[str]:
+                       now: Optional[datetime] = None,
+                       naked: Optional[List[Tuple[Mapping[str, Any], Position, List[str], int]]] = None
+                       ) -> Optional[str]:
     """§ 3.2 step 4. Returns a halt reason, or None.
+
+    ``naked`` (OA-05/06): every journal-open position the terminal shows with
+    NO stop loss, or NO take profit while the journal holds one, is appended
+    as ``(journal_row, position, missing_legs, consecutive_reads)``;
+    ``run_cycle`` alerts and contains it (:func:`_contain_naked_open`). Before
+    this, a leg lost AFTER a row reached ``open`` was never compared (the SL
+    check skipped ``stop_loss is None``) and never alerted.
 
     ``read_history`` (PROP-EXIT-READ): the terminal's Trade History, read at
     most once per cycle and only when a close is reported. It changes WHAT the
@@ -2318,10 +2426,12 @@ def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any]
         term[key] = p
     jr = {(str(j.get("symbol") or "").upper(), _dir(j.get("direction")) or ""): j for j in journal_open}
     absent = st.setdefault("absent_counts", {})
+    naked_n = st.setdefault("naked_counts", {})
     for key, j in jr.items():
         p = term.get(key)
         k = f"{key[0]}|{key[1]}"
         if p is None:
+            naked_n.pop(k, None)
             absent[k] = int(absent.get(k, 0)) + 1
             if absent[k] >= 2:
                 body = {"kind": "fill", "status": "closed", "account_id": cfg.account_id,
@@ -2350,6 +2460,19 @@ def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any]
             continue
         absent.pop(k, None)
         jsl, jtp = _f(j.get("sl")), _f(j.get("tp"))
+        missing = ([] if p.stop_loss is not None else ["SL"]) + \
+                  (["TP"] if p.take_profit is None and jtp is not None else [])
+        if missing and not _bracket_columns_read(p):
+            # No SL/TP COLUMN on the read (layout drift): we could not look,
+            # which is not "no stop". Never contained on a blind read.
+            res.log("naked_check_unreadable", key=k, why="no Stop Loss / Take Profit column on the positions read")
+            missing = []
+        if missing:
+            naked_n[k] = int(naked_n.get(k, 0)) + 1
+            if naked is not None:
+                naked.append((j, p, missing, naked_n[k]))
+        else:
+            naked_n.pop(k, None)
         if (p.stop_loss is not None and not _close(p.stop_loss, jsl, 1e-6)) or \
            (p.take_profit is not None and not _close(p.take_profit, jtp, 1e-6)):
             res.log("amend", key=k, sl=p.stop_loss, tp=p.take_profit)

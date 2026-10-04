@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "why": "CI only, but it edits .github/actions/commit-to-main (the landing machinery), so R12 requires one human read. verify-timeout-minutes default 30 -> 50 because pytest-run now takes ~35-37 min and producers go red after their PR merges (PI-20261004-PUQ1APTH-0008, PI-20261004-FOJGFIZF-0003); every caller job timeout-minutes +20 so each keeps its prior work allowance; research-queue-dispatch 105 -> 165 (three waits); a new test pins budget >= sum of waits per job. No live path, order path, config, strategy or VM unit is touched.",
+  "hold_text": "Edits the shared commit-to-main verify wait (30 -> 50 min) and every caller's job budget; one human read before merge per R12."
+}

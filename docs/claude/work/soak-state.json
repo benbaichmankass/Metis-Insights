@@ -1,0 +1,344 @@
+{
+ "generated_at": "2026-10-04T17:33:46+00:00",
+ "grade_age_days": 0,
+ "grade_file": "comms/research/soak_book_grade/2026-10-04.json",
+ "grade_usable": true,
+ "subjects": {
+  "alpaca_paper/gdx_pullback_1d": {
+   "days": 99,
+   "population": "stage1",
+   "start": "2026-06-27",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/gld_pullback_1d": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/gld_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/iaum_pullback_1d": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/ief_pullback_1d": {
+   "days": 106,
+   "population": "stage1",
+   "start": "2026-06-20",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/iwm_trend_long_1d": {
+   "days": 106,
+   "population": "stage1",
+   "start": "2026-06-20",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/qld_trend_long_1d": {
+   "days": 95,
+   "population": "stage1",
+   "start": "2026-07-01",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/qqq_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/qqq_trend_long_1d": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/scha_trend_long_1d": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/slv_pullback_1d": {
+   "days": 99,
+   "population": "stage1",
+   "start": "2026-06-27",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/splg_trend_long_1d": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/spy_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/spy_trend_long_1d": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/tlt_pullback_1d": {
+   "days": 106,
+   "population": "stage1",
+   "start": "2026-06-20",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/tlt_pullback_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/tqqq_trend_long_1d": {
+   "days": 95,
+   "population": "stage1",
+   "start": "2026-07-01",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "alpaca_paper/uso_trend_1h": {
+   "days": 105,
+   "population": "stage1",
+   "start": "2026-06-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "avax_pullback_2h": {
+   "days": 73,
+   "population": "shadow",
+   "start": "2026-07-23",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "bybit_1/ada_pullback_2h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/eth_pullback_2h": {
+   "days": 115,
+   "population": "stage1",
+   "start": "2026-06-11",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/ict_scalp_eth_15m": {
+   "days": 74,
+   "population": "stage1",
+   "start": "2026-07-22",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/ict_scalp_sol_15m": {
+   "days": 74,
+   "population": "stage1",
+   "start": "2026-07-22",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/ict_scalp_xrp_15m": {
+   "days": 74,
+   "population": "stage1",
+   "start": "2026-07-22",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/ict_scalp_xrp_5m": {
+   "days": 75,
+   "population": "stage1",
+   "start": "2026-07-21",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/sol_pullback_2h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/squeeze_breakout_4h": {
+   "days": 133,
+   "population": "stage1",
+   "start": "2026-05-24",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/trend_donchian": {
+   "days": 132,
+   "population": "stage1",
+   "start": "2026-05-25",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/trend_donchian_eth": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/trend_donchian_eth_4h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/trend_donchian_sol": {
+   "days": 89,
+   "population": "stage1",
+   "start": "2026-07-07",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/trend_donchian_xrp_4h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "bybit_1/xrp_pullback_2h": {
+   "days": 108,
+   "population": "stage1",
+   "start": "2026-06-18",
+   "verdict": "accruing",
+   "why": "R5 insufficient-data: could not measure: cost fidelity (the realized_slippage diag pull failed this run) \u2014 distinct from 'measured and found nothing'; re-check next scheduled pass"
+  },
+  "eth_pullback_prop_2h": {
+   "days": 42,
+   "population": "shadow",
+   "start": "2026-08-23",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "fade_breakout_4h": {
+   "days": 125,
+   "population": "shadow",
+   "start": "2026-06-01",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "fvg_range_15m": {
+   "days": 68,
+   "population": "shadow",
+   "start": "2026-07-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "htf_pullback_trend_2h": {
+   "days": 42,
+   "population": "shadow",
+   "start": "2026-08-23",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "ict_scalp_5m": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "ict_scalp_avax_5m": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "ict_scalp_sol_5m": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "mgc_trend_1h": {
+   "days": 108,
+   "population": "shadow",
+   "start": "2026-06-18",
+   "verdict": "could-not-look",
+   "why": "rostered on ['ib_paper']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "slv_trend_1h": {
+   "days": 41,
+   "population": "shadow",
+   "start": "2026-08-24",
+   "verdict": "could-not-look",
+   "why": "rostered on ['alpaca_paper', 'alpaca_options_paper']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "trend_donchian_1h": {
+   "days": 125,
+   "population": "shadow",
+   "start": "2026-06-01",
+   "verdict": "dead",
+   "why": "enabled: false \u2014 the shadow soak runs nothing and logs nothing"
+  },
+  "trend_donchian_ada_4h": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "trend_donchian_avax_4h": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "trend_donchian_sol_4h": {
+   "days": 6,
+   "population": "shadow",
+   "start": "2026-09-28",
+   "verdict": "could-not-look",
+   "why": "rostered on ['bybit_1']; no reader grades a shadow leg's order packages (R5 records mechanics: null for shadow) \u2014 nobody is looking"
+  },
+  "turtle_soup": {
+   "days": 89,
+   "population": "shadow",
+   "start": "2026-07-07",
+   "verdict": "dead",
+   "why": "on NO account roster \u2014 nothing runs it, so nothing accrues"
+  },
+  "vwap": {
+   "days": 133,
+   "population": "shadow",
+   "start": "2026-05-24",
+   "verdict": "dead",
+   "why": "enabled: false \u2014 the shadow soak runs nothing and logs nothing"
+  }
+ }
+}

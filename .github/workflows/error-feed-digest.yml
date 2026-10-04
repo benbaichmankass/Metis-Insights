@@ -69,7 +69,7 @@ concurrency:
 jobs:
   digest:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

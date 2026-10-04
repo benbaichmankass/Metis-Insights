@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for CA-A01-021 is merged with a test that fails on the old code (detector: unit test: adopt on paper account against package linked to open real-money trade leaves the link unchanged), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KFWRL9R1-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-021 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-021 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:L4087-L4091, L4351-L4356 (matcher L3948 is symbol-only on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "ORDER-PATH-FIXES [route; size S, value H, tier 2] BACKLOG-ROUTE 2026-10-04: Still applies: order_monitor.py:4748-4752 (_adopt_orphan_position) and :4483-4487 (_reattach_adopted_orphans) call db.update_order_package(opid,{status:'open',linked_trade_id:...,close_reason:None}) unconditionally; no paper/real or already-linked guard seen in either block.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A01-021, MEASURED): _adopt_orphan_position and _reattach_adopted_orphans unconditionally overwrite order_packages.linked_trade_id with the orphan row, so a PAPER-account orphan (e.g. bybit_portfolio, which mirrors bybit_2's trades exactly) steals the package link from the open REAL-MONEY trade, violating the BL-20260729 'link points at the real trade' invariant; the package is also reopened even if it was closed. LOCATION: src/runtime/order_monitor.py:L4087-L4091, L4351-L4356 (matcher L3948 is symbol-only; order_packages has no account_id column). PROPOSED FIX: Only set linked_trade_id when it is NULL or points at a non-open trade (update_order_package_linked_trade_if_unset semantics); never override a real-money link from a paper account; rely on trades.order_package_id for the orphan leg."
+}

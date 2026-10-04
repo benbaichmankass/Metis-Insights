@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-04T14:10:00Z",
+  "updated_at": "2026-10-04T15:02:00Z",
   "updated_by": "manager session_01MM8o5js6TcDFeNAPBY4Ntv",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -61,6 +61,51 @@
     "note": "what is true about this row. Not a log."
   },
   "items": [
+    {
+      "id": "BRIEF-FIX",
+      "title": "Make the VM daily brief short, ranked and truthful (component of WORK-SYSTEM)",
+      "phase": "floor",
+      "state": "done",
+      "owner": "lane BRIEF-FIX",
+      "lane": "session_01Py2sFzVRkYX3BG9MUAUJTB",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Builder under WORK-SYSTEM. Brief measured 737 KB at 14:58Z. || [2026-10-04T16:35Z BRIEF-FIX] DONE, observed: #16384 merged 46f93b4a 16:26Z; served by 16:30Z. LIVE GET /api/bot/work/brief: 739,695 B -> 15,692 B (<16 KB cap), top-15 + bucket counts present, SOAKS reads 'source absent (we looked)' pending soak_state.py, 2nd request 0.76 s, STALE flag on 3 in_flight rows (VM git window 45 d, so provable). Not covered: persisted 05:30Z snapshot (WORK-SYSTEM design), full-due endpoint (router, Tier-2)."
+    },
+    {
+      "id": "SOAK-WATCH",
+      "title": "Soak contract + soak alarms on the live pipeline + soak report (component of WORK-SYSTEM)",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "lane SOAK-WATCH",
+      "lane": "session_01JqGq9ffmH9ZCU5jc8kDkLF",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Builder under WORK-SYSTEM."
+    },
+    {
+      "id": "WORK-SYSTEM",
+      "title": "TOP PRIORITY (operator 2026-10-04): structural fix so due work, soaks and decisions never rot -- soak contract with end dates, short ranked truthful VM brief, alerts incl. expected-signal-missing, lane wake contract, canonized in the manager skill",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "lane WORK-SYSTEM (lead) + SOAK-WATCH + BRIEF-FIX",
+      "lane": "session_011qgezvKupqWGFyz9DKtUvo",
+      "model": "claude-opus-5-5 (design + canon); Sonnet/Opus builders",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator: 'that's not a band-aid, that's a structural fix ... canonize in the manager skill ... build the VM-side infra so reports are trustworthy and set off the right alerts ... highest priority even if it means pausing something else.' MEASURED gap: pipeline 366 due / 151 unrouted (237 never checked; 215 routed-but-due; 25 ask_operator never surfaced); 36 of 45 Stage-1 legs 'insufficient-data' with no end date; 09-26 soak grade's 6 'kill' calls never acted on; 10-04 weekly soak grade ran 'success' with no record; soak_alarm reads the archived OPEN-ITEMS.json; VM brief 737 KB, unranked, shows dead lanes as running. PROP-EVIDENCE-2 paused to free capacity. Closes when: brief live under its size cap and truthful; soak section populated from contracts; one real alert delivered for each alert class; manager skill + canonical rules updated and coherence guard green."
+    },
     {
       "id": "A1",
       "title": "Cost meter \u2014 usage against the WEEKLY PLAN ALLOWANCE, plus per-lane dollars",
@@ -4985,7 +5030,7 @@
       "id": "PROP-EVIDENCE-2",
       "title": "Confirming test for HELD Tier-3 #16269 (SOL prop bracket tp_r 2.0 / atr_stop 3.5): out-of-sample walk-forward, neighbourhood plateau, tradeify ruleset; pre-registered",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "blocked",
       "owner": "lane PROP-EVIDENCE-2",
       "lane": "session_018skNe5EqyibonwsfrvQeQ6",
       "model": "claude-opus-5-5",
@@ -4996,7 +5041,13 @@
         16244,
         16269
       ],
-      "blocked_on": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "WORK-SYSTEM",
+          "what": "paused 2026-10-04 15:00Z to free capacity for the top-priority structural fix (operator)"
+        }
+      ],
       "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Replaces stalled PROP-EVIDENCE. #16269 stays HELD; goes to the operator only if the pre-registered confirming test passes (operator directive 2026-09-29: file the data task instead of asking)."
     },
     {
@@ -5015,6 +5066,32 @@
       ],
       "blocked_on": [],
       "note": "[2026-10-04T14:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MERGED #16337. Trainer ok (69 trained / 0 failed of 72 attempted, disk 43%); 3 of 3 advisory heads HOLD. 5 Tier-3 cleanup proposals batched for the operator."
+    },
+    {
+      "id": "OPS-FIXES",
+      "title": "Implement every fix from the 2026-10-04 reviews/audits (OPS-AUDIT, HEALTH-REVIEW, ML-REVIEW, PERFORMANCE-REVIEW, RESEARCH-PIPELINE-REPAIR rows)",
+      "phase": "floor",
+      "state": "done",
+      "owner": "lane OPS-FIXES",
+      "lane": "session_012jcgSkwaVqQVCJshfa88uk",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 43,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16380,
+        16381,
+        16383,
+        16385,
+        16388,
+        16389,
+        16391,
+        16392,
+        16393,
+        16394
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-04T18:55Z lane OPS-FIXES] DONE as a lane: the manager's three verification asks (#16392, #16391, #16385) are observed; every effect not yet observable is owned by its own pipeline row with a clears_when (listed below), so this row carries no open observation of its own. ALL 10 PRs MERGED (#16380 #16394 #16388 self-land; #16381 #16383 #16393 #16391 #16389 #16385 #16392 by manager). DEPLOYED: VM deploy 18:21:55Z on 2fe7188b7 (contains all four 18:19Z merges); web-api git_sha matches; ict-trader-live restarted and ticking clean (18:45Z); all units active except ict-prop-executor.service=failed, which is breakout_1's pre-existing halted state (timer disabled since 10:15Z, PI-20261004-PUQ1APTH-0005). OBSERVED (diag #16431/#16435): #16392 tradeify_1 ticks 18:33Z/18:38Z exit 0 alerts=0; #16385 INV-7 '[ok] recent=0' with a real read; INV-2 recent=0 + INV-2c [6409]; #16383 one 'pending-pings: 512 ... skipped' line per pull; #16389 log_file unit_failures readable (and it shows OnFailure firing -> PI-20261004-SHFA88UK-0002, ib-executions-pull exit 2). STILL UNOBSERVED, each on its own pipeline row: parity controls_unproven on the 2026-10-05 06:35Z run; commit-to-main green after a normal auto-merge (PUQ1APTH-0008/FOJGFIZF-0003); 7 days with 0 MIS-ROUTED pings (PUQ1APTH-0003); role-file/gc.log noise on the next unit-refresh deploy (PUQ1APTH-0007); harness verdicts on the next real dispatch (FOJGFIZF-0004). Not done: OA-07 a/b, OA-16(a), PUQ1APTH-0005 (docs/plans/ops-decisions-2026-10-04.md section C); review nits PI-20261004-SHFA88UK-0001. Spend: manager count ~$35.6 at 18:20Z + verification."
     }
   ]
 }

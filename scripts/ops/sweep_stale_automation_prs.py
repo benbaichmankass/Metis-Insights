@@ -10,7 +10,7 @@ the action), and `refresh-stale-branch` merges `main` in ONCE when the wait is
 not progressing, minting a new head sha so the required checks re-run.
 
 All of that lives inside the PRODUCING RUN'S OWN LIFETIME — one
-``verify-timeout-minutes`` window (default 30), one refresh attempt. When the
+``verify-timeout-minutes`` window (default 50 since 2026-10-04), one refresh attempt. When the
 job exits, the branch has no owner. Its checks ran once, on the sha it was
 opened with, and NOTHING in this repository ever looks at it again. So any
 blocker that outlives one 30-minute window strands the branch PERMANENTLY,
