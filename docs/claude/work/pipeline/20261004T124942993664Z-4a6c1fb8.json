@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO things, and the first alone does not close it. (a) mes-regime-1d-lgbm-v2 TRAINS: a training_cycle.jsonl row with status manifest_ok and a fresh registered run for that model_id dated after this change deploys — a passing YAML parse is NOT that observation, and neither is the absence of the audit flag. (b) The other five enforced skips each have a NAMED cause read from dataset_audit.jsonl (not inferred from this one), and the 7-stale / 2-never-trained population is either explained or reduced. Explicitly NOT sufficient: fixing this manifest and reporting the trainer healthy, since 67 models were already training while these 9 were stuck and rc=0 reported neither.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME",
+  "ml_review_2026_10_04": "both halves observed.",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "(a) mes-regime-1d-lgbm-v2 TRAINS: dataset_audit.jsonl 2026-10-04T01:07:07Z ok=true n_rows=2932 flagged=[]; registry latest_run 20261004T0107, 87 registered runs, macro_f1 0.657 (GET /api/bot/ml/registry 2026-10-04). (b) Every remaining skip has a NAMED cause read from dataset_audit.jsonl / training_cycle.jsonl this session (trainer-vm-diag #16324/#16329): setup-quality-lgbm-v2 killzone+bias nan_fraction 1.0; setup-candidates-metalabel-xsym-yz-v1 parkinson/garman_klass/rogers_satchell/yang_zhang_vol nan_fraction 1.0; btc-regime-15m-lgbm-base-vt003-pcv-v1 log_return_lag_1, log_return_lag_2, hour_of_day, dayofweek nan_fraction 1.0 (n_rows 215838); prop-mission-policy-baseline-v0 degenerate single-class label was_taken (all 267 rows False); exit-policy-v1 dataset absent (exit_candidates/ETHUSDT/5m/v001, 0 rows); setup-candidates-metalabel-paper-v1 dataset absent (setup_candidates/all/all/v030, 0 rows); mes-execution-quality awaiting_source waiver by design. training_staleness_summary 2026-10-04T05:36Z: scanned 76, stale 6, never_trained 2, awaiting_source 1. The dispositions of those 7 are carried by MB-20260829-MANIFESTS-DECLARE-COLUMNS... and PI-20260929-UAOAYGBB-0001.",
+  "what": "[ml] mes-regime-1d-lgbm-v2 listed hour_of_day as a feature on a DAILY bar, so the dataset audit correctly flagged it dead and the model had not trained in 34 days while the cycle reported rc=0"
+}

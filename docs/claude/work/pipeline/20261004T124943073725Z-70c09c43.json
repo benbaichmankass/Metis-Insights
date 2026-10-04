@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A named consumer resolves the rotated archives (globs `shadow_predictions.????-??-??*`, handling .gz) AND a research join is OBSERVED returning rows dated before the live log's oldest row — the join's own min(ts) crossing the rotation boundary is the observation, not the glob being present in the diff. ⚠️ NOT SUFFICIENT: db_pulls reporting `ok` with a non-zero archive count. That is the WRITE side and it has been true since 2026-08-16 while the horizon did not move; treating it as the answer is what let this sit for 17 days. ⚠️ ALSO NOT SUFFICIENT: adding a glob to a reader nobody runs — say which consumer, and show its output changed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM",
+  "ml_review_2026_10_04": "reader exists and the join crosses the boundary.",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "A named consumer resolves the archives AND a join is observed crossing the rotation boundary: GET /api/bot/shadow/drift?model_id=btc-regime-15m-lgbm-fc-pcv-v2 (2026-10-04T12:38Z) reports rotated_logs_read.count=4 (the 07-07, 08-05, 09-01, 09-26 .jsonl.gz archives) and reference_count=3120 over reference_window_start 2026-08-28, while the active log first_seen for that model is 2026-09-26T06:39:57Z (shadow/stats). 3120 reference rows dated before the live log oldest row = the join min(ts) is past the boundary. ml/promotion/stage_guard.py imports iter_records_with_archives, so stage-guard attribution reads them too. The D1 fix (PI-20260927-YZRZQ725-0001) was confirmed by the 2026-09-29 review; this is the second independent confirmation.",
+  "what": "[ml] Rotated shadow-prediction archives have been synced to the trainer since 2026-08-16 and NOTHING reads them — every reader resolves the single literal shadow_predictions.jsonl, so the research-join horizon the sync was built to extend has not moved"
+}

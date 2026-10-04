@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, different facts. (1) The dataset-audit refusal is ROOT-CAUSED (which column, why dead) and either the feature is repaired and the manifest trains again, or the head is DEMOTED out of shadow — a head that cannot be retrained should not be accruing soak credit. Either settles it; leaving it soaking does not. (2) soak_days stops being reported for a model whose training is being refused, or is reported BESIDE its last-trained date so the number cannot be read as evidence. ⚠️ (2) IS THE STRUCTURAL HALF AND IS WHAT STOPS THE RECURRENCE — fixing this one manifest without it leaves the next refused manifest accruing the same meaningless counter, which is how BL-20260628-XA-TRAINING-ZERO happened. ⚠️ AND A SUCCESSFUL RETRAIN ALONE DOES NOT CLEAR (1): the audit refused it for a reason, so a retrain that succeeds because the audit was bypassed is worse than the refusal. Record WHY it trains again. Also fix the conviction-meta-v1-bt.yaml stale expected_optional_features declaration in the same pass — the trainer prints the exact remedy every cycle.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-SETUP-QUALITY-LGBM-V2-IS-ACCRUING-SOAK-DAYS-AGAINST-A-MODEL-THE-TRAINER-HAS-REFUSED-TO-RETRAIN-FOR-47-DAYS",
+  "ml_review_2026_10_04": "PART (1) SETTLED, PART (2) OPEN (2026-10-04). (1) Root cause: dataset_audit 2026-10-04T01:07:56Z flags killzone and bias nan_fraction 1.0 in the setup_labels dataset (ml/datasets/families/setup_labels.py; the live shadow rows DO carry a killzone key, so train and serve disagree). The head was demoted shadow->candidate 2026-09-29 (ML-DEMOTE) and is un-served since 2026-09-29T09:27Z; days_untrained 70.0 at the 05:36Z cycle. (2) STILL OPEN AND NOW WORSE: /api/bot/shadow/stats?model_id=setup-quality-lgbm-v2 (2026-10-04) reports stage=shadow, soak_days=103.2 for a CANDIDATE head that is not served -- the stats endpoint reads stage/soak from logged rows, not the registry. Same for conviction-meta-v1 (103.2). The structural fix (report soak beside last_trained_at and registry stage, or suppress for refused/demoted heads) is not built. Also still pending: the conviction-meta-v1-bt stale expected_optional_features [c_setup, c_wr] the trainer flags every cycle (manifest_stale_optional_declaration 2026-10-04T01:00:09Z) -- a 2-line Tier-3 manifest edit, proposed in the review record.",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#BL-20260911-SETUP-QUALITY-LGBM-V2-IS-ACCRUING-SOAK-DAYS-AGAINST-A-MODEL-THE-TRAINER-HAS-REFUSED-TO-RETRAIN-FOR-47-DAYS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-SETUP-QUALITY-LGBM-V2-IS-ACCRUING-SOAK-DAYS-AGAINST-A-MODEL-THE-TRAINER-HAS-REFUSED-TO-RETRAIN-FOR-47-DAYS'), indent=2))\""
+  },
+  "routed_to": "ML-HYGIENE",
+  "state": "routed",
+  "what": "[ml] setup-quality-lgbm-v2 is at shadow with 3,895 live predictions and soak_days 80.42, and has not been retrained for 47 days because the dataset audit refuses it every cycle — the soak counter climbs and means nothing, and a meta-model trains on its frozen output"
+}
