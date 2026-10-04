@@ -15,7 +15,8 @@
    "#16329 calibration report + flagged features + shadow-log census"
   ],
   "live_vm": "direct HTTPS to the Caddy route for /api/bot/ml/{status,cycle,sessions,registry,builds,db_pulls}, shadow/stats, shadow/drift (13 heads), trades/scores?limit=200; vm-diag-request #16320 never spawned a run (dropped webhook), #16328 was redundant once direct HTTPS answered",
-  "read_at": "2026-10-04T12:30Z-12:45Z"
+  "read_at": "2026-10-04T12:30Z-12:45Z",
+  "pr": "#16337 (opened by claude-pr-automerge on push; auto-merge armed, Tier-1 self-land declared)"
  },
  "overall_assessment": "caution",
  "_headline": "Trainer healthy (timer on schedule, 2 cycles in 24h, rc=0, 69 trained / 0 failed / 4 audit-refused / 3 skipped, 0 OOM quarantine events ever, disk 43%). All 3 advisory regime heads HOLD on a trustworthy drift read (btc moderate, mes moderate, sol minor), with 13/13, 7/7, 13/13 declared features served non-null and 0 parity mismatches -- no demote trigger. The 09-24 Tier-3 demote proposal for btc/sol is WITHDRAWN (killed) because its trigger does not reproduce. Nothing is promotable: every shadow head is blocked on at least one required gate. The 09-29 demotions are now OBSERVED live (4 heads un-served since 09-29). New this session: (1) two shadow baselines emit one constant value by construction (PerGroupPredictor global fallback; setup-quality-audit keys on a post-hoc label that is never served) and ACE the drift gate -- a soft-off is proposed; (2) the MES 5m family moved together on the 10-04 rebuild and the advisory head's margin over its baseline fell 6.9 -> 3.7 pts (filed, watch); (3) calibration report's ece=0.0 is in-sample and coverage is 6 of 48 strategies (filed); (4) the 4 audit-refused manifests are now 70 days untrained with every flagged column named (prop-mission is a degenerate LABEL, not a dead feature). Backlog: 34/34 triaged, 10 done, 2 killed, 21 kept open with this session's re-validation, 1 not an ML row.",
@@ -2651,7 +2652,7 @@
  "recommended_action": "Operator: answer the 5 decisions above (build-or-kill for the 4 demoted heads; MES baselines; one-or-two MES heads; prop-mission waiver; audit-baseline soft-off). Manager: dispatch ML-HYGIENE for the setup_labels killzone/bias builder fix (unblocks setup-quality-lgbm-v2 after 70 days) and the shadow/stats stage-from-registry fix; re-check PI-20261004-AHCVAAF5-0001 in 3 days.",
  "operator_attention_required": false,
  "claude_channel_ping": {
-  "delivered_via": "pending",
+  "delivered_via": "send-ping (system-action issue #16336, run 37203788729, queued 2026-10-04T12:55:51Z as 632577793588-normal.json; delivery to Telegram not observed by this session)",
   "priority": "normal",
   "message": "/ml-review 2026-10-04 -- 96 models, 69 retrained, 0 promotions, 1 soft-off proposed (constant baseline), 5 experiments, 34/34 backlog triaged (10 done, 2 killed). trainer=ok, models=watch. comms/reviews/ml-review-20261004-125000.json"
  }
