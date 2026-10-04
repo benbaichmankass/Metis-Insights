@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Test-only fix: test_schedule_is_gated in tests/research/test_egress_chromium_landing_probe.py depended on the real date and went red when the probe window ended 2026-10-04; it now pins SCHEDULE_ACTIVE_UNTIL for both the gated and expired cases. No runtime, config or order-path change."
+}

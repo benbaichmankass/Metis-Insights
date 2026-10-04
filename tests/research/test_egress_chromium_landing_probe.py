@@ -325,9 +325,11 @@ def test_direct_mode_is_unchanged(world, monkeypatch, tmp_path, capsys):
 def test_schedule_is_gated(world, monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("GITHUB_EVENT_NAME", "schedule")
     monkeypatch.delenv("EGRESS_PROBE_PROXY", raising=False)
+    # Date-independent: pin the window relative to the real clock rather than relying on today's date.
+    monkeypatch.setattr(probe, "SCHEDULE_ACTIVE_UNTIL", datetime.now(timezone.utc) + timedelta(days=1))
     code, text, _ = probe.main(["--out", str(tmp_path / "r.json")]), capsys.readouterr().out, None
-    assert code == 0 and "schedule_skipped" in text and world.launches == []
-    monkeypatch.setattr(probe, "SCHEDULE_ACTIVE_UNTIL", datetime(2020, 1, 1, tzinfo=timezone.utc))
+    assert code == 0 and "schedule_skipped" in text and "schedule_expired" not in text and world.launches == []
+    monkeypatch.setattr(probe, "SCHEDULE_ACTIVE_UNTIL", datetime.now(timezone.utc) - timedelta(days=1))
     monkeypatch.setenv("EGRESS_PROBE_PROXY", RAW_URL)
     code = probe.main(["--out", str(tmp_path / "r.json")])
     text = capsys.readouterr().out
