@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "HELD for the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) to read and merge, same shape as #16399: docs addenda plus two UNCONFIRMED Propr ruleset drafts under config/prop_rulesets/ (read by nothing live; no accounts.yaml entry, no routing file, no executor path), which check_pr_landing.py bars from self-landing by name (R5). Lane PROP-FIRM-DEEP, manager questions 2026-10-04 18:20Z.",
+  "why": "Addenda to docs/research/prop-firm-deepdive-2026-10-04.md answering the manager's three follow-up questions (Velotrade reachability from the VM egress, the 400-bootstrap full-size evaluator run, Propr's native bracket-order support and ruleset), the raw Monte Carlo JSON for the new runs, two unconfirmed Propr rulesets, and the pipeline updates that close PI-20261004-OZ9AAZSV-0001 when the VM measurement lands. No code on the order path, no config an account reads, no account or mode change."
+}

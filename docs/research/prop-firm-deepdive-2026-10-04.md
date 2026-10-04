@@ -252,3 +252,27 @@ Propr: `https://www.propr.xyz/rules` · `/funded-terms` · `/developers` · `/fa
 Crypto Fund Trader: `https://cryptofundtrader.com/terms-and-conditions/` · `/evaluation-rules/` · `/faq/`.
 Tradeify: `https://intercom.help/tradeify/en/articles/10468318-guidelines-for-traders` · `https://tradeify.co/funded-trader-agreement` · `https://tradeify247.co/funded-trader-agreement` · `https://help.tradeify247.co/en/articles/13393249-tradeify-247-faq`.
 Wider field (third-party): `https://roya-trading.com/decentralized-prop-firm/` · `https://roya-trading.com/blog/hypernova-vs-propr-hyperliquid-prop-firm/` · `https://alexfirdaus.com/hyperliquid-prop-firms/` (listed, not read) · The Block / KuCoin blog on Hypernova's raise · `https://cryptoslate.com/prop-firms/crypto-trading/` (listed, not read).
+
+---
+
+## Addenda (manager questions, 2026-10-04 18:20Z: *"concrete questions only, not breadth"*)
+
+### A3. Propr — does its own API carry bracket orders natively, and what is its ruleset?
+
+**Yes, natively, and in the shape our executor already uses.** Source: Propr's public Bot API reference, `https://github.com/XBorgLabs/propr-docs` → `docs/api.md` (read 2026-10-04 via raw.githubusercontent.com; the `/developers` page on `propr.xyz` links to it). Verbatim:
+
+> Base URLs: Live `https://api.propr.xyz/v1` · `wss://api.propr.xyz/ws`; Beta `https://api.beta.propr.xyz/v1`. … `POST /accounts/{accountId}/orders` Create order(s) · `POST /accounts/{accountId}/orders/{orderId}/cancel` … **`intentId` must be a unique ULID you generate per order. Same intentId = idempotent.** … Conditional orders (`stop_market`, `stop_limit`, `take_profit_market`, `take_profit_limit`) need a `positionId` on the order, OR must be in the same group as an entry order … Only one entry order (`market`, `limit`) per request … **Attaching SL/TP to an open position (the common case for bots):** `{"intentId": …, "positionId": "urn:prp-position:…", "type": "stop_market", "side": "sell", "positionSide": "long", "asset": "BTC", … "quantity": "0.001", "triggerPrice": "90000", "reduceOnly": true, …}` Single order, no `orderGroupId` needed. Partial-quantity laddered SL/TP on the same position is supported. … **Warning:** Selling without `reduceOnly: true` on an existing long position will open a separate short position instead of closing the long.
+
+So a bracket is either (a) one batched request — entry + `stop_market` + `take_profit_market` under one `orderGroupId` — or (b) entry, then SL/TP attached by `positionId`, which is the same "fill, read back, protect" sequence `src/prop/` performs on DXtrade and the same shape the DXtrade REST spec uses (`positionCode`). Idempotent client ids are first-class. An OpenAPI 3.0.3 spec (`https://propr.xyz/openapi.json`, 14 endpoints) exists; not fetched this lane.
+
+**Three facts from the API doc that the rulebook does not say, or contradicts:**
+
+| topic | rulebook (`/rules`) | API doc (`docs/api.md`) | used in the ruleset |
+|---|---|---|---|
+| leverage | *BTC Perpetual 10x · ETH 10x · SOL 10x · Other Crypto 2x* | *Current limits: BTC and ETH support up to 5x leverage. All other assets default to 2x* (`GET /leverage-limits/effective`, example output `BTC -> 5x, ETH -> 5x, SOL -> 2x`) | API: BTC/ETH 5×, default 2× — *field beats prose*; re-query before use |
+| fees | *Standard Hyperliquid maker/taker fees apply. These are passed through at cost. Propr does not add markup.* | *Taker 0.075% · Maker 0.075% … Fees are deducted from your account balance in USDC* | 7.5 bps per side, **15 bps round trip** — 2.5× Velotrade's 6 bps and above Hyperliquid's own public base taker rate, so "at cost" is not what the API charges |
+| funding | *Hyperliquid perpetual contracts carry periodic funding rates … deducted or credited* | (not restated) | variable; no flat nightly swap, so the simulator's `--swap-daily` has no ruleset analogue |
+
+**Rulesets written:** `config/prop_rulesets/propr_classic_1step.yaml` ($5k, $60, 10 % target, 3 % daily on the start-of-day *balance* at 00:00 UTC, 6 % static) and `propr_turbo_1step.yaml` ($5k, $25, 9 %, 3 %, 3 % static). Both `unconfirmed: true`, both load through `src.prop.ruleset.load_ruleset` and the simulator. No qualifying-day gate, no payout cap, no consistency rule, payouts on demand with a $20 minimum, full sweep, 80 % split. Not evaluated on the B3 book this lane (not asked; one reduced run per ruleset is ~4 CPU-minutes if wanted — but note the 15 bps round trip would be fed through `--commission-bps-rt 15`, and funding would need a venue-rate series the tool does not have).
+
+**What this does not change:** every Propr account is a simulated signal feed by the firm's own Terms (§ 2.1), the firm is eight months old, and the integration is a new broker package. The API being good makes the build cheaper (INFERRED 4–6 lane-days rather than 5–8: idempotent ids, native brackets, a WebSocket, an OpenAPI spec), not the firm safer.
