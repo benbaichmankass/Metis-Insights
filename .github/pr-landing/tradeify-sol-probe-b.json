@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path (src/prop/platform/dxtrade.py, src/prop/prop_executor.py: order-path modules), diagnostic only. Lane TRADEIFY-SOL-SIZE, manager dispatch 08:05Z probe (b): 'a masked ticket-panel dump at the refused state: words visible, digits masked, no account text'. The manager (session_01MM8o5js6TcDFeNAPBY4Ntv) merges.",
+  "why": "Adds SIDEBAR_TEXT_JS + DXtradeAdapter.sidebar_text, read ONLY on a submit-stage refusal in place_bracket and carried on the attempt as sidebar_text, so the run log shows the ticket column's visible text (every digit masked, user/profile/account/login elements skipped, input values never read). Clicks nothing, gates nothing; armed and dry behaviour unchanged. Answers why the tradeify_1 SOLUSD submit is disabled (PI-20261003-ILZMCTFQ-0002)."
+}

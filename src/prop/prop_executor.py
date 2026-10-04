@@ -1618,6 +1618,9 @@ def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
             # After a DISARMED walk: what the dismiss did and what the form
             # still shows (criterion D7, read back rather than assumed).
             "ticket_after": form.get("ticket_after"),
+            # A submit-stage refusal: the ticket column's visible text, every
+            # digit masked (SIDEBAR_TEXT_JS) -- where a validation line would be.
+            "sidebar_text": form.get("sidebar_text"),
             # After an ARMED submit click: what appeared (new controls, the
             # overlay's redacted text) and whether one confirmation was pressed.
             "after_submit": form.get("after_submit"),
