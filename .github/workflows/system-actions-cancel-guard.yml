@@ -2,18 +2,20 @@ name: system-actions-cancel-guard
 
 # A system-action cancelled before it ran is never silent (OA-17, 2026-10-04).
 #
-# GitHub keeps ONE pending run per concurrency group; a newer system-actions
-# request cancels an older pending one in the shared (mutating) lane. Before
-# this guard the requester's issue stayed open with zero comments and the
-# action never happened (#16251 / #16263, both de-risk steps). On every
-# system-actions run that concludes `cancelled`, this reads the issue number the
-# run's `route` job recorded and hands it to scripts/ops/system_action_cancel_guard.py:
-#   main job never started + issue open -> comment "CANCELLED, NOT RUN",
-#     re-file it as a new system-action issue (max 3 re-queues), close the original;
+# GitHub keeps ONE pending run per concurrency group; a newer request in the
+# shared (mutating) lane cancels an older pending one. Before this guard the
+# requester's issue stayed open with zero comments and the action never happened
+# (#16251 / #16263, both de-risk steps). On every system-actions run that
+# concludes `cancelled`, this reads the issue number the run's `route` job
+# recorded and runs scripts/ops/system_action_cancel_guard.py:
+#   main job never started + issue open -> comment "CANCELLED, NOT RUN" naming
+#     the displacing run + ONE direct Telegram alert; issue left open;
 #   main job started, then cancelled   -> comment only (may have partially applied);
 #   issue closed                       -> nothing (closing is how to withdraw).
-# The re-queue issue is created with BRANCH_PROTECTION_TOKEN (a PAT): an issue
-# opened with GITHUB_TOKEN would not trigger system-actions (OA-10's trap).
+# It NEVER re-queues: the run was displaced by a NEWER request, so re-filing it
+# would run it AFTER that one and invert their order (an old `=live` would undo
+# a newer `=read_only` de-risk). The alert is a direct Telegram call, not a
+# send-ping system-action, which would sit in the same droppable lane.
 
 on:
   workflow_run:
@@ -44,10 +46,11 @@ jobs:
           path: request
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
-      - name: Notify and re-queue
+      - name: Comment and alert (never re-queue)
         env:
           GH_TOKEN: ${{ github.token }}
-          REQUEUE_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CANCELLED_RUN_ID: ${{ github.event.workflow_run.id }}
           CANCELLED_RUN_URL: ${{ github.event.workflow_run.html_url }}
         run: |

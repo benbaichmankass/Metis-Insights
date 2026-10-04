@@ -621,8 +621,8 @@ mcp__github__issue_write
 
 #### `system-actions-cancel-guard.yml`
 
-**Autonomy:** AUTO — runs on its own; never executes an action itself, it only re-files the
-requester's own issue.
+**Autonomy:** AUTO — runs on its own; never executes or re-files an action, it only comments
+and alerts.
 
 **Trigger:** `workflow_run` on `system-actions` completing with conclusion `cancelled`
 (issue-triggered runs only).
@@ -631,9 +631,9 @@ requester's own issue.
 request in the shared mutating lane cancels an older pending one. This reads the issue number the
 run's `route` job uploaded (`system-action-request` artifact) and runs
 `scripts/ops/system_action_cancel_guard.py`: a run whose main job never started and whose issue is
-still open gets a **"CANCELLED, NOT RUN"** comment and is re-filed as `[requeue N] …` with
-`BRANCH_PROTECTION_TOKEN` (max 3); a run that had started is commented on only; a closed issue is
-left alone. See `docs/claude/system-actions.md` § 7.2.
+still open gets a **"CANCELLED, NOT RUN"** comment naming the displacing run and one direct
+Telegram alert, and is NOT re-queued (that would invert request order); a run that had started is
+commented on only; a closed issue is left alone. See `docs/claude/system-actions.md` § 7.2.
 
 #### `system-actions.yml`
 

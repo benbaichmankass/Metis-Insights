@@ -913,11 +913,14 @@ Then poll the issue's comments for the github-actions[bot] reply.
 > * **Every other action** still shares the serial `system-actions` group (two
 >   mutations never run at once), so GitHub's one-pending-run limit can still
 >   cancel a queued one. When it does, `system-actions-cancel-guard.yml` comments
->   **"CANCELLED, NOT RUN"** on the issue and re-files it as `[requeue N] …`
->   (max 3; a run that had STARTED is commented on, never re-queued). Close an
->   issue to withdraw it — a closed issue is never re-queued.
-> * Dispatching mutations one at a time is still the right habit: re-queue
->   changes the ORDER they run in, which matters for a sequence like the one below.
+>   **"CANCELLED, NOT RUN"** on the issue (naming the run that displaced it) and
+>   sends one direct Telegram alert. It **never re-queues**: the run was displaced
+>   by a NEWER request, and re-filing it would run it after that one (an old
+>   `set-env …=live` would undo a newer `=read_only`). Re-file only if still
+>   wanted, after checking what ran since. A run that had STARTED gets a comment
+>   only; a closed issue is left alone.
+> * Dispatching mutations one at a time is still the right habit: wait for each
+>   comment before filing the next, so ORDER is what you intended.
 
 
 ⚠️ **Open ONE system-action issue, wait for its comment, then open the next.**

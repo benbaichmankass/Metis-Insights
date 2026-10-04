@@ -7,33 +7,35 @@ run per concurrency group, so a newer request cancels an older pending one; the
 requester's issue used to stay open with zero comments and the action simply
 never happened (2026-10-04: #16251 and #16263, two OA-03/OA-01 de-risk steps).
 
-What it does, per cancelled run (issue number comes from the run's
-``system-action-request`` artifact, written by the workflow's ``route`` job):
+It NEVER re-queues (manager review of #16289, 2026-10-04). A pending run is
+cancelled precisely because a NEWER request queued behind it in the shared
+mutating lane; re-filing the older one would run it AFTER the newer one and
+invert their order -- an older ``set-env PROP_EXECUTOR_MODE=live`` displaced by
+a newer ``=read_only`` would silently undo the de-risk. Read-only actions no
+longer share a lane (scripts/ops/system_action_route.py), so they are not
+displaced at all. What it does, per cancelled run (the issue number comes from
+the run's ``system-action-request`` artifact, written by its ``route`` job):
 
-  * main job NEVER STARTED (no steps) and the issue is still OPEN
-      -> comment "CANCELLED, NOT RUN", re-file the identical body as a new
-         ``system-action`` issue (title prefixed ``[requeue N]``), close the
-         original as not_planned. At most MAX_REQUEUES times; after that, or
-         without a re-queue token, comment only and leave the issue open.
-  * main job STARTED, then was cancelled -> comment only, never re-queue: the
-    action may have partially applied and must be re-read before a retry.
+  * main job NEVER STARTED and the issue is OPEN -> comment "CANCELLED, NOT RUN"
+    naming the run that displaced it, AND send one direct Telegram alert (not a
+    system-action: that would sit in the same droppable lane), so a dropped
+    de-risk step is seen. The issue is left open; re-filing is a human/manager
+    decision taken AFTER checking what ran since.
+  * main job STARTED, then was cancelled -> comment only (may have partially
+    applied; read the run log and the VM first).
   * issue CLOSED -> nothing (closing the issue is how a requester withdraws).
-
-The re-queue uses REQUEUE_TOKEN (a PAT): an issue created with GITHUB_TOKEN
-does not trigger workflows (the same trap as OA-10's hold-merge alarm).
 """
 from __future__ import annotations
 
 import json
 import os
-import re
 import sys
+import urllib.parse
 import urllib.request
 from typing import Any, Mapping, Optional, Sequence
 
-MAX_REQUEUES = 3
 MAIN_JOB = "system-action"
-_REQUEUE_RE = re.compile(r"^\[requeue (\d+)\]\s*")
+FOOTER = "\n\n---\n_system-actions-cancel-guard (OA-17)_"
 
 
 def never_ran(jobs: Sequence[Mapping[str, Any]]) -> bool:
@@ -45,28 +47,39 @@ def never_ran(jobs: Sequence[Mapping[str, Any]]) -> bool:
     return all(not (j.get("steps") or []) for j in main)
 
 
-def requeue_title(title: str) -> tuple[int, str]:
-    """(attempt number of THIS title, title for the next attempt)."""
-    m = _REQUEUE_RE.match(title or "")
-    n = int(m.group(1)) if m else 0
-    base = _REQUEUE_RE.sub("", title or "", count=1)
-    return n, f"[requeue {n + 1}] {base}"
-
-
-def decide(*, issue_state: str, title: str, jobs: Sequence[Mapping[str, Any]],
-           have_requeue_token: bool) -> str:
-    """One of: ``skip_closed`` / ``comment_started`` / ``requeue`` /
-    ``comment_cap`` / ``comment_no_token``."""
+def decide(*, issue_state: str, jobs: Sequence[Mapping[str, Any]]) -> str:
+    """``skip_closed`` / ``comment_started`` / ``comment_and_alert``. There is
+    deliberately no re-queue verdict (it would invert request order)."""
     if issue_state != "open":
         return "skip_closed"
     if not never_ran(jobs):
         return "comment_started"
-    n, _ = requeue_title(title)
-    if n >= MAX_REQUEUES:
-        return "comment_cap"
-    if not have_requeue_token:
-        return "comment_no_token"
-    return "requeue"
+    return "comment_and_alert"
+
+
+def displacer(runs: Sequence[Mapping[str, Any]], cancelled_id: int,
+              cancelled_created: str) -> Optional[Mapping[str, Any]]:
+    """The earliest system-actions run created after the cancelled one -- the
+    request that queued behind it and took its pending slot (best effort)."""
+    later = [r for r in runs if r.get("id") != cancelled_id
+             and (r.get("created_at") or "") > (cancelled_created or "")]
+    return min(later, key=lambda r: r.get("created_at") or "") if later else None
+
+
+def cancelled_comment(run_ref: str, issue_no: str, disp: Optional[Mapping[str, Any]]) -> str:
+    by = (f"superseded/displaced by run {disp.get('html_url') or disp.get('id')} "
+          f"(\"{disp.get('display_title', '')}\")") if disp else "superseded by a newer queued request"
+    return (f"⚠️ **CANCELLED, NOT RUN** — system-actions run {run_ref} for #{issue_no} was cancelled "
+            f"while pending: {by}. GitHub keeps one pending run per concurrency group. **Nothing was "
+            "executed on the VM.** It is NOT re-queued automatically: re-running it now would place it "
+            "AFTER the request that displaced it. Re-file only if it is still wanted, after checking "
+            "what ran since." + FOOTER)
+
+
+def started_comment(run_ref: str) -> str:
+    return (f"⚠️ **CANCELLED AFTER IT STARTED** — run {run_ref} began executing and was then "
+            "cancelled. It may have partially applied. Read the run log and the VM state before "
+            "filing it again." + FOOTER)
 
 
 def _api(method: str, path: str, token: str, body: Optional[dict] = None) -> Any:
@@ -80,51 +93,52 @@ def _api(method: str, path: str, token: str, body: Optional[dict] = None) -> Any
     return json.loads(raw) if raw else None
 
 
-def main() -> int:
-    repo = os.environ["GITHUB_REPOSITORY"]
-    run_id = os.environ["CANCELLED_RUN_ID"]
-    run_url = os.environ.get("CANCELLED_RUN_URL", "")
-    issue_no = (os.environ.get("ISSUE_NUMBER") or "").strip()
-    token = os.environ["GH_TOKEN"]
-    requeue_token = (os.environ.get("REQUEUE_TOKEN") or "").strip()
+def _telegram(text: str) -> bool:
+    tok = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    chat = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
+    if not tok or not chat:
+        print("::warning::Telegram secrets not configured; the CANCELLED comment was still posted")
+        return False
+    data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
+    try:
+        with urllib.request.urlopen(f"https://api.telegram.org/bot{tok}/sendMessage",
+                                    data=data, timeout=20):
+            return True
+    except Exception as exc:  # noqa: BLE001 -- best effort; the comment is the durable record
+        print(f"::warning::Telegram alert failed ({type(exc).__name__}); the comment was still posted")
+        return False
+
+
+def run(env: Mapping[str, str], api=_api, telegram=_telegram) -> str:
+    repo = env["GITHUB_REPOSITORY"]
+    run_id = env["CANCELLED_RUN_ID"]
+    run_ref = env.get("CANCELLED_RUN_URL") or run_id
+    issue_no = (env.get("ISSUE_NUMBER") or "").strip()
+    token = env["GH_TOKEN"]
     if not issue_no.isdigit():
-        print(f"cancel-guard: run {run_id} carries no issue number (workflow_dispatch or "
-              "pre-route cancel) -- nothing to notify")
-        return 0
-    issue = _api("GET", f"/repos/{repo}/issues/{issue_no}", token)
-    jobs = (_api("GET", f"/repos/{repo}/actions/runs/{run_id}/jobs?per_page=50", token) or {}).get("jobs", [])
-    verdict = decide(issue_state=issue.get("state", ""), title=issue.get("title", ""),
-                     jobs=jobs, have_requeue_token=bool(requeue_token))
+        print(f"cancel-guard: run {run_id} carries no issue number -- nothing to notify")
+        return "no_issue"
+    issue = api("GET", f"/repos/{repo}/issues/{issue_no}", token)
+    jobs = (api("GET", f"/repos/{repo}/actions/runs/{run_id}/jobs?per_page=50", token) or {}).get("jobs", [])
+    verdict = decide(issue_state=issue.get("state", ""), jobs=jobs)
     print(f"cancel-guard: run {run_id} issue #{issue_no} -> {verdict}")
-    head = (f"⚠️ **CANCELLED, NOT RUN** — system-actions run {run_url or run_id} was cancelled "
-            "while pending (GitHub keeps one pending run per concurrency group; a newer "
-            "request superseded it). Nothing was executed on the VM.")
     if verdict == "skip_closed":
-        return 0
+        return verdict
     if verdict == "comment_started":
-        msg = (f"⚠️ **CANCELLED AFTER IT STARTED** — run {run_url or run_id} began executing and was "
-               "then cancelled. It is NOT re-queued: the action may have partially applied. "
-               "Read the run log and the VM state before filing it again.")
-    elif verdict == "comment_cap":
-        msg = head + f" This was already re-queued {MAX_REQUEUES} times; not re-queued again — re-file it."
-    elif verdict == "comment_no_token":
-        msg = head + " No re-queue token is configured; re-file this request."
-    else:
-        _, new_title = requeue_title(issue["title"])
-        body = (issue.get("body") or "").rstrip("\n") + f"\nrequeue_of: #{issue_no}\n"
-        new = _api("POST", f"/repos/{repo}/issues", requeue_token,
-                   {"title": new_title, "body": body, "labels": ["system-action"]})
-        msg = head + f" Re-queued automatically as #{new['number']} (OA-17)."
-        _api("POST", f"/repos/{repo}/issues/{issue_no}/comments", token,
-             {"body": msg + "\n\n---\n_system-actions-cancel-guard_"})
-        _api("PATCH", f"/repos/{repo}/issues/{issue_no}", token,
-             {"state": "closed", "state_reason": "not_planned"})
-        print(f"cancel-guard: re-queued #{issue_no} as #{new['number']}")
-        return 0
-    _api("POST", f"/repos/{repo}/issues/{issue_no}/comments", token,
-         {"body": msg + "\n\n---\n_system-actions-cancel-guard_"})
-    return 0
+        api("POST", f"/repos/{repo}/issues/{issue_no}/comments", token, {"body": started_comment(run_ref)})
+        return verdict
+    me = api("GET", f"/repos/{repo}/actions/runs/{run_id}", token) or {}
+    runs = (api("GET", f"/repos/{repo}/actions/workflows/system-actions.yml/runs?per_page=30",
+                token) or {}).get("workflow_runs", [])
+    disp = displacer(runs, int(run_id), me.get("created_at", ""))
+    api("POST", f"/repos/{repo}/issues/{issue_no}/comments", token,
+        {"body": cancelled_comment(run_ref, issue_no, disp)})
+    telegram(f"⚠️ system-action CANCELLED, NOT RUN: #{issue_no} \"{issue.get('title', '')}\" was displaced "
+             f"while pending{' by run ' + str(disp.get('id')) if disp else ''}. Nothing ran; it was NOT "
+             f"re-queued. Re-file only if still wanted. {issue.get('html_url', '')}")
+    return verdict
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    run(os.environ)
+    sys.exit(0)

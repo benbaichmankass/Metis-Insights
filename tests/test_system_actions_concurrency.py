@@ -5,7 +5,7 @@ Pins both halves of the fix:
       system-action job takes its group from the route job, read-only actions
       get a group of their own, mutating ones keep the shared serial lane.
   (b) system-actions-cancel-guard.yml fires on cancelled runs and the guard
-      comments / re-queues correctly.
+      comments + alerts and NEVER re-queues (re-queue inverts request order).
 A regression to one workflow-level "system-actions" group fails here.
 """
 from __future__ import annotations
@@ -73,9 +73,10 @@ def test_cancel_guard_workflow_fires_on_cancelled_issue_runs():
     assert "completed" in on["workflow_run"]["types"]
     cond = d["jobs"]["guard"]["if"]
     assert "conclusion == 'cancelled'" in cond and "event == 'issues'" in cond
-    step_env = [s.get("env") or {} for s in d["jobs"]["guard"]["steps"]]
-    assert any("BRANCH_PROTECTION_TOKEN" in str(e.get("REQUEUE_TOKEN", "")) for e in step_env), \
-        "re-queue must use a PAT: a GITHUB_TOKEN-created issue never triggers system-actions"
+    env = {k: v for s in d["jobs"]["guard"]["steps"] for k, v in (s.get("env") or {}).items()}
+    assert "TELEGRAM_BOT_TOKEN" in env, "the alert must be direct, not a droppable system-action"
+    assert "REQUEUE_TOKEN" not in env and "BRANCH_PROTECTION_TOKEN" not in str(d), \
+        "the guard must never be able to re-file a request (it would invert request order)"
 
 
 PENDING_CANCELLED = [{"name": "route", "steps": [{"name": "x"}]},
@@ -84,21 +85,55 @@ STARTED_CANCELLED = [{"name": "system-action", "conclusion": "cancelled",
                       "steps": [{"name": "Set up job"}]}]
 
 
-def test_guard_decisions():
+def test_guard_decisions_have_no_requeue():
     d = guard.decide
-    assert d(issue_state="open", title="[system-action] x", jobs=PENDING_CANCELLED,
-             have_requeue_token=True) == "requeue"
-    assert d(issue_state="closed", title="x", jobs=PENDING_CANCELLED,
-             have_requeue_token=True) == "skip_closed"
-    assert d(issue_state="open", title="x", jobs=STARTED_CANCELLED,
-             have_requeue_token=True) == "comment_started"
-    assert d(issue_state="open", title="x", jobs=PENDING_CANCELLED,
-             have_requeue_token=False) == "comment_no_token"
-    assert d(issue_state="open", title="[requeue 3] x", jobs=PENDING_CANCELLED,
-             have_requeue_token=True) == "comment_cap"
+    assert d(issue_state="open", jobs=PENDING_CANCELLED) == "comment_and_alert"
+    assert d(issue_state="closed", jobs=PENDING_CANCELLED) == "skip_closed"
+    assert d(issue_state="open", jobs=STARTED_CANCELLED) == "comment_started"
+    assert not hasattr(guard, "requeue_title")
 
 
-def test_requeue_title_counts_and_does_not_nest():
-    assert guard.requeue_title("[system-action] get-env") == (0, "[requeue 1] [system-action] get-env")
-    assert guard.requeue_title("[requeue 1] [system-action] get-env") == (
-        1, "[requeue 2] [system-action] get-env")
+class _FakeGH:
+    def __init__(self, issue_state="open", jobs=PENDING_CANCELLED):
+        self.calls = []
+        self.issue_state, self.jobs = issue_state, jobs
+
+    def __call__(self, method, path, token, body=None):
+        self.calls.append((method, path, body))
+        if path.endswith("/issues/42"):
+            return {"state": self.issue_state, "title": "[system-action] set-env X=live",
+                    "html_url": "https://example/42"}
+        if path.endswith("/jobs?per_page=50"):
+            return {"jobs": self.jobs}
+        if path.endswith("/actions/runs/100"):
+            return {"created_at": "2026-10-04T10:00:00Z"}
+        if "/workflows/system-actions.yml/runs" in path:
+            return {"workflow_runs": [
+                {"id": 100, "created_at": "2026-10-04T10:00:00Z"},
+                {"id": 101, "created_at": "2026-10-04T10:00:30Z", "display_title": "set-env X=read_only",
+                 "html_url": "https://example/run/101"},
+                {"id": 99, "created_at": "2026-10-04T09:59:00Z"}]}
+        return {}
+
+
+ENV = {"GITHUB_REPOSITORY": "o/r", "CANCELLED_RUN_ID": "100", "ISSUE_NUMBER": "42", "GH_TOKEN": "t"}
+
+
+def test_mutating_cancel_comments_and_alerts_and_opens_no_issue():
+    gh, alerts = _FakeGH(), []
+    assert guard.run(ENV, api=gh, telegram=alerts.append) == "comment_and_alert"
+    posts = [(p, b) for m, p, b in gh.calls if m == "POST"]
+    assert [p for p, _ in posts] == ["/repos/o/r/issues/42/comments"], "exactly one comment, no new issue"
+    body = posts[0][1]["body"]
+    assert "CANCELLED, NOT RUN" in body and "run/101" in body and "NOT re-queued" in body
+    assert not [c for c in gh.calls if c[0] == "PATCH"], "the issue is left open"
+    assert len(alerts) == 1 and "#42" in alerts[0] and "101" in alerts[0]
+
+
+def test_started_cancel_comments_only_and_closed_issue_is_untouched():
+    gh, alerts = _FakeGH(jobs=STARTED_CANCELLED), []
+    assert guard.run(ENV, api=gh, telegram=alerts.append) == "comment_started"
+    assert [p for m, p, _ in gh.calls if m == "POST"] == ["/repos/o/r/issues/42/comments"] and not alerts
+    gh, alerts = _FakeGH(issue_state="closed"), []
+    assert guard.run(ENV, api=gh, telegram=alerts.append) == "skip_closed"
+    assert not [c for c in gh.calls if c[0] != "GET"] and not alerts

@@ -16,7 +16,8 @@ THE RULE.
     mutations on the VM still never run at once. That lane can still drop a
     pending run (GitHub's one-pending limit), which is why
     scripts/ops/system_action_cancel_guard.py exists: it comments
-    "CANCELLED, NOT RUN" on the issue and re-queues it.
+    "CANCELLED, NOT RUN" on the issue and alerts. It never re-queues -- that
+    would run the older request after the newer one that displaced it.
 
 READ_ONLY is an explicit allowlist, never a pattern: an action not named here is
 treated as mutating (fail toward serialisation). Adding one is a reviewed edit;

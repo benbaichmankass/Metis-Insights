@@ -270,7 +270,8 @@ permissions:
 #   * every other action keeps the shared "system-actions" group, so two
 #     mutations on the VM still never run at once.
 # The shared lane can still drop a pending run; system-actions-cancel-guard.yml
-# comments "CANCELLED, NOT RUN" on its issue and re-queues it.
+# then comments "CANCELLED, NOT RUN" on its issue and sends one alert. It never
+# re-queues (that would run the older request after the newer one that displaced it).
 # (verify-account-mode is read-only, so it no longer needs its per-account
 # group: each verify now gets its own.) Pinned by
 # tests/test_system_actions_concurrency.py.
@@ -279,7 +280,7 @@ jobs:
   route:
     # Picks the concurrency group for the system-action job below and records
     # which issue this run serves, so a cancelled-while-pending run can be
-    # reported and re-queued (system-actions-cancel-guard.yml). Holds no
+    # reported and alerted (system-actions-cancel-guard.yml). Holds no
     # concurrency group itself, so it always runs immediately.
     if: |
       github.event_name == 'workflow_dispatch' ||
