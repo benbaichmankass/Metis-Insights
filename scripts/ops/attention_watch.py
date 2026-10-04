@@ -60,7 +60,7 @@ import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 for _p in (REPO_ROOT, REPO_ROOT / "scripts"):
