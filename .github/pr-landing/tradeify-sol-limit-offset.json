@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 by path (src/prop/prop_executor.py order-path module, scripts/prop/prop_executor_tick.py, scripts/ops/breakout_login_check_action.sh, .github/workflows/system-actions.yml apply allowlist). Manager dispatch ~10:45Z (session_01MM8o5js6TcDFeNAPBY4Ntv): 'Build the dry-only limit-offset probe as a HELD Tier-2 PR'. The manager merges.",
+  "why": "Adds a DRY-only limit_offset_pct to run_round_trip (apply tokens lim-below / lim-above = -/+0.5% from the touch) and re-reads the quote right after the submit check on every dry LIMIT walk. Refused with any armed walk, with MARKET and beyond +/-5%; run_cycle / bracket_from_ticket (the live ticket path) have no such parameter, pinned by a test. Answers whether DXtrade disables a buy Limit priced through the market (PI-20261003-ILZMCTFQ-0002)."
+}

@@ -4190,3 +4190,55 @@ def test_sidebar_text_js_masks_digits_and_skips_personal():
     assert "replace(/\\d/g, '#')" in SIDEBAR_TEXT_JS
     assert "user|profile|account|login|email" in SIDEBAR_TEXT_JS
     assert ".value" not in SIDEBAR_TEXT_JS        # input values are never read
+
+
+# ── TRADEIFY-SOL-SIZE: the DRY-only limit offset probe ───────────────────────
+
+def _lim_cfg():
+    c = rt_cfg()
+    c.symbols["SOLUSDT"]["price_step"] = 0.001
+    return c
+
+
+@pytest.mark.parametrize("pct,expect", [(-0.5, 99.6), (0.5, 100.6)])
+def test_dry_limit_offset_prices_from_the_ask(tmp_path, pct, expect):
+    ad = RTAdapter(quote={"bid": 100.0, "ask": 100.1})
+    res = rt(ad, FakeApi(), tmp_path, arm=False, c=_lim_cfg(), order_type="limit", limit_offset_pct=pct)
+    assert res.halted is None, res.actions
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]
+    # within one 0.001 tick of the exact ask * (1 + pct), on the requested side of the ask
+    assert spec["spec"]["limit_price"] == pytest.approx(100.1 * (1 + pct / 100), abs=0.001)
+    assert spec["spec"]["limit_price"] == pytest.approx(expect, abs=0.01)
+    assert (spec["spec"]["limit_price"] < 100.1) == (pct < 0)
+    assert spec["limit_offset_pct"] == pct and spec["quote_at_spec"] == {"bid": 100.0, "ask": 100.1}
+    after = [a for a in res.actions if a["what"] == "quote_after_submit_check"]
+    assert after and after[0]["quote"] == {"bid": 100.0, "ask": 100.1}
+    assert all(c[2] is False for c in ad.calls)          # nothing armed
+
+
+@pytest.mark.parametrize("kw,needle", [
+    (dict(arm=True, order_type="limit"), "dry-only"),     # LIMIT refuses arming first
+    (dict(arm=True, order_type="market"), "dry-only"),
+    (dict(arm=False, order_type="market"), "needs order_type 'limit'"),
+    (dict(arm=False, order_type="limit", limit_offset_pct=7.0), "outside +/-5%"),
+])
+def test_limit_offset_is_refused_before_any_click(tmp_path, kw, needle):
+    kw = {"limit_offset_pct": 0.5, **kw}
+    ad = RTAdapter()
+    res = rt(ad, FakeApi(), tmp_path, c=_lim_cfg(), **kw)
+    assert needle in (res.halted or "") and ad.calls == []
+
+
+def test_live_ticket_path_cannot_carry_a_limit_offset():
+    """The live executor path (run_cycle -> bracket_from_ticket) has no offset
+    parameter: a ticket is always placed at its own entry."""
+    import inspect
+    assert "limit_offset_pct" not in inspect.signature(pe.run_cycle).parameters
+    assert "limit_offset_pct" not in inspect.signature(pe.bracket_from_ticket).parameters
+    src = inspect.getsource(pe.run_cycle)
+    assert "limit_offset" not in src
+
+
+def test_market_round_trip_does_not_read_the_quote_twice(tmp_path):
+    res = rt(RTAdapter(), FakeApi(), tmp_path, arm=False)
+    assert not [a for a in res.actions if a["what"] == "quote_after_submit_check"]

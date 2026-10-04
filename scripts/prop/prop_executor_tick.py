@@ -437,6 +437,9 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--ticket-id", default="", help="watched click: act on this ticket only")
     ap.add_argument("--order-type", choices=("market", "limit"), default="market",
                     help="round trip only: 'limit' walks the ticket path's LIMIT form, DRY only")
+    ap.add_argument("--limit-offset-pct", type=float, default=None,
+                    help="DRY LIMIT round trip only: limit this many percent from the touch "
+                         "(negative = below the ask for a long); refused with --live")
     args = ap.parse_args(argv)
     if not args.state_dir:
         args.state_dir = str(default_state_dir(args.account))
@@ -689,6 +692,7 @@ def main(argv: Optional[list] = None) -> int:
                         ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
                         venue_symbol=args.round_trip, side=args.side, lots=args.lots,
                         arm=(mode == "round_trip_live"), order_type=args.order_type,
+                        limit_offset_pct=args.limit_offset_pct,
                         sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
                 code = emit_round_trip(res, *secrets)
                 if args.login == "reuse":
