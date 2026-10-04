@@ -340,7 +340,16 @@ def _pull_cost_fidelity(tmp_dir: Path) -> Optional[dict]:
               file=sys.stderr)
         return None
     as_of = datetime.now(timezone.utc)
-    return r3.run(tmp_dir, as_of)
+    # A crash inside the R3 grade is a cost-fidelity read failure, not a reason
+    # to lose the MECHANICS dimension too. MEASURED 2026-10-04 (run 37174464732):
+    # an unhandled ValueError here took the whole weekly pass down and no record
+    # landed. Same three-state contract as the pull failure above.
+    try:
+        return r3.run(tmp_dir, as_of)
+    except Exception as exc:  # noqa: BLE001 — reported, never swallowed silently
+        print(f"soak_book_grade: r3_cost_fidelity.run raised {type(exc).__name__}: {exc}",
+              file=sys.stderr)
+        return None
 
 
 def fetch_strategy_execution() -> Optional[Dict[str, str]]:
@@ -353,6 +362,21 @@ def fetch_strategy_execution() -> Optional[Dict[str, str]]:
         return None
     return {s.get("name"): s.get("execution") for s in (doc.get("strategies") or [])
            if s.get("name")}
+
+
+def producer_failed_report(error: str) -> Dict[str, Any]:
+    """The record written when the grade itself crashed: both dimensions
+    ``producer_failed``, ``n`` null (we could not look — never a measured 0)."""
+    return {
+        "question": "R5: per Stage-1 soak leg (producer failed — see error)",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "mechanics_read_state": "producer_failed",
+        "cost_fidelity_read_state": "producer_failed",
+        "population": {"n": None},
+        "by_disposition": {},
+        "legs": [],
+        "error": error,
+    }
 
 
 def build_report(*, window_hours: int, skip_cost_pull: bool = False) -> Dict[str, Any]:
@@ -544,7 +568,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     if a.self_test:
         return _self_test()
 
-    report = build_report(window_hours=a.window_hours, skip_cost_pull=a.skip_cost_pull)
+    try:
+        report = build_report(window_hours=a.window_hours, skip_cost_pull=a.skip_cost_pull)
+    except Exception as exc:  # noqa: BLE001
+        # The workflow's contract is "rc=1 still lands a record". A traceback
+        # that writes nothing broke it (2026-10-04), so an unexpected failure
+        # writes an explicit producer_failed record instead of no file.
+        report = producer_failed_report(f"{type(exc).__name__}: {exc}")
     text = json.dumps(report, indent=2, default=str, sort_keys=True)
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)

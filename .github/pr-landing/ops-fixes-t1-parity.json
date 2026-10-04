@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tooling only: scripts/ops/live_replay_parity.py runs in a GitHub workflow (live-replay-parity.yml), not on the VM. A control that could not run (could_not_check/partial) now yields status controls_unproven (exit 2, already tolerated by the workflow's rc<=2 check) plus a real-money finding (ping), instead of status ok / exit 0 / no ping (OA-13, PI-20261004-GCFA5DOR-0008). Tests added, including the all-pass twin. No live path, order path, config, strategy or VM unit is touched."
+}
