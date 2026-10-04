@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The cause of the two never-executed leg-a packages is named from the trader log (or declared unrecoverable because journald retention expired, with the date), and either a fix PR is merged or the orphan rate on pairs legs is measured over 30 days and found below 1 per 100 packages.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-ZBHFJG6X-0002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "curl -sS 'https://ict-bot.duckdns.org/api/bot/order-packages?strategy=pairs_bnb_btc_a&limit=200&include_paper=true' | python3 -c \"import json,sys; r=json.load(sys.stdin)['rows']; o=[x for x in r if x['status']=='orphaned']; print(len(o),'orphaned of',len(r)); [print(x['orderPackageId'],x['createdAt'],(x.get('meta') or {}).get('orphaned_reason')) for x in o]\"",
+    "what": "The cause of the two never-executed leg-a packages is named from the trader log (or declared unrecoverable because journald retention expired, with the date), and either a fix PR is merged or the orphan rate on pairs legs is measured over 30 days and found below 1 per 100 packages."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERFORMANCE-REVIEW lane 2026-10-04 (session_013rQhqo11aVJrH3zbHFJg6X), comms/reviews/performance-review-20261004-*.json",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/order-packages?strategy=pairs_bnb_btc_a&limit=200&include_paper=true' | python3 -c \"import json,sys; r=json.load(sys.stdin)['rows']; o=[x for x in r if x['status']=='orphaned']; print(len(o),'orphaned of',len(r)); [print(x['orderPackageId'],x['createdAt'],(x.get('meta') or {}).get('orphaned_reason')) for x in o]\""
+  },
+  "routed_to": "ORDER-AUDIT-2 — pairs_bnb_btc leg-a never executed (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": "1",
+  "what": "[performance][health] Two pairs_bnb_btc_a 'a' legs were emitted and never executed on bybit_1 (orphaned by monitor_reconciler, BUG-049): pkg-f8e7b3df361b4951 created 2026-10-01T23:05:50Z, pkg-389f8c6f3dd84347 created 2026-10-02T00:05:58Z, both short_spread BNBUSDT/BTCUSDT, both 'no linked_trade_id after 5 min'. Their 'b' legs are not among the window's packages either, so the pair never opened -- consistent with the M22 pairs executor (src.units.strategies.pairs_executor) emitting leg 'a' and failing before placement on two consecutive hourly bars. MEASURED from GET /api/bot/order-packages?strategy=pairs_bnb_btc_a&since=2026-09-27T07:29:44Z (read 2026-10-04); the other 17 pairs_bnb_btc_a packages in the window all filled. Not graded as strategy decisions (never executed). Root cause needs the trader journal for 23:05-23:13Z and 00:05-00:13Z on those dates (journalctl is ~2 days deep, so the relay read must happen soon or the evidence is gone)."
+}

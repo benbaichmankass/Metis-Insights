@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only update records from lane BACKLOG-BURNDOWN-2 batch 1 (routes 49 unrouted items to live checklist rows or lanes, kills one duplicate) plus the lane's own checklist row. No code, config or order-path change."
+}
