@@ -1,0 +1,2658 @@
+{
+ "request_id": "REQ-20261004-124500-ml-review-lane",
+ "reviewed_at": "2026-10-04T12:50:00+00:00",
+ "reviewer": "claude",
+ "session": "lane ML-REVIEW dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv (2026-10-04 review set; health review and ops audit already landed), session_011rsPvFXySRXoyMAHcvAAF5, ceiling $25",
+ "window_start": "2026-09-29T09:55:00+00:00",
+ "window_end": "2026-10-04T12:50:00+00:00",
+ "_window_note": "Since comms/reviews/ml-review-20260929-095500.json (#14069). Between the two reviews: ML-DEMOTE (#14166) demoted 4 shadow heads to candidate on 2026-09-29; EXITHEAD-DONCHIAN-GATE (#14093) graded exit-head-donchian-1h-v1 FAIL.",
+ "sources": {
+  "trainer_vm_diag_issues": [
+   "#16318 (cmd parse failure: unindented python lines ended the YAML block; re-fired)",
+   "#16319 (list-models dump truncated the comment at 55KB; superseded)",
+   "#16324 cycle log / audit / builds / resources",
+   "#16327 stage-guard + gate-check x5 + serve-parity probe + calibrators + OOM state",
+   "#16329 calibration report + flagged features + shadow-log census"
+  ],
+  "live_vm": "direct HTTPS to the Caddy route for /api/bot/ml/{status,cycle,sessions,registry,builds,db_pulls}, shadow/stats, shadow/drift (13 heads), trades/scores?limit=200; vm-diag-request #16320 never spawned a run (dropped webhook), #16328 was redundant once direct HTTPS answered",
+  "read_at": "2026-10-04T12:30Z-12:45Z"
+ },
+ "overall_assessment": "caution",
+ "_headline": "Trainer healthy (timer on schedule, 2 cycles in 24h, rc=0, 69 trained / 0 failed / 4 audit-refused / 3 skipped, 0 OOM quarantine events ever, disk 43%). All 3 advisory regime heads HOLD on a trustworthy drift read (btc moderate, mes moderate, sol minor), with 13/13, 7/7, 13/13 declared features served non-null and 0 parity mismatches -- no demote trigger. The 09-24 Tier-3 demote proposal for btc/sol is WITHDRAWN (killed) because its trigger does not reproduce. Nothing is promotable: every shadow head is blocked on at least one required gate. The 09-29 demotions are now OBSERVED live (4 heads un-served since 09-29). New this session: (1) two shadow baselines emit one constant value by construction (PerGroupPredictor global fallback; setup-quality-audit keys on a post-hoc label that is never served) and ACE the drift gate -- a soft-off is proposed; (2) the MES 5m family moved together on the 10-04 rebuild and the advisory head's margin over its baseline fell 6.9 -> 3.7 pts (filed, watch); (3) calibration report's ece=0.0 is in-sample and coverage is 6 of 48 strategies (filed); (4) the 4 audit-refused manifests are now 70 days untrained with every flagged column named (prop-mission is a degenerate LABEL, not a dead feature). Backlog: 34/34 triaged, 10 done, 2 killed, 21 kept open with this session's re-validation, 1 not an ML row.",
+ "trainer_findings": {
+  "trainer_service": {
+   "status": "ok",
+   "note": "ict-trainer.timer enabled+active, last 2026-10-04T00:17Z, next 10-05T00:49Z; oneshot ExecMainStatus=0; cycle_end 01:13:33Z rc=0 trained 69 skipped 7 (4 enforced) failed 0; second cycle 05:35Z 'already_done 76'. 0 quarantine events in 12,572 log rows."
+  },
+  "trainer_datasets": {
+   "status": "ok",
+   "note": "dataset_builds_24h ok 96 / failed 0 / skipped 2 (ml/status); market_raw MES rebuilt 05:33Z; 10-03 journal shows 3 market_raw ccxt failures that cleared. 22 families on disk, datasets-out 12G. Disk 43% (56G free), RAM 3.1G free of 5.9G."
+  },
+  "trainer_registry": {
+   "status": "ok",
+   "note": "96 models: advisory 3, shadow 25, candidate 67, research_only 1 (target_deployment_stage, mirror 12:30Z == stage-guard N=96). 97 files in ml/registry-store for 96 models (not chased)."
+  },
+  "trainer_models": {
+   "status": "watch",
+   "note": "No advisory head degrading on live data (stage-guard 96x hold; drift btc/mes moderate, sol minor; parity 0 mismatches). WATCH: mes-regime-5m-lgbm-v2 training macro_f1 -1.1 pts while its baseline +2.1 on the same rebuild; 4 manifests audit-refused 70.0d (none shadow+ now); 2 shadow baselines constant-output; 2 MES baselines silent 33d."
+  }
+ },
+ "soak_audit": [
+  {
+   "head": "btc-regime-15m-lgbm-fc-pcv-v2 (advisory)",
+   "parity": "OK: 13/13 declared feature_columns served non-null in 958 active-log rows (probe #16327); gate-check live_parity sampled 15 rows, 0 mismatched, dead_live=[] dead_train=[] (needs >=20 since the 00:48Z artifact).",
+   "label_coverage": "6245/6271 live rows labeled (99.6%).",
+   "evidence_destination": "already advisory; soak feeds demote/hold. drift pass (KS 0.0822 PSI 0.1143), RG4 AUC 0.686, attribution n=31 win 0.355 AUC 0.627. Accruing, hold."
+  },
+  {
+   "head": "mes-regime-5m-lgbm-v2 (advisory)",
+   "parity": "OK: 7/7 served non-null in 1444 rows; live_parity 0 rows since the 01:07Z artifact (insufficient_data, not a bug).",
+   "label_coverage": "10711/11192 (95.7%).",
+   "evidence_destination": "advisory; demote/hold. drift pass (KS 0.1210 PSI 0.1719), RG4 AUC 0.747. Hold; training-metric watch filed PI-20261004-AHCVAAF5-0001."
+  },
+  {
+   "head": "sol-regime-15m-lgbm-fc-pcv-v2 (advisory)",
+   "parity": "OK: 13/13 served non-null in 948 rows; live_parity 14 rows sampled, 0 mismatched.",
+   "label_coverage": "6107/6243 (97.8%).",
+   "evidence_destination": "advisory; demote/hold. drift pass (KS 0.0750 PSI 0.0276), RG4 AUC 0.755. Hold."
+  },
+  {
+   "head": "exit-head-donchian-1h-v1 (shadow, file artifact, not in registry)",
+   "parity": "not diffable from the registry (declared 0); 21 row_keys served; 85 rows since 09-28T20:00Z; fires on every 1h close of an open donchian leg (trade 6437: 7 rows).",
+   "label_coverage": "not computed (exit-head labels come from the trade close).",
+   "evidence_destination": "RQ-20260927-002 FAIL (-14.66R OOS, AUC 0.54); stays shadow; drift moderate (KS 0.196 PSI 0.214, ref 329 cur 85). No promotion case."
+  },
+  {
+   "head": "execution-quality-baseline-v0 + setup-quality-audit-baseline-v0 (shadow)",
+   "parity": "BUG CLASS: constant output. audit_pattern (the audit baseline's only group key) is never in the served row -> PerGroupPredictor returns global_rate for every row (-0.0572, 1508 rows, min==max). execution-quality keys on strategy_name (served) yet is constant -0.2017 -> no live strategy matches its per_group_rate table (n_eval 65). Both ACE drift (KS 0.0 PSI 0.0).",
+   "label_coverage": "n/a",
+   "evidence_destination": "none -- a constant score feeds nothing and cannot pass or fail a gate honestly. Soft-off proposed for the audit baseline; key-table read filed for execution-quality (PI-20260929-UAOAYGBB-0003)."
+  },
+  {
+   "head": "conviction-meta-v1 / setup-quality-lgbm-v2 / btc-regime-1h-lgbm-funding-svble-v1 / btc-regime-5m-lgbm-flow-v1-offload (candidate since 09-29)",
+   "parity": "the 09-29 demotion is OBSERVED live: last rows 09-29T09:27 / 09:27 / 11:45 / 11:55Z, zero since. shadow/stats still reports stage=shadow soak_days 103 for the first two (reads the log, not the registry) -- BL-20260911 part 2.",
+   "label_coverage": "n/a (un-served)",
+   "evidence_destination": "none until a producer puts the declared features into the live row (K85Q64SF-0001..0004) -- decision owed: build or kill."
+  }
+ ],
+ "model_status": [
+  {
+   "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+   "stage": "advisory",
+   "stage_raw": "advisory",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004844Z",
+    "at": "2026-10-04T00:48",
+    "headline_metric": "macro_f1=0.5809",
+    "prior_run": 0.5804,
+    "n_eval": 87636.0,
+    "runs_registered": 81,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "advisory",
+    "predictions": 992,
+    "score_summary": "n=992 mean=0.9794 min=0.6091 max=0.9997 first=2026-09-26T06:39:57 last=2026-10-04T12:29:17 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.0849 psi=0.1177 verdict=moderate ref_n=3120 cur_n=850 (4 archives folded)",
+    "realized": "stage-guard attribution n=31 trusted-provenance closes: win_rate 0.355, AUC 0.627, brier_lift -0.337 (trade-win axis suppressed for regime classifiers); RG4 live regime AUC 0.686"
+   },
+   "note": "HOLD. gate-check ready=false only on live_parity insufficient_data (15<20 rows since the 00:48Z artifact; 0 mismatches); drift pass; parity 13/13 declared features served."
+  },
+  {
+   "model_id": "mes-regime-5m-lgbm-v2",
+   "stage": "advisory",
+   "stage_raw": "advisory",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010724Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.7023",
+    "prior_run": 0.7132,
+    "n_eval": 7719.0,
+    "runs_registered": 126,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "advisory",
+    "predictions": 1454,
+    "score_summary": "n=1454 mean=0.7101 min=0.5004 max=0.9864 first=2026-09-26T06:40:04 last=2026-10-04T12:14:58 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.1197 psi=0.1730 verdict=moderate ref_n=5327 cur_n=1414 (4 archives folded)",
+    "realized": "attribution null (no MES live closes in the trusted population); RG4 live regime AUC 0.747"
+   },
+   "note": "HOLD/WATCH. macro_f1 0.7132->0.7023 while baseline rose 0.6443->0.6657 on the 10-04 MES rebuild; margin +6.9->+3.7 pts. Filed PI-20261004-AHCVAAF5-0001. Parity 7/7."
+  },
+  {
+   "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+   "stage": "advisory",
+   "stage_raw": "advisory",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T011134Z",
+    "at": "2026-10-04T01:11",
+    "headline_metric": "macro_f1=0.5393",
+    "prior_run": 0.5393,
+    "n_eval": 87060.0,
+    "runs_registered": 81,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "advisory",
+    "predictions": 982,
+    "score_summary": "n=982 mean=0.8087 min=0.5016 max=0.9984 first=2026-09-26T06:40:04 last=2026-10-04T12:31:08 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.0519 psi=0.0168 verdict=minor ref_n=3108 cur_n=844 (4 archives folded)",
+    "realized": "attribution null (no SOL live closes in the trusted population); RG4 live regime AUC 0.755"
+   },
+   "note": "HOLD. drift minor (ks 0.075 psi 0.028); gate-check blocks only on live_parity 14<20 fresh rows. Parity 13/13. Retrain again byte-identical (rebuild cadence)."
+  },
+  {
+   "model_id": "btc-regime-15m-baseline-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005342Z",
+    "at": "2026-10-04T00:53",
+    "headline_metric": "macro_f1=0.4926",
+    "prior_run": 0.4926,
+    "n_eval": 35054.0,
+    "runs_registered": 152,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 962,
+    "score_summary": "n=962 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 flat vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004725Z",
+    "at": "2026-10-04T00:47",
+    "headline_metric": "macro_f1=0.6031",
+    "prior_run": 0.6031,
+    "n_eval": 87636.0,
+    "runs_registered": 96,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 962,
+    "score_summary": "n=962 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 flat vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-v2",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004938Z",
+    "at": "2026-10-04T00:49",
+    "headline_metric": "macro_f1=0.5812",
+    "prior_run": 0.5786,
+    "n_eval": 35054.0,
+    "runs_registered": 100,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 962,
+    "score_summary": "n=962 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 improved vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-yz-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005329Z",
+    "at": "2026-10-04T00:53",
+    "headline_metric": "macro_f1=0.5903",
+    "prior_run": 0.5948,
+    "n_eval": 35054.0,
+    "runs_registered": 129,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 962,
+    "score_summary": "n=962 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 degraded vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-1h-lgbm-v2",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005432Z",
+    "at": "2026-10-04T00:54",
+    "headline_metric": "macro_f1=0.6586",
+    "prior_run": 0.6588,
+    "n_eval": 8760.0,
+    "runs_registered": 139,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 488,
+    "score_summary": "n=488 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 degraded vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-1h-lgbm-yz-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005441Z",
+    "at": "2026-10-04T00:54",
+    "headline_metric": "macro_f1=0.6622",
+    "prior_run": 0.6596,
+    "n_eval": 8760.0,
+    "runs_registered": 103,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 488,
+    "score_summary": "n=488 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 improved vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-5m-baseline-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010007Z",
+    "at": "2026-10-04T01:00",
+    "headline_metric": "macro_f1=0.499",
+    "prior_run": 0.4981,
+    "n_eval": 105173.0,
+    "runs_registered": 140,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 2373,
+    "score_summary": "n=2373 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 improved vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-5m-lgbm-v2",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005751Z",
+    "at": "2026-10-04T00:57",
+    "headline_metric": "macro_f1=0.5532",
+    "prior_run": 0.5646,
+    "n_eval": 105173.0,
+    "runs_registered": 134,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 2373,
+    "score_summary": "n=2373 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 degraded vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-regime-5m-lgbm-yz-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005921Z",
+    "at": "2026-10-04T00:59",
+    "headline_metric": "macro_f1=0.5536",
+    "prior_run": 0.5694,
+    "n_eval": 105173.0,
+    "runs_registered": 89,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 2373,
+    "score_summary": "n=2373 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 degraded vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "eth-regime-15m-lgbm-selfonly-v901ctrl",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010404Z",
+    "at": "2026-10-04T01:04",
+    "headline_metric": "macro_f1=0.4576",
+    "prior_run": 0.4576,
+    "n_eval": 35054.0,
+    "runs_registered": 83,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 952,
+    "score_summary": "n=952 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 flat vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "eth-regime-15m-lgbm-xasset-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010504Z",
+    "at": "2026-10-04T01:05",
+    "headline_metric": "macro_f1=0.4817",
+    "prior_run": 0.4817,
+    "n_eval": 35054.0,
+    "runs_registered": 84,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 952,
+    "score_summary": "n=952 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 flat vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "eth-regime-1h-lgbm-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010513Z",
+    "at": "2026-10-04T01:05",
+    "headline_metric": "macro_f1=0.5858",
+    "prior_run": 0.5844,
+    "n_eval": 8760.0,
+    "runs_registered": 90,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 558,
+    "score_summary": "n=558 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 improved vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "eth-regime-1h-lgbm-xasset-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010523Z",
+    "at": "2026-10-04T01:05",
+    "headline_metric": "macro_f1=0.5708",
+    "prior_run": 0.5718,
+    "n_eval": 8760.0,
+    "runs_registered": 96,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 558,
+    "score_summary": "n=558 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 degraded vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "eth-regime-5m-lgbm-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010655Z",
+    "at": "2026-10-04T01:06",
+    "headline_metric": "macro_f1=0.5581",
+    "prior_run": 0.5581,
+    "n_eval": 105173.0,
+    "runs_registered": 86,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 2368,
+    "score_summary": "n=2368 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 flat vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "execution-quality-baseline-v0",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "sizing",
+   "last_training": {
+    "run_id": "20261004T003953Z",
+    "at": "2026-10-04T00:39",
+    "headline_metric": "mae=3.2638",
+    "prior_run": 3.2638,
+    "n_eval": 65.0,
+    "runs_registered": 155,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 1508,
+    "score_summary": "n=1508 mean=-0.2017 min=-0.2017 max=-0.2017 first=2026-09-26T07:08:23 last=2026-10-04T09:09:45 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.0000 psi=0.0000 verdict=no_change ref_n=11220 cur_n=971 (4 archives folded)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "CONSTANT live score -0.2017 over 1508 rows (PerGroupPredictor global_rate fallback; strategy_name served but unmatched - needs per_group_rate key read). PI-20260929-UAOAYGBB-0003."
+  },
+  {
+   "model_id": "mes-regime-15m-baseline-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010707Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.5496",
+    "prior_run": 0.5479,
+    "n_eval": 2936.0,
+    "runs_registered": 137,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 694,
+    "score_summary": "n=694 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 improved vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "mes-regime-15m-lgbm-v2",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010701Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.7015",
+    "prior_run": 0.7034,
+    "n_eval": 2936.0,
+    "runs_registered": 126,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 694,
+    "score_summary": "n=694 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow twin of the advisory 5m head (0.7015 vs 0.7023); decision (a)/(b) in MB-20260721 still owed."
+  },
+  {
+   "model_id": "mes-regime-1d-lgbm-v2",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010709Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.657",
+    "prior_run": 0.657,
+    "n_eval": 586.0,
+    "runs_registered": 87,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 380,
+    "score_summary": "n=380 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Trains again after the hour_of_day fix (87 runs, 0.657 flat); MB-20260829-MES-1D closed."
+  },
+  {
+   "model_id": "mes-regime-5m-baseline-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010736Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.6657",
+    "prior_run": 0.6443,
+    "n_eval": 7719.0,
+    "runs_registered": 136,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 1444,
+    "score_summary": "n=1444 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 improved vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "mes-setup-quality-baseline-v0",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010736Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "mae=0.9989",
+    "prior_run": 0.9989,
+    "n_eval": 7.0,
+    "runs_registered": 64,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "insufficient (0 rows both windows)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "SILENT since the 09-01 rotation (0 rows active log; shadow/stats records=[]). n_eval 7. PI-20260929-K85Q64SF-0005."
+  },
+  {
+   "model_id": "mes-trade-outcome-winrate-baseline-v0",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_wr",
+   "last_training": {
+    "run_id": "20261004T010736Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.2444",
+    "prior_run": 0.2444,
+    "n_eval": 5.0,
+    "runs_registered": 65,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "insufficient (0 rows both windows)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "SILENT since the 09-01 rotation (0 rows). n_eval 5. PI-20260929-K85Q64SF-0005."
+  },
+  {
+   "model_id": "setup-quality-audit-baseline-v0",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T003957Z",
+    "at": "2026-10-04T00:39",
+    "headline_metric": "mae=0.065",
+    "prior_run": 0.065,
+    "n_eval": 49.0,
+    "runs_registered": 155,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 1508,
+    "score_summary": "n=1508 mean=-0.0572 min=-0.0572 max=-0.0572 first=2026-09-26T07:08:23 last=2026-10-04T09:09:45 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.0000 psi=0.0000 verdict=no_change ref_n=11220 cur_n=971 (4 archives folded)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "CONSTANT by construction: keys on audit_pattern, a post-hoc label never present at serve time -> global mean -0.0572 for all 1508 rows. Tier-3 soft-off proposed."
+  },
+  {
+   "model_id": "setup-quality-baseline-v0",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T003957Z",
+    "at": "2026-10-04T00:39",
+    "headline_metric": "mae=0.9411",
+    "prior_run": 0.9657,
+    "n_eval": 520.0,
+    "runs_registered": 155,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 1508,
+    "score_summary": "n=1508 mean=-0.1675 min=-0.1740 max=-0.1598 first=2026-09-26T07:08:23 last=2026-10-04T09:09:45 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.5384 psi=0.0000 verdict=significant ref_n=11220 cur_n=971 (4 archives folded)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Varies live (9 distinct values; setup_type served). Control for the two constant siblings. drift ks 0.538 with psi 0.0 = discrete-output artefact."
+  },
+  {
+   "model_id": "sol-regime-15m-lgbm-fc-pcv-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T011011Z",
+    "at": "2026-10-04T01:10",
+    "headline_metric": "macro_f1=0.5491",
+    "prior_run": 0.5491,
+    "n_eval": 82788.0,
+    "runs_registered": 71,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 948,
+    "score_summary": "n=948 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 flat vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "sol-regime-5m-lgbm-v1",
+   "stage": "shadow",
+   "stage_raw": "shadow",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T011330Z",
+    "at": "2026-10-04T01:13",
+    "headline_metric": "macro_f1=0.5628",
+    "prior_run": 0.5628,
+    "n_eval": 104482.0,
+    "runs_registered": 86,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(shadow)",
+    "predictions": 2317,
+    "score_summary": "n=2317 rows in the trainer's active shadow log tail (100k lines, trainer-vm-diag #16329); per-model stats not pulled",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Shadow, retrains daily; macro_f1 flat vs prior run; drift not individually measured this session (stage-guard: hold)."
+  },
+  {
+   "model_id": "btc-c1-base-v903",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "none (encoder/research)",
+   "last_training": {
+    "run_id": "20260702T061058Z",
+    "at": "2026-07-02T06:10",
+    "headline_metric": "macro_f1=0.5571",
+    "prior_run": null,
+    "n_eval": 87636.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-c1-base-v905",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "none (encoder/research)",
+   "last_training": {
+    "run_id": "20260702T061426Z",
+    "at": "2026-07-02T06:14",
+    "headline_metric": "macro_f1=0.5918",
+    "prior_run": null,
+    "n_eval": 87636.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-c1-macro-v903",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "none (encoder/research)",
+   "last_training": {
+    "run_id": "20260702T061215Z",
+    "at": "2026-07-02T06:12",
+    "headline_metric": "macro_f1=0.5871",
+    "prior_run": null,
+    "n_eval": 87636.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-c1-macro-v905",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "none (encoder/research)",
+   "last_training": {
+    "run_id": "20260702T061546Z",
+    "at": "2026-07-02T06:15",
+    "headline_metric": "macro_f1=0.5623",
+    "prior_run": null,
+    "n_eval": 87636.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-direction-15m-lgbm-base-v003",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg (direction variant)",
+   "last_training": {
+    "run_id": "20261004T004118Z",
+    "at": "2026-10-04T00:41",
+    "headline_metric": "macro_f1=0.345",
+    "prior_run": 0.345,
+    "n_eval": 87636.0,
+    "runs_registered": 100,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-direction-15m-lgbm-emb-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg (direction variant)",
+   "last_training": {
+    "run_id": "20260806T010956Z",
+    "at": "2026-08-06T01:09",
+    "headline_metric": "macro_f1=0.349",
+    "prior_run": 0.349,
+    "n_eval": 87636.0,
+    "runs_registered": 41,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-direction-15m-lgbm-fc-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg (direction variant)",
+   "last_training": {
+    "run_id": "20261004T004252Z",
+    "at": "2026-10-04T00:42",
+    "headline_metric": "macro_f1=0.3438",
+    "prior_run": 0.3438,
+    "n_eval": 87636.0,
+    "runs_registered": 97,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-c1-base",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260702T052815Z",
+    "at": "2026-07-02T05:28",
+    "headline_metric": "macro_f1=0.5571",
+    "prior_run": null,
+    "n_eval": 87636.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-c1-macro",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260702T052934Z",
+    "at": "2026-07-02T05:29",
+    "headline_metric": "macro_f1=0.5871",
+    "prior_run": null,
+    "n_eval": 87636.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-hmm-cw-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004322Z",
+    "at": "2026-10-04T00:43",
+    "headline_metric": "macro_f1=0.5841",
+    "prior_run": 0.5841,
+    "n_eval": 87636.0,
+    "runs_registered": 98,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-hmm-fc-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004352Z",
+    "at": "2026-10-04T00:43",
+    "headline_metric": "macro_f1=0.4908",
+    "prior_run": 0.4908,
+    "n_eval": 87636.0,
+    "runs_registered": 98,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-hmm-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004422Z",
+    "at": "2026-10-04T00:44",
+    "headline_metric": "macro_f1=0.4908",
+    "prior_run": 0.4908,
+    "n_eval": 87636.0,
+    "runs_registered": 97,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-base-pcv-v003",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004527Z",
+    "at": "2026-10-04T00:45",
+    "headline_metric": "macro_f1=0.56",
+    "prior_run": 0.56,
+    "n_eval": 87636.0,
+    "runs_registered": 109,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-base-v003",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004601Z",
+    "at": "2026-10-04T00:46",
+    "headline_metric": "macro_f1=0.5761",
+    "prior_run": 0.5761,
+    "n_eval": 35054.0,
+    "runs_registered": 100,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-base-vt003-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260726T052933Z",
+    "at": "2026-07-26T05:29",
+    "headline_metric": "macro_f1=0.48",
+    "prior_run": 0.48,
+    "n_eval": 107919.0,
+    "runs_registered": 19,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Audit-refused 70.0d: log_return_lag_1/2, hour_of_day, dayofweek 100% NaN in the vt003 arm build (n_rows 215838)."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-corpusemb-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260806T011550Z",
+    "at": "2026-08-06T01:15",
+    "headline_metric": "macro_f1=0.56",
+    "prior_run": 0.56,
+    "n_eval": 87636.0,
+    "runs_registered": 36,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-emb-pca-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260806T011633Z",
+    "at": "2026-08-06T01:16",
+    "headline_metric": "macro_f1=0.6159",
+    "prior_run": 0.6159,
+    "n_eval": 35054.0,
+    "runs_registered": 37,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-emb-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260806T011843Z",
+    "at": "2026-08-06T01:18",
+    "headline_metric": "macro_f1=0.6125",
+    "prior_run": 0.6125,
+    "n_eval": 87636.0,
+    "runs_registered": 48,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-emb-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260806T011926Z",
+    "at": "2026-08-06T01:19",
+    "headline_metric": "macro_f1=0.6172",
+    "prior_run": 0.6172,
+    "n_eval": 35054.0,
+    "runs_registered": 37,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-fc-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T004912Z",
+    "at": "2026-10-04T00:49",
+    "headline_metric": "macro_f1=0.5761",
+    "prior_run": 0.5761,
+    "n_eval": 35054.0,
+    "runs_registered": 99,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-fcemb-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260806T012458Z",
+    "at": "2026-08-06T01:24",
+    "headline_metric": "macro_f1=0.6054",
+    "prior_run": 0.6054,
+    "n_eval": 87636.0,
+    "runs_registered": 37,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-v2-gpuburst",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260702T204526Z",
+    "at": "2026-07-02T21:54",
+    "headline_metric": "macro_f1=0.5821",
+    "prior_run": null,
+    "n_eval": 35054.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-vt003-pin-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005048Z",
+    "at": "2026-10-04T00:50",
+    "headline_metric": "macro_f1=0.6692",
+    "prior_run": 0.6692,
+    "n_eval": 87636.0,
+    "runs_registered": 83,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-vt004-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260731T013508Z",
+    "at": "2026-07-31T01:35",
+    "headline_metric": "macro_f1=0.6275",
+    "prior_run": 0.6275,
+    "n_eval": 87636.0,
+    "runs_registered": 19,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-07-31). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-vt004-pin-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005152Z",
+    "at": "2026-10-04T00:51",
+    "headline_metric": "macro_f1=0.6288",
+    "prior_run": 0.6288,
+    "n_eval": 87636.0,
+    "runs_registered": 85,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-lgbm-vt005-pin-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005300Z",
+    "at": "2026-10-04T00:53",
+    "headline_metric": "macro_f1=0.5981",
+    "prior_run": 0.5981,
+    "n_eval": 87636.0,
+    "runs_registered": 85,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-15m-tcn-v1-gpuburst",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260703T063353Z",
+    "at": "2026-07-03T06:34",
+    "headline_metric": "macro_f1=0.5344",
+    "prior_run": null,
+    "n_eval": 87605.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-1h-hmm-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005347Z",
+    "at": "2026-10-04T00:53",
+    "headline_metric": "macro_f1=0.5627",
+    "prior_run": 0.5626,
+    "n_eval": 8760.0,
+    "runs_registered": 129,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-1h-lgbm-base-pcv-v003",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005405Z",
+    "at": "2026-10-04T00:54",
+    "headline_metric": "macro_f1=0.5172",
+    "prior_run": 0.5172,
+    "n_eval": 21900.0,
+    "runs_registered": 99,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-1h-lgbm-emb-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260806T013032Z",
+    "at": "2026-08-06T01:30",
+    "headline_metric": "macro_f1=0.5343",
+    "prior_run": 0.5343,
+    "n_eval": 21900.0,
+    "runs_registered": 40,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-1h-lgbm-funding-svble-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005414Z",
+    "at": "2026-10-04T00:54",
+    "headline_metric": "macro_f1=0.6573",
+    "prior_run": 0.6536,
+    "n_eval": 8760.0,
+    "runs_registered": 118,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 178,
+    "score_summary": "n=178 mean=0.8943 min=0.6235 max=0.9970 first=2026-09-26T06:39:58 last=2026-09-29T11:45:29 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.2211 psi=0.6905 verdict=significant ref_n=1249 cur_n=119 (4 archives folded)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "DEMOTED to candidate 09-29 (funding features never served), un-served since 09-29T11:45Z; still trains daily (macro_f1 0.6573, == funding-v1, i.e. funding features add nothing at train either)."
+  },
+  {
+   "model_id": "btc-regime-1h-lgbm-funding-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005423Z",
+    "at": "2026-10-04T00:54",
+    "headline_metric": "macro_f1=0.6573",
+    "prior_run": 0.6536,
+    "n_eval": 8760.0,
+    "runs_registered": 128,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 improved vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-1h-trend-lgbm-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005451Z",
+    "at": "2026-10-04T00:54",
+    "headline_metric": "macro_f1=0.3427",
+    "prior_run": 0.3372,
+    "n_eval": 8760.0,
+    "runs_registered": 129,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 improved vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "btc-regime-5m-lgbm-flow-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T005623Z",
+    "at": "2026-10-04T00:56",
+    "headline_metric": "macro_f1=0.5532",
+    "prior_run": 0.5646,
+    "n_eval": 105173.0,
+    "runs_registered": 119,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "macro_f1 byte-identical to btc-regime-5m-lgbm-v2 two cycles running (0.5532/0.5646): flow features contribute nothing at train. MB-20260613-002 updated."
+  },
+  {
+   "model_id": "btc-regime-5m-lgbm-flow-v1-offload",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260828T072009Z",
+    "at": "2026-08-28T19:39",
+    "headline_metric": "macro_f1=0.5644",
+    "prior_run": null,
+    "n_eval": 22978.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 956,
+    "score_summary": "n=956 mean=0.9913 min=0.5580 max=0.9999 first=2026-09-26T06:39:58 last=2026-09-29T11:55:16 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.1071 psi=0.0278 verdict=moderate ref_n=7942 cur_n=589 (4 archives folded)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "DEMOTED to candidate 09-29 (order-flow features never served), un-served since 09-29T11:55Z; single run 08-28."
+  },
+  {
+   "model_id": "conviction-meta-base-btc-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "learned conviction (v2 stacker)",
+   "last_training": {
+    "run_id": "20261004T010009Z",
+    "at": "2026-10-04T01:00",
+    "headline_metric": "macro_f1=0.5611",
+    "prior_run": 0.5611,
+    "n_eval": 20.0,
+    "runs_registered": 83,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "conviction-meta-emb-btc-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "learned conviction (v2 stacker)",
+   "last_training": {
+    "run_id": "20260806T013551Z",
+    "at": "2026-08-06T01:35",
+    "headline_metric": "macro_f1=0.6",
+    "prior_run": 0.6,
+    "n_eval": 20.0,
+    "runs_registered": 24,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "conviction-meta-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "learned conviction (v2 stacker)",
+   "last_training": {
+    "run_id": "20261004T010013Z",
+    "at": "2026-10-04T01:00",
+    "headline_metric": "macro_f1=0.4875",
+    "prior_run": 0.4961,
+    "n_eval": 254.0,
+    "runs_registered": 91,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 754,
+    "score_summary": "n=754 mean=0.7457 min=0.5583 max=0.8523 first=2026-09-26T07:08:23 last=2026-09-29T09:27:45 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.5356 psi=1.2034 verdict=significant ref_n=11220 cur_n=217 (4 archives folded)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "DEMOTED to candidate 09-29, un-served since 09-29T09:27Z. gate-check: non_degenerate FAIL (min f1 0.286), drift FAIL on the un-served tail. Return path = producer for c_reg/c_setup/c_strat/c_wr (PI-20260929-K85Q64SF-0001)."
+  },
+  {
+   "model_id": "conviction-meta-v1-bt",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "learned conviction (v2 stacker)",
+   "last_training": {
+    "run_id": "20261004T010011Z",
+    "at": "2026-10-04T01:00",
+    "headline_metric": "macro_f1=0.4875",
+    "prior_run": 0.4961,
+    "n_eval": 254.0,
+    "runs_registered": 73,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 degraded vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "corpus-ssl-encoder-mae-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "none (encoder/research)",
+   "last_training": {
+    "run_id": "20260726T055204Z",
+    "at": "2026-07-26T05:52",
+    "headline_metric": "embedding_dim=16.0",
+    "prior_run": 16.0,
+    "n_eval": 851.0,
+    "runs_registered": 13,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of rotation since 07-26 (13 runs); embedding_dim=16 is not a quality metric. T1.2 negative stands."
+  },
+  {
+   "model_id": "eth-direction-1h-lgbm-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg (direction variant)",
+   "last_training": {
+    "run_id": "20261004T010023Z",
+    "at": "2026-10-04T01:00",
+    "headline_metric": "macro_f1=0.3404",
+    "prior_run": 0.3431,
+    "n_eval": 8760.0,
+    "runs_registered": 95,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 degraded vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "eth-direction-1h-lgbm-xasset-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg (direction variant)",
+   "last_training": {
+    "run_id": "20261004T010041Z",
+    "at": "2026-10-04T01:00",
+    "headline_metric": "macro_f1=0.3484",
+    "prior_run": 0.3449,
+    "n_eval": 8760.0,
+    "runs_registered": 95,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 improved vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "eth-regime-15m-hmm-cw-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010114Z",
+    "at": "2026-10-04T01:01",
+    "headline_metric": "macro_f1=0.4552",
+    "prior_run": 0.4552,
+    "n_eval": 87636.0,
+    "runs_registered": 83,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "eth-regime-15m-lgbm-base-pcv-v003",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010217Z",
+    "at": "2026-10-04T01:02",
+    "headline_metric": "macro_f1=0.4596",
+    "prior_run": 0.4596,
+    "n_eval": 87636.0,
+    "runs_registered": 88,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "eth-regime-15m-lgbm-emb-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260806T013950Z",
+    "at": "2026-08-06T01:39",
+    "headline_metric": "macro_f1=0.5173",
+    "prior_run": 0.5173,
+    "n_eval": 87636.0,
+    "runs_registered": 27,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-08-06). Candidate, no influence."
+  },
+  {
+   "model_id": "eth-regime-15m-lgbm-fc-pcv-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010336Z",
+    "at": "2026-10-04T01:03",
+    "headline_metric": "macro_f1=0.584",
+    "prior_run": 0.584,
+    "n_eval": 87636.0,
+    "runs_registered": 84,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "eth-regime-15m-lgbm-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010427Z",
+    "at": "2026-10-04T01:04",
+    "headline_metric": "macro_f1=0.6102",
+    "prior_run": 0.6172,
+    "n_eval": 29195.0,
+    "runs_registered": 86,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 degraded vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "mes-regime-15m-lgbm-yz-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010705Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.6842",
+    "prior_run": 0.6837,
+    "n_eval": 2936.0,
+    "runs_registered": 116,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 improved vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "mes-regime-5m-lgbm-macro-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010717Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.6695",
+    "prior_run": 0.7314,
+    "n_eval": 7719.0,
+    "runs_registered": 107,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 degraded vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "mes-regime-5m-lgbm-yz-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010732Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "macro_f1=0.6838",
+    "prior_run": 0.7242,
+    "n_eval": 7719.0,
+    "runs_registered": 96,
+    "trend_vs_prior_run": "degraded"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 degraded vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "mes-regime-classifier-baseline-v0",
+   "stage": "candidate",
+   "stage_raw": "research_only",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20260522T090539Z",
+    "at": "2026-05-22T09:05",
+    "headline_metric": "macro_f1=0.6845",
+    "prior_run": null,
+    "n_eval": 1292.0,
+    "runs_registered": 1,
+    "trend_vs_prior_run": "first_run"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Single frozen research run (M19 T0.1 / gpuburst control); not in the daily rotation. Candidate, no influence."
+  },
+  {
+   "model_id": "prop-mission-policy-baseline-v0",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "sizing",
+   "last_training": {
+    "run_id": "20260726T052008Z",
+    "at": "2026-07-26T05:20",
+    "headline_metric": "brier=0.0",
+    "prior_run": 0.0,
+    "n_eval": 53.0,
+    "runs_registered": 83,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Audit-refused 70.0d: degenerate single-class label (was_taken all False, n=267). brier 0.0 is the degenerate artefact, not quality. Retire or waiver."
+  },
+  {
+   "model_id": "regime-classifier-baseline-v0",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T003957Z",
+    "at": "2026-10-04T00:39",
+    "headline_metric": "macro_f1=0.4486",
+    "prior_run": 0.4485,
+    "n_eval": 8760.0,
+    "runs_registered": 167,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-backtest-c1-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010738Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.1742",
+    "prior_run": 0.1742,
+    "n_eval": 376.0,
+    "runs_registered": 81,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; brier flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-backtest-c2-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010740Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "mae=1.3916",
+    "prior_run": 1.3916,
+    "n_eval": 376.0,
+    "runs_registered": 81,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; mae flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-backtest-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010742Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.212",
+    "prior_run": 0.212,
+    "n_eval": 376.0,
+    "runs_registered": 115,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; brier flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-p2pool-c1-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010744Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.1554",
+    "prior_run": 0.1554,
+    "n_eval": 324.0,
+    "runs_registered": 81,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; brier flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-p2pool-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010747Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.2082",
+    "prior_run": 0.2082,
+    "n_eval": 324.0,
+    "runs_registered": 81,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; brier flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-siglog-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010749Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.212",
+    "prior_run": 0.212,
+    "n_eval": 376.0,
+    "runs_registered": 115,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; brier flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010751Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.212",
+    "prior_run": 0.212,
+    "n_eval": 376.0,
+    "runs_registered": 116,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; brier flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-xsym-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20261004T010754Z",
+    "at": "2026-10-04T01:07",
+    "headline_metric": "brier=0.2201",
+    "prior_run": 0.2201,
+    "n_eval": 354.0,
+    "runs_registered": 113,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; brier flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "setup-candidates-metalabel-xsym-yz-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20260726T060147Z",
+    "at": "2026-07-26T06:01",
+    "headline_metric": "brier=0.2201",
+    "prior_run": 0.2201,
+    "n_eval": 354.0,
+    "runs_registered": 42,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Audit-refused 70.0d: parkinson/garman_klass/rogers_satchell/yang_zhang_vol 100% NaN in the xsym dataset."
+  },
+  {
+   "model_id": "setup-quality-lgbm-v2",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_setup",
+   "last_training": {
+    "run_id": "20260726T060149Z",
+    "at": "2026-07-26T06:01",
+    "headline_metric": "mae=1.4907",
+    "prior_run": 1.4907,
+    "n_eval": 153.0,
+    "runs_registered": 19,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 754,
+    "score_summary": "n=754 mean=-0.1379 min=-0.4798 max=0.2776 first=2026-09-26T07:08:23 last=2026-09-29T09:27:45 (api/bot/shadow/stats 2026-10-04T12:4xZ)",
+    "drift": "ks=0.2977 psi=0.7951 verdict=significant ref_n=11220 cur_n=217 (4 archives folded)",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "DEMOTED to candidate 09-29, un-served; cannot retrain (killzone, bias 100% NaN at train; 70.0d untrained). gate-check: oos_edge FAIL (-0.046 mae vs constant), live_agreement AUC 0.387."
+  },
+  {
+   "model_id": "sol-regime-15m-lgbm-base-pcv-v530",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T010900Z",
+    "at": "2026-10-04T01:09",
+    "headline_metric": "macro_f1=0.5044",
+    "prior_run": 0.5044,
+    "n_eval": 82788.0,
+    "runs_registered": 82,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "sol-regime-15m-lgbm-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_reg",
+   "last_training": {
+    "run_id": "20261004T011201Z",
+    "at": "2026-10-04T01:12",
+    "headline_metric": "macro_f1=0.5426",
+    "prior_run": 0.5426,
+    "n_eval": 34824.0,
+    "runs_registered": 85,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 flat vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "trade-outcome-global-baseline-v0",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_wr",
+   "last_training": {
+    "run_id": "20260628T010834Z",
+    "at": "2026-06-28T01:08",
+    "headline_metric": "brier=0.1444",
+    "prior_run": 0.1444,
+    "n_eval": 73.0,
+    "runs_registered": 55,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-06-28). Candidate, no influence."
+  },
+  {
+   "model_id": "trade-outcome-lgbm-v1",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_wr",
+   "last_training": {
+    "run_id": "20261004T011332Z",
+    "at": "2026-10-04T01:13",
+    "headline_metric": "macro_f1=0.4792",
+    "prior_run": 0.4421,
+    "n_eval": 520.0,
+    "runs_registered": 85,
+    "trend_vs_prior_run": "improved"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Retrains daily; macro_f1 improved vs prior run. Candidate, no influence."
+  },
+  {
+   "model_id": "trade-outcome-winrate-baseline-v0",
+   "stage": "candidate",
+   "stage_raw": "candidate",
+   "registry_status": "candidate",
+   "lens_role": "c_wr",
+   "last_training": {
+    "run_id": "20260628T010835Z",
+    "at": "2026-06-28T01:08",
+    "headline_metric": "brier=0.1453",
+    "prior_run": 0.1453,
+    "n_eval": 73.0,
+    "runs_registered": 55,
+    "trend_vs_prior_run": "flat"
+   },
+   "live_shadow": {
+    "influence": "none(candidate)",
+    "predictions": 0,
+    "score_summary": "no predictions in the active shadow log (candidate heads are not served; MES baselines silent since 2026-09-01)",
+    "drift": "not measured this session",
+    "realized": "n/a (api/bot/trades/scores carries no pnl; stage-guard attribution only for advisory heads)"
+   },
+   "note": "Out of the daily rotation (last run 2026-06-28). Candidate, no influence."
+  }
+ ],
+ "promotion_recommendations": [
+  {
+   "model_id": "setup-quality-audit-baseline-v0",
+   "current_stage": "shadow",
+   "proposed_stage": "candidate",
+   "direction": "demote",
+   "tier": 3,
+   "evidence": "1508 live rows 09-26..10-04 all equal -0.05719596 (api/bot/shadow/stats); code: PerGroupPredictor keys on trainer_config.feature_column=audit_pattern, absent from every served row (row_keys: confidence, direction, killzone, setup_type, strategy_name, symbol) -> unknown_bucket -> global_rate. Structural, not variance; drift KS 0.0 PSI 0.0 'no_change' is the degenerate-predictor pass BL-20260911 names as a gate defect.",
+   "risk_note": "Soft-off only (still trains daily; promote-stage back if a signal-time audit_pattern proxy is ever served). Nothing live reads this score. If the operator wants it kept as a fixed reference denominator, record that instead and tag it so reviews stop re-finding it."
+  }
+ ],
+ "_promotion_recommendations_note": "No shadow->advisory promotion is supportable: all 25 shadow heads hold under stage-guard; the only gate-checked shadow candidates (conviction-meta-v1, setup-quality-lgbm-v2) are candidates now and fail required gates. The three advisory heads hold with evaluated/partial demote evidence and no trigger. The 09-24 Tier-3 demote proposal (PI-20260924-JQHBBTOS-0002) is withdrawn.",
+ "decisions_for_operator": [
+  "Four demoted heads (conviction-meta-v1, setup-quality-lgbm-v2, btc-regime-1h-lgbm-funding-svble-v1, btc-regime-5m-lgbm-flow-v1-offload): BUILD the signal-time producer for their declared features and re-stage, or KILL with a stated reason. Default if silent: they stay candidate and keep retraining daily at no cost. Rows PI-20260929-K85Q64SF-0001..0004.",
+  "MES baselines (mes-setup-quality-baseline-v0, mes-trade-outcome-winrate-baseline-v0): silent since 09-01, n_eval 7 and 5 -- retire to candidate, or confirm MES setup scoring is expected to resume. Row PI-20260929-K85Q64SF-0005.",
+  "MB-20260721: one MES regime head or two? Recommendation (b): the 5m advisory head is sufficient (0.7023 vs 15m shadow 0.7015, same label); demote the 15m twin to candidate when (b) is recorded.",
+  "prop-mission-policy-baseline-v0: label degenerate (0 of 267 missions taken) -- awaiting_source waiver like mes-execution-quality, or retire. Row PI-20260929-UAOAYGBB-0001.",
+  "setup-quality-audit-baseline-v0 soft-off (above)."
+ ],
+ "experiments_proposed": [
+  {
+   "kind": "new_feature",
+   "name": "setup-labels-killzone-bias-at-build",
+   "rationale": "setup-quality-lgbm-v2 cannot retrain (70d) because killzone and bias are 100% NaN in the setup_labels dataset while the live row serves a killzone key -- fix the builder's source for the two columns and the head trains again, then re-gate.",
+   "input_changes": "ml/datasets/families/setup_labels.py: source killzone/bias from the signal/order_package row rather than trades.* nulls (verify column origin first); dataset family setup_labels v002.",
+   "expected_metric_signal": "dataset_audit ok=true for setup-quality-lgbm-v2 with nan_fraction<0.99 on both; a fresh registered run; mae OOS edge vs constant baseline turns positive (today -0.046).",
+   "tier": 3,
+   "next_step": "Tier-1 builder fix PR (not a manifest edit) + trainer-vm-diag re-audit; manifest unchanged."
+  },
+  {
+   "kind": "new_manifest",
+   "name": "conviction-meta-v1-bt expected_optional cleanup",
+   "rationale": "The trainer prints manifest_stale_optional_declaration every cycle: c_setup and c_wr are now populated in the backtest conviction dataset, so the stale declaration hides a future regression of those columns.",
+   "input_changes": "ml/configs/conviction-meta-v1-bt.yaml: remove c_setup and c_wr from expected_optional_features (keep c_reg until MB-20260618-XA-D2B lands).",
+   "expected_metric_signal": "the stale_optional warning disappears from training_cycle.jsonl; dataset_audit for -bt shows c_setup/c_wr nan_fraction<0.99.",
+   "tier": 3,
+   "next_step": "2-line manifest PR, operator approves (Tier-3 manifest edit)."
+  },
+  {
+   "kind": "new_feature",
+   "name": "conviction-lens-producer-at-signal-time",
+   "rationale": "conviction-meta-v1 (the v2 learned conviction) trained on c_strat/c_setup/c_wr/c_reg/adx_14/regime/vol_regime but only 3 of 10 were ever served; it can never clear live_parity until the meta.conviction stamp writes the c_* values into the shadow row_keys.",
+   "input_changes": "src/runtime shadow feature-row builder for family conviction_meta: add the c_* lens values (already computed by the observe-only conviction stamp), adx_14, regime, vol_regime.",
+   "expected_metric_signal": "10/10 declared features served non-null in the first live row; then a fresh 7-day shadow soak with drift_clean and live_parity pass before any promotion talk.",
+   "tier": 3,
+   "next_step": "Operator decision BUILD/KILL on PI-20260929-K85Q64SF-0001; if BUILD, a Tier-2 runtime PR."
+  },
+  {
+   "kind": "hyperparam_sweep",
+   "name": "mes-5m-margin-watch",
+   "rationale": "All MES 5m heads moved on the 10-04 rebuild; before any tuning, establish whether the margin over baseline recovers on the next 3 cycles (filed PI-20261004-AHCVAAF5-0001). If it does not, run the drift-remediation skill step 2 (regime-mix shift diagnosis) rather than a blind sweep.",
+   "input_changes": "none yet; dataset market_features MES 5m v002 regime-mix per cycle.",
+   "expected_metric_signal": "advisory-minus-baseline macro_f1 margin >= 5 pts restored; else a [refinement] row.",
+   "tier": 3,
+   "next_step": "check_observation in 3 days via GET /api/bot/ml/registry."
+  },
+  {
+   "kind": "new_target",
+   "name": "eth-regime-rg4-regate",
+   "rationale": "MB-20260627-003 has waited since June for an RG4 live re-check of the ETH regime heads; the gate-check now computes live_regime_discrimination directly.",
+   "input_changes": "none; run `python -m ml gate-check eth-regime-5m-lgbm-v1` and `eth-regime-15m-lgbm-xasset-v1` with --datasets-root on the trainer.",
+   "expected_metric_signal": "RG4 AUC >= 0.55 robustly -> propose shadow->advisory with the packet; else record NO_EDGE and retire the ETH head question.",
+   "tier": 1,
+   "next_step": "one trainer-vm-diag issue; Tier-1 to compute, Tier-3 to act."
+  }
+ ],
+ "unified_confidence": {
+  "conviction_meta": "conviction-meta-v1 is candidate (demoted 09-29) and un-served; its soak is not accruing; the formulaic blend stays live. The order-package (lens inputs -> realized win) soak feeds the dataset (n_rows 1269, 753/516 label balance) but c_reg is 100% NaN and c_setup/c_wr were never served at signal time.",
+  "calibrators": "6 strategies fit (isotonic, refreshed 2026-10-04T06:31Z): fade_breakout n=2314, fvg_range 1372, htf_pullback_trend_2h 1037, ict_scalp_5m 2655, squeeze_breakout 1287, trend_donchian 1261; brier_raw->calibrated improves for all six (e.g. squeeze 0.544->0.230) but ece_calibrated=0.0 for all six is in-sample. Coverage 6 of 48 strategy names -> raw-normalization fallback for the rest. Filed PI-20261004-AHCVAAF5-0002.",
+  "lens_roles": "regime heads -> c_reg (3 advisory, 19 shadow); setup-quality -> c_setup (2 of 3 shadow baselines constant = weak input); trade-outcome/metalabel -> c_wr (all candidate); execution-quality -> sizing lens (constant = no information)."
+ },
+ "backlog_drain": [
+  {
+   "item_id": "PI-20260924-Y2NFASK3-0002",
+   "action": "resolved",
+   "note": "exit-head-donchian-1h-v1 rows carry stage=shadow since 09-28T20:00Z (n=85). done."
+  },
+  {
+   "item_id": "PI-20260925-URJPDTFB-0001",
+   "action": "resolved",
+   "note": "same observation; clears together. done."
+  },
+  {
+   "item_id": "PI-20260924-Y2NFASK3-0003",
+   "action": "resolved",
+   "note": "head fires hourly on open trade 6437 (7 rows 07:00-09:00Z); gap was bar timing. done."
+  },
+  {
+   "item_id": "PI-20260924-JQHBBTOS-0004",
+   "action": "resolved",
+   "note": "96 = 3+25+67+1 (mirror) == stage-guard N=96; 132 was a double count. done."
+  },
+  {
+   "item_id": "PI-20260929-UAOAYGBB-0002",
+   "action": "resolved",
+   "note": "conviction-meta-v1 demoted 09-29 + un-served; refinement path in K85Q64SF-0001. done."
+  },
+  {
+   "item_id": "MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME",
+   "action": "resolved",
+   "note": "mes-regime-1d trains (87 runs); all 7 remaining skips have a named cause. done."
+  },
+  {
+   "item_id": "MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM",
+   "action": "resolved",
+   "note": "drift reader folds 4 archives; ref_n 3120 before the live log's oldest row. done."
+  },
+  {
+   "item_id": "BL-20260908-SHADOW-DRIFT-IS-STRUCTURALLY-UNMEASURABLE-BECAUSE-ROTATION-DELETES-THE-REFERENCE-WINDOW",
+   "action": "resolved",
+   "note": "default windows return ref_n 3120 for an advisory head; btc re-measured ks 0.085/psi 0.118. done."
+  },
+  {
+   "item_id": "PI-20260927-CAB09-0005",
+   "action": "fixed_now",
+   "note": "SKILL.md coordination paragraph rewritten in this PR (ml-review half). done."
+  },
+  {
+   "item_id": "PI-20260927-CAB09-0006",
+   "action": "fixed_now",
+   "note": "SKILL.md backlog gate repointed to docs/claude/work/pipeline/ with a defined population. done."
+  },
+  {
+   "item_id": "PI-20260924-JQHBBTOS-0002",
+   "action": "closed_stale",
+   "note": "Tier-3 demote proposal withdrawn: drift trigger does not reproduce (btc ks 0.082, sol ks 0.075; stage-guard hold). killed."
+  },
+  {
+   "item_id": "PI-20260924-Y2NFASK3-0001",
+   "action": "closed_stale",
+   "note": "sol drift it remediated is gone (pass); byte-identical retrain = rebuild cadence. killed."
+  },
+  {
+   "item_id": "BL-20260911-THE-DRIFT-GATE-READS-ONE-UNROTATED-FILE-SO-ITS-30-DAY-REFERENCE-WINDOW-COVERS-28-DAYS-AND-71-PERCENT-OF-THE-FLEET-IS-BLOCKED-ON-AN-UNTRUSTWORTHY-VERDICT",
+   "action": "kept_open",
+   "note": "read half done; covered-span field + degenerate-predictor-aces-drift defect still open. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "BL-20260911-SETUP-QUALITY-LGBM-V2-IS-ACCRUING-SOAK-DAYS-AGAINST-A-MODEL-THE-TRAINER-HAS-REFUSED-TO-RETRAIN-FOR-47-DAYS",
+   "action": "kept_open",
+   "note": "part 1 settled by demotion; part 2 open: shadow/stats still prints stage=shadow soak 103d for a candidate. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT",
+   "action": "kept_open",
+   "note": "commit-time guard exists (manifest-scope-constants); 7 manifests still undispositioned. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "PI-20260929-UAOAYGBB-0001",
+   "action": "kept_open",
+   "note": "still refused at 70.0d; all four flagged lists now read (prop-mission = degenerate label)."
+  },
+  {
+   "item_id": "PI-20260929-UAOAYGBB-0003",
+   "action": "kept_open",
+   "note": "root-caused: PerGroupPredictor global fallback; audit_pattern never served -> constant by construction; exec-quality needs per_group_rate key read."
+  },
+  {
+   "item_id": "PI-20260924-JQHBBTOS-0003",
+   "action": "kept_open",
+   "note": "code read done (see UAOAYGBB-0003); non_degenerate spread arithmetic still unread."
+  },
+  {
+   "item_id": "PI-20260929-K85Q64SF-0001",
+   "action": "kept_open",
+   "note": "live refusal OBSERVED (last row 09-29T09:27Z); producer-or-kill decision owed."
+  },
+  {
+   "item_id": "PI-20260929-K85Q64SF-0002",
+   "action": "kept_open",
+   "note": "live refusal OBSERVED (09-29T09:27Z); gate-check fails 6 gates; decision owed."
+  },
+  {
+   "item_id": "PI-20260929-K85Q64SF-0003",
+   "action": "kept_open",
+   "note": "live refusal OBSERVED (09-29T11:45Z); decision owed."
+  },
+  {
+   "item_id": "PI-20260929-K85Q64SF-0004",
+   "action": "kept_open",
+   "note": "live refusal OBSERVED (09-29T11:55Z); decision owed."
+  },
+  {
+   "item_id": "PI-20260929-K85Q64SF-0005",
+   "action": "kept_open",
+   "note": "MES baselines still 0 rows; hypothesis no MES setups since 09-01; retire-vs-keep decision owed."
+  },
+  {
+   "item_id": "MB-20260613-002",
+   "action": "kept_open",
+   "note": "flow-v1 macro_f1 byte-identical to v2 two cycles running -> flow features dead at train; still data-blocked. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "MB-20260618-XA-D2B",
+   "action": "kept_open",
+   "note": "c_reg still 100% NaN. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "MB-20260627-003",
+   "action": "kept_open",
+   "note": "ETH RG4 not re-run; exact gate-check commands recorded. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "MB-20260704-T12-SSL-NEGATIVE",
+   "action": "kept_open",
+   "note": "encoder/emb heads out of rotation; no probe run. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "MB-20260705-FC-SLTP-GEOMETRY",
+   "action": "kept_open",
+   "note": "no new ML evidence; stays with the exit-ladder soak."
+  },
+  {
+   "item_id": "MB-20260712-SHADOW-LOG-HISTORY",
+   "action": "kept_open",
+   "note": "reader half observed; trade-vs-score join past the boundary not directly observed. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
+   "action": "kept_open",
+   "note": "stage-guard completed in-relay rc=0 w/o datasets-root; RSS measurement not taken. routed ML-HYGIENE."
+  },
+  {
+   "item_id": "MB-20260721-MES-15M-HEAD-PARKED",
+   "action": "kept_open",
+   "note": "15m 0.7015 vs 5m 0.7023; decision (a)/(b) still owed, recommendation (b)."
+  },
+  {
+   "item_id": "MB-20260723-M29-AI-SYSTEM-DYNAMICS",
+   "action": "kept_open",
+   "note": "research-queue item, no registry model; unchanged."
+  },
+  {
+   "item_id": "MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED",
+   "action": "kept_open",
+   "note": "E1 re-run at live-parity TP not dispatched; exit-head-ict_scalp-15m-v1 busiest live head."
+  },
+  {
+   "item_id": "PI-20260924-E51-0001",
+   "action": "not_an_ml_row",
+   "note": "matched the population only on the string 'ml-review-backlog.json'; CI-guard row owned by GUARD-FIDELITY; no write."
+  }
+ ],
+ "backlog_coverage": {
+  "open_at_start": 34,
+  "triaged": 34,
+  "resolved": 8,
+  "fixed_now": 2,
+  "closed_stale": 2,
+  "kept_open": 21,
+  "not_an_ml_row": 1,
+  "count_untriaged": 0,
+  "population_rule": "open rows whose origin.ref names ml-review, or routed_to starts with ML, or what starts with [ml]/[refinement]; MEASURED via scripts/ops/pipeline.py load() at session start (34)."
+ },
+ "new_pipeline_rows": [
+  "PI-20261004-AHCVAAF5-0001 (MES 5m family margin shift, check 3d)",
+  "PI-20261004-AHCVAAF5-0002 (calibrator report in-sample ece + coverage, 14d)"
+ ],
+ "anomalies": [
+  "trainer-vm-diag relay: a cmd block whose python lines are unindented ends the YAML block scalar silently (#16318 ran 11 lines and reported a bash EOF); wrap inline python with exec(textwrap.dedent(argv[1])) and indent everything.",
+  "vm-diag-request #16320 opened at 12:31Z never spawned a vm-diag-snapshot run (actions list shows runs 8211-8213 for the neighbouring issues only) -- the dropped-webhook mode; direct HTTPS made it moot.",
+  "/api/bot/trades/scores joins scores to trades but carries no pnl field, so the skill's 'realized track record' join cannot be made from it; stage-guard attribution on the trainer is the only realized source (n=31 for btc; null for mes/sol).",
+  "/api/bot/shadow/stats reports stage and soak_days from logged rows, so a demoted-and-unserved head reads 'shadow, 103 soak days' (conviction-meta-v1, setup-quality-lgbm-v2). Folded into BL-20260911 part 2.",
+  "btc-regime-1h-lgbm-funding-svble-v1 and btc-regime-1h-lgbm-funding-v1 train to identical macro_f1 (0.6573) and btc-regime-5m-lgbm-flow-v1 to the same as btc-regime-5m-lgbm-v2 (0.5532): in both pairs the extra feature block adds nothing at train time (all-NaN), the same class as the serve-side finding that demoted them.",
+  "ml/registry-store has 97 files for 96 registry rows (not chased; PI-20260924-JQHBBTOS-0004 closed on the 96 reconciliation).",
+  "stale ml-review SKILL.md paragraphs (coordination board, backlog file) corrected in this PR; the health-review half of PI-20260927-CAB09-0005 is left with DOCS-DRIFT."
+ ],
+ "recommended_action": "Operator: answer the 5 decisions above (build-or-kill for the 4 demoted heads; MES baselines; one-or-two MES heads; prop-mission waiver; audit-baseline soft-off). Manager: dispatch ML-HYGIENE for the setup_labels killzone/bias builder fix (unblocks setup-quality-lgbm-v2 after 70 days) and the shadow/stats stage-from-registry fix; re-check PI-20261004-AHCVAAF5-0001 in 3 days.",
+ "operator_attention_required": false,
+ "claude_channel_ping": {
+  "delivered_via": "pending",
+  "priority": "normal",
+  "message": "/ml-review 2026-10-04 -- 96 models, 69 retrained, 0 promotions, 1 soft-off proposed (constant baseline), 5 experiments, 34/34 backlog triaged (10 done, 2 killed). trainer=ok, models=watch. comms/reviews/ml-review-20261004-125000.json"
+ }
+}
