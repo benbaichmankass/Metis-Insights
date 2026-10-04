@@ -4,7 +4,7 @@
 id: RQ-20260929-036
 title: 'Breakout prop fit: trend_donchian_sol_prop at sizing cushion-fit room 0.33 at 1.5% under RULE-B6
   V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -95,12 +95,14 @@ generated:
 last_dispatched_at: '2026-10-02T19:27:09+00:00'
 grading:
   auto: true
+  awaiting: more_data
   decision_rule_id: RULE-TPL-PROP-FIT-B6V2-trend_donchian_sol_prop-room033
   evidence:
   - research/results/RQ-20260929-036/37054209756.jsonl
   graded_at: '2026-10-04'
   grader: scripts/research/queue_grade.py
-  needs_review: true
-  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate
   rows: 1
-  verdict: null
+  verdict: indeterminate
