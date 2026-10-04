@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist-only: the OPS-AUDIT row records OA-17 merged (#16289) and observed (two back-to-back get-env both ran; cancel guard registered and firing), plus the lane's remaining landed_unproven observations at close-out."
+}
