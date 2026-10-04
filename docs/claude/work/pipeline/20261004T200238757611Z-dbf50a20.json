@@ -1,7 +1,11 @@
 {
   "due_when": {
-    "due_date": "2026-10-05",
-    "kind": "date"
+    "kind": "observation",
+    "clears_when": "the operator confirms (at a sync or in chat) that the hourly Telegram digest now leads with the attention block above '— what changed —'",
+    "check_every_days": 1,
+    "soak": {
+      "subject": "deploy-observation:WORK-SYSTEM"
+    }
   },
   "id": "PI-20261004-Z9DKTUVO-0002",
   "next_action": "check_observation",

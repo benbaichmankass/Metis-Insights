@@ -1,7 +1,11 @@
 {
   "due_when": {
-    "due_date": "2026-10-05",
-    "kind": "date"
+    "kind": "observation",
+    "clears_when": "GET /api/bot/work/report returns a reportId WR-20261005-0530Z (+-1 min) with erroredSections [] — i.e. ict-work-report.timer fired at its own 05:30 UTC slot",
+    "check_every_days": 1,
+    "soak": {
+      "subject": "deploy-observation:WORK-SYSTEM"
+    }
   },
   "id": "PI-20261004-Z9DKTUVO-0001",
   "next_action": "check_observation",
