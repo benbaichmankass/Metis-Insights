@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "scripts/notify_on_pull.py runs in ict-git-sync on the live VM and scripts/ is runtime-classified, so merging restarts ict-trader-live once; the manager's merge approval is sought.",
+  "why": "Logging-only change in the git-sync ping drain: per-row 'skipping already-delivered line' moves INFO -> DEBUG and one INFO summary per pull replaces it (PI-20261004-PUQ1APTH-0002: 959 of ~1000 lines of one pull, ~276k journal lines/day). No ping is added, dropped or re-fired; the dedupe logic is unchanged."
+}
