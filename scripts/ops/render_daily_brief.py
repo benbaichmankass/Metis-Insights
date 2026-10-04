@@ -57,7 +57,8 @@ NOT the authoritative generation path any more — the route is.
 
 ⚠️ **This closes the missing half of A7, and only this half.** A7 built the
 pipeline's store, validator and pull logic
-(`scripts/ops/pipeline.py::render_section_0` / `unrouted_count`); until
+(`scripts/ops/pipeline.py` — `due` / `unrouted_count`; §0 itself is now
+`section0_lines` here, ranked and capped, still built on `pipeline.due`); until
 something rendered them on the operator's own page, asking was still
 voluntary — reason (5) in the operating plan, the exact failure that killed
 `DUE.md`. This route is that render. A7 is not "done" by this alone — A8's
@@ -90,8 +91,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 # REUSED, NOT RE-DERIVED — the whole point of A3 is to call A7's functions
-# rather than fork the definition of "due". `render_section_0` already emits
-# its own "## §0 —" header, so it is inserted into this brief verbatim.
+# rather than fork the definition of "due". §0 is rendered HERE by
+# `section0_lines` (ranked, capped) from `pipeline.due` / `due_bucket` /
+# `unrouted_alarm`; `pipeline.render_section_0` remains for `pipeline.py --due`.
 from scripts.ops import pipeline  # noqa: E402
 
 BRIEF_DIR = REPO_ROOT / "comms" / "briefs"
@@ -99,7 +101,7 @@ BRIEF_DIR = REPO_ROOT / "comms" / "briefs"
 _CHECKLIST = Path("docs/claude/work/MANAGER-CHECKLIST.json")
 _MANDATES = Path("config/mandates.yaml")
 _PIPELINE_STORE = pipeline.STORE
-_SOAKS = Path("docs/claude/work/SOAKS.json")
+_SOAK_SRC = Path("scripts/ops/soak_state.py")
 
 # ── size discipline (BRIEF-FIX, 2026-10-04) ────────────────────────────────
 # MEASURED 2026-10-04 on the live tree: 738,748 B, of which §3 WHAT MOVED was
@@ -320,7 +322,33 @@ def mandates_view(doc: Any, state: str) -> dict[str, Any]:
 
 # ── §4 evidence: git, because the VM cannot see sessions ────────────────────
 
+_ACTIVITY_CACHE: dict[tuple, dict[str, Any]] = {}
+
+
+def _head_sha(root: Path) -> str | None:
+    try:
+        return subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, timeout=5,
+                              check=True).stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def git_activity(root: Path, today: date, days: int = 45) -> dict[str, Any]:
+    """Cached on (root, HEAD sha, today): the route calls this per request and
+    the log is only as new as the last pull. An unreadable HEAD is not cached."""
+    sha = _head_sha(root)
+    key = (str(root), sha, today)
+    if sha is not None and key in _ACTIVITY_CACHE:
+        return _ACTIVITY_CACHE[key]
+    out = _git_activity_uncached(root, today, days)
+    if sha is not None and out["state"] != "unreadable":
+        _ACTIVITY_CACHE.clear()
+        _ACTIVITY_CACHE[key] = out
+    return out
+
+
+def _git_activity_uncached(root: Path, today: date, days: int = 45) -> dict[str, Any]:
     """Commit dates + text over the last `days`, from ONE `git log`. The VM can
     not see sessions; commits (and the PR numbers in their subjects) are what
     it can see. `coversDays` is how far back the clone actually reaches — a
@@ -381,22 +409,30 @@ def row_last_evidence(it: dict, act: dict, today: date) -> tuple[date | None, st
     return best, src
 
 
-# ── SOAKS — the slot lane SOAK-WATCH fills ──────────────────────────────────
-# INTERFACE (agreed contract; SOAK-WATCH owns the writer, this module only reads):
-#   docs/claude/work/SOAKS.json
-#   {"as_of": "YYYY-MM-DD[THH:MMZ]",
-#    "soaks": [{"id": str, "what": str, "started": "YYYY-MM-DD",
-#               "end_date": "YYYY-MM-DD" | null, "progress": str,
-#               "verdict": str}]}
-# `days_in` is COMPUTED from `started` (never trusted from the file). Absent
-# file => "SOAK-WATCH has not published", never "no soaks". Unreadable =>
-# "could not look". Any missing field renders "—", never 0.
+# ── SOAKS — computed LIVE by scripts/ops/soak_state.py ──────────────────────
+# INTERFACE (agreed WORK-SYSTEM <-> SOAK-WATCH): `soak_state.soak_states() ->
+# list[dict]` with keys {leg, account, state, end_date, reason}; state is one of
+# accruing/ready/overdue/dead/unknown. Imported live, like `pipeline` — NOT read
+# from a committed file: the VM only PULLS git, so a VM-computed soak state can
+# never land in one, and a session-written file is the stale-state failure this
+# brief exists to end. `days_in` is computed here when the row carries `started`.
+# Module absent => "soak state source absent (we looked)", never "no soaks";
+# import/call failure => "could not look". Missing fields render "—", never 0.
 
 def read_soaks(root: Path, today: date) -> dict[str, Any]:
-    doc, state = read_json(_SOAKS, root)
-    if state != "read":
-        return {"state": state, "rows": [], "asOf": None}
-    rows_in = (doc or {}).get("soaks") if isinstance(doc, dict) else None
+    import importlib
+    try:
+        mod = importlib.import_module("scripts.ops.soak_state")
+    except ModuleNotFoundError as exc:
+        if exc.name == "scripts.ops.soak_state":
+            return {"state": "absent", "rows": [], "asOf": None}
+        return {"state": "unreadable", "rows": [], "asOf": None}
+    except Exception:  # noqa: BLE001 -- declared as "could not look", not a crash of the brief
+        return {"state": "unreadable", "rows": [], "asOf": None}
+    try:
+        rows_in = mod.soak_states()
+    except Exception:  # noqa: BLE001
+        return {"state": "unreadable", "rows": [], "asOf": None}
     if not isinstance(rows_in, list):
         return {"state": "unreadable", "rows": [], "asOf": None}
     rows = []
@@ -409,27 +445,30 @@ def read_soaks(root: Path, today: date) -> dict[str, Any]:
         except ValueError:
             pass
         rows.append({**r, "days_in": days_in})
-    return {"state": "read", "rows": rows, "asOf": doc.get("as_of")}
+    return {"state": "read", "rows": rows, "asOf": today.isoformat()}
 
 
 def _soak_lines(b: dict) -> list[str]:
     sk = b.get("soaks") or {"state": "absent", "rows": []}
     L = ["### 🌱 SOAKS", ""]
     if sk["state"] == "absent":
-        return L + ["_SOAK-WATCH has not published `docs/claude/work/SOAKS.json` "
-                    "(we looked; it is not there) — this is not 'no soaks'._", ""]
+        return L + ["_Soak state source absent (we looked: `scripts/ops/soak_state.py` "
+                    "does not exist) — this is not 'no soaks'._", ""]
     if sk["state"] != "read":
-        return L + [f"{_HOLE['unreadable']} — `{_SOAKS}`.", ""]
-    L.append(f"_{len(sk['rows'])} soak(s), as of {sk.get('asOf') or '—'}. "
-             "Days-in is computed from `started`._")
-    if not sk["rows"]:
+        return L + [f"{_HOLE['unreadable']} — `{_SOAK_SRC}`.", ""]
+    n = len(sk["rows"])
+    by: dict[str, int] = {}
+    for r in sk["rows"]:
+        by[str(r.get("state") or "—")] = by.get(str(r.get("state") or "—"), 0) + 1
+    L.append(f"_{n} soak(s): " + (", ".join(f"{k} {v}" for k, v in sorted(by.items())) or "none")
+             + ". Computed live by `soak_state.py`._")
+    if not n:
         return L + ["_None declared._", ""]
     dash = lambda v: "—" if v in (None, "") else v  # noqa: E731
     for r in sk["rows"]:
-        L.append(f"- **{dash(r.get('id'))}** {_clip(dash(r.get('what')), 70)} · started "
-                 f"{dash(r.get('started'))} · day {dash(r.get('days_in'))} · "
-                 f"{_clip(dash(r.get('progress')), 60)} · ends {dash(r.get('end_date'))} · "
-                 f"verdict {_clip(dash(r.get('verdict')), 40)}")
+        L.append(f"- **{dash(r.get('leg'))}** @{dash(r.get('account'))} · "
+                 f"{dash(r.get('state'))} · ends {dash(r.get('end_date'))} · "
+                 f"day {dash(r.get('days_in'))} · {_clip(dash(r.get('reason')), 70)}")
     L.append("")
     return L
 
@@ -480,9 +519,8 @@ def build(*, today: date | None = None, root: Path | None = None) -> dict[str, A
 # ── rendering — six sections, fixed order ──────────────────────────────────
 
 def _section0(b: dict) -> list[str]:
-    # `render_section_0` already emits its own "## §0 —" header — inserted
-    # verbatim per the binding constraint: call pipeline.py, never re-derive
-    # due-ness here.
+    # `section0_lines` emits its own "## §0 —" header. Due-ness comes from
+    # pipeline.py (`due`, `due_bucket`), never re-derived here.
     return list(b["pipeline"]["section0Lines"]) + [""]
 
 
@@ -704,10 +742,10 @@ def _footer(b: dict) -> list[str]:
             f"| `{_PIPELINE_STORE}` |",
             f"| `checklist` | `{b['checklistState']}` | `{_CHECKLIST}` |",
             f"| `mandates` | `{b['mandatesState']}` | `{_MANDATES}` |",
-            f"| `soaks` | `{(b.get('soaks') or {}).get('state', 'absent')}` | `{_SOAKS}` |",
+            f"| `soaks` | `{(b.get('soaks') or {}).get('state', 'absent')}` | `{_SOAK_SRC}` |",
             f"| `git activity` | `{(b.get('activity') or {}).get('state', 'unreadable')}` | `git log` |", "",
             "⚠️ **`coverageComplete` is `false`.** Reads the pipeline store, "
-            "checklist, mandates, SOAKS.json and git log only — not `src/`, "
+            "checklist, mandates, soak_state.py and git log only — not `src/`, "
             "either VM or the review backlogs.", ""]
 
 
@@ -737,20 +775,20 @@ def _self_test() -> int:
               "next_action": "dispatch_lane", "routed_to": None,
               "terminal_reason": None}}, records=1)
     b_due = {"pipeline": {"stats": pipeline.stats(res_due, today),
-                          "section0Lines": pipeline.render_section_0(res_due, today),
+                          "section0Lines": section0_lines(res_due, today),
                           "healthy": True},
              "checklistState": "read", "checklist": checklist_view({}),
              "mandatesState": "absent", "mandates": mandates_view(None, "absent"),
              "forDate": "2026-09-21", "generatedAt": "x", "coverageComplete": False}
     md_due = render(b_due)
-    check("§0 is pipeline.render_section_0's OWN text, not re-derived",
+    check("§0 is built from pipeline.due via section0_lines, not re-derived",
           "**1 item(s) due. Each needs a disposition today.**" in md_due
           and "- **X**" in md_due)
 
     # ── an unreadable pipeline store is a declared floor, not a clean 0 ────
     res_bad = pipeline.LoadResult(unreadable=[(3, "JSONDecodeError: x")])
     b_bad = dict(b_due, pipeline={"stats": pipeline.stats(res_bad, today),
-                                  "section0Lines": pipeline.render_section_0(res_bad, today),
+                                  "section0Lines": section0_lines(res_bad, today),
                                   "healthy": False})
     md_bad = render(b_bad)
     check("an unreadable pipeline store is declared, not a clean 0",
@@ -813,7 +851,7 @@ def _self_test() -> int:
               "next_action": "dispatch_lane", "terminal_reason": None},
     })
     b5 = dict(b_due, pipeline={"stats": pipeline.stats(res5, today),
-                               "section0Lines": pipeline.render_section_0(res5, today),
+                               "section0Lines": section0_lines(res5, today),
                                "healthy": True})
     md5 = render(b5)
     check("§5's unrouted count is pipeline.unrouted_count(), not re-derived",

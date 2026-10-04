@@ -293,24 +293,40 @@ def test_a_commit_naming_the_lane_rescues_a_stale_row_and_short_history_is_decla
 
 def test_soak_slot_absent_read_and_missing_fields():
     absent = rdb.render(_brief([], []))
-    assert "SOAK-WATCH has not published" in absent and "not 'no soaks'" in absent
-    rows = [{"id": "S1", "what": "w", "started": "2026-10-01", "progress": "3/10"}]
-    soaks = {"state": "read", "asOf": "2026-10-04",
-             "rows": [{**r, "days_in": 3} for r in rows]}
+    assert "source absent (we looked" in absent and "not 'no soaks'" in absent
+    soaks = {"state": "read", "asOf": "2026-10-04", "rows": [
+        {"leg": "L1", "account": "bybit_1", "state": "accruing", "days_in": 3}]}
     md = rdb.render(_brief([], [], soaks=soaks))
-    assert "day 3" in md and "ends —" in md and "verdict —" in md and "ends 0" not in md
+    assert "L1" in md and "day 3" in md and "ends —" in md and "ends 0" not in md
+    assert "accruing 1" in md
 
 
-def test_read_soaks_computes_days_in_from_started(tmp_path):
-    d = tmp_path / "docs/claude/work"
-    d.mkdir(parents=True)
-    (d / "SOAKS.json").write_text(json.dumps(
-        {"as_of": "2026-10-04", "soaks": [{"id": "S", "started": "2026-10-01", "days_in": 99}]}))
+def test_read_soaks_imports_soak_state_live(tmp_path, monkeypatch):
+    import types
+    mod = types.ModuleType("scripts.ops.soak_state")
+    mod.soak_states = lambda: [{"leg": "L", "account": "a", "state": "overdue",
+                                "end_date": "2026-10-01", "reason": "r", "started": "2026-10-01"}]
+    monkeypatch.setitem(sys.modules, "scripts.ops.soak_state", mod)
     got = rdb.read_soaks(tmp_path, TODAY)
     assert got["state"] == "read" and got["rows"][0]["days_in"] == 3
-    assert rdb.read_soaks(tmp_path / "nope", TODAY)["state"] == "absent"
-    (d / "SOAKS.json").write_text("{bad")
+    mod.soak_states = lambda: 1 / 0
     assert rdb.read_soaks(tmp_path, TODAY)["state"] == "unreadable"
+    monkeypatch.setitem(sys.modules, "scripts.ops.soak_state", None)  # import raises
+    assert rdb.read_soaks(tmp_path, TODAY)["state"] in ("absent", "unreadable")
+
+
+def test_git_activity_is_cached_on_head_sha(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rdb, "_head_sha", lambda root: "abc")
+    monkeypatch.setattr(rdb, "_git_activity_uncached",
+                        lambda root, today, days=45: calls.append(1) or {"state": "read", "commits": [], "coversDays": 9})
+    rdb._ACTIVITY_CACHE.clear()
+    rdb.git_activity(REPO_ROOT, TODAY); rdb.git_activity(REPO_ROOT, TODAY)
+    assert len(calls) == 1
+    monkeypatch.setattr(rdb, "_head_sha", lambda root: "def")
+    rdb.git_activity(REPO_ROOT, TODAY)
+    assert len(calls) == 2
+    rdb._ACTIVITY_CACHE.clear()
 
 
 def test_ranked_items_is_the_order_section0_uses():
