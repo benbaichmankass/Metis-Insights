@@ -1,6 +1,6 @@
 id: RQ-20261004-653
 title: 'Confirm XRP exit candidate: trend_donchian_xrp_4h trail4 at a moved IS/OOS boundary (split_target_oos=60)'
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 2
@@ -60,3 +60,4 @@ lands:
 related:
 - PI-20261004-FOJGFIZF-0001
 - docs/research/m20-sweep-corpus.jsonl (trail4 rows for trend_donchian_xrp_4h)
+result: 'GRADED 2026-10-04 by lane RESEARCH-RUN against RULE-RQ1004-XRP-TRAIL4-CONFIRM-A. CONFIRMED: trail4 is_oos_pass, d_net_r_OOS +0.3578 > 0, walk-forward 6/6 (folds 2021-2026 all positive: +0.869 +0.503 +0.500 +0.238 +0.246 +0.112), base OOS trades 60 >= 50, at a boundary moved to 2024-07-03 (split_target_oos 60 vs the 2026-10-02 pass at 49 OOS). Delta IS +2.1095, delta maxDD -0.737 IS / -0.246 OOS. Caveats: the walk-forward folds are calendar years and do not depend on the split, so the 6/6 is the same evidence as on 2026-10-02, not a fresh vote; trail4 FAILED the gate on 2026-08-10 and 2026-08-15 (earlier harness/split states). Stage-0 exit evidence only, ships nothing. Next per exit-refinement: live-parity check, then a Tier-3 declare proposal for trend_donchian_xrp_4h trail geometry. Source: sweep run 2026-10-04T15:06Z, docs/research/m20-sweep-corpus.jsonl.'

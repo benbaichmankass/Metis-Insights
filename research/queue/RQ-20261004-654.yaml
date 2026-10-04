@@ -1,6 +1,6 @@
 id: RQ-20261004-654
 title: 'Confirm XRP exit candidate: trend_donchian_xrp_4h trail4 fee-survival arm (15 bps roundtrip)'
-status: queued
+status: done
 cadence: once
 theme: live_strategy
 priority: 2
@@ -56,3 +56,4 @@ lands:
 related:
 - PI-20261004-FOJGFIZF-0001
 - docs/research/m20-sweep-corpus.jsonl (trail4 rows for trend_donchian_xrp_4h)
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against RULE-RQ1004-XRP-TRAIL4-CONFIRM-B-FEE15. SURVIVES by the rule: trail4 d_net_r_OOS +0.3577 > 0 at 15 bps roundtrip with base OOS 60 >= 50 (delta IS +2.1093). CAVEAT: the arm is nearly uninformative for this lever. Doubling the fee moved delta OOS by 0.0001 R and delta IS by 0.0002 R, because trail4 changes how trades exit, not how many, so base and lever pay the same fee and it cancels. It cannot fail here; read it as 'no fee-specific artefact', not as fee robustness of the underlying leg. Stage-0 evidence only."
