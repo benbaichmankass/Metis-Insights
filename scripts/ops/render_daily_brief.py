@@ -466,9 +466,10 @@ def _soak_lines(b: dict) -> list[str]:
         return L + ["_None declared._", ""]
     dash = lambda v: "—" if v in (None, "") else v  # noqa: E731
     for r in sk["rows"]:
-        L.append(f"- **{dash(r.get('leg'))}** @{dash(r.get('account'))} · "
-                 f"{dash(r.get('state'))} · ends {dash(r.get('end_date'))} · "
-                 f"day {dash(r.get('days_in'))} · {_clip(dash(r.get('reason')), 70)}")
+        L.append(f"- **{dash(r.get('id'))}** {dash(r.get('leg'))} @{dash(r.get('account'))} · "
+                 f"{dash(r.get('state'))} · started {dash(r.get('started'))} · "
+                 f"day {dash(r.get('days_in'))} · {_clip(dash(r.get('progress')), 40)} · "
+                 f"ends {dash(r.get('end_date'))} · {_clip(dash(r.get('reason')), 50)}")
     L.append("")
     return L
 
