@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "action.yml's verify-timeout-minutes default exceeds the p90 pytest-run duration AND every caller's job timeout-minutes exceeds the default (pinned by a test), AND one scheduled commit-to-main producer run completes green after a normal auto-merge",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); runs 37184970617 and 37191250251",
+    "rerun": "List the last 10 pytest-run check runs on main PRs and compare (completed_at - started_at) against the default in .github/actions/commit-to-main/action.yml -- holds while the default is below the p90 duration"
+  },
+  "state": "queued",
+  "what": "[ci/commit-to-main] The SHARED verify-merged wait (30 min, .github/actions/commit-to-main/action.yml default) is now BELOW the observed pytest-run duration, so an auto-merge PR that lands normally still fails its producer's run. MEASURED 2026-10-04: run 37184970617 (live-replay-parity) opened #16198 at 07:19Z, pytest-run 07:29:38-08:06:35Z = 37 min, PR auto-merged 08:06:56Z, verify step failed at the 30-min deadline 08:00Z; pytest-run on #16240 head cd5fc0b13 = 34.6 min (2076 s, 21204 passed). The action's own docstring sized 30 against pytest-run 12.9-15.3 min (2026-08-31); the suite has since grown ~2.4x. The health-review first tried a per-caller override (verify-timeout-minutes 45 on live-replay-parity.yml) and tests/test_commit_to_main_callers.py::test_no_caller_overrides_the_wait_with_its_own_timeout REFUSED it by design (the action owns the wait so it is re-checked in one place) -- reverted. The fix therefore belongs in the action default, and it is wider than one line: callers' job timeout-minutes must exceed the new wait (research-queue dispatch carries 35, the docstring says so), so raising the default to ~50 means auditing all callers' timeout-minutes in the same PR (test_commit_to_main_callers.py is the place to pin that). Until then every commit-to-main producer reads failure on a busy CI day while its rows land."
+}
