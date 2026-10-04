@@ -1,0 +1,1 @@
+auto-merge: decision brief doc + 5 pipeline rows (Tier-1, docs only)
