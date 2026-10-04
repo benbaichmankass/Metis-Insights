@@ -35,10 +35,9 @@ is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
 3. Take over every live lane: `get_session` it, then send it a trigger naming
    you as its manager (the reply channel is described under § "Every spawn
    carries provenance" below).
-4. **Run the daily review** (§ "The work system" below). It starts from the
-   persisted report (`GET /api/bot/work/report`), not from memory. Then
-   confirm the 05:52Z daily-review routine fires into THIS session. It is the
-   only thing that makes tomorrow's review happen.
+4. **Do § "Day one for a NEW manager" below.** That means rebinding the
+   review and check-in routines to THIS session, then running the review from
+   `GET /api/bot/work/report`, not from memory.
 
 ## When Claude Code's auto-mode classifier refuses the manager (operator rule, 2026-09-27, binding)
 
@@ -607,108 +606,104 @@ soak legs with no end date, and a 737 KB brief that nobody read. Every
 attention signal was a page someone had to choose to open. Now the **VM
 computes due and pushes it**, and **silence is itself an alarm**.
 
-### What runs without you
+### What runs without you (two VM timers; ONE Telegram message)
 
-There is **one scheduled carrier**: `ict-work-digest.timer`, hourly, which runs
-`scripts/ops/work_digest_now.py`. There is no second timer, and one must not be
-added (manager review of #16387: a parallel digest doubles the noise and is the
-"new register beside the old one" pattern). Each pass does two things:
-
-1. **It sends the hourly change digest**, which existed before this system:
-   checklist transitions and the standing close-wedge ledger.
-2. **It runs the attention pass**, `scripts/ops/attention_watch.py`:
-   - **The daily report.** On the first pass at or after 05:00 UTC, it
-     generates and persists `scripts/ops/work_report.py` to
-     `runtime_logs/work_reports/<report_id>.json`, served at
-     `GET /api/bot/work/report`.
-     - `report_id` = `WR-YYYYMMDD-HHMMZ`.
-     - Contents: expected-signal alarms · soak states (dead, overdue, ready
-       first) · open `ask_operator` items · due count + top 25 ranked · then
-       the brief verbatim. §3 of the brief is "what moved".
-     - Each section is marked `ok`, `empty` or `error`.
-     - `GET /api/bot/work/brief` stays the live view. **The persisted report is
-       the one you review.**
-   - **The daily summary** to the operator, after 06:00Z: counts plus the top
-     8, `ask_operator` first.
-   - **Edge alerts, sent immediately.** These go out when a new `ask_operator`
-     item is created, and when a soak moves to `ready`, `overdue` or `dead`.
-     Soak state is read from `docs/claude/work/SOAKS.json`, which SOAK-WATCH
-     publishes.
-   - **"Expected signal missing" alarms**, raised when:
-     - the R5 weekly soak grade is 8 or more days old;
+**`ict-work-digest.timer`, hourly. This is THE Telegram carrier; there is no other.** `work_digest_now.py`
+sends ONE message per hour. The operator decided on 2026-10-04 to fold everything into it, with no
+second digest timer, ever. The message is built in this order:
+1. **🆕 NEW since the last digest.** These are the actionable edges, from `scripts/ops/attention_watch.py`:
+   - a new `ask_operator` item;
+   - a soak moving to `ready`, `overdue` or `dead`;
+   - an expected-signal alarm breaching or clearing, when:
+     - the R5 grade is 8 or more days old;
      - no research result has landed in 36h;
      - an `in_flight` row has gone untouched for 3 days;
-     - the checklist has gone unwritten for 30h, meaning **no manager
-       reviewed**;
-     - the daily report is missing at 05:50Z, is over 26h old, has an errored
-       section, or is over 64 KB.
+     - the checklist has gone unwritten for 30h;
+     - the 05:30Z report is missing, stale, errored or over 64 KB.
+2. **Once a day, after 06:00Z: the ranked summary.** Counts plus the top 8,
+   `ask_operator` first.
+3. **Otherwise one line:** "🟢 No new actionable items", plus the open counts.
+4. **Then "what changed".** This is the change digest that existed before:
+   checklist transitions and the standing close-wedge ledger.
 
-⚠️ **The carrier's own silence is NOT self-detected.** If `ict-work-digest`
-stops, the alarms stop with it. The backstop is your review: a stale
-`generatedAt` on the report means the carrier is down.
+**`ict-work-report.timer`, 05:30 UTC.** It runs `scripts/ops/work_report.py`, which **generates and
+persists** the report the manager reviews and sends nothing. The report is stored at
+`runtime_logs/work_reports/<report_id>.json` and served at `GET /api/bot/work/report`.
+- `report_id` = `WR-YYYYMMDD-HHMMZ`.
+- Contents: alarms · soaks · `ask_operator` · due top 25 · the brief verbatim.
+  The brief comes from BRIEF-FIX's renderer, so there is one renderer, and its
+  §3 is "what moved".
+- Each section is marked `ok`, `empty`, `absent` (we looked; the source is not
+  there) or `error`.
 
-⚠️ **Cadence.** The hourly change digest was the operator's choice on
-2026-09-02 (*"I realize that's a lot of noise, but that's how I want it for now
-until we get a little more settled in"*). Whether it becomes daily is the
-operator's call. It is raised as a decision; do not flip it quietly.
+**Soak state is computed live on the VM** by `scripts/ops/soak_state.py::soak_states()`, which reads
+the contracts SOAK-WATCH commits plus the journal DB. It is never a field a session writes.
+If the module is absent, the section reads `absent`.
 
-The watch's own receipt is at `/api/diag/log_file?name=attention_watch_receipt`.
+**The manager cannot receive Telegram.** Every hourly block that was sent is appended to
+`digest_log.jsonl` and served at `GET /api/bot/work/report?since=<ISO>`.
 
-⚠️ **THE MANAGER GETS NO PUSH WHEN THE REPORT IS GENERATED** (operator,
-2026-10-04: *"if it's not getting a ping when the generation happens, then it at
-least needs to know to periodically check"*). **The daily-review routine IS the
-periodic check.** It fires at 05:52Z, and its prompt must name
-`GET /api/bot/work/report`. A manager that reviews only when it remembers to is
-the failure this replaces. If the routine is missing, recreating it is the
-manager's first act.
+⚠️ **The carrier's own death is not self-detected.** If `ict-work-digest` stops, its alarms stop
+with it. The backstop is the review: a stale `generatedAt` or an empty `digestLog` is the first
+incident.
 
-### The daily review — the manager's first act every day
+### The daily review — TWICE a day, 05:52Z and 17:52Z, fired by a routine
 
-1. **Fetch the latest persisted report**: `GET /api/bot/work/report`.
-2. **Check it before you trust it.**
-   - If `generatedAt` is not today, between 05:00Z and 05:10Z, the report is
-     stale. Fixing that is the first incident.
-   - If `present: false`, the report is missing. Same: fix it first.
-   - If `erroredSections` is non-empty, fix those sections first too.
-   - Compare its `reportId` with `last_review.report_id` at the top of
-     `MANAGER-CHECKLIST.json`. Items that were already dispositioned show as
-     routed or closed on the pipeline; everything else is new.
-3. **For every item, do one of three things:**
-   1. **Dispatch.** Route it to a lane: set `state: routed` and `routed_to:
-      <session id>` on the pipeline item, and add or update a checklist row if
-      it is a build.
-   2. **Close.** Mark it `done` or `killed` with a `terminal_reason`. A dead
-      item closed with a reason is worth more than one carried.
-   3. **Decide.** Classify it per § "Before any operator popup" below. Only a
-      genuine preference reaches the operator.
+**The manager gets no push.** The review routine IS the periodic check. Its prompt must name
+`GET /api/bot/work/report?since=<last_review.reviewed_at>`. Each run:
+1. **Fetch it. Check it before trusting it.**
+   - `present: false`, a `generatedAt` that is not today's ≈05:30Z, or a
+     non-empty `erroredSections` is the first incident. Fix it before anything
+     else.
+   - So is an empty `digestLog` across 12h, because it means the carrier is
+     down.
+2. **Work every item: dispatch, close, or decide.**
+   - Dispatch: route it to a lane. Set `state: routed` and `routed_to: <session>`
+     on the pipeline item, and give a build a checklist row.
+   - Close: `done` or `killed`, with a `terminal_reason`.
+   - Decide: per § "Before any operator popup".
 
-   `routed` does **not** end the obligation. A routed item that is still due
-   means its lane has not delivered. Check the lane, then re-dispatch or kill
-   it.
-4. **Record the review.** Set the top-level `last_review` on
-   `MANAGER-CHECKLIST.json` to
-   `{"report_id", "reviewed_at", "by", "counts": {"dispatched", "closed", "decided", "carried"}}`,
-   then push.
-   - Per-item dispositions live **on the pipeline items** (`state`,
-     `routed_to`, `terminal_reason`). That is where the next report and the
-     next manager read them, and copying them into the checklist would create
-     a second source.
-5. **Every silence alarm in the report gets a fix lane the same day.**
-6. **Anything due at a known time** (a soak end date, a mandate expiry, a
-   scheduled grade) **gets a `send_later` wake for that time**, not a hope.
+   A `routed` item that is still due means its lane has not delivered. Check
+   the lane, then re-dispatch or kill.
+3. **Every silence alarm gets a fix lane the same day.** Anything due at a known
+   time gets a `send_later` wake.
+4. **Record the review.** Set the top-level `last_review` =
+   `{report_id, reviewed_at, by, counts: {dispatched, closed, decided, carried}}`
+   on `MANAGER-CHECKLIST.json`, then push. Per-item dispositions live on the
+   pipeline items, so the next review sees what is new.
 
-### Lanes wake the manager — the reporting contract
+### Manager ↔ lane: PUSH plus POLL (operator directive 2026-10-04, binding)
 
-Every lane prompt carries this contract, verbatim in substance:
+1. **PUSH (primary).** A lane wakes the manager the moment it finishes, is
+   blocked, or has something the manager must act on: `create_trigger(persistent_session_id=<manager>)`
+   then `fire_trigger`. If that prompts, the fallback is a PR comment. The
+   manager acts on a wake immediately.
+2. **POLL (backup).** The routine "Manager lane check-in" (cron `17 */3 * * *`)
+   runs every 3h while any lane is live. It is separate from the twice-daily
+   review. Each pass:
+   - `get_session` every live lane;
+   - restart, re-dispatch, act on or archive any lane that is dead, stalled,
+     finished without pinging, or over its ceiling;
+   - read `mergeable_state` on lane PRs;
+   - record it when a lane missed its wake.
 
-> When you finish a deliverable or are blocked, wake the manager:
-> `create_trigger(persistent_session_id="<manager session id>", prompt=<one-paragraph report: what merged/deployed/observed, what is blocked and on what>)`
-> then `fire_trigger(<id>)`. If that prompts for permission, post the same
-> report as a comment on your PR. Never stop to wait for direction.
+**Required dispatch block.** Every `create_session` for a lane has:
+- `source_url` set;
+- **`permission_mode: "auto"`**. A lane in default mode blocks on exactly the
+  prompts it needs to wake you.
+- `model` set explicitly;
+- a checklist row (id, lane, ceiling), written before dispatch.
 
-A result that lands without a wake still gets caught. The `in_flight` silence
-probe flags the row after 3 days. Treat that alarm as the contract failing, not
-as noise.
+The prompt ends with this block, filled in:
+
+```
+You are lane <ROW-ID>, dispatched by Manager Session <date> (<manager session id>);
+its authority is the operator's (CLAUDE.md § Every session, step 1). Ceiling: $<N>.
+WAKE THE MANAGER when you finish a deliverable, are blocked, or produce something it must act on:
+create_trigger(persistent_session_id="<manager session id>", prompt=<what merged/deployed/observed,
+what is blocked and on what>) then fire_trigger(<id>). If that prompts, comment on your PR instead.
+Then continue, or run close-out. Never stop to wait for direction.
+```
 
 ### The soak contract — no soak without an exit
 
@@ -726,8 +721,8 @@ just read.
 
 ### Decision batching
 
-Operator decisions go out **once a day, batched**, in the digest's ❓ASK lines
-and the report's ask_operator section, each with options and a recommendation. A decision is the
+Operator decisions go out **batched**: a new one as a 🆕 line in the next hourly
+digest, and all open ones in the daily summary and the report's ask_operator section, each with options and a recommendation. A decision is the
 exception to batching only when it blocks live money or a live incident. That
 one goes out at once via `send-ping` with `priority=urgent`. A decision that
 arrives twice in the same shape is raised as *"should this become a mandate?"*
@@ -735,21 +730,19 @@ arrives twice in the same shape is raised as *"should this become a mandate?"*
 ### Day one for a NEW manager
 
 1. Title yourself and read the canonical docs (§ "Start of session").
-2. Run `curl -sS https://ict-bot.duckdns.org/api/bot/work/report`.
-   - If it is `present: false` or stale, check `/api/diag/services`. If
-     `ict-work-digest.timer` is not active, fixing it comes before anything
-     else.
-   - Read the watch receipt through the diag relay (`diag-data` skill).
-3. **Make sure the daily-review routine exists** (`list_triggers`). It should
-   fire into the current manager session at 05:52Z with a prompt naming
-   `GET /api/bot/work/report` and this section. If it is missing or bound to a
-   dead session, recreate or rebind it. A manager session change is exactly
-   when it silently stops.
-4. Work the report top-down using the three dispositions above. Clear the
-   `ask_operator` items first, by classification, not by forwarding. Record
-   `last_review`.
-5. Give every live lane the wake contract above (§ "Start of session" step 3).
-6. Push the checklist. Then answer.
+2. **Run `list_triggers`.** Routines bound to a session die with it.
+   - Recreate or rebind both **"Manager lane check-in"** (`17 */3 * * *`) and
+     the **twice-daily review** (05:52Z, 17:52Z) to YOUR session.
+   - The review prompt must name `GET /api/bot/work/report?since=…` and
+     § "The daily review" above.
+3. **Tell every live lane your session id**, using its own trigger. Its wake
+   target changed.
+4. Run `curl -sS 'https://ict-bot.duckdns.org/api/bot/work/report?since=<yesterday>'`.
+   If it is absent or stale, check `/api/diag/services` for
+   `ict-work-digest.timer` and `ict-work-report.timer`. Fixing that comes
+   before anything else.
+5. Run the review. Clear `ask_operator` items first, by classification, not by
+   forwarding. Record `last_review`, push, then answer.
 
 ## The ladder the manager is moving things along
 

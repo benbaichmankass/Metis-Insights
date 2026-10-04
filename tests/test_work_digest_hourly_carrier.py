@@ -32,8 +32,14 @@ def _load(monkeypatch, tmp_path):
     # tests (tests/test_attention_watch.py). Isolated here so these tests count
     # only the digest's own sends; the call itself is asserted below.
     mod._attention_calls = []
-    monkeypatch.setattr(mod, "_attention_pass",
-                        lambda dry_run: mod._attention_calls.append(dry_run) or 0)
+
+    class _FakeAW:
+        @staticmethod
+        def commit(prep, outcome):
+            mod._attention_calls.append(outcome)
+
+    monkeypatch.setattr(mod, "_attention_prepare", lambda dry_run: (
+        _FakeAW, {"block": "🟢 No new actionable items", "priority": "normal"}))
     return mod
 
 
@@ -206,13 +212,25 @@ def test_self_test_passes():
     assert mod._self_test() == 0
 
 
-def test_the_carrier_runs_the_attention_pass_after_a_sent_digest(monkeypatch, tmp_path):
-    """WORK-SYSTEM: ONE scheduled carrier. The attention pass (daily report,
-    daily summary, edge alerts, silence alarms) rides this run, not a timer."""
+def test_one_message_carries_the_attention_block_first_and_commits_after_send(monkeypatch, tmp_path):
+    """WORK-SYSTEM (operator decision 2026-10-04): ONE hourly message. The
+    attention block leads it; its state is committed only after the enqueue."""
+    mod = _load(monkeypatch, tmp_path)
+    sent = []
+    sys.modules["send_ping"] = type(sys)("send_ping")
+    sys.modules["send_ping"].enqueue = lambda body, **k: sent.append((body, k)) or Path("queued")
+    assert mod.run(force=True) == 0
+    assert len(sent) == 1 and sent[0][0].startswith("🟢 No new actionable items")
+    assert "— what changed —" in sent[0][0]
+    assert mod._attention_calls == ["sent"]
+
+
+def test_a_failed_send_does_not_commit_attention_state(monkeypatch, tmp_path):
     mod = _load(monkeypatch, tmp_path)
     sys.modules["send_ping"] = type(sys)("send_ping")
-    sys.modules["send_ping"].enqueue = lambda body, **k: Path("queued")
-    assert mod.run(force=True) == 0
-    assert mod._attention_calls == [False]
-    assert mod.run(dry_run=True, force=True) == 0
-    assert mod._attention_calls == [False, True]
+
+    def boom(*a, **k):
+        raise OSError("inbox gone")
+    sys.modules["send_ping"].enqueue = boom
+    assert mod.run(force=True) == 1
+    assert mod._attention_calls == ["enqueue_failed"]

@@ -76,3 +76,18 @@ def test_report_probe_breaches_when_absent_and_when_errored(tmp_path, monkeypatc
     (tmp_path / "latest.json").unlink()
     work_report.persist(rep2, tmp_path)
     assert a.probe_report(now)["status"] == a.BREACHED
+
+
+def test_report_route_since_returns_sent_digest_blocks(tmp_path, monkeypatch):
+    from scripts.ops import work_report
+    from src.web.api.routers import work
+
+    log = tmp_path / "digest_log.jsonl"
+    monkeypatch.setattr(work_report, "DIGEST_LOG", log)
+    monkeypatch.setattr(work_report.read_latest, "__defaults__", (tmp_path,))
+    out = work.get_work_report(since="2026-10-05T00:00:00+00:00")
+    assert out["digestLogState"] == "absent" and out["digestLog"] == []
+    work_report.append_digest_log({"at": "2026-10-05T07:00:00+00:00", "new": ["🔕 x"]}, log)
+    out = work.get_work_report(since="2026-10-05T06:00:00+00:00")
+    assert out["digestLogState"] == "read" and out["digestLog"][0]["new"] == ["🔕 x"]
+    assert "digestLog" not in work.get_work_report()

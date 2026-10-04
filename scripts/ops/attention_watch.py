@@ -15,54 +15,47 @@ this week's run landed nothing; the brief at ``GET /api/bot/work/brief`` was
 737 KB and nobody read it. Everything that was supposed to ask for attention
 was a PAGE someone had to choose to open. This module PUSHES.
 
-ONE CARRIER, NOT TWO (manager review of #16387, 2026-10-04). The VM already
-runs ``ict-work-digest.timer`` hourly → ``work_digest_now.py``, the hourly
-digest of state CHANGES (checklist transitions, the standing close-wedge
-ledger). A second timer with a second digest would double the Telegram noise.
-It would also be the "new register beside the old one" pattern this repo keeps
-paying for. So this module has NO unit. ``work_digest_now.run()`` calls
-``run()`` here once per pass, after its own digest. The two answer different
-questions: *what changed this hour* versus *what needs someone, and what did
-not arrive*.
+ONE MESSAGE, ONE CARRIER (operator decision 2026-10-04 ~15:30Z, relayed by the
+manager): fold into the EXISTING hourly digest — ``ict-work-digest.timer`` →
+``work_digest_now.py``. No timer of its own. ``work_digest_now.run()`` calls
+``prepare()``, PREPENDS the block to its change digest, sends ONE message, and
+calls ``commit()`` only after the enqueue succeeded. The block puts the
+ACTIONABLE things first:
 
-Each pass:
+  * NEW since the last digest, marked 🆕 (edge items, only on change):
+      - a new ``ask_operator`` pipeline item;
+      - a soak moving into ``ready`` / ``overdue`` / ``dead``
+        (``scripts/ops/soak_state.py::soak_states()``, SOAK-WATCH's live
+        computation — never computed here);
+      - a silence alarm breaching (re-sent at most every ``REALERT_HOURS``)
+        or clearing. The alarms cover: the R5 weekly soak grade
+        (``SOAK_GRADE_MAX_DAYS``), research results (``RESEARCH_MAX_HOURS``),
+        quiet ``in_flight`` rows (``INFLIGHT_STALE_DAYS``), the checklist
+        unwritten (``MANAGER_SILENT_HOURS``), and the 05:30Z work report
+        missing, stale, errored or oversized.
+  * once a day at/after ``DIGEST_HOUR_UTC``: the ranked summary (counts + top
+    items, ask_operator first);
+  * otherwise ONE line: "no new actionable items", plus open counts.
 
-  (0) DAILY REPORT — on the first pass at/after ``REPORT_HOUR_UTC`` with no
-      report for today yet, generates and persists ``work_report.py``'s report
-      (the thing the manager's 05:52Z review reads).
+So a new actionable thing is unmissable and the steady state is quiet.
 
-  (a) DAILY SUMMARY — once per UTC day at/after ``DIGEST_HOUR_UTC``: counts
-      plus the top items that need the operator, ranked. Short by construction.
-  (b) EDGE ALERTS — sent when a thing CHANGES, not while it stays the same:
-        * a new ``ask_operator`` pipeline item appears;
-        * a soak leg moves into ``ready`` / ``overdue`` / ``dead``
-          (state is published by SOAK-WATCH in ``docs/claude/work/SOAKS.json``,
-          the same file the brief reads — this module never computes it).
-  (c) SILENCE ALARMS — "an expected signal did NOT arrive":
-        * the R5 weekly soak grade has not landed in ``SOAK_GRADE_MAX_DAYS``;
-        * no research result has landed in ``RESEARCH_MAX_HOURS``;
-        * a checklist row is ``in_flight`` with no change to it in
-          ``INFLIGHT_STALE_DAYS``;
-        * the checklist itself (the manager's register) has not been written
-          in ``MANAGER_SILENT_HOURS`` — the manager's daily review did not run;
-        * the daily work report (``work_report.py``) is missing,
-          stale, or has an errored section.
-      A breached alarm re-sends at most once per ``REALERT_HOURS`` while it
-      stays breached, and sends one "cleared" line when it clears.
+MANAGER READS IT: a session cannot receive Telegram, so each committed block is
+appended to ``runtime_logs/work_reports/digest_log.jsonl`` and served at
+``GET /api/bot/work/report?since=<iso>``.
 
 NEVER COLLAPSED: every probe returns ``ok`` / ``breached`` / ``unknown``.
 ``unknown`` (we could not look — shallow clone, unreadable file, missing
 module) is reported as such and is never read as ``ok``. A digest that cannot
 read the pipeline says so in its first line.
 
-Read-only against the repo. Its only writes are two files under
-``runtime_logs/`` (state + receipt) and the ping inbox. Sends go to the
+Read-only against the repo. Its only writes are under ``runtime_logs/``
+(state, receipt, digest log) and, standalone only, the ping inbox. Sends go to the
 @claude_ict_comms_bot inbox (``send_ping.enqueue(target="claude")``) — the
 operator's Claude-comms channel, separate from trade alerts.
 
 Usage::
 
-    python3 scripts/ops/attention_watch.py              # one hourly pass
+    python3 scripts/ops/attention_watch.py              # one standalone pass (sends)
     python3 scripts/ops/attention_watch.py --dry-run    # print, send nothing, keep state
     python3 scripts/ops/attention_watch.py --digest-now # force today's digest
     python3 scripts/ops/attention_watch.py --self-test
@@ -95,7 +88,6 @@ RESEARCH_RESULTS = "research/results"
 
 # Bounds. Constants, so moving one is a reviewed diff, not a tuning knob.
 DIGEST_HOUR_UTC = 6          # before the operator's day; after the 03:10Z grade slot
-REPORT_HOUR_UTC = 5          # the carrier fires ~05:00-05:02Z; the review routine reads at 05:52Z
 SOAK_GRADE_MAX_DAYS = 8      # weekly (Sun 03:00Z) + one day of grace
 RESEARCH_MAX_HOURS = 36      # dispatcher lands results several times a day when healthy
 INFLIGHT_STALE_DAYS = 3      # an in_flight row nobody has touched in 3 days is not in flight
@@ -190,31 +182,32 @@ def open_ask_operator(items: list[dict]) -> list[dict]:
 
 
 # ── soak state (owned by SOAK-WATCH; consumed, never computed, here) ─────────
-#: ONE file, read by the brief (BRIEF-FIX) and by this watch alike:
-#: {"as_of": ..., "soaks": [{"id", "what", "started", "end_date", "progress",
-#:  "verdict", "state"}]}, where state is one of accruing / ready / overdue / dead /
-#: unknown. SOAK-WATCH publishes it.
-SOAKS_FILE = REPO_ROOT / "docs" / "claude" / "work" / "SOAKS.json"
+# SETTLED by the manager 2026-10-04 15:25Z for all three lanes: CONTRACTS are a
+# committed file SOAK-WATCH owns; STATE is COMPUTED LIVE on the VM by
+# ``scripts/ops/soak_state.py::soak_states()`` (contracts + journal DB). The brief,
+# the report and this pass all call it. Never a session-written state field.
 SOAK_STATES = ("accruing", "ready", "overdue", "dead", "unknown")
 
 
-def read_soak_states(path: Path | None = None) -> tuple[str, list[dict]]:
-    """``(read_state, rows)``. read_state ∈ read / absent / unreadable."""
-    path = path or SOAKS_FILE
-    if not path.exists():
+def read_soak_states() -> tuple[str, list[dict]]:
+    """``(read_state, rows)``. read_state ∈ read / absent / unreadable.
+    ``absent`` = we looked and the module is not there — never "no soaks"."""
+    try:
+        from scripts.ops import soak_state  # noqa: PLC0415
+    except ImportError:
+        return "absent", []
+    fn = getattr(soak_state, "soak_states", None)
+    if not callable(fn):
         return "absent", []
     try:
-        d = json.loads(path.read_text(encoding="utf-8"))
-        rows = d.get("soaks") if isinstance(d, dict) else None
-        if not isinstance(rows, list):
-            return "unreadable", []
-    except (OSError, ValueError):
+        rows = [r for r in fn() if isinstance(r, dict)]
+    except Exception as exc:  # noqa: BLE001 — a broken producer is "unreadable", loud
+        print(f"attention-watch: soak_state.soak_states() raised: {exc}")
         return "unreadable", []
     out = []
     for r in rows:
-        if isinstance(r, dict):
-            st = str(r.get("state") or "unknown")
-            out.append({**r, "state": st if st in SOAK_STATES else "unknown"})
+        st = str(r.get("state") or "unknown")
+        out.append({**r, "state": st if st in SOAK_STATES else "unknown"})
     return "read", out
 
 
@@ -262,7 +255,7 @@ def probe_manager(now: datetime) -> dict:
                                     f"(bound {MANAGER_SILENT_HOURS}h — no daily review?)"}
 
 
-REPORT_MAX_AGE_HOURS = 26     # daily ~05:0xZ + grace
+REPORT_MAX_AGE_HOURS = 26     # daily 05:30Z + grace
 REPORT_DUE_UTC = (5, 50)      # today's report must exist by 05:50Z (review at 05:52Z)
 #: A report nobody can read in one sitting is the 737 KB brief again. BRIEF-FIX
 #: caps the brief at 16 KB; the report adds the attention summary on top.
@@ -288,7 +281,7 @@ def probe_report(now: datetime) -> dict:
     errs = rep.get("errored_sections") or []
     if age_h > REPORT_MAX_AGE_HOURS or missed_today:
         return {"status": BREACHED, "detail": f"latest report {rep['report_id']} is {age_h:.0f}h old "
-                                              f"— today's ~05:00Z report was not produced"}
+                                              f"— today's 05:30Z report was not produced"}
     if errs:
         return {"status": BREACHED, "detail": f"{rep['report_id']} has errored section(s): "
                                               f"{', '.join(errs)}"}
@@ -396,7 +389,7 @@ PROBE_LABEL = {
 def render_digest(v: dict) -> str:
     s = v["stats"]
     rep = v["probes"].get("report", {})
-    L = [f"📋 Daily work digest {v['today']}"
+    L = [f"📋 Daily summary {v['today']}"
          + (f" — {rep['detail'].split(' ')[0]}" if rep.get("status") == OK else "")]
     if not v["pipeline_readable"]:
         L.append(f"⚠️ {v['pipeline_unreadable']} pipeline record(s) UNREADABLE — counts are a floor.")
@@ -494,57 +487,87 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
     return msgs, new
 
 
-def ensure_daily_report(now: datetime, dry_run: bool = False) -> str:
-    """Generate + persist today's work report on the first pass at/after
-    REPORT_HOUR_UTC. Returns what happened (recorded on the receipt)."""
-    from scripts.ops import work_report  # noqa: PLC0415
-    if now.hour < REPORT_HOUR_UTC:
-        return "not_yet"
-    st, rep = work_report.read_latest()
-    if st == "read" and rep and str(rep.get("generated_at", ""))[:10] == now.date().isoformat():
-        return f"exists:{rep.get('report_id')}"
-    if dry_run:
-        return "would_generate"
-    try:
-        rep = work_report.generate(now)
-        work_report.persist(rep)
-    except Exception as exc:  # noqa: BLE001 — the report probe alarms on the absence
-        print(f"attention-watch: daily report generation FAILED: {exc}")
-        return f"failed:{type(exc).__name__}"
-    return f"generated:{rep['report_id']}"
+DIGEST_LOG_NAME = "digest_log.jsonl"
 
 
-def run(dry_run: bool = False, digest_now: bool = False) -> int:
-    report_outcome = ensure_daily_report(_now(), dry_run=dry_run)
+def compose_block(v: dict, msgs: list[tuple[str, str]]) -> tuple[str, str, list[str]]:
+    """Turn planned messages into ONE block for the hourly digest.
+
+    Returns ``(block, priority, new_items)``. NEW actionable items first and
+    marked; the daily summary after them; and when nothing is new, ONE line —
+    so a new actionable thing is unmissable and the steady state is quiet."""
+    summary = [b for _, b in msgs if b.startswith("📋")]
+    new = [b for _, b in msgs if not b.startswith("📋")]
+    pri = "high" if any(p == "high" for p, b in msgs if not b.startswith("📋")) else "normal"
+    L: list[str] = []
+    if new:
+        L.append(f"🆕 NEW since last digest ({len(new)}):")
+        L += new
+    else:
+        breached = sum(1 for p in v["probes"].values() if p["status"] == BREACHED)
+        L.append(f"🟢 No new actionable items · open: {len(v['ask_operator'])} ask_operator, "
+                 f"{v['stats']['due']} due, {breached} alarm(s) still breached "
+                 f"(GET /api/bot/work/report)")
+    if summary:
+        L += ["", *summary]
+    return "\n".join(L), pri, new
+
+
+def prepare(dry_run: bool = False, digest_now: bool = False) -> dict:
+    """Build this hour's attention block. Writes nothing; ``commit`` does,
+    and only after the digest carrying the block was enqueued."""
     v = build()
     state = _read_json(STATE)
     msgs, new_state = plan_messages(v, state, digest_now=digest_now)
-    for pri, body in msgs:
-        print(f"--- [{pri}] ---\n{body}\n")
-    receipt = {"at": v["now"].isoformat(), "messages": len(msgs),
+    block, pri, new = compose_block(v, msgs)
+    receipt = {"at": v["now"].isoformat(), "new_items": len(new),
+               "summary": any(b.startswith("📋") for _, b in msgs),
                "probes": {k: p["status"] for k, p in v["probes"].items()},
                "soak_read": v["soak_read"], "due": v["stats"]["due"],
                "unrouted": v["stats"]["unrouted"],
                "ask_operator_open": len(v["ask_operator"]),
-               "pipeline_readable": v["pipeline_readable"],
-               "daily_report": report_outcome}
+               "pipeline_readable": v["pipeline_readable"]}
+    log_entry = {"at": v["now"].isoformat(), "priority": pri, "new": new,
+                 "summary": receipt["summary"],
+                 "counts": {"due": v["stats"]["due"], "unrouted": v["stats"]["unrouted"],
+                            "ask_operator_open": len(v["ask_operator"]),
+                            "alarms_breached": sorted(k for k, p in v["probes"].items()
+                                                      if p["status"] == BREACHED)}}
+    return {"block": block, "priority": pri, "state": new_state,
+            "receipt": receipt, "log": log_entry, "dry_run": dry_run}
+
+
+def commit(prep: dict, outcome: str) -> None:
+    """Advance state, append the machine-readable digest log (what the manager
+    reads, since a session cannot receive Telegram), stamp the receipt."""
+    if prep["dry_run"] or outcome != "sent":
+        _write_json(RECEIPT, {**prep["receipt"], "outcome": "dry_run" if prep["dry_run"] else outcome})
+        return
+    _write_json(STATE, prep["state"])
+    from scripts.ops import work_report  # noqa: PLC0415
+    try:
+        work_report.append_digest_log(prep["log"])
+    except OSError as exc:
+        print(f"attention-watch: WARNING could not append digest log: {exc}")
+    _write_json(RECEIPT, {**prep["receipt"], "outcome": outcome})
+
+
+def run(dry_run: bool = False, digest_now: bool = False) -> int:
+    """Standalone pass (manual / debugging). The scheduled path is
+    ``work_digest_now.run``, which prepends the block to its hourly digest."""
+    prep = prepare(dry_run=dry_run, digest_now=digest_now)
+    print(prep["block"])
     if dry_run:
-        _write_json(RECEIPT, {**receipt, "outcome": "dry_run"})
+        commit(prep, "dry_run")
         return 0
     from send_ping import enqueue  # noqa: PLC0415
-    sent = 0
     try:
-        for pri, body in msgs:
-            enqueue(body, priority=pri, target="claude")
-            sent += 1
+        enqueue(prep["block"], priority=prep["priority"], target="claude")
     except (OSError, ValueError) as exc:
-        # State is NOT advanced on a failed send, so the next pass retries.
-        _write_json(RECEIPT, {**receipt, "outcome": "enqueue_failed", "sent": sent,
-                              "error": str(exc)})
-        print(f"attention-watch: enqueue failed after {sent}: {exc}")
+        commit(prep, "enqueue_failed")
+        print(f"attention-watch: enqueue failed: {exc}")
         return 1
-    _write_json(STATE, new_state)
-    _write_json(RECEIPT, {**receipt, "outcome": "sent" if sent else "quiet", "sent": sent})
+    commit(prep, "sent")
     return 0
 
 
@@ -610,6 +633,12 @@ def _self_test() -> int:
     check("next day sends the next digest", len(msgs10) == 1 and msgs10[0][1].startswith("📋"), msgs10)
     early = view(now=now.replace(hour=2))
     check("no digest before DIGEST_HOUR_UTC", plan_messages(early, {})[0] == [], "")
+    blk, pri, new_items = compose_block(view(), [])
+    check("nothing new → ONE quiet line", blk.startswith("🟢") and "\n" not in blk and not new_items, blk)
+    blk2, pri2, _ = compose_block(view(), [("high", "❓ 1 new decision"), ("normal", "📋 Daily")])
+    check("new items lead, marked 🆕, summary after, priority high",
+          blk2.startswith("🆕 NEW since last digest (1)") and blk2.index("❓") < blk2.index("📋")
+          and pri2 == "high", blk2)
     lines = ['{', '  "items": [', '    {', '      "id": "A1",', '      "state": "x"',
              '    },', '    {', '      "id": "B2"', '    }', '  ]', '}']
     check("row line ranges parse", _row_line_ranges(lines) == {"A1": (3, 6), "B2": (7, 9)},

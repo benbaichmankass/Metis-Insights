@@ -2298,18 +2298,32 @@ def get_work_schedule() -> dict[str, Any]:
 # ── /report — WORK-SYSTEM: the persisted, scheduled daily work report ───────
 #
 # Added 2026-10-04 (WORK-SYSTEM). `/brief` above is the LIVE view; this serves
-# the REVIEWED one — `scripts/ops/work_report.py`, generated daily on the first
-# ict-work-digest pass at/after 05:00Z and persisted under runtime_logs/work_reports/ with a
+# the REVIEWED one — `scripts/ops/work_report.py`, generated daily at 05:30Z by
+# `ict-work-report.timer` and persisted under runtime_logs/work_reports/ with a
 # `report_id` (WR-YYYYMMDD-HHMMZ) and `generated_at`, so "what did the manager
-# see, and when" is answerable after the fact. Read-only, file-backed, no DB,
+# see, and when" is answerable after the fact. `?since=` adds the hourly
+# digest log (runtime_logs/work_reports/digest_log.jsonl). Read-only, file-backed, no DB,
 # no secrets, no write surface. Absent and unreadable are reported as such,
 # never as an empty report. No cache: it is one small file read.
 
 
 @router.get("/report")
-def get_work_report(report_id: str | None = None) -> dict[str, Any]:
-    """The latest persisted work report, or one by ``report_id``."""
+def get_work_report(report_id: str | None = None, since: str | None = None) -> dict[str, Any]:
+    """The latest persisted work report, or one by ``report_id``.
+
+    ``since=<ISO timestamp>`` also returns ``digestLog``: every hourly digest
+    block SENT after that time (what Telegram carried, since a session cannot
+    read Telegram) — the manager passes its ``last_review.reviewed_at``."""
     from scripts.ops import work_report as _wr
+
+    log_block: dict[str, Any] = {}
+    if since is not None:
+        try:
+            log_state, entries = _wr.read_digest_log(since)
+        except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged and surfaced as digestLogState; a Tier-1 read surface must not 5xx.
+            logger.warning("work: digest log read failed: %s", exc, exc_info=True)
+            log_state, entries = "unreadable", []
+        log_block = {"since": since, "digestLogState": log_state, "digestLog": entries}
 
     try:
         if report_id:
@@ -2320,11 +2334,11 @@ def get_work_report(report_id: str | None = None) -> dict[str, Any]:
         logger.warning("work: report read failed: %s", exc, exc_info=True)
         state, rep = "unreadable", None
     if rep is None:
-        return {"present": False, "readState": state, "reportId": report_id,
+        return {**log_block, "present": False, "readState": state, "reportId": report_id,
                 "schedule": _wr.SCHEDULE,
-                "reason": ("no persisted report — the daily carrier pass has not produced one"
+                "reason": ("no persisted report — ict-work-report has not produced one"
                            if state == "absent" else "report file could not be parsed")}
-    return {"present": True, "readState": "read", "reportId": rep.get("report_id"),
+    return {**log_block, "present": True, "readState": "read", "reportId": rep.get("report_id"),
             "generatedAt": rep.get("generated_at"), "schedule": rep.get("schedule"),
             "erroredSections": rep.get("errored_sections") or [],
             "bytes": rep.get("bytes"), "markdown": rep.get("markdown"),

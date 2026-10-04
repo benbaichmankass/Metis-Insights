@@ -277,6 +277,10 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # alive?" for the timer as well as the run.
     "ict-work-digest.service",
     "ict-work-digest.timer",
+    # WORK-SYSTEM (2026-10-04). The daily 05:30Z work-report GENERATOR (sends
+    # nothing; the hourly digest above is the one Telegram carrier).
+    "ict-work-report.service",
+    "ict-work-report.timer",
     "ict-health-snapshot.service",
     "ict-health-snapshot.timer",
     # 2026-06-28 (full-system audit Workstream B) — two recurring trader-VM

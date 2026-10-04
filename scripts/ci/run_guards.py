@@ -253,7 +253,7 @@ GUARDS: List[Dict[str, Any]] = [
         "name": "attention-watch",
         "when": {"globs": ["scripts/ops/attention_watch.py", "scripts/ops/work_report.py",
                             "scripts/ops/pipeline.py", "scripts/ops/render_daily_brief.py",
-                            "scripts/ops/work_digest_now.py"]},
+                            "scripts/ops/work_digest_now.py", "deploy/ict-work-report.*"]},
         "steps": [["python3", "scripts/ops/attention_watch.py", "--self-test"],
                   ["python3", "scripts/ops/work_report.py", "--self-test"]],
     },

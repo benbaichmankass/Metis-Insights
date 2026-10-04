@@ -755,13 +755,16 @@ the pipeline had 366 items due and 151 unrouted, 25 `ask_operator` items had
 never reached the operator, and the brief was 737 KB and unread. Five rules
 bind:
 
-1. **Due is computed on the VM, and pushed, through ONE carrier.**
-   `scripts/ops/attention_watch.py` runs on every hourly `ict-work-digest`
-   pass. It has no timer of its own, so there is one scheduled carrier and
-   not two. It sends the daily summary. It also sends
-   a push on every new `ask_operator` item and on every soak that moves to
-   `ready`, `overdue` or `dead`. Do not add a second notifier for these
-   signals; extend this one.
+1. **Due is computed on the VM and pushed in ONE hourly Telegram message.**
+   `ict-work-digest` sends that message (operator decision 2026-10-04: fold
+   into it, never add a second digest timer). The message leads with what is
+   NEW and actionable, as computed by `scripts/ops/attention_watch.py`:
+   - new `ask_operator` items;
+   - soaks moving to `ready`, `overdue` or `dead`;
+   - silence alarms breaching or clearing.
+
+   Once a day it adds the ranked summary. Otherwise it is one quiet line. Extend
+   this carrier; do not add another.
 2. **Silence is an alarm.** Anything that is expected to arrive on a cadence (a
    weekly grade, research results, row activity, the manager's own review)
    carries a probe that fires when it does NOT arrive. A probe that could not
@@ -773,15 +776,22 @@ bind:
    means the design is wrong and must be fixed before placement. This extends §
    "A soak must carry its own alarm". It does not replace it: the alarm says
    *when to look*, and the contract says *what ends the wait*.
-4. **The manager reviews a persisted report, on a schedule.**
-   `scripts/ops/work_report.py` writes `WR-YYYYMMDD-HHMMZ` on the first carrier
-   pass at or after 05:00 UTC. It is served at `GET /api/bot/work/report`. The
-   05:52Z daily-review routine reads it. The manager gets no push when the
-   report is generated, so the routine is the check. A missing, stale or
-   errored report is itself an alarm.
-5. **Lanes wake the manager** on finish or block
-   (`create_trigger(persistent_session_id=<manager>)` + `fire_trigger`, with a
-   PR comment as the fallback). The manager's daily review works the report:
+4. **The manager reviews a persisted report, on a schedule, twice a day.**
+   - `ict-work-report.timer` (05:30 UTC) writes `WR-YYYYMMDD-HHMMZ`, served at
+     `GET /api/bot/work/report`.
+   - `?since=` adds every hourly digest block that was sent. A session cannot
+     read Telegram, so this is how the manager sees what went out.
+   - Routines at 05:52Z and 17:52Z fire the review. The manager gets no push;
+     the routine is the check.
+   - A missing, stale or errored report is itself an alarm.
+5. **Lanes PUSH, and the manager POLLS.**
+   - A lane wakes the manager on finish, block or needs-action:
+     `create_trigger(persistent_session_id=<manager>)` + `fire_trigger`, with a
+     PR comment as the fallback.
+   - Lanes are spawned with `permission_mode: "auto"` and the wake block in the
+     prompt.
+   - A 3-hourly check-in routine catches every lane that did not wake the
+     manager. The manager's daily review works the report:
    **dispatch, close, or decide** every item it shows.
 
 ## Always state the population (2026-07-31, binding — every quantitative claim)
