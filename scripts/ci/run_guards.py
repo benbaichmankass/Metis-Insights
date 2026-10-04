@@ -247,6 +247,15 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_stale_in_flight.py"]],
     },
     {
+        # WORK-SYSTEM, 2026-10-04: the VM-side attention watch (daily digest,
+        # edge alerts, "expected signal missing" alarms). Self-test exercises
+        # every send/suppress path, including "unknown never clears a breach".
+        "name": "attention-watch",
+        "when": {"globs": ["scripts/ops/attention_watch.py", "scripts/ops/pipeline.py",
+                            "deploy/ict-attention-watch.*"]},
+        "steps": [["python3", "scripts/ops/attention_watch.py", "--self-test"]],
+    },
+    {
         # FIX-SA-09, 2026-09-29: the SessionStart hook, three slash commands and
         # four skills told sessions to drain review backlogs archived on
         # 2026-09-21. This is the detector: no live `.claude/` line may name a

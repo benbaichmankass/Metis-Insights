@@ -740,6 +740,42 @@ And `ready` is **not** `cleared`: the threshold being met says a session should
 LOOK, never that the row's `clears_when` is satisfied. Those clauses routinely
 carry conditions no predicate can express.
 
+## Due work must reach someone who acts (operator directive 2026-10-04, binding)
+
+> Operator, approving the design: *"that's not a band-aid, that's a structural
+> fix … make sure it's canonized correctly … so everybody knows how to work
+> around them and things don't get ignored … this is highest priority."*
+
+Design of record: [`docs/plans/work-system-2026-10-04.md`](plans/work-system-2026-10-04.md).
+Manager procedure: [`.claude/skills/manager/SKILL.md`](../.claude/skills/manager/SKILL.md)
+§ "The work system".
+
+**A page someone has to choose to open is not an alarm.** MEASURED 2026-10-04:
+the pipeline had 366 items due and 151 unrouted, 25 `ask_operator` items had
+never reached the operator, and the brief was 737 KB and unread. Four rules
+bind:
+
+1. **Due is computed on the VM, and pushed.** `scripts/ops/attention_watch.py`
+   (hourly, `ict-attention-watch.timer`) sends the daily digest. It also sends
+   a push on every new `ask_operator` item and on every soak that moves to
+   `ready`, `overdue` or `dead`. Do not add a second notifier for these
+   signals; extend this one.
+2. **Silence is an alarm.** Anything that is expected to arrive on a cadence (a
+   weekly grade, research results, row activity, the manager's own review)
+   carries a probe that fires when it does NOT arrive. A probe that could not
+   look reads `unknown`, and `unknown` never clears an alarm. This is the
+   collapsed-states rule above, applied to time.
+3. **Every soak carries a contract.** It states what it verifies, the expected
+   event rate from the backtest, the n and power it needs, an **end date**, and
+   a pass/fail rule registered before it starts. An end date beyond ~2 weeks
+   means the design is wrong and must be fixed before placement. This extends §
+   "A soak must carry its own alarm". It does not replace it: the alarm says
+   *when to look*, and the contract says *what ends the wait*.
+4. **Lanes wake the manager** on finish or block
+   (`create_trigger(persistent_session_id=<manager>)` + `fire_trigger`, with a
+   PR comment as the fallback). The manager's daily review works the brief:
+   **dispatch, close, or decide** every item it shows.
+
 ## Always state the population (2026-07-31, binding — every quantitative claim)
 
 Promoted from `CLAUDE.md` § "Number provenance", where it was scoped to

@@ -3,7 +3,7 @@ name: manager
 description: The manager-session contract. Read this at the start of any session that spawns or supervises other sessions. Defines the one job, the one register, spawn rules, the model table, the budget, and the daily-sync brief.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-21` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-10-04` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # The manager contract
 
@@ -35,6 +35,10 @@ is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
 3. Take over every live lane: `get_session` it, then send it a trigger naming
    you as its manager (the reply channel is described under § "Every spawn
    carries provenance" below).
+4. **Run the daily review** (§ "The work system" below). It starts from the
+   brief, not from memory. Then schedule tomorrow's review with `send_later`
+   before you do anything else, so the next one does not depend on you
+   remembering.
 
 ## When Claude Code's auto-mode classifier refuses the manager (operator rule, 2026-09-27, binding)
 
@@ -583,6 +587,109 @@ rejected. What the manager owes is the WORK being ready, not a duration.
 
 ⚠️ **THERE IS NO CAP ON SECTION 2.** A queue outrunning one person is an
 argument for automating the class, not for shortening the list.
+
+⚠️ **THE BRIEF MUST BE SHORT, RANKED AND TRUE** (2026-10-04, lane BRIEF-FIX).
+At 737 KB it went unread, and so it acted on nothing. The brief carries a size
+cap and a soaks slot, ranks what needs action first, and states everything it
+leaves out as a count. The pushed counterpart is the daily Telegram digest (§
+"The work system"). The two must rank the same way.
+
+## The work system — due work must reach someone who acts (operator, 2026-10-04, binding)
+
+Design of record: [`docs/plans/work-system-2026-10-04.md`](../../../docs/plans/work-system-2026-10-04.md)
+(checklist row **WORK-SYSTEM**). The operator, approving it: *"that's not a
+band-aid, that's a structural fix … make sure it's canonized correctly in the
+manager skill so all the managers pick it up."*
+
+**Why.** MEASURED 2026-10-04: 366 pipeline items due, 151 unrouted, 25
+`ask_operator` items that had never reached the operator, 36 of 45 Stage-1
+soak legs with no end date, and a 737 KB brief that nobody read. Every
+attention signal was a page someone had to choose to open. Now the **VM
+computes due and pushes it**, and **silence is itself an alarm**.
+
+### What runs without you
+
+`scripts/ops/attention_watch.py` runs hourly on `ict-attention-watch.timer` (VM
+clock) and sends to Telegram via @claude_ict_comms_bot:
+- **the daily digest**, once a day after 06:00Z: counts plus the top 8 due
+  items, `ask_operator` first;
+- **a push when a new `ask_operator` item is created**, and when a soak moves
+  to `ready`, `overdue` or `dead`. Soak state is computed by
+  `scripts/ops/soak_state.py`, not by the watch;
+- **"expected signal missing" alarms**: the R5 weekly soak grade is ≥ 8 days
+  old; no research result in 36h; an `in_flight` row untouched for 3 days; the
+  checklist unwritten for 30h, meaning **no manager reviewed**.
+
+Its receipt is at `/api/diag/log_file?name=attention_watch_receipt`. Read it at
+every review. A stale receipt means the watch itself is dead, and that is
+yours to fix first.
+
+### The daily review — the manager's first act every day
+
+Start from the brief (`GET /api/bot/work/brief`) and the receipt, never from
+memory or last session's chat. For every item the brief shows, do one of
+three things:
+1. **Dispatch.** Route it to a lane: set `state: routed` and `routed_to:
+   <session id>` on the pipeline item, and add or update a checklist row if it
+   is a build.
+2. **Close.** Mark it `done` or `killed` with a `terminal_reason`. A dead item
+   closed with a reason is worth more than one carried.
+3. **Decide.** Classify it per § "Before any operator popup" below. Only a
+   genuine preference reaches the operator.
+
+`routed` does **not** end the obligation. A routed item that is still due
+means its lane has not delivered. Check the lane, then re-dispatch or kill it.
+
+Every silence alarm the watch raised gets a fix lane the same day. Anything
+due at a known time (a soak end date, a mandate expiry, a scheduled grade)
+gets a `send_later` wake for that time, not a hope.
+
+### Lanes wake the manager — the reporting contract
+
+Every lane prompt carries this contract, verbatim in substance:
+
+> When you finish a deliverable or are blocked, wake the manager:
+> `create_trigger(persistent_session_id="<manager session id>", prompt=<one-paragraph report: what merged/deployed/observed, what is blocked and on what>)`
+> then `fire_trigger(<id>)`. If that prompts for permission, post the same
+> report as a comment on your PR. Never stop to wait for direction.
+
+A result that lands without a wake still gets caught. The `in_flight` silence
+probe flags the row after 3 days. Treat that alarm as the contract failing, not
+as noise.
+
+### The soak contract — no soak without an exit
+
+A Stage-1 placement is refused unless its pipeline row carries all five of:
+**what it verifies** (live matches backtest — mechanics and cost, never
+edge) · **expected event rate from the backtest** · **n needed and its power**
+· **end date** (= start + n ÷ rate) · **pass/fail rule registered before the
+soak starts.** **An end date more than ~2 weeks out means the design is wrong.**
+Fix it before placing the leg: a wider book, a stated-power smaller n, or a
+different instrument. Waiting longer is not a fix. At `ready`, grade the soak
+against its rule. At `overdue` or `dead`, kill the soak or redesign it. Never
+"keep waiting". A grade's `kill` calls (e.g. R5) are applied under
+`MD-DEMOTE-S1-OFF` / `MD-KILL-QUESTION`, or filed with a reason. They are never
+just read.
+
+### Decision batching
+
+Operator decisions go out **once a day, batched**, in the digest's ❓ASK lines
+and brief section 2, each with options and a recommendation. A decision is the
+exception to batching only when it blocks live money or a live incident. That
+one goes out at once via `send-ping` with `priority=urgent`. A decision that
+arrives twice in the same shape is raised as *"should this become a mandate?"*
+
+### Day one for a NEW manager
+
+1. Title yourself and read the canonical docs (§ "Start of session").
+2. `curl -sS https://ict-bot.duckdns.org/api/bot/work/brief | head -c 20000`.
+   Then read the attention-watch receipt through the diag relay (`diag-data`
+   skill). If `ict-attention-watch.timer` is not active in
+   `/api/diag/services`, fixing it comes before anything else.
+3. Work the brief top-down using the three dispositions above. Clear the
+   `ask_operator` items first, by classification, not by forwarding.
+4. Give every live lane the wake contract above (§ "Start of session" step 3).
+5. `send_later` tomorrow's review. Push the checklist. Then answer.
 
 ## The ladder the manager is moving things along
 

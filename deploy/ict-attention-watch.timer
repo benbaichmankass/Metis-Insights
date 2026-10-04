@@ -1,0 +1,21 @@
+# ============================================
+# ICT ATTENTION WATCH SYSTEMD TIMER (WORK-SYSTEM, 2026-10-04)
+# Triggers ict-attention-watch.service once per hour.
+# Save to: /etc/systemd/system/ict-attention-watch.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-attention-watch every hour
+Requires=ict-attention-watch.service
+
+[Timer]
+# Hourly. Edge alerts and silence alarms are checked every pass; the digest is
+# latched to once per UTC day (at/after 06:00Z) inside the script, and silence
+# alarms re-send at most once per 24h while breached — so hourly is not noisy.
+OnCalendar=*-*-* *:07:00
+RandomizedDelaySec=120
+Persistent=true
+Unit=ict-attention-watch.service
+
+[Install]
+WantedBy=timers.target

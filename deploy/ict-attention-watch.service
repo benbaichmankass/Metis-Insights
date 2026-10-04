@@ -1,0 +1,29 @@
+# ============================================
+# ICT ATTENTION WATCH SYSTEMD SERVICE (WORK-SYSTEM, 2026-10-04)
+# Fires scripts/ops/attention_watch.py once an hour: the daily work digest,
+# edge alerts (new ask_operator items, soak state transitions) and the
+# "expected signal missing" alarms. Design: docs/plans/work-system-2026-10-04.md
+# Save to: /etc/systemd/system/ict-attention-watch.service
+# ============================================
+#
+# On the VM's clock for the same reason as ict-work-digest: a GitHub Actions
+# cron is not a clock in this repo, and a cloud routine dies with its session.
+
+[Unit]
+Description=ICT attention watch — digest, edge alerts and silence alarms via send_ping
+After=network.target ict-trader-live.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+Environment=PYTHONPATH=/home/ubuntu/ict-trading-bot
+# DELIBERATELY NO data-dir drop-in: writes runtime_logs/attention_watch_{state,receipt}.json
+# under the repo root, which is where diag's repo_root()-anchored reader looks.
+ExecStart=/usr/bin/python3 /home/ubuntu/ict-trading-bot/scripts/ops/attention_watch.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
