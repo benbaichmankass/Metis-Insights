@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "deploy_pull_restart.sh's non-runtime regex includes comms/macro/ with a stated import-time proof, or this row records the decision to keep restarting on it",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-PUQ1APTH-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); git diff eb65157..3492c48; diag journalctl?unit=ict-web-api.service 2026-10-03T13:31Z",
+    "rerun": "git diff --no-renames --name-only eb65157 3492c48 | grep -vE '^(docs/|tests/|\\.claude/|\\.github/|[^/]+\\.md$|research/|runtime_logs/|scripts/research/|scripts/ci/|comms/research/|comms/strategy_evidence/)' ; grep -n 'comms/research/' scripts/deploy_pull_restart.sh -- holds while comms/macro is not in the regex and no decision is recorded here"
+  },
+  "state": "queued",
+  "what": "[deploy] A DATA-ONLY commit restarted the live trader: MEASURED 2026-10-03T13:31Z (diag journalctl ict-web-api.service restart pair + local `git diff --name-only eb65157 3492c48` filtered by deploy_pull_restart.sh's non-runtime regex) -- the only runtime-classified path in that commit was comms/macro/valuation_snapshots.jsonl (a macro data store appended by a workflow). The restart decision was CORRECT under the current regex (comms/ is runtime except comms/research and comms/strategy_evidence) and the fix landed by #15830 is otherwise working: of the 15 trader restarts between 2026-10-03T10:21Z and 2026-10-04T07:28Z all 15 followed a commit touching a runtime-classified path, and the 9 doc-only pulls in the same span skipped the restart. Decide (Tier-2, deploy script) whether comms/macro/*.jsonl can join the non-runtime set -- requires proof that no long-running process (trader, web-api, telegram bot) reads it at import time; grep src/ for comms/macro readers and check whether they read per request."
+}

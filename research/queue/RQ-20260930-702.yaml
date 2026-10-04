@@ -2,7 +2,7 @@ id: RQ-20260930-702
 title: >-
   E38 follow-up (a): POOLED trend_donchian family test - do rv20/er20 at entry carry regime dependence
   that 22 single-leg tests (n=35-107) were too small to detect?
-status: queued
+status: done
 cadence: once
 theme: regime
 priority: 1
@@ -95,3 +95,14 @@ references:
   - docs/research/e38-regime/REGISTRATION.yaml (E38-REGIME-2026-09-25)
 
 last_dispatched_at: '2026-10-01T07:29:51+00:00'
+grading:
+  auto: false
+  evidence:
+  - research/results/RQ-20260930-702/36830666963.jsonl
+  graded_at: '2026-10-04'
+  graded_by: 'RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf (hand-written unit: not mechanically
+    gradable)'
+  needs_review: false
+  reason: 1 measured record(s), all fail. Read by a session against the unit's pre-registered rule (not
+    rewritten); the verdict is the record's own.
+  verdict: fail

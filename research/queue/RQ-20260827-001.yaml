@@ -1,6 +1,6 @@
 id: RQ-20260827-001
 title: Re-grade every account against the Lane P compat-matrix standard arm
-status: queued
+status: retired
 cadence: once
 theme: live_strategy
 priority: 2
@@ -60,3 +60,10 @@ related:
   - PR 10364 (Lane P — the change whose effect this measures)
   - BL-20260827-EIGHTEEN-EVIDENCE-WORKFLOWS-UPLOAD-AND-LAND-NOTHING
 last_dispatched_at: '2026-08-30T22:56:22+00:00'
+retired_reason: '2026-10-04 RESEARCH-PIPELINE-REPAIR: the dispatched run (33340468235, 2026-08-30 22:56Z)
+  failed in 2 min; later hand re-runs 33342150866 (fail), 33360163292 (05:20Z) and 33419023471 (2026-08-31
+  17:20Z) succeeded and landed their verdicts in docs/research/gld-compat-matrix-verdicts.jsonl (11 accounts
+  for gld_pullback_1h: 10 ROUTE, ib_live UNGRADED) with research_unit null. The question (how many verdicts
+  MOVE) was never given a decision rule, so there is nothing to grade it against; the evidence is on main
+  and read in the disposition ledger. Retired rather than re-run: a re-run answers nothing the landed
+  rows do not.'

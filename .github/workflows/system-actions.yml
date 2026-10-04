@@ -259,24 +259,68 @@ permissions:
   contents: read
   issues: write   # required to comment + close issue-driven requests
 
-# Serialise. Two system-actions on the same VM at the same time is
-# never desired and likely buggy.
-#
-# ⚠️ EXCEPT verify-account-mode, which gets its OWN group per account
-# (review finding on #13508, 2026-09-28). It is read-only and polls for up to
-# 600 s. In the shared group it would (a) hold an emergency flatten/stop behind
-# it for up to 10 min, and (b) lose verifies: GitHub keeps only ONE pending run
-# per group, so a newer dispatch silently CANCELS the older pending one. A
-# merge that changes 3+ accounts dispatches 3+ verifies in a loop. Per-account
-# groups mean only a newer verify of the SAME account can replace a pending
-# one, and that newer one is the verify worth having. Issue-triggered runs have
-# empty `inputs` and always land in the shared group.
-concurrency:
-  group: ${{ inputs.action == 'verify-account-mode' && format('system-actions-verify-account-mode-{0}', inputs.account_id) || 'system-actions' }}
-  cancel-in-progress: false
+# Concurrency is JOB-level now (OA-17, 2026-10-04), chosen by the `route` job.
+# The old single workflow-level group ("system-actions") let GitHub's
+# one-pending-run-per-group rule silently CANCEL an older queued request
+# whenever a newer one arrived: #16251 (breakout_1 executor-disable-timer, an
+# OA-03 de-risk step) and #16263 were dropped that way, issues left open with
+# no comment. Now (scripts/ops/system_action_route.py):
+#   * a READ-ONLY action (explicit allowlist) waits in a group of its own,
+#     so it can neither displace nor be displaced;
+#   * every other action keeps the shared "system-actions" group, so two
+#     mutations on the VM still never run at once.
+# The shared lane can still drop a pending run; system-actions-cancel-guard.yml
+# then comments "CANCELLED, NOT RUN" on its issue and sends one alert. It never
+# re-queues (that would run the older request after the newer one that displaced it).
+# (verify-account-mode is read-only, so it no longer needs its per-account
+# group: each verify now gets its own.) Pinned by
+# tests/test_system_actions_concurrency.py.
 
 jobs:
+  route:
+    # Picks the concurrency group for the system-action job below and records
+    # which issue this run serves, so a cancelled-while-pending run can be
+    # reported and alerted (system-actions-cancel-guard.yml). Holds no
+    # concurrency group itself, so it always runs immediately.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.action == 'opened' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'system-action'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      group: ${{ steps.r.outputs.group }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/system_action_route.py
+          sparse-checkout-cone-mode: false
+      - id: r
+        env:
+          DISPATCH_ACTION: ${{ inputs.action }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/system_action_route.py --event "${{ github.event_name }}" --run-id "${{ github.run_id }}" | tee -a "$GITHUB_OUTPUT"
+          mkdir -p request
+          printf '%s\n' "${ISSUE_NUMBER:-}" > request/issue_number
+      - uses: actions/upload-artifact@v4
+        with:
+          name: system-action-request
+          path: request/
+          retention-days: 7
+
   system-action:
+    needs: route
+    concurrency:
+      group: ${{ needs.route.outputs.group }}
+      cancel-in-progress: false
     # Actor-guard (defense-in-depth): owner (or repo automation) only. The label
     # gate already blocks non-collaborators (they can't apply a label), but this
     # also defeats the social-engineering path where a triager is induced to apply

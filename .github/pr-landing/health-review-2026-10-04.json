@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "health-review 2026-10-04 (lane HEALTH-REVIEW): the review record comms/reviews/health/2026-10-04-health-review.json, 7 new + 10 updated pipeline records under docs/claude/work/pipeline/, and a one-value tweak to .github/workflows/live-replay-parity.yml (commit-to-main verify-timeout-minutes 30 -> 45; the first scheduled run read failure because pytest-run took 37 min while its PR auto-merged). No code, config or order-path change."
+}
