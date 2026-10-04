@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "the tradeify_1 feed runs 24h with no trip, or a trip raises an alert and the parse cause is fixed; or killed with a reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261001-CBHYHMK2-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "journalctl ict-prop-feed@tradeify_1.service (diag), issues #15210/#15215",
+    "rerun": "GET /api/diag/journalctl?unit=ict-prop-feed@tradeify_1.service&lines=200 and look for 'feed TRIPPED'; GET /api/bot/prop/status?account_id=tradeify_1 status.reported_at age."
+  },
+  "routed_to": "PROP-EXEC [route; size S, value M, tier 2] BACKLOG-ROUTE 2026-10-04: Live health-review 2026-10-04 says feed healthy though realized_today still unparsed. prop_feed_tick.sh trip() (L126-143) does record audit + enqueue a ping (target claude) on trip, so 'nothing alerting' is partly wrong; original 06:4x-06:56Z trip cause not root-caused (journal not re-read). Count of PI rows: 2 records share this id.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "tradeify_1 read-only prop feed TRIPPED at 2026-10-01T06:56:28Z (rc=3, 3 consecutive failures, 'login ok but part of the read did not parse') and skipped every 5-min tick for 9.5h until re-armed (#15215, 16:27Z); /api/bot/prop/status went stale with nothing alerting. The login check prints 'account_unparsed: realized_today' (Tradeify shows no realized-today metric), the likely trip cause if the feed counts an always-missing optional field as a parse failure. Root-cause from the 06:4x-06:56Z feed journal lines, make an always-absent optional metric not count as a failure, and confirm a trip alerts. || RE-VALIDATED by health-review 2026-10-04: the feed is healthy now -- diag journalctl?unit=ict-prop-feed@tradeify_1.service shows 5-min ticks at 07:56Z and 08:01Z each `login: ok`, `account_unparsed: realized_today`, `positions: 0`, `orders: 0`, `emit_status: ok`. So an always-absent realized_today no longer trips it today, but no evidence was found this session that the trip-counting rule changed or that a trip ALERTS. Kept open for those two halves."
+}

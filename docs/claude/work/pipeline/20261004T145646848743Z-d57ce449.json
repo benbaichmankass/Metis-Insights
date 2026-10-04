@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-03",
+    "kind": "date"
+  },
+  "id": "PI-20260930-3QNHBGND-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PAPER-RESET session_01JjPRfAYQKaocTX3QnHBgnD; dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "scripts/ops/diag_fetch.sh 'journal?table=order_packages&limit=1000'  # packages status=closed whose linked_trade_id is an open trade (also page offset=1000,2000)"
+  },
+  "routed_to": "OBSERVATION [unverifiable_here; size None, value None, tier None] BACKLOG-ROUTE 2026-10-04: Code: reattach_stranded_package_legs.py exists and system_invariants.py INV-2 (~L700-816) now flags stranded/divergent packages; order_monitor.py:4004/4017 still writes exchange_flat_reconciled. Live package/trade state not checked.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[journal/F-39 recurrence] Two alpaca_paper order_packages are CLOSED with close_reason=exchange_flat_reconciled while their linked legs are still OPEN: pkg-32a5162bbbdd4ef6 -> trade 4347 (SPY) and pkg-785d9a600c894c81 -> trade 5265 (TLT). MEASURED 2026-09-30 via diag journal (the 3000 newest order_packages rows; trades ids 2306-6305). These are two of the three packages that reattach-stranded-package-legs (Audit F-39 / MI-231, 2026-09-10) was built to re-open. So either the reattach never applied or something re-closed them. The PAPER-RESET closes both legs, which removes the paper instance. Two questions stay open: does the path that closes a package under an open leg still exist, and did it also re-close the real-money pkg-293021e2e84a48db (XRPUSDT 5474)?"
+}

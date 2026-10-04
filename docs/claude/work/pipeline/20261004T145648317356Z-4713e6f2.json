@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "OBSERVED on the live VM: (1) the running trader includes 2926c22f3 (diag version/git HEAD at or after it, and ict-trader-live restarted since); AND (2) signals/audit shows at least one open_package_scoped, open_package_pair_coupled or open_package_blocked row carrying held_by_account from the new code (audit_query?event=open_package_scoped / open_package_pair_coupled). The IEF-specific close: when pkg-5e636e3adddf4a83 reads status=closed, the next ief_pullback_1d long reaches alpaca_live + alpaca_portfolio together (both legs in one package).",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-QZSE4AMA-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane LIVE-NO-TRADES (session_01XEHP2RTP24AZWSQZSE4AMA), dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30",
+    "rerun": "scripts/ops/diag_fetch.sh '../bot/order-packages?strategy=ief_pullback_1d&include_paper=true&include_demo=true&limit=3' ; scripts/ops/diag_fetch.sh 'exchange_positions'  # open while status=open and alpaca_paper/alpaca_portfolio hold IEF"
+  },
+  "routed_to": "OBSERVATION [route; size S, value M, tier 1] BACKLOG-ROUTE 2026-10-04: Live diag 2026-10-04: pkg-5e636e3adddf4a83 still status open (linkedTradeId 4194, paper); exchange_positions: alpaca_paper IEF short 141, alpaca_portfolio IEF short 152, alpaca_live flat. Per-account gate code (_open_package_round) is on main; VM running sha 599e2e74c, ancestry vs the fix not confirmed (shallow-clone checks inconclusive).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[order-path] ief_pullback_1d on alpaca_live (real money) is locked out by a PAPER position. MEASURED 2026-09-30 ~06:00Z: order package pkg-5e636e3adddf4a83 (IEF short, created 2026-07-29 18:50Z) is still status=open because trade 4194 (alpaca_paper, 141 sh) and trade 4195 (alpaca_portfolio, 152 sh) are still open, and /api/diag/exchange_positions confirms both shorts at the broker. The alpaca_live leg on that package was rejected on 07-29 (trade 4196) and alpaca_live is flat. The strategy-monocle gate (_has_open_package_for_strategy, src/runtime/strategy_monocle.py:44) is keyed per strategy+symbol ACROSS ALL ACCOUNTS and ignores direction. So the next ief_pullback_1d signal (long, which alpaca_live's side_filter: long would take) is skipped for alpaca_live until the paper and mirror short exits. The package has tp_r 50 and a 5-ATR trail, so that could take months. It has not cost a trade yet: ief_pullback_1d has had zero directional evals since 2026-08-28 (signals census 09-15..09-30). The operator directive of 2026-05-03 (one open package per strategy globally) predates the Stage-1/Stage-2 split, so a Stage-1 paper position can now veto a Stage-2 real-money entry. | LANDED 2026-09-30 08:04Z as 2926c22f3 (#14590, lane GATE-SCOPE, manager-reviewed): the open-package gate is per ACCOUNT, Stage-2 pairs (bybit_2+bybit_portfolio, alpaca_live+alpaca_portfolio) are COUPLED (a leg on either keeps both out, per the 2026-09-21 mirror-identity decision), Stage-1 soak legs block only themselves, and both journal reads FAIL CLOSED. MERGED only -- NOT established deployed (trader restart after ict-git-sync) nor observed. Stated cost: alpaca_live's ief_pullback_1d stays refused while alpaca_portfolio's legacy IEF short (pkg-5e636e3adddf4a83, live GTC OCO TP 84.24 / SL 90.84) is open -- now because of the MIRROR, no longer because of alpaca_paper.",
+  "why_it_matters": "A real-money leg can be silently unable to trade for as long as a paper account holds an old position on the same strategy. The skipped tick leaves no audit row until PR #14565 lands."
+}

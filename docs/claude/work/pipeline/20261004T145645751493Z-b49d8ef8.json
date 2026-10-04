@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-sweep-wave1-stale-json-reuse",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-sweep-wave1-stale-json-reuse against current scripts/research/sweep_wave1_families.py:89"
+  },
+  "routed_to": "RESEARCH-HARNESS [route; size S, value M, tier 1] BACKLOG-ROUTE 2026-10-04: Still applies: sweep_wave1_families.py:89 unchecked subprocess.run(timeout=180); no check=True/returncode/unlink (grep).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "CA-B04 audit finding (high): scripts/research/sweep_wave1_families.py:89 — Module docstring: \"Robust: every run is subprocess-isolated with a timeout; a failure is logged and the sweep continues,\" implying a failed backtest run is recorded as a failure in"
+}

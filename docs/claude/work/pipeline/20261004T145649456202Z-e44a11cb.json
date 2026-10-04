@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Both (a) and (b) hold. (a) The GLD trade (pkg-6a8e3fb325464be3, alpaca_paper, gld_pullback_1h) is excluded from that leg's Stage-1 cost and mechanics readout with a visible venue-wedged reason, via the provenance vocabulary and not a new bespoke exclude_* predicate. (b) The wedged orders 2e843e04/891ddff0 are no longer new/held, or the GLD position is gone; if so, record how it closed.",
+    "kind": "observation"
+  },
+  "id": "PI-20261002-APBY4NTV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-02, operator popup 'Mark it, keep going'; supersedes PI-20260930-ZIFJ1RKM-0001",
+    "rerun": "scripts/ops/diag_fetch.sh 'alpaca_open_orders?account_id=alpaca_paper'  # GLD 39 sh plus orders 2e843e04 'new' / 891ddff0 'held' = still wedged"
+  },
+  "routed_to": "ORDER-PATH-FIXES [route; size S, value L, tier 1] BACKLOG-ROUTE 2026-10-04: Diag alpaca_open_orders alpaca_paper (2026-10-04): GLD sell 39 sh orders 2e843e04 'new' and 891ddff0 'held' stop 416.09 still present = still wedged. grep for a readout exclusion (venue_wedged/is_wedged) in src finds no such flag, only close_wedge_standing paging downgrade.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[paper] alpaca_paper GLD 39 sh long (gld_pullback_1h, entry 419.51) is held by a venue-wedged OCO from 2026-08-27. The stop at 416.09 is 'held' while GLD trades ~382, and cancels are accepted but have no effect. The operator chose to keep the position open and mark it rather than reset the account. Build: flag this trade as venue-wedged so it is excluded from gld_pullback_1h's readouts, then keep observing until the orders clear. Tier 1 (read path/observability)."
+}
