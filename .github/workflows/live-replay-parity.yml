@@ -212,6 +212,14 @@ jobs:
             plus a pipeline row per new finding. Data-only, no live-path change.
           branch-prefix: automation/live-parity
           verify-merged: "true"
+          # MEASURED 2026-10-04 (health-review): run 37184970617 opened #16198
+          # at 07:19Z, its pytest-run check took 07:29->08:06Z (37 min) and the
+          # PR auto-merged 21 s after it went green -- but this step had already
+          # failed at the 30-min default ("did not merge within 30m"). The rows
+          # landed; only the wait was too short for a busy CI day. 45 keeps the
+          # job inside its 80-min budget (replay ~9 min here) and still fails
+          # loudly when a PR is genuinely stuck.
+          verify-timeout-minutes: "45"
 
       - name: Ping when a real-money leg diverged / could not be checked / a control failed
         if: steps.inp.outputs.ref == '' && env.PARITY_ALERTS == 'on' && steps.run.outputs.ping_needed == 'true'
