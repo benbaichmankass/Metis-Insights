@@ -258,6 +258,22 @@ case ",${APPLY}," in *",limit,"*)
         exit 1
     fi ;;
 esac
+# `lim-below` / `lim-above` (TRADEIFY-SOL-SIZE 2026-10-04): a DRY LIMIT walk
+# with the limit 0.5% below / above the touch. Only with round-trip-dry AND
+# limit; refused otherwise, before anything runs.
+LIMIT_OFFSET=""
+case ",${APPLY}," in *",lim-below,"*) LIMIT_OFFSET="-0.5" ;; esac
+case ",${APPLY}," in *",lim-above,"*)
+    if [ -n "${LIMIT_OFFSET}" ]; then log "lim-below/lim-above: refused — pick one"; exit 1; fi
+    LIMIT_OFFSET="0.5" ;;
+esac
+if [ -n "${LIMIT_OFFSET}" ]; then
+    case ",${APPLY}," in *",limit,"*) ;; *) log "lim-below/lim-above: refused — needs 'limit'"; exit 1 ;; esac
+    if [ "${EXEC_MODE}" != "round-trip-dry" ]; then
+        log "lim-below/lim-above: refused — valid only with round-trip-dry (got mode '${EXEC_MODE:-none}')"
+        exit 1
+    fi
+fi
 if [ "${EXEC_MODE}" = "executor-clear-halt" ] || [ "${EXEC_MODE}" = "executor-clear-rollout" ]; then
     # Clear ONE named executor latch, never both (manager 2026-10-02: clearing
     # an unrelated halt must not silently re-arm a modify step):
@@ -594,7 +610,8 @@ if [ -n "${EXEC_MODE}" ]; then
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")
                              # `limit` in apply: walk the ticket path's LIMIT form (dry only).
-                             case ",${APPLY}," in *",limit,"*) EARGS+=(--order-type limit) ;; esac ;;
+                             case ",${APPLY}," in *",limit,"*) EARGS+=(--order-type limit) ;; esac
+                             if [ -n "${LIMIT_OFFSET}" ]; then EARGS+=(--limit-offset-pct "${LIMIT_OFFSET}"); fi ;;
         round-trip-live)     EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
         close-position)      EARGS+=(--close-position "${RT_SYMBOL}") ;;
         close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;

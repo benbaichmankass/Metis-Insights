@@ -1271,7 +1271,8 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
                    venue_symbol: str, side: str = "long", lots: Optional[float] = None,
                    bracket_pct: float = 0.01, arm: bool = False, reads: int = 20,
                    sleep: Callable[[float], None] = lambda s: None,
-                   now: Optional[datetime] = None, order_type: str = "market") -> CycleResult:
+                   now: Optional[datetime] = None, order_type: str = "market",
+                   limit_offset_pct: Optional[float] = None) -> CycleResult:
     """The end-to-end test (operator 2026-09-28 ~13:40Z, relayed by the
     manager, approved by the operator in this lane's popup): place ONE
     minimum-size MARKET bracket with SL and TP attached → confirm the position
@@ -1330,6 +1331,19 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         return stop(f"order_type {order_type!r} is not market/limit")
     if order_type == "limit" and arm:
         return stop("a LIMIT round trip is dry-only (walk the form; never armed)")
+    # DRY-ONLY limit offset (TRADEIFY-SOL-SIZE 2026-10-04, manager): place the
+    # walked LIMIT ``limit_offset_pct`` percent from the touch (negative = below,
+    # i.e. a resting long) to test whether the terminal disables a buy Limit
+    # priced through the market. Refused with any armed walk and with MARKET, so
+    # no live order can carry it; run_cycle (the live ticket path) has no such
+    # parameter at all.
+    if limit_offset_pct is not None:
+        if arm:
+            return stop("limit_offset_pct is dry-only (never armed)")
+        if order_type != "limit":
+            return stop("limit_offset_pct needs order_type 'limit'")
+        if not (abs(float(limit_offset_pct)) <= 5.0):
+            return stop(f"limit_offset_pct {limit_offset_pct} is outside +/-5%")
     try:
         acct = adapter.read_account(page)
         positions = adapter.read_positions(page)
@@ -1361,11 +1375,18 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         # Resting side of the book (a long bids at the bid), as a ticket's
         # entry usually sits away from the touch.
         limit_px = round_to_step(round(quote["bid"] if side == "long" else quote["ask"], 6), ps)
+        if limit_offset_pct is not None:
+            # Offset from the side a buy would fill against (the ask for a long,
+            # the bid for a short), so "below the ask" / "above the ask" is exact.
+            touch = quote["ask"] if side == "long" else quote["bid"]
+            limit_px = round_to_step(round(touch * (1 + float(limit_offset_pct) / 100.0), 6), ps)
     spec = BracketSpec(ticket_id=tid, venue_symbol=venue, side=side, quantity=float(lots),
                        stop_loss=sl, take_profit=tp, order_type=order_type, limit_price=limit_px,
                        price_step=ps)
     risk = float(lots) * float(sym["lot_units"]) * float(_f(sym.get("cvpp")) or 1.0) * abs(ref - sl)
-    res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2))
+    res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2),
+            **({"limit_offset_pct": float(limit_offset_pct), "quote_at_spec": quote}
+               if limit_offset_pct is not None else {}))
 
     if arm:
         ledger.record(tid, "intended", spec=spec.as_dict(), purpose="round_trip_test")
@@ -1379,6 +1400,16 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
             att = adapter.place_bracket(page, spec, arm=False)
             res.log("place_bracket", ticket_id=tid, attempt=_attempt_public(att))
             _one_click_alert(res, adapter)
+            if order_type == "limit":
+                # The quote again, right after the submit check: a LIMIT fixed
+                # from the pre-fill quote may sit through the market by the
+                # time the terminal judges it (the ~20 s fill). Read-only.
+                try:
+                    q_after = adapter.read_quote(page, venue)
+                except Exception as exc:
+                    q_after = {"error": type(exc).__name__}
+                res.log("quote_after_submit_check", ticket_id=tid, quote=q_after,
+                        limit_price=limit_px, side=side)
             res.log("would_close", ticket_id=tid, result=adapter.flatten(page, venue, arm=False))
         finally:
             _restore_linked_symbol(res, adapter, page, original)
