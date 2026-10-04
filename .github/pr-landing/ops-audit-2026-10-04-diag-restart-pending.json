@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane OPS-AUDIT (manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04). Read-path only, but src/web/api/routers/diag.py is Tier-2 by name, so held for the manager.",
+  "why": "OA-14: /api/diag/version restart_pending read true on research-only diffs because diag's _NON_RUNTIME_PATHS_RE (documented 'lock-step' with deploy_pull_restart.sh) was not widened when #15830 widened the deploy filter. Observed: running 63bd0ce01 vs disk cd9dc2ed8, diff only .github/ comms/research/ research/ scripts/research/ tests/ docs/. Re-syncs the regex, adds --no-renames (as the deploy does), and a lock-step test that extracts both patterns (fails on the old code)."
+}
