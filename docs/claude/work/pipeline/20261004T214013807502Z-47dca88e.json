@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "config/strategies.yaml::slv_trend_1h.execution is not 'shadow' AND slv_trend_1h is on 'alpaca_paper''s roster, with enough real fills there to clear RULE-R3-GATE1-COST-FIDELITY-v1's floor (>=10 measured entries and >=10 exits per side)",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-TEKRDIIQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01MzcnnctDtz7LFETeKrdiiQ",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg slv_trend_1h --from S1 --to S2 --account alpaca_live --json"
+  },
+  "routed_to": "RQ-OPS | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — config/strategies.yaml slv_trend_1h execution still 'shadow' (parsed via yaml); on alpaca_paper roster in accounts.yaml but needs execution live + >=10 fills.",
+  "state": "routed",
+  "what": "MD-PROMOTE-S1-S2: slv_trend_1h (S1 -> S2, alpaca_live) is NEEDS-DATA at R-EXECUTION-SHADOW -- slv_trend_1h needs a genuine Stage-1 soak on 'alpaca_paper' before MD-PROMOTE-S1-S2 can decide slv_trend_1h -> alpaca_live: it must be `execution: live` (not `shadow`) on that roster, then accrue real fills there -- 'Never a leg that has not soaked at Stage 1' (the mandate's own `never:`). ADDENDUM (same session, after checking history): slv_trend_1h was demoted live->shadow on 2026-08-24 (Tier-3, operator-approved) after the min_confidence 0.3 floor fix (landed 2026-08-01, PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE) still produced 0/13 wins and -$5,375 in n=3 post-fix packages, AND every one of the 6 closed packages in that review exited exchange_flat_reconciled -- i.e. the reconciler noticing the position already flat at the broker, never a decision-driven exit (sl_cross/tp_cross/trail). That is the fleet-wide exit/protection-cluster defect (S-EXIT-PROTECTION-CLUSTER-2026-08-22), not necessarily a fact about this strategy. Before any Stage-1 soak placement (execution: shadow -> live on alpaca_paper) is proposed for this leg, confirm whether that exit/protection defect has since been fixed for alpaca accounts -- soaking it again unfixed would reproduce the same 0-for-N failure mode regardless of the entry-side evidence."
+}

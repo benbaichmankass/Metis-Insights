@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "PR #13508 merges (so the durable path exists to route both writers through); then dispatch a lane to reroute them, or kill with a stated reason if the operator retires the Telegram mode command",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260928-TURC5MJC-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "lane JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28; found while implementing JC-CA-01",
+    "rerun": "grep -n 'SET_ACCOUNT_MODE_SH\\|def .*write' src/bot/telegram_query_bot.py src/bot/strategy_execution_writer.py; grep -n 'reset --hard origin/main' scripts/deploy_pull_restart.sh"
+  },
+  "routed_to": "JC-GIT (re-pointed from JC-GIT (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "Two more VM-local config writers have the same non-durability defect JC-CA-01 fixed for set-account-mode. ict-git-sync `git reset --hard origin/main` reverts them within ~5 min, and load_accounts()/strategy loads re-read the files per dispatch: (1) the Telegram query bot mode command, src/bot/telegram_query_bot.py:74 SET_ACCOUNT_MODE_SH -> scripts/ops/set_account_mode.sh (an in-place edit of config/accounts.yaml on the VM plus a restart); (2) src/bot/strategy_execution_writer.py (in-place edit of `execution:` in config/strategies.yaml on the VM). MEASURED by reading both files and deploy_pull_restart.sh:117 (`git reset --hard origin/main`) on 2026-09-28. Not observed reverting in production, because it was not triggered. The fix shape is the same as #13508: open a hold PR through scripts/ops/account_mode_commit.py, or dispatch the set-account-mode system-action, instead of editing the tree. Tier 2 (Telegram operator surface)."
+}

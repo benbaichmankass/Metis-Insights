@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either a first_row_control_html read shows a wrapper around the trio (then extend CLOSE_ROW_JS: abbreviation tokens rev/inv/chg/amd, the verbs invert/change/amend, aria-labelledby targets and data-qa as names, a reverse-named descendant of a neutral wrapper, and a word-boundary rule for 'edit' so 'credit' does not refuse; one armed replica per case) — or three consecutive dumps across live round-trips show no wrapper, in which case kill the row with that count as the reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-2PNSPDNU-0003",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-18",
+    "how_to_check": "open a system-action issue (label system-action; body: action: breakout-login-check / account: breakout_1 / apply: dump-tables / reason: watched-close DOM re-measure) and read dump_tables.table[i].first_row_control_html for the Positions table with a position open: if the three buttons are wrapped by any element other than the td, the residual spellings become reachable and the row is due",
+    "what": "either a first_row_control_html read shows a wrapper around the trio (then extend CLOSE_ROW_JS: abbreviation tokens rev/inv/chg/amd, the verbs invert/change/amend, aria-labelledby targets and data-qa as names, a reverse-named descendant of a neutral wrapper, and a word-boundary rule for 'edit' so 'credit' does not refuse; one armed replica per case) — or three consecutive dumps across live round-trips show no wrapper, in which case kill the row with that count as the reason"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1 round-5 review of #14216, 2026-09-29 17:08Z; live DOM measured by #14198 (12:5xZ) dump-tables",
+    "rerun": "open a system-action issue (label system-action; body: action: breakout-login-check / account: breakout_1 / apply: dump-tables / reason: watched-close DOM re-measure) and read dump_tables.table[i].first_row_control_html for the Positions table with a position open: if the three buttons are wrapped by any element other than the td, the residual spellings become reachable and the row is due"
+  },
+  "routed_to": "PROP-EXEC | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — Needs live dumps to decide; CLOSE_ROW_JS extension not evidenced in repo (no live data offline)",
+  "state": "routed",
+  "what": "[prop][watched-close][non-blocking] Residual name spellings the CLOSE_ROW_JS ancestor rule does not read, from the manager's independent round-5 review of PR #14216 (head 02454e9a, APPROVED): in each, Close Position was pressed AND a wrapper listener also fired — (a) abbreviations 'RevBtn' / 'rev-btn'; (b) the verbs invert / change / amend; (c) a name held only in an aria-labelledby target or in data-qa; (d) a neutral wrapper that holds a reverse ICON (the wrapper's own attributes say nothing); plus one fail-safe OVER-refusal, 'credit' matching the substring 'edit' on a between-ancestor. Every case needs a WRAPPER around the icon trio to matter; the live DOM measured by #14198 is three sibling <button>s directly inside <td class='sticky--actions-cell'> with no wrapper, so none is reachable today. Not a block on go-live (manager, 17:08Z)."
+}

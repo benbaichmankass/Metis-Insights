@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0009",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-pairs-half-open-not-in-concurrency-gate",
+    "rerun": "sed -n '/def _held_leg_symbols/,/return held/p' src/units/strategies/pairs_executor.py | grep -n '_pair_is_open'  # present => still open"
+  },
+  "routed_to": "PROTECTION-HARDENING (re-pointed from PROTECTION-HARDENING (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[AUD-20260927-CA-A02-pairs-half-open-not-in-concurrency-gate] The disjoint-legs concurrency gate and correlation haircut use _pair_is_open, which is False for a half_open pair, so a sibling pair can open a new position on the symbol of a stranded naked leg. Proposed fix: Use _pair_leg_state(...) in ('open','half_open') in the two concurrency helpers. (Tier 2; audit lanes do not enact fixes.)"
+}

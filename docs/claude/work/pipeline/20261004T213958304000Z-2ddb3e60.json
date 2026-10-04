@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "chop_scalp_study.py resolves and applies the venue-aware slippage/funding cost policy (matching each harness's own main()) before calling run_backtest, and its docstring states plainly whether the comparison is net-of-fee-only or fully net-of-cost.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-4RNJRRFS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B03 / docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl#AUD-20260927-CA-B03-chop-scalp-study-fee-only-not-net-of-cost",
+    "rerun": "cd /home/user/Metis-Insights && PYTHONPATH=. python3 -c \"import scripts.backtest_chop_scalp as cs; print(cs.SLIPPAGE_BPS_ROUNDTRIP, cs.FUNDING_BPS_PER_WINDOW)\" (expect: nonzero once fixed; today prints '0.0 0.0', i.e. chop_scalp_study.py never calls main() so the venue-aware cost policy is never resolved)"
+  },
+  "routed_to": "GUARD-FIDELITY | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — chop_scalp_study.py has no resolve_cost_policy call and docstring :20 says 'Net-of-fee'; backtest_chop_scalp.py:68 default 0.0, resolved only in main :738",
+  "state": "routed",
+  "what": "[trading-correctness] scripts/research/chop_scalp_study.py calls backtest_chop_scalp.run_backtest() / backtest_fvg_range.run_backtest() directly, bypassing each harness's own main() -- the only place that resolves the venue-aware slippage/funding cost policy via execution_costs.resolve_cost_policy(). Both harnesses' module-global cost fields (SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW) stay at their import-time default of 0.0 for the whole study, while the module's own docstring calls itself 'Net-of-fee.' with no caveat. Reproduced: a planted winning BTCUSDT trade gives net_r=0.9246R fee-only vs 0.8945R with the venue-aware policy applied (~0.03R/trade dropped, more on longer holds via funding). Zero test coverage for this file. Filed by code-audit lane CA-B03 (docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl, finding AUD-20260927-CA-B03-chop-scalp-study-fee-only-not-net-of-cost)."
+}

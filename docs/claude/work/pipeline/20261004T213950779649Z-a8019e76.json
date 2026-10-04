@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "manager/SKILL.md (and/or git-actions/SKILL.md) documents the merge-slot-claim precondition as a step before calling merge_pull_request / enable_pr_auto_merge.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-CAB09-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-merge-slot-claim-undocumented-in-manager",
+    "rerun": "grep -n 'claim_merge_slot\\|merge-slots\\|pr-landing' .claude/skills/manager/SKILL.md .claude/skills/git-actions/SKILL.md (expect: no matches); grep -n 'merge_pull_request\\|enable_pr_auto_merge' .claude/settings.json"
+  },
+  "routed_to": "DOCS-DRIFT | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — grep claim_merge_slot|merge-slot in manager and git-actions SKILL.md: no matches (grep found positives elsewhere in repo scripts).",
+  "state": "routed",
+  "what": "[operating-model] The merge-slot-claim mechanism is real and load-bearing: .claude/settings.json installs a PreToolUse hook blocking mcp__github__merge_pull_request / enable_pr_auto_merge unless scripts/ops/claim_merge_slot.py --branch-claim --branch <branch> --held-by <session-id> has run and its file is committed (.github/merge-slots/<slug>.json + .github/pr-landing/<slug>.json), and scripts/ci/check_pr_landing.py (R13) fails a PR that arms auto-merge without the claim. .claude/skills/manager/SKILL.md -- the skill that explicitly owns merging -- never mentions claim_merge_slot.py, .github/merge-slots/, or this guard; neither does .claude/skills/git-actions/SKILL.md. A manager session run on Claude Code on the web (where the PreToolUse hook is measured to not fire, per the guard's own comment citing '1,379 consecutive Hooks: Found 0 total hooks in registry' log lines) has no way to learn this precondition from either skill and could form a false belief that direct merging is unconditionally safe."
+}

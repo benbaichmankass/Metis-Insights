@@ -1,0 +1,26 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "research/templates/prop-fit-breakout.yaml skips (or marks accruing and gates re-dispatch on n growth) legs whose committed n < the unit's n-floor, shown by queue_replenish.py --plan generating 0 sub-floor prop-fit units; or killed with a reason",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-FOJGFIZF-0002",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES sub-agent: research/templates/prop-fit-breakout.yaml declares min_n_trades: 88 (refused if it differs from run.command --n-floor); queue_replenish.expand drops points whose committed n_trades < floor. n_trades is not in point_key, so a skipped leg is minted on the first replenish after its evidence reaches 88 (accruing, not dropped). Measured on main, plan at target 200: 21 unseen sub-floor prop-fit candidates before, 0 after (9 points remain, legs at n 107/169/169). HELD PR (changes_landing_machinery). Closes once merged and a replenish plan on main shows 0 sub-floor prop-fit units. Already-minted sub-floor units were not touched."
+  ],
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "python3 scripts/research/queue_grade.py 2>&1 | grep -c 'verdict=indeterminate'   # dry run: counts units whose only outcome is indeterminate",
+    "what": "research/templates/prop-fit-breakout.yaml skips (or marks accruing and gates re-dispatch on n growth) legs whose committed n < the unit's n-floor, shown by queue_replenish.py --plan generating 0 sub-floor prop-fit units; or killed with a reason"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04",
+    "rerun": "python3 scripts/research/queue_grade.py 2>&1 | grep -c 'verdict=indeterminate'   # dry run: counts units whose only outcome is indeterminate"
+  },
+  "routed_to": "RESEARCH-PIPELINE-REPAIR (re-pointed from RESEARCH-PIPELINE-REPAIR — prop-fit floor (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "All 33 prop-fit-breakout template units that have run returned read_state measured / verdict indeterminate: the template generates a unit for every leg with committed evidence, but expected_n (the leg's committed trade count, e.g. 57) is below the 88 floor the unit itself registers, so each unit can only ever grade UNDERPOWERED. ~20 min of runner each, 33 times, zero decisions. The grader now closes them (done, awaiting: more_data) but the template should not mint a unit whose own n cannot reach its floor -- or should declare it accruing on purpose and be re-run only when the leg's n grows."
+}

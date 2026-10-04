@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-pair-funding-drag-silent-empty-pass",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-pair-funding-drag-silent-empty-pass against current scripts/research/pair_funding_drag.py:64"
+  },
+  "routed_to": "RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "CA-B04 audit finding (high): scripts/research/pair_funding_drag.py:64 — main() runs analyze() and reports funding-drag metrics for a symbol pair, exiting 0 on success and 1 only on an exception."
+}

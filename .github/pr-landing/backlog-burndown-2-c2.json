@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only update records from lane BACKLOG-BURNDOWN-2 batch 2 (re-points ~140 lane-type and closed-row routings at live rows, closes 9 items with evidence). Stacked on batch 1 (#16489). No code, config or order-path change."
+}

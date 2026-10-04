@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "docs/ARCHITECTURE-CANONICAL.md:460 is corrected to point at the actual backtest entry points (or scripts/run_backtest.sh is implemented as a thin dispatcher to them) and the stub no longer contradicts the canonical doc",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-EJ89Y6IE-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B08",
+    "rerun": "cat scripts/run_backtest.sh && grep -n run_backtest.sh docs/ARCHITECTURE-CANONICAL.md"
+  },
+  "routed_to": "DOCS-DRIFT | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — scripts/run_backtest.sh still 2-line echo stub; ARCHITECTURE-CANONICAL.md:460 still names it.",
+  "state": "routed",
+  "what": "docs/ARCHITECTURE-CANONICAL.md:460 names scripts/run_backtest.sh as the dispatch mechanism for backtest runs; the file is a 2-line no-op stub (`echo \"Backtest script coming soon\"`) that has apparently never been implemented, while .claude/skills/backtesting/SKILL.md documents a completely different, current set of Python harnesses and never mentions this script."
+}
