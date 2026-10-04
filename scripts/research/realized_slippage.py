@@ -88,7 +88,14 @@ MIN_N = 20  # below this a venue side is reported unmeasurable, not given a numb
 def _curl_json(url: str) -> Any:
     tok = os.environ["DIAG_READ_TOKEN"]
     out = subprocess.run(
-        ["curl", "-sS", "-f", "-m", "90", url, "-H", f"Authorization: Bearer {tok}"],
+        # --retry: MEASURED 2026-10-04 (soak-book-grade run 37220805619) one
+        # transient HTTP error on ONE symbol's fills page (curl exit 22; the
+        # same URL answered 200 in <1s minutes later) failed the whole pull,
+        # so the weekly R5 grade measured cost fidelity for NO leg.
+        # --retry-all-errors retries an HTTP >=400 too; a persistent error
+        # still fails after the retries, never silently.
+        ["curl", "-sS", "-f", "-m", "90", "--retry", "3", "--retry-delay", "5",
+         "--retry-all-errors", url, "-H", f"Authorization: Bearer {tok}"],
         capture_output=True, text=True, check=True,
     ).stdout
     return json.loads(out)
