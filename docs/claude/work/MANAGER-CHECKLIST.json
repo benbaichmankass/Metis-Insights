@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-04T08:40:00Z",
-  "updated_by": "lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR",
+  "updated_at": "2026-10-04T11:50:00Z",
+  "updated_by": "manager session_01MM8o5js6TcDFeNAPBY4Ntv",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "priorities": {
@@ -3216,9 +3216,13 @@
         16187
       ],
       "blocked_on": [
-        "operator/manager decision on the next route: (c) mobile proxy or another consumer-class address; (b) click test not attempted"
+        {
+          "kind": "work_item",
+          "ref": "PHONE-EXEC-DESIGN",
+          "what": "VM route closed (Cloudflare 1005 + safety-classifier stop on the click test); the route is now the phone executor, paused by the operator"
+        }
       ],
-      "note": "[2026-10-04T07:55Z lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ] The operator approved the (b) runner click test ('Let's try the click test first', relayed by the manager ~07:51Z). It was STOPPED by a safety classifier on 2026-10-04 and NOT attempted: nothing built, dispatched or linked. Per the manager (~07:53Z) it is not re-dispatched to another lane. Open questions remain unanswered: does a human click clear it, and the clearance lifetime. Remaining routes: (c) mobile proxy (~$7 one-off, held for the manager's go) or the operator's own connection. || [2026-10-04T07:50Z lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ] #16187 MERGED d70331c (hardened + patchright levers; Tier-1). MEASURED run 37186023422 (07:31Z, main dispatch, egress AS7849 US): baseline, hardened (real Chrome 154 headed, persistent profile, webdriver=False, timezone America/New_York) and patchright ALL got app.breakoutprop.com 403 cf-mitigated=challenge with an interactive Turnstile on the FIRST response; never cleared, no cf_clearance. wss 200 on all, and the reload in the same profile stayed served. So candidate (a) is answered NO: the challenge is decided by address class before the browser is scored (INFERRED from first-response timing across 4 egresses x 6 configs). Open: does one human click clear it, and the clearance lifetime. Proposed $0 runner test (operator taps one link and clicks once) = PI-20261004-G9YXHVGJ-0001; VM build (Tier-2) only if the lifetime is hours or more. Mobile (c) proposal ~$7 one-off, not bought. Memo: docs/research/breakout-term-access-2026-10-04.md (terms quoted; Funded Trader Agreement still unread). || [2026-10-04T06:40Z lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv] REOPENED dropped -> in_flight. OPERATOR DECISION (chat 2026-10-04 ~06:10Z, relayed by the manager), verbatim: \"Okay, I want to go with option three. Like we're just trying to cultivate our own account. There shouldn't be an issue. Yeah, let's see if there's anything else we can try to do on that end to make it work on the VM.\" This SUPERSEDES this row's earlier 'no stealth or challenge-solving' posture: real-browser hardening is allowed, and so is the OPERATOR clicking a challenge once in a remote view with the profile reused; third-party CAPTCHA-solving services and anything touching other users' accounts stay out. Read-only: no credentials typed. Question: the cheapest configuration under which the VM's browser reliably renders the app.breakoutprop.com login page, and how long the clearance lasts. MEASURED 06:14Z run 37182179316 (dispatch on main, levers baseline+headed): the proxy secret is still live, egress AS7849 RingSquared, exit US; app.breakoutprop.com 403 cf-mitigated=challenge, interactive Turnstile widget, never cleared, on both levers; wss.breakoutprop.com 200. Next: the hardened + patchright levers (real Chrome, headed, persistent profile, webdriver off, timezone matched to the exit country; page-reported signals recorded). || [2026-10-01T16:55Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DISPOSITION after lane archived (PRs re-read 16:50Z: merged state only, not deploy): blocked -> dropped. Operator-parked. 9/9 PRs merged incl. #14854 (park egress). app.breakoutprop.com returns Turnstile 403 from every egress tried; operator declined the home-device route (#14799). Reopen only on a breakout_terminal account or a Breakout allowlist answer (PI-20260930-3ZFMYYI4-0004). || [2026-10-01T16:45Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane session session_01KY4jjUa6FUhBRT3zfMyyi4 is ARCHIVED (create_trigger refused 'session not active' at 16:41Z), so it cannot report; this row's in_flight state is unverified until the manager re-checks its PRs and sets a disposition. || 2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR, verbatim: \"we don't need to start building the new terminal just yet if, uh, if we don't have capacity at the moment, but that's definitely a high priority because that is where the next account will be and we want to be ready for that in any case.\" Context: breach-and-re-buy is accepted, and Breakout sells no new DXtrade accounts, so the next account lands on the proprietary terminal (docs/research/prop-automation-options-2026-09-27.md \u00a7 0.3, \u00a7 2.4, scoped only). Dispatch order: first free lane slot, ahead of RECON. || 2026-09-28 (lane session_01SV1yBAgdryVBNEdrbVUUdJ): PR #13658 open, draft, HELD (tier_2_3_needs_approval), stacked on PROP-EXEC #13647 (merge that first, then rebase). Built: breakout_terminal adapter behind the same interface (login -> dashboard -> Open Terminal; label-based reads; disarmed place_bracket/cancel/flatten; modify_bracket refuses), one-line platform switch (per-platform default login_url), executor venue key <platform>_symbol (fail closed), read-only system-action breakout-terminal-probe. Everything past the landing page is FIXTURE-ONLY (synthetic). Measurement = pipeline PI-20260928-DRBVUUDJ-0001 after merge.\n[2026-09-29T09:40Z manager] Starts after PROP-EXEC go-live, on a NEW Breakout-platform account the operator will open (operator 09:35Z). Previous lane session archived. 2026-09-29 ~19:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): fresh lane dispatched 18:22Z after Breakout go-live; rebasing #13658 onto hardened main, fixture-only, ceiling $45. || 2026-09-29 ~20:05Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #13658 was already merged 09-28. #14366 (adapter hardened to the DXtrade posture) passed independent review with APPROVE and merged (16e73fe). Review notes N1-N4 are filed as PI-20260929-AQRK6CL1-0010 (#14390). First landing-only probe (#14402, run 36623749022): Cloudflare Error 1005, the site bans the VM's ASN, so the terminal is UNREACHABLE from the live VM. The probe reported it as state unknown / exit 0, which is a bug; the lane is fixing it and filing the ASN blocker row. Any egress workaround is an operator decision and is not being built. || 2026-09-29 ~22:40Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR DECISION on the ASN block (PI-20260929-FRJ7NMPU-0001): 'Explore another egress'. This means scope only, nothing built or routed until the operator decides on the scoping; recorded via #14447. Lane archived ($12.22). || 2026-09-30 ~05:02Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~04:58Z 2026-09-30, verbatim: stuck lanes -> \"Re-dispatch, don't involve me\"; today's lanes -> \"Candle-refresh owner (Recommended), Breakout egress + symbol probe (Recommended), Grading-alert fix + route the 212 unrouted items, Draft the soak-only exit mandate\". Lane EGRESS-SCOPE session_01KY4jjUa6FUhBRT3zfMyyi4 (claude-sonnet-5-5, ceiling $20): SCOPE ONLY per the operator's 'Explore another egress'. It produces an options doc with cost, security and ToS per option and landing-only reachability measurements; nothing is built or routed. The decision goes to the operator. || 2026-09-30 ~05:11Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR POPUP ~05:10Z on EGRESS-SCOPE's options (#14516: 1 ask support / 2 ask + terms / 3 other-cloud VM / 4 drop), verbatim: \"Let's scope out 3, as well as looking for other options for running a local agent that can be free, as well as researching other prop platforms to see if any have an API or other better solution for automated trading\". Still SCOPE ONLY. EGRESS-SCOPE session_01KY4jjUa6FUhBRT3zfMyyi4 takes (3) in depth plus free local-agent options (ceiling raised $20 -> $35). A new lane, PROP-PLATFORMS session_01LE7AmRWZNqGrbSoi5ocig8, surveys prop platforms with API or automation support. Measured by EGRESS-SCOPE: the trainer VM (AS31898) also gets 1005 (issue #14513); a Google-ASN sandbox gets a managed challenge, not 1005. || 2026-09-30 ~05:28Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): EGRESS-SCOPE part 2 #14528 (other-cloud VM in depth plus free local options) is on auto-merge; #14516 MERGED 26beefc. OPERATOR POPUP ~05:26Z (prop route; options: ask HyroTrader + buy 5k / ask Breakout + home curl / free local agent / other-cloud VM), verbatim: \"So here's what I want to do The third option of building a free local agent. I want to understand what that would entail like what they're requirements are, what I would need to provide that and then for. I also want to look into the hydro trader and we're not going to ask them specifically. That's not how how problems work. But like if there is an option to work through a bike it's up account and that's definitely something we know we can do cuz we already do that. So I don't need to give me a link hydrator so I can check it out. For my side. I want you to do the research to understand like what the rules are and what kind of framework we would need for making that option and making a trade if what it means for the evaluation side of things like is that also on bybit or is there another platform that we're still going to have to be able to manage? And then the last thing that I would say is other platforms that use DX trader And that like where we could reuse some of that infrastructure that we've already built out here\". See PROP-PLATFORMS for the three follow-ups. || 2026-09-30 ~05:37Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): EGRESS-SCOPE part 3 #14536 (local-agent requirements; recommends L3, home box as egress only) is on auto-merge. OPERATOR, verbatim: \"I do want to keep the our own VM's IP address masked. Like, it's not about anti-detection, it's just about like the privacy and security of the system itself. There's no need to expose that.\" -> the WebRTC/DNS leak controls are a design REQUIREMENT. And verbatim: \"if we're just using the internet connection and not anything else, then what about the option of using my phone and maybe even setting it up through the existing app that we already built? ... it'll always be on and we'll almost always have internet.\" -> EGRESS-SCOPE scopes the phone-as-egress variant: a data-per-day estimate (the whole terminal traffic, not only trades), whether the existing Android app can host the tunnel vs a stock app, Android background limits, carrier CGNAT/Cloudflare, and a comparison with the home box. The operator will run the step-zero curl when they can. || 2026-09-30 ~05:51Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): EGRESS-SCOPE part 4 #14547 (on auto-merge): 11 leak paths, each with a control; the phone egress MEASURED 7.55 MB per cold load of the DXtrade login page, so ~4.3 GB/day as coded (576 fresh launches per day) and a persistent cache is needed for any metered link; the Android app (ict-trader-android) is on ice and not suited; a stock Termux app is simpler; carrier CGNAT address churn would drop sessions. Recommends the home box L3 as primary, the phone as a later failover. The lane flagged that the VM IPs are already in the public repo (CLAUDE.md plus today's docs and issue #14513). OPERATOR POPUP ~05:50Z (scrub + guard / scrub + rotate / leave), answer verbatim: \"Leave as is\". No scrub. || 2026-09-30 ~10:00Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): OPERATOR check, verbatim: \"Loads on both\" (app.breakoutprop.com reaches the login from home wifi and mobile data; only datacenter ASNs are blocked). Egress memo #14666 MERGED c47da315 (R1 managed static ISP proxy, R2 home device via Tailscale, R3 mobile proxy; Breakout evaluation rules prohibit trading multiple accounts from the same household/device/IP). OPERATOR POPUP ~09:22Z (with the terms risk stated: Breakout terms and the funded account; IPRoyal AUP s3.2), answer verbatim: \"$2 proxy test\". #14680 (probe proxy extension, secret EGRESS_PROBE_PROXY, fail-closed, hourly until 2026-10-04) under independent review; the operator buys the 24h IPRoyal proxy only after it merges. Operator told a new Breakout account should wait for: probe PASS, the live route built and deployed (~2-3 lane-days, estimate), and the same-device terms question settled. || 2026-09-30 ~13:25Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): #14680 MERGED 4cd9788e (fail-closed probe proxy, evaluated PASS rule). #14645 MERGED 4d2208eb (instrument INFO-PANEL probe). Waiting on the operator's 'proxy done' after buying the 24h IPRoyal proxy; then the egress-chromium-landing-probe verdict goes on this row. Pipeline PI-3ZFMYYI4-0001 due 2026-10-04. || 2026-09-30 ~16:55Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): IPRoyal ISP proxy measured via dispatches I ran myself (workflow_dispatch works from this session): run 36731753995 (14:47Z) and run 36743820779 (16:23Z) both went via the proxy, egress AS42049 Nadejda.Net Ltd; app.breakoutprop.com 403 Cloudflare challenge (login not rendered); wss.breakoutprop.com 200 (login rendered). PASS rule verdict=FAIL. Operator chose \"Home device (R2)\", then reversed, verbatim: \"I don't want this solution\" (#14793 paused, draft), then: \"I'm sure we can get the proxy working, also check other config options to resolve the issue\". #14802 (lever matrix: baseline/wait/newheadless/headed, exit country, challenge kind; NO stealth) reviewed MERGE-OK; a guard fix was pushed at b542a375; merge and dispatch pending. #14604 and #14799 merged. PI-20260930-3ZFMYYI4-0002: the probe's hourly cron never fired. || 2026-09-30 ~19:20Z (manager session_01HYq6XtfesZ57VyaQrK6CL1): US ISP proxy measured: runs 36755391216 (schedule 18:00Z) and 36757048857 (dispatch, levers baseline/wait/headed) exit US, AS7849 RingSquared CC; EVERY lever app.breakoutprop.com 403 interactive Turnstile, cleared never; wss 200. Country/ASN not the cause (Oracle, Azure, BG, US all challenged). Lane report (verified on main: src/prop/platform/__init__.py:31-32, config/prop_platforms.yaml:48-50): the live breakout_1 executor uses wss only; app.* is needed only by the breakout_terminal platform, which no account uses. PARKED: PI-20260930-3ZFMYYI4-0004 (reopen on a breakout_terminal account or a Breakout allowlist answer). #14854 removes the hourly cron and fixes two stale app.* comments (self-land). R2 #14793 to be closed as declined.",
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] VM route CLOSED: #16205 merged (1e8af0e); click test stopped by a safety classifier and NOT to be re-dispatched. Lane archived. Breakout automation now = PHONE-EXEC-DESIGN. [2026-10-04T07:55Z lane BREAKOUT-TERM-ACCESS session_01TarfPrbZozhifNG9YXhVGJ] The operator approved the (b) runner click test ('Let's try the click test first', relayed by the manager ~07:51Z). It was STOPPED by a safety classifier on 2026-10-04 and NOT attempted: nothing built, dispatched or linked. Per the manager (~07:53Z) it is not re-dispatched to another lane. Open questions remain unanswer",
       "id": "PROP-TERM"
     },
     {
@@ -4741,7 +4745,7 @@
       "id": "LIVE-SILENCE",
       "title": "Why have the four bybit_2 live legs produced zero order packages on any account since 2026-09-28T03:35Z (and alpaca_live since 09-23)? Market silence vs a change that stopped them firing",
       "phase": "floor",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01Upz38GpgyiMYCjojTpwGCC",
       "model": "claude-opus-5-5",
@@ -4749,10 +4753,11 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [
-        15805
+        15805,
+        16208
       ],
       "blocked_on": [],
-      "note": "[2026-10-03T06:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane verdict: MARKET SILENCE on all 4 legs. The live order_package() replay over the bot candles gives 0 signals since 09-28T03:35Z (60 bars on each 2h leg, 30 on each 4h leg). It reproduces the pre-gap live fires to within ~15 min. All 4 legs jointly silent for 122h: 3.3% of rolling windows over Binance-spot bars 2026-04-01 to 2026-09-27 (lane-measured; the lane did not report the window count). Longest joint-silent run in that window: 168h. alpaca_live daily legs also silent. Manager read output.txt; it supports the verdict. Evidence PR #15805 (auto-merge on CI green). The OPERATOR asked for more than a one-off (chat 06:10Z): restart-safety -> RESTART-SAFE; a standing mechanical check -> LIVE-PARITY. Re-run the replay if silence passes 168h (~10-05T03:35Z). || [2026-10-03T05:47Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator raised it: no live trades for close to a week. MEASURED (diag journal trades limit=600): xrp_pullback_2h / ada_pullback_2h / trend_donchian_eth_4h / trend_donchian_xrp_4h fired ~10x between 09-16 and 09-28 across bybit_1/2/portfolio; the last was 09-28T03:35Z; none since, on ANY account. Config on main: bybit_2 4 legs, all execution live, mode live. journalctl 10-03 03:55-04:20Z: each leg is evaluated every ~2 min on changing closes and reports 'no actionable signal' (no setup / within channel), so nothing is dropped downstream. OPEN: market silence or a logic change (candidates 1ea037457, 4d9822c7c, 98ba6c30f #14800). Lane replays the legs offline over real bars since 09-14 and compares with the live logs. Done = a per-leg verdict with evidence, plus a held fix PR if it is a divergence."
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] DONE: LIVE-SILENCE-2 re-check merged #16208 (078195cc): real-money silence is market silence (ADX ~10 vs 25-28 needed; ETF legs downtrend long-only; 0 gate drops; 6 parity divergences explained). Prior: [2026-10-03T06:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Lane verdict: MARKET SILENCE on all 4 legs. The live order_package() replay over the bot candles gives 0 signals since 09-28T03:35Z (60 bars on each 2h leg, 30 on each 4h leg). It reproduces the pre-gap live fires to within ~15 min. All 4 legs jointly silent for 122h: 3.3% of rolling windows over Binance-spot bars 2026-04-01 to 2026-09-27 (lane-measured; the lane did not report the window count). Longest joint-silent run in that window: 168h. alpaca_live daily legs also silent. Manager read output.txt; it supports the verdict. Eviden"
     },
     {
       "id": "RESTART-SAFE",
@@ -4824,10 +4829,153 @@
         16223,
         16234,
         16235,
-        16276
+        16276,
+        16289
       ],
       "blocked_on": [],
       "note": "[2026-10-04 ~08:40Z lane OPS-AUDIT, dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv] Audit doc in the Tier-1 PR; OA-14 diag fix HELD as #16235; this report self-lands as #16234; HELD Tier-2 PRs #16222 (OA-01 OnFailure on both live prop executors) and #16223 (OA-02 tradeify ETH/USD symbol canonicalisation) await the manager. Pipeline PI-20261004-GCFA5DOR-0001..0010. FIRST for the manager: OA-03 (PI-...-0001) -- breakout_1 is $2 below its $4,700 static DD floor and its executor has been AUTO-REVERT-latched since 03:49Z with no further alert; the documented env/timer revert was not run. landed_unproven closes when: #16222 and #16223 are merged and deployed, `systemctl show -p OnFailure ict-prop-executor@tradeify_1` is non-empty (needs executor-enable-timer re-run), and diag /api/diag/version reads restart_pending=false on a research-only diff. || [2026-10-04T10:30Z lane OPS-AUDIT] FOLLOW-THROUGH (manager 08:52Z asks): MERGED #16222 229646bd, #16223 ce3df622, #16235 (OA-14), #16234 (report), #16276 (OA-17 pipeline item). OBSERVED on the VM (diag #16259/#16280): VM checkout ce43aaa69 contains 229646bd and ce3df622. OA-03 revert DONE: set-env PROP_EXECUTOR_MODE=read_only (#16250, 09:10:18Z), read back read_only in both process and .env (get-env #16262); breakout_1 tick 10:14:10Z ran env_mode read_only (still latched, exit 3); executor-disable-timer (#16275, 10:15:57Z) -> ict-prop-executor.timer inactive, no tick since. tradeify_1 template reinstalled via executor-enable-timer (#16277, 10:16:39Z) -> timer active; ticks 10:18Z and 10:23Z mode live, exit 0, alerts 0. OA-17 FOUND during this: #16251 and #16263 were CANCELLED while pending in the shared system-actions concurrency group (never ran, no comment); re-filed as #16275/#16277 -> PI-20261004-GCFA5DOR-0011. STILL landed_unproven: (a) OnFailure on the units is installed but not observed firing (no failed tick since; diag cannot read systemctl show -p OnFailure); (b) OA-02 observed only on tradeify_1's first real fill reading 'open'; (c) OA-14 observed when /api/diag/version reads restart_pending=false on a research-only diff after a web-api restart."
+    },
+    {
+      "id": "TRADEIFY-RISK-75",
+      "title": "tradeify_1 executor was handed breakout_1's $75 ticket (cross-account sidecar read) and refused it at its own $50 cap: root-cause, fix with a test, sweep all 12 accounts in config/accounts.yaml",
+      "phase": "floor",
+      "state": "landed_unproven",
+      "owner": "lane TRADEIFY-RISK-75",
+      "lane": "session_01PRvrUNAqLAPL6UWgo5DrfX",
+      "model": "claude-opus-5-5 (order-path sizing)",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        16243,
+        16264
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-04T09:25Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] ROOT CAUSE (lane, verified): NOT the producer -- tradeify_1's own 08:01:29Z ETH ticket was risk_usd 50.0. src/prop/prop_journal.py::list_outbound_tickets read prop_tickets with no account_id filter and keyed by order_package_id alone; both prop accounts roster trend_donchian_eth_prop, so both views returned breakout_1's $75 ticket. FIX #16243: MERGED aab5c817 09:07Z (operator 'Let the lane ship it'); DEPLOYED (diag version 09:19:50Z ce43aaa69 contains aab5c817, restart_pending false); OBSERVED read path: ?account_id=tradeify_1 returns only its own ticket (risk 50.0). NOT YET OBSERVED: a tradeify_1 executor intake under the fix -- closes on PI-20261004-WGO5DRFX-0001. Population: 12 of 12 accounts have producer risk == config; the read defect touched exactly the 2 prop accounts. Revert: git revert aab5c817."
+    },
+    {
+      "id": "TRADEIFY-SOL-SIZE",
+      "title": "Why the tradeify_1 SOLUSD submit is disabled (probes a market / b masked panel text / c SL-TP off)",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "lane TRADEIFY-SOL-SIZE",
+      "lane": "session_01PwDy1zXY32sBNggRmZw1Ki",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16212,
+        16220,
+        16232
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] MEASURED (a) #16232: MARKET 1.0 SOL submit ENABLED; LIMIT at the same size disabled (#16202). INFERRED: SOL quotes read bid==ask so a buy limit at the bid is marketable and DXtrade disables it. #16220 (masked sidebar_text, diagnostic) MERGED fafb61aa by manager; lane re-runs the limit walk to confirm in the terminal's words, then writes the Tier-3 policy options (refuse / market-within-band / wait) for the operator. (c) not needed."
+    },
+    {
+      "id": "PHONE-EXEC-DESIGN",
+      "title": "Breakout phone executor (Android WebView on the operator's phone): design + no-account checks before the 'purchase account now' gate",
+      "phase": "W6",
+      "state": "blocked",
+      "owner": "lane PHONE-EXEC-DESIGN",
+      "lane": "session_015aPwuhYohj6jnMQX6CMEvG",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16215,
+        16229
+      ],
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "operator",
+          "what": "Chrome + Wi-Fi step-zero results; resume after meeting"
+        }
+      ],
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required."
+    },
+    {
+      "id": "PROP-FIRM-SCAN",
+      "title": "Quick scan: which prop firms we could automate with the least new engineering, judged against our DXtrade/Bybit/Breakout experience",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "lane PROP-FIRM-SCAN",
+      "lane": "session_019tHEHEzdqkL16zbNWmXSjf",
+      "model": "claude-fable-5-1 (web research, Fable headroom)",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16247
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Ranked: Velotrade (DXtrade + API, bots/VPS expressly permitted, firm very young/D-grade) > HyroTrader (already deep-dived) > Crypto Fund Trader > Propr; Topstep/Apex/MFFU/FTMO etc ruled out. Deep-dive filed PI-20261004-BNWMXSJF-0001 (due 2026-10-11). Closes when #16247 merges."
+    },
+    {
+      "id": "HEALTH-REVIEW",
+      "title": "/health-review 2026-10-04",
+      "phase": "floor",
+      "state": "landed_unproven",
+      "owner": "lane HEALTH-REVIEW",
+      "lane": "session_01NJpbH7r3b4D7iXPUq1aPTh",
+      "model": "claude-fable-5-1 (review, Fable headroom)",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16237,
+        16239,
+        16240
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Verdict investigate (1 concern, 3 watch). Restart filter #15830 works (15/15 restarts followed runtime commits). INV-2 false positive fix #16237 MERGED 74cb0cd3 by manager (one trader restart on deploy). Filed PI-20261004-PUQ1APTH-0001..0006. Closes when #16240 merges and INV-2 reads recent=0 on the hourly run."
+    },
+    {
+      "id": "PROP-EVIDENCE",
+      "title": "Prop evidence: reconcile ict_scalp_xrp_15m verdict (record says pass n=76; told operator FAIL), RQ-501 re-run, prop exit-head producer + SOL lever test",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane PROP-EVIDENCE",
+      "lane": "session_01U722zCVApVwaVp9mtRsmLU",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched 2026-10-04. The xrp_15m drop from tradeify_1 was made on a manager summary that misread the record; operator told."
+    },
+    {
+      "id": "RESEARCH-PIPELINE-REPAIR",
+      "title": "Research queue repair: stale statuses, dispatch of 101-108, e35 not landing, unattributed results",
+      "phase": "C",
+      "state": "in_flight",
+      "owner": "lane RESEARCH-PIPELINE-REPAIR",
+      "lane": "session_015xtaJKCjcqxeQgFoJGfizf",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched 2026-10-04 after the operator's research-queue review ask; write-ups/decisions (Breakout shortlist, 4 M20 exit PASSes, regime readout) queue behind it."
+    },
+    {
+      "id": "PERFORMANCE-REVIEW",
+      "title": "/performance-review 2026-10-04 (after HEALTH-REVIEW + OPS-AUDIT; reads the post-repair research pipeline)",
+      "phase": "floor",
+      "state": "in_flight",
+      "owner": "lane PERFORMANCE-REVIEW",
+      "lane": "session_013rQhqo11aVJrH3zbHFJg6X",
+      "model": "claude-fable-5-1 (review, Fable headroom)",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-04T10:10Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Dispatched per the operator's 2026-10-04 ops plan (reviews paced on usage). Reports via a comment on its review PR (no triggers: default-mode prompts block lanes)."
     }
   ]
 }
