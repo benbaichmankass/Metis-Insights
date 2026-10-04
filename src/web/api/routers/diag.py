@@ -2209,7 +2209,13 @@ def get_journalctl(
 # Paths deploy_pull_restart.sh does NOT restart for (its RUNTIME_CHANGES filter).
 # Keep in lock-step with that regex: `restart_pending` must mean "a commit the
 # deploy would restart for is not loaded", not "the shas differ".
-_NON_RUNTIME_PATHS_RE = re.compile(r"^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$)")
+# #15830 widened the deploy's set and this copy was not updated, so
+# restart_pending read True on research-only commits (OPS-AUDIT 2026-10-04,
+# OA-14); tests/test_diag_restart_pending_lockstep.py now pins the two equal.
+_NON_RUNTIME_PATHS_RE = re.compile(
+    r"^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$|research/|runtime_logs/"
+    r"|scripts/research/|scripts/ci/|comms/research/|comms/strategy_evidence/)"
+)
 
 
 def _restart_pending(running: str, on_disk: str) -> bool | None:
@@ -2224,7 +2230,7 @@ def _restart_pending(running: str, on_disk: str) -> bool | None:
         return False
     try:
         out = subprocess.run(
-            ["git", "diff", "--name-only", running, on_disk],
+            ["git", "diff", "--no-renames", "--name-only", running, on_disk],
             cwd=str(repo_root()),
             capture_output=True, text=True, timeout=5, check=False,
         )
