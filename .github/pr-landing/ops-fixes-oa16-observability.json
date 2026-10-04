@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches src/web/api (diag read path) and a docstring in src/runtime, so the deploy restarts ict-web-api and ict-trader-live once; manager merge approval sought.",
+  "why": "OA-16(b): add runtime_logs/unit_failures.jsonl (FIX-SA-08 OnFailure handler output) to the token-gated diag log_file allowlist so the handler can be observed from a session. OA-16(c): correct decision_bar_ledger's docstring (closed-bar decisions are recorded AFTER the decision, at-least-once; forming catch-ups BEFORE). No behaviour change on any trading path. PI-20261004-GCFA5DOR-0010."
+}
