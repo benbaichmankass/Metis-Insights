@@ -180,12 +180,21 @@ def load_heads(artifact_dir: str, timeframe: str,
 
 def replay_trade(candles, trade, artifact: Dict[str, Any],
                  predict: Callable[[List[List[float]]], float],
-                 action: str) -> Dict[str, Any]:
+                 action: str, lookback: Optional[int] = None) -> Dict[str, Any]:
     """Re-resolve ONE trade's exit under the head. Returns a per-trade record.
 
     ``predict`` takes the feature matrix and returns the head's raw score, so a
     test can drive the decision path without LightGBM. The take/hold predicate
     itself is ``exit_head_shadow.would_exit_for`` — imported, never copied.
+
+    ``lookback`` (opt-in): hand ``_feature_row`` only the last ``lookback``
+    bars before entry instead of the whole history prefix. ``_feature_row``
+    walks a pure-Python Wilder ATR over EVERY bar it is given, once per scored
+    bar, so the default costs O(history x bars held) -- what kept RQ-20260927-003
+    running past the trainer relay's 60-minute cap. The live monitor also scores
+    a bounded fetched window, and the ATR seed's residual weight after N bars is
+    (13/14)**N (~1e-16 at 500); every other pre-entry feature reads <= 21 bars.
+    ``tests/test_exit_head_replay.py`` pins lookback=500 equal to the full prefix.
     """
     from src.runtime.exit_head_shadow import _feature_row, would_exit_for
 
@@ -201,9 +210,10 @@ def replay_trade(candles, trade, artifact: Dict[str, Any],
         rec["note"] = f"exit_head_action={action!r} is not an apply action"
         return rec
     is_long = trade.direction == "long"
+    off = max(0, entry_idx - lookback) if lookback else 0
     for i in range(entry_idx, trade.exit_index + 1):
-        row = _feature_row(candles.iloc[:i + 1], trade.entry, trade.risk,
-                           trade.direction, entry_idx)
+        row = _feature_row(candles.iloc[off:i + 1], trade.entry, trade.risk,
+                           trade.direction, entry_idx - off)
         if row is None:
             continue
         rec["bars_scored"] += 1
