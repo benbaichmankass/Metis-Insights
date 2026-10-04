@@ -257,6 +257,28 @@ Wider field (third-party): `https://roya-trading.com/decentralized-prop-firm/` �
 
 ## Addenda (manager questions, 2026-10-04 18:20Z: *"concrete questions only, not breadth"*)
 
+### A2. Closing the Velotrade INDETERMINATE — 400-bootstrap full-size runs, two seeds
+
+**It does not close; it sharpens.** Manager question 2 asked for enough bootstraps to resolve the registered rule. Two full-size runs (4,000 lives + **400 × 200** evidence bootstrap each, seeds 1 and 2, CLASSIC 1-Step $5k at 0.5 % risk, same costs and caps as § 1.8; raw JSON `FULL400_VC_r0.005_seed{1,2}.json` beside this file):
+
+| run | model | EV net / life $ (± MC s.e.) | evidence p5 / p50 / p95 | P(mean EV > 0) over re-drawn histories | P(net>0) per life | P(pass) | median days to pass | payouts / life | V2 rule |
+|---|---|---|---|---|---|---|---|---|---|
+| seed 1 | `path` | +454 ± 8 | -36 / +411 / +1,551 | 0.895 | 0.69 | 0.81 | 178 | 3.7 | **INDETERMINATE** — path evidence CI [-36.30, +1550.92] straddles 0 |
+| seed 1 | `stop` | +380 ± 8 | -37 / +347 / +1,610 | 0.873 | 0.63 | 0.78 | 172 | 3.2 |  |
+| seed 1 | `realized` | +442 ± 8 | -36 / +478 / +1,606 | 0.917 | 0.68 | 0.81 | 181 | 3.6 |  |
+| seed 2 | `path` | +442 ± 8 | -24 / +462 / +1,686 | 0.917 | 0.68 | 0.81 | 175 | 3.6 | **INDETERMINATE** — path evidence CI [-24.22, +1685.82] straddles 0 |
+| seed 2 | `stop` | +394 ± 8 | -33 / +382 / +1,339 | 0.890 | 0.63 | 0.77 | 174 | 3.3 |  |
+| seed 2 | `realized` | +447 ± 8 | -36 / +424 / +1,662 | 0.887 | 0.69 | 0.82 | 179 | 3.7 |  |
+
+**Reading it.**
+
+1. **The verdict is INDETERMINATE on both seeds and is now stable**: the `path` evidence p5 is -36 and -24 — within $2 of each other and of the 100-bootstrap run's -37. Going from 100 to 400 outer draws moved p5 by about a dollar. More bootstraps will not change the sign; the 30-draw PASS in the first sweep was the small-sample artefact § 1.8 item 8 said it was.
+2. **What the interval means in plain terms**: the point EV is +$454 per $54 account with a Monte Carlo standard error of $8, so the *expected* outcome is not in doubt. But when the one year of history is re-drawn in 30-day blocks, about **10–8 % of plausible years lose money** (P(mean EV > 0) = 0.895 / 0.917), and the losing years lose about the fee. The registered rule asks for 95 % of re-drawn years to be positive; this book gives roughly 90 %. That gap is the edge's thinness on one year of data, not noise in the simulator.
+3. **Per-life odds, for the operator's intuition**: P(net > 0) ≈ 0.69, P(pass) ≈ 0.81, median 178 days to pass, ~3.7 payouts per life. Five of every six accounts fund; two of every three end in profit; the 5th-percentile *history* (not the 5th-percentile life) is a small loss.
+4. **What would actually close it**: (a) a second year of history — the bootstrap re-draws what it has; (b) a book with a thicker per-trade edge than 0.02–0.08 R; or (c) the operator deciding that P(positive year) ≈ 0.90 at a $54 stake is good enough. Only (c) is available today, and it is a preference, not a data gap — so this is a decision for the operator, not another lane.
+
+**Purchase-worthy now (Velotrade CLASSIC, re-stated):** the registered rule says INDETERMINATE and will keep saying it on this history; the point EV is +$454 ± $8 per $54 life; the VM-egress check is addendum A1. Recommendation unchanged from § 5: the only candidate; the operator's call.
+
 ### A3. Propr — does its own API carry bracket orders natively, and what is its ruleset?
 
 **Yes, natively, and in the shape our executor already uses.** Source: Propr's public Bot API reference, `https://github.com/XBorgLabs/propr-docs` → `docs/api.md` (read 2026-10-04 via raw.githubusercontent.com; the `/developers` page on `propr.xyz` links to it). Verbatim:
