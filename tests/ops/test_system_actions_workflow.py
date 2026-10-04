@@ -1050,3 +1050,12 @@ def test_every_breakout_executor_mode_is_in_the_workflow_apply_allowlist():
     allowed = set(gate.group(1).split("|"))
     missing = [m for m in modes if m not in allowed]
     assert not missing, f"executor modes missing from the workflow apply allowlist: {missing}"
+
+
+def test_notify_run_loads_runtime_env_before_send_ping() -> None:
+    """PI-20261004-PUQ1APTH-0003: notify_run.sh runs over bare SSH with no
+    data-dir drop-in; without load_runtime_env send_ping.py writes the legacy
+    repo-relative inbox (a MIS-ROUTED ping)."""
+    text = (OPS_DIR / "notify_run.sh").read_text()
+    assert "load_runtime_env" in text
+    assert text.index("load_runtime_env") < text.index('"${SEND_PING}"')

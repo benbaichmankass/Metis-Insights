@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-02",
+    "kind": "date"
+  },
+  "id": "PI-20260929-JMEBS47A-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane M19-S1 session_01TR74tvLR2AjCzrJMeBs47A (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-29, reported to manager via trigger trig_01SfDrETz6AYkaQCuMj53Ktp",
+    "rerun": "python3 scripts/ci/check_research_queue_health.py"
+  },
+  "routed_to": null,
+  "state": "killed",
+  "terminal_reason": "BACKLOG-ROUTE 2026-10-04: Question 'does H1 block or just report' answered: it reports and exit 3 routes to the daily replenish workflow (research-queue-replenish.yml:24). Guard semantics changed since filing (58 units -> 212). Residual: 16<25 right now, not checked whether replenish last ran.",
+  "what": "check_research_queue_health.py's H1 check is failing on main: runnable=8 of 58 research-queue units, below its own 25-unit threshold (\"would fire within the next dispatch cycle; 21 read queued, of 58 unit(s)\"). MEASURED 2026-09-29 by lane session_01TR74tvLR2AjCzrJMeBs47A (M19-S1): confirmed pre-existing and unrelated to that lane's two PRs by stashing the working-tree diff and re-running the guard against a clean origin/main checkout -- identical failure both with and without the diff. Not investigated further (out of the M19-S1 lane's scope) -- needs a session to read what H1 actually gates (does it block a scheduled dispatch workflow, or just report) and either fix the queue's runnable-unit shortfall or the threshold/guard itself."
+}

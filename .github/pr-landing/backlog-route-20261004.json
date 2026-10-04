@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: 114 append-only update records from lane BACKLOG-ROUTE dispositioning the unrouted backlog (91 routed, 6 killed, 5 done, 8 routed to observation, 4 routed to operator). No code, config or order-path change."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "A live breakout_1 trade closes AND its venue balance delta (prop_account_status rows, 5-min feed) is compared with its journaled pnl, giving that trade's true net cost; extend that to a per-trade ledger, or prop_account_status gains a history read path and the -22.33 is attributed to named trades. Or the manager kills it with a reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#3-baseline-realized-pl-since-inception-never-blended",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_1&limit=500' | python3 -c \"import json,sys;F=json.load(sys.stdin)['fills'];c=[f for f in F if f['status']=='closed'];print(len(c),round(sum(f['pnl'] or 0 for f in c),2))\""
+  },
+  "routed_to": "PROP-EXEC [route; size M, value M, tier 1] BACKLOG-ROUTE 2026-10-04: Live probe (DIAG token, single curl) of /api/bot/prop/fills?account_id=breakout_1&limit=500: 82 fills, 24 closed, sum pnl -205.11 (population grew from 18 closed/-146.52). Venue balance not re-read this session, so reconciliation residual not recomputed; no per-trade ledger/history read path found checked only via item text.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "breakout_1 baseline does not reconcile: sum of reported realized pnl over 18 closed fills = -146.52 (MEASURED) vs venue balance 4784.78 - 5000 = -215.22 (MEASURED); residual -68.70 unexplained. Reported pnl mixes gross-of-commission (#41) and net (#17) figures and financing is unjournaled, so a baseline cannot be stated net of costs from the journal. | 2026-10-01 PROP-JOURNAL re-measure: venue balance 4724.00-5000 = -276.00 vs sum of 22 closed journaled pnl (duplicate #52 removed) = -205.10, residual -70.90 (MEASURED). Decomposed: commissions -14.00 (MEASURED) and -16.50 (ESTIMATED), swap -18.07 (ESTIMATED, rate MEASURED twice), leaving -22.33 UNVERIFIED. Journal pnl mixes gross and net per fill, so no journal-derived baseline is net of costs. Open question narrowed to what the -22.33 is (docs/research/prop-journal/prop-journal-truth-2026-10-01.md#2)."
+}

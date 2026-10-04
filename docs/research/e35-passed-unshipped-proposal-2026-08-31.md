@@ -161,3 +161,21 @@ and a new OPEN-ITEMS monitoring row, since deployed is not proven.
 *Populations: matrix 52 rows @ 2026-08-30, 2 `passed_unshipped`. Corpus rows for these two
 legs: 206 each (7 @ 08-29, 199 @ 08-31). Passing cells on the newest run: gld 4 of 199,
 spy 3 of 199. Reproduce: `python3 scripts/research/e35_matrix_recheck.py`.*
+
+---
+
+## CORRECTION 2026-10-04 (PI-20260930-39SDYWCO-0007) — section 4.2
+
+Two statements in section 4.2 (`spy_pullback_1h` `sm1.5`) are wrong:
+
+1. "The leg is flagged CONTAMINATED … bound on 17 of 39 graded geometry pairs" does not
+   reproduce. `scripts/research/timeout_binding_audit.py` reads `spy_pullback_1h` **clean**
+   on the committed corpus (re-run 2026-10-04, 41 legs: 21 contaminated, 20 clean; see the
+   rerun command in `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`'s
+   correction block).
+2. "`sm1.5` and `sm1.5_to400` are numerically identical … which does *not* rescue the leg"
+   is backwards. The `to400` arm overrides the harness's 200-bar default, so identical
+   results are evidence the default does **not** bind on this leg.
+
+The OOS retention (+4.46 of +28.16) and the single-fold (2023) dependence in points 1-2 are
+unaffected by this correction. The original text above is left in place as history.

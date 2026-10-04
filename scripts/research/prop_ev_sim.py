@@ -253,6 +253,26 @@ class PropRules:
     # Daily-loss reset instant as a fraction of a UTC day. Breakout: 00:30 UTC.
     # A ruleset may declare `limits.daily_loss_reset_utc: "HH:MM"` (Tradeify 247: 22:00).
     day_reset: float = _DAY_RESET
+    # ── Velotrade-shaped rules (lane PROP-FIRM-DEEP, 2026-10-04). ALL OFF BY DEFAULT so
+    # every Breakout / Tradeify / HyroTrader result published before this date is
+    # unchanged. A ruleset opts in by declaring the keys named in from_yaml().
+    # Qualifying trading days: a day counts only if the REALISED P&L closed inside it is
+    # >= qual_day_profit_pct x START. The evaluation cannot pass until qual_day_min_days
+    # such days have accrued (checked at each reset and each exit); the funded count
+    # restarts at zero and the FIRST payout waits for funded_qual_days_before_payout.
+    qual_day_min_days: int = 0
+    qual_day_profit_pct: Optional[float] = None       # None => the gate is OFF
+    funded_qual_days_before_payout: int = 0
+    # Payout cap: the first `payout_cap_first_n` payouts bank at most
+    # payout_cap_mult_fee x fee each; the excess LEAVES the account and is forfeited
+    # (Velotrade Terms 5.4(f): "All Payouts are full withdrawals ... Any balance
+    # exceeding the Payout Cap is forfeited").
+    payout_cap_first_n: int = 0
+    payout_cap_mult_fee: float = 0.0
+    # Daily-loss reset basis: "balance" (Breakout/Tradeify, the default) or
+    # "max_balance_equity" (Velotrade: "whichever is higher, your balance or your
+    # equity" at 00:30 UTC -- the STRICTER basis whenever a position is in profit).
+    day_reset_basis: str = "balance"
 
     @classmethod
     def from_yaml(cls, path: Path) -> "PropRules":
@@ -266,6 +286,11 @@ class PropRules:
             raise ValueError("only a STATIC drawdown ruleset is modelled")
         if wp.get("mode", "above_start") != "above_start":
             raise ValueError("only withdrawal_policy.mode above_start is modelled")
+        ev = d["phases"]["evaluation"]
+        qual_pct = ev.get("qualifying_day_profit_pct")
+        basis = str(lim.get("daily_loss_reset_basis") or "balance")
+        if basis not in ("balance", "max_balance_equity"):
+            raise ValueError(f"limits.daily_loss_reset_basis must be balance|max_balance_equity, got {basis!r}")
         return cls(
             start=float(d["account_size_usd"]),
             target_pct=float(d["phases"]["evaluation"]["profit_target_pct"]),
@@ -280,6 +305,13 @@ class PropRules:
             funded_start=str(econ.get("funded_start") or "fresh"),
             first_payout_refund=bool(econ.get("first_payout_fee_refund") or False),
             day_reset=_hhmm_to_day_fraction(lim.get("daily_loss_reset_utc")),
+            qual_day_min_days=int(ev.get("min_trading_days") or 0) if qual_pct is not None else 0,
+            qual_day_profit_pct=(float(qual_pct) if qual_pct is not None else None),
+            funded_qual_days_before_payout=(int(pay.get("min_trading_days_before_payout") or 0)
+                                            if qual_pct is not None else 0),
+            payout_cap_first_n=int(pay.get("first_payouts_capped") or 0),
+            payout_cap_mult_fee=float(pay.get("first_payout_cap_multiple_of_fee") or 0.0),
+            day_reset_basis=basis,
         )
 
 
@@ -626,6 +658,11 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
     funded_at: Optional[float] = None
     next_payout: Optional[float] = None
     refund_due = cfg.first_payout_refund
+    # qualifying-day gate (OFF unless rules.qual_day_profit_pct is set)
+    qual_on = rules.qual_day_profit_pct is not None
+    qual_days = 0
+    day_realized = 0.0
+    day_closed = 0
     # open positions: leg -> (exit_t, pnl_usd, mark_usd)
     open_pos: Dict[str, Tuple[float, float, float]] = {}
     open_trades: Dict[str, "Trade"] = {}
@@ -675,17 +712,45 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                 marks_sum += new - old
             next_tick = now + 1.0 / 24.0
         elif kind == "reset":
-            day_start = bal                 # the 00:30 balance, excluding open positions
+            if qual_on:
+                if day_closed > 0 and day_realized >= rules.qual_day_profit_pct * start - 1e-9:
+                    qual_days += 1
+                day_realized = 0.0
+                day_closed = 0
+            # the 00:30 balance, excluding open positions -- or, on Velotrade, the
+            # higher of balance and equity (open marks included) at that instant
+            day_start = (max(bal, bal + marks_sum) if rules.day_reset_basis == "max_balance_equity"
+                         else bal)
             next_reset += 1.0
+            # Velotrade: "If you hit your profit target before completing 5 minimum
+            # trading days, your phase is not passed yet" -- so the pass can land at a
+            # reset, when the last qualifying day is counted.
+            if (qual_on and phase == "eval" and bal >= target - 1e-9
+                    and qual_days >= rules.qual_day_min_days):
+                kind = "pass"
         elif kind == "funded":
             phase = "funded"
             next_payout = now + rules.first_payout_after_days
             day_start = bal
+            qual_days = 0                   # Velotrade: "The count resets to zero when the funded account begins"
+            day_realized = 0.0
+            day_closed = 0
         elif kind == "payout":
+            if (qual_on and life.n_payouts == 0
+                    and qual_days < rules.funded_qual_days_before_payout):
+                counters["payout_deferred_qual_days"] = counters.get("payout_deferred_qual_days", 0) + 1
+                next_payout = now + 1.0     # re-ask tomorrow; the gate applies to the first payout only
+                continue
             w = bal - withdraw_above
             if w >= max(rules.min_withdrawal, 1e-9):
-                life.banked += w * rules.profit_split
-                bal -= w
+                paid = w
+                if life.n_payouts < rules.payout_cap_first_n and rules.payout_cap_mult_fee > 0:
+                    paid = min(w, rules.payout_cap_mult_fee * rules.fee)
+                    if paid < w:
+                        counters["payout_forfeited_usd"] = counters.get("payout_forfeited_usd", 0.0) + (w - paid)
+                        counters["payouts_capped"] = counters.get("payouts_capped", 0) + 1
+                life.banked += paid * rules.profit_split
+                bal -= w                    # a FULL withdrawal: the forfeited excess leaves the account too
                 day_start -= w              # a withdrawal is not a trading loss (A10)
                 life.n_payouts += 1
                 if refund_due:
@@ -698,23 +763,28 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
             paths.pop(leg, None)
             marks_sum -= mark
             bal += pnl
-            if phase == "eval" and bal >= target - 1e-9:
-                life.passed = True
-                life.days_to_pass = now
-                if cfg.stop_at_pass:
-                    life.lifetime_days = now
-                    break
-                phase = "gap"
-                funded_at = now + cfg.approval_days
-                # A5: the account is re-issued — open positions do not carry.
-                open_pos.clear()
-                paths.clear()
-                exits.clear()
-                marks_sum = 0.0
-                if cfg.funded_start == "fresh":
-                    bal = start
-                day_start = bal
-                continue
+            day_realized += pnl
+            day_closed += 1
+            if (phase == "eval" and bal >= target - 1e-9
+                    and (not qual_on or qual_days >= rules.qual_day_min_days)):
+                kind = "pass"
+        if kind == "pass":
+            life.passed = True
+            life.days_to_pass = now
+            if cfg.stop_at_pass:
+                life.lifetime_days = now
+                break
+            phase = "gap"
+            funded_at = now + cfg.approval_days
+            # A5: the account is re-issued — open positions do not carry.
+            open_pos.clear()
+            paths.clear()
+            exits.clear()
+            marks_sum = 0.0
+            if cfg.funded_start == "fresh":
+                bal = start
+            day_start = bal
+            continue
         elif kind == "entry":
             e, x, t = pending
             pending = next(src, None)
@@ -1133,6 +1203,81 @@ def _self_test() -> int:
     check(grade(fake(10, 5, 50))[0] == "pass", "rule: pass case")
     check(grade(fake(-10, 5, -1))[0] == "fail", "rule: fail case")
     check(grade(fake(-10, -5, 50))[0] == "indeterminate", "rule: indeterminate case")
+
+    # --- 8. Velotrade-shaped gates (PROP-FIRM-DEEP, 2026-10-04) -- positive controls --------
+    # Same deterministic +1R-per-day winner as section 2 ($100/day at 2% of start).
+    rows = _toy_rows([1.0] * 400)
+    trades, _, days = build_trades({"toy": rows}, as_given)
+    hist = History(trades, days)
+    cfg8 = SimConfig(risk_pct=0.02, sizing="start", horizon_days=60, block_days=days)
+    def stream8():
+        return ((t.entry, t.exit, t) for t in hist.trades)
+    # 8a. qualifying days: 5 days at >= 2% of start. Day k's trade closes 03:00 on day k; the
+    # 00:30 reset on day k+1 counts it. The 5th qualifying reset is at day 5 + 00:30, and the
+    # target (+$500) was already met at the day-4 exit, so the pass lands AT THAT RESET.
+    r8 = PropRules(qual_day_min_days=5, qual_day_profit_pct=0.02)
+    lf = simulate_life(hist, r8, cfg8, "realized", np.random.default_rng(0), stream=stream8())
+    check(lf.passed and abs((lf.days_to_pass or 0) - (5 + 0.5 / 24)) < 1e-6,
+          f"qualifying-day gate: pass moves from day 4.125 to the day-5 reset ({lf.days_to_pass})")
+    # 8b. a threshold no day can meet (3% of start > the $100 daily win) never passes
+    lf = simulate_life(hist, PropRules(qual_day_min_days=5, qual_day_profit_pct=0.03), cfg8,
+                       "realized", np.random.default_rng(0), stream=stream8())
+    check(not lf.passed and lf.alive_at_horizon, "qualifying-day gate: unreachable threshold never passes")
+    # 8c. gate OFF (qual_day_profit_pct None) reproduces section 2 exactly, even with min days set
+    lf_off = simulate_life(hist, PropRules(qual_day_min_days=5), cfg8, "realized",
+                           np.random.default_rng(0), stream=stream8())
+    lf_ref = simulate_life(hist, PropRules(), cfg8, "realized", np.random.default_rng(0), stream=stream8())
+    check(lf_off.banked == lf_ref.banked and lf_off.days_to_pass == lf_ref.days_to_pass,
+          "qualifying-day gate is OFF unless qualifying_day_profit_pct is declared")
+    # 8d. first-payout funded gate: 5 qualifying funded days are banked well before the day-14
+    # first payout, so the gate must not change the outcome; 20 qualifying days must defer it.
+    lf5 = simulate_life(hist, PropRules(qual_day_min_days=0, qual_day_profit_pct=0.02,
+                                        funded_qual_days_before_payout=5), cfg8, "realized",
+                        np.random.default_rng(0), stream=stream8())
+    c20: Dict[str, int] = {}
+    lf20 = simulate_life(hist, PropRules(qual_day_min_days=0, qual_day_profit_pct=0.02,
+                                         funded_qual_days_before_payout=20), cfg8, "realized",
+                         np.random.default_rng(0), counters=c20, stream=stream8())
+    check(lf5.banked == lf_ref.banked, "funded qualifying-day gate (5) is already met at the first payout")
+    check(lf20.n_payouts < lf_ref.n_payouts and c20.get("payout_deferred_qual_days", 0) == 7,
+          f"funded qualifying-day gate (20) defers the first payout by 7 daily re-asks "
+          f"({lf20.n_payouts} vs {lf_ref.n_payouts} payouts)")
+    # 8e. payout cap: first payout capped at 1x fee ($45) -- the rest of that withdrawal is forfeited
+    c8: Dict[str, Any] = {}
+    lf_cap = simulate_life(hist, PropRules(payout_cap_first_n=1, payout_cap_mult_fee=1.0), cfg8,
+                           "realized", np.random.default_rng(0), counters=c8, stream=stream8())
+    forfeited = c8.get("payout_forfeited_usd", 0.0)
+    check(forfeited > 0 and abs((lf_ref.banked - lf_cap.banked) - 0.8 * forfeited) < 1e-6
+          and c8.get("payouts_capped") == 1,
+          f"payout cap: exactly one capped payout, trader loses 80% of the ${forfeited:.0f} forfeited")
+    # 8f. reset basis. A +3R trade is OPEN across the 00:30 reset and closes at 03:00
+    # (bal $5,300); a -4R trade then closes at 04:00 (bal $4,900). On the balance basis the
+    # daily floor is $5,000 x 0.97 = $4,850 and the life survives; on the Velotrade basis the
+    # floor is ($5,000 + open mark) x 0.97, which exceeds $4,900 whenever the mark at the
+    # reset is above about +0.3R. With mfe_r == gross_r the `path` bridge is the deterministic
+    # straight line 0 -> +3R, so the reset mark is ~+1.4R (= $139) on every seed: the Velotrade
+    # basis must kill every life the balance basis spares, and never the reverse.
+    # (`path` marks need the raw schema -- gross_r/entry/sl -- so Breakout costs apply here:
+    # 0.11R per trade on a 1% stop, which keeps bal at $5,289 then $4,878, still above $4,850.)
+    rows_a = [{"entry_time": "2025-01-01T23:00:00+00:00", "exit_time": "2025-01-02T03:00:00+00:00",
+               "gross_r": 3.0, "mfe_r": 3.0, "entry": 100.0, "sl": 99.0}]
+    rows_b = [{"entry_time": "2025-01-02T03:30:00+00:00", "exit_time": "2025-01-02T04:00:00+00:00",
+               "gross_r": -4.0, "mfe_r": 0.0, "entry": 100.0, "sl": 99.0}]
+    trades_f, _, days_f = build_trades({"a": rows_a, "b": rows_b}, CostConfig())
+    hist_f = History(trades_f, days_f)
+    cfg_f = SimConfig(risk_pct=0.02, sizing="start", horizon_days=3, block_days=days_f)
+    stricter, lenient = 0, 0
+    for seed in range(40):
+        died = {}
+        for basis in ("balance", "max_balance_equity"):
+            lf = simulate_life(hist_f, PropRules(daily_loss_pct=0.03, max_dd_pct=0.50, day_reset_basis=basis),
+                               cfg_f, "path", np.random.default_rng(seed),
+                               stream=((t.entry, t.exit, t) for t in hist_f.trades))
+            died[basis] = lf.died
+        stricter += int(died["max_balance_equity"] and not died["balance"])
+        lenient += int(died["balance"] and not died["max_balance_equity"])
+    check(stricter == 40 and lenient == 0,
+          f"reset basis: max(balance, equity) is strictly stricter ({stricter}/40 extra deaths, {lenient} spared)")
 
     print(f"\nself-test: {'PASS' if not fails else 'FAIL'} ({len(fails)} failure(s))")
     return 0 if not fails else 1

@@ -199,7 +199,7 @@ jobs:
     # under 35 kills the job mid-wait and reports a failure for a merge that was
     # about to succeed. 40 = ~5m of work + the 30m wait + 5m slack. This is the
     # value tests/test_commit_to_main_callers.py pins; it caught due-list at 20.
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

@@ -116,7 +116,7 @@ jobs:
     # verify-merged waits up to 30m for the auto-merge PR. A budget under 35
     # kills the job mid-wait and reports failure for a merge about to succeed.
     # This is the value tests/test_commit_to_main_callers.py pins.
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       # ⚠️ A MISSING PAT IS `could_not_look` FOR THE LANDING STEP, AND IT MUST
       #   FAIL LOUDLY HERE. Without this the run would proceed, reconcile

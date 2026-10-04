@@ -716,6 +716,23 @@ STILL READING THE ARCHIVED REGISTER** as of 2026-09-22. Only the registration
 guard was re-pointed by E45. Filed rather than left implied — do not read the
 `ready`/`not_writing`/`unknown`/`accruing` table as something running today.
 
+⚠️ **PORTED 2026-10-04 (SOAK-WATCH) — for the soaks the R5 grade can see.**
+`soak_alarm.py` itself still reads the archived register and grades nothing.
+The live port works like this:
+- `scripts/ops/soak_report.py` grades every Stage-1 leg and every
+  `execution: shadow` strategy into `ready` / `dead` (was `not_writing`) /
+  `could-not-look` (was `unknown`) / `accruing`.
+- It writes the result to `docs/claude/work/soak-state.json` and
+  `docs/claude/work/SOAK-REPORT.md`, and files one `PI-SOAK-*` pipeline item per
+  soak, carrying `due_when.soak`.
+- `pipeline.py::is_due` makes such an item due on ready/dead/could-not-look and
+  keeps it quiet on accruing. `render_section_0` lists ready/dead first.
+- It runs weekly, after the R5 grade, in the same landing commit.
+
+What it does NOT cover: checklist `landed_unproven` rows and free-text
+`check_observation` items. No predicate here can evaluate their exit
+conditions, so the report lists them as `could-not-look` and says so.
+
 ⚠️ **Its honest limit, stated rather than hidden.** The pre-2026-09-02 debt —
 **16 soak logs, of which ZERO carried an alarm on that date** — is carried in an
 explicit dated `BASELINE` inside the script. That list is an escape hatch, and
@@ -739,6 +756,60 @@ sixteen live soaks were "mentioned" that way and could answer neither question
 And `ready` is **not** `cleared`: the threshold being met says a session should
 LOOK, never that the row's `clears_when` is satisfied. Those clauses routinely
 carry conditions no predicate can express.
+
+## Due work must reach someone who acts (operator directive 2026-10-04, binding)
+
+> Operator, approving the design: *"that's not a band-aid, that's a structural
+> fix … make sure it's canonized correctly … so everybody knows how to work
+> around them and things don't get ignored … this is highest priority."*
+
+Design of record: [`docs/plans/work-system-2026-10-04.md`](plans/work-system-2026-10-04.md).
+Manager procedure: [`.claude/skills/manager/SKILL.md`](../.claude/skills/manager/SKILL.md)
+§ "The work system".
+
+**A page someone has to choose to open is not an alarm.** MEASURED 2026-10-04:
+the pipeline had 366 items due and 151 unrouted, 25 `ask_operator` items had
+never reached the operator, and the brief was 737 KB and unread. Five rules
+bind:
+
+1. **Due is computed on the VM and pushed in ONE hourly Telegram message.**
+   `ict-work-digest` sends that message (operator decision 2026-10-04: fold
+   into it, never add a second digest timer). The message leads with what is
+   NEW and actionable, as computed by `scripts/ops/attention_watch.py`:
+   - new `ask_operator` items;
+   - soaks moving to `ready`, `overdue` or `dead`;
+   - silence alarms breaching or clearing.
+
+   Once a day it adds the ranked summary. Otherwise it is one quiet line. Extend
+   this carrier; do not add another.
+2. **Silence is an alarm.** Anything that is expected to arrive on a cadence (a
+   weekly grade, research results, row activity, the manager's own review)
+   carries a probe that fires when it does NOT arrive. A probe that could not
+   look reads `unknown`, and `unknown` never clears an alarm. This is the
+   collapsed-states rule above, applied to time.
+3. **Every soak carries a contract.** It states what it verifies, the expected
+   event rate from the backtest, the n and power it needs, an **end date**, and
+   a pass/fail rule registered before it starts. An end date beyond ~2 weeks
+   means the design is wrong and must be fixed before placement. This extends §
+   "A soak must carry its own alarm". It does not replace it: the alarm says
+   *when to look*, and the contract says *what ends the wait*.
+4. **The manager reviews a persisted report, on a schedule, twice a day.**
+   - `ict-work-report.timer` (05:30 UTC) writes `WR-YYYYMMDD-HHMMZ`, served at
+     `GET /api/bot/work/report`.
+   - `?since=` adds every hourly digest block that was sent. A session cannot
+     read Telegram, so this is how the manager sees what went out.
+   - Routines at 05:52Z and 17:52Z fire the review. The manager gets no push;
+     the routine is the check.
+   - A missing, stale or errored report is itself an alarm.
+5. **Lanes PUSH, and the manager POLLS.**
+   - A lane wakes the manager on finish, block or needs-action:
+     `create_trigger(persistent_session_id=<manager>)` + `fire_trigger`, with a
+     PR comment as the fallback.
+   - Lanes are spawned with `permission_mode: "auto"` and the wake block in the
+     prompt.
+   - A 3-hourly check-in routine catches every lane that did not wake the
+     manager. The manager's daily review works the report:
+   **dispatch, close, or decide** every item it shows.
 
 ## Always state the population (2026-07-31, binding — every quantitative claim)
 
