@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane VELOTRADE-API-PROBE dispatch instruction (manager session_01MM8o5js6TcDFeNAPBY4Ntv): land via a PR, the manager merges. Docs and pipeline records only.",
+  "why": "Evidence memo for the Velotrade REST probe (docs/research/velotrade-api-probe-2026-10-05.md), its DOCUMENT-INDEX row, and two pipeline records (close PI-20261005-APBY4NTV-0004, update PI-20261004-KQIWJZWX-0001 with the measured specs). No config, code, runtime or order path touched; the proposed executor.lots entries are in the memo only."
+}

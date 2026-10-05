@@ -1,7 +1,7 @@
 id: RQ-20261005-804
 title: 'Tradeify 247 1-Step prop fit, LONGER WINDOW (730d): ict_scalp_eth_15m at sizing flat 0.75% of balance (lane PROP-FIT-POWER,
   RULE-TRADEIFY-FIT)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -83,3 +83,8 @@ related:
 - config/prop_rulesets/tradeify_247_1step.yaml
 - research/queue/RQ-20261004-762.yaml
 - comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m.json
+last_dispatched_at: '2026-10-05T08:27:51+00:00'
+result: 'GRADED 2026-10-05 by lane PROP-FIT-POWER against this unit''s own pre-registered rule (registered before the run,
+  #16567): FAIL. ict_scalp_eth_15m, flat 0.75%, n=151: ev -$80..-$83, P(net>0) 0.09. Population: 730d committed trades pinned
+  by --leg, full cost stack, Tradeify 1-Step ruleset, 5 seeds. Source: research-script-run 37283788234 artifact (verdict.json,
+  grid.json, sims/). Stage-0 evidence only; no roster proposal from this unit.'

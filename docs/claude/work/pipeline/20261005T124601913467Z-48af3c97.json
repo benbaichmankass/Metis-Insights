@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-07",
+    "kind": "date"
+  },
+  "id": "PI-20261005-APBY4NTV-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv velotrade status 2026-10-05",
+    "rerun": "grep -n dxsca-web config/prop_platforms.yaml; curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=velotrade_1'"
+  },
+  "state": "done",
+  "terminal_reason": "Answered 2026-10-05: the DXtrade REST API at dx.velotrade.com/dxsca-web ACCEPTS the velotrade_1 trader login from the VM egress (HTTP 200, 30-min token, domain 'default'); reads work (users, portfolio, metrics, instruments global + account-scoped); REST balance 5000/equity 5000/0 positions/0 orders match the web terminal. Specs measured. Bracket via API = IF-THEN order group (docs only, not called; needs a Position-based account, not yet measured). Memo docs/research/velotrade-api-probe-2026-10-05.md; evidence issues #16590 #16595 #16608 #16612 #16616, run 37311474412. [lane VELOTRADE-API-PROBE session_01JzDpamQRqFT7p3tS1ChgfQ]",
+  "what": "[prop/velotrade_1] Operator 2026-10-05 ~07:40Z, verbatim \"Ok, let's go that\" (to: web-terminal route first, then test the DXtrade REST API as a follow-up). Velotrade serves the DXtrade REST API at /dxsca-web (config/prop_platforms.yaml velotrade_1 comment; deep-dive memo section 1.1). velotrade_1 today drives the BROWSER terminal only. TASK: after the read-only web login check passes, run a READ-ONLY API probe from the VM egress: login, read account/positions/orders, read instrument specs (lot size, step, price increment). No order endpoints. Report: does the API accept the trader login (not broker-only), which reads work, and what it would take to place a bracket via API instead of clicking. Tradeify's /specs returned HTTP 409 SERVICE_ERROR on 2026-09-30, so the API may be closed; a closed API is a valid answer."
+}

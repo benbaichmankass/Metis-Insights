@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "the ToS text has been read and the automation + multi-account clauses quoted in docs/integrations/breakout-phone-executor-DESIGN.md 7.10",
+    "kind": "event"
+  },
+  "id": "PI-20261005-YUVCGTMJ-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; branch claude/phone-exec-1b",
+    "rerun": "WebFetch https://intercom.help/breakoutprop/en/articles/11644090 ; try https://www.breakoutprop.com/terms"
+  },
+  "state": "queued",
+  "what": "BREAKOUT TERMS: the full Terms of Service / Funded Trader Agreement (breakoutprop.com/terms) returned HTTP 403 to every session and are UNREAD. The first-party FAQ prohibited-practices article forbids 'trading multiple accounts from the same household, device, or IP address' while another article allows buying multiple evaluations. breakout_1 (breached) and breakout_2 share the operator's phone/IP. Operator (or a session fed the text) reads the ToS for automation and multi-account clauses."
+}

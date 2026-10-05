@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Book search for prop accounts: inactivity gap + simultaneous-loss + prop_ev_sim per book.
 
-Executes the rule registered in research/queue/RQ-20261005-812.yaml (Tradeify) and
--813.yaml (Velotrade) BEFORE any run. Nothing here changes a threshold; the
+Executes the rule registered in research/queue/RQ-20261005-902.yaml (Tradeify) and
+-903.yaml (Velotrade) BEFORE any run. Nothing here changes a threshold; the
 thresholds below are copied from those units and must move only with them.
 
 Usage:

@@ -7,7 +7,7 @@
   "next_action": "dispatch_lane",
   "origin": {
     "kind": "research",
-    "ref": "lane PROP-ROSTER-EXPAND session_01WkDasLkAvbbEyVxjsgzg1x; units RQ-20261005-811..813",
+    "ref": "lane PROP-ROSTER-EXPAND session_01WkDasLkAvbbEyVxjsgzg1x; units RQ-20261005-901..903",
     "rerun": "python3 scripts/research/prop_book_search.py --firm tradeify --no-sim --out /tmp/gap --legs trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl  # prints solo/book max gap; then grep -n inactivity config/prop_rulesets/*.yaml"
   },
   "state": "queued",

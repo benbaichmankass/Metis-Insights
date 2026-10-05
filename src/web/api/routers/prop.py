@@ -183,3 +183,86 @@ def get_reconcile(account_id: str | None = None) -> dict[str, Any]:
         return {"present": False,
                 "summary": {"tickets_total": 0, "fills_total": 0, "unacted_count": 0},
                 "unacted_tickets": []}
+
+
+# ---------------------------------------------------------------------------
+# Phone executor (PHONE-EXEC-1B). Per-DEVICE bearer, account-pinned via
+# config/prop_phone_devices.yaml (token SHA-256 fingerprints only). Never the
+# shared DASHBOARD_API_TOKEN. See src/prop/phone_executor.py.
+# ---------------------------------------------------------------------------
+
+def _phone_device(authorization: str | None):
+    from src.prop import phone_executor as pe
+    try:
+        dev = pe.authenticate(authorization)
+    except pe.PhoneAuthError as exc:
+        raise HTTPException(status_code=401, detail="phone device not authorized") from exc
+    if not pe.is_phone_account(dev.account_id):
+        raise HTTPException(status_code=409, detail="account is not a phone-executed account")
+    return dev
+
+
+async def _json_body(request: Request) -> dict[str, Any]:
+    try:
+        body = await request.json()
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="invalid JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="body must be a JSON object")
+    return body
+
+
+@router.post("/phone/claim")
+async def phone_claim(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Atomically claim the next valid ticket for the device's account (or none)."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    expired = await asyncio.to_thread(pe.expire_stale_claims, dev.account_id)
+    if expired:
+        await asyncio.to_thread(pe.alert_expired, dev.account_id, expired)
+    ticket = await asyncio.to_thread(pe.claim_next, dev)
+    return {"ok": True, "account_id": dev.account_id, "ticket": ticket,
+            "kill_switch": pe.kill_switch(dev.account_id),
+            "config": pe.phone_config(dev.account_id)}
+
+
+@router.post("/phone/report")
+async def phone_report(request: Request,
+                       authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Fill / account-status / ticket-result report; account forced from the token."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    body = await _json_body(request)
+    try:
+        return await asyncio.to_thread(pe.record_report, dev, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/phone/event")
+async def phone_event(request: Request,
+                      authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Login / logout / refusal / mismatch events; pings the operator."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    body = await _json_body(request)
+    try:
+        return await asyncio.to_thread(pe.record_event, dev, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/phone/test-ticket")
+async def phone_test_ticket(request: Request,
+                            authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Emit one synthetic ALWAYS-DRY ticket for the end-to-end dry check."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    body = await _json_body(request)
+    sym = str(body.get("symbol") or "ETHUSDT").upper()
+    if not pe.venue_symbol(dev.account_id, sym):
+        raise HTTPException(status_code=400, detail="symbol not mapped for this account")
+    try:
+        return await asyncio.to_thread(pe.make_test_ticket, dev, symbol=sym)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

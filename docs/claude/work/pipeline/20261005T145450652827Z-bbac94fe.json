@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "a probe build is made for any reason and its export writes a file, shows the result on screen and keeps every capture; or the stay-logged-in measurement ends with no further build planned and this is closed as not worth fixing",
+    "kind": "event"
+  },
+  "id": "PI-20261005-9HEP9LYP-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1A session_01FuWi5xUmKJf6ps9HEp9LyP; operator report ~14:51Z via the manager; tools/phone-probe MainActivity.export()",
+    "rerun": "read tools/phone-probe/app/src/main/java/com/metis/phoneprobe/MainActivity.kt export(); ask the operator what the status line said after tapping Share; check whether a newer probe build has been made and whether it writes the report to a file"
+  },
+  "state": "queued",
+  "what": "PHONE PROBE REPORT EXPORT is unreliable (found 2026-10-05, build 1a.3): (1) the Share button 'did nothing' for the operator; export() reports its outcome only on the status line (REFUSED by the leak check, or 'report shared: N chars'), and the text was not reported, so the cause is undiagnosed (suspects: the leak check refusing, or the share sheet failing on a very large EXTRA_TEXT); (2) the captures list keeps only the last 6, so early captures (the 11:43Z first logged-in capture) roll off; (3) pasting the report into chat truncates it inside the captures list. Fix in the NEXT build made for any other reason (a reinstall wipes the logged-in session under test, so do NOT build only for this): write the report to a file and share the file, show size and result in a dialog, catch and display any share error, and keep every capture (or write each to its own file)."
+}

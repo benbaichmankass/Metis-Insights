@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: closes the VELOTRADE-WIRE checklist row (blocked -> done; the credential is synced and the read-only checks are observed). The API executor build moved to lane VELOTRADE-API-EXEC. No code, config or order-path change."
+}

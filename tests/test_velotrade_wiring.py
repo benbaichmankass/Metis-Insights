@@ -55,12 +55,15 @@ def test_not_the_purged_scaffold_id():
 
 def test_platform_entry_points_at_velotrade_and_enables_nothing():
     v = load_platform_config("velotrade_1")
-    assert v["platform"] == "dxtrade"
-    assert v["login_url"] == "https://dx.velotrade.com/"
+    # VELOTRADE-API-EXEC (2026-10-05): the REST order path, not the browser.
+    assert v["platform"] == "dxtrade_api"
+    assert v["login_url"] == "https://dx.velotrade.com/dxsca-web"
     assert (v["username_env"], v["password_env"]) == ("VELOTRADE_DX_USERNAME", "VELOTRADE_DX_PASSWORD")
     ex = v["executor"]
     assert ex["enabled_venue_symbols"] == []
-    assert ex["lots"] == {} and ex["watched_click_max_lots"] == {}
+    # lots are the REST-measured specs (#16616); they arm nothing on their own
+    assert set(ex["lots"]) == {"ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD"}
+    assert ex["watched_click_max_lots"] == {}
     # Tradeify's measured quirks are NOT inherited
     for k in ("ticket_opener", "limit_price_fill", "search_query_style"):
         assert k not in v
@@ -109,7 +112,9 @@ def test_executor_config_reads_velotrades_numbers():
     assert c.enabled_venue_symbols == []
     assert {s: v["venue"] for s, v in c.symbols.items()} == {
         "ETHUSDT": "ETHUSD", "SOLUSDT": "SOLUSD", "XRPUSDT": "XRPUSD"}
-    assert all(v["lot_units"] is None for v in c.symbols.values())   # structure guard refuses
+    # Measured lots now reach the executor; enabled_venue_symbols (empty)
+    # is what keeps every symbol from being acted on.
+    assert all(v["lot_units"] == 1 for v in c.symbols.values())
 
 
 def test_leverage_caps_resolve_by_bot_symbol():

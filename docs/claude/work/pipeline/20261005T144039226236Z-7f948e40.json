@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-KQIWJZWX-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01WfdESzsCPZbuawkqiWjzWX",
+    "kind": "session",
+    "ref": "VELOTRADE-WIRE API order-path memo (manager task 2026-10-05 12:54Z)",
+    "rerun": "read the latest velotrade-api-probe system-action issue output for 'account#1 type: {...isPositionBased...}'; ls src/prop/platform/ | grep -i api"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "what": "DECISION + BUILD: give velotrade_1 a DXtrade REST order path (a `dxtrade_api` platform adapter implementing the 8 PropPlatformAdapter methods over REST, dry by default), per docs/research/velotrade-api-executor-design-2026-10-05.md. Gate: isPositionBased from velotrade-api-probe v4 (#16619): true -> IF-THEN bracket in one POST (no naked window); false -> entry then protect-by-positionCode (one-round-trip naked window, stated). Then the memo's section-4 Tier-2 min-size round trip on ETHUSD (0.01 ETH), only with an operator OK in chat. No config/accounts.yaml or roster change. || MEASURED 2026-10-05 14:40Z (issue #16631, run 37326456086, probe v4 at 42e15364): velotrade_1 `positionBased: true` (the server's key is `positionBased`, not the spec's `isPositionBased`), accountStatus FULL_TRADING, baseCurrency USD, 0 positions, 0 orders, balance/equity 5000. So the IF-THEN bracket (entry+SL+TP in ONE POST, no naked window) is the build path. Tier-2 round trip still NOT approved (manager takes it to the operator)."
+}

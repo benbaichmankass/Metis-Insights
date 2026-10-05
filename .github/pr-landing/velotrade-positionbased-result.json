@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs + register only: records the measured velotrade_1 positionBased=true (issue #16631) in the API executor design memo and as an update record of PI-20261005-KQIWJZWX-0002. No code, config, roster or order-path change."
+}

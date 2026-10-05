@@ -1,0 +1,60 @@
+id: RQ-20261005-901
+title: 'PROP-ROSTER-EXPAND candidate evidence: 730d records for the 8 Tradeify/Velotrade-symbol legs that lack one (lane PROP-ROSTER-EXPAND)'
+status: done
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 2
+question: 'Which ETH/SOL/XRP legs have a 730d, full-cost-stack, faithful Stage-0 record (n>=88, net_r_oos>0, 4 folds)? Builds
+  records with scripts/ops/build_strategy_evidence.py --days 730 --folds 4 for: trend_donchian_eth, trend_donchian_eth_4h,
+  eth_pullback_2h, trend_donchian_sol, trend_donchian_sol_4h, sol_pullback_2h, xrp_pullback_2h, trend_donchian_xrp_4h. Existing
+  730d records (ict_scalp_{eth,sol,xrp}_15m, trend_donchian_{eth,sol}_prop) are reused as committed.'
+why_this_matters: 'Operator directive 2026-10-05: more strategies so the prop books stay inside the firms'' inactivity rules.
+  A book can only be built from legs with a committed record at a power that can answer; the 365d records for these legs are
+  mostly n<88 (UNDERPOWERED), and n is bounded by --days, not the calendar (backtesting skill s2).'
+power:
+  expected_n: 100
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: Admission needs n>=88 (d=0.3, alpha .05, power .8; floor of RQ-20260928-011/-012). Legs with n<88 at 730d grade UNDERPOWERED
+    and are not admitted to a book; the floor is NOT lowered.
+  feasibility:
+    source: none
+    accrual_basis: Historical window fetched from data.binance.vision; n bounded by --days, not the calendar.
+decision_rule:
+  id: RULE-RQ1005-PROPEXPAND-ADMIT
+  registered_at: '2026-10-05'
+  registered_before_run: true
+  statistic: 'Per leg: the record scripts/ops/build_strategy_evidence.py writes at --days 730 --folds 4 with the leg''s live
+    config (no --ignore-yaml), full cost stack (fee 7.5 + venue slippage + funding).'
+  rule: ADMITTED iff coverage_state=measured AND fidelity=faithful AND n_trades_oos>=88 AND net_r_oos>0 (RULE-D1-STAGE0-NET-OF-FULL-COST).
+    UNDERPOWERED iff n<88 (never FAIL, never admitted). FAIL iff n>=88 and net_r_oos<=0. Folds-positive and ex-max-fold sign
+    are REPORTED, not gated (backtesting skill s2). The 88 floor is not changed after seeing any result.
+  what_it_does_not_do: 'Does not touch config/accounts.yaml or strategies.yaml. Admission is eligibility for book search in
+    RQ-20261005-902/-903, not a roster proposal. BTC legs are out of scope: neither tradeify_routing.yaml nor velotrade_routing.yaml
+    routes BTCUSD.'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 20
+  basis: 1 leg x 1 arm x 5 seeds of prop_ev_sim, same shape and cost as the generated Breakout prop-fit units.
+run:
+  workflow: session-local
+  note: 'Run SESSION-LOCAL by lane PROP-ROSTER-EXPAND: python3 scripts/ops/build_strategy_evidence.py --strategy trend_donchian_eth
+    --strategy trend_donchian_eth_4h --strategy eth_pullback_2h --strategy trend_donchian_sol --strategy trend_donchian_sol_4h
+    --strategy sol_pullback_2h --strategy xrp_pullback_2h --strategy trend_donchian_xrp_4h --days 730 --folds 4 --workdir
+    comms/strategy_evidence/runs/2026-10-05-730d-expand . Same pattern as RQ-20261002-701.'
+  inputs:
+    research_unit: RQ-20261005-901
+lands:
+  store: comms/strategy_evidence/
+  assert_field: coverage_state
+  min_rows: 8
+related:
+- research/queue/RQ-20261002-701.yaml
+- docs/claude/work/pipeline/20261005T093354512568Z-27b80ef7.json
+result: 'GRADED 2026-10-05 against RULE-RQ1005-PROPEXPAND-ADMIT (session-local, 730d/4 folds, records under comms/strategy_evidence/runs/2026-10-05-730d-expand/). ADMITTED: none of the 8 (4 approximate: trend_donchian_eth n=232, eth_pullback_2h n=116, trend_donchian_sol n=120, xrp_pullback_2h n=122; UNDERPOWERED: trend_donchian_eth_4h n=85, trend_donchian_sol_4h n=75, sol_pullback_2h n=36 (net -1.55R), trend_donchian_xrp_4h n=25). Admitted pool for books = existing 730d PASS records trend_donchian_eth_prop, trend_donchian_sol_prop, ict_scalp_eth_15m. Follow-up PI-20261005-XJSGZG1X-0002.'
