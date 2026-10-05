@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "new authenticated phone routes on the web API (Tier 2) and a new prop account breakout_2 with a roster (Tier 3, starts dry_run); the manager merges under the operator's 2026-10-05 ~15:20Z direction to go live on Breakout, then deploys via pull-and-deploy",
+  "why": "phase 1b phone executor: src/prop/phone_executor.py + /api/bot/prop/phone/*, config/accounts.yaml::breakout_2, Turbo ruleset, Android app + stable-signing APK workflow"
+}

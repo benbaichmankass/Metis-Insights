@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "an AUTOMATIC re-login through the dedicated inbox is observed on the operator's phone (a login_ok event for breakout_2 in Telegram / the API log) after a logout or a phone restart",
+    "kind": "event"
+  },
+  "id": "PI-20261005-9HEP9LYP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1A session_01FuWi5xUmKJf6ps9HEp9LyP, 2026-10-05, manager relay of the operator's finding; design docs/integrations/breakout-phone-executor-DESIGN.md 7.9",
+    "rerun": "read session.reauth_needed_after_min and session.login_methods_seen in the latest phone-probe report; if a session outlives the soak the question is moot, if it does not, put this decision to the operator with the terms text"
+  },
+  "routed_to": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ, PR #16638 (tools/phone-executor auto re-login)",
+  "state": "routed",
+  "what": "OPERATOR DECISION + TERMS READ NEEDED before any design: should the phone executor ever read the login EMAIL and tap the number-match itself? Breakout's new terminal signs in by email: the page shows a few numbers and the user taps the matching number in an emailed message (observed by the operator 2026-10-05, build 1a.3 on the $20 account). Automating the email read and the number tap would defeat a human-verification step. PHONE-EXEC-1A has NOT designed or built it and will not without (a) an explicit operator decision and (b) a first-party read of Breakout's terms on automated access and verification. Until then the working assumption (design 7.9) is that every fresh login needs a human tap, so the go/no-go measure is how long a session lasts without re-auth (session.reauth_needed_after_min in the 1a.4 report) plus a re-login alert to the operator. | REOPENED 2026-10-05 ~15:20Z under PHONE-EXEC-1B: the operator directed Breakout to go live ASAP and chose automatic re-login through a dedicated inbox (as relayed by the manager, not verbatim). This supersedes the ~11:47Z decision not to build it. NOT cleared by that decision: Breakout's terms on automated access and verification are still UNREAD (pipeline -0003), so the operator's go-live direction is taken with that risk open, and this lane records that rather than resolving it."
+}

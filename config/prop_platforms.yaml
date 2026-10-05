@@ -315,3 +315,28 @@ probes:
     platform: breakout_terminal
     username_env: BREAKOUT_DX_USERNAME
     password_env: BREAKOUT_DX_PASSWORD
+
+# ---------------------------------------------------------------------------
+# phone_accounts: prop accounts driven by the operator's PHONE, not the VM
+# (PHONE-EXEC-1B, 2026-10-05; design docs/integrations/breakout-phone-executor-DESIGN.md).
+# A separate section on purpose: load_platform_config() reads only `accounts:` /
+# `probes:`, so the VM executor and the login check can never pick these up, and
+# no ict-prop-executor@<account> timer exists for them. The phone talks to
+# /api/bot/prop/phone/* (src/prop/phone_executor.py), which refuses (409) any
+# device pinned to an account that is not declared here with
+# platform: breakout_phone.
+#
+# instruments: bot symbol -> venue symbol + the increments the phone rounds to.
+# UNMEASURED on the new Breakout terminal: the venue names (the symbol strip's
+# labels were redacted in the 1a captures) and the steps (copied from the DXtrade
+# measurements in `accounts.breakout_1.executor.lots` above). The phone refuses
+# any ticket whose symbol it cannot verify on the ticket, and reports the form
+# dump, so the dry end-to-end check is what measures them.
+# ---------------------------------------------------------------------------
+phone_accounts:
+  breakout_2:
+    platform: breakout_phone
+    terminal_url: https://trade.breakoutprop.com/
+    instruments:
+      ETHUSDT: {venue: ETHUSD, qty_step: 0.01, price_step: 0.01}
+      SOLUSDT: {venue: SOLUSD, qty_step: 0.01, price_step: 0.01}

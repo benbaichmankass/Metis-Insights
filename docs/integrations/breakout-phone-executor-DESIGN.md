@@ -586,6 +586,74 @@ By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the le
 - **Branch and PR:** #16574 (`landing: hold`, CI green on its last observed heads, local guards 53 pass / 0 fail) carries the probe, the 1a.3 app, the egress-probe note and this design text. **Recommendation: have the manager land #16574 as it is, and branch 1B from the new `main` as `claude/phone-exec-1b`**, rather than piling the executor onto a held PR. Reproduce CI locally before pushing: `git branch -f main origin/main`, `git diff origin/main...HEAD > /tmp/pr.diff`, then `python3 scripts/ci/run_guards.py --base-ref main --event-name pull_request --pr-diff /tmp/pr.diff` (a `check_observation` pipeline item needs an `observation: {what, how_to_check, due_by}` block or `soak-contract-guard` fails).
 - **Tooling note:** the auto-mode classifier denied credential-handling edits in this lane until the user approved them inside the session; expect the same in 1B and have the user approve there.
 
+### 7.11 Phase 1b build: the shortest safe path to live (2026-10-05, lane PHONE-EXEC-1B)
+
+**Direction (operator, 2026-10-05 ~15:20Z, verbatim as relayed in the manager's dispatch):** "we're now pushing for live on breakout basically as soon as we can. Not instead of other priorities ... if there's no technical blockers up until now, then we should get to live trading as soon as possible ... even if we get there tonight and we still need to do the check tomorrow morning, then that's fine." / "it's still breakout, so it should still be the same strategies ... we [shouldn't] need to start that completely from scratch." / "the goal here is for it to be able to log in again by itself ... even if the phone does restart, then it'll sign in again ... that needs to be the operational level that we're aiming for." Popup answer (~15:21Z): re-login = "Read a dedicated inbox".
+
+**ACCEPTED RISK, terms (operator decision ~15:52Z, verbatim, relayed by the manager):** "we'll take the risk without reviewing the terms, but we still need build automatic re-login". This replaces the dispatch's terms-read gate. The full Terms of Service stay unread, and `PI-20261005-9HEP9LYP-0003` is closed `killed` with these words. The first-party FAQ reading below is kept as context only. It decides nothing.
+
+**CORRECTION, re-login is not a go-live gate (operator ~15:59Z, verbatim, relayed by the manager):** "automatic log in is not required to go live, it's just a priority and needs to happen even without the terms". This supersedes the manager's 15:52Z line that made automatic re-login REQUIRED for go-live.
+- **Go-live path:** phone executor and ticket channel, then the dry ticket end to end, then the live flip. It runs on the current manually logged-in session.
+- **Automatic re-login:** built in this same PR. It is not on the go-live path, and the unread terms do not block it.
+- **Until auto re-login is configured and proven:** the app pings the operator at once whenever it lands on the login page (`logout_seen`), including right after a restart, so one human tap re-logs in. While logged out the app fails closed: no claim, no fill, no submit.
+
+**Terms read for this phase (first-party help centre, `intercom.help/breakoutprop`, 2026-10-05).** The full Terms of Service / Funded Trader Agreement still returned HTTP 403 and are **unread**.
+- *Prohibited practices* (article 11644090) lists no clause on automation, bots, scripts or software.
+- That article **does** prohibit "sharing account access, or trading multiple accounts from the same household, device, or IP address".
+- Article 11644097 says "Yes, you can purchase multiple evaluations", and 11644103 bans only cross-account hedging and copy trading *across users*.
+- **Reading:** nothing read forbids the build, so the build is not stopped. The multi-account clause is a live risk, though. `breakout_1` (breached) and `breakout_2` are on the same phone and IP. Only one is trading, and its legs are our own signals, not a third party's.
+- The operator accepted the terms risk (above); this note stays only so the multi-account clause is visible.
+
+**What was built** (one PR):
+
+| piece | where | notes |
+|---|---|---|
+| Per-device auth | `config/prop_phone_devices.yaml`, `src/prop/phone_executor.py::authenticate` | The phone mints a 256-bit token. Only its SHA-256 **fingerprint** leaves the phone (the "Share ID" button) and is committed; a fingerprint is not a secret. Each device is pinned to one account. Revoke = `revoked: true`. This **replaces the § 3.2 pairing-code / new-table design**: no `prop_devices` table, no Telegram code and no new secret, and pairing is a git-visible change. |
+| Routes | `POST /api/bot/prop/phone/{claim,report,event,test-ticket}` (`routers/prop.py`, `docs/api-tier-policy.md`) | `claim` is the atomic `emitted -> claimed`, and it runs the 3-minute watchdog. `report` forces `account_id` from the token. `ticket_result` keeps the phone's form dump in `meta.phone.result`, which is how the unread TP/SL labels will be read. `event` pings Telegram with links, emails and 6+ digit runs scrubbed. `test-ticket` is always dry. |
+| Submit decision | `phone_executor.submit_mode` | `live` only if the account's `accounts.yaml` mode is `live`, `PROP_PHONE_MODE_<ACCOUNT>` is not `off` or `dry` (an unparseable value counts as `dry`), and the ticket is not a test. The phone also needs its own **ARMED** switch (default off). |
+| Account | `config/accounts.yaml::breakout_2` (`mode: dry_run`), `config/prop_platforms.yaml::phone_accounts.breakout_2`, `config/prop_rulesets/breakout_turbo_1step.yaml` | `phone_accounts` is a separate section, so the VM executor and the login check never load it. |
+| App | `tools/phone-executor/` (`com.metis.phoneexec`), CI `phone-executor-apk.yml` | Kiosk WebView, stock UA. Claim every 30 s. Fill: Limit tab, side tab, limit price, quantity (unit must name the base asset), TP/SL. Read every field back; the submit label must carry the side. In dry mode it does not submit; in live mode it submits, then reads Open orders / Positions back and flattens any opposite-side position. Fsynced intent ledger with no retry after a restart. Auto re-login: dedicated inbox, newest `breakoutprop.com` mail, the ONE link whose text equals the page's number, opened in the same WebView, 2 failures then latch and ping. Foreground service + boot receiver + "display over other apps" to come back after a reboot. |
+| Stable signing | `phone-executor-apk.yml` | The first run generates a keystore into Actions secrets (`PHONE_EXEC_KEYSTORE_*`) through the existing `BRANCH_PROTECTION_TOKEN`; it is never printed and never in git. Later builds install over the old app and keep the session. **New applicationId**, so the 1a probe and its session under measurement are untouched. |
+
+**Deviation from the dispatch, stated:** the inbox is read over **IMAP with a Gmail app password**, not the Gmail API with OAuth.
+- **Why:** OAuth needs a Google Cloud project, a consent screen and an Android client bound to the signing certificate. A `gmail.readonly` app in testing mode also gets refresh tokens that expire after 7 days, which defeats "logs in by itself".
+- **What the app password costs:** the password grants full access to that mailbox. Mitigations:
+  - the mailbox is dedicated and holds only forwarded Breakout login mail;
+  - the folder is opened READ_ONLY and the app never writes;
+  - the password is stored only in Keystore-backed EncryptedSharedPreferences;
+  - revoking it takes one click in the Google account.
+- If the operator prefers OAuth, that is a follow-up, not a blocker.
+
+**Still unmeasured, and how the dry ticket measures it:**
+- the venue symbol names (`ETHUSD` / `SOLUSD` assumed) and the steps on the new terminal;
+- whether the native-setter typing registers (falls back to key events);
+- the quantity unit;
+- the TP/SL field labels;
+- what a submit confirmation looks like (never seen; an unexpected dialog is cancelled and refused);
+- whether SL/TP live at the venue (§ 5.4).
+
+Every one of these is a **refusal with the form dump**, never a guess, so the first dry ticket either passes or names the label to fix.
+
+**Operator steps (one-time, about 10 minutes, all on the phone):**
+1. **Dedicated inbox:**
+   - Create a new Gmail used only for Breakout.
+   - Turn on 2-Step Verification (Google Account → Security).
+   - Create an **App password** (Security → App passwords) and keep it on screen for step 4.
+   - In your **main** Gmail: Settings → Forwarding → add the new address. Confirm with the code Google sends to the new inbox.
+   - Still in the main Gmail, add a filter `from:(breakoutprop.com)` → "Forward it to" the new address.
+2. **Install:**
+   - Open the latest `phone-executor-apk` run in GitHub Actions and download the `phone-executor-1b-apk` artifact.
+   - Unzip it and install `app-release.apk`, allowing "install unknown apps" for your browser once.
+3. **Open "Metis Executor" → Setup:**
+   - your Breakout login email;
+   - the new Gmail address;
+   - the app password, typed into the app only, never into chat.
+   - Tap "Allow restart after reboot", "Ignore battery optimisation" and "Allow notifications".
+4. Leave the app open. It loads the terminal and should log itself in through the inbox; that first login is the first test of auto re-login. If it latches, log in by hand in the app and tap "Reset login".
+5. Tap **Share ID** and send the line to the manager. It is a fingerprint, not a secret. We commit it, which pairs the phone.
+6. Tap **Dry test**. The app fills one ETH ticket, reads it back, does **not** submit, and the VM pings the result.
+7. Keep the phone on charge with the app on screen. Do **not** tap ARMED until the go-live message.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |

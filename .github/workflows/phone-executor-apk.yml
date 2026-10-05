@@ -1,0 +1,99 @@
+name: phone-executor-apk
+
+# Builds the phase-1b Breakout PHONE EXECUTOR (tools/phone-executor/) and uploads a RELEASE APK signed with a
+# STABLE key, so each new build installs OVER the previous one and keeps the app's logged-in WebView session.
+# Design: docs/integrations/breakout-phone-executor-DESIGN.md (§ 3, § 7.9) and its § 7.11 (1b build notes).
+#
+# STABLE SIGNING, with no keystore in this PUBLIC repo and no operator step:
+#   - the key lives ONLY in Actions secrets PHONE_EXEC_KEYSTORE_B64 + PHONE_EXEC_KEYSTORE_PASSWORD;
+#   - the FIRST run that finds them absent generates a random keystore with keytool and stores both with
+#     `gh secret set` (stdin, never echoed) using the repo's existing BRANCH_PROTECTION_TOKEN PAT (repo scope,
+#     the same token init-actions-secrets.yml uses). Every later run reuses it. A concurrency group stops two
+#     first runs racing. The keystore file is written to $RUNNER_TEMP and deleted at the end of the job.
+#   - if the secrets are absent AND the PAT is unavailable, the job fails loudly instead of shipping an
+#     unstable debug key.
+# The APK holds no secret: the device token is minted on the phone at first run.
+
+on:
+  push:
+    paths:
+      - 'tools/phone-executor/**'
+      - '.github/workflows/phone-executor-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phone-executor-apk-signing
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK packages
+        run: |
+          SM=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -1)
+          yes | "$SM" --licenses >/dev/null || true
+          "$SM" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+      - name: Stable signing key (create once into Actions secrets, never printed)
+        env:
+          KS_B64: ${{ secrets.PHONE_EXEC_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.PHONE_EXEC_KEYSTORE_PASSWORD }}
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          KS="$RUNNER_TEMP/phoneexec.jks"
+          if [ -n "${KS_B64}" ] && [ -n "${KS_PASS}" ]; then
+            printf '%s' "${KS_B64}" | base64 -d > "$KS"
+            PASS="${KS_PASS}"
+            echo "signing: reusing the stored stable key"
+          else
+            if [ -z "${GH_TOKEN}" ]; then
+              echo "::error::PHONE_EXEC_KEYSTORE_* absent and BRANCH_PROTECTION_TOKEN unavailable: cannot create a stable key."
+              exit 1
+            fi
+            PASS=$(openssl rand -hex 24)
+            echo "::add-mask::${PASS}"
+            keytool -genkeypair -keystore "$KS" -storetype PKCS12 -storepass "$PASS" -keypass "$PASS" \
+              -alias phoneexec -keyalg RSA -keysize 3072 -validity 18250 \
+              -dname "CN=Metis Phone Executor" >/dev/null 2>&1
+            base64 -w0 "$KS" | gh secret set PHONE_EXEC_KEYSTORE_B64 --repo "$REPO"
+            printf '%s' "$PASS" | gh secret set PHONE_EXEC_KEYSTORE_PASSWORD --repo "$REPO"
+            echo "signing: generated a NEW stable key and stored it in Actions secrets (first run)"
+          fi
+          echo "::add-mask::${PASS}"
+          echo "PHONE_EXEC_KEYSTORE=$KS" >> "$GITHUB_ENV"
+          echo "PHONE_EXEC_KEYSTORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          # The certificate fingerprint is public (it is in every APK); print it so a reinstall can be checked.
+          keytool -list -keystore "$KS" -storepass "$PASS" -alias phoneexec | grep -i "SHA-256" || true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build release APK
+        working-directory: tools/phone-executor
+        run: gradle assembleRelease --no-daemon --stacktrace
+      - name: Page-side check (headless Chromium, synthetic ticket)
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cd "$GITHUB_WORKSPACE" && NODE_PATH="$RUNNER_TEMP/pw/node_modules" node tools/phone-executor/test/exec_check.js
+      - name: Remove the keystore file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/phoneexec.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phone-executor-1b-apk
+          path: tools/phone-executor/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
+# no-durable-result: builds a sideloadable executor APK; its results are tickets/reports on the VM, not this job
