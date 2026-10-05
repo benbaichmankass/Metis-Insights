@@ -82,7 +82,14 @@ def test_prop_is_its_own_class_not_folded_into_real_money_or_paper() -> None:
     """
     routing = ROLLUP._funding_by_leg()
     assert ROLLUP._leg_funding("trend_donchian_eth_prop", routing) == "prop"
-    assert ROLLUP._leg_funding("trend_donchian_sol_prop", routing) == "prop"
+    # ANCHOR MOVED 2026-10-05: trend_donchian_sol_prop was removed from tradeify_1 (Tier-3,
+    # data-backed: RQ-20261005-807 FAIL at 0.5%, 730d n=132, EV -$74, P(net>0) 0.11), so it no
+    # longer routes to any prop account and reads its remaining (paper) route. Same movement
+    # assertion as eth_pullback_prop_2h below: it must not read `prop` again without a record.
+    assert ROLLUP._leg_funding("trend_donchian_sol_prop", routing) != "prop", (
+        "trend_donchian_sol_prop graded prop again -- it was removed from tradeify_1 on "
+        "2026-10-05 (RQ-20261005-807 FAIL). If deliberately re-added, that is Tier-3 and needs "
+        "a record clearing the bar.")
     # Since 2026-10-05 (SOAK-GATE1, Stage-0 FAIL) bybit_1 no longer declares it,
     # so it reads `unresolved`; it must still never read `prop` again.
     assert ROLLUP._leg_funding("eth_pullback_prop_2h", routing) != "prop", (
