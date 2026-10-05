@@ -1,0 +1,81 @@
+{
+  "strategy": "htf_pullback_trend_2h",
+  "symbol": "ETHUSDT",
+  "timeframe": "2h",
+  "params": {
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 5.0,
+    "min_confidence": 0.0,
+    "adx_min": 25.0,
+    "adx_period": 14
+  },
+  "total_trades": 116,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2024-10-05 00:00:00+00:00",
+  "data_end": "2026-10-04 22:00:00+00:00",
+  "run_date": "2026-10-05",
+  "tp_r_effective_n": 116,
+  "tp_r_effective_median": 2.508,
+  "tp_r_effective_min": 0.852,
+  "tp_r_effective_max": 7.968,
+  "rr_floor_state": "off",
+  "rr_min_n": 114,
+  "rr_min_p10": 0.159,
+  "rr_min_median": 1.192,
+  "rr_min_p90": 2.95,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 31.9,
+  "total_r": 16.9687,
+  "net_total_r": 10.4703,
+  "net_total_r_long": 8.2265,
+  "net_total_r_short": 2.2438,
+  "net_expectancy_r": 0.0903,
+  "net_total_r_fee_only": 14.5229,
+  "net_expectancy_r_fee_only": 0.1252,
+  "trades_long": 59,
+  "trades_short": 57,
+  "avg_win_r": 2.3232,
+  "max_mfe_r": 5.547,
+  "mean_cost_r": {
+    "fee_r": 0.02108,
+    "slippage_r": 0.00843,
+    "funding_r": 0.0265,
+    "total_cost_r": 0.05602,
+    "funding_windows": 10.87069
+  },
+  "max_drawdown_r": 12.377,
+  "by_outcome": {
+    "trail_stop": 23,
+    "stop": 59,
+    "take_profit": 31,
+    "timeout": 3
+  },
+  "by_year": {
+    "2024": {
+      "trades": 12,
+      "net_r": 1.3919
+    },
+    "2025": {
+      "trades": 59,
+      "net_r": 12.6653
+    },
+    "2026": {
+      "trades": 45,
+      "net_r": -3.5871
+    }
+  },
+  "bar_minutes": 120.0,
+  "position_days": 421.3333,
+  "capital_days": 421.3333,
+  "mean_bars_held": 43.586,
+  "net_r_per_position_day": 0.0249,
+  "net_r_per_capital_day": 0.0249,
+  "exit_grain": "leg",
+  "subbar_coverage": null,
+  "subbar_missing_bars": null
+}

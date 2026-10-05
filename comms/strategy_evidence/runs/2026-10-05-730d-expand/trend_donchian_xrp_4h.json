@@ -1,0 +1,88 @@
+{
+  "schema_version": 2,
+  "strategy": "trend_donchian_xrp_4h",
+  "symbol": "XRPUSDT",
+  "timeframe": "4h",
+  "config_fingerprint": "sha256:02970f3827937b68671b116a7f027ab4",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 5.7093,
+  "expectancy_r_oos": 0.2284,
+  "n_trades_oos": 25,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 6,
+      "net_r": -3.1795,
+      "expectancy_r": -0.5299,
+      "start": "2024-10-25 20:00:00+00:00",
+      "end": "2025-04-07 04:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 6,
+      "net_r": 4.2229,
+      "expectancy_r": 0.7038,
+      "start": "2025-06-22 12:00:00+00:00",
+      "end": "2025-11-03 12:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 6,
+      "net_r": 4.5075,
+      "expectancy_r": 0.7512,
+      "start": "2025-12-15 12:00:00+00:00",
+      "end": "2026-02-05 08:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 7,
+      "net_r": 0.1584,
+      "expectancy_r": 0.0226,
+      "start": "2026-02-28 04:00:00+00:00",
+      "end": "2026-09-15 16:00:00+00:00"
+    }
+  ],
+  "folds_positive": 3,
+  "window_days": 730,
+  "fee_bps_roundtrip": 7.5,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 25,
+    "max_drawdown_r": 4.2063,
+    "max_drawdown_at_trade": 7,
+    "final_equity_r": 5.7093,
+    "max_equity_r": 7.01,
+    "worst_trade_r": -1.0675,
+    "best_trade_r": 2.9511,
+    "worst_day_r": -1.0675,
+    "worst_day_date": "2026-07-29",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 3.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_xrp_4h__bt.json"
+  },
+  "net_r_oos_fee_only": 6.1797,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-10-05T11:18:04.860450+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "comms/strategy_evidence/runs/2026-10-05-730d-expand/trend_donchian_xrp_4h__trades.jsonl",
+  "error": null,
+  "harness": "trend",
+  "venue_bracket_arm": null
+}
