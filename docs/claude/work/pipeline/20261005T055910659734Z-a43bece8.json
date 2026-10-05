@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present)",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "declared_at": "2026-07-23",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "avax_pullback_2h"
+    }
+  },
+  "id": "PI-SOAK-20261004-avax_pullback_2h",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "killed",
+  "terminal_reason": "Gate 1 FAIL (SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv)). comms/strategy_evidence/avax_pullback_2h.json: net_r_oos -1.398R, n=57, 4 folds (2 positive), full cost stack fee 7.5+slip 3.0+funding 1.0 bps, rule RULE-D1-STAGE0-NET-OF-FULL-COST (registered 2026-09-22) = FAIL (fee-only +0.359R, so the full-cost stack is what flips it). Removed from bybit_1 roster. Lands when the SOAK-GATE1 PR merges; revert = re-add to bybit_1 strategies.",
+  "what": "SOAK (shadow): avax_pullback_2h — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}

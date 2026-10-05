@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present)",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "declared_at": "2026-07-28",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "fvg_range_15m"
+    }
+  },
+  "id": "PI-SOAK-20261004-fvg_range_15m",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "killed",
+  "terminal_reason": "Gate 1 FAIL (SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv)). comms/strategy_evidence/fvg_range_15m.json: net_r_oos -9.695R, n=17, 4 folds (0 positive), full cost stack, rule = FAIL. Removed from bybit_1 roster. Soak DEAD (0 packages in 69d) is BY DESIGN: config/regime_policy.yaml sets fvg_range_15m long/short off in trending and chop. Lands when the SOAK-GATE1 PR merges; revert = re-add to bybit_1 strategies.",
+  "what": "SOAK (shadow): fvg_range_15m — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}
