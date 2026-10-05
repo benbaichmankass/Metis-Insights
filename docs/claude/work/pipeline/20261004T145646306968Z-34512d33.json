@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator grants or declines MD-SOAK-EXIT-CELL-PATHB; on GRANT a workflow calling resolve_exit_cell exists, or the manager kills this row with a stated reason",
+    "kind": "event"
+  },
+  "id": "PI-20260930-39SDYWCO-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "ls .github/workflows | grep -i exit-cell; grep -n 'resolve_exit_cell' -r scripts .github | grep -v tests/"
+  },
+  "routed_to": null,
+  "severity": "low",
+  "state": "done",
+  "terminal_reason": "BACKLOG-ROUTE 2026-10-04: Fixed: exit-cell-mandate.yml + exit_cell_runner.py on main (#14626); scheduled runs completed success 10-01..10-04.",
+  "tier": 2,
+  "what": "MD-SOAK-EXIT-CELL-PATHB has NO RUNNER: if the operator grants it, nothing opens the `landing: hold` PR or pings. resolve_exit_cell() evaluates one (leg, cell); a workflow (shape of r4-demotion-gate.yml, but writing config/strategies.yaml + the coverage-matrix cell + regenerated evidence, never accounts.yaml) must enumerate soak-only path_b_wf_pass cells, apply the B4 selection rule (highest wf_wins_effective, tie-break d_net_r), and open the PR. A mandate with no runner is a memo."
+}

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a mechanical detector or gate exists that fails/flags a merged tier-2/3 `hold` PR with no approval record (test plants one), OR the operator records that prose-only enforcement is accepted, with the reason, on the checklist",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-GU9VGVPE-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A09 (session_01CTCL5m5svVvXSgGu9VGVpe), finding AUD-20260927-A09-hold-merge-unenforced",
+    "rerun": "curl -s https://api.github.com/repos/benbaichmankass/Metis-Insights/branches/main (required checks); run branch-protection-report.yml for required_pull_request_reviews; grep -n 'mcp__github\\b\\|\"ask\"' .claude/settings.json; grep -n 'declared_hold' scripts/ci/check_pr_landing.py. Holds while a hold PR is green and nothing gates or detects its merge."
+  },
+  "routed_to": null,
+  "state": "killed",
+  "terminal_reason": "BACKLOG-ROUTE 2026-10-04: JC-CA-04 option B post-merge alarm landed (pr-landing-hold-merge-alarm.yml, scripts/ops/pr_landing_hold_alarm.py, tests/test_pr_landing_hold_alarm.py); operator chose detector over gate.",
+  "what": "HIGH (code audit CA-A09, AUD-20260927-A09-hold-merge-unenforced): no mechanical control stops a session merging a `landing: hold` Tier-3 PR (e.g. a config/accounts.yaml roster edit). pr-landing-guard exits 0 on declared_hold (claude-pr-automerge.yml:67-73 says so), so a hold PR is GREEN on all three required checks (pytest-collect, pytest-run, guards -- MEASURED via GET api.github.com/repos/benbaichmankass/Metis-Insights/branches/main 2026-09-27); required_pull_request_reviews was null when last measured (docs/audits/full-system-audit-2026-08-20.md:1394; could not be re-read unauthenticated today); .claude/settings.json (as of #13138) pre-allows `mcp__github`, which includes mcp__github__merge_pull_request; and the only merge hook (PreToolUse merge-slot guard) is recorded as never invoked on Claude Code on the web. docs/CLAUDE-RULES-CANONICAL.md 'Reading is never gated' says approval exists for merging changes that affect live operations -- nothing enforces it. Blast radius: a real-money roster/risk/strategy change can reach main (and the VM via ict-git-sync ~5 min) on green CI alone. FIX (Tier-2, operator decision): add a post-merge detector (push:main workflow) that flags any merged PR whose .github/pr-landing declaration was `hold` at tier 2/3 without a matching approval record, and/or add an `ask` rule for mcp__github__merge_pull_request in settings.json permissions; operator decides whether to set required_pull_request_reviews or a CODEOWNERS gate on TIER3_PATHS."
+}

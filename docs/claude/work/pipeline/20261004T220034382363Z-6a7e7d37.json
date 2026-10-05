@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "root cause named and fixed, or 50 consecutive self-test runs pass with the cause documented",
+    "kind": "observation"
+  },
+  "id": "PI-20260930-MGR01HYQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "PR #14560 pipeline-guard failure 2026-09-30",
+    "rerun": "Run `python3 scripts/ops/pipeline.py --self-test` 50 times in a loop (and under a different TZ and cwd); any failure reproduces it. Also read the failing pipeline-guard job log on #14560."
+  },
+  "routed_to": "CI-INFRA [route; size S, value L, tier 1] BACKLOG-ROUTE 2026-10-04: Ran scripts/ops/pipeline.py --self-test 15x in repo cwd and 5x from /tmp with TZ=Asia/Tokyo: 0 failures of 20. Failing PR #14560 job log not read (not checked). Code uses datetime.now(utc) (pipeline.py:271,508) and tempdirs, so a UTC-midnight/clock edge is a candidate.",
+  "state": "killed",
+  "terminal_reason": "does not reproduce: 0 failures in 65 self-test runs incl. a non-UTC TZ; re-file with the failing job log if it recurs",
+  "what": "pipeline-guard CI (`python3 scripts/ops/pipeline.py --self-test`) failed once on PR #14560 on 2026-09-30, did not reproduce locally on the head or on head merged with main, and passed on its one re-run. A test that fails without a code change is a real defect (ordering, clock or temp-dir dependence), not a flake. Root-cause it from the failing job log and make the self-test deterministic. || lane CI-AUTOMERGE (session_01MD7v8mG8doHqFYuTbsceQM) 2026-10-04: Ran `pipeline.py --self-test` 65 times on main (50 default, 15 under TZ=Asia/Tokyo): 0 failures. The single 2026-09-30 failure on #14560 does not reproduce, and no failing log line was available to root-cause it."
+}

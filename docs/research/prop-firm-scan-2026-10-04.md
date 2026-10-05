@@ -4,6 +4,8 @@
 >
 > Lane PROP-FIRM-SCAN (session_019tHEHEzdqkL16zbNWmXSjf), dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv. Desk research only: nothing was bought, no account was opened, no login was attempted, no VM was touched. Every figure below is **what a web page said on 2026-10-04**, not a measurement of our own. Prop-firm terms change often: re-fetch the cited page before acting on any row.
 >
+> ⚠️ **Corrected by the deep-dive (2026-10-04, lane PROP-FIRM-DEEP):** the Velotrade row below reads *"no min days stated … on-demand payouts"*. The binding text says otherwise — five qualifying days at ≥ 0.8 % realised profit per phase and before the first payout, weekly full-withdrawal payouts with the first two capped at 20× the fee, and a max(balance, equity) daily basis. See [`prop-firm-deepdive-2026-10-04.md`](prop-firm-deepdive-2026-10-04.md) § 1.3–1.6; the ranking's *order* is unchanged.
+>
 > Builds on, and does not redo: [`prop-dxtrade-firms-2026-09-30.md`](prop-dxtrade-firms-2026-09-30.md), [`prop-platform-automation-survey-2026-09-30.md`](prop-platform-automation-survey-2026-09-30.md), [`hyrotrader-bybit-deep-dive-2026-09-30.md`](hyrotrader-bybit-deep-dive-2026-09-30.md), [`hyro-strategy-feasibility-2026-09-30.md`](hyro-strategy-feasibility-2026-09-30.md), [`tradeify-portfolio-feasibility-2026-09-30.md`](tradeify-portfolio-feasibility-2026-09-30.md), [`breakout-term-access-2026-10-04.md`](breakout-term-access-2026-10-04.md), [`prop-apex-vs-breakout-2026-09-27.md`](prop-apex-vs-breakout-2026-09-27.md), [`prop-firm-testing-tool-DESIGN.md`](prop-firm-testing-tool-DESIGN.md) and `config/prop_rulesets/`.
 
 ## 0. The question and the lens

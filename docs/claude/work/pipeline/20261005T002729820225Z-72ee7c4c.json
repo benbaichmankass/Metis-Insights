@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The unattributable share is reduced by a durable surface rather than by a re-grade -- the closing order's stop_order_type / cancel_type persisted at close time and BRANCHED on by a reader (the sibling health row on account_bybit_raw_order_history). Cleared when this attribution is re-run on a later window and the unattributable_price + contaminated buckets are materially smaller, with both counts reported. NOT cleared by widening the recovery tolerance: those two buckets are invariant to it, which is exactly why they are the finding.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL'), indent=2))\"",
+    "what": "The unattributable share is reduced by a durable surface rather than by a re-grade -- the closing order's stop_order_type / cancel_type persisted at close time and BRANCHED on by a reader (the sibling health row on account_bybit_raw_order_history). Cleared when this attribution is re-run on a later window and the unattributable_price + contaminated buckets are materially smaller, with both counts reported. NOT cleared by widening the recovery tolerance: those two buckets are invariant to it, which is exactly why they are the finding."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL'), indent=2))\""
+  },
+  "routed_to": "M20-EXITS-4 — triaged 2026-10-05: still applies — No persisted closing-order stop_order_type/cancel_type reader at HEAD: stopOrderType only read live in order_monitor.py:11291 and diag clients.py:2409/2615; journal does not store it. memo m20-u10 §5 Tier-2 proposal not taken. | next: Operator/manager decision on the m20-u10 §5 Tier-2 proposal (persist closing order type at close), or kill. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[performance] 55% of the winners that fell short of their declared target carry an unattributable or contaminated exit label, so what stopped the run is not recorded || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ipts/research/venue_mechanism_recovery.py (--self-test, 10 controls). Evidence: docs/research/m20-u10-venue-mechanism-recovery-2026-09-12.md. The Tier-2 proposal is written out in that memo section 5 and is NOT taken -- the operator decides.\" |     } |   ] | }"
+}

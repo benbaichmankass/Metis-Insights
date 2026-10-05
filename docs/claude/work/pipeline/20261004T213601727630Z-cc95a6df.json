@@ -1,0 +1,49 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either (a) the parity gap is closed and the live volatile share matches the authoring distribution, or (b) the three volatile-keyed cells are re-evaluated against the live label distribution. BOTH are Tier-3 — propose only, operator decides.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT'), indent=2))\""
+  },
+  "routed_to": "REGIME-SCOPE (re-pointed from REGIME-SCOPE — volatile-keyed trend_vol cells; also research/queue RQ-20260928-006 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Read the three volatile-keyed cells in config/regime_policy.yaml (trending.volatile.trend_donchian, trending.volatile.ict_scalp_5m, chop.volatile.ict_scalp_5m). Pulled a live audit sample via scripts/ops/diag_fetch.sh 'audit?limit=5000' — only 1 row in the window carried vol_regime_ml (calm, p_volatile=0.012), consistent with 'still calm' but far too small a sample to say the parity gap moved. No Tier-3 proposal or gate-parity PR found in git log or MANAGER-CHECKLIST for this item.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "none now",
+          "label": "Leave as-is, wait for a volatile stretch to test them live",
+          "risk": "if volatility returns suddenly, we find out whether the gate works in real time on live orders",
+          "what_happens": "No new work; cells stay dormant until real volatility returns"
+        },
+        {
+          "cost": "one research lane, Tier-3 proposal only",
+          "label": "Commission an offline parity re-check against the ML vol label's historical volatile windows",
+          "risk": "low; observe-only, no live change until operator approves",
+          "what_happens": "A lane re-derives the Design-A cell evidence against current data"
+        },
+        {
+          "cost": "one research lane",
+          "label": "Re-evaluate the three cells now against current live label distribution and decide keep/drop",
+          "risk": "could recommend changing live-legs' gating, which needs a separate Tier-3 approval",
+          "what_happens": "Cells get a fresh Tier-3 proposal for the operator to approve/reject"
+        }
+      ],
+      "priority_tier": 6,
+      "question": "The three volatile-keyed trend_vol regime cells (trend_donchian & ict_scalp_5m gates) haven't fired live in weeks because the market has stayed calm, not because the gate is broken. Do we (a) leave them as observe-only until a volatile stretch actually tests them, or (b) commission a parity check now against historical volatile windows so we're not flying blind if volatility returns?",
+      "recommendation": "Option 2 (parity re-check) — cheapest way to know whether the calm stretch has quietly invalidated the Design-A evidence, without touching anything live."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] [regime] the three volatile-keyed trend_vol cells are dormant IN THE CURRENT CALM STRETCH — NOT structurally: the ML vol label averages 8.92% volatile over 5y and has ranged 0.44%–30.42% monthly\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — The three volatile-keyed trend_vol regime cells (trend_donchian & ict_scalp_5m gates) haven't fired live in weeks because the market has stayed calm, not because the gate is broken. Do we (a) leave them as observe-only until a volatile stretch actually tests them, or (b) commission a parity check now against historical volatile windows so we're not flying blind if volatility returns? Recommendation: Option 2 (parity re-check) — cheapest way to know whether the calm stretch has quietly invalidated the Design-A evidence, without touching anything live.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: queue an offline parity re-check unit (research/queue) of the three volatile-keyed cells against historical volatile windows; no live change. Filed research/queue/RQ-20260928-006.yaml (three regime_cell_walkforward.py dispatches: trending/volatile/trend_donchian, trending/volatile/ict_scalp_5m, chop/volatile/ict_scalp_5m). No config/regime_policy.yaml edit made.\n\n-- ADMIN lane triage 2026-09-28, correction: research/queue/RQ-20260928-006.yaml (this unit) was filed as state=queued, but pytest (tests/test_research_queue.py::test_every_committed_job_is_both_powered_and_routable) correctly caught that it could not actually run yet -- reading .github/workflows/regime-cell-walkforward.yml directly found three real gaps: no --vol/--vol-labels dispatch input, no research_unit/power_state stamp wiring (the accruing-unit requirement this unit itself declares), and no step that commits to the lands.store path this unit names. Moved the unit to research/queue/blocked/RQ-20260928-006.yaml with status=blocked and a blocked_on block naming all three gaps and what clears each. The finding and the recommendation both still stand -- filed correctly is filed as blocked, not queued, until the workflow actually supports it."
+}

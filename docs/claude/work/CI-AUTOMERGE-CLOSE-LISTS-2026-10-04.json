@@ -1,0 +1,167 @@
+{
+  "_comment": "Lane CI-AUTOMERGE, 2026-10-04. Open automation/* PRs to CLOSE (not merge), by group, with the reason each group's closing comment should carry. Decided and verified by the lane; the bulk close itself was denied by the auto-mode classifier and is with the operator via the manager. Branches stay in place. Measured over the 116 open automation/* PRs at ~21:40Z.",
+  "groups": {
+    "A_superseded_by_16491": {
+      "reason": "Research result file landed byte-identical by #16491; this branch also carried unmerged session commits (pr-landing R5/R12).",
+      "prs": [
+        16457,
+        16455,
+        16454,
+        16427,
+        16426,
+        16425,
+        16423,
+        16422,
+        16407,
+        16404,
+        16403,
+        16402,
+        16375,
+        16374,
+        16373,
+        16372,
+        16371,
+        16015,
+        15995,
+        15723
+      ]
+    },
+    "B_results_already_on_main": {
+      "reason": "Every research result file in this batch is already on main.",
+      "prs": [
+        15470,
+        16118
+      ]
+    },
+    "C_superseded_by_data_batch_16497": {
+      "reason": "Append-only rows (and PIT capture files) recovered by #16497; this PR's generated registers are older than main's.",
+      "prs": [
+        11956,
+        12996,
+        14233,
+        12356,
+        16132,
+        16151,
+        14228
+      ]
+    },
+    "D_older_reaper_ledgers": {
+      "reason": "REAPER-OBSERVATIONS.json on main and on #16484 is newer; landing would rewind main. Push trigger retired in #16475.",
+      "prs": [
+        12359,
+        13499,
+        13557,
+        13846,
+        13948,
+        14217,
+        14410,
+        14462,
+        14509,
+        14613,
+        14628,
+        14636,
+        14705,
+        14734,
+        15032,
+        15056,
+        15095,
+        15141,
+        15456,
+        15469,
+        15567,
+        16089,
+        16188,
+        16266,
+        16405,
+        12225
+      ]
+    },
+    "E_retired_registers_or_superseded_receipts": {
+      "reason": "Refreshes registers retired by the 2026-09-21 reset (DUE.*, READOUT.md, CONSTRAINT.json, ERROR-FEED-DIGEST.*, PROBES.json, STUCK-BRANCHES.json, CLAUDE.md generated block) or a watcher receipt newer runs supersede.",
+      "prs": [
+        11953,
+        12230,
+        12239,
+        12245,
+        12249,
+        12253,
+        12257,
+        12263,
+        12276,
+        12279,
+        12284,
+        12289,
+        12295,
+        12306,
+        12312,
+        12316,
+        12320,
+        12326,
+        12337,
+        12343,
+        12353,
+        12357,
+        11939,
+        12231,
+        12269,
+        12299,
+        12331,
+        11919,
+        12229,
+        12268,
+        12298,
+        12330,
+        11952,
+        12361,
+        11998,
+        12360,
+        12979,
+        15459,
+        15461
+      ]
+    },
+    "F_stale_work_digests": {
+      "reason": "Daily work digest 09-12..09-27: register older than main's, one ping row 1-3 weeks stale; replaced by the hourly digest (#16387).",
+      "prs": [
+        11943,
+        12358,
+        12861,
+        12980,
+        13089,
+        13094,
+        13098
+      ]
+    },
+    "G_superseded_queue_producer_output": {
+      "reason": "Older research-queue stamps/grades/replenish; producers re-derive these each run; newest open are #16124 (grade) and #16464 (replenish).",
+      "prs": [
+        12989,
+        13012,
+        13792,
+        14614,
+        14736,
+        15083,
+        15835,
+        15852
+      ]
+    },
+    "H_dangling_soak_pointer": {
+      "reason": "2026-09-27 soak-grade pointer whose store file is not on main or in the PR (main has 2026-10-04); also rewrites a May experiment's metrics as a side effect.",
+      "prs": [
+        13105
+      ]
+    }
+  },
+  "keep_open_self_landing": {
+    "reason": "Valid content; lands on green once refreshed (the fixed sweeper does this after #16494).",
+    "prs": [
+      16484,
+      16464,
+      16124,
+      15463,
+      13133,
+      11912
+    ]
+  },
+  "total_to_close": 110
+}

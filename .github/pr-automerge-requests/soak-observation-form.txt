@@ -1,0 +1,1 @@
+auto-merge: non-soak observation form for one-shot checks

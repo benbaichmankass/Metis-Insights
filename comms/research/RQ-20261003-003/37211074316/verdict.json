@@ -1,0 +1,67 @@
+{
+  "verdict": "indeterminate",
+  "read_state": "measured",
+  "population": "1 leg(s) [mes_trend_long_1d], 5 committed trades in total; grade=pass_all_seeds, overall=all",
+  "n": 5,
+  "measurement": {
+    "leg_verdicts": {
+      "mes_trend_long_1d": "indeterminate"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "all",
+    "cells": 5
+  },
+  "note": "mes_trend_long_1d: UNDERPOWERED: n=5 < floor 88",
+  "records": [
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "mes_trend_long_1d: 5 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/mes_trend_long_1d__trades.jsonl (evidence record comms/strategy_evidence/mes_trend_long_1d.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 5,
+      "measurement": {
+        "leg": "mes_trend_long_1d",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/mes_trend_long_1d__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -44.98,
+              "ev_se": 0.02,
+              "p_net_positive": 0.0003,
+              "p_alive_at_horizon": 0.329,
+              "rule_v2_verdict": "fail"
+            },
+            "2": {
+              "ev": -44.88,
+              "ev_se": 0.07,
+              "p_net_positive": 0.0008,
+              "p_alive_at_horizon": 0.339,
+              "rule_v2_verdict": "fail"
+            },
+            "3": {
+              "ev": -44.95,
+              "ev_se": 0.04,
+              "p_net_positive": 0.0005,
+              "p_alive_at_horizon": 0.3197,
+              "rule_v2_verdict": "fail"
+            },
+            "4": {
+              "ev": -44.92,
+              "ev_se": 0.05,
+              "p_net_positive": 0.0008,
+              "p_alive_at_horizon": 0.3322,
+              "rule_v2_verdict": "fail"
+            },
+            "5": {
+              "ev": -44.91,
+              "ev_se": 0.06,
+              "p_net_positive": 0.0008,
+              "p_alive_at_horizon": 0.3367,
+              "rule_v2_verdict": "fail"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=5 < floor 88"
+    }
+  ]
+}

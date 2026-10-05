@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either a producer for setup-quality-lgbm-v2 is built and it is promote-staged back to shadow with its declared features present in >=1 live shadow row, or the operator kills the head with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-K85Q64SF-0002",
+  "ml_review_2026_10_04": "2026-10-04: the live half is now OBSERVED -- api/bot/shadow/stats?model_id=setup-quality-lgbm-v2 last_seen 2026-09-29T09:27:45Z, zero rows since; registry stage candidate (GET /api/bot/ml/registry). The soak stopped accruing as intended. Still owed: the producer-or-kill decision (ask_operator) -- surfaced as a decision in the 2026-10-04 ml-review record. gate-check 2026-10-04: ready=false, blocking beats_baseline/oos_edge (mae -0.046 vs constant baseline)/sample_sufficiency 97<200/shadow_soak/live_agreement AUC 0.387/drift_clean; it also cannot retrain (killzone, bias dead at train).",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-02",
+    "rerun": "trainer-vm-diag: base64 probe over ml/registry-store/registry.jsonl + runtime_logs/shadow_predictions*.jsonl* (active+gz archives) — declared feature keys vs union of feature_row keys with non-null values; issue #14147 has the script"
+  },
+  "routed_to": "ML-HYGIENE | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — _build_shadow_feature_row exists only per-strategy (turtle_soup.py:371, vwap.py:855, ict_scalp.py:635); no account_id/hour_of_day projection grep hit in shadow_adapter.",
+  "state": "routed",
+  "what": "JC-SA-02 (a) DEMOTED shadow->candidate on the trainer registry 2026-09-29 (lane ML-DEMOTE): setup-quality-lgbm-v2. Re-measured: 5 of 9 declared features served; 4 absent: account_id bias dayofweek hour_of_day; n=32643 shadow predictions (active 737 + 4 gz archives). While the declared features are never served, its soak days measure nothing. To return: build a signal-time projection that adds account_id, bias, dayofweek and hour_of_day to _build_shadow_feature_row (cheapest of the four: all are available at signal time), then promote-stage back to shadow. Merged/deployed/observed: registry stage OBSERVED candidate on the trainer VM (issue #14152); the live shadow factory refusing it after the next registry-mirror sync is NOT yet observed."
+}

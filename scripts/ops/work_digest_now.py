@@ -170,33 +170,59 @@ def run(dry_run: bool = False, force: bool = False) -> int:
               f"to the root commit — this digest covers ALL history.")
 
     digest = build_digest(base, "HEAD")
-    message = render(digest)
+    aw, prep = _attention_prepare(dry_run)
+    message = prep["block"] + "\n\n— what changed —\n" + render(digest)
+    priority = prep["priority"]
     print(message)
 
     if dry_run:
         _write_receipt(outcome="dry_run", hour=hour, base=base, windowBasis=basis,
                        digestState=digest.get("digestState"),
                        lastSentHour=prior.get("lastSentHour"))
+        if aw:
+            aw.commit(prep, "dry_run")
         return 0
 
     from send_ping import enqueue  # noqa: PLC0415
 
     try:
-        path = enqueue(message, priority="normal", target="claude")
+        path = enqueue(message, priority=priority, target="claude")
     except (OSError, ValueError) as exc:
         print(f"work-digest-now: FAILED to enqueue: {exc}")
         _write_receipt(outcome="enqueue_failed", hour=hour, base=base,
                        windowBasis=basis, error=str(exc),
                        lastSentHour=prior.get("lastSentHour"))
+        if aw:
+            aw.commit(prep, "enqueue_failed")  # receipt only; state NOT advanced
         return 1
 
     # lastSentHour advances ONLY after a successful enqueue, so a failed run is
     # retried by the next firing rather than latched out of it.
     _write_receipt(outcome="sent", hour=hour, lastSentHour=hour, base=base,
                    windowBasis=basis, digestState=digest.get("digestState"),
-                   queued=str(path))
+                   queued=str(path), attention="committed" if aw else "failed")
+    if aw:
+        aw.commit(prep, "sent")
     print(f"work-digest-now: queued {path} — the bot drains within ~5s")
-    return 0
+    return 0 if aw else 1
+
+
+def _attention_prepare(dry_run: bool):
+    """WORK-SYSTEM (operator decision 2026-10-04 ~15:30Z): this ONE hourly
+    message also carries the attention block — NEW actionable items first
+    (new ask_operator, soak transitions, silence alarms), the daily ranked
+    summary once a day, else one quiet line. ``attention_watch.prepare()``
+    writes nothing; ``commit()`` runs only after the enqueue succeeds. A
+    failure here must not stop the change digest, so it is isolated and the
+    message SAYS the block is missing rather than omitting it silently."""
+    try:
+        from scripts.ops import attention_watch  # noqa: PLC0415
+        return attention_watch, attention_watch.prepare(dry_run=dry_run)
+    except Exception as exc:  # noqa: BLE001 — loud, in the message itself
+        print(f"work-digest-now: attention block FAILED: {exc}")
+        return None, {"block": f"⛔ attention block FAILED to build ({type(exc).__name__}: "
+                               f"{exc}) — due items, soaks and alarms NOT checked this hour.",
+                      "priority": "high"}
 
 
 def _self_test() -> int:

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-account-without-strategies-key-gets-every-package",
+    "rerun": "sed -n '/def _dispatch_exclusion_reason/,/return None$/p' src/core/coordinator.py | grep -n 'assigned is None'  # 'return None' before the account_scope check => still open"
+  },
+  "routed_to": "ORDER-PATH-FIXES [route; size S, value L, tier 2] BACKLOG-ROUTE 2026-10-04: Coordinator _dispatch_exclusion_reason (src/core/coordinator.py): `assigned = getattr(account_obj,'strategies',None); if assigned is None: return None` precedes the account_scope check (outside_account_scope returned only later). Still open as described.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[AUD-20260927-CA-A02-account-without-strategies-key-gets-every-package] An accounts.yaml entry with no `strategies:` key is dispatched every strategy's package and is not narrowed by account_scope, contradicting multi_account_execute's docstring that account_scope 'NARROWS ONLY ... an account must ALSO be in this set'. Proposed fix: Treat strategies=None as not eligible (or refuse to load the account), and move the account_scope check to the top of _dispatch_exclusion_reason. (Tier 2; audit lanes do not enact fixes.)"
+}

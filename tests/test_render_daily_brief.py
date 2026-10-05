@@ -188,3 +188,153 @@ def test_the_cli_json_flag_emits_the_envelope():
     assert env["schemaVersion"] == 1
     assert env["coverageComplete"] is False
     assert "pipeline" in env and "checklistState" in env and "mandatesState" in env
+
+
+# ── BRIEF-FIX (2026-10-04): ranked, capped, truthful ───────────────────────
+from datetime import date  # noqa: E402
+
+TODAY = date(2026, 10, 4)
+
+
+def _pi(i, *, state="queued", action="dispatch_lane", what="w", **extra):
+    return {"id": f"PI-20260{900 + i % 90:03d}-T-{i:04d}", "what": what, "state": state,
+            "origin": {"kind": "audit", "ref": "r", "rerun": "r"},
+            "due_when": {"kind": "observation", "clears_when": "c"},
+            "next_action": action, "routed_to": "LANE" if state == "routed" else None,
+            "terminal_reason": None, **extra}
+
+
+def _brief(items, ck_items, *, activity=None, soaks=None):
+    res = pipeline.LoadResult(items={i["id"]: i for i in items}, records=len(items))
+    ask = sorted((i for i in pipeline.due(items, TODAY) if i["next_action"] == "ask_operator"),
+                 key=rdb._rank_key)
+    return {
+        "forDate": TODAY.isoformat(), "generatedAt": "x", "coverageComplete": False,
+        "pipeline": {"stats": pipeline.stats(res, TODAY),
+                     "section0Lines": rdb.section0_lines(res, TODAY),
+                     "healthy": True, "askOperator": ask},
+        "checklistState": "read", "checklist": rdb.checklist_view({"items": ck_items}),
+        "mandatesState": "absent", "mandates": rdb.mandates_view(None, "absent"),
+        "activity": activity or {"state": "read", "commits": [], "coversDays": 30},
+        "soaks": soaks or {"state": "absent", "rows": [], "asOf": None},
+    }
+
+
+def test_brief_stays_under_the_size_cap_on_a_worst_case_population():
+    big = "x" * 4000
+    items = [_pi(i, what=big, state="routed" if i % 2 else "queued",
+                 action="ask_operator" if i < 25 else "dispatch_lane") for i in range(700)]
+    ck = ([{"id": f"D{i}", "state": "done", "owner": "m", "title": big, "note": big}
+           for i in range(300)]
+          + [{"id": f"L{i}", "state": "landed_unproven", "owner": "m", "title": big, "note": big}
+             for i in range(100)]
+          + [{"id": f"F{i}", "state": "in_flight", "owner": "m", "title": big, "note": big}
+             for i in range(25)]
+          + [{"id": f"O{i}", "state": "queued", "owner": "operator", "title": big, "note": big}
+             for i in range(6)])
+    md = rdb.render(_brief(items, ck))
+    assert len(md.encode()) <= rdb.BRIEF_SIZE_CAP_BYTES, len(md.encode())
+    # the scale is still visible with its denominator
+    assert "700 item(s) due" in md and "never-checked" in md
+
+
+def test_due_bucket_agrees_with_is_due_and_names_each_branch():
+    cases = {
+        "never-checked": {"kind": "observation", "check_every_days": 7},
+        "lapsed": {"kind": "observation", "check_every_days": 7, "last_checked": "2026-09-01"},
+        "date-passed": {"kind": "date", "due_date": "2026-09-01"},
+        "no-cadence": {"kind": "observation"},
+        None: {"kind": "observation", "check_every_days": 7, "last_checked": "2026-10-03"},
+    }
+    for want, dw in cases.items():
+        it = _pi(1, due_when=dw)
+        assert pipeline.due_bucket(it, TODAY) == want
+        assert (want is not None) == pipeline.is_due(it, TODAY)
+
+
+def test_section0_ranks_money_path_then_ask_operator_then_oldest():
+    items = [_pi(i, what=f"plain{i}") for i in range(30)]
+    items.append(_pi(31, what="ASKME", action="ask_operator"))
+    items.append(_pi(32, what="MONEY", severity="high"))
+    md = rdb.render(_brief(items, []))
+    s0 = md.split("## §0")[1].split("## §1")[0]
+    assert s0.index("MONEY") < s0.index("ASKME") < s0.index("plain")
+    assert "17 more due, not shown" in s0 and "pipeline.py --due --all" in s0
+
+
+def test_section2_includes_pipeline_ask_operator_items():
+    items = [_pi(1, what="NEEDSYOU", action="ask_operator"), _pi(2, what="not-for-you")]
+    md = rdb.render(_brief(items, []))
+    s2 = md.split("## §2")[1].split("## §3")[0]
+    assert "NEEDSYOU" in s2 and "not-for-you" not in s2 and "(0 checklist + 1 pipeline)" in s2
+
+
+def _ck_row(id_, stamp):
+    return {"id": id_, "state": "in_flight", "owner": "m", "title": id_, "lane": f"session_{id_}",
+            "note": f"[{stamp}T10:00Z mgr] update" if stamp else "no stamp here, deadline 2026-10-20"}
+
+
+def test_section4_flags_stale_rows_and_a_future_date_is_not_activity():
+    ck = [_ck_row("FRESH", "2026-10-03"), _ck_row("OLD", "2026-09-20"), _ck_row("BARE", None)]
+    s4 = rdb.render(_brief([], ck)).split("## §4")[1].split("## §5")[0]
+    live, stale = s4.split("STALE — no live evidence")
+    assert "FRESH" in live and "OLD" not in live
+    assert "OLD" in stale.split("BLOCKED")[0] and "BARE" in stale.split("BLOCKED")[0]
+    assert "no stamp or commit found" in stale
+
+
+def test_a_commit_naming_the_lane_rescues_a_stale_row_and_short_history_is_declared():
+    ck = [_ck_row("OLD", "2026-09-20")]
+    act = {"state": "short", "coversDays": 1,
+           "commits": [(TODAY, "chore: tick (#1)", "lane session_OLD finished a step")]}
+    s4 = rdb.render(_brief([], ck, activity=act)).split("## §4")[1]
+    assert "(git commit)" in s4.split("### 🕸️")[0] and "not provable" in s4
+
+
+def test_soak_slot_absent_read_and_missing_fields():
+    absent = rdb.render(_brief([], []))
+    assert "source absent (we looked" in absent and "not 'no soaks'" in absent
+    soaks = {"state": "read", "asOf": "2026-10-04", "rows": [
+        {"leg": "L1", "account": "bybit_1", "state": "overdue", "days_in": 3},
+        {"id": "A1", "leg": "L2", "account": "bybit_1", "state": "accruing", "days_in": 5,
+         "end_date": "2026-12-01"}]}
+    md = rdb.render(_brief([], [], soaks=soaks))
+    assert "L1" in md and "day 3" in md and "ends —" in md and "ends 0" not in md
+    assert "accruing 1" in md and "overdue 1" in md
+    # accruing is a quiet count + nearest end date, never a full row (16 KB cap)
+    assert "1 accruing (quiet); nearest end 2026-12-01 (`A1`)" in md and "L2 @" not in md
+
+
+def test_read_soaks_imports_soak_state_live(tmp_path, monkeypatch):
+    import types
+    mod = types.ModuleType("scripts.ops.soak_state")
+    mod.soak_states = lambda: [{"leg": "L", "account": "a", "state": "overdue",
+                                "end_date": "2026-10-01", "reason": "r", "started": "2026-10-01"}]
+    monkeypatch.setitem(sys.modules, "scripts.ops.soak_state", mod)
+    got = rdb.read_soaks(TODAY)
+    assert got["state"] == "read" and got["rows"][0]["days_in"] == 3
+    mod.soak_states = lambda: 1 / 0
+    assert rdb.read_soaks(TODAY)["state"] == "unreadable"
+    monkeypatch.setitem(sys.modules, "scripts.ops.soak_state", None)  # import raises
+    assert rdb.read_soaks(TODAY)["state"] in ("absent", "unreadable")
+
+
+def test_git_activity_is_cached_on_head_sha(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rdb, "_head_sha", lambda root: "abc")
+    monkeypatch.setattr(rdb, "_git_activity_uncached",
+                        lambda root, today, days=45: calls.append(1) or {"state": "read", "commits": [], "coversDays": 9})
+    rdb._ACTIVITY_CACHE.clear()
+    rdb.git_activity(REPO_ROOT, TODAY)
+    rdb.git_activity(REPO_ROOT, TODAY)
+    assert len(calls) == 1
+    monkeypatch.setattr(rdb, "_head_sha", lambda root: "def")
+    rdb.git_activity(REPO_ROOT, TODAY)
+    assert len(calls) == 2
+    rdb._ACTIVITY_CACHE.clear()
+
+
+def test_ranked_items_is_the_order_section0_uses():
+    items = [_pi(1, what="plain"), _pi(2, what="MONEY", severity="high")]
+    res = pipeline.LoadResult(items={i["id"]: i for i in items}, records=2)
+    assert [i["what"] for i in rdb.ranked_items(res, TODAY)] == ["MONEY", "plain"]

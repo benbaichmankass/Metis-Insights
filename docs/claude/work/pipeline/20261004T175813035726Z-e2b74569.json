@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "config/strategies.yaml::ict_scalp_avax_5m.execution is not 'shadow' AND ict_scalp_avax_5m is on 'bybit_1''s roster, with enough real fills there to clear RULE-R3-GATE1-COST-FIDELITY-v1's floor (>=10 measured entries and >=10 exits per side)",
+    "kind": "observation"
+  },
+  "id": "PI-20261004-JC8KDKLF-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01JqGq9ffmH9ZCU5jc8kDkLF",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg ict_scalp_avax_5m --from S1 --to S2 --account bybit_2 --json"
+  },
+  "state": "killed",
+  "terminal_reason": "ict_scalp_avax_5m Stage-0 fails (exp -0.2097R, n=177, 0/4 folds, RULE-D1 fail). The decisive Stage-0 evidence already refuses promotion, so flipping the leg to execution: live to 'collect fills' is not a data task. A paper book never establishes edge. Auto-filed by mandate_resolver --file-needs-data, whose clause order checks execution:shadow before the Stage-0 refusal (filed separately). SOAK-WATCH 2026-10-04.",
+  "what": "MD-PROMOTE-S1-S2: ict_scalp_avax_5m (S1 -> S2, bybit_2) is NEEDS-DATA at R-EXECUTION-SHADOW -- ict_scalp_avax_5m needs a genuine Stage-1 soak on 'bybit_1' before MD-PROMOTE-S1-S2 can decide ict_scalp_avax_5m -> bybit_2: it must be `execution: live` (not `shadow`) on that roster, then accrue real fills there -- 'Never a leg that has not soaked at Stage 1' (the mandate's own `never:`)."
+}

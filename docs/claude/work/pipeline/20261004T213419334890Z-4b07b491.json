@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the newest R5/R3 record shows population.malformed_closed_at == [] and the writer that produced the bad closed_at is named and fixed",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-JC8KDKLF-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04, run 37174464732",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out /tmp/g.json  # then inspect r3 population.malformed_closed_at via scripts/research/r3_cost_fidelity.py output"
+  },
+  "routed_to": "SOAK-WATCH — R5 malformed closed_at (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "SOAK-WATCH: at least one live trade row (alpaca account, R3's sl-family population) carries a closed_at that datetime.fromisoformat rejects ('month must be in 1..12') -- MEASURED in soak-book-grade run 37174464732, 2026-10-04 03:38Z, where it crashed the weekly R5 grade. r3_cost_fidelity now excludes and LISTS such rows under population.malformed_closed_at instead of raising, so the next R5 record names the trade id(s). Root-cause the writer that produced the malformed timestamp and repair the row(s)."
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "reconcile_orphan_history refuses a second attribution of the same order_package_id in one run, gates on position_size like order_monitor, and tests/test_reconcile_orphan_history.py has a two-account/one-package case that fails on the old code.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-DPSCDUBQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A12 / AUD-20260927-CA-A12-orphan-history-package-double-attribution",
+    "rerun": "sed -n 182,220p scripts/ops/reconcile_orphan_history.py; grep -n 'position_size\\|linked_trade_id\\|consumed' scripts/ops/reconcile_orphan_history.py"
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-04: verified by this lane at HEAD 2026-10-04 (re-read, not only the sub-agent verdict): scripts/ops/reconcile_orphan_history.py:250,375-376,527 claimed-package set; :265 position_size gate; test_reconcile_orphan_history.py:255 two-accounts-one-package.",
+  "what": "reconcile_orphan_history.py can write ONE order_package_id onto several trades in one --apply: _recover_package (scripts/ops/reconcile_orphan_history.py:182-218) matches order_packages on symbol+direction+entry within tolerance only — no position_size gate (the live order_monitor._recover_orphan_attribution/_recover_orphan_order_package both have one), no linked_trade_id check, and no cross-cluster 'already attributed' tracking. Reproduced by a subagent on a scratch DB: two orphan trades (bybit_1 qty 1, bybit_2 qty 100) both planned reconciled_to_package pkg-1. Dispatched via reconcile-orphan-history system-action (Tier-2). Finding AUD-20260927-CA-A12-orphan-history-package-double-attribution."
+}

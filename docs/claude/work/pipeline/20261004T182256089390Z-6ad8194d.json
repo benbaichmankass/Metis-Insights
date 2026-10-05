@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "the DXtrade watchlist resolver finds exactly one Symbol/Bid/Ask watchlist table on dx.tradeify247.co (an instrument-info-dry on tradeify_1 resolves ETHUSD/SOLUSD/XRPUSD with no refusal), merged and deployed; or killed with a reason. Blocks TRADEIFY-WIRE T4/T5 and PR #14673.",
+    "kind": "event"
+  },
+  "id": "PI-20261001-BHYHMK2I-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "issue #15033 (run 36815736231): instrument-info-dry on tradeify_1",
+    "rerun": "Dispatch breakout-login-check account: tradeify_1, apply: instrument-info-dry, symbols: ETHUSD,SOLUSD,XRPUSD (clicks nothing) and read instrument_info_summary.refused."
+  },
+  "routed_to": null,
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN 2026-10-04: superseded: tradeify_1 orders now go through the Ask-button opener (#15812), terminal layout lacked a watchlist widget; live executor reached guards on 10-04",
+  "what": "TRADEIFY-WIRE T4: on tradeify_1 the click-free instrument-info-dry refused with '0 Symbol/Bid/Ask tables (need exactly 1)' while every other guard read clean (one-click off via data-value+knob, margin 0, Orders widget found with 0 rows). The resolver that works on Breakout's DXtrade does not find Tradeify's watchlist table, although the login check's API discovery lists the symbols. Until the resolver handles Tradeify's DOM, instrument-info-probe, symbol-switch-dry and the executor's per-ticket symbol switch cannot run on tradeify_1. Next measurement: one read-only apply: dump-tables on tradeify_1, then a small Tier-2 resolver PR. | UPDATE 2026-10-01 21:45Z (TRADEIFY-GOLIVE, session_01Db47kLwhEpWPNaEfki6yYD, code b9c5138e2): the resolver fixes (#15075/#15101/#15136) are deployed, but the cause is now upstream of the resolver: tradeify_1's 'My Trading Account' workspace NO LONGER HOLDS A WATCHLIST WIDGET. probe #15217 (16:32Z) saw 147 controls incl. 'Default Watchlist' with BTC/USD; #15296 (20:47Z), #15319, #15321 and instrument-info-dry #15322 (21:42Z) see 110 controls, only the Positions/Orders/History/Messages widget, and watchlist_dump finds only the Orders table. No system-action ran on tradeify_1 between 16:33Z and 20:47Z (issue list); no code path clicks widget_close. The #15304 per-workspace summary (#15319/#15321) shows NO workspace holds an order ticket: Trading Dashboard = one 'Symbol...' input, 0 widgets/canvases; Trading Journal = an orders table; Technical Analysis = 4 charts (36 canvases) with chart 'Sell <price>' buttons (instant-trade surface; never clicked). So no opener can open a ticket on this terminal layout; the fix is a layout with a Watchlist (ETH/USD, SOL/USD, XRP/USD) and a New Order panel on one workspace."
+}

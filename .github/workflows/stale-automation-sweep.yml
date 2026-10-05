@@ -15,7 +15,7 @@ name: stale-automation-sweep
 #   2026-09-09 by parsing every workflow that references the action), and
 #   `refresh-stale-branch` merges `main` in ONCE when the wait is not
 #   progressing. But all of that lives inside the PRODUCING RUN'S OWN LIFETIME
-#   -- one `verify-timeout-minutes` window (default 30), one refresh attempt.
+#   -- one `verify-timeout-minutes` window (default 50 since 2026-10-04), one refresh attempt.
 #   When the job exits the branch has no owner: its checks ran once, on the sha
 #   it was opened with, and nothing in this repo ever looks at it again.
 #

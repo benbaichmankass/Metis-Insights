@@ -108,7 +108,7 @@ jobs:
     # Above commit-to-main's 30-minute verify-merged budget, or the job dies
     # mid-wait and the receipt never lands (the reason research-queue dispatch
     # carries 35).
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1)",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "declared_at": "2026-05-25",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "bybit_1/trend_donchian"
+    }
+  },
+  "id": "PI-SOAK-20261004-bybit_1-trend_donchian",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "routed_to": "SOAK-WATCH — shadow soak graded weekly by soak_report.py; due only when not accruing (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "SOAK (stage1): bybit_1/trend_donchian — Stage-1 soak leg. Exit: Gate 2: mechanics flowing AND R3 cost fidelity decisive at >=10 fills/side (RULE-R5-SOAK-BOOK-GRADE-v1). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}

@@ -56,12 +56,16 @@ STATES, never collapsed
                       (one holds the declared stop, another the declared
                       target). ⚠️ This is the 2026-08-20 shape and the refusal is
                       the point — a half-fix here strips a leg that was right.
+                      Also returned when the single matching group's stop qty
+                      is SHORT of the position: cancelling the rest would leave
+                      the difference unprotected (CA-A03).
 `no_journal_match`    over-covered and NO resting group matches the declaration.
                       Cancelling any of them is a guess, so we do not.
 `no_declared_stop`    the journal declares no stop, so there is nothing to match
                       against. Distinct from `no_journal_match`: there we looked
                       and found no match, here there was no question to ask.
-`not_graded`          prices or tick size unreadable — **we did not look**. Never
+`not_graded`          prices, stop quantities or tick size unreadable — **we did
+                      not look**. Never
                       reported as `no_over_cover`.
 `position_absent`     no position, or its size is unreadable.
 
@@ -190,6 +194,10 @@ def decide_over_cover(
     # --- bucket the legs by OCA group ------------------------------------
     groups: Dict[str, Dict[str, Any]] = {}
     unreadable = 0
+    # Stop legs whose total_quantity cannot be read. Counting one as 0 made a
+    # keeper of UNKNOWN size look like it held nothing and every sized group
+    # look cancellable (CA-A03, PI-20260927-ENGC5EUD-0001).
+    unreadable_stop_qty = 0
     for leg in legs:
         side = _leg_side(leg)
         if side is None:
@@ -205,7 +213,11 @@ def decide_over_cover(
         entry[side].append(price)
         entry["order_ids"].append(leg.get("order_id"))
         if side == "stop":
-            entry["stop_qty"] += _f(leg.get("total_quantity")) or 0.0
+            leg_qty = _f(leg.get("total_quantity"))
+            if leg_qty is None:
+                unreadable_stop_qty += 1
+            else:
+                entry["stop_qty"] += leg_qty
     out["groups"] = {
         name: {"stop": entry["stop"], "target": entry["target"],
                "order_ids": entry["order_ids"], "stop_qty": entry["stop_qty"]}
@@ -219,6 +231,14 @@ def decide_over_cover(
             f"broker_bracket_reconcile.protective_leg_side before calling. A "
             f"leg of unknown side may be a stop, so grading around it would "
             f"under-count coverage.")
+        return out
+
+    if unreadable_stop_qty:
+        out["reason"] = (
+            f"{unreadable_stop_qty} stop leg(s) arrived with no readable "
+            f"total_quantity — we did not look. Counting an unknown size as 0 "
+            f"would misjudge both the over-cover and whether the surviving "
+            f"group covers the position.")
         return out
 
     if not groups:
@@ -394,6 +414,24 @@ def decide_over_cover(
             f"cancelling them would strip a leg that was correct — the "
             f"2026-08-20 failure shape. Refusing; this needs a human eye on "
             f"which side is authoritative.")
+        return out
+
+    # ⚠️ THE KEEPER MUST COVER THE POSITION ON ITS OWN. Everything above asks
+    # whether a group's PRICES agree with the journal; nothing asked whether
+    # its SIZE does. Position 29, keeper STP 20, stray STP 29 graded
+    # cancel_group with "cancelling them loses nothing" — and executing it
+    # leaves 9 of 29 lots with no stop (CA-A03,
+    # PI-20260927-ENGC5EUD-0001). A keeper short of the position refuses.
+    keep_stop_qty = groups[keep]["stop_qty"]
+    if keep_stop_qty < qty - max(1e-9, 1e-9 * abs(qty)):
+        out["state"] = STATE_AMBIGUOUS
+        out["keep_groups"] = [keep]
+        out["reason"] = (
+            f"the only journal-matching group {keep!r} carries stop qty "
+            f"{keep_stop_qty} against a position of {qty}, so cancelling the "
+            f"other group(s) would leave {qty - keep_stop_qty} unprotected. "
+            f"Refusing; the keeper must be resized before anything is "
+            f"cancelled.")
         return out
 
     cancel = sorted(matches_nothing + covered_partial)

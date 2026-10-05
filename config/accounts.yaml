@@ -1944,3 +1944,46 @@ accounts:
       # INTRADAY_DRAWDOWN breach REFUSES the trade on this account (manager
       # review of #14672, 2026-09-30: "'report' places orders through a
       # breach; it must refuse"). breakout_1's `report` is unchanged.
+
+  # velotrade_1: Velotrade CLASSIC 1-Step $5k crypto evaluation on Velotrade's
+  # DXtrade deployment (dx.velotrade.com). VELOTRADE-WIRE, 2026-10-04 (HELD
+  # Tier-2 PR). OPERATOR DECISION (manager popup ~21:25Z 2026-10-04, relayed by
+  # manager session_01MM8o5js6TcDFeNAPBY4Ntv), verbatim: "Buy one ($54)".
+  # Evidence: docs/research/prop-firm-deepdive-2026-10-04.md § 1.8 + A2 — the
+  # B3 book at 0.5% risk: path EV +$454 ± $8 per $54 account life, P(net>0)
+  # 0.69, registered rule V2 INDETERMINATE (evidence p5 about -$37). A $54
+  # pilot to measure mechanics and cost, not a promotion on edge.
+  #
+  # Same shape as tradeify_1: exchange `breakout` is the prop ticket bridge
+  # (src/prop/breakout_executor.py), NOT a Breakout venue (an exchange
+  # `velotrade` is purged and pinned absent by tests/test_prop_risk_manager.py);
+  # the ruleset + routing make every number Velotrade's. Terminal:
+  # prop_platforms.yaml velotrade_1 (own login VELOTRADE_DX_*, own kill switch
+  # PROP_EXECUTOR_MODE_VELOTRADE_1, nothing enabled, no lot table).
+  #
+  # NOT `prop_velotrade_1`: that id belongs to a purged 2026-06 scaffold whose
+  # rows scripts/ops/backfill_account_class.py pins to the `paper` class.
+  #
+  # DRY, AND NO ROSTER. The roster is Tier-3 on a real-money prop account; the
+  # PR body PROPOSES one (the B3 book) and this entry applies none, so the
+  # account emits nothing: no ticket, no ping, no order package.
+  velotrade_1:
+    exchange: breakout
+    type: prop
+    account_class: prop
+    mode: dry_run                      # dry-run-guard: allow — new prop account starts dry (manager dispatch VELOTRADE-WIRE 2026-10-04: "starting in DRY / read_only, never live"). Go-live is a separate PR after a read-only login check passes on the VM.
+    account_state: evaluation
+    phase_requirements:                # Velotrade CLASSIC 1-Step (first-party, read 2026-10-04, unconfirmed).
+      target_profit_pct: 0.10          # +10% to pass.
+      min_active_days: 5               # 5 QUALIFYING days (each >= +0.8% of the initial balance, realised, 00:30-00:30 UTC).
+    backtest_ruleset: prop_rulesets/velotrade_classic_1step.yaml
+    account_size_usd: 5000
+    strategies: []                     # Tier-3: proposed in the PR body, not applied.
+    symbols: []
+    risk:
+      max_dd_pct: 0.07                 # 7% STATIC = $350, floor $4,650 for the life of the account.
+      daily_loss_pct: 0.04             # 4% below max(balance, equity) at 00:30 UTC (ruleset limits).
+      daily_usd: 200                   # absolute fallback (= 4% of $5k).
+      risk_pct: 0.005                  # 0.5% = $25/ticket (deep-dive § 1.8 item 6; ruleset sizing.flat cap 25).
+      # breach_guards: NOT set -> `enforce` (the default), as tradeify_1: a
+      # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN breach REFUSES the trade.

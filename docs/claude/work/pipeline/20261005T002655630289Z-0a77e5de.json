@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Mechanism confirmed in code with the specific close path named; fix designed + operator-approved; after deploy, journal_qty_divergent stays silent for 7 consecutive days on all bybit accounts (population: every (account,symbol,direction) group the detector scans per tick).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED'), indent=2))\"",
+    "what": "Mechanism confirmed in code with the specific close path named; fix designed + operator-approved; after deploy, journal_qty_divergent stays silent for 7 consecutive days on all bybit accounts (population: every (account,symbol,direction) group the detector scans per tick)."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED'), indent=2))\""
+  },
+  "routed_to": "ORDER-AUDIT-2 — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never closes an item) — Mechanism handled in order_monitor.py:11423,12326, risk.py:1271 and reconcile_netting_rows.py, but clears needs 7 days of silent journal_qty_divergent live; not read. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[health] [root-cause] One-way-netting partial closes never reduce constituent journal rows — order-monitor close attribution under netting"
+}

@@ -247,6 +247,17 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_stale_in_flight.py"]],
     },
     {
+        # WORK-SYSTEM, 2026-10-04: the VM-side attention watch (daily digest,
+        # edge alerts, "expected signal missing" alarms). Self-test exercises
+        # every send/suppress path, including "unknown never clears a breach".
+        "name": "attention-watch",
+        "when": {"globs": ["scripts/ops/attention_watch.py", "scripts/ops/work_report.py",
+                            "scripts/ops/pipeline.py", "scripts/ops/render_daily_brief.py",
+                            "scripts/ops/work_digest_now.py", "deploy/ict-work-report.*"]},
+        "steps": [["python3", "scripts/ops/attention_watch.py", "--self-test"],
+                  ["python3", "scripts/ops/work_report.py", "--self-test"]],
+    },
+    {
         # FIX-SA-09, 2026-09-29: the SessionStart hook, three slash commands and
         # four skills told sessions to drain review backlogs archived on
         # 2026-09-21. This is the detector: no live `.claude/` line may name a
@@ -283,6 +294,22 @@ GUARDS: List[Dict[str, Any]] = [
     # `docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md`
     # for the reason each one carries.
     # ─────────────────────────────────────────────────────────────────────
+    {
+        # SOAK-WATCH 2026-10-04 (operator: "we can't set something to soak if we
+        # don't know when it's done"). Refuses a Stage-1 roster leg / shadow
+        # strategy with no contract in docs/claude/work/SOAKS.json, an
+        # inadmissible contract (no end date, >14d marked ok), and — diff-scoped —
+        # a checklist row entering landed_unproven or a new check_observation
+        # pipeline item without one. Whole-tree on the roster: keyed on
+        # MEMBERSHIP, so editing the list cannot walk around it.
+        "name": "soak-contract-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_soak_contracts.py", "--self-test"],
+            ["python3", "scripts/ci/check_soak_contracts.py", "--base", "origin/main"],
+            ["python3", "scripts/ops/soak_state.py", "--self-test"],
+        ],
+    },
     {
         # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
         #
@@ -446,6 +473,12 @@ GUARDS: List[Dict[str, Any]] = [
             # from enumerate_live_legs entirely).
             ["python3", "scripts/ops/soak_book_grade.py", "--self-test"],
             ["python3", "scripts/ops/soak_alarm.py"],
+            # SOAK-WATCH 2026-10-04: soak_alarm.py's four states ported onto
+            # the pipeline (soak_report.py -> soak-state.json -> is_due), and
+            # the landed-check that keeps a run that landed nothing from
+            # reading green (soak_grade_landed.py, the workflow's last job).
+            ["python3", "scripts/ops/soak_report.py", "--self-test"],
+            ["python3", "scripts/ops/soak_grade_landed.py", "--self-test"],
             ["python3", "scripts/research/target_reachability_report.py"],
             ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
             ["python3", "scripts/research/e35_verdicts_adapter.py", "--selftest"],

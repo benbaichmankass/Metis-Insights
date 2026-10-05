@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator answers the PATHB-MANDATE grant/decline question; then the skill's Path-B paragraph states what is actually enforced, or the manager kills this row",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-39SDYWCO-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "grep -n 'NOT yet set' .claude/skills/exit-refinement/SKILL.md"
+  },
+  "routed_to": "PATHB-MANDATE (re-pointed from PATHB-MANDATE (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "low",
+  "state": "routed",
+  "tier": 1,
+  "what": ".claude/skills/exit-refinement/SKILL.md § P2 defines Path B as capital-efficiency up AND maxDD not worse, says its two thresholds are NOT set and that Path B 'surfaces candidates rather than shipping them'. The sweep's `path_b_wf_pass` (m20_fleet_exit_sweep.py ~L2986-3015) is looser: net_R up in both windows + capital/day up + walk-forward; drawdown is recorded, not gated; and 10+ such cells were shipped on operator approval (2026-08-29/30, 2026-09-29). Every shipped example carried gate_reason maxdd_worse. The skill text and the practice disagree; the operator has never set the two thresholds. Reconcile the skill (Tier-1) once the operator decides whether MD-SOAK-EXIT-CELL-PATHB's numbers (min 5/6 folds, maxDD <= 0.35 of base) should also become the skill's Path-B thresholds."
+}

@@ -129,8 +129,8 @@ than carrying it.
 ⚠️ **THE PULL IS CONNECTED** (corrected 2026-09-29, FIX-SA-09; this paragraph
 read "built but not yet connected … `A3` … is not built" after both were
 `done`). `GET /api/bot/work/brief` (`src/web/api/routers/work.py`) calls
-`render_daily_brief.py`, which renders `pipeline.render_section_0()` and
-`unrouted_count()` on the operator's own Workflow page **on every request** —
+`render_daily_brief.py`, which renders a ranked, capped §0 built on
+`pipeline.due()` plus `unrouted_count()` on the operator's own Workflow page **on every request** —
 there is no file to go stale. Checklist rows `A3` and `A7` are `done`. What
 that establishes: a due item *reaches the page*. What it does **not**: that
 anyone routes it — the unrouted count is a number the page shows, and

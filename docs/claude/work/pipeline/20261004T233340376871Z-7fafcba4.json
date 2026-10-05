@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20260927-W6OPSR-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "docs/research/recurring-validations-audit-2026-09-27.md § F3",
+    "rerun": "grep -l -E '^\\s+issues:' .github/workflows/*.yml | wc -l"
+  },
+  "routed_to": "CI-AUTOMERGE (re-pointed from CI-AUTOMERGE — re-pointed again: the 2026-10-04 22:00Z records of #16505 re-wrote this item from a stale snapshot and restored the lane-type routing (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[ci] 106 of 149 workflows trigger on `issues: [opened]`; every opened issue (diag relay, system-action, prop report) creates up to 106 runs, ~98% skipped (100 most recent event=issues runs: 98 skipped, 2 success; >=2,500 in ~33h). Cost is run-list noise that buries scheduled runs, not runner minutes; a link to the 08-27 scheduler lag is NOT established. Proposal: one `issue-router.yml` on issues:opened that maps label -> workflow and calls workflow_dispatch (GITHUB_TOKEN may dispatch), then drop the issues trigger from each routed workflow, migrating relay workflows in batches so the Claude-on-the-web issue path keeps working. || RE-OBSERVED by health-review 2026-10-04: live-replay-parity.yml alone shows 46 runs of which 44 are event=issues conclusion=skipped (actions_list 2026-10-04); every diag/system-action issue this review opened spawned a skipped run there too. Finding stands. || lane CI-AUTOMERGE (session_01MD7v8mG8doHqFYuTbsceQM) 2026-10-04: not started this session. Next step unchanged: one issue-router.yml mapping label->workflow_dispatch, then drop `issues:` from routed workflows in batches. M-sized; needs its own lane."
+}

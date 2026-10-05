@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The operator chooses deliver-as-is / accept-recorded-approvals / retire. The workflow is changed to match, and the stale issues are closed.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-GCFA5DOR-0005",
+  "next_action": "ask_operator",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: options stated in the decisions doc (deliver-as-is / accept recorded approvals / retire)."
+  ],
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "gh issue list --label system-action --state open --search 'hold-merge alarm' --json number | jq length -- and read whether the newest has a system-actions comment."
+  },
+  "routed_to": "JC-GIT (re-pointed from JC-GIT — OA-10 hold-merge alarm (JC-CA-04) (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "OA-10 (governance). The hold-merge alarm (JC-CA-04) has NEVER delivered a ping. MEASURED: .github/workflows/pr-landing-hold-merge-alarm.yml creates its send-ping issue with GH_TOKEN=${{ github.token }}. GitHub does not trigger workflows (system-actions, `issues: opened`) from GITHUB_TOKEN-created events. Example: #16201 (alarm for #16183) is still open with 0 comments; system-actions always comments and closes. Sub-agent count: 174 alarm issues 09-28..10-04, 171 open and unprocessed, 3 closed as moot. r4-demotion-gate and exit-cell-mandate use secrets.BRANCH_PROTECTION_TOKEN for their ping and are unaffected. Exact fix: on the 'Grade every PR' step set GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }} (it is used only for gh pr/api reads plus the issue create). NOT applied: the alarm counts only GitHub APPROVED reviews and none of 128 held PRs has one, so turning delivery on pages the operator for every manager merge (all 84 Tier-2/3 holds since 09-28). Whether to deliver as-is, or teach the alarm to accept the recorded approvals (checklist quote / PR body / mandate), is the operator's call; policy is not changed here. Also close or dedupe the 171 stale issues."
+}

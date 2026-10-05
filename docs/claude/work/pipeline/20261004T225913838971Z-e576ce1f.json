@@ -1,0 +1,59 @@
+{
+  "a10_note": "Tier-3 (prop sizing) and still a code fact; the decision the row asks for is the operator's. EVIDENCE: Not re-read this session (rerun is a full read of src/core/coordinator.py::_default_balance_fetcher); E16 landed_unproven, B6 queued.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The live trader is observed RUNNING code containing merge 34832828 (#13601) (vm-diag-snapshot relay: checkout HEAD contains 34832828 and ict-trader-live.service started after it), AND the first breakout_1 order package after that restart is observed in the trades journal (account_id='breakout_1', created after the restart): either it reached the bridge sentinel (sized, prop ticket emitted) with a fresh prop_account_status snapshot (<24h), or it was refused with entry_reason containing prop_balance_stale / prop_balance_absent / prop_balance_unreadable. Either outcome closes it; a breakout_1 package sized with a >24h-old snapshot re-opens the defect.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260921-E16-BALANCE-FETCHER-PROP-BRANCH-RARELY-REACHED",
+  "landed_unproven": {
+    "merge_sha": "34832828",
+    "merged": "2026-09-28",
+    "note": "MERGED, not DEPLOYED, not OBSERVED. Re-opened from 'done' because merged is not observed (close-out: landed_unproven != done). Observation to close: diag relay: breakout_1 rows in trades after the restart + prop_account_status age at that time.",
+    "pr": "#13601",
+    "prior_done_record_reason": "Fixed on branch claude/exec-fix-prop-balance (PR opened 2026-09-28 by lane EXEC-FIX, Tier 2, landing: hold for manager merge after independent review; operator 'Fix it', 2026-09-28). Finding was worse than filed: for breakout_1 (the one declared prop account) the bridge line set balance=0.0 without calling the fetcher, so prop_sizing_balance was reached on ZERO paths. Now src/core/coordinator.py::multi_account_execute consults it for every is_prop_account account before any balance source (cached, live, fallback, caller balance_fetcher, pkg.meta override); bridge sizing unchanged on a fresh snapshot. tests/test_prop_balance_all_paths.py: stale/absent/error refuse and fresh proceeds in all 3 states (cached/live-fetched/fallback), non-prop control unchanged; 14 of its 17 cases fail against origin/main's coordinator (the 3 controls pass on both). MERGED != DEPLOYED: needs trader restart after merge; observe the first breakout_1 package post-deploy (refused with prop_balance_stale if the snapshot is >24h old).",
+    "recorded_by": "lane EXEC-FIX session_01C7mgVNtBDmoVSQSvBNzoVh, manager instruction 2026-09-28 13:02Z"
+  },
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "Read src/core/coordinator.py::_default_balance_fetcher in full and enumerate which branches reach src/prop/prop_balance.py::prop_sizing_balance.",
+    "what": "The live trader is observed RUNNING code containing merge 34832828 (#13601) (vm-diag-snapshot relay: checkout HEAD contains 34832828 and ict-trader-live.service started after it), AND the first breakout_1 order package after that restart is observed in the trades journal (account_id='breakout_1', created after the restart): either it reached the bridge sentinel (sized, prop ticket emitted) with a fresh prop_account_status snapshot (<24h), or it was refused with entry_reason containing prop_balance_stale / prop_balance_absent / prop_balance_unreadable. Either outcome closes it; a breakout_1 pac"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "E16 build lane session_012DyVaL6CpsTxEwHBs9MEcB, PR #12696 'Filed for follow-ups' item 3, 2026-09-21. Read from the code, not inferred from behaviour.",
+    "rerun": "Read src/core/coordinator.py::_default_balance_fetcher in full and enumerate which branches reach src/prop/prop_balance.py::prop_sizing_balance."
+  },
+  "routed_to": "EXEC-FIX | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: live read 2026-10-04 ~22:5xZ: /api/diag/version git_sha 95c9faec2 CONTAINS merge 34832828; trader start time and the first breakout_1 package after it not read. Not cleared.",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Read src/core/coordinator.py::_default_balance_fetcher in full (lines ~1032-1092): confirmed unchanged — branch 1 (pkg.meta override) and branch 2a (live_balances hit) both return before ever consulting prop_balance.prop_sizing_balance; only branch 2b (acc.name in live_balances, value is None, no cached_balance_usd, and _is_prop_account_obj) reaches the prop branch. The finding is still accurate in the current code.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "low",
+          "label": "Accept the two bypass paths as-is",
+          "risk": "The 'sizing refuses on a stale balance' safety story stays weaker than it reads, on a funded account with a small ($87.34) cushion to its account-killer floor.",
+          "what_happens": "Document that the stale-balance safety argument only holds in the one reachable branch; no code change."
+        },
+        {
+          "cost": "medium (Tier-2 order-path change, needs review)",
+          "label": "Approve a Tier-2 lane to make the prop branch unconditionally reachable for declared prop accounts",
+          "risk": "Touches the live balance/sizing path for prop accounts; needs careful test coverage before merge.",
+          "what_happens": "A lane restructures _default_balance_fetcher so every declared prop account always consults prop_sizing_balance, tested by exercising all three states."
+        }
+      ],
+      "priority_tier": 1,
+      "question": "src/core/coordinator.py's balance fetcher only consults prop_balance.prop_sizing_balance in one of three code paths — the other two bypass it entirely. Accept the two bypass paths as-is, or have a lane make the prop branch unconditional for declared prop accounts?",
+      "recommendation": "Approve the Tier-2 lane — the current three-branch shape means the documented safety property is not actually enforced on two of three paths, and a passing test of the one reachable state clears nothing per the item's own clears_when."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "src/core/coordinator.py::_default_balance_fetcher reaches prop_sizing_balance in only one of three states: cached_balance_usd is checked first and returns before the prop branch, and an account absent from live_balances takes branch 3 and never consults prop_balance at all. So the stale-balance sizing gate is weaker than prop_balance's own docstring implies.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 1) — src/core/coordinator.py's balance fetcher only consults prop_balance.prop_sizing_balance in one of three code paths — the other two bypass it entirely. Accept the two bypass paths as-is, or have a lane make the prop branch unconditional for declared prop accounts? Recommendation: Approve the Tier-2 lane — the current three-branch shape means the documented safety property is not actually enforced on two of three paths, and a passing test of the one reachable state clears nothing per the item's own clears_when.",
+  "why_it_matters": "The gate is the reason it is considered safe for the prop status ask to go quiet while the book is flat -- the argument is 'sizing refuses on a stale balance, so nothing trades off a number nobody measured.' If the refusal is reachable in only one of three states, that argument is weaker than it reads, on a FUNDED account with an $87.34 cushion to an account-killer floor."
+}

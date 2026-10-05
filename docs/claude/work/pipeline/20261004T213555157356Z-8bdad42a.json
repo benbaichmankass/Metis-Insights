@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The equity sweep grades a regular-hours-breached resting stop as something other than stop_resting, with a test pinning it.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-ZIFJ1RKM-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ALPACA-CLOSE-WEDGE session_01LLCqwwDGQM7BZMZifj1rkM; PR #14585",
+    "rerun": "grep -n 'if state.get(\"stop\"):' -A5 src/runtime/order_monitor.py  # still an unconditional stop_resting continue = finding stands"
+  },
+  "routed_to": "PROTECTION-HARDENING (re-pointed from PROTECTION-HARDENING (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[money-path] The Alpaca equity naked sweep (_check_broker_naked_equity_positions) counts a stop that rests but is breached during regular hours as `stop_resting`, i.e. protected. On alpaca_paper/GLD a stop 416.09 rested with GLD ~381 through the whole 9/29 session and never fired; the sweep read it as protection. On alpaca_live a venue-side failure of the same shape would look protected and never escalate. Proposed: when the session is rth and a FRESH last trade has been through the resting stop for longer than N minutes, escalate (page, plus the existing breach-exit path) instead of `stop_resting`. Tier-2 order-path change, to be a HELD PR with tests."
+}

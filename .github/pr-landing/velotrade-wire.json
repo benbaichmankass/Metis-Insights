@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "HELD for the manager: Tier-2 (secrets propagation list, a new prop account entry, one opt-in change in shared prop-executor code on the live VM). Nothing here places an order: velotrade_1 is mode dry_run with an EMPTY roster, its terminal entry has no lot table and no enabled symbol, and its kill switch PROP_EXECUTOR_MODE_VELOTRADE_1 is unset (read_only). breakout_1 and tradeify_1 behaviour is pinned unchanged by tests. Lane VELOTRADE-WIRE, operator decision ~21:25Z 2026-10-04 \"Buy one ($54)\". The roster in the PR body is Tier-3 and NOT applied.",
+  "why": "Lets the existing READ-ONLY breakout-login-check run against Velotrade (account: velotrade_1) once the operator adds VELOTRADE_DX_USERNAME / VELOTRADE_DX_PASSWORD and sync-vm-secrets runs; prepares the dry account, ruleset routing + $25 flat sizing, and fixes the Velotrade rulesets' leverage-cap keys (venue names fell through to the 2x default)."
+}

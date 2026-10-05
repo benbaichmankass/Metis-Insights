@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     # >= the commit-to-main merge wait (30m, .github/actions/commit-to-main) + 5m slack:
     # tests/test_commit_to_main_callers.py enforces it.
-    timeout-minutes: 45
+    timeout-minutes: 65
     env:
       APPLY: ${{ github.event.inputs.apply || 'true' }}
     steps:

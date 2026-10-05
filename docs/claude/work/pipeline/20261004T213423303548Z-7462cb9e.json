@@ -1,0 +1,28 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A cron landing dated 2026-10-04 or later exists in git log for comms/claude_strategy_scores.jsonl AND the freshness guard (or a sibling) measures the cron source specifically, so a review append cannot mask a stopped cron.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-ZBHFJG6X-0003",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: INFERRED (not root-caused) -- grade-closed-trades lands via commit-to-main, whose 30-min verify wait is below the ~37-min pytest-run (PI-20261004-PUQ1APTH-0008); its auto PR #16151 is still open. Fix in #16381 (wait 30->50, job budget 45->65). Re-check after #16381 merges: a cron landing dated >= 2026-10-05 in git log for comms/claude_strategy_scores.jsonl."
+  ],
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "git log --format='%h %cI %s' -3 -- comms/claude_strategy_scores.jsonl; python3 -c \"import json; rows=[json.loads(l) for l in open('comms/claude_strategy_scores.jsonl') if l.strip()]; c=[r for r in rows if r.get('source')=='grade-closed-trades-by-trade']; print('cron rows',len(c),'max cron reviewed_at',max(r['reviewed_at'] for r in c))\"",
+    "what": "A cron landing dated 2026-10-04 or later exists in git log for comms/claude_strategy_scores.jsonl AND the freshness guard (or a sibling) measures the cron source specifically, so a review append cannot mask a stopped cron."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERFORMANCE-REVIEW lane 2026-10-04 (session_013rQhqo11aVJrH3zbHFJg6X), comms/reviews/performance-review-20261004-*.json",
+    "rerun": "git log --format='%h %cI %s' -3 -- comms/claude_strategy_scores.jsonl; python3 -c \"import json; rows=[json.loads(l) for l in open('comms/claude_strategy_scores.jsonl') if l.strip()]; c=[r for r in rows if r.get('source')=='grade-closed-trades-by-trade']; print('cron rows',len(c),'max cron reviewed_at',max(r['reviewed_at'] for r in c))\""
+  },
+  "routed_to": "GRADE — grade-closed-trades cron not landing (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": "1",
+  "what": "[performance] The daily grade-closed-trades cron (.github/workflows/grade-closed-trades.yml, 03:10Z) did not land rows for its 2026-10-04 run: max(reviewed_at) in comms/claude_strategy_scores.jsonl before this review was 2026-10-03T03:42:28Z and the last cron landing is #15774 (2026-10-03T07:22Z, `git log -- comms/claude_strategy_scores.jsonl`). MEASURED 2026-10-04: 21 of the window's 113 closed trades had no by-trade grade row -- 16 closed on 2026-10-03 (pairs_* on bybit_1), 4 on 2026-10-04, and 1 spy_pullback_1h (alpaca_paper) closed 2026-10-01T06:17Z that two later runs also skipped (likely `no_package`, counted-never-graded by `_iter_trade_delta_records`). scripts/ci/check_grading_freshness.py still reads 'fresh' because this review appended package-level rows -- the freshness guard measures ANY reviewed_at, not the cron's own landings, so a cron that stops is masked by a review that runs. Not fixed here: the run's log was not read (actions_list via MCP returned unfiltered runs); read it via the Actions UI or `gh run list -w grade-closed-trades.yml`."
+}

@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either the mechanism that flattened 6289 is named from a journal/exchange read and a fix or a declared-by-design note lands, or the reconciler_filled rate on bybit_1 is measured over 30 days and a threshold alarm exists for it.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-ZBHFJG6X-0006",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "bash scripts/ops/diag_fetch.sh 'journal?table=trades&limit=200' | python3 -c \"import json,sys; r=[x for x in json.load(sys.stdin) if x.get('exit_reason')=='reconciler_filled']; print(len(r),'reconciler_filled in the last 200 rows'); [print(x['id'],x['account_id'],x['strategy_name'],x['closed_at'],x['pnl']) for x in r]\"",
+    "what": "Either the mechanism that flattened 6289 is named from a journal/exchange read and a fix or a declared-by-design note lands, or the reconciler_filled rate on bybit_1 is measured over 30 days and a threshold alarm exists for it."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERFORMANCE-REVIEW lane 2026-10-04 (session_013rQhqo11aVJrH3zbHFJg6X), comms/reviews/performance-review-20261004-*.json",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'journal?table=trades&limit=200' | python3 -c \"import json,sys; r=[x for x in json.load(sys.stdin) if x.get('exit_reason')=='reconciler_filled']; print(len(r),'reconciler_filled in the last 200 rows'); [print(x['id'],x['account_id'],x['strategy_name'],x['closed_at'],x['pnl']) for x in r]\""
+  },
+  "routed_to": "EXIT-CLUSTER — reconciler_filled closes (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": "1",
+  "what": "[performance][health] Three bybit_1 closes in the window ended `reconciler_filled` (the venue went flat and the bot learned it from the reconciler, not from its own SL/TP fill event): trade 6289 ict_scalp_xrp_15m XRPUSDT short opened 2026-09-29T16:43Z closed 2026-10-01T01:29Z pnl -127.95 ESTIMATED; 6304 pairs_sol_eth_b ETHUSDT closed 2026-09-30T10:36Z pnl +2.47 est; 6249 pairs_sol_eth_b ETHUSDT closed 2026-09-28T13:44Z pnl -23.63 est. MEASURED from /api/diag/journal?table=trades&limit=200 (read 2026-10-04); classify_paper_records.py buckets them `truncated:reconciler_filled` (C), so their PnL is reconstructed, not measured, and the session-start contract names reconciler-driven closes as bugs to root-cause. 6289 is the window's largest single paper loss and its stop (1.5637) sat 5.1% above a 1.4878 short entry while the exit printed 1.4923 -- the position did not stop out at the bracket; something else flattened it (netting with a sibling XRP leg, or an exchange-side close). src/runtime/order_monitor.py documents that the reconciler_filled path cancels no tracked SL/TP legs on Bybit. Not root-caused here (journalctl for 2026-10-01 01:2x is past the ~2-day retention)."
+}

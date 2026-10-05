@@ -320,17 +320,38 @@ def test_the_append_test_is_asked_BEFORE_the_register_comparison() -> None:
 
 def test_a_payload_absent_from_main_is_its_own_state(repo: Path) -> None:
     """`main has never had this file` and `neither side carries a date` both
-    make `dated_at` return None, and they are DIFFERENT FACTS."""
+    make `dated_at` return None, and they are DIFFERENT FACTS.
+
+    ⚠️ CONTRACT CHANGED 2026-10-04 (lane CI-AUTOMERGE): a PR whose ONLY payload
+    is new files now grades `refresh` -- landing a file main has never had
+    rewinds nothing, and every research result is such a file, so the old rule
+    stranded all of them. What must still hold: absent is never mis-reported as
+    `undated`, and a PR MIXING a new file with an older or undated one is never
+    refreshed (`absent_on_main`, for a human read)."""
     _branch(repo, "automation/pit",
             {"captures/US-20260909T002929Z.json": '{"generated_at": "2026-09-09T00:29:29Z"}'})
     entry = _classify(repo, 1, "automation/pit")
-    assert entry["state"] == sweep.ABSENT_ON_MAIN
+    assert entry["state"] == sweep.REFRESH
     assert entry["state"] != sweep.UNDATED_PAYLOAD, (
         "it carries a perfectly good timestamp — reporting 'no comparable "
         "timestamp' would name a cause no code path tested"
     )
-    assert entry["state"] not in sweep.ACTIONABLE
-    assert "do NOT EXIST on main" in entry["why"]
+    assert "main does not have yet" in entry["why"]
+
+    # The mixes that must NOT be refreshed: a new file beside an OLDER
+    # register (would rewind main) and beside an UNDATED one (unorderable).
+    _branch(repo, "automation/pit-plus-older",
+            {"captures/US-20260909T010000Z.json": "{}",
+             "reg.json": json.dumps({"generated_at": "2026-09-09T11:00:00Z",
+                                     "v": "old"}) + "\n"})
+    _branch(repo, "automation/pit-plus-undated",
+            {"captures/US-20260909T020000Z.json": "{}",
+             "reg.json": json.dumps({"v": "no date"}) + "\n"})
+    for n, ref in ((2, "automation/pit-plus-older"), (3, "automation/pit-plus-undated")):
+        mixed = _classify(repo, n, ref)
+        assert mixed["state"] == sweep.ABSENT_ON_MAIN, (ref, mixed)
+        assert mixed["state"] not in sweep.ACTIONABLE
+        assert "only copy" in mixed["why"]
 
 
 def test_classify_consults_the_structural_append_detector() -> None:
@@ -374,12 +395,16 @@ def test_refresh_checks_the_commit_exit_code_and_verifies_the_effect() -> None:
     body = src.split("def refresh(")[1].split("\ndef ")[0]
     push_at = body.index('"push"')
     before_push = body[:push_at]
-    assert "could not commit the re-asserted merge-slot claim" in before_push, (
+    # ⚠️ Per-branch R13 claim since 2026-10-04: the claim is WRITTEN (only when
+    # missing) at `.github/merge-slots/<slug>.json`, not re-spliced into the
+    # retired shared board -- so the message and the path name changed, and the
+    # three properties below are what still has to hold.
+    assert "could not commit the merge-slot claim" in before_push, (
         "a failed commit must abort the refresh BEFORE the push, not fall through"
     )
-    assert "merge-base" in before_push and "SLOT_FILE" in before_push, (
-        "refresh() must verify the slot file is in this branch's own diff "
-        "against the merge-base before pushing — verify the EFFECT, not the call"
+    assert "merge-base" in before_push and "_branch_slot_rel(" in before_push, (
+        "refresh() must verify the per-branch slot file is in this branch's own "
+        "diff against the merge-base before pushing — verify the EFFECT, not the call"
     )
     assert "rides someone else's claim" in before_push, (
         "refresh() must verify the committed claim names THIS branch"
@@ -397,3 +422,22 @@ def test_a_failed_refresh_leaves_the_tree_clean_for_the_next_pr() -> None:
         "the commit-failure path must reset the working tree, or the next "
         "refresh in the same run cannot check its branch out"
     )
+
+
+def test_a_failed_claim_commit_never_reaches_the_push(tmp_path: Path, monkeypatch) -> None:
+    """BEHAVIOUR, not source text: make `git commit` fail on a branch that has
+    no claim yet and prove refresh() returns False without ever calling push."""
+    calls: list = []
+
+    def fake_git(*args, cwd=None):
+        calls.append(args[0])
+        if args[0] == "commit":
+            return 1, ""
+        return 0, ""  # fetch/checkout/merge ok; merge-base ok; diff empty -> no claim yet
+
+    monkeypatch.setattr(sweep, "git", fake_git)
+    ok, note = sweep.refresh({"ref": "automation/x"}, "origin/main", "test", True,
+                             cwd=tmp_path)
+    assert ok is False
+    assert "could not commit the merge-slot claim" in note
+    assert "commit" in calls and "push" not in calls, calls

@@ -1,0 +1,20 @@
+# ============================================
+# ICT WORK REPORT SYSTEMD TIMER (WORK-SYSTEM, 2026-10-04)
+# Daily at 05:30 UTC — before the manager's 05:52Z daily-review routine.
+# Save to: /etc/systemd/system/ict-work-report.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-work-report daily at 05:30 UTC
+Requires=ict-work-report.service
+
+[Timer]
+# Explicit UTC so the schedule does not move with the VM's local timezone.
+OnCalendar=*-*-* 05:30:00 UTC
+# Persistent=true: a box that was down at 05:30 produces the report on boot.
+# A missed report is still alarmed by ict-attention-watch (probe `report`).
+Persistent=true
+Unit=ict-work-report.service
+
+[Install]
+WantedBy=timers.target

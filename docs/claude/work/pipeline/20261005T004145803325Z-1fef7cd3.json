@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20260929-RQRUN-CLOSEOUT-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36571325087",
+    "rerun": "gh run view 36571325087 --log | grep -E 'backpressure:|dispatched|deferred'  # (1): the backpressure line must name stuck runs ignored and >=1 'dispatched' row; (2) after #14041 merges: same grep on the next research-queue-dispatch run -- at most one e35 'dispatched' and 'already fired 1 unit(s) this cycle' on the rest; gh run list --workflow e35-bracket-sweep.yml --json databaseId,conclusion,createdAt | any 'cancelled' created within seconds of a sibling means a unit needs unstamping; (3): gh run list --status queued --limit 100 --json createdAt | rows dated 2026-05-15 reproduce the zombies"
+  },
+  "routed_to": "RQ-RUN | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: sub-agent proposed fixed, not independently verified — Run 36571325087 log read: 'backpressure: ... 36 stuck run(s) older than 24 h ignored', 3 dispatched, rest deferred (cap 3). e35-bracket-sweep runs after #14",
+  "state": "routed",
+  "what": "RQ-RUN close-out leftovers (lane ended at its $200 ceiling, 2026-09-29 ~13:05Z). (1) OBSERVE: the first dispatcher cycle on post-#14011 main (run 36571325087, fired 12:54Z on 7811a39b1) DID fire -- 3 units stamped 12:55:48Z: RQ-20260830-002 (research-script-run run 36571465371), RQ-20260928-017 and RQ-20260928-024 (e35-bracket-sweep runs 36571457767 queued + 36571462010 pending) -- so the 36 stuck May runs no longer block; the run's own 'backpressure: ... N stuck run(s) older than 24 h ignored' line was NOT read (job logs 404 while the stamp-landing step was still polling) and needs one read once the job completes. (2) OBSERVE: the first cycle after #14041 (serialize colliding workflows; head 24f8909bb, manager merges on green) must show at most ONE e35 fire per cycle with the rest 'deferred ... already fired 1 unit(s) this cycle' and NO cancelled e35 run; note that the 12:54Z cycle above fired TWO e35 units (pre-#14041), so watch runs 36571457767/36571462010 for a cancel and, if the pending one is cancelled, unstamp that unit (re-render from its template as #13748 did for -017). (3) COSMETIC: the 36 May-15 zombie runs (issue-triggered vm-*/trainer-vm-diag, never served) still sit queued in the Actions UI; the dispatcher ignores them after #14011, so cancelling them (gh run cancel) is hygiene, not a fix. (4) PI-20260929-RQRUN-E35CORPUS-0001 still holds the landing half (commit-to-main corpus re-derive on conflict) and cancel detection."
+}

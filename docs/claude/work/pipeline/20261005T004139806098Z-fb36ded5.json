@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "At least one gld_pullback_1h close with reason stale_stop on alpaca_paper whose holding period is 24 RTH 1h bars (+/-1), OR a measured Alpaca IEX 1h feed sample showing RTH-only bars (so live bar count == harness bar count).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260928-E8Y3BGBS-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "Pull /api/diag/journal?table=trades for gld_pullback_1h on alpaca_paper after the geometry PR is deployed; for each close_reason=stale_stop compute entry->exit in RTH hours (and count Alpaca 1h bars between them via scripts/ops/diag_fetch.sh or the alpaca connector). Finding holds while no stale_stop close exists, or while bars counted != 24 RTH bars.",
+    "what": "At least one gld_pullback_1h close with reason stale_stop on alpaca_paper whose holding period is 24 RTH 1h bars (+/-1), OR a measured Alpaca IEX 1h feed sample showing RTH-only bars (so live bar count == harness bar count)."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROMOTE (session_011h6MApXzTAY91VE8y3bgbs), 2026-09-28",
+    "rerun": "Pull /api/diag/journal?table=trades for gld_pullback_1h on alpaca_paper after the geometry PR is deployed; for each close_reason=stale_stop compute entry->exit in RTH hours (and count Alpaca 1h bars between them via scripts/ops/diag_fetch.sh or the alpaca connector). Finding holds while no stale_stop close exists, or while bars counted != 24 RTH bars."
+  },
+  "routed_to": "M20-EXITS | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — Live /api/diag/journal trades limit 1000x2 (n=2000 rows 08-05..10-04): gld_pullback_1h n=16, alpaca_paper exits: None/exchange_flat_reconciled/sl/sl_cross; 0 stale_stop (control: giveback_stop 3,",
+  "state": "routed",
+  "what": "gld_pullback_1h's new 24-bar time exit (stale_exit_bars 24 / stale_exit_below_r 1e9, PR claude/gld-1h-geometry-tp6-sm15-to24) is proven equal to --timeout-bars 24 ONLY in the harness, on Yahoo RTH 1h bars (~7/day). Live counts bars in the Alpaca IEX 1h feed the monitor fetches; if that feed carries extended-hours bars, 24 live bars is ~1.5 sessions, not the ~3.5 the evidence measured. Also: the manager's popup gloss '24-bar (1 day)' was wrong on the evidence's own clock. No live stale_stop close has yet been observed on any Alpaca leg. [2026-09-28, manager review of #13637] Live may also fire ONE BAR EARLY vs the harness: the monitor's candle frame includes the still-forming bar, which stale_stop_verdict's age count (len(window)-1) treats as a bar. When checking the first live stale_stop close, count completed bars and expect 23-24."
+}
