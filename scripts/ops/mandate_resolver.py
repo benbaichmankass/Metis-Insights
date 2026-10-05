@@ -1346,13 +1346,19 @@ STAGE2_ACCOUNT = {"bybit": "bybit_2", "alpaca": "alpaca_live", "interactive_brok
 
 
 def latest_soak_snapshot(root: Path) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-    """The newest DATED (YYYY-MM-DD.json) committed soak-state snapshot."""
+    """The newest DATED (YYYY-MM-DD.json) committed soak-state snapshot.
+
+    The path chosen is returned and surfaced as `evidence.soak.snapshot`, and
+    the CLI prints it, so which snapshot decided the soak clause is never
+    implicit."""
     d = root / SOAK_SNAPSHOT_DIR_REL
     if not d.is_dir():
         return None, None
-    dated = sorted(p for p in d.glob("*.json") if re.fullmatch(r"\d{4}-\d{2}-\d{2}\.json", p.name))
+    # provenance: latest_soak_snapshot — newest dated soak snapshot; path returned + printed as evidence.soak.snapshot
+    dated = sorted(p for p in d.glob("*.json") if DATED_RECORD.match(p.name))
     if not dated:
         return None, None
+    # provenance: latest_soak_snapshot — newest dated soak snapshot; path returned + printed as evidence.soak.snapshot
     rel = f"{SOAK_SNAPSHOT_DIR_REL}/{dated[-1].name}"
     return rel, _json(dated[-1])
 
@@ -1968,6 +1974,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         for key in ("record", "source_run"):
             if res["evidence"].get(key):
                 print(f"  {key}: {res['evidence'][key]}")
+        soak = res["evidence"].get("soak") or {}
+        if soak.get("snapshot"):
+            print(f"  soak: {soak.get('soak_id')} {soak.get('state') or '—'} "
+                  f"({soak.get('progress') or '—'}) -- {soak['snapshot']}")
         cf = res["evidence"].get("cost_fidelity") or {}
         if cf.get("record") or cf.get("why"):
             print(f"  cost fidelity: {cf.get('verdict') or cf.get('why')}"
