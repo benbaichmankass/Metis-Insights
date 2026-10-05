@@ -1981,6 +1981,29 @@ accounts:
                                        # symbol, so the no-hedging rule cannot be
                                        # tripped by two of our own legs.
       - trend_donchian_eth_prop        # ETH 1h (n=169, net R +13.03 after Tradeify costs)
+      - trend_donchian_sol_prop        # SOL 1h. RE-ADDED 2026-10-05 ~18:00Z as the second leg
+                                       # of the ETH+SOL book (Tier-3, data-backed under the
+                                       # operator's standing authorization of 2026-09-27; decided
+                                       # by manager session_01MM8o5js6TcDFeNAPBY4Ntv, lane
+                                       # PROP-SMALL-EDITS). Reverses #16598 (14db3bd2) below.
+      # EVIDENCE for the re-add: research unit RQ-20261005-902 (the prop BOOK
+      # search; dispatched as RQ-20261005-812, renumbered in PR #16624 after an
+      # id collision), rule RULE-RQ1005-PROPEXPAND-TRADEIFY registered before
+      # the run (commit 16aa881e). ETH_prop+SOL_prop at flat 0.5% (this
+      # account's risk_pct) on the committed 730d trade records, full cost
+      # stack, 5 seeds of prop_ev_sim under tradeify_247_1step.yaml:
+      # INACTIVITY_SAFE_IMPROVEMENT -- min-seed P(net>0) 0.372 vs ETH alone
+      # 0.284, EV per account life +$179 vs +$58, max entry gap 6.6d (firm
+      # 30d inactivity rule). CONTROL: ETH + a negative-edge leg LOWERS EV
+      # (+$10/+$16 vs +$58), so the gain is the SOL leg, not a generic
+      # more-legs effect. SOL ALONE still fails (RQ-20261005-807, below).
+      # This is NOT a 0.70 pass: no book clears P(net>0) >= 0.70; the verdict
+      # is the registered hedge class. Runs were session-local, not CI
+      # (records: research/results/RQ-20261005-902/, comms/research/RQ-20261005-902/
+      # on PR #16624). tradeify_1 was flat at the re-add (prop status
+      # 2026-10-05 17:56Z: unrealized 0.0, open positions 0).
+      # REVERT: remove the `- trend_donchian_sol_prop` line again (and SOLUSDT
+      # from `symbols:`).
       # trend_donchian_sol_prop REMOVED from tradeify_1 on 2026-10-05 (Tier-3,
       # data-backed under the operator's standing authorization of 2026-09-27:
       # "you can make tier 2 and 3 decisions autonomously as long as they are
@@ -2000,14 +2023,16 @@ accounts:
       # tradeify_1 had no open SOL position or order at removal (prop status
       # open_positions/open_orders empty 2026-10-05 09:26Z; its SOL tickets are
       # all shadow/orphaned, none emitted).
-      # REVERT: re-add `- trend_donchian_sol_prop` to this list.
+      # REVERT: re-add `- trend_donchian_sol_prop` to this list. (Reverted
+      # 2026-10-05 ~18:00Z on the book evidence above -- the single-leg FAIL
+      # stands; the leg is carried as part of the ETH+SOL book.)
       # ict_scalp_xrp_15m DROPPED at go-live (OPERATOR DECISION 2026-10-03,
       # popup relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim:
       # "Drop it (Recommended)"): it fails its causal rebuild (#15603).
       # XRPUSDT left the data-pull list with it: no tradeify_1 leg trades XRP,
       # and `symbols:` is a pull list only (bybit_1 still pulls XRPUSDT).
-    symbols: [ETHUSDT]                 # SOLUSDT left the pull list with trend_donchian_sol_prop (2026-10-05);
-                                       # `symbols:` is a pull list only and other accounts still pull SOLUSDT.
+    symbols: [ETHUSDT, SOLUSDT]        # SOLUSDT back with trend_donchian_sol_prop (2026-10-05 re-add);
+                                       # `symbols:` is a pull list only.
     risk:
       max_dd_pct: 0.06                 # Tradeify 1-Step STATIC 6% = $600 floor at $9,400.
       daily_loss_pct: 0.03             # 3% daily = $300 (resets 22:00 UTC; ruleset limits).

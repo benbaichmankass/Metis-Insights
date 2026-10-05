@@ -28,16 +28,18 @@ def _isolated_journal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 # ── the account entry ─────────────────────────────────────────────────────
 
 
-def test_tradeify_goes_live_with_the_eth_roster_at_half_percent():
+def test_tradeify_goes_live_with_the_eth_sol_roster_at_half_percent():
     t = ACCOUNTS["tradeify_1"]
     assert t["mode"] == "live"   # PR C go-live; PR B shipped dry_run
     assert t["exchange"] == "breakout" and t["type"] == "prop" and t["account_class"] == "prop"
     # ict_scalp_xrp_15m dropped at go-live (operator 2026-10-03 "Drop it (Recommended)":
     # it fails its causal rebuild, #15603); XRPUSDT left the pull list with it.
-    # trend_donchian_sol_prop removed 2026-10-05 (Tier-3, data-backed): RQ-20261005-807 FAIL at
-    # 0.5% on 730d n=132 (EV -$74, P(net>0) 0.11). Pinned absent so a re-add is a visible decision.
-    assert t["strategies"] == ["trend_donchian_eth_prop"]
-    assert t["symbols"] == ["ETHUSDT"]
+    # trend_donchian_sol_prop removed 2026-10-05 (#16598, RQ-20261005-807 FAIL alone) and RE-ADDED the
+    # same day as the second leg of the ETH+SOL book (Tier-3, data-backed: RQ-20261005-902, rule
+    # RULE-RQ1005-PROPEXPAND-TRADEIFY, INACTIVITY_SAFE_IMPROVEMENT -- min-seed P 0.372 vs 0.284,
+    # EV +$179 vs +$58; not a 0.70 pass). Pinned so a roster change is a visible decision.
+    assert t["strategies"] == ["trend_donchian_eth_prop", "trend_donchian_sol_prop"]
+    assert t["symbols"] == ["ETHUSDT", "SOLUSDT"]
     assert t["risk"]["risk_pct"] == 0.005
     assert t["risk"]["max_dd_pct"] == 0.06 and t["risk"]["daily_loss_pct"] == 0.03
     assert t["backtest_ruleset"] == "prop_rulesets/tradeify_247_1step.yaml"
@@ -59,7 +61,7 @@ def test_one_leg_per_symbol_so_our_own_legs_cannot_hedge():
     for leg in ACCOUNTS["tradeify_1"]["strategies"]:
         s = blocks[leg].get("symbols") or [blocks[leg].get("symbol")]
         syms.extend(x for x in s if x)
-    assert len(syms) == len(set(syms)) == 1, syms     # ETH only; XRP dropped at go-live, SOL removed 2026-10-05
+    assert len(syms) == len(set(syms)) == 2, syms     # ETH + SOL (book re-add 2026-10-05); XRP dropped at go-live
     assert set(syms) == set(ACCOUNTS["tradeify_1"]["symbols"])
 
 

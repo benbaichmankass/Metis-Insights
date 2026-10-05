@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 roster change on a live prop account (config/accounts.yaml tradeify_1): trend_donchian_sol_prop re-added as the second leg of the ETH+SOL book, SOLUSDT back on the pull list. Data-backed under the operator's 2026-09-27 standing authorization, decided by the manager; lands on a manager merge, then notify the operator.",
+  "why": "Reverses #16598 (14db3bd2) on new evidence: RQ-20261005-902 (rule RULE-RQ1005-PROPEXPAND-TRADEIFY registered before the run), ETH+SOL at flat 0.5% = INACTIVITY_SAFE_IMPROVEMENT, min-seed P(net>0) 0.372 vs ETH alone 0.284, EV per life +$179 vs +$58, max entry gap 6.6d; control ETH + negative-edge leg lowers EV; SOL alone still fails; not a 0.70 pass. Account flat at re-add. Revert: remove the line again."
+}
