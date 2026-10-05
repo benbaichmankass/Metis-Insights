@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261003-DU6FR2PG-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-EXIT-READ session_01RZaDZHQNxS61WpDu6FR2PG, dump-tables #15983 (run on 2026-10-03 ~15:45Z)",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_1&limit=5' (fill #80) ; then a breakout-login-check dump-tables system-action and read the Trade History / Order History rows timed 03/10/26 00:34 for ETHUSD (Order History prints only its first/last 3 rows, so the Event Type of the close may need a wider read)"
+  },
+  "routed_to": "PROP-EXIT-READ — executor records a venue exit as closed_on_terminal (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "The executor's first automated breakout_1 position (prop-manual-d27fbb0b2b25, ETHUSD short 1.22 @ 2657.17, SL 2718.46 / TP 2394.06) was closed at 2026-10-03 00:34Z at 2674.88 (net -25.31) by NEITHER bracket leg. No close-position system-action ran then, the journal has no SL/TP amendment, and PROP-TRAIL (#15316) merged only at 05:42Z. WHO closed it is UNKNOWN: a hand close on the terminal, a platform-side close, or an executor path not identified. A close that is not TP/SL/strategy-close is a bug to root-cause; the Order History Event Type for 00:34 is the first read."
+}

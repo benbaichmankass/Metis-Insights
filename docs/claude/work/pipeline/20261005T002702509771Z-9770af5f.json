@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "alpaca_live either places orders or is no longer declared live; and the silent-refusal latch state for it is confirmed readable.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127'), indent=2))\"",
+    "what": "alpaca_live either places orders or is no longer declared live; and the silent-refusal latch state for it is confirmed readable."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127'), indent=2))\""
+  },
+  "routed_to": "ORDER-AUDIT-2 — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never closes an item) — alpaca_live still mode:live with 3 legs (config/accounts.yaml); silent_refusal_alert.py exists but current refusal counts/latch state need journal+diag reads (diag journal probe returned HTTP 400 for me). (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[health] alpaca_live is declared mode:live and has refused 127 of 127 orders for lack of funds — the silent-refusal alert shipped for exactly this on 08-14 and the count has since grown"
+}

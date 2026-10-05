@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A ticket left in expiry_prompted (or any other prompted state) can no longer suppress the sleeve indefinitely. Concretely, EITHER: (a) prompted states carry a TIMEOUT after which the ticket auto-resolves to `expired` and stops counting as outstanding -- observed by finding such an auto-resolution in the live prop_tickets table, not by reading the code; OR (b) a detector PAGES the operator when any ticket has been in a prompted state beyond a threshold AND tickets are being suppressed against it -- observed firing on a real instance. [!] CLEARING THE TWO CURRENT TICKETS RESOLVES THIS NOT AT ALL -- that is the incident, and it is already done. [!] THE SLEEVE TRADING AGAIN IS NOT EVIDENCE EITHER: it will trade again the moment the jam clears, which says nothing about the next jam. [!] A GREEN TEST CLEARS NOTHING: the condition is a prompt a human did not answer, which a harness cannot reach. [!] AND DO NOT 'FIX' THIS BY MAKING THE RETICKET CHECK IGNORE expiry_prompted -- that check exists to stop duplicate tickets going to a human executor, and disabling it would trade a silent outage for silent double-placement on a real-money prop account. The fix belongs in the ticket's own lifecycle.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-ONE-UNANSWERED-EXPIRY-PROMPT-WEDGES-THE-ENTIRE-PROP-SLEEVE-FOREVER-WITH-NO-TIMEOUT-NO-ESCALATION-AND-NO-ALARM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-ONE-UNANSWERED-EXPIRY-PROMPT-WEDGES-THE-ENTIRE-PROP-SLEEVE-FOREVER-WITH-NO-TIMEOUT-NO-ESCALATION-AND-NO-ALARM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-ONE-UNANSWERED-EXPIRY-PROMPT-WEDGES-THE-ENTIRE-PROP-SLEEVE-FOREVER-WITH-NO-TIMEOUT-NO-ESCALATION-AND-NO-ALARM'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: verified at HEAD/live by this lane (re-read, not only the sub-agent): src/prop/breakout_executor.py:83-95,166-175: STALE_PROMPT_GRACE=24h; an expiry_prompted ticket whose valid_until+24h has passed no longer suppresses re-tickets (stale prompt, continue).",
+  "what": "[health] One unanswered prop expiry-prompt suppressed EVERY prop ticket for 12 days, silently — expiry_prompted counts as an outstanding ticket and nothing ever clears it | RECURRED 2026-09-28 (LIVE-NO-TRADES lane, measured 2026-09-30 via /api/bot/prop/tickets?limit=60): ticket prop-manual-693bb30f7638 (trend_donchian_eth_prop long, valid_until 2026-09-25T12:11Z) was still expiry_prompted at 2026-09-28T17:15Z, 3 days later. It suppressed a fresh ETH long, prop-manual-b7dd06d5c73d ('reticket suppressed — outstanding_ticket:expiry_prompted'). It now reads skipped. The no-timeout latch is still live code."
+}

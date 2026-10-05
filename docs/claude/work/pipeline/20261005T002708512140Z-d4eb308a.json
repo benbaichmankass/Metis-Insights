@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "(a) A durable register exists in which every operator-owed item carries an OWNER-CLASS (genuinely-human: secret origination / physical-or-broker / judgement — vs defaulted-to-human: a wire exists or could) and an age; (b) an item aging past a stated threshold ESCALATES rather than being re-listed, and the escalation is measured not asserted; (c) every defaulted-to-human item is either automated or carries a recorded reason it cannot be, with the anti-pattern named — 'one remediation attempt failed' is not sufficient on its own, because the tested-pure-function remedy exists and has a precedent in this repo; (d) ⚠️ THE STANDING PART: a check that FAILS when an item has been carried across N sessions without a state change. Without (d) this closes and silently regresses, which is the same failure the register exists to prevent. Closing on 'a register was created' alone is NOT sufficient — the register must be shown to have MOVED an item at least once.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION'), indent=2))\"",
+    "what": "(a) A durable register exists in which every operator-owed item carries an OWNER-CLASS (genuinely-human: secret origination / physical-or-broker / judgement — vs defaulted-to-human: a wire exists or could) and an age; (b) an item aging past a stated threshold ESCALATES rather than being re-listed, and the escalation is measured not asserted; (c) every defaulted-to-human item is either automated or carries a recorded reason it cannot be, with the anti-pattern named — 'one remediation attempt failed' is not sufficient on its own, because the tested-pure-function remedy exists and has a precedent"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-OPERATOR-OWED-ITEMS-HAVE-NO-REGISTER-NO-AGE-AND-NO-ESCALATION'), indent=2))\""
+  },
+  "routed_to": "ML-HYGIENE — triaged 2026-10-05: sub-agent proposed obsolete, not independently verified — Superseded 2026-09-21: PIPELINE.jsonl requires due_when with computed due + ranked daily brief 'decisions for you' (CLAUDE.md follow-through pipeline); the prose-handoff model it describes is retired. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[health] Operator-owed items are handed forward in PROSE only: no register, no age, no escalation, and no distinction between genuinely-human and defaulted-to-human — so they accumulate silently across sessions"
+}
