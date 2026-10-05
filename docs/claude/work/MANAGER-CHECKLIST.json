@@ -5177,6 +5177,30 @@
         }
       ],
       "note": "[2026-10-04T23:00Z lane CI-AUTOMERGE] ROOT CAUSES (MEASURED, 116 open automation/* PRs): (1) commit-to-main cut its branch from the caller's checkout, so research runs dispatched on a session branch carried it (21 PRs failed pr-landing R5/R12); (2) stale-automation-sweep refreshed 0/115, because it graded each PR absent_on_main on its own .github/merge-slots claim and its refresh() wrote the retired session-board.json. Both are fixed in #16494 (hold; manager merge). MERGED: #16491 (20 stranded research results, 22:16Z). MERGED: #16497 (append-only data rows) and #16505 (3 hygiene fixes, the 13 package dispositions, the close lists). NOT YET OBSERVED: sweeper refresh>0 after #16494 (pipeline PI-20261004-UTBSCEQM-0001). FINDING: GitHub has no jsonregister merge driver, so any PR that appends a checklist row re-conflicts every time main appends one (it struck #16494 twice); the row was therefore moved off #16494."
+    },
+    {
+      "id": "VELOTRADE-WIRE",
+      "title": "Wire the Velotrade CLASSIC 1-Step $5k DXtrade evaluation as prop account velotrade_1, dry first, reusing the tradeify_1 executor path",
+      "phase": "W6",
+      "state": "blocked",
+      "owner": "build lane",
+      "lane": "session_01WfdESzsCPZbuawkqiWjzWX",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16500,
+        16519
+      ],
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "operator",
+          "what": "buy the Velotrade CLASSIC 1-Step $5k ($54) and add GitHub Actions secrets VELOTRADE_DX_USERNAME / VELOTRADE_DX_PASSWORD (the dx.velotrade.com terminal login); then the manager merges #16500, dispatches sync-vm-secrets and breakout-login-check account: velotrade_1"
+        }
+      ],
+      "note": "[2026-10-05T00:10Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] #16500 MERGED 9ddf1ee0 at 00:03Z (manager). Merged, NOT deployed-verified, NOT observed: velotrade_1 is dry_run with an empty roster, nothing enabled, and no credential exists yet. Next (manager, after the operator says \"velotrade secrets added\"): sync-vm-secrets, then the READ-ONLY breakout-login-check account: velotrade_1. || [2026-10-04T23:35Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] OPERATOR DECISION (manager popup ~21:25Z, verbatim \"Buy one ($54)\"). HELD Tier-2 PR #16500 (manager-approved) adds velotrade_1: accounts.yaml mode dry_run with an EMPTY roster (the roster is Tier-3, proposed in the PR body only: trend_donchian_eth_prop + trend_donchian_sol_prop at 0.5% risk; full-size P1 run over n=234 trades (169 ETH + 65 SOL evidence-record trades, 363 days of history), 4000 lives: path EV +$326 +/- 7 per $54 life, evidence p5 -$26, V2 INDETERMINATE); prop_platforms.yaml entry (login_url https://dx.velotrade.com/, own VELOTRADE_DX_* login, own kill switch PROP_EXECUTOR_MODE_VELOTRADE_1, no lots, nothing enabled); velotrade_routing.yaml (venue names UNCONFIRMED); ruleset routing + flat $25 sizing; leverage caps re-keyed to bot symbols; opt-in max(balance, equity) day-start basis; VELOTRADE_DX_* as optional secrets. This row lands separately because GitHub has no jsonregister merge driver (PI-20261004-APBY4NTV-0003). Follow-ups PI-20261004-KQIWJZWX-0001 (measurements after login) and -0002 (qualifying-day counter, payout scheduler, overexposure cap before any live roster). Nothing live; nothing deployed. Closes when: the read-only login check exits 0 on the VM for velotrade_1."
     }
   ]
 }
