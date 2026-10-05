@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs + register only: design memo (API executor vs browser executor for velotrade_1, recommendation, Tier-2 test plan NOT run), its DOCUMENT-INDEX row, and one pipeline record (PI-20261005-KQIWJZWX-0002). No code, config, roster or order-path change."
+}
