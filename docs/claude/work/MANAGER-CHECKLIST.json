@@ -5201,6 +5201,21 @@
         }
       ],
       "note": "[2026-10-05T00:10Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] #16500 MERGED 9ddf1ee0 at 00:03Z (manager). Merged, NOT deployed-verified, NOT observed: velotrade_1 is dry_run with an empty roster, nothing enabled, and no credential exists yet. Next (manager, after the operator says \"velotrade secrets added\"): sync-vm-secrets, then the READ-ONLY breakout-login-check account: velotrade_1. || [2026-10-04T23:35Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] OPERATOR DECISION (manager popup ~21:25Z, verbatim \"Buy one ($54)\"). HELD Tier-2 PR #16500 (manager-approved) adds velotrade_1: accounts.yaml mode dry_run with an EMPTY roster (the roster is Tier-3, proposed in the PR body only: trend_donchian_eth_prop + trend_donchian_sol_prop at 0.5% risk; full-size P1 run over n=234 trades (169 ETH + 65 SOL evidence-record trades, 363 days of history), 4000 lives: path EV +$326 +/- 7 per $54 life, evidence p5 -$26, V2 INDETERMINATE); prop_platforms.yaml entry (login_url https://dx.velotrade.com/, own VELOTRADE_DX_* login, own kill switch PROP_EXECUTOR_MODE_VELOTRADE_1, no lots, nothing enabled); velotrade_routing.yaml (venue names UNCONFIRMED); ruleset routing + flat $25 sizing; leverage caps re-keyed to bot symbols; opt-in max(balance, equity) day-start basis; VELOTRADE_DX_* as optional secrets. This row lands separately because GitHub has no jsonregister merge driver (PI-20261004-APBY4NTV-0003). Follow-ups PI-20261004-KQIWJZWX-0001 (measurements after login) and -0002 (qualifying-day counter, payout scheduler, overexposure cap before any live roster). Nothing live; nothing deployed. Closes when: the read-only login check exits 0 on the VM for velotrade_1."
+    },
+    {
+      "id": "BACKLOG-BURNDOWN-3",
+      "title": "Continuous backlog burndown, wave 2: CLOSE or KILL (not re-date) the lapse wave of 553 imported items >=14d old whose cadences expire together (173 due 2026-10-11, 108 on 10-12, 94 on 10-18, 115 on 10-19, 249 on 10-21, per BURNDOWN-2 close-out); jitter surviving cadences; target due <=25 and no single-day cliff >30",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "burndown lane",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-05 03:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv per the operator directive (2026-10-04, verbatim in the manager transcript) to run the backlog burndown continuously until manageable. Predecessor BACKLOG-BURNDOWN-2 is done: due 19, unrouted 0 on main, $38.07. Lane session id filled in after dispatch."
     }
   ]
 }
