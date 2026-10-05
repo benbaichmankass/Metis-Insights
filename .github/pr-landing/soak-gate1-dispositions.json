@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Removes 11 execution:shadow legs from the bybit_1 (Stage-1) roster on failing Stage-0 records. Roster edits are Tier 3; the manager/operator decides the merge. Revert = re-add the names to bybit_1 strategies.",
+  "why": "Config roster removal on a Stage-1 account (bybit_1 only, none on a Stage-2 account) plus pipeline records; no order-path code change."
+}

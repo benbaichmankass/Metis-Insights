@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Edits research/queue/RQ-20260928-017.yaml (a result-line correction on a queue unit, outside TIER1_SURFACE) plus a pipeline closure record.",
+  "why": "Docs-grade correction of a stale result line and a pipeline item closure. No config, roster, order path or runtime change."
+}

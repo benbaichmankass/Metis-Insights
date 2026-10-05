@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-MG7BGR46-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-FIT-POWER, session_01SGtB43mEJKQKsfmg7bGr46, PR #16567",
+    "rerun": "python3 - <<'X'\nimport yaml;t=yaml.safe_load(open('research/THEMES.yaml'))['themes'];print({k:v['weight'] for k,v in t.items()})\nX"
+  },
+  "state": "queued",
+  "what": "research/THEMES.yaml weights new_strategy_prop (prop-account fit) at 2 vs live_strategy at 4, which contradicts the operator's prop-first priority order (MANAGER-CHECKLIST priorities.order, decided 2026-09-28). MEASURED 2026-10-05 on the committed queue: new_strategy_prop fired 28 times in the 48h share window against live_strategy's 8, so fair_order puts 10 newly registered prop units (RQ-20261005-801..810) behind all 21 due live_strategy units. PROPOSAL (not made): raise new_strategy_prop's weight above live_strategy's, or split prop-fit into its own theme weighted at the top; the operator or manager decides, since the weights set dispatch share for every theme."
+}

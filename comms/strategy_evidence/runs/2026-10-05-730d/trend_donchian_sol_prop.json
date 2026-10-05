@@ -1,0 +1,109 @@
+{
+  "schema_version": 2,
+  "strategy": "trend_donchian_sol_prop",
+  "symbol": "SOLUSDT",
+  "timeframe": "1h",
+  "config_fingerprint": "sha256:788c4e29332bb4e5f12bcf09810b1913",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 9.1487,
+  "expectancy_r_oos": 0.0693,
+  "n_trades_oos": 132,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 33,
+      "net_r": 1.5876,
+      "expectancy_r": 0.0481,
+      "start": "2024-10-06 14:00:00+00:00",
+      "end": "2025-04-12 13:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 33,
+      "net_r": 4.9145,
+      "expectancy_r": 0.1489,
+      "start": "2025-04-19 02:00:00+00:00",
+      "end": "2025-10-01 08:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 33,
+      "net_r": -2.1793,
+      "expectancy_r": -0.066,
+      "start": "2025-10-05 04:00:00+00:00",
+      "end": "2026-04-07 22:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 33,
+      "net_r": 4.8259,
+      "expectancy_r": 0.1462,
+      "start": "2026-04-13 13:00:00+00:00",
+      "end": "2026-10-02 04:00:00+00:00"
+    }
+  ],
+  "folds_positive": 3,
+  "window_days": 730,
+  "fee_bps_roundtrip": 7.5,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 132,
+    "max_drawdown_r": 9.6443,
+    "max_drawdown_at_trade": 51,
+    "final_equity_r": 9.1487,
+    "max_equity_r": 11.4327,
+    "worst_trade_r": -1.1209,
+    "best_trade_r": 3.9329,
+    "worst_day_r": -1.1209,
+    "worst_day_date": "2025-12-28",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 3.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__bt.json"
+  },
+  "net_r_oos_fee_only": 12.4585,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-10-05T06:39:20.050131+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl",
+  "error": null,
+  "harness": "trend",
+  "venue_bracket_arm": {
+    "exit_model": "static_sl_tp_only",
+    "n": 53,
+    "net_r": -0.49,
+    "net_r_fee_only": 2.08,
+    "by_exit": {
+      "stop": {
+        "n": 41,
+        "net_r": -44.21
+      },
+      "take_profit": {
+        "n": 12,
+        "net_r": 43.72
+      }
+    },
+    "window": [
+      "2025-10-05 04:00:00+00:00",
+      "2026-09-30 14:00:00+00:00"
+    ],
+    "provenance": "MEASURED (offline harness, venue-aware cost stack); window and candle source in 'window'",
+    "source": "comms/strategy_evidence/venue_bracket/trend_donchian_sol_prop.json"
+  }
+}

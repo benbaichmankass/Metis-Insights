@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "clears_when": "After the flip is merged+deployed: >=10 ib_paper closes graded for R3 cost fidelity (Gate 2) -- else kill/revert to shadow",
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-SOAK-20261004-mgc_trend_1h",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 scripts/check_strategy_coverage.py --self-test after the flip; python3 scripts/ops/soak_report.py --print-state",
+    "what": "After the flip is merged+deployed: >=10 ib_paper closes graded for R3 cost fidelity (Gate 2) -- else kill/revert to shadow"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "routed_to": "PASS on Stage-0 but flip NOT in the SOAK-GATE1 PR: flipping mgc_trend_1h to execution: live fails strategy-coverage-guard (live strategy needs a regime_policy cell or reasoned exempt) and exit-coverage-matrix-guard (m20 matrix says shadow). Needs: a regime cell/exempt decision + matrix row, then the flip on ib_paper only. comms/strategy_evidence/mgc_trend_1h.json: net_r_oos +25.612R, n=118, 4 folds (2 positive), full cost stack (fee 7.5 + slip 5.0 bps RT), RULE-D1-STAGE0-NET-OF-FULL-COST = pass. CAVEAT: the 2026-06-18 demote cited -15.5R on real GC=F 1h; param_selection_provenance=not_established.",
+  "state": "routed",
+  "what": "SOAK (shadow): mgc_trend_1h — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing. | SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv): PASS candidate. | SOAK-GATE1: flip blocked by two guards (see routed_to)."
+}

@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "GET /api/bot/work/report returns a reportId WR-20261005-0530Z (+-1 min) with erroredSections [] — i.e. ict-work-report.timer fired at its own 05:30 UTC slot",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "subject": "deploy-observation:WORK-SYSTEM"
+    }
+  },
+  "id": "PI-20261004-Z9DKTUVO-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "deploy",
+    "ref": "PR #16387 / checklist WORK-SYSTEM",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/work/report | python3 -c \"import json,sys; d=json.load(sys.stdin); print(d['reportId'], d['generatedAt'], d['erroredSections'])\""
+  },
+  "routed_to": "WORK-SYSTEM — scheduled 05:30Z work report / Telegram digest observation (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "done",
+  "terminal_reason": "OBSERVED 2026-10-05 05:5xZ by manager session_01MM8o5js6TcDFeNAPBY4Ntv via the origin.rerun: GET /api/bot/work/report -> reportId WR-20261005-0529Z, generatedAt 2026-10-05T05:29:55Z, erroredSections [] (within the +-1 min clears_when). The timer fired at its own 05:30 UTC slot. Hourly digestLog also has 10 entries 20:01Z..05:01Z, one per hour (digestLogState read).",
+  "what": "First SCHEDULED 05:30Z work report (WORK-SYSTEM, #16387, merged 1fa57f0a and deployed; deploy-time report WR-20261004-1947Z observed with erroredSections []). Not yet observed: a report produced by ict-work-report.timer at its own 05:30 UTC slot, i.e. reportId WR-20261005-0530Z (± a minute) with erroredSections [], before the manager's 05:52Z review."
+}

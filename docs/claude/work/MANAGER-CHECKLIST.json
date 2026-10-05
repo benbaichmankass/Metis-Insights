@@ -19,14 +19,22 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-04T15:02:00Z",
-  "updated_by": "manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "updated_at": "2026-10-05T08:14:00Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
     "_comment": "Set by the manager's daily review (manager SKILL \u00a7 'The work system'): the WR-YYYYMMDD-HHMMZ report it worked from GET /api/bot/work/report, when, by whom, and disposition counts. Per-item dispositions live on the pipeline items. null = no review recorded yet.",
-    "report_id": null,
-    "reviewed_at": null,
-    "by": null,
-    "counts": null
+    "report_id": "WR-20261005-0529Z",
+    "reviewed_at": "2026-10-05T06:16:00Z",
+    "by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "counts": {
+      "incidents": 0,
+      "due": 19,
+      "dispatched": 16,
+      "closed": 1,
+      "deferred_to_operator": 1,
+      "not_due_today": 1,
+      "digest_log_entries_since_20261004T2000Z": 10
+    }
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -102,7 +110,7 @@
       "id": "WORK-SYSTEM",
       "title": "TOP PRIORITY (operator 2026-10-04): structural fix so due work, soaks and decisions never rot -- soak contract with end dates, short ranked truthful VM brief, alerts incl. expected-signal-missing, lane wake contract, canonized in the manager skill",
       "phase": "floor",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "lane WORK-SYSTEM (lead) + SOAK-WATCH + BRIEF-FIX",
       "lane": "session_011qgezvKupqWGFyz9DKtUvo",
       "model": "claude-opus-5-5 (design + canon); Sonnet/Opus builders",
@@ -115,7 +123,7 @@
         16467
       ],
       "blocked_on": [],
-      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator: 'that's not a band-aid, that's a structural fix ... canonize in the manager skill ... build the VM-side infra so reports are trustworthy and set off the right alerts ... highest priority even if it means pausing something else.' MEASURED gap: pipeline 366 due / 151 unrouted (237 never checked; 215 routed-but-due; 25 ask_operator never surfaced); 36 of 45 Stage-1 legs 'insufficient-data' with no end date; 09-26 soak grade's 6 'kill' calls never acted on; 10-04 weekly soak grade ran 'success' with no record; soak_alarm reads the archived OPEN-ITEMS.json; VM brief 737 KB, unranked, shows dead lanes as running. PROP-EVIDENCE-2 paused to free capacity. Closes when: brief live under its size cap and truthful; soak section populated from contracts; one real alert delivered for each alert class; manager skill + canonical rules updated and coherence guard green. [WORK-SYSTEM lane, 2026-10-04T15:45Z] Design: docs/plans/work-system-2026-10-04.md. BUILT in PR #16387: (a) scripts/ops/attention_watch.py \u2014 its block LEADS the ONE hourly ict-work-digest Telegram message: NEW since last digest (new ask_operator; soak -> ready/overdue/dead from scripts/ops/soak_state.py::soak_states(), SOAK-WATCH's live computation; silence alarms: R5 grade >=8d, no research result 36h, in_flight row untouched 3d, checklist unwritten 30h, 05:30Z report missing/stale/errored/>64KB), the daily ranked summary after 06:00Z, else one quiet line; state committed only after the send. (b) scripts/ops/work_report.py on deploy/ict-work-report.timer (05:30 UTC, generator, sends nothing) -> runtime_logs/work_reports/WR-YYYYMMDD-HHMMZ.json + latest.json, served GET /api/bot/work/report; ?since=<ISO> adds digestLog (every sent hourly block). (c) manager SKILL \u00a7 'The work system': one-message rule, twice-daily review 05:52Z/17:52Z from the report, last_review record, PUSH+POLL, required dispatch block (permission_mode auto + wake template), day one (rebind routines, tell lanes). (d) CLAUDE-RULES-CANONICAL \u00a7 'Due work must reach someone who acts'. TIER-2: HELD for the manager to merge (after BRIEF-FIX #16384). CLOSES WHEN ALL OBSERVED: (1) /api/diag/services shows ict-work-digest.timer and ict-work-report.timer active, and /api/diag/log_file?name=attention_watch_receipt shows outcome 'sent' after deploy; (2) GET /api/bot/work/report returns a WR-...-0530Z report with erroredSections [] and ?since= returns non-empty digestLog; (3) operator confirms the hourly message now leads with NEW/quiet line; (4) the brief is under BRIEF-FIX's 16 KB cap and the report's soaks section is 'ok' from soak_states(); (5) the R5-grade alarm (breached at build: newest comms/research/soak_book_grade/2026-09-26.json) fires, then clears once SOAK-WATCH lands a grade. [WORK-SYSTEM lane 2026-10-04T20:05Z] MERGED #16387 as 1fa57f0a (19:42Z). DEPLOYED + OBSERVED via diag/API: ict-work-report.timer + ict-work-digest.timer active; GET /api/bot/work/report -> WR-20261004-1947Z, 39,449 B, erroredSections [], all sections ok; soaks from soak_states() on VM data: 45 = 23 ready / 17 accruing / 2 overdue / 2 dead / 1 unknown; alarms: soak_grade ok (R5 grade landed 2026-10-04), research ok, report ok, inflight BREACHED (E76 7d, P1b 6d, CA 3d, PROP-ETH 3d); 20:01Z hourly pass: work_digest_receipt outcome sent, attention committed, queued ...-high.json; attention_watch_receipt outcome sent; ?since= digestLog has the entry. NOT YET OBSERVED (filed): PI-20261004-Z9DKTUVO-0001 first scheduled 05:30Z report (due 2026-10-05); PI-20261004-Z9DKTUVO-0002 operator confirms Telegram delivery of the new message shape. Follow-up #16430 (seed lines, order-independent) open, CI running. Row stays in_flight (not landed_unproven) while the lane is live and #16430 is open; it moves to landed_unproven/done when the two items above clear. [WORK-SYSTEM lane close-out 2026-10-04T21:30Z] #16387, #16430, #16467 MERGED. #16430 OBSERVED: the 21:00:51Z hourly pass (attention_watch_receipt outcome sent, new_items 3) sent the one-time seed lines \u2014 '\u2753 ask_operator at deploy: 30 open (25 due)', '\ud83e\uddea Soaks at deploy: 23 ready \u00b7 2 overdue \u00b7 2 dead' \u2014 plus '\u2705 Cleared \u2014 in_flight rows gone quiet' (0 of 13); digestLog carries the entry. Row -> landed_unproven with the #16470 observation form; closes when the first scheduled 05:30Z report is produced and read by the 05:52Z review (due_by 2026-10-05T06:30Z).",
+      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator: 'that's not a band-aid, that's a structural fix ... canonize in the manager skill ... build the VM-side infra so reports are trustworthy and set off the right alerts ... highest priority even if it means pausing something else.' MEASURED gap: pipeline 366 due / 151 unrouted (237 never checked; 215 routed-but-due; 25 ask_operator never surfaced); 36 of 45 Stage-1 legs 'insufficient-data' with no end date; 09-26 soak grade's 6 'kill' calls never acted on; 10-04 weekly soak grade ran 'success' with no record; soak_alarm reads the archived OPEN-ITEMS.json; VM brief 737 KB, unranked, shows dead lanes as running. PROP-EVIDENCE-2 paused to free capacity. Closes when: brief live under its size cap and truthful; soak section populated from contracts; one real alert delivered for each alert class; manager skill + canonical rules updated and coherence guard green. [WORK-SYSTEM lane, 2026-10-04T15:45Z] Design: docs/plans/work-system-2026-10-04.md. BUILT in PR #16387: (a) scripts/ops/attention_watch.py \u2014 its block LEADS the ONE hourly ict-work-digest Telegram message: NEW since last digest (new ask_operator; soak -> ready/overdue/dead from scripts/ops/soak_state.py::soak_states(), SOAK-WATCH's live computation; silence alarms: R5 grade >=8d, no research result 36h, in_flight row untouched 3d, checklist unwritten 30h, 05:30Z report missing/stale/errored/>64KB), the daily ranked summary after 06:00Z, else one quiet line; state committed only after the send. (b) scripts/ops/work_report.py on deploy/ict-work-report.timer (05:30 UTC, generator, sends nothing) -> runtime_logs/work_reports/WR-YYYYMMDD-HHMMZ.json + latest.json, served GET /api/bot/work/report; ?since=<ISO> adds digestLog (every sent hourly block). (c) manager SKILL \u00a7 'The work system': one-message rule, twice-daily review 05:52Z/17:52Z from the report, last_review record, PUSH+POLL, required dispatch block (permission_mode auto + wake template), day one (rebind routines, tell lanes). (d) CLAUDE-RULES-CANONICAL \u00a7 'Due work must reach someone who acts'. TIER-2: HELD for the manager to merge (after BRIEF-FIX #16384). CLOSES WHEN ALL OBSERVED: (1) /api/diag/services shows ict-work-digest.timer and ict-work-report.timer active, and /api/diag/log_file?name=attention_watch_receipt shows outcome 'sent' after deploy; (2) GET /api/bot/work/report returns a WR-...-0530Z report with erroredSections [] and ?since= returns non-empty digestLog; (3) operator confirms the hourly message now leads with NEW/quiet line; (4) the brief is under BRIEF-FIX's 16 KB cap and the report's soaks section is 'ok' from soak_states(); (5) the R5-grade alarm (breached at build: newest comms/research/soak_book_grade/2026-09-26.json) fires, then clears once SOAK-WATCH lands a grade. [WORK-SYSTEM lane 2026-10-04T20:05Z] MERGED #16387 as 1fa57f0a (19:42Z). DEPLOYED + OBSERVED via diag/API: ict-work-report.timer + ict-work-digest.timer active; GET /api/bot/work/report -> WR-20261004-1947Z, 39,449 B, erroredSections [], all sections ok; soaks from soak_states() on VM data: 45 = 23 ready / 17 accruing / 2 overdue / 2 dead / 1 unknown; alarms: soak_grade ok (R5 grade landed 2026-10-04), research ok, report ok, inflight BREACHED (E76 7d, P1b 6d, CA 3d, PROP-ETH 3d); 20:01Z hourly pass: work_digest_receipt outcome sent, attention committed, queued ...-high.json; attention_watch_receipt outcome sent; ?since= digestLog has the entry. NOT YET OBSERVED (filed): PI-20261004-Z9DKTUVO-0001 first scheduled 05:30Z report (due 2026-10-05); PI-20261004-Z9DKTUVO-0002 operator confirms Telegram delivery of the new message shape. Follow-up #16430 (seed lines, order-independent) open, CI running. Row stays in_flight (not landed_unproven) while the lane is live and #16430 is open; it moves to landed_unproven/done when the two items above clear. [WORK-SYSTEM lane close-out 2026-10-04T21:30Z] #16387, #16430, #16467 MERGED. #16430 OBSERVED: the 21:00:51Z hourly pass (attention_watch_receipt outcome sent, new_items 3) sent the one-time seed lines \u2014 '\u2753 ask_operator at deploy: 30 open (25 due)', '\ud83e\uddea Soaks at deploy: 23 ready \u00b7 2 overdue \u00b7 2 dead' \u2014 plus '\u2705 Cleared \u2014 in_flight rows gone quiet' (0 of 13); digestLog carries the entry. Row -> landed_unproven with the #16470 observation form; closes when the first scheduled 05:30Z report is produced and read by the 05:52Z review (due_by 2026-10-05T06:30Z). [2026-10-05T06:16Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OBSERVED: GET /api/bot/work/report -> WR-20261005-0529Z, generatedAt 05:29:55Z, erroredSections [] (within +-1 min); read by the 05:52Z review routine and recorded as last_review.report_id with reviewed_at 06:16Z. ?since= digestLog: 10 hourly entries 20:01Z..05:01Z. Row -> done. Still open separately: PI-20261004-Z9DKTUVO-0002 (operator confirms the Telegram message shape) - asked at this review.",
       "observation": {
         "what": "first 05:30Z scheduled report produced and read by the 05:52Z review",
         "how_to_check": "curl -sS https://ict-bot.duckdns.org/api/bot/work/report -> reportId WR-20261005-0530Z (\u00b11 min) with erroredSections []; and MANAGER-CHECKLIST.json top-level last_review.report_id equals that reportId with reviewed_at after 05:52Z",
@@ -4943,25 +4951,19 @@
       "id": "PHONE-EXEC-DESIGN",
       "title": "Breakout phone executor (Android WebView on the operator's phone): design + no-account checks before the 'purchase account now' gate",
       "phase": "W6",
-      "state": "blocked",
+      "state": "in_flight",
       "owner": "lane PHONE-EXEC-DESIGN",
-      "lane": "session_015aPwuhYohj6jnMQX6CMEvG",
-      "model": "claude-opus-5-5",
-      "ceiling_usd": 10,
+      "lane": "session_01FuWi5xUmKJf6ps9HEp9LyP",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 1,
       "prs": [
         16215,
         16229
       ],
-      "blocked_on": [
-        {
-          "kind": "operator_decision",
-          "ref": "operator",
-          "what": "Chrome + Wi-Fi step-zero results; resume after meeting"
-        }
-      ],
-      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required."
+      "blocked_on": [],
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required. [2026-10-05T06:52Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] BREAKOUT-BLOCKERS verdict (#16570; FAQ quote re-verified by the manager): Breakout sells no new DXtrade accounts, so a re-buy lands on the proprietary terminal (VM is Cloudflare-blocked). Operator popup answer: 'Revisit the phone executor'. Still blocked on the operator's step-zero (design doc section 7.6: Chrome, home Wi-Fi + mobile data, one line) - requested in chat 06:53Z; on a pass the manager dispatches phase 1a only. [2026-10-05T07:01Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'i can sign into the breached dx account on chrome on my phone. we're gonna skip step 1 (they are unresponsive) - we need to focus on technical viability to get to a real-account test.' Terms read / support questions SKIPPED by operator decision. Dispatched lane PHONE-EXEC-1A: WebView probe APK (Actions-built), public-page probe, operator hand-login to breached breakout_1 inside the WebView (2FA, session life, redacted mobile-terminal shape; read-only), fixtures; verdict GO/STOP for purchase gate in design doc section 7.9."
     },
     {
       "id": "PROP-FIRM-SCAN",
@@ -5117,16 +5119,24 @@
       "id": "MANDATE-S1-CUT",
       "title": "Record operator grant MD-S1-CUT-ON-STAGE0-FAIL in config/mandates.yaml + resolver rule; then apply it (Stage-1 roster cuts) in a separate PR",
       "phase": "B",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane MANDATE-S1-CUT",
       "lane": "session_012tsLa1ugTpjgNvCFMSLXPD",
       "model": "claude-opus-5-5",
       "ceiling_usd": 25,
-      "spend_usd": null,
+      "spend_usd": 10.63,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        16548,
+        16556
+      ],
       "blocked_on": [],
-      "note": "[2026-10-05 lane MANDATE-S1-CUT] OPERATOR GRANT: popup in manager session session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04 ~21:25Z, verbatim \"Grant it (Recommended)\" for MD-S1-CUT-ON-STAGE0-FAIL as proposed in docs/plans/soak-verdicts-2026-10-04.md; confirmed to the lane in its own session (\"Go\") 2026-10-05. PR 1 (held, manager merges): grant entry in config/mandates.yaml, resolver rule mandate_resolver._s1_cut_on_stage0_fail + 13 tests, soak snapshot comms/mandate_evidence/soak_state/2026-10-04.json (live brief 21:29Z) and its capture script. Dry evaluation over every bybit_1/alpaca_paper leg: 15 FIRE, listed with evidence in the PR body. NO roster is cut in PR 1 (manager instruction: cut only after the grant is on main). Closes when: PR 1 merged; PR 2 (the cuts) merged and deployed; cut legs observed producing no new order packages on their Stage-1 account over the next ticks."
+      "note": "[2026-10-05 lane MANDATE-S1-CUT] OPERATOR GRANT: popup in manager session session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04 ~21:25Z, verbatim \"Grant it (Recommended)\" for MD-S1-CUT-ON-STAGE0-FAIL as proposed in docs/plans/soak-verdicts-2026-10-04.md; confirmed to the lane in its own session (\"Go\") 2026-10-05. PR 1 (held, manager merges): grant entry in config/mandates.yaml, resolver rule mandate_resolver._s1_cut_on_stage0_fail + 13 tests, soak snapshot comms/mandate_evidence/soak_state/2026-10-04.json (live brief 21:29Z) and its capture script. Dry evaluation over every bybit_1/alpaca_paper leg: 15 FIRE, listed with evidence in the PR body. NO roster is cut in PR 1 (manager instruction: cut only after the grant is on main). Closes when: PR 1 merged; PR 2 (the cuts) merged and deployed; cut legs observed producing no new order packages on their Stage-1 account over the next ticks. [2026-10-05T06:34Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #16556 MERGED 64660b67 (06:22Z). DEPLOYED: /api/diag/version git_sha 64660b672, restart_pending false. OBSERVED: /api/bot/config bybit_1 16 legs, alpaca_paper 14 legs, none of the 15 cut legs present; config_load_errors []. The two open positions on cut legs (bybit_1 ict_scalp_eth_15m ETH short, alpaca_paper qqq_pullback_1h QQQ long) still lifecycle open in /api/diag/position_telemetry, updated 06:33Z (exit monitoring keyed on open packages, order_monitor.exit_population). REVERT: re-add the 15 names to config/accounts.yaml (git revert 64660b67).",
+      "observation": {
+        "what": "no NEW order package from any of the 15 cut legs on bybit_1/alpaca_paper after 06:33Z; the two open positions close via TP/SL/strategy exit, not a reconciler close",
+        "how_to_check": "bash scripts/ops/diag_fetch.sh '/api/diag/position_telemetry' and the order_packages diag since 2026-10-05T06:33Z filtered to the 15 strategy names",
+        "due_by": "2026-10-07T06:00Z"
+      }
     },
     {
       "id": "BACKLOG-BURNDOWN-2",
@@ -5206,25 +5216,19 @@
       "id": "VELOTRADE-WIRE",
       "title": "Wire the Velotrade CLASSIC 1-Step $5k DXtrade evaluation as prop account velotrade_1, dry first, reusing the tradeify_1 executor path",
       "phase": "W6",
-      "state": "blocked",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01WfdESzsCPZbuawkqiWjzWX",
       "model": "claude-opus-5-5",
       "ceiling_usd": 30,
-      "spend_usd": null,
+      "spend_usd": 23.77,
       "tier": 2,
       "prs": [
         16500,
         16519
       ],
-      "blocked_on": [
-        {
-          "kind": "operator_decision",
-          "ref": "operator",
-          "what": "buy the Velotrade CLASSIC 1-Step $5k ($54) and add GitHub Actions secrets VELOTRADE_DX_USERNAME / VELOTRADE_DX_PASSWORD (the dx.velotrade.com terminal login); then the manager merges #16500, dispatches sync-vm-secrets and breakout-login-check account: velotrade_1"
-        }
-      ],
-      "note": "[2026-10-05T00:10Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] #16500 MERGED 9ddf1ee0 at 00:03Z (manager). Merged, NOT deployed-verified, NOT observed: velotrade_1 is dry_run with an empty roster, nothing enabled, and no credential exists yet. Next (manager, after the operator says \"velotrade secrets added\"): sync-vm-secrets, then the READ-ONLY breakout-login-check account: velotrade_1. || [2026-10-04T23:35Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] OPERATOR DECISION (manager popup ~21:25Z, verbatim \"Buy one ($54)\"). HELD Tier-2 PR #16500 (manager-approved) adds velotrade_1: accounts.yaml mode dry_run with an EMPTY roster (the roster is Tier-3, proposed in the PR body only: trend_donchian_eth_prop + trend_donchian_sol_prop at 0.5% risk; full-size P1 run over n=234 trades (169 ETH + 65 SOL evidence-record trades, 363 days of history), 4000 lives: path EV +$326 +/- 7 per $54 life, evidence p5 -$26, V2 INDETERMINATE); prop_platforms.yaml entry (login_url https://dx.velotrade.com/, own VELOTRADE_DX_* login, own kill switch PROP_EXECUTOR_MODE_VELOTRADE_1, no lots, nothing enabled); velotrade_routing.yaml (venue names UNCONFIRMED); ruleset routing + flat $25 sizing; leverage caps re-keyed to bot symbols; opt-in max(balance, equity) day-start basis; VELOTRADE_DX_* as optional secrets. This row lands separately because GitHub has no jsonregister merge driver (PI-20261004-APBY4NTV-0003). Follow-ups PI-20261004-KQIWJZWX-0001 (measurements after login) and -0002 (qualifying-day counter, payout scheduler, overexposure cap before any live roster). Nothing live; nothing deployed. Closes when: the read-only login check exits 0 on the VM for velotrade_1."
+      "blocked_on": [],
+      "note": " [2026-10-05T07:51Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] CLOSES-WHEN MET. Operator: 'the velotrade credentials are updated'. sync-vm-secrets run 37278877602 success (VELOTRADE_DX_* present, written). OBSERVED: breakout-login-check issue #16577 (07:45Z) exit 0 - login ok, balance 5000.0, equity 5000.0, positions 0, orders 0; BTCUSD specs read, ETH/SOL/ADA/XRP/AVAX symbols listed (specs not yet). velotrade_1 stays dry_run, empty roster. Lane was blocked on a permission prompt; manager ran the two steps. Next: VELOTRADE-API-PROBE (API + per-symbol specs), status feed timer, dry round trip, Tier-3 roster. || [2026-10-05T00:10Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] #16500 MERGED 9ddf1ee0 at 00:03Z (manager). Merged, NOT deployed-verified, NOT observed: velotrade_1 is dry_run with an empty roster, nothing enabled, and no credential exists yet. Next (manager, after the operator says \"velotrade secrets added\"): sync-vm-secrets, then the READ-ONLY breakout-login-check account: velotrade_1. || [2026-10-04T23:35Z lane VELOTRADE-WIRE session_01WfdESzsCPZbuawkqiWjzWX] OPERATOR DECISION (manager popup ~21:25Z, verbatim \"Buy one ($54)\"). HELD Tier-2 PR #16500 (manager-approved) adds velotrade_1: accounts.yaml mode dry_run with an EMPTY roster (the roster is Tier-3, proposed in the PR body only: trend_donchian_eth_prop + trend_donchian_sol_prop at 0.5% risk; full-size P1 run over n=234 trades (169 ETH + 65 SOL evidence-record trades, 363 days of history), 4000 lives: path EV +$326 +/- 7 per $54 life, evidence p5 -$26, V2 INDETERMINATE); prop_platforms.yaml entry (login_url https://dx.velotrade.com/, own VELOTRADE_DX_* login, own kill switch PROP_EXECUTOR_MODE_VELOTRADE_1, no lots, nothing enabled); velotrade_routing.yaml (venue names UNCONFIRMED); ruleset routing + flat $25 sizing; leverage caps re-keyed to bot symbols; opt-in max(balance, equity) day-start basis; VELOTRADE_DX_* as optional secrets. This row lands separately because GitHub has no jsonregister merge driver (PI-20261004-APBY4NTV-0003). Follow-ups PI-20261004-KQIWJZWX-0001 (measurements after login) and -0002 (qualifying-day counter, payout scheduler, overexposure cap before any live roster). Nothing live; nothing deployed. Closes when: the read-only login check exits 0 on the VM for velotrade_1."
     },
     {
       "id": "BACKLOG-BURNDOWN-3",
@@ -5250,16 +5254,131 @@
       "id": "BACKLOG-BURNDOWN-4",
       "title": "Continuous backlog burndown, wave 3: drain the paced ~24/day due wave from 10-11 (416 old items still open, most without a live owner, per BURNDOWN-3 close-out); CLOSE/KILL over re-date",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "burndown lane",
-      "lane": null,
+      "lane": "session_01FF7rXg93DhjUErmWop8C4X",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": 6.23,
+      "tier": 1,
+      "prs": [
+        16554,
+        16555,
+        16558,
+        16559
+      ],
+      "blocked_on": [],
+      "note": "2026-10-05 05:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv under the operator's pacing directive (2026-10-05, the weekly limit must last to the Wed reset). Sonnet, $15 ceiling, NO parallel sub-agent fan-out (BURNDOWN-3 ran $65.71 against $40 with 17 sub-agents). 06:14Z: wave result \u2014 MERGED #16554/#16555 (34 records: 6 done, 18 killed, 11 routed) and #16559 (exit-head tp_cap); #16558 (check_stale_in_flight ratchet fix + test, files PI-20261005-MWOP8C4X-0001..0003) auto-merge armed. M20 exit-head/matrix rows NOT killed: measured premises still hold on the 52-row matrix. MANAGER DECISION: the ~380 remaining archived rows slow-drain on their spread due dates (<=24/day from 10-11) and 30-day owner observations; no more spend now. Row goes done when #16558 merges. 06:45Z: #16558 MERGED c9436d58; OBSERVED on main by manager: check_stale_in_flight prints 'ratchet base=0 head=0 delta=+0' (was base_unreadable). Lane ended on manager stop. Row done."
+    },
+    {
+      "id": "RQ-RENUMBER-16386",
+      "title": "Unblock #16386: renumber RESEARCH-RUN units RQ-20261004-653..674 -> 753..774 (ID collision with queue_replenish) + file the ID-race root cause",
+      "phase": "W6",
+      "state": "done",
+      "owner": "manager-dispatched lane",
+      "lane": "session_01H1mFH3B2BtDBL5rt476Z5b",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 5,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16386
+      ],
+      "blocked_on": [],
+      "note": "2026-10-05 05:49Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; manager validated the recipe in a scratch worktree (manager-scope routes the edit to a lane). 06:06Z lane done: branch pushed 15fd4749, root cause filed PI-20261005-RQ-ID-RACE-0001 (due 10-12). Manager merges #16386 when CI is green. 06:36Z: #16386 MERGED f6060ad1 by manager after reading the two hand grades against their result files (105 net_total_r +18.7231 n=144 PASS; 106 -121.9644 n=178 FAIL). Research-only, no runtime effect."
+    },
+    {
+      "id": "SOAK-GATE1",
+      "title": "Disposition the 16 due shadow soaks (PI-SOAK-20261004-*) at Gate 1 against each Stage-0 record: flip to live on Stage-1, kill, or file NEEDS_DATA; establish whether the 2 DEAD soaks are wiring faults",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "manager-dispatched lane",
+      "lane": "session_017HQgVMbXHRySLAKDrZBGRh",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        16561
+      ],
+      "blocked_on": [],
+      "note": "2026-10-05 05:56Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv from the 05:52Z review. mandate_resolver --from S0 --to S1 returns R-NO-OP for these legs (it models roster membership, not the execution: shadow->live flip), so no granted mandate covers the flip; config edits come back as one Tier-3 hold PR. Lane may draft (not grant) a proposed mandate. [2026-10-05T07:18Z manager] #16561 MERGED 0725e8ad (07:04Z). DEPLOYED: /api/diag/version git_sha 0725e8ad9, restart_pending false. OBSERVED: /api/bot/config bybit_1 = [trend_donchian_1h, trend_donchian_eth_4h, trend_donchian_xrp_4h, xrp_pullback_2h, ada_pullback_2h], config_load_errors []. REVERT: git revert 0725e8ad.",
+      "observation": {
+        "what": "no new shadow order packages from the 11 removed legs on bybit_1 after 07:18Z",
+        "how_to_check": "order_packages diag since 2026-10-05T07:18Z filtered to the 11 strategy names on bybit_1",
+        "due_by": "2026-10-07T06:00Z"
+      }
+    },
+    {
+      "id": "VELOTRADE-API-PROBE",
+      "title": "Read-only DXtrade REST API probe on velotrade_1 + measured ETH/SOL/XRP specs (executor lots proposal)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager-dispatched lane",
+      "lane": "session_01JzDpamQRqFT7p3tS1ChgfQ",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 8,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-05 07:51Z dispatched by manager; operator verbatim \"Ok, let's go that\" (web route first, API as follow-up). PI-20261005-APBY4NTV-0004. No order endpoints.",
+      "observation": null
+    },
+    {
+      "id": "PROP-LIMIT-GUARD",
+      "title": "Pre-submit guard: never click submit on a marketable prop LIMIT (long >= ask / short <= bid); reuse awaiting_resting_price; protects live tradeify_1",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "manager-dispatched lane",
+      "lane": "session_017NKfdLEY6VtcraLnuhXbu5",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16571,
+        16569
+      ],
+      "blocked_on": [],
+      "note": "2026-10-05 06:52Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; operator approved verbatim \"Yes, fix it now (Recommended)\". Tier-2 hold PR, manager merges + verifies deploy. [08:13Z manager] #16571 MERGED a20e90f9; DEPLOYED (VM bfeaf7639 contains it); tradeify_1 executor 08:08Z cycle exit 0, 08:13Z cycle code_sha bfeaf7639. Also #16569 (breakout_1 -> dry_run, operator popup) MERGED bfeaf763, account-mode-verify success, /api/bot/config breakout_1 dry_run live=false. Reverts: git revert a20e90f9; set-account-mode breakout_1 live.",
+      "observation": {
+        "what": "the next tradeify_1/velotrade_1 ticket whose LIMIT is marketable logs presubmit_marketable (or presubmit_quote_unreadable) and clicks nothing",
+        "how_to_check": "bash scripts/ops/diag_fetch.sh '/api/diag/journalctl?unit=ict-prop-executor@tradeify_1.service' | grep presubmit_",
+        "due_by": "2026-10-12"
+      }
+    },
+    {
+      "id": "BREAKOUT-BLOCKERS",
+      "title": "Read-only verdict for the operator: is there a STRUCTURAL blocker to automated execution on Breakout DXtrade (gates buying a replacement account)?",
+      "phase": "W6",
+      "state": "done",
+      "owner": "manager-dispatched lane",
+      "lane": "session_01P3B4ThDiTRvrKgiKGmv63B",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        16570
+      ],
+      "blocked_on": [],
+      "note": "2026-10-05 06:43Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv on operator popup answer \"Yes, assess blockers (Recommended)\". Same session: operator chose \"Set it to dry_run (Recommended)\" for breakout_1 ($4,698 vs $4,700 static floor, executor latched) -> set-account-mode issue #16568 (opens a Tier-3 hold PR; manager merges + verifies). 06:49Z verdict: STRUCTURAL - no new DXtrade accounts sold (Breakout FAQ 14215629, updated 2026-09-03, re-fetched by manager). DXtrade itself blocks nothing. 1 FIXABLE: PI-20261005-BRKBLOCK-0001 -> PROP-LIMIT-GUARD."
+    },
+    {
+      "id": "PROP-FIT-POWER",
+      "title": "Tradeify 1-Step prop fit, powered: re-run the underpowered legs (n 65-84 < floor 88) on longer-window full-cost evidence under freshly pre-registered units; PASS = Tier-3 tradeify_1 roster proposal",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager-dispatched lane",
+      "lane": "session_01SGtB43mEJKQKsfmg7bGr46",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-10-05 05:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv under the operator's pacing directive (2026-10-05, the weekly limit must last to the Wed reset). Sonnet, $15 ceiling, NO parallel sub-agent fan-out (BURNDOWN-3 ran $65.71 against $40 with 17 sub-agents)."
+      "note": "2026-10-05 06:37Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv (priority 1 prop; research slot freed by RESEARCH-RUN). RQ-20261004-755..764 were UNDERPOWERED/NULL because prop_ev_grid prices the newest evidence record, which holds fewer trades than the units declared; 765 FAIL. Lane does not edit config."
     }
   ]
 }

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path change in the prop executor (live on tradeify_1). Operator approved the fix 2026-10-05 ~06:55Z, verbatim 'Yes, fix it now (Recommended)'. Dispatched by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv): the MANAGER merges and verifies the deploy.",
+  "why": "Pre-submit quote guard: a LIMIT entry that is marketable (long limit >= ask, short limit <= bid) or whose quote is unreadable is not submitted; it routes into the existing awaiting_resting_price wait. Tier-2 by path (src/prop executor order path)."
+}
