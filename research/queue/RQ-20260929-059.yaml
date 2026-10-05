@@ -91,4 +91,4 @@ generated:
     symbol: BTCUSDT
     timeframe: 4h
     trades_file: comms/strategy_evidence/runs/2026-09-25/squeeze_breakout_4h__trades.jsonl
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T14:55:57+00:00'

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "clears_when": "A record (memo section or pipeline update) states the HTTP status of https://dx.velotrade.com/developers/ and https://dx.velotrade.com/dxsca-web/login from the live VM's egress or a GitHub runner; OR the operator declines Velotrade.",
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20261004-OZ9AAZSV-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-firm-deepdive-2026-10-04.md (lane PROP-FIRM-DEEP session_01Fgr85LsozsKJp3oz9aAZsv, manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator ask 2026-10-04 ~14:55Z 'keep doing research on other prop trading firms')",
+    "rerun": "Re-run: curl -sS -o /dev/null -w '%{http_code}' https://dx.velotrade.com/developers/ and POST {} to https://dx.velotrade.com/dxsca-web/login from the egress in question; the finding stands while the sandbox result (200 / DXtrade JSON error, 2026-10-04) has not been reproduced from the VM or a runner."
+  },
+  "severity": "low",
+  "state": "done",
+  "terminal_reason": "MEASURED 2026-10-04 19:47:51-58Z from the live VM's Oracle egress by the read-only egress-landing-probe system-action (allowlist extended by #16433, dispatched as issue #16458, run 37229332977): https://dx.velotrade.com/ 200 server=envoy no cf-ray no challenge 437,931 bytes with the DXtrade login-form markers (byte-identical to the sandbox read); https://dx.velotrade.com/developers/ 200 envoy 4,011 bytes (identical); https://velotrade.com/ 200 Netlify 434,370 bytes. No Cloudflare in front of either DXtrade host. Recorded as addendum A1 of docs/research/prop-firm-deepdive-2026-10-04.md. Not measured: a login POST or a browser session from the VM (needs a purchased credential).",
+  "tier": 1,
+  "what": "Velotrade reachability was measured from THIS sandbox's egress only (Google LLC, AS396982): dx.velotrade.com/developers/ 200 (DXtrade Developer Portal, docsify, REST/Push/FIX docs served), dx.velotrade.com/ 200 (DXtrade web terminal), POST dx.velotrade.com/dxsca-web/login answers with a DXtrade JSON error (endpoint live, no Cloudflare challenge anywhere). NOT measured from the live VM's egress class (Oracle) nor from a GitHub runner: scripts/research/egress_chromium_landing_probe.py hard-codes Breakout's two hosts and its --evaluate PASS rule counts per-host records, so adding hosts was not done inside the parked PROP-TERM tooling. Before any Velotrade purchase: either (a) add an opt-in --hosts flag to the probe (default unchanged) and run it from a PR touching .github/egress-probe/run-request.txt, or (b) curl the two URLs from the VM via a Tier-1 system-action wrapper. Expected 200 given the firm's own VPS text; Breakout's DXtrade REST 403 is the reason to measure. || [2026-10-04 19:48Z] MEASURED from the VM: 200/200/200, no Cloudflare; see terminal_reason."
+}

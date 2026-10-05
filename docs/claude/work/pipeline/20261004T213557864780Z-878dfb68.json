@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the residual is explained (e.g. via bar_close from #15822) and ADX_TOL is tightened back toward 0.05, or killed with a reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261003-LRP-ADXRESIDUAL",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane LIVE-PARITY session_014bomc3Y6kgwMFSqqGojcCp (manager session_01MM8o5js6TcDFeNAPBY4Ntv)",
+    "rerun": "Label an issue live-replay-parity (body days: 7); read adx_gap_max per leg and diag_adx on candle_mismatch rows in comms/live_parity/latest.md. Once PR #15822 (bar_close/bar_open_ts on eval rows) is deployed, compare the live bar_close with the 15m kline at the same instant."
+  },
+  "routed_to": "LIVE-PARITY (re-pointed from LIVE-PARITY (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "Live-vs-replay parity: on crypto FORMING legs live's eval-row adx_14 sits up to ~0.35 (one case 0.875, trend_donchian_sol*) BELOW every reconstructable state of the forming bar (15m bracket, the final bar, the closed-only frame), while every decision side agrees. MEASURED: workflow live-replay-parity run 37112981724 (issue #15874, window 2026-09-26..10-03, ada/xrp/eth/sol pullback_2h, trend_donchian_eth/sol(_prop)); e.g. ada_pullback_2h 2026-09-27T07:27:51Z live 23.8946 vs replay range [23.9938, 24.1452], final bar 24.1897. INFERRED (unchecked): the live forming kline's high/low differ from the aggregate of its 15m klines at that instant (venue kline update lag or mark-vs-last). The check's ADX_TOL is 0.5 meanwhile, which still catches wrong-candle frames (gaps of 1.5-3 measured)."
+}

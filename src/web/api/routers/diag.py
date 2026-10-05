@@ -346,6 +346,13 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # journal (account, env_mode) without SSH.
     "ict-prop-executor@tradeify_1.service",
     "ict-prop-executor@tradeify_1.timer",
+    # 2026-10-04 (VELOTRADE-WIRE) — the same two template instances for
+    # velotrade_1, queryable before either is enabled so a session can
+    # confirm they are off.
+    "ict-prop-feed@velotrade_1.service",
+    "ict-prop-feed@velotrade_1.timer",
+    "ict-prop-executor@velotrade_1.service",
+    "ict-prop-executor@velotrade_1.timer",
     "ict-exchange-funding-pull.service",
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",

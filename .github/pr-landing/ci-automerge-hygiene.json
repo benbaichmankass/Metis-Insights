@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane CI-AUTOMERGE, step 3 (pipeline package PI-20261004-IRWQEEXT-0006). Test-only fix for the smoke tests' order dependence (MEK2XMWT-0001). A fail-closed NEEDS_DATA on a non-finite setup confidence in mandate_resolver's R-AFFORD; it can only refuse more, never fire more (MGR01HYQ-0001). A pipeline --check guard against id-named records that shadow later updates (APBY4NTV-0003). Pipeline dispositions for all 13 members and 2 newly filed items. The manager-requested close-lists file docs/claude/work/CI-AUTOMERGE-CLOSE-LISTS-2026-10-04.json. No src/, config/, order path or landing machinery."
+}

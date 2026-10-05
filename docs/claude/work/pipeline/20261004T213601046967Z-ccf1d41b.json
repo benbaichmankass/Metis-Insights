@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "src/units/accounts/risk.py::_recompute_daily_pnl_from_db attributes realized PnL by closed_at (not created_at), with a test planting a trade opened yesterday and closed today at a loss that must count toward today's daily_pnl, merged AND deployed (git_sha on /api/diag/version contains the fix)",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-KRAKE1TG-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "grep -n \"substr(created_at,1,10)\" src/units/accounts/risk.py (the finding holds while the daily-PnL query keys on created_at); then scripts/ops/diag_fetch.sh 'journal?table=trades&limit=2000' and count closed rows with pnl where closed_at[:10] != created_at[:10] (2026-09-27: 145 of 603, losses -90656.70 across 88 rows).",
+    "what": "src/units/accounts/risk.py::_recompute_daily_pnl_from_db attributes realized PnL by closed_at (not created_at), with a test planting a trade opened yesterday and closed today at a loss that must count toward today's daily_pnl, merged AND deployed (git_sha on /api/diag/version contains the fix)"
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A04 (session_01L6oxNwzTguNk5ZKRaKE1tG), finding AUD-20260927-CA-A04-daily-loss-cap-by-open-date (docs/audits/code-audit-2026-09-27/CA-A04.findings.jsonl)",
+    "rerun": "grep -n \"substr(created_at,1,10)\" src/units/accounts/risk.py (the finding holds while the daily-PnL query keys on created_at); then scripts/ops/diag_fetch.sh 'journal?table=trades&limit=2000' and count closed rows with pnl where closed_at[:10] != created_at[:10] (2026-09-27: 145 of 603, losses -90656.70 across 88 rows)."
+  },
+  "routed_to": "FIX-CA-RISK (re-pointed from FIX-CA-RISK — FIX-CA-09 daily-loss attribution (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "HIGH (code audit CA-A04): RiskManager's daily-loss cap counts realized PnL only for trades OPENED today (risk.py:465 `substr(created_at,1,10)=?`). A loss realized today on a position opened earlier never reaches any day's DAILY_LOSS_CAP or the sizing loss budget. PLANTED: trade opened yesterday, closed today at -6000 on 50k equity (cap 2500) -> daily_pnl 0.0, evaluate (True, None). LIVE (last 1000 trades, 2026-08-29..09-27): 145 of 603 closes are cross-day (24%, contradicting the docstring's 'overwhelming majority same-day'); ib_paper 2026-09-14 realized -34940 at close but 0.00 attributed that day. Only the equity-based intraday-drawdown gate backstops. FIX (Tier-3, tightens a risk cap): key on COALESCE(closed_at, created_at) — closed_at is populated on 603/603 live closes — plus the planted test. Full record: docs/audits/code-audit-2026-09-27/CA-A04.findings.jsonl."
+}

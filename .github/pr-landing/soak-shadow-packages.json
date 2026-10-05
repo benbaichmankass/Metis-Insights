@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling only: scripts/ops/soak_book_grade.py and soak_report.py (offline report generators, no order path, no config) plus a new test. Fix for PI-20261004-JC8KDKLF-0002: grade execution:shadow soaks from the order packages they log. Test written first and shown failing (5 failed) before the fix."
+}

@@ -62,7 +62,7 @@ EQUITY = "yfinance"
 PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
     # --- crypto (Bybit USDT linear perps; Binance-vision futures/um proxy) ---
     ("BTCUSDT", "1h"): (CRYPTO, "60", 180), ("BTCUSDT", "2h"): (CRYPTO, "120", 180),
-    ("BTCUSDT", "4h"): (CRYPTO, "240", 180), ("BTCUSDT", "15m"): (CRYPTO, "15", 90),
+    ("BTCUSDT", "4h"): (CRYPTO, "240", 180), ("BTCUSDT", "15m"): (CRYPTO, "15", 1095),
     ("BTCUSDT", "5m"): (CRYPTO, "5", 30),
     ("ETHUSDT", "1h"): (CRYPTO, "60", 180), ("ETHUSDT", "2h"): (CRYPTO, "120", 180),
     ("ETHUSDT", "4h"): (CRYPTO, "240", 180), ("ETHUSDT", "15m"): (CRYPTO, "15", 90),
@@ -107,9 +107,12 @@ PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
 # default run, and never enters the manifest/roster drift check. Add a pair here when a queue
 # unit needs data for an instrument that is not (yet) on a roster.
 CANDIDATE_PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
-    ("BNBUSDT", "1h"): (CRYPTO, "60", 180), ("BNBUSDT", "2h"): (CRYPTO, "120", 180),
-    ("BNBUSDT", "4h"): (CRYPTO, "240", 180),
-    ("ETHUSDT", "5m"): (CRYPTO, "5", 30),
+    # Windows lengthened 2026-10-04 (PI-20261004-APBY4NTV-0001): at 180 d / 30 d the five
+    # RQ-20260929-101/102/103/107/108 runs landed n=6..37 against their 39-trade floor, i.e.
+    # INDETERMINATE ("could not answer"), not "no edge". Rules are unchanged; only n grows.
+    ("BNBUSDT", "1h"): (CRYPTO, "60", 1095), ("BNBUSDT", "2h"): (CRYPTO, "120", 1095),
+    ("BNBUSDT", "4h"): (CRYPTO, "240", 1095),
+    ("ETHUSDT", "5m"): (CRYPTO, "5", 365),
 }
 
 PROXY_WRITE_NAME = {"MGC": "GC_F", "MES": "ES_F", "MHG": "HG_F"}

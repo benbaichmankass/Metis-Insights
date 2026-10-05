@@ -729,6 +729,19 @@ The live port works like this:
   keeps it quiet on accruing. `render_section_0` lists ready/dead first.
 - It runs weekly, after the R5 grade, in the same landing commit.
 
+**Two forms of definition of done, both enforced by `soak-contract-guard`**
+(manager, 2026-10-04):
+- **A soak**: something that ACCRUES, such as a Stage-1 leg or a shadow
+  strategy. It needs a contract in `docs/claude/work/SOAKS.json`, or
+  `due_when.soak` on its pipeline item.
+- **A one-shot observation**: something that happens ONCE, such as "the 05:30Z
+  report was produced" or "the tick ran clean on the new sha". It carries
+  `observation: {what, how_to_check, due_by}` on its `check_observation` item
+  or `landed_unproven` row. `due_by` is required, and `pipeline.is_due` makes
+  the item due once `due_by` arrives, so an overdue one alarms through §0.
+Do not force a one-shot check into SOAKS.json, and never leave a row
+`in_flight` to dodge the guard.
+
 What it does NOT cover: checklist `landed_unproven` rows and free-text
 `check_observation` items. No predicate here can evaluate their exit
 conditions, so the report lists them as `could-not-look` and says so.

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "on 2026-09-28: a r4-demotion-gate workflow_dispatch run by github-actions[bot] created within 60 min of 07:41Z, the late event=schedule run of that slot concluding with its gate job SKIPPED by dedupe (exactly one gate execution for the slot); and strategy-review-packets likewise created within 60 min of 04:40Z. Kill if the keeper double-runs any slot or dispatches with the wrong inputs.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-W6OPSR-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": ".github/workflows/schedule-keeper.yml + scripts/ops/schedule_keeper.py",
+    "rerun": "GH_TOKEN=... python3 scripts/ops/schedule_keeper.py keep --dry-run  # prints slot age, runs since slot, last completed age per target"
+  },
+  "routed_to": "AUTOMERGE-GAPS",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: verified by this lane 2026-10-05 (live read and/or file/test re-read, deployed sha 9ddf1ee04 per /api/diag/version): 09-28: r4-demotion-gate dispatch by github-actions[bot] 08:12Z (slot 07:41); late schedule run 36447201255 15:55Z dedupe=success, gate=skipped. strategy-review-packets bot dispatch 05:10Z (slot 04:40) success. Exactly one gate run that slot.",
+  "what": "[ci] LANDED-UNPROVEN: schedule-keeper (W6-OPS-R) dispatches r4-demotion-gate, replay-pregate-nightly, strategy-review-packets and soak-book-grade-weekly near their slot despite GitHub's ~4-6h cron lag (step change 2026-08-27, see docs/research/recurring-validations-audit-2026-09-27.md F1), and pages after 26h/170h of silence. Not done until observed. -- MEASURED 2026-09-28T07:0xZ (W6-OPS-R): keeper works on 3 of 4 targets. r4-demotion-gate 09-27 slot: keeper dispatch 36311893484 at 10:14Z (first keeper run after #13116 merged 09:55Z) ran gate=success; the late event=schedule run 36321827473 at 13:16Z ran dedupe=success and gate=SKIPPED -> exactly one gate execution for the slot. replay-pregate 09-28: dispatched 04:33:56Z (+34 min). strategy-review-packets 09-28: dispatched 05:10:52Z (+31 min), success. soak-book-grade-weekly: its 09-27 scheduled run (09:09Z, pre-merge) counted; next slot 10-04. Keeper cadence: 59 of its first 60 runs were push-triggered; its own cron fired 7 times in ~20h. Paging path NOT exercised (no target silent). STILL OPEN only for the r4 09-28 slot (07:41Z; readable 08:11-08:41Z) and a first observed page."
+}

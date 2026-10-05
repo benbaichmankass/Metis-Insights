@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-KQIWJZWX-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01WfdESzsCPZbuawkqiWjzWX",
+    "kind": "session",
+    "ref": "VELOTRADE-WIRE local test run 2026-10-04 (PR #16500 test plan)",
+    "rerun": "for i in $(seq 20); do python3 -m pytest -q -p no:randomly tests/test_velotrade_wiring.py tests/test_prop_second_account_wiring.py tests/test_prop_executor.py tests/test_prop_rule_guards.py tests/test_prop_risk_manager.py tests/ops/test_login_check_second_account.py tests/ops/test_backfill_account_class.py tests/test_paper_portfolio_accounts.py 2>&1 | tail -1; done"
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "tests/test_prop_risk_manager.py::TestCoordinatorRouting::test_skip_reason_in_error_field failed ONCE (assert prop_result['trade_id'] is None -> 'assert None is not None' on the bybit_1 leg) in a combined local run of 8 prop test files on 2026-10-04 (lane VELOTRADE-WIRE, first run right after pip install). It did NOT reproduce in 6 later combined runs (360 passed each), alone, or paired with tests/test_velotrade_wiring.py; CI on #16500 was green. The captured log showed 'no such table: trades' from coordinator._has_open_position, so the test may depend on DB state or timing. Cause NOT established. Rerun the combination in a loop to decide: fix the isolation, or kill as not reproducible."
+}

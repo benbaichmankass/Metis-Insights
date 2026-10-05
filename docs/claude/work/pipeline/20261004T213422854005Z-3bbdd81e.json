@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator confirms (at a sync or in chat) that the hourly Telegram digest now leads with the attention block above '— what changed —'",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "subject": "deploy-observation:WORK-SYSTEM"
+    }
+  },
+  "id": "PI-20261004-Z9DKTUVO-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "deploy",
+    "ref": "PR #16387 / checklist WORK-SYSTEM",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/work/report?since=2026-10-04T19:50:00Z' | python3 -c \"import json,sys; d=json.load(sys.stdin); print(d['digestLogState'], len(d['digestLog']))\""
+  },
+  "routed_to": "WORK-SYSTEM — scheduled 05:30Z work report / Telegram digest observation (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "Telegram delivery of the new hourly digest shape (WORK-SYSTEM) is not yet confirmed. OBSERVED on the VM: the 20:01Z pass enqueued pending_claude_pings/...-high.json with attention 'committed', digest_log has the entry, telegram_poll_claude heartbeat fresh. NOT observable from a session: the Telegram delivery itself. Manager: confirm with the operator at the next sync that the hourly message now leads with the attention block ('🆕 NEW since last digest' / '🟢 No new actionable items' / '📋 Daily summary') above '— what changed —'."
+}

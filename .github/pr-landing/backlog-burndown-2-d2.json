@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only update records from lane BACKLOG-BURNDOWN-2 batch 5 (re-points 10 routings that #16505 restored to lane-type text, records 8 dated re-reads from live diag and offline reads). No code, config or order-path change."
+}

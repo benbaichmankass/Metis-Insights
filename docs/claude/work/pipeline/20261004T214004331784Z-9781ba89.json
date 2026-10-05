@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "due_date": "2026-09-30",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-halt-flag-does-not-stop-pairs-sleeve",
+    "rerun": "grep -n -i halt src/main.py src/units/strategies/pairs_executor.py  # still empty => open; then the tmp-HALT_FLAG_PATH run_pairs_tick test in the finding's detector"
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-04: verified by this lane at HEAD 2026-10-04 (re-read, not only the sub-agent verdict): src/units/strategies/pairs_executor.py:1344-1356 is_halted() check refuses new opens, event skip_halted.",
+  "what": "[AUD-20260927-CA-A02-halt-flag-does-not-stop-pairs-sleeve] With the trader halt flag present, the M22 pairs sleeve still places live 2-leg orders, because run_pairs_tick is called from src/main.py outside pipeline.run (the only halt check) and its placement path (execute_pkg) never reads the halt flag. Proposed fix: Check os.path.exists(runtime_flags.halt_flag_path()) at the top of run_pairs_tick (skip opens; allow closes) or gate the call in src/main.py. (Tier 2; audit lanes do not enact fixes.)"
+}

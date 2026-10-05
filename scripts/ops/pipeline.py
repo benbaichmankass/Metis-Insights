@@ -724,6 +724,17 @@ def is_due(item: dict, today: date | None = None, soak_states: dict | None = Non
     if sv is not None:
         return sv in SOAK_DUE_VERDICTS
 
+    # One-shot observation (non-soak definition of done, 2026-10-04): due once
+    # `observation.due_by` is reached, whatever the timer says; an unparseable
+    # due_by is DUE (the safe direction for a broken clock).
+    obs = item.get("observation")
+    if isinstance(obs, dict) and obs.get("due_by"):
+        try:
+            if _parse_date(str(obs["due_by"])[:10], "observation.due_by") <= today:
+                return True
+        except PipelineError:
+            return True
+
     if dw.get("kind") == "date":
         try:
             return _parse_date(dw.get("due_date"), "due_when.due_date") <= today
@@ -1085,6 +1096,13 @@ def _selftest() -> int:
           is_due(sk, t, soak_states={}))
     refuses("a soak block with no subject is refused",
             base(due_when={"kind": "observation", "clears_when": "x", "soak": {}}), "due_when.soak")
+    ob = base(observation={"what": "report produced", "how_to_check": "ls", "due_by": "2026-09-20"},
+              due_when={"kind": "observation", "clears_when": "x", "check_every_days": 30,
+                        "last_checked": "2026-09-20"})
+    check("a one-shot observation past its due_by is due even with its timer not elapsed",
+          is_due(ob, t))
+    check("a one-shot observation before its due_by follows its timer",
+          not is_due(dict(ob, observation=dict(ob["observation"], due_by="2026-12-01")), t))
     check("a non-soak item ignores soak states entirely",
           soak_verdict(base(), {"bybit_1/x": "dead"}) is None)
 
@@ -1160,6 +1178,21 @@ def _selftest() -> int:
         check("PLANTED DEFECT: _check() now FAILS with the sibling file "
               "present, never printing a clean verdict over it",
               rc2 == 1 and "exists ALONGSIDE" in out2.getvalue())
+
+    print("— an id-named record (it would fold out of time order) is caught —")
+    with tempfile.TemporaryDirectory() as td:
+        store = Path(td) / "pipeline"
+        append(base(id="Z"), store, intent="new")
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc_ok = _check(store)
+        check("…(negative control) timestamp-named records only -> clean", rc_ok == 0)
+        (store / "PI-Z.json").write_text(json.dumps(base(id="Z")), encoding="utf-8")
+        out3 = io.StringIO()
+        with contextlib.redirect_stdout(out3):
+            rc3 = _check(store)
+        check("PLANTED DEFECT: an id-named record file FAILS _check() "
+              "(PI-20261002-APBY4NTV-0003)",
+              rc3 == 1 and "PI-Z.json" in out3.getvalue())
         check("…and the failure NAMES the fix (the migration script)",
               "migrate_pipeline_to_dir.py" in out2.getvalue())
 
@@ -1271,8 +1304,8 @@ def _selftest() -> int:
         gb = base(id=gid, what="finding B",
                   origin={"kind": "session", "ref": "sess_2",
                           "rerun": "python3 b.py"})
-        (graveyard / "0001-a.json").write_text(json.dumps(ga), encoding="utf-8")
-        (graveyard / "0002-b.json").write_text(json.dumps(gb), encoding="utf-8")
+        (graveyard / "20260101T000001000000Z-a.json").write_text(json.dumps(ga), encoding="utf-8")
+        (graveyard / "20260101T000002000000Z-b.json").write_text(json.dumps(gb), encoding="utf-8")
         out2 = io.StringIO()
         with contextlib.redirect_stdout(out2):
             rc2 = _check(graveyard)
@@ -1318,6 +1351,10 @@ def _resurrected_legacy_file(store: Path) -> Path | None:
         return None
     legacy = store.parent / "PIPELINE.jsonl"
     return legacy if legacy.exists() else None
+
+
+#: A record name that sorts chronologically: it starts with its own timestamp.
+_TIMESTAMP_LED = re.compile(r"^\d{8}T\d{6}")
 
 
 def _check(store: Path) -> int:
@@ -1379,7 +1416,23 @@ def _check(store: Path) -> int:
                    if _is_grandfathered_collision(c) else "NEW")
             print(f"  {c['id']} at {c['at']}: {c['reason']} [{tag}]")
 
-    if res.unreadable or bad or new_collisions:
+    # ⚠️ load() folds in FILENAME order, and that is chronological only for a
+    # name that starts with its timestamp. An id-named record ('PI-....json')
+    # sorts AFTER every '2026...' record, so it silently overrides any later
+    # update or closure of the same id (PI-20261002-APBY4NTV-0003: the
+    # manager's closure of PI-20261002-UBMITVIS-0001 folded as 'queued').
+    misnamed = sorted(p.name for p in store.glob(f"*{RECORD_SUFFIX}")
+                      if not _TIMESTAMP_LED.match(p.name))
+    if misnamed:
+        print(f"\n::error::pipeline: {len(misnamed)} record file(s) not named "
+              f"by their timestamp. load() folds in filename order, so such a "
+              f"record is folded out of time order and can SHADOW a later "
+              f"update of its id. Rename each to the "
+              f"`YYYYMMDDTHHMMSS...Z-<suffix>.json` of its creation commit.")
+        for name in misnamed:
+            print(f"  {name}")
+
+    if res.unreadable or bad or new_collisions or misnamed:
         return 1
 
     # ⚠️ THE DENOMINATOR IS PART OF THE VERDICT, not decoration. A bare

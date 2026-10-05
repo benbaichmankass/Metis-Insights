@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-4GA8WQPA-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-2 2026-10-05, sub-agent flag on PI-20260929-PR6YRTQY-0003 verified by lane",
+    "rerun": "bash scripts/ops/diag_fetch.sh '/api/diag/alpaca_open_orders?account_id=alpaca_paper' | python3 -c \"import sys,json;d=json.load(sys.stdin);a=[x for x in d['accounts'] if x['account_id']=='alpaca_paper'][0]['result'];print([(o['symbol'],o.get('order_class'),o.get('stop_price')) for o in a['orders'] if o['symbol']=='TQQQ'])\""
+  },
+  "routed_to": "FIX-SA-03 (Alpaca quantity coverage / naked re-arm; landed_unproven) — flagged 2026-10-05 by BACKLOG-BURNDOWN-2",
+  "severity": "medium",
+  "state": "killed",
+  "terminal_reason": "REFUTED 2026-10-05T03:23Z by manager session_01MM8o5js6TcDFeNAPBY4Ntv. /api/diag/alpaca_order_history?account_id=alpaca_paper&after=2026-09-30 shows the TQQQ bracket (entry buy 145 filled 2026-10-02T13:39:19Z) with BOTH legs: take-profit sell limit 89.42 status 'new' AND stop-loss sell stop 74.03 status 'held'. 'held' is Alpaca's normal state for a bracket stop leg while its OCO sibling rests. /api/diag/alpaca_open_orders omits held legs, which is why the stop looked absent. Position is protected; nothing to fix here. The diag view gap is filed separately.",
+  "tier": 1,
+  "what": "POSSIBLY NAKED PAPER POSITION: alpaca_paper TQQQ long 145 sh (opened 2026-10-02T13:39Z by tqqq_trend_long_1d) shows ONLY a bracket order whose resting leg is the take-profit LIMIT 89.42 (order 9f2c975c.., class bracket, status new, gtc) in /api/diag/alpaca_open_orders?account_id=alpaca_paper (read 2026-10-05T00:4xZ, read_state orders_read). Every other symbol on that account (QQQ, QLD, TLT, GLD, SPY, IEF) lists a separate row carrying a stop_price; TQQQ has none. Either Alpaca nests the held stop child of a BRACKET where this diag flattening does not list it, or the stop leg is missing. NOT established which; paper account only, so no real-money exposure. Smallest next step: read /api/diag/alpaca_order_history for the TQQQ parent id and see whether a stop leg exists (status held/new), then compare with a sibling bracket entry; if absent, it is the FIX-SA-03 naked class (the sweep should have re-armed it within the grace period). | UPDATE 2026-10-05 00:4xZ: /api/diag/alpaca_order_history?account_id=alpaca_paper&symbol=TQQQ lists, since 2026-10-01, ONLY the filled market parent (145 sh, 2026-10-02T13:39:15Z); no stop-leg row and, unlike every sibling bracket in the same history (GLD/IWM/TLT/SPY/QQQ/SLV each list parent + limit leg + stop leg), no stop row for this entry. Two independent reads now agree no stop leg is visible for the open 145-share TQQQ position. Still paper-only; whether Alpaca hid or never created it is not established."
+}

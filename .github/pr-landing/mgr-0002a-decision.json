@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: manager decision on PI-20260927-01CGDPN9-0002 part (a) (leave _netting_apply_close unchanged) and the remaining observation for part (b), merged in #16498. No code, config or runtime change."
+}

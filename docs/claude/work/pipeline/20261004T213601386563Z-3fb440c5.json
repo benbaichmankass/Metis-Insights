@@ -1,0 +1,51 @@
+{
+  "a10_note": "Broker/journal disagreement class: journalTrust can only flag one account, so bybit_2/alpaca_live/breakout_1 disagreements are invisible. No checklist row owns journalTrust. EVIDENCE: Rerun is an archive lookup; the condition (every real-money account reconciled once, or automated reconciliation) is not something a sandbox can establish. Routed rather than killed because it is the instrument for broker-vs-journal on real money.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either every real-money account has been reconciled against its venue at least once (so `no_record` on a real-money account becomes a genuine anomaly), or an automated reconciliation replaces the hand-populated ledger.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT'), indent=2))\""
+  },
+  "routed_to": "RECON (re-pointed from RECON — automated broker reconciliation for alpaca_live + breakout_1 is exactly this row (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Re-ran the exact underlying data check: comms/broker_truth_ledger.json still has exactly ONE account entry (bybit_2). Grepped src/ for journal_trust_map/journal_trust_for consumers (trades_closed.py, performance.py) -- confirmed the map is still keyed off this same one-account ledger, unchanged since the prior A10 lane's disposition. No checklist row or code change found that adds alpaca_live or breakout_1 reconciliation.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "Operator time pulling venue exports",
+          "label": "Operator reconciles bybit_2/alpaca_live/breakout_1 against their venues once (hand export, like the existing bybit_2 ledger)",
+          "risk": "None — read-only reconciliation",
+          "what_happens": "Each account gets a first broker-truth entry via reconcile_netting_pnl.py --emit-ledger"
+        },
+        {
+          "cost": "Engineering time; scope depends on venue APIs available",
+          "label": "Approve a lane to build automated reconciliation replacing the hand-maintained ledger",
+          "risk": "Low — additive, no order-path change",
+          "what_happens": "A build lane wires each venue's own API/export into journal_trust_map on a schedule"
+        },
+        {
+          "cost": "None now",
+          "label": "Leave as-is, accept the gap",
+          "risk": "A real broker/journal divergence on alpaca_live or breakout_1 stays invisible",
+          "what_happens": "journalTrust stays scoped to bybit_2 only; no_record stays uninformative for the other two accounts"
+        }
+      ],
+      "priority_tier": 1,
+      "question": "journalTrust only flags one account (bybit_2) as reconciled against its broker. alpaca_live and breakout_1 real-money-adjacent accounts have no reconciliation record, so a `no_record` state on them can't be distinguished from a genuine anomaly. What should happen?",
+      "recommendation": "Option 1 now (cheap, one-time) plus option 2 as a follow-up build if reconciliation needs to recur."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "journalTrust now flags accounts whose journal disagrees with the broker — but the ledger it reads has exactly ONE account in it.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 1) — journalTrust only flags one account (bybit_2) as reconciled against its broker. alpaca_live and breakout_1 real-money-adjacent accounts have no reconciliation record, so a `no_record` state on them can't be distinguished from a genuine anomaly. What should happen? Recommendation: Option 1 now (cheap, one-time) plus option 2 as a follow-up build if reconciliation needs to recur."
+}

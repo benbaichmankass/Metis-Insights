@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order path: src/runtime/order_monitor.py IB broker-naked sweep re-arm gate, src/units/accounts/ib_client.py coverage read (additive field), src/runtime/over_cover_decision.py (feeds the operator's cancel-ib-order proposal). HELD for the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) per lane PROTECTION-HARDENING's dispatch brief.",
+  "why": "CA-A03 over-cover keeper qty + CA-A01-048/-049 IB stop-side coverage: refuse a cancel that would leave lots without a stop; grade IB 'covered' on the stop side, page partial/target-only books CRITICAL, re-arm the naked row instead of the protected one."
+}

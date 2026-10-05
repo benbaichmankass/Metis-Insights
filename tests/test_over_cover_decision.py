@@ -323,3 +323,45 @@ def test_a_plain_stray_is_not_reported_as_a_covered_partial():
     assert out["cancel_groups"] == ["stray"]
     assert out["partial_groups_covered_by_keep"] == []
     assert "loses nothing" not in out["reason"]
+
+
+# --- CA-A03 (PI-20260927-ENGC5EUD-0001): the keeper must cover the position --
+
+_KEEP_SHORT_LEGS = [
+    {"side": "stop", "oca_group": "keep", "aux_price": 6.312,
+     "total_quantity": 20, "order_id": 1},
+    {"side": "target", "oca_group": "keep", "lmt_price": 7.1415,
+     "total_quantity": 20, "order_id": 2},
+    {"side": "stop", "oca_group": "stray", "aux_price": 6.2625,
+     "total_quantity": 29, "order_id": 3},
+    {"side": "target", "oca_group": "stray", "lmt_price": 7.5,
+     "total_quantity": 29, "order_id": 4},
+]
+
+
+def _decide_keep(legs, qty=29):
+    return decide_over_cover(
+        position_qty=qty, direction="long", declared_stop=6.31207143,
+        declared_target=7.141302, legs=legs, tick_size=0.0005)
+
+
+def test_a_keeper_short_of_the_position_refuses():
+    r = _decide_keep(_KEEP_SHORT_LEGS)
+    assert r["state"] == STATE_AMBIGUOUS
+    assert r["cancel_groups"] == [] and r["cancel_order_ids"] == []
+    assert "unprotected" in r["reason"]
+
+
+def test_a_keeper_that_covers_the_position_still_cancels_the_stray():
+    legs = [dict(leg) for leg in _KEEP_SHORT_LEGS]
+    legs[0]["total_quantity"] = legs[1]["total_quantity"] = 29
+    r = _decide_keep(legs)
+    assert r["state"] == STATE_CANCEL_GROUP and r["cancel_groups"] == ["stray"]
+
+
+def test_an_unreadable_stop_qty_is_not_graded_not_zero():
+    legs = [dict(leg) for leg in _KEEP_SHORT_LEGS]
+    legs[0]["total_quantity"] = None
+    r = _decide_keep(legs)
+    assert r["state"] == STATE_NOT_GRADED
+    assert r["cancel_groups"] == []

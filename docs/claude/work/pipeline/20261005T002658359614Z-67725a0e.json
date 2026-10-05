@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The trainer's canonical resolver and its db-puller agree on one path; that path holds the populated journal; the empty stray is gone; and a consumer resolving canonically on the trainer reads the same non-zero row count the puller wrote.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL'), indent=2))\"",
+    "what": "The trainer's canonical resolver and its db-puller agree on one path; that path holds the populated journal; the empty stray is gone; and a consumer resolving canonically on the trainer reads the same non-zero row count the puller wrote."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL'), indent=2))\""
+  },
+  "routed_to": "ML-HYGIENE — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never closes an item) — Trainer-VM filesystem state. Code: src/utils/paths.py:298-340 resolver unchanged (env, DATA_DIR, repo-root); build_trainer_datasets.sh:74 defaults DATA_DIR to $REPO_ROOT/data. Needs trainer env/DB read. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[health] On the TRAINER VM the canonical journal resolver points at an EMPTY stray database — trade_journal_db_path() -> <repo>/trade_journal.db (0 rows, stale since 2026-08-02) while the db-puller writes the real 4649-row journal to <repo>/data/. Any trainer-side tool using the resolver gets a clean, confident, WRONG 'zero rows'."
+}

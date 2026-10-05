@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-downsizes-not-requantized-on-whole-unit-venues",
+    "rerun": "python3 -c \"from src.units.accounts.risk import whole_unit_qty;print(whole_unit_qty(3*0.85,min_one=True))\"  # 3.0 and no re-quantize after the multiplier chain in coordinator.py => still open"
+  },
+  "routed_to": "ORDER-AUDIT-2 (re-pointed from ORDER-AUDIT-2 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[AUD-20260927-CA-A02-downsizes-not-requantized-on-whole-unit-venues] Reductive size multipliers (advisory/news/conviction) are applied to sized_qty without re-quantizing for whole-unit venues, so on Alpaca a 1-share position x0.5 is refused as below_venue_min (downsize becomes a veto) and 3 shares x0.85 is placed as 3 (downsize erased). Proposed fix: After the multiplier chain, re-quantize with whole_unit_qty(min_one=False) floor semantics and journal a 'downsized_to_zero' refusal distinctly from below_venue_min. (Tier 3; audit lanes do not enact fixes.)"
+}

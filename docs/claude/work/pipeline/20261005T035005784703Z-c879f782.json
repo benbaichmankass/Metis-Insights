@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) an escalation is OBSERVED firing — a distinct, louder signal (not another copy of the same request) raised after N unanswered asks, seen in outcomes.jsonl / /api/bot/logs?level=error or as a distinct /api/bot/notifications banner, with the unanswered-streak count carried in it; OR (b) an operator decision is RECORDED that an unanswered balance ask needs no escalation, stating the accepted consequence — that breakout_1's breach cushion may be computed off an arbitrarily old snapshot and that the account cannot be reconciled on a live basis. Explicitly NOT sufficient: the operator answering once and status_freshness returning to 'fresh'. That clears the CONDITION and says nothing about what happens the next time an ask goes unanswered, which is what this row is about.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Premise false at HEAD: the prop status snapshot is fresh (0.05h) from the automated feed, and the manual balance ask no longer fires on a wall-clock trigger, so there is no unanswered-ask streak to escalate. || EVIDENCE: Live curl https://ict-bot.duckdns.org/api/bot/prop/status 2026-10-05: status_age_hours 0.054, status_freshness 'ok' (max 24h). The snapshot is now fed automatically (W6-PROP-FEED) and the ask is activity-triggered (E16, operator 2026-09-21). || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] The prop balance ask fires correctly every 12h and has gone unanswered for 8.5 days at identical volume — nothing escalates, and the breach cushion is computed off the stale snapshot meanwhile"
+}

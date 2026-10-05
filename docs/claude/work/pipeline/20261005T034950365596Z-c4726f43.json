@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "alpaca_live either places orders or is no longer declared live; and the silent-refusal latch state for it is confirmed readable.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127'), indent=2))\"",
+    "what": "alpaca_live either places orders or is no longer declared live; and the silent-refusal latch state for it is confirmed readable."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-ALPACA-LIVE-REFUSES-EVERY-ORDER-127-OF-127'), indent=2))\""
+  },
+  "routed_to": "ORDER-AUDIT-2 — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never closes an item) — alpaca_live still mode:live with 3 legs (config/accounts.yaml); silent_refusal_alert.py exists but current refusal counts/latch state need journal+diag reads (diag journal probe returned HTTP 400 for me). (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Both clears halves met: alpaca_live now places orders (trade 6097 on 2026-09-23) and the silent-refusal latch state for it is readable. Evidence window was the newest 400 journal rows. || EVIDENCE: Live /api/diag/broker_account_status 2026-10-05T03:32Z: alpaca_live ACTIVE, equity/cash 193.94. journal trade id 6097 alpaca_live IAUM long 2 sh placed 2026-09-23 (status closed, sl, is_demo 0) -> it places orders. silent_refusal_alert_state.json present (updated 2026-10-05T02:43Z) with an alpaca_live entry (verdict signalled_never_placed, retired_ || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] alpaca_live is declared mode:live and has refused 127 of 127 orders for lack of funds — the silent-refusal alert shipped for exactly this on 08-14 and the count has since grown"
+}

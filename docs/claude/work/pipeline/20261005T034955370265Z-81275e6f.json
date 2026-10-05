@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A failing scheduled run of any cron'd workflow produces an operator-visible signal, and the pre-gate nightly either passes or its failure is being actively worked.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-CRON-WORKFLOWS-FAIL-SILENTLY-ON-SCHEDULE-PATH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-CRON-WORKFLOWS-FAIL-SILENTLY-ON-SCHEDULE-PATH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-CRON-WORKFLOWS-FAIL-SILENTLY-ON-SCHEDULE-PATH'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Failing scheduled runs now fire the loud Telegram alert (verified on two real scheduled failures) and replay-pregate-nightly has passed its last 3 scheduled runs. || EVIDENCE: Parsed .github/workflows/*.yml at HEAD: 31 workflows carry schedule:, all 31 listed in claude-run-failure-alert.yml workflow_run list (50 listed). Exercised: replay-pregate-nightly scheduled failures 2026-09-26 (run 36232052801, ended 09:54:16Z) and 09-27 (36310717611, ended 10:34:08Z) each produced a non-skipped alert run (success 36234171510 at 0 || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] replay-pregate-nightly has failed 3/3 consecutive scheduled runs and NOTHING alerts -- and 6 of 10 cron'd workflows share the defect"
+}

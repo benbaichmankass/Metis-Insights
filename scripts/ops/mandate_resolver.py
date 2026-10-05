@@ -624,7 +624,7 @@ def _affordability(leg: str, account: str, exchange: str, record: Dict[str, Any]
     ⚠️ NECESSARY, NOT SUFFICIENT. A pass does NOT guarantee the leg sizes live:
     the RiskManager here is fresh (daily_pnl=0, no drawdown state), ignores
     open exposure, pledged margin and the T+1 cash-settlement basis, defaults
-    a missing confidence to 1.0, and applies only the ACCOUNT side_filter, not
+    a MISSING confidence to 1.0 (a present non-finite one is NEEDS_DATA), and applies only the ACCOUNT side_filter, not
     a strategy-level long_only/side_filter. Every one of those can only make
     the live sizer refuse MORE, so a REFUSE here is decisive and a pass is not.
     """
@@ -679,6 +679,14 @@ def _affordability(leg: str, account: str, exchange: str, record: Dict[str, Any]
         dist = abs(ref - sl)
         tp = ref + 2 * dist if r["direction"] == "long" else ref - 2 * dist
         conf = r.get("confidence")
+        # A MISSING confidence keeps the documented 1.0 default; a PRESENT but
+        # unreadable one (json accepts NaN/Infinity) is not "full conviction"
+        # and must not size at full risk (PI-20260930-MGR01HYQ-0001).
+        if conf is not None and not _finite(conf):
+            raise _NeedsData("R-AFFORD", f"{record.get('source_run')} setup at "
+                                         f"{r.get('entry_time')} has confidence={conf!r}, "
+                                         "which is not a finite reading",
+                             _afford_data_task(account, "setup confidence not finite"))
         pkg = OrderPackage(strategy=leg, symbol=str(r.get("symbol") or ""),
                            direction=r["direction"], entry=ref, sl=sl, tp=tp,
                            confidence=float(conf) if _finite(conf) else 1.0, meta={})

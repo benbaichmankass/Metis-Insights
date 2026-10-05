@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits .github/actions/commit-to-main/action.yml and scripts/ops/sweep_stale_automation_prs.py, both listed in LANDING_MACHINERY, so R12 bars this PR from self-landing by the routes it changes. Needs one manager read and merge.",
+  "why": "Lane CI-AUTOMERGE (checklist row CI-AUTOMERGE, dispatched by the manager 2026-10-04). Two root causes of the 116-PR automation backlog: commit-to-main cut automation branches from a non-main dispatch ref (21 research-result PRs carry unmerged session commits and fail R5/R12), and stale-automation-sweep graded every PR absent_on_main on its own per-branch R13 claim, so it refreshed 0 of 115. Tier-1 CI/tooling; no src/, config/ or order path."
+}

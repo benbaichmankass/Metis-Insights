@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the batch collector skips records already on origin/main at landing time, with a test; or the manager kills this because batches can no longer overlap (e.g. concurrency-serialised)",
+    "kind": "event"
+  },
+  "id": "PI-20260930-1MX1RCZS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "PR #14644 closed as superseded 2026-09-30; dispatcher runs 36680457944 / 36683756944",
+    "rerun": "git fetch origin main; for each research/results/*.jsonl in an open automation/research-results-batch-* PR, git cat-file -e origin/main:<path>  (any hit means the batch is stale)"
+  },
+  "routed_to": "CI-INFRA [route; size S, value M, tier 1] BACKLOG-ROUTE 2026-10-04: Partly mitigated, still open: research-queue-dispatch.yml:65-69 concurrency group serialises runs and the batch step uses verify-merged:true (L233), but the collector only skips records already on the checkout at collect time (collect_runner_results.py:157 checks dest.exists()), so if a prior batch PR is still open/unmerged (verify timeout) the next run re-batches the same records. Not checked:...",
+  "state": "routed",
+  "what": "research-results batch landing can race: PR #14644 (dispatcher run 36683756944, 08:21Z) was assembled from a view where 6 records (RQ-20260928-025..029, RQ-20260930-501) were not yet on main, but an earlier batch (#14598, run 36680457944) had already landed them. Result: add/add conflicts on 6 research/results/*.jsonl (differ only in generated_at), mergeable_state dirty, 0 check runs, 536,555 additions in 83 files, open 11h until closed as superseded by lane RESEARCH-W7 (verified 83 of 83 files on main, 77 byte-identical). Fix direction: make the collector's 'not yet on main' check read origin/main at landing time (skip a record whose path already exists there) rather than at collection time. || lane CI-AUTOMERGE (session_01MD7v8mG8doHqFYuTbsceQM) 2026-10-04: not started this session. Related: #16494 now replays automation commits onto main, but the batch collector's 'not on main' test is still read at collection time. Next step: re-check origin/main at landing time and drop records whose path already exists. #15470 and #16118 were stale batches of exactly this kind (closed via the close-list)."
+}

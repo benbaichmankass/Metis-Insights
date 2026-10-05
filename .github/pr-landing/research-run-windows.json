@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Backtest data-fetch tooling only: lengthens fetch windows in scripts/ops/fetch_backtest_corpus.py (CANDIDATE_PAIRS BNBUSDT 1h/2h/4h and ETHUSDT 5m, plus BTCUSDT 15m days) so RQ-20260929-101/102/103/107/108 can reach their 39-trade floor (PI-20261004-APBY4NTV-0001). No rule, config or live path is touched."
+}

@@ -127,6 +127,11 @@ class ExecutorConfig:
     # Empty / None = not declared = the pre-existing behaviour (breakout.yaml).
     leverage_caps: Dict[str, float] = field(default_factory=dict)
     daily_loss_amount_basis: Optional[str] = None
+    # ``limits.daily_loss_reset_basis`` (VELOTRADE-WIRE): ``max_balance_equity``
+    # = the firm sets the day-start value from the HIGHER of balance and
+    # equity at the reset (Velotrade, rules "Equity limits"). None = balance
+    # only, the pre-existing behaviour.
+    daily_loss_reset_basis: Optional[str] = None
 
 
 SYMBOLS_ENV = "PROP_EXECUTOR_SYMBOLS"
@@ -232,6 +237,8 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         leverage_caps=prop_rule_guards.leverage_caps(lim),
         daily_loss_amount_basis=(str(lim["daily_loss_amount_basis"])
                                  if lim.get("daily_loss_amount_basis") else None),
+        daily_loss_reset_basis=(str(lim["daily_loss_reset_basis"])
+                                if lim.get("daily_loss_reset_basis") else None),
     )
 
 
@@ -809,15 +816,24 @@ def record_tick_error(state_dir: Path, live: bool, why: str) -> Optional[str]:
 
 
 def day_start_balance(st: Dict[str, Any], account: AccountSnapshot, now: datetime,
-                      reset_utc: str) -> Optional[float]:
+                      reset_utc: str, reset_basis: Optional[str] = None) -> Optional[float]:
     """The prop day's opening balance, the conservative (HIGHER) of: the
     balance captured at this executor's first read of the day, and
     ``balance − realized_today`` when the terminal shows today's realized P&L.
     A higher day-start is a higher daily floor, i.e. fewer tickets fit.
-    ``None`` (→ the daily guard refuses) when neither is available."""
+    ``None`` (→ the daily guard refuses) when neither is available.
+
+    ``reset_basis="max_balance_equity"`` (Velotrade: "At the reset, we use
+    whichever is higher, your balance or your equity") captures the HIGHER of
+    balance and equity at that first read. The first read is up to one tick
+    after the firm's reset, so equity may have moved; this is the closest
+    reading we have, and it can only RAISE the floor versus balance-only."""
     day = trading_day(now, reset_utc)
     if st.get("day") != day and account.balance is not None:
-        st["day"], st["day_start_captured"] = day, account.balance
+        captured = account.balance
+        if str(reset_basis or "").strip().lower() == "max_balance_equity" and account.equity is not None:
+            captured = max(account.balance, account.equity)
+        st["day"], st["day_start_captured"] = day, captured
     cands = []
     if st.get("day") == day and _f(st.get("day_start_captured")) is not None:
         cands.append(float(st["day_start_captured"]))
@@ -1002,7 +1018,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         state.halt(halted)
     res.halted = halted
 
-    ds = day_start_balance(st, acct, now, cfg.daily_reset_utc)
+    ds = day_start_balance(st, acct, now, cfg.daily_reset_utc, cfg.daily_loss_reset_basis)
     state.save(st)
     if live and (acct.balance is not None or acct.equity is not None):
         _report(res, post, {"kind": "account_status", "account_id": cfg.account_id,
