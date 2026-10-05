@@ -31,3 +31,19 @@ Share refuse to export if any string still holds 6+ digits, an `@`, or a bearer 
 `.github/workflows/phone-probe-apk.yml` (push to `tools/phone-probe/**` or manual dispatch) uploads
 `phone-probe-1a-debug-apk`. Debug-signed with the runner's throwaway key, so a newer build cannot be installed over an
 older one without uninstalling (which clears the app's session).
+
+## 1a.3: new host, saved login, auto-login test
+
+* **"1 Load site"** opens `https://trade.breakoutprop.com/`; **"Load app."** opens `https://app.breakoutprop.com/`.
+* **"Set login"** takes the operator's login in a NATIVE dialog and stores it only in Android-Keystore-backed
+  `EncryptedSharedPreferences` (`Creds.kt`). It is never logged, never in the report (Copy / Share refuse if the report
+  contains it), and `FLAG_SECURE` covers the dialog. "Delete saved" removes it.
+* **"4 Auto-login"** clears the web session, loads the site, finds the login form, fills it (native value setter first,
+  real key events as fallback), submits, and records into `autologin[]`: form found / filled / route / submitted / outcome /
+  time to logged-in. The helpers in `probe.js` (`__probeLogin`) act **only on a `breakoutprop.com` page** and refuse any
+  other host. A Cloudflare challenge, interactive CAPTCHA widget, emailed code, 2FA or number-match is **recorded and the
+  test stops**: nothing is solved or bypassed. If the dashboard shows an "Open Terminal" control it is pressed (navigation
+  only); no trading control is ever touched.
+* **Capture** now takes over from a background capture instead of being dropped, reads the page directly (no dependence on
+  the message listener), and reports same-origin iframes and cross-origin iframe hosts. **Copy / Share** refuse while
+  Fixtures or Auto-login is still running.

@@ -22,7 +22,7 @@ class Report(private val ctx: Context) {
     private fun fresh() = JSONObject()
         .put("probe", "phone-probe-1a").put("report_version", 1)
         .put("probes", JSONArray()).put("navs", JSONArray()).put("captures", JSONArray())
-        .put("fixtures", JSONObject()).put("events", JSONArray()).put("session", JSONObject())
+        .put("autologin", JSONArray()).put("fixtures", JSONObject()).put("events", JSONArray()).put("session", JSONObject())
 
     fun clear() {
         for (k in root.keys().asSequence().toList()) root.remove(k)
@@ -33,6 +33,7 @@ class Report(private val ctx: Context) {
     fun save() { try { file.writeText(root.toString()) } catch (_: Exception) {} }
 
     fun append(key: String, o: JSONObject, cap: Int) {
+        if (!root.has(key)) root.put(key, JSONArray())
         val a = root.getJSONArray(key); a.put(o)
         if (a.length() > cap) { val n = JSONArray(); for (i in a.length() - cap until a.length()) n.put(a.get(i)); root.put(key, n) }
         save()

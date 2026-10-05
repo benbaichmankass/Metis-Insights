@@ -10,8 +10,8 @@ android {
         applicationId = "com.metis.phoneprobe"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1a.2"
+        versionCode = 3
+        versionName = "1a.3"
     }
     buildTypes {
         // Debug build only: sideloaded probe, signed with the runner's throwaway debug key.
@@ -26,4 +26,6 @@ android {
 
 dependencies {
     implementation("androidx.webkit:webkit:1.12.1")
+    // Keystore-backed encrypted preferences for the one login the operator types into a NATIVE field.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }

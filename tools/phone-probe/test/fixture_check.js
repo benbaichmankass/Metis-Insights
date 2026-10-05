@@ -72,6 +72,46 @@ const SECRET_PAGE = `<!doctype html><title>John Q Smith Account 12345678</title>
   ok(sh.tables.length === 1 && sh.tables[0].cols.join("|") === "Symbol|Qty", `table headers kept only if vocabulary (${sh.tables[0] && sh.tables[0].cols})`);
   const R = await s.evaluate(() => ["Balance $98,765.43", "Send Order", "John Smith", "Stop Loss (price)", "x@y.com", "Qty 0.01 lots"].map(t => window.__probeRedact(t)));
   console.log("redact():", JSON.stringify(R));
+
+  // ---- login helpers (1a.3): act only on breakoutprop.com, fill a React-style form, never return the value
+  const LOGIN_PAGE = `<!doctype html><title>Sign in</title><body><form id="f" action="/login">
+<input id="em" type="email" aria-label="Email"><input id="pw" type="password" aria-label="Password">
+<button id="go" type="submit" disabled>Log in</button></form>
+<script>
+var S={em:"",pw:"",sub:0}, go=document.getElementById("go");
+function track(el,k){var d=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),"value"),t="";
+ Object.defineProperty(el,"value",{configurable:true,get:function(){return d.get.call(el)},set:function(v){t=""+v;d.set.call(el,v)}});
+ el.addEventListener("input",function(){var n=d.get.call(el);if(n===t)return;t=n;S[k]=n;go.disabled=!(S.em&&S.pw)})}
+track(document.getElementById("em"),"em");track(document.getElementById("pw"),"pw");
+document.getElementById("f").addEventListener("submit",function(e){e.preventDefault();S.sub++});
+window.__S=function(){return JSON.stringify({em:S.em.length,pw:S.pw.length,sub:S.sub})};
+</script>`;
+  await ctx.route("https://trade.breakoutprop.com/**", r => r.fulfill({ contentType: "text/html", body: LOGIN_PAGE }));
+  await ctx.route("https://evil.test/**", r => r.fulfill({ contentType: "text/html", body: LOGIN_PAGE }));
+  const lp = await ctx.newPage();
+  await lp.goto("https://trade.breakoutprop.com/");
+  const found = JSON.parse(await lp.evaluate("window.__probeLogin.find()"));
+  ok(found.pw && found.id && found.submit && found.host_ok && found.action_ok, "login form found on a breakoutprop.com page (password, identity, submit)");
+  const SECRETU = "someone@example.com", SECRETP = "Tr0ub4dor&3xyz";
+  const r1 = await lp.evaluate(`window.__probeLogin.fill("id", ${JSON.stringify(SECRETU)})`);
+  const r2 = await lp.evaluate(`window.__probeLogin.fill("pw", ${JSON.stringify(SECRETP)})`);
+  ok(r1 === "ok" && r2 === "ok", "fill returns only a verdict, never the value");
+  ok(!JSON.stringify([r1, r2]).includes("example") && !JSON.stringify([r1, r2]).includes("Tr0ub"), "no credential in any return value");
+  ok(await lp.evaluate("window.__probeLogin.submitDisabled()") === false, "native setter route enables the React-style submit button");
+  ok(await lp.evaluate("window.__probeLogin.click()") === "clicked", "submit click reported");
+  const lst = JSON.parse(await lp.evaluate("window.__S()"));
+  ok(lst.em === SECRETU.length && lst.pw === SECRETP.length && lst.sub === 1, "form state registered both fields and one submit");
+  const status = JSON.parse(await lp.evaluate("window.__probeLogin.status()"));
+  ok(status.pw === true && status.cf === false && !JSON.stringify(status).includes("example"), "status reports markers only");
+  const ev = await ctx.newPage();
+  await ev.goto("https://evil.test/");
+  const f2 = JSON.parse(await ev.evaluate("window.__probeLogin.find()"));
+  ok(f2.host_ok === false, "foreign host is flagged host_ok=false");
+  ok(await ev.evaluate(`window.__probeLogin.fill("pw", "x")`) === "no", "fill REFUSES on a foreign host");
+  ok(await ev.evaluate("window.__probeLogin.click()") === "no", "click REFUSES on a foreign host");
+  const all = JSON.parse(await lp.evaluate("window.__probeShapeAll()"));
+  ok(all.top && Array.isArray(all.same) && Array.isArray(all.cross), "direct capture returns top, same-origin and cross-origin lists");
+
   await b.close();
   console.log(fails ? `${fails} FAILED` : "ALL PASS");
   process.exit(fails ? 1 : 0);
