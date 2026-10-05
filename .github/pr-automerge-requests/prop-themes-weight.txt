@@ -1,0 +1,1 @@
+auto-merge: THEMES weight (operator decision) + pipeline record

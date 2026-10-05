@@ -202,6 +202,8 @@ last_dispatched_at: null     # stamped by the dispatcher; drives cadence
 **Order is not FIFO and not strict priority.** Until 2026-09-30 `load_queue` sorted by id and the dispatcher
 fired in that order, so the newest units waited behind every older one (46 of the 48 never-dispatched units
 had been created the day before). The operator's direction: regime first, but *everything keeps moving*.
+(2026-10-05 the operator moved prop-account strategies to the top: `new_strategy_prop` now carries the highest
+weight in `THEMES.yaml`, verbatim "Prop first (Recommended)".)
 
 - Every queued unit carries `theme:` (a key of [`research/THEMES.yaml`](../THEMES.yaml): `regime`,
   `live_strategy`, `ml_health`, `new_strategy_prop`, `macro`, `infra`) and `priority:` 1-3 within the theme.

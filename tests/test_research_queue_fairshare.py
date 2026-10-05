@@ -106,10 +106,16 @@ def test_validator_requires_theme_and_priority_on_runnable_units():
     assert not [e for e in validate(done) if "theme" in e or "priority" in e]
 
 
-def test_themes_file_is_well_formed_and_orders_regime_first_macro_last():
+def test_themes_file_is_well_formed_and_orders_prop_first_macro_last():
+    # OPERATOR DECISION 2026-10-05 (popup, verbatim "Prop first (Recommended)"): new_strategy_prop
+    # carries the single highest weight so prop-account strategy units lead the fair share. Before
+    # that the pin was regime-first (operator 2026-09-30); macro stays last. Pinned so a re-weight is
+    # a visible decision, not drift. Closes PI-20261005-MG7BGR46-0001.
     t = load_themes()["themes"]
     w = {k: v["weight"] for k, v in t.items()}
-    assert w["regime"] == max(w.values()) and w["macro"] == min(w.values())
+    assert w["new_strategy_prop"] == max(w.values()), w
+    assert sum(1 for v in w.values() if v == w["new_strategy_prop"]) == 1, w   # strictly the top, not tied
+    assert w["macro"] == min(w.values()), w
     with pytest.raises(ValueError):
         load_themes(Path(__file__))            # not a themes file
 

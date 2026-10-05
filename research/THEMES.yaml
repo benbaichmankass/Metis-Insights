@@ -7,12 +7,15 @@
 # Rules and the weekly revisit: research/queue/PLANNING.md.
 #
 # Weights are the operator's 2026-09-30 order (regime first, macro last), revisited by the planning session.
+# 2026-10-05 OPERATOR DECISION (popup, verbatim "Prop first (Recommended)"): new_strategy_prop raised 2 -> 6, the
+# highest weight in the file, so prop-account strategy units lead the fair share. No other weight moved
+# (weights are a share, not a sum; nothing normalises them). Closes PI-20261005-MG7BGR46-0001.
 share_window_hours: 48      # stamps newer than this count against a theme's share
 aging_hours: 72             # every aging_hours a unit waits lowers its EFFECTIVE priority by 1 (floor 0)
 themes:
   regime:            {weight: 5, what: "regime selectivity / classifier headroom / cell evidence"}
   live_strategy:     {weight: 4, what: "improving legs that are live: entries, exits, re-validation"}
   ml_health:         {weight: 3, what: "regime-head drift, exit heads, demotion proposals"}
-  new_strategy_prop: {weight: 2, what: "Stage-0 coverage, new strategies, prop-account fit"}
+  new_strategy_prop: {weight: 6, what: "Stage-0 coverage, new strategies, prop-account fit"}
   macro:             {weight: 1, what: "macro / value sleeve and event studies"}
   infra:             {weight: 2, what: "research tooling and pipeline self-tests that are units"}

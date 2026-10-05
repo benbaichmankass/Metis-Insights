@@ -22,6 +22,8 @@ recurring planning session does.
 - `research/THEMES.yaml` is the only place weights live. They are a share of fire slots, not an order.
 - Set at the operator's direction (2026-09-30: regime 5, live_strategy 4, ml_health 3, new_strategy_prop 2,
   infra 2, macro 1). Changed by a PR that edits that one file and states the evidence for the change.
+  2026-10-05, operator popup verbatim "Prop first (Recommended)": new_strategy_prop 2 -> 6, the single highest weight;
+  nothing else moved (closes PI-20261005-MG7BGR46-0001).
 - Revisited by the planning session each time it runs (section 4). Two rules it applies: the live pipeline
   outranks research breadth, and no single topic may starve the rest, so a weight never goes below 1 and a theme
   holding due work is checked against its fired count.
