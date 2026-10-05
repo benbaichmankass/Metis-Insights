@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "phone posts account_status with non-null balance+equity for breakout_2 and a room-sized ticket is observed, or the operator keeps flat",
+    "kind": "event"
+  },
+  "id": "PI-20261005-YUVCGTMJ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; branch claude/phone-exec-1b",
+    "rerun": "python3 -c \"import yaml;print(yaml.safe_load(open('config/prop_rulesets/breakout_turbo_1step.yaml'))['sizing'])\"; GET /api/bot/prop/status?account_id=breakout_2"
+  },
+  "state": "queued",
+  "what": "PHONE ROOM SIZING needs a balance read: breakout_2 trades FLAT because room sizing (breakout.yaml next_instance_mode) skips every ticket without a fresh prop_account_status snapshot, and the phone does not yet read balance/equity from the new terminal (labels unread). Build: phone reads the account panel and posts kind=account_status; then flip breakout_turbo_1step.yaml sizing.mode to room (pre-registered arm RQ-20261005-811/812). [ID NOTE 2026-10-05 16:20Z: the research units cited here were renumbered RQ-20261005-811/812/813/814 -> 851/852/853/854 when main took 811-814 for E35/M20 sweeps; read 851-854.]"
+}
