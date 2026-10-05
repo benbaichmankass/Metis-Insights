@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20260929-049
 title: 'Breakout prop fit: ict_scalp_xrp_15m at sizing flat 1.0% of balance under RULE-B6 V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -92,3 +92,4 @@ generated:
     timeframe: 15m
     trades_file: comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_15m__trades.jsonl
 last_dispatched_at: '2026-10-05T01:47:39+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against this unit's own rule. UNDERPOWERED (indeterminate): ict_scalp_xrp_15m: UNDERPOWERED: n=76 < floor 88 The run could not answer; this is 'could not answer', not 'no edge'. Source: research-script-run 37210925789 artifact (verdict.json, grid.json, sims/)."

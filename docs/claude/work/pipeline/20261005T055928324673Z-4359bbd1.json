@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-MWOP8C4X-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X), measured at main fee0ae7e",
+    "rerun": "python3 scripts/ci/check_stale_in_flight.py --base origin/main | grep ratchet"
+  },
+  "severity": "low",
+  "state": "done",
+  "terminal_reason": "FIXED 2026-10-05 by BACKLOG-BURNDOWN-4 (branch claude/burndown4-c): ratchet now readable (base=0 head=0 delta=+0) on origin/main fee0ae7e; regression test verified to fail without the fix. Supersedes PI-20260929-WJUTENGU-0001 (routed to GUARD-FIDELITY) which names the same defect.",
+  "what": "check_stale_in_flight ratchet read base_unreadable on every base: _materialise_base ran `git archive` naming the retired docs/claude/work/objects, which exits non-zero when absent (scripts/ci/check_stale_in_flight.py:93), so the diff's own contribution was graded by nobody. FIXED in this lane: objects dir named only when the base carries it; regression test tests/test_check_stale_in_flight_materialise.py fails without the fix (verified) and passes with it. Observed after fix: `check_stale_in_flight.py --base origin/main` prints `ratchet base=0 head=0 delta=+0` instead of base_unreadable."
+}

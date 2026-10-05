@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-05",
+    "kind": "date"
+  },
+  "id": "PI-20261004-UQ9JJPRQ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-RUN session_01VrUrxiBdxqP5XwUQ9JjprQ, 2026-10-04",
+    "rerun": "grep -c . research/queue/RQ-20261004-76[89].yaml research/queue/RQ-20261004-770.yaml and read each file's status; any still 'queued' with no result line = still open; then check whether git ls-tree origin/main research/queue/RQ-20261004-774.yaml exists (the units PR merged)"
+  },
+  "state": "queued",
+  "what": "Follow-through owed on the 2026-10-04 research run. (1) Three M20 coverage-gap sweeps are ungraded: RQ-20261004-768 ict_scalp_sol_5m, -769 ict_scalp_avax_5m, -770 ict_scalp_5m (runs 37222250087, 37222251748, 37222253572, in progress after 75 minutes on the trainer-data path, no corpus rows yet); grade each against RULE-EXIT-REFINEMENT-P2-GATE once rows exist. (2) After the units PR #16386 merges, open a stamp-only PR setting last_dispatched_at on the 22 hand-fired units RQ-20261004-753..774 so the dispatcher does not re-fire them. (3) PR #16369 (fetch windows plus stamps on 21 units) was green and unmerged at 19:10Z; until it merges the dispatcher sees 16 already-run units as due."
+}

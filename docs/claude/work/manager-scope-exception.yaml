@@ -6,6 +6,25 @@
 # this guard must remain "route the work to a session", because that is the
 # behaviour wanted.
 exceptions:
+  - id: MGR-20261005-AUTOMERGE-BRANCH-WIDEN
+    status: active
+    expires: "2026-10-08"
+    paths:
+      - ".github/workflows/claude-pr-automerge.yml"
+    reason: >-
+      OPERATOR GRANT, 2026-10-05, to manager session_01MM8o5js6TcDFeNAPBY4Ntv.
+      The operator answered the manager's popup "widen the automerge relay
+      trigger to non-claude branches?" with, verbatim, "Yes, widen it". When
+      the manager then asked for a manual edit, the operator replied, verbatim:
+      "I do not make manual edits ... Fix it, figure it out. If you need to
+      take you off auto mode so that you can do the change, then that's what
+      you're supposed to do." That names the MANAGER as the author, so the
+      guard's normal remedy (route it to a session) is not what was asked.
+
+      WHAT IT COVERS: PR #16552 only. It changes the `on.push` branch filter of
+      claude-pr-automerge.yml from `claude/**` to every branch except main and
+      automation/**. The job body and the arming conditions are untouched.
+      Closes PI-20260929-AQRK6CL1-0001 and PI-20261002-ULPHZHHQ-0002.
   - id: MGR-20260927-TITLE-AND-NO-DISPUTE-RULE
     status: active
     expires: "2026-09-30"

@@ -1,6 +1,6 @@
 id: RQ-20260929-101
 title: 'Stage-0 backtest: pullback harness on BNBUSDT 2h (uncovered symbol)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -101,3 +101,4 @@ related:
   - 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_2h (config/strategies.yaml) -- the sibling legs this mirrors'
   - 'config/pairs.yaml sol_bnb / bnb_btc -- BNBUSDT''s existing (pairs-only) live exposure'
 last_dispatched_at: '2026-10-04T14:55:57+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN by hand against this unit's own rule. Re-run after the fetch-window fix (PI-20261004-APBY4NTV-0001), window 2023-10-05 to 2026-10-03. FAIL (first pass): net_total_r -20.8434, n_trades 202 (floor 39), expectancy -0.1032 R/trade, max drawdown 27.48 R. Per the unit: re-queue a confirmatory run before reading as a kill; two consecutive FAILs are a candidate to retire. Record: research/results/RQ-20260929-101/37210872441.jsonl."

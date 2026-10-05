@@ -108,7 +108,14 @@ name: claude-pr-automerge
 
 on:
   push:
-    branches: ["claude/**"]
+    # Widened 2026-10-05 (operator decision, verbatim "Yes, widen it"; pipeline
+    # PI-20260929-AQRK6CL1-0001 / PI-20261002-ULPHZHHQ-0002): any non-main,
+    # non-automation branch may arm the relay. Arming still requires the
+    # branch's OWN slug-named request file + its pr-landing declaration (the
+    # job body proves the ask), so this adds no arming power. Spelled as
+    # branches-ignore (not `branches` with `!` negations) so that
+    # workflow-trigger-reachability does not read `!main` as a dead literal.
+    branches-ignore: [main, "automation/**"]
     # PER-REQUEST FILE, matching every sibling relay in this repo
     # (BL-20260821-AUTOMERGE-TRIGGER-IS-A-SINGLE-SHARED-FILE).
     #

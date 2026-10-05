@@ -90,8 +90,15 @@ def _materialise_base(base: str, dest: Path) -> bool:
     if rc != 0:
         return False
     tar = dest / "base.tar"
-    rc, _ = _git(["archive", "-o", str(tar), base,
-                  ol.CHECKLIST_RELPATH, ol.OBJECTS_RELDIR])
+    # The objects dir was retired 2026-09-21: `git archive` exits non-zero if
+    # ANY named path is absent at `base`, which graded every base
+    # `base_unreadable` and left the diff's own contribution ungraded. Name it
+    # only when `base` still carries it (owner_liveness treats it as optional).
+    paths = [ol.CHECKLIST_RELPATH]
+    rc, _ = _git(["cat-file", "-e", f"{base}:{ol.OBJECTS_RELDIR}"])
+    if rc == 0:
+        paths.append(ol.OBJECTS_RELDIR)
+    rc, _ = _git(["archive", "-o", str(tar), base, *paths])
     if rc != 0 or not tar.exists():
         return False
     try:
