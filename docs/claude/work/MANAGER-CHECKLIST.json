@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-05T06:35:00Z",
+  "updated_at": "2026-10-05T06:38:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
     "_comment": "Set by the manager's daily review (manager SKILL \u00a7 'The work system'): the WR-YYYYMMDD-HHMMZ report it worked from GET /api/bot/work/report, when, by whom, and disposition counts. Per-item dispositions live on the pipeline items. null = no review recorded yet.",
@@ -5286,7 +5286,7 @@
       "id": "RQ-RENUMBER-16386",
       "title": "Unblock #16386: renumber RESEARCH-RUN units RQ-20261004-653..674 -> 753..774 (ID collision with queue_replenish) + file the ID-race root cause",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "manager-dispatched lane",
       "lane": "session_01H1mFH3B2BtDBL5rt476Z5b",
       "model": "claude-sonnet-5-5",
@@ -5297,7 +5297,7 @@
         16386
       ],
       "blocked_on": [],
-      "note": "2026-10-05 05:49Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; manager validated the recipe in a scratch worktree (manager-scope routes the edit to a lane). 06:06Z lane done: branch pushed 15fd4749, root cause filed PI-20261005-RQ-ID-RACE-0001 (due 10-12). Manager merges #16386 when CI is green."
+      "note": "2026-10-05 05:49Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; manager validated the recipe in a scratch worktree (manager-scope routes the edit to a lane). 06:06Z lane done: branch pushed 15fd4749, root cause filed PI-20261005-RQ-ID-RACE-0001 (due 10-12). Manager merges #16386 when CI is green. 06:36Z: #16386 MERGED f6060ad1 by manager after reading the two hand grades against their result files (105 net_total_r +18.7231 n=144 PASS; 106 -121.9644 n=178 FAIL). Research-only, no runtime effect."
     },
     {
       "id": "SOAK-GATE1",
@@ -5313,6 +5313,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "2026-10-05 05:56Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv from the 05:52Z review. mandate_resolver --from S0 --to S1 returns R-NO-OP for these legs (it models roster membership, not the execution: shadow->live flip), so no granted mandate covers the flip; config edits come back as one Tier-3 hold PR. Lane may draft (not grant) a proposed mandate."
+    },
+    {
+      "id": "PROP-FIT-POWER",
+      "title": "Tradeify 1-Step prop fit, powered: re-run the underpowered legs (n 65-84 < floor 88) on longer-window full-cost evidence under freshly pre-registered units; PASS = Tier-3 tradeify_1 roster proposal",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager-dispatched lane",
+      "lane": "session_01SGtB43mEJKQKsfmg7bGr46",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-05 06:37Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv (priority 1 prop; research slot freed by RESEARCH-RUN). RQ-20261004-755..764 were UNDERPOWERED/NULL because prop_ev_grid prices the newest evidence record, which holds fewer trades than the units declared; 765 FAIL. Lane does not edit config."
     }
   ]
 }
