@@ -7,7 +7,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** The VM contract (/api/bot/prop/phone/*), per-device bearer. HTTPS only. Errors return null (fail closed). */
+/** The VM contract (the /api/bot/prop/phone routes), per-device bearer. HTTPS only. Errors return null (fail closed). */
 class Api(private val c: Context) {
     private fun base(): String = (Store.get(c, Store.API) ?: Store.DEFAULT_API).trimEnd('/')
 

@@ -42,6 +42,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    // Sideloaded, not Play-published: release lint must not block the build (targetSdk-age checks etc.).
+    lint { checkReleaseBuilds = false; abortOnError = false }
     packaging { resources { excludes += setOf("META-INF/LICENSE.md", "META-INF/NOTICE.md", "META-INF/*.SF", "META-INF/mailcap", "META-INF/javamail.*") } }
 }
 

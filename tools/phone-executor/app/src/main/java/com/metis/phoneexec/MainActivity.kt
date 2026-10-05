@@ -117,7 +117,6 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
-    @Deprecated("kiosk") override fun onBackPressed() { if (web.canGoBack()) web.goBack() }
 
     private fun setStatus(s: String) { status.text = s }
     private fun armed() = Store.flag(this, Store.ARMED)
