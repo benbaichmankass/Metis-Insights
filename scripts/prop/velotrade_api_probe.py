@@ -29,8 +29,10 @@ BASE = "https://dx.velotrade.com/dxsca-web"
 SYMBOLS = ["ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD"]
 # Account fields that describe the account's TYPE, not its identity. Printed by
 # value; anything not listed here (account code, owner, ids) is never printed.
-ACCOUNT_TYPE_FIELDS = ("positionBased", "accountType", "type", "status", "accountStatus",
-                       "marginMode", "marginCalculationType", "hedging", "currency", "baseCurrency")
+# `isPositionBased` is the spec's name (rest/types/account-details.md: "shows if the
+# account is Position-based or Net-based"); `positionBased` kept in case the server differs.
+ACCOUNT_TYPE_FIELDS = ("isPositionBased", "positionBased", "accountStatus", "baseCurrency",
+                       "accountType", "type", "status", "marginMode", "marginCalculationType", "hedging")
 SPEC_FIELDS = (
     "symbol", "type", "currency", "lotSize", "multiplier", "priceIncrement",
     "pipSize", "quantityIncrement", "assetClass", "tradingStatus",
