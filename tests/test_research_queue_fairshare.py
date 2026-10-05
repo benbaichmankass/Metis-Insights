@@ -114,17 +114,54 @@ def test_themes_file_is_well_formed_and_orders_regime_first_macro_last():
         load_themes(Path(__file__))            # not a themes file
 
 
+def _starved_themes(order_fn, jobs, now, themes_doc):
+    """Themes holding due work that `order_fn` leaves out of the first 3 picks per theme.
+
+    The population is the committed queue's due, fireable units (decided with their real stamps).
+    Ordering is then evaluated on COPIES with `last_dispatched_at` stripped, so the check is about
+    the ordering's structure and not about how many units a theme happened to fire in the last
+    `share_window_hours`. The old assertion ran on the stamped queue: a theme that had just fired a
+    burst (new_strategy_prop, 28 fires in 48h at weight 2) is legitimately behind, so it went red the
+    moment that theme received new due work, and passed on main only because the theme had none.
+    """
+    import copy
+    live = [j for j in jobs if j.valid and j.status == "queued" and dq._is_due(j.raw, now)[0]
+            and str((j.raw.get("run") or {}).get("workflow") or "").endswith(".yml")]
+    copies = []
+    for j in live:
+        raw = copy.deepcopy(j.raw)
+        raw.pop("last_dispatched_at", None)
+        copies.append(QueueJob(path=j.path, raw=raw))
+    themes = {j.raw["theme"] for j in copies}
+    got = set(themes_of(order_fn(copies, now, themes_doc), 3 * len(themes)))
+    return themes - got, themes
+
+
 def test_committed_queue_dispatches_every_theme_it_holds():
     from scripts.research.research_queue import load_queue
     jobs, err = load_queue(Path(dq._DEFAULT_QUEUE))
     assert err is None
-    order = dq.fair_order(jobs, datetime.now(timezone.utc), load_themes())
-    live = [j for j in order if j.valid and j.status == "queued" and dq._is_due(j.raw, datetime.now(timezone.utc))[0]
-            and str((j.raw.get("run") or {}).get("workflow") or "").endswith(".yml")]
-    themes = {j.raw["theme"] for j in live}
-    # No theme is starved: each one holding due work shows up in the first 3 picks per theme. (Not the
-    # first len(themes): a theme that already fired a lot in the window is legitimately behind.)
-    assert set(themes_of(live, 3 * len(themes))) == themes
+    now = datetime.now(timezone.utc)
+    starved, themes = _starved_themes(dq.fair_order, jobs, now, load_themes())
+    assert themes and not starved, f"themes starved of dispatch: {sorted(starved)}"
+
+
+def _starved_synth(order_fn, jobs):
+    themes = {j.raw["theme"] for j in jobs}
+    return themes - set(themes_of(order_fn(jobs, NOW, TH), 3 * len(themes)))
+
+
+def test_starvation_check_fails_on_a_fair_order_that_drops_a_theme():
+    """Negative control: the starvation check goes red for an ordering that starves a theme, and
+    stays green for the real one, on a queue where one theme has far more units than the picks examined."""
+    synth = [job(i, "regime") for i in range(1, 12)] + [job(50 + i, "macro") for i in range(3)]
+
+    def drops_macro(js, now, doc):
+        order = dq.fair_order(js, now, doc)
+        return [j for j in order if j.raw["theme"] != "macro"] + [j for j in order if j.raw["theme"] == "macro"]
+
+    assert _starved_synth(drops_macro, synth) == {"macro"}
+    assert _starved_synth(dq.fair_order, synth) == set()
 
 
 # ── deterministic dispatch-config problems are not_due, never a red run ─────────
