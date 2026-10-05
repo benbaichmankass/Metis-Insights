@@ -72,6 +72,10 @@ class MainActivity : Activity() {
 
     companion object {
         const val TRADE_URL = "https://trade.breakoutprop.com/"
+        // The login entry that WORKED in the 1a probe (11:44-11:47Z): portal code step -> app.breakoutprop.com
+        // (Cloudflare check, then served) -> trade host SSO -> logged-in landing. The trade host's own password
+        // form is not the way in.
+        const val APP_URL = "https://app.breakoutprop.com/"
         const val TICK_MS = 30_000L
         const val USER_HOLD_MS = 5 * 60_000L
         const val PAUSE_MAX_MS = 10 * 60_000L
@@ -89,10 +93,11 @@ class MainActivity : Activity() {
         web.settings.domStorageEnabled = true
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
-        web.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(v: WebView, r: android.webkit.WebResourceRequest): Boolean =
-                r.url.scheme != "https"  // never leave https; everything else stays in THIS WebView
-        }
+        web.settings.allowFileAccess = false; web.settings.allowContentAccess = false
+        web.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        // Same WebView setup as the 1a probe, whose login worked (stock UA, default navigation handling):
+        // no shouldOverrideUrlLoading filter, every navigation stays in THIS WebView and cookie store.
+        web.webViewClient = WebViewClient()
         status = TextView(this).apply { setPadding(16, 8, 16, 8); setBackgroundColor(Color.parseColor("#202833")); setTextColor(Color.WHITE); textSize = 12f }
         armBtn = Button(this)
         val bar = LinearLayout(this).apply {
@@ -103,6 +108,7 @@ class MainActivity : Activity() {
             btn("Dry test") { dryTest() }
             btn("Share ID") { shareFingerprint() }
             addView(Button(this@MainActivity).apply { pauseBtn = this; isAllCaps = false; text = "Pause"; setOnClickListener { togglePause() } })
+            btn("Login") { lastUserInputMs = System.currentTimeMillis(); setStatus("login: opening app.breakoutprop.com (log in there, then tap Reload)"); web.loadUrl(APP_URL) }
             btn("Reload") { web.loadUrl(home()) }
             btn("Reset login") { Store.setFlag(this@MainActivity, Store.RELOGIN_LATCHED, false); reloginFailures = 0; setStatus("auto re-login re-enabled") }
         }
@@ -270,7 +276,13 @@ class MainActivity : Activity() {
         setStatus("logged out: starting email login")
         api.event("login_started", "")
         val since = Date(System.currentTimeMillis() - 60_000)
-        if (!s.optBoolean("codeWait")) {
+        var st0 = s
+        if (!st0.optBoolean("codeWait") && st0.optString("host").startsWith("trade.")) {
+            web.loadUrl(APP_URL); delay(10_000); ensure()
+            st0 = jsObj("__ex.state()") ?: return loginFail("app.breakoutprop.com not readable")
+            if (st0.optBoolean("challenged")) return loginFail("app.breakoutprop.com shows a challenge; manual login needed")
+        }
+        if (!st0.optBoolean("codeWait")) {
             val r = js("__ex.loginEmail(${q(email)})")
             if (r != "clicked" && r != "submitted") return loginFail("email step: $r")
             delay(6000); ensure()

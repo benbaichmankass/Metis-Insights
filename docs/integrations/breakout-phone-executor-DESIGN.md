@@ -609,6 +609,12 @@ By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the le
 - It never reloads a logged-in page.
 - Covered by the landing cases in `tools/phone-executor/test/exec_check.js`.
 
+**Fix, same build (login entry, manager diff vs 1a ~20:18Z):** the login that worked in 1a went portal code step → `app.breakoutprop.com` (Cloudflare check, then served) → trade-host SSO → landing. The executor could only reach the trade host's own password form, which loops.
+- A new **Login** button opens `app.breakoutprop.com` in the same WebView and cookie store.
+- Auto re-login also starts there when it finds the trade-host form.
+- The WebView setup now matches 1a: `WebViewClient()` with no URL filter, file and content access off, no mixed content, stock user agent.
+
+
 **Terms read for this phase (first-party help centre, `intercom.help/breakoutprop`, 2026-10-05).** The full Terms of Service / Funded Trader Agreement still returned HTTP 403 and are **unread**.
 - *Prohibited practices* (article 11644090) lists no clause on automation, bots, scripts or software.
 - That article **does** prohibit "sharing account access, or trading multiple accounts from the same household, device, or IP address".
