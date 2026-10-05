@@ -1,0 +1,7 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  ict_scalp_xrp_15m            A        seed=1 exit=0 ev=-114.74 p=0.0150 (992.5s)
+  ict_scalp_xrp_15m            A        seed=2 exit=0 ev=-115.45 p=0.0150 (995.1s)
+  ict_scalp_xrp_15m            A        seed=3 exit=0 ev=-116.18 p=0.0115 (1009.6s)
+  ict_scalp_xrp_15m            A        seed=4 exit=0 ev=-115.28 p=0.0140 (997.7s)
+  ict_scalp_xrp_15m            A        seed=5 exit=0 ev=-115.18 p=0.0138 (467.8s)
+prop_ev_grid: overall=indeterminate {"ict_scalp_xrp_15m": "indeterminate"}

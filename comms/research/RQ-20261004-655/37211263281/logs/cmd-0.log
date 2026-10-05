@@ -1,0 +1,7 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  trend_donchian_eth_prop      A        seed=1 exit=0 ev=+315.39 p=0.5072 (630.2s)
+  trend_donchian_eth_prop      A        seed=2 exit=0 ev=+309.25 p=0.5050 (628.6s)
+  trend_donchian_eth_prop      A        seed=3 exit=0 ev=+297.64 p=0.5082 (623.0s)
+  trend_donchian_eth_prop      A        seed=4 exit=0 ev=+307.16 p=0.5088 (588.3s)
+  trend_donchian_eth_prop      A        seed=5 exit=0 ev=+294.98 p=0.5068 (371.3s)
+prop_ev_grid: overall=indeterminate {"trend_donchian_eth_prop": "indeterminate"}
