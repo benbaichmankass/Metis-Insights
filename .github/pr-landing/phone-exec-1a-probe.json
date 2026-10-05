@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "New sideloadable Android WebView probe under tools/phone-probe/ plus a workflow that builds its debug APK as an artifact (phase 1a of docs/integrations/breakout-phone-executor-DESIGN.md). Read-only app: no order, no tap on the Breakout page, no stored credential; no src/, config/, VM or order-path change."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "New sideloadable Android WebView probe under tools/phone-probe/ plus a workflow that builds its debug APK as an artifact (phase 1a of docs/integrations/breakout-phone-executor-DESIGN.md). Read-only app: no order, no tap on the Breakout page, no stored credential; no src/, config/, VM or order-path change. The Gradle, manifest and fixture-HTML paths are outside the guard's Tier-1 surface, so a human lands it after the APK has been confirmed on the phone.",
+  "hold_text": "Gradle build files, the Android manifest and the fixture HTML are outside the guard's Tier-1 surface; held for a human to land after the APK is confirmed to install and run on the operator's phone."
 }

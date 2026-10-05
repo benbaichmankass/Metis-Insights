@@ -49,3 +49,5 @@ jobs:
           name: phone-probe-1a-debug-apk
           path: tools/phone-probe/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+
+# no-durable-result: builds a sideloadable probe APK; the probe's measurements come from the operator's phone, not from this job
