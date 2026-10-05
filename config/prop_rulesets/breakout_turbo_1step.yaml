@@ -1,0 +1,168 @@
+# config/prop_rulesets/breakout_turbo_1step.yaml
+# Breakout "1-Step Turbo" $5k, the account bought 2026-10-05 for the phone executor
+# (lane PHONE-EXEC-1B). Derived from breakout.yaml (1-Step Classic); ONLY the fields
+# below differ, each sourced from Breakout's own FAQ Center, read 2026-10-05 by this lane:
+#   max drawdown: "The maximum drawdown limit in a 1-Step Turbo Breakout Evaluation is 3% of
+#     your initial account balance" ... "$5,000 account: $150 max drawdown"; STATIC ("this floor
+#     stays at $97,000 even if the balance increases to $105,000")      [article 12587824]
+#   daily loss: "Maximum daily loss is 3% across all account sizes"      [article 12587824]
+#     "3% of your demo account balance at 00:30 UTC"                     [article 11644066]
+#   target: "3% maximum drawdown ($3,000), $9,000 upgrade target" on $100k = 9%  [article 11643732]
+# UNCONFIRMED: the account fee (the manager relayed "about $20" from the pricing page; not
+# read by this lane), and every economics/payout field inherited from the Classic file.
+ruleset: breakout
+
+plan: 1-step-turbo
+account_size_usd: 5000            # 1-Step Classic $5k account (per account details, 2026-06-16)
+                                  # → Turbo: 3% daily = $150, 3% static DD = $150
+profit_split: 0.80               # 80/20 (90/10 upgrade = 0.90)
+unconfirmed: true                 # headline rules confirmed; only per-symbol
+                                  # position caps remain (see limits.max_position_pct)
+
+phases:
+  evaluation:
+    profit_target_pct: 0.09       # Turbo: $9,000 upgrade target on $100k   [FAQ 11643732]
+    min_trading_days: 0           # NONE — can pass in 1 trade, paid next day [CONFIRMED — FAQ]
+    max_eval_days: null           # no time limit on the evaluation [CONFIRMED — FAQ]
+  funded:                         # one-phase: same limits continue post-pass
+    profit_target_pct: null
+    min_trading_days: 0
+
+# Account-killers — breaching EITHER = instant breach: all positions
+# auto-closed, account PERMANENTLY disabled. [CONFIRMED — FAQ]
+limits:
+  daily_loss_pct: 0.03            # 3% across all 1-Step variants   [CONFIRMED — FAQ]
+  # Daily-loss mechanics: the limit AMOUNT is recalculated each day at
+  # 00:30 UTC from the BALANCE at that time (excluding open positions);
+  # the BREACH triggers when intraday EQUITY (including open positions)
+  # falls to/through that limit. Evaluator buckets days on the 00:30-UTC
+  # boundary and uses equity (mark-to-market), not realized-only.
+  daily_loss_reset_utc: "00:30"
+  daily_loss_basis: equity_vs_daystart_balance
+
+  max_drawdown_pct: 0.03          # Turbo: 3% = $150 on $5k        [FAQ 12587824]
+  drawdown_type: static           # STATIC, balance-based, off the STARTING balance;
+                                  # NOT trailing and NOT locked/raised on payout [CONFIRMED — FAQ]
+  max_position_pct: null          # per-INSTRUMENT cap, set in the Breakout Terminal
+                                  # (breakoutprop.com/symbols) — not a single % we can
+                                  # encode globally. [PARTIAL — pull per-symbol caps at wire time]
+
+# Consistency rule — Breakout has NONE. No consistency rule, no profit cap,
+# no risk-per-trade rule, no anti-gambling rule. [CONFIRMED — FAQ]
+consistency:
+  enabled: false
+  max_single_day_profit_share: null
+
+# Time restrictions — crypto trades 24/7; Breakout imposes no weekend/
+# overnight flat rule. [CONFIRMED — no such rule in the FAQ]
+restrictions:
+  weekend_flat: false
+  overnight_flat: false
+
+# Funded-phase survival horizon (how long the "survives funded" check runs).
+funded_soak_days: 30
+
+# Account economics — drives the COST-AWARE EV evaluation (expected $ netted
+# per horizon, NET of fees, re-buying a fresh account on each breach), the
+# complement to the survival metrics. The point: an account that burns fast
+# but banks > its fee in payouts first is a +EV buy. Consumed by
+# scripts/prop/montecarlo_prop.py --cost-aware.
+#
+# Values here are LABELED, CONFIGURABLE DEFAULTS — fee/split are CONFIRMED
+# (plan card); the payout cadence/minimums are sourced from public third-party
+# reviews 2026-06-16 and NOT yet cross-checked against Breakout's own FAQ.
+# Update in place when confirmed (no code change — the EV model reads this).
+economics:
+  account_fee_usd: 20              # Turbo $5k fee  [UNCONFIRMED — manager relay "about $20"]
+  rebuy_fee_usd: 20               # cost of a fresh account after a breach
+                                  # [DEFAULT — assumes no reset discount; CONFIRM]
+  # OPERATOR-ANSWERED 2026-09-27 ~11:12Z (AskUserQuestion popups in manager
+  # session_01Ljhs6sFAdWHdMDhJpL5aBP; closes PI-20260927-JUANCRRZ-0001). These
+  # two replace the unconfirmed assumptions A6/A8 in
+  # scripts/research/prop_ev_sim.py, which now reads them from here as its
+  # defaults. No Breakout-support question is to be asked about either.
+  funded_start: fresh              # "Resets to a fresh $5,000": on passing, the
+                                   # funded account starts at account_size_usd;
+                                   # eval profit does NOT carry.     [OPERATOR]
+  first_payout_fee_refund: false   # "No refund": the $45 fee is never returned
+                                   # with the first payout.           [OPERATOR]
+  # profit_split is declared above (0.80; 0.90 upgrade; 0.95 after 3 profitable
+  # funded months) [CONFIRMED].
+
+  payout:                          # Breakout's funded-withdrawal RULES
+    first_payout_after_days: 14    # first withdrawal allowed 14d post-funding   [WEB; CONFIRM]
+    payout_frequency_days: 7       # weekly cadence thereafter                   [WEB; CONFIRM]
+    min_withdrawal_usd: 50         # smallest withdrawal (some sources say none) [WEB; CONFIRM]
+    min_trading_days_before_payout: 0   # no min trading days                    [WEB; CONFIRM]
+    processing_hours: 24           # paid within 24h in USDC (ERC-20)            [WEB; info]
+
+  withdrawal_policy:               # OPERATOR DIRECTIVE (2026-06-16): BANK ASAP.
+                                   # Always withdraw the maximum allowed at the
+                                   # earliest allowed moment; never leave realized
+                                   # profit in the account. Rationale: banked payouts
+                                   # are realized + safe, and the 6% max-DD is STATIC
+                                   # off the starting balance and NOT raised on payout,
+                                   # so money left in only adds breach exposure for ZERO
+                                   # upside. This is the FIXED default, not a knob tuned
+                                   # for survival; it stays parameterized only so the EV
+                                   # model can quantify the (rejected) less-aggressive
+                                   # alternatives for comparison.
+    mode: above_start              # withdraw ALL equity above the starting balance
+    buffer_usd: 0                  # leave no extra cushion — bank everything above start
+    bank_asap: true                # withdraw at the earliest allowed instant each window
+    cadence_days: 7                # every allowed window (first at
+                                   # payout.first_payout_after_days = 14, then weekly)
+
+# Per-ticket SIZING MODE — which formula the breakout executor sizes a ticket
+# with. Consumed by src/prop/prop_sizing.py (called from
+# src/prop/breakout_executor.emit_prop_ticket).
+#
+# OPERATOR DECISION 2026-09-27 ~11:12Z (AskUserQuestion popup in manager
+# session_01Ljhs6sFAdWHdMDhJpL5aBP), verbatim answer "Current flat, room sizing
+# next":
+#   * the CURRENT breakout_1 account instance keeps FLAT sizing — risk_pct x the
+#     declared account_size_usd = 1.5% x $5,000 = $75 per ticket — until it
+#     passes or dies;
+#   * every FRESH account instance uses ROOM sizing:
+#       risk_usd = min(risk_pct x live balance, k x binding cushion)
+#     where the binding cushion is the smaller of the DD-floor and daily-loss
+#     distances AFTER open positions' loss-to-stop (prop_reconcile
+#     .compute_rule_distance, the same figure prop_risk_gate grades against),
+#     and a ticket sized below min_risk_usd is SKIPPED.
+# Evidence (Tier-3, data-backed): PR #13084,
+# docs/research/b6-prop-ev/live-state-2026-09-27T0723Z.json, `path` mark mode,
+# fresh $5,000 account, fee $45, EV per account life: 1.5% of balance
+# -$12.43 (c_fresh_1p5) vs room k=0.45 +$112.06 (c_fresh_room45) vs room
+# k=0.33 min $10 +$111.96 (c_fresh_k33_min10). The two k values are equal
+# within noise; the operator took the LOWER-RISK k = 0.33. Fee-only caveat
+# does not apply: the sim charges commission + slippage + swap (its --costs
+# breakout default).
+#
+# THE SWITCH: `mode` is the mode the account instance CURRENTLY trading uses.
+# It stays `flat` while the current breakout_1 instance lives. When that
+# instance passes or dies, pipeline item PI-20260927-CSTGV2YT-0001 (see
+# docs/claude/work/pipeline/) pings the operator to buy a fresh $5,000
+# evaluation and its follow-up flips `mode: flat` -> `mode: room` (a one-line,
+# Tier-3-pre-decided edit). `next_instance_mode` records that decision in the
+# field, so the flip is a copy of a declared value and not a fresh judgement.
+# ROLLBACK (after the flip): set `mode: flat`.
+sizing:
+  mode: room                       # Turbo is a FRESH instance: breakout.yaml next_instance_mode (room, k 0.33)
+  next_instance_mode: room         # what the flip sets `mode` to for a FRESH account
+  flat:
+    max_risk_usd: 75               # the flat cap = 1.5% x $5,000. With
+                                   # PROP_TICKET_RISK_GATE_MODE=enforce a ticket
+                                   # whose risk exceeds the CURRENT mode's cap
+                                   # (this in flat mode; the room formula in room
+                                   # mode) is resized down to it, or refused when
+                                   # no cap is known — with a logged cause.
+                                   # (operator 2026-09-27 ~08:40Z, "Implement it
+                                   # with the sizing decision"; PI-20260924-MQ3CDMU6-0002)
+  room:
+    k: 0.33                        # max share of the binding cushion one new ticket may risk
+    min_risk_usd: 10               # below this the ticket is skipped, not shrunk further
+    on_cushion_unknown: skip       # a stale/unreadable cushion is not a cushion:
+                                   # room sizing cannot size against it, so the
+                                   # leg is skipped (journaled) rather than falling
+                                   # back to the flat $75 it exists to replace.
+
