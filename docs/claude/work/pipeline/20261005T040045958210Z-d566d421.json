@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 35,
+    "clears_when": "RESOLVED when EITHER (a) the pool config is read and shown to contain no two entry keys sharing a `family` — state the pool path and the entry->family mapping you measured — and that invariant is asserted in code or a test, so it cannot silently stop holding; OR (b) the label includes entry_key, with the artifact-renaming consequence stated. A code citation does not close this: the entry->family mapping is DATA and must be read.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-09",
+    "how_to_check": " A test or code assertion that no two pool entries share a family (or the label includes entry_key). | evidence: scripts/ops/recombination_sweep.py:141-159 label omits entry_key (inert comment); config/research/recombination_pool.yaml measured now: families {'trend':['trend_donchian'],'pullback':['htf_pullback']} - one entry per family so no collision today. No",
+    "what": "RESOLVED when EITHER (a) the pool config is read and shown to contain no two entry keys sharing a `family` — state the pool path and the entry->family mapping you measured — and that invariant is asserted in code or a test, so it cannot silently stop holding; OR (b) the label includes entry_key, with the artifact-renaming consequence stated. A code citation does not close this: the entry->family mapping is DATA and must be read."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A test or code assertion that no two pool entries share a family (or the label includes entry_key). | evidence: scripts/ops/recombination_sweep.py:141-159 label omits entry_key (inert comment); config/research/recombination_pool.yaml measured now: families {'trend':['trend_donchian'],'pullback':['htf_pullback']} - one entry per family so no collision today. No",
+  "what": "[health] [research] recombination_sweep._build_label accepts `entry_key` and never puts it in the label — two entry variants sharing a family produce the SAME label for different sweep cells || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ly stop holding; OR (b) the label includes entry_key, with the artifact-renaming consequence stated. A code citation does not close this: the entry->family mapping is DATA and must be read.\", |   \"updates\": [], |   \"updated_at\": \"2026-09-02T00:00:00+00:00\" | }"
+}

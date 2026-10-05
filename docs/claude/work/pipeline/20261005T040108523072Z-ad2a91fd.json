@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "/api/diag/tick_cost (or a sibling diag read) reports _CANDLE_CACHE entry count and a cumulative wholesale-flush counter, so a session can state how often the map was cleared over a window instead of inferring it from fetch counts. LRU eviction instead of .clear() would also close it, and is the better fix if taken.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260821-CANDLE-CACHE-SIZE-AND-FLUSH-UNOBSERVABLE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-07",
+    "how_to_check": " /api/diag/tick_cost (diag.py:3309) reports candle-cache size and cumulative flush count | evidence: src/runtime/market_data.py:557-558 still 'if len(_CANDLE_CACHE) > 512: _CANDLE_CACHE.clear()'; no size/flush counter found in market_data.py or diag.py (git grep cache_size|candle_cache|flush in those files = only key helper names).",
+    "what": "/api/diag/tick_cost (or a sibling diag read) reports _CANDLE_CACHE entry count and a cumulative wholesale-flush counter, so a session can state how often the map was cleared over a window instead of inferring it from fetch counts. LRU eviction instead of .clear() would also close it, and is the better fix if taken."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-CANDLE-CACHE-SIZE-AND-FLUSH-UNOBSERVABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-CANDLE-CACHE-SIZE-AND-FLUSH-UNOBSERVABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: /api/diag/tick_cost (diag.py:3309) reports candle-cache size and cumulative flush count | evidence: src/runtime/market_data.py:557-558 still 'if len(_CANDLE_CACHE) > 512: _CANDLE_CACHE.clear()'; no size/flush counter found in market_data.py or diag.py (git grep cache_size|candle_cache|flush in those files = only key helper names).",
+  "what": "[health] _CANDLE_CACHE clears itself WHOLESALE at >512 entries and neither its size nor the flush is reportable anywhere — so a poisoning source can be estimated but never observed"
+}

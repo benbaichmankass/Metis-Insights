@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "trail_decay is modelled in the trend harness (or an equivalent path exists), and trend_donchian's cells have a recorded re-audit verdict on a row whose omissions are declared acceptable.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260730-DONCHIAN-APPROX-ONLY",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " regime_debt_matrix fidelity probe for trend_donchian returning faithful and a recorded re-audit verdict. | evidence: scripts/backtest_trend.py:276-278 now has trail_decay args, but docs/audits/authored-cell-reaudit-register.md:58 still lists trend_donchian cells approximate-only / blocked; no recorded re-audit verdict on a faithful row.",
+    "what": "trail_decay is modelled in the trend harness (or an equivalent path exists), and trend_donchian's cells have a recorded re-audit verdict on a row whose omissions are declared acceptable."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-DONCHIAN-APPROX-ONLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-DONCHIAN-APPROX-ONLY'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: regime_debt_matrix fidelity probe for trend_donchian returning faithful and a recorded re-audit verdict. | evidence: scripts/backtest_trend.py:276-278 now has trail_decay args, but docs/audits/authored-cell-reaudit-register.md:58 still lists trend_donchian cells approximate-only / blocked; no recorded re-audit verdict on a faithful row.",
+  "what": "[health] [regime] trend_donchian is only measurable as `approximate` — its 6 cells cannot be acted on either way"
+}

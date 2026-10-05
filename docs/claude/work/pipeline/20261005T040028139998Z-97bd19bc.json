@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 22,
+    "clears_when": "A strategy that cannot evaluate for lack of data raises its own alert rather than looking identical to one finding no setup.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-27",
+    "how_to_check": " A strategy whose eval reason is insufficient candles / no_data raises its own alert (state in diag/health), verified by planting SPLG-like case | evidence: No alert for data-starved strategies found: git grep for starv|cannot_evaluate|unevaluable in src/scripts/ops finds none; E18 leg_flow_detector covers intents-vs-tickets, not evaluation failures. SPLG still logs 'need 46 candles... got 1' (signals 20",
+    "what": "A strategy that cannot evaluate for lack of data raises its own alert rather than looking identical to one finding no setup."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A strategy whose eval reason is insufficient candles / no_data raises its own alert (state in diag/health), verified by planting SPLG-like case | evidence: No alert for data-starved strategies found: git grep for starv|cannot_evaluate|unevaluable in src/scripts/ops finds none; E18 leg_flow_detector covers intents-vs-tickets, not evaluation failures. SPLG still logs 'need 46 candles... got 1' (signals 20",
+  "what": "[health] [observability] a strategy that CANNOT evaluate is indistinguishable from one that evaluated and declined — no alert exists for permanent data starvation"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "Two independent fixes, both wanted. (1) DOC: system-actions.md and the confirmation guidance must state that a run conclusion of failure does NOT mean the action did not run, and that the authoritative signal is the 'Wrapper exit code:' line in the run log — especially before re-dispatching any MUTATING action. (2) WORKFLOW: make the comment-back step resilient (retry on 5xx, and/or continue-on-error so a comment failure cannot mark a successful action red). Do NOT resolve this by making the workflow retry the ACTION on a comment failure — that is the double-apply bug this row exists to prevent.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-07",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED'), indent=2))\"",
+    "what": "Two independent fixes, both wanted. (1) DOC: system-actions.md and the confirmation guidance must state that a run conclusion of failure does NOT mean the action did not run, and that the authoritative signal is the 'Wrapper exit code:' line in the run log — especially before re-dispatching any MUTATING action. (2) WORKFLOW: make the comment-back step resilient (retry on 5xx, and/or continue-on-error so a comment failure cannot mark a successful action red). Do NOT resolve this by making the workflow retry the ACTION on a comment failure — that is the double-apply bug this row exists to preven"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: system-actions.md states failure conclusion != action failed, citing 'Wrapper exit code:'; Reply step made resilient. | evidence: Doc half absent: grep in docs/claude/system-actions.md for 'conclusion.*fail|does NOT mean|double-appl' returns nothing. Workflow half: .github/workflows/system-actions.yml:2233 'Reply to issue with outcome' (createComment at 2299) has no continue-on | previous owner dropped (did not cover the item): CI-AUTOMERGE — triaged 2026-10-05: still applies — grep 'Wrapper exit code' docs",
+  "what": "[health] A system-action run can report conclusion=failure AFTER the action succeeded — re-running on that signal double-applies it"
+}

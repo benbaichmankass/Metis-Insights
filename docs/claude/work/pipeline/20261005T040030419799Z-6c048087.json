@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 22,
+    "clears_when": "Two points measured before any fix: signal_audit.jsonl size sampled twice at least 24h apart via status-check or /api/diag/log_file, yielding a stated MB/day growth rate over a named window. Then EITHER a rotation timer for signal_audit.jsonl is installed and observed to have rotated at least once (the file shrinks and a dated predecessor appears in the same directory listing on a later status-check), OR a written decision records why unbounded growth is acceptable, carrying the projected date the 45 GB volume reaches 80% at the measured rate. Also resolve whether rsyslog's 819.6 MB RSS is tied to this file, since that was left UNVERIFIED here.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260812-SIGNAL-AUDIT-JSONL-501MB-NO-ROTATION",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-27",
+    "how_to_check": " Two size samples >=24h apart of runtime_logs/signal_audit.jsonl (status-check) -> MB/day, then rotation timer observed rotating or a written acceptance with the date the volume hits 80% | evidence: Rotation exists only for shadow log (deploy/ict-shadow-log-rotate.{service,timer}); git grep finds no signal_audit rotation in deploy/, scripts/ops or src/utils/signal_audit_logger.py (grep rotat|RotatingFile = 0 hits). Live snapshot 2026-10-05 vm_he",
+    "what": "Two points measured before any fix: signal_audit.jsonl size sampled twice at least 24h apart via status-check or /api/diag/log_file, yielding a stated MB/day growth rate over a named window. Then EITHER a rotation timer for signal_audit.jsonl is installed and observed to have rotated at least once (the file shrinks and a dated predecessor appears in the same directory listing on a later status-check), OR a written decision records why unbounded growth is acceptable, carrying the projected date the 45 GB volume reaches 80% at the measured rate. Also resolve whether rsyslog's 819.6 MB RSS is tie"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-SIGNAL-AUDIT-JSONL-501MB-NO-ROTATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260812-SIGNAL-AUDIT-JSONL-501MB-NO-ROTATION'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Two size samples >=24h apart of runtime_logs/signal_audit.jsonl (status-check) -> MB/day, then rotation timer observed rotating or a written acceptance with the date the volume hits 80% | evidence: Rotation exists only for shadow log (deploy/ict-shadow-log-rotate.{service,timer}); git grep finds no signal_audit rotation in deploy/, scripts/ops or src/utils/signal_audit_logger.py (grep rotat|RotatingFile = 0 hits). Live snapshot 2026-10-05 vm_he",
+  "what": "[health] signal_audit.jsonl has grown to 501 MB on the live trader with no rotation timer, while its sibling shadow-prediction log HAS one"
+}

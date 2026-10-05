@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 22,
+    "clears_when": "A running trader never reports 'paused'.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-27",
+    "how_to_check": " Sample /api/diag/status label across a full tick cycle or read max tick wall-time from tick_cost; closes if no tick >180s and no 'paused' reading over a 24h window | evidence: src/main.py:1066 writes heartbeat at tick start and between ticks only (main.py:1442-1460); src/runtime/heartbeat.py:99 labels age 180-600s 'paused', so a tick >180s mid-run can still read paused. Live status 2026-10-05T03:27Z label 'running' age 18s",
+    "what": "A running trader never reports 'paused'."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Sample /api/diag/status label across a full tick cycle or read max tick wall-time from tick_cost; closes if no tick >180s and no 'paused' reading over a 24h window | evidence: src/main.py:1066 writes heartbeat at tick start and between ticks only (main.py:1442-1460); src/runtime/heartbeat.py:99 labels age 180-600s 'paused', so a tick >180s mid-run can still read paused. Live status 2026-10-05T03:27Z label 'running' age 18s",
+  "what": "[health] [liveness] status reads 'paused' while the trader is actively ticking — heartbeat starves during a long tick"
+}

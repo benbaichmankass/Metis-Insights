@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 22,
+    "clears_when": "CLOSE when (a) the live arm for the three shipped donchian heads has been re-evaluated at accrued n and the result recorded, AND (b) the E1->E2 gate either declares a minimum-n for its live arm or records an explicit decision not to. If (a) shows the sign no longer agrees, this escalates to Tier-3 (three live heads trimming winners on real money) and must NOT be closed on the re-measurement alone.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read scripts/ml/train_exit_head.py:797-832 (live_eval / live_validation block) -- confirmed no minimum-n gate exists on the live arm today: live_eval is computed and reported whenever any live trades exist, with no 'insufficient_n' state, exactly as the finding describes. Grepped for MIN_LIVE / insufficient_n across train_exit_head.py and m20_exit_head_round.py -- zero hits.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "Two separable pieces: (b) is a build -- add a minimum-n floor (natural value MIN_OOS_TRADES=25, already proposed in the 2026-08-16 update) and an explicit `insufficient_n` state to the live arm in train_exit_head.py -- dispatch_lane, Tier-1 code change with no live-money action by itself. (a) is a measurement -- re-evaluate the three shipped donchian-1h heads' live arm at accrued n (now ~2.5 months since promotion, well past n=15) -- needs live diag/DB access this sandbox doesn't have, so check_observation via a lane with diag-data access. If (a) shows the sign no longer agrees, ESCALATE to operator per the item's own clears_when (do not close on the re-measurement alone).",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Grep train_exit_head.py/e1_report for live-arm n floor; re-evaluate donchian-1h heads' live arm sign at current n (needs trainer artifact/live journal). | evidence: scripts/ml/train_exit_head.py has MIN_OOS_TRADES floor and insufficient_base verdict (lines 285-361) for the harness arm; no minimum-n or insufficient_n state found for the LIVE arm, and no re-evaluation of the three shipped donchian-1h heads at accr",
+  "what": "[health] E1->E2 gate's live arm has no minimum-n: counted as confirmation at n=15, discounted at n=24\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — Two separable pieces: (b) is a build -- add a minimum-n floor (natural value MIN_OOS_TRADES=25, already proposed in the 2026-08-16 update) and an explicit `insufficient_n` state to the live arm in train_exit_head.py -- dispatch_lane, Tier-1 code change with no live-money action by itself. (a) is a measurement -- re-evaluate the three shipped donchian-1h heads' live arm at accrued n (now ~2.5 months since promotion, well past n=15) -- needs live diag/DB access this sandbox doesn't have, so check_observation via a lane with diag-data access. If (a) shows the sign no longer agrees, ESCALATE to operator per the item's own clears_when (do not close on the re-measurement alone)."
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "The cause of the five unfit rows is established by measurement, and either the basis is declared fit-for-scalps with the residual explained, or the scalp legs are declared outside this basis and any study using them says so. [!] A LATER RUN HAPPENING TO GRADE `fit` DOES NOT CLOSE THIS unless the population is the same or larger -- the rate is 4% and a smaller sample can miss it entirely. [!] AND WIDENING BASIS_TOL_BP CLOSES NOTHING, for the reason in the detail.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260912-THE-OKX-PROXY-BASIS-IS-FIT-FOR-THE-TREND-LEGS-AND-GRADES-UNFIT-ON-THE-SCALP-LEGS-IT-WAS-NEVER-VALIDATED-AGAINST",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " Measurement of the cause of the 5 unfit ict_scalp_* rows (max 120.5bp) at same-or-larger population, then declare fit-for-scalps or scalp-legs-out-of-basis. | evidence: BASIS_TOL_BP=25.0 still in scripts/research/stop_width_counterfactual_2026_09_11.py:181; no memo/queue unit found establishing the cause of the 5 unfit scalp rows; no live row covers OKX-basis-on-scalps.",
+    "what": "The cause of the five unfit rows is established by measurement, and either the basis is declared fit-for-scalps with the residual explained, or the scalp legs are declared outside this basis and any study using them says so. [!] A LATER RUN HAPPENING TO GRADE `fit` DOES NOT CLOSE THIS unless the population is the same or larger -- the rate is 4% and a smaller sample can miss it entirely. [!] AND WIDENING BASIS_TOL_BP CLOSES NOTHING, for the reason in the detail."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-THE-OKX-PROXY-BASIS-IS-FIT-FOR-THE-TREND-LEGS-AND-GRADES-UNFIT-ON-THE-SCALP-LEGS-IT-WAS-NEVER-VALIDATED-AGAINST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-OKX-PROXY-BASIS-IS-FIT-FOR-THE-TREND-LEGS-AND-GRADES-UNFIT-ON-THE-SCALP-LEGS-IT-WAS-NEVER-VALIDATED-AGAINST'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Measurement of the cause of the 5 unfit ict_scalp_* rows (max 120.5bp) at same-or-larger population, then declare fit-for-scalps or scalp-legs-out-of-basis. | evidence: BASIS_TOL_BP=25.0 still in scripts/research/stop_width_counterfactual_2026_09_11.py:181; no memo/queue unit found establishing the cause of the 5 unfit scalp rows; no live row covers OKX-basis-on-scalps.",
+  "what": "[performance] MI-275's OKX price basis was validated on e35 legs only (0 unfit of 31); run on the ict_scalp_* control arm its own PC1 grades unfit — 5 of 126, max 120.5bp against a 25bp tolerance || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): them says so. [!] A LATER RUN HAPPENING TO GRADE `fit` DOES NOT CLOSE THIS unless the population is the same or larger -- the rate is 4% and a smaller sample can miss it entirely. [!] AND WIDENING BASIS_TOL_BP CLOSES NOTHING, for the reason in the detail.\" | }"
+}

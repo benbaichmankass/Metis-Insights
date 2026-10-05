@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "A floor is DERIVED, not chosen. Required first: the ADX-at-entry distribution per leg over history for all 12, so the proposed adx_min is stated together with the fraction of historical entries it would have REFUSED. A value whose refusal rate is unmeasured does NOT close this row, and neither does porting 25/28/30 from the crypto legs. If the measurement shows a candidate floor refuses a material share of entries, it needs its own walk-forward before any Tier-3 flip -- at which point it is a strategy change, not a fix to thesis_unknown. Closing this row by declaring nothing is also acceptable IF the finding is recorded as 'these legs deliberately have no entry regime condition', since thesis_unknown is then correct behaviour rather than a gap.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-TWELVE-PULLBACK-LEGS-HAVE-NO-ENTRY-REGIME-CONDITION",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-TWELVE-PULLBACK-LEGS-HAVE-NO-ENTRY-REGIME-CONDITION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-TWELVE-PULLBACK-LEGS-HAVE-NO-ENTRY-REGIME-CONDITION'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Parsed config/strategies.yaml: 13 pullback-family legs currently declare no adx_min (htf_pullback_trend_2h, mgc_pullback_1d, mhg_pullback_1d, gld_pullback_1d, tlt_pullback_1d, ief_pullback_1d, gld_pullback_1h, spy_pullback_1h, qqq_pullback_1h, tlt_pullback_1h, slv_pullback_1d, gdx_pullback_1d, iaum_pullback_1d) -- same gap as filed. Checked research/queue/RQ-20260927-004/-005 (ADX soft-weight work) and they cover a different family (crypto trend_donchian/htf_pullback_2h on ETH/SOL/XRP/ADA/AVAX), not this pullback-1h/1d ETF/futures set, and neither measures a refusal-rate-derived floor. No ADX-distribution/refusal-rate study for these 13 legs exists in docs/research/.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "research/queue: register a unit to measure the ADX-at-entry distribution for these 13 legs and the refusal rate a candidate adx_min would impose, per the row's required derivation -- before any Tier-3 flip. Not an operator judgment call until that measurement exists.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Per-leg ADX-at-entry distribution over history for the pullback legs with the refusal fraction of any proposed adx_min. | evidence: config/strategies.yaml: 13 of 19 *pullback* strategies show no top-level adx_min (my probe checks only top-level/params keys, so approximate). No queue unit measures ADX-at-entry distribution for these legs (research/queue grep adx: only soft-weight,",
+  "what": "[health] 12 pullback legs declare no adx_min, so they have NO ADX filter at entry — and 'declare adx_min to fix thesis_unknown' is an entry-behaviour change, not the cheap observability fix it was described as\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — research/queue: register a unit to measure the ADX-at-entry distribution for these 13 legs and the refusal rate a candidate adx_min would impose, per the row's required derivation -- before any Tier-3 flip. Not an operator judgment call until that measurement exists."
+}

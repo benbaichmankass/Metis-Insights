@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "EITHER the reproducer emits the §4.3 decomposition on both the pairs-included and pairs-excluded populations and the memo cites it, OR a convention is recorded that a conclusion-bearing table in a memo with a reproducer must be produced by that reproducer or labelled as not. [!] THE §4.3 TEXT NOW BEING CORRECT DOES NOT CLOSE THIS -- a correct hand-computed table is still a hand-computed table, and the next re-measurement will face the same ambiguity. [!] NOR DOES A SUCCESSOR MEMO REPORTING THE RIGHT NUMBERS: winner-size-collapse-2026-09-12.md already does, from its own separate script, which leaves two scripts and one un-reproducible table rather than fixing the one that matters.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260912-THE-BLEED-MEMO-S-HEADLINE-TABLE-IS-THE-ONE-TABLE-ITS-REPRODUCER-DOES-NOT-COMPUTE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " Reproducer output containing the §4.3 decomposition on pairs-included and pairs-excluded populations, cited by the memo; or a recorded convention. | evidence: docs/research/bleed-attribution-2026-09-11.md:175-212 §4.3 decomposition is still hand-computed; scripts/research/bleed_attribution_2026_09_11.py emits only pairs_excluded_n counts (l.457-463), no win-rate/size decomposition on both populations.",
+    "what": "EITHER the reproducer emits the §4.3 decomposition on both the pairs-included and pairs-excluded populations and the memo cites it, OR a convention is recorded that a conclusion-bearing table in a memo with a reproducer must be produced by that reproducer or labelled as not. [!] THE §4.3 TEXT NOW BEING CORRECT DOES NOT CLOSE THIS -- a correct hand-computed table is still a hand-computed table, and the next re-measurement will face the same ambiguity. [!] NOR DOES A SUCCESSOR MEMO REPORTING THE RIGHT NUMBERS: winner-size-collapse-2026-09-12.md already does, from its own separate script, which l"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-THE-BLEED-MEMO-S-HEADLINE-TABLE-IS-THE-ONE-TABLE-ITS-REPRODUCER-DOES-NOT-COMPUTE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-BLEED-MEMO-S-HEADLINE-TABLE-IS-THE-ONE-TABLE-ITS-REPRODUCER-DOES-NOT-COMPUTE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Reproducer output containing the §4.3 decomposition on pairs-included and pairs-excluded populations, cited by the memo; or a recorded convention. | evidence: docs/research/bleed-attribution-2026-09-11.md:175-212 §4.3 decomposition is still hand-computed; scripts/research/bleed_attribution_2026_09_11.py emits only pairs_excluded_n counts (l.457-463), no win-rate/size decomposition on both populations.",
+  "what": "[performance] bleed-attribution-2026-09-11.md §4.3 — the table its headline conclusion rested on — is the one table its own reproducer script does not compute, which is how the population drifted unnoticed || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): e the same ambiguity. [!] NOR DOES A SUCCESSOR MEMO REPORTING THE RIGHT NUMBERS: winner-size-collapse-2026-09-12.md already does, from its own separate script, which leaves two scripts and one un-reproducible table rather than fixing the one that matters.\" | }"
+}

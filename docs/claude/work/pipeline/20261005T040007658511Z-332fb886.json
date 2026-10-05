@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 24,
+    "clears_when": "The cause is NAMED with evidence from the live system (an audit row, a gate row, or the loaded-strategy set), and either the leg journals on bybit_1 or the silence is shown to be correct-and-declared and the leg is de-routed or its loss is logged. ⚠️ NOT sufficient: the detector existing, this row being read, or a later window happening to show a row — a single journal row does not establish that the other 143 signals were handled correctly.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1'), indent=2))\"",
+    "what": "The cause is NAMED with evidence from the live system (an audit row, a gate row, or the loaded-strategy set), and either the leg journals on bybit_1 or the silence is shown to be correct-and-declared and the leg is de-routed or its loss is logged. ⚠️ NOT sufficient: the detector existing, this row being read, or a later window happening to show a row — a single journal row does not establish that the other 143 signals were handled correctly."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1'), indent=2))\""
+  },
+  "routed_to": "E35 | [BACKLOG-BURNDOWN-3 2026-10-05] owner row read, covers item: E35 -- fixes per-account election so an account whose candidate lost the global election is not silently dropped (the hypothesised mechanism); caveat: cause naming for the 144 historical signals is not shown | trend_donchian_sol (enabled, execution live, roster bybit_1 only) now journals on bybit_1: 14 rows in the 30d journal sample (9 closed, 1 open). Cause of the original silence was never named; docs/design/strategy-demote-and-tune-DESIGN.md:234 attribu",
+  "state": "routed",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] owner row read, covers item: E35 -- fixes per-account election so an account whose candidate lost the global election is not silently dropped (the hypothesised mechanism); caveat: cause naming for the 144 historical signals is not shown | trend_donchian_sol (enabled, execution live, roster bybit_1 only) now journals on bybit_1: 14 rows in the 30d journal sample (9 closed, 1 open). Cause of the original silence was never named; docs/design/strategy-demote-and-tune-DESIGN.md:234 attribu",
+  "what": "[health] trend_donchian_sol is enabled/live and routed to bybit_1, has emitted 144 actionable buy signals since 08-01, and has NEVER written a journal row on that account — the detector now exists, the CAUSE is undiagnosed"
+}

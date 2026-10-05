@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "Either the live equity account is funded above $25k (and that is recorded as the reason no gate exists), or a day-trade counter is available to the sizing path so an entry that would be the 4th day trade in a rolling 5-business-day window is refused with a named cause rather than rejected at the venue. Closed when the constraint is either provably inapplicable or enforced.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-NO-PDT-MODELLING-ON-ALPACA",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-08",
+    "how_to_check": " Alpaca live equity recorded >$25k, or a day-trade counter refuses a 4th day trade in 5 business days with a named cause. | evidence: git grep -i 'pdt|day_trade|daytrade' src config: only alpaca_client.py reports pattern_day_trader/daytrade_count (l.853-914); no sizing-path counter or refusal.",
+    "what": "Either the live equity account is funded above $25k (and that is recorded as the reason no gate exists), or a day-trade counter is available to the sizing path so an entry that would be the 4th day trade in a rolling 5-business-day window is refused with a named cause rather than rejected at the venue. Closed when the constraint is either provably inapplicable or enforced."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-NO-PDT-MODELLING-ON-ALPACA",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-NO-PDT-MODELLING-ON-ALPACA'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Alpaca live equity recorded >$25k, or a day-trade counter refuses a 4th day trade in 5 business days with a named cause. | evidence: git grep -i 'pdt|day_trade|daytrade' src config: only alpaca_client.py reports pattern_day_trader/daytrade_count (l.853-914); no sizing-path counter or refusal.",
+  "what": "[health] The pattern-day-trader rule is modelled NOWHERE in code, while the Alpaca paper book runs 14.9% same-day round trips and a live account under $25k gets 3 day trades per 5 business days"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 31,
+    "clears_when": "A CI guard exists that FAILS on a test file combining a literal ISO timestamp on a created_at/closed_at fixture row with a call into a function carrying a rolling-window predicate, AND that guard is demonstrated to have teeth by reverting tests/test_sweep_no_mark_fabrication.py's fixture to the literal '2026-07-30T11:00:00Z' and observing the guard fail on it (the guard must catch the known instance before it is trusted on unknown ones). Until then this row stays open even though the single known instance is fixed - a fixed instance is not a swept class.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-05",
+    "how_to_check": " CI guard exists and is shown to fail when tests/test_sweep_no_mark_fabrication.py's fixture is reverted to the literal '2026-07-30T11:00:00Z' | evidence: No guard for literal-ISO fixtures vs rolling windows: git grep -i 'rolling.window|literal.*date|literal.*timestamp' in scripts/ci and tests/test_*guard* finds none relevant. tests/test_sweep_no_mark_fabrication.py:77 only carries the prose about the ",
+    "what": "A CI guard exists that FAILS on a test file combining a literal ISO timestamp on a created_at/closed_at fixture row with a call into a function carrying a rolling-window predicate, AND that guard is demonstrated to have teeth by reverting tests/test_sweep_no_mark_fabrication.py's fixture to the literal '2026-07-30T11:00:00Z' and observing the guard fail on it (the guard must catch the known instance before it is trusted on unknown ones). Until then this row stays open even though the single known instance is fixed - a fixed instance is not a swept class."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-TESTS-PIN-LITERAL-DATES-AGAINST-ROLLING-WINDOWS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: CI guard exists and is shown to fail when tests/test_sweep_no_mark_fabrication.py's fixture is reverted to the literal '2026-07-30T11:00:00Z' | evidence: No guard for literal-ISO fixtures vs rolling windows: git grep -i 'rolling.window|literal.*date|literal.*timestamp' in scripts/ci and tests/test_*guard* finds none relevant. tests/test_sweep_no_mark_fabrication.py:77 only carries the prose about the ",
+  "what": "[health] A test fixture stamped with a LITERAL date, exercised against a ROLLING window, expires and takes the whole repo red"
+}

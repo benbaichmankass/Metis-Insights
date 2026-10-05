@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only records from lane BACKLOG-BURNDOWN-3 batch B -- 416 survivors re-read at HEAD or live by read-only triage agents: 23 routed to a verified-live checklist row (owner text read), 393 kept with the concrete next observation. Keyword-routed owners that did not cover their item are dropped back to queued. Cadence, due_date and observation.due_by are set together so no day carries more than 24 due items. No code, config or runtime change."
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "silent_accounts() rows carry an observation age, and a consumer can tell a live latch from an unobserved one without reading the journal.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260824-SILENT-REFUSAL-LATCH-CANNOT-CLEAR-WITHOUT-ROWS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-08",
+    "how_to_check": " silent_accounts rows carry age since last real observation (vs __last_check__) so a latch is distinguishable from an unobserved one | evidence: src/runtime/silent_refusal_alert.py:420-440 silent_accounts() returns raw latch dicts (alerting true, not in skip set) with no observation-age field; only the skip-set retirement (immortal-latch fix for SILENT_REFUSAL_SKIP) was added.",
+    "what": "silent_accounts() rows carry an observation age, and a consumer can tell a live latch from an unobserved one without reading the journal."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-SILENT-REFUSAL-LATCH-CANNOT-CLEAR-WITHOUT-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-SILENT-REFUSAL-LATCH-CANNOT-CLEAR-WITHOUT-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: silent_accounts rows carry age since last real observation (vs __last_check__) so a latch is distinguishable from an unobserved one | evidence: src/runtime/silent_refusal_alert.py:420-440 silent_accounts() returns raw latch dicts (alerting true, not in skip set) with no observation-age field; only the skip-set retirement (immortal-latch fix for SILENT_REFUSAL_SKIP) was added.",
+  "what": "[health] A latched silent-refusal alert can never clear while the account produces no rows — so a latch outlives the condition indefinitely"
+}

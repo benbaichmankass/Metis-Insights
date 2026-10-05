@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "Run the rr_floor walk-forward on per-leg candles at the live timeframes (1h-1d) for legs whose cap_R sits in the 2-6R band, and grade it with scripts/research/m20_wf_effective.py so inert folds are excluded from the win count (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, measured 75/386 = 19.4%). Read rr_min_p10/median/p90 from a lever-OFF run FIRST to pick floors that can fire at all; a floor below rr_min_p10 is a real no-op and a floor above rr_min_p90 fires on nearly every trade. Assert rr_floor_state == 'measurable' on every recorded row. Precondition 3 is met only if the lever CLEARS the do-nothing arm; a loss retires the candidate, which is a legitimate and useful outcome.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-13",
+    "how_to_check": " rr_floor walk-forward on per-leg live-timeframe candles for 2-6R cap_R legs, graded via m20_wf_effective.py with rr_floor_state=='measurable'. | evidence: No research/queue unit mentions rr_floor (grep of research/queue/*.yaml: 0); only M20-EXITS note mentions it. Item note says blocked behind trainer capacity (SA-INFRA trainer disk) and needs per-leg candles.",
+    "what": "Run the rr_floor walk-forward on per-leg candles at the live timeframes (1h-1d) for legs whose cap_R sits in the 2-6R band, and grade it with scripts/research/m20_wf_effective.py so inert folds are excluded from the win count (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, measured 75/386 = 19.4%). Read rr_min_p10/median/p90 from a lever-OFF run FIRST to pick floors that can fire at all; a floor below rr_min_p10 is a real no-op and a floor above rr_min_p90 fires on nearly every trade. Assert rr_floor_state == 'measurable' on every recorded row. Precondition 3 is met only if the lever C"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: rr_floor walk-forward on per-leg live-timeframe candles for 2-6R cap_R legs, graded via m20_wf_effective.py with rr_floor_state=='measurable'. | evidence: No research/queue unit mentions rr_floor (grep of research/queue/*.yaml: 0); only M20-EXITS note mentions it. Item note says blocked behind trainer capacity (SA-INFRA trainer disk) and needs per-leg candles.",
+  "what": "[performance] The rr_floor lever now runs, but has not been measured on data in the live cap_R regime || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): r capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs per-leg candles via the trainer relay.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+}

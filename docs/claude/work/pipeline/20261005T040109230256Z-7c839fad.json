@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "The audit can grade a lever from a CAPPED backtest's max_mfe_r / MFE distribution when no journal rows are available, keeping the three states distinct (reachable / inert / unmeasured) and stating which basis produced each verdict — a backtest-derived verdict must never be presented as a live-journal one. NOT sufficient: supplying journal rows by hand once; the point is that the cheap, large-n basis exists and the tool cannot consume it.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-LEVER-REACHABILITY-AUDIT-BLIND-WITHOUT-JOURNAL-ROWS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-19",
+    "how_to_check": " Audit emits reachable/inert/unmeasured from a capped backtest MFE distribution with basis stated, when journal rows absent | evidence: scripts/ops/lever_reachability_audit.py derives grades only from journal observations (risk_per_unit / entry_minus_stop basis, L200-260); no backtest max_mfe_r path found (grep 'max_mfe_r|corpus' in that file = no hits beyond MFE docs).",
+    "what": "The audit can grade a lever from a CAPPED backtest's max_mfe_r / MFE distribution when no journal rows are available, keeping the three states distinct (reachable / inert / unmeasured) and stating which basis produced each verdict — a backtest-derived verdict must never be presented as a live-journal one. NOT sufficient: supplying journal rows by hand once; the point is that the cheap, large-n basis exists and the tool cannot consume it."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-LEVER-REACHABILITY-AUDIT-BLIND-WITHOUT-JOURNAL-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-LEVER-REACHABILITY-AUDIT-BLIND-WITHOUT-JOURNAL-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Audit emits reachable/inert/unmeasured from a capped backtest MFE distribution with basis stated, when journal rows absent | evidence: scripts/ops/lever_reachability_audit.py derives grades only from journal observations (risk_per_unit / entry_minus_stop basis, L200-260); no backtest max_mfe_r path found (grep 'max_mfe_r|corpus' in that file = no hits beyond MFE docs).",
+  "what": "[health] `lever_reachability_audit.py` grades all 8 declared levers `unmeasured` because it needs live journal rows, while the backtest already carries the answer over hundreds of trades"
+}

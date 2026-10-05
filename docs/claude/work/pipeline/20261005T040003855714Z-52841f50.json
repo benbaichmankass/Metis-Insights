@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "Ten consecutive pairs opens where both legs remain open until a pairs_revert / pairs_stop / max_hold_bars close, with zero half_open rows in the same window.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/units/strategies/pairs_executor.py: the 3-state (_pair_leg_state) detection, CRITICAL alert, and re-open block for a stranded half-open leg are already shipped, but the root cause (a pairs leg netted away by a concurrent directional position under one-way netting) is still open and named in the code's own docstring. A newer, more specific audit finding (AUD-20260927-CA-A02, in docs/claude/work/pipeline/) shows the concurrency gate still uses _pair_is_open (false for half_open), letting a sibling pair open onto the stranded leg's symbol — confirming the mechanism is still unresolved. Could not verify the live '8 of 8 opens' stranding rate itself — no DB/diag access in this read-only pass.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane — this is a mechanical order-path bug (Tier-2/3), not an operator tradeoff: either stop running a directional leg on the same symbol/account as a pairs leg, or fix the netting-attribution reconciler to own pairs divergence. Coordinate with AUD-20260927-CA-A02's proposed fix (use _pair_leg_state in the concurrency gate).",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Close of the pair opened 2026-10-04T21:04Z as pairs_revert/stop/max_hold with no half_open row; re-read journal trades strategy_name LIKE 'pairs_sol_eth%'. | evidence: pairs_sol_eth (bybit_1 paper) in newest-1000 journal: ~68 opens since 09-04; last half-open (pairs_half_open_cleanup) 2026-09-30T06:00Z. Since then 9 consecutive clean opens closed by pairs_revert/pairs_stop (10-01..10-04) and a 10th (opened 10-04T21",
+  "what": "[health] pairs_sol_eth has half-open-stranded on 8 of 8 opens since 08-18 — a pairs leg opposing a concurrent directional position on the same one-way-netting account is netted away within ~5 min and read as a broker close\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane — this is a mechanical order-path bug (Tier-2/3), not an operator tradeoff: either stop running a directional leg on the same symbol/account as a pairs leg, or fix the netting-attribution reconciler to own pairs divergence. Coordinate with AUD-20260927-CA-A02's proposed fix (use _pair_leg_state in the concurrency gate)."
+}

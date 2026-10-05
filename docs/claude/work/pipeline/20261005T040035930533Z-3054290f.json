@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 32,
+    "clears_when": "(1) Every blocked cell whose reason names a count records that count in the cell; (2) the writer that stamps a count-based block reason stamps the count in the same place, so the two cannot diverge; (3) a check fails when a count-naming block reason appears without its number — the 7 known cells are either filled in or re-typed to a non-count reason. Source-shaped blocks (e.g. native-history-thin) are explicitly exempt and must stay exempt.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260816-BLOCKED-CELLS-CITE-A-TRADE-COUNT-THEY-DO-NOT-RECORD",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-06",
+    "how_to_check": " A check in m20_coverage_rollup --check that fails when a count-naming block reason lacks its number; list of cells empty. | evidence: Matrix rebuilt (342 cells); a hand scan finds blocked cells whose reason mentions trades/insufficient/thin without a count field; no check enforcing 'count-naming reason carries count' found in scripts/ci. The specific '7 cells' can no longer be iden",
+    "what": "(1) Every blocked cell whose reason names a count records that count in the cell; (2) the writer that stamps a count-based block reason stamps the count in the same place, so the two cannot diverge; (3) a check fails when a count-naming block reason appears without its number — the 7 known cells are either filled in or re-typed to a non-count reason. Source-shaped blocks (e.g. native-history-thin) are explicitly exempt and must stay exempt."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-BLOCKED-CELLS-CITE-A-TRADE-COUNT-THEY-DO-NOT-RECORD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-BLOCKED-CELLS-CITE-A-TRADE-COUNT-THEY-DO-NOT-RECORD'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A check in m20_coverage_rollup --check that fails when a count-naming block reason lacks its number; list of cells empty. | evidence: Matrix rebuilt (342 cells); a hand scan finds blocked cells whose reason mentions trades/insufficient/thin without a count field; no check enforcing 'count-naming reason carries count' found in scripts/ci. The specific '7 cells' can no longer be iden",
+  "what": "[health] [research] 7 blocked matrix cells name a TRADE-COUNT reason while recording no trade count — the claim cannot be checked from the artifact that makes it || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): -review 2026-08-29 triage\", |       \"disposition\": \"kept_open\", |       \"note\": \"Re-validated: 7 cells naming a trade-count reason while recording no trade count \\u2014 an unverifiable claim, the stated-population rule applied to the matrix.\" |     } |   ] | }"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "Either a committed per-leg mfe_r distribution (percentiles + n, not raw rows — the corpus should not carry per-trade volume), or a documented one-command sweep re-run with --emit-trades that m31_mfe_parity.py consumes directly.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-13",
+    "how_to_check": " A committed per-leg mfe_r percentile table with n, or a documented sweep command that m31_mfe_parity.py consumes. | evidence: scripts/research/m31_mfe_parity.py exists; --emit-trades exists on backtest_chop_scalp/fade/funding_carry etc.; no committed per-leg mfe_r distribution or documented one-command re-run found; needs a trainer-side sweep.",
+    "what": "Either a committed per-leg mfe_r distribution (percentiles + n, not raw rows — the corpus should not carry per-trade volume), or a documented one-command sweep re-run with --emit-trades that m31_mfe_parity.py consumes directly."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A committed per-leg mfe_r percentile table with n, or a documented sweep command that m31_mfe_parity.py consumes. | evidence: scripts/research/m31_mfe_parity.py exists; --emit-trades exists on backtest_chop_scalp/fade/funding_carry etc.; no committed per-leg mfe_r distribution or documented one-command re-run found; needs a trainer-side sweep.",
+  "what": "[performance] The committed sweep corpus carries no per-trade mfe_r, so P4's harness side needs a sweep re-run || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs a trainer-side sweep re-run.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+}

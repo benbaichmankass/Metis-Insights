@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "candidate_ev_score's fee_R uses the venue-aware per-symbol roundtrip bps (equities → ~0), verified by a test that an equity candidate's EV cost term is ~0 while a crypto candidate's is unchanged.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260729-ALLOCATOR-VENUE-FEE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260729-ALLOCATOR-VENUE-FEE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260729-ALLOCATOR-VENUE-FEE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/runtime/allocator_ev.py (candidate_ev_r/candidate_ev_score, DEFAULT_FEE_BPS_ROUNDTRIP, no per-symbol resolution) and src/runtime/trade_costs.py's docstring, which names this exact backlog id and states the deferred-fix rationale.",
+    "date": "2026-09-28",
+    "decision_text": "Evidence in src/runtime/trade_costs.py (top-of-file docstring) confirms the bug is real and already fully diagnosed on the record: allocator_ev.candidate_ev_score still uses the flat DEFAULT_FEE_BPS_ROUNDTRIP for fee_R (verified: src/runtime/allocator_ev.py has no venue/symbol branch, unlike trade_costs.py's close-path writer which already calls profile_loader.roundtrip_fee_bps_for). The comment explicitly states the fix path ('it should adopt roundtrip_fee_bps_for when it graduates') and that it is currently harmless because the M18 allocator is observe-only/parked (backtest-gated, no live money path). This is a low-risk, reversible, Tier-1 code change with a proven pattern already in production for the writer side - no operator judgment is needed to authorize applying the same venue-aware resolver to the EV scorer.",
+    "disposition": "DECIDE",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: candidate_ev_score using the venue-aware per-symbol roundtrip bps with an equity-vs-crypto test. | evidence: src/runtime/allocator_ev.py:122-132 candidate_ev_score calls candidate_ev_r with default fee DEFAULT_FEE_BPS_ROUNDTRIP (7.5, execution_costs.py:51); not venue-aware.",
+  "what": "[performance] Allocator EV scorer fee term is not venue-aware — over-charges commission-free equities (parallel to the trade_costs fix)\n\n[TRIAGE 2026-09-28] DECIDE — Evidence in src/runtime/trade_costs.py (top-of-file docstring) confirms the bug is real and already fully diagnosed on the record: allocator_ev.candidate_ev_score still uses the flat DEFAULT_FEE_BPS_ROUNDTRIP for fee_R (verified: src/runtime/allocator_ev.py has no venue/symbol branch, unlike trade_costs.py's close-path writer which already calls profile_loader.roundtrip_fee_bps_for). The comment explicitly states the fix path ('it should adopt roundtrip_fee_bps_for when it graduates') and that it is currently harmless because the M18 allocator is observe-only/parked (backtest-gated, no live money path). This is a low-risk, reversible, Tier-1 code change with a proven pattern already in production for the writer side - no operator judgment is needed to authorize applying the same venue-aware resolver to the EV scorer. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): parked (M18 P2+ backtest-gated), so this has no live-routing impact until graduation. Trigger = allocator graduation.\" |     } |   ], |   \"updated_at\": \"2026-08-10T05:05:00+00:00\", |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+}

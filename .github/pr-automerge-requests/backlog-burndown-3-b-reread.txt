@@ -1,0 +1,1 @@
+auto-merge: pipeline records (backlog-burndown-3-b-reread)

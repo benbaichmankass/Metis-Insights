@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the cached-handle false-trip is root-caused and a bounded tolerance ships, with a test showing a GENUINE wedge - one answering neither attempt - still condemns, so the fix cannot be a blanket weakening of mid-life-wedge detection; or (b) the condition is MEASURED absent over a stated window with a stated n since IB_PROBE_CACHE_S shipped 2026-08-22, and the row closes on that measurement. Note (b) needs the measurement, not the inference: IB_PROBE_CACHE_S changes how OFTEN a cached handle is probed, not what happens when a cached-handle probe fails, so 'the cache fixed it' is a claim about a branch the cache does not touch.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260727-IB-LIVENESS-PROBE-CACHED-HANDLE-FALSETRIP",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " Journal/log census since 2026-08-22 of IB probe false-trips with stated n, or bounded tolerance + wedge test. | evidence: src/units/accounts/ib_client.py:231 _IB_PROBE_CACHE_S=60 shipped 2026-08-22; no measurement of false-trip absence over a stated window found and no genuine-wedge-still-condemns test located. No live row owns.",
+    "what": "Either (a) the cached-handle false-trip is root-caused and a bounded tolerance ships, with a test showing a GENUINE wedge - one answering neither attempt - still condemns, so the fix cannot be a blanket weakening of mid-life-wedge detection; or (b) the condition is MEASURED absent over a stated window with a stated n since IB_PROBE_CACHE_S shipped 2026-08-22, and the row closes on that measurement. Note (b) needs the measurement, not the inference: IB_PROBE_CACHE_S changes how OFTEN a cached handle is probed, not what happens when a cached-handle probe fails, so 'the cache fixed it' is a claim"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260727-IB-LIVENESS-PROBE-CACHED-HANDLE-FALSETRIP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260727-IB-LIVENESS-PROBE-CACHED-HANDLE-FALSETRIP'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Journal/log census since 2026-08-22 of IB probe false-trips with stated n, or bounded tolerance + wedge test. | evidence: src/units/accounts/ib_client.py:231 _IB_PROBE_CACHE_S=60 shipped 2026-08-22; no measurement of false-trip absence over a stated window found and no genuine-wedge-still-condemns test located. No live row owns.",
+  "what": "[health] IB liveness-probe can false-trip on a cached handle (code-fix candidate)"
+}

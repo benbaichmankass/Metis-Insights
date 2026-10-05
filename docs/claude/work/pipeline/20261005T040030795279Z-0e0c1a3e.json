@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 22,
+    "clears_when": "balance() returns a figure for both accounts, OR the refusal names the branch that actually failed rather than blaming credentials. The row does NOT close on the accounts happening to recover: an intermittent failure that recurs unalerted is the same defect. Closing also requires stating why account_reachability_alert did not fire.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-27",
+    "how_to_check": " Record why account_reachability_alert did not fire for the 2026-08-13 episode (and root cause of balance() None), or refusal names failing branch | evidence: Partly addressed: src/core/coordinator.py:46-84 balance_none_refusal_message no longer blames credentials (test tests/test_balance_refusal_message_provenance.py). Over the newest 1000 trades rows (since 2026-09-04) 0 Alpaca rows carry 'balance() retu",
+    "what": "balance() returns a figure for both accounts, OR the refusal names the branch that actually failed rather than blaming credentials. The row does NOT close on the accounts happening to recover: an intermittent failure that recurs unalerted is the same defect. Closing also requires stating why account_reachability_alert did not fire."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Record why account_reachability_alert did not fire for the 2026-08-13 episode (and root cause of balance() None), or refusal names failing branch | evidence: Partly addressed: src/core/coordinator.py:46-84 balance_none_refusal_message no longer blames credentials (test tests/test_balance_refusal_message_provenance.py). Over the newest 1000 trades rows (since 2026-09-04) 0 Alpaca rows carry 'balance() retu",
+  "what": "[health] alpaca_paper + alpaca_portfolio: balance() returns None and every signal is refused, while /v2/account reads ACTIVE on the same client"
+}

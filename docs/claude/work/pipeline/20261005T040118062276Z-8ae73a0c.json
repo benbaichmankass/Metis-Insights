@@ -1,0 +1,30 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "When an options strategy meets the promotion bar (adequate n, positive expectancy net of debit, healthy lifecycle handling), propose the Tier-3 alpaca_live+alpaca_portfolio options wiring for operator approval. If the soak stays negative or thin, it stays paper-only and the portfolio carries no options.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-13",
+    "how_to_check": " Count of closed alpaca_options_paper trades per strategy net of debit vs the promotion bar (n and expectancy stated). | evidence: alpaca_options_paper closed trades in window (n=1613 total rows): only 2 (slv_trend_1h, tlt_pullback_1h); alpaca_portfolio mirrors alpaca_live exactly (roster 2 after proxies), so options would need to be on alpaca_live. No promotion bar met.",
+    "what": "When an options strategy meets the promotion bar (adequate n, positive expectancy net of debit, healthy lifecycle handling), propose the Tier-3 alpaca_live+alpaca_portfolio options wiring for operator approval. If the soak stays negative or thin, it stays paper-only and the portfolio carries no options."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed config/accounts.yaml alpaca_options_paper (L1637+) still runs the SLV/GDX debit_vertical soak (options.express_as: debit_vertical, symbols [SLV, GDX]), still paper-only. Confirmed alpaca_live/alpaca_portfolio carry no options strategies — alpaca_live's only strategy is the unrelated tlt_pullback_1h plumbing-test leg. Whether the soak now clears the promotion bar (adequate n, positive expectancy net of debit) requires live P&L data this repo-only session cannot read.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — this is a standing 'assess the soak when it matures' item; the promotion bar is already well-defined (adequate n, positive expectancy net of debit, healthy lifecycle handling), so what's needed is a live P&L pull on the alpaca_options_paper soak, not a new judgment call.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Count of closed alpaca_options_paper trades per strategy net of debit vs the promotion bar (n and expectancy stated). | evidence: alpaca_options_paper closed trades in window (n=1613 total rows): only 2 (slv_trend_1h, tlt_pullback_1h); alpaca_portfolio mirrors alpaca_live exactly (roster 2 after proxies), so options would need to be on alpaca_live. No promotion bar met.",
+  "what": "[performance] Options in the Alpaca portfolio: ONLY real-money-graduated options strategies (operator decision 2026-07-20) — assess SLV/GDX debit-vertical soak for graduation\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — this is a standing 'assess the soak when it matures' item; the promotion bar is already well-defined (adequate n, positive expectancy net of debit, healthy lifecycle handling), so what's needed is a live P&L pull on the alpaca_options_paper soak, not a new judgment call. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): , not work a review can drain. Carried with the blocker named. alpaca_options_paper holds 0 open positions right now, so the soak this row assesses is not accruing.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+}

@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "c_reg is populated from the cross-asset regime read in the observe-only conviction (visible in the conviction_sizing soak log) and verified sane; D4 (actual sizing influence) remains separately M16-P2+ backtest-gated + operator-approved.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "MB-20260618-XA-D2B",
+  "ml_review_2026_10_04": "2026-10-04: c_reg still nan_fraction 1.0 in the conviction_meta dataset (dataset_audit 2026-10-04T01:00:12Z, flagged, expected_optional). No change.",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " conviction_sizing soak log showing c_reg populated from the cross-asset regime read. | evidence: src/runtime/conviction_inputs.py:78-144: c_reg flows only when a regime_alignment calibrator exists; otherwise dropped. No D2b regime class-prob feed found; ML-HYGIENE row does not cover it. Conviction soak log not read.",
+    "what": "c_reg is populated from the cross-asset regime read in the observe-only conviction (visible in the conviction_sizing soak log) and verified sane; D4 (actual sizing influence) remains separately M16-P2+ backtest-gated + operator-approved."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260618-XA-D2B",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260618-XA-D2B'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: conviction_sizing soak log showing c_reg populated from the cross-asset regime read. | evidence: src/runtime/conviction_inputs.py:78-144: c_reg flows only when a regime_alignment calibrator exists; otherwise dropped. No D2b regime class-prob feed found; ML-HYGIENE row does not cover it. Conviction soak log not read. | previous owner dropped (did not cover the item): ML-HYGIENE",
+  "what": "[ml] D2b — make the c_reg conviction lens real (regime class-prob vector + alignment/calibrator + signal-time xa feed)"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 32,
+    "clears_when": "The whole-fetch-exception path either raises with a true cause or sizes off a bounded, explicitly-stated basis; the log line describes what that path actually does; and a test exercises it WITHOUT a pkg.meta override.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260814-BALANCE-FETCHER-BRANCH3-ZERO-AND-A-LOG-THAT-LIES",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-06",
+    "how_to_check": " Branch 3 raises or sizes off a stated bounded basis, the log line is corrected, and a test exercises it without pkg.meta override | evidence: src/core/coordinator.py:1126-1129 branch 3 still `return float(cached) if cached is not None else 0.0` on acc.name not in live_balances; coordinator.py:1027 logger text still says 'per-account sizers will use the cached/explicit ...' fallback. cached",
+    "what": "The whole-fetch-exception path either raises with a true cause or sizes off a bounded, explicitly-stated basis; the log line describes what that path actually does; and a test exercises it WITHOUT a pkg.meta override."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-BALANCE-FETCHER-BRANCH3-ZERO-AND-A-LOG-THAT-LIES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-BALANCE-FETCHER-BRANCH3-ZERO-AND-A-LOG-THAT-LIES'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Branch 3 raises or sizes off a stated bounded basis, the log line is corrected, and a test exercises it without pkg.meta override | evidence: src/core/coordinator.py:1126-1129 branch 3 still `return float(cached) if cached is not None else 0.0` on acc.name not in live_balances; coordinator.py:1027 logger text still says 'per-account sizers will use the cached/explicit ...' fallback. cached",
+  "what": "[health] LATENT: coordinator._default_balance_fetcher branch 3 sizes off $0.00 on a WHOLE-fetch exception, and the logger.warning on that exact path promises a 'cached/explicit fallback' that cannot exist in production — both of its documented fallbacks are assigned only in test files."
+}

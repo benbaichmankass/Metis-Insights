@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "RESOLVED when both Routines are deleted, confirmed by a list_triggers read that does not return them.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-ZOMBIE-ROUTINES-ENABLED-WITH-NULL-NEXT-RUN",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-23",
+    "how_to_check": " Page list_triggers (enabled=true) fully and find the two routines naming the old org; confirm absent | evidence: mcp list_triggers(recurring=true) 2026-10-05: 10 cron routines (has_more=false), 3 enabled, all with next_run_at set; none enabled-with-null-next_run. But the 2 named zombies were not identifiable (old-org name not found in the first 100 enabled rout",
+    "what": "RESOLVED when both Routines are deleted, confirmed by a list_triggers read that does not return them."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ZOMBIE-ROUTINES-ENABLED-WITH-NULL-NEXT-RUN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ZOMBIE-ROUTINES-ENABLED-WITH-NULL-NEXT-RUN'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Page list_triggers (enabled=true) fully and find the two routines naming the old org; confirm absent | evidence: mcp list_triggers(recurring=true) 2026-10-05: 10 cron routines (has_more=false), 3 enabled, all with next_run_at set; none enabled-with-null-next_run. But the 2 named zombies were not identifiable (old-org name not found in the first 100 enabled rout",
+  "what": "[health] Two account Routines are enabled with a null next_run_at, one naming a twice-renamed org"
+}

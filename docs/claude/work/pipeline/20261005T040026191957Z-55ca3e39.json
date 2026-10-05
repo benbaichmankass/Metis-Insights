@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "trend_donchian's short cells are dropped or their retention rationale is recorded in regime_policy.yaml.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " trend_donchian short cells dropped or retention rationale recorded in regime_policy.yaml (Tier-3 operator-gated). | evidence: config/regime_policy.yaml still carries trend_donchian short cells (e.g. :57 'short off', :82 chop short on) with only matrix-R comments; no retention rationale or removal. config/regime_coverage_exemptions.yaml:104 still cites this id as open.",
+    "what": "trend_donchian's short cells are dropped or their retention rationale is recorded in regime_policy.yaml."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: trend_donchian short cells dropped or retention rationale recorded in regime_policy.yaml (Tier-3 operator-gated). | evidence: config/regime_policy.yaml still carries trend_donchian short cells (e.g. :57 'short off', :82 chop short on) with only matrix-R comments; no retention rationale or removal. config/regime_coverage_exemptions.yaml:104 still cites this id as open.",
+  "what": "[health] [regime] trend_donchian carries SHORT cells while producing zero short trades — cosmetic cells, the named anti-pattern"
+}
