@@ -8,16 +8,16 @@ Builds on [`velotrade-api-probe-2026-10-05.md`](velotrade-api-probe-2026-10-05.m
 
 ## 0. Answer
 
-**Recommendation: yes, build an API executor for `velotrade_1`, behind the existing platform-adapter interface.** The browser executor stays as it is for `breakout_1` and `tradeify_1`. This is conditional on one fact that is not yet measured:
+**Recommendation: yes, build an API executor for `velotrade_1`, behind the existing platform-adapter interface.** The browser executor stays as it is for `breakout_1` and `tradeify_1`. The one fact it depended on is now measured (below): the account is position-based.
 
 | question | answer | status |
 |---|---|---|
-| Is `velotrade_1` position-based? An IF-THEN bracket in one request requires it. | **NOT MEASURED YET.** The account field is `isPositionBased` (spec `rest/types/account-details.md`: *"This flag shows if the account is Position-based or Net-based"*). Probe v4 (#16619, held) prints it. | pending #16619 merge + one dispatch |
+| Is `velotrade_1` position-based? An IF-THEN bracket in one request requires it. | **YES — MEASURED 2026-10-05 14:40Z.** Probe v4 (#16619 at 42e15364), issue #16631, run 37326456086: `account#1 type: {"accountStatus": "FULL_TRADING", "baseCurrency": "USD", "positionBased": true}`. The server's key is `positionBased`; the spec (`rest/types/account-details.md`) names it `isPositionBased`. | measured |
 | Do Velotrade's rules allow placing orders through the API? | **Yes, verbatim** (§ 3). | read live 2026-10-05 |
 | Can the API do everything the browser executor does? | **Yes.** The five calls are in § 2. Every one the browser does through the DOM has a REST call. | from the spec, not exercised |
 
-- **If `isPositionBased` is true:** place an entry with SL and TP in **one** request (IF-THEN group). There is no naked window between fill and protection.
-- **If it is false (net-based):** order groups are refused. The fallback is the spec's two-step: a MARKET entry, read the position, then POST the SL and TP as separate orders. That leaves a naked window of one round trip, which is roughly the same window the browser executor has today. The API path still removes every DOM-fragility failure, so I would still recommend it, but with the window stated.
+- **It is true (measured), so:** place an entry with SL and TP in **one** request (IF-THEN group). There is no naked window between fill and protection.
+- **(Not applicable now) if it were false (net-based):** order groups are refused. The fallback is the spec's two-step: a MARKET entry, read the position, then POST the SL and TP as separate orders. That leaves a naked window of one round trip, which is roughly the same window the browser executor has today. The API path still removes every DOM-fragility failure, so I would still recommend it, but with the window stated.
 
 ## 1. Why the browser path is the weaker one (measured on `tradeify_1` and `breakout_1`)
 
@@ -98,7 +98,6 @@ A 1h trend leg placing a handful of brackets a week is nowhere near the speed cl
 
 ## 5. What this memo did not establish
 
-- `isPositionBased`: pending #16619.
 - That any order call works on this account. Nothing was sent. The spec warns *"API is not permitted for the user"* returns `404` on `/orders`, and that per-user permission is only visible by trying. Step 2 of the test plan is the first time it is exercised.
 - Velotrade-specific rate limits. The defaults above are the spec's; the platform operator may set others.
 - Whether `/orders/history` carries execution prices and commission per fill on this deployment. The spec says it returns linked orders; the field set is not measured here.
