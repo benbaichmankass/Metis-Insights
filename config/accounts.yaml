@@ -1927,15 +1927,15 @@ accounts:
     backtest_ruleset: prop_rulesets/breakout_turbo_1step.yaml
     account_size_usd: 5000
     strategies:                        # breakout_1's legs, each kept only if its Turbo fit did not FAIL
-      - trend_donchian_eth_prop        # Turbo fit RQ-20261005-811 / -813: NULL (ev > 0 every seed), kept
-      - trend_donchian_sol_prop        # Turbo fit RQ-20261005-812 / -814: NULL (ev > 0 every seed), kept
+      - trend_donchian_eth_prop        # Turbo fit RQ-20261005-851 / -853: NULL (ev > 0 every seed), kept
+      - trend_donchian_sol_prop        # Turbo fit RQ-20261005-852 / -854: NULL (ev > 0 every seed), kept
     symbols: [ETHUSDT, SOLUSDT]
     risk:
       max_dd_pct: 0.03                 # Turbo STATIC 3% = $150 (floor $4,850).
       daily_loss_pct: 0.03             # 3% of the 00:30 UTC balance = $150.
       daily_usd: 150                   # absolute fallback (= 3% of $5k).
       risk_pct: 0.005                  # FLAT $25/ticket (0.5% x $5k): the flat arm chosen by the rule registered in
-                                       # RQ-20261005-813/814 before the run (ETH -> $25; SOL -> $50 not applied: risk is per account,
+                                       # RQ-20261005-853/814 before the run (ETH -> $25; SOL -> $50 not applied: risk is per account,
                                        # per-leg sizing PI-20261005-YUVCGTMJ-0006); ruleset sizing.flat.max_risk_usd matches.
       # breach_guards: NOT set -> `enforce` (the default): a DAILY_LOSS_CAP / INTRADAY_DRAWDOWN
       # breach REFUSES the trade. breakout_1's `report` is NOT carried over.

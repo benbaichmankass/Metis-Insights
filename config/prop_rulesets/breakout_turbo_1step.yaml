@@ -148,7 +148,7 @@ economics:
 # ROLLBACK (after the flip): set `mode: flat`.
 sizing:
   mode: flat                       # PHONE account: room sizing needs a live balance read the phone does not have
-                                   # yet (PI-20261005-YUVCGTMJ-0002); flat cap chosen by RQ-20261005-813/814's rule.
+                                   # yet (PI-20261005-YUVCGTMJ-0002); flat cap chosen by RQ-20261005-853/814's rule.
   next_instance_mode: room         # what the flip sets `mode` to for a FRESH account
   flat:
     max_risk_usd: 25               # the flat cap = 0.5% x $5,000 (Turbo). With
