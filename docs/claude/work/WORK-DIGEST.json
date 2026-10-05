@@ -1,9 +1,9 @@
 {
   "_doc": "Receipt for the last WORK DIGEST that actually landed. Written in the SAME commit as the pending-pings.jsonl row it attests, so it can never claim a digest that did not reach the queue. Read by scripts/ops/digest_due.py (the interval gate) and scripts/ci/check_digest_liveness.py (the staleness guard).",
   "schema": 1,
-  "generated_at": "2026-10-05T17:24:33Z",
-  "window_base": "396295b180a45aa60edfaeac1db074a45ed5d93e",
-  "window_head": "fe164296e0986044d6062c780571b24c088ab025",
+  "generated_at": "2026-10-05T18:35:08Z",
+  "window_base": "fe164296e0986044d6062c780571b24c088ab025",
+  "window_head": "207765c3e6fe40735c85ae3b809a5eaa437ebd79",
   "trigger": "push",
-  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37347992560"
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37356889275"
 }
