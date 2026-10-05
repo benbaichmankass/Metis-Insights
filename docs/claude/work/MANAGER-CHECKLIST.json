@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-05T07:02:00Z",
+  "updated_at": "2026-10-05T07:19:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
     "_comment": "Set by the manager's daily review (manager SKILL \u00a7 'The work system'): the WR-YYYYMMDD-HHMMZ report it worked from GET /api/bot/work/report, when, by whom, and disposition counts. Per-item dispositions live on the pipeline items. null = no review recorded yet.",
@@ -5297,16 +5297,23 @@
       "id": "SOAK-GATE1",
       "title": "Disposition the 16 due shadow soaks (PI-SOAK-20261004-*) at Gate 1 against each Stage-0 record: flip to live on Stage-1, kill, or file NEEDS_DATA; establish whether the 2 DEAD soaks are wiring faults",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "manager-dispatched lane",
       "lane": "session_017HQgVMbXHRySLAKDrZBGRh",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 10,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        16561
+      ],
       "blocked_on": [],
-      "note": "2026-10-05 05:56Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv from the 05:52Z review. mandate_resolver --from S0 --to S1 returns R-NO-OP for these legs (it models roster membership, not the execution: shadow->live flip), so no granted mandate covers the flip; config edits come back as one Tier-3 hold PR. Lane may draft (not grant) a proposed mandate."
+      "note": "2026-10-05 05:56Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv from the 05:52Z review. mandate_resolver --from S0 --to S1 returns R-NO-OP for these legs (it models roster membership, not the execution: shadow->live flip), so no granted mandate covers the flip; config edits come back as one Tier-3 hold PR. Lane may draft (not grant) a proposed mandate. [2026-10-05T07:18Z manager] #16561 MERGED 0725e8ad (07:04Z). DEPLOYED: /api/diag/version git_sha 0725e8ad9, restart_pending false. OBSERVED: /api/bot/config bybit_1 = [trend_donchian_1h, trend_donchian_eth_4h, trend_donchian_xrp_4h, xrp_pullback_2h, ada_pullback_2h], config_load_errors []. REVERT: git revert 0725e8ad.",
+      "observation": {
+        "what": "no new shadow order packages from the 11 removed legs on bybit_1 after 07:18Z",
+        "how_to_check": "order_packages diag since 2026-10-05T07:18Z filtered to the 11 strategy names on bybit_1",
+        "due_by": "2026-10-07T06:00Z"
+      }
     },
     {
       "id": "PROP-LIMIT-GUARD",
@@ -5319,7 +5326,9 @@
       "ceiling_usd": 10,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16571
+      ],
       "blocked_on": [],
       "note": "2026-10-05 06:52Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; operator approved verbatim \"Yes, fix it now (Recommended)\". Tier-2 hold PR, manager merges + verifies deploy."
     },
