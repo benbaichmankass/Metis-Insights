@@ -31,14 +31,14 @@ decision_rule:
   registered_before_run: true
   statistic: 'Per seed: prop_ev_sim path-mode ev_net_usd_per_life and p_net_positive over the 730d committed trades, under
     config/prop_rulesets/breakout_turbo_1step.yaml, --costs breakout --funded-start fresh --swap-model prorated, sizing start (FLAT
-    \$ per ticket = risk_pct x \$5,000), two arms: F050 risk_pct 0.005 (\$25) and F100 risk_pct 0.010 (\$50).'
+    $ per ticket = risk_pct x $5,000), two arms: F050 risk_pct 0.005 ($25) and F100 risk_pct 0.010 ($50).'
   rule: Graded PER ARM. PASS IF ev_net_usd_per_life > 0 on ALL 5 seeds AND P(net>0) >= 0.70 on ALL 5 seeds. UNDERPOWERED (indeterminate) IF
     n < 88. FAIL IF ev <= 0 on any seed. NULL (indeterminate) otherwise. FAIL keeps the leg OFF the Turbo account's roster
     (Tier-3, data-backed under the 2026-09-27 standing authorization); PASS or NULL keeps it ON (the operator's direction is
     to carry breakout_1's legs; NULL is not a fail). SIZING CHOICE (registered
-    before the run): the phone account trades FLAT because room sizing needs a live balance read the phone does not have
+    before the run) -- the phone account trades FLAT because room sizing needs a live balance read the phone does not have
     yet; the flat cap is the arm with the larger MIN-over-seeds ev_net_usd_per_life among arms with ev > 0 on all seeds;
-    if neither arm has ev > 0 on all seeds, the smaller arm (\$25).
+    if neither arm has ev > 0 on all seeds, the smaller arm ($25).
   what_it_does_not_do: Does not prove edge on a live book. Fee $20 is UNCONFIRMED (manager relay). Payout fields inherited
     from the Classic ruleset.
 routing:
