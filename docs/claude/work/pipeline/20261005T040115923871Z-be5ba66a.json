@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "fade_breakout_4h.py and fvg_range_15m.py no longer define a local `_adx`; they import the canonical wilder_adx from src.runtime.regime. The existing unit tests pass. The bit-for-bit parity test in test_regime_detector.py can be removed (the consolidation makes it tautological) or kept as a regression guard.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260601-003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260601-003",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260601-003'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/units/strategies/fade_breakout_4h.py:140 and fvg_range_15m.py:147 — both still define a local _adx (docstrings say 'identical to ... so the live regime gate matches'); tests/test_regime_detector.py:70-77 still runs the bit-for-bit parity test against wilder_adx. The consolidation described in clears_when has not happened.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane — Tier-1 DRY refactor: import src.runtime.regime.wilder_adx in both strategy files, delete the local _adx, keep or retire the now-tautological parity test. No judgment call; existing test is the safety net.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Both files importing src.runtime.regime.wilder_adx with tests passing. | evidence: src/units/strategies/fade_breakout_4h.py:140 and fvg_range_15m.py:147 still define local _adx (git grep 'def _adx' also hits hf_vwap_revert, htf_pullback_trend_2h).",
+  "what": "[health] Consolidate fade_breakout_4h._adx + fvg_range_15m._adx onto src.runtime.regime.wilder_adx (DRY)\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane — Tier-1 DRY refactor: import src.runtime.regime.wilder_adx in both strategy files, delete the local _adx, keep or retire the now-tautological parity test. No judgment call; existing test is the safety net."
+}

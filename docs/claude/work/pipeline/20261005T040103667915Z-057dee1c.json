@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Bybit's funding-history range behaviour is MEASURED for these accounts and recorded here, and either the walk is ported or the puller is documented as correct at days=30.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " Run pull_exchange_funding for a bybit account with days=30 and read the logged 'SERVED span' line (or journalctl) to see if newest row is within ~10d of now while positions were open | evidence: src/runtime/exchange_funding_puller.py:~150 still single call fetch_funding_history(sym, since_ms, 200, {}) with no chunking; only added _log_returned_span diagnostic (L63-124). No doc/memo records measured Bybit funding range behaviour.",
+    "what": "Bybit's funding-history range behaviour is MEASURED for these accounts and recorded here, and either the walk is ported or the puller is documented as correct at days=30."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Run pull_exchange_funding for a bybit account with days=30 and read the logged 'SERVED span' line (or journalctl) to see if newest row is within ~10d of now while positions were open | evidence: src/runtime/exchange_funding_puller.py:~150 still single call fetch_funding_history(sym, since_ms, 200, {}) with no chunking; only added _log_returned_span diagnostic (L63-124). No doc/memo records measured Bybit funding range behaviour.",
+  "what": "[health] exchange_funding_puller has the SAME single-call/no-chunking shape that made the fills puller silently return a wrong window — and it is invoked with days=30"
+}

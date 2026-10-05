@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "Observable: `_parse_last_updated` returns ONLY the first entry's summary -- i.e. its length stops growing as `- prior:` entries accumulate. A regression test that appends a second synthetic `- prior:` entry and asserts the returned summary is unchanged would pin it, since the defect is precisely that the field grows with history. Either fix is acceptable: terminate the summary at the first `) - prior:` boundary, or return a structured list of entries and let the consumer pick the first. NOT resolution: truncating the string to N characters, which would still be the whole chain, just clipped.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-23",
+    "how_to_check": "origin.rerun: python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN'), indent=2))\"",
+    "what": "Observable: `_parse_last_updated` returns ONLY the first entry's summary -- i.e. its length stops growing as `- prior:` entries accumulate. A regression test that appends a second synthetic `- prior:` entry and asserts the returned summary is unchanged would pin it, since the defect is precisely that the field grows with history. Either fix is acceptable: terminate the summary at the first `) - prior:` boundary, or return a structured list of entries and let the consumer pick the first. NOT resolution: truncating the string to N characters, which would still be the whole chain, just clipped."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] proposed CLOSE_DONE NOT landed (refuted/weak on re-verification): roadmap.py:230-247 _parse_last_updated returns (date, first bold headline) only; no growing summary. No dedicated regression test. | triage evidence: src/web/api/routers/roadmap.py:230-247 _parse_last_updated now returns (date, headline) -- date + first bold parenthetical only; no 'summary' key is returned (L393 lastUpdated/lastUpdatedHeadline). Ou",
+  "what": "[health] roadmap.py::_parse_last_updated returns the ENTIRE prior-entry chain as the 'summary', so /api/bot/roadmap's lastUpdated summary is ~1000-1400 chars of history rather than the current entry"
+}

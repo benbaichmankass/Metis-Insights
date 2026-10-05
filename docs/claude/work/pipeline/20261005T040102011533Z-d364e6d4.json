@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 22,
+    "clears_when": "The sprint log and notebook state the required-context count taken from a LIVE read of the branch protection settings on the day of the edit, with that read quoted. Deliberately not '9': this row's action says 9 and BL-20260731-AUDIT-0731-NEW-FINDINGS item (12) says 11, so the number is itself contested and copying either would re-file the same staleness under a new date.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-27",
+    "how_to_check": " Sprint log/notebook edited to state the required-context count from a quoted live read (3 as of 2026-10-05). | evidence: Live read gh api branches/main/protection/required_status_checks 2026-10-05: 3 contexts [pytest-collect, pytest-run, guards]. docs/sprint-logs/S-CANON-FU-3-branch-protection.md:25,114 still says '4 required checks'; no doc quotes a live read.",
+    "what": "The sprint log and notebook state the required-context count taken from a LIVE read of the branch protection settings on the day of the edit, with that read quoted. Deliberately not '9': this row's action says 9 and BL-20260731-AUDIT-0731-NEW-FINDINGS item (12) says 11, so the number is itself contested and copying either would re-file the same staleness under a new date."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Sprint log/notebook edited to state the required-context count from a quoted live read (3 as of 2026-10-05). | evidence: Live read gh api branches/main/protection/required_status_checks 2026-10-05: 3 contexts [pytest-collect, pytest-run, guards]. docs/sprint-logs/S-CANON-FU-3-branch-protection.md:25,114 still says '4 required checks'; no doc quotes a live read.",
+  "what": "[health] BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS"
+}

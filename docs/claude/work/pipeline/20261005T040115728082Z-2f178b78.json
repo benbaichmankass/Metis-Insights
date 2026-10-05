@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "config/strategies.yaml comments at the tp_r entries for trend_donchian/fade_breakout_4h/squeeze_breakout_4h mention the short-branch clamp explicitly, OR the operator confirms the existing wording is good enough.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260527-002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260527-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260527-002'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Re-read config/strategies.yaml around the three tp_r=50.0 comment blocks (trend_donchian ~L176-180, fade_breakout_4h ~L283-285, squeeze_breakout_4h ~L354-355). `grep -i clamp config/strategies.yaml` still returns no hit near any tp_r block — the comments still describe the unclamped 'effectively-unreachable sentinel' formula and never mention PR #2141's short-branch clamp. The clamp itself is real and unrelated to this doc gap.",
+    "date": "2026-09-28",
+    "decision_text": "Still stale, confirmed live in the file today. This is a comment-only, reversible doc-accuracy fix on a Tier-3-listed file (needs an operator merge OK, not an operator judgment call) — a prior session even drafted the exact one-line addition for each of the three blocks (see the 2026-08-16 update in the archived register). Decide: land the one-line clamp note at each of the three tp_r blocks; no config value changes.",
+    "disposition": "DECIDE",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Comments at the tp_r entries naming the short-branch clamp, or operator confirming current wording. | evidence: config/strategies.yaml:176,283,354,1062,1113 tp_r 50.0 sentinel comments; none mention the short-branch clamp (grep clamp hits only 1288+ for _TP_SENTINEL_CAP_PCT in a different context). Tier-3 file, comment-only.",
+  "what": "[health] config/strategies.yaml comments on tp_r=50.0 still say 'effectively-unreachable sentinel' without mentioning the 2026-05-27 short-branch clamp\n\n[TRIAGE 2026-09-28] DECIDE — Still stale, confirmed live in the file today. This is a comment-only, reversible doc-accuracy fix on a Tier-3-listed file (needs an operator merge OK, not an operator judgment call) — a prior session even drafted the exact one-line addition for each of the three blocks (see the 2026-08-16 update in the archived register). Decide: land the one-line clamp note at each of the three tp_r blocks; no config value changes."
+}

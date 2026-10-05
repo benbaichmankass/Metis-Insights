@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 31,
+    "clears_when": "A gate or verdict surface reads capture_ratio, and the fleet re-evaluation under the widened objective is recorded in the coverage matrix.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-05",
+    "how_to_check": " A gate/verdict surface in scripts/research/m20_* reads capture_ratio and coverage matrix records the fleet re-evaluation | evidence: git grep capture_ratio in scripts/ src/ tests/ shows it computed in scripts/exit_capture.py, src/research/excursions.py and panel builders only; no m20 gate/verdict code (m20_fleet_exit_sweep, m20_exit_sweep) reads it. No live row/queue unit covers a",
+    "what": "A gate or verdict surface reads capture_ratio, and the fleet re-evaluation under the widened objective is recorded in the coverage matrix."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A gate/verdict surface in scripts/research/m20_* reads capture_ratio and coverage matrix records the fleet re-evaluation | evidence: git grep capture_ratio in scripts/ src/ tests/ shows it computed in scripts/exit_capture.py, src/research/excursions.py and panel builders only; no m20 gate/verdict code (m20_fleet_exit_sweep, m20_exit_sweep) reads it. No live row/queue unit covers a",
+  "what": "[health] M20's gate optimises net_R and maxDD only -- the TWO metrics that measure the operator's actual complaint (MFE capture ratio, capital efficiency) are both computed in-repo and read by ZERO gates"
+}

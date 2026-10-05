@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 23,
+    "clears_when": "First MEASURE the population: how many legacy-named `oca-protect-<reqId>` groups still rest across ib_paper, and whether any appeared AFTER the keyed path deployed - that decides whether this is a finite cleanup or an ongoing generator, and the two want different fixes. Then a stray group owned by the trader's own live clientId has SOME reachable path: either the trader cancels by resolved oca_group name rather than only the keyed one, or the repair runs in a maintenance window with the trader stopped, or cancel-ib-order gains a route that does not require assuming the owning id. Ends when ib_paper/MHG holds exactly ONE protective group for trade 4796, verified from a fresh client.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260826-A-LEGACY-NAMED-STRAY-GROUP-OWNED-BY-THE-TRADER-IS-UNREACHABLE-BY-BOTH-REPAIRS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-28",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-A-LEGACY-NAMED-STRAY-GROUP-OWNED-BY-THE-TRADER-IS-UNREACHABLE-BY-BOTH-REPAIRS'), indent=2))\"",
+    "what": "First MEASURE the population: how many legacy-named `oca-protect-<reqId>` groups still rest across ib_paper, and whether any appeared AFTER the keyed path deployed - that decides whether this is a finite cleanup or an ongoing generator, and the two want different fixes. Then a stray group owned by the trader's own live clientId has SOME reachable path: either the trader cancels by resolved oca_group name rather than only the keyed one, or the repair runs in a maintenance window with the trader stopped, or cancel-ib-order gains a route that does not require assuming the owning id. Ends when ib_"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-A-LEGACY-NAMED-STRAY-GROUP-OWNED-BY-THE-TRADER-IS-UNREACHABLE-BY-BOTH-REPAIRS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-A-LEGACY-NAMED-STRAY-GROUP-OWNED-BY-THE-TRADER-IS-UNREACHABLE-BY-BOTH-REPAIRS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: ib_open_orders (or stray_oca_soak.jsonl) listing legacy oca-protect-<reqId> groups on ib_paper with timestamps relative to the keyed-path deploy. | evidence: Cannot measure the stray legacy-named group population: /api/diag/ib_open_orders read_state could_not_look for ib_paper at 2026-10-05T03:32Z. src/runtime/stray_oca_groups.py exists (stray sweeper) but its effect on a trader-clientId-owned group is un | previous owner dropped (did not cover the item): ORDER-AUDIT-2 — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never clo",
+  "what": "[health] A stray legacy-named OCA group owned by the trader's OWN live clientId can be cleared by neither repair path"
+}

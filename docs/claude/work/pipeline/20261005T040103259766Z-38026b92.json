@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "One parse of the demo flag repo-wide.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260807-DEMO-FLAG-SIX-PARSES",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-19",
+    "how_to_check": " git grep shows every demo read going through account_is_demo (one parse repo-wide). | evidence: src/config/accounts_loader.py:109-130 account_is_demo() canonical parse exists, but bool(cfg.get('demo', False)) remains at src/units/accounts/__init__.py:164 and src/core/account_profile.py:63, plus other ad-hoc reads (src/prop/account_rulesets.py:2",
+    "what": "One parse of the demo flag repo-wide."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-DEMO-FLAG-SIX-PARSES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-DEMO-FLAG-SIX-PARSES'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: git grep shows every demo read going through account_is_demo (one parse repo-wide). | evidence: src/config/accounts_loader.py:109-130 account_is_demo() canonical parse exists, but bool(cfg.get('demo', False)) remains at src/units/accounts/__init__.py:164 and src/core/account_profile.py:63, plus other ad-hoc reads (src/prop/account_rulesets.py:2",
+  "what": "[health] accounts.yaml::demo has six independent parses and two of them disagree on a quoted YAML value"
+}

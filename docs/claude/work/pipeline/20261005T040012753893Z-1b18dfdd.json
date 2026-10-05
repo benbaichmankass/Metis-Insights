@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "No graded row carries tp_appropriate/sl_appropriate unless its exit_reason is one of the declared-bracket mechanisms, and the review reports the by-mechanism split beside the grade histogram.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-07",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT'), indent=2))\"",
+    "what": "No graded row carries tp_appropriate/sl_appropriate unless its exit_reason is one of the declared-bracket mechanisms, and the review reports the by-mechanism split beside the grade histogram."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: No tp_appropriate/sl_appropriate unless exit_reason is a declared-bracket mechanism; by-mechanism split reported. | evidence: scripts/ops/score_order_packages.py:200-217: exit_quality tp_appropriate/sl_appropriate derived from realized_r/pnl sign; exit_reason only used for sl_hit/sl_cross. GRADE row covers reviving the grading hop, not mechanism labelling. | previous owner dropped (did not cover the item): PROP-EXEC — triaged 2026-10-05: still applies — scripts/ops/score_order_packages",
+  "what": "[health] The decision grader labels exit_quality from the R value, not from the exit MECHANISM — 56 of 81 graded closes (69%) are scored tp_appropriate/sl_appropriate on exits the strategy never made"
+}

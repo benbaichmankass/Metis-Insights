@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Every listed item is either shipped, closed as honest-negative, or re-filed as its own tracked backlog row. Close this register only when the list is empty.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260730-RESEARCH-PROGRAM-OPEN-ITEMS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " Per-item disposition of the NOT-DONE list (shipped / honest-negative / re-filed as rows), then close. | evidence: Register-style row (clears when list empty); docs/research/RESEARCH-PROGRAM-2026-07-30.md still exists; I did not enumerate the T/S/M/A/R sub-items' states this session.",
+    "what": "Every listed item is either shipped, closed as honest-negative, or re-filed as its own tracked backlog row. Close this register only when the list is empty."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-RESEARCH-PROGRAM-OPEN-ITEMS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-RESEARCH-PROGRAM-OPEN-ITEMS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Per-item disposition of the NOT-DONE list (shipped / honest-negative / re-filed as rows), then close. | evidence: Register-style row (clears when list empty); docs/research/RESEARCH-PROGRAM-2026-07-30.md still exists; I did not enumerate the T/S/M/A/R sub-items' states this session.",
+  "what": "[health] [program] Research-program 2026-07-30 — the NOT-DONE register (T3/T4/T5, S1-S4, M3-M5, A1-A5, R1-R5)"
+}

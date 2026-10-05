@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Retry mechanism confirmed from the Actions run history AND either at-most-once execution shipped or the at-least-once contract documented in docs/claude/diag-relay.md + the workflow file.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260731-TRAINERDIAG-DOUBLE-EXECUTION",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " docs/claude/diag-relay.md or trainer-vm-diag.yml states the execution contract (or at-most-once guard shipped); confirm retry cause from Actions run history | evidence: docs/claude/diag-relay.md has no at-least-once/at-most-once contract statement (grep for at-least-once|at-most-once|idempot returns only line 34 'RESULT file is the idempotency key'); trainer-vm-diag.yml likewise has none. clears_when not met.",
+    "what": "Retry mechanism confirmed from the Actions run history AND either at-most-once execution shipped or the at-least-once contract documented in docs/claude/diag-relay.md + the workflow file."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260731-TRAINERDIAG-DOUBLE-EXECUTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260731-TRAINERDIAG-DOUBLE-EXECUTION'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: docs/claude/diag-relay.md or trainer-vm-diag.yml states the execution contract (or at-most-once guard shipped); confirm retry cause from Actions run history | evidence: docs/claude/diag-relay.md has no at-least-once/at-most-once contract statement (grep for at-least-once|at-most-once|idempot returns only line 34 'RESULT file is the idempotency key'); trainer-vm-diag.yml likewise has none. clears_when not met.",
+  "what": "[health] [infra] trainer-vm-diag relay executed a cmd block twice (retry) — harmless for the idempotent GC, a hazard for any non-idempotent relay cmd"
+}

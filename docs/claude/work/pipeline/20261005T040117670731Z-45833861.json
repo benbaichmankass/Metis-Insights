@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "matched-session comparison run; driver identified; keep-shadow-or-propose decision recorded",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260707-MGC-TREND-1H-STRUCTURAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260707-MGC-TREND-1H-STRUCTURAL'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/strategies.yaml mgc_trend_1h still shows 'STATUS: execution: live on ib_paper (PAPER money)' and config/accounts.yaml confirms it's only on the ib_paper account (DUQ325724, Gateway paper API) -- still shadow-equivalent, not promoted. docs/research/mgc-trend-1h-walkforward-2026-07-07.md's recommended matched-session GC=F/native-feed re-pull to isolate the driver has not been run (no newer dated doc found).",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "research/queue: run the matched-session comparison (native gold feed vs GC=F under a common session mask) the 2026-07-07 doc recommends, to isolate whether the negative GC=F/spot read is a structural driver or a feed artifact, before any promotion is even considered. No operator decision is pending until that evidence exists.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Matched-session comparison run, driver identified, keep-shadow-or-propose recorded. | evidence: mgc_trend_1h is execution: shadow; comms/strategy_evidence/mgc_trend_1h.json measured n_trades_oos 118, net_r_oos +25.6 (2026-09-24). No matched-session GC=F vs native comparison found; RQ-20260930-701/703 mention mgc_trend_1h only as having no commi",
+  "what": "[performance] mgc_trend_1h stays shadow — isolate the structural cross-series driver (matched-session GC=F/spot re-pull) before any promotion\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — research/queue: run the matched-session comparison (native gold feed vs GC=F under a common session mask) the 2026-07-07 doc recommends, to isolate whether the negative GC=F/spot read is a structural driver or a feed artifact, before any promotion is even considered. No operator decision is pending until that evidence exists. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): end_1h is also one of the 5 IB legs logging transient_market_data_unavailable (154 WARN rows over 9 days), so its data path is intermittent independent of this row.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+}

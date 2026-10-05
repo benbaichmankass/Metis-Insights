@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 31,
+    "clears_when": "`bot_log` either returns real content or is removed from the allowlist and the docs.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260809-DIAG-BOTLOG-TARGET-ABSENT",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-05",
+    "how_to_check": " Remove bot_log from _LOG_FILES (diag.py:566) and docs, or make the file exist; re-read log_file?name=bot_log | evidence: Live diag_fetch 'log_file?name=bot_log&lines=3' on 2026-10-05 returned present:false, lines:[] path /home/ubuntu/ict-trading-bot/bot.log; src/web/api/routers/diag.py:566 still lists 'bot_log' in _LOG_FILES.",
+    "what": "`bot_log` either returns real content or is removed from the allowlist and the docs."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260809-DIAG-BOTLOG-TARGET-ABSENT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260809-DIAG-BOTLOG-TARGET-ABSENT'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Remove bot_log from _LOG_FILES (diag.py:566) and docs, or make the file exist; re-read log_file?name=bot_log | evidence: Live diag_fetch 'log_file?name=bot_log&lines=3' on 2026-10-05 returned present:false, lines:[] path /home/ubuntu/ict-trading-bot/bot.log; src/web/api/routers/diag.py:566 still lists 'bot_log' in _LOG_FILES.",
+  "what": "[health] /api/diag/log_file advertises a `bot_log` target that does not exist on disk"
+}

@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 32,
+    "clears_when": "(1) A lever-OFF sweep runs over these nine (leg, lever) pairs at live parity (--tp-cap-pct 0.099, --without-declared-lever <lever>) and the rows land in the corpus. (2) Each of the nine cells' `ref` records the OFF-arm result -- the d_net_r_OOS, the verdict, and base_trades_OOS -- so a reader can see whether the shipped lever earns its place, the same way the 22 already-swept pairs do. (3) Any cell whose OFF arm shows the shipped lever is WORSE than its absence is raised to the operator as a Tier-3 disposition question; the row is NOT closed by silently re-grading a live cell. (4) A cell whose OFF arm returns `insufficient_base` is recorded as such -- 'we could not grade it' is a third state and must not read as 'the lever is fine'.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Pipeline store's own copy (docs/claude/work/pipeline/20260924T160412099408Z-MIGR-00226.json) matches this batch item exactly, still state=queued. docs/research/m20-sweep-corpus.jsonl has 1379 rows with d_net_r_OOS/verdict fields (the right shape for a lever-OFF row) but I found no way from this batch to confirm the specific 6 remaining (leg,lever) pairs have OFF-arm rows landed; no disposition-ledger entry closes this id.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: run the lever-OFF sweep (--without-declared-lever <lever>, --tp-cap-pct 0.099) for the 6 remaining (leg, lever) pairs and land rows in m20-sweep-corpus.jsonl per the row's 4-clause clears_when. Mechanical evidence-gathering; only escalates to operator if an OFF arm beats its lever.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Lever-OFF sweep rows (--without-declared-lever, --tp-cap-pct 0.099) landed in m20-sweep-corpus.jsonl for the remaining (leg,lever) pairs, each cell ref recording OFF-arm d_net_r_OOS/verdict/base_trades_OOS. | evidence: No queue unit or checklist row covers lever-OFF sweeps; docs/research/m20-sweep-corpus.jsonl (1,416 rows, all tp_cap_pct=0.099) has no field marking a --without-declared-lever arm; the CLI flag exists (m20_fleet_exit_sweep.py:2304) but the 6 pairs ar",
+  "what": "[health] 6 SHIPPED levers have no lever-OFF row — never graded against their own absence (was filed as 9; 2 were never gradeable and 1 was a stale matrix cell)\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: run the lever-OFF sweep (--without-declared-lever <lever>, --tp-cap-pct 0.099) for the 6 remaining (leg, lever) pairs and land rows in m20-sweep-corpus.jsonl per the row's 4-clause clears_when. Mechanical evidence-gathering; only escalates to operator if an OFF arm beats its lever."
+}

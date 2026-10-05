@@ -1,0 +1,31 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "Either (a) a Tier-3 PR proposes promoting tqqq_trend_long_1d / qld_trend_long_1d onto a real-money Alpaca account, citing >=20-30 clean closed paper trades per cell that track the backtest + a current account_compat_matrix ROUTE verdict (see promotion_prerequisite below — the risk adjustment is REQUIRED for that ROUTE) — and the operator approves; OR (b) a documented decision here that the paper soak diverged from the backtest (decay/gap drag, whipsaw) and the cells stay paper-only / are removed, with the evidence recorded.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260630-002",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-13",
+    "how_to_check": "origin.rerun: python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260630-002'), indent=2))\"",
+    "what": "Either (a) a Tier-3 PR proposes promoting tqqq_trend_long_1d / qld_trend_long_1d onto a real-money Alpaca account, citing >=20-30 clean closed paper trades per cell that track the backtest + a current account_compat_matrix ROUTE verdict (see promotion_prerequisite below — the risk adjustment is REQUIRED for that ROUTE) — and the operator approves; OR (b) a documented decision here that the paper soak diverged from the backtest (decay/gap drag, whipsaw) and the cells stay paper-only / are removed, with the evidence recorded."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260630-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260630-002'), indent=2))\""
+  },
+  "routed_to": "SOAK-WATCH | [BACKLOG-BURNDOWN-3 2026-10-05] owner row read, covers item: SOAK-WATCH -- owns the Stage-1 soak contracts for these two legs; promotion itself runs via MD-PROMOTE-S1-S2 (account_compat prerequisite stays with that path). | SOAKS.json defines SOAK-stage1-alpaca_paper-tqqq_trend_long_1d and -qld_trend_long_1d (305d at 0.23/wk, design too_long); SOAK-WATCH (in_flight) owns soak contracts. Closed qld paper trades in window: 1.",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "config/accounts.yaml: alpaca_paper still carries tqqq_trend_long_1d and qld_trend_long_1d; alpaca_live does not (no premature promotion happened). docs/research/alpaca-live-roster-candidates-2026-09-10.md's own trade tables show tqqq_trend_long_1d at 0 packages in 101 days and qld_trend_long_1d essentially untraded (1 closed trade total, sizer refusing most long setups) -- nowhere near the >=20-30 clean trades the clears_when requires either way.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "This is legitimately still accruing and not yet ripe for an operator promotion/kill decision -- check_observation. Worth noting for whoever next reads it: at the 2026-09-10 measurement tqqq was structurally stalled (0 packages) and qld was sizer-refused on most signals, so simple waiting may never accrue the needed n without a separate fix to the sizing/signal path; that root-cause investigation would be a good dispatch_lane candidate but is a distinct question from this monitor.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] owner row read, covers item: SOAK-WATCH -- owns the Stage-1 soak contracts for these two legs; promotion itself runs via MD-PROMOTE-S1-S2 (account_compat prerequisite stays with that path). | SOAKS.json defines SOAK-stage1-alpaca_paper-tqqq_trend_long_1d and -qld_trend_long_1d (305d at 0.23/wk, design too_long); SOAK-WATCH (in_flight) owns soak contracts. Closed qld paper trades in window: 1.",
+  "what": "[performance] Monitor the TQQQ/QLD leveraged-Nasdaq paper soak on alpaca_paper; gate any real-money (alpaca_live) promotion on a clean live track record + account_compat_matrix\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — This is legitimately still accruing and not yet ripe for an operator promotion/kill decision -- check_observation. Worth noting for whoever next reads it: at the 2026-09-10 measurement tqqq was structurally stalled (0 packages) and qld was sizer-refused on most signals, so simple waiting may never accrue the needed n without a separate fix to the sizing/signal path; that root-cause investigation would be a good dispatch_lane candidate but is a distinct question from this monitor. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): per trades per cell' is ~40 months away for qld and unreachable for tqqq. Per the operator correction already on this row, run the offline backtest on a free GitHub runner and decide from THAT; the live-paper limb should be struck rather than re-deferred.\" | }"
+}

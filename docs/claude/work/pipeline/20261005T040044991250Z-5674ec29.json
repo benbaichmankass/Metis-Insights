@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 24,
+    "clears_when": "EITHER: (a) the route publishes a never-collapsed `since_state` (applied / not_requested / ignored_unparseable) the way /api/bot/db/table/{name} publishes `filter_state`, so a dropped filter is visible in the payload and `count` can be read honestly; OR (b) an unparseable `since` returns 400 rather than an empty 200. Verified by re-running the three-arm measurement above against the live VM and showing the '+00:00' arm no longer renders identically to a genuine empty result. A unit test alone is not sufficient - the defect is in what a LIVE caller cannot distinguish.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260901-ORDER-PACKAGES-SINCE-WITH-A-RAW-PLUS-OFFSET-RETURNS-ZERO-ROWS-SILENTLY",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": " GET /api/bot/order-packages?since=<raw +00:00> returns rows or 400/since_state; a test asserts it. | evidence: src/web/api/routers/order_packages.py:214-216 passes raw since into datetime(?); no since_state/400 (git grep since_state: none). Unparseable since gives zero rows silently. Same shape as the trades/closed item.",
+    "what": "EITHER: (a) the route publishes a never-collapsed `since_state` (applied / not_requested / ignored_unparseable) the way /api/bot/db/table/{name} publishes `filter_state`, so a dropped filter is visible in the payload and `count` can be read honestly; OR (b) an unparseable `since` returns 400 rather than an empty 200. Verified by re-running the three-arm measurement above against the live VM and showing the '+00:00' arm no longer renders identically to a genuine empty result. A unit test alone is not sufficient - the defect is in what a LIVE caller cannot distinguish."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-ORDER-PACKAGES-SINCE-WITH-A-RAW-PLUS-OFFSET-RETURNS-ZERO-ROWS-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-ORDER-PACKAGES-SINCE-WITH-A-RAW-PLUS-OFFSET-RETURNS-ZERO-ROWS-SILENTLY'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: GET /api/bot/order-packages?since=<raw +00:00> returns rows or 400/since_state; a test asserts it. | evidence: src/web/api/routers/order_packages.py:214-216 passes raw since into datetime(?); no since_state/400 (git grep since_state: none). Unparseable since gives zero rows silently. Same shape as the trades/closed item.",
+  "what": "[health] GET /api/bot/order-packages?since=<ISO with a raw +00:00 offset> returns ZERO rows and no error - a malformed filter renders as a clean negative"
+}

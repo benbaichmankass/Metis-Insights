@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 31,
+    "clears_when": "Editing a backlog file with uncommitted changes above an annotated claim no longer produces a failure that disappears on commit. Add a self-test that plants exactly that offset.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260810-IMPOSSIBILITY-GUARD-LINENO-VS-WORKTREE-OFFSET",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-05",
+    "how_to_check": " Plant uncommitted edit above an annotated claim, run guard with --base; expect no false failure; add selftest in guard_selftests.py | evidence: scripts/check_impossibility_claims.py still takes line numbers from commit diff (_added_lines L358-372) and resolves window against full file read_text (main ~L464); impossibility-claim-guard live in run_guards.py:1008. No self-test planting an uncom",
+    "what": "Editing a backlog file with uncommitted changes above an annotated claim no longer produces a failure that disappears on commit. Add a self-test that plants exactly that offset."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-IMPOSSIBILITY-GUARD-LINENO-VS-WORKTREE-OFFSET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-IMPOSSIBILITY-GUARD-LINENO-VS-WORKTREE-OFFSET'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Plant uncommitted edit above an annotated claim, run guard with --base; expect no false failure; add selftest in guard_selftests.py | evidence: scripts/check_impossibility_claims.py still takes line numbers from commit diff (_added_lines L358-372) and resolves window against full file read_text (main ~L464); impossibility-claim-guard live in run_guards.py:1008. No self-test planting an uncom",
+  "what": "[health] impossibility-claim-guard reports a FALSE failure when there are uncommitted edits above a claim — it takes line numbers from a commit diff but resolves its annotation window against the working tree"
+}

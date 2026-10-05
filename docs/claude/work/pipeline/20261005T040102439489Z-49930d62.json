@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "An operator-acked unit-file PR is merged that refreshes the stale Vercel comment and either drops or annotates the legacy DASHBOARD_ORIGIN, AND /api/diag/services reads ict-web-api.service active after that deploy. The post-deploy service read is part of the criterion because this is a unit-file change: a merged edit that crashloops the API is not a fix.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-19",
+    "how_to_check": " Operator-acked unit-file PR refreshing the comment and dropping/annotating DASHBOARD_ORIGIN, merged, with /api/diag/services reading ict-web-api.service active after deploy. | evidence: deploy/ict-web-api.service:5 still says 'Vercel React dashboard' and :37 still sets DASHBOARD_ORIGIN=https://bentzbk-ict-trader-dashboard.vercel.app; /api/diag/services 2026-10-05 shows ict-web-api.service active. No unit-file PR merged for it.",
+    "what": "An operator-acked unit-file PR is merged that refreshes the stale Vercel comment and either drops or annotates the legacy DASHBOARD_ORIGIN, AND /api/diag/services reads ict-web-api.service active after that deploy. The post-deploy service read is part of the criterion because this is a unit-file change: a merged edit that crashloops the API is not a fix."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Operator-acked unit-file PR refreshing the comment and dropping/annotating DASHBOARD_ORIGIN, merged, with /api/diag/services reading ict-web-api.service active after deploy. | evidence: deploy/ict-web-api.service:5 still says 'Vercel React dashboard' and :37 still sets DASHBOARD_ORIGIN=https://bentzbk-ict-trader-dashboard.vercel.app; /api/diag/services 2026-10-05 shows ict-web-api.service active. No unit-file PR merged for it.",
+  "what": "[health] BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT"
+}

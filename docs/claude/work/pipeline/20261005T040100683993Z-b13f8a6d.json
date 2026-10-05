@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 19,
+    "clears_when": "Read the first such closed trade and answer three things, each against broker truth rather than a label. (1) DID THE NEW GEOMETRY ACTUALLY APPLY: the trade's recorded stop and target must correspond to atr_stop_mult 2.0 and tp_r 3.0, cross-checked against /api/bot/config on the RUNNING process - a config file on main is not proof the trader loaded it. (2) HOW IT EXITED: do NOT read trades.exit_reason alone. BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS measured the declared bracket being reached ~3x more often than exit_reason records, and BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE shows the no-record close path hard-codes reconciler_filled before any price exists. Compare the broker-truth exit PRICE against the declared target and stop. (3) IS THE NUMBER A MEASUREMENT: the row's pnlProvenance must be measured (or estimated with that stated); a fabricated or unverified exit price cannot confirm a target hit either way, and per the 2026-08-25 perExitPath cut several exit paths sit at pnlCoverage 0.0. A single trade CANNOT validate or refute the geometry - n=1 - so the criterion is not 'the trade was profitable'. It is that the shipped geometry is confirmed live and its exit is attributable. If the exit price shows the 9.9% venue clamp firing BEFORE the 3.0R target, that WOULD make the target cosmetic in live conditions despite the backtest, and this row should be escalated to a de-ship proposal.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "This requires reading the live trade journal for trend_donchian_xrp_4h's first closed trade under the new bracket, cross-checking broker-truth exit price against /api/bot/config on the running process, and checking pnlProvenance - none of which is reachable from this static-code sandbox (no DB, no diag relay). The finding is explicit that it is a single-trade (n=1) data-verification task, not a judgment call.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: a lane with diag-data/db-wiring access should read the specific closed trade and answer the three named checks (geometry applied, broker-truth exit path vs exit_reason, pnlProvenance state) against the running process's /api/bot/config, per the item's own three-part checklist.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: First closed trend_donchian_xrp_4h trade read against broker truth: stop/target match atr_stop_mult 2.0/tp_r 3.0 and /api/bot/config on the running process. | evidence: /api/diag/journal?table=trades&limit=1000 read 2026-10-05T03:31Z (rows back to 2026-09-04): 0 rows with strategy_name=trend_donchian_xrp_4h on any account, so no closed trade yet under the new bracket.",
+  "what": "[performance] trend_donchian_xrp_4h now carries a REAL 3.0R take-profit on real money where it had none - its first closed trade must be read against broker truth, not against exit_reason\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: a lane with diag-data/db-wiring access should read the specific closed trade and answer the three named checks (geometry applied, broker-truth exit path vs exit_reason, pnlProvenance state) against the running process's /api/bot/config, per the item's own three-part checklist. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): 0-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED\", |     \"PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS\", |     \"BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS\", |     \"BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE\" |   ] | }"
+}

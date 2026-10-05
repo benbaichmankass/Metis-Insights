@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A binary evaluator handed a MulticlassPredictor raises instead of scoring max(proba).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260730-BINARY-EVALUATOR-ACCEPTS-MULTICLASS-HEAD",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-19",
+    "how_to_check": " A binary evaluator handed a MulticlassPredictor raises, pinned by a test. | evidence: ml/evaluators/classification.py:36-42 and ml/evaluators/classification_auc.py:86-94 carry comments that a MulticlassPredictor is 'not a valid input' but no isinstance/raise (only multiclass_classification.py:36 type-checks).",
+    "what": "A binary evaluator handed a MulticlassPredictor raises instead of scoring max(proba)."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-BINARY-EVALUATOR-ACCEPTS-MULTICLASS-HEAD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-BINARY-EVALUATOR-ACCEPTS-MULTICLASS-HEAD'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A binary evaluator handed a MulticlassPredictor raises, pinned by a test. | evidence: ml/evaluators/classification.py:36-42 and ml/evaluators/classification_auc.py:86-94 carry comments that a MulticlassPredictor is 'not a valid input' but no isinstance/raise (only multiclass_classification.py:36 type-checks).",
+  "what": "[health] [ml] the multiclass evaluator type-checks its predictor; the BINARY evaluators do not — the guard runs in one direction only"
+}

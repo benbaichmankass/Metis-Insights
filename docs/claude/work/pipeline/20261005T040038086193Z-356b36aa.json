@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "Either transport the `cmd:` block without HTML-escaping (base64 the way the prop-report relay already carries its untrusted payload), or detect and refuse a block whose escaped form differs from the source and say so. DONE when a cmd block containing `{x:<30}` and a multi-line f-string executes byte-identically. Until then, note the constraint in docs/claude/diag-relay.md so the next session does not lose a round-trip to it.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-07",
+    "how_to_check": " A cmd block containing {x:<30} and a multi-line f-string executes byte-identical via the relay. | evidence: .github/workflows/trainer-vm-diag.yml parses cmd from the issue body (l.203-282) with no base64 transport or escaped-form check; no mention of &lt; handling. Not re-reproduced this session (needs a relay dispatch).",
+    "what": "Either transport the `cmd:` block without HTML-escaping (base64 the way the prop-report relay already carries its untrusted payload), or detect and refuse a block whose escaped form differs from the source and say so. DONE when a cmd block containing `{x:<30}` and a multi-line f-string executes byte-identically. Until then, note the constraint in docs/claude/diag-relay.md so the next session does not lose a round-trip to it."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A cmd block containing {x:<30} and a multi-line f-string executes byte-identical via the relay. | evidence: .github/workflows/trainer-vm-diag.yml parses cmd from the issue body (l.203-282) with no base64 transport or escaped-form check; no mention of &lt; handling. Not re-reproduced this session (needs a relay dispatch).",
+  "what": "[health] trainer-vm-diag HTML-escapes `<` to `&lt;` and collapses multi-line implicit string concatenation to U+00B7, so any python using format specifiers breaks"
+}

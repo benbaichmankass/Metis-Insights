@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 32,
+    "clears_when": "1. Add a fourth state (`partially_filled`) carrying the filled qty, and surface it in the close's retMsg so a monitor retry's log says the size changed.\n2. Read `filled`/`remaining` explicitly rather than inferring from `status`.\n3. Separately, MEASURE IB futures fill latency on an open venue before treating 6s as validated -- it is a chosen value, not a measured one.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-06",
+    "how_to_check": " _cancel_own_close_order returns a partially_filled state with filled qty, surfaced in close retMsg; test planted. | evidence: src/units/accounts/ib_client.py:3083 _cancel_own_close_order still returns only cancelled / already_filled / cancel_failed (3 states); no partially_filled state at HEAD.",
+    "what": "1. Add a fourth state (`partially_filled`) carrying the filled qty, and surface it in the close's retMsg so a monitor retry's log says the size changed.\n2. Read `filled`/`remaining` explicitly rather than inferring from `status`.\n3. Separately, MEASURE IB futures fill latency on an open venue before treating 6s as validated -- it is a chosen value, not a measured one."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: _cancel_own_close_order returns a partially_filled state with filled qty, surfaced in close retMsg; test planted. | evidence: src/units/accounts/ib_client.py:3083 _cancel_own_close_order still returns only cancelled / already_filled / cancel_failed (3 states); no partially_filled state at HEAD.",
+  "what": "[health] _cancel_own_close_order has no PARTIAL-fill state: a close order half-filled at the 6s deadline reads as fully 'cancelled'"
+}

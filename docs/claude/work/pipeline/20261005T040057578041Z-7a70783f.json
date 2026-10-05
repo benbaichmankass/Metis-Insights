@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "Either (a) a prop account trades so account_context has 'taken' positives and the model learns non-degenerate per-strategy rates, or (b) the model is demoted from shadow / scoped so it no longer emits meaningless 0.000 predictions against non-prop live signals (a manifest/scoring change, Tier-3-aware).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260525-005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260525-005",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260525-005'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Grepped for prop-mission-policy usage and read config/accounts.yaml's breakout_1 comments: a 2026-08-23 note states '13 closed prop fills' already exist for the prop account (n=10 base legs, n=2 _prop legs), so condition (a) in clears_when (a prop account trades so account_context gets 'taken' positives) may already be partly satisfied. Could not reach the trainer VM/model registry from this sandbox to check whether the model has been retrained on that data or whether shadow scores are still degenerate zero.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: a lane with trainer-VM/diag access should rebuild the account_context dataset and re-check prop-mission-policy-baseline-v0's shadow scores against the now-nonzero prop 'taken' population (>=13 closed fills since 2026-08-23) and either retrain/promote or record it as still-degenerate with a stated n.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Operator decision on D3 (waiver vs retire) recorded and the manifest marked awaiting_source or retired. | evidence: docs/plans/decision-brief-2026-10-04.md:48 D3 'prop-mission-policy-baseline-v0: waiver or retire' is still a pending operator decision (recommendation: waiver via awaiting_source); ML-HYGIENE (queued, unassigned) only generically names constant-score",
+  "what": "[health] prop-mission-policy-baseline-v0 emits all-zero shadow scores — degenerate, prop-account-infra-blocked (NOT MES/IBKR-related)\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: a lane with trainer-VM/diag access should rebuild the account_context dataset and re-check prop-mission-policy-baseline-v0's shadow scores against the now-nonzero prop 'taken' population (>=13 closed fills since 2026-08-23) and either retrain/promote or record it as still-degenerate with a stated n."
+}

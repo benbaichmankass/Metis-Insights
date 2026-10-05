@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 23,
+    "clears_when": "(1) The guard emits three verdicts, not two. (2) Its headline count excludes skill_invoked. (3) The 9 no-reference-anywhere tools are each removed, wired, or annotated `# wiring: manual-only - <reason>`. (4) Re-run and state the new counts beside the old ones.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-28",
+    "how_to_check": " python3 scripts/ci/check_unwired_artifacts.py reports unwired: 0 (each of the 2 removed, wired, or annotated '# wiring: manual-only - <reason>'), with old vs new counts stated. | evidence: scripts/ci/check_unwired_artifacts.py now emits unwired:2 / doc_only:91 / skill_invoked:6 (3 verdicts; skill_invoked excluded from FAIL, :90-95). Clauses 1-2 done. But exit=1 with 2 unannotated no-reference tools remaining: scripts/ci/check_decision_",
+    "what": "(1) The guard emits three verdicts, not two. (2) Its headline count excludes skill_invoked. (3) The 9 no-reference-anywhere tools are each removed, wired, or annotated `# wiring: manual-only - <reason>`. (4) Re-run and state the new counts beside the old ones."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: python3 scripts/ci/check_unwired_artifacts.py reports unwired: 0 (each of the 2 removed, wired, or annotated '# wiring: manual-only - <reason>'), with old vs new counts stated. | evidence: scripts/ci/check_unwired_artifacts.py now emits unwired:2 / doc_only:91 / skill_invoked:6 (3 verdicts; skill_invoked excluded from FAIL, :90-95). Clauses 1-2 done. But exit=1 with 2 unannotated no-reference tools remaining: scripts/ci/check_decision_",
+  "what": "[health] check_unwired_artifacts counts a SKILL.md reference as 'documented, but nothing runs it' — so 10 of its 128 findings are tools a binding skill invokes, two of which this very review ran"
+}

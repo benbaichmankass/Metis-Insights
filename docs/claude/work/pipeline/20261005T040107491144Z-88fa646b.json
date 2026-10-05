@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "Closed when a session OTHER than the one that wrote the fix records exit 0 plus the serving base, at the default network level, with no override. A second failure instead is the more valuable outcome and should reopen the parent row.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260820-DIAG-FETCH-CANONICAL-BASE-VERIFIED-FROM-ONE-SESSION-ONLY",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-23",
+    "how_to_check": " A fresh session with DIAG_BASE_URL unset at default network level records exit 0 + serving base on its first diag_fetch | evidence: This session ran scripts/ops/diag_fetch.sh 'version' on 2026-10-05T03:31Z: rc=0, 'served by https://ict-bot.duckdns.org', but DIAG_BASE_URL env was SET to http://141.145.193.91:8001 (an override) and one earlier call timed out on a candidate before s",
+    "what": "Closed when a session OTHER than the one that wrote the fix records exit 0 plus the serving base, at the default network level, with no override. A second failure instead is the more valuable outcome and should reopen the parent row."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-DIAG-FETCH-CANONICAL-BASE-VERIFIED-FROM-ONE-SESSION-ONLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-DIAG-FETCH-CANONICAL-BASE-VERIFIED-FROM-ONE-SESSION-ONLY'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A fresh session with DIAG_BASE_URL unset at default network level records exit 0 + serving base on its first diag_fetch | evidence: This session ran scripts/ops/diag_fetch.sh 'version' on 2026-10-05T03:31Z: rc=0, 'served by https://ict-bot.duckdns.org', but DIAG_BASE_URL env was SET to http://141.145.193.91:8001 (an override) and one earlier call timed out on a candidate before s",
+  "what": "[health] The diag_fetch ordered-candidate fix is verified from exactly ONE session - the claim that matters ('a FRESH session's first diag_fetch succeeds with no override') has not been tested"
+}

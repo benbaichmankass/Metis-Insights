@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 46,
+    "clears_when": "M29 P4 backtest run with a recorded verdict: PASS -> a Tier-3 c_macro graduation proposal; FAIL -> an honest findings doc and the capability stays observe-only research. A rigorous negative is a completed outcome.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "MB-20260723-M29-AI-SYSTEM-DYNAMICS",
+  "ml_review_2026_10_04": "2026-10-04 ml-review: no registry model carries M29; nothing to re-validate here. Research-queue item, not a training-lifecycle one; unchanged.",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-20",
+    "how_to_check": " A recorded M29 P4 verdict (or an explicit decision that the P1c/mispricing no_edge scorecards are the P4 outcome). | evidence: comms/macro/sysdyn_mispricing_scorecard.json verdict 'no_edge', worth_building false; ROADMAP_MACRO.md:296 'park_deeper_investment' (M29 P1c); but checklist row MACRO-RESHAPE (2026-09-28) says 'M29 dormant until it reads out' and no P4-labelled verdi",
+    "what": "M29 P4 backtest run with a recorded verdict: PASS -> a Tier-3 c_macro graduation proposal; FAIL -> an honest findings doc and the capability stays observe-only research. A rigorous negative is a completed outcome."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260723-M29-AI-SYSTEM-DYNAMICS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260723-M29-AI-SYSTEM-DYNAMICS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A recorded M29 P4 verdict (or an explicit decision that the P1c/mispricing no_edge scorecards are the P4 outcome). | evidence: comms/macro/sysdyn_mispricing_scorecard.json verdict 'no_edge', worth_building false; ROADMAP_MACRO.md:296 'park_deeper_investment' (M29 P1c); but checklist row MACRO-RESHAPE (2026-09-28) says 'M29 dormant until it reads out' and no P4-labelled verdi",
+  "what": "[ml] [M29] AI-driven system-dynamics modelling — stock/flow/feedback engine + AI system-identification + scenario generation feeding M28 c_macro (PROPOSED, propose-only)"
+}

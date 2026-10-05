@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "The `refusing_us` determination is reachable from something OTHER than regime_debt_matrix's single call site -- i.e. the positive-control probe has one owner and is imported, and at least one further yfinance importer is OBSERVED reporting it, or a guard fails a new yf.download whose empty result is read as an empty market. !! A GREEN GUARD SELF-TEST CLEARS NOTHING: a harness cannot reach Yahoo, which is the whole point of this class. !! AND RAISING THE PIN AGAIN CLEARS NOTHING -- a version floor is not a detector, and the 23 legs were lost precisely while a floor was in place.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260916-TWENTY-SCRIPTS-IMPORT-YFINANCE-AND-NOTHING-DETECTS-THE-VENUE-REFUSING-THE-WHOLE-FLEET",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " Probe has a second owner/import and another yfinance importer reports refusing_us, or a guard fails a yf.download whose empty result is read as an empty market (with planted positive control). | evidence: git grep yfinance/yf.download: 25+ importers (fetch_backtest_candles.py 37 hits, e35_shard_plan.py 30, fetch_macro_candles.py 18...); `refusing_us` appears only in scripts/research/regime_debt_matrix.py:676-688 + one test. No checklist row or researc",
+    "what": "The `refusing_us` determination is reachable from something OTHER than regime_debt_matrix's single call site -- i.e. the positive-control probe has one owner and is imported, and at least one further yfinance importer is OBSERVED reporting it, or a guard fails a new yf.download whose empty result is read as an empty market. !! A GREEN GUARD SELF-TEST CLEARS NOTHING: a harness cannot reach Yahoo, which is the whole point of this class. !! AND RAISING THE PIN AGAIN CLEARS NOTHING -- a version floor is not a detector, and the 23 legs were lost precisely while a floor was in place."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260916-TWENTY-SCRIPTS-IMPORT-YFINANCE-AND-NOTHING-DETECTS-THE-VENUE-REFUSING-THE-WHOLE-FLEET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260916-TWENTY-SCRIPTS-IMPORT-YFINANCE-AND-NOTHING-DETECTS-THE-VENUE-REFUSING-THE-WHOLE-FLEET'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Probe has a second owner/import and another yfinance importer reports refusing_us, or a guard fails a yf.download whose empty result is read as an empty market (with planted positive control). | evidence: git grep yfinance/yf.download: 25+ importers (fetch_backtest_candles.py 37 hits, e35_shard_plan.py 30, fetch_macro_candles.py 18...); `refusing_us` appears only in scripts/research/regime_debt_matrix.py:676-688 + one test. No checklist row or researc",
+  "what": "[health] The yfinance 429-by-User-Agent class silently zeroed 23 evidence legs and ~20 other importers carry the same unguarded pattern"
+}

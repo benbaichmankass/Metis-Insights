@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "Either OI-20260908's root cause lands (book selection in _bybit_position_protection) and a re-measure over a post-fix window shows the netting_attributed winner-R fall persisting or vanishing, or the 39 rows are individually adjudicated against venue truth. Until one of those, no winner-size magnitude computed over a population containing netting_attributed rows should be quoted without this caveat.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED'), indent=2))\"",
+    "what": "Either OI-20260908's root cause lands (book selection in _bybit_position_protection) and a re-measure over a post-fix window shows the netting_attributed winner-R fall persisting or vanishing, or the 39 rows are individually adjudicated against venue truth. Until one of those, no winner-size magnitude computed over a population containing netting_attributed rows should be quoted without this caveat."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Re-measure of netting_attributed winner-R over a post-fix window, or the 39 rows adjudicated against venue truth. | evidence: OI-20260908 root cause (hedge book read) landed a20fba743 2026-09-27 per prior triage, but no post-fix re-measure of netting_attributed winner-R recorded. Not owned by M20-EXITS-4. | previous owner dropped (did not cover the item): M20-EXITS-4 — triaged 2026-10-05: still applies — OI-20260908 root cause (hedge ",
+  "what": "[performance] netting_attributed carries the single largest share of the measured winner-size collapse and is 100% ESTIMATED in both eras -- the path OI-20260908 says can close a live position || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ; 14 planted defects, 14 caught, one only after the suite was strengthened because no fixture reached the branch). Memo: docs/research/m20-u52-the-netting-remeasure-is-runnable-and-under-powered-2026-09-17.md.\" |     } |   ], |   \"updated_at\": \"2026-09-12\" | }"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 24,
+    "clears_when": "GET /api/diag/journalctl returns a `truncated` boolean plus the actual first/last timestamps SERVED, and a walk of ict-web-api over a >=24h window with lines=1000 shows `truncated:false` on every chunk (or the envelope names the chunks it could not cover) -- verified against the live VM, not in a test.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260831-DIAG-JOURNALCTL-CAPS-AT-1000-LINES-REGARDLESS-OF-THE-SINCE-WINDOW",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-29",
+    "how_to_check": " journalctl returns truncated + first/last ts served, and a >=24h walk shows truncated:false per chunk on the live VM. | evidence: src/web/api/routers/diag.py:2196-2282 get_journalctl docstring caps at 2000 lines; no 'truncated' boolean or first/last served timestamps in the envelope (grep truncated in that range: none). Live /api/diag/journalctl probe returned 400 for my params",
+    "what": "GET /api/diag/journalctl returns a `truncated` boolean plus the actual first/last timestamps SERVED, and a walk of ict-web-api over a >=24h window with lines=1000 shows `truncated:false` on every chunk (or the envelope names the chunks it could not cover) -- verified against the live VM, not in a test."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-DIAG-JOURNALCTL-CAPS-AT-1000-LINES-REGARDLESS-OF-THE-SINCE-WINDOW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-DIAG-JOURNALCTL-CAPS-AT-1000-LINES-REGARDLESS-OF-THE-SINCE-WINDOW'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: journalctl returns truncated + first/last ts served, and a >=24h walk shows truncated:false per chunk on the live VM. | evidence: src/web/api/routers/diag.py:2196-2282 get_journalctl docstring caps at 2000 lines; no 'truncated' boolean or first/last served timestamps in the envelope (grep truncated in that range: none). Live /api/diag/journalctl probe returned 400 for my params",
+  "what": "[health] /api/diag/journalctl caps at 1000 lines regardless of `since`, so a 'nothing suspicious since the last review' sweep cannot be made from it"
+}

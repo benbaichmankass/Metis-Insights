@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "STILL OPEN because the 404 itself is unexplained: a 404 from generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent means that model id is not served for that key/API version, and this session could not call the API to distinguish a retired id from a key-scope problem. Closed when a real screenshot round-trips end to end on the prop bot, OR the fallback model id is corrected to one the live key actually serves — verified by an actual send, not by inspection. Do NOT guess a replacement id.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-08",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE'), indent=2))\"",
+    "what": "STILL OPEN because the 404 itself is unexplained: a 404 from generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent means that model id is not served for that key/API version, and this session could not call the API to distinguish a retired id from a key-scope problem. Closed when a real screenshot round-trips end to end on the prop bot, OR the fallback model id is corrected to one the live key actually serves — verified by an actual send, not by inspection. Do NOT guess a replacement id."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A log line / prop_fills row showing a real screenshot parsed end to end on the prop bot via the Gemini fallback (or a deliberate decision to retire the screenshot path). | evidence: src/prop/screenshot_parse.py:264-272 corrected the fallback id to gemini-3.5-flash with a ladder (code fix), but clears_when needs an actual send / real screenshot round trip on the prop bot; no such evidence found. Prop order path is now automated ( | previous owner dropped (did not cover the item): PROP-EXEC — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never closes ",
+  "what": "[health] The prop screenshot reader reported ONLY the fallback provider's failure, so a Gemini 404 masked whatever took out the primary — and a primary ScreenshotParseError skipped the fallback entirely"
+}
