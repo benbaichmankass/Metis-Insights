@@ -19,14 +19,22 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-04T15:02:00Z",
-  "updated_by": "manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+  "updated_at": "2026-10-05T06:16:00Z",
+  "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
     "_comment": "Set by the manager's daily review (manager SKILL \u00a7 'The work system'): the WR-YYYYMMDD-HHMMZ report it worked from GET /api/bot/work/report, when, by whom, and disposition counts. Per-item dispositions live on the pipeline items. null = no review recorded yet.",
-    "report_id": null,
-    "reviewed_at": null,
-    "by": null,
-    "counts": null
+    "report_id": "WR-20261005-0529Z",
+    "reviewed_at": "2026-10-05T06:16:00Z",
+    "by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "counts": {
+      "incidents": 0,
+      "due": 19,
+      "dispatched": 16,
+      "closed": 1,
+      "deferred_to_operator": 1,
+      "not_due_today": 1,
+      "digest_log_entries_since_20261004T2000Z": 10
+    }
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -102,7 +110,7 @@
       "id": "WORK-SYSTEM",
       "title": "TOP PRIORITY (operator 2026-10-04): structural fix so due work, soaks and decisions never rot -- soak contract with end dates, short ranked truthful VM brief, alerts incl. expected-signal-missing, lane wake contract, canonized in the manager skill",
       "phase": "floor",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "lane WORK-SYSTEM (lead) + SOAK-WATCH + BRIEF-FIX",
       "lane": "session_011qgezvKupqWGFyz9DKtUvo",
       "model": "claude-opus-5-5 (design + canon); Sonnet/Opus builders",
@@ -115,7 +123,7 @@
         16467
       ],
       "blocked_on": [],
-      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator: 'that's not a band-aid, that's a structural fix ... canonize in the manager skill ... build the VM-side infra so reports are trustworthy and set off the right alerts ... highest priority even if it means pausing something else.' MEASURED gap: pipeline 366 due / 151 unrouted (237 never checked; 215 routed-but-due; 25 ask_operator never surfaced); 36 of 45 Stage-1 legs 'insufficient-data' with no end date; 09-26 soak grade's 6 'kill' calls never acted on; 10-04 weekly soak grade ran 'success' with no record; soak_alarm reads the archived OPEN-ITEMS.json; VM brief 737 KB, unranked, shows dead lanes as running. PROP-EVIDENCE-2 paused to free capacity. Closes when: brief live under its size cap and truthful; soak section populated from contracts; one real alert delivered for each alert class; manager skill + canonical rules updated and coherence guard green. [WORK-SYSTEM lane, 2026-10-04T15:45Z] Design: docs/plans/work-system-2026-10-04.md. BUILT in PR #16387: (a) scripts/ops/attention_watch.py \u2014 its block LEADS the ONE hourly ict-work-digest Telegram message: NEW since last digest (new ask_operator; soak -> ready/overdue/dead from scripts/ops/soak_state.py::soak_states(), SOAK-WATCH's live computation; silence alarms: R5 grade >=8d, no research result 36h, in_flight row untouched 3d, checklist unwritten 30h, 05:30Z report missing/stale/errored/>64KB), the daily ranked summary after 06:00Z, else one quiet line; state committed only after the send. (b) scripts/ops/work_report.py on deploy/ict-work-report.timer (05:30 UTC, generator, sends nothing) -> runtime_logs/work_reports/WR-YYYYMMDD-HHMMZ.json + latest.json, served GET /api/bot/work/report; ?since=<ISO> adds digestLog (every sent hourly block). (c) manager SKILL \u00a7 'The work system': one-message rule, twice-daily review 05:52Z/17:52Z from the report, last_review record, PUSH+POLL, required dispatch block (permission_mode auto + wake template), day one (rebind routines, tell lanes). (d) CLAUDE-RULES-CANONICAL \u00a7 'Due work must reach someone who acts'. TIER-2: HELD for the manager to merge (after BRIEF-FIX #16384). CLOSES WHEN ALL OBSERVED: (1) /api/diag/services shows ict-work-digest.timer and ict-work-report.timer active, and /api/diag/log_file?name=attention_watch_receipt shows outcome 'sent' after deploy; (2) GET /api/bot/work/report returns a WR-...-0530Z report with erroredSections [] and ?since= returns non-empty digestLog; (3) operator confirms the hourly message now leads with NEW/quiet line; (4) the brief is under BRIEF-FIX's 16 KB cap and the report's soaks section is 'ok' from soak_states(); (5) the R5-grade alarm (breached at build: newest comms/research/soak_book_grade/2026-09-26.json) fires, then clears once SOAK-WATCH lands a grade. [WORK-SYSTEM lane 2026-10-04T20:05Z] MERGED #16387 as 1fa57f0a (19:42Z). DEPLOYED + OBSERVED via diag/API: ict-work-report.timer + ict-work-digest.timer active; GET /api/bot/work/report -> WR-20261004-1947Z, 39,449 B, erroredSections [], all sections ok; soaks from soak_states() on VM data: 45 = 23 ready / 17 accruing / 2 overdue / 2 dead / 1 unknown; alarms: soak_grade ok (R5 grade landed 2026-10-04), research ok, report ok, inflight BREACHED (E76 7d, P1b 6d, CA 3d, PROP-ETH 3d); 20:01Z hourly pass: work_digest_receipt outcome sent, attention committed, queued ...-high.json; attention_watch_receipt outcome sent; ?since= digestLog has the entry. NOT YET OBSERVED (filed): PI-20261004-Z9DKTUVO-0001 first scheduled 05:30Z report (due 2026-10-05); PI-20261004-Z9DKTUVO-0002 operator confirms Telegram delivery of the new message shape. Follow-up #16430 (seed lines, order-independent) open, CI running. Row stays in_flight (not landed_unproven) while the lane is live and #16430 is open; it moves to landed_unproven/done when the two items above clear. [WORK-SYSTEM lane close-out 2026-10-04T21:30Z] #16387, #16430, #16467 MERGED. #16430 OBSERVED: the 21:00:51Z hourly pass (attention_watch_receipt outcome sent, new_items 3) sent the one-time seed lines \u2014 '\u2753 ask_operator at deploy: 30 open (25 due)', '\ud83e\uddea Soaks at deploy: 23 ready \u00b7 2 overdue \u00b7 2 dead' \u2014 plus '\u2705 Cleared \u2014 in_flight rows gone quiet' (0 of 13); digestLog carries the entry. Row -> landed_unproven with the #16470 observation form; closes when the first scheduled 05:30Z report is produced and read by the 05:52Z review (due_by 2026-10-05T06:30Z).",
+      "note": "[2026-10-04T15:02Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] Operator: 'that's not a band-aid, that's a structural fix ... canonize in the manager skill ... build the VM-side infra so reports are trustworthy and set off the right alerts ... highest priority even if it means pausing something else.' MEASURED gap: pipeline 366 due / 151 unrouted (237 never checked; 215 routed-but-due; 25 ask_operator never surfaced); 36 of 45 Stage-1 legs 'insufficient-data' with no end date; 09-26 soak grade's 6 'kill' calls never acted on; 10-04 weekly soak grade ran 'success' with no record; soak_alarm reads the archived OPEN-ITEMS.json; VM brief 737 KB, unranked, shows dead lanes as running. PROP-EVIDENCE-2 paused to free capacity. Closes when: brief live under its size cap and truthful; soak section populated from contracts; one real alert delivered for each alert class; manager skill + canonical rules updated and coherence guard green. [WORK-SYSTEM lane, 2026-10-04T15:45Z] Design: docs/plans/work-system-2026-10-04.md. BUILT in PR #16387: (a) scripts/ops/attention_watch.py \u2014 its block LEADS the ONE hourly ict-work-digest Telegram message: NEW since last digest (new ask_operator; soak -> ready/overdue/dead from scripts/ops/soak_state.py::soak_states(), SOAK-WATCH's live computation; silence alarms: R5 grade >=8d, no research result 36h, in_flight row untouched 3d, checklist unwritten 30h, 05:30Z report missing/stale/errored/>64KB), the daily ranked summary after 06:00Z, else one quiet line; state committed only after the send. (b) scripts/ops/work_report.py on deploy/ict-work-report.timer (05:30 UTC, generator, sends nothing) -> runtime_logs/work_reports/WR-YYYYMMDD-HHMMZ.json + latest.json, served GET /api/bot/work/report; ?since=<ISO> adds digestLog (every sent hourly block). (c) manager SKILL \u00a7 'The work system': one-message rule, twice-daily review 05:52Z/17:52Z from the report, last_review record, PUSH+POLL, required dispatch block (permission_mode auto + wake template), day one (rebind routines, tell lanes). (d) CLAUDE-RULES-CANONICAL \u00a7 'Due work must reach someone who acts'. TIER-2: HELD for the manager to merge (after BRIEF-FIX #16384). CLOSES WHEN ALL OBSERVED: (1) /api/diag/services shows ict-work-digest.timer and ict-work-report.timer active, and /api/diag/log_file?name=attention_watch_receipt shows outcome 'sent' after deploy; (2) GET /api/bot/work/report returns a WR-...-0530Z report with erroredSections [] and ?since= returns non-empty digestLog; (3) operator confirms the hourly message now leads with NEW/quiet line; (4) the brief is under BRIEF-FIX's 16 KB cap and the report's soaks section is 'ok' from soak_states(); (5) the R5-grade alarm (breached at build: newest comms/research/soak_book_grade/2026-09-26.json) fires, then clears once SOAK-WATCH lands a grade. [WORK-SYSTEM lane 2026-10-04T20:05Z] MERGED #16387 as 1fa57f0a (19:42Z). DEPLOYED + OBSERVED via diag/API: ict-work-report.timer + ict-work-digest.timer active; GET /api/bot/work/report -> WR-20261004-1947Z, 39,449 B, erroredSections [], all sections ok; soaks from soak_states() on VM data: 45 = 23 ready / 17 accruing / 2 overdue / 2 dead / 1 unknown; alarms: soak_grade ok (R5 grade landed 2026-10-04), research ok, report ok, inflight BREACHED (E76 7d, P1b 6d, CA 3d, PROP-ETH 3d); 20:01Z hourly pass: work_digest_receipt outcome sent, attention committed, queued ...-high.json; attention_watch_receipt outcome sent; ?since= digestLog has the entry. NOT YET OBSERVED (filed): PI-20261004-Z9DKTUVO-0001 first scheduled 05:30Z report (due 2026-10-05); PI-20261004-Z9DKTUVO-0002 operator confirms Telegram delivery of the new message shape. Follow-up #16430 (seed lines, order-independent) open, CI running. Row stays in_flight (not landed_unproven) while the lane is live and #16430 is open; it moves to landed_unproven/done when the two items above clear. [WORK-SYSTEM lane close-out 2026-10-04T21:30Z] #16387, #16430, #16467 MERGED. #16430 OBSERVED: the 21:00:51Z hourly pass (attention_watch_receipt outcome sent, new_items 3) sent the one-time seed lines \u2014 '\u2753 ask_operator at deploy: 30 open (25 due)', '\ud83e\uddea Soaks at deploy: 23 ready \u00b7 2 overdue \u00b7 2 dead' \u2014 plus '\u2705 Cleared \u2014 in_flight rows gone quiet' (0 of 13); digestLog carries the entry. Row -> landed_unproven with the #16470 observation form; closes when the first scheduled 05:30Z report is produced and read by the 05:52Z review (due_by 2026-10-05T06:30Z). [2026-10-05T06:16Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OBSERVED: GET /api/bot/work/report -> WR-20261005-0529Z, generatedAt 05:29:55Z, erroredSections [] (within +-1 min); read by the 05:52Z review routine and recorded as last_review.report_id with reviewed_at 06:16Z. ?since= digestLog: 10 hourly entries 20:01Z..05:01Z. Row -> done. Still open separately: PI-20261004-Z9DKTUVO-0002 (operator confirms the Telegram message shape) - asked at this review.",
       "observation": {
         "what": "first 05:30Z scheduled report produced and read by the 05:52Z review",
         "how_to_check": "curl -sS https://ict-bot.duckdns.org/api/bot/work/report -> reportId WR-20261005-0530Z (\u00b11 min) with erroredSections []; and MANAGER-CHECKLIST.json top-level last_review.report_id equals that reportId with reviewed_at after 05:52Z",
@@ -5252,14 +5260,51 @@
       "phase": "W6",
       "state": "in_flight",
       "owner": "burndown lane",
-      "lane": null,
+      "lane": "session_01FF7rXg93DhjUErmWop8C4X",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
+      "spend_usd": 6.23,
+      "tier": 1,
+      "prs": [
+        16554,
+        16555,
+        16558,
+        16559
+      ],
+      "blocked_on": [],
+      "note": "2026-10-05 05:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv under the operator's pacing directive (2026-10-05, the weekly limit must last to the Wed reset). Sonnet, $15 ceiling, NO parallel sub-agent fan-out (BURNDOWN-3 ran $65.71 against $40 with 17 sub-agents). 06:14Z: wave result \u2014 MERGED #16554/#16555 (34 records: 6 done, 18 killed, 11 routed) and #16559 (exit-head tp_cap); #16558 (check_stale_in_flight ratchet fix + test, files PI-20261005-MWOP8C4X-0001..0003) auto-merge armed. M20 exit-head/matrix rows NOT killed: measured premises still hold on the 52-row matrix. MANAGER DECISION: the ~380 remaining archived rows slow-drain on their spread due dates (<=24/day from 10-11) and 30-day owner observations; no more spend now. Row goes done when #16558 merges."
+    },
+    {
+      "id": "RQ-RENUMBER-16386",
+      "title": "Unblock #16386: renumber RESEARCH-RUN units RQ-20261004-653..674 -> 753..774 (ID collision with queue_replenish) + file the ID-race root cause",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager-dispatched lane",
+      "lane": "session_01H1mFH3B2BtDBL5rt476Z5b",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 5,
       "spend_usd": null,
       "tier": 1,
+      "prs": [
+        16386
+      ],
+      "blocked_on": [],
+      "note": "2026-10-05 05:49Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; manager validated the recipe in a scratch worktree (manager-scope routes the edit to a lane). 06:06Z lane done: branch pushed 15fd4749, root cause filed PI-20261005-RQ-ID-RACE-0001 (due 10-12). Manager merges #16386 when CI is green."
+    },
+    {
+      "id": "SOAK-GATE1",
+      "title": "Disposition the 16 due shadow soaks (PI-SOAK-20261004-*) at Gate 1 against each Stage-0 record: flip to live on Stage-1, kill, or file NEEDS_DATA; establish whether the 2 DEAD soaks are wiring faults",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager-dispatched lane",
+      "lane": "session_017HQgVMbXHRySLAKDrZBGRh",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 3,
       "prs": [],
       "blocked_on": [],
-      "note": "2026-10-05 05:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv under the operator's pacing directive (2026-10-05, the weekly limit must last to the Wed reset). Sonnet, $15 ceiling, NO parallel sub-agent fan-out (BURNDOWN-3 ran $65.71 against $40 with 17 sub-agents)."
+      "note": "2026-10-05 05:56Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv from the 05:52Z review. mandate_resolver --from S0 --to S1 returns R-NO-OP for these legs (it models roster membership, not the execution: shadow->live flip), so no granted mandate covers the flip; config edits come back as one Tier-3 hold PR. Lane may draft (not grant) a proposed mandate."
     }
   ]
 }
