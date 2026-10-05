@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/THEMES.yaml is outside the guard's Tier-1 self-landing surface, so this holds for a manager merge. Content: dispatch weight new_strategy_prop 2 -> 6 (OPERATOR DECISION 2026-10-05 popup, verbatim \"Prop first (Recommended)\"), the matching test pin, two doc lines, and the pipeline record closing PI-20261005-MG7BGR46-0001 as done. No code, config/accounts or order-path change.",
+  "why": "Operator-decided research-dispatch weight change plus its pipeline close-out; nothing touches the trader, the API or any roster."
+}
