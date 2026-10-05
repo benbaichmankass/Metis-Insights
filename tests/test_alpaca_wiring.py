@@ -760,11 +760,13 @@ def test_accounts_yaml_alpaca_paper_ships_inert():
     # gdx_pullback_1d (same htf_pullback_trend_2h unit as gld_pullback_1d).
     # 2026-06-30 (Tier-3) appended the leveraged Nasdaq-100 ETF trend cells
     # tqqq_trend_long_1d (3x) + qld_trend_long_1d (2x) — paper soak.
+    # 2026-10-05 MD-S1-CUT-ON-STAGE0-FAIL (operator grant, #16548) removed
+    # gld_pullback_1h, spy_pullback_1h, qqq_pullback_1h, tlt_pullback_1h and
+    # uso_trend_1h: complete Stage-1 soaks whose Stage-0 record fails.
     assert acct["strategies"] == [
         "spy_trend_long_1d", "qqq_trend_long_1d", "gld_pullback_1d",
         "iwm_trend_long_1d", "tlt_pullback_1d", "ief_pullback_1d",
-        "gld_pullback_1h", "slv_trend_1h",
-        "spy_pullback_1h", "qqq_pullback_1h", "tlt_pullback_1h", "uso_trend_1h",
+        "slv_trend_1h",
         "slv_pullback_1d", "gdx_pullback_1d",
         "tqqq_trend_long_1d", "qld_trend_long_1d",
         # sub-$100 proxy cells (2026-07-07, Tier-3) — SPLG/IAUM/SCHA paper soak.
