@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "The next tradeify_1 ticket whose limit would be marketable logs awaiting_resting_price with reason presubmit_marketable (or presubmit_quote_unreadable) and does NOT click submit, read off the ict-prop-executor@tradeify_1 journal.",
+    "kind": "observation"
+  },
+  "id": "PI-20261005-BRKBLOCK-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "journalctl -u ict-prop-executor@tradeify_1 | grep presubmit_ (via the journal relay)",
+    "what": "awaiting_resting_price with reason presubmit_marketable|presubmit_quote_unreadable and no place_bracket click for that ticket"
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/research/breakout-structural-blockers-2026-10-05.md#class-5 (memo not present on main at filing; PROP-LIMIT-GUARD lane)",
+    "rerun": "python3 -m pytest tests/test_prop_executor.py -q -k presubmit"
+  },
+  "routed_to": "PROP-LIMIT-GUARD lane PR (branch claude/prop-limit-guard-presubmit); manager merges and verifies deploy",
+  "state": "routed",
+  "what": "[breakout class 5] prop executor clicked submit on a marketable LIMIT buy (limit 120.91, ask 120.90) 2026-10-04 03:40Z; order never appeared (unconfirmed_submit), AUTO-REVERT latch tripped. #16332 only covered a DISABLED submit. Fix: pre-submit quote guard in src/prop/prop_executor.py routing marketable/unreadable-quote limits into awaiting_resting_price."
+}

@@ -1,0 +1,1 @@
+auto-merge: PROP-LIMIT-GUARD pre-submit quote guard (operator-approved Tier-2; manager merges)

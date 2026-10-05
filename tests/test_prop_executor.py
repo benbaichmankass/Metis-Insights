@@ -362,7 +362,7 @@ class FakeAdapter:
     def __init__(self, account=None, positions=(), orders=(), after_submit=None, attempt=None, read_error=None,
                  quote=None):
         self.account = account or acct()
-        self.quote = quote if quote is not None else {"bid": 119.99, "ask": 120.0}   # inside ticket()'s band
+        self.quote = quote if quote is not None else {"bid": 119.99, "ask": 120.01}  # inside ticket()'s band, long limit 120.0 RESTING (ask strictly above)
         self.positions, self.orders = list(positions), list(orders)
         self.after_submit = after_submit       # (positions, orders) the terminal shows after submit
         self.attempt = attempt
@@ -3702,7 +3702,7 @@ def test_a_first_attempt_waits_while_the_price_is_beyond_the_stop(env):
     assert _places(ad) == [] and ledger.latest() == {}                 # WAIT: not an attempt
     assert any(a["what"] == "band_wait" and "117.5" in a["why"] for a in res.actions)
     assert not [p for p in api.posts if p.get("kind") == "fill"]
-    ad.quote = {"bid": 119.99, "ask": 120.0}                           # back inside the band
+    ad.quote = {"bid": 119.99, "ask": 120.01}                           # back inside the band
     _band_cycle(ad, api, env, 1)
     assert len(_places(ad)) == 1
 
@@ -3718,7 +3718,7 @@ def test_a_short_is_checked_on_the_bid(env):
     ad = FakeAdapter(quote={"bid": 120.8, "ask": 120.0})               # ask inside, bid outside
     _band_cycle(ad, FakeApi([t]), env)
     assert _places(ad) == []
-    ad.quote = {"bid": 120.0, "ask": 120.8}
+    ad.quote = {"bid": 119.9, "ask": 120.8}                            # short limit 120.0 strictly above the bid
     _band_cycle(ad, FakeApi([t]), env, 1)
     assert len(_places(ad)) == 1
 
@@ -3771,7 +3771,7 @@ def test_a_retry_waits_outside_the_band_without_spending_an_attempt(env):
     _rcycle(ad, api, env, 1)                                            # beyond the stop: WAIT
     assert len(_places(ad)) == 1 and ledger.state("prop-manual-aaa") == pe.RETRY_STATE
     assert ledger.latest()["prop-manual-aaa"].get("attempts") == 1
-    ad.quote = {"bid": 119.99, "ask": 120.0}
+    ad.quote = {"bid": 119.99, "ask": 120.01}
     _rcycle(ad, api, env, 2)
     assert len(_places(ad)) == 2 and ledger.state("prop-manual-aaa") != pe.RETRY_STATE
 
@@ -3805,7 +3805,7 @@ def test_an_outside_band_wait_does_not_alert(env):
     assert not [a for a in res.alerts if "unreadable" in a]
 
 
-@pytest.mark.parametrize("ask", [119.5, 120.5])                     # ticket()'s band is 119.5..120.5
+@pytest.mark.parametrize("ask", [120.5])                            # ticket()'s band is 119.5..120.5 (119.5 is below the limit: pre-submit guard)
 def test_a_price_exactly_on_a_band_edge_places(env, ask):
     ad = FakeAdapter(quote={"bid": ask - 0.01, "ask": ask})
     _band_cycle(ad, FakeApi([ticket()]), env)
@@ -3825,10 +3825,10 @@ def test_a_dry_unreadable_band_alerts_once(env):
 
 def test_a_passing_band_check_is_logged_with_the_quote_it_used(env):
     # manager 2026-09-30 22:06Z: a live pass must be observable, not inferred
-    ad = FakeAdapter(quote={"bid": 119.99, "ask": 120.0})
+    ad = FakeAdapter(quote={"bid": 119.99, "ask": 120.01})
     res = _band_cycle(ad, FakeApi([ticket()]), env)
     ok = [a for a in res.actions if a["what"] == "band_ok"]
-    assert len(ok) == 1 and ok[0]["why"] == "ask 120.0 inside the ticket's entry band 119.5..120.5"
+    assert len(ok) == 1 and ok[0]["why"] == "ask 120.01 inside the ticket's entry band 119.5..120.5"
     assert len(_places(ad)) == 1
 
 
@@ -4093,7 +4093,7 @@ def test_a_ticket_that_comes_back_into_the_band_and_places_never_alerts(env):
     ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
     api = FakeApi([ticket()])
     _band_cycle(ad, api, env, 0)                                # waits
-    ad.quote = {"bid": 119.99, "ask": 120.0}                    # back inside
+    ad.quote = {"bid": 119.99, "ask": 120.01}                    # back inside
     _band_cycle(ad, api, env, 1)
     assert len(_places(ad)) == 1
     res = _band_cycle(ad, api, env, 7)                          # past valid_until
@@ -4287,6 +4287,7 @@ def test_blocked_marketable_limit_waits_then_is_placed_when_resting(env):
     ad = SpecAdapter(attempt=_blocked())                 # default quote ask 120.0 == limit 120.0
     api = FakeApi([ticket()])
     alerts = [_rcycle(ad, api, env, 0).alerts]
+    ad.quote = {"bid": 119.99, "ask": 120.0}             # the market has since reached the limit
     assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
     assert len(_await_alerts(alerts)) == 1 and not [p for p in api.posts if p.get("ticket_id")]
     ad.attempt = None
@@ -4304,7 +4305,9 @@ def test_blocked_marketable_limit_expires_not_placed_with_one_alert(env):
     ledger, _ = env
     ad = SpecAdapter(attempt=_blocked())
     api = FakeApi([ticket(valid_until=(NOW + timedelta(minutes=12)).isoformat())])
-    alerts = [_rcycle(ad, api, env, k).alerts for k in (0, 1, 2)]      # blocked, then still marketable
+    alerts = [_rcycle(ad, api, env, 0).alerts]                          # blocked by the terminal
+    ad.quote = {"bid": 119.99, "ask": 120.0}                            # then still marketable
+    alerts += [_rcycle(ad, api, env, k).alerts for k in (1, 2)]
     alerts += [_rcycle(ad, api, env, k).alerts for k in (3, 4)]         # NOW+15/+20 > valid_until
     assert len(_places(ad)) == 1
     row = ledger.latest()["prop-manual-aaa"]
@@ -4486,3 +4489,85 @@ def test_a_close_that_did_not_click_is_retried_up_to_the_bound(env):
     n = len(ad.calls)
     run(ad, FakeApi(), env)
     assert len(ad.calls) == n                                       # parked: no further clicks
+
+
+# ── pre-submit quote guard (PI-20261005-BRKBLOCK-0001) ──
+# 2026-10-04 03:40Z: a LONG limit 120.91 with the ask 120.90 was SUBMITTED (the
+# terminal enabled the submit), never appeared, and tripped the AUTO-REVERT latch.
+
+def _guard_logs(res):
+    return [a for a in res.actions if a["what"] == "awaiting_resting_price"]
+
+
+@pytest.mark.parametrize("direction,sl,tp,quote,why", [
+    ("long", 118.0, 126.0, {"bid": 120.89, "ask": 120.90}, "marketable"),       # the 03:40Z case (limit 120.91)
+    ("long", 118.0, 126.0, {"bid": 120.89, "ask": 120.91}, "marketable"),       # equal to the ask
+    ("short", 122.0, 114.0, {"bid": 120.93, "ask": 120.94}, "marketable"),      # short mirror: limit 120.91 < bid
+    ("short", 122.0, 114.0, {"bid": 120.91, "ask": 120.94}, "marketable"),      # short, equal to the bid
+])
+def test_presubmit_guard_refuses_a_marketable_limit_and_clicks_nothing(env, direction, sl, tp, quote, why):
+    ledger, _ = env
+    ad = SpecAdapter(quote=quote)
+    api = FakeApi([ticket(direction=direction, entry=120.91, sl=sl, tp=tp,
+                          message="  Entry    : 120.91   (only if live price is within 120.0 … 122.0)")])
+    res = _rcycle(ad, api, env, 0)
+    assert _places(ad) == [], "no submit click for a marketable limit"
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    g = _guard_logs(res)
+    assert g and g[0]["reason"] == f"presubmit_{why}" and "NOT clicked" in g[0]["why"]
+    assert len(_await_alerts([res.alerts])) == 0 and any("pre-submit guard (marketable)" in a for a in res.alerts)
+
+
+def test_presubmit_guard_passes_a_resting_long_limit(env):
+    ad = SpecAdapter(quote={"bid": 120.90, "ask": 120.92})
+    _rcycle(ad, FakeApi([ticket(entry=120.91, message="  Entry    : 120.91   (only if live price is within 120.0 … 122.0)")]), env, 0)
+    assert len(_places(ad)) == 1
+
+
+def test_presubmit_guard_passes_a_resting_short_limit(env):
+    ad = SpecAdapter(quote={"bid": 120.90, "ask": 120.92})
+    api = FakeApi([ticket(direction="short", entry=120.91, sl=122.0, tp=114.0,
+                          message="  Entry    : 120.91   (only if live price is within 120.0 … 122.0)")])
+    _rcycle(ad, api, env, 0)
+    assert len(_places(ad)) == 1
+
+
+@pytest.mark.parametrize("quote", [None, {"bid": None, "ask": None}, {"bid": 120.89, "ask": None}])
+def test_presubmit_guard_fails_closed_on_an_unreadable_quote_with_its_own_reason(env, quote):
+    ledger, _ = env
+    spec = pe.bracket_from_ticket(ticket(), cfg())[0]
+
+    class Blind(SpecAdapter):
+        def read_quote(self, page, venue):
+            if quote is None:
+                raise LookupError("watchlist row not found")
+            return quote
+    kind, why = pe._presubmit_limit_check(Blind(), None, spec)
+    assert kind == "quote_unreadable" and "could not read" in why and "NOT clicked" in why
+
+
+def test_presubmit_guard_unreadable_quote_never_clicks_and_keeps_waiting(env):
+    ledger, _ = env
+
+    class Blind(SpecAdapter):
+        calls_q = 0
+        def read_quote(self, page, venue):
+            Blind.calls_q += 1
+            if Blind.calls_q == 1:
+                return {"bid": 119.99, "ask": 120.01}   # entry-band check reads fine
+            raise LookupError("gone")
+    ad = Blind()
+    res = _rcycle(ad, FakeApi([ticket()]), env, 0)
+    assert _places(ad) == [] and ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert _guard_logs(res)[0]["reason"] == "presubmit_quote_unreadable"
+
+
+def test_presubmit_guard_does_not_spend_the_attempt_budget_and_places_once_resting(env):
+    ledger, _ = env
+    ad = SpecAdapter(quote={"bid": 119.99, "ask": 120.0})       # ask == limit 120.0: marketable
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    assert _places(ad) == [] and ledger.latest()["prop-manual-aaa"].get("attempts", 0) == 0
+    ad.quote, ad.after_submit = {"bid": 120.1, "ask": 120.2}, ([], [_o()])
+    _rcycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1 and ledger.state("prop-manual-aaa") == "placed"

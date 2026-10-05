@@ -1243,6 +1243,22 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         else:
             res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict())
         return res
+    # PRE-SUBMIT quote guard (PI-20261005-BRKBLOCK-0001): the terminal only
+    # DISABLES the submit for some marketable limits; 2026-10-04 03:40Z it
+    # enabled one (long limit 120.91, ask 120.90) and the order never appeared.
+    # A LIMIT must rest strictly away from the market, or nothing is clicked.
+    guard_kind, guard_why = _presubmit_limit_check(adapter, page, spec)
+    if guard_kind:
+        ledger.record(spec.ticket_id, AWAIT_REST_STATE, attempts=int((seen.get(spec.ticket_id) or {}).get("attempts") or 0),
+                      spec=spec.as_dict(), valid_until=candidate.get("valid_until"), last_detail=guard_why)
+        res.log("awaiting_resting_price", ticket_id=spec.ticket_id, check=0, why=guard_why,
+                reason=f"presubmit_{guard_kind}", limit=spec.limit_price, valid_until=candidate.get("valid_until"))
+        if _first_time(state, st, "await_rest_start", spec.ticket_id):
+            res.alerts.append(f"{spec.ticket_id}: NOT PLACED yet — pre-submit guard ({guard_kind}): {guard_why}. "
+                              f"Nothing was clicked. The executor keeps the ticket and places it at the SAME "
+                              f"limit {spec.limit_price} once a quote shows it resting, while price stays in the "
+                              f"entry band, until {candidate.get('valid_until')} — do NOT place by hand")
+        return res
     ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts),
                   valid_until=candidate.get("valid_until"))
     att: PlaceAttempt = adapter.place_bracket(page, spec, arm=True)
@@ -1822,6 +1838,32 @@ def _still_marketable(adapter: Any, page: Any, venue: str, side: Optional[str],
     if side == "long":
         return (px <= limit), f"ask {px} vs limit {limit}"
     return (px >= limit), f"bid {px} vs limit {limit}"
+
+
+def _presubmit_limit_check(adapter: Any, page: Any, spec: Any) -> Tuple[Optional[str], str]:
+    """Pre-submit guard for a LIMIT entry: ``(None, why)`` when it may be
+    submitted, else ``("marketable"|"quote_unreadable", why)``. A long limit must
+    sit strictly below the ask, a short strictly above the bid (equal is
+    marketable). An unreadable quote FAILS CLOSED, named apart from a read
+    quote that shows the limit marketable. Non-limit orders are not checked."""
+    if str(getattr(spec, "order_type", "") or "").lower() != "limit":
+        return None, "not a limit order"
+    limit = _f(getattr(spec, "limit_price", None))
+    side = getattr(spec, "side", None)
+    if limit is None or side not in ("long", "short"):
+        return "quote_unreadable", "no limit/side on the spec (could not check the quote)"
+    venue = (getattr(spec, "venue_symbol", None) or "")
+    try:
+        q = adapter.read_quote(page, venue)
+    except Exception as exc:
+        return "quote_unreadable", f"could not read the quote ({type(exc).__name__}); submit NOT clicked"
+    key = "ask" if side == "long" else "bid"
+    px = _f((q or {}).get(key))
+    if px is None:
+        return "quote_unreadable", f"could not read the {key} (no quote); submit NOT clicked"
+    if (side == "long" and limit >= px) or (side == "short" and limit <= px):
+        return "marketable", f"{key} {px} vs {side} limit {limit}: limit is marketable, submit NOT clicked"
+    return None, f"{key} {px} vs {side} limit {limit}: resting"
 
 
 def _end_await(res: "CycleResult", state: "ExecutorState", st: Dict[str, Any], ledger: "IntentLedger",
