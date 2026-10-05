@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Register-only: adds the VELOTRADE-WIRE row to MANAGER-CHECKLIST.json (blocked on the operator's Velotrade purchase + credential), split out of held Tier-2 PR #16500 because GitHub has no jsonregister merge driver. No code, config or order-path change."
+  "why": "Register-only: adds the VELOTRADE-WIRE row to MANAGER-CHECKLIST.json (blocked on the operator's Velotrade purchase + credential; #16500 merged 9ddf1ee0), split out of #16500 because GitHub has no jsonregister merge driver, plus one pipeline record (PI-20261005-KQIWJZWX-0001, an unreproduced test failure). No code, config or order-path change."
 }
