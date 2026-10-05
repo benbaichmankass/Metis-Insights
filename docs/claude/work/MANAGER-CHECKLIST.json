@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-05T06:16:00Z",
+  "updated_at": "2026-10-05T06:35:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
     "_comment": "Set by the manager's daily review (manager SKILL \u00a7 'The work system'): the WR-YYYYMMDD-HHMMZ report it worked from GET /api/bot/work/report, when, by whom, and disposition counts. Per-item dispositions live on the pipeline items. null = no review recorded yet.",
@@ -5125,16 +5125,24 @@
       "id": "MANDATE-S1-CUT",
       "title": "Record operator grant MD-S1-CUT-ON-STAGE0-FAIL in config/mandates.yaml + resolver rule; then apply it (Stage-1 roster cuts) in a separate PR",
       "phase": "B",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane MANDATE-S1-CUT",
       "lane": "session_012tsLa1ugTpjgNvCFMSLXPD",
       "model": "claude-opus-5-5",
       "ceiling_usd": 25,
-      "spend_usd": null,
+      "spend_usd": 10.63,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        16548,
+        16556
+      ],
       "blocked_on": [],
-      "note": "[2026-10-05 lane MANDATE-S1-CUT] OPERATOR GRANT: popup in manager session session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04 ~21:25Z, verbatim \"Grant it (Recommended)\" for MD-S1-CUT-ON-STAGE0-FAIL as proposed in docs/plans/soak-verdicts-2026-10-04.md; confirmed to the lane in its own session (\"Go\") 2026-10-05. PR 1 (held, manager merges): grant entry in config/mandates.yaml, resolver rule mandate_resolver._s1_cut_on_stage0_fail + 13 tests, soak snapshot comms/mandate_evidence/soak_state/2026-10-04.json (live brief 21:29Z) and its capture script. Dry evaluation over every bybit_1/alpaca_paper leg: 15 FIRE, listed with evidence in the PR body. NO roster is cut in PR 1 (manager instruction: cut only after the grant is on main). Closes when: PR 1 merged; PR 2 (the cuts) merged and deployed; cut legs observed producing no new order packages on their Stage-1 account over the next ticks."
+      "note": "[2026-10-05 lane MANDATE-S1-CUT] OPERATOR GRANT: popup in manager session session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04 ~21:25Z, verbatim \"Grant it (Recommended)\" for MD-S1-CUT-ON-STAGE0-FAIL as proposed in docs/plans/soak-verdicts-2026-10-04.md; confirmed to the lane in its own session (\"Go\") 2026-10-05. PR 1 (held, manager merges): grant entry in config/mandates.yaml, resolver rule mandate_resolver._s1_cut_on_stage0_fail + 13 tests, soak snapshot comms/mandate_evidence/soak_state/2026-10-04.json (live brief 21:29Z) and its capture script. Dry evaluation over every bybit_1/alpaca_paper leg: 15 FIRE, listed with evidence in the PR body. NO roster is cut in PR 1 (manager instruction: cut only after the grant is on main). Closes when: PR 1 merged; PR 2 (the cuts) merged and deployed; cut legs observed producing no new order packages on their Stage-1 account over the next ticks. [2026-10-05T06:34Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] #16556 MERGED 64660b67 (06:22Z). DEPLOYED: /api/diag/version git_sha 64660b672, restart_pending false. OBSERVED: /api/bot/config bybit_1 16 legs, alpaca_paper 14 legs, none of the 15 cut legs present; config_load_errors []. The two open positions on cut legs (bybit_1 ict_scalp_eth_15m ETH short, alpaca_paper qqq_pullback_1h QQQ long) still lifecycle open in /api/diag/position_telemetry, updated 06:33Z (exit monitoring keyed on open packages, order_monitor.exit_population). REVERT: re-add the 15 names to config/accounts.yaml (git revert 64660b67).",
+      "observation": {
+        "what": "no NEW order package from any of the 15 cut legs on bybit_1/alpaca_paper after 06:33Z; the two open positions close via TP/SL/strategy exit, not a reconciler close",
+        "how_to_check": "bash scripts/ops/diag_fetch.sh '/api/diag/position_telemetry' and the order_packages diag since 2026-10-05T06:33Z filtered to the 15 strategy names",
+        "due_by": "2026-10-07T06:00Z"
+      }
     },
     {
       "id": "BACKLOG-BURNDOWN-2",
