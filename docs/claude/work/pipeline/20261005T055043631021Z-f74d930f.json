@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-RQ-ID-RACE-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RQ-RENUMBER-16386, 2026-10-05, PR #16386",
+    "rerun": "git ls-tree origin/main research/queue/ | grep -oE 'RQ-[0-9]{8}-[0-9]+' | sort | uniq -d  (empty is not proof; also diff hand-authored vs queue_replenish.py-minted IDs on open PRs: git diff origin/main...<branch> --name-only -- research/queue); then check whether queue_replenish.py still allocates from the same RQ-YYYYMMDD-NNN space as hand-authored units"
+  },
+  "state": "queued",
+  "what": "ROOT CAUSE of the 2026-10-05 RQ-20261004-653..661 collision on PR #16386: queue_replenish.py (generated E35/M20 units) and hand-authored research units mint IDs from the same RQ-YYYYMMDD-NNN space and neither sees open PRs, so a long-lived PR collides with main once the generator catches up (fixed by hand-renumbering 653..674 -> 753..774). Proposed fix: give generated units a separate namespace (e.g. RQ-YYYYMMDD-G-NNN) or a reserved numeric range, and have queue_replenish.py skip IDs present on any open PR branch; add a guard that fails a PR whose new research/queue ids already exist on origin/main under different content."
+}

@@ -1,6 +1,6 @@
 id: RQ-20260929-102
 title: 'Stage-0 backtest: squeeze harness on BNBUSDT 4h (uncovered symbol)'
-status: queued
+status: done
 cadence: once
 theme: new_strategy_prop
 priority: 2
@@ -85,3 +85,4 @@ lands:
 related:
   - 'squeeze_breakout_4h (config/strategies.yaml:305) -- the BTCUSDT-only leg this checks a second symbol against'
 last_dispatched_at: '2026-10-04T14:55:57+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN by hand against this unit's own rule. Re-run after the fetch-window fix (PI-20261004-APBY4NTV-0001), window 2023-10-05 to 2026-10-03. FAIL (first pass, marginal): net_total_r -2.3520, n_trades 133, expectancy -0.0177 R/trade, max drawdown 17.66 R. Near zero, so a confirmatory run on a different window is the right next step rather than a kill. Record: research/results/RQ-20260929-102/37210877427.jsonl."
