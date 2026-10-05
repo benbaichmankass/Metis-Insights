@@ -1,0 +1,1 @@
+VELOTRADE-WIRE API executor design memo

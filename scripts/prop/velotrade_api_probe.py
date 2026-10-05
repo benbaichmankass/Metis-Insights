@@ -27,9 +27,18 @@ import urllib.request
 
 BASE = "https://dx.velotrade.com/dxsca-web"
 SYMBOLS = ["ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD"]
+# Account fields that describe the account's TYPE, not its identity. Printed by
+# value; anything not listed here (account code, owner, ids) is never printed.
+# `isPositionBased` is the spec's name (rest/types/account-details.md: "shows if the
+# account is Position-based or Net-based"); `positionBased` kept in case the server differs.
+ACCOUNT_TYPE_FIELDS = ("isPositionBased", "positionBased", "accountStatus", "baseCurrency",
+                       "accountType", "type", "status", "marginMode", "marginCalculationType", "hedging")
 SPEC_FIELDS = (
-    "symbol", "type", "lotSize", "minVolume", "maxVolume", "volumeStep",
-    "pricePrecision", "quantityPrecision", "marginRate", "currency",
+    "symbol", "type", "currency", "lotSize", "multiplier", "priceIncrement",
+    "pipSize", "quantityIncrement", "assetClass", "tradingStatus",
+    "minOrderSize", "maxOrderSize", "minOrderSizeIncrement", "marginRate",
+    # names the web terminal's own endpoint uses (seen in the login-check output)
+    "minVolume", "maxVolume", "volumeStep", "pricePrecision", "quantityPrecision",
     "financingMode", "swapRateLong", "swapRateShort", "spreadType",
 )
 UA = "metis-insights-velotrade-api-probe/1 (read-only; contact: repo owner)"
@@ -84,11 +93,27 @@ def _err(status, js, text) -> str:
     return f"http={status} body={text[:120]!r}"
 
 
+def _shape(o, depth=0):
+    if depth > 3:
+        return "..."
+    if isinstance(o, dict):
+        return {k: _shape(v, depth + 1) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_shape(o[0], depth + 1)] if o else []
+    return type(o).__name__
+
+
 def _specs(js) -> list[dict]:
+    """Instrument rows from a bare list, a single row, or a dict wrapping a list
+    under ANY key (the account-scoped view's wrapper key is not documented)."""
     if isinstance(js, dict) and "symbol" in js:
         return [js]
-    items = js.get("instruments") if isinstance(js, dict) else js
-    return [i for i in (items or []) if isinstance(i, dict)]
+    if isinstance(js, dict):
+        for v in js.values():
+            if isinstance(v, list) and v and isinstance(v[0], dict):
+                return [i for i in v if isinstance(i, dict)]
+        return []
+    return [i for i in (js or []) if isinstance(i, dict)]
 
 
 def main() -> int:
@@ -124,17 +149,23 @@ def main() -> int:
         full_user = f"{login_user}@{domain_used}"
         st, js, tx = _call("GET", "/users/" + urllib.parse.quote(full_user, safe=""), token)
         _out(f"users: http={st} shape={type(js).__name__} keys={sorted(js.keys()) if isinstance(js, dict) else 'n/a'}")
-        accounts = []
-        if isinstance(js, dict):
-            cand = js.get("users") if isinstance(js.get("users"), list) else [js]
-        elif isinstance(js, list):
-            cand = js
-        else:
-            cand = []
-        for u in cand:
-            if isinstance(u, dict):
-                accounts.extend(u.get("accounts") or [])
-        _out(f"users: accounts={len(accounts)}")
+        def _find_accounts(o):
+            if isinstance(o, dict):
+                if isinstance(o.get("accounts"), list):
+                    return o["accounts"]
+                for v in o.values():
+                    r = _find_accounts(v)
+                    if r:
+                        return r
+            elif isinstance(o, list):
+                for v in o:
+                    r = _find_accounts(v)
+                    if r:
+                        return r
+            return []
+
+        accounts = _find_accounts(js)
+        _out(f"users: accounts={len(accounts)} shape={json.dumps(_shape(js), sort_keys=True)[:600]}")
         codes = []
         for a in accounts:
             c = a.get("accountCode") or a.get("account") or a.get("code") if isinstance(a, dict) else a
@@ -143,6 +174,14 @@ def main() -> int:
         _SECRETS.extend(codes)
         if accounts and isinstance(accounts[0], dict):
             _out(f"account_keys: {sorted(accounts[0].keys())}")
+            # Non-identifying account TYPE fields only (VELOTRADE-WIRE, API order path):
+            # order groups (IF-THEN brackets) are valid only on a position-based account.
+            # Booleans / short enums from a fixed allowlist; never codes, names or ids.
+            for n, a in enumerate(accounts, 1):
+                if isinstance(a, dict):
+                    kept = {k: a[k] for k in ACCOUNT_TYPE_FIELDS
+                            if k in a and isinstance(a[k], (bool, int, float, str)) and len(str(a[k])) <= 32}
+                    _out(f"account#{n} type: {json.dumps(kept, sort_keys=True)}")
 
         for n, code in enumerate(codes, 1):
             q = urllib.parse.quote(code, safe="")
@@ -178,7 +217,7 @@ def main() -> int:
                 if rows:
                     _out(f"spec[{label}]: " + json.dumps({k: rows[0][k] for k in SPEC_FIELDS if k in rows[0]}, sort_keys=True))
                 else:
-                    _out(f"spec[{label}] {sym}: no exact row ({_err(st, js, tx)})")
+                    _out(f"spec[{label}] {sym}: no exact row ({_err(st, js, tx)}) shape={json.dumps(_shape(js), sort_keys=True)[:300]}")
     finally:
         st, js, tx = _call("POST", "/logout", token)
         _out(f"logout: http={st}")

@@ -1,0 +1,23 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "owner row VELOTRADE-WIRE reaches done, or this item is verified fixed at HEAD. Routed 2026-10-05: velotrade_1 login check pending",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "filed": "2026-10-04",
+  "id": "PI-20261004-KQIWJZWX-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01WfdESzsCPZbuawkqiWjzWX",
+    "kind": "session",
+    "ref": "VELOTRADE-WIRE (checklist row; held PR claude/velotrade-wire)",
+    "rerun": "grep -n 'velotrade_1' -A40 config/prop_platforms.yaml | grep -n 'lots\\|enabled_venue_symbols'; read the latest breakout-login-check issue for account: velotrade_1"
+  },
+  "routed_to": "VELOTRADE-WIRE (blocked)",
+  "severity": "high",
+  "state": "routed",
+  "tier": 2,
+  "what": "velotrade_1: after the first read-only login check passes on the VM (breakout-login-check account: velotrade_1), MEASURE before any go-live PR: how the terminal displays symbols (ETHUSD vs ETH/USD -> search_query_style), lot units / step / minimum and price step for ETHUSD/SOLUSD (symbol-switch-dry, probe-ticket or probe-ticket-ask), one-click state and the order-ticket opener, and whether the LIMIT price field keeps a page.fill (round-trip-dry,limit). Each Tradeify quirk (ask_button opener, keys fill, slash search) was MEASURED, not assumed; velotrade_1 inherits none. Then fill config/prop_platforms.yaml velotrade_1.executor.lots and config/prop_rulesets/velotrade_routing.yaml from the measurements.\n\nUPDATE 2026-10-05 (lane VELOTRADE-API-PROBE; memo docs/research/velotrade-api-probe-2026-10-05.md; run 37311474412, issue #16616): login works on the REST API too. MEASURED account-scoped contract specs (REST, units = lots since lotSize 1): ETHUSD min 0.01 step 0.01 price_step 0.01; SOLUSD min 0.1 step 0.1 price_step 0.001; XRPUSD min 10 step 10 price_step 0.00001; BTCUSD min 0.001 step 0.001 price_step 0.01. SOLUSD min is 0.1 on Velotrade (NOT the 0.01 Tradeify uses). BTCUSD cross-checks exactly against the web terminal's own row (#16577). PROPOSED lots entries are in the memo section 3; config NOT edited. STILL OPEN: the browser ticket's own acceptance of those sizes (round-trip-dry), symbol display style (search_query_style), one-click state / ticket opener, LIMIT-price fill, and whether velotrade_1 is position-based (decides IF-THEN bracket vs fill-then-attach over REST)."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Edits ten research/queue/RQ-20261005-8xx.yaml units (status, last_dispatched_at, result line); queue YAML is outside TIER1_SURFACE.",
+  "why": "Bookkeeping so the dispatcher does not re-fire ten hand-dispatched units and their graded verdicts are on main. No config, roster or runtime change."
+}

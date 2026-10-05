@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 path (scripts/prop probe run by a VM system-action). Fourth follow-up to #16581: run #16612 (VM on 5b5ee2fa1) read the account and balance over REST but dropped every instrument field because the output allowlist used web-terminal names (minVolume, volumeStep) while the DXtrade REST spec names them minOrderSize, minOrderSizeIncrement, priceIncrement, pipSize, quantityIncrement; it also assumed the wrapper key of the account-scoped list. Still read-only (GET + POST /login + POST /logout); verified offline against a mock: no /orders path, no credential/token/account code in output. The manager merges.",
+  "why": "Read-only probe output fix, lane VELOTRADE-API-PROBE, pipeline PI-20261005-APBY4NTV-0004."
+}
