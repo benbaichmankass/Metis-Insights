@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "clears_when": "vwap evidence record measured and rule verdict recorded; if net<=0 kill (strategies.yaml enabled:false, on no roster)",
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-SOAK-20261004-vwap",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 scripts/ops/soak_report.py --print-state; ls comms/strategy_evidence",
+    "what": "vwap evidence record measured and rule verdict recorded; if net<=0 kill (strategies.yaml enabled:false, on no roster)"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "routed_to": "No evidence record. Harness exists (src/backtest/run_backtest_vwap.py) but build_strategy_evidence has no route. regime_policy already marks it off in every cell citing net losses.",
+  "state": "routed",
+  "what": "SOAK (shadow): vwap — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record ABSENT). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing. | SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv): NEEDS_DATA."
+}

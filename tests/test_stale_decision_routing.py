@@ -83,7 +83,9 @@ def test_prop_is_its_own_class_not_folded_into_real_money_or_paper() -> None:
     routing = ROLLUP._funding_by_leg()
     assert ROLLUP._leg_funding("trend_donchian_eth_prop", routing) == "prop"
     assert ROLLUP._leg_funding("trend_donchian_sol_prop", routing) == "prop"
-    assert ROLLUP._leg_funding("eth_pullback_prop_2h", routing) == "paper", (
+    # Since 2026-10-05 (SOAK-GATE1, Stage-0 FAIL) bybit_1 no longer declares it,
+    # so it reads `unresolved`; it must still never read `prop` again.
+    assert ROLLUP._leg_funding("eth_pullback_prop_2h", routing) != "prop", (
         "eth_pullback_prop_2h graded prop again — R2 cut it from breakout_1 on "
         "2026-09-22 and bybit_1 (paper) is its only remaining route. If it was "
         "deliberately re-promoted, that is Tier-3 and needs a record clearing "
@@ -116,7 +118,9 @@ def test_routing_is_keyed_on_declared_strategies_not_on_symbols() -> None:
         "trades, but since the R2 cut (2026-09-22) bybit_2.strategies does not "
         "list this leg. That is the same symbol-keyed inference that published "
         "a false real-money claim on 2026-08-15")
-    assert ROLLUP._leg_funding("htf_pullback_trend_2h", routing) == "paper", (
+    # Since 2026-10-05 (SOAK-GATE1) htf_pullback_trend_2h is on no roster
+    # (`unresolved`); the guarded regression is a symbol-keyed `real_money`.
+    assert ROLLUP._leg_funding("htf_pullback_trend_2h", routing) != "real_money", (
         "htf_pullback_trend_2h graded real_money again — it trades BTCUSDT, "
         "which bybit_2 trades, but bybit_2.strategies does not list this leg. "
         "That inference is what published a false real-money claim on 2026-08-15")
