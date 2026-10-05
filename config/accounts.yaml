@@ -1752,7 +1752,7 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    mode: live
+    mode: dry_run  # mode-guard: allow — set-account-mode run 37273806314: Operator approved 2026-10-05 ~06:50Z (AskUserQuestion popup in manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim "Set it to dry_run (Recommended)"). breakout_1
     report_default: true               # a bare Telegram fill report / screenshot (no acct=) is
                                        # breakout_1's once tradeify_1 is live too (TRADEIFY-WIRE C;
                                        # src/prop/telegram_report_handler.default_prop_account).
