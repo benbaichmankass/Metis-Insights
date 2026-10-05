@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane PHONE-EXEC-1A: open a PR, drive CI green, do not merge; the manager lands it.",
+  "why": "Docs only: records the +6h and phone-restart session rechecks in docs/integrations/breakout-phone-executor-DESIGN.md sections 7.9 and 7.10. No src/, config/, VM or order-path change; Tier-1 by path, held per the lane's landing instruction rather than self-landed."
+}
