@@ -354,48 +354,59 @@ class MainActivity : Activity() {
         if (!(if (long) sl < entry && entry < tp else tp < entry && entry < sl)) return refuse(id, "bracket geometry wrong for the side", null)
         setStatus("ticket $id: ${if (live) "LIVE" else "DRY"} $sideTab ${fmt(qty, qStep)} $venue @ ${fmt(entry, pStep)}")
 
-        // 1. ticket open, symbol
-        if (js("__ex.openTicket()") == "no_order_control") return refuse(id, "order control not found", null)
+        // 1. SYMBOL FIRST, then the ticket, then VERIFY before anything is typed (fix 2026-10-05 ~22:40Z: the first
+        //    dry ticket found the terminal on BTC, nothing selected ETH, and the ticket was refused "symbol ETH not
+        //    verified" with the page's own BTC values in the dump; our code had typed nothing). The venue symbol is
+        //    selected on the page before the ticket is opened or touched; the ticket's submit label ("Long (buy) ETH")
+        //    must then name the asset. Every move is a selection; a route that cannot be verified refuses with its name.
+        var route = selectSymbol(venue, base)
+        if (js("__ex.openTicket()") == "no_order_control") return refuse(id, "order control not found (symbol route: $route)", jsObj("__ex.ticket()"))
         delay(1500); ensure()
-        js("__ex.selectSymbol(${q(venue)})"); delay(2000); ensure()
-        if (js("__ex.openTicket()") == "clicked") delay(1500)
+        var shown = js("__ex.symbolOnTicket()")
+        if (!shown.uppercase().contains(base)) {
+            // second round with the ticket open: its own header may be the symbol picker
+            route += " | ticket open: " + selectSymbol(venue, base)
+            if (js("__ex.openTicket()") == "clicked") delay(1500)
+            shown = js("__ex.symbolOnTicket()")
+        }
         var tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        if (!tk.optBoolean("open")) return refuse(id, "ticket not open", tk)
-        val symText = (tk.optJSONArray("heading")?.toString() ?: "") + tk.optJSONObject("submit")?.optString("text") + tk.optJSONArray("alerts")
-        if (!symText.uppercase().contains(base)) return refuse(id, "symbol $base not verified on the ticket", tk)
+        if (!tk.optBoolean("open")) return refuse(id, "ticket not open (symbol route: $route)", tk)
+        if (!shown.uppercase().contains(base)) return refuse(id, "symbol $base not on the submit label (ticket shows '${shown.ifEmpty { "?" }}'; symbol route: $route)", tk)
         // 2. type + side
         js("__ex.tab('Limit')"); delay(500); js("__ex.tab(${q(sideTab)})"); delay(700)
         if (js("__ex.tabSelected('Limit')") != "true" || js("__ex.tabSelected(${q(sideTab)})") != "true") return refuse(id, "Limit/$sideTab tab not selected", jsObj("__ex.ticket()"))
-        // 3. price + quantity
-        tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        val pIdx = idx(tk, Regex("limit price", RegexOption.IGNORE_CASE)) ?: return refuse(id, "Limit price field not unique", tk)
-        val qIdx = idx(tk, Regex("quantity", RegexOption.IGNORE_CASE)) ?: return refuse(id, "Quantity field not unique", tk)
-        if (!typeInto(pIdx, fmt(entry, pStep), entry, pStep)) return refuse(id, "limit price did not read back", jsObj("__ex.ticket()"))
-        if (!typeInto(qIdx, fmt(qty, qStep), qty, qStep)) return refuse(id, "quantity did not read back", jsObj("__ex.ticket()"))
-        // quantity unit: the "Quantity ... available" alert must name the base asset, not USD
+        if (!js("__ex.symbolOnTicket()").uppercase().contains(base)) return refuse(id, "submit label lost $base after the tabs", jsObj("__ex.ticket()"))
+        // 3. price + quantity, BY LABEL (never by index alone): each field is located by its label at the moment it
+        //    is typed and again when it is read back; n != 1 (missing or ambiguous label) refuses with the labels seen.
+        val fPrice = Field("Limit price", "limit price"); val fQty = Field("Quantity", "quantity")
+        for (f in listOf(fPrice, fQty)) { val n = readField(f)?.optInt("n", 0) ?: 0; if (n != 1) return refuse(id, "${f.name} field not unique (n=$n)", jsObj("__ex.ticket()")) }
+        if (!typeInto(fPrice, fmt(entry, pStep), entry, pStep)) return refuse(id, "limit price did not read back", jsObj("__ex.ticket()"))
+        if (!typeInto(fQty, fmt(qty, qStep), qty, qStep)) return refuse(id, "quantity did not read back", jsObj("__ex.ticket()"))
+        // quantity unit: the "Quantity ... available" alert OR the quantity field's own adornment (unit toggle) must
+        // name the base asset, not USD; the refusal carries both texts so the next dump measures the real shape.
         tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
         val alerts = (tk.optJSONArray("alerts")?.toString() ?: "").uppercase()
-        if (!alerts.contains(base)) return refuse(id, "quantity unit not verified as $base", tk)
+        val qNear = (readField(fQty)?.optString("near") ?: "").uppercase()
+        if (!alerts.contains(base) && !qNear.contains(base)) return refuse(id, "quantity unit not verified as $base (alerts $alerts; near '$qNear')", tk)
         // 4. TP/SL
         if (js("__ex.setTpsl(true)") != "ok") return refuse(id, "TP/SL box not ticked", tk)
         delay(900); ensure()
-        tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        val tpIdx = idx(tk, Regex("take ?profit|\\btp\\b", RegexOption.IGNORE_CASE), prefer = Regex("price", RegexOption.IGNORE_CASE))
-            ?: return refuse(id, "TP price field not unique (labels in the dump)", tk)
-        val slIdx = idx(tk, Regex("stop ?loss|\\bsl\\b", RegexOption.IGNORE_CASE), prefer = Regex("price", RegexOption.IGNORE_CASE))
-            ?: return refuse(id, "SL price field not unique (labels in the dump)", tk)
-        if (tpIdx == slIdx || tpIdx == pIdx || slIdx == pIdx || tpIdx == qIdx || slIdx == qIdx) return refuse(id, "TP/SL fields collide", tk)
-        if (!typeInto(tpIdx, fmt(tp, pStep), tp, pStep)) return refuse(id, "TP did not read back", jsObj("__ex.ticket()"))
-        if (!typeInto(slIdx, fmt(sl, pStep), sl, pStep)) return refuse(id, "SL did not read back", jsObj("__ex.ticket()"))
-        // 5. full read-back
+        val fTp = Field("TP price", "take ?profit|\\btp\\b", "price"); val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price")
+        for (f in listOf(fTp, fSl)) { val r = readField(f); if (r?.optInt("n", 0) != 1) return refuse(id, "${f.name} field not unique (n=${r?.optInt("n", 0) ?: 0}, labels ${r?.optJSONArray("labels")})", jsObj("__ex.ticket()")) }
+        if (!typeInto(fTp, fmt(tp, pStep), tp, pStep)) return refuse(id, "TP did not read back", jsObj("__ex.ticket()"))
+        if (!typeInto(fSl, fmt(sl, pStep), sl, pStep)) return refuse(id, "SL did not read back", jsObj("__ex.ticket()"))
+        // 5. full read-back, by label, all four at once; the four labels must resolve to four DIFFERENT inputs
         delay(500)
         tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        val ins = tk.optJSONArray("inputs") ?: JSONArray()
-        fun v(k: Int) = num(ins.optJSONObject(k)?.optString("value"))
-        val ok = close(v(pIdx), entry, pStep) && close(v(qIdx), qty, qStep) && close(v(tpIdx), tp, pStep) && close(v(slIdx), sl, pStep)
+        val fields = listOf(fPrice, fQty, fTp, fSl); val wants = listOf(entry, qty, tp, sl); val steps = listOf(pStep, qStep, pStep, pStep)
+        val reads = fields.map { readField(it) }
+        val ks = reads.map { it?.optInt("k", -1) ?: -1 }
+        if (ks.any { it < 0 } || ks.toSet().size != 4) return refuse(id, "fields not unique or collide at read-back (k=$ks)", tk)
+        val ok = reads.indices.all { close(num(reads[it]?.optString("value")), wants[it], steps[it]) }
         val sub = tk.optJSONObject("submit")
         val subText = sub?.optString("text") ?: ""
         if (!ok) return refuse(id, "read-back mismatch", tk)
+        if (!subText.uppercase().contains(base)) return refuse(id, "submit label lost $base at read-back", tk)
         if (tk.optBoolean("tpsl") != true) return refuse(id, "TP/SL box not on at read-back", tk)
         if (!sideRe.containsMatchIn(subText) || oppRe.containsMatchIn(subText)) return refuse(id, "submit label does not match the side", tk)
         if (sub?.optBoolean("disabled") != false) return refuse(id, "submit disabled after fill", tk)
@@ -404,7 +415,7 @@ class MainActivity : Activity() {
             ledger.append(id, "dry_filled")
             report(id, "dry_filled", if (test) "test ticket (always dry)" else if (!armed()) "app not armed" else "server mode dry", tk)
             api.event("dry_fill_ok", "filled + read back, NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
-            js("__ex.setInput($qIdx, '')")
+            js("__ex.setByLabel('quantity', '', '')")
             setStatus("DRY ticket $id filled and read back; not submitted")
             return
         }
@@ -446,24 +457,40 @@ class MainActivity : Activity() {
         setStatus("ticket $id UNCONFIRMED — operator check")
     }
 
-    private fun idx(tk: JSONObject, re: Regex, prefer: Regex? = null): Int? {
-        val ins = tk.optJSONArray("inputs") ?: return null
-        val hits = (0 until ins.length()).map { ins.getJSONObject(it) }.filter { re.containsMatchIn(it.optString("label")) }
-        val pick = if (hits.size > 1 && prefer != null) hits.filter { prefer.containsMatchIn(it.optString("label")) } else hits
-        return if (pick.size == 1) pick[0].optInt("k") else null
-    }
+    /** A ticket field named by its LABEL (regex), with an optional narrowing regex when several labels match. */
+    private class Field(val name: String, val re: String, val prefer: String = "")
+
+    private suspend fun readField(f: Field): JSONObject? = jsObj("__ex.readByLabel(${q(f.re)}, ${q(f.prefer)})")
 
     private fun close(got: Double?, want: Double, step: Double) = got != null && abs(got - want) <= step / 2 + 1e-9
 
-    /** Native value setter first; if the page does not keep it, real key events into the focused field. */
-    private suspend fun typeInto(k: Int, text: String, want: Double, step: Double): Boolean {
-        js("__ex.setInput($k, ${q(text)})"); delay(300)
-        var back = num((jsObj("__ex.ticket()")?.optJSONArray("inputs")?.optJSONObject(k))?.optString("value"))
-        if (close(back, want, step)) return true
-        if (js("__ex.focusInput($k)") != "focused") return false
+    /** Drive the page to the venue symbol: one page-side move per step, read back between moves, at most 6 moves.
+     *  Returns the route taken (for the refusal reason / the dump); "already" when the ticket named the asset. */
+    private suspend fun selectSymbol(venue: String, base: String): String {
+        var route = ""
+        var prev = ""
+        for (step in 0 until 6) {
+            if (js("__ex.symbolOnTicket()").uppercase().contains(base)) return route.ifEmpty { "already" }
+            val r = js("__ex.symbolStep(${q(venue)})")
+            route += (if (route.isEmpty()) "" else ">") + r
+            if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
+            if (r == prev && (r == "clicked_symbol" || r == "opened_picker")) return "$route>stuck"
+            prev = r
+            delay(1500); ensure()
+        }
+        return route
+    }
+
+    /** Native value setter first; if the page does not keep it, real key events into the focused field. Both the
+     *  set and the read-back locate the field by label at that moment. */
+    private suspend fun typeInto(f: Field, text: String, want: Double, step: Double): Boolean {
+        val res = jsObj("__ex.setByLabel(${q(f.re)}, ${q(f.prefer)}, ${q(text)})") ?: return false
+        if (res.optInt("n", 0) != 1) return false
+        delay(300)
+        if (close(num(readField(f)?.optString("value")), want, step)) return true
+        if (js("__ex.focusByLabel(${q(f.re)}, ${q(f.prefer)})") != "focused") return false
         typeKeys(text); delay(400)
-        back = num((jsObj("__ex.ticket()")?.optJSONArray("inputs")?.optJSONObject(k))?.optString("value"))
-        return close(back, want, step)
+        return close(num(readField(f)?.optString("value")), want, step)
     }
 
     private suspend fun refuse(id: String, why: String, dump: JSONObject?) {

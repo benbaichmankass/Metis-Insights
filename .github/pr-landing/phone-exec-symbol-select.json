@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Phone-executor app only (tools/phone-executor/**): select the ticket's venue symbol on the terminal BEFORE opening/filling the ticket and verify the submit label names the asset before anything is typed; price/quantity/TP/SL located BY LABEL (set and read back), never by index; headless fixture where the terminal starts on BTC and the ticket is ETH (strip, picker+search, no selector). Config: config/prop_platforms.yaml phone_accounts.breakout_2.dry_test_request bumped to 2026-10-06-morning-1 so ONE always-dry ETH test ticket is served on the next claim (meta.test=true -> never submitted; server mechanism #16663). No accounts.yaml, mode, roster, strategy or order-path change; nothing here can place a live order (breakout_2 is dry_run and the app is not armed)."
+}
