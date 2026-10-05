@@ -45,7 +45,7 @@ def _ts(s: str) -> datetime:
 
 
 def load(path: Path) -> list[dict]:
-    return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+    return [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
 
 
 def book_max_gap(rows: list[dict], start: datetime, end: datetime) -> float:
