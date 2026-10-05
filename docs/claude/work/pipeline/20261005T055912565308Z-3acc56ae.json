@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "clears_when": "turtle_soup evidence record is coverage_state measured (not no_harness) and rule verdict recorded -> flip or kill",
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-SOAK-20261004-turtle_soup",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 scripts/ops/soak_report.py --print-state; ls comms/strategy_evidence",
+    "what": "turtle_soup evidence record is coverage_state measured (not no_harness) and rule verdict recorded -> flip or kill"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "routed_to": "Record is coverage_state=no_harness (classifier routes nothing). Not on any account roster; execution shadow. Task: add classifier branch + lever map.",
+  "state": "routed",
+  "what": "SOAK (shadow): turtle_soup — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing. | SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv): NEEDS_DATA."
+}
