@@ -139,7 +139,7 @@ def test_routes_401_without_device_and_claim_with_device(monkeypatch):
     assert body["ticket"]["venue_symbol"] == "ETHUSD"
 
 
-def test_repo_config_declares_breakout_2_as_phone_and_no_device_yet():
+def test_repo_config_declares_breakout_2_as_phone_and_devices_are_fingerprint_only():
     assert pe.is_phone_account("breakout_2")
     assert not pe.is_phone_account("breakout_1")
     raw = yaml.safe_load(Path("config/prop_phone_devices.yaml").read_text())
