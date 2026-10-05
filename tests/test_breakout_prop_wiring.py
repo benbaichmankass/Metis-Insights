@@ -58,7 +58,10 @@ def test_prop_account_config():
     assert a["exchange"] == "breakout"
     assert a["type"] == "prop"                     # mission-aware PropRiskManager
     assert a["account_class"] == "prop"            # third funding category
-    assert a["mode"] == "live"                     # always-live ping (operator gates per-signal)
+    # 2026-10-05 (operator, set-account-mode run 37273806314, "Set it to
+    # dry_run"): breakout_1 is dry_run; tradeify_1 is the live prop account.
+    assert a["mode"] == "dry_run"
+    assert _accounts()["tradeify_1"]["mode"] == "live"
     assert a["account_state"] == "evaluation"      # eval→funded lifecycle tracked
     assert a["phase_requirements"]["target_profit_pct"] == 0.10
     # 2026-06-25 (Tier-3, operator-approved): the swap-robust variant

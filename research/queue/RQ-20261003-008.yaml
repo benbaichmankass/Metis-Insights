@@ -65,3 +65,15 @@ generated:
     timeframe: 1d
 last_dispatched_at: '2026-10-05T01:47:39+00:00'
 result: "GRADED 2026-10-05 by lane RESEARCH-RUN, late (fired 2026-10-04, first read 2026-10-05), against RULE-EXIT-REFINEMENT-P2-GATE. INSUFFICIENT_BASE, not a negative: mes_trend_long_1d base OOS trades = 4 against the 25-trade floor, so none of the 16 swept cells could be graded either way (cells_passed 0 of 16 is 'could not answer', not 'no lever helps'). The dispatch record's generic verdict no_action_warranted does not say this. The unit is monthly and stays queued; it will stay insufficient_base until the leg has more OOS trades. Records: research/results/RQ-20261003-008/37210922788.jsonl and 37252833575.jsonl."
+grading:
+  auto: true
+  decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE
+  evidence:
+  - research/results/RQ-20261003-008/37252833575.jsonl
+  graded_at: '2026-10-05'
+  grader: scripts/research/queue_grade.py
+  latest: true
+  needs_review: false
+  reason: 1 row(s), all measured, all no_action_warranted
+  rows: 1
+  verdict: no_action_warranted
