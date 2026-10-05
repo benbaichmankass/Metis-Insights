@@ -1,7 +1,7 @@
 id: RQ-20261005-807
 title: 'Tradeify 247 1-Step prop fit, LONGER WINDOW (730d): trend_donchian_sol_prop at sizing flat 0.5% of balance (lane PROP-FIT-POWER,
   RULE-TRADEIFY-FIT)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -83,3 +83,9 @@ related:
 - config/prop_rulesets/tradeify_247_1step.yaml
 - research/queue/RQ-20261004-757.yaml
 - comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop.json
+last_dispatched_at: '2026-10-05T08:27:57+00:00'
+result: 'GRADED 2026-10-05 by lane PROP-FIT-POWER against this unit''s own pre-registered rule (registered before the run,
+  #16567): FAIL. trend_donchian_sol_prop, flat 0.5%, n=132: ev -$72..-$75, P(net>0) 0.11-0.12, p_pass_eval 0.20-0.22. Acted
+  on: removed from tradeify_1 (#16598). Population: 730d committed trades pinned by --leg, full cost stack, Tradeify 1-Step
+  ruleset, 5 seeds. Source: research-script-run 37283797252 artifact (verdict.json, grid.json, sims/). Stage-0 evidence only;
+  no roster proposal from this unit.'
