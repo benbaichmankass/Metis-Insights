@@ -731,6 +731,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/bracket-target-reachability-2026-08-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/breakout-local-agent-requirements-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/breakout-term-access-2026-10-04.md` | evidence | unknown | — | 2026-10-04 | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/breakout-structural-blockers-2026-10-05.md` | evidence | unknown | — | 2026-10-05 | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/breakout-non-datacenter-egress-routes-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/breakout-phone-egress-and-leak-controls-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/breakout-r2-home-device-plan-2026-09-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

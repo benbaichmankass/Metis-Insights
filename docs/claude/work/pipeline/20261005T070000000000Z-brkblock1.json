@@ -1,0 +1,16 @@
+{
+ "due_when": {
+  "check_every_days": 7,
+  "clears_when": "a PR adds the pre-submit marketable-limit guard with a test, or the manager kills it with a stated reason (e.g. no DXtrade breakout account will exist)",
+  "kind": "event"
+ },
+ "id": "PI-20261005-BRKBLOCK-0001",
+ "next_action": "dispatch_lane",
+ "origin": {
+  "kind": "session",
+  "ref": "lane BREAKOUT-BLOCKERS 2026-10-05, docs/research/breakout-structural-blockers-2026-10-05.md",
+  "rerun": "grep -n 'marketable_limit_block\\|awaiting_resting_price' src/prop/prop_executor.py: holds while no check compares the limit to the quote BEFORE the submit click"
+ },
+ "state": "queued",
+ "what": "[prop/breakout_1 money path] A buy LIMIT whose price is at/above the ask is clicked while the submit still reads enabled, then never appears on the terminal: fill #82 (2026-10-04 03:40Z SOL, limit 120.91, ask 120.90) -> not_found x3 -> unconfirmed_submit -> AUTO-REVERT latch. #16332 only reacts to a DISABLED submit. Fix (Tier-2, ~30 lines in src/prop/prop_executor.py plus tests): before the submit click, require a long's limit strictly below the ask (a short's strictly above the bid) and otherwise reuse the awaiting_resting_price wait. Mechanism INFERRED; see docs/research/breakout-structural-blockers-2026-10-05.md class 5."
+}
