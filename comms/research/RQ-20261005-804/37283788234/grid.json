@@ -1,0 +1,227 @@
+{
+  "tool": "scripts/research/prop_ev_grid.py",
+  "sim": "scripts/research/prop_ev_sim.py",
+  "mode": "path",
+  "common": [
+    "--ruleset",
+    "config/prop_rulesets/tradeify_247_1step.yaml",
+    "--lev-cap",
+    "ict_scalp_eth_15m=5",
+    "--no-hedge",
+    "--swap-model",
+    "prorated",
+    "--funded-start",
+    "fresh"
+  ],
+  "arms": {
+    "A": [
+      "--sizing",
+      "balance",
+      "--risk-pct",
+      "0.0075"
+    ]
+  },
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "grade": "pass_all_seeds",
+  "overall": "all",
+  "legs": {
+    "ict_scalp_eth_15m": {
+      "trades_file": "comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m__trades.jsonl",
+      "resolved_by": "pinned by --leg",
+      "n_trades": 151
+    }
+  },
+  "cells": [
+    {
+      "leg": "ict_scalp_eth_15m",
+      "arm": "A",
+      "seed": 1,
+      "exit_code": 0,
+      "seconds": 993.3,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "ict_scalp_eth_15m=comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/tradeify_247_1step.yaml",
+        "--lev-cap",
+        "ict_scalp_eth_15m=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.0075",
+        "--seed",
+        "1",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed1.json"
+      ],
+      "out": "comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed1.json",
+      "stats": {
+        "ev": -77.77,
+        "ev_se": 2.46,
+        "p_net_positive": 0.0958,
+        "p_alive_at_horizon": 0.4793,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "ict_scalp_eth_15m",
+      "arm": "A",
+      "seed": 2,
+      "exit_code": 0,
+      "seconds": 979.6,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "ict_scalp_eth_15m=comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/tradeify_247_1step.yaml",
+        "--lev-cap",
+        "ict_scalp_eth_15m=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.0075",
+        "--seed",
+        "2",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed2.json"
+      ],
+      "out": "comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed2.json",
+      "stats": {
+        "ev": -80.58,
+        "ev_se": 2.3,
+        "p_net_positive": 0.0897,
+        "p_alive_at_horizon": 0.4813,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "ict_scalp_eth_15m",
+      "arm": "A",
+      "seed": 3,
+      "exit_code": 0,
+      "seconds": 1015.9,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "ict_scalp_eth_15m=comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/tradeify_247_1step.yaml",
+        "--lev-cap",
+        "ict_scalp_eth_15m=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.0075",
+        "--seed",
+        "3",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed3.json"
+      ],
+      "out": "comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed3.json",
+      "stats": {
+        "ev": -80.79,
+        "ev_se": 2.3,
+        "p_net_positive": 0.0882,
+        "p_alive_at_horizon": 0.4858,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "ict_scalp_eth_15m",
+      "arm": "A",
+      "seed": 4,
+      "exit_code": 0,
+      "seconds": 1021.5,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "ict_scalp_eth_15m=comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/tradeify_247_1step.yaml",
+        "--lev-cap",
+        "ict_scalp_eth_15m=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.0075",
+        "--seed",
+        "4",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed4.json"
+      ],
+      "out": "comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed4.json",
+      "stats": {
+        "ev": -77.44,
+        "ev_se": 2.39,
+        "p_net_positive": 0.0975,
+        "p_alive_at_horizon": 0.4805,
+        "rule_v2_verdict": "indeterminate"
+      }
+    },
+    {
+      "leg": "ict_scalp_eth_15m",
+      "arm": "A",
+      "seed": 5,
+      "exit_code": 0,
+      "seconds": 427.7,
+      "argv": [
+        "scripts/research/prop_ev_sim.py",
+        "--trades",
+        "ict_scalp_eth_15m=comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m__trades.jsonl",
+        "--ruleset",
+        "config/prop_rulesets/tradeify_247_1step.yaml",
+        "--lev-cap",
+        "ict_scalp_eth_15m=5",
+        "--no-hedge",
+        "--swap-model",
+        "prorated",
+        "--funded-start",
+        "fresh",
+        "--sizing",
+        "balance",
+        "--risk-pct",
+        "0.0075",
+        "--seed",
+        "5",
+        "--out",
+        "/home/runner/work/Metis-Insights/Metis-Insights/comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed5.json"
+      ],
+      "out": "comms/research/RQ-20261005-804/37283788234/sims/ict_scalp_eth_15m__A__seed5.json",
+      "stats": {
+        "ev": -82.13,
+        "ev_se": 2.3,
+        "p_net_positive": 0.0872,
+        "p_alive_at_horizon": 0.471,
+        "rule_v2_verdict": "indeterminate"
+      }
+    }
+  ]
+}

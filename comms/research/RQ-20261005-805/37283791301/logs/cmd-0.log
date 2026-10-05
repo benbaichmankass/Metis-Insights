@@ -1,0 +1,7 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  ict_scalp_sol_15m            A        seed=1 exit=0 ev=-119.63 p=0.0008 (310.9s)
+  ict_scalp_sol_15m            A        seed=2 exit=0 ev=-119.73 p=0.0010 (295.8s)
+  ict_scalp_sol_15m            A        seed=3 exit=0 ev=-119.71 p=0.0010 (348.4s)
+  ict_scalp_sol_15m            A        seed=4 exit=0 ev=-119.72 p=0.0010 (368.7s)
+  ict_scalp_sol_15m            A        seed=5 exit=0 ev=-119.73 p=0.0010 (191.8s)
+prop_ev_grid: overall=fail {"ict_scalp_sol_15m": "fail"}
