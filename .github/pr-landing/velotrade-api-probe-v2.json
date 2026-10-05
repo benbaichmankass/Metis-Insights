@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 path (scripts/prop probe run by a VM system-action). Follow-up to merged #16581: first run (issue #16590) logged in but read 0 accounts and only lotSize; this fixes the /users parse and adds per-symbol and account-scoped instrument reads. Still read-only (GET + POST /login + POST /logout; /orders refused). The manager merges.",
+  "why": "Read-only probe fix, lane VELOTRADE-API-PROBE, pipeline PI-20261005-APBY4NTV-0004."
+}

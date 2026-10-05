@@ -85,6 +85,8 @@ def _err(status, js, text) -> str:
 
 
 def _specs(js) -> list[dict]:
+    if isinstance(js, dict) and "symbol" in js:
+        return [js]
     items = js.get("instruments") if isinstance(js, dict) else js
     return [i for i in (items or []) if isinstance(i, dict)]
 
@@ -121,14 +123,23 @@ def main() -> int:
     try:
         full_user = f"{login_user}@{domain_used}"
         st, js, tx = _call("GET", "/users/" + urllib.parse.quote(full_user, safe=""), token)
+        _out(f"users: http={st} shape={type(js).__name__} keys={sorted(js.keys()) if isinstance(js, dict) else 'n/a'}")
         accounts = []
         if isinstance(js, dict):
-            accounts = js.get("accounts") or []
-        elif isinstance(js, list) and js:
-            accounts = (js[0] or {}).get("accounts") or []
-        _out(f"users: http={st} accounts={len(accounts)}")
-        codes = [a.get("accountCode") or a.get("account") or a.get("code") for a in accounts if isinstance(a, dict)]
-        codes = [c for c in codes if c]
+            cand = js.get("users") if isinstance(js.get("users"), list) else [js]
+        elif isinstance(js, list):
+            cand = js
+        else:
+            cand = []
+        for u in cand:
+            if isinstance(u, dict):
+                accounts.extend(u.get("accounts") or [])
+        _out(f"users: accounts={len(accounts)}")
+        codes = []
+        for a in accounts:
+            c = a.get("accountCode") or a.get("account") or a.get("code") if isinstance(a, dict) else a
+            if isinstance(c, str) and c:
+                codes.append(c)
         _SECRETS.extend(codes)
         if accounts and isinstance(accounts[0], dict):
             _out(f"account_keys: {sorted(accounts[0].keys())}")
@@ -155,8 +166,11 @@ def main() -> int:
         # Reference data: global instruments, then the account-scoped view.
         for sym in SYMBOLS:
             qs = urllib.parse.quote(sym, safe="")
-            for label, path in [("instruments", f"/instruments/query?symbols={qs}")] + [
+            for label, path in [("instruments", f"/instruments/query?symbols={qs}"), ("instrument-by-symbol", f"/instruments/{qs}")] + [
                 (f"acct#{n}-instruments", f"/accounts/{urllib.parse.quote(c, safe='')}/instruments/query?symbols={qs}")
+                for n, c in enumerate(codes[:1], 1)
+            ] + [
+                (f"acct#{n}-instrument-by-symbol", f"/accounts/{urllib.parse.quote(c, safe='')}/instruments/{qs}")
                 for n, c in enumerate(codes[:1], 1)
             ]:
                 st, js, tx = _call("GET", path, token)
