@@ -22,19 +22,22 @@
   "updated_at": "2026-10-05T08:14:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
-    "_comment": "Set by the manager's daily review (manager SKILL \u00a7 'The work system'): the WR-YYYYMMDD-HHMMZ report it worked from GET /api/bot/work/report, when, by whom, and disposition counts. Per-item dispositions live on the pipeline items. null = no review recorded yet.",
-    "report_id": "WR-20261005-0529Z",
-    "reviewed_at": "2026-10-05T06:16:00Z",
+    "report_id": "WR-20261005-1617Z",
+    "reviewed_at": "2026-10-05T17:58:00Z",
     "by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
     "counts": {
-      "incidents": 0,
-      "due": 19,
-      "dispatched": 16,
-      "closed": 1,
-      "deferred_to_operator": 1,
-      "not_due_today": 1,
-      "digest_log_entries_since_20261004T2000Z": 10
-    }
+      "digest_entries": 11,
+      "due": 5,
+      "unrouted": 2,
+      "ask_operator_open": 29,
+      "alarms_breached": [
+        "inflight"
+      ],
+      "soaks_ready": 23,
+      "soaks_dead": 2,
+      "soaks_overdue": 2
+    },
+    "note": "Lean review (weekly usage 84% at 17:50Z, reset Wed 18:00Z). Soak grading deferred to PI JC8KDKLF-0002 (due 10-11): no live-money effect. No incident: report present, no errored sections, digest hourly."
   },
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -4951,7 +4954,7 @@
       "id": "PHONE-EXEC-DESIGN",
       "title": "Breakout phone executor (Android WebView on the operator's phone): design + no-account checks before the 'purchase account now' gate",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "lane PHONE-EXEC-DESIGN",
       "lane": "session_01FuWi5xUmKJf6ps9HEp9LyP",
       "model": "claude-sonnet-5-5",
@@ -4960,10 +4963,11 @@
       "tier": 1,
       "prs": [
         16215,
-        16229
+        16229,
+        16574
       ],
       "blocked_on": [],
-      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required. [2026-10-05T06:52Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] BREAKOUT-BLOCKERS verdict (#16570; FAQ quote re-verified by the manager): Breakout sells no new DXtrade accounts, so a re-buy lands on the proprietary terminal (VM is Cloudflare-blocked). Operator popup answer: 'Revisit the phone executor'. Still blocked on the operator's step-zero (design doc section 7.6: Chrome, home Wi-Fi + mobile data, one line) - requested in chat 06:53Z; on a pass the manager dispatches phase 1a only. [2026-10-05T07:01Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'i can sign into the breached dx account on chrome on my phone. we're gonna skip step 1 (they are unresponsive) - we need to focus on technical viability to get to a real-account test.' Terms read / support questions SKIPPED by operator decision. Dispatched lane PHONE-EXEC-1A: WebView probe APK (Actions-built), public-page probe, operator hand-login to breached breakout_1 inside the WebView (2FA, session life, redacted mobile-terminal shape; read-only), fixtures; verdict GO/STOP for purchase gate in design doc section 7.9."
+      "note": "[2026-10-05T17:58Z manager] Phase 1a done: #16574 merged 5df52889 (probe 1a.3 + design 7.9/7.10). Build continues in PHONE-EXEC-1B. || [2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required. [2026-10-05T06:52Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] BREAKOUT-BLOCKERS verdict (#16570; FAQ quote re-verified by the manager): Breakout sells no new DXtrade accounts, so a re-buy lands on the proprietary terminal (VM is Cloudflare-blocked). Operator popup answer: 'Revisit the phone executor'. Still blocked on the operator's step-zero (design doc section 7.6: Chrome, home Wi-Fi + mobile data, one line) - requested in chat 06:53Z; on a pass the manager dispatches phase 1a only. [2026-10-05T07:01Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'i can sign into the breached dx account on chrome on my phone. we're gonna skip step 1 (they are unresponsive) - we need to focus on technical viability to get to a real-account test.' Terms read / support questions SKIPPED by operator decision. Dispatched lane PHONE-EXEC-1A: WebView probe APK (Actions-built), public-page probe, operator hand-login to breached breakout_1 inside the WebView (2FA, session life, redacted mobile-terminal shape; read-only), fixtures; verdict GO/STOP for purchase gate in design doc section 7.9."
     },
     {
       "id": "PROP-FIRM-SCAN",
@@ -5398,9 +5402,45 @@
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        16624
+      ],
       "blocked_on": [],
-      "note": "[2026-10-05T11:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'we also need to prioritize adding more strategies to make sure we can stay within active trading restrictions'. Priority 1 prop. MEASURED by the manager: the Tradeify 1-Step inactivity rule is a breach after 30 consecutive days with no trade; Velotrade needs one trade >=60s per 30 days plus 5 qualifying days; Breakout has no minimum. Over the 730d backtest (n=355 entries) the single ETH leg's max gap between entries is 7.5d (median 1.7d, 0 gaps >=14d), so inactivity is not the binding constraint in backtest. The binding problems are single-leg concentration and pass probability (no crypto leg clears the Tradeify bar alone, RQ-20261005-801..810). Lane scope: inventory Stage-0-pass legs on firm-tradeable symbols; register a book-level rule (max-gap, P(pass)/EV per life, daily-loss correlation) BEFORE running; run on 730d; propose a roster diff per account. It absorbs PI-20261005-MG7BGR46-0002 and files a live prop-inactivity alert as a pipeline item. The roster add is Tier-3: the manager decides it under the standing data-backed authorization, only on a committed record clearing the pre-registered rule."
+      "note": "[2026-10-05T17:58Z manager] Research answered: no book passes P>=0.70; ETH+SOL 0.5% is INACTIVITY_SAFE_IMPROVEMENT (Tradeify P 0.372 vs 0.284, EV +$179 vs +$58); control: negative-edge leg LOWERS EV, so the gain is not generic. #16624 has a merge conflict, lane resolving. tradeify_1 SOL re-add: manager decision pending. || [2026-10-05T11:12Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] OPERATOR (verbatim): 'we also need to prioritize adding more strategies to make sure we can stay within active trading restrictions'. Priority 1 prop. MEASURED by the manager: the Tradeify 1-Step inactivity rule is a breach after 30 consecutive days with no trade; Velotrade needs one trade >=60s per 30 days plus 5 qualifying days; Breakout has no minimum. Over the 730d backtest (n=355 entries) the single ETH leg's max gap between entries is 7.5d (median 1.7d, 0 gaps >=14d), so inactivity is not the binding constraint in backtest. The binding problems are single-leg concentration and pass probability (no crypto leg clears the Tradeify bar alone, RQ-20261005-801..810). Lane scope: inventory Stage-0-pass legs on firm-tradeable symbols; register a book-level rule (max-gap, P(pass)/EV per life, daily-loss correlation) BEFORE running; run on 730d; propose a roster diff per account. It absorbs PI-20261005-MG7BGR46-0002 and files a live prop-inactivity alert as a pipeline item. The roster add is Tier-3: the manager decides it under the standing data-backed authorization, only on a committed record clearing the pre-registered rule."
+    },
+    {
+      "id": "PHONE-EXEC-1B",
+      "title": "Breakout live via the operator phone: phone executor + ticket channel, breakout_2 (Turbo $5k), then auto re-login via dedicated inbox",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane PHONE-EXEC-1B",
+      "lane": "session_01Ce3EyP4Z9A4P4MyUvcgtmJ",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 50,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        16638
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-05T17:58Z manager] OPERATOR ~15:20Z: go live on Breakout ASAP, same strategies; ~15:52Z \"we'll take the risk without reviewing the terms, but we still need build automatic re-login\"; ~15:59Z \"automatic log in is not required to go live, it's just a priority and needs to happen even without the terms\". #16638 merged bf6e28ce: breakout_2 dry_run, roster ETH+SOL prop (RQ-20261005-851..854 NULL, kept), $25/ticket, device-token auth. Next: operator install+pair, dry ticket, set-account-mode live. Session evidence (1a.3): logged in 6h+, survived Wi-Fi/cellular switch, force-stop, phone restart."
+    },
+    {
+      "id": "VELOTRADE-API-EXEC",
+      "title": "DXtrade REST API executor for velotrade_1 + one approved 0.01 ETH live round trip",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane VELOTRADE-API-EXEC",
+      "lane": "session_01CbWE56MbSskgGNZrm27cBW",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16636
+      ],
+      "blocked_on": [],
+      "note": "[2026-10-05T17:58Z manager] OPERATOR popup ~14:48Z: \"Build it + pre-approve test\". #16636 merged 432a92c9 (adapter, dry by default; positionBased=true so IF-THEN bracket). Next: roundtrip system-action PR, one 0.01 ETHUSD round trip with flatten-on-mismatch stop rule. velotrade_1 stays dry_run, empty roster."
     }
   ]
 }
