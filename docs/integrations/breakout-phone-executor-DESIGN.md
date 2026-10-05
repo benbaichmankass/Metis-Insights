@@ -481,6 +481,8 @@ no-account scope) and touches the live `breakout_1` account (risk 3), so it is *
 | Injected-JS reach, iframe reach, React-style typing, real touch | n/a | **yes: local fixtures inside the app's WebView** | no | pending (Fixtures button) |
 | Public page served in the WebView (Wi-Fi and mobile data) | n/a | **yes** | no | pending |
 
+**Operator-reported progress (2026-10-05 about 08:30Z, relayed by the manager, NOT captured by the probe):** the operator says they logged in to the breached account successfully on both Wi-Fi and mobile data. **Not established:** whether that login was inside the probe app or in Chrome, whether it was a WebView at all, whether any code / 2FA step appeared, and what the page looked like. No report has been pasted, so this line answers none of the table's cells. If it was Chrome, it adds only that the account logs in from the phone on both networks, which § 7.8 already had for LTE in Comet.
+
 **Verdict: none yet.** No phone run exists, so neither GO nor STOP is established. Criteria registered before the run:
 
 - **STOP (structural):** the public page is challenged or blocked in the WebView on both networks; or login is refused or loops in the WebView; or a code / 2FA step recurs on every login; or the order ticket is a canvas with no readable controls; or the session does not survive an hour.
