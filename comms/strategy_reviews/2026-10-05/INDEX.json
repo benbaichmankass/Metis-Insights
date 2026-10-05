@@ -1,6 +1,6 @@
 {
  "schema": "stage_aware_v1",
- "generated_at": "2026-10-05T08:53:32.012456+00:00",
+ "generated_at": "2026-10-05T11:45:25.987064+00:00",
  "utc_date": "2026-10-05",
  "generated_by": "scripts/ops/strategy_review_stage_aware.py",
  "graded": 26,
@@ -92,8 +92,8 @@
    "disposition": "insufficient-data",
    "execution": "live",
    "n_needed": null,
-   "eta": "next scheduled run",
-   "reason": "mechanics read_state=unreadable (could not query intents and/or received source this run) — we did not look, not 'nothing happened'"
+   "eta": "wait for a signal; re-check next scheduled pass",
+   "reason": "no_intents: the strategy produced zero actionable signals this window — nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
   },
   {
    "stage": "S1",
@@ -274,8 +274,8 @@
    "disposition": "insufficient-data",
    "execution": "live",
    "n_needed": null,
-   "eta": "next scheduled run",
-   "reason": "mechanics read_state=unreadable (could not query intents and/or received source this run) — we did not look, not 'nothing happened'"
+   "eta": "wait for a signal; re-check next scheduled pass",
+   "reason": "no_intents: the strategy produced zero actionable signals this window — nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
   },
   {
    "stage": "S1",
@@ -325,7 +325,7 @@
    "t3_windows_r": [],
    "t3_p10": -4.38314,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 163.2h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -347,7 +347,7 @@
    "t3_windows_r": [],
    "t3_p10": 11.30573,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 163.2h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -369,7 +369,7 @@
    "t3_windows_r": [],
    "t3_p10": 14.9357,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 163.2h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -391,7 +391,7 @@
    "t3_windows_r": [],
    "t3_p10": -3.33349,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 163.2h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -413,7 +413,7 @@
    "t3_windows_r": [],
    "t3_p10": -6.94652,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 163.2h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -435,7 +435,7 @@
    "t3_windows_r": [],
    "t3_p10": 2.31519,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 163.2h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -457,7 +457,7 @@
    "t3_windows_r": [],
    "t3_p10": -4.4319,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 163.2h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
   }
  ]
 }
