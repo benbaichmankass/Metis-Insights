@@ -1,14 +1,14 @@
 {
  "schema": "stage_aware_v1",
- "generated_at": "2026-10-05T11:45:25.987064+00:00",
+ "generated_at": "2026-10-05T14:06:53.336795+00:00",
  "utc_date": "2026-10-05",
  "generated_by": "scripts/ops/strategy_review_stage_aware.py",
  "graded": 26,
- "verdict_reached": 3,
- "actionable": 3,
+ "verdict_reached": 1,
+ "actionable": 1,
  "by_action": {
-  "S1:insufficient-data": 16,
-  "S1:kill": 3,
+  "S1:insufficient-data": 18,
+  "S1:kill": 1,
   "S2:abstain": 7
  },
  "question": "Per leg, graded with the instrument its STAGE calls for: Stage 2 (bybit_2/alpaca_live + mirrors) on MONEY via R4's demotion verdict; Stage 1 (bybit_1, alpaca_paper) on MECHANICS + COST FIDELITY via R5 -- never expectancy, per root CLAUDE.md's promotion ladder ('a live or paper book never establishes edge').",
@@ -33,26 +33,12 @@
   "verdict_source": "scripts/ops/soak_book_grade.py (R5)",
   "window_hours": 168,
   "n_legs": 19,
-  "verdict_reached": 3,
-  "actionable": 3,
+  "verdict_reached": 1,
+  "actionable": 1,
   "mechanics_read_state": "measured",
   "cost_fidelity_read_state": "measured"
  },
  "rows": [
-  {
-   "stage": "S1",
-   "account": "alpaca_paper",
-   "strategy": "gdx_pullback_1d",
-   "verdict_source": "scripts/ops/soak_book_grade.py (R5)",
-   "proposed_action": "S1:kill",
-   "verdict_reached": true,
-   "actionable": true,
-   "disposition": "kill",
-   "execution": "live",
-   "n_needed": null,
-   "eta": null,
-   "reason": "starved: 3 actionable intent(s) (1 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=0, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order regardless of what cost fidelity reads."
-  },
   {
    "stage": "S1",
    "account": "alpaca_paper",
@@ -69,22 +55,22 @@
   },
   {
    "stage": "S1",
-   "account": "alpaca_paper",
-   "strategy": "slv_pullback_1d",
+   "account": "bybit_1",
+   "strategy": "ada_pullback_2h",
    "verdict_source": "scripts/ops/soak_book_grade.py (R5)",
-   "proposed_action": "S1:kill",
-   "verdict_reached": true,
-   "actionable": true,
-   "disposition": "kill",
+   "proposed_action": "S1:insufficient-data",
+   "verdict_reached": false,
+   "actionable": false,
+   "disposition": "insufficient-data",
    "execution": "live",
    "n_needed": null,
-   "eta": null,
-   "reason": "starved: 3 actionable intent(s) (1 episode(s)) in the window, 0 order(s)/ticket(s) received, held_back=0, no open position held. This leg's soak purpose (prove the pipeline works) is unmet: it never reaches an order regardless of what cost fidelity reads."
+   "eta": "wait for a signal; re-check next scheduled pass",
+   "reason": "no_intents: the strategy produced zero actionable signals this window — nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
   },
   {
    "stage": "S1",
-   "account": "bybit_1",
-   "strategy": "ada_pullback_2h",
+   "account": "alpaca_paper",
+   "strategy": "gdx_pullback_1d",
    "verdict_source": "scripts/ops/soak_book_grade.py (R5)",
    "proposed_action": "S1:insufficient-data",
    "verdict_reached": false,
@@ -169,6 +155,20 @@
    "stage": "S1",
    "account": "alpaca_paper",
    "strategy": "scha_trend_long_1d",
+   "verdict_source": "scripts/ops/soak_book_grade.py (R5)",
+   "proposed_action": "S1:insufficient-data",
+   "verdict_reached": false,
+   "actionable": false,
+   "disposition": "insufficient-data",
+   "execution": "live",
+   "n_needed": null,
+   "eta": "wait for a signal; re-check next scheduled pass",
+   "reason": "no_intents: the strategy produced zero actionable signals this window — nothing to grade mechanics or cost fidelity against yet, and this is NOT evidence of health either"
+  },
+  {
+   "stage": "S1",
+   "account": "alpaca_paper",
+   "strategy": "slv_pullback_1d",
    "verdict_source": "scripts/ops/soak_book_grade.py (R5)",
    "proposed_action": "S1:insufficient-data",
    "verdict_reached": false,
@@ -325,7 +325,7 @@
    "t3_windows_r": [],
    "t3_p10": -4.38314,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 168.5h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -347,7 +347,7 @@
    "t3_windows_r": [],
    "t3_p10": 11.30573,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 168.5h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -369,7 +369,7 @@
    "t3_windows_r": [],
    "t3_p10": 14.9357,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 168.5h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -391,7 +391,7 @@
    "t3_windows_r": [],
    "t3_p10": -3.33349,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 168.5h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -413,7 +413,7 @@
    "t3_windows_r": [],
    "t3_p10": -6.94652,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 168.5h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -435,7 +435,7 @@
    "t3_windows_r": [],
    "t3_p10": 2.31519,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 168.5h old > the stated 72h bound; the same trades are not new evidence"
   },
   {
    "stage": "S2",
@@ -457,7 +457,7 @@
    "t3_windows_r": [],
    "t3_p10": -4.4319,
    "abstain": "stale",
-   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 166.1h old > the stated 72h bound; the same trades are not new evidence"
+   "reason": "STALE PAYLOAD -- newest close 2026-09-28T13:36:31+00:00 is 168.5h old > the stated 72h bound; the same trades are not new evidence"
   }
  ]
 }
