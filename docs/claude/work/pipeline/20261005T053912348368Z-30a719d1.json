@@ -1,0 +1,21 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "clears_when": "render() output for a run with a no-op leg names that leg, with a test pinning it, merged to main.",
+    "due_date": "2026-10-07",
+    "kind": "date",
+    "last_checked": "2026-09-30"
+  },
+  "id": "PI-20260930-39SDYWCO-0009",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R2PHzyjMvQoNiB39SdYWco",
+    "rerun": "python3 scripts/ops/exit_cell_runner.py | grep -c spy_pullback_1h   # 0 before the fix, >=1 after"
+  },
+  "severity": "low",
+  "state": "killed",
+  "terminal_reason": "Cosmetic log-render nit. Verified at HEAD 2026-10-05: exit_cell_runner.py | grep -c spy_pullback_1h = 0 (still true), but the leg is recoverable by a local re-run in seconds and no decision depends on it. Not pursued. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "tier": 1,
+  "what": "exit_cell_runner.render() prints FIRE / NEEDS-DATA / REFUSE legs but only a COUNT for already-declared (R-NO-OP) legs, so a session reading the job log cannot name which leg is already declared. Found on run 36708412880: the count read 1 and spy_pullback_1h had to be confirmed by a local re-run. Fix: add a loop for out['noop'] in render() (scripts/ops/exit_cell_runner.py) and a test in tests/test_exit_cell_runner.py asserting the leg name appears."
+}

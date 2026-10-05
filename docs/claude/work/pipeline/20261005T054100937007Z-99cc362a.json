@@ -1,0 +1,25 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either a device is registered and a test push is confirmed delivered, or the operator confirms mobile push is intentionally unused and the row is closed as by-design.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260807-NO-REGISTERED-PUSH-DEVICES",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " Operator confirms mobile push unused (close as by-design) or a device registers and /api/bot/devices count>=1 with a delivered test push | evidence: Live /api/diag/db_info 2026-10-05: row_counts.device_tokens = 0 (still empty). Tier-3-style operator confirmation (by-design vs register a device) not found at HEAD.",
+    "what": "Either a device is registered and a test push is confirmed delivered, or the operator confirms mobile push is intentionally unused and the row is closed as by-design."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-NO-REGISTERED-PUSH-DEVICES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-NO-REGISTERED-PUSH-DEVICES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "Premise retired: CLAUDE.md (operator decision 2026-09-01) makes the Svelte SPA the only live consumer and retires the Android app from the live feed, so there are no FCM devices to register. An empty device_tokens table is the expected state. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Operator confirms mobile push unused (close as by-design) or a device registers and /api/bot/devices count>=1 with a delivered test push | evidence: Live /api/diag/db_info 2026-10-05: row_counts.device_tokens = 0 (still empty). Tier-3-style operator confirmation (by-design vs register a device) not found at HEAD.",
+  "what": "[health] [alerting] device_tokens is EMPTY — every FCM push the system emits reaches nobody"
+}

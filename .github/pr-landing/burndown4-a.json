@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only (docs/claude/work/pipeline/): BACKLOG-BURNDOWN-4 dispositions of due-wave items (done, killed, routed), each with evidence in terminal_reason. No code, config or order-path change."
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "owner row EXIT-CLUSTER reaches done, or this item is verified fixed at HEAD. Routed 2026-10-05: not re-measured (needs trainer-side realized_slippage pull)",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-WL2HIWVS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane EXIT-CLUSTER session_01XpKxKGrnBP9u4xwL2hiWVs, PR #14106",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/ec && python3 -c \"import json;t=json.load(open('/tmp/ec/trades.json'));print(sum(1 for r in t if r['exit_reason']=='exchange_flat_reconciled' and r['status']=='closed' and r['pnl'] is None and (r['closed_at'] or '')>='2026-07-31'))\""
+  },
+  "routed_to": "EXIT-CLUSTER (landed_unproven)",
+  "state": "routed",
+  "what": "[pnl-pricing] 29 of 77 exchange_flat_reconciled closes (closed non-backtest, closed_at >= 2026-07-31) have exit_price NULL and pnl NULL, and 27 of those 29 have a matching exit-side fill in the exchange-fills store within 2 min before closed_at (MEASURED 2026-09-29 via realized_slippage.py pull; e.g. 5267 alpaca_paper SLV fill 56.54 x345, 5266 alpaca_portfolio TLT 82.56). So fills_pnl.exit_from_fills refused them (likely the qty match on netted same-symbol positions, e.g. 5927+6023 QQQ closed together) and the local sweep then declared unmeasured. Broker truth exists and is not reaching the journal; these rows also cannot get an sl/tp label (PR #14106 labels MEASURED only). Tier-2 (src close path)."
+}

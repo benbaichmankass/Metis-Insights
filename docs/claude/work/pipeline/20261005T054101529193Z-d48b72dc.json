@@ -1,0 +1,26 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 25,
+    "clears_when": "TWO PARTS, different facts — say WHICH was cleared.\n\n(1) THE MEASUREMENT GAP IS CLOSED FIRST, because it is what let this go unremarked: the LIVE surface must not be able to read `within` while the durable record reads `breached`. Either the live grade carries the durable max beside its own, or requirement_state is computed from the soak rather than from per-process memory. ⚠️ This half is CHEAP and is the one that stops recurrence — the per-process reset is not a bug in itself (CLAUDE.md is right that max_interval_ms is legitimately per-process), but publishing it as THE requirement verdict is.\n\n(2) THE BREACH RATE ITSELF comes down, measured over a NEW population of comparable size — not the same rows re-read. Report in-process breach % and restart-gap breach % separately; they have different causes (tail latency vs cold-start) and a fix for one will not touch the other.\n\n⚠️ A QUIET WINDOW CLEARS NOTHING: 1.69% means ~1 breach per 59 intervals, so a short window will show zero by arithmetic. State the interval count. ⚠️ AND A GREEN requirement_state ON A FRESH PROCESS IS THE EXACT READING THAT IS ALREADY WRONG — do not clear on it. ⚠️ IF THE OPERATOR DECIDES 60s is the wrong requirement, this does NOT clear — it CHANGES, and the new bound must be recorded as a decision with the measured distribution beside it.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260911-THE-60-SECOND-EXIT-EVALUATION-REQUIREMENT-IS-BREACHED-ON-THE-DURABLE-RECORD-WHILE-THE-PER-PROCESS-INSTRUMENT-READS-WITHIN",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-30",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-60-SECOND-EXIT-EVALUATION-REQUIREMENT-IS-BREACHED-ON-THE-DURABLE-RECORD-WHILE-THE-PER-PROCESS-INSTRUMENT-READS-WITHIN'), indent=2))\"",
+    "what": "TWO PARTS, different facts — say WHICH was cleared.\n\n(1) THE MEASUREMENT GAP IS CLOSED FIRST, because it is what let this go unremarked: the LIVE surface must not be able to read `within` while the durable record reads `breached`. Either the live grade carries the durable max beside its own, or requirement_state is computed from the soak rather than from per-process memory. ⚠️ This half is CHEAP and is the one that stops recurrence — the per-process reset is not a bug in itself (CLAUDE.md is right that max_interval_ms is legitimately per-process), but publishing it as THE requirement verdict i"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-THE-60-SECOND-EXIT-EVALUATION-REQUIREMENT-IS-BREACHED-ON-THE-DURABLE-RECORD-WHILE-THE-PER-PROCESS-INSTRUMENT-READS-WITHIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-60-SECOND-EXIT-EVALUATION-REQUIREMENT-IS-BREACHED-ON-THE-DURABLE-RECORD-WHILE-THE-PER-PROCESS-INSTRUMENT-READS-WITHIN'), indent=2))\""
+  },
+  "routed_to": "BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL",
+  "state": "killed",
+  "terminal_reason": "DUPLICATE of BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL (kept open): same durable-record measurement of the 60s exit-eval breach (1,219/72,148 vs 1,216/67,444). [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Operator answer on restart scope + soak showing both within_process and restart_gap within requirement. | evidence: Live soak 2026-10-05: breaches 1229/138862, restart_gap_state=breached 94/1151, max_gap_ratio 4.45; summary says population 'every row on disk' (durable). Part (2) decision: r2_only chosen, R1 not chosen. RESTART-SAFE does not cover the 60s requireme | previous owner dropped (did not cover the item): RESTART-SAFE — triaged 2026-10-05: still applies — Live /api/bot/exit-interval/s",
+  "what": "[health] M20's 60s exit-evaluation requirement is BREACHED — 1,219 of 72,148 intervals (1.69%, max 2.00x) and 77 of 462 restart gaps (16.7%, max 3.51x) — while the live per-process grade reads `within` because one 95-minute process did not draw the tail"
+}

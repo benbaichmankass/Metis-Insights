@@ -1,0 +1,20 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "each of (1)-(4) is fixed in a merged PR (after #16381/#16389/#16391/#16393 merge) or killed with a stated reason",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-SHFA88UK-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "manager review 2026-10-04T15:37Z of PRs #16381 #16389 #16391 #16393 (lane OPS-FIXES)",
+    "rerun": "Read the four named spots: grep -n 'restart' scripts/deploy_pull_restart.sh around the IN_PROCESS_CHANGES branch; grep -n '30m' .github/workflows/constraint-readout.yml .github/workflows/due-list.yml; run scripts/research/queue_replenish.py (no --write) and look for a skipped-legs count; read tests/test_notify_unit_failure.py's last test."
+  },
+  "state": "killed",
+  "terminal_reason": "Four review nits on already-merged PRs (#16381/#16389/#16391/#16393): stale comment text and test style. No behavioural risk; not pursued. Re-file nit (1) (research-only change restarts ict-trader-live) if a restart is shown to cost a bar. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('BACKLOG-BURNDOWN-2 — nits from OPS-FIXES held PRs; fix or ki'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "[ops follow-ups from the manager's 2026-10-04 review of lane OPS-FIXES held PRs] (1) #16391: when only the IN_PROCESS (scripts/research web-api-imported) set changed, restart ict-web-api ONLY, not ict-trader-live -- the 8 modules had ~26 commits in 30 days, so each now restarts the live trader needlessly; nit: deploy_pull_restart.sh:403 should join with $'\\n'. (2) #16381 nit: stale '30m wait' sizing comments at .github/workflows/constraint-readout.yml:88 and due-list.yml:78. (3) #16393 nit: queue_replenish plan output should count legs skipped for low/unreadable n_trades so an unreadable n does not vanish silently. (4) #16389 nit: test_unit_failures_log_is_readable_through_the_diag_relay should compare against notify_unit_failure._logs_dir() rather than the expression it is built from."
+}

@@ -1,0 +1,17 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-WJUTENGU-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "SA-DOCS lane close-out 2026-09-29",
+    "rerun": "grep -rlE 'OPEN-ITEMS|SESSIONS\\.json|MANAGER-LEASE|MERGE-QUEUE|review-backlog' --include=* . | wc -l"
+  },
+  "state": "killed",
+  "terminal_reason": "Counting exercise (re-measure references to archived registers). No decision depends on the number; retiring live readers is owned by E9 (queued). Not pursued separately. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "what": "SA-AUD-8-archived-register-refs-count: re-measure references to archived registers (audit counted 2274 files / 4643 lines, not comparable to E29's 40 paths / ~60 files) using E29's definition, and classify tombstones vs live readers. Filed with FIX-SA-09, not done there."
+}

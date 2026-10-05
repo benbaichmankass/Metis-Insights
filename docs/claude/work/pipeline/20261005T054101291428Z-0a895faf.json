@@ -1,0 +1,26 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "Determine which process wrote the stray (grep the trainer's units + any cron for a bare `trade_journal.db` / a CWD-relative resolver, and check whether `signals` there has rows newer than 2026-08-02 on a later read — a growing count means a live writer, a frozen one means a historical artifact). THEN either fix the writer's path resolution, or, if it is confirmed historical, delete the stray and record that a later trainer-vm-diag `find / -name 'trade_journal*.db'` returns exactly ONE path. Deleting it before knowing which is the case would destroy the evidence of the writer.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": " trainer-vm-diag: count + max(logged_at) of signals in trainer repo-root trade_journal.db on two reads >24h apart; find / -name 'trade_journal*.db' | evidence: Needs trainer-vm-diag relay (signals row count/newest in trainer repo-root trade_journal.db; find / -name 'trade_journal*.db'); relay requires issue creation, not possible read-only. Same artifact as BL-20260730-TRAINER-JOURNAL-COPY-STALE. HEAD: audi",
+    "what": "Determine which process wrote the stray (grep the trainer's units + any cron for a bare `trade_journal.db` / a CWD-relative resolver, and check whether `signals` there has rows newer than 2026-08-02 on a later read — a growing count means a live writer, a frozen one means a historical artifact). THEN either fix the writer's path resolution, or, if it is confirmed historical, delete the stray and record that a later trainer-vm-diag `find / -name 'trade_journal*.db'` returns exactly ONE path. Deleting it before knowing which is the case would destroy the evidence of the writer."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB'), indent=2))\""
+  },
+  "routed_to": "BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL",
+  "state": "killed",
+  "terminal_reason": "DUPLICATE of BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL (kept open): same stray trade_journal.db at the trainer repo root; the kept row states the resolver cause. Not re-measured on the trainer this session. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: trainer-vm-diag: count + max(logged_at) of signals in trainer repo-root trade_journal.db on two reads >24h apart; find / -name 'trade_journal*.db' | evidence: Needs trainer-vm-diag relay (signals row count/newest in trainer repo-root trade_journal.db; find / -name 'trade_journal*.db'); relay requires issue creation, not possible read-only. Same artifact as BL-20260730-TRAINER-JOURNAL-COPY-STALE. HEAD: audi",
+  "what": "[health] A stray trade_journal.db sits at the TRAINER's repo root holding 15,644 signals rows — the CWD-relative-fallback artifact canonical-db-resolver exists to prevent, and it nearly cost a false 'sync is 10 days stale' alarm"
+}
