@@ -339,7 +339,12 @@ phone_accounts:
     terminal_url: https://trade.breakoutprop.com/
     # One-shot dry end-to-end test without the operator (src/prop/phone_executor.py::serve_dry_test_request):
     # on the phone's next claim, ONE always-dry ETH test ticket is written for this id. Change the id to ask again.
-    dry_test_request: 2026-10-05-night-1
+    # night-1 (22:20Z) reached the form and REFUSED correctly: the ticket sat on BTC and the ETH switch failed
+    # (symbol switching is in the app; its fix needs an APK install). night-2 tests the rest of the dry path on the
+    # symbol the form already shows: BTC, test-only (no leg trades it), always dry.
+    dry_test_request: 2026-10-05-night-2
+    dry_test_symbol: BTCUSDT
     instruments:
       ETHUSDT: {venue: ETHUSD, qty_step: 0.01, price_step: 0.01}
       SOLUSDT: {venue: SOLUSD, qty_step: 0.01, price_step: 0.01}
+      BTCUSDT: {venue: BTCUSD, qty_step: 0.001, price_step: 0.1}   # DRY TESTS ONLY: price step read off the form (85,778.8); qty step UNMEASURED

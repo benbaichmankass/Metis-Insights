@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "config + a one-line server change for the overnight always-dry phone test (BTC, the symbol the ticket already shows); the manager merges under the overnight plan (2026-10-05 ~21:28Z)",
+  "why": "night-1 dry test refused correctly on symbol switching (ETH switch lives in the app, needs an APK install); night-2 tests the rest of the dry path on BTC"
+}

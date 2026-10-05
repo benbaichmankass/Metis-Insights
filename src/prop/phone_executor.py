@@ -317,7 +317,8 @@ def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
     if seen:
         return None
     try:
-        tid = make_test_ticket(device, request_id=req)["ticket_id"]
+        sym = str(phone_config(device.account_id).get("dry_test_symbol") or "ETHUSDT").upper()
+        tid = make_test_ticket(device, symbol=sym, request_id=req)["ticket_id"]
     except ValueError:
         logger.warning("phone_executor: dry_test_request %s could not be served (no reference price)", req)
         return None
