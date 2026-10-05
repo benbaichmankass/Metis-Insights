@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only (docs/claude/work/pipeline): replaces my own #16593 closure record, which was not an append-only extension of the item's latest text and turned pipeline-guard red on main, with one built on the latest record. No code, config, roster or runtime change."
+}

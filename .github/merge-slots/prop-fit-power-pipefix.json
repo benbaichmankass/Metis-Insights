@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01SGtB43mEJKQKsfmg7bGr46",
+  "branch": "claude/prop-fit-power-pipefix",
+  "claimed_at": "2026-10-05T10:29:41Z",
+  "purpose": "PROP-FIT-POWER: unbreak pipeline-guard from my #16593 closure record"
+}
