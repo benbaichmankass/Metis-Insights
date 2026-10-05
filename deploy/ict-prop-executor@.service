@@ -1,0 +1,42 @@
+# Per-account prop executor (TRADEIFY-EXECUTOR, 2026-10-03; operator popup
+# ~17:30Z "Build executor, then go live"). Instance name = the prop account id
+# in config/prop_platforms.yaml, e.g. ict-prop-executor@tradeify_1. Same script
+# and same guards as ict-prop-executor.service (breakout_1's, which is NOT
+# templated and is unchanged). For an instance account EVERYTHING is its own
+# (scripts/ops/prop_executor_tick.sh): kill switch PROP_EXECUTOR_MODE_<ACCOUNT>
+# (default read_only), the session its ict-prop-feed@<account> saved, state in
+# accounts/<id>/executor, lock accounts/<id>/login.lock — never breakout_1's
+# login.lock, session, state or PROP_EXECUTOR_MODE. Like breakout_1's, it never
+# types credentials (session reuse only; the feed owns logins).
+#
+# TEMPLATE: scripts/install_systemd_units.sh skips *@* files, and
+# deploy_pull_restart.sh never restarts a template instance, so nothing here
+# runs until `breakout-login-check account: <id> apply: executor-enable-timer`
+# installs this file plus deploy/opt-in/ict-prop-executor@.timer and enables the
+# instance (refused for breakout_1, and refused while the account's feed timer
+# is not active). LIVE-TRADER BOX ONLY (needs the VM .env and :8001).
+[Unit]
+Description=ICT prop executor — one %i cycle (PROP_EXECUTOR_MODE_<ACCOUNT>, default read_only)
+After=network-online.target ict-web-api.service
+Wants=network-online.target
+# A failed tick (a halted AUTO-REVERT latch exits 3, a crash or timeout with
+# no {"alert"} line) pinged NOTHING: install_systemd_units.sh's FIX-SA-08
+# drop-in loop covers deploy/*.timer only, and this unit's timer is under
+# deploy/opt-in/ (OPS-AUDIT 2026-10-04, OA-01). Declared here so every
+# install path carries it; notify_unit_failure.py pings once per unit per 6h.
+OnFailure=ict-notify-failure@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=HOME=/home/ubuntu
+Environment=PYTHONUNBUFFERED=1
+Environment=PROP_EXECUTOR_ACCOUNT=%i
+TimeoutStartSec=240
+Nice=10
+MemoryMax=1200M
+CPUQuota=100%
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/prop_executor_tick.sh
+StandardOutput=journal
+StandardError=journal

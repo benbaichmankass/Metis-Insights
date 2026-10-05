@@ -1,0 +1,112 @@
+# config/prop_rulesets/velotrade_classic_1step.yaml
+# Velotrade (crypto perps on DXtrade) "CLASSIC 1-Step", $5k tier, modelled on the STRICTEST
+# reading wherever the firm's pages differ or are silent.
+# DESK RESEARCH ONLY (lane PROP-FIRM-DEEP, 2026-10-04): nothing bought, no account
+# opened, no login attempted, firm not contacted. Every number is FIRST-PARTY, read
+# 2026-10-04 by curl from velotrade.com: /terms (Terms and Conditions), /rules (the
+# rule bodies, extracted from the page payload), /payouts, /crypto (fees, leverage)
+# and /challenges. Verbatim quotes and the conflicts are in
+# docs/research/prop-firm-deepdive-2026-10-04.md section 1. Re-read before relying on it.
+#
+# Rules this schema cannot hold but which BIND any book built for it (all first-party):
+#   qualifying days: "A trading day only counts if it closes with a net profit of 0.8%
+#     or more of the initial account balance" -- 5 such days per phase AND 5 more on the
+#     funded account before the first payout (rules: Minimum Trading Days, eff. 2026-08-22).
+#     Expressed below as phases.evaluation.qualifying_day_profit_pct, which
+#     scripts/research/prop_ev_sim.py reads (the gate is OFF for every other ruleset).
+#   payout cap: "The first and second Payouts are subject to a cap of twenty (20) times the
+#     Fee paid ... Any balance exceeding the Payout Cap is forfeited" and "All Payouts are
+#     full withdrawals" (Terms 5.4(f)). Expressed as economics.payout.first_payouts_capped /
+#     first_payout_cap_multiple_of_fee, read by the same simulator.
+#   daily reset basis: "we use whichever is higher, your balance or your equity" at 00:30
+#     UTC (rules: Equity limits, eff. 2026-09-30) -- limits.daily_loss_reset_basis.
+#   costs: commission 0.03% of notional PER SIDE; swap 0.05% of notional per night for any
+#     position open at 00:30 UTC, weekends included, both directions (/crypto, /rules).
+#   hedging: allowed WITHIN one account; banned across accounts/firms/platforms.
+#   banned: grid trading, HFT, tick scalping, arbitrage, latency exploitation (Terms 8.2).
+#   EAs/bots/API: "Use of Expert Advisors (automated trading software) is permitted"
+#     (Terms 8.3); "Full programmatic API access is available on all accounts" (rules: EAs).
+#   VPS/VPN: "Velotrade permits the use of VPNs ... and VPS ... for trading" (rules).
+#   one profile per person (KYC), many challenges under it, combined funded <= USD 200,000.
+#   funded offer is DISCRETIONARY: "An offer of a Funded Account is not guaranteed,
+#     regardless of Evaluation performance" (Terms 5.3(b)) -- NOT modelled; stated in the memo.
+#   inactivity: one trade held >= 60 s every 30 calendar days or the account deactivates.
+# UNCONFIRMED (strictest reading chosen): funded account restarts at the start balance;
+#   no fee refund; the ALGO2026 promo price is the "Fee paid" that sets the payout cap;
+#   leverage caps are the FUNDED (lower) figures and bind per position.
+ruleset: velotrade
+plan: classic-1step-5k
+account_size_usd: 5000            # other tiers exist ($10k-$200k); only the $5k price was read
+profit_split: 0.80                # "80% split as standard, upgradeable to 90% at checkout" (+20% fee)
+unconfirmed: true                 # desk research only
+
+phases:
+  evaluation:
+    profit_target_pct: 0.10       # "Profit target 10%"
+    min_trading_days: 5           # 5 QUALIFYING days (see header); counted by the simulator
+    qualifying_day_profit_pct: 0.008   # a day counts only if realised P&L >= 0.8% of the INITIAL balance
+    max_eval_days: null           # "unlimited time to complete the challenge" (rules: Breach consequences)
+  funded:
+    profit_target_pct: null
+    min_trading_days: 5           # 5 qualifying days again before the FIRST payout only
+
+limits:
+  daily_loss_pct: 0.04            # "Daily loss limit 4%" (CLASSIC 1-Step)
+  daily_loss_reset_utc: "00:30"   # "Resets every day at 00:30 UTC"
+  daily_loss_basis: equity_vs_daystart_balance   # "monitored against live equity, including open positions"
+  # The limit AMOUNT is 4% of the day-start value (NOT of account size): "Limit = Higher of
+  # balance or equity x 96%".
+  daily_loss_amount_basis: day_start_balance
+  daily_loss_reset_basis: max_balance_equity     # "whichever is higher, your balance or your equity"
+  # Max notional / balance per position: FUNDED figures from /crypto (challenge is looser:
+  # BTC 10x, ETH 6x, SOL 6x, XRP 3x). Strictest = funded.
+  # Keyed by the BOT symbol (BTCUSDT, ...): src/prop/prop_rule_guards.py looks the
+  # cap up by the ticket's symbol, which is the bot's. Keyed by the venue name
+  # (BTCUSD) as first written, every symbol fell through to `default: 2`
+  # (VELOTRADE-WIRE 2026-10-04: fails safe, but ETH/SOL sized at 2x not 5x).
+  leverage_caps:
+    BTCUSDT: 5
+    ETHUSDT: 5
+    SOLUSDT: 5
+    XRPUSDT: 2
+    default: 2
+  max_drawdown_pct: 0.07          # "Max drawdown 7% Static" -- "Calculated once on your initial balance and fixed for the life of the account"
+  drawdown_type: static
+  max_position_pct: null          # "No max risk per trade" / "no per-trade cap"
+
+consistency:
+  enabled: false                  # "Velotrade does not enforce a consistency rule."
+  max_single_day_profit_share: null
+
+restrictions:
+  weekend_flat: false             # "Velotrade permits traders to hold positions over the weekend."
+  overnight_flat: false           # "Velotrade does not require traders to close positions overnight."
+
+funded_soak_days: 30
+
+economics:
+  account_fee_usd: 54             # $5k CLASSIC 1-Step: $54 with code ALGO2026 (list $67) -- the price shown 2026-10-04
+  rebuy_fee_usd: 54               # no reset product; "you may purchase a new challenge and start fresh"
+  funded_start: fresh             # STRICTEST; not stated on any page read
+  first_payout_fee_refund: false  # not stated on any page read -> none assumed
+  payout:
+    first_payout_after_days: 14   # "after 14 calendar days from the first trade on the Funded Account" (Terms 5.4(b))
+    payout_frequency_days: 7      # "Subsequent Payouts may be requested weekly" (5.4(c))
+    min_withdrawal_usd: 100       # "Minimum Payout amount is USD 100" (5.4(d))
+    min_trading_days_before_payout: 5   # 5 qualifying funded days (rules: Minimum Trading Days)
+    first_payouts_capped: 2             # "The first and second Payouts are subject to a cap" (5.4(f))
+    first_payout_cap_multiple_of_fee: 20   # "twenty (20) times the Fee paid"; excess FORFEITED
+    processing_hours: 24          # "processed within 24 hours of approval in USDC or USDT" (5.4(e))
+  withdrawal_policy:
+    mode: above_start
+    buffer_usd: 0
+    bank_asap: true               # "All Payouts are full withdrawals ... Partial withdrawals are not permitted"
+    cadence_days: 7
+# Live-path keys (VELOTRADE-WIRE 2026-10-04, account velotrade_1). Read by
+# src/prop/prop_executor.py::load_config and the ticket emitter; the simulator
+# ignores both.
+routing: prop_rulesets/velotrade_routing.yaml
+sizing:
+  mode: flat
+  flat:
+    max_risk_usd: 25              # 0.5% of $5,000: the risk the deep-dive (§ 1.8 item 6) says this book can carry

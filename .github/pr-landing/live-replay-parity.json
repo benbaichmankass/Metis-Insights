@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 tooling/CI/observability only. Adds scripts/ops/live_replay_parity.py (read-only replay + diff over the canonical trade_journal.db::signals record and the bot's own candles), its tests, a daily read-only workflow (.github/workflows/live-replay-parity.yml: SSH tunnel to the web-api, compute on the runner, commit comms/live_parity/), one read-only line in the daily brief (§4), a label and a schedule-keeper target. No runtime, order path, strategy config, risk cap, account mode or VM change."
+}

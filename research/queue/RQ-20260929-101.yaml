@@ -100,4 +100,4 @@ lands:
 related:
   - 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_2h (config/strategies.yaml) -- the sibling legs this mirrors'
   - 'config/pairs.yaml sol_bnb / bnb_btc -- BNBUSDT''s existing (pairs-only) live exposure'
-last_dispatched_at: null
+last_dispatched_at: '2026-10-04T14:55:57+00:00'

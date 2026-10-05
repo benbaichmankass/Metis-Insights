@@ -1,0 +1,85 @@
+# config/prop_rulesets/propr_turbo_1step.yaml
+# Propr (crypto/equity/commodity perps priced off Hyperliquid; firm-run REST API) "Turbo 1-Step",
+# $5k tier. DESK RESEARCH ONLY (lane PROP-FIRM-DEEP, 2026-10-04): nothing bought, no account,
+# no API key, firm not contacted. Sources, all read 2026-10-04: the Official Rulebook at
+# https://www.propr.xyz/rules, the Funded Account Terms at /funded-terms, and the Bot API
+# reference at https://github.com/XBorgLabs/propr-docs (docs/api.md). Quotes and conflicts:
+# docs/research/prop-firm-deepdive-2026-10-04.md section 2.1 and addendum A3.
+#
+# Binding facts this schema cannot hold:
+#   every account is simulated: "All Propr accounts, including 'Funded Accounts', are 100%
+#     simulated ... Any payout represents a performance-based reward for signal evaluation"
+#     (Funded Terms annex); Propr A-books or B-books each trade at its sole discretion.
+#   bots: "EA / Bot restrictions: None. Automated trading is permitted." (rulebook 14) but
+#     "off-the-shelf bots without individual customization may be flagged as coordinated
+#     trading" (Funded Terms 8.8(c)). API: X-API-Key, 1,200 req/min, one key per user.
+#   brackets: native conditional orders (stop_market, stop_limit, take_profit_market,
+#     take_profit_limit) attach to a position by positionId or ride in the entry's
+#     orderGroupId (api.md "Batching and Conditional Order Rules").
+#   costs: api.md "Trading Fees" 0.075% taker AND maker per side (15 bps round trip) --
+#     the rulebook says "Standard Hyperliquid maker/taker fees ... passed through at cost";
+#     the API figure is used. Funding: Hyperliquid's periodic rate, credited or debited;
+#     no flat nightly swap, so economics.swap below is NOT modelled (set by the sim flags).
+#   leverage CONFLICT: rulebook 12 prints BTC/ETH/SOL 10x, other crypto 2x; api.md
+#     "Leverage Limits" prints BTC/ETH 5x, everything else 2x (SOL 2x). Field beats prose:
+#     the API's figures are used below. Re-query GET /leverage-limits/effective before use.
+#   KYC before the funded account; aggregate funded cap $300,000; restricted jurisdictions.
+#   no VPS / VPN / datacenter clause found on any Propr page read (absence, not permission).
+# UNCONFIRMED (strictest reading): funded account restarts at the start balance (the
+#   rulebook says a payout resets the balance to the initial funded amount, so this is
+#   consistent); no fee refund (none stated).
+ruleset: propr
+plan: turbo-1step-5k
+account_size_usd: 5000
+profit_split: 0.80                # "You keep 80% of all profits generated on your funded account."
+unconfirmed: true
+
+phases:
+  evaluation:
+    profit_target_pct: 0.09       # "Reach the 9% profit target"
+    min_trading_days: 0           # "Minimum trading days: None. Pass the evaluation in one trade if you want."
+    max_eval_days: null           # "Time limit: None."
+  funded:
+    profit_target_pct: null
+    min_trading_days: 0
+
+limits:
+  daily_loss_pct: 0.03            # "3% ... of your start-of-day balance" (1-Step)
+  daily_loss_reset_utc: "00:00"   # "recalculated every day at 00:00 UTC"
+  daily_loss_basis: equity_vs_daystart_balance   # "checked against your equity, which counts open positions"
+  daily_loss_amount_basis: day_start_balance     # "Daily Loss Limit = Daily Loss % x Start-of-day Balance"
+  daily_loss_reset_basis: balance                # the rulebook names BALANCE at 00:00 UTC, not max(balance, equity)
+  leverage_caps:                  # api.md GET /leverage-limits/effective, read 2026-10-04 (rulebook prints higher)
+    BTC: 5
+    ETH: 5
+    default: 2
+  max_drawdown_pct: 0.03            # "3% max drawdown (Turbo)"
+  drawdown_type: static           # 1-Step: "a fixed percentage below your starting balance and never moves"
+  max_position_pct: null          # "Risk-per-trade rule: None."
+
+consistency:
+  enabled: false                  # "Consistency rule: None."
+  max_single_day_profit_share: null
+
+restrictions:
+  weekend_flat: false             # "Weekend holding restriction: None."
+  overnight_flat: false
+
+funded_soak_days: 30
+
+economics:
+  account_fee_usd: 25              # rulebook section 2, $5,000 Turbo 1-Step: $25
+  rebuy_fee_usd: 25
+  funded_start: fresh             # consistent with "After a payout, your account balance resets to the initial funded amount"
+  first_payout_fee_refund: false  # none stated
+  payout:
+    first_payout_after_days: 1    # "On-demand, at any time, with no minimum waiting period" (daily is the modelling grain)
+    payout_frequency_days: 1
+    min_withdrawal_usd: 20        # "Minimum payout amount: $20"
+    min_trading_days_before_payout: 0
+    processing_hours: 24          # "Processed within 24 hours ... All payouts in USDC on-chain"
+  withdrawal_policy:
+    mode: above_start
+    buffer_usd: 0
+    bank_asap: true               # "Each payout sweeps all available profit ... No partial withdrawals."
+    cadence_days: 1

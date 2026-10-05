@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "performance-review 2026-10-04 (lane PERFORMANCE-REVIEW, manager session_01MM8o5js6TcDFeNAPBY4Ntv): the review record comms/reviews/performance-review-20261004-*.json, 153 appended decision-grade rows in comms/claude_strategy_scores.jsonl, one appended snapshot line in docs/research/paper-book-tracker.jsonl, 80 update + 6 new records under docs/claude/work/pipeline/, one pending-ping line, and three documentation corrections to .claude/skills/performance-review/SKILL.md (API limit cap, classifier input shape, tracker gap). No code, config, workflow or order-path change."
+}

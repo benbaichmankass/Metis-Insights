@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only: close PI-20261001-APBY4NTV-0001 with a terminal_reason and route the Tier-3 revert proposal for the bybit_1 conviction-sizing arm to the manager as PI-20261002-7FTEG7QN-0001. No code, config or order-path change; the revert is NOT applied."
+}

@@ -1,0 +1,6 @@
+{
+  "held_by": "session_014bomc3Y6kgwMFSqqGojcCp",
+  "branch": "claude/live-replay-parity",
+  "claimed_at": "2026-10-03T06:36:40Z",
+  "purpose": "LIVE-PARITY standing live-vs-replay parity check (Tier-1 tooling/CI/observability)"
+}

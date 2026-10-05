@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20260930-703/36951470261/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20260930-703/36951470261",
+  "decision_rule_id": "RULE-RQ0930-703-REGIME-HEADROOM-CONSERVATIVE-SELECTION",
+  "decision_rule_registered_at": "2026-10-01",
+  "measurement_file": "comms/research/RQ-20260930-703/36951470261/measurement.json",
+  "min_rows": "1",
+  "n": "1764",
+  "note": "no_headroom_trend_axis. Upper-bound scoping, NOT a promotion case: \u0394netR = net R of dropped test-block trades negated, cells selected on earlier blocks only. Pooled legs share symbols, so the pooled band is optimistic. trend (ADX-14); vol NOT covered.",
+  "population": "22 crypto-perp legs with n>=30 in the newest committed ledger; 27 other ledgers not measured (reasons in measurement.skipped); trend (ADX-14); vol NOT covered",
+  "power_state": "accruing",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20260930-703",
+  "tool": "python3 scripts/research/regime_impact_scoping.py",
+  "verdict": "fail"
+}

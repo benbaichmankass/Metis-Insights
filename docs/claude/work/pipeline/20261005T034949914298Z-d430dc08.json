@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) Measure cap_R per trade for all 6 legs from the live journal and/or the canonical CSVs (scripts/research/m20_ladder_headroom.py already computes cap_r_p10/p50/p90 per leg — extend it to compare against each leg's declared arm_r rather than adding a second definition); (2) for every leg where arm_r exceeds the cap_R the leg actually attains, EITHER re-sweep the arm on a live-parity (0.099) book and propose the corrected value to the operator, OR record the lever as inert so the coverage matrix stops counting it as shipped; (3) add a check (CI guard or declare-time refusal) that a declared R-threshold lever is reachable under the leg's own TP geometry, so this class cannot be re-declared silently; (4) Tier-3: any arm_r change is an operator decision — this item proposes, it does not flip.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Steps 1-3 of the row's plan are delivered: per-leg cap_R vs arm_r is measured and every declared gate carries a disposition, and a CI guard now blocks undeclared-unreachable arms. Remaining arm_r corrections are ordinary Tier-3 tuning, not this finding. || EVIDENCE: scripts/ci/check_lever_reachability.py (registered as lever-reachability-guard, run_guards.py:1980-1990) compares arm_r to cap_R; run at HEAD: 5 declared reach-gates, 'OK - every declared reach-gate has a current, disposed measurement'. E41 shipped strips for the two zero-reach legs (gld_pullback_1d, qqq_trend_long_1d). || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "triage_2026_09_28": {
+    "checked": "Read scripts/research/m20_ladder_headroom.py — it already computes cap_r_p10/p50/p90 per leg but does not yet compare against each leg's declared trail_decay_arm_r as the finding's clears_when step 1 asks. config/strategies.yaml shows many legs still carrying trail_decay_arm_r values (2.0-6.49) with no such cross-check recorded anywhere.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane — extend m20_ladder_headroom.py to diff cap_R against each leg's arm_r and add a CI guard/declare-time refusal per the item's own 4-step plan; only step 4 (any arm_r correction) is Tier-3 and stays proposal-only.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] [exit-levers] A declared trail_decay_arm_r can sit ABOVE the R the 9.9% TP cap allows, making the lever silently inert on the live leg\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane — extend m20_ladder_headroom.py to diff cap_R against each leg's arm_r and add a CI guard/declare-time refusal per the item's own 4-step plan; only step 4 (any arm_r correction) is Tier-3 and stays proposal-only."
+}

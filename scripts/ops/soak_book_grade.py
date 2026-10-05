@@ -86,7 +86,7 @@ import json
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -340,7 +340,69 @@ def _pull_cost_fidelity(tmp_dir: Path) -> Optional[dict]:
               file=sys.stderr)
         return None
     as_of = datetime.now(timezone.utc)
-    return r3.run(tmp_dir, as_of)
+    # A crash inside the R3 grade is a cost-fidelity read failure, not a reason
+    # to lose the MECHANICS dimension too. MEASURED 2026-10-04 (run 37174464732):
+    # an unhandled ValueError here took the whole weekly pass down and no record
+    # landed. Same three-state contract as the pull failure above.
+    try:
+        return r3.run(tmp_dir, as_of)
+    except Exception as exc:  # noqa: BLE001 — reported, never swallowed silently
+        print(f"soak_book_grade: r3_cost_fidelity.run raised {type(exc).__name__}: {exc}",
+              file=sys.stderr)
+        return None
+
+
+def shadow_package_counts(rows: Optional[List[Dict[str, Any]]], shadow_strategies: set,
+                          *, since_iso: str) -> Dict[str, Dict[str, Any]]:
+    """Per ``execution: shadow`` strategy: order packages created since ``since_iso``.
+
+    PI-20261004-JC8KDKLF-0002: a shadow leg sends no order, so mechanics (E18)
+    records ``null`` for it and every shadow soak graded could-not-look. Shadow
+    legs DO log order packages, so counting those is the only signal that a
+    shadow leg is alive. A shadow strategy with no rows is ``n: 0`` (we looked),
+    never absent. Rows are the journal's (``strategy_name`` / ``created_at``);
+    the dashboard spelling (``strategy`` / ``createdAt``) is accepted too. Rows
+    are de-duplicated on ``order_package_id`` because the journal pages by a
+    MUTABLE key (``page_stability: mutable_key``), so a walk can repeat a row.
+    Timestamps are compared as strings after normalising the ``T``/space
+    separator: both sides are ISO-8601 UTC.
+    """
+    out: Dict[str, Dict[str, Any]] = {s: {"n": 0, "last_created_at": None} for s in shadow_strategies}
+    seen: set = set()
+    for r in rows or []:
+        s = r.get("strategy_name") or r.get("strategy")
+        ts = str(r.get("created_at") or r.get("createdAt") or "").replace(" ", "T")
+        pid = r.get("order_package_id") or r.get("orderPackageId")
+        if s not in out or not ts or ts < since_iso or (pid is not None and pid in seen):
+            continue
+        if pid is not None:
+            seen.add(pid)
+        out[s]["n"] += 1
+        if out[s]["last_created_at"] is None or ts > out[s]["last_created_at"]:
+            out[s]["last_created_at"] = ts
+    return out
+
+
+def fetch_order_packages(since_iso: str, *, page: int = 1000, max_pages: int = 10):
+    """Walk ``/api/diag/journal?table=order_packages`` (newest-updated first,
+    ``envelope=true``) until a page's OLDEST ``updated_at`` is before ``since_iso``
+    (``updated_at >= created_at``, so everything after it was also created before).
+    Returns ``(rows, fully_covered)``; ``(None, False)`` if the first read failed —
+    "could not look", never "empty". ``fully_covered`` is False if ``max_pages``
+    ran out first: counts are then lower bounds, which is still enough to prove a
+    leg is alive but not that it is quiet."""
+    rows: List[Dict[str, Any]] = []
+    for i in range(max_pages):
+        doc = lfr._diag_fetch(f"/api/diag/journal?table=order_packages&limit={page}"
+                              f"&offset={i * page}&envelope=true", timeout=60)
+        if not isinstance(doc, dict) or not isinstance(doc.get("rows"), list):
+            return (rows or None), False
+        got = doc["rows"]
+        rows += got
+        oldest = min((str(r.get("updated_at") or "").replace(" ", "T") for r in got), default="")
+        if not doc.get("has_more") or (oldest and oldest < since_iso):
+            return rows, True
+    return rows, False
 
 
 def fetch_strategy_execution() -> Optional[Dict[str, str]]:
@@ -353,6 +415,21 @@ def fetch_strategy_execution() -> Optional[Dict[str, str]]:
         return None
     return {s.get("name"): s.get("execution") for s in (doc.get("strategies") or [])
            if s.get("name")}
+
+
+def producer_failed_report(error: str) -> Dict[str, Any]:
+    """The record written when the grade itself crashed: both dimensions
+    ``producer_failed``, ``n`` null (we could not look — never a measured 0)."""
+    return {
+        "question": "R5: per Stage-1 soak leg (producer failed — see error)",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "mechanics_read_state": "producer_failed",
+        "cost_fidelity_read_state": "producer_failed",
+        "population": {"n": None},
+        "by_disposition": {},
+        "legs": [],
+        "error": error,
+    }
 
 
 def build_report(*, window_hours: int, skip_cost_pull: bool = False) -> Dict[str, Any]:
@@ -377,6 +454,17 @@ def build_report(*, window_hours: int, skip_cost_pull: bool = False) -> Dict[str
     tol = None
     if r3_result is not None:
         tol = r3_result["rule"]["tolerance_bps"]
+
+    shadow_set = {n for n, e in (execution_map or {}).items() if e == "shadow"}
+    since_iso = (now - timedelta(hours=window_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    pkg_rows, pkg_covered = fetch_order_packages(since_iso) if shadow_set else ([], True)
+    shadow_packages = {
+        "read_state": "measured" if pkg_rows is not None else "unreadable",
+        "window_hours": window_hours,
+        "window_fully_covered": pkg_covered,
+        "by_strategy": shadow_package_counts(pkg_rows, shadow_set, since_iso=since_iso)
+        if pkg_rows is not None else {},
+    }
 
     out_legs: List[Dict[str, Any]] = []
     for account_id, strategy in legs:
@@ -411,6 +499,7 @@ def build_report(*, window_hours: int, skip_cost_pull: bool = False) -> Dict[str
         "cost_fidelity_read_state": cost_read_state,
         "execution_map_read_state": "measured" if execution_map is not None else "unreadable",
         "by_disposition": by_disposition,
+        "shadow_packages": shadow_packages,
         "legs": out_legs,
     }
 
@@ -544,7 +633,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     if a.self_test:
         return _self_test()
 
-    report = build_report(window_hours=a.window_hours, skip_cost_pull=a.skip_cost_pull)
+    try:
+        report = build_report(window_hours=a.window_hours, skip_cost_pull=a.skip_cost_pull)
+    except Exception as exc:  # noqa: BLE001
+        # The workflow's contract is "rc=1 still lands a record". A traceback
+        # that writes nothing broke it (2026-10-04), so an unexpected failure
+        # writes an explicit producer_failed record instead of no file.
+        report = producer_failed_report(f"{type(exc).__name__}: {exc}")
     text = json.dumps(report, indent=2, default=str, sort_keys=True)
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)

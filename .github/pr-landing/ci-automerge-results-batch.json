@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane CI-AUTOMERGE (checklist row CI-AUTOMERGE). Batch-lands 20 research result records (research/results/** only) that were stranded on automation/research-result-* PRs because commit-to-main cut those branches from an unmerged session branch (pr-landing R5/R12 refused the session commits underneath, not the results). Each file is byte-identical to the one its producing run committed; each passes research_result.py --validate. No queue, rule, src/ or config change; the originals are closed as superseded by this PR."
+}

@@ -10,7 +10,7 @@ the action), and `refresh-stale-branch` merges `main` in ONCE when the wait is
 not progressing, minting a new head sha so the required checks re-run.
 
 All of that lives inside the PRODUCING RUN'S OWN LIFETIME — one
-``verify-timeout-minutes`` window (default 30), one refresh attempt. When the
+``verify-timeout-minutes`` window (default 50 since 2026-10-04), one refresh attempt. When the
 job exits, the branch has no owner. Its checks ran once, on the sha it was
 opened with, and NOTHING in this repository ever looks at it again. So any
 blocker that outlives one 30-minute window strands the branch PERMANENTLY,
@@ -120,12 +120,23 @@ REPO = Path(__file__).resolve().parents[2]
 #: the PR's CONTENT should land. Excluded from the payload for the same reason
 #: `check_pr_landing.LANDING_MACHINERY` excludes a branch's own declaration:
 #: a property every candidate has cannot discriminate between them.
-ARMING = re.compile(r"^\.github/(pr-landing|pr-automerge-requests)/")
+#:
+#: ⚠️ `.github/merge-slots/` IS IN THIS LIST SINCE 2026-10-04 (lane CI-AUTOMERGE),
+#: and its absence was the whole jam. R13 moved to one claim file per branch
+#: (MI-280) — a file that by construction does NOT EXIST on `main` until the
+#: branch merges. Left out, every automation PR graded `absent_on_main` on its
+#: own claim. MEASURED on stale-automation-sweep run 37229187372: 115 open
+#: `automation/*` PRs, 0 refreshed, every one "needs a human read".
+ARMING = re.compile(r"^\.github/(pr-landing|pr-automerge-requests|merge-slots)/")
 
-#: R13's claim file. Also written by every arming branch — see above — and
-#: additionally rewritten by `commit-to-main`'s conflict resolution, so a diff
-#: here says nothing about the payload.
+#: R13's RETIRED shared claim file. Gone from `main` (the per-branch route above
+#: replaced it), still excluded so a branch cut before the move grades on its
+#: payload rather than on a stale board edit.
 SLOT_FILE = "docs/claude/session-board.json"
+
+#: Where `commit-to-main` and `claim_merge_slot.py --branch-claim` write the
+#: per-branch R13 claim. The slug rule is the script's own (`branch_slot_rel`).
+BRANCH_SLOT_DIR = ".github/merge-slots"
 
 #: APPEND-ONLY payloads: a row present here and absent from `main` is LOST if
 #: the PR is closed. `pending-pings.jsonl` is the operator's notification queue
@@ -305,14 +316,20 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
     # refreshed into a partial REWIND. (Measured the same read: 0 of 49 PRs mix
     # the two today, so this costs nothing now and closes the hole before it is
     # reachable.)
+    #
+    # ⚠️ `absent` is NOT a blocker on its own (2026-10-04, lane CI-AUTOMERGE).
+    # A file `main` has never had cannot be REWOUND by landing it — it is pure
+    # addition, and this PR is its only copy, which is the reason to LAND it,
+    # not to leave it. Every research result is a new file, so while `absent`
+    # short-circuited, the sweeper could never move one evidence record onto
+    # `main`. It now rides along like `append_note`; `absent_on_main` is kept
+    # only for a PR whose OTHER files make it unrefreshable (older, undated,
+    # beaten), so a human still reads that mix.
     append_note = "; ".join(buckets["append_only"])
-    if buckets["absent"]:
-        state, why = ABSENT_ON_MAIN, (
-            f"{len(buckets['absent'])} payload file(s) do NOT EXIST on main, so "
-            f"this PR is their only copy — a point-in-time capture is "
-            f"forward-only and nothing re-derives it: "
-            + ", ".join(buckets["absent"][:3]))
-    elif buckets["undated"]:
+    absent_note = (
+        f"{len(buckets['absent'])} new file(s) main does not have yet: "
+        + ", ".join(buckets["absent"][:3])) if buckets["absent"] else ""
+    if buckets["undated"]:
         state, why = UNDATED_PAYLOAD, (
             f"{len(buckets['undated'])} payload file(s) differ from main with no "
             f"comparable timestamp — newer/older COULD NOT BE DETERMINED: "
@@ -335,6 +352,8 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
             if append_note:
                 why += (f" — and it LANDS append-only rows main lacks, which is "
                         f"the point: {append_note}")
+    elif buckets["absent"]:
+        state, why = REFRESH, absent_note
     elif buckets["same"]:
         state, why = SUPERSEDED_IDENTICAL, (
             f"all {len(buckets['same'])} payload file(s) already byte-identical "
@@ -346,6 +365,12 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
     # closable/quiet verdict into "a human must look" — it can never make one
     # actionable, and it deliberately does NOT fire on REFRESH, because landing
     # is how the rows reach `main`.
+    if absent_note and state == REFRESH and buckets["newer"]:
+        why += f" — and {absent_note}"
+    elif absent_note and state != REFRESH:
+        state = ABSENT_ON_MAIN
+        why = (f"{absent_note} — this PR is their only copy, and it cannot be "
+               f"refreshed because: {why}")
     if append_note and state != REFRESH:
         state = CARRIES_APPEND_ONLY
         why = f"{append_note} — {why}"
@@ -378,86 +403,83 @@ def newest_by_path(prs: List[Dict[str, Any]], main: str,
     return {path: num for path, (_stamp, num) in best.items()}
 
 
-def refresh(entry: Dict[str, Any], main: str, held_by: str,
-            apply: bool) -> Tuple[bool, str]:
-    """Merge `main` into the stranded branch and re-assert its R13 claim.
+def _branch_slot_rel(branch: str) -> str:
+    """The per-branch R13 claim path — the script's own slug rule, not a copy."""
+    sys.path.insert(0, str(REPO / "scripts/ops"))
+    from claim_merge_slot import branch_slot_rel  # noqa: E402
+    return branch_slot_rel(branch, BRANCH_SLOT_DIR)
 
-    This is byte-for-byte what `commit-to-main`'s own stale-branch refresh does
-    — merge `main`, resolve a slot-claim conflict by taking main's board and
-    re-asserting our own claim over it, push. The only difference is WHO does
-    it and WHEN: here, after the producing run is long gone.
+
+def refresh(entry: Dict[str, Any], main: str, held_by: str,
+            apply: bool, cwd: Optional[Path] = None) -> Tuple[bool, str]:
+    """Merge `main` into the stranded branch, keep its R13 claim, push.
+
+    ⚠️ REWRITTEN 2026-10-04 (lane CI-AUTOMERGE) for the per-branch claim. The
+    old body merged `main`, then re-spliced the SHARED `merge_slot` field in
+    `docs/claude/session-board.json` — a file no longer on `main` — and so could
+    not have succeeded on any branch even had one been graded `refresh`. A
+    per-branch claim needs no re-assertion: it is a file only this branch adds,
+    so merging `main` cannot touch it. It is WRITTEN here only when a branch cut
+    before the move carries none, and VERIFIED in every case before the push.
     """
     ref = entry["ref"]
     if not apply:
         return True, "would refresh (dry-run)"
-    if git("fetch", "origin", ref)[0] != 0:
+    if git("fetch", "origin", ref, cwd=cwd)[0] != 0:
         return False, "could not fetch the branch"
-    if git("checkout", "-B", ref, f"origin/{ref}")[0] != 0:
+    if git("checkout", "-B", ref, f"origin/{ref}", cwd=cwd)[0] != 0:
         return False, "could not check the branch out"
     code, _ = git("merge", main, "-m",
-                  "Merge main so the required checks re-run against the current base")
+                  "Merge main so the required checks re-run against the current base",
+                  cwd=cwd)
     if code != 0:
-        _, conflicted = git("diff", "--name-only", "--diff-filter=U")
-        if conflicted.strip() != SLOT_FILE:
-            git("merge", "--abort")
-            return False, f"conflict outside the slot file ({conflicted!r}) — left alone"
-        if git("checkout", "--theirs", "--", SLOT_FILE)[0] != 0:
-            git("merge", "--abort")
-            return False, "could not take main's board"
-    claim = REPO / "scripts/ops/claim_merge_slot.py"
-    if not claim.is_file():
-        git("merge", "--abort")
-        return False, ("scripts/ops/claim_merge_slot.py is absent — REFUSING to "
-                       "push a branch that would fail its own R13 guard")
-    done = subprocess.run(
-        [sys.executable, str(claim), "--branch", ref, "--held-by", held_by,
-         "--purpose", ("Re-asserted by sweep_stale_automation_prs.py after the "
-                       "producing run exited; arming IS the merge (R13).")],
-        capture_output=True, text=True, cwd=str(REPO))
-    if done.returncode != 0:
-        git("merge", "--abort")
-        return False, f"claim_merge_slot refused: {done.stderr.strip()[:200]}"
-    git("add", "--", SLOT_FILE)
-    # ⚠️ `-m`, NEVER `--no-edit`. MEASURED 2026-09-09 on this file's FIRST LIVE
-    # RUN: `--no-edit` reuses a message from an in-progress merge, and on the
-    # NO-CONFLICT path `git merge` has already committed, so there is no message
-    # to reuse and the commit FAILS. Its exit code was discarded, the push then
-    # succeeded carrying the merge commit alone, and this function returned
-    # "refreshed and pushed" — a FALSE SUCCESS for a claim it never wrote. PR
-    # #11490 came back still failing R13 while the sweeper reported it fixed.
-    # That is exactly the class `commit-to-main` names in its own docstring —
-    # "a step that reports success for something it did not achieve" — committed
-    # by the file written to end it.
-    code, _ = git("commit", "-q", "-m",
-                  "Re-assert this branch's R13 merge-slot claim after merging main")
-    if code != 0:
-        git("merge", "--abort")
-        git("reset", "--hard", "HEAD")
-        return False, "could not commit the re-asserted merge-slot claim — nothing pushed"
+        _, conflicted = git("diff", "--name-only", "--diff-filter=U", cwd=cwd)
+        git("merge", "--abort", cwd=cwd)
+        return False, f"conflict ({conflicted!r}) — left alone for a human"
 
-    # ⚠️ VERIFY THE EFFECT, NOT THE CALL. Every step above can report success
-    # while leaving the claim absent, which is how the false success got out. The
-    # question R13 actually asks is whether the SLOT FILE IS IN THIS BRANCH'S OWN
-    # DIFF naming THIS branch — so ask that, against the merge-base, before
-    # claiming anything.
-    code, merge_base = git("merge-base", main, "HEAD")
+    slot = _branch_slot_rel(ref)
+    code, merge_base = git("merge-base", main, "HEAD", cwd=cwd)
     if code != 0:
         return False, "could not resolve the merge-base to verify the claim"
-    _, changed = git("diff", "--name-only", merge_base, "HEAD", "--", SLOT_FILE)
+    _, changed = git("diff", "--name-only", merge_base, "HEAD", "--", slot, cwd=cwd)
     if not changed.strip():
-        return False, ("the merge-slot claim is NOT in this branch's diff after "
-                       "committing — refusing to push a branch that would still "
-                       "fail R13")
-    blob = _blob("HEAD", SLOT_FILE) or ""
+        claim = REPO / "scripts/ops/claim_merge_slot.py"
+        if not claim.is_file():
+            return False, ("scripts/ops/claim_merge_slot.py is absent — REFUSING to "
+                           "push a branch that would fail its own R13 guard")
+        done = subprocess.run(
+            [sys.executable, str(claim), "--branch-claim", "--branch", ref,
+             "--held-by", held_by,
+             "--purpose", ("Written by sweep_stale_automation_prs.py after the "
+                           "producing run exited; arming IS the merge (R13).")],
+            capture_output=True, text=True, cwd=str(cwd or REPO))
+        if done.returncode != 0:
+            return False, f"claim_merge_slot refused: {done.stderr.strip()[:200]}"
+        git("add", "--", slot, cwd=cwd)
+        # ⚠️ `-m`, NEVER `--no-edit` — see the 2026-09-09 false success: on the
+        # no-conflict path the merge has already committed, there is no message
+        # to reuse, and a discarded failure here pushed a branch with no claim.
+        if git("commit", "-q", "-m",
+               "Write this branch's R13 per-branch merge-slot claim", cwd=cwd)[0] != 0:
+            git("reset", "--hard", "HEAD", cwd=cwd)
+            return False, "could not commit the merge-slot claim — nothing pushed"
+        _, changed = git("diff", "--name-only", merge_base, "HEAD", "--", slot,
+                         cwd=cwd)
+
+    # ⚠️ VERIFY THE EFFECT, NOT THE CALL — the question R13 asks is whether the
+    # claim is in THIS branch's own diff and names THIS branch.
+    if not changed.strip():
+        return False, (f"{slot} is NOT in this branch's diff — refusing to push a "
+                       f"branch that would still fail R13")
     try:
-        holder = (json.loads(blob).get("merge_slot") or {}).get("branch")
+        holder = json.loads(_blob("HEAD", slot, cwd=cwd) or "{}").get("branch")
     except (json.JSONDecodeError, ValueError, AttributeError):
         holder = None
     if holder != ref:
-        return False, (f"the merge-slot claim names {holder!r}, not {ref!r} — "
-                       f"refusing to push a branch that rides someone else's claim")
+        return False, (f"{slot} names {holder!r}, not {ref!r} — refusing to push a "
+                       f"branch that rides someone else's claim")
 
-    if git("push", "origin", f"HEAD:refs/heads/{ref}")[0] != 0:
+    if git("push", "origin", f"HEAD:refs/heads/{ref}", cwd=cwd)[0] != 0:
         return False, "push failed"
     return True, "refreshed and pushed — the required checks re-run on the new sha"
 
@@ -635,15 +657,25 @@ def _self_test() -> int:
                                                    json.dumps({"v": "x"}) + "\n"))
         branch("automation/ping", lambda: write(
             "docs/claude/pending-pings.jsonl", '{"t":"a"}\n{"t":"b"}\n'))
-        branch("automation/arming", lambda: write(
-            ".github/pr-landing/automation-arming.json", "{}\n"))
+        branch("automation/arming", lambda: (
+            write(".github/pr-landing/automation-arming.json", "{}\n"),
+            write(".github/merge-slots/automation-arming.json", "{}\n")))
+        branch("automation/result", lambda: (
+            write("research/results/RQ-1/1.jsonl", '{"r":1}\n'),
+            write(".github/merge-slots/automation-result.json", "{}\n")))
+        branch("automation/result-plus-older", lambda: (
+            write("research/results/RQ-1/2.jsonl", '{"r":2}\n'),
+            write("reg.json", json.dumps({"generated_at": "2026-09-09T10:00:00Z",
+                                          "v": "older2"}) + "\n")))
 
         prs = [{"number": 1, "ref": "automation/newer"},
                {"number": 2, "ref": "automation/older"},
                {"number": 3, "ref": "automation/newest"},
                {"number": 4, "ref": "automation/undated"},
                {"number": 5, "ref": "automation/ping"},
-               {"number": 6, "ref": "automation/arming"}]
+               {"number": 6, "ref": "automation/arming"},
+               {"number": 8, "ref": "automation/result"},
+               {"number": 9, "ref": "automation/result-plus-older"}]
         holders = newest_by_path(prs, "main", cwd=tmp)
         got = {p["number"]: classify(p, "main", holders, cwd=tmp)["state"]
                for p in prs}
@@ -657,7 +689,14 @@ def _self_test() -> int:
               got[4], UNDATED_PAYLOAD)
         check("an append-only ping row -> carries_append_only, NOT superseded",
               got[5], CARRIES_APPEND_ONLY)
-        check("arming files only -> no_payload", got[6], NO_PAYLOAD)
+        check("arming files + its own per-branch R13 claim -> no_payload (the "
+              "claim is never on main before merge, so it says nothing)",
+              got[6], NO_PAYLOAD)
+        check("a NEW result file main lacks -> refresh (landing it rewinds "
+              "nothing; this PR is its only copy)", got[8], REFRESH)
+        check("a new file beside an OLDER register -> absent_on_main (a human "
+              "reads the mix; never refreshed into a rewind)", got[9],
+              ABSENT_ON_MAIN)
 
         # THE CORRECTION THIS MODULE EXISTS FOR, planted explicitly: a PR whose
         # register is stale AND which carries an unread ping must not read as
@@ -673,6 +712,33 @@ def _self_test() -> int:
               "wins over the stale register)", mixed["state"], CARRIES_APPEND_ONLY)
         check("...and it names how many rows would be dropped",
               "+1 row(s) not on main" in mixed["why"], True)
+
+        # refresh() end to end, against a scratch origin: a branch cut BEFORE
+        # the per-branch claim existed must come back with its claim written,
+        # naming itself, and `main` merged in.
+        origin = Path(tempfile.mkdtemp(prefix="sweep-selftest-origin-"))
+        git("init", "-q", "--bare", str(origin), cwd=origin)
+        g("remote", "add", "origin", str(origin))
+        g("push", "-q", "origin", "main", "automation/result-plus-older")
+        g("checkout", "-q", "main")
+        write("later.txt", "main moved\n")
+        commit("main moves")
+        g("push", "-q", "origin", "main")
+        g("fetch", "-q", "origin")
+        ok_r, note = refresh({"ref": "automation/result-plus-older"},
+                             "origin/main", "selftest", True, cwd=tmp)
+        check(f"refresh() pushes a branch with no claim yet [{note}]", (ok_r, note[:9]),
+              (True, "refreshed"))
+        g("fetch", "-q", "origin")
+        pushed = "origin/automation/result-plus-older"
+        claim = json.loads(_blob(
+            pushed, ".github/merge-slots/automation-result-plus-older.json",
+            cwd=tmp) or "{}")
+        check("...carrying a per-branch claim that names the branch",
+              claim.get("branch"), "automation/result-plus-older")
+        check("...with main merged in",
+              git("merge-base", "--is-ancestor", "origin/main", pushed,
+                  cwd=tmp)[0], 0)
 
         # Only `refresh` is ever acted on.
         check("exactly one state is actionable", list(ACTIONABLE), [REFRESH])
@@ -690,6 +756,8 @@ def _self_test() -> int:
               "REFUSING to" in src and "claim_merge_slot.py is absent" in src, True)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        if "origin" in locals():
+            shutil.rmtree(origin, ignore_errors=True)
 
     print(f"sweep-stale-automation-prs self-test: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1

@@ -1,0 +1,59 @@
+{
+ "leg": "trend_donchian_sol_prop",
+ "exit_model_note": "static = SL + TP only (what the Breakout bracket performs); base = declared levers (what the committed evidence record models)",
+ "provenance": "MEASURED (offline harness, venue-aware cost stack); window and candle source in 'window'",
+ "base": {
+  "n": 65,
+  "net_r": 3.69,
+  "net_r_fee_only": 5.43,
+  "by_exit": {
+   "trail_stop": {
+    "n": 43,
+    "net_r": 6.7
+   },
+   "take_profit": {
+    "n": 5,
+    "net_r": 14.87
+   },
+   "stop": {
+    "n": 17,
+    "net_r": -17.88
+   }
+  },
+  "quarter_net_r": [
+   -0.14,
+   -1.33,
+   -0.66,
+   5.83
+  ],
+  "window": [
+   "2025-10-05 04:00:00+00:00",
+   "2026-09-30 14:00:00+00:00"
+  ]
+ },
+ "static": {
+  "n": 53,
+  "net_r": -0.49,
+  "net_r_fee_only": 2.08,
+  "by_exit": {
+   "stop": {
+    "n": 41,
+    "net_r": -44.21
+   },
+   "take_profit": {
+    "n": 12,
+    "net_r": 43.72
+   }
+  },
+  "quarter_net_r": [
+   -5.51,
+   0.42,
+   0.05,
+   4.54
+  ],
+  "window": [
+   "2025-10-05 04:00:00+00:00",
+   "2026-09-30 14:00:00+00:00"
+  ]
+ }
+}

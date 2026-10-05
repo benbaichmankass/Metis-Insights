@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-HJPL5ABP-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "operator",
+    "ref": "PI-20260924-GIGNEYV1-0001 decision 2026-09-27; E65 / PR #12868; docs/research/prop-state-2026-09-24.md",
+    "rerun": "ls research/queue | grep -i -E \"tp3r|time.close|gtd\" -- absent means the two queue units were never written"
+  },
+  "routed_to": "RESEARCH-HARNESS [route; size M, value M, tier 1] BACKLOG-ROUTE 2026-10-04: ls research/queue | grep -i -E 'tp3r|time.close|gtd' empty; grep -il 'gtd' research/queue/*.yaml empty (positive-control: grep finds 'GTD' nowhere, while other grep on queue finds RQ units). RQ-20261002-050 is a static-bracket regrade, not a SOL 3R fresh-window unit. Units not written.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "Operator-queued 2026-09-27 (breakout_1 exits, B0 kept): write and run two PRE-REGISTERED research units. (1) SOL at TP 3R on a FRESH window not used in E65 (exploratory +11.14R/59, 3/4 folds; must clear its own pre-registered rule). (2) A GTD time-close rung in the prop ticket (p90 time-in-market ~5 days/trade; swap 3.3 bps/day), scored with the W6-P1 prop EV simulator on the operator's B6 bar. No ticket change without a Tier-3 operator decision."
+}

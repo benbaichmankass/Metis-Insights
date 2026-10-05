@@ -558,6 +558,7 @@ def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
         "registered_at": DECISION_RULE_REGISTERED_AT,
         "verdict": "pass" if rec["net_r_oos"] is not None and rec["net_r_oos"] > 0 else "fail",
     }
+    rec["venue_bracket_arm"] = _venue_bracket_arm(name)
     return rec
 
 
@@ -712,6 +713,32 @@ def load_legs() -> Dict[str, Dict[str, Any]]:
     blk = cfg.get("strategies", cfg)
     return {n: b for n, b in blk.items()
             if isinstance(b, dict) and b.get("enabled", True)}
+
+
+VENUE_BRACKET_DIR = OUT_DIR / "venue_bracket"
+
+
+def _venue_bracket_arm(name: str) -> Optional[Dict[str, Any]]:
+    """The leg re-graded under the exits its VENUE actually performs, if measured.
+
+    `fidelity: faithful` means the harness modelled every lever the YAML declares
+    (trail, stale_stop, decay). A prop leg's live exit is ONE broker-side SL+TP
+    bracket that nothing modifies, so the pooled `net_r_oos` above is evidence
+    about a leg that manages exits more than the venue lets it. The sidecar is
+    written by scripts/research/prop_bracket_exit_model.py; None = not measured
+    (which says nothing about the leg). Read it beside, never instead of, the
+    pooled number.
+    """
+    f = VENUE_BRACKET_DIR / f"{name}.json"
+    try:
+        d = json.loads(f.read_text(encoding="utf-8"))
+        st = d["static"]
+        return {"exit_model": "static_sl_tp_only", "n": st["n"], "net_r": st["net_r"],
+                "net_r_fee_only": st["net_r_fee_only"], "by_exit": st["by_exit"],
+                "window": st["window"], "provenance": d.get("provenance"),
+                "source": str(f.relative_to(ROOT)) if f.is_relative_to(ROOT) else str(f)}
+    except (OSError, ValueError, KeyError):
+        return None
 
 
 def main(argv: Optional[List[str]] = None) -> int:

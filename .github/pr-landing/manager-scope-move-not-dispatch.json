@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane CI-AUTOMERGE, at the manager's request. Fixes a false positive in manager-scope-guard's one-pass dispatch reader. A checklist row that MOVES, its lane line removed and re-added in the same patch (a reorder, or a restore over a jsonregister-merged copy), was counted as a dispatch of another session's lane, which admitted the mover to the manager roster. It hit #16494 via ebe3539f2. The cheap form now counts only net-new lane values, which matches dispatch_observations_exact (row vs every parent). A planted self-test fails with the fix reverted and passes with it. Over real history it drops 2 of 69 acts; both are E34 row moves, from 2026-09-22 (de65640f, 3d46f3a4). Guard code only; it can only shrink the roster where the exact reader already disagreed."
+}

@@ -683,6 +683,11 @@ def _drain_pending_pings(
     if not path.exists():
         return []
     out: List[Tuple[str, str, str]] = []
+    # PI-20261004-PUQ1APTH-0002: one INFO line per already-delivered row on
+    # every 5-min pull was ~276k journal lines/day (959 of ~1000 lines of one
+    # pull), shortening ict-trader-live's shared journald retention and burying
+    # the deploy decision lines. Per-row detail is DEBUG; one summary per pull.
+    skipped = 0
     try:
         for raw in path.read_text(encoding="utf-8").splitlines():
             raw = raw.strip()
@@ -690,9 +695,9 @@ def _drain_pending_pings(
                 continue
             h = _line_hash(raw)
             if h in delivered:
-                logger.info(
-                    "pending-pings: skipping already-delivered line "
-                    "(hash=%s…); old entries on subsequent pulls don't re-fire.",
+                skipped += 1
+                logger.debug(
+                    "pending-pings: skipping already-delivered line (hash=%s…)",
                     h[:12],
                 )
                 continue
@@ -709,6 +714,11 @@ def _drain_pending_pings(
             out.append((priority, _render_event_body(event, entry), h))
     except OSError as exc:
         logger.warning("pending-pings: read error: %s", exc)
+    if skipped:
+        logger.info(
+            "pending-pings: %d already-delivered line(s) skipped; %d new.",
+            skipped, len(out),
+        )
     return out
 
 

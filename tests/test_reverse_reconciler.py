@@ -721,6 +721,64 @@ def test_alive_orphan_with_recoverable_package_reattached_not_flattened(tmp_db, 
     assert strat[0] == "trend_donchian" and strat[1] == "open"
 
 
+def test_unreadable_package_read_never_flattens_alive_orphan(tmp_db, monkeypatch):
+    """CA-A01-019 (PI-20260927-KFWRL9R1-0006): when the order-package read
+    RAISES (e.g. ``database is locked``), whether a candidate exists is
+    UNKNOWN. "Could not look" must never act as "found nothing": the alive
+    orphan is NOT flattened, the read failure is counted as an error, and an
+    already-armed no-strategy close is dropped rather than advanced."""
+    import sqlite3
+
+    import src.runtime.order_monitor as _om
+    _om._PENDING_ORPHAN_NOSTRAT_CLOSE.clear()
+    monkeypatch.setenv("ORPHAN_POSITION_POLICY", "detect_only")
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_trade_close", lambda **k: None
+    )
+    closes: list = []
+    monkeypatch.setattr(
+        _om, "_send_close_to_exchange",
+        lambda mt: closes.append(mt) or {"ok": True, "skipped": None},
+    )
+    _insert_orphan_adopt(tmp_db, symbol="BTCUSDT", direction="long")
+
+    with patch(
+        "src.units.accounts.clients.account_open_positions",
+        return_value=[_bybit_position(symbol="BTCUSDT", side="Buy")],
+    ):
+        # Pass 1 reads cleanly and finds no candidate -> arms the close.
+        s1 = _reconcile_orphan_exchange_positions(tmp_db)
+        assert s1.get("resolved_pending_close") == 1
+
+        # Passes 2 and 3: the package read raises.
+        def _locked(*a, **k):
+            raise sqlite3.OperationalError("database is locked")
+        monkeypatch.setattr(tmp_db, "get_recent_order_packages_for_symbol", _locked)
+        s2 = _reconcile_orphan_exchange_positions(tmp_db)
+        s3 = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert not closes, "a failed read must never send a venue close"
+    assert _open_trade_count(tmp_db) == 1
+    assert s2.get("resolved_closed", 0) == 0 and s3.get("resolved_closed", 0) == 0
+    assert s2["errors"] >= 1 and s3["errors"] >= 1
+    # The armed close from pass 1 was dropped, so a flatten needs two fresh
+    # clean reads again.
+    assert not _om._PENDING_ORPHAN_NOSTRAT_CLOSE
+
+
+def test_recover_orphan_attribution_marks_read_failure_distinct():
+    from src.runtime.order_monitor import _recover_orphan_attribution
+
+    class _DB:
+        def get_recent_order_packages_for_symbol(self, *a, **k):
+            raise RuntimeError("boom")
+
+    a = _recover_orphan_attribution(
+        db=_DB(), symbol="BTCUSDT", direction="long", entry_price=100.0,
+    )
+    assert a.package is None and a.read_failed is True and a.refused is False
+
+
 # ────────────────────────────────────────────────────────────────────
 # Re-adopt flap guard (BL-20260618-RECONCILE-DUP)
 # ────────────────────────────────────────────────────────────────────
@@ -993,3 +1051,136 @@ def test_adopt_stamps_reconcile_status(tmp_db, monkeypatch):
         conn.close()
     assert row[1] == "orphan_adopt"           # no package recovered → bare
     assert row[0] == "unreconciled"           # explicit red-flag terminal
+
+
+# ────────────────────────────────────────────────────────────────────
+# CA-A01-021 (PI-20260927-KFWRL9R1-0008): an adopted/reattached orphan must
+# not steal order_packages.linked_trade_id from another OPEN leg (the
+# real-money leg of a Stage-2 mirror package).
+# ────────────────────────────────────────────────────────────────────
+
+
+def _pkg_link(db, opid):
+    conn = db.connect()
+    try:
+        return conn.execute(
+            "SELECT linked_trade_id, status FROM order_packages "
+            "WHERE order_package_id=?", (opid,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def _seed_real_leg_and_package(db, *, real_status="open"):
+    real_id = int(db.insert_trade({
+        "timestamp": "2026-09-27T10:00:00+00:00", "symbol": "ETHUSDT",
+        "direction": "long", "entry_price": 2500.0, "position_size": 1.0,
+        "setup_type": "trend", "status": real_status, "is_backtest": 0,
+        "strategy_name": "eth_trend_1h", "account_id": "bybit_2",
+        "order_package_id": "pkg-1", "notes": "{}",
+    }))
+    db.insert_order_package({
+        "order_package_id": "pkg-1", "strategy_name": "eth_trend_1h",
+        "symbol": "ETHUSDT", "direction": "long", "entry": 2500.0,
+        "sl": 2400.0, "tp": 2700.0, "status": "open",
+        "linked_trade_id": real_id, "created_at": "2026-09-27T10:00:00Z",
+    })
+    return real_id
+
+
+def test_adopted_paper_orphan_does_not_steal_real_money_link(tmp_db, monkeypatch):
+    import src.runtime.order_monitor as _om
+    monkeypatch.setattr(_om, "_rearm_broker_protection_after_recovery",
+                        lambda *a, **k: None)
+    real_id = _seed_real_leg_and_package(tmp_db)
+
+    orphan_id = _adopt_orphan_position(
+        db=tmp_db, account_id="bybit_portfolio", symbol="ETHUSDT",
+        direction="long", size=1.0, entry_price=2501.0,
+    )
+
+    assert orphan_id != real_id
+    linked, status = _pkg_link(tmp_db, "pkg-1")
+    assert linked == real_id, "paper orphan stole the real-money link"
+    assert status == "open"
+    # The orphan is still a managed leg of the package.
+    rows = tmp_db.get_trades(filters={"order_package_id": "pkg-1", "status": "open"})
+    assert {int(r["id"]) for r in rows} == {real_id, orphan_id}
+
+
+def test_adopted_orphan_takes_link_when_linked_leg_is_closed(tmp_db, monkeypatch):
+    import src.runtime.order_monitor as _om
+    monkeypatch.setattr(_om, "_rearm_broker_protection_after_recovery",
+                        lambda *a, **k: None)
+    _seed_real_leg_and_package(tmp_db, real_status="closed")
+
+    orphan_id = _adopt_orphan_position(
+        db=tmp_db, account_id="bybit_2", symbol="ETHUSDT",
+        direction="long", size=1.0, entry_price=2501.0,
+    )
+    assert _pkg_link(tmp_db, "pkg-1")[0] == orphan_id
+
+
+def test_reattached_orphan_does_not_steal_real_money_link(tmp_db, monkeypatch):
+    import src.runtime.order_monitor as _om
+    monkeypatch.setattr(_om, "_rearm_broker_protection_after_recovery",
+                        lambda *a, **k: None)
+    real_id = _seed_real_leg_and_package(tmp_db)
+    _insert_orphan_adopt(tmp_db, symbol="ETHUSDT", direction="long",
+                         account_id="bybit_portfolio", size=1.0, entry=2501.0)
+
+    _om._reattach_adopted_orphans(tmp_db, {"errors": 0})
+
+    assert _pkg_link(tmp_db, "pkg-1")[0] == real_id
+    rows = tmp_db.get_trades(filters={"order_package_id": "pkg-1", "status": "open"})
+    assert len(rows) == 2  # the reattached orphan is a leg via order_package_id
+
+
+# ────────────────────────────────────────────────────────────────────
+# CA-A01-020 (PI-20260927-KFWRL9R1-0007): a venue position LARGER than the
+# journal's open rows on a known (symbol, side) is detected and paged once
+# (detect-only), on the second consecutive pass.
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_venue_surplus_over_journal_is_detected_and_paged_once(tmp_db, monkeypatch):
+    import src.runtime.order_monitor as _om
+    _om._VENUE_SURPLUS_STATE.clear()
+    alerts: list = []
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: alerts.append(kw),
+    )
+    _insert_open_trade(tmp_db, symbol="ETHUSDT", direction="long")  # 0.003
+    pos = [_bybit_position(symbol="ETHUSDT", side="Buy", size=10.0, entry=2500.0)]
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=pos):
+        s1 = _reconcile_orphan_exchange_positions(tmp_db)
+        assert s1["surplus_found"] == 1 and alerts == []   # armed, not paged
+        s2 = _reconcile_orphan_exchange_positions(tmp_db)
+        s3 = _reconcile_orphan_exchange_positions(tmp_db)
+
+    assert s2["surplus_found"] == 1 and s3["surplus_found"] == 1
+    assert len(alerts) == 1, "paged exactly once while the surplus persists"
+    a = alerts[0]
+    assert a["policy"] == "detect_only" and a["db_trade_id"] is None
+    assert a["size"] == pytest.approx(10.0 - 0.003)
+    assert _open_trade_count(tmp_db) == 1   # nothing adopted
+
+
+def test_venue_matching_journal_within_tolerance_is_not_surplus(tmp_db, monkeypatch):
+    import src.runtime.order_monitor as _om
+    _om._VENUE_SURPLUS_STATE.clear()
+    alerts: list = []
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_exchange_orphan_adoption",
+        lambda **kw: alerts.append(kw),
+    )
+    _insert_open_trade(tmp_db, symbol="ETHUSDT", direction="long")  # 0.003
+    pos = [_bybit_position(symbol="ETHUSDT", side="Buy", size=0.0031)]
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=pos):
+        s1 = _reconcile_orphan_exchange_positions(tmp_db)
+        s2 = _reconcile_orphan_exchange_positions(tmp_db)
+    assert s1["surplus_found"] == 0 and s2["surplus_found"] == 0
+    assert alerts == []

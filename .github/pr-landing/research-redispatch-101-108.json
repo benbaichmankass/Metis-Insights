@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Dispatch-stamp resets only (last_dispatched_at -> null on RQ-20260929-101,102,103,104,108 whose runs died in the build job on a missing data pair, and 106 whose FAIL rule re-queues for a confirmatory run) plus one PIPELINE.jsonl row via pipeline.append. No rule text, code or config is touched."
+}

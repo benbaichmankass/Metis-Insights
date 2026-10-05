@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 research tooling: adds two diagnostic levers (hardened, patchright) to the GitHub-runner landing probe, fixes a date-dependent test that went red on 2026-10-04, and records the operator's 2026-10-04 'option three' decision on checklist row PROP-TERM. Runs on a GitHub runner only; no VM, no service, no credential, nothing typed or clicked; the PASS rule is unchanged (baseline only)."
+}

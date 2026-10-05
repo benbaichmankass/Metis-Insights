@@ -60,4 +60,4 @@ lands:
   assert_field: leg
   min_rows: 1
 grid:
-  legs: live_roster_legs
+  legs: live_roster_legs_e35_sweepable

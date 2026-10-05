@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261004-IRWQEEXT-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN 2026-10-04 (session_01TGCaeyMya7i4qiirWQeeXT) grouping of the BACKLOG-ROUTE lane-type routings",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import pipeline as p;r=p.load(p.STORE);print({k:r.items[k]['state'] for k in r.items if 'BACKLOG-ROUTE 2026-10-04' in (r.items[k].get('routed_to') or '')})\""
+  },
+  "routed_to": "LIVE-PARITY — lane proposal: members already re-pointed here (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[LANE PROPOSAL LIVE-REPLAY-PARITY] Tier 2, M: forming-bar vs closed-bar census across donchian legs, ADX residual, prev-bar signals, decision_bar cache. MEMBERS (5): PI-20260927-ENGC5EUD-0002, PI-20260930-GQPT6PQF-0004, PI-20260930-QZSE4AMA-0002, PI-20261003-APBY4NTV-0001, PI-20261003-LRP-ADXRESIDUAL. Filed by BACKLOG-BURNDOWN 2026-10-04 for the manager to dispatch as a checklist row; member items are routed_to a lane TYPE until then."
+}

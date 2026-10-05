@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from typing import Any, List
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -46,6 +48,7 @@ from src.prop.platform.dxtrade import (
     redact_text,
     render_page_shape,
     render_structure,
+    submit_not_visible_why,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -1001,6 +1004,7 @@ def test_modify_bracket_armed_refuses_before_any_click_while_the_dialog_is_unmea
             pass
 
     a = DXtradeAdapter()
+    a.EDIT_DIALOG_MEASURED = False         # the kill switch (the repo flag is True since 2026-10-03)
     a._show_tab = lambda *x: True
     a.read_one_click = lambda page: {"state": "off"}
     located = []
@@ -1575,37 +1579,6 @@ def test_edit_probe_with_no_position_row_stops_before_any_click(edit_page):
     assert edit_page.evaluate("window.__log") == []
 
 
-def test_measured_modify_types_into_and_submits_the_dialog_never_the_sidebar(edit_page):
-    from src.prop.platform.base import Position
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=0.5), 2925.0, None, arm=True)
-    assert r["ok"] is True, r["why"]
-    assert edit_page.evaluate("window.__log") == ["pencil", "dlg-save"]
-    assert edit_page.evaluate("document.getElementById('dsl').value") == "2925"
-    assert edit_page.evaluate("document.getElementById('ssl').value") == ""          # sidebar untouched
-
-
-def test_measured_modify_refuses_a_pencil_that_opens_no_dialog(edit_page):
-    from src.prop.platform.base import Position
-    edit_page.evaluate("() => { document.querySelector('.icon-pencil').parentElement.onclick = () => window.__log.push('pencil'); }")
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=0.5), 2925.0, None, arm=True)
-    assert r["ok"] is False and "0 new dialogs" in r["why"]
-    assert edit_page.evaluate("window.__log") == ["pencil"]                           # no Save, no sidebar click
-    assert edit_page.evaluate("document.getElementById('ssl').value") == ""
-
-
-def test_measured_modify_refuses_when_the_row_size_is_not_the_position(edit_page):
-    from src.prop.platform.base import Position
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    r = a.modify_bracket(edit_page, Position(symbol="ETHUSD", side="long", quantity=1.0), 2925.0, None, arm=True)
-    assert r["ok"] is False and r["clicked"] is False and "size" in r["why"]
-    assert edit_page.evaluate("window.__log") == []
-
-
 _GOOD_DIALOG = {"ok": True, "names_symbol": True, "fields": {
     "quantity": {"value": "0.5", "readonly": True}, "stop_loss": {"value": "1", "readonly": False},
     "take_profit": {"value": "2", "readonly": False}}, "ambiguous": [], "modes": [{"value": "Price"}],
@@ -1632,27 +1605,6 @@ def test_edit_dialog_mismatch_passes_only_the_positions_own_dialog():
         assert any(needle in g for g in got), (needle, got)
     assert edit_dialog_mismatch(_GOOD_DIALOG, "ETHUSD", None)                     # unknown size refuses
     assert edit_dialog_mismatch({"ok": False, "why": "0 new dialogs"}, "ETHUSD", 0.5) == ["0 new dialogs"]
-
-
-def test_measured_modify_refuses_an_edit_click_of_unknown_outcome():
-    from src.prop.platform.base import Position
-    calls = []
-
-    class P:
-        def wait_for_timeout(self, *a):
-            pass
-
-        def fill(self, *a, **k):
-            calls.append(("fill", a))
-
-    a = _edit_adapter()
-    a.EDIT_DIALOG_MEASURED = True
-    a._locate_edit_control = lambda *x: {"ok": True, "row": {}, "controls": [], "chosen": 1}
-    a._open_edit_dialog = lambda *x: {"ok": False, "clicked": "unknown", "why": "edit control click raised TimeoutError; outcome unknown"}
-    a._cancel_edit_dialog = lambda page: calls.append(("cancel",)) or True
-    r = a.modify_bracket(P(), Position(symbol="ETHUSD", side="long", quantity=0.5), 1.0, None, arm=True)
-    assert r["ok"] is False and "outcome unknown" in r["why"]
-    assert calls == [("cancel",)]                                                    # never typed
 
 
 def test_the_tick_resolves_the_edit_dialog_modes_and_defers_them_to_a_live_ticket():
@@ -1765,3 +1717,746 @@ def test_only_tradeify_1_declares_the_slash_query_style():
     from src.prop.platform import load_platform_config
     assert load_platform_config("tradeify_1").get("search_query_style") == "slash"
     assert load_platform_config("breakout_1").get("search_query_style") is None
+
+
+# ── SUGGESTION rows (TRADEIFY-GOLIVE, #15457): the result panel's rows sit in
+# a <tbody>, which INSTRUMENT_DETAILS_DUMP_JS skips, so the probe reads them
+# with a scoped SUGGESTION_ROWS_JS anchored on the "Asset Class" header. ────
+SUGGESTION_PAGE = EMPTY_WATCHLIST_PAGE.replace("</body>", """
+<table id="positions"><thead><tr><th>Symbol</th><th>Side</th><th>Quantity</th></tr></thead>
+<tbody><tr><td>BTC/USD</td><td>Buy</td><td>1</td></tr></tbody></table>
+<div id="dd" style="display:none">
+  <div><div>All</div><div>Cryptocurrencies</div><div>Stocks</div></div>
+  <table><thead><tr><th><span>Symbol</span></th><th><span>Description</span></th><th><span>Asset Class</span></th></tr></thead>
+  <tbody id="dd-rows"></tbody></table>
+</div>
+<script>
+document.getElementById('wl-search').addEventListener('input', function (e) {
+  var v = (e.target.value || '').toUpperCase();
+  var dd = document.getElementById('dd'), rows = document.getElementById('dd-rows');
+  rows.innerHTML = '';
+  dd.style.display = v ? '' : 'none';
+  if (v === 'ETH/USD') {
+    setTimeout(function () {
+      rows.innerHTML = '<tr data-test-id="search_row_1234567"><td>ETH/USD</td><td>Ethereum</td><td>Cryptocurrencies</td></tr>'
+        + '<tr><td>ETH/USDT</td><td>Ethereum Tether</td><td>Cryptocurrencies</td></tr>';
+    }, 300);
+  }
+});
+</script>
+</body>""")
+
+
+def test_probe_reads_the_suggestion_rows_the_details_dump_skips(chromium_page):
+    chromium_page.set_content(SUGGESTION_PAGE)
+    a = DXtradeAdapter()
+    res = a.probe_instrument_details(
+        chromium_page, "ETHUSD", query=a.search_query_for("ETHUSD", "slash"), settle_ms=1_000)
+    sug = res["suggestions"]
+    assert sug["found"] is True and sug["n_panels"] == 1
+    panel = sug["panels"][0]
+    assert panel["via"] == "tbody tr" and panel["n_visible"] == 2
+    assert panel["rows"][0]["cells"] == ["ETH/USD", "Ethereum", "Cryptocurrencies"]
+    assert panel["rows"][0]["tid"] == "search_row_#######"     # digit run masked
+    # The positions table has no "Asset Class" header: never read.
+    assert not any("BTC/USD" in (c or "") for r in panel["rows"] for c in r["cells"])
+    assert res["symbol_echoed"] is True                          # echoed via the rows
+    assert res["reset"] is True and chromium_page.input_value("#wl-search") == ""
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_suggestion_rows_report_not_found_when_no_result_panel_is_open(chromium_page):
+    chromium_page.set_content(EMPTY_WATCHLIST_PAGE)
+    res = DXtradeAdapter().probe_instrument_details(chromium_page, "ETHUSD")
+    assert res["suggestions"]["found"] is False
+    assert res["suggestions"]["why"] == 'no visible "Asset Class" header'
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_suggestion_rows_read_only_reads_no_input_value_and_clicks_nothing():
+    from src.prop.platform.dxtrade import SUGGESTION_ROWS_JS
+    assert ".click(" not in SUGGESTION_ROWS_JS
+    assert ".value" not in SUGGESTION_ROWS_JS
+    assert "dispatchEvent" not in SUGGESTION_ROWS_JS
+
+
+# ── KEY-BY-KEY variants (TRADEIFY-GOLIVE, #15472): ETH/USD typed with fill()
+# left the suggestion table's tbody empty. The variant probe types ETH,
+# ETHUSD and ETH/USD key by key and reads only the suggestion rows. ─────────
+def test_search_query_variants_base_venue_slash():
+    v = DXtradeAdapter.search_query_variants
+    assert v("ETHUSD") == ["ETH", "ETHUSD", "ETH/USD"]
+    assert v("xrpusdt") == ["XRP", "XRPUSDT", "XRP/USDT"]
+    assert v("MNQ") == ["MNQ"]
+
+
+KEYUP_SUGGESTION_PAGE = SUGGESTION_PAGE.replace(
+    "document.getElementById('wl-search').addEventListener('input',",
+    "document.getElementById('wl-search').addEventListener('keyup',").replace(
+    "if (v === 'ETH/USD') {", "if (v === 'ETH') {").replace(
+    # Like a debounced venue search: a late result only lands if the field
+    # still holds the query it was fetched for.
+    "      rows.innerHTML = '<tr", "      if ((document.getElementById('wl-search').value || '').toUpperCase() !== 'ETH') return;\n"
+    "      rows.innerHTML = '<tr")
+
+
+def test_probe_search_variants_types_key_by_key_and_reads_rows(chromium_page):
+    chromium_page.set_content(KEYUP_SUGGESTION_PAGE)
+    res = DXtradeAdapter().probe_search_variants(chromium_page, "ETHUSD", settle_ms=800, key_delay_ms=10)
+    assert res["searched"] is True
+    qs = [v["query"] for v in res["variants"]]
+    assert qs == ["ETH", "ETHUSD", "ETH/USD"]
+    eth = res["variants"][0]
+    assert eth["readback_matches"] is True
+    rows = eth["suggestions"]["panels"][0]["rows"]
+    assert rows[0]["cells"] == ["ETH/USD", "Ethereum", "Cryptocurrencies"]
+    assert res["variants"][1]["suggestions"]["panels"][0]["n_rows"] == 0   # ETHUSD: no rows
+    assert res["reset"] is True and res["blurred"] is True
+    assert chromium_page.input_value("#wl-search") == ""
+    assert chromium_page.locator("[data-metis-search-hit]").count() == 0
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_probe_search_variants_never_presses_enter_or_clicks():
+    import inspect
+    src = inspect.getsource(DXtradeAdapter.probe_search_variants)
+    assert ".click(" not in src and ".press(" not in src and "keyboard" not in src
+    assert "press_sequentially(q," in src           # characters of the query only
+
+
+def test_suggestion_rows_never_widen_into_another_table_when_results_are_empty(chromium_page):
+    # #15472 fix: an EMPTY suggestion tbody must read as 0 rows, never as the
+    # positions table's rows found by widening past it.
+    chromium_page.set_content(SUGGESTION_PAGE)
+    chromium_page.fill("#wl-search", "ZZZ")          # opens the panel, no results
+    from src.prop.platform.dxtrade import SUGGESTION_ROWS_JS
+    got = chromium_page.evaluate(SUGGESTION_ROWS_JS)
+    assert got["found"] is True and got["n_panels"] == 1
+    assert got["panels"][0]["n_rows"] == 0 and got["panels"][0]["rows"] == []
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+# ── BREAKOUT-SUBMIT-VIS: the submit hit-test says WHICH state blocked it ───
+
+
+def _spec(**kw):
+    from src.prop.platform.base import BracketSpec
+    base = dict(ticket_id="t1", venue_symbol="ETHUSD", side="long", quantity=0.01,
+                stop_loss=2696.51, take_profit=2750.99, order_type="limit",
+                limit_price=2723.74, price_step=0.01)
+    base.update(kw)
+    return BracketSpec(**base)
+
+
+class _SubmitPage:
+    """A page whose ``check`` reports ``visible`` from a scripted list, so the
+    poll in ``_ready_submit`` is exercised without a browser. Records every
+    op; ``click``/``fill`` raise, because this path must press nothing."""
+
+    def __init__(self, visibles, text="Buy 0.01 ETHUSD at 2,723.74", why_not=None):
+        self.visibles = list(visibles)
+        self.text = text
+        self.why_not = why_not or {}
+        self.ops = []
+
+    def evaluate(self, js, args=None):
+        op = (args or [None])[0]
+        self.ops.append(op)
+        if op in ("mark", "reveal"):
+            return {"ok": True, "scrolled": True, "text": self.text, "moved": []}
+        if op == "check":
+            vis = self.visibles.pop(0) if self.visibles else False
+            out = {"ok": True, "same": True, "visible": vis, "enabled": True, "text": self.text}
+            if not vis:
+                out["why_not"] = self.why_not
+            return out
+        return {}
+
+    def wait_for_timeout(self, *a):
+        pass
+
+    def click(self, *a, **k):            # pragma: no cover - must never run
+        raise AssertionError("_ready_submit clicked something")
+
+    def fill(self, *a, **k):             # pragma: no cover - must never run
+        raise AssertionError("_ready_submit filled something")
+
+
+def _ready(page, **kw):
+    a = DXtradeAdapter()
+    a._find_form = lambda p: {"found": True, "fields_box": [1543, 103, 330, 708],
+                              "button_boxes": {"submit": [1559, 1537, 298, 48]}}
+    a._read_back = lambda form, spec, want: []
+    return a._ready_submit(page, _spec(), {"quantity": 0.01}, **kw)
+
+
+def test_ready_submit_polls_a_transient_blocker_and_scrolls_the_buttons_own_container():
+    # MEASURED 2026-10-02: the same submit box [1559, 1537, 298, 48] refused six
+    # live ETH tickets 04:34-05:15Z and passed the dry walk at 06:14Z (#15464),
+    # so a single instantaneous hit-test turns a transient blocker into a lost
+    # ticket. The retry reveals the button's OWN scroll ancestors, not the
+    # form's -- the live submit is a footer outside the fields' container.
+    page = _SubmitPage([False, False, True])
+    ready, why, _form, info = _ready(page)
+    assert ready is True and why == ""
+    assert info["tries"] == 3 and "why_not" not in info
+    assert page.ops.count("reveal") == 2
+
+
+def test_ready_submit_refusal_names_the_occluder_instead_of_only_not_visible():
+    page = _SubmitPage([False], why_not={
+        "viewport": [1920, 1600], "rect": [1559, 1537, 298, 48], "centre": [1708, 1561],
+        "in_viewport": True, "clip_chain": [], "dialogs": 1,
+        "occluder": {"tag": "div", "cls": ["toast"], "tid": "notification", "box": [1500, 1500, 420, 100],
+                     "rel": "unrelated"}})
+    ready, why, _form, info = _ready(page, attempts=1)
+    assert ready is False
+    assert why.startswith("submit: not visible at its centre after scrolling")
+    assert "div[notification]" in why and "1 dialog(s) open" in why
+    assert info["why_not"]["centre"] == [1708, 1561]
+
+
+def test_ready_submit_still_refuses_a_control_that_changed_and_a_disabled_one():
+    class _Changed(_SubmitPage):
+        def evaluate(self, js, args=None):
+            got = super().evaluate(js, args)
+            if (args or [None])[0] == "check":
+                got["same"] = False
+            return got
+
+    ready, why, _f, _i = _ready(_Changed([True]))
+    assert ready is False and why == "submit: the control changed after scrolling"
+
+    class _Disabled(_SubmitPage):
+        def evaluate(self, js, args=None):
+            got = super().evaluate(js, args)
+            if (args or [None])[0] == "check":
+                got["enabled"] = False
+            return got
+
+    ready, why, _f, _i = _ready(_Disabled([True]))
+    assert ready is False and why == "submit: disabled"
+
+
+def test_ready_submit_refuses_the_wrong_side_after_the_poll():
+    page = _SubmitPage([True], text="Sell 0.01 ETHUSD at 2,723.74")
+    ready, why, _f, _i = _ready(page)
+    assert ready is False and "does not name the intended side (buy)" in why
+
+
+def test_submit_not_visible_why_tells_the_three_states_apart():
+    assert submit_not_visible_why(None) == ""
+    assert submit_not_visible_why({}) == ""
+    off = submit_not_visible_why({"in_viewport": False, "centre": [1708, 1561], "viewport": [1920, 900]})
+    assert "outside the [1920, 900] viewport" in off
+    over = submit_not_visible_why({"in_viewport": True, "centre": [1708, 1561],
+                                   "occluder": {"tag": "section", "box": [0, 0, 10, 10], "rel": "ancestor"}})
+    assert "paints section at [0, 0, 10, 10] (ancestor)" in over and "dialog" not in over
+    none = submit_not_visible_why({"in_viewport": True, "centre": [1708, 1561], "occluder": None})
+    assert none == "nothing is painted at its centre [1708, 1561]"
+
+
+# A real Chromium against a page that REPRODUCES the live geometry measured on
+# breakout_1 (panel [1543, 103, 330, 708], submit [1559, 1537, 298, 48], viewport
+# 1920x1600): the ticket's clip box is 708 tall, the submit is a footer in its
+# overflowing content, and the only difference between the two cases is whether
+# something is painted on top. Skipped where playwright / Chromium is absent.
+_SUBMIT_PAGE = """<!doctype html><meta charset=utf-8><style>
+ html,body{margin:0;height:100%;overflow:hidden;font:14px sans-serif}
+ #col{position:absolute;left:1543px;top:103px;width:330px;height:1497px;background:#eee}
+ #clip{height:708px;overflow:hidden;position:relative}
+ #content{height:1482px}
+ #fields{height:708px}
+ #submit{position:absolute;left:16px;top:1434px;width:298px;height:48px}
+ OVERLAY_CSS
+</style>
+<div id=col><div id=clip><div id=content>
+ <div id=fields data-metis-form=1>
+  <button data-test-id=BUY data-metis-btn=side_buy>Buy</button>
+  <button data-test-id=SELL data-metis-btn=side_sell>Sell</button>
+  <input data-test-id=symbol_input value=ETHUSD></div>
+ <button id=submit data-metis-btn=submit>Buy 0.01 ETHUSD at 2,723.74</button>
+</div></div></div>OVERLAY_HTML"""
+
+
+def _submit_js_on(html: str):
+    sync_playwright = pytest.importorskip("playwright.sync_api").sync_playwright
+    from src.prop.platform.dxtrade import SUBMIT_JS
+    exe = next((str(c) for c in Path("/opt/pw-browsers").glob("chromium-*/chrome-linux/chrome")), None)
+    if exe is None:
+        pytest.skip("no Chromium under /opt/pw-browsers")
+    # In a WORKER THREAD: an earlier test in this file can leave a running
+    # asyncio loop (the anyio plugin), and Playwright's sync API refuses to
+    # start inside one -- which made these two pass alone and fail in the full
+    # file. A fresh thread has no running loop.
+    out: List[Any] = []
+    thread = threading.Thread(target=lambda: out.append(_drive(sync_playwright, SUBMIT_JS, exe, html)))
+    thread.start()
+    thread.join(120)
+    assert out, "the browser thread produced nothing"
+    if isinstance(out[0], BaseException):
+        raise out[0]
+    return out[0]
+
+
+def _drive(sync_playwright: Any, SUBMIT_JS: str, exe: str, html: str):
+    try:
+        return _drive_inner(sync_playwright, SUBMIT_JS, exe, html)
+    except BaseException as exc:                 # handed back to the test thread
+        return exc
+
+
+def _drive_inner(sync_playwright: Any, SUBMIT_JS: str, exe: str, html: str):
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, executable_path=exe)
+        try:
+            page = browser.new_context(viewport={"width": 1920, "height": 1600}).new_page()
+            page.set_content(html)
+            box = page.evaluate("() => { const r = document.querySelector('#submit').getBoundingClientRect();"
+                                " return [r.left, r.top, r.width, r.height].map(Math.round); }")
+            page.evaluate(SUBMIT_JS, ["mark", "tok"])
+            first = page.evaluate(SUBMIT_JS, ["check", "tok"])
+            revealed = page.evaluate(SUBMIT_JS, ["reveal", ""])
+            return box, first, revealed, page.evaluate(SUBMIT_JS, ["check", "tok"])
+        finally:
+            browser.close()
+
+
+def test_submit_js_reaches_the_live_footer_geometry_when_nothing_is_on_top():
+    box, first, _rev, _after = _submit_js_on(
+        _SUBMIT_PAGE.replace("OVERLAY_CSS", "").replace("OVERLAY_HTML", ""))
+    assert box == [1559, 1537, 298, 48]      # the live measurement, reproduced
+    assert first["visible"] is True and "why_not" not in first
+
+
+def test_submit_js_names_what_is_painted_over_the_live_footer_geometry():
+    box, first, _rev, after = _submit_js_on(
+        _SUBMIT_PAGE
+        .replace("OVERLAY_CSS", "#over{position:fixed;inset:0;background:rgba(0,0,0,.2)}")
+        .replace("OVERLAY_HTML", "<div id=over data-test-id=order_warning></div>"))
+    assert box == [1559, 1537, 298, 48]
+    assert first["visible"] is False
+    why = submit_not_visible_why(first["why_not"])
+    assert "paints div[order_warning]" in why and "(unrelated)" in why
+    # An overlay is not something a scroll can clear: it must still refuse.
+    assert after["visible"] is False
+
+
+# ── edit-surface diff probe (DIALOG-MEASURE, after #15628) ─────────────────
+# INVENTED layout carrying the measured hazard: the row's modify control
+# opens NO new dialog; it switches the docked sidebar ticket into a modify
+# mode (heading, read-only qty, SL/TP, Save + Cancel), which Escape does not
+# leave.
+
+SURFACE_HTML = """
+<html><head><style>table { border-collapse: collapse; }</style></head><body>
+<div id="side"><h3 id="hd">Order Ticket</h3>
+  <div id="entry"><button data-test-id="BUY" onclick="window.__log.push('buy')">Buy</button>
+  <button data-test-id="SELL" onclick="window.__log.push('sell')">Sell</button>
+  <button>Market</button><button>Limit</button><button>Stop</button>
+  <span>Lots</span><input id="q" value="1">
+  <button id="sub" onclick="window.__log.push('submit')">Buy 1 ETHUSD at 2657.5</button></div>
+  <div id="mod" style="display:none"><span>Quantity</span><input value="1.22" readonly>
+  <span>Stop Loss</span><input id="msl" value="2718.46"><select><option selected>Price</option></select>
+  <button onclick="window.__log.push('save')">Save</button>
+  <button id="mcancel" onclick="window.__log.push('cancel'); window.__exit()">Cancel</button></div></div>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open Price</th><th></th></tr></thead>
+<tbody><tr><td>ETHUSD</td><td>Sell</td><td>1.22</td><td>2657.17</td>
+<td><button class="button-closeBy" disabled><i class="icon-close-by"></i></button><button data-test-id="position-table-modify"
+ onclick="window.__log.push('modify'); window.__enter()"><i class="icon-replace-context"></i></button><button
+ class="button-closePosition" onclick="window.__log.push('close')"><i class="icon-close-position"></i></button></td></tr></tbody></table>
+<script>
+window.__log = [];
+window.__enter = () => { document.getElementById('entry').style.display = 'none';
+  document.getElementById('mod').style.display = 'block'; document.getElementById('hd').textContent = 'Modify Position'; };
+window.__exit = () => { document.getElementById('entry').style.display = 'block';
+  document.getElementById('mod').style.display = 'none'; document.getElementById('hd').textContent = 'Order Ticket'; };
+</script></body></html>
+"""
+
+
+@pytest.fixture()
+def surface_page(chromium_page):
+    chromium_page.set_content(SURFACE_HTML)
+    yield chromium_page
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_surface_probe_measures_a_sidebar_modify_mode_and_leaves_by_its_own_cancel(surface_page):
+    got = _edit_adapter().probe_edit_surface(surface_page, "ETHUSD")
+    assert got["locate"]["ok"] and got["clicked"] is True
+    assert got["baseline_order_entry"]["side_buttons"] is True and got["baseline_order_entry"]["submit_label"] is True
+    assert got["after_order_entry"]["side_buttons"] is False and not got["diff"]["same"]
+    assert any(i["name"] == "Save" for i in got["diff"]["added"])
+    assert got["cancel"]["ok"] and got["restored"] is True and got["alerts"] == []
+    assert surface_page.evaluate("window.__log") == ["modify", "cancel"]       # never Save / submit / close
+
+
+def test_surface_probe_alerts_and_presses_nothing_when_the_surface_has_no_cancel(surface_page):
+    surface_page.evaluate("() => { document.getElementById('mcancel').remove(); }")
+    got = _edit_adapter().probe_edit_surface(surface_page, "ETHUSD")
+    assert got["restored"] is False and got["cancel"]["ok"] is False
+    assert any("NOT BACK AT BASELINE" in a for a in got["alerts"])
+    assert surface_page.evaluate("window.__log") == ["modify"]                  # Save never pressed
+
+
+def test_surface_probe_with_no_position_row_clicks_nothing(surface_page):
+    got = _edit_adapter().probe_edit_surface(surface_page, "SOLUSD")
+    assert got["locate"]["ok"] is False and "clicked" not in got
+    assert surface_page.evaluate("window.__log") == []
+
+
+def test_surface_diff_never_calls_an_unread_snapshot_the_same():
+    from src.prop.platform.dxtrade import surface_diff
+    snap = {"ok": True, "items": [{"key": "a", "value": "1", "readonly": False, "disabled": False}]}
+    assert surface_diff(snap, snap)["same"] is True
+    assert surface_diff(snap, {"ok": False, "why": "x"})["same"] is False
+    moved = {"ok": True, "items": [{"key": "a", "value": "2", "readonly": False, "disabled": False}]}
+    assert surface_diff(snap, moved)["changed"] and not surface_diff(snap, moved)["same"]
+
+
+def test_the_tick_resolves_the_edit_surface_probe_and_defers_it_to_a_live_ticket():
+    from types import SimpleNamespace
+    from scripts.prop.prop_executor_tick import YIELD_MODES, resolve_mode
+    base = dict(probe_ticket="", dry_run=False, watched_click=False, round_trip="", close_position="")
+    assert resolve_mode(SimpleNamespace(**base, edit_surface_probe="ETHUSD"), {}) == "edit_surface_probe"
+    assert "edit_surface_probe" in YIELD_MODES
+
+
+# ── modify_bracket on the MEASURED "Position Details" panel (#15657) ──────
+# INVENTED layout shaped like the live readout: the row's modify control
+# opens a docked panel ("Position Details", the symbol, "Protection",
+# "Stop Loss:" / "Take Profit:" each beside a "Price" button, then
+# "Close Position" (enabled) beside "Modify Position" (disabled until a value
+# changes), "Discard" below). A docked ORDER-ENTRY sidebar with its own
+# SL/TP inputs and submit sits on the page throughout.
+
+PANEL_HTML = """
+<html><head><style>table { border-collapse: collapse; } #pp { position: absolute; left: 900px; top: 0; width: 330px; }</style></head><body>
+<div id="side"><input data-test-id="symbol_input" value="ETHUSD">
+  <button data-test-id="BUY" onclick="window.__log.push('buy')">Buy</button>
+  <button data-test-id="SELL" onclick="window.__log.push('sell')">Sell</button>
+  <span>Stop Loss</span><input id="ssl" value=""><button>Price</button>
+  <span>Take Profit</span><input id="stp" value=""><button>Price</button>
+  <button id="ssub" onclick="window.__log.push('sidebar-submit')">Sell 1.22 ETHUSD at 2,657.11</button></div>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open Price</th><th>Stop Loss</th><th>Take Profit</th><th></th></tr></thead>
+<tbody id="rows"><tr><td>ETHUSD</td><td>Sell</td><td>1.22</td><td>2,657.17</td><td>2,718.46</td><td>2,394.06</td>
+<td><button class="button-closeBy" disabled><i class="icon-close-by"></i></button><button data-test-id="position-table-modify"
+ onclick="window.__log.push('modify'); window.__open()"><i class="icon-replace-context"></i></button><button
+ class="button-closePosition" onclick="window.__log.push('row-close')"><i class="icon-close-position"></i></button></td></tr></tbody></table>
+<div id="pp" style="display:none"><div><h3>Position Details</h3></div>
+  <div><div>ETHUSD</div><div>ETH</div></div><div>Protection</div>
+  <div><div>Stop Loss:</div><div><input id="psl" value="2718.46" oninput="window.__dirty()"><button id="slmode">Price</button></div></div>
+  <div><div>Take Profit:</div><div><input id="ptp" value="2394.06" oninput="window.__dirty()"><button>Price</button></div></div>
+  <div><button id="pclose" onclick="window.__log.push('panel-close')">Close Position</button>
+       <button id="pmod" disabled onclick="window.__log.push('panel-modify')">Modify Position</button></div>
+  <button id="pdis" onclick="window.__log.push('discard'); window.__shut()">Discard</button></div>
+<script>
+window.__log = []; window.__stuckModify = false;   // set_content keeps the window: reset what tests set
+window.__open = () => { document.getElementById('pp').style.display = 'block'; };
+window.__shut = () => { document.getElementById('pp').style.display = 'none'; };
+window.__dirty = () => { if (!window.__stuckModify) document.getElementById('pmod').disabled = false; };
+</script></body></html>
+"""
+
+
+@pytest.fixture()
+def panel_page(chromium_page):
+    chromium_page.set_content(PANEL_HTML)
+    yield chromium_page
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def _armed():
+    # The panel FLOW, armed on the instance with the rollout guard off; the
+    # guard has its own tests below (_guarded).
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = True
+    a.ROLLOUT_GUARD = False
+    return a
+
+
+def _eth_short(qty=1.22):
+    from src.prop.platform.base import Position
+    return Position(symbol="ETHUSD", side="short", quantity=qty)
+
+
+def test_panel_modify_types_into_the_panel_and_presses_only_modify_position(panel_page):
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is True, r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "panel-modify"]
+    assert panel_page.evaluate("document.getElementById('psl').value") == "2700"
+    assert panel_page.evaluate("document.getElementById('ssl').value") == ""        # sidebar untouched
+
+
+def test_panel_modify_refuses_when_close_position_is_the_only_enabled_button(panel_page):
+    # Modify Position never enables; Close Position sits beside it, enabled.
+    panel_page.evaluate("() => { window.__stuckModify = true; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "disabled after the values read back" in r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "discard"]              # never Close Position
+    assert r["exit"]["closed"] is True
+
+
+def test_panel_modify_refuses_a_mode_other_than_price(panel_page):
+    panel_page.evaluate("() => { document.getElementById('slmode').textContent = 'Pips'; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "stop_loss mode reads 'Pips'" in r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "discard"]
+    assert panel_page.evaluate("document.getElementById('psl').value") == "2718.46"  # nothing typed
+
+
+def test_panel_modify_refuses_a_modify_control_that_opens_no_panel(panel_page):
+    panel_page.evaluate("() => { window.__open = () => {}; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "0 Position Details panels" in r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify"]                         # no sidebar control touched
+    assert panel_page.evaluate("document.getElementById('ssl').value") == ""
+
+
+def test_panel_modify_refuses_several_rows_for_the_symbol_before_any_click(panel_page):
+    panel_page.evaluate("() => { const r = document.querySelector('#rows tr'); r.parentElement.appendChild(r.cloneNode(true)); }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "found 2" in r["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_panel_modify_refuses_when_the_row_size_is_not_the_position(panel_page):
+    r = _armed().modify_bracket(panel_page, _eth_short(qty=2.0), 2700.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "size" in r["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_panel_modify_reports_a_panel_that_discard_does_not_close(panel_page):
+    panel_page.evaluate("() => { window.__shut = () => {}; window.__stuckModify = true; }")
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "PANEL STILL OPEN" in r["why"]
+
+
+def test_panel_modify_disarmed_and_unflagged_never_click(panel_page):
+    unflagged = _edit_adapter()
+    unflagged.EDIT_DIALOG_MEASURED = False                 # the kill switch
+    r = unflagged.modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "EDIT_DIALOG_MEASURED" in r["why"]
+    r = _armed().modify_bracket(panel_page, _eth_short(), 2700.0, None, arm=False)
+    assert r["ok"] is True and r["clicked"] is False
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_panel_modify_refuses_an_edit_click_of_unknown_outcome():
+    calls = []
+
+    class P:
+        keyboard = type("K", (), {"press": staticmethod(lambda *a: calls.append(("escape",)))})()
+
+        def click(self, *a, **k):
+            raise TimeoutError("x")
+
+        def fill(self, *a, **k):
+            calls.append(("fill", a))
+
+        def wait_for_timeout(self, *a):
+            pass
+
+        def locator(self, *a):
+            return type("L", (), {"count": staticmethod(lambda: 0)})()
+
+        def evaluate(self, *a):
+            return {"ok": False, "panels": 0}
+
+    a = _armed()
+    a._locate_edit_control = lambda *x: {"ok": True, "row": {}, "controls": [], "chosen": 1}
+    r = a.modify_bracket(P(), _eth_short(), 2700.0, None, arm=True)
+    assert r["ok"] is False and "outcome unknown" in r["why"]
+    assert ("fill",) not in [c[:1] for c in calls] and calls == [("escape",)]
+
+
+_GOOD_PANEL = {"ok": True, "panels": 1, "text": "Position Details ETHUSD ETH Protection", "ambiguous": [],
+               "fields": {"stop_loss": {"value": "1", "mode": "Price", "readonly": False},
+                          "take_profit": {"value": "2", "mode": "Price", "readonly": False}},
+               "submit": 1, "submit_name": "Modify Position", "submit_in_box": True, "submit_enabled": True, "discard": 1}
+
+
+def test_position_panel_mismatch_passes_only_the_positions_own_panel():
+    from src.prop.platform.dxtrade import position_panel_mismatch
+    assert position_panel_mismatch(_GOOD_PANEL, "ETHUSD", require_submit_enabled=True) == []
+    cases = {
+        "does not name": {"text": "Position Details SOLUSD"},
+        "mode reads 'Pips'": {"fields": {**_GOOD_PANEL["fields"], "stop_loss": {"value": "1", "mode": "Pips", "readonly": False}}},
+        "no take_profit field": {"fields": {"stop_loss": _GOOD_PANEL["fields"]["stop_loss"]}},
+        "read-only": {"fields": {**_GOOD_PANEL["fields"], "take_profit": {"value": "2", "mode": "Price", "readonly": True}}},
+        "need exactly 1": {"submit": 2},
+        "names Close": {"submit_name": "Close Position"},
+        "not boxed": {"submit_in_box": False},
+        "disabled after": {"submit_enabled": False},
+        "'Discard' buttons": {"discard": 0},
+    }
+    for needle, patch in cases.items():
+        got = position_panel_mismatch({**_GOOD_PANEL, **patch}, "ETHUSD", require_submit_enabled=True)
+        assert any(needle in g for g in got), (needle, got)
+    assert position_panel_mismatch({"ok": False, "why": "2 Position Details panels (need exactly 1)"}, "ETHUSD")
+
+
+def test_surface_probe_ignores_live_prices_in_control_names(surface_page):
+    # #15657: the quick-trade Bid/Ask buttons carry ticking prices; they must
+    # not read as a change (the probe restored, no alert).
+    surface_page.evaluate("() => { const b = document.createElement('button'); b.id = 'bid'; b.textContent = 'Sell 2,665.99';"
+                          " document.body.prepend(b); let n = 0; setInterval(() => { b.textContent = 'Sell 2,66' + (n++ % 10) + '.73'; }, 5); }")
+    got = _edit_adapter().probe_edit_surface(surface_page, "ETHUSD")
+    assert got["restored"] is True and got["alerts"] == [], got.get("residual")
+
+
+# ── ROLLOUT GUARD (manager 2026-10-02 21:45Z, option (c)) ─────────────────
+# EDIT_DIALOG_MEASURED is True in the repo (operator 2026-10-03, "Merge and
+# switch on together"); ROLLOUT_GUARD stays True, so every armed modify needs
+# the account's latch and is one bounded tighten-only step.
+
+_QUOTE = {"bid": 2660.0, "ask": 2660.5}          # short: the stop fills on the ask
+
+
+def _guarded(tmp_path, quote=_QUOTE):
+    from src.prop.platform.dxtrade import ModifyRollout
+    a = _armed()
+    a.ROLLOUT_GUARD = True
+    a.read_quote = lambda page, sym: quote
+    return a, ModifyRollout(tmp_path / "modify_rollout.json")
+
+
+def _short_with_row():
+    from src.prop.platform.base import Position
+    return Position(symbol="ETHUSD", side="short", quantity=1.22, stop_loss=2718.46, take_profit=2394.06)
+
+
+def _row_follows_the_panel(page):
+    # The venue applies the modify: the row's SL cell takes the typed value.
+    page.evaluate("() => { document.getElementById('pmod').onclick = () => { window.__log.push('panel-modify');"
+                  " document.querySelector('#rows tr').children[4].textContent = document.getElementById('psl').value; }; }")
+
+
+def test_the_repo_flag_is_on_and_the_guard_still_gates_every_armed_modify(panel_page, tmp_path):
+    from src.prop.platform.dxtrade import DXtradeAdapter, ModifyRollout
+    assert DXtradeAdapter.EDIT_DIALOG_MEASURED is True and DXtradeAdapter.ROLLOUT_GUARD is True
+    # No latch: refused before any click.
+    r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True)
+    assert r["ok"] is False and r["clicked"] is False and "modify-rollout latch" in r["why"]
+    # A latch already set (the single watched step used): refused before any click.
+    (tmp_path / "l.json").write_text('{"state": "verified"}')
+    r = _edit_adapter().modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True,
+                                       rollout=ModifyRollout(tmp_path / "l.json"))
+    assert r["ok"] is False and r["clicked"] is False and "halted until" in r["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_the_kill_switch_refuses_before_any_click(panel_page, tmp_path):
+    from src.prop.platform.dxtrade import ModifyRollout
+    a = _edit_adapter()
+    a.EDIT_DIALOG_MEASURED = False
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True,
+                         rollout=ModifyRollout(tmp_path / "l.json"))
+    assert r["ok"] is False and r["clicked"] is False and "EDIT_DIALOG_MEASURED is False" in r["why"]
+    assert panel_page.evaluate("window.__log") == [] and not (tmp_path / "l.json").exists()
+
+
+def test_rollout_single_tighten_step_is_typed_verified_and_latched(panel_page, tmp_path):
+    a, roll = _guarded(tmp_path)
+    _row_follows_the_panel(panel_page)
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
+    assert r["ok"] is True and r["rollout"] == "verified", r["why"]
+    assert panel_page.evaluate("window.__log") == ["modify", "panel-modify"]
+    assert panel_page.evaluate("document.getElementById('ptp').value") == "2394.06"   # TP never typed
+    assert json.loads(roll.path.read_text())["state"] == "verified"
+    again = a.modify_bracket(panel_page, _short_with_row(), 2705.0, None, arm=True, rollout=roll)
+    assert again["clicked"] is False and "halted until" in again["why"]                 # single step
+
+
+def test_rollout_verify_failure_alerts_and_halts_further_modifies(panel_page, tmp_path):
+    a, roll = _guarded(tmp_path)                                    # the row's SL does NOT change
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
+    assert r["ok"] is False and r["rollout"] == "verify_failed" and "ROLLOUT VERIFY FAILED" in r["why"]
+    assert "further modifies halted" in r["why"] and json.loads(roll.path.read_text())["state"] == "verify_failed"
+    assert a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)["clicked"] is False
+
+
+@pytest.mark.parametrize("sl,tp,needle", [
+    (2725.0, None, "does not move toward price"),                   # loosen (a short's SL up)
+    (2690.0, None, "exceeds 25%"),                                  # 28.46 > 0.25 * 57.96
+    (2659.0, None, "cross the current price"),
+    (2710.0, 2400.0, "take profit unchanged"),                      # _contain's SL+TP repair shape
+])
+def test_rollout_refuses_anything_but_a_bounded_tighten_before_any_click(panel_page, tmp_path, sl, tp, needle):
+    a, roll = _guarded(tmp_path)
+    r = a.modify_bracket(panel_page, _short_with_row(), sl, tp, arm=True, rollout=roll)
+    assert r["ok"] is False and r["clicked"] is False and needle in r["why"], r["why"]
+    assert panel_page.evaluate("window.__log") == [] and not roll.path.exists()
+
+
+def test_rollout_needs_a_latch_and_a_quote(panel_page, tmp_path):
+    a, _ = _guarded(tmp_path)
+    assert "needs the account's modify-rollout latch" in a.modify_bracket(
+        panel_page, _short_with_row(), 2710.0, None, arm=True)["why"]
+    a, roll = _guarded(tmp_path, quote=None)
+    assert "no live quote" in a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)["why"]
+    assert panel_page.evaluate("window.__log") == []
+
+
+def test_rollout_in_progress_is_written_before_the_click(panel_page, tmp_path):
+    a, roll = _guarded(tmp_path)
+    seen = []
+    panel_page.evaluate("() => { window.__open = () => {}; }")      # the modify control opens nothing
+    orig = roll.record
+    roll.record = lambda state, **k: (seen.append(state), orig(state, **k))
+    r = a.modify_bracket(panel_page, _short_with_row(), 2710.0, None, arm=True, rollout=roll)
+    assert r["ok"] is False and seen[0] == "in_progress" and seen[-1] == "refused"
+    assert roll.blocked()                                            # a refused step still uses the latch
+
+
+def test_rollout_pure_checks():
+    from src.prop.platform.base import Position
+    from src.prop.platform.dxtrade import rollout_tighten_mismatch, rollout_verify_mismatch
+    assert rollout_tighten_mismatch("long", 95.0, 120.0, 96.0, None, {"bid": 100.0, "ask": 100.1}) == []
+    assert rollout_tighten_mismatch("long", 95.0, 120.0, 96.0, 120.0, {"bid": 100.0, "ask": 100.1}) == []
+    assert rollout_tighten_mismatch("long", 95.0, 120.0, None, None, {"bid": 100.0, "ask": 100.1})
+    before = Position(symbol="X", side="long", quantity=2.0, stop_loss=95.0, take_profit=120.0)
+    assert rollout_verify_mismatch(before, Position(symbol="X", quantity=2.0, stop_loss=96.0, take_profit=120.0), 96.0) == []
+    bad = rollout_verify_mismatch(before, Position(symbol="X", quantity=1.0, stop_loss=95.0, take_profit=121.0), 96.0)
+    assert len(bad) == 3
+    assert rollout_verify_mismatch(before, None, 96.0) == ["position not found on the next read"]
+
+
+# ── TRADEIFY-EXECUTOR 2026-10-03: the submit's OWN state on a refusal ──────
+# Both tradeify_1 SOL dry walks (#16049 run 37147052900, #16053 run 37147522018)
+# refused with "paints footer at [1543, 1518, 330, 75] (ancestor)" on the SAME
+# submit box [1559, 1537, 298, 48] and panel the ETH walk (#16003) passed on,
+# with no code change between them. A disabled / pointer-events:none button is
+# skipped by elementFromPoint and reads exactly like that, so the refusal must
+# say which it is.
+
+def test_submit_not_visible_why_names_a_disabled_or_untargetable_submit():
+    base = {"in_viewport": True, "centre": [1708, 1561],
+            "occluder": {"tag": "footer", "box": [1543, 1518, 330, 75], "rel": "ancestor"}}
+    plain = submit_not_visible_why(dict(base, btn_state={"disabled": False, "pointer_events": "auto"}))
+    assert plain == "its centre [1708, 1561] paints footer at [1543, 1518, 330, 75] (ancestor)"
+    dis = submit_not_visible_why(dict(base, btn_state={"disabled": True, "pointer_events": "none"}))
+    assert "the submit is DISABLED" in dis and "pointer-events:none" in dis
+    aria = submit_not_visible_why(dict(base, btn_state={"aria_disabled": "true"}))
+    assert "the submit is DISABLED" in aria
+
+
+def test_submit_js_reports_a_pointer_events_none_submit_under_its_own_footer():
+    box, first, _rev, after = _submit_js_on(
+        _SUBMIT_PAGE
+        .replace("OVERLAY_CSS", "#submit{pointer-events:none;opacity:.5}")
+        .replace("OVERLAY_HTML", ""))
+    assert box == [1559, 1537, 298, 48]
+    assert first["visible"] is False and after["visible"] is False      # still refuses
+    st = first["why_not"]["btn_state"]
+    assert st["pointer_events"] == "none" and st["disabled"] is False
+    assert "pointer-events:none" in submit_not_visible_why(first["why_not"])
+
+
+def test_a_submit_stage_refusal_records_the_one_click_reading():
+    src = Path(__file__).resolve().parents[1].joinpath("src/prop/platform/dxtrade.py").read_text()
+    branch = src[src.index("ready, why, form, submit_info = self._ready_submit(page, spec, want)"):]
+    branch = branch[:branch.index("if not arm:")]
+    refusal = branch[:branch.index("# Diagnostic only")]
+    assert '"one_click": self.read_one_click(page)' in refusal

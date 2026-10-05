@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "kind": "observation",
+    "clears_when": "GET /api/bot/work/report returns a reportId WR-20261005-0530Z (+-1 min) with erroredSections [] — i.e. ict-work-report.timer fired at its own 05:30 UTC slot",
+    "check_every_days": 1,
+    "soak": {
+      "subject": "deploy-observation:WORK-SYSTEM"
+    }
+  },
+  "id": "PI-20261004-Z9DKTUVO-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "deploy",
+    "ref": "PR #16387 / checklist WORK-SYSTEM",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/work/report | python3 -c \"import json,sys; d=json.load(sys.stdin); print(d['reportId'], d['generatedAt'], d['erroredSections'])\""
+  },
+  "state": "queued",
+  "what": "First SCHEDULED 05:30Z work report (WORK-SYSTEM, #16387, merged 1fa57f0a and deployed; deploy-time report WR-20261004-1947Z observed with erroredSections []). Not yet observed: a report produced by ict-work-report.timer at its own 05:30 UTC slot, i.e. reportId WR-20261005-0530Z (± a minute) with erroredSections [], before the manager's 05:52Z review."
+}

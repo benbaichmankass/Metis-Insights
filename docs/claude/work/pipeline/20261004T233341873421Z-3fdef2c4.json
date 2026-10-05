@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-05",
+    "kind": "date"
+  },
+  "id": "PI-20261004-IRWQEEXT-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN 2026-10-04 (session_01TGCaeyMya7i4qiirWQeeXT) grouping of the BACKLOG-ROUTE lane-type routings",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import pipeline as p;r=p.load(p.STORE);print({k:r.items[k]['state'] for k in r.items if 'BACKLOG-ROUTE 2026-10-04' in (r.items[k].get('routed_to') or '')})\""
+  },
+  "routed_to": "CI-AUTOMERGE — lane CI-AUTOMERGE",
+  "state": "routed",
+  "what": "[LANE PROPOSAL CI-AND-AUTOMERGE-HYGIENE] Tier 1, M: workflow trigger sprawl, claude/-only automerge, research batch-landing race, playwright CI gap, retention, self-land-never-merges. MEMBERS (13): PI-20260924-E57-0004, PI-20260927-W6OPSR-0004, PI-20260929-AQRK6CL1-0001, PI-20260930-1MX1RCZS-0001, PI-20260930-KMYJ5XC7-0007, PI-20260930-KMYJ5XC7-0012, PI-20260930-MEK2XMWT-0001, PI-20260930-MGR01HYQ-0001, PI-20260930-MGR01HYQ-0002, PI-20261001-1MX1RCZS-0001, PI-20261002-APBY4NTV-0003, PI-20261002-ULPHZHHQ-0002, PI-20261003-OJTPWGCC-0002. Filed by BACKLOG-BURNDOWN 2026-10-04 for the manager to dispatch as a checklist row; member items are routed_to a lane TYPE until then. || lane CI-AUTOMERGE (session_01MD7v8mG8doHqFYuTbsceQM) 2026-10-04: dispositioned all 13 members. 3 done (MEK2XMWT-0001 smoke-test order dependence, MGR01HYQ-0001 NaN confidence, APBY4NTV-0003 shadowing guard; all on branch claude/ci-automerge-hygiene). 2 killed (E57-0004 not recurring, MGR01HYQ-0002 not reproducible). 8 still open, each with a stated next step; AQRK6CL1-0001 and ULPHZHHQ-0002 share one proposed relay patch that the auto-mode classifier denied to the lane. The package stays open until those 8 close."
+}

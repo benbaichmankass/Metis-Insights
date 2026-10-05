@@ -50,6 +50,10 @@
 #                        POST /api/bot/prop/report. Refused unless
 #                        PROP_EXECUTOR_MODE=live. Dispatch only with the
 #                        operator watching.
+#     page-status      — READ-ONLY, ZERO INTERACTION (2026-10-03): capped masked
+#                        body text, alert/status/banner/toast elements, lines
+#                        naming a breach / liquidation / disabled state, and the
+#                        Buy/Sell controls' enabled state. One page.evaluate.
 #     link-state-dump  — READ-ONLY (PROP-ETH-DOM 2026-10-01): watchlist rows with
 #                        the element hit at each Symbol cell's centre, every
 #                        symbol_input, and the sidebar ticket's buttons. Clicks,
@@ -59,6 +63,12 @@
 #                        ETHUSD) and locate its edit pencil by icon name.
 #                        Clicks nothing.
 #     edit-dialog-probe — MEASUREMENT: the same, then click THAT pencil, read
+#     edit-surface-probe — MEASUREMENT (DIALOG-MEASURE 2026-10-02, after
+#                        #15628 found no new dialog): snapshot the page's
+#                        controls, click THAT symbol's modify control, report
+#                        the diff, leave via Escape or the changed surface's
+#                        own cancel/close only, then REQUIRE the page back at
+#                        baseline (else an alert). Submits nothing.
 #                        the dialog it opens (symbol, read-only qty, SL/TP
 #                        fields, Price/offset mode, submit/cancel geometry),
 #                        press the dialog's OWN Cancel. Submits nothing. Only
@@ -75,6 +85,34 @@
 #                        entry (#15350) — two clicks, nothing else; refused
 #                        unless one-click reads OFF; a no-op when a watchlist
 #                        is already present; verified click-free.
+#     order-surface-dump — READ-ONLY (TRADEIFY-GOLIVE, tradeify-only; ONE
+#                          symbol): the symbol's watchlist row cells (header,
+#                          tid, class, title/aria, children, elementFromPoint)
+#                          and every order-surface term on the current page.
+#                          Clicks, hovers, focuses and types nothing.
+#     probe-ticket-ask — ONE GUARDED CLICK (TRADEIFY-GOLIVE, operator
+#                          2026-10-03 "Approve the guarded click";
+#                          tradeify-only; ONE symbol): the symbol's watchlist
+#                          Ask "Buy" price button, only when exactly one
+#                          matches, the account reads flat with no dialog, and
+#                          one-click re-reads OFF right before the click (else
+#                          aborted, no click). Records the order form, submits
+#                          nothing, closes via the ticket's own Cancel/Close,
+#                          then requires flat + no dialog (else alerts).
+#     instrument-page-dump — READ-ONLY (TRADEIFY-GOLIVE (b), tradeify-only;
+#                          needs symbols: with ONE symbol): types the base
+#                          asset key by key into the watchlist search (never
+#                          Enter), dumps every visible text leaf on the page
+#                          (masked, <=400, tbody included), resets + blurs.
+#                          Clicks nothing.
+#     add-watchlist-symbol-dry / add-watchlist-symbol — TRADEIFY-GOLIVE
+#                          (tradeify-only; ONE symbol): type the base asset into
+#                          the watchlist search, resolve the ONE suggestion row
+#                          whose Symbol cell is exactly e.g. ETH/USD. -dry
+#                          reports it (masked) and clicks nothing; the armed one
+#                          makes ONE click on that cell, Escape, refused unless
+#                          one-click OFF, verified: no ticket/dialog opened and
+#                          only that symbol was added.
 #     watchlist-submenu-probe — MEASUREMENT (TRADEIFY-GOLIVE, #15373 found the
 #                        "Watchlist" entry opens a Private/Public submenu): "+",
 #                        "Watchlist", then HOVER each submenu entry and dump;
@@ -128,10 +166,14 @@
 #                              and `systemctl enable --now` it. Go-live is
 #                              THIS plus `set-env PROP_EXECUTOR_MODE=live`
 #                              (service: none; the tick re-reads .env).
-#     executor-clear-halt    — clear the executor's AUTO-REVERT latch
+#     executor-clear-halt    — clear ONLY the executor's AUTO-REVERT latch
 #                              (executor/halted). Manager/operator only; the
 #                              issue's `reason:` is required and recorded with
 #                              the prior latch reason; the file is moved aside.
+#     executor-clear-rollout — clear ONLY the modify-rollout latch
+#                              (executor/modify_rollout.json: one watched
+#                              tighten-only modify per clear), same rules. The
+#                              only way that latch is ever cleared.
 #     executor-disable-timer — `systemctl disable --now` the timer. The instant
 #                              revert is `set-env PROP_EXECUTOR_MODE=off`
 #                              (which also stops reconciling in-flight
@@ -149,7 +191,10 @@
 # refused), the kill switch is PROP_EXECUTOR_MODE_<ACCOUNT> (never the global
 # PROP_EXECUTOR_MODE), state lives under accounts/<account>/{feed,executor},
 # the login check SAVES a session there (--storage-state) for the executor
-# modes to reuse, and executor-enable/disable-timer refuse.
+# modes to reuse, and executor-enable/disable-timer install / enable / disable
+# that account's OWN instance ict-prop-executor@<account>.timer (never
+# breakout_1's ict-prop-executor.timer); enable is refused unless the account's
+# ict-prop-feed@<account>.timer is active (TRADEIFY-EXECUTOR, 2026-10-03).
 #
 # Takes the same flock as the scheduled feed (${BASE}/login.lock; for a
 # non-breakout account only around the venv/Chromium bootstrap, then its own
@@ -190,9 +235,9 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump edit-dialog-dry edit-dialog-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe executor-dry-run watched-click round-trip-dry round-trip-live \
+for m in probe-ticket instrument-probe instrument-search-dump instrument-info-dry instrument-info-probe symbol-switch-dry link-state-dump page-status edit-dialog-dry edit-dialog-probe edit-surface-probe widget-menu-probe add-watchlist-widget watchlist-submenu-probe instrument-page-dump order-surface-dump probe-ticket-ask add-watchlist-symbol-dry add-watchlist-symbol executor-dry-run watched-click round-trip-dry round-trip-live \
          close-position close-position-live \
-         executor-enable-timer executor-disable-timer executor-clear-halt \
+         executor-enable-timer executor-disable-timer executor-clear-halt executor-clear-rollout \
          feed-enable-timer feed-disable-timer; do
     case ",${APPLY}," in *",${m},"*)
         if [ -n "${EXEC_MODE}" ]; then
@@ -213,47 +258,122 @@ case ",${APPLY}," in *",limit,"*)
         exit 1
     fi ;;
 esac
-if [ "${EXEC_MODE}" = "executor-clear-halt" ]; then
-    # Clear the executor's AUTO-REVERT latch (manager / operator decision,
-    # 2026-09-28). Never cleared from inside the executor. Refuses without a
-    # reason, without a latch, or on a latch with no recorded reason (that
-    # needs a person to look first). The prior reason is logged and the
-    # latch file is moved aside, never deleted.
-    X_HALT="${X_STATE_DIR}/halted"
+# `lim-below` / `lim-above` (TRADEIFY-SOL-SIZE 2026-10-04): a DRY LIMIT walk
+# with the limit 0.5% below / above the touch. Only with round-trip-dry AND
+# limit; refused otherwise, before anything runs.
+LIMIT_OFFSET=""
+case ",${APPLY}," in *",lim-below,"*) LIMIT_OFFSET="-0.5" ;; esac
+case ",${APPLY}," in *",lim-above,"*)
+    if [ -n "${LIMIT_OFFSET}" ]; then log "lim-below/lim-above: refused — pick one"; exit 1; fi
+    LIMIT_OFFSET="0.5" ;;
+esac
+if [ -n "${LIMIT_OFFSET}" ]; then
+    case ",${APPLY}," in *",limit,"*) ;; *) log "lim-below/lim-above: refused — needs 'limit'"; exit 1 ;; esac
+    if [ "${EXEC_MODE}" != "round-trip-dry" ]; then
+        log "lim-below/lim-above: refused — valid only with round-trip-dry (got mode '${EXEC_MODE:-none}')"
+        exit 1
+    fi
+fi
+if [ "${EXEC_MODE}" = "executor-clear-halt" ] || [ "${EXEC_MODE}" = "executor-clear-rollout" ]; then
+    # Clear ONE named executor latch, never both (manager 2026-10-02: clearing
+    # an unrelated halt must not silently re-arm a modify step):
+    #   executor-clear-halt    -> the AUTO-REVERT latch executor/halted ONLY
+    #                             (manager / operator decision, 2026-09-28);
+    #   executor-clear-rollout -> the MODIFY-ROLLOUT latch
+    #                             executor/modify_rollout.json ONLY (one watched
+    #                             tighten-only modify per reviewed clear). It is
+    #                             cleared by naming it and in no other way.
+    # Never cleared from inside the executor. Refuses without a reason, when
+    # the named latch is absent, or when it records nothing (that needs a
+    # person to look first). The prior latch is logged and appended to
+    # halt_clears.jsonl, and the file is moved aside, never deleted.
+    if [ "${EXEC_MODE}" = "executor-clear-rollout" ]; then
+        latch="${X_STATE_DIR}/modify_rollout.json"
+    else
+        latch="${X_STATE_DIR}/halted"
+    fi
     if [ -z "${ACTION_REASON// }" ]; then
-        log "executor-clear-halt: refused — a reason is required (who clears it and why)"
+        log "${EXEC_MODE}: refused — a reason is required (who clears it and why)"
         exit 1
     fi
-    if [ ! -f "${X_HALT}" ]; then
-        log "executor-clear-halt: no latch set at ${X_HALT}; nothing to clear"
+    if [ ! -f "${latch}" ]; then
+        log "${EXEC_MODE}: no latch set at ${latch}; nothing to clear"
         exit 1
     fi
-    prior="$(head -c 500 "${X_HALT}" | tr -d '\r')"
+    prior="$(head -c 500 "${latch}" | tr -d '\r')"
     if [ -z "${prior// }" ]; then
-        log "executor-clear-halt: refused — the latch carries no recorded reason; inspect ${X_HALT} first"
+        log "${EXEC_MODE}: refused — the latch carries no recorded reason; inspect ${latch} first"
         exit 1
     fi
-    log "executor-clear-halt: prior latch: ${prior}"
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-    mv "${X_HALT}" "${X_HALT}.cleared-${stamp}"
-    PRIOR="${prior}" ACTOR="${ACTION_ACTOR:-unknown}" ISSUE="${ACTION_ISSUE:-}" WHY="${ACTION_REASON}" \
-        python3 -c 'import json,os,datetime;print(json.dumps({"ts":datetime.datetime.now(datetime.timezone.utc).isoformat(),"actor":os.environ["ACTOR"],"issue":os.environ["ISSUE"],"reason":os.environ["WHY"],"prior":os.environ["PRIOR"]}))' \
+    name="$(basename "${latch}")"
+    log "${EXEC_MODE}: prior latch: ${prior} [${name}]"
+    mv "${latch}" "${latch}.cleared-${stamp}"
+    PRIOR="${prior}" KIND="${name}" ACTOR="${ACTION_ACTOR:-unknown}" ISSUE="${ACTION_ISSUE:-}" WHY="${ACTION_REASON}" \
+        python3 -c 'import json,os,datetime;print(json.dumps({"ts":datetime.datetime.now(datetime.timezone.utc).isoformat(),"latch":os.environ["KIND"],"actor":os.environ["ACTOR"],"issue":os.environ["ISSUE"],"reason":os.environ["WHY"],"prior":os.environ["PRIOR"]}))' \
         >> "${X_STATE_DIR}/halt_clears.jsonl"
-    log "executor-clear-halt: cleared by ${ACTION_ACTOR:-unknown} (issue #${ACTION_ISSUE:-?}); reason: ${ACTION_REASON}"
-    record_audit "breakout-login-check" "executor-clear-halt" \
-        "{\"account\": \"${ACCOUNT}\", \"moved_to\": \"halted.cleared-${stamp}\"}" >/dev/null || true
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"moved_to\": \"${name}.cleared-${stamp}\"}" >/dev/null || true
+    log "${EXEC_MODE}: cleared ${name} by ${ACTION_ACTOR:-unknown} (issue #${ACTION_ISSUE:-?}); reason: ${ACTION_REASON}"
     exit 0
 fi
 
 TIMER_SRC="${REPO_DIR}/deploy/opt-in/ict-prop-executor.timer"
 if { [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executor-disable-timer" ]; } \
         && [ "${ACCOUNT}" != "breakout_1" ]; then
-    # ict-prop-executor.timer runs breakout_1 only. A second account's executor
-    # timer is its go-live step and is not built here (TRADEIFY-WIRE PR C).
-    log "${EXEC_MODE}: refused for ${ACCOUNT} — the executor timer is breakout_1's; a per-account executor timer is not built"
-    exit 1
+    # ict-prop-executor.timer runs breakout_1 only and is untouched here. Any
+    # other account gets its OWN instance of the template
+    # ict-prop-executor@<account> (TRADEIFY-EXECUTOR, 2026-10-03), whose tick
+    # uses only that account's session, state, lock and
+    # PROP_EXECUTOR_MODE_<ACCOUNT> (scripts/ops/prop_executor_tick.sh).
+    case "${ACCOUNT}" in
+        ''|*[!a-z0-9_]*) log "${EXEC_MODE}: refused — '${ACCOUNT}' is not a plain prop account id"; exit 1 ;;
+    esac
+    if ! (cd "${REPO_DIR}" && python3 scripts/prop/prop_env_keys.py "${ACCOUNT}" >/dev/null); then
+        log "${EXEC_MODE}: refused — ${ACCOUNT} has no entry in config/prop_platforms.yaml"
+        exit 1
+    fi
+    if ! sudo -n true >/dev/null 2>&1; then
+        log "environment: ${EXEC_MODE} needs passwordless sudo"
+        exit 5
+    fi
+    X_UNIT="ict-prop-executor@${ACCOUNT}"
+    if [ "${EXEC_MODE}" = "executor-enable-timer" ]; then
+        # The executor never logs in: without the account's own feed keeping a
+        # session it could only exit 6 every tick. Enable the feed first.
+        feed_state="$(systemctl is-active "ict-prop-feed@${ACCOUNT}.timer" 2>/dev/null || true)"
+        if [ "${feed_state}" != "active" ]; then
+            log "${EXEC_MODE}: refused — ict-prop-feed@${ACCOUNT}.timer is '${feed_state:-unknown}', not active (enable it first: apply: feed-enable-timer)"
+            exit 1
+        fi
+        for f in deploy/ict-prop-executor@.service deploy/opt-in/ict-prop-executor@.timer; do
+            [ -f "${REPO_DIR}/${f}" ] || { log "missing ${f}"; exit 1; }
+        done
+        sudo -n install -m 0644 "${REPO_DIR}/deploy/ict-prop-executor@.service" /etc/systemd/system/ict-prop-executor@.service
+        sudo -n install -m 0644 "${REPO_DIR}/deploy/opt-in/ict-prop-executor@.timer" /etc/systemd/system/ict-prop-executor@.timer
+        sudo -n systemctl daemon-reload
+        sudo -n systemctl enable --now "${X_UNIT}.timer"
+    else
+        sudo -n systemctl disable --now "${X_UNIT}.timer" 2>/dev/null || true
+    fi
+    state="$(systemctl is-active "${X_UNIT}.timer" 2>/dev/null || true)"
+    log "${EXEC_MODE}: ${X_UNIT}.timer is now '${state}' (the mode itself is ${MODE_KEY} in .env; read it with get-env)"
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"timer\": \"${state}\", \"unit\": \"${X_UNIT}.timer\"}" >/dev/null || true
+    exit 0
 fi
-if { [ "${EXEC_MODE}" = "add-watchlist-widget" ] || [ "${EXEC_MODE}" = "watchlist-submenu-probe" ]; } \
+# probe-ticket's symbol (TRADEIFY-GOLIVE, manager 21:35Z 2026-10-02): an
+# optional ``symbols:`` line with EXACTLY ONE venue symbol selects it; nothing
+# forwarded PROBE_SYMBOL from an issue before, so probe-ticket always measured
+# the SOLUSD default. No ``symbols:`` line keeps that default unchanged.
+if [ "${EXEC_MODE}" = "probe-ticket" ] && [ -n "${ACTION_SYMBOLS// /}" ]; then
+    case "${ACTION_SYMBOLS// /}" in *,*) log "probe-ticket: refused — exactly one symbol"; exit 1 ;; esac
+    PROBE_SYMBOL="${ACTION_SYMBOLS// /}"
+fi
+if { [ "${EXEC_MODE}" = "add-watchlist-widget" ] || [ "${EXEC_MODE}" = "watchlist-submenu-probe" ] \
+     || [ "${EXEC_MODE}" = "instrument-page-dump" ] \
+     || [ "${EXEC_MODE}" = "order-surface-dump" ] || [ "${EXEC_MODE}" = "probe-ticket-ask" ] \
+     || [ "${EXEC_MODE}" = "add-watchlist-symbol-dry" ] || [ "${EXEC_MODE}" = "add-watchlist-symbol" ]; } \
         && [ "${ACCOUNT}" = "breakout_1" ]; then
     # A layout change on breakout_1's LIVE real-money terminal is never made
     # by these modes (TRADEIFY-GOLIVE, manager review of #15354).
@@ -467,17 +587,31 @@ if [ -n "${EXEC_MODE}" ]; then
             case "${ACTION_SYMBOLS}" in *,*) log "symbol-switch-dry: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--symbol-switch-dry "${ACTION_SYMBOLS// /}") ;;
         link-state-dump)     EARGS+=(--link-state-dump) ;;
-        edit-dialog-dry|edit-dialog-probe)
+        page-status)         EARGS+=(--page-status) ;;
+        edit-dialog-dry|edit-dialog-probe|edit-surface-probe)
             case "${ACTION_SYMBOLS// /}" in ""|*,*) log "${EXEC_MODE}: refused — exactly one symbol"; exit 1 ;; esac
             EARGS+=(--"${EXEC_MODE}" "${ACTION_SYMBOLS// /}") ;;
         widget-menu-probe)   EARGS+=(--widget-menu-probe) ;;
         add-watchlist-widget) EARGS+=(--add-watchlist-widget) ;;
         watchlist-submenu-probe) EARGS+=(--watchlist-submenu-probe) ;;
+        add-watchlist-symbol-dry|add-watchlist-symbol)
+            case "${ACTION_SYMBOLS// /}" in ""|*,*) log "${EXEC_MODE}: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--"${EXEC_MODE}" "${ACTION_SYMBOLS// /}") ;;
+        order-surface-dump)
+            case "${ACTION_SYMBOLS// /}" in ""|*,*) log "order-surface-dump: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--order-surface-dump "${ACTION_SYMBOLS// /}") ;;
+        probe-ticket-ask)
+            case "${ACTION_SYMBOLS// /}" in ""|*,*) log "probe-ticket-ask: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--probe-ticket-ask "${ACTION_SYMBOLS// /}") ;;
+        instrument-page-dump)
+            case "${ACTION_SYMBOLS// /}" in ""|*,*) log "instrument-page-dump: refused — exactly one symbol"; exit 1 ;; esac
+            EARGS+=(--instrument-page-dump "${ACTION_SYMBOLS// /}") ;;
         executor-dry-run)    EARGS+=(--dry-run) ;;
         watched-click)       EARGS+=(--watched-click) ;;
         round-trip-dry)      EARGS+=(--round-trip "${RT_SYMBOL}")
                              # `limit` in apply: walk the ticket path's LIMIT form (dry only).
-                             case ",${APPLY}," in *",limit,"*) EARGS+=(--order-type limit) ;; esac ;;
+                             case ",${APPLY}," in *",limit,"*) EARGS+=(--order-type limit) ;; esac
+                             if [ -n "${LIMIT_OFFSET}" ]; then EARGS+=(--limit-offset-pct "${LIMIT_OFFSET}"); fi ;;
         round-trip-live)     EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
         close-position)      EARGS+=(--close-position "${RT_SYMBOL}") ;;
         close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;

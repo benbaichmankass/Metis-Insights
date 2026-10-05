@@ -3,7 +3,7 @@ name: ml-review
 description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service health, training cycles since the last review, dataset builds, per-model status (latest training metrics + shadow/live track record), promotion/demotion recommendations against the 3-stage ladder (candidate→shadow→advisory), per-model fit within the unified-confidence framework, and AI-experiment proposals to continue expanding ML coverage. Files ML follow-ups to docs/claude/work/PIPELINE.jsonl (AI experiment follow-ups, new manifests to try, new features/feeds to engineer). Use when the operator says "run the ml review", "/ml-review", "how are the models doing", or "what should we train next". NOT for live trading promotion past shadow (Tier-3, operator-gated) — this skill proposes, the operator promotes. NOT for system health (use /health-review) and NOT for strategy trade scoring (use /performance-review).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-10-04` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /ml-review — model/training lifecycle review
 
@@ -33,14 +33,20 @@ If the user asked about *system/pipeline health* — STOP, use
 performance / per-decision scoring* — STOP, use
 `/performance-review`.
 
-**Coordination (binding):** before your first trainer-VM pull, read + post to
-the **live coordination board** (GitHub issue #6927,
-`docs/claude/coordination-board.md`) — this skill dispatches real trainer-VM
-diag requests over the unrestricted SSH relay and commits backlog drains, so a
-concurrent session doing trainer-VM work (a training cycle, a dataset build)
-needs to see your `▶️ START` before you touch anything. (This is not
-hypothetical — a 2026-07-22 `/ml-review` sub-session ran concurrently with
-another live session's trainer-VM work, uncoordinated, because neither posted.)
+**Coordination (binding, corrected 2026-10-04):** the coordination board this
+paragraph used to point at (GitHub issue #6927 / `docs/claude/coordination-board.md`)
+is retired and takes no writes (the 2026-09-21 operating reset,
+`docs/plans/OPERATING-PLAN-2026-09-21.md`; CLAUDE.md § "How work is organised").
+The live model is **one manager session plus scoped lanes**: read your lane's
+row in `docs/claude/work/MANAGER-CHECKLIST.json` (or the manager's dispatch
+prompt) before your first trainer-VM pull, and before landing a PR claim this
+branch's merge slot with `scripts/ops/claim_merge_slot.py --branch-claim
+--branch <branch> --held-by <session-id>` per `.claude/skills/manager/SKILL.md`.
+This skill still dispatches real trainer-VM diag requests over the unrestricted
+SSH relay and commits pipeline filings, so check the checklist for another lane
+already working the trainer (a training cycle, a dataset build) before you
+duplicate its pulls. (The 2026-07-22 uncoordinated double-session is why this
+paragraph exists; the mechanism changed, the obligation did not.)
 
 ## Scope (what this skill DOES)
 
@@ -144,7 +150,12 @@ diag relay or direct HTTPS:
 `vm-diag-snapshot` relay's `/api/bot/*` allowlist — the `ml/*` rows
 (`ml/status`, `ml/cycle`, `ml/sessions`, `ml/registry`, `ml/builds`,
 `ml/db_pulls`, `ml/runs/*`) are **direct-HTTPS-only** (or the trainer-VM
-relay for the underlying trainer-side data). **Batch the relay-eligible
+relay for the underlying trainer-side data). **Try direct HTTPS first for
+ALL of these** (`https://ict-bot.duckdns.org/api/bot/<path>`, the Caddy
+route, no token): MEASURED 2026-10-04, every row in this table answered 200
+from a web session, including `ml/registry` (6.5 MB) — so the relay is the
+fallback, not the default, and a dropped-webhook relay issue (one of four
+dispatched that day never spawned a run) costs you nothing. **Batch the relay-eligible
 rows into ONE `vm-diag-request` issue** (JSON array or one-per-line body,
 e.g. `["shadow/stats?model_id=X", "shadow/drift?model_id=X",
 "trades/scores?limit=200"]`) rather than a separate issue per path — per
@@ -412,19 +423,27 @@ on a stuck model.
 
 ## Draining the backlog — a HARD COMPLETION GATE (not a sample)
 
-**An ml-review is NOT complete until every open ML row in
-`docs/claude/work/PIPELINE.jsonl` has been triaged THIS run.**
-Triaging a sample / "the recent few" is a review failure — the backlog
-IS the standing open-task list. (Health and performance backlogs are
-not touched here; each of the three reviews enforces this same gate on
-its own list.)
+**An ml-review is NOT complete until every open ML row in the pipeline
+store has been triaged THIS run.** The store is the directory
+`docs/claude/work/pipeline/` (one immutable JSON record per file, folded by
+`scripts/ops/pipeline.py::load()`; the flat `PIPELINE.jsonl` name is the
+legacy spelling and nothing writes it). **The population this gate is
+measured over** (defined 2026-10-04 so `count_untriaged` means one thing):
+every item whose `state` is not `done`/`killed` AND whose `origin.ref`
+names `ml-review`, OR whose `routed_to` starts with `ML`, OR whose `what`
+starts with `[ml]` or `[refinement]`. Print the count and the ids before
+you start; a row that matches only on an incidental string (e.g. a CI-guard
+row that mentions `ml-review-backlog.json`) is recorded as *not an ML row*
+and left to its own lane. Triaging a sample / "the recent few" is a review
+failure — the pipeline IS the standing open-task list. (Health and
+performance rows are not touched here; each of the three reviews enforces
+this same gate on its own population.)
 
 **Enumerate the FULL open set, then walk it 100%:**
 
-1. **Count first.** Filter to every item whose `status` is not a
-   terminal-resolved value (`resolved`/`closed`/`done`/`invalid`/
-   `wont_fix`/`superseded`). Record `open_at_start` — you must touch
-   every one.
+1. **Count first.** Filter to every item in the population above whose
+   `state` is not terminal (`done`/`killed`). Record `open_at_start` — you
+   must touch every one.
 2. **For EACH open item:** re-validate against this cycle's registry /
    training / drift data; then disposition into exactly one bucket —
    **resolved** (the new cycle closes it / the experiment landed),
@@ -433,8 +452,10 @@ its own list.)
    needs a training run / more soak / a Tier-3 promotion decision — add
    an update with this run's re-validation + the blocker, so it never
    sits stale-and-unlooked).
-3. **Write it back** + record EVERY item's disposition in
-   `backlog_drain[]` (array length == `open_at_start`).
+3. **Write it back** through `scripts.ops.pipeline.append(item,
+   intent="update")` (a state change keeps `id`, `origin` and the start of
+   `what`; a new finding gets `mint_id()` + `intent="new"`) + record EVERY
+   item's disposition in `backlog_drain[]` (array length == `open_at_start`).
 
 **Coverage assertion (the gate).** Emit `backlog_coverage:
 {open_at_start, triaged, resolved, fixed_now, closed_stale, kept_open,
@@ -442,10 +463,11 @@ count_untriaged}`. **`count_untriaged` MUST be 0.** A review with
 `count_untriaged > 0` is INCOMPLETE — do not post the ping or report it
 done. The ping cites `X/Y backlog items triaged`.
 
-New backlog items added here are for **ML/experiment follow-ups
-only**. Each item carries `id`, `opened_at`, `opened_by`, `source`,
-`title`, `description`, `tier` (typically 3), `trigger_condition`,
-`resolution_criteria`, `status`.
+New pipeline items filed here are for **ML/experiment follow-ups only**
+and carry what `scripts/ops/pipeline.py::validate` demands: `id`, `what`,
+`origin{kind,ref,rerun}`, `due_when{kind,clears_when|due_date,check_every_days}`,
+`next_action`, `state` (plus `tier`/`severity`); a `done`/`killed` record
+needs a `terminal_reason`.
 
 ## Posting to the Claude channel
 
@@ -480,7 +502,7 @@ Emit a single JSON object conforming to
   empty when none warranted.
 - `experiments_proposed[]` — forward-looking experiment ideas.
 - `backlog_drain[]` — actions taken on open ML rows in
-  `docs/claude/work/PIPELINE.jsonl`.
+  `docs/claude/work/pipeline/` (one entry per row in the population).
 - `anomalies[]` — free-form notable items (datasets failing, runs
   erroring, predictions silently dropping, etc.).
 - `recommended_action`, `operator_attention_required`.

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager (session_01MM8o5js6TcDFeNAPBY4Ntv), 10:43Z: 'put any SOL/XRP spec values in a held PR'. Prop executor config for tradeify_1 (config/prop_platforms.yaml lots table); it enables nothing, but the lot table feeds sizing, so it is held for the manager.",
+  "why": "tradeify_1 SOLUSD/XRPUSD lot entries from the measured tickets (probe-ticket-ask #15905 / #15907): lot_units 1, min 0.01, lot_step 0.01 (inferred), price_step 0.001 / 0.00001. Not enabled, not in watched_click_max_lots."
+}

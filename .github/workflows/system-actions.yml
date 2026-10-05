@@ -259,24 +259,68 @@ permissions:
   contents: read
   issues: write   # required to comment + close issue-driven requests
 
-# Serialise. Two system-actions on the same VM at the same time is
-# never desired and likely buggy.
-#
-# ⚠️ EXCEPT verify-account-mode, which gets its OWN group per account
-# (review finding on #13508, 2026-09-28). It is read-only and polls for up to
-# 600 s. In the shared group it would (a) hold an emergency flatten/stop behind
-# it for up to 10 min, and (b) lose verifies: GitHub keeps only ONE pending run
-# per group, so a newer dispatch silently CANCELS the older pending one. A
-# merge that changes 3+ accounts dispatches 3+ verifies in a loop. Per-account
-# groups mean only a newer verify of the SAME account can replace a pending
-# one, and that newer one is the verify worth having. Issue-triggered runs have
-# empty `inputs` and always land in the shared group.
-concurrency:
-  group: ${{ inputs.action == 'verify-account-mode' && format('system-actions-verify-account-mode-{0}', inputs.account_id) || 'system-actions' }}
-  cancel-in-progress: false
+# Concurrency is JOB-level now (OA-17, 2026-10-04), chosen by the `route` job.
+# The old single workflow-level group ("system-actions") let GitHub's
+# one-pending-run-per-group rule silently CANCEL an older queued request
+# whenever a newer one arrived: #16251 (breakout_1 executor-disable-timer, an
+# OA-03 de-risk step) and #16263 were dropped that way, issues left open with
+# no comment. Now (scripts/ops/system_action_route.py):
+#   * a READ-ONLY action (explicit allowlist) waits in a group of its own,
+#     so it can neither displace nor be displaced;
+#   * every other action keeps the shared "system-actions" group, so two
+#     mutations on the VM still never run at once.
+# The shared lane can still drop a pending run; system-actions-cancel-guard.yml
+# then comments "CANCELLED, NOT RUN" on its issue and sends one alert. It never
+# re-queues (that would run the older request after the newer one that displaced it).
+# (verify-account-mode is read-only, so it no longer needs its per-account
+# group: each verify now gets its own.) Pinned by
+# tests/test_system_actions_concurrency.py.
 
 jobs:
+  route:
+    # Picks the concurrency group for the system-action job below and records
+    # which issue this run serves, so a cancelled-while-pending run can be
+    # reported and alerted (system-actions-cancel-guard.yml). Holds no
+    # concurrency group itself, so it always runs immediately.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.action == 'opened' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'system-action'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      group: ${{ steps.r.outputs.group }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/system_action_route.py
+          sparse-checkout-cone-mode: false
+      - id: r
+        env:
+          DISPATCH_ACTION: ${{ inputs.action }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/system_action_route.py --event "${{ github.event_name }}" --run-id "${{ github.run_id }}" | tee -a "$GITHUB_OUTPUT"
+          mkdir -p request
+          printf '%s\n' "${ISSUE_NUMBER:-}" > request/issue_number
+      - uses: actions/upload-artifact@v4
+        with:
+          name: system-action-request
+          path: request/
+          retention-days: 7
+
   system-action:
+    needs: route
+    concurrency:
+      group: ${{ needs.route.outputs.group }}
+      cancel-in-progress: false
     # Actor-guard (defense-in-depth): owner (or repo automation) only. The label
     # gate already blocks non-collaborators (they can't apply a label), but this
     # also defeats the social-engineering path where a triager is induced to apply
@@ -1102,14 +1146,21 @@ jobs:
           # cell, the info button and the panel's close control),
           # executor-dry-run,watched-click,round-trip-dry,
           # round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,
-          # executor-clear-halt,
+          # executor-clear-halt (AUTO-REVERT latch only), executor-clear-rollout
+          # (modify-rollout latch only; the one way it is cleared),
           # dump-tables (read-only table dump of the positions / orders read path)
           # symbol-switch-dry (PROP-ETH-DOM #14885: click-free quote read, select one symbol's watchlist cell, verify, restore; no order form; needs symbols: with ONE symbol)
+          # page-status (2026-10-03: READ-ONLY, zero interaction: masked body text, alert/banner elements, Buy/Sell enabled state)
           # link-state-dump (PROP-ETH-DOM 2026-10-01: READ-ONLY watchlist rows / symbol_input / sidebar ticket dump; clicks nothing)
           # edit-dialog-dry / edit-dialog-probe (DIALOG-MEASURE 2026-10-01; needs symbols: with ONE symbol): -dry locates the row's pencil by icon name and clicks nothing; -probe clicks ONE named symbol's pencil, reads the dialog, presses the dialog's own Cancel; never submits
+          # edit-surface-probe (DIALOG-MEASURE 2026-10-02; needs symbols: with ONE symbol): snapshot diff around ONE modify-control click; exits via Escape or the changed surface's own cancel/close only; requires the page back at baseline; never submits
           # widget-menu-probe (TRADEIFY-GOLIVE 2026-10-01: ONE click on the add-widget "+", masked menu dump, Escape; no menu item, order, price or delete control)
           # add-watchlist-widget (TRADEIFY-GOLIVE option B step 2: the "+" then the measured "Watchlist" entry only; refused unless one-click OFF; no-op if a watchlist exists)
           # watchlist-submenu-probe (TRADEIFY-GOLIVE: "+", "Watchlist", then HOVER Private/Public and dump; clicks no submenu entry; Escape)
+          # instrument-page-dump (TRADEIFY-GOLIVE (b), tradeify-only; needs symbols: with ONE symbol: type the base asset key by key, no Enter; masked full-page leaf dump <=400, tbody included; reset + blur; clicks nothing)
+          # order-surface-dump (TRADEIFY-GOLIVE, tradeify-only, ONE symbol: the symbol's watchlist row cells + every order-surface term on the current page; clicks nothing)
+          # probe-ticket-ask (TRADEIFY-GOLIVE, operator 2026-10-03 "Approve the guarded click", tradeify-only, ONE symbol: ONE click on the symbol's watchlist Ask "Buy" price button only when exactly one matches, the account is flat with no dialog and one-click re-reads OFF right before the click; records the order form, submits nothing, closes via the ticket's own Cancel/Close, verifies flat + no dialog)
+          # add-watchlist-symbol-dry / add-watchlist-symbol (TRADEIFY-GOLIVE, tradeify-only, ONE symbol: resolve the ONE suggestion row whose Symbol cell is exactly e.g. ETH/USD; -dry clicks nothing; armed: one click on that cell, Escape, refused unless one-click OFF, verified no ticket/dialog and only that symbol added)
           # close-position / close-position-live (locate / CLOSE the one existing position; live needs PROP_EXECUTOR_MODE=live)
           # (the step-3 executor; the wrapper allows at most one mode per
           # dispatch; watched-click and round-trip-live place real orders and
@@ -1119,11 +1170,11 @@ jobs:
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|edit-dialog-dry|edit-dialog-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|edit-dialog-dry|edit-dialog-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|executor-enable-timer|executor-disable-timer|executor-clear-halt|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)){0,10}$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,instrument-info-dry,instrument-info-probe,symbol-switch-dry,link-state-dump,edit-dialog-dry,edit-dialog-probe,widget-menu-probe,add-watchlist-widget,watchlist-submenu-probe,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,limit,executor-enable-timer,executor-disable-timer,executor-clear-halt,dump-tables,feed-enable-timer,feed-disable-timer,close-position,close-position-live (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|page-status|edit-dialog-dry|edit-dialog-probe|edit-surface-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|instrument-page-dump|order-surface-dump|probe-ticket-ask|add-watchlist-symbol-dry|add-watchlist-symbol|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|lim-below|lim-above|executor-enable-timer|executor-disable-timer|executor-clear-halt|executor-clear-rollout|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)(,(install-deps|emit-status|reset-feed|probe-ticket|instrument-probe|instrument-search-dump|instrument-info-dry|instrument-info-probe|symbol-switch-dry|link-state-dump|page-status|edit-dialog-dry|edit-dialog-probe|edit-surface-probe|widget-menu-probe|add-watchlist-widget|watchlist-submenu-probe|instrument-page-dump|order-surface-dump|probe-ticket-ask|add-watchlist-symbol-dry|add-watchlist-symbol|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|limit|lim-below|lim-above|executor-enable-timer|executor-disable-timer|executor-clear-halt|executor-clear-rollout|dump-tables|feed-enable-timer|feed-disable-timer|close-position|close-position-live)){0,10}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,instrument-probe,instrument-search-dump,instrument-info-dry,instrument-info-probe,symbol-switch-dry,link-state-dump,page-status,edit-dialog-dry,edit-dialog-probe,edit-surface-probe,widget-menu-probe,add-watchlist-widget,watchlist-submenu-probe,instrument-page-dump,order-surface-dump,probe-ticket-ask,add-watchlist-symbol-dry,add-watchlist-symbol,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,limit,lim-below,lim-above,executor-enable-timer,executor-disable-timer,executor-clear-halt,executor-clear-rollout,dump-tables,feed-enable-timer,feed-disable-timer,close-position,close-position-live (got '${ACTION_APPLY}')."
               exit 1
             fi
-            case ",${ACTION_APPLY:-}," in *",symbol-switch-dry,"*|*",edit-dialog-dry,"*|*",edit-dialog-probe,"*|*",instrument-probe,"*|*",instrument-info-dry,"*|*",instrument-info-probe,"*)
+            case ",${ACTION_APPLY:-}," in *",probe-ticket-ask,"*|*",symbol-switch-dry,"*|*",edit-dialog-dry,"*|*",edit-dialog-probe,"*|*",edit-surface-probe,"*|*",instrument-probe,"*|*",order-surface-dump,"*|*",add-watchlist-symbol-dry,"*|*",add-watchlist-symbol,"*|*",instrument-page-dump,"*|*",instrument-info-dry,"*|*",instrument-info-probe,"*)
               # instrument-probe needs 'symbols:' -- comma-separated venue
               # symbols, e.g. BTCUSD,ADAUSD,AVAXUSD,XRPUSD. Validated here so
               # a malformed dispatch fails loudly instead of reaching the VM.
@@ -1837,12 +1888,13 @@ jobs:
           fi
           if [ "${ACTION}" = "breakout-login-check" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_SYMBOLS=$(printf '%q' "${ACTION_SYMBOLS:-}") ${REMOTE_CMD}"
-            case ",${ACTION_APPLY:-}," in *",executor-clear-halt,"*)
+            case ",${ACTION_APPLY:-}," in *",executor-clear-halt,"*|*",executor-clear-rollout,"*)
               # Clearing the executor's AUTO-REVERT latch is a person's
               # decision (manager / operator): the reason text IS the record,
               # so it is required and forwarded with who asked and where.
               if [ -z "${REASON// }" ]; then
                 echo "::error::executor-clear-halt requires a 'reason:' line (who clears the latch and why)."
+                echo "::error::(executor-clear-rollout has the same requirement.)"
                 exit 1
               fi
               REMOTE_CMD="ACTION_REASON=$(printf '%q' "${REASON}") ACTION_ACTOR=$(printf '%q' "${CLEAR_HALT_ACTOR:-}") ACTION_ISSUE=$(printf '%q' "${CLEAR_HALT_ISSUE:-}") ${REMOTE_CMD}"

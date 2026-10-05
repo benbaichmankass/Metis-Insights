@@ -2,7 +2,7 @@ id: RQ-20260930-703
 title: >-
   Regime impact scoping, SELECTION-SENSITIVITY arm of RQ-20260930-701: is the trend-axis null an artifact of the
   selection rule? Same harness, conservative selection (train n >= 20 and a train loss beyond 1 SE).
-status: queued
+status: done
 cadence: once
 theme: regime
 priority: 2
@@ -116,3 +116,14 @@ references:
   - .claude/skills/regime-selectivity/SKILL.md
 
 last_dispatched_at: '2026-10-02T01:33:01+00:00'
+grading:
+  auto: false
+  evidence:
+  - research/results/RQ-20260930-703/36951470261.jsonl
+  graded_at: '2026-10-04'
+  graded_by: 'RESEARCH-PIPELINE-REPAIR lane session_015xtaJKCjcqxeQgFoJGfizf (hand-written unit: not mechanically
+    gradable)'
+  needs_review: false
+  reason: 1 measured record(s), all fail. Read by a session against the unit's pre-registered rule (not
+    rewritten); the verdict is the record's own.
+  verdict: fail

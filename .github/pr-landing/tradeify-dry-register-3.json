@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "TRADEIFY-WIRE row note (round-trip-dry + T5 results after #15903) and two new pipeline records filed via scripts/ops/pipeline.py. Docs/register only, Tier-1 by path; same self-land route the manager directed for #15847/#15911."
+}

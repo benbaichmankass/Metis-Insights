@@ -1,0 +1,7 @@
+prop_ev_grid: 1 leg(s) x 1 arm(s) x 5 seed(s) = 5 cells, 4 parallel
+  mes_trend_long_1d            A        seed=1 exit=0 ev=-45.00 p=0.0000 (429.0s)
+  mes_trend_long_1d            A        seed=2 exit=0 ev=-45.00 p=0.0000 (436.6s)
+  mes_trend_long_1d            A        seed=3 exit=0 ev=-45.00 p=0.0000 (421.1s)
+  mes_trend_long_1d            A        seed=4 exit=0 ev=-45.00 p=0.0000 (431.9s)
+  mes_trend_long_1d            A        seed=5 exit=0 ev=-45.00 p=0.0000 (216.9s)
+prop_ev_grid: overall=indeterminate {"mes_trend_long_1d": "indeterminate"}

@@ -1,0 +1,49 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "NOTICED 2026-09-07 by MI-168 while re-scoping the close-confirmation in the same method; FILED, NOT FIXED, deliberately — MI-168's scope was the confirmation, and changing the clamp changes ORDER SIZING, which is a materially riskier Tier-3 edit than changing what counts as confirmation. src/units/accounts/ib_client.py Step 0 reads live_qty = self._live_position_qty(sym) — the SYMBOL total — and sets close_qty = min(requested_qty, live_qty). That is the same scope confusion as the confirmation gate, one step earlier in the same method. !! IT IS MUCH LESS SEVERE THAN THE CONFIRMATION BUG AND THAT SHOULD NOT BE OVERSTATED: it is a SAFETY clamp and it errs toward UNDER-closing (never transmitting more than the venue holds, which on a one-way futures account would open a reverse position), so it fails in the safe direction. The residual concern is a case nobody has observed: if the symbol total is BELOW this trade's qty because a sibling's lots are gone, the clamp closes the symbol's remainder rather than this trade's lots, which can close another trade's position. NO INSTANCE HAS BEEN MEASURED — this is read from the code, not from a journal, and is filed so the reasoning is not lost rather than because it has bitten. RESOLVES WHEN: either the clamp is re-derived from the trade's own lots with the symbol total kept purely as an upper bound (so it can never exceed the venue AND can never silently retarget another trade's position), or it is established that the current behaviour  …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-CONFIRMATION-WAS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-CONFIRMATION-WAS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-CONFIRMATION-WAS'), indent=2))\""
+  },
+  "routed_to": "ORDER-AUDIT-2 (re-pointed from ORDER-AUDIT-2 — #13633 merged 2026-09-28 (operator-approved Tier 3); deployed+observed state unverified (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Read src/units/accounts/ib_client.py _locked_close: Step 0 (lines ~2553-2567) still reads live_qty = self._live_position_qty(sym) (symbol total) and sets close_qty = min(requested_qty, live_qty), unchanged. git log since 2026-09-21 on this file shows only an unrelated batch commit -- the code is exactly as filed.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "small dev/test effort on a live order path",
+          "label": "Re-derive the clamp from the trade's own lots (symbol total as upper bound only)",
+          "risk": "low if tested; any order-path change carries some regression risk",
+          "what_happens": "A Tier-2 code change to _locked_close's Step 0, tested against a planted multi-trade-same-symbol scenario, then shipped with operator OK per the order-path tier rule"
+        },
+        {
+          "cost": "none now",
+          "label": "Accept current behavior, record the risk-acceptance decision",
+          "risk": "the unmeasured edge case remains possible, though never observed and safe-direction",
+          "what_happens": "Row closes as accepted; the residual risk (close-scope confusion on a sibling-lots-gone edge case) stays live and undocumented until re-raised"
+        },
+        {
+          "cost": "none",
+          "label": "Leave open, re-check next cycle (default if no time now)",
+          "risk": "same as option 2 without even a recorded decision",
+          "what_happens": "No change; row stays queued"
+        }
+      ],
+      "priority_tier": 6,
+      "question": "IBClient._locked_close's Step 0 clamps close_qty to the SYMBOL's total live position rather than this trade's own lots -- a theoretical (never-observed) case where a sibling trade's lots being gone could make this clamp close another trade's remainder instead of this one's. It fails in the safe direction (never over-closes vs the venue) but can silently retarget a close. Fixing it touches the live IB order path (Tier-2).",
+      "recommendation": "Given zero observed instances and the safe-direction failure mode, this is low urgency -- but it should get an explicit accept-or-fix decision rather than keep re-appearing unchanged every 45 days."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] IBClient._locked_close Step 0 clamps close_qty to the SYMBOL's live position (min(requested_qty, live_qty)) — the same symbol-vs-trade scope confusion MI-168 fixed one gate downstream\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — IBClient._locked_close's Step 0 clamps close_qty to the SYMBOL's total live position rather than this trade's own lots -- a theoretical (never-observed) case where a sibling trade's lots being gone could make this clamp close another trade's remainder instead of this one's. It fails in the safe direction (never over-closes vs the venue) but can silently retarget a close. Fixing it touches the live IB order path (Tier-2). Recommendation: Given zero observed instances and the safe-direction failure mode, this is low urgency -- but it should get an explicit accept-or-fix decision rather than keep re-appearing unchanged every 45 days.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: small tested fix: derive the clamp from the trade's own lots (symbol total as upper bound), planted multi-trade test. Tier-2 order path -> landing: hold. Built in src/units/accounts/ib_client.py (IBClient.close/_locked_close now take sibling_qty, reserved out of the symbol live_qty before clamping requested_qty) and src/units/accounts/execute.py (_ib_sibling_open_qty sums other open journal trades on the same account_id+symbol excluding this trade_id; close_open_position takes trade_id and forwards sibling_qty for IB only), wired from order_monitor._send_close_to_exchange. Planted multi-trade test tests/test_close_qty_clamp_trade_scope.py, 6/6 pass; full close-path regression sweep 417/417 pass. PR #13633 is held pending manager/operator merge.\n\n-- Manager review 2026-09-28 (independent Opus review of PR #13633, run against this PR own FakeIB harness): BLOCK on the first version. Two real bugs: (1) the sibling-reservation refusal had no cooldown, wedging order_monitor into retrying forever and blocking strategy exits -- every shortfall this branch can trigger is a journal-vs-venue divergence by construction, so the fix now falls back to the pre-fix single-trade clamp (min(requested_qty, live_qty)) and logs a loud divergence alert (citing PI-20260928-DEUTUJ78-0001, the queued systematic detector) instead of refusing; (2) siblings were summed across both directions -- an opposite-direction row on a netted IB contract reduces the position rather than holding lots of it, so _ib_sibling_open_qty now filters to the closing trades own direction. Also corrected the pr-landing tier from 2 to 3 (execute.py is TIER3_PATHS, verified by reading scripts/ci/check_pr_landing.py directly). 4 new tests added covering the corrected behavior; the 2 pre-existing planted-control tests still pass unchanged."
+}

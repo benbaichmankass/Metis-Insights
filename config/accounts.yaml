@@ -1738,6 +1738,9 @@ accounts:
     type: prop
     account_class: prop
     mode: live
+    report_default: true               # a bare Telegram fill report / screenshot (no acct=) is
+                                       # breakout_1's once tradeify_1 is live too (TRADEIFY-WIRE C;
+                                       # src/prop/telegram_report_handler.default_prop_account).
     account_state: evaluation          # eval → funded lifecycle (PropRiskManager).
                                        # Flips to `funded` once the +10% target is
                                        # cleared; the operator/system updates it.
@@ -1900,7 +1903,7 @@ accounts:
   # tradeify_1 (own login TRADEIFY_DX_*, own kill switch
   # PROP_EXECUTOR_MODE_TRADEIFY_1, nothing enabled).
   #
-  # DRY FIRST: mode dry_run -> execute_pkg's breakout branch emits NO ticket and
+  # WAS DRY FIRST (PR B): mode dry_run -> execute_pkg's breakout branch emits NO ticket and
   # NO ping; the order package is journaled with status=shadow /
   # close_reason=prop_shadow_no_emit. That is the dry evidence the go-live PR
   # (C) waits on. dry_run is excluded from the prop status-request and
@@ -1909,7 +1912,12 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    mode: dry_run                      # dry-run-guard: allow — TRADEIFY-WIRE: new prop account ships DRY; go-live is the separate held PR C after the dry evidence (operator "Buy the $10k pilot (Recommended)", 2026-09-30)
+    mode: live                         # TRADEIFY-WIRE PR C (Tier-3 go-live, HELD): tickets
+                                       # emit to the prop Telegram channel like breakout_1's.
+                                       # Merge ONLY after: login check exit 0 from the VM,
+                                       # a fresh ict-prop-feed@tradeify_1 snapshot, and shadow
+                                       # order packages observed for the legs (dry evidence).
+                                       # Rollback: set-account-mode tradeify_1 dry_run.
     account_state: evaluation
     phase_requirements:                # Tradeify 247 1-Step terms (first-party summary, unconfirmed).
       target_profit_pct: 0.12          # +12% to pass.
@@ -1921,8 +1929,12 @@ accounts:
                                        # tripped by two of our own legs.
       - trend_donchian_eth_prop        # ETH 1h (n=169, net R +13.03 after Tradeify costs)
       - trend_donchian_sol_prop        # SOL 1h (n=65, +4.97)
-      - ict_scalp_xrp_15m              # XRP 15m (n=129, +3.09)
-    symbols: [ETHUSDT, SOLUSDT, XRPUSDT]
+      # ict_scalp_xrp_15m DROPPED at go-live (OPERATOR DECISION 2026-10-03,
+      # popup relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim:
+      # "Drop it (Recommended)"): it fails its causal rebuild (#15603).
+      # XRPUSDT left the data-pull list with it: no tradeify_1 leg trades XRP,
+      # and `symbols:` is a pull list only (bybit_1 still pulls XRPUSDT).
+    symbols: [ETHUSDT, SOLUSDT]
     risk:
       max_dd_pct: 0.06                 # Tradeify 1-Step STATIC 6% = $600 floor at $9,400.
       daily_loss_pct: 0.03             # 3% daily = $300 (resets 22:00 UTC; ruleset limits).
@@ -1932,3 +1944,46 @@ accounts:
       # INTRADAY_DRAWDOWN breach REFUSES the trade on this account (manager
       # review of #14672, 2026-09-30: "'report' places orders through a
       # breach; it must refuse"). breakout_1's `report` is unchanged.
+
+  # velotrade_1: Velotrade CLASSIC 1-Step $5k crypto evaluation on Velotrade's
+  # DXtrade deployment (dx.velotrade.com). VELOTRADE-WIRE, 2026-10-04 (HELD
+  # Tier-2 PR). OPERATOR DECISION (manager popup ~21:25Z 2026-10-04, relayed by
+  # manager session_01MM8o5js6TcDFeNAPBY4Ntv), verbatim: "Buy one ($54)".
+  # Evidence: docs/research/prop-firm-deepdive-2026-10-04.md § 1.8 + A2 — the
+  # B3 book at 0.5% risk: path EV +$454 ± $8 per $54 account life, P(net>0)
+  # 0.69, registered rule V2 INDETERMINATE (evidence p5 about -$37). A $54
+  # pilot to measure mechanics and cost, not a promotion on edge.
+  #
+  # Same shape as tradeify_1: exchange `breakout` is the prop ticket bridge
+  # (src/prop/breakout_executor.py), NOT a Breakout venue (an exchange
+  # `velotrade` is purged and pinned absent by tests/test_prop_risk_manager.py);
+  # the ruleset + routing make every number Velotrade's. Terminal:
+  # prop_platforms.yaml velotrade_1 (own login VELOTRADE_DX_*, own kill switch
+  # PROP_EXECUTOR_MODE_VELOTRADE_1, nothing enabled, no lot table).
+  #
+  # NOT `prop_velotrade_1`: that id belongs to a purged 2026-06 scaffold whose
+  # rows scripts/ops/backfill_account_class.py pins to the `paper` class.
+  #
+  # DRY, AND NO ROSTER. The roster is Tier-3 on a real-money prop account; the
+  # PR body PROPOSES one (the B3 book) and this entry applies none, so the
+  # account emits nothing: no ticket, no ping, no order package.
+  velotrade_1:
+    exchange: breakout
+    type: prop
+    account_class: prop
+    mode: dry_run                      # dry-run-guard: allow — new prop account starts dry (manager dispatch VELOTRADE-WIRE 2026-10-04: "starting in DRY / read_only, never live"). Go-live is a separate PR after a read-only login check passes on the VM.
+    account_state: evaluation
+    phase_requirements:                # Velotrade CLASSIC 1-Step (first-party, read 2026-10-04, unconfirmed).
+      target_profit_pct: 0.10          # +10% to pass.
+      min_active_days: 5               # 5 QUALIFYING days (each >= +0.8% of the initial balance, realised, 00:30-00:30 UTC).
+    backtest_ruleset: prop_rulesets/velotrade_classic_1step.yaml
+    account_size_usd: 5000
+    strategies: []                     # Tier-3: proposed in the PR body, not applied.
+    symbols: []
+    risk:
+      max_dd_pct: 0.07                 # 7% STATIC = $350, floor $4,650 for the life of the account.
+      daily_loss_pct: 0.04             # 4% below max(balance, equity) at 00:30 UTC (ruleset limits).
+      daily_usd: 200                   # absolute fallback (= 4% of $5k).
+      risk_pct: 0.005                  # 0.5% = $25/ticket (deep-dive § 1.8 item 6; ruleset sizing.flat cap 25).
+      # breach_guards: NOT set -> `enforce` (the default), as tradeify_1: a
+      # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN breach REFUSES the trade.

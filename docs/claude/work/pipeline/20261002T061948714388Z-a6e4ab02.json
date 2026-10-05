@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "The FIRST resize-path ticket is observed PLACED in prop_fills after this deploy: a row whose status is open/filled (never skipped) for a ticket whose guards log carries facts.risk_cap_resize != null -- i.e. the executor cut the size to the cap and the bracket went on. Until such a row exists the fix is merged, maybe deployed, NOT observed: no further 'risk cap' skip in prop_fills is NOT evidence, because a quiet period looks identical to a working resize. Re-run the probe above and read the executor's guards log for the resize fact.",
+    "kind": "observation"
+  },
+  "id": "PI-20261002-ULPHZHHQ-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-CAP-ROUND (session_01PmaNf2jXagFToXuLPhZHhq), dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; prop_fills id=75; src/prop/prop_executor.py::bracket_from_ticket + ::evaluate_guards; src/prop/prop_risk_gate.py::enforce_ticket_cap",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/fills?limit=1000' | python3 -c \"import sys,json,re;rows=json.load(sys.stdin)['fills'];hits=[r for r in rows if re.search('risk cap',json.dumps(r))];print(len(rows),'rows;',len(hits),'lost to the cap:',[(r['id'],r['ticket_id'],r['status']) for r in hits])\" -- the denominator is every row in prop_fills, and the probe is positive-controlled by id=75. Also: python3 -m pytest tests/test_prop_executor.py -q (the resize/refuse pair)."
+  },
+  "state": "queued",
+  "what": "BREAKOUT-CAP-ROUND: the breakout_1 executor refused a valid $75 ticket over an 11-cent rounding overshoot, and the fix is LANDED-NOT-OBSERVED until a resize-path ticket is seen PLACED. MEASURED (GET /api/bot/prop/fills?limit=1000, all 77 rows, ids 1-77 contiguous, 2026-06-22 -> 2026-10-02): exactly 1 row lost to this reason -- id=75, ticket prop-manual-00e7ecbd6bd4 (SOLUSDT long, trend_donchian_sol_prop), skipped 2026-10-02T04:04:36Z for 'risk cap: resized (risk gate ENFORCE: ticket risk $75.11 exceeds the flat-mode cap $75.00 -- resized to the cap)'. The probe is positive-controlled: the same regex finds that row. COLLATERAL: the next signal's ticket prop-manual-d428ef87df61 (04:02:11Z) was then SUPPRESSED as a reticket ('outstanding_ticket:emitted: prop-manual-00e7ecbd6bd4'), so one skip cost two signals. ROOT CAUSE (MEASURED from the ticket's own numbers, GET /api/bot/prop/tickets): bracket_from_ticket floors qty 28.45528451 -> 28.45 lots (lot_step 0.01), which alone leaves risk at $74.99; it then rounds the stop to price_step 0.01 (118.59428571 -> 118.59), WIDENING the stop 2.63571429 -> 2.64, and recomputes risk from the typed values: 28.45 x 2.64 = $75.108 -> $75.11. The lot-step flooring was innocent; the PRICE-step rounding introduced the overshoot AFTER the size was decided, and prop_risk_gate.enforce_ticket_cap's announced resize was never applied -- the executor only appended its action to `reasons`, so `fits` went False. FIX (PR, HELD): the $-cap is applied where the SIZE is decided, cutting lots DOWN to the venue lot step against the TYPED stop distance (28.45 -> 28.40 lots, $74.98), bounded by the risk the ticket itself asked for so a genuinely over-cap ticket is still REFUSED and the size can never grow."
+}

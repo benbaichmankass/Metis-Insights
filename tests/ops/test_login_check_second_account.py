@@ -39,7 +39,7 @@ def test_other_account_keys_come_from_its_platform_entry():
 def test_other_accounts_never_touch_breakout_1_state():
     """PR A replaces #14682's blanket refusal with PER-ACCOUNT state: another
     account's feed, executor ledger/latch and kill switch are its own, and the
-    executor TIMER (breakout_1's) still refuses any other account."""
+    executor TIMER is a per-account template instance, never breakout_1's."""
     assert 'FEED_DIR="${BASE}/feed"' in CODE and 'X_STATE_DIR="${BASE}/executor"' in CODE
     assert 'FEED_DIR="${BASE}/accounts/${ACCOUNT}/feed"' in CODE
     assert 'X_STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"' in CODE
@@ -49,16 +49,26 @@ def test_other_accounts_never_touch_breakout_1_state():
     # executor modes reuse the account's own session + state dir
     assert '--storage-state "${FEED_DIR}/session_state.json"' in CODE
     assert '--state-dir "${X_STATE_DIR}"' in CODE
-    # the breakout_1 executor timer refuses every other account
-    assert "the executor timer is breakout_1's" in CODE
+    # the executor TIMER: breakout_1 keeps ict-prop-executor.timer, every other
+    # account gets its own template instance (TRADEIFY-EXECUTOR, 2026-10-03)
+    other = CODE.split('X_UNIT="ict-prop-executor@${ACCOUNT}"')[1].split("\nfi\n")[0]
+    assert "ict-prop-executor.timer" not in other and "ict-prop-executor.service" not in other
 
 
-def test_tradeify_platform_entry_is_explicit_and_disarmed():
+def test_tradeify_platform_entry_is_explicit_and_enabled_at_go_live():
     from src.prop.platform import load_platform_config
     t = load_platform_config("tradeify_1")
     assert t["platform"] == "dxtrade" and t["login_url"] == "https://dx.tradeify247.co/"
     assert (t["username_env"], t["password_env"]) == ("TRADEIFY_DX_USERNAME", "TRADEIFY_DX_PASSWORD")
-    assert t["executor"]["enabled_venue_symbols"] == [] and t["executor"]["lots"] == {}
+    # GO-LIVE (#14673): all three venue symbols enabled together (operator
+    # 2026-10-03, verbatim "Allow, all 3 symbols"). The arming gate is now the
+    # VM kill switch PROP_EXECUTOR_MODE_TRADEIFY_1 (default read_only).
+    assert t["executor"]["enabled_venue_symbols"] == ["ETHUSD", "SOLUSD", "XRPUSD"]
+    assert t["executor"]["lots"] == {
+        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
+        "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
+        "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
+    assert t["executor"]["watched_click_max_lots"] == {"ETHUSD": 0.01, "SOLUSD": 0.01}
     assert load_platform_config("breakout_1")["login_url"] == "https://wss.breakoutprop.com/"
 
 

@@ -247,3 +247,20 @@ backtest *less* like production, not more.
   against a manufactured one; that reported 450/1,599 and invented one spurious
   finding on each of the 8 legs carrying such a row. The 11 nulls are now excluded and
   counted, and the script's self-test pins that behaviour.
+
+---
+
+## CORRECTION 2026-10-04 (PI-20260930-39SDYWCO-0007) — read before quoting the tables above
+
+The "18 of 41 legs CONTAMINATED" count and the table row naming `qqq_pullback_1h`,
+`spy_pullback_1h`, `htf_pullback_trend_2h` and `squeeze_breakout_4h` as contaminated
+**do not reproduce from committed data.** Re-run on 2026-10-04 (population: the 41 legs in
+today's committed e35 bracket corpus):
+
+`python3 -c "import sys,collections;sys.path.insert(0,'scripts/research');import timeout_binding_audit as t;a=t.audit(t.load_rows());print(len(a),collections.Counter(v['verdict'] for v in a.values()),[a[k]['verdict'] for k in ('qqq_pullback_1h','spy_pullback_1h','htf_pullback_trend_2h','squeeze_breakout_4h')])"`
+
+→ `41 {'contaminated': 21, 'clean': 20} ['clean', 'clean', 'clean', 'clean']`
+
+The four named legs read **clean**. The contaminated count moves as the corpus grows (16 on
+2026-09-30, 21 now): re-run the audit, never quote a number from this note. The original
+text above is left in place as history.

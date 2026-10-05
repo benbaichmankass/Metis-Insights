@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only update records from lane BACKLOG-BURNDOWN-2 batch 4 (live diag reads: 4 items closed with the read cited, 14 re-read and re-dated with the concrete observation). No code, config or order-path change."
+}

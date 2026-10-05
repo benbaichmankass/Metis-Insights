@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane SOAK-WATCH: research tooling only. scripts/research/realized_slippage.py curl calls retry transient errors (--retry 3 --retry-all-errors). One transient HTTP error on one symbol fills page failed the whole pull in soak-book-grade run 37220805619, so the 2026-10-04 R5 record has cost_fidelity=producer_failed and all 45 legs insufficient-data. No config/**, src/** or order-path change."
+}

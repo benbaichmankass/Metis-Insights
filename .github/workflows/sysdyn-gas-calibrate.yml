@@ -48,7 +48,7 @@ jobs:
        github.event.issue.user.login == github.repository_owner &&
        contains(github.event.issue.labels.*.name, 'sysdyn-gas-calibrate-now'))
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 70
     steps:
       - name: Checkout main
         uses: actions/checkout@v4

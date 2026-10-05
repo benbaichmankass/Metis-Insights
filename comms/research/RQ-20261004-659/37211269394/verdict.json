@@ -1,0 +1,67 @@
+{
+  "verdict": "indeterminate",
+  "read_state": "measured",
+  "population": "1 leg(s) [ict_scalp_xrp_15m], 76 committed trades in total; grade=pass_all_seeds, overall=all",
+  "n": 76,
+  "measurement": {
+    "leg_verdicts": {
+      "ict_scalp_xrp_15m": "indeterminate"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "all",
+    "cells": 5
+  },
+  "note": "ict_scalp_xrp_15m: UNDERPOWERED: n=76 < floor 88",
+  "records": [
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "ict_scalp_xrp_15m: 76 committed trades from comms/strategy_evidence/runs/2026-10-02/ict_scalp_xrp_15m__trades.jsonl (evidence record comms/strategy_evidence/ict_scalp_xrp_15m.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/tradeify_247_1step.yaml --lev-cap ict_scalp_xrp_15m=2 --no-hedge --swap-model prorated --funded-start fresh",
+      "n": 76,
+      "measurement": {
+        "leg": "ict_scalp_xrp_15m",
+        "trades_file": "comms/strategy_evidence/runs/2026-10-02/ict_scalp_xrp_15m__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -114.74,
+              "ev_se": 0.62,
+              "p_net_positive": 0.015,
+              "p_alive_at_horizon": 0.9295,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -115.45,
+              "ev_se": 0.5,
+              "p_net_positive": 0.015,
+              "p_alive_at_horizon": 0.9385,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -116.18,
+              "ev_se": 0.49,
+              "p_net_positive": 0.0115,
+              "p_alive_at_horizon": 0.933,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -115.28,
+              "ev_se": 0.53,
+              "p_net_positive": 0.014,
+              "p_alive_at_horizon": 0.927,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -115.18,
+              "ev_se": 0.58,
+              "p_net_positive": 0.0138,
+              "p_alive_at_horizon": 0.9435,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=76 < floor 88"
+    }
+  ]
+}

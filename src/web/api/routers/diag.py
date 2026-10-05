@@ -277,6 +277,10 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # alive?" for the timer as well as the run.
     "ict-work-digest.service",
     "ict-work-digest.timer",
+    # WORK-SYSTEM (2026-10-04). The daily 05:30Z work-report GENERATOR (sends
+    # nothing; the hourly digest above is the one Telegram carrier).
+    "ict-work-report.service",
+    "ict-work-report.timer",
     "ict-health-snapshot.service",
     "ict-health-snapshot.timer",
     # 2026-06-28 (full-system audit Workstream B) — two recurring trader-VM
@@ -336,6 +340,19 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # confirm it is off, and tail its redacted cycle journal once enabled.
     "ict-prop-executor.service",
     "ict-prop-executor.timer",
+    # 2026-10-03 (TRADEIFY-EXECUTOR) — the per-account executor INSTANCE for
+    # tradeify_1 (template deploy/ict-prop-executor@.service, opt-in timer);
+    # queryable so a session can confirm it is on/off and tail its cycle
+    # journal (account, env_mode) without SSH.
+    "ict-prop-executor@tradeify_1.service",
+    "ict-prop-executor@tradeify_1.timer",
+    # 2026-10-04 (VELOTRADE-WIRE) — the same two template instances for
+    # velotrade_1, queryable before either is enabled so a session can
+    # confirm they are off.
+    "ict-prop-feed@velotrade_1.service",
+    "ict-prop-feed@velotrade_1.timer",
+    "ict-prop-executor@velotrade_1.service",
+    "ict-prop-executor@velotrade_1.timer",
     "ict-exchange-funding-pull.service",
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",
@@ -529,12 +546,21 @@ _WORK_DIGEST_RECEIPT = (
     Path(repo_root()) / "runtime_logs" / "work_digest_receipt.json"
 )
 
+# WORK-SYSTEM (2026-10-04). The attention pass's receipt — stamped on every
+# pass. The pass rides ict-work-digest (no unit of its own), so it is anchored
+# to repo_root() for the same reason as the entry above.
+_ATTENTION_WATCH_RECEIPT = (
+    Path(repo_root()) / "runtime_logs" / "attention_watch_receipt.json"
+)
+
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
     # MI-83. "Has the hourly digest actually fired?" — answerable by READING,
     # not by trusting an `OnCalendar=` line. This repo has measured that a
     # declared cadence is not a run.
     "work_digest_receipt": _WORK_DIGEST_RECEIPT,
+    # WORK-SYSTEM. "Did the attention watch run, and what did it send?"
+    "attention_watch_receipt": _ATTENTION_WATCH_RECEIPT,
     "status": _STATUS_JSON,
     "heartbeat": _HEARTBEAT,
     "bot_log": _BOT_LOG,
@@ -1072,6 +1098,12 @@ _LOG_FILES: dict[str, Path] = {
     # were still sent. A reader may conclude a hash PRESENT here was enqueued;
     # a reader may NOT conclude that a hash missing here was not.
     "pending_pings_delivered": _PENDING_PINGS_DELIVERED,
+    # OA-16(b) (PI-20261004-GCFA5DOR-0010): FIX-SA-08's OnFailure handler
+    # (scripts/ops/notify_unit_failure.py) appends one row per failed unit
+    # here, pinged or suppressed. Without this entry a session could not
+    # observe that the handler fired. ABSENT = no unit failure recorded on
+    # this VM since the file was last reset (VM-local, not in git).
+    "unit_failures": runtime_logs_dir() / "unit_failures.jsonl",
 }
 
 _DEFAULT_LIMIT = 100
@@ -2203,7 +2235,25 @@ def get_journalctl(
 # Paths deploy_pull_restart.sh does NOT restart for (its RUNTIME_CHANGES filter).
 # Keep in lock-step with that regex: `restart_pending` must mean "a commit the
 # deploy would restart for is not loaded", not "the shas differ".
-_NON_RUNTIME_PATHS_RE = re.compile(r"^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$)")
+# #15830 widened the deploy's set and this copy was not updated, so
+# restart_pending read True on research-only commits (OPS-AUDIT 2026-10-04,
+# OA-14); tests/test_diag_restart_pending_lockstep.py now pins the two equal.
+_NON_RUNTIME_PATHS_RE = re.compile(
+    r"^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$|research/|runtime_logs/"
+    r"|scripts/research/|scripts/ci/|comms/research/|comms/strategy_evidence/|comms/macro/)"
+)
+# ...except these scripts/research modules, which the web-api's brief imports
+# in-process (OA-16(d), PI-20261004-GCFA5DOR-0010). They stay runtime. Mirrors
+# the deploy's IN_PROCESS_CHANGES grep. Same lock-step test as above.
+_IN_PROCESS_RUNTIME_PATHS_RE = re.compile(
+    r"^scripts/research/(dispatch_queue|e35_bracket_geometry_sweep|m20_fleet_exit_sweep|m20_wf_effective|queue_grade|queue_replenish|queue_throughput|research_queue)\.py$"
+)
+
+
+def _is_runtime_path(line: str) -> bool:
+    return bool(line) and (
+        not _NON_RUNTIME_PATHS_RE.match(line) or bool(_IN_PROCESS_RUNTIME_PATHS_RE.match(line))
+    )
 
 
 def _restart_pending(running: str, on_disk: str) -> bool | None:
@@ -2218,7 +2268,7 @@ def _restart_pending(running: str, on_disk: str) -> bool | None:
         return False
     try:
         out = subprocess.run(
-            ["git", "diff", "--name-only", running, on_disk],
+            ["git", "diff", "--no-renames", "--name-only", running, on_disk],
             cwd=str(repo_root()),
             capture_output=True, text=True, timeout=5, check=False,
         )
@@ -2227,10 +2277,7 @@ def _restart_pending(running: str, on_disk: str) -> bool | None:
         return None
     if out.returncode != 0:
         return None
-    return any(
-        line and not _NON_RUNTIME_PATHS_RE.match(line)
-        for line in out.stdout.splitlines()
-    )
+    return any(_is_runtime_path(line) for line in out.stdout.splitlines())
 
 
 @router.get("/version")

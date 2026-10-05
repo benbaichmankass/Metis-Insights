@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a Tier-2 lane designs and ships the accrual-safe (non-per-tick) version of this instrument, OR the operator decides the manual per-incident triage this class has needed 3 times now is acceptable and this is explicitly declined",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-BOVNQFJU-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "w5d-starved-legs lane, PR #13044, session_01GPKnHn4hoX1PSEboVNqfJU",
+    "rerun": "python3 scripts/ops/leg_flow_report.py --window-hours 168 --json | python3 -c \"import json,sys; r=json.load(sys.stdin); print([l for l in r['legs'] if l.get('same_symbol_live_contenders')])\""
+  },
+  "routed_to": "ORDER-AUDIT-2 | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — Election-loss trace not confirmed at HEAD; _log_dispatch_drop only in src/core/coordinator.py:209,1258,1298; arbitration_fanout.py has only generic warnings (459,485).",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Grepped src/runtime/arbitration_fanout.py and src/runtime/pipeline.py for _log_dispatch_drop / an instrument at the per-account-election layer: found only the pre-existing elected_flat state field, no WARNING/log instrumentation one layer above multi_account_execute. The proposal is explicitly self-described as 'not built this session' and needs a design pass (accrual-safe threshold, not a raw per-tick log) before it can be built -- confirmed still true.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane (Tier-2 build): design + ship the accrual-safe instrument one layer above Coordinator.multi_account_execute (in arbitration_fanout.py::plan_per_account_election or pipeline.py::_dispatch_rounds) per the proposal's own spec, following the soak-with-its-own-alarm pattern to avoid repeating the per-tick alarm-fatigue failure.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "PROPOSAL (Tier-2, not built this session): extend PR #13002's _log_dispatch_drop pattern ONE LAYER ABOVE Coordinator.multi_account_execute -- into src/runtime/arbitration_fanout.py::plan_per_account_election / src/runtime/pipeline.py::_dispatch_rounds -- so a LIVE-execution strategy that has a non-flat candidate this tick but is NOT its account's elected winner (i.e. it loses the per-account, per-symbol single-winner election to a same-account sibling, live or shadow) is traceable. This is now a REPEATING root-cause class, not a one-off: BL-20260827 (trend_donchian_sol/bybit_1, 144 actionable signals, 0 journal rows), PI-20260926-BN2S6RQZ (3 legs, graded working-as-designed only after manual triage), and this session's PI-20260926-X3QEGPJL-0001/-0002/-0003/-0005 (4-5 more legs, same shape) -- each time discovered by a human/manual read of code comments rather than any instrument. PR #13002 cannot see this class at all: it instruments drops INSIDE multi_account_execute, but a strategy that loses its account's election never reaches multi_account_execute in the first place, so #13002's WARNING structurally cannot fire for it -- confirmed by re-reading src/runtime/pipeline.py::_dispatch_rounds this session, which only iterates ALREADY-ELECTED rounds and has zero visibility into per_account rows graded elected_flat or into a live candidate that simply isn't the account's `elected` strategy. NOT built this session: (1) a naive per-tick WARNING would repeat the exact alarm-fatigue failure docs/CLAUDE-RULES-CANONICAL.md already documents (a chronic loser would log every tick, forever) -- needs a soak-style accrual + threshold design (see 'A soak must carry its own alarm', not a raw per-event log; (2) whether this should live in arbitration_fanout.py (pure, testable) or be wired into the live dispatch path needs a design pass; (3) this does NOT explain the 3 UNCONTESTED legs found this session (alpaca_paper/iaum_pullback_1d, alpaca_paper/tqqq_trend_long_1d, alpaca_options_paper/gdx_pullback_1d) -- those have no sibling to lose an election to, so this instrument would stay silent for them too; their cause is a separate, still-open question.\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane (Tier-2 build): design + ship the accrual-safe instrument one layer above Coordinator.multi_account_execute (in arbitration_fanout.py::plan_per_account_election or pipeline.py::_dispatch_rounds) per the proposal's own spec, following the soak-with-its-own-alarm pattern to avoid repeating the per-tick alarm-fatigue failure."
+}

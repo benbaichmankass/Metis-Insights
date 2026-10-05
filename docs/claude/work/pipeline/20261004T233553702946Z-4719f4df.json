@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "filed": "2026-10-04",
+  "id": "PI-20261004-4GA8WQPA-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-2 2026-10-04 (session_01Urx25ZisSoJtVg4GA8WqpA); manager request 2026-10-04T23:35Z",
+    "rerun": "python3 - <<'X'\nimport glob,json,collections\nby=collections.defaultdict(list)\nfor f in sorted(glob.glob('docs/claude/work/pipeline/*.json')):\n    r=json.load(open(f)); by[r['id']].append(r)\n# a REVERT: record i carries the same (routed_to,state) as record i-2 but not record i-1\nids=[k for k,v in by.items() if any((v[i].get('routed_to'),v[i].get('state'))==(v[i-2].get('routed_to'),v[i-2].get('state'))!=(v[i-1].get('routed_to'),v[i-1].get('state')) for i in range(2,len(v)))]\nprint(len(ids),ids[:10])\nX"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "STALE-SNAPSHOT OVERWRITE: pipeline.append(intent=\"update\") only checks the new record is an identity-compatible state change of the folded item (_identity_mismatches: what-prefix, origin.kind, origin.ref); it does NOT check the writer read the CURRENT version. A writer holding an old read can therefore silently revert a newer update. MEASURED 2026-10-04: PR #16505 (22:00Z, 14 records) re-wrote items from a stale snapshot and restored the lane-type routing text that BACKLOG-BURNDOWN-2 had replaced 25 minutes earlier on 10 items, which pushed 10 routed items back to naming no live row until d2 re-pointed them. The rerun counts ids whose latest record repeats the state of the record before the previous one (a revert); it prints 16 on main 2026-10-04 (some of those may be legitimate toggles — the first-pass detector is deliberately simple). PROPOSED FIX (not built; the manager said file only): the update record carries the filename or content hash of the record it read, and append() refuses if that is not the latest record for the id."
+}

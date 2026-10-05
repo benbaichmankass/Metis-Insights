@@ -69,9 +69,10 @@ grading:
   decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE
   evidence:
   - research/results/RQ-20260929-009/36761942827.jsonl
-  graded_at: '2026-10-02'
+  graded_at: '2026-10-05'
   grader: scripts/research/queue_grade.py
+  latest: true
   needs_review: true
-  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  reason: 1 row(s), all measured, all indeterminate
   rows: 1
-  verdict: null
+  verdict: indeterminate

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "mandate_resolver returns NEEDS_DATA for a non-finite confidence, proven by a test on main",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-MGR01HYQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "PR #14558 manager review 2026-09-30",
+    "rerun": "Build an R-AFFORD input whose latest setup has confidence NaN and run mandate_resolver's affordability clause; FIRE means still open, NEEDS_DATA means fixed."
+  },
+  "routed_to": "CI-AUTOMERGE (re-pointed from CI-AUTOMERGE (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "scripts/ops/mandate_resolver.py:683 — a NaN `confidence` on a setup defaults to 1.0 in R-AFFORD, so an unreadable confidence sizes at full risk instead of returning NEEDS_DATA. Pre-existing (not introduced by #14558, which hardened equity/buying-power/entry/sl with `_finite`). Fix: route confidence through the same `_finite` check and return NEEDS_DATA on a non-finite value; add a test (NaN confidence -> NEEDS_DATA; missing confidence keeps the documented 1.0 default)."
+}

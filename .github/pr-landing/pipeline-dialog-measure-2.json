@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline progress append on PI-20261001-SBD5S8KE-0001 (live edit-dialog-probe readout #15628; next step #15636), plus a rename of its original record to the timestamp filename convention so the store reads the update as the later record. No code, config or order-path change."
+}

@@ -1,0 +1,4 @@
+auto-merge: PROP-FUNNEL pipeline rows (Tier-1 docs)
+branch: claude/prop-funnel-pipeline-rows
+slug: prop-funnel-pipeline-rows (the leading claude/ is stripped by the shared slug derivation)
+supersedes: PR #15597, opened from a branch outside claude/** where this relay cannot fire

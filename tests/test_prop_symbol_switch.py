@@ -1008,15 +1008,17 @@ def test_the_last_resort_double_clicks_only_the_resolved_watchlist_row(browser):
     assert "watchlist_dblclick" in got["tried"] and pos_dbl == 0 and st["tags"] == 0
 
 
-def test_an_unreadable_one_click_never_skips_the_last_resort_and_why_is_recorded(browser):  # noqa: F811
-    # Live #15187 (9f51c275): both Symbol openers missed and the last resort never
-    # ran, with no record of why. Only a positive ON read skips it now; every
-    # run records the one-click read, the resolve and the row count.
+def test_an_unreadable_one_click_skips_the_last_resort_and_why_is_recorded(browser):  # noqa: F811
+    # OA-04 (PI-20261004-GCFA5DOR-0002) reverses #15187's "only a positive ON
+    # read skips it": with one-click actually ON but read ``unknown`` the row
+    # centre is an instant-trade price cell (an UNBRACKETED market order), so
+    # the row double-click now runs ONLY on a positive OFF read. Why it did
+    # not run is still recorded with the one-click read.
     got, st = opener(browser, kw={"one_click_unreadable": True})
-    assert got["tried"] == ["symbol_click", "watchlist_dblclick", "symbol_dblclick"]
+    assert got["tried"] == ["symbol_click", "symbol_dblclick"]
     lr = got["last_resort"]
-    assert lr["one_click"]["state"] == "unknown" and lr["rows"] == 1 and "skipped" not in lr
-    assert lr["resolve"]["target"]["n_rows"] == 1 and st["tags"] == 0
+    assert lr["one_click"]["state"] == "unknown" and "not a positive OFF" in lr["skipped"]
+    assert "rows" not in lr and st["tags"] == 0
 
 
 def test_the_measured_row_opener_runs_even_when_a_symbol_double_click_would_remove_the_row(browser):  # noqa: F811

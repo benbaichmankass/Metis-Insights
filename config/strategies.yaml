@@ -2149,6 +2149,11 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    # M20-EXITS-4 (HELD Tier-3): stall-10 trail decay, tight = trail_mult/2. decay_stall10_t2.5 passed
+    # IS+OOS and the yearly WF on two independent partitions (corpus run 2026-10-02T17:03:50, WF 4/6 effective;
+    # 2026-08-15, WF 4/6). Rollback = delete these two lines.
+    trail_decay_stall_bars: 10
+    trail_decay_tight_mult: 2.5
     # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
     # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
     tp_r: 50.0

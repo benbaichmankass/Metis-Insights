@@ -1,0 +1,33 @@
+# Velotrade routing — velotrade_1 (VELOTRADE-WIRE, 2026-10-04).
+# Named by config/prop_rulesets/velotrade_classic_1step.yaml `routing:`.
+#
+# ⚠️ EVERY dxtrade_symbol AND contract value BELOW IS UNCONFIRMED. The venue
+# names are the ones Velotrade's own /crypto page lists (BTCUSD, ETHUSD,
+# SOLUSD, XRPUSD; docs/research/prop-firm-deepdive-2026-10-04.md § 1.5); how
+# the terminal DISPLAYS them (Tradeify shows "ETH/USD") and the contract value
+# per point have NOT been read — nothing is readable before a login. The
+# first read-only login check (breakout-login-check account: velotrade_1) and
+# the symbol-switch-dry / probe-ticket measurements correct this file.
+# A wrong value here cannot place anything: config/prop_platforms.yaml
+# velotrade_1.executor has no lot table and no enabled symbol, so every ticket
+# is refused / skipped before the order form is touched.
+account_size_usd: 5000
+risk_pct: 0.5                       # PERCENT, informational (the account's
+                                    # accounts.yaml risk_pct is what sizes)
+symbols:
+  ETHUSDT:
+    dxtrade_symbol: ETHUSD          # UNCONFIRMED on Velotrade's terminal
+    contract_value_usd_per_point: 1.0
+  SOLUSDT:
+    dxtrade_symbol: SOLUSD          # UNCONFIRMED on Velotrade's terminal
+    contract_value_usd_per_point: 1.0
+  XRPUSDT:
+    dxtrade_symbol: XRPUSD          # UNCONFIRMED on Velotrade's terminal
+    contract_value_usd_per_point: 1.0
+symbol_map:
+  ETHUSDT: ETHUSD
+  SOLUSDT: SOLUSD
+  XRPUSDT: XRPUSD
+contract_value_usd_per_point: 1.0
+entry_band_frac: 0.25               # same as breakout_routing.yaml
+ttl_bars: 1.0                       # same as breakout_routing.yaml

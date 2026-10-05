@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "A tradeify_1 executor tick runs on a timer on the VM (journalctl for the new unit shows account tradeify_1, env_mode from PROP_EXECUTOR_MODE_TRADEIFY_1), or the manager records tradeify_1 as Telegram-manual-only for go-live (then killed with that reason).",
+    "kind": "event"
+  },
+  "id": "PI-20261003-YNBSL94J-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-PRICE-FILL session_01VK9t8x6wQCkdyEyNBSL94J, go-live #14673 update (manager item (d)), 2026-10-03.",
+    "rerun": "grep -n 'ACCOUNT=\\|for ckey in' scripts/ops/prop_executor_tick.sh; grep -n 'per-account executor timer' scripts/ops/breakout_login_check_action.sh; ls deploy/opt-in/ — still breakout_1-only = still open."
+  },
+  "state": "queued",
+  "what": "tradeify_1 has NO automated executor tick, so after go-live #14673 its tickets will NOT be auto-placed even with PROP_EXECUTOR_MODE_TRADEIFY_1=live. MEASURED by reading the code on main 2026-10-03: (1) scripts/ops/prop_executor_tick.sh:30 ACCOUNT defaults to breakout_1, its state/session paths are the unsuffixed breakout_1 ones, and lines 43-50 export only PROP_EXECUTOR_MODE from .env, never PROP_EXECUTOR_MODE_TRADEIFY_1; (2) deploy/opt-in/ict-prop-executor.timer is described '(breakout_1)'; (3) scripts/ops/breakout_login_check_action.sh:303-308 REFUSES executor-enable-timer for any account but breakout_1 ('a per-account executor timer is not built'). Until it exists, tradeify_1 tickets reach only the Telegram manual bridge. Build: a per-account executor unit/timer (like ict-prop-feed@.timer) that exports the account's own mode key and uses accounts/<id>/ state, plus an executor-enable-timer path for tradeify_1. Held Tier-2."
+}

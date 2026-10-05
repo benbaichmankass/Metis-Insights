@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager Session 2026-10-04 to lane BRIEF-FIX: 'close out your checklist row with that observation, and end.' Lane convention: the manager merges.",
+  "why": "Single-row state update (in_flight -> done) on docs/claude/work/MANAGER-CHECKLIST.json for BRIEF-FIX, with the live observation in the note. Docs only; no runtime, order-path or config touched."
+}

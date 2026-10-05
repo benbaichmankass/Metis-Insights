@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Backtest data-fetch tooling only: scripts/ops/fetch_backtest_corpus.py gains a CANDIDATE_PAIRS table (BNBUSDT 1h/2h/4h, ETHUSDT 5m) that is fetched only when named and never enters the roster drift check, plus a test. No queue unit, rule, config or live path is touched."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "A tradeify_1 executor tick runs on a timer on the VM (journalctl for the new unit shows account tradeify_1, env_mode from PROP_EXECUTOR_MODE_TRADEIFY_1), or the manager records tradeify_1 as Telegram-manual-only for go-live (then killed with that reason).",
+    "kind": "event"
+  },
+  "id": "PI-20261003-YNBSL94J-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-PRICE-FILL session_01VK9t8x6wQCkdyEyNBSL94J, go-live #14673 update (manager item (d)), 2026-10-03.",
+    "rerun": "grep -n 'ACCOUNT=\\|for ckey in' scripts/ops/prop_executor_tick.sh; grep -n 'per-account executor timer' scripts/ops/breakout_login_check_action.sh; ls deploy/opt-in/ — still breakout_1-only = still open."
+  },
+  "state": "done",
+  "terminal_reason": "built, deployed and observed: ict-prop-executor@tradeify_1 runs 5-min live cycles and evaluated a ticket 2026-10-04T08:03Z (diag journalctl)",
+  "what": "tradeify_1 has NO automated executor tick, so after go-live #14673 its tickets will NOT be auto-placed even with PROP_EXECUTOR_MODE_TRADEIFY_1=live. MEASURED by reading the code on main 2026-10-03: (1) scripts/ops/prop_executor_tick.sh:30 ACCOUNT defaults to breakout_1, its state/session paths are the unsuffixed breakout_1 ones, and lines 43-50 export only PROP_EXECUTOR_MODE from .env, never PROP_EXECUTOR_MODE_TRADEIFY_1; (2) deploy/opt-in/ict-prop-executor.timer is described '(breakout_1)'; (3) scripts/ops/breakout_login_check_action.sh:303-308 REFUSES executor-enable-timer for any account but breakout_1 ('a per-account executor timer is not built'). Until it exists, tradeify_1 tickets reach only the Telegram manual bridge. Build: a per-account executor unit/timer (like ict-prop-feed@.timer) that exports the account's own mode key and uses accounts/<id>/ state, plus an executor-enable-timer path for tradeify_1. Held Tier-2. || RESOLVED by health-review 2026-10-04: the per-account executor exists and runs. MEASURED diag journalctl?unit=ict-prop-executor@tradeify_1.service 2026-10-04: 5-min cycles with `mode: live, env_mode: live` (e.g. 07:53:10Z, 07:58:10Z, 08:03:00Z, each exit 0) since the 05:37Z arming (system-action set-env PROP_EXECUTOR_MODE_TRADEIFY_1=live, run 37180413786); deploy/ict-prop-executor@.service + deploy/opt-in/ict-prop-executor@.timer are on main and /api/diag/services lists both. The tick evaluated a real ticket at 08:03:18Z (refused by the risk cap -- that is a NEW finding, filed separately by this review), so the automation half this row asked for is built, deployed and observed."
+}

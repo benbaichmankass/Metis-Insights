@@ -134,6 +134,11 @@ EXPECTED_SERVICES = {
     # deploy/opt-in/ (never auto-enabled); the unit is in DEFAULT_SKIP because
     # a live-mode cycle can place orders.
     "ict-prop-executor.service",
+    # 2026-10-03 (TRADEIFY-EXECUTOR): per-account TEMPLATE of the same executor
+    # (ict-prop-executor@<account>). install_systemd_units.sh skips *@*;
+    # installed and enabled only by breakout-login-check apply:
+    # executor-enable-timer for a non-breakout account.
+    "ict-prop-executor@.service",
     # 2026-07-19: daily Bybit funding pull (BL-20260719-FUNDING-NO-TIMER, PR #6901).
     # Timer-fired oneshot (ict-exchange-funding-pull.timer) that runs the funding
     # puller so the M24 go-forward fee+funding capture accrues without manual runs.
@@ -153,6 +158,9 @@ EXPECTED_SERVICES = {
     # install_systemd_units.sh's deploy/*.timer glob, and is TIER-2 (merging is
     # the VM mutation). Recorded in docs/claude/deployment-ops.md.
     "ict-work-digest.service",
+    # 2026-10-04 (WORK-SYSTEM, #16387): daily 05:30Z work-report GENERATOR,
+    # timer-fired oneshot; persists the report the manager reviews, sends nothing.
+    "ict-work-report.service",
     # 2026-08-02 (R4 P1): observe-only research→results gate reporter. Timer-fired
     # oneshot (ict-research-results-gate.timer, daily) that runs
     # scripts/research/research_results_gate_report.py over the live journal and

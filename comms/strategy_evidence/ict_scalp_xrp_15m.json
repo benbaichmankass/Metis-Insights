@@ -8,58 +8,58 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 4.0783,
-  "expectancy_r_oos": 0.0316,
-  "n_trades_oos": 129,
+  "net_r_oos": 4.0712,
+  "expectancy_r_oos": 0.0536,
+  "n_trades_oos": 76,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 32,
-      "net_r": 3.8038,
-      "expectancy_r": 0.1189,
-      "start": "2025-09-25 16:45:00+00:00",
-      "end": "2025-12-07 16:15:00+00:00"
+      "trades": 19,
+      "net_r": 6.0672,
+      "expectancy_r": 0.3193,
+      "start": "2025-10-02 16:00:00+00:00",
+      "end": "2025-12-31 15:15:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 32,
-      "net_r": 5.1692,
-      "expectancy_r": 0.1615,
-      "start": "2025-12-09 14:00:00+00:00",
-      "end": "2026-03-03 14:30:00+00:00"
+      "trades": 19,
+      "net_r": -0.4888,
+      "expectancy_r": -0.0257,
+      "start": "2026-01-07 01:00:00+00:00",
+      "end": "2026-04-20 17:00:00+00:00"
     },
     {
       "fold": 3,
-      "trades": 32,
-      "net_r": 0.2593,
-      "expectancy_r": 0.0081,
-      "start": "2026-03-03 19:00:00+00:00",
-      "end": "2026-06-12 15:45:00+00:00"
+      "trades": 19,
+      "net_r": -1.8877,
+      "expectancy_r": -0.0994,
+      "start": "2026-05-12 09:00:00+00:00",
+      "end": "2026-07-02 23:30:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 33,
-      "net_r": -5.154,
-      "expectancy_r": -0.1562,
-      "start": "2026-06-18 03:15:00+00:00",
-      "end": "2026-09-18 13:30:00+00:00"
+      "trades": 19,
+      "net_r": 0.3805,
+      "expectancy_r": 0.02,
+      "start": "2026-07-07 19:00:00+00:00",
+      "end": "2026-09-26 17:15:00+00:00"
     }
   ],
-  "folds_positive": 3,
+  "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 129,
-    "max_drawdown_r": 11.4327,
-    "max_drawdown_at_trade": 128,
-    "final_equity_r": 4.0783,
-    "max_equity_r": 14.0557,
-    "worst_trade_r": -6.1787,
+    "n": 76,
+    "max_drawdown_r": 6.3858,
+    "max_drawdown_at_trade": 67,
+    "final_equity_r": 4.0712,
+    "max_equity_r": 6.9771,
+    "worst_trade_r": -1.3796,
     "best_trade_r": 1.4553,
-    "worst_day_r": -6.1787,
-    "worst_day_date": "2026-07-24",
+    "worst_day_r": -2.4018,
+    "worst_day_date": "2026-08-04",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
@@ -69,9 +69,9 @@
     "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_15m__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-10-02/ict_scalp_xrp_15m__bt.json"
   },
-  "net_r_oos_fee_only": 9.6905,
+  "net_r_oos_fee_only": 6.8459,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
@@ -79,9 +79,31 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-25T10:19:52.826281+00:00",
+  "generated_at": "2026-10-02T17:01:47.756534+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_15m__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-10-02/ict_scalp_xrp_15m__trades.jsonl",
   "error": null,
-  "harness": "ict_scalp"
+  "harness": "ict_scalp",
+  "venue_bracket_arm": null,
+  "research_grading": {
+    "research_unit": "RQ-20261002-701",
+    "rule_id": "RULE-ICTSCALP-CAUSAL-REBUILD",
+    "rule_registered_at": "2026-10-02T17:03:00Z",
+    "rule_summary": "PASS iff measured AND n>=88 AND net_r_oos>0 AND expectancy_r_oos>0 AND 2*folds_positive>folds; n<88 at 365d is UNDERPOWERED and the pre-registered 730d/4-fold re-run decides the powered verdict.",
+    "primary_365d": {
+      "n": 76,
+      "net_r_oos": 4.0712,
+      "folds_positive": "2/4",
+      "state": "underpowered"
+    },
+    "escalation_730d": {
+      "n": 132,
+      "net_r_oos": -4.6006,
+      "expectancy_r_oos": -0.0349,
+      "folds_positive": "1/4",
+      "record": "comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_xrp_15m.json"
+    },
+    "powered_verdict": "fail",
+    "note": "decision_rule above is the producer's generic D1 predicate (net_r_oos > 0) on the 365d run only. This block is the research unit's registered grading; check_roster_promotion_evidence C4 refuses the record when powered_verdict != pass. Added 2026-10-04 by lane PROP-EVIDENCE."
+  }
 }

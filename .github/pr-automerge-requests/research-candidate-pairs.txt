@@ -1,0 +1,1 @@
+auto-merge: candidate pairs for Stage-0 harness units

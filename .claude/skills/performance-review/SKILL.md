@@ -126,9 +126,9 @@ pulls:
 
 | Pull | Path | Use |
 |---|---|---|
-| Order packages (decision-level) | `GET /api/bot/order-packages?since=<iso>&limit=500&include_paper=true` | one row per decision; **`include_paper=true` so PAPER + PROP packages are graded too, not just real-money** (operator directive 2026-06-22); includes `claudeScore` from prior reviews so dedupe is trivial |
-| Closed trades | `GET /api/bot/trades/closed?since=<iso>&limit=500&include_paper=true` | realized PnL + exit reason (all funding classes) |
-| Paper-book trades | `GET /api/bot/trades/closed?account_id=bybit_1&limit=500` | the diversified paper cohort's closed trades, for the tracker (§ "Diversified paper-book tracker"). `account_id=` returns that account incl. paper; pull the **full** book (no `since`) so the tracker's recency split + cumulative trajectory are correct |
+| Order packages (decision-level) | `GET /api/bot/order-packages?since=<iso>&limit=200&include_paper=true` (⚠️ the router caps `limit` at **200** and has NO `offset`; a `limit=500` call returns HTTP 422 — page the window per strategy with `&strategy=<name>`, measured 2026-10-04) | one row per decision; **`include_paper=true` so PAPER + PROP packages are graded too, not just real-money** (operator directive 2026-06-22); includes `claudeScore` from prior reviews so dedupe is trivial |
+| Closed trades | `GET /api/bot/trades/closed?since=<iso>&limit=200&offset=<n>&include_paper=true` (cap 200 per page; walk `offset`) | realized PnL + exit reason (all funding classes) |
+| Paper-book trades | `GET /api/bot/trades/closed?account_id=bybit_1&limit=200&offset=<n>` (walk `offset` to the end) | the diversified paper cohort's closed trades, for the tracker (§ "Diversified paper-book tracker"). `account_id=` returns that account incl. paper; pull the **full** book (no `since`) so the tracker's recency split + cumulative trajectory are correct |
 | Journal — order_packages | `journal?table=order_packages&limit=200` (diag) | redundant cross-check; carries `signal_logic` blob |
 | Journal — trades | `journal?table=trades&limit=200` (diag) | exit_reason, pnl, position_size |
 | Audit tail | `audit?limit=600` (diag) | `*_eval` events for context around each decision |
@@ -221,6 +221,13 @@ python scripts/analysis/classify_paper_records.py --limit 500 --format md   # on
 # or, from a diag-relay trades dump in a sandbox:
 python scripts/analysis/classify_paper_records.py --json trades.json --reconstruct
 ```
+
+⚠️ **Feed it JOURNAL-shaped rows (`/api/diag/journal?table=trades`), not the
+`/api/bot/trades/closed` shape.** The classifier keys on `exit_reason`; the
+closed-trades endpoint collapses every non-sl/tp/reconciler reason into
+`closeReason: "other"`, so fed that shape it buckets every pairs exit as
+`unclassified:other` (bucket B). Measured 2026-10-04 on one window: API shape
+A=27/B=86/P=0, journal shape A=16/B=1/C=4/P=54 — same trades.
 
 It buckets each record (`src/analysis/paper_record_classifier.py`):
 
@@ -685,6 +692,10 @@ Every run:
 4. **Record it** in the response under `paper_book_tracker` (§ Output)
    and, if a cell/family warrants follow-up, add a `SRQ-…` item to the
    backlog.
+
+⚠️ Measured 2026-10-04: the tracker had not been appended since 2026-07-22 —
+the 2026-09-24 and 2026-09-27 reviews skipped this step (their records carry
+`paper_book_tracker: null`). The append is part of the run, not optional.
 
 The tracker file is append-only history — **never rewrite prior
 snapshot lines** (same discipline as the scores jsonl). Updating the

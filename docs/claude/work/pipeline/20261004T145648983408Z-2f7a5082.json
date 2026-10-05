@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A new research/queue unit pre-registers a Rule-2 decision rule for `sol_pullback_2h | trending | calm | short` and either CLEARS (stable_drag confirmed under a fresh run -> Tier-3 OFF-cell packet to the operator) or DOES_NOT_CLEAR (fold-sensitive or reversed on fresh data -> closed, no action).",
+    "kind": "observation"
+  },
+  "id": "PI-20261001-E74LANE-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "RQ-20260929-061 (E74 checklist row), lane session_01KFmGepVA1gVroNbnBpxVC4, docs/research/e74-sol-trendvol-offcell-walkforward-2026-09-29.json",
+    "rerun": "python3 scripts/research/regime_cell_walkforward.py --strategy sol_pullback_2h --regime trending --vol calm --vol-labels <fresh ml_vol_label_replay.py replay for SOLUSDT against the then-current advisory head> --days <extend to the run date> --json, on the trainer (.venv/bin/python3) via trainer-vm-diag -- same method RQ-20260929-061 used, graded this time on the SHORT direction with a decision rule registered before that run."
+  },
+  "routed_to": "RESEARCH-HARNESS [route; size S, value M, tier 1] BACKLOG-ROUTE 2026-10-04: No research/queue unit pre-registers a rule for sol_pullback_2h|trending|calm|short: only RQ-20260929-061 (done, long-only) and RQ-20260927-005 (done) mention trending/calm. Short-side finding stands unregistered.",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "sol_pullback_2h's ACTUAL live-traded direction (short -- the leg carries `side_filter: short` in config/strategies.yaml) shows a stable drag in the trending/calm regime_vol cell, measured by scripts/research/regime_cell_walkforward.py on the current SOL advisory head (sol-regime-15m-lgbm-fc-pcv-v2): short_trades=30 (clears the MIN_DIRECTION_TRADES=10 floor), pooled_short_r=-2.345, short_stable_drag=true (short-majority-negative under every fold count in the fixed panel {3,4,5}), short_fold_sensitive=false. Full-fidelity run (fidelity=faithful, omitted_levers=[]). This surfaced as a BY-PRODUCT of RQ-20260929-061 (E74), which pre-registered and graded only the LONG direction (matching the 2026-08-02 study's candidate `sol_pullback_2h: { long: off }`, itself long_verdict=no_trades because the leg never trades long) -- so this short-side finding is NOT itself evidence under any pre-registered rule yet, and must not be treated as grounds for a Tier-3 cell proposal until it clears its own walk-forward gate under a rule registered BEFORE that run (regime-selectivity skill, Rule 2). Evidence: docs/research/e74-sol-trendvol-offcell-walkforward-2026-09-29.json; research/queue/RQ-20260929-061.yaml result field."
+}

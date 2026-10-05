@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the monitor frame fetch is >= vol_pctl_window + 1 for any leg declaring trail_vol_*, verified by a test, OR before #14053 (vol_trail declare on ada_pullback_2h) merges -- whichever is first",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-VOLSKIP-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLSKIP-FORMING (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, found while fixing the entry-side vol gate",
+    "rerun": "grep -n 'limit=200' src/main.py | head; grep -n 'min_periods' src/runtime/trail_vol.py  # finding holds while the monitor fetch is 200 and trail_vol ranks over a 200 window after drop_forming_bar"
+  },
+  "routed_to": "VOLSKIP-FORMING | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — src/main.py:623 monitor fetch_candles limit=200 unchanged while trail_vol.py:102-106 drops forming bar (199 rows < window 200 -> NaN).",
+  "state": "routed",
+  "what": "[runtime][latent] #14101 made src/runtime/trail_vol.py drop the forming bar before ranking ATR over vol_pctl_window (200, min_periods=window), but the exit monitor fetches exactly limit=200 bars (src/main.py:_build_monitor_ohlcv_fetcher, fetch_candles(..., limit=200)). Whenever the monitor's last bar is still forming -- nearly every pass -- the trimmed frame has 199 rows, the percentile is NaN, and resolve_vol_trail_mult returns the base mult (fail-permissive). So a vol_trail declare would be SILENTLY INERT live. No effect today (vol_trail is undeclared on every live leg), but #14053 plans to declare it on ada_pullback_2h and depends on #14101. FIX: monitor fetch limit >= vol_pctl_window + 1 (201), or fetch window+1 only for legs declaring trail_vol_*; add a guard test that a forming-bar monitor frame of the fetched length yields a defined percentile. The entry-side twin of this exact trap is handled in PR for PI-20260929-EXITOPS-0005 (_entry_fetch_limit)."
+}

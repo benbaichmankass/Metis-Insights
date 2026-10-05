@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20261004-SHFA88UK-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane OPS-FIXES verification 2026-10-04 diag #16435",
+    "rerun": "[diag-request] log_file?name=unit_failures&lines=50 plus journalctl?unit=ict-ib-executions-pull.service&lines=80 -- holds while ict-ib-executions-pull rows keep appearing"
+  },
+  "state": "queued",
+  "what": "[ops] ict-ib-executions-pull.service is failing repeatedly with exit 2 -- MEASURED diag #16435 log_file?name=unit_failures (the FIX-SA-08 OnFailure record, readable since #16389): failures at 2026-10-04T13:17:47Z (pinged) and 17:18:54Z (suppressed by the 6h cooldown), plus one ict-git-sync.service exit 1 at 13:39:50Z. Cause not read this session (budget). Also: this is the first observation that OnFailure fires on live units (OA-01 landed_unproven (a))."
+}

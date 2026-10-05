@@ -27,3 +27,14 @@ def test_bad_argument_and_exceptions_never_raise(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(n, "run", lambda u: (_ for _ in ()).throw(RuntimeError("boom")))
     assert n.main(["ict-x.service"]) == 0
     assert "boom" in capsys.readouterr().err
+
+
+def test_unit_failures_log_is_readable_through_the_diag_relay():
+    """OA-16(b): the file the OnFailure handler writes must be on the diag
+    log_file allowlist at the SAME path, or FIX-SA-08 cannot be observed."""
+    from scripts.ops import notify_unit_failure
+    from src.web.api.routers import diag
+
+    # Compare against the WRITER's own resolver, not the expression the
+    # allowlist entry is built from (manager review of #16389).
+    assert diag._LOG_FILES["unit_failures"] == notify_unit_failure._logs_dir() / "unit_failures.jsonl"

@@ -32,16 +32,6 @@ def _on_block(doc: dict):
     return doc.get("on") if "on" in doc else doc.get(True)
 
 
-def _load_push_trigger() -> dict:
-    doc = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8")) or {}
-    on = _on_block(doc) or {}
-    assert isinstance(on, dict), f"unexpected `on:` shape in {WORKFLOW}: {on!r}"
-    assert "push" in on, f"{WORKFLOW} lost its push trigger entirely"
-    push = on["push"]
-    assert isinstance(push, dict)
-    return push
-
-
 def test_the_dead_path_no_longer_exists_anywhere_in_the_live_tree():
     """Sanity-checks the defect itself: SESSIONS.json really is gone, so a
     `paths:` filter naming it really would never fire."""
@@ -54,18 +44,16 @@ def test_the_dead_path_no_longer_exists_anywhere_in_the_live_tree():
     )
 
 
-def test_push_trigger_fires_on_main_with_no_dead_path_filter():
-    """The must-fail-on-main case: on current main this filtered on `paths:`
-    including the now-archived SESSIONS.json, so it would still assert False
-    on the `"paths" not in push` half."""
-    push = _load_push_trigger()
-    branches = push.get("branches")
-    assert branches == ["main"], f"expected push on main only, got {branches!r}"
-    assert "paths" not in push, (
-        "session-reaper.yml's push trigger still filters on `paths:` — if "
-        "re-adding one, every path must correspond to a file something "
-        "still writes, or the filter silently goes dead again"
-    )
+def test_no_push_trigger_so_a_merge_burst_cannot_cancel_runs():
+    """REAPER-NOISE 2026-10-04. The push trigger (FIX-CA-17) made the reaper run on
+    every main push; its concurrency group then cancelled superseded runs (16 of
+    the last 30) and the failure alert paged each as a dead run. The ledger it
+    writes has no live reader, so the trigger is retired, not re-filtered."""
+    doc = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8")) or {}
+    on = _on_block(doc) or {}
+    assert isinstance(on, dict)
+    assert "push" not in on, "session-reaper.yml regained a push trigger"
+    assert "schedule" not in on, "session-reaper.yml regained a cron; re-arm deliberately"
 
 
 def test_workflow_dispatch_is_still_available_as_a_manual_fallback():

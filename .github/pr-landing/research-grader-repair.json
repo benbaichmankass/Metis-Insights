@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "HOLD: changes landing machinery (queue_grade.py, queue_replenish.py, research/templates/e35-bracket.yaml; check_pr_landing R12). No queue unit is edited here; the grader's own automation PR flips the 33 prop-fit units after this merges, via E58.",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits queue_grade.py, queue_replenish.py and research/templates/e35-bracket.yaml, which check_pr_landing R12 treats as landing machinery; a human merges. After merge the grader flips the 33 prop-fit units itself through its own E58 PR."
+}

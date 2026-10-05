@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20260928-026
 title: 'Breakout prop fit: ada_pullback_2h at sizing cushion-fit room 0.33 at 1.5% under RULE-B6 V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -94,13 +94,15 @@ generated:
 last_dispatched_at: '2026-09-30T01:01:49+00:00'
 grading:
   auto: true
+  awaiting: more_data
   decision_rule_id: RULE-TPL-PROP-FIT-B6V2-ada_pullback_2h-room033
   evidence:
   - research/results/RQ-20260928-026/36505266800.jsonl
   - research/results/RQ-20260928-026/36653154027.jsonl
-  graded_at: '2026-10-02'
+  graded_at: '2026-10-04'
   grader: scripts/research/queue_grade.py
-  needs_review: true
-  reason: 'read_state not unanimously measured: [''measured'', ''producer_failed'']'
-  rows: 2
-  verdict: null
+  note: 'indeterminate is the pre-registered under-powered/null outcome: complete, but NOT a pass and
+    NOT a kill'
+  reason: 1 row(s), all measured, all indeterminate (1 earlier producer_failed row(s) superseded)
+  rows: 1
+  verdict: indeterminate

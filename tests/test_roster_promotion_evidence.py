@@ -199,6 +199,28 @@ def test_a_compliant_record_clears_the_bar(tmp_path):
     assert G.grade(found, REAL_STRATEGIES, tmp_path) == []
 
 
+def test_research_grading_fail_overrides_a_d1_pass():
+    """A D1 `pass` must not clear the bar over a research unit's own FAIL.
+
+    `ict_scalp_xrp_15m` reads D1 pass at 365d (net +4.07R, n=76) while
+    RQ-20261002-701 graded it FAIL at its pre-registered 730d escalation
+    (-4.60R, 1/4 folds). Re-adding it to `tradeify_1` (prop, risk-bearing)
+    must be refused on C4.
+    """
+    leg = "ict_scalp_xrp_15m"
+    rec = json.loads((EVIDENCE / f"{leg}.json").read_text(encoding="utf-8"))
+    assert rec["decision_rule"]["verdict"] == "pass"
+    assert rec["research_grading"]["powered_verdict"] == "fail"
+    found = G.promotions(REAL_ACCOUNTS, _with_leg("tradeify_1", leg))
+    findings = G.grade(found, REAL_STRATEGIES, EVIDENCE)
+    assert len(findings) == 1 and "C4 FAIL" in findings[0] and "research_grading" in findings[0]
+
+    # The same record with the block reading pass clears C4; malformed blocks.
+    ok = dict(rec, research_grading=dict(rec["research_grading"], powered_verdict="pass"))
+    assert all(c_ok for _, c_ok, _ in G.clause_verdicts(ok))
+    assert not dict((c, o) for c, o, _ in G.clause_verdicts(dict(rec, research_grading="x")))["C4"]
+
+
 def test_n_equals_eight_passes_because_there_is_no_minimum():
     """The operator was offered a sample-size floor and DECLINED it (2026-09-21).
 

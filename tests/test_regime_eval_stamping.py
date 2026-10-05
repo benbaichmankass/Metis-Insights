@@ -130,3 +130,15 @@ def test_trend_donchian_eval_row_carries_regime_fields(monkeypatch):
         assert row["regime_source"] == "adx-14"
         if row["adx_14"] is not None:
             assert isinstance(row["adx_14"], float)
+
+
+def test_stamp_regime_adds_the_frame_fingerprint_for_live_replay_parity():
+    """bar_open_ts / bar_close are the LAST row of the frame the decision ran
+    on — what scripts/ops/live_replay_parity.py compares exactly."""
+    df = _uptrend_frame(60)
+    df["timestamp"] = pd.date_range("2026-10-01", periods=len(df), freq="1h", tz="UTC")
+    out = ssb._stamp_regime({"event": "x_eval"}, df)
+    assert out["bar_close"] == float(df["close"].iloc[-1])
+    assert out["bar_open_ts"] == float(pd.Timestamp(df["timestamp"].iloc[-1]).timestamp())
+    # bad input: no fingerprint, no raise
+    assert "bar_close" not in ssb._stamp_regime({}, None)

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane CI-AUTOMERGE: adds the lane's own checklist row, in_flight, which the manager's dispatch asked for. Moved off #16494 because GitHub has no jsonregister merge driver and the row re-conflicted every time main appended one. Register only."
+}

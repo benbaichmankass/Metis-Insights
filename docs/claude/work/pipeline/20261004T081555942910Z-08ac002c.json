@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "Each sub-item fixed or killed with a reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261004-GCFA5DOR-0010",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "diag trainer: systemctl show -p OnFailure ict-trainer.service; grep -n unit_failures src/web/api/routers/diag.py."
+  },
+  "state": "queued",
+  "what": "OA-16 (LOW, Tier-1 bundle). (a) FIX-SA-08 coverage gap: trainer units under deploy/trainer/ get no OnFailure. OBSERVED: trainer diag #16214 shows ict-trainer.service OnFailure= empty (install_systemd_units.sh's loop iterates deploy/*.timer only). (b) runtime_logs/unit_failures.jsonl is not on the diag log_file allowlist, so FIX-SA-08 cannot be observed from a session. (c) decision_bar_ledger.py:30 docstring says the decision is recorded BEFORE the strategy runs; the code records it after order_package returns. (d) scripts/research/queue_throughput is imported in-process by the web-api brief (render_daily_brief.py ~334) but treated as non-runtime by the deploy, so the brief can serve stale code. (e) A corrupt decision ledger fails open silently (decision_bar_ledger.py:114)."
+}

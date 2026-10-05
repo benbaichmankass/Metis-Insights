@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A reconcile run is OBSERVED producing a mergeable PR in a repo state where a PR was closed unmerged and no disposition had yet been written — i.e. the automated job no longer depends on a hand-written field to be mergeable. Explicitly NOT sufficient: the #10921 instance being recorded (that is this row's own workaround), --strict being relaxed, or a disposition being auto-generated.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY'), indent=2))\"",
+    "what": "A reconcile run is OBSERVED producing a mergeable PR in a repo state where a PR was closed unmerged and no disposition had yet been written — i.e. the automated job no longer depends on a hand-written field to be mergeable. Explicitly NOT sufficient: the #10921 instance being recorded (that is this row's own workaround), --strict being relaxed, or a disposition being auto-generated."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY'), indent=2))\""
+  },
+  "routed_to": "CI-AUTOMERGE — triaged 2026-10-05: sub-agent proposed obsolete, not independently verified — reconcile-open-prs.yml trigger commented out (E29, #12719) with workflow_dispatch only; the archived PR register it reconciled is retired, so reconcile PRs no longer stack. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: The reconcile-PR register and its --strict disposition gate were retired in the 2026-09-21 operating reset; the failure mode has no generator. || EVIDENCE: reconcile-open-prs workflow last ran 2026-09-22 (gh run list: 4 latest all failure/push 09-22, none since); docs/claude/work/OPEN-PRS.json no longer exists at HEAD (git ls-files empty; only docs/archive/2026-09-21-operating-reset/work/OPEN-PRS.json), so no reconcile PRs are generated or stack. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] One closed-unmerged PR with no `disposition` makes open_pr_record.py --strict refuse on EVERY reconcile PR, and the reconciler keeps opening more — five were stacked and unmergeable at once"
+}

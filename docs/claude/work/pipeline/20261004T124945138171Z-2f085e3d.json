@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Observable: the non-scalp legs that returned honest_negative in the pre-fix E1 re-run are re-run at live-parity TP (the driver now DEFAULTS to it, so this is a re-run and not a code change), and the scalp-scoping question is answered against that population -- either 'the read holds at correct geometry' or 'it does not'. The comparison must state its geometry on BOTH sides; a mixed-geometry table would reproduce the exact error this row exists to prevent. Scale note: this is a fleet-wide re-run and the DISPOSITION of anything it promotes is Tier-3. NOT resolution: treating the single trend_donchian_eth_prop candidate as having settled it in either direction.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED",
+  "ml_review_2026_10_04": "2026-10-04: exit-head-ict_scalp-15m-v1 is the busiest exit head live (183 of the 200 most recent trades scored, shadow; api/bot/trades/scores) and exit-head-donchian-1h-v1 is back at shadow (FAIL on RQ-20260927-002, -14.66R OOS, per EXITHEAD-DONCHIAN-GATE). The fleet-wide E1 re-run at live-parity TP has not been dispatched. Unchanged.",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read the live entry for this question in docs/research/exit-refinement-coverage.json (trend_donchian_eth_prop cell): as of its last update, only ONE non-scalp leg has been run at live-parity TP, and the entry explicitly states 'this is not a like-for-like counterexample... one leg is not that test' and 'STATUS UNCHANGED, NO CONFIG TOUCHED.' The fleet-wide re-run the finding's clears_when calls for has not happened.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: run the fleet-wide E1 re-run at live-parity TP (the driver now defaults to it per the 2026-08-16 change) across the non-scalp legs that returned honest_negative under the old no-TP books, matching geometry on both sides of the comparison as the item specifies. Per the standing rule against killing an idea on one inconclusive pass, this stays open and building the evidence is the next step, not a verdict either way.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[ml] The 'exit_head_ml only works on ict_scalp' read was formed entirely on NO-TAKE-PROFIT books -- the first round run at live-parity TP returned a non-scalp candidate at equal AUC\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: run the fleet-wide E1 re-run at live-parity TP (the driver now defaults to it per the 2026-08-16 change) across the non-scalp legs that returned honest_negative under the old no-TP books, matching geometry on both sides of the comparison as the item specifies. Per the standing rule against killing an idea on one inconclusive pass, this stays open and building the evidence is the next step, not a verdict either way."
+}

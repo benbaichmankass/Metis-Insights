@@ -227,3 +227,39 @@ def test_limit_with_round_trip_dry_is_accepted():
 def test_the_limit_refusal_runs_before_the_executor_tick():
     src = (REPO / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
     assert src.index("limit: refused") < src.index('log "Running prop executor')
+
+
+# ── `lim-below` / `lim-above`: DRY-only limit offset (TRADEIFY-SOL-SIZE) ─────
+
+def _offset_block():
+    src = (REPO / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
+    start = src.index('EXEC_MODE=""')
+    marker = 'LIMIT_OFFSET=""'
+    end = src.index("\nfi\n", src.index(marker)) + len("\nfi\n")
+    return src[start:end]
+
+
+def _run_offset_block(apply):
+    script = "log() { echo \"$*\"; }\nAPPLY=%s\n%s\necho OK:${EXEC_MODE}:${LIMIT_OFFSET}\n" % (apply, _offset_block())
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("apply,off", [("round-trip-dry,sol,limit,lim-below", "-0.5"),
+                                       ("round-trip-dry,sol,limit,lim-above", "0.5")])
+def test_limit_offset_with_dry_limit_round_trip_is_accepted(apply, off):
+    got = _run_offset_block(apply)
+    assert got.returncode == 0 and f"OK:round-trip-dry:{off}" in got.stdout
+
+
+@pytest.mark.parametrize("apply", ["round-trip-live,sol,limit,lim-below", "round-trip-dry,sol,lim-above",
+                                   "watched-click,lim-below", "round-trip-dry,sol,limit,lim-below,lim-above",
+                                   "lim-above"])
+def test_limit_offset_anywhere_else_is_refused(apply):
+    got = _run_offset_block(apply)
+    # refused by the offset check, or earlier by the existing `limit` check
+    assert got.returncode != 0 and "refused" in got.stdout and "OK:" not in got.stdout
+
+
+def test_the_offset_refusal_runs_before_the_executor_tick():
+    src = (REPO / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
+    assert src.index("lim-below/lim-above: refused") < src.index('log "Running prop executor')

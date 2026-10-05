@@ -1,0 +1,1401 @@
+{
+ "request_id": "performance-review-2026-10-04-lane",
+ "reviewed_at": "2026-10-04T10:38:45.315884+00:00",
+ "reviewer": "claude",
+ "window_start": "2026-09-27T07:29:44+00:00",
+ "window_end": "2026-10-04T10:38:45.315884+00:00",
+ "_window_note": "Anchored on the previous review record comms/reviews/performance-review-20260927-072944.json (reviewed_at). The scores-file anchor the skill names (max reviewed_at = 2026-10-03T03:42Z) is the daily cron, not a review, so the review anchor was used. Population: 218 order packages (per-strategy pulls, GET /api/bot/order-packages?since=&strategy=&limit=200&include_paper=true, read 2026-10-04 ~10:20Z; the endpoint caps at 200 and has no offset) and 113 closed trades (GET /api/bot/trades/closed?since=&limit=200&offset=&include_paper=true, 8 account-scoped pulls). Journal exit_reason detail (diag journal?table=trades&limit=200) covers the 75 closes from 2026-09-28T13:44Z on; the 38 earlier closes carry only the coarse API closeReason.",
+ "_scope_note": "Lane PERFORMANCE-REVIEW dispatched by Manager Session 2026-10-01 (session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-04 ops plan. HEALTH-REVIEW (#16240), OPS-AUDIT (docs/audits/system-audit-2026-10-04.md) and LIVE-SILENCE-2 (#16208) ran first; their findings are referenced, not re-derived. Budget ceiling $25.",
+ "overall_assessment": "caution",
+ "_headline": "Real-money books: 5 closes, 0 wins, -$18.90 total, all stop-outs, each at ~1R on a ~$3.5-4.4 risk basis; 0 real-money order packages were emitted on bybit_2/alpaca_live in the window (LIVE-SILENCE market-silence verdict stands; live-parity shows 6 real-money divergences owned by LIVE-SILENCE-2). n=5 supports no per-leg conclusion. The mirror carried the identical 3 Bybit trades at honest size (-$2,920). Prop: breakout_1 took one real trade (ETH short 2026-10-02T18:47Z) whose exit is unrecorded (`closed_on_terminal`, exit read not built); tradeify_1 has no fill because its only ticket window was consumed by breakout_1's $75 ticket read through the then-unscoped ticket API (fixed #16243 09:08Z, deployed, not yet observed on a fresh ticket). Paper: 108 closes, bybit_1 -$3,307.51 over 96; the diversified 10-cell book is net negative lifetime (-$3,239.57 / 173) but its recent 30d is +$4,569 over 52 -- no decay flag. Research pipeline post-repair: 191 units, 0 unread, 135 dispositioned.",
+ "strategy_performance": [
+  {
+   "strategy": "ada_pullback_2h",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 3,
+   "win_rate": 0.0,
+   "pnl_total": -997.5,
+   "pnl_measured_n": 2,
+   "pnl_coverage": 0.67,
+   "avg_hold_seconds": 112757,
+   "accounts_touched": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "exit_reasons": {
+    "api:sl": 3
+   }
+  },
+  {
+   "strategy": "avax_pullback_2h",
+   "n_decisions": 4,
+   "n_filled": 0,
+   "n_rejected": 4,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "fade_breakout_4h",
+   "n_decisions": 5,
+   "n_filled": 0,
+   "n_rejected": 5,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "gdx_pullback_1d",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 2,
+   "win_rate": 0.0,
+   "pnl_total": -4052.08,
+   "pnl_measured_n": 2,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 2246372,
+   "accounts_touched": [
+    "alpaca_paper",
+    "alpaca_portfolio"
+   ],
+   "exit_reasons": {
+    "api:other": 2
+   }
+  },
+  {
+   "strategy": "iaum_pullback_1d",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": -4.41,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 432130,
+   "accounts_touched": [
+    "alpaca_live"
+   ],
+   "exit_reasons": {
+    "api:sl": 1
+   }
+  },
+  {
+   "strategy": "ict_scalp_5m",
+   "n_decisions": 5,
+   "n_filled": 0,
+   "n_rejected": 5,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "ict_scalp_avax_5m",
+   "n_decisions": 28,
+   "n_filled": 2,
+   "n_rejected": 25,
+   "n_closed": 2,
+   "win_rate": 1.0,
+   "pnl_total": 2763.22,
+   "pnl_measured_n": 2,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 12196,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "api:other": 1,
+    "api:tp": 1
+   }
+  },
+  {
+   "strategy": "ict_scalp_eth_15m",
+   "n_decisions": 15,
+   "n_filled": 6,
+   "n_rejected": 9,
+   "n_closed": 5,
+   "win_rate": 0.4,
+   "pnl_total": -224.94,
+   "pnl_measured_n": 5,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 16430,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "stale_stop": 2,
+    "tp_cross": 1,
+    "api:other": 2
+   }
+  },
+  {
+   "strategy": "ict_scalp_mgc_15m",
+   "n_decisions": 4,
+   "n_filled": 2,
+   "n_rejected": 2,
+   "n_closed": 3,
+   "win_rate": 0.0,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": 0.0,
+   "avg_hold_seconds": 95197,
+   "accounts_touched": [
+    "ib_paper"
+   ],
+   "exit_reasons": {
+    "sl": 1,
+    "sl_cross": 1,
+    "api:other": 1
+   }
+  },
+  {
+   "strategy": "ict_scalp_sol_15m",
+   "n_decisions": 6,
+   "n_filled": 2,
+   "n_rejected": 4,
+   "n_closed": 3,
+   "win_rate": 0.333,
+   "pnl_total": -639.29,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 0.33,
+   "avg_hold_seconds": 37931,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "sl": 2,
+    "api:tp": 1
+   }
+  },
+  {
+   "strategy": "ict_scalp_sol_5m",
+   "n_decisions": 14,
+   "n_filled": 1,
+   "n_rejected": 13,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": -89.73,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 3172,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "api:other": 1
+   }
+  },
+  {
+   "strategy": "ict_scalp_xrp_15m",
+   "n_decisions": 5,
+   "n_filled": 5,
+   "n_rejected": 0,
+   "n_closed": 6,
+   "win_rate": 0.333,
+   "pnl_total": -1519.2,
+   "pnl_measured_n": 4,
+   "pnl_coverage": 0.67,
+   "avg_hold_seconds": 51683,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "sl": 2,
+    "reconciler_filled": 1,
+    "api:sl": 2,
+    "api:other": 1
+   }
+  },
+  {
+   "strategy": "ict_scalp_xrp_5m",
+   "n_decisions": 5,
+   "n_filled": 3,
+   "n_rejected": 2,
+   "n_closed": 3,
+   "win_rate": 0.333,
+   "pnl_total": -1429.45,
+   "pnl_measured_n": 2,
+   "pnl_coverage": 0.67,
+   "avg_hold_seconds": 6688,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "sl_cross": 1,
+    "sl": 1,
+    "tp": 1
+   }
+  },
+  {
+   "strategy": "mgc_trend_1h",
+   "n_decisions": 17,
+   "n_filled": 0,
+   "n_rejected": 17,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "pairs_bnb_btc_a",
+   "n_decisions": 19,
+   "n_filled": 17,
+   "n_rejected": 0,
+   "n_closed": 20,
+   "win_rate": 0.5,
+   "pnl_total": 12.68,
+   "pnl_measured_n": 20,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 11661,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "pairs_revert": 7,
+    "pairs_stop": 10,
+    "api:other": 3
+   }
+  },
+  {
+   "strategy": "pairs_bnb_btc_b",
+   "n_decisions": 17,
+   "n_filled": 17,
+   "n_rejected": 0,
+   "n_closed": 20,
+   "win_rate": 0.6,
+   "pnl_total": -2.43,
+   "pnl_measured_n": 19,
+   "pnl_coverage": 0.95,
+   "avg_hold_seconds": 11658,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "pairs_revert": 7,
+    "pairs_stop": 10,
+    "api:reconciler": 1,
+    "api:other": 2
+   }
+  },
+  {
+   "strategy": "pairs_sol_eth_a",
+   "n_decisions": 12,
+   "n_filled": 12,
+   "n_rejected": 0,
+   "n_closed": 13,
+   "win_rate": 0.462,
+   "pnl_total": 20.99,
+   "pnl_measured_n": 12,
+   "pnl_coverage": 0.92,
+   "avg_hold_seconds": 18542,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "pairs_revert": 6,
+    "pairs_stop": 3,
+    "pairs_half_open_cleanup": 2,
+    "api:reconciler": 1,
+    "api:other": 1
+   }
+  },
+  {
+   "strategy": "pairs_sol_eth_b",
+   "n_decisions": 12,
+   "n_filled": 12,
+   "n_rejected": 0,
+   "n_closed": 13,
+   "win_rate": 0.308,
+   "pnl_total": -32.7,
+   "pnl_measured_n": 10,
+   "pnl_coverage": 0.77,
+   "avg_hold_seconds": 18540,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "pairs_revert": 6,
+    "pairs_stop": 3,
+    "reconciler_filled": 2,
+    "api:other": 2
+   }
+  },
+  {
+   "strategy": "qqq_pullback_1h",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": -44.48,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 348737,
+   "accounts_touched": [
+    "alpaca_paper"
+   ],
+   "exit_reasons": {
+    "api:sl": 1
+   }
+  },
+  {
+   "strategy": "qqq_trend_long_1d",
+   "n_decisions": 1,
+   "n_filled": 0,
+   "n_rejected": 1,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "slv_pullback_1d",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 3,
+   "win_rate": 0.0,
+   "pnl_total": -3024.78,
+   "pnl_measured_n": 3,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 950324,
+   "accounts_touched": [
+    "alpaca_live",
+    "alpaca_paper",
+    "alpaca_portfolio"
+   ],
+   "exit_reasons": {
+    "api:other": 2,
+    "api:sl": 1
+   }
+  },
+  {
+   "strategy": "slv_trend_1h",
+   "n_decisions": 8,
+   "n_filled": 0,
+   "n_rejected": 8,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "spy_pullback_1h",
+   "n_decisions": 1,
+   "n_filled": 0,
+   "n_rejected": 1,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": -9.8,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 578401,
+   "accounts_touched": [
+    "alpaca_paper"
+   ],
+   "exit_reasons": {
+    "api:sl": 1
+   }
+  },
+  {
+   "strategy": "squeeze_breakout_4h",
+   "n_decisions": 3,
+   "n_filled": 1,
+   "n_rejected": 2,
+   "n_closed": 1,
+   "win_rate": 0.0,
+   "pnl_total": -1.4,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 69932,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "api:other": 1
+   }
+  },
+  {
+   "strategy": "tlt_pullback_1h",
+   "n_decisions": 7,
+   "n_filled": 0,
+   "n_rejected": 7,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "tqqq_trend_long_1d",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "trend_donchian_eth",
+   "n_decisions": 5,
+   "n_filled": 5,
+   "n_rejected": 0,
+   "n_closed": 5,
+   "win_rate": 0.0,
+   "pnl_total": -983.02,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 0.2,
+   "avg_hold_seconds": 13817,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "intent_reduce_executed": 1,
+    "sl": 3,
+    "api:other": 1
+   }
+  },
+  {
+   "strategy": "trend_donchian_eth_4h",
+   "n_decisions": 1,
+   "n_filled": 1,
+   "n_rejected": 0,
+   "n_closed": 3,
+   "win_rate": 0.0,
+   "pnl_total": -1028.65,
+   "pnl_measured_n": 2,
+   "pnl_coverage": 0.67,
+   "avg_hold_seconds": 32839,
+   "accounts_touched": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "exit_reasons": {
+    "api:sl": 3
+   }
+  },
+  {
+   "strategy": "trend_donchian_eth_prop",
+   "n_decisions": 11,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "trend_donchian_sol",
+   "n_decisions": 4,
+   "n_filled": 3,
+   "n_rejected": 1,
+   "n_closed": 2,
+   "win_rate": 0.0,
+   "pnl_total": -1124.78,
+   "pnl_measured_n": 1,
+   "pnl_coverage": 0.5,
+   "avg_hold_seconds": 29480,
+   "accounts_touched": [
+    "bybit_1"
+   ],
+   "exit_reasons": {
+    "sl": 1,
+    "stuck_strategy_watchdog": 1
+   }
+  },
+  {
+   "strategy": "trend_donchian_sol_prop",
+   "n_decisions": 7,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 0,
+   "win_rate": null,
+   "pnl_total": 0.0,
+   "pnl_measured_n": 0,
+   "pnl_coverage": null,
+   "avg_hold_seconds": null,
+   "accounts_touched": [],
+   "exit_reasons": {}
+  },
+  {
+   "strategy": "xrp_pullback_2h",
+   "n_decisions": 0,
+   "n_filled": 0,
+   "n_rejected": 0,
+   "n_closed": 2,
+   "win_rate": 0.0,
+   "pnl_total": -962.03,
+   "pnl_measured_n": 2,
+   "pnl_coverage": 1.0,
+   "avg_hold_seconds": 200940,
+   "accounts_touched": [
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "exit_reasons": {
+    "api:sl": 2
+   }
+  }
+ ],
+ "trade_decision_grades": [
+  {
+   "order_package_id": null,
+   "linked_trade_id": 6172,
+   "account": "bybit_2",
+   "strategy": "xrp_pullback_2h",
+   "direction": "long",
+   "decision_grade": "B",
+   "entry_quality": "acceptable",
+   "exit_quality": "sl_appropriate",
+   "risk_management": "correct",
+   "rationale": "SL at declared bracket after 55h hold; -$3.64 at ~$3.5 risk basis = ~-1.0R; mirror 6173 identical trade -$958.39 at honest size. Setup fired at conf 0.0-floor leg; nothing in the row says the entry was wrong.",
+   "graded_by": "hand (this review); package pre-dates the window"
+  },
+  {
+   "order_package_id": null,
+   "linked_trade_id": 6209,
+   "account": "bybit_2",
+   "strategy": "ada_pullback_2h",
+   "direction": "long",
+   "decision_grade": "C",
+   "entry_quality": "acceptable",
+   "exit_quality": "sl_appropriate",
+   "risk_management": "correct",
+   "rationale": "SL after 31h; -$3.38 (~-1R); ada_pullback_2h is 1/11 wins lifetime on /api/bot/performance (expectancyR -0.70, coverage 1.0) -- the leg, not this decision, is the question; tune-before-demote applies.",
+   "graded_by": "hand (this review); package pre-dates the window"
+  },
+  {
+   "order_package_id": null,
+   "linked_trade_id": 6239,
+   "account": "bybit_2",
+   "strategy": "trend_donchian_eth_4h",
+   "direction": "short",
+   "decision_grade": "B",
+   "entry_quality": "acceptable",
+   "exit_quality": "sl_appropriate",
+   "risk_management": "correct",
+   "rationale": "Donchian short at conf>=0.6 stopped in 8.6h for -$3.51 (~-1R); lifetime WR 36% expR +0.89 (n=11), so a normal stop-out on a leg with positive lifetime R.",
+   "graded_by": "hand (this review); package pre-dates the window"
+  },
+  {
+   "order_package_id": null,
+   "linked_trade_id": 5875,
+   "account": "alpaca_live",
+   "strategy": "slv_pullback_1d",
+   "direction": "long",
+   "decision_grade": "C",
+   "entry_quality": "acceptable",
+   "exit_quality": "sl_appropriate",
+   "risk_management": "correct",
+   "rationale": "11-day hold to an SL for -$3.96; sized at 1 share so R is ~-1.0; mirror 5874 closed `other` 3 min later -- exit-mechanism divergence filed PI-20261004-ZBHFJG6X-0005.",
+   "graded_by": "hand (this review); package pre-dates the window"
+  },
+  {
+   "order_package_id": null,
+   "linked_trade_id": 6097,
+   "account": "alpaca_live",
+   "strategy": "iaum_pullback_1d",
+   "direction": "long",
+   "decision_grade": "C",
+   "entry_quality": "acceptable",
+   "exit_quality": "sl_appropriate",
+   "risk_management": "correct",
+   "rationale": "5-day hold to SL for -$4.41 (expR -1.47 lifetime n=1); 2-share real-money position; decision graded on setup only, n=1 says nothing about the leg.",
+   "graded_by": "hand (this review); package pre-dates the window"
+  },
+  {
+   "order_package_id": "pkg-440f03756ff5467a",
+   "linked_trade_id": null,
+   "strategy": "avax_pullback_2h",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "avax_pullback_2h long; conf 0.05; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-3a475184afad4b6f",
+   "linked_trade_id": null,
+   "strategy": "fade_breakout_4h",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "fade_breakout_4h long; conf 0.09; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-e71dfb0a70694ab1",
+   "linked_trade_id": null,
+   "strategy": "fade_breakout_4h",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "fade_breakout_4h long; conf 0.15; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-ae7f77c9627b460b",
+   "linked_trade_id": null,
+   "strategy": "mgc_trend_1h",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "mgc_trend_1h short; conf 0.27; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-10679df3126c48ef",
+   "linked_trade_id": null,
+   "strategy": "mgc_trend_1h",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "mgc_trend_1h long; conf 0.20; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-664b390996a24b52",
+   "linked_trade_id": null,
+   "strategy": "mgc_trend_1h",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "mgc_trend_1h long; conf 0.20; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-5d7a3172eda84ff0",
+   "linked_trade_id": null,
+   "strategy": "mgc_trend_1h",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "mgc_trend_1h short; conf 0.23; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-b98d911b9ecc4209",
+   "linked_trade_id": null,
+   "strategy": "qqq_trend_long_1d",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "qqq_trend_long_1d long; conf 0.11; entry=should_skip; never filled (status=rejected); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "order_package_id": "pkg-596743908c2a401b",
+   "linked_trade_id": "6395",
+   "strategy": "tqqq_trend_long_1d",
+   "account_class": "paper",
+   "decision_grade": "D",
+   "entry_quality": "should_skip",
+   "exit_quality": "unknown",
+   "risk_management": "unknown",
+   "rationale": "tqqq_trend_long_1d long; conf 0.08; entry=should_skip; exit=unknown(?,R n/a); risk=unknown",
+   "graded_by": "scripts/ops/score_order_packages.py::_grade_package (appended to comms/claude_strategy_scores.jsonl)"
+  },
+  {
+   "cohort": "A/B (rubric)",
+   "n": 69,
+   "order_package_ids": [
+    "pkg-f98bf2b62b0f4161",
+    "pkg-5482fac00b3448a9",
+    "pkg-164c434be1a54974",
+    "pkg-70b4a605ec104b66",
+    "pkg-6f2e7eacf68c4f3d",
+    "pkg-1a36633e9a0240a5",
+    "pkg-e79c507849d44ed8",
+    "pkg-b7499dab374244f0",
+    "pkg-376b248797284212",
+    "pkg-01a718d23c984b36",
+    "pkg-9e9e66cc3f9a49b4",
+    "pkg-ea8bbfbfdbf343f0",
+    "pkg-f4bf97afaf994c28",
+    "pkg-d48a13a9a5be45f6",
+    "pkg-33d213c642f44c24",
+    "pkg-e67b585bb4834434",
+    "pkg-904524a1806547e5",
+    "pkg-8ac6472039204760",
+    "pkg-6d3281ce453046f3",
+    "pkg-f27ad48a2401466b",
+    "pkg-a3dd6bf0ffd14407",
+    "pkg-29f51284ed264a5b",
+    "pkg-624c9ecd6fcd4a5c",
+    "pkg-24ff29e8f44f4552",
+    "pkg-d03cb558b3d0493a",
+    "pkg-bf2bca9cd41b4a56",
+    "pkg-47fd3fc5e91147a4",
+    "pkg-1705a357b6f8435d",
+    "pkg-6be61d9ef6d1424c",
+    "pkg-89f253ee0fcf4f71",
+    "pkg-768374d1f1cc4aa6",
+    "pkg-399eaec791a04a22",
+    "pkg-b447370dec524947",
+    "pkg-ea968490b4274206",
+    "pkg-0e42743fe41b4124",
+    "pkg-a5e71a1e61fa4d98",
+    "pkg-ac370e08cde14023",
+    "pkg-b3f0ca2426924ebc",
+    "pkg-0bde44f776f9449a",
+    "pkg-c81d7c568e55429a",
+    "pkg-927ad4636e864c35",
+    "pkg-ab991735e58847ca",
+    "pkg-b13e6792f9c842dd",
+    "pkg-0e29d64587504dc6",
+    "pkg-9516c5ef98d442cb",
+    "pkg-1085a9ebcbb14ee7",
+    "pkg-98a7f4a7af084958",
+    "pkg-9f34c06abd924b6a",
+    "pkg-ad98b8e67e234104",
+    "pkg-8c066a8f98bc4a53",
+    "pkg-ff69811e3baa40c9",
+    "pkg-50f76a373c134d42",
+    "pkg-baa98e1e061d44e7",
+    "pkg-ea6882185b424bd8",
+    "pkg-06ffa1664c934e98",
+    "pkg-f5d875dd17ba46be",
+    "pkg-eb642ce8d69b4153",
+    "pkg-e0c9756ed2ab4098",
+    "pkg-3eac656c32ba43e4",
+    "pkg-1c2147657eb3401f",
+    "pkg-ffd3ce32632d4f58",
+    "pkg-3804c8e1e8284501",
+    "pkg-d8cf1c8d9218422a",
+    "pkg-66bc7cbdb66a45a7",
+    "pkg-6a5efec82e8c4c89",
+    "pkg-cef37f6787c4418b",
+    "pkg-ca8cd632a09649ed",
+    "pkg-8cfe76e009a8457d",
+    "pkg-5b5d8e40501b466f"
+   ],
+   "note": "69 B, 0 A; 13 of them filled and closed: net -$515.33, 3 wins -> grade_drift (see anomalies). Rows appended to comms/claude_strategy_scores.jsonl with source performance-review."
+  },
+  {
+   "cohort": "C (rubric)",
+   "n": 140,
+   "note": "140 C; 70 filled and closed: net -$5,825.71, 31 wins. Not itemised; every row is in comms/claude_strategy_scores.jsonl keyed by order_package_id."
+  }
+ ],
+ "_trade_decision_grades_note": "218 packages graded with the canonical rubric; distribution {'C': 140, 'D': 9, 'B': 69}; 153 were new and appended, 65 already carried a claudeScore. The 5 real-money closes are hand-graded by trade id (their packages pre-date the window). risk_management read unknown on 218/218 because the rubric reads signal_logic.sl_distance/atr which the writers no longer emit -- filed PI-20261004-ZBHFJG6X-0004.",
+ "insights_review": [
+  {
+   "endpoint": "summary",
+   "finding": "M13 24h summary says trades total/closed 0/0 and 19 order packages for 2026-10-03T10:05Z..2026-10-04T10:05Z. The API shows 12 closed trades in that window, all bybit_1 (paper), and 19 packages (3 real_money prop tickets) -- so the summary is a REAL-MONEY-only count rendered without saying so; its 19-package count matches. The generator is template:v1, not an AI analyst.",
+   "severity": "drift",
+   "cache_age_seconds": 417
+  },
+  {
+   "endpoint": "recent",
+   "finding": "Last-20-closed table (net -$58.56, 1W/18L) lists only bybit_2/alpaca_live trades; ids 6239, 6209, 6172, 6097, 5875 match this review's real-money closes exactly (same pnl, same exit). No disagreement on the numbers; the population label is implicit.",
+   "severity": "nit",
+   "cache_age_seconds": 417
+  },
+  {
+   "endpoint": "health",
+   "finding": "8/8 checks green, snapshot 2s old at generation; cache 418s at read. Healthy.",
+   "severity": "nit",
+   "cache_age_seconds": 418
+  }
+ ],
+ "proposed_tweaks": [],
+ "_proposed_tweaks_note": "No Tier-3 parameter proposal clears the bar this window: real-money n=5 (0 wins) and every paper leg with a red number is below n=10 closes in the window. ada_pullback_2h is 1/11 lifetime wins with expectancyR -0.70 at full pnl coverage on /api/bot/performance; under \"tune before demote\" the next step for it is the M8 sweep (`runtime_logs/strategy_tunes/<date>/ada_pullback_2h__*.json`), which does not exist on main -- so the proposal is RUN THE SWEEP, recorded as the recommended_action, not a param change. The tradeify_1 sizing question (ticket $50 vs executor cap $50 agree; the refusal was the sibling's $75 ticket) needs no Tier-3 change.",
+ "backlog_drain": [
+  {
+   "id": "BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): he same class as BL-20260812-SWEEP-CORPUS-RECORDS-NO-FRAME-FINGERPRINT (a measurement that does not record the data it ran on). Work as one class.\" |     } |   ], |   \"resolved_at\": null, |   \"severity\": \"low\", |   \"updated_at\": \"2026-08-10T05:05:00+00:00\" | }"
+  },
+  {
+   "id": "BL-20260802-DIRWF-FOLDCOUNT-VERDICT-FLIP",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): osition\": \"kept_open\", |       \"note\": \"Re-validated: research/tooling correctness, propose-only. Same bug class as an already-fixed sibling; a verdict that flips on fold count is not a verdict.\" |     } |   ], |   \"updated_at\": \"2026-08-10T05:05:00+00:00\" | }"
+  },
+  {
+   "id": "BL-20260816-BLOCKED-CELLS-CITE-A-TRADE-COUNT-THEY-DO-NOT-RECORD",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): -review 2026-08-29 triage\", |       \"disposition\": \"kept_open\", |       \"note\": \"Re-validated: 7 cells naming a trade-count reason while recording no trade count \\u2014 an unverifiable claim, the stated-population rule applied to the matrix.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260823-NO-PROP-CANDIDATE-REVIEW-PROCESS",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): 08-29 triage\", |       \"disposition\": \"kept_open\", |       \"note\": \"Re-validated: routing has only ever been additive-by-request, and nothing periodically asks which existing strategies have EARNED a prop route. Structural gap, not a defect.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260901-BACKLOG-ROUND-TRIP-GUARD-COVERS-3-OF-4-LIVE-BACKLOGS",
+   "disposition": "killed",
+   "evidence": "the premise is gone: docs/claude/research-review-backlog.json and the other three review backlogs were archived by the 2026-09-21 operating reset (CLAUDE.md \u00a7 How work is organised); there is no live backlog for the round-trip guard to cover. Verified this session: ls docs/claude/*backlog*.json -> n"
+  },
+  {
+   "id": "BL-20260902-TWO-SIBLING-HF-HARNESSES-DISAGREE-ON-SIGNAL-TTL-SEMANTICS",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  is 1-bar-TTL by design, at which point the parameter is removed from its signature rather than left raising. Reading the diff is not enough for (a): the test must fail on the current code.\", |   \"updates\": [], |   \"updated_at\": \"2026-09-02T00:00:00+00:00\" | }"
+  },
+  {
+   "id": "BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ly stop holding; OR (b) the label includes entry_key, with the artifact-renaming consequence stated. A code citation does not close this: the entry->family mapping is DATA and must be read.\", |   \"updates\": [], |   \"updated_at\": \"2026-09-02T00:00:00+00:00\" | }"
+  },
+  {
+   "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+   "disposition": "kept_open",
+   "evidence": "this run: incumbent real-money book (bybit_2 + alpaca_live) closed 5 trades in the window 2026-09-27T07:29Z..2026-10-04, 0 wins, -$18.90 (all SL, each -$3.4..-$4.4; source /api/bot/trades/closed?since=...&include_paper=true read 2026-10-04); candidate ETF sleeve on alpaca_paper closed 4, 0 wins, -$2"
+  },
+  {
+   "id": "PB-20260630-002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): per trades per cell' is ~40 months away for qld and unreachable for tqqq. Per the operator correction already on this row, run the offline backtest on a free GitHub runner and decide from THAT; the live-paper limb should be struck rather than re-deferred.\" | }"
+  },
+  {
+   "id": "PB-20260630-001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ed: scripts/ops/accrual_clock.py \\u2014 plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8.\" |   } | }"
+  },
+  {
+   "id": "PB-20260622-002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ed: scripts/ops/accrual_clock.py \\u2014 plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8.\" |   } | }"
+  },
+  {
+   "id": "PB-20260609-001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ences are intentional, and note that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so it has a different coverage shape than the frozen detector. A bounded audit, not a research question.\", |   \"updated_at\": \"2026-08-13T10:12:00+00:00\" | }"
+  },
+  {
+   "id": "PB-20260611-M15-2",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ed: scripts/ops/accrual_clock.py \\u2014 plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8.\" |   } | }"
+  },
+  {
+   "id": "PB-20260620-001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ed: scripts/ops/accrual_clock.py \\u2014 plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8.\" |   } | }"
+  },
+  {
+   "id": "PB-20260620-002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): n\": \"snoozed\", |       \"note\": \"Re-validated: dormant BY DESIGN, regime-dependent. Trigger = perp funding elevating. Nothing to do meanwhile.\" |     } |   ], |   \"severity\": \"low\", |   \"disposition\": \"snoozed\", |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\" | }"
+  },
+  {
+   "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+  },
+  {
+   "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): end_1h is also one of the 5 IB legs logging transient_market_data_unavailable (154 WARN rows over 9 days), so its data path is intermittent independent of this row.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+  },
+  {
+   "id": "PB-20260707-NATIVE-MES-PULL",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+  },
+  {
+   "id": "PRB-20260716-HTF-CROSSBOOK-NEG",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  be evaluated. Restate this as the Tier-3 decision it actually is: either take the leg out of shadow so the paper soak can resume, or propose the KILL on the evidence already in hand (58 closed rows lifetime, 50 on bybit_1) and stop carrying it as a soak.\" | }"
+  },
+  {
+   "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): , not work a review can drain. Carried with the blocker named. alpaca_options_paper holds 0 open positions right now, so the soak this row assesses is not accruing.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+  },
+  {
+   "id": "PB-20260729-ALLOCATOR-VENUE-FEE",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): parked (M18 P2+ backtest-gated), so this has no live-routing impact until graduation. Trigger = allocator graduation.\" |     } |   ], |   \"updated_at\": \"2026-08-10T05:05:00+00:00\", |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+  },
+  {
+   "id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): venance-independent and IS worth chasing on its own terms \\u2014 that is the surviving lead.\\n3. Only after (1) yields a measured giveback should any Tier-3 stop-geometry or Tier-2 bracket change be proposed.\", |   \"updated_at\": \"2026-08-10T05:05:00+00:00\" | }"
+  },
+  {
+   "id": "PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): work a review can drain. Carried with the blocker named. Would change the TP actually placed on live legs. Note this review measured 17 Bybit 'contracts exceeds maximum limit' venue rejections in 9 days, which is the sibling venue-cap class.\" |     } |   ] | }"
+  },
+  {
+   "id": "PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): \", |       \"by\": \"/system-review 2026-08-29 triage\", |       \"disposition\": \"kept_open\", |       \"note\": \"Re-validated: a docstring/consumer correctness question with no runtime change proposed. Cheap and still undone; carried as actionable.\" |     } |   ] | }"
+  },
+  {
+   "id": "PB-20260816-M31-P4-PARITY-PRECONDITIONS",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  has rows and a finality_source contract registered with collapsed-state-guard (confirmed in the guard's 19 contracts this review), so the 'finality only knowable via an unenforced join' half has moved. The EMPTY-population half still binds.\" |     } |   ] | }"
+  },
+  {
+   "id": "PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): . No verdict, disposition or arm_r moves here. The three queued_tier3 rows (xrp_pullback_2h, trend_donchian_sol_4h, scha_trend_long_1d) remain the operator's call; this records that the evidence for two of them was already sitting in a committed artefact.\" | }"
+  },
+  {
+   "id": "PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs a trainer-side sweep re-run.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+  },
+  {
+   "id": "PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): r capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision. Needs per-leg candles via the trainer relay.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+  },
+  {
+   "id": "PB-20260817-SPRINT-LOG-TEMPLATE-HAS-NO-GUARD",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):     \"disposition\": \"kept_open\", |       \"note\": \"Re-validated: unblocked and cheap either way per its own next_action. A review session is meant to pick (a) or (b); this one did not, and says so rather than snoozing it behind a fake blocker.\" |     } |   ] | }"
+  },
+  {
+   "id": "PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ding measures 17.2% of closed rows storing a stop on the WRONG SIDE of entry, which gives a negative-or-inverted risk denominator and is a sufficient mechanism for exactly these readings. That finding is not this drain's and is not restated as if it were.\" | }"
+  },
+  {
+   "id": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  on a PAPER account over 27 days. NOT ESTABLISHED IN EITHER DIRECTION; the recommendation is an M8 sweep, not a floor. || (6) THE ROW STAYS OPEN: none of its three resolution_criteria conjuncts is met. Nothing in src/ or config/ was changed.\" |     } |   ] | }"
+  },
+  {
+   "id": "PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): CISION (Tier-3), not work a review can drain. Carried with the blocker named. One leg clearing a gate four siblings fail is exactly the cosmetic-cell shape the regime-selectivity rules warn about; recommend NOT acting on the single-leg pass.\" |     } |   ] | }"
+  },
+  {
+   "id": "PB-20260830-XRP-4H-FIRST-CLOSE-UNDER-NEW-BRACKET-UNVERIFIED",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): 0-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED\", |     \"PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS\", |     \"BL-20260822-EXIT-ATTRIBUTION-UNDER-REPORTS-BRACKET-HITS\", |     \"BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE\" |   ] | }"
+  },
+  {
+   "id": "PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): orrection_matrix.py (--self-test, 15 controls; it grades three sign states and REFUSES to report an inflation computed over a shorter window than the block it describes). Evidence: docs/research/m20-u13-expectancyr-two-defects-2026-09-12.md.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): e could not manifest today even if the arbitration produced one. || NO PRIORITY VALUE IS PROPOSED -- Tier-3, the operator's. Memo: docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md.\" |     } |   ], |   \"updated_at\": \"2026-09-13\" | }"
+  },
+  {
+   "id": "BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ble. WIRING it into silent_refusal_alert is Tier-2 and is NOT done. || NOTHING IS PROPOSED and the Tier-3 remedy is untouched. Memo: docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md.\" |     } |   ], |   \"updated_at\": \"2026-09-13\" | }"
+  },
+  {
+   "id": "BL-20260911-BOTH-OF-THE-E35-EXPERIMENTS-DESIGNED-CONTROLS-HAVE-ZERO-OBSERVATIONS",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  18 controls; it REFUSES a control that cannot report and REFUSES a cross-family control arm, both demonstrated against trend_donchian_eth_prop and eth_pullback_2h). Evidence: docs/research/m20-u11-e35-controls-that-can-report-2026-09-12.md.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  not claim it: 13 surfaces still state nothing and 2 more have a companion they do not point at. NO rate is restated and NO conclusion revised. Evidence: docs/research/m20-u50-two-of-the-three-payments-never-touched-the-surface-2026-09-17.md\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260911-A-TRAILED-STOP-OUT-IS-ATTRIBUTED-TO-THE-DECLARED-GEOMETRY-THAT-DID-NOT-END-IT",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): through this file's rule, 7 shared / 0 disagreements, and an empty intersection reports no_overlap_cannot_verify rather than a pass). Full working: docs/research/m20-u15-stop-integrity-both-arms-2026-09-12.md.\" |     } |   ], |   \"updated_at\": \"2026-09-12\" | }"
+  },
+  {
+   "id": "BL-20260912-THE-NETTING-ATTRIBUTED-PATH-CARRIES-THE-LARGEST-SHARE-OF-THE-WINNER-COLLAPSE-AND-IS-100-PERCENT-ESTIMATED",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ; 14 planted defects, 14 caught, one only after the suite was strengthened because no fixture reached the branch). Memo: docs/research/m20-u52-the-netting-remeasure-is-runnable-and-under-powered-2026-09-17.md.\" |     } |   ], |   \"updated_at\": \"2026-09-12\" | }"
+  },
+  {
+   "id": "BL-20260911-LOSING-STREAK-SIZE-GATE-IS-A-FLEET-WIDE-ABSOLUTE-SO-IT-UNDER-SERVES-A-SMALL-REAL-MONEY-ACCOUNT",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ay nothing about whether the NUMBER is right for an account that has not been funded yet. !! AND THIS BECOMES URGENT RATHER THAN LATENT THE MOMENT bybit_2 OR alpaca_live IS FUNDED UP -- re-read it at any real-money sizing change rather than on a calendar.\" | }"
+  },
+  {
+   "id": "BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ipts/research/venue_mechanism_recovery.py (--self-test, 10 controls). Evidence: docs/research/m20-u10-venue-mechanism-recovery-2026-09-12.md. The Tier-2 proposal is written out in that memo section 5 and is NOT taken -- the operator decides.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260912-THE-SCALP-FAMILY-S-TARGET-HAS-NO-SWEEP-E35-EXCLUDES-IT-BY-DESIGN-AND-THE-FLEET-SWEEP-DOES-NOT-SWEEP-A-TARGET",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): and an honest negative -- a wider target that does not clear the gate -- closes it as a completed deliverable. || WHAT A SESSION SHOULD DO WITH THIS: check #12158's state before touching backtest_ict_scalp.py.\" |     } |   ], |   \"updated_at\": \"2026-09-13\" | }"
+  },
+  {
+   "id": "BL-20260912-HALF-THE-NETTING-ATTRIBUTED-POPULATION-CANNOT-BE-ADJUDICATED-ONE-TO-ONE-AGAINST-THE-VENUE",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): g the unadjudicated rows and quoting the rest, which is what this row exists to prevent.\", |   \"next_action\": \"Decide (a) or (b). Until then, quote 25 of 50 as the adjudicated fraction whenever the netting_attributed population is used.\", |   \"updates\": [] | }"
+  },
+  {
+   "id": "BL-20260912-THE-BLEED-MEMO-S-HEADLINE-TABLE-IS-THE-ONE-TABLE-ITS-REPRODUCER-DOES-NOT-COMPUTE",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): e the same ambiguity. [!] NOR DOES A SUCCESSOR MEMO REPORTING THE RIGHT NUMBERS: winner-size-collapse-2026-09-12.md already does, from its own separate script, which leaves two scripts and one un-reproducible table rather than fixing the one that matters.\" | }"
+  },
+  {
+   "id": "BL-20260912-WHICH-FANOUT-ROW-IS-ROWS-0-MOVES-THE-STOP-OUT-ADJUDICATION-AND-SWINGS-THE-HEADLINE-DID-BY-10-POINTS",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  so that choice cannot be made quietly later. [!] AND A LATER RUN WHERE THE THREE SELECTIONS HAPPEN TO AGREE DOES NOT CLOSE IT: they agree whenever no fan-out package has divergent closes, which is a property of that week's population and not of the code.\" | }"
+  },
+  {
+   "id": "BL-20260912-THE-OKX-PROXY-BASIS-IS-FIT-FOR-THE-TREND-LEGS-AND-GRADES-UNFIT-ON-THE-SCALP-LEGS-IT-WAS-NEVER-VALIDATED-AGAINST",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): them says so. [!] A LATER RUN HAPPENING TO GRADE `fit` DOES NOT CLOSE THIS unless the population is the same or larger -- the rate is 4% and a smaller sample can miss it entirely. [!] AND WIDENING BASIS_TOL_BP CLOSES NOTHING, for the reason in the detail.\" | }"
+  },
+  {
+   "id": "BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  being printed. 80 self-test + 19 pytest controls; 12 planted defects, 12 caught by a named control in BOTH suites. Memo: docs/research/m20-u51-the-stanza-round-trips-as-text-and-not-as-evidence-2026-09-17.md.\" |     } |   ], |   \"updated_at\": \"2026-09-13\" | }"
+  },
+  {
+   "id": "BL-20260912-A-1000-ROW-TAIL-PULL-CHANGES-A-FANOUT-PACKAGES-MEMBERSHIP-WITHIN-HOURS-SO-A-PACKAGE-LEVEL-RATE-OVER-A-TAIL-IS-UNSTABLE-BY-CONSTRUCTION",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): search/package_fanout_integrity.py (68 self-test + 33 pytest controls; 19 defects planted, 19 caught, 4 no-op plants fired zero). Memo: docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md.\" |     } |   ], |   \"updated_at\": \"2026-09-13\" | }"
+  },
+  {
+   "id": "BL-20260912-THE-M20-WALKFORWARD-ARM-SET-CANNOT-GRADE-TARGET-GEOMETRY-BECAUSE-TP-GEOMETRY-IS-PERFECTLY-CONFOUNDED-WITH-FAMILY-AND-BLOCK-UNIT",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): in PR #12158, which is landing:hold/unvouchable_paths and has needed a HUMAN MERGE CLICK since 2026-09-13. || NOTHING IS PROPOSED: target geometry is Tier-3. Evidence: docs/research/m20-u48-the-geometry-contrast-cannot-be-built-2026-09-17.md\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): NERS-LONGER, not applied. It would not recover the rows already shed. || NO published figure is restated and NO close is claimed false. Evidence: docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  SECOND high-severity row. || NOTHING IS PROPOSED AND NOTHING IS CHANGED: per-leg risk sizing is Tier-3 and risk.py / config/accounts.yaml were read only. Narrowing the field is not an attribution and the instrument's verdict string says so.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260913-ORDER-PACKAGE-ID-IS-NOT-A-FANOUT-KEY-16-OF-110-MULTI-ROW-PACKAGES-REPEAT-AN-ACCOUNT-AND-CARRY-6-OF-7-DISAGREEMENTS-IN-ONE-DID-CELL",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): y's units carry no account repeat, saying so with the number is a completed check.\", |   \"next_action\": \"Run scripts/research/package_fanout_integrity.py over the population before publishing a package-level rate, and report fanout_states beside the rate.\" | }"
+  },
+  {
+   "id": "BL-20260831-FEASIBILITY-OBSERVATIONS-ARE-BLIND-TO-RUN-CONFIG",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): e-introducing the block by the back door), and folding it into a PR built around a different structural class would have made both harder to review. Not blocked -- deferred, with the population above already established for whoever takes it.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260831-QUEUE-DISPATCHED-ROWS-CARRY-NO-IDENTITY-ON-THE-ONE-ROUTE-THAT-HAS-EVER-WORKED",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): stamp path nobody has observed working. Both are this repo's own filed bug class, so I built neither. FOR WHOEVER TAKES THIS: the guard, the workflow edit and a dispatched gld-compat run read back OUT OF THE CORPUS should land as one change.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260831-E35-CORPUS-SUPERSEDES-THE-BASELINE-ITS-MONTHLY-JOB-ASKS-ABOUT",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): hem one measurement written twice. Anyone choosing (b) must fix BL-20260831-CORPUS-JOB-SCANS-EVERY-LEG-REPORT-TWICE-SO-THE-HISTORY-SIDECAR-ARCHIVES-THE-RUNS-OWN-ROWS first, or they will be reasoning about a store that half-duplicates itself.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260831-28-E35-UNITS-ARE-PERMANENTLY-UNGRADEABLE-AND-THE-VERDICT-VOCABULARY-CANNOT-SAY-SO",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): he state the vocabulary cannot express. There are zero such legs today. Re-grade this row when that count is next non-zero. NOT MEASURED: I cannot dispatch a sweep, so I could not create that state to observe the mechanism's behaviour in it.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260831-CORPUS-JOB-SCANS-EVERY-LEG-REPORT-TWICE-SO-THE-HISTORY-SIDECAR-ARCHIVES-THE-RUNS-OWN-ROWS",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): f the e35-bracket-* glob) addresses the right mechanism. I did not ship that rename: its effect is only observable on the next sweep, and shipping an unobservable workflow edit is what criterion (1) of the sibling identity row warns against.\" |     } |   ] | }"
+  },
+  {
+   "id": "BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ot this lane's. |  | `gld_pullback_1h` is on `alpaca_paper` today (paper money); the stated | urgency (\"its geometry matters now\") is that it is eligible for real-money | promotion under the armed `MD-PROMOTE-S1-S2` mandate, not that it is already | live risk."
+  },
+  {
+   "id": "BL-20260908-PORTING-THE-TP-CAP-TO-BACKTEST-ICT-SCALP-WOULD-MOVE-IT-AWAY-FROM-LIVE-THE-LIVE-UNIT-DOES-NOT-CLAMP-EITHER",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): an left looking like a harness gap. NOT SUFFICIENT: porting the cap to backtest_ict_scalp.py \\u2014 that is the action this row exists to prevent. NOT SUFFICIENT: re-running the 4/15 signature count, which is already reproduced here and is not in dispute.\" | }"
+  },
+  {
+   "id": "BL-20260908-THE-BACKTEST-VS-LIVE-EXIT-COMPARISON-IS-BLOCKED-ON-RETENTION-NOT-MEASURABILITY-AND-THE-CALIBRATOR-NEEDS-A-QUERY-NOT-AN-INSTRUMENT",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): decides backtest runs should NOT be retained in-repo, this row does not close \\u2014 it CHANGES: the exit-location gap is then permanently unmeasurable by this route, which is a legitimate decision and must be RECORDED as one with that consequence stated.\" | }"
+  },
+  {
+   "id": "BL-20260908-THE-GLD-COMPAT-MATRIX-GRADES-RISK-PCT-NOT-THE-ACCOUNT-SO-ITS-11-UNREAD-UNITS-CANNOT-BE-TERMINALLY-DISPOSITIONED",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): ad into superseded_unread and GROWS the debt rather than paying it, and would reproduce this defect. [!] NOT SUFFICIENT: fixing ib_live's 'unreadable' size_state, which is a separate and lesser gap (1 UNGRADED of 11) and does not touch the 10 that graded.\" | }"
+  },
+  {
+   "id": "BL-20260917-THE-M20-OBJECTS-DONE-CONDITION-DELIVERABLE-IS-CARRIED-BY-ONE-GREEN-UNMERGED-PR-AND-THE-LANES-OWN-WRAP-NAMES-A-DIFFERENT-PR-AS-THE-HIGHEST-VALUE-CLICK",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): tor #11933 needs a merge click, and put U4's Proposal 1 vs Proposal 3 in front of them as one mutually-exclusive choice (they interact by construction \\u2014 on this family the stop distance IS the R unit, so the pair is a THIRD sweep, never an addition).\" | }"
+  },
+  {
+   "id": "BL-20260917-THE-FLEET-PRE-GATE-HAS-NEVER-GRADED-A-NON-BTC-HEAD-AND-A-PARTIAL-RUN-HIDES-THAT-BY-DESIGN",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0):  into an invisible one.\", |   \"reported_by\": \"engineering-lane session_01SzoZAiXJibakevDU9pbwxm\", |   \"refs\": [ |     \"OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY\" |   ], |   \"opened_at\": \"2026-09-17T19:34:09.164005+00:00\" | }"
+  },
+  {
+   "id": "BL-20260917-BACKTEST-DATA-PATH-DEFAULTS-TO-A-3-POINT-5-DAY-SMOKE-FIXTURE-THAT-READS-LIKE-A-RESULT",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): THE FIX and would be worse -- it would make the foot-gun quieter while keeping a committed corpus that drifts from the real feeds.\", |   \"reported_by\": \"engineering-lane session_01SzoZAiXJibakevDU9pbwxm\", |   \"opened_at\": \"2026-09-17T19:34:09.170348+00:00\" | }"
+  },
+  {
+   "id": "PI-20260922-ARCHIVED-REGISTERS-STILL-READ-BY-40-PATHS-ACROSS-LIVE-CI-SOURCES",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun is not a shell command runnable from this sandbox ('Re-run the archived-and-still-referenced probe, which is the whole measurement: `git diff '); re-read against this window's data instead and nothing in the window's closes/packages changed the finding"
+  },
+  {
+   "id": "PI-20260924-GKIASQWZ-0003",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=127): 1 | /bin/sh: 1: and: not found"
+  },
+  {
+   "id": "PI-20260924-E51-0001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): artifact-caveat-guard: self-test OK \u2014 10 planted controls all fire | ['docs/claude/health-review-backlog.json', 'docs/claude/performance-review-backlog.json', 'docs/claude/ml-review-backlog.json']"
+  },
+  {
+   "id": "PI-20260924-2S8DXGTZ-0001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): gld_pullback_1h in real-money roster: False | pass 90 3 4 {'fees': 0.0, 'slippage': 5.0, 'funding': 0.0, 'unit': 'bps_roundtrip (funding: bps per funding window)', 'source': 'comms/strategy_evidence/runs/2026-09-28/gld_pullback_1h__bt.json'}"
+  },
+  {
+   "id": "PI-20260924-2S8DXGTZ-0002",
+   "disposition": "kept_open",
+   "evidence": "re-ran the canonical guard this session: python3 scripts/ci/check_roster_promotion_evidence.py --population --json -> failing 0 / passing 11 (bybit_2 4, alpaca_live 3, breakout_1 2, tradeify_1 2). Grandfathering gap unchanged; no operator decision on it yet."
+  },
+  {
+   "id": "PI-20260924-2S8DXGTZ-0003",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): newest reviewed_at: 2026-10-03T03:42:28.243046+00:00"
+  },
+  {
+   "id": "PI-20260924-TJTOJHYE-0001",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=3): x_4h             refuse_measured |   trend_donchian_sol_4h              refuse_measured | Nothing was lost. Fix the run (the usual cause is a missing feed dependency -- yfinance for the Yahoo lane) and re-run; a SUCCESSFUL re-measure still overwrites normally."
+  },
+  {
+   "id": "PI-20260925-REVERIFY-0002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=2): /bin/sh: 1: Syntax error: Unterminated quoted string"
+  },
+  {
+   "id": "PI-20260925-41YPPGWO-0002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=1), no output"
+  },
+  {
+   "id": "PI-20260927-YZRZQ725-0003",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=127): ed unit=-                  2026-09-10T08:30:13.962084+00:00 |   superseded_unread  gld_compat breakout_1                 rows=1     n_oos=n/a        power=not_queue_dispatched unit=-                  2026-09-10T08:38:07.727197+00:00 | /bin/sh: 1: or: not found"
+  },
+  {
+   "id": "PI-20260927-CAB09-0002",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=2): /bin/sh: 1: Syntax error: \"(\" unexpected"
+  },
+  {
+   "id": "PI-20260927-CAB09-0005",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=2): /bin/sh: 1: Syntax error: \"(\" unexpected"
+  },
+  {
+   "id": "PI-20260927-CAB09-0006",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=2): /bin/sh: 1: Syntax error: \"(\" unexpected"
+  },
+  {
+   "id": "PI-20260929-VOLSKIP-SIGNAL-0004",
+   "disposition": "kept_open",
+   "evidence": "origin.rerun executed (rc=0): -114.40400000000001"
+  },
+  {
+   "id": "PI-20260929-WJUTENGU-0004",
+   "disposition": "kept_open",
+   "evidence": "performance-review/SKILL.md half addressed in the 2026-10-04 performance-review PR (limit=500 -> 200 with offset paging, classifier input shape, tracker gap). The ml-review/SKILL.md half is not this lane's file and is untouched; row stays open for it."
+  }
+ ],
+ "_backlog_drain_note": "Population: every open (state not done/killed) pipeline item tagged [performance]/[research] or referencing a performance/research review, enumerated from scripts.ops.pipeline.load() at run start. Each item's origin.rerun was executed where it is a shell command (40s timeout; rc and tail recorded verbatim, including the 6 whose rerun is malformed shell) and an update record was appended. 1 killed (BL-20260901, premise archived by the reset), 79 kept open with fresh evidence.",
+ "backlog_coverage": {
+  "open_at_start": 80,
+  "triaged": 80,
+  "resolved": 0,
+  "fixed_now": 0,
+  "closed_stale": 1,
+  "kept_open": 79,
+  "count_untriaged": 0
+ },
+ "paper_book_tracker": {
+  "snapshot": {
+   "asof": "2026-10-04T10:33:26Z",
+   "book_n": 173,
+   "book_net_usd": -3239.57,
+   "book_win_rate": 27.7,
+   "recent_30d": {
+    "n": 52,
+    "net_usd": 4569.02,
+    "mean_usd": 87.87
+   },
+   "prior": {
+    "n": 121,
+    "net_usd": -7808.59,
+    "mean_usd": -64.53
+   },
+   "families": {
+    "trend_net_usd": 7723.2,
+    "pullback_net_usd": -10962.77
+   },
+   "decay_flag": false
+  },
+  "delta_vs_previous": "previous snapshot 2026-07-22: +124 trades, +$2,144.78 net; the tracker had NOT been appended by the 09-24 or 09-27 reviews (their records carry paper_book_tracker: null) -- gap noted in the skill text in this PR.",
+  "assessment": "noise-not-decay on the aggregate: lifetime negative but the recent 30d is the best window the book has had; per-family the TREND cells carry the book (+$7.7k) and the PULLBACK cells lose (-$11.0k) -- the opposite of the 2026-06 backtest expectation that pullback wants high ADX and would complement trend. avax_pullback_2h (-$5,530 over 8, WR 12.5%) and sol_pullback_2h (-$2,612 over 11, WR 9.1%) are the sustained losers; ada_pullback_2h (-$4,335 over 32) is the same leg that trades real money on bybit_2. Source: docs/research/paper-book-tracker.jsonl last line (appended this run) over GET /api/bot/trades/closed?account_id=bybit_1 (1,321 rows)."
+ },
+ "real_money_allocation_benchmark": {
+  "incumbent": "bybit_2 + alpaca_live (real money; bybit_2 4 legs, alpaca_live 3 legs, all execution live, mode live -- config/accounts.yaml + config/strategies.yaml read this run)",
+  "candidate": "ETF sleeve legs on alpaca_paper not on alpaca_live (gld/slv/spy/qqq/tlt/uso 1h, spy/qqq/iwm/tqqq/qld/splg/scha trend 1d, gdx 1d) -- paper proxy",
+  "incumbent_expectancy_r": -1.0,
+  "candidate_expectancy_r": null,
+  "incumbent_max_dd": null,
+  "candidate_max_dd": null,
+  "correlation_estimate": null,
+  "diversifies": null,
+  "verdict": "does_not_clear",
+  "proposed_action": "none -- capital stays where it is; no re-arm or promotion proposal",
+  "note": "Incumbent window: 5 closes, 0 wins, -$18.90, every close an SL at ~-1R (bybit_2 3: -$3.64/-$3.38/-$3.51; alpaca_live 2: -$3.96/-$4.41), source GET /api/bot/trades/closed?account_id=bybit_2|alpaca_live read 2026-10-04. Candidate paper proxy: alpaca_paper closed 4 in the window (slv_pullback_1d x1, gdx_pullback_1d x1, qqq_pullback_1h x1, spy_pullback_1h x1), 0 wins, -$2,848.96 at paper notionals. Neither population supports an expectancy-R, drawdown or correlation estimate; the verdict is does_not_clear BY INSUFFICIENT N, not by a measured comparison. PI-20261004 update appended to SRQ-20260715-REALMONEY-ALLOC-BENCHMARK."
+ },
+ "research_pipeline": {
+  "stage1_queue": {
+   "units": 191,
+   "power": {
+    "accruing": 173,
+    "not_applicable": 9,
+    "cleared": 3,
+    "infeasible": 2,
+    "undeclared": 2,
+    "unverifiable": 2
+   },
+   "route": {
+    "runner": 180,
+    "trainer": 11,
+    "gpu": 0,
+    "unroutable": 0
+   },
+   "status": {
+    "done": 98,
+    "queued": 87,
+    "retired": 5,
+    "blocked": 1
+   },
+   "never_dispatched": 91,
+   "source": "scripts.research.research_queue.load_queue/grade_power/grade_route over research/queue/*.yaml on this branch (post #16224/#16225/#16230/#16231)"
+  },
+  "stage2_running": "most recent dispatch stamps 2026-10-04T08:33:30Z (RQ-20260929-105, -107, fired by hand per #16231); 2026-10-03T19:33Z (-043, -046, RQ-20261003-004). The dispatcher cron remains a dry run by design.",
+  "stage3_review": {
+   "dispositioned": 135,
+   "unread": 0,
+   "superseded_unread": 297,
+   "no_rows": 0,
+   "corpus_unreadable": 0,
+   "admission": {
+    "accruing": 13,
+    "cleared": 4,
+    "infeasible": 9,
+    "not_queue_dispatched": 406
+   },
+   "source": "python3 scripts/research/research_disposition.py --unread-only (this branch)"
+  },
+  "stage4_5": "Nothing unread to analyse or disposition this run; the 24 dispositions landed by #16228 were read (research-disposition ledger). The RESEARCH-PIPELINE-REPAIR lane owns the queue; this review changed nothing in it.",
+  "assessment": "healthy post-repair on the read side (0 unread); the open question is throughput -- 87 queued units, 91 never dispatched, and only 3 units cleared for power -- which is the repair lane's, not this review's."
+ },
+ "prop_trade_quality": {
+  "tool": "scripts/prop/trade_quality_review.py (reads /api/bot/prop/fills,tickets; run 2026-10-04)",
+  "breakout_1": {
+   "population": "24 closed fills of 82 seen; 18 graded, 6 unclassified; tolerance 15 bps",
+   "bridge": {
+    "entry_slippage_bps_median": -0.2,
+    "worst_bps": 98.5,
+    "n": 19,
+    "fills_without_ticket_link": 5
+   },
+   "strategy": {
+    "at_stop": 11,
+    "at_target": 1,
+    "manual_in_profit": 4,
+    "manual_in_loss": 1,
+    "past_stop": 1,
+    "unclassified_no_ticket": 5,
+    "unclassified_no_exit_price": 1
+   },
+   "net_usd": -205.11,
+   "win_rate_pct": 21.7,
+   "read": "execution fidelity is good (median slippage better than ticketed); strategy quality is the weak half -- unchanged from the 2026-08-23 read. Window: 18 breakout_1 tickets (12 eth_prop, 7 sol_prop incl. 1 tradeify), 7 skipped by the executor (submit not visible / price field / cap), 6 suppressed, 3 expiry-prompted, 2 expired, 1 closed (ETH short fill 80, exit unrecorded: closed_on_terminal). Ticket answer-rate is not graded (operator, 2026-08-23)."
+  },
+  "tradeify_1": {
+   "read": "1 ticket in the window (2026-10-04T08:01Z, ETH long, risk_usd 50.0, qty 3.32). The executor refused a ticket at 08:03Z citing $74.85 vs the $50 cap: that was breakout_1's ticket (qty 4.98 -> 4.97 lots x $15.061 = $74.85) returned by the then-unscoped ticket read (fixed by #16243, merged 09:08Z, in the running web-api sha 9a35cd8cb per /api/diag/version 10:24Z). Its own ticket was then never attempted and expired at 09:01Z (fill 84). Independently verified; the manager's TRADEIFY-RISK-75 row already carries the same root cause, so nothing new is filed; the pending observation is one tradeify_1 intake under the fix."
+  }
+ },
+ "anomalies": [
+  "grade_drift: A/B cohort (n=13 filled+closed) net -$515.33 with 3 wins; C cohort (n=70) -$5,825.71 with 31 wins. Rubric does not separate outcomes on this (paper, pairs/scalp-heavy) population. PI-20261004-ZBHFJG6X-0004.",
+  "rubric blind spot: risk_management=unknown on 218/218 packages (signal_logic lacks sl_distance/atr; entry/sl/meta.atr are present). Same row.",
+  "collapsed state on the Decisions read path: 2 orphaned pairs packages with no linked trade render accountClass real_money (COALESCE(t.is_demo,0) on an empty LEFT JOIN). PI-20261004-ZBHFJG6X-0001. Those 2 packages are the only real_money rows in the window that are not prop tickets; real_money packages excluding them: 18, all breakout_1/tradeify_1 prop tickets, 0 bybit_2/alpaca_live.",
+  "two pairs_bnb_btc_a leg-a packages never executed (BUG-049 orphan) on consecutive hourly bars 2026-10-01T23:05Z / 2026-10-02T00:05Z. PI-20261004-ZBHFJG6X-0002.",
+  "grade-closed-trades cron: no landing for the 2026-10-04 03:10Z run; 21 window closes were ungraded by trade id before this review; freshness guard masked by review appends. PI-20261004-ZBHFJG6X-0003.",
+  "live/mirror exit divergence: alpaca_live 5875 `sl` vs alpaca_portfolio 5874 `other`, same leg, 3 minutes apart. PI-20261004-ZBHFJG6X-0005.",
+  "3 reconciler_filled closes on bybit_1 incl. ict_scalp_xrp_15m 6289 at -$127.95 ESTIMATED where the exit (1.4923) is nowhere near the stop (1.5637). PI-20261004-ZBHFJG6X-0006.",
+  "bybit_2 closes carry journalTrust known_divergent (all 3); the standing broker-truth record for the bybit_2 sub-account credential gap is unchanged and is not re-derived here (see the 2026-09-27 review record).",
+  "ict_scalp_avax_5m is execution: shadow on main (\"operator decision 2026-09-28\" per the config comment) yet shows 2 filled closes in the window (6228 2026-09-27T20:27Z +$164.53 tp; 6232 2026-09-28T00:36Z +$2,598.70). Both opened BEFORE the flip date in the comment, so not a gate breach; the flip commit itself was not reachable in this clone's history (deepened 400 commits) -- stated, not asserted.",
+  "breakout_1 fill 80 (ETH short 1.22 @ 2657.17, 2026-10-02T18:47Z) is the only real prop trade in the window and its exit price and P&L are unrecorded (`closed_on_terminal (executor reconcile; exit read from the terminal history is not built)`). The OPS-AUDIT covers the executor; the performance consequence is that breakout_1's only window trade cannot be graded on exit. Not re-filed; the audit's PI-20261004-GCFA5DOR rows own the executor.",
+  "skill drift corrected in this PR: documented limit=500 pulls return HTTP 422 (router caps at 200; order-packages has no offset); classify_paper_records.py must be fed journal-shaped rows; the paper-book tracker had not been appended since 2026-07-22.",
+  "The grading cron question and the two prop items aside, nothing in this window changes a real-money roster decision: 0 of 11 roster slots fail B1 (python3 scripts/ci/check_roster_promotion_evidence.py --population --json, this run)."
+ ],
+ "recommended_action": "(1) Tier-1 now: merge this record; the manager should read PI-20261004-ZBHFJG6X-0003 first (the daily grader did not land today and the freshness guard cannot see it). (2) Tune-before-demote for ada_pullback_2h: run the M8 sweep (`scripts/ops/strategy_tune_sweep` family -> runtime_logs/strategy_tunes/<date>/ada_pullback_2h__*.json) before any Stage-2 demotion proposal; it is 1/11 lifetime wins at full pnl coverage and the paper mirror of the same leg is -$4,335 over 32. (3) No Tier-3 change proposed; no promotion candidate clears the bar; real-money n=5 is too small for any per-leg verdict and the review says so.",
+ "operator_attention_required": false,
+ "claude_channel_ping": "/performance-review 09-27..10-04: 218 decisions graded, 113 closes; real money 5 closes 0W -$18.90 (all SL, n too small); paper bybit_1 -$3,308/96; 0 Tier-3 tweaks; 80/80 backlog triaged; 6 filed."
+}

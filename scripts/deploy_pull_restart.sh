@@ -88,6 +88,35 @@ cd "$REPO_DIR"
 PRE_SYNC_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 echo ">>> Pre-sync HEAD: ${PRE_SYNC_HEAD}"
 
+# ---------------------------------------------------------------------------
+# PI-20261004-PUQ1APTH-0007 (2): clear a stuck auto-gc before the fetch.
+#
+# When `git gc --auto` finds more unreachable loose objects than it may prune
+# (gc.pruneExpire keeps the last 2 weeks), it writes .git/gc.log and then
+# REFUSES to auto-gc again until that file is removed. Every fetch since printed
+# "The last gc run reported ... remove .git/gc.log" / "too many unreachable
+# loose objects; run git prune" (MEASURED 2026-10-03, ict-git-sync journal), and
+# the object store only grows. This clone is a read-only mirror whose only
+# object writer is this script, so pruning UNREACHABLE objects is safe; the
+# --expire=1.hour.ago margin still spares anything a concurrent writer (a
+# pull-and-deploy run overlapping the timer) could have just created.
+#
+# Bounded and never blocking: runs only when gc.log exists (so once per stuck
+# gc, not every tick), is capped by `timeout`, and every failure is only a
+# warning -- a prune problem must never stop the pull. gc.log is removed only
+# after a successful prune, so a failed prune is retried on the next tick.
+# ---------------------------------------------------------------------------
+GIT_GC_LOG="${REPO_DIR}/.git/gc.log"
+if [ -f "${GIT_GC_LOG}" ]; then
+    echo ">>> ${GIT_GC_LOG} present (auto-gc is stuck) — running a bounded git prune..."
+    if timeout "${GIT_PRUNE_TIMEOUT_S:-300}" git prune --expire=1.hour.ago; then
+        rm -f "${GIT_GC_LOG}" || true
+        echo ">>> git prune done; removed .git/gc.log so auto-gc can run again."
+    else
+        echo ">>> WARNING: git prune failed or timed out — leaving .git/gc.log; continuing with the pull."
+    fi
+fi
+
 echo ">>> Fetching latest from origin..."
 # BL-20260706-GITSYNC-AUTH-BROKEN: the repo went private 2026-07-06, so the
 # plain anonymous HTTPS fetch this script relied on since inception no longer
@@ -304,6 +333,50 @@ fi
 # order-package / comms-handler paths), requirements*, pyproject, etc. —
 # falls through to the normal restart below.
 #
+# RESTART-SAFE (2026-10-03, PI-20261003-OJTPWGCC-0001) widened the safe set by
+# six paths no long-running process imports or caches: research/ (queue units +
+# results), runtime_logs/ (CI-committed artifacts such as replay_pregate/),
+# scripts/research/ and scripts/ci/ (offline tools and CI guards — src/ imports
+# only scripts.ops and scripts.ml), comms/research/ and comms/strategy_evidence/
+# (evidence records; no src/ reader). MEASURED over 2026-09-30T15:58Z..
+# 2026-10-03T06:00Z: all 112 ict-trader-live process starts were this script's
+# restarts (soak process boundaries vs this unit's journal), and 45 of them
+# changed nothing outside the widened set. Each restart can land inside a
+# leg's decision window, so a needless one is not free. comms/ OUTSIDE the
+# subdirectories listed in the regex stays runtime (claude_strategy_scores.jsonl
+# and strategy_reviews/ have src/ readers).
+#
+# comms/macro/ joined the safe set on 2026-10-04 (PI-20261004-PUQ1APTH-0006): a
+# workflow append to comms/macro/valuation_snapshots.jsonl alone restarted the
+# trader on 2026-10-03T13:31Z. IMPORT-TIME PROOF (grep of src/, scripts/ops,
+# scripts/ml and scripts/*.py on 2026-10-04, for `comms/macro`,
+# `"comms", "macro"`, `/ "macro"` and every basename under comms/macro/):
+#   - The ONLY long-running-process reader is
+#     src/units/strategies/macro_thesis/valuation_store.py
+#     (COMMITTED_SNAPSHOT_SUBPATH = ("comms", "macro", "valuation_snapshots.jsonl")).
+#     read_snapshot_records() opens the file on EVERY call. There is no
+#     module-level read, no lru_cache and no module global holding its content.
+#   - Its one runtime caller is thesis_tick.run_macro_thesis_tick(), which
+#     src/main.py calls once per trader tick (cadence-gated). So the next due
+#     tick reads the new rows without a restart.
+#   - No src/web router reads comms/macro. The only other hits are
+#     scripts/ops/check_artifact_validity.py and sweep_stale_automation_prs.py,
+#     which are per-invocation CLIs that src/ never imports.
+# Re-run the grep before adding an import-time cache of any comms/macro file.
+#
+# EXCEPTION (OA-16(d), PI-20261004-GCFA5DOR-0010): scripts/research/ is
+# non-runtime EXCEPT the modules the web-api's /api/bot/work/brief imports
+# IN-PROCESS. src/web/api/routers/work.py imports
+# scripts.ops.render_daily_brief, which imports
+# scripts.research.queue_throughput (render_daily_brief.py:334/365). Python
+# caches them in sys.modules, so only a restart loads a change. The list below
+# is that import closure, MEASURED by building and rendering the brief and
+# collecting every loaded module file under scripts/research/.
+# tests/test_deploy_pull_restart_runtime_gate.py re-measures the closure and
+# fails if a module the brief loads is missing from the list.
+# src/web/api/routers/diag.py carries the same two patterns for restart_pending,
+# and tests/test_diag_restart_pending_lockstep.py pins them equal.
+#
 # FAIL-SAFE: if the diff cannot be computed, or comes back empty while HEAD
 # moved, we DO restart. An unnecessary restart is the prior status quo; a
 # MISSED restart would pin the running processes to stale code. Only a
@@ -315,13 +388,21 @@ if [ "${DEPLOY_FORCE_RESTART:-0}" != "1" ]; then
     # than PRE_SYNC_HEAD, so a drift deploy (HEAD didn't move this fetch, but
     # the marker is behind) evaluates the files that changed since the running
     # processes started — not an empty PRE..POST diff.
-    CHANGED_FILES="$(git diff --name-only "${RUNTIME_BASE}" "${POST_SYNC_HEAD}" 2>/dev/null || true)"
+    # --no-renames: a rename is reported as BOTH paths, so moving a runtime file
+    # into a non-runtime directory (src/x.py -> scripts/research/x.py) still
+    # restarts — rename detection would otherwise show only the new path.
+    CHANGED_FILES="$(git diff --no-renames --name-only "${RUNTIME_BASE}" "${POST_SYNC_HEAD}" 2>/dev/null || true)"
     if [ -n "${CHANGED_FILES}" ]; then
         # Strip the known-safe non-runtime paths; anything left needs a restart.
         RUNTIME_CHANGES="$(printf '%s\n' "${CHANGED_FILES}" \
-            | grep -vE '^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$)' || true)"
+            | grep -vE '^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$|research/|runtime_logs/|scripts/research/|scripts/ci/|comms/research/|comms/strategy_evidence/|comms/macro/)' || true)"
+        # Add back the scripts/research modules the web-api imports in-process
+        # (the EXCEPTION above). Without this the brief serves stale code.
+        IN_PROCESS_CHANGES="$(printf '%s\n' "${CHANGED_FILES}" \
+            | grep -E '^scripts/research/(dispatch_queue|e35_bracket_geometry_sweep|m20_fleet_exit_sweep|m20_wf_effective|queue_grade|queue_replenish|queue_throughput|research_queue)\.py$' || true)"
+        RUNTIME_CHANGES="${RUNTIME_CHANGES}${IN_PROCESS_CHANGES}"
         if [ -z "${RUNTIME_CHANGES}" ]; then
-            echo ">>> Non-runtime commit (${RUNTIME_BASE:0:7} -> ${POST_SYNC_HEAD:0:7}): only docs/tests/.claude/top-level-markdown changed."
+            echo ">>> Non-runtime commit (${RUNTIME_BASE:0:7} -> ${POST_SYNC_HEAD:0:7}): only non-runtime paths changed (docs/tests/.claude/.github/top-level-md/research/runtime_logs/scripts/{research,ci}/comms/{research,strategy_evidence,macro})."
             echo ">>> Code synced + pings sent; skipping dependency install, unit refresh, and service restart (BL-20260529-002)."
             printf '%s\n' "${CHANGED_FILES}" | sed 's/^/>>>   changed: /'
             # The running processes' RUNTIME code already matches POST (only

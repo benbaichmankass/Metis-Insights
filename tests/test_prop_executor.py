@@ -161,7 +161,90 @@ def test_account_not_read_refuses():
 
 def test_risk_gate_enforce_cap_refuses_above_flat_75():
     v = guards(t=ticket(qty=40.0), account=acct(9000.0, 9000.0), ds=9000.0)
-    assert any(r.startswith("risk cap: resized") for r in v.reasons)
+    assert any(r.startswith("risk cap: ticket asks $80.00") and "REFUSED" in r for r in v.reasons), v.reasons
+
+
+# ── the flat $-cap vs the venue increments (BREAKOUT-CAP-ROUND, 2026-10-02) ──
+#
+# The risk the guards grade is computed from the values actually TYPED, and the
+# stop can only be typed at the venue's price_step. Rounding it widens the stop
+# by up to one step, so a ticket the sizer built at exactly the $75 cap lands a
+# few cents above it. Before this, the guard refused that ticket outright:
+# prop-manual-00e7ecbd6bd4 (SOLUSDT long, trend_donchian_sol_prop) was skipped
+# at 2026-10-02T04:04:36Z for `risk cap: resized (... $75.11 ... cap $75.00)`
+# while the announced resize was never applied. The size is now cut instead.
+
+SOL_STEPPED = {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0, "min_lots": 0.01,
+               "lot_step": 0.01, "price_step": 0.01}
+
+# The live ticket's own numbers (GET /api/bot/prop/tickets, ticket_id
+# prop-manual-00e7ecbd6bd4): qty 28.45528451 at entry 121.23 / sl 118.59428571
+# is exactly $75.00 of risk. floor to 0.01 lots -> 28.45; the stop types as
+# 118.59, widening the stop 2.63571429 -> 2.64; 28.45 x 2.64 = $75.11.
+ROUNDING_TICKET = dict(entry=121.23, sl=118.59428571, tp=133.23177, qty=28.45528451, risk_usd=75.0)
+
+
+def test_venue_increment_overshoot_is_resized_down_and_placed():
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    spec, facts, refusal = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert refusal == ""
+    # one lot step at a time, DOWN, until the typed risk fits: 28.45 -> 28.40
+    assert (spec.quantity, spec.stop_loss, spec.limit_price) == (28.4, 118.59, 121.23)
+    assert facts["ticket_risk_usd"] == 74.98 <= c.risk_cap_usd
+    assert facts["risk_cap_resize"]["from_lots"] == 28.45
+    assert facts["risk_cap_resize"]["risk_usd_before"] == 75.11
+    # and the guard now PLACES it: no risk-cap reason at all
+    v = guards(t=ticket(**ROUNDING_TICKET), c=c)
+    assert v.fits, v.reasons
+    assert not any(r.startswith("risk cap") for r in v.reasons), v.reasons
+    assert v.checks["risk_cap"]["action"] == "unchanged"
+
+
+def test_one_more_lot_step_would_have_breached_the_cap():
+    # The cut is to the LAST size that fits, not a safe-looking round number:
+    # 28.41 lots x 2.64 = $75.0024, above the cap.
+    assert round(28.41 * 2.64, 4) > 75.0
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert facts["lots"] == 28.4
+
+
+def test_a_gross_over_cap_ticket_is_still_refused_never_resized():
+    # The ticket itself asks for $120 of risk (no rounding involved). Resizing
+    # it to the cap would place a trade nobody sized; it is refused.
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    t = ticket(entry=120.0, sl=118.0, tp=126.0, qty=60.0, risk_usd=120.0)
+    spec, facts, refusal = pe.bracket_from_ticket(t, c)
+    assert refusal == "" and facts["ticket_risk_usd"] == 120.0
+    assert facts["risk_cap_resize"] is None, "a ticket's own over-cap ask is never resized"
+    v = guards(t=t, c=c, account=acct(9000.0, 9000.0), ds=9000.0)
+    assert not v.fits
+    assert any(r.startswith("risk cap: ticket asks $120.00") and "REFUSED" in r for r in v.reasons), v.reasons
+
+
+def test_the_size_never_grows():
+    # A ticket well under the cap is typed as sized — the cap is a ceiling, and
+    # size_lots' floor is never walked back up to it.
+    c = cfg(symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(entry=120.0, sl=118.0, tp=126.0, qty=1.0), c)
+    assert facts["lots"] == 1.0 and facts["ticket_risk_usd"] == 2.0
+    assert facts["risk_cap_resize"] is None
+
+
+def test_no_declared_cap_still_refuses_rather_than_emitting_an_unbounded_size():
+    c = cfg(risk_cap_usd=None, symbols={"SOLUSDT": SOL_STEPPED})
+    _, facts, _ = pe.bracket_from_ticket(ticket(**ROUNDING_TICKET), c)
+    assert facts["risk_cap_resize"] is None, "an unknown cap bounds nothing — nothing to resize to"
+    v = guards(t=ticket(**ROUNDING_TICKET), c=c)
+    assert not v.fits and any("no configured cap" in r for r in v.reasons), v.reasons
+
+
+def test_a_stop_that_rounds_onto_the_entry_is_refused_not_risk_zero():
+    # Otherwise risk reads 0.0 and every cushion guard passes a stopless trade.
+    c = cfg(symbols={"SOLUSDT": {**SOL_STEPPED, "price_step": 1.0}})
+    spec, facts, refusal = pe.bracket_from_ticket(
+        ticket(entry=120.2, sl=120.1, tp=126.0, qty=1.0), c)
+    assert spec is None and "no stop distance to risk" in refusal
 
 
 def test_risk_is_recomputed_from_lots_not_the_tickets_claim():
@@ -319,8 +402,11 @@ class FakeAdapter:
         self.flatten_facts = facts
         return {"ok": True, "clicked": arm}
 
-    def modify_bracket(self, page, position, sl, tp, *, arm=False):
+    def modify_bracket(self, page, position, sl, tp, *, arm=False, rollout=None):
         self.calls.append(("modify_bracket", position.symbol, arm))
+        self.rollout = rollout
+        if getattr(self, "modify_result", None) is not None:
+            return self.modify_result
         return {"ok": True, "clicked": arm}
 
 
@@ -605,6 +691,22 @@ def test_classify_ticket_surface():
 
 # ── dxtrade order controls in a real Chromium, against an INVENTED form ───
 
+# The live submit STATES the order: "<Side> <qty> <SYM> at <price>" (every
+# label measured live, breakout-login-check runs #13942 .. #15537), rewritten
+# by the terminal as the quantity / side change. These replicas predate that
+# measurement, so each carries this relabel: once a quantity is typed, the
+# submit reads "<side> <qty> <sym> at 120.00". The side is the one the label
+# already names (a terminal whose label IS the side read-back keeps it),
+# else the side picked. ``window.__noAutoLabel`` lets a test own the label.
+def _relabel_js(sym_js, side_js):
+    return ("<script>(()=>{const L=()=>{if(window.__noAutoLabel)return;const s=document.getElementById('sub'),"
+            "q=document.getElementById('q');if(!s||!q||!q.value)return;"
+            "const m=s.textContent.match(/\\b(Buy|Sell)\\b/i);const sd=m?m[1]:(" + side_js + ");if(!sd)return;"
+            "const t=sd[0].toUpperCase()+sd.slice(1).toLowerCase()+' '+parseFloat(q.value)+' '+(" + sym_js + ")+' at 120.00';"
+            "if(s.textContent!==t)s.textContent=t;};document.addEventListener('input',L,true);"
+            "document.addEventListener('click',()=>setTimeout(L,0),true);setInterval(L,20);})()</script>")
+
+
 TICKET_PAGE = """
 <html><body>
 <div class="bar"><span>One-click trading</span><input type="checkbox" id="oc" %s></div>
@@ -631,6 +733,8 @@ function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=
 </div>
 </body></html>
 """
+TICKET_PAGE = TICKET_PAGE.replace("</body>", _relabel_js(
+    "document.querySelector('.hdr').textContent.trim()", "window.__side") + "</body>")
 
 
 @pytest.fixture(scope="module")
@@ -713,8 +817,9 @@ def test_one_click_on_is_recorded_on_a_disarmed_walk(tpage):
 
 def test_place_bracket_refuses_when_side_is_not_readable_back(tpage):
     # side buttons that expose no pressed/selected state at all
+    # (this test owns its submit label: "Place Order" names no side)
     html = (TICKET_PAGE % "").replace("window.__side='buy';sel(this)", "window.__side='buy'") \
-                             .replace("window.__side='sell';sel(this)", "window.__side='sell'")
+                             .replace("window.__side='sell';sel(this)", "window.__side='sell'").replace("<body>", "<body><script>window.__noAutoLabel=1</script>", 1)
     p = tpage(html=html)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "side: not readable back" in att.detail
@@ -1038,6 +1143,27 @@ def test_round_trip_dry_clicks_nothing(tmp_path):
     assert api.posts == []
 
 
+def test_dry_walk_cap_sizes_only_the_dry_walk(tmp_path):
+    """TRADEIFY-SOL-SIZE: dry_walk_max_lots lets the DRY walk use a realistic
+    size; the armed round trip still uses (and is capped by) watched_click_max_lots."""
+    c = rt_cfg(dry_walk_max_lots={"SOLUSD": 1.0})
+    ad = RTAdapter()
+    res = rt(ad, FakeApi(), tmp_path, arm=False, c=c)
+    assert res.halted is None, res.actions
+    assert ad.calls[0][0] == "place_bracket" and ad.calls[0][2] is False
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]["spec"]
+    assert spec["quantity"] == 1.0
+    ad2 = RTAdapter()
+    res2 = rt(ad2, FakeApi(), tmp_path, arm=True, c=c, lots=1.0)
+    assert "must be > 0 and <= watched_click_max_lots 0.1" in (res2.halted or "") and ad2.calls == []
+
+
+def test_tradeify_1_dry_walk_cap_arms_nothing():
+    c = pe.load_config("tradeify_1")
+    assert c.watched_click_max_lots == {"ETHUSD": 0.01, "SOLUSD": 0.01}
+    assert c.dry_walk_max_lots == {"SOLUSD": 1.0}
+
+
 @pytest.mark.parametrize("setup,needle", [
     (dict(c=cfg(watched_click_max_lots={"SOLUSD": 0.1},
                 symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": None,
@@ -1288,6 +1414,9 @@ function tog(d){ if(!d.hasAttribute('data-stuck')) d.setAttribute('data-value', 
 </div>
 </body></html>
 """
+LIVE_SIDEBAR = LIVE_SIDEBAR.replace("</body>", _relabel_js(
+    "document.querySelector('.hdr').textContent.trim()",
+    "(document.querySelector('[data-g=side][aria-pressed=true]')||{}).textContent") + "</body>")
 SUBMIT_BTN = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
 
 
@@ -1301,7 +1430,7 @@ def test_live_shape_switches_both_toggles_on_scrolls_to_submit_and_verifies(tpag
     assert att.stage == "form_verified", att.detail
     assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
     assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
-    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy 0.5 SOLUSD at 120.00"
     assert p.evaluate("window.__submits") is None
 
 
@@ -1338,7 +1467,7 @@ def test_a_virtualised_submit_is_found_by_scrolling_the_panel(tpage):
 def test_a_field_changed_by_scrolling_refuses(tpage):
     # A panel that rewrites the quantity when scrolled: the post-scroll read-back must catch it.
     evil = ("<script>document.getElementById('panel').addEventListener('scroll', () => {"
-            " document.getElementById('q').value = '9'; });</script>")
+            " window.__noAutoLabel = 1; document.getElementById('q').value = '9'; });</script>")
     p = tpage(html=_live() + evil)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "read-back after scrolling to submit" in att.detail
@@ -1346,7 +1475,9 @@ def test_a_field_changed_by_scrolling_refuses(tpage):
 
 
 def test_a_submit_that_does_not_name_the_side_refuses(tpage):
-    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'"))
+    # (this test owns its submit label: "Place Order" names no side)
+    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'")
+              .replace("<script>", "<script>window.__noAutoLabel=1;", 1))
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and "does not name the intended side" in att.detail
     assert p.evaluate("window.__submits") is None
@@ -1626,6 +1757,8 @@ function tog(d){ if(d.hasAttribute('data-stuck')) return; const on=d.getAttribut
 </div>
 </body></html>
 """
+MEASURED_SIDEBAR = MEASURED_SIDEBAR.replace("</body>", _relabel_js(
+    "'%SYM%'", "(document.querySelector('.sd[style*=background]')||{}).textContent") + "</body>")
 
 
 def _measured(sym="SOLUSD", symval="SOLUSD", slmode="Price"):
@@ -1715,7 +1848,7 @@ def test_measured_sidebar_disarmed_walk_passes_the_full_read_back(tpage):
     assert att.stage == "form_verified", att.detail
     assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
     assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
-    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy 0.01 SOLUSD at 120.00"
     assert p.evaluate("window.__submits") is None
 
 
@@ -1724,7 +1857,7 @@ def test_measured_sidebar_sell_is_selected_and_read_back_by_colour(tpage):
     spec = BracketSpec("t2", "SOLUSD", "short", 0.01, 126.0, 118.0, "market", None)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
     assert att.stage == "form_verified", att.detail
-    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell SOLUSD"
+    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell 0.01 SOLUSD at 120.00"
 
 
 def test_measured_sidebar_refuses_another_symbol(tpage):
@@ -1747,7 +1880,7 @@ def _measured_live_label(clamp_min=None):
     """The replica with the MEASURED label shape (probe #13855): the terminal
     writes "<Side> <qty> SOLUSD at <price>" from the quantity it accepted;
     ``clamp_min`` models a venue that silently raises a smaller size."""
-    js = ("<script>function relabel(){const b=document.querySelector('.sd[style*=background]');"
+    js = ("<script>window.__noAutoLabel=1;function relabel(){const b=document.querySelector('.sd[style*=background]');"
           "let q=parseFloat(document.getElementById('q').value)||0;"
           + (f"if(q>0&&q<{clamp_min})q={clamp_min};" if clamp_min else "") +
           "document.getElementById('sub').textContent=(b?b.textContent.trim():'Buy')+' '+q+' SOLUSD at 120.05'}"
@@ -1755,13 +1888,48 @@ def _measured_live_label(clamp_min=None):
     return _measured().replace("</body>", js + "</body>")
 
 
+def test_every_live_measured_submit_label_still_passes():
+    # Every submit label the LIVE terminal showed (breakout-login-check runs
+    # #13942, #13953, #13965, #13983, #13987, #14154, #14191, #14330, #14344,
+    # #14761, #15021, #15261, #15263, #15464, #15537 -- 16 distinct labels;
+    # plus the 2026-10-02 live ETH short): the tightening refuses none of them.
+    from types import SimpleNamespace
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    live = [("Buy 0.01 SOLUSD at 117.49", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 118.02", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 118.25", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 118.52", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 118.94", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 119.03", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 119.04", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 120.09", 0.01, "SOLUSD"),
+            ("Buy 0.01 SOLUSD at 120.59", 0.01, "SOLUSD"), ("Buy 0.01 SOLUSD at 120.73", 0.01, "SOLUSD"),
+            ("Buy 49 SOLUSD at 117.52", 49, "SOLUSD"), ("Buy 49 SOLUSD at 117.77", 49, "SOLUSD"),
+            ("Buy 0.01 ETHUSD at 2,697.81", 0.01, "ETHUSD"), ("Buy 0.01 ETHUSD at 2,698.50", 0.01, "ETHUSD"),
+            ("Buy 0.01 ETHUSD at 2,723.74", 0.01, "ETHUSD"), ("Buy 0.01 ETHUSD at 2,749.46", 0.01, "ETHUSD"),
+            ("Sell 1.22 ETHUSD at 2,657.11", 1.22, "ETHUSD"), ("Buy 0.01 ETH/USD at 2,685.84", 0.01, "ETHUSD")]
+    for label, qty, sym in live:
+        assert submit_label_mismatch(label, SimpleNamespace(quantity=qty, venue_symbol=sym)) == "", label
+
+
 def test_submit_label_mismatch_reads_the_measured_label_shape():
     from src.prop.platform.dxtrade import submit_label_mismatch
     spec = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
     assert submit_label_mismatch("Buy 0.01 SOLUSD at 120.05", spec) == ""
-    assert submit_label_mismatch("Buy SOLUSD", spec) == ""                 # no qty stated: read-back alone
+    # A label that does not state "<Buy|Sell> <qty> <SYM>" is refused
+    # (DIALOG-MEASURE): a modify-mode surface's "Save" / "Modify" is no order.
+    for label in ("Buy SOLUSD", "Save", "Modify", "Modify Position", "Place Order", ""):
+        assert "does not read as" in submit_label_mismatch(label, spec), label
     assert "states quantity 0.1" in submit_label_mismatch("Buy 0.1 SOLUSD at 120.05", spec)
     assert "names 'ETHUSD'" in submit_label_mismatch("Buy 0.01 ETHUSD at 3000.1", spec)
+
+
+def test_submit_label_mismatch_refuses_the_opposite_side():
+    # TRADEIFY-DRY 2026-10-03: the label's own Buy/Sell must match the spec's
+    # side; before, "Sell 0.01 ETH/USD" passed a long spec.
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    long_eth = BracketSpec("t", "ETHUSD", "long", 0.01, 2600.0, 2800.0, "limit", 2680.0)
+    short_eth = BracketSpec("t", "ETHUSD", "short", 0.01, 2800.0, 2600.0, "limit", 2680.0)
+    assert submit_label_mismatch("Buy 0.01 ETH/USD at 2,678.650", long_eth) == ""
+    assert submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", short_eth) == ""
+    assert "states side 'Sell'" in submit_label_mismatch("Sell 0.01 ETH/USD at 2,678.650", long_eth)
+    assert "states side 'Buy'" in submit_label_mismatch("Buy 0.01 ETH/USD at 2,678.650", short_eth)
 
 
 def test_measured_sidebar_label_stating_the_typed_qty_passes(tpage):
@@ -3854,3 +4022,467 @@ def test_the_action_wrapper_reports_a_deferred_test_as_deferred_not_failed():
     i = sh.index('if [ "${rc}" -eq 7 ]; then')
     block = sh[i:i + 400]
     assert "deferred" in block and "exit 0" in block
+
+
+def test_contain_passes_the_accounts_rollout_latch_and_a_guard_refusal_falls_through_to_close(env):
+    # DIALOG-MEASURE rollout guard (manager 2026-10-02): the partial_no_sl_tp
+    # repair types SL AND TP, so under the guard it is refused before any
+    # click; the existing next-cycle close-at-market then takes over.
+    ledger, _ = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    ad.modify_result = {"ok": False, "clicked": False,
+                        "why": "rollout refused: rollout step must leave the take profit unchanged"}
+    res = run(ad, FakeApi(), env)
+    assert ("modify_bracket", "SOLUSD", True) in ad.calls
+    assert ad.rollout.path == Path(ledger.path).parent / "modify_rollout.json"
+    assert any("rollout refused" in al for al in res.alerts)
+    run(ad, FakeApi(), env)
+    assert ("flatten", "SOLUSD", True) in ad.calls
+
+
+# ── BREAKOUT-NOATTEMPT: a validity that ran out unattempted is never silent ──
+#
+# MEASURED 2026-10-02 from the ict-prop-executor journal (06:59Z-16:59Z, 121
+# ticks, read via /api/diag/journalctl): ETH ticket prop-manual-fb466451fd1f
+# (created 08:19:49Z, valid_until 09:19:50Z) was looked at on all 12 ticks
+# inside its validity and declined every one with band_wait (ask 2747.43 ..
+# 2760.52 against an entry band around 2774.55). It reached expiry_prompted
+# with NO prop_fills row and NO alert, which reads exactly like an executor
+# that never attempted it. These tests pin the alert that distinguishes them.
+
+
+def test_a_ticket_that_waits_out_its_whole_validity_alerts_once(env):
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})        # outside ticket()'s 119.5..120.5 band
+    api = FakeApi([ticket()])
+    # inside the validity (valid_until = NOW + 30m): waits, and stays quiet
+    for k in (0, 1, 2):
+        res = _band_cycle(ad, api, env, k)
+        assert _places(ad) == [] and ledger.latest() == {}
+        assert [a for a in res.alerts if "NOT PLACED" in a] == []
+    # the expiry prompter has since flipped it off `emitted`, so intake is empty
+    api._tickets = []
+    res = _band_cycle(ad, api, env, 7)                           # NOW + 35m > valid_until
+    hit = [a for a in res.alerts if "NOT PLACED" in a]
+    assert len(hit) == 1 and "prop-manual-aaa" in hit[0]
+    assert "NO placement attempt" in hit[0] and "entry band" in hit[0]
+    assert any(a["what"] == "unattempted_expiry" and a["ticket_id"] == "prop-manual-aaa"
+               for a in res.actions)
+    # ...and only once, however many cycles follow
+    for k in (8, 9):
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_the_no_attempt_alert_posts_no_report_and_writes_no_ledger_row(env):
+    # A `skipped` report would flip the ticket off `emitted` and pull it out of
+    # every manual-bridge path that keys on it. The alert must not do that.
+    ledger, _ = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)
+    api._tickets = []
+    res = _band_cycle(ad, api, env, 7)
+    assert [a for a in res.alerts if "NOT PLACED" in a]
+    # the routine account_status report still goes; nothing about the TICKET does
+    assert [p for p in api.posts if p.get("kind") != "account_status"] == []
+    assert ledger.latest() == {}
+
+
+def test_a_ticket_that_comes_back_into_the_band_and_places_never_alerts(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)                                # waits
+    ad.quote = {"bid": 119.99, "ask": 120.0}                    # back inside
+    _band_cycle(ad, api, env, 1)
+    assert len(_places(ad)) == 1
+    res = _band_cycle(ad, api, env, 7)                          # past valid_until
+    assert [a for a in res.alerts if "NOT PLACED" in a] == []
+
+
+def test_a_ticket_refused_on_its_band_does_not_also_get_the_no_attempt_alert(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)                                # waits: note taken
+    api._tickets = [ticket(message="no band in this text")]     # unreadable band → refuse
+    _band_cycle(ad, api, env, 1)
+    res = _band_cycle(ad, api, env, 7)
+    assert [a for a in res.alerts if "NO placement attempt" in a] == []
+
+
+def test_a_symbol_not_enabled_ticket_alerts_when_its_validity_runs_out(env):
+    # MEASURED 2026-09-30: ETH ticket prop-manual-a22cb1d44517 was skipped
+    # `symbol_not_enabled` at 12:34:59Z (ETHUSD joined enabled_venue_symbols
+    # only on 2026-10-01, #15143) and aged to expiry_prompted with no row.
+    ledger, state = env
+    c = cfg(enabled_venue_symbols=["SOLUSD"],
+            symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                 "min_lots": 0.01, "lot_step": 0.01},
+                     "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                 "min_lots": 0.01, "lot_step": 0.01}})
+    t = ticket(ticket_id="prop-manual-eth", symbol="ETHUSDT", entry=2774.55,
+               sl=2729.59, tp=3044.30)
+    api = FakeApi([t])
+    ad = FakeAdapter()
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW)
+    assert any(a["what"] == "skipped" and a.get("reason") == "symbol_not_enabled"
+               for a in res.actions)
+    assert [a for a in res.alerts if "NOT PLACED" in a] == []    # still inside its validity
+    api._tickets = []
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW + timedelta(minutes=35))
+    hit = [a for a in res.alerts if "NOT PLACED" in a]
+    assert len(hit) == 1 and "prop-manual-eth" in hit[0]
+    assert "enabled venue symbols" in hit[0]
+
+
+def test_the_sweep_fires_even_when_the_ticket_read_fails(env):
+    # The sweep runs BEFORE intake, so an API outage cannot hide the expiry.
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    _band_cycle(ad, FakeApi([ticket()]), env, 0)
+
+    class Dead(FakeApi):
+        def tickets(self, account_id):
+            raise OSError("api down")
+
+    res = _band_cycle(ad, Dead(), env, 7)
+    assert [a for a in res.alerts if "NO placement attempt" in a]
+    assert [a for a in res.alerts if "ticket intake failed" in a]
+
+
+def test_a_ticket_whose_validity_has_not_passed_is_not_alerted(env):
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket()])
+    for k in range(6):                                          # NOW .. NOW+25m, valid_until NOW+30m
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_a_ticket_with_no_readable_valid_until_is_never_swept(env):
+    # Fail-quiet: a validity we cannot read is not known to have passed, and a
+    # false "NOT PLACED" on a live setup is worse than silence.
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    api = FakeApi([ticket(valid_until=None)])
+    for k in (0, 20):
+        assert [a for a in _band_cycle(ad, api, env, k).alerts if "NOT PLACED" in a] == []
+
+
+def test_the_no_attempt_note_store_is_bounded(env):
+    ledger, state = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})
+    for i in range(pe._UNATTEMPTED_KEEP + 12):
+        _band_cycle(ad, FakeApi([ticket(ticket_id=f"prop-manual-{i:03d}")]), env, 0)
+    assert len(state.load().get(pe._UNATTEMPTED_KEY) or {}) <= pe._UNATTEMPTED_KEEP
+
+
+def test_attempt_public_carries_the_masked_sidebar_text():
+    """TRADEIFY-SOL-SIZE: a submit-stage refusal records the ticket column's
+    visible text (digits masked) so the run log can show a validation line."""
+    sb = {"found": True, "n": 1, "rows": [{"tag": "div", "text": "Minimum quantity is ## lots", "hint": True}]}
+    att = PlaceAttempt(stage="refused", detail="submit: disabled", form={"sidebar_text": sb})
+    assert pe._attempt_public(att)["sidebar_text"] == sb
+    assert pe._attempt_public(PlaceAttempt(stage="refused", detail="x", form={}))["sidebar_text"] is None
+
+
+def test_sidebar_text_js_masks_digits_and_skips_personal():
+    from src.prop.platform.dxtrade import SIDEBAR_TEXT_JS
+    assert "replace(/\\d/g, '#')" in SIDEBAR_TEXT_JS
+    assert "user|profile|account|login|email" in SIDEBAR_TEXT_JS
+    assert ".value" not in SIDEBAR_TEXT_JS        # input values are never read
+
+
+# ── TRADEIFY-SOL-SIZE: the DRY-only limit offset probe ───────────────────────
+
+def _lim_cfg():
+    c = rt_cfg()
+    c.symbols["SOLUSDT"]["price_step"] = 0.001
+    return c
+
+
+@pytest.mark.parametrize("pct,expect", [(-0.5, 99.6), (0.5, 100.6)])
+def test_dry_limit_offset_prices_from_the_ask(tmp_path, pct, expect):
+    ad = RTAdapter(quote={"bid": 100.0, "ask": 100.1})
+    res = rt(ad, FakeApi(), tmp_path, arm=False, c=_lim_cfg(), order_type="limit", limit_offset_pct=pct)
+    assert res.halted is None, res.actions
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]
+    # within one 0.001 tick of the exact ask * (1 + pct), on the requested side of the ask
+    assert spec["spec"]["limit_price"] == pytest.approx(100.1 * (1 + pct / 100), abs=0.001)
+    assert spec["spec"]["limit_price"] == pytest.approx(expect, abs=0.01)
+    assert (spec["spec"]["limit_price"] < 100.1) == (pct < 0)
+    assert spec["limit_offset_pct"] == pct and spec["quote_at_spec"] == {"bid": 100.0, "ask": 100.1}
+    after = [a for a in res.actions if a["what"] == "quote_after_submit_check"]
+    assert after and after[0]["quote"] == {"bid": 100.0, "ask": 100.1}
+    assert all(c[2] is False for c in ad.calls)          # nothing armed
+
+
+@pytest.mark.parametrize("kw,needle", [
+    (dict(arm=True, order_type="limit"), "dry-only"),     # LIMIT refuses arming first
+    (dict(arm=True, order_type="market"), "dry-only"),
+    (dict(arm=False, order_type="market"), "needs order_type 'limit'"),
+    (dict(arm=False, order_type="limit", limit_offset_pct=7.0), "outside +/-5%"),
+])
+def test_limit_offset_is_refused_before_any_click(tmp_path, kw, needle):
+    kw = {"limit_offset_pct": 0.5, **kw}
+    ad = RTAdapter()
+    res = rt(ad, FakeApi(), tmp_path, c=_lim_cfg(), **kw)
+    assert needle in (res.halted or "") and ad.calls == []
+
+
+def test_live_ticket_path_cannot_carry_a_limit_offset():
+    """The live executor path (run_cycle -> bracket_from_ticket) has no offset
+    parameter: a ticket is always placed at its own entry."""
+    import inspect
+    assert "limit_offset_pct" not in inspect.signature(pe.run_cycle).parameters
+    assert "limit_offset_pct" not in inspect.signature(pe.bracket_from_ticket).parameters
+    src = inspect.getsource(pe.run_cycle)
+    assert "limit_offset" not in src
+
+
+def test_market_round_trip_does_not_read_the_quote_twice(tmp_path):
+    res = rt(RTAdapter(), FakeApi(), tmp_path, arm=False)
+    assert not [a for a in res.actions if a["what"] == "quote_after_submit_check"]
+
+
+# ── retry in band: a LIMIT blocked at/through the market (operator 2026-10-04) ──
+# MEASURED tradeify_1 SOLUSD (#16307/#16310/#16313): the submit is DISABLED and
+# the footer reads "Entry Price you set must be lower than ...".
+
+def _blocked(text="Entry Price you set must be lower than ###.###"):
+    return PlaceAttempt(stage="refused", submitted=False,
+                        detail="submit: not visible at its centre after scrolling — ...; the submit is DISABLED, "
+                               "the submit has pointer-events:none (not hit-testable)",
+                        form={"sidebar_text": {"found": True, "rows": [{"text": "Buy"}, {"text": text, "hint": True}]}})
+
+
+class SpecAdapter(QuoteAdapter):
+    """Records every spec handed to place_bracket (order type, limit)."""
+    def place_bracket(self, page, spec, *, arm=False):
+        self.specs = getattr(self, "specs", []) + [spec]
+        return super().place_bracket(page, spec, arm=arm)
+
+
+def _await_alerts(alerts):
+    return [a for al in alerts for a in al if "sits at/through the market" in a]
+
+
+def _end_alerts(alerts):
+    return [a for al in alerts for a in al if pe.AWAIT_REST_EXPIRED in a]
+
+
+def test_marketable_limit_block_needs_disabled_and_the_footer_text():
+    assert pe.marketable_limit_block(_blocked()) and pe.marketable_limit_block(
+        _blocked("Entry Price you set must be higher than ###.###"))
+    other = PlaceAttempt(stage="refused", detail="submit: disabled", form={"sidebar_text": {"rows": [{"text": "x"}]}})
+    assert pe.marketable_limit_block(other) is None                         # disabled, other cause
+    not_disabled = PlaceAttempt(stage="refused", detail="form read-back mismatch",
+                                form=_blocked().form)
+    assert pe.marketable_limit_block(not_disabled) is None                  # text alone is not enough
+    assert pe.marketable_limit_block(PlaceAttempt(stage="submitted", submitted=True, detail="disabled",
+                                                  form=_blocked().form)) is None
+
+
+def test_blocked_marketable_limit_waits_then_is_placed_when_resting(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())                 # default quote ask 120.0 == limit 120.0
+    api = FakeApi([ticket()])
+    alerts = [_rcycle(ad, api, env, 0).alerts]
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert len(_await_alerts(alerts)) == 1 and not [p for p in api.posts if p.get("ticket_id")]
+    ad.attempt = None
+    res = _rcycle(ad, api, env, 1)                       # ask still == limit: no form, no click
+    alerts.append(res.alerts)
+    assert len(_places(ad)) == 1 and any(a["what"] == "awaiting_resting_price" for a in res.actions)
+    ad.quote, ad.after_submit = {"bid": 120.1, "ask": 120.2}, ([], [_o()])
+    alerts.append(_rcycle(ad, api, env, 2).alerts)       # ask above the limit, inside the band
+    assert len(_places(ad)) == 2 and ledger.state("prop-manual-aaa") == "placed"
+    assert {s.order_type for s in ad.specs} == {"limit"} and {s.limit_price for s in ad.specs} == {120.0}
+    assert len(_await_alerts(alerts)) == 1 and not _end_alerts(alerts)
+
+
+def test_blocked_marketable_limit_expires_not_placed_with_one_alert(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())
+    api = FakeApi([ticket(valid_until=(NOW + timedelta(minutes=12)).isoformat())])
+    alerts = [_rcycle(ad, api, env, k).alerts for k in (0, 1, 2)]      # blocked, then still marketable
+    alerts += [_rcycle(ad, api, env, k).alerts for k in (3, 4)]         # NOW+15/+20 > valid_until
+    assert len(_places(ad)) == 1
+    row = ledger.latest()["prop-manual-aaa"]
+    assert row["state"] == "refused" and pe.AWAIT_REST_EXPIRED in row["reasons"][0]
+    assert len(_end_alerts(alerts)) == 1 and len(_await_alerts(alerts)) == 1
+    skips = [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]
+    assert len(skips) == 1 and pe.AWAIT_REST_EXPIRED in skips[0]["reason"]
+
+
+def test_an_awaiting_ticket_that_left_intake_still_ends_once_at_valid_until(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())
+    api = FakeApi([ticket(valid_until=(NOW + timedelta(minutes=7)).isoformat())])
+    _rcycle(ad, api, env, 0)
+    api._tickets = []                                    # expiry prompt flipped it off `emitted`
+    alerts = [_rcycle(ad, api, env, k).alerts for k in (2, 3)]
+    assert ledger.state("prop-manual-aaa") == "refused" and len(_end_alerts(alerts)) == 1
+    assert not [p for p in api.posts if p.get("ticket_id") == "prop-manual-aaa"]   # never flipped once out of intake
+
+
+def test_an_awaiting_ticket_ends_when_price_leaves_the_band(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=_blocked())
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    ad.attempt, ad.quote = None, {"bid": 120.9, "ask": 121.0}         # band 119.5..120.5
+    alerts = [_rcycle(ad, api, env, k).alerts for k in (1, 2)]
+    assert len(_places(ad)) == 1 and ledger.state("prop-manual-aaa") == "refused"
+    assert len(_end_alerts(alerts)) == 1 and "left the entry band" in _end_alerts(alerts)[0]
+
+
+def test_an_unrelated_disabled_submit_keeps_the_refuse_and_retry_path(env):
+    ledger, _ = env
+    other = PlaceAttempt(stage="refused", detail="submit: disabled",
+                         form={"sidebar_text": {"rows": [{"text": "Insufficient margin"}]}})
+    ad = SpecAdapter(attempt=other)
+    api = FakeApi([ticket()])
+    res = _rcycle(ad, api, env, 0)
+    assert ledger.state("prop-manual-aaa") == pe.RETRY_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    assert any("NOT PLACED yet" in a and "1/3" in a for a in res.alerts) and not _await_alerts([res.alerts])
+
+
+def test_awaiting_does_not_spend_the_retry_budget(env):
+    ledger, _ = env
+    ad = SpecAdapter(attempt=PRE)                        # a real pre-submit failure: attempt 1
+    api = FakeApi([ticket()])
+    _rcycle(ad, api, env, 0)
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    ad.attempt = _blocked()
+    _rcycle(ad, api, env, 1)                             # blocked: awaiting, budget untouched
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    ad.quote = {"bid": 120.1, "ask": 120.2}
+    _rcycle(ad, api, env, 2)                             # resting -> attempted again, blocked again (race)
+    assert ledger.state("prop-manual-aaa") == pe.AWAIT_REST_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 1
+    ad.attempt = PRE
+    _rcycle(ad, api, env, 3)                             # the next REAL failure is attempt 2, not 4
+    assert ledger.state("prop-manual-aaa") == pe.RETRY_STATE
+    assert ledger.latest()["prop-manual-aaa"]["attempts"] == 2
+
+
+def test_a_watched_click_that_is_blocked_is_refused_not_awaited(env):
+    ledger, state = env
+    ad = SpecAdapter(attempt=_blocked())
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([ticket()]), cfg=cfg(watched_click_max_lots={"SOLUSD": 0.1}),
+                 mode="live", ledger=ledger, state=state, now=NOW,
+                 max_lots={"SOLUSD": 0.1})
+    assert ledger.state("prop-manual-aaa") == "refused"
+
+
+def test_no_live_ticket_path_sends_market():
+    import inspect
+    src = inspect.getsource(pe.run_cycle) + inspect.getsource(pe.bracket_from_ticket)
+    assert 'order_type="market"' not in src and "order_type='market'" not in src
+    spec, _, why = pe.bracket_from_ticket(ticket(), cfg())
+    assert not why and spec.order_type == "limit" and spec.limit_price == 120.0
+
+
+def test_pending_live_tickets_counts_an_awaiting_ticket(env):
+    ledger, _ = env
+    ledger.record("prop-manual-aaa", pe.AWAIT_REST_STATE, attempts=0)
+    assert pe.pending_live_tickets(FakeApi([ticket()]), cfg(), ledger, now=NOW) == ["prop-manual-aaa"]
+
+
+def test_redactor_keeps_the_quote_after_submit_check_action_name():
+    from src.prop.platform.dxtrade import redact_text
+    line = '{"action": {"what": "quote_after_submit_check", "quote": {"ask": 121.5}}}'
+    assert redact_text(line) == line
+    # anything else 24+ chars long is still masked, including a near-miss
+    assert "<token>" in redact_text("quote_after_submit_checkX") and "<token>" in redact_text("a" * 30)
+
+
+# ── OA-05/06 (PI-20261004-GCFA5DOR-0003): a leg lost AFTER `open` is alerted
+# and contained; a repair that did not click closes in the SAME cycle; a close
+# that did not click stays retryable up to a bound, never parked silently. ──
+
+OPEN_FILL = [{"id": 1, "account_id": "breakout_1", "symbol": "SOLUSDT", "direction": "long",
+              "status": "open", "ticket_id": "t1", "sl": 118.0, "tp": 126.0}]
+REFUSED = {"ok": False, "clicked": False, "why": "rollout refused: current stop loss not readable on the row"}
+
+
+class _NoClose(FakeAdapter):
+    def flatten(self, page, symbol=None, *, arm=False, **facts):
+        self.calls.append(("flatten", symbol, arm))
+        return {"ok": False, "clicked": False, "why": "row not located"}
+
+
+def test_open_row_whose_sl_disappears_alerts_then_is_contained(env):
+    ledger, state = env
+    ledger.record("t1", "open", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    ad.modify_result = REFUSED
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert any("NAKED" in a and "NO SL" in a and "read 1/2" in a for a in res.alerts)
+    assert ad.calls == [] and state.halted() is None              # one read never clicks
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert [c[0] for c in ad.calls] == ["modify_bracket", "flatten"]   # repair refused -> same-cycle close
+    assert state.halted() and "t1: naked_open" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+    assert ledger.state("t1") == "contained" and ledger.latest()["t1"]["verdict"] == "naked_open"
+
+
+def test_open_row_missing_the_tp_the_journal_expects_is_naked(env):
+    ledger, state = env
+    ledger.record("t1", "open", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(take_profit=None)])
+    run(ad, FakeApi([], OPEN_FILL), env)
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert any("NO TP" in a for a in res.alerts) and state.halted()
+
+
+def test_open_row_with_no_sl_column_on_the_read_is_not_contained(env):
+    # No Stop Loss column = we could not look, not "no stop".
+    env[0].record("t1", "open", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None, take_profit=None,
+                                   raw={"Symbol": "SOLUSD", "Side": "Buy", "Size": "0.5"})])
+    for _ in range(3):
+        res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert ad.calls == [] and env[1].halted() is None
+    assert not any("NAKED" in a for a in res.alerts)
+    assert any(a["what"] == "naked_check_unreadable" for a in res.actions)
+
+
+def test_naked_open_position_without_a_ledger_row_halts_and_is_not_touched(env):
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    run(ad, FakeApi([], OPEN_FILL), env)
+    res = run(ad, FakeApi([], OPEN_FILL), env)
+    assert ad.calls == [] and env[1].halted() and "naked_open" in env[1].halted()
+    assert any("not touched" in a for a in res.alerts)
+
+
+def test_a_repair_that_did_not_click_closes_in_the_same_cycle(env):
+    ledger, _ = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    ad = FakeAdapter(positions=[_p(stop_loss=None)])
+    ad.modify_result = REFUSED
+    run(ad, FakeApi(), env)
+    assert [c[0] for c in ad.calls] == ["modify_bracket", "flatten"]
+    assert ledger.state("t1") == "contained"
+
+
+def test_a_close_that_did_not_click_is_retried_up_to_the_bound(env):
+    ledger, _ = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    ad = _NoClose(positions=[_p(stop_loss=None)])
+    ad.modify_result = REFUSED
+    for k in range(1, pe.NAKED_CLOSE_MAX_ATTEMPTS):
+        res = run(ad, FakeApi(), env)
+        assert ledger.state("t1") == "unconfirmed"                # still watched, not parked
+        assert ledger.latest()["t1"]["close_attempts"] == k
+        assert any(f"attempt {k}/{pe.NAKED_CLOSE_MAX_ATTEMPTS}" in a for a in res.alerts)
+    res = run(ad, FakeApi(), env)
+    assert ledger.state("t1") == "contained" and ledger.latest()["t1"]["close_gave_up"] is True
+    assert any("gave up" in a for a in res.alerts)
+    assert [c[0] for c in ad.calls].count("flatten") == pe.NAKED_CLOSE_MAX_ATTEMPTS
+    assert [c[0] for c in ad.calls].count("modify_bracket") == 1
+    n = len(ad.calls)
+    run(ad, FakeApi(), env)
+    assert len(ad.calls) == n                                       # parked: no further clicks

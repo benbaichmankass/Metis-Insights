@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "m20-exit-lever-sweep can no longer commit to a feature branch whose own commits did not change the sentinel (test or guard proves it), or killed with a stated reason.",
+    "kind": "event"
+  },
+  "id": "PI-20261003-ILZMCTFQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-EXECUTOR session_01TdVtbWqggtmZAGiLzmcTFQ, task 2 (stray corpus commit on #14673), 2026-10-03.",
+    "rerun": "grep -n -A3 \"^  push:\" .github/workflows/m20-exit-lever-sweep.yml; grep -n 'TARGET=\"${GITHUB_HEAD_REF' .github/workflows/m20-exit-lever-sweep.yml -- push trigger on claude/** + corpus pushed to the triggering branch = still open. Also: list m20-exit-lever-sweep runs with event=push on non-sweep branches."
+  },
+  "state": "queued",
+  "what": "m20-exit-lever-sweep writes corpus commits onto ARBITRARY claude/** feature branches. MEASURED 2026-10-03: go-live PR #14673 (claude/tradeify-wire-golive) received bot commit e460e64c2 'corpus: merge exit-lever sweep run 2026-10-03T17:02Z' (48 rows of docs/research/m20-sweep-corpus.jsonl rewritten) from run 37138828225, event=push. Cause: .github/workflows/m20-exit-lever-sweep.yml has `push: branches: ['claude/**'], paths: ['.github/exit-lever-sweep-request']`; a feature branch that MERGES main after main changed that sentinel (here #15726, carried by merge c4843093d) fires the workflow, and its corpus job pushes to TARGET=${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}} -- the feature branch. So any lane that merges main can silently get a sweep run plus a corpus commit unrelated to its PR, which can also conflict or ride into a Tier-2/3 merge. Repaired on #14673 by faa4e12bd (file restored to main's). Fix options (Tier-1 CI): only fire the push trigger when the sentinel changed in a commit authored on the branch (e.g. compare github.event.before..after excluding merge-from-main parents), or route every non-dispatch corpus to claude/m20-sweep-corpus instead of the triggering branch."
+}

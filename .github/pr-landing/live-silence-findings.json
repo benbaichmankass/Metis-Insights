@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs/research evidence and pipeline records only. Adds docs/research/evidence/live-silence-2026-10-03/ (replay scripts, their output and a README) and two docs/claude/work/pipeline/ records (PI-20261003-OJTPWGCC-0001/0002). No runtime, order path, strategy config, risk cap, account mode or VM change."
+}

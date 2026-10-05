@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a grade-closed-trades.yml run with appending>0 completes green AND its chore(grading) commit is on origin/main",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EA899ZCS-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "PI-20260929-EA899ZCS-0002 (closed); .github/workflows/grade-closed-trades.yml",
+    "rerun": "git log -3 --format='%h %ad %s' origin/main -- comms/claude_strategy_scores.jsonl  # expect a 'chore(grading)' commit; mcp__github__actions_list(list_workflow_runs, grade-closed-trades.yml) -> latest run with 'Land on main' step success"
+  },
+  "routed_to": "GRADE",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: verified by this lane 2026-10-05 (live read and/or file/test re-read, deployed sha 9ddf1ee04 per /api/diag/version): origin/main has chore(grading) commits ead5f61a5 (2026-10-03), 098348752 (10-02), 128572669 (10-01) touching comms/claude_strategy_scores.jsonl; grade-closed-trades.yml schedule runs 10-01..10-04 success (10-04 03:41Z dispatch failed, schedule run 09:38Z green).",
+  "what": "[landed_unproven] grade-closed-trades.yml append + commit-to-main leg has never run: the first runs (36569023025 dry, 36569374411 real, 2026-09-29) had a zero delta, so the 'Land on main' step was skipped. The first run with a non-zero delta must open and MERGE an automation/grade-closed-trades PR (verify-merged). If it fails, the grading-freshness guard reds every PR within 3 days."
+}

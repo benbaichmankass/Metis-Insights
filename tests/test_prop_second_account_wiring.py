@@ -122,7 +122,16 @@ def test_tradeify_platform_entry_never_points_at_breakout():
     assert t["login_url"] == "https://dx.tradeify247.co/"
     assert (t["username_env"], t["password_env"]) == ("TRADEIFY_DX_USERNAME", "TRADEIFY_DX_PASSWORD")
     ex = t["executor"]
-    assert ex["enabled_venue_symbols"] == [] and ex["lots"] == {} and ex["watched_click_max_lots"] == {}
+    # GO-LIVE (#14673): the operator enabled all three venue symbols together
+    # (2026-10-03, verbatim "Allow, all 3 symbols"). Any change to this list
+    # must be a deliberate, reviewed edit. The executor still acts only under
+    # PROP_EXECUTOR_MODE_TRADEIFY_1=live on the VM.
+    assert ex["enabled_venue_symbols"] == ["ETHUSD", "SOLUSD", "XRPUSD"]
+    assert ex["lots"] == {
+        "ETHUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
+        "SOLUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.001},
+        "XRPUSD": {"lot_units": 1, "lot_step": 0.01, "min_lots": 0.01, "price_step": 0.00001}}
+    assert ex["watched_click_max_lots"] == {"ETHUSD": 0.01, "SOLUSD": 0.01}
     b = load_platform_config("breakout_1")
     assert b["login_url"] == "https://wss.breakoutprop.com/"
     assert (b["username_env"], b["password_env"]) == ("BREAKOUT_DX_USERNAME", "BREAKOUT_DX_PASSWORD")
@@ -169,8 +178,10 @@ def test_action_wrapper_keeps_breakout_paths_and_scopes_others():
     assert 'FEED_DIR="${BASE}/feed"' in s and 'X_STATE_DIR="${BASE}/executor"' in s
     assert 'FEED_DIR="${BASE}/accounts/${ACCOUNT}/feed"' in s
     assert 'X_STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"' in s
-    # the executor timer stays breakout_1's; a second account's is refused
-    assert "the executor timer is breakout_1's" in s
+    # breakout_1 keeps ict-prop-executor.timer; a second account gets its own
+    # template instance, never breakout_1's timer (TRADEIFY-EXECUTOR)
+    assert 'X_UNIT="ict-prop-executor@${ACCOUNT}"' in s
+    assert "sudo -n systemctl enable --now ict-prop-executor.timer" in s
 
 
 def test_feed_wrapper_keeps_breakout_paths():

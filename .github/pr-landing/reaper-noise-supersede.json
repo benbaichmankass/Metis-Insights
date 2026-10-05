@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI/workflow only: retires session-reaper's push trigger (no live reader of its ledger) and makes claude-run-failure-alert skip cancelled runs superseded by a newer run. No runtime, config or order-path change."
+}
