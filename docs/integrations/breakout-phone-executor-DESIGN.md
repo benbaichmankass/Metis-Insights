@@ -452,6 +452,41 @@ What this establishes, and what it does not:
 operator's **existing** DXtrade account would answer the WebView-login and mobile-ticket questions early, but it is a login (outside the
 no-account scope) and touches the live `breakout_1` account (risk 3), so it is **not planned**.
 
+### 7.9 Phase 1a probe, the cheaper ordering, and the results table (2026-10-05; results PENDING)
+
+**Direction (operator, 2026-10-05):** skip the Breakout-contact step ("they are unresponsive") and "focus on technical viability to get to a real-account test". Later the same day the operator offered to buy Breakout's cheapest account (about $20, Turbo tier, per the manager's relay of Breakout's pricing page; not independently read) "just to check the terminal".
+
+**Ordering change.** § 7.2 put the purchase gate after phase 1b. With a $20 look-only account the gate moves **before 1b**:
+
+| step | what | account | state |
+|---|---|---|---|
+| 1a | `tools/phone-probe/` APK (PR #16574): WebView shell, page-state classifier, redacted shape capture, local typing / tap / iframe fixtures | none | built in CI; **not yet run on a phone** |
+| 1a-B | the operator logs in by hand to the **breached `breakout_1` DXtrade account** inside the probe and captures its mobile terminal, read-only | `breakout_1` (breached, executor latched, no money at risk) | pending the operator |
+| GATE | buy the cheapest account; log in by hand inside the same probe; capture the **new** terminal's order ticket, read-only | $20 look-only | pending 1a-B |
+| 1b | contract and soak on synthetic data | none | after the gate |
+
+**What the probe records and does not.** It reads no input value, places no order, taps no trading control, keeps no credential, and sends nothing off the phone: the operator copies a report. Labels are reduced to a fixed vocabulary (`probe.js`, `VOCAB`), every other word becomes `*` and every digit run `#`; an export that still holds 6+ digits, an `@` or a bearer token is refused by the app. `FLAG_SECURE` blocks screenshots.
+
+**The § 7.3 unknowns, by where they can be answered** (filled in when the report arrives; until then every "answered" cell is empty):
+
+| § 7.3 unknown | answerable on `breakout_1`? | answerable generally? | needs the NEW terminal? | result |
+|---|---|---|---|---|
+| 1. Login works inside a WebView | yes, for the DX-backed login | no | yes: the new terminal's login may differ | pending |
+| 2. Email code / 2FA / number-match at sign-in, and recurrence | yes, for that account | no | yes | pending |
+| 3. Post-login DOM: iframes, canvas ticket, field / toggle / send controls, confirmation flow | yes, as the DX-backed mobile page | no | **yes: the target is the new terminal** | pending |
+| 4. Where SL/TP live and whether they survive the client closing | no: needs a position, and `breakout_1` is breached | no | yes (and a hand-placed position, outside look-only) | not answerable at the $20 look-only step |
+| 5. Session lifetime and logout shape | yes, by rechecks over hours | partly | yes | pending |
+| 6. Order types and lot step the rules allow | no | no | yes | not answerable look-only |
+| 7. Latency and fill behaviour | no | no | yes | not answerable look-only |
+| Injected-JS reach, iframe reach, React-style typing, real touch | n/a | **yes: local fixtures inside the app's WebView** | no | pending (Fixtures button) |
+| Public page served in the WebView (Wi-Fi and mobile data) | n/a | **yes** | no | pending |
+
+**Verdict: none yet.** No phone run exists, so neither GO nor STOP is established. Criteria registered before the run:
+
+- **STOP (structural):** the public page is challenged or blocked in the WebView on both networks; or login is refused or loops in the WebView; or a code / 2FA step recurs on every login; or the order ticket is a canvas with no readable controls; or the session does not survive an hour.
+- **GO-BUY ($20):** the app loads the site, login survives in the WebView, captures return a non-empty shape for the logged-in page, and the fixtures show at least one input route that registers (real key events or native setter).
+- **GO (phase 1b and beyond):** GO-BUY met **and** the new-terminal capture shows readable ticket controls (side, type, quantity, SL, TP, a distinct send control), no recurring code step, and a session that outlives the soak.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |

@@ -21,7 +21,12 @@
    "sltp points pips percent risk reward working pending filled rejected status time date id name " +
    "mode demo live real beta version mobile platform limited functionality see more less show hide " +
    "dark light language currency fee fees swap commission free used available total net gross unrealized " +
-   "realized daily weekly drawdown max target challenge phase funded evaluation payout request support").split(/\s+/)
+   "realized daily weekly drawdown max target challenge phase funded evaluation payout request support " +
+   "long short leverage reduce only post gtc ioc fok trigger mark last index cross isolated entry exit " +
+   "bracket oco tpsl notional contract contracts usd usdt lot step tick distance trailing breakeven " +
+   "adjust amend modify cancelled canceled expire expiry validity day week gtd good till cancel stp " +
+   "one click confirmation confirm review preview place submit slider percent pct max min half full " +
+   "unrealised unrealized floating open closed pnl roe liquidation funding rate cooldown trades limit").split(/\s+/)
     .forEach(function (w) { if (w) VOCAB[w] = 1; });
 
   // Letters-runs in the vocabulary survive; any other word -> "*", digit runs -> "#". Cap 60 chars.
@@ -98,7 +103,7 @@
     var counts = {el: all.length, canvas: 0, iframe: 0, input: 0, select: 0, textarea: 0, button: 0, table: 0,
                   svg: 0, shadow: 0, editable: 0, dialog: 0, tab: 0};
     var iframes = [], controls = [], tables = [], headings = [];
-    var markers = {pw: false, otc: false, cf: false, blocked: false, twofa: false, buy: false, sell: false, send: false, login_word: false};
+    var markers = {otp_like: false, pw: false, otc: false, cf: false, blocked: false, twofa: false, buy: false, sell: false, send: false, login_word: false};
     var CAP = 300, ptr = 0;
     for (var i = 0; i < all.length; i++) {
       var el = all[i], tag = el.tagName.toLowerCase();
@@ -153,6 +158,8 @@
       if (typ === "password" || tg === "input" || tg === "textarea") {
         var ac = (c.getAttribute("autocomplete") || "").toLowerCase();
         if (ac === "one-time-code") markers.otc = true;
+        var ml = parseInt(c.getAttribute("maxlength") || "0", 10);
+        if (tg === "input" && typ !== "password" && ml >= 4 && ml <= 8 && /numeric|decimal|tel|number/.test((c.getAttribute("inputmode") || "") + typ)) markers.otp_like = true;
       }
       var low = lab.toLowerCase();
       if (/\bbuy\b/.test(low)) markers.buy = true;
@@ -160,7 +167,7 @@
       if (/\bsend\b.*\border\b|\bsend order\b/.test(low)) markers.send = true;
       if (/\b(log in|login|sign in|signin)\b/.test(low)) markers.login_word = true;
       controls.push({t: tg, r: r, ty: typ, im: tg === "input" ? ident(c.getAttribute("inputmode")) : "",
-                     l: lab, nm: ident(c.getAttribute("name")), st: states(c), vis: vis,
+                     l: lab, nm: ident(c.getAttribute("name")), tid: ident(c.getAttribute("data-testid") || c.getAttribute("data-test") || c.getAttribute("data-qa")), st: states(c), vis: vis,
                      w: Math.round(rect.width / 10) * 10, h: Math.round(rect.height / 10) * 10, up: chain(c)});
     }
     // markers: booleans only, never page text

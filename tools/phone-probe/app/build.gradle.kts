@@ -10,8 +10,8 @@ android {
         applicationId = "com.metis.phoneprobe"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1a.1"
+        versionCode = 2
+        versionName = "1a.2"
     }
     buildTypes {
         // Debug build only: sideloaded probe, signed with the runner's throwaway debug key.

@@ -189,7 +189,7 @@ class MainActivity : Activity() {
         return when {
             lastCf || m.optBoolean("cf") -> "challenged"
             m.optBoolean("blocked") || (lastHttp == 403 && els < 80) -> "blocked"
-            m.optBoolean("otc") || (m.optBoolean("twofa") && !m.optBoolean("pw")) -> "code_or_2fa"
+            m.optBoolean("otc") || (m.optBoolean("otp_like") && !m.optBoolean("pw")) || (m.optBoolean("twofa") && !m.optBoolean("pw")) -> "code_or_2fa"
             m.optBoolean("pw") -> "login"
             (m.optBoolean("buy") && m.optBoolean("sell")) || m.optBoolean("send") -> "terminal"
             else -> "other_served"
