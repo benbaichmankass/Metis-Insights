@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A recorded comparison of eth_pullback_2h's realised expectancy on bybit_1 over the soak window (clock started 2026-06-11T16:20Z, per next_action) against the k-fold expectation, stating n_closed AND the pnl provenance coverage of that window, plus an explicit keep/tune/drop verdict. A verdict with no stated n and no stated coverage does not close this - the comparison IS the deliverable, and an expectancy over unmeasured pnl is not one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260611-M15-2",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260611-M15-2",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260611-M15-2'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Comparing soak PnL to a k-fold expectation to decide keep/tune/drop is the category error the 2026-09-21 ladder retired; the Stage-1 soak contract (cost fidelity) replaced it. || EVIDENCE: Live trades (/api/bot/trades/closed, 2026-06-01..10-05, n=1613 all rows): eth_pullback_2h bybit_1 n=22, only 5 pnl measured. CLAUDE.md ladder: 'A live or paper book never establishes edge'; R5 (scripts/ops/soak_book_grade.py) grades soak legs on mechanics + cost, NOT expectancy; SOAKS.json has SOAK-stage1-bybit_1-eth_pullback_2h. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[performance] eth_pullback_2h demo soak review — compare first weeks of bybit_1 fills against the k-fold expectation || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ed: scripts/ops/accrual_clock.py \\u2014 plus the live reads it grades against: GET /api/bot/db/table/trades and /api/bot/db/table/signals on https://ict-bot.duckdns.org with filter_state 'applied' asserted on every call, trader serving sha 68e73de8.\" |   } | }"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 22,
+    "clears_when": "The close path is identified, and either the exit price is recoverable or the rows are explicitly marked as unmeasured rather than silently closed.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-27",
+    "how_to_check": " Rows 3935/3984/3934/3937/3491/3938 carry exit price or an explicit unmeasured/UNVERIFIED provenance mark, with the close path named | evidence: Live /api/bot/trades/closed (include_paper, 1400 rows to 2026-07-20) shows 2026-08-05 closes with closeReason 'other', exitPrice null, pnl null, provenance null: ids 3935,3984,3934,3937,3491,3938 (alpaca_paper/portfolio) and 4418 bybit_1 pnl null; 10",
+    "what": "The close path is identified, and either the exit price is recoverable or the rows are explicitly marked as unmeasured rather than silently closed."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Rows 3935/3984/3934/3937/3491/3938 carry exit price or an explicit unmeasured/UNVERIFIED provenance mark, with the close path named | evidence: Live /api/bot/trades/closed (include_paper, 1400 rows to 2026-07-20) shows 2026-08-05 closes with closeReason 'other', exitPrice null, pnl null, provenance null: ids 3935,3984,3934,3937,3491,3938 (alpaca_paper/portfolio) and 4418 bybit_1 pnl null; 10",
+  "what": "[health] [reconciler] 7 long-held rows bulk-closed within 15 minutes on 2026-08-05 with exitPrice null, realizedPnl null and closeReason 'other'"
+}

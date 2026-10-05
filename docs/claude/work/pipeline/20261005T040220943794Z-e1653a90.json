@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "A tradeify_1 round-trip-dry that reaches form_verified with no other alert exits 0 (then done), or the manager decides the exit-3 is acceptable for go-live (then killed with that reason).",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261003-DEIFYDRY-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-22",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane TRADEIFY-DRY session_01YR8T4rF9SJWp3p2b4EeDiH, step 4 round-trip-dry #15930 (2026-10-03).",
+    "rerun": "Dispatch a system-action issue: action: breakout-login-check / account: tradeify_1 / apply: round-trip-dry,limit ; read the last JSON lines for 'linked symbol could not be read' and the wrapper exit code."
+  },
+  "routed_to": "PROP-EXEC [route; size S, value L, tier 2] BACKLOG-ROUTE 2026-10-04: prop_executor.py:1304 LINK_RESTORE_ALERTS still includes 'linked symbol could not be read before the dry walk' and :1310 round_trip_failed counts it; the dxtrade.py:7110 link_unavailable handling exists only in symbol_switch_dry. | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — prop_executor.py:1311-1317 LINK_RESTORE_ALERTS still counted as failure by round_trip_failed; no link-unavailable exemption seen",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "tradeify_1's round-trip-dry ALWAYS exits 3 on a structural alert, so a real dry-walk failure is indistinguishable from a clean one. #15930 (run 37121646646, code 07d28188a) reached form_verified, stopped before submit, then raised 'linked symbol could not be read before the dry walk; not restored' because tradeify_1 has NO chart link (0 instrument_info_button / symbol_input, #15096/#15126). prop_executor.round_trip_failed() counts that alert (LINK_RESTORE_ALERTS) as a failure. Proposed fix (Tier-2, held): when the adapter reports the link unavailable for the account (as symbol_switch_dry already does via link_unavailable), record it as a note and skip the restore, keeping RESTORE FAILED fatal when a link WAS read."
+}

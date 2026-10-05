@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "soak_state's stage1 metric equals R3's per-side package-referenced fill count, and a leg reading ready is also R3-decisive",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-JC8KDKLF-0014",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 docs/plans/soak-verdicts-2026-10-04.md",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg eth_pullback_2h --from S1 --to OFF --account bybit_1 --json  # R3 insufficient_n despite 38 closes"
+  },
+  "routed_to": "SOAK-WATCH — soak_state vs R3 metric (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "Soak contract metric does not match R3's. soak_state.py grades a Stage-1 leg 'ready' at 10 CLOSED TRADES, but R3 (RULE-R3-GATE1-COST-FIDELITY-v1) counts package-referenced fills per side (N_FLOOR=10). MEASURED 2026-10-04: 13 bybit_1 legs read ready in the live brief with 10 to 63 closes, yet R3 2026-09-25 grades 12 of them insufficient_n (ada_pullback_2h on 09-26: entry n=21, exit n=3). So 'ready' cannot be decided by the rule it names, and exit fills are mostly NOT package-referenced. Two fixes: (a) count what R3 counts in soak_state._count (package-referenced entry and exit fills); (b) root-cause why exits lack order_package refs, a data-provenance gap."
+}

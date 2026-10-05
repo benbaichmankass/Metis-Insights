@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 32,
+    "clears_when": "Either (a) the exact-tf backtest_ probe lands WITH a before/after enumeration over every live leg showing BTCUSDT@5m as the only changed resolution, and ict_scalp_5m's exit_head_ml cell is re-measured at live parity with its shorter book stated; or (b) a canonical BTCUSDT_5m series is built that extends to at least the 15m file's end date, so no leg loses history. A bare copy/symlink of the existing file into the canonical slot is REFUTED and must not be the fix.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-06",
+    "how_to_check": " ict_scalp_5m exit_head_ml cell re-measured at live parity on the trainer after the probe (needs trainer relay) and matrix status updated | evidence: Half done: scripts/research/m20_fleet_exit_sweep.py:238-278 _resolve_one now has the exact-tf backtest_ probe with enumeration (trainer-diag #9325: 110 resolutions, 4 changed). Not done: matrix ict_scalp_5m BTCUSDT 5m exit_head_ml still status 'block",
+    "what": "Either (a) the exact-tf backtest_ probe lands WITH a before/after enumeration over every live leg showing BTCUSDT@5m as the only changed resolution, and ict_scalp_5m's exit_head_ml cell is re-measured at live parity with its shorter book stated; or (b) a canonical BTCUSDT_5m series is built that extends to at least the 15m file's end date, so no leg loses history. A bare copy/symlink of the existing file into the canonical slot is REFUTED and must not be the fix."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: ict_scalp_5m exit_head_ml cell re-measured at live parity on the trainer after the probe (needs trainer relay) and matrix status updated | evidence: Half done: scripts/research/m20_fleet_exit_sweep.py:238-278 _resolve_one now has the exact-tf backtest_ probe with enumeration (trainer-diag #9325: 110 resolutions, 4 changed). Not done: matrix ict_scalp_5m BTCUSDT 5m exit_head_ml still status 'block",
+  "what": "[health] ict_scalp_5m is a LIVE leg on BTCUSDT whose 5m data is unreachable to the sweep harnesses: every other 5m symbol has data/<SYM>_5m.csv, BTC has only data/backtest_BTCUSDT_5m.csv, and resolve_data's prefix set is {btcusdt, btc} so the backtest_-prefixed name matches nothing."
+}

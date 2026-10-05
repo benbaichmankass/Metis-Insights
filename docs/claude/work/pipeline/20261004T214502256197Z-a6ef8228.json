@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the rerun command prints a refusal state (not cancel_group) AND a test in tests/test_over_cover_decision.py asserts the keeper-under-sized refusal, merged to main",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-ENGC5EUD-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A03 (session_01RjVA2i43wfnwqFEnGc5euD), finding AUD-20260927-CA-A03-over-cover-keeper-qty-unchecked",
+    "rerun": "python3 -c \"from src.runtime.over_cover_decision import decide_over_cover as d; L=[{'side':'stop','oca_group':'keep','aux_price':6.312,'total_quantity':20,'order_id':1},{'side':'target','oca_group':'keep','lmt_price':7.1415,'total_quantity':20,'order_id':2},{'side':'stop','oca_group':'stray','aux_price':6.2625,'total_quantity':29,'order_id':3},{'side':'target','oca_group':'stray','lmt_price':7.5,'total_quantity':29,'order_id':4}]; r=d(position_qty=29,direction='long',declared_stop=6.31207143,declared_target=7.141302,legs=L,tick_size=0.0005); print(r['state'],r['cancel_groups'])\" -- the finding holds while this prints cancel_group ['stray']."
+  },
+  "routed_to": "PROTECTION-HARDENING (lane session_017nt865EQaLPJszJ4SFBKu9): fixed in held PR #16496 (keeper stop qty < position refuses; unreadable qty not_graded).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A03, AUD-20260927-CA-A03-over-cover-keeper-qty-unchecked): src/runtime/over_cover_decision.decide_over_cover never checks that the KEPT group's stop quantity covers the position. Crafted input: position 29, keeper group STP 20 @ journal price + stray group STP 29 @ wrong price -> state cancel_group, cancel ['stray'], reason text 'cancelling them loses nothing' -- executing it leaves 9 of 29 lots with no stop. Same function counts a stop leg with unreadable total_quantity as 0 (line ~203 `_f(...) or 0.0`), so a keeper of UNKNOWN size is kept and every sized group cancelled. Consumer: scripts/ops/over_cover_proposal.py, whose output is the body an operator fires cancel-ib-order from. FIX (Tier-1 pure module + test): refuse (new state or ambiguous_no_action) unless keeper stop_qty >= position_qty, and treat an unreadable stop qty as not_graded rather than 0; add tests for both crafted inputs."
+}

@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 36,
+    "clears_when": "EITHER (a) execute.modify_open_order's alpaca branch identifies the amending trade's OWN legs (trades.sl_order_id / tp_order_id, which requires the leg-id writer that does not exist yet -- both are NULL on live rows 5266 and 5414) and patches only those, AND an amend on a multi-row Alpaca symbol is OBSERVED leaving the sibling's legs untouched on a real venue read; OR (b) the operator rules that symbol-scoped amend is the intended Alpaca semantics, which must be RECORDED as a decision rather than left looking like a bug nobody fixed. A green harness clears neither -- a harness cannot reach the Alpaca venue.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260908-ALPACA-MODIFY-PROTECTIVE-IS-SYMBOL-SCOPED-SO-ONE-TRADES-AMEND-REWRITES-A-SIBLINGS-STOP",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-ALPACA-MODIFY-PROTECTIVE-IS-SYMBOL-SCOPED-SO-ONE-TRADES-AMEND-REWRITES-A-SIBLINGS-STOP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-ALPACA-MODIFY-PROTECTIVE-IS-SYMBOL-SCOPED-SO-ONE-TRADES-AMEND-REWRITES-A-SIBLINGS-STOP'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/units/accounts/alpaca_client.py::modify_protective (L1646-1690+): it now takes an explicit qty argument and matches resting legs by share count, refusing with retCode 1 (naming the ambiguity) when zero or more-than-one leg matches on a side, rather than blindly patching every leg on the symbol. Its own docstring documents this exact fix and states the residual gap plainly: Alpaca leg ids are never captured at entry, so two equal-sized siblings still cannot be disambiguated (refused, not mis-attributed).",
+    "date": "2026-09-28",
+    "decision_text": "The acute danger the finding names — 'one trade's amend rewrites whichever sibling's protective legs happen to rest there' — is fixed: the code now refuses on ambiguity instead of blindly rewriting. The item's clears_when path (a), full entry-time leg-id capture for Alpaca making trades.sl_order_id/tp_order_id non-null, is NOT done and is a real residual gap (found no existing backlog/checklist entry tracking it). Decision: record the qty-matching mitigation as landed and open a new lane item for entry-time Alpaca leg-id capture (mirroring the existing Bybit sl_order_id/tp_order_id capture in execute.py) so the residual gap isn't silently dropped.",
+    "disposition": "DECIDE",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: trades.sl_order_id/tp_order_id non-null on new Alpaca rows and an observed multi-row-symbol amend leaving the sibling untouched, or an operator-recorded decision that symbol-scoped amend is intended. | evidence: Alpaca rows carry no leg ids: of 34 open/closed alpaca_* trades in the 30d journal sample, 0 have sl_order_id (alpaca_live 3, alpaca_portfolio 17, alpaca_paper 14); the entry-time leg-id writer still does not exist. Acute rewrite danger was mitigated",
+  "what": "[health] AlpacaClient.modify_protective takes a symbol and no trade identity, so on a multi-row symbol one trade's trailing amend rewrites whichever sibling's protective legs happen to rest there\n\n[TRIAGE 2026-09-28] DECIDE — The acute danger the finding names — 'one trade's amend rewrites whichever sibling's protective legs happen to rest there' — is fixed: the code now refuses on ambiguity instead of blindly rewriting. The item's clears_when path (a), full entry-time leg-id capture for Alpaca making trades.sl_order_id/tp_order_id non-null, is NOT done and is a real residual gap (found no existing backlog/checklist entry tracking it). Decision: record the qty-matching mitigation as landed and open a new lane item for entry-time Alpaca leg-id capture (mirroring the existing Bybit sl_order_id/tp_order_id capture in execute.py) so the residual gap isn't silently dropped."
+}

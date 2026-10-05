@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER exit_ladder/bank gains a live consumer in src/units/strategies/ (then re-evaluate ict_scalp_sol_15m bank0.5@1R for a genuine Tier-3 proposal) OR check_lever_wiring.py adds exit_ladder/bank to its LEVERS table with an explicit runnable_exempt entry (mirroring the rr_floor pattern) so the gap is at least visible to the guard.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-EXITOPS-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-OPS (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, exit-refinement sweep of ict_scalp legs",
+    "rerun": "grep -rln 'bank_frac\\|bank_at_r' src/units/strategies/*.py  # empty output reproduces the finding; any hit means a live consumer was added and this should be re-checked for shippability."
+  },
+  "routed_to": "M20-EXITS | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — grep bank_frac|bank_at_r in src/units/strategies/*.py = empty; check_lever_wiring.py LEVERS (:84) has no exit_ladder/bank entry",
+  "state": "routed",
+  "what": "[research-tooling] ict_scalp_sol_15m exit_ladder cell bank0.5@1R (docs/research/exit-refinement-coverage.json status passed_unshipped, MEASURED 2026-08-10, IS/OOS gate + yearly walk-forward 3/4 usable, config-exact against tp_at_r=1.5 which still matches config/strategies.yaml::ict_scalp_sol_15m today, verified this session) is NOT actually shippable: bank_frac/bank_at_r have ZERO live consumers anywhere under src/units/strategies/ (grepped clean) or src/units/accounts/execute.py. The only live code touching this shape is src/runtime/exit_ladder_soak.py, which is explicitly observe-only by its own docstring -- \"Nothing reads it back -- the order/ticket placed is unchanged. Graduating the ladder to the actual exit is the behaviour-changing, backtest-gated step (P4 API / P3-live prop)\". Declaring bank_frac/bank_at_r in config/strategies.yaml today would be an ORPHANED DECLARE -- a YAML key nothing reads -- the exact class scripts/ci/check_lever_wiring.py exists to catch for rr_floor (BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED). NOT proposed for Tier-3. SEPARATE, SMALLER FINDING: check_lever_wiring.py's LEVERS table (scripts/ci/check_lever_wiring.py) does not track exit_ladder/bank at all -- stale_stop, giveback_stop, trail_decay, rr_floor, and exit_head are tracked, this lever is not, so the guard built specifically to catch this class of bug cannot catch it for this lever. This is the same shape the guard's own docstring warns about: \"a lever missing from LEVERS is invisible to the guard.\""
+}

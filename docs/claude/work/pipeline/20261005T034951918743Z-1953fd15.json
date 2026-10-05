@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "`banking_mechanism_audit.py --telemetry <live pull>` reports n_invisible = 0 over the enabled+live population, AND at least one telemetry row is OBSERVED on the live fleet carrying an ict_scalp_* strategy with a readable peak_r. ⚠️ A PASSING TEST IS NOT THIS OBSERVATION and neither is reading the merged diff — the hook runs inside a live monitor() tick, so only a real row proves it fires. ⚠️ AND DO NOT CLEAR THIS ON n_invisible = 0 ALONE: that grades the CODE (the hook is present), not the FLEET (a row was produced). Those are the two separate gaps this repo keeps conflating — merged is not deployed and deployed is not observed. Say WHICH of the two you established. ⚠️ If the operator declines Proposal A, this row does NOT clear — it CHANGES: the 9 legs are then deliberately unmeasured, which is a legitimate decision and must be RECORDED as one rather than left looking like a fix that is about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260907-NINE-LIVE-LEGS-EMIT-NO-PEAK-R-TELEMETRY-SO-THEIR-ZERO-N-IS-NOT-AN-ABSENCE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-NINE-LIVE-LEGS-EMIT-NO-PEAK-R-TELEMETRY-SO-THEIR-ZERO-N-IS-NOT-AN-ABSENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-NINE-LIVE-LEGS-EMIT-NO-PEAK-R-TELEMETRY-SO-THEIR-ZERO-N-IS-NOT-AN-ABSENCE'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Both clauses met: n_invisible=0 over 38 enabled+live legs AND real peak_r rows observed on ict_scalp_* from the live fleet. || EVIDENCE: Live /api/diag/position_telemetry 500 rows at 2026-10-05T03:33Z incl. ict_scalp_mgc_15m peak_r 0.2869 measured; ict_scalp_eth_15m 0.8816; ict_scalp_avax_5m. banking_mechanism_audit.py run on that pull: telemetry_hook_gap n_invisible=0 over n_population=38 (enabled+live), drifted=false. 33 of 38 live legs have rows in the window. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "triage_2026_09_28": {
+    "checked": "Grepped src/units/strategies/*.py for record_position_telemetry: it is now hooked into 6 monitor units (htf_pullback_trend_2h, ict_scalp, squeeze_breakout_4h, trend_donchian, turtle_soup, vwap) - up from the '2' the finding described, ict_scalp included. Still missing from fade_breakout_4h.py, fvg_range_15m.py, hf_displacement_cont.py, hf_vwap_revert.py, pairs_executor.py; fade_breakout_4h and fvg_range_15m are confirmed live+enabled on bybit_1's roster (config/accounts.yaml line 223). No 'Proposal A' decision or checklist row found for the remaining gap. Cannot verify from this sandbox whether a real telemetry row has been observed on the live fleet (needs diag/DB access).",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: extend the record_position_telemetry hook to the remaining live monitor units (fade_breakout_4h, fvg_range_15m, hf_displacement_cont, hf_vwap_revert, pairs_executor) to close the coverage gap; then check_observation to confirm a real telemetry row is produced by each on the live fleet (a passing test does not count).",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] record_position_telemetry is hooked into only 2 of the live monitor units, so 9 of 44 enabled+live legs emit NO peak-R telemetry at all — and MI-155 grades their n_live=0 identically to legs that genuinely did not trade\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: extend the record_position_telemetry hook to the remaining live monitor units (fade_breakout_4h, fvg_range_15m, hf_displacement_cont, hf_vwap_revert, pairs_executor) to close the coverage gap; then check_observation to confirm a real telemetry row is produced by each on the live fleet (a passing test does not count)."
+}

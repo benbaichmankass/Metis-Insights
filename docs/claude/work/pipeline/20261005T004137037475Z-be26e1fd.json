@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "deploy/trainer/ict-offload-drain.{service,timer} and ict-orderflow-capture.service are either embedded in cloud-init or reconciled by an automated sync path, merged AND deployed -- OR a trainer-vm-diag read confirms they are already installed and running (closes as verified-non-issue with that evidence).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260927-R1DJ7SUQ-0004",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "grep -n 'deploy/\\*\\.' scripts/install_systemd_units.sh; ls deploy/trainer/; grep -rn 'ict-offload-drain\\|ict-orderflow-capture' deploy/training-vm-cloud-init.yaml scripts/install_systemd_units.sh .github/workflows/*.yml -- the finding holds while these two units appear in none of those.",
+    "what": "deploy/trainer/ict-offload-drain.{service,timer} and ict-orderflow-capture.service are either embedded in cloud-init or reconciled by an automated sync path, merged AND deployed -- OR a trainer-vm-diag read confirms they are already installed and running (closes as verified-non-issue with that evidence)."
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A10 (session session_016shE4tRmBjWERor1Dj7Suq), finding CA-A10-306",
+    "rerun": "grep -n 'deploy/\\*\\.' scripts/install_systemd_units.sh; ls deploy/trainer/; grep -rn 'ict-offload-drain\\|ict-orderflow-capture' deploy/training-vm-cloud-init.yaml scripts/install_systemd_units.sh .github/workflows/*.yml -- the finding holds while these two units appear in none of those."
+  },
+  "routed_to": "SA-INFRA | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — Repo re-grep: install_systemd_units.sh still globs only deploy/*.service|timer; no reference to ict-offload-drain/ict-orderflow-capture in cloud-init, installer or workflows (only comments). Live",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A10-306, MEASURED 2026-09-27, live-state UNVERIFIED -- this lane had no trainer-VM diag access): deploy/trainer/ict-offload-drain.service, deploy/trainer/ict-offload-drain.timer, and deploy/trainer/ict-orderflow-capture.service have zero automated install path onto the trainer VM. scripts/install_systemd_units.sh globs only top-level deploy/*.service and deploy/*.timer (no recursion into deploy/trainer/); deploy/training-vm-cloud-init.yaml's write_files embeds ict-trainer{,-catchup,-publish,-forecast}.*, ict-promotion-readiness.*, and ict-drift-retrain.* but NOT these three. Whether they are actually running on the live trainer VM today depends entirely on whether a past session installed them by hand -- unverified in this pass. This is the same shape as the already-named incident BL-20260827-TRAINER-SCHEDULE-IS-UNDECLARED-THE-VM-IS-A-PET. Full finding + evidence: docs/audits/code-audit-2026-09-27/CA-A10.findings.jsonl id CA-A10-306. Next step: a trainer-vm-diag read of `systemctl list-unit-files 'ict-offload-drain*' 'ict-orderflow-capture*'` to settle whether they are live today; if not, embed them in cloud-init or extend the trainer's git-sync unit to reconcile deploy/trainer/*."
+}

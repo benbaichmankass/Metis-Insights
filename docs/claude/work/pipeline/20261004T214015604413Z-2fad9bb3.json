@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a donchian-only forming-vs-closed rule registered before its run is graded on unseen data",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-VOLSKIP-SIGNAL-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLSKIP-SIGNAL (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, RQ-20260929-302",
+    "rerun": "python3 -c \"import json;d=json.load(open('docs/research/evidence/forming-bar-pooled-2026-09-29.json'))['legs'];print(sum(v['delta_net_r'] for k,v in d.items() if v['family']=='trend'))\"  # the split still reads donchian-negative"
+  },
+  "routed_to": "VOLSKIP-FORMING | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — No donchian-only forming-vs-closed registered rule on unseen data found in research/queue (grep donchian shows only older units).",
+  "state": "routed",
+  "what": "[research][hypothesis] POST-HOC split of RQ-20260929-302 (not graded; chosen after seeing the data): donchian variant legs 8 of 9 forming-worse (sum dR -114.4R over n=3,904 closed / n=5,683 forming entries), pullback legs 4 of 6 forming-better (sum +69.5R over n=2,325 / n=3,113); Binance 1m proxy 2020-01..2026-09-28, full cost stack. If the donchian family alone is robustly worse, moving ONLY _trend_donchian_variant_builder to the closed bar is the Tier-3 candidate (it carries 2 real-money bybit_2 legs). NEEDED: register a donchian-only rule BEFORE any run, on data this split has not seen (e.g. further donchian symbols on Binance 1m, or accrued bars after 2026-09-28), then grade. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): -114.40400000000001"
+}

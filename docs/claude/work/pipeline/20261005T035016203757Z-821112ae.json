@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Observable: (a) the flip replay emits a verdict that CANNOT be read as a positive when the lever never fired -- either a distinct third state (e.g. `no_fire` / `degenerate_tie`, registered with collapsed-state-guard so producer and consumer are both checked) or a verdict that is refused unless flip_pct > 0; AND (b) a planted positive control demonstrates it -- an artifact with flip_pct 0.0 must NOT come back `PASS`, verified by running it, since a quiet pass proves nothing; AND (c) the existing 12 degenerate-PASS artifacts are either re-emitted or annotated so a future reader of the ON-DISK files is not misled by the stale label. NOT resolution: documenting the caveat in a doc and leaving the field as-is -- the artifacts outlive the doc and are read directly.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Flip replay now emits a distinct non-positive state when the lever never fired, with a consumer guard test. || EVIDENCE: scripts/research/m20_regime_flip_replay.py:222-224 verdict is 'INERT_NEVER_FLIPPED' if flipped==0 else PASS/fail (third state); tests/test_m20_flip_replay_inert_verdict.py:79-115 asserts it and that it is not in guard.PASS_VERDICTS; rollup records 42 legs 30 fail/12 INERT/0 PASS. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] The regime-flip replay writes `verdict: PASS` on legs where the lever NEVER FIRED -- 12 of 14 fleet passes have flip_pct 0.0, so the plain reading of the label is wrong 86% of the time"
+}

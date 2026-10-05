@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-settlement-soak-would-reduce-reads-zero-when-applied",
+    "rerun": "grep -n 'applied=bool(_bind)' src/core/coordinator.py  # present => still open"
+  },
+  "routed_to": "ORDER-AUDIT-2 (re-pointed from ORDER-AUDIT-2 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[AUD-20260927-CA-A02-settlement-soak-would-reduce-reads-zero-when-applied] cash_settlement.record_observation computes would_have_reduced_usd from available_usd AFTER the settled basis replaced it, so the figure reads 0 on exactly the rows where the gate reduced size, and `applied` is stamped True whenever the account is allowlisted even when the basis did not bind. Proposed fix: Capture venue available before replacement; pass both to record_observation; set applied = replaced. (Tier 1; audit lanes do not enact fixes.)"
+}

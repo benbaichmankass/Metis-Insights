@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "EITHER (a) THE CAUSE IS REMOVED -- the relays stop pushing a results commit to the PR branch (write the result to the issue comment, a run artifact, or a side branch), so a bot commit can never be at HEAD; OR (b) the relays push with a credential that DOES trigger workflows (a PAT), which is the documented GitHub behaviour difference; OR (c) the relay itself dispatches the required workflows after its push. [!] AND A DETECTOR EITHER WAY, because the trap is not unique to these two relays -- ANY bot-authored head reproduces it: something that flags an OPEN PR whose head has zero check runs, reaching a surface a manager actually reads. [!] DO NOT CLOSE THIS ON DOCUMENTATION. It is already documented in CLAUDE.md and was hit three times by a session that had read it.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL'), indent=2))\"",
+    "what": "EITHER (a) THE CAUSE IS REMOVED -- the relays stop pushing a results commit to the PR branch (write the result to the issue comment, a run artifact, or a side branch), so a bot commit can never be at HEAD; OR (b) the relays push with a credential that DOES trigger workflows (a PAT), which is the documented GitHub behaviour difference; OR (c) the relay itself dispatches the required workflows after its push. [!] AND A DETECTOR EITHER WAY, because the trap is not unique to these two relays -- ANY bot-authored head reproduces it: something that flags an OPEN PR whose head has zero check runs, rea"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-BOARD-POST-RELAY-SILENTLY-KILLS-CI-ON-THE-PR-OF-ANY-SESSION-THAT-FOLLOWS-THE-PROTOCOL'), indent=2))\""
+  },
+  "routed_to": "CI-AUTOMERGE — triaged 2026-10-05: sub-agent proposed obsolete, not independently verified — Premise is the mandatory START post to the coordination board via board-post relay; board retired (MI-182 e0c264981; board-heartbeat schedule retired 2026-09-21; session-coordination skill archived); CANONICAL no longer mandates board posts. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: premise is a machinery retired in the 2026-09-21 operating reset (root CLAUDE.md lists it as retired; the artifact is absent at HEAD — re-checked by this lane: docs/claude/work/objects, SESSIONS.json, MANAGER-LEASE.json, MERGE-QUEUE.json, OPEN-ITEMS.json, session-board.json all absent): Premise is the mandatory START post to the coordination board via board-post relay; board retired (MI-182 e0c264981; board-heartbeat schedule retired 2026-09-21; session-coordination skill archived); CANONICAL no longer mandates board posts.",
+  "what": "[health] Following the coordination-board protocol leaves a bot-authored commit at HEAD, so the session's own PR runs no CI and reads as 'waiting'"
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 23,
+    "clears_when": "RESOLVED when a read of /api/diag/bybit_open_orders and the trader's own symbol-scoped sweep report the SAME leg count and summed qty for the same position within one sweep interval, demonstrated on a symbol where they currently disagree (bybit_1/ETHUSDT is the recorded instance), AND the payload names which read served each symbol's legs so a future divergence is attributable rather than merely absent. A code citation does not close it: the defect is that the route already LOOKS like it cross-checks.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-28",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN'), indent=2))\"",
+    "what": "RESOLVED when a read of /api/diag/bybit_open_orders and the trader's own symbol-scoped sweep report the SAME leg count and summed qty for the same position within one sweep interval, demonstrated on a symbol where they currently disagree (bybit_1/ETHUSDT is the recorded instance), AND the payload names which read served each symbol's legs so a future divergence is attributable rather than merely absent. A code citation does not close it: the defect is that the route already LOOKS like it cross-checks."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Same-minute diag bybit_open_orders vs trader symbol-scoped sweep leg count and summed qty on bybit_1/ETHUSDT (two-book symbol; currently ETH idx1 0.01 and idx2 5.67 open). | evidence: Live diag /api/diag/bybit_open_orders at 2026-10-05T03:30Z returns per-symbol orders (e.g. bybit_1 ETHUSDT idx2 position 5.67), but a same-moment comparison against the trader's own symbol-scoped sweep on a symbol where they disagreed was not made an | previous owner dropped (did not cover the item): RESEARCH — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never closes a",
+  "what": "[health] /api/diag/bybit_open_orders reports FEWER resting legs than the venue holds for a symbol its settleCoin page DOES return — 3.02 across 7 vs the trader's 9.33 across 9, same position, 9s apart"
+}

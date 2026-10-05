@@ -1,0 +1,49 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) prop ticket sizing consults distance_to_dd_floor_usd and caps risk so that a single loss cannot take the account within one further loss of the floor -- observed on a real emitted ticket whose risk_usd is below the naive 1.5% figure BECAUSE of the floor, not because the balance fell; OR (b) the operator records a DECISION to accept the current sizing against the floor, with the two-losses-and-it-is-dead consequence stated in the decision itself. [!] A FRESH `bal` REPORT RESOLVES NOTHING HERE -- it fixes the freshness gate, which is a different row. If the new balance is higher the headroom grows and the arithmetic still has no guard. [!] AND THE ACCOUNT SURVIVING A TRADE IS NOT EVIDENCE: a winning trade says nothing about whether the sizing path can see the floor.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Clears via path (b): the operator recorded a decision to accept flat $75 sizing against the floor with the account-dies consequence stated. || EVIDENCE: Operator decision recorded in src/prop/prop_risk_gate.py:143-148 (2026-09-27): cap stays the flat $75, 'deliberately NOT the live cushion... overturn the operator's keep flat until it passes or dies'; B6 operator directive 2026-09-22 'it's ok if there is ever breach'; accounts.yaml:1873 breakout_1 breach_guards: report (operator 2026-09-28). Enforc || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "triage_2026_09_28": {
+    "checked": "Read src/prop/prop_risk_gate.py and src/prop/breakout_ticket.py in full. A gate now exists (grade_ticket_risk consults distance_to_dd_floor_usd, enforce_ticket_cap can resize/refuse) but PROP_TICKET_RISK_GATE_MODE defaults to 'annotate' (mode() default, line ~115) -- breakout_ticket.py's render_ticket only prepends a caveat line via grade_account_ticket_risk/caveat_lines; it never reduces t.risk_usd. So the sizing itself is still NOT capped by the floor; only an advisory caveat was added. Clause (a) of clears_when (an emitted ticket whose risk_usd is reduced BECAUSE of the floor) has not happened.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "env var change (Tier-2, order-adjacent), verify against a fresh balance read first",
+          "label": "Flip PROP_TICKET_RISK_GATE_MODE to enforce",
+          "risk": "could under-size legitimate tickets if the cushion figure is stale/wrong -- freshness gate matters here too",
+          "what_happens": "Future tickets get resized down to the dd_floor/daily_loss cushion automatically, or refused if the cap is unknown"
+        },
+        {
+          "cost": "none",
+          "label": "Accept annotate-only behavior as the standing decision",
+          "risk": "two consecutive losses can still permanently disable the account if the caveat is missed",
+          "what_happens": "Row closes as accepted risk; the executor must manually respect the caveat on every ticket"
+        },
+        {
+          "cost": "none",
+          "label": "Leave open",
+          "risk": "same exposure persists unaddressed",
+          "what_happens": "Row stays queued, re-checked every 14 days"
+        }
+      ],
+      "priority_tier": 1,
+      "question": "breakout_1's ticket risk ($75) still exceeds its remaining drawdown-floor cushion at the time it was filed ($87.34 static-DD headroom then). A gate exists but runs in advisory-only 'annotate' mode by default -- it warns, it does not resize. Flip to 'enforce' (PROP_TICKET_RISK_GATE_MODE=enforce) so ticket risk is actually capped to the cushion, or accept the current annotate-only behavior?",
+      "recommendation": "Enforce mode exists and is cheap to flip; recommend testing it against a fresh balance read before flipping live given this is a small ($5k) prop account with a tight floor."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] breakout_1 sizes each ticket at ~$75 risk with $87.34 of static-drawdown headroom — two losing trades permanently disable the account, and nothing in the sizing path knows it\n\n[TRIAGE 2026-09-28] OPERATOR (tier 1) — breakout_1's ticket risk ($75) still exceeds its remaining drawdown-floor cushion at the time it was filed ($87.34 static-DD headroom then). A gate exists but runs in advisory-only 'annotate' mode by default -- it warns, it does not resize. Flip to 'enforce' (PROP_TICKET_RISK_GATE_MODE=enforce) so ticket risk is actually capped to the cushion, or accept the current annotate-only behavior? Recommendation: Enforce mode exists and is cheap to flip; recommend testing it against a fresh balance read before flipping live given this is a small ($5k) prop account with a tight floor."
+}

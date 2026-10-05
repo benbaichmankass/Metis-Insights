@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "filed": "2026-10-04",
+  "id": "PI-20261004-4GA8WQPA-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-2 2026-10-04 (session_01Urx25ZisSoJtVg4GA8WqpA); manager request 2026-10-04T23:35Z",
+    "rerun": "for n in bybit_coverage_soak position_read_state_soak; do bash scripts/ops/diag_fetch.sh \"/api/diag/log_file?name=$n&lines=1000\" 2>/dev/null | python3 -c \"import sys,json,collections;L=json.load(sys.stdin)['lines'];days=set()\nfor l in L:\n    try:r=json.loads(l)\n    except Exception:continue\n    t=r.get('logged_at_utc') or r.get('ts') or ''\n    days.add(t[:10])\nprint('$n tail lines',len(L),'distinct UTC days',len(days),sorted(days))\"; done"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "what": "DIAG LOG AGGREGATE: /api/diag/log_file returns at most 1000 TAIL lines, but bybit_coverage_soak.jsonl (83 MB) and position_read_state_soak.jsonl (136 MB) grow far faster than that, so the 1000-line tail spans ONE UTC day. Their closing criteria are multi-day (\"at least 20 graded rows spanning at least 3 distinct UTC days\", \"rows accrue across at least 3 distinct UTC days\", at least one verdicts_differ=true / dropped_symbol_dedupe_count>=1 row), which a tail cannot establish. MEASURED 2026-10-04: 100 and 1000-line tails are all 2026-10-04, bybit_1 only. Needs a read-only aggregate on src/web/api/routers/diag.py (e.g. GET /api/diag/log_aggregate?name=<soak>&group_by=utc_day returning per-UTC-day row counts, per-account counts, and counts of a named boolean/number field): TIER 2 (a diag route on the live web API) — needs a DISPATCHED LANE. Unblocks about 4 items: OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK, OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES, and the same pattern on arbitration_fanout_soak (PI-20260924-L1AUT4FF-0001) and other soak logs. Until then those items can only be graded could-not-look, never closed."
+}

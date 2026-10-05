@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 8,
+    "clears_when": "a fix for CA-A01-019 is merged with a test that fails on the old code (detector: unit test: get_recent_order_packages_for_symbol raises on every call -> _send_close_to_exchange never called across N passes), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-KFWRL9R1-0006",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-019 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-019 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:L3947-L3950 (swallow) -> L3324-L3333 (branch) -> L4118-L4167 (venue close) on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "PROTECTION-HARDENING — FIXED AND DEPLOYED, NOT DONE: #16492/01dfd61 + 6c465e0 + 70ec92b are contained in the live git_sha 95c9faec2 (restart_pending false, manager read 2026-10-04); done needs this path observed firing on the live trader — rides the PROTECTION-HARDENING row observation due 2026-10-11 (#16516) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "HIGH (code audit CA-A01-019, MEASURED): _recover_orphan_attribution returns refused=False/package=None when the order-package read RAISES, which _reconcile_orphan_exchange_positions treats as 'no candidate exists' and flattens a live orphan_adopt position with a reduce-only venue close — 'we could not look' collapsed into 'we looked and found nothing'. LOCATION: src/runtime/order_monitor.py:L3947-L3950 (swallow) -> L3324-L3333 (branch) -> L4118-L4167 (venue close). PROPOSED FIX: Add an explicit unreadable state to _OrphanAttribution (e.g. read_failed=True) for the exception path (and arguably for 'no direction or no entry price'); at L3324 treat it like refused (pop/hold the pending close, count an error) rather than falling to _close_unattributable_orphan."
+}

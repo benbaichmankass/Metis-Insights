@@ -1,0 +1,31 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "A retrained ETH regime head (target: eth-regime-5m/15m-lgbm-v1) clears RG4 live robustly (>=0.55 across thresholds, not knife-edge) after its shadow soak, the gated ETH A/B is re-confirmed with that head, and advisory promotion is proposed (Tier-3). Root-cause + replacement-head halves DONE 2026-06-28.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "MB-20260627-003",
+  "ml_review_2026_10_04": "2026-10-04: eth-regime-5m-lgbm-v1 (shadow) macro_f1 0.5581 flat; eth-regime-15m-lgbm-xasset-v1 (shadow) 0.4817 flat; eth-regime-15m-lgbm-v1 (candidate) 0.6102 down from 0.6172. RG4 live AUC NOT re-run this session (gate-check only run on advisory heads + 2 demoted). Next concrete step: trainer-vm-diag `python -m ml gate-check eth-regime-5m-lgbm-v1 --db data/trade_journal.db --datasets-root datasets-out` and the same for eth-regime-15m-lgbm-xasset-v1; quote live_regime_discrimination.",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " Trainer-VM RG4 re-check of eth-regime-5m/15m-lgbm-v1 (>=0.55 across thresholds), shadow soak, gated ETH A/B, then Tier-3 advisory proposal. | evidence: Registry/RG4 state lives on the trainer VM; no live diag endpoint exposes it (diag routes list has no ML registry). ML-HYGIENE (queued) title mentions a regime-model demote proposal, not an ETH regime retrain-to-promote, so the earlier routing is not",
+    "what": "A retrained ETH regime head (target: eth-regime-5m/15m-lgbm-v1) clears RG4 live robustly (>=0.55 across thresholds, not knife-edge) after its shadow soak, the gated ETH A/B is re-confirmed with that head, and advisory promotion is proposed (Tier-3). Root-cause + replacement-head halves DONE 2026-06-28."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260627-003",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260627-003'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Traced the ml-review-backlog history: root-cause+replacement-head work is done (2026-06-28 retrain, 2026-08-02 class-weight recalibration 28x->11x shipped in ml/configs/eth-regime-15m-lgbm-v1.yaml, confirmed present in the file today). As of the last recorded check (2026-08-29), the target head's RG4 soak was still maturing; item is snoozed_until 2026-09-30 (2 days from today). Confirming the fresh post-soak RG4 read requires trainer-VM diag access this repo-only session does not have.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — the snooze expires 2026-09-30; the correct next step is a trainer-VM RG4 gate re-check (scripts/ml/replay_pregate.py / gate_check_candidates.sh) on the recalibrated eth-regime-15m-lgbm-v1 once its shadow soak has matured, not a judgment call.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Trainer-VM RG4 re-check of eth-regime-5m/15m-lgbm-v1 (>=0.55 across thresholds), shadow soak, gated ETH A/B, then Tier-3 advisory proposal. | evidence: Registry/RG4 state lives on the trainer VM; no live diag endpoint exposes it (diag routes list has no ML registry). ML-HYGIENE (queued) title mentions a regime-model demote proposal, not an ETH regime retrain-to-promote, so the earlier routing is not | previous owner dropped (did not cover the item): ML-HYGIENE",
+  "what": "[ml] Labeling-gap FIXED (alt datasets now built daily); but ETH regime head is NO_EDGE live (RG4 0.46) -> needs retrain before promotion\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — the snooze expires 2026-09-30; the correct next step is a trainer-VM RG4 gate re-check (scripts/ml/replay_pregate.py / gate_check_candidates.sh) on the recalibrated eth-regime-15m-lgbm-v1 once its shadow soak has matured, not a judgment call."
+}

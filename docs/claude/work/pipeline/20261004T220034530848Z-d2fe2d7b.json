@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-01",
+    "kind": "date"
+  },
+  "id": "PI-20260929-AQRK6CL1-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1; stalled-PR diagnosis 2026-09-29 ~13:40Z",
+    "rerun": "grep -n 'claude/' .github/workflows/*automerge*.yml .github/workflows/*pr-landing*.yml | head; # then list open PRs with landing:self on non-claude branches"
+  },
+  "routed_to": "manager (landing-machinery change; classifier-denied for the lane)",
+  "state": "routed",
+  "what": "The auto-merge relay (open-and-automerge / watch checks) attaches only to PRs whose head branch is claude/*. Seven landing:self PRs on other branches (#14176 sa-infra/*, #14086/#14060/#14087/#14076 exit-ops/*, #14085 m19-*, #14052 ca-deploy-*) sat green for hours with no merge check attached until the manager merged them by hand 2026-09-29 ~13:45Z. Either widen the relay's branch filter to any branch carrying a landing:self pr-landing file, or make pr-landing-guard FAIL a landing:self PR on a non-claude/ branch so the stall is loud. || RE-OBSERVED by health-review 2026-10-04: PR #16198 on branch automation/live-parity-37184970617-1 auto-merged at 08:06:56Z, 21 s after its last check finished -- so automation/* branches DO get merged; the stall class recorded here is specific to the other prefixes listed. Not resolved; narrowed. || lane CI-AUTOMERGE (session_01MD7v8mG8doHqFYuTbsceQM) 2026-10-04: STILL OPEN, same root as PI-20261002-ULPHZHHQ-0002: claude-pr-automerge.yml pushes only on branches [\"claude/**\"]. Proposed patch: branches: [\"**\", \"!main\", \"!automation/**\"]. Widening adds no arming power, because the request gate still demands the branch's own <slug>.txt and landing:self. automation/** stays excluded because commit-to-main arms those itself. NOT pushed: the auto-mode classifier denied the edit in this session. Next step: the manager or operator applies it as a landing:hold PR."
+}

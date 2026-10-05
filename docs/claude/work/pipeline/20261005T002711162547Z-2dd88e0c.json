@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(a) A fresh Bybit UM export covering 2026-07-13 -> present is stitched into `comms/broker_truth_ledger.json` via the reviewed `scripts/ops/reconcile_netting_pnl.py --emit-ledger` path, so `window_end` advances and the 59 (and counting) post-window closes acquire a wallet-truth counterpart; AND (b) the ledger's COVERAGE is legible to a consumer — a row outside the reconciled window must be distinguishable from one inside it, rather than both reading `known_divergent`, so 'never measured' and 'measured and divergent' stop being the same string; AND (c) a recorded cadence or trigger for refreshing the ledger, since a hand-populated authoritative figure with no refresh rule will go stale again by construction — this row IS that recurrence.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED'), indent=2))\"",
+    "what": "(a) A fresh Bybit UM export covering 2026-07-13 -> present is stitched into `comms/broker_truth_ledger.json` via the reviewed `scripts/ops/reconcile_netting_pnl.py --emit-ledger` path, so `window_end` advances and the 59 (and counting) post-window closes acquire a wallet-truth counterpart; AND (b) the ledger's COVERAGE is legible to a consumer — a row outside the reconciled window must be distinguishable from one inside it, rather than both reading `known_divergent`, so 'never measured' and 'measured and divergent' stop being the same string; AND (c) a recorded cadence or trigger for refreshin"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED'), indent=2))\""
+  },
+  "routed_to": "ORDER-AUDIT-2 — triaged 2026-10-05: still applies — comms/broker_truth_ledger.json updated_at still 2026-07-13T19:40 (read at HEAD 2026-10-05, ~84 days stale); needs fresh Bybit UM export stitched via reconcile_netting_pnl.py --emit-ledger. | next: Check if the export can be pulled via API/workflow; else ask operator for the Bybit UM export. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[health] The bybit_2 broker-truth ledger stopped at 2026-07-13 — 59 real-money closes over 48 days have never been reconciled, and a consumer cannot tell that window from the measured one"
+}

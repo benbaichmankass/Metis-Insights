@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a live per-tick account-election trace (conviction_arbitration or arbitration_fanout_soak log, or a direct dispatch instrumentation) shows whether gld_pullback_1d ever wins alpaca_paper's GLD election slot against gld_pullback_1h -- confirms or rules out same-account contention as the sole cause",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260926-X3QEGPJL-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-11",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json",
+    "what": "a live per-tick account-election trace (conviction_arbitration or arbitration_fanout_soak log, or a direct dispatch instrumentation) shows whether gld_pullback_1d ever wins alpaca_paper's GLD election slot against gld_pullback_1h -- confirms or rules out same-account contention as the sole cause"
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "R5 soak-book-grade 2026-09-26",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json"
+  },
+  "routed_to": "SOAK-WATCH (re-pointed from SOAK-WATCH — #13044 merged 2026-09-27; starved-leg grading is the soak lane's (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "R5 soak-book grade PROPOSES kill: alpaca_paper/gld_pullback_1d — starved (68 actionable intent(s), 2 episode(s), 0 order(s)/ticket(s) received, held_back=1, no open position held) over the 168h window ending 2026-09-26T22:39:52.948694+00:00. Cost fidelity insufficient_n (0 fills) — consistent with zero orders reaching the exchange. This is Stage-1 soak mechanics, NOT an expectancy call; the leg is a PROPOSAL to remove from the alpaca_paper roster as mechanically dead, Tier-3, operator-approved only. -- UPDATE 2026-09-27 (w5d-starved-legs lane, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): mechanics finding, NOT a strategy verdict -- re-routed off the kill proposal. PLAUSIBLE ROOT CAUSE (same-account symbol contention, NOT independently confirmed at tick-level this session): alpaca_paper declares two GLD strategies, gld_pullback_1d and gld_pullback_1h (both execution:live per /api/diag/status's strategies_yaml.execution), so the same per-account, per-symbol single-winner election named in PI-20260926-X3QEGPJL-0001/-0002 applies here too: only one of the two can win the GLD slot per tick. This has NOT been directly observed winning/losing live this session (no per-tick election log was read for a GLD-contested tick) -- reported as PLAUSIBLE, not confirmed. FIX shipped: PR #13044 (claude/w5d-starved-legs) (Tier-1, self-landed) grades a starved leg with a live same-symbol contender as insufficient-data rather than kill."
+}

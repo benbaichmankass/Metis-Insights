@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "POPULATION: the 2 ALPACA-ONLY arm-declaring legs — gld_pullback_1d (GLD, n=112) and scha_trend_long_1d (SCHA, n=65), measured entry-conditioned 2010-03-26 to 2026-06-12 (relay #9710). qqq_trend_long_1d is excluded: it also routes to ib_paper, where a ~10% NBBO rule may make the cap correct. Closes on EITHER (a) a recorded paper-account result showing Alpaca REFUSES a take-profit further than 9.9% of entry, which closes this as correct-as-is with the evidence attached; or (b) Alpaca accepts it AND the cap resolution is made route-aware with operator approval, verified by reading a live order package on an Alpaca-routed leg whose tp is no longer clamped to entry*1.099. A code change alone does NOT close it — the check is a real order package with an un-clamped tp, because the clamp lives in a signal builder that runs before per-account routing, so a fix applied at the wrong layer would look correct in diff and change nothing. Reading more documentation does NOT close it either: the open question is an undocumented API validation, which only an order attempt reveals.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/runtime/tp_venue_cap.py in full — its own docstring confirms the clamp (0.099) is still applied unconditionally to every CLAMPING_FAMILIES symbol including GLD/SCHA (Alpaca-only, no Bybit exposure), and explicitly states this is still an OPEN QUESTION not yet answered by a real order-package observation, matching the item's premise exactly with no progress since filing.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane — this needs a real order-package observation (place/inspect a GLD or SCHA take-profit past 9.9% of entry on alpaca_paper) to settle whether the clamp is needed there, per the item's own closure spec; not an operator tradeoff, an experiment to run.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A paper-account GLD/SCHA order package placed without the cap (or the venue rejecting it) recorded, deciding whether to scope the clamp to Bybit. | evidence: src/runtime/tp_venue_cap.py docstring still says the 0.099 value is Bybit-named and applied to all symbols incl. Alpaca-only legs; per-venue cap 'OPEN QUESTION'. No order-package observation recorded for gld_pullback_1d / scha_trend_long_1d.",
+  "what": "[performance] _TP_SENTINEL_CAP_PCT is a Bybit ErrCode 10001 workaround applied unconditionally; on the ALPACA-ONLY legs (GLD, SCHA) no venue is known to require it\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane — this needs a real order-package observation (place/inspect a GLD or SCHA take-profit past 9.9% of entry on alpaca_paper) to settle whether the clamp is needed there, per the item's own closure spec; not an operator tradeoff, an experiment to run. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): work a review can drain. Carried with the blocker named. Would change the TP actually placed on live legs. Note this review measured 17 Bybit 'contracts exceeds maximum limit' venue rejections in 9 days, which is the sibling venue-cap class.\" |     } |   ] | }"
+}

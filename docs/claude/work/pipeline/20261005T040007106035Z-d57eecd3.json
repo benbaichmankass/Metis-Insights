@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 23,
+    "clears_when": "Two separable halves. (1) DETECTION: give the IB sweep the journal-vs-exchange quantity comparison its Bybit sibling already has, so a divergence is observable at all; ends when a deliberately divergent IB row is reported on a surface a human reads, asserted by a test. (2) THIS ROW: trade 5007 reads the same size as the exchange, or is closed, verified from a fresh client -- and the decision on how to reconcile it (the fill was real, so the exit price and 1-lot pnl are a MEASURED broker fact that should not be discarded) is recorded rather than silently applied. Do NOT resolve (2) by editing the row to 50 without accounting for the filled contract.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-28",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED'), indent=2))\"",
+    "what": "Two separable halves. (1) DETECTION: give the IB sweep the journal-vs-exchange quantity comparison its Bybit sibling already has, so a divergence is observable at all; ends when a deliberately divergent IB row is reported on a surface a human reads, asserted by a test. (2) THIS ROW: trade 5007 reads the same size as the exchange, or is closed, verified from a fresh client -- and the decision on how to reconcile it (the fill was real, so the exit price and 1-lot pnl are a MEASURED broker fact that should not be discarded) is recorded rather than silently applied. Do NOT resolve (2) by editing t"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Journal row 5007 status/size vs a fresh IB client read, and a test that a deliberately divergent IB row is reported. | evidence: IB journal-vs-exchange quantity detector (clause 1) not found: git grep shows only scripts/ops/system_invariants.py INV-JOURNAL-EXCHANGE self-test; trade 5007 state not readable (id below the 1000-row window and ib_paper read is could_not_look at 202 | previous owner dropped (did not cover the item): ORDER-AUDIT-2 — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never clo",
+  "what": "[health] The MGC over-cover was not merely a hazard -- a stray group's duplicate LIMIT partially FILLED, and the resulting 1-contract journal/exchange divergence is invisible to every IB detector"
+}

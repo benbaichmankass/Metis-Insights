@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only records from lane BACKLOG-BURNDOWN-3 batch A -- 63 items closed done and 74 killed, each proposed by a read-only triage agent, refuted-or-confirmed by an independent adversarial re-run, and spot-checked by this lane (9 proposals refuted + 5 weak ones were NOT landed). Every terminal_reason cites its evidence. No code, config or runtime change."
+}

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either a producer for conviction-meta-v1 is built and it is promote-staged back to shadow with its declared features present in >=1 live shadow row, or the operator kills the head with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-K85Q64SF-0001",
+  "ml_review_2026_10_04": "2026-10-04: the live half is now OBSERVED -- api/bot/shadow/stats?model_id=conviction-meta-v1 last_seen 2026-09-29T09:27:45Z, zero rows since; registry stage candidate (GET /api/bot/ml/registry). The soak stopped accruing as intended. Still owed: the producer-or-kill decision (ask_operator) -- surfaced as a decision in the 2026-10-04 ml-review record. gate-check 2026-10-04: ready=false, blocking non_degenerate/live_parity/labels_accruing/drift_clean; training macro_f1 0.4875 degraded from 0.4961 (n_eval 254).",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-02",
+    "rerun": "trainer-vm-diag: base64 probe over ml/registry-store/registry.jsonl + runtime_logs/shadow_predictions*.jsonl* (active+gz archives) — declared feature keys vs union of feature_row keys with non-null values; issue #14147 has the script"
+  },
+  "routed_to": "ML-HYGIENE | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — No producer committed for c_reg/c_setup/etc in shadow row; clears_when needs producer or operator kill; none found at HEAD.",
+  "state": "routed",
+  "what": "JC-SA-02 (a) DEMOTED shadow->candidate on the trainer registry 2026-09-29 (lane ML-DEMOTE): conviction-meta-v1. Re-measured: 3 of 10 declared features served (direction, strategy_name, symbol); 7 absent: adx_14 c_reg c_setup c_strat c_wr regime vol_regime; n=31701 shadow predictions (active 737 + 4 gz archives). While the declared features are never served, its soak days measure nothing. To return: build a producer that puts the conviction-lens inputs (c_reg, c_setup, c_strat, c_wr) and regime/vol_regime/adx_14 into the shadow row_keys at signal time (the meta.conviction stamp already computes the c_* values), then re-train and promote-stage back to shadow. Note: this head is the v2 learned conviction, so it has a research case; the operator decides whether to build it. Merged/deployed/observed: registry stage OBSERVED candidate on the trainer VM (issue #14152); the live shadow factory refusing it after the next registry-mirror sync is NOT yet observed."
+}

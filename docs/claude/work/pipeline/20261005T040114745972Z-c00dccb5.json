@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 39,
+    "clears_when": "Either a Tier-1 audit doc lands explaining which (symbol, timeframe) pairs intentionally lack edges, OR new vol-detector edges land and the M7 packet's vol-axis coverage improves.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260609-001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-13",
+    "how_to_check": " A Tier-1 audit doc naming which (symbol,timeframe) pairs intentionally lack vol-detector edges, or new edges landing. | evidence: No vol_regime coverage audit doc found (git grep in docs/research, docs/audits: none; only comms/reviews/performance-review-20261004 mentions it). No live row owns it.",
+    "what": "Either a Tier-1 audit doc lands explaining which (symbol, timeframe) pairs intentionally lack edges, OR new vol-detector edges land and the M7 packet's vol-axis coverage improves."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260609-001",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260609-001'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A Tier-1 audit doc naming which (symbol,timeframe) pairs intentionally lack vol-detector edges, or new edges landing. | evidence: No vol_regime coverage audit doc found (git grep in docs/research, docs/audits: none; only comms/reviews/performance-review-20261004 mentions it). No live row owns it.",
+  "what": "[performance] Audit vol_regime stamp coverage — many M7 packets have vol:unknown || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ences are intentional, and note that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so it has a different coverage shape than the frozen detector. A bounded audit, not a research question.\", |   \"updated_at\": \"2026-08-13T10:12:00+00:00\" | }"
+}

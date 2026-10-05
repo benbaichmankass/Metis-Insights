@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "IBClient._locked_close (and _locked_cancel_resting_protection) refuses or defers the flattening market order when the pre-cancel could not read the open-order book (ib.openTrades raised), with a test using a raising openTrades() asserting no MarketOrder is placed; merged AND deployed (git_sha on /api/diag/version)",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KRAKE1TG-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A04 (session_01L6oxNwzTguNk5ZKRaKE1tG), finding AUD-20260927-CA-A04-ib-close-precancel-read-failure-collapsed (docs/audits/code-audit-2026-09-27/CA-A04.findings.jsonl)",
+    "rerun": "grep -n 'def _open_trades' -A5 src/units/accounts/ib_client.py (holds while it returns [] on exception) and grep -n 'self._cancel_resting_orders_for_symbol(ib, sym)' src/units/accounts/ib_client.py (holds while _locked_close discards the result); reproduce with a FakeIB whose openTrades() raises -> _cancel_resting_orders_for_symbol returns verify_state not_attempted, seen 0, no warning."
+  },
+  "routed_to": "ORDER-AUDIT-2",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: verified by this lane 2026-10-05 (live read and/or file/test re-read, deployed sha 9ddf1ee04 per /api/diag/version): ib_client.py:2764 close() refuses when precancel verify_state=='unreadable' (also :2622); _cancel_resting_orders_for_symbol reads ib.openTrades() directly (~:3680). Tests test_ib_cancel_verification.py:595-628. #15306 (a4fa0c6b7) is ancestor of live sha 9ddf1ee04.",
+  "what": "HIGH (code audit CA-A04): IBClient.close() can flatten while the protective bracket still rests. Step 1 (_cancel_resting_orders_for_symbol, called at ib_client.py:2642 with its result DISCARDED) iterates self._open_trades(ib), which returns [] when ib.openTrades() raises (ib_client.py:4731-4735). A Gateway read failure therefore reads as 'nothing to cancel' — MEASURED with a raising fake: {'verify_state': 'not_attempted', 'seen': 0, 'cancelled': 0, 'failed': 0, 'account_wide_seen': None}, no exception, no warning — and Step 2 sends the opposing MarketOrder. The bracket left over a flat book can later fill and OPEN a reverse position: the BL-20260624-MHG-FLIP class, and the same outcome as CA-A01's critical oca-protect-t5836. The file already names this defect at ib_client.py:3355-3359 and works around it only in _sweep_stray_oca_groups. Same collapse feeds cancel_resting_protection (:3627) and _cancel_oca_group_for_symbol. FIX (Tier-2 order path): read ib.openTrades() directly in these two cancel helpers, return an 'unreadable' state, and have _locked_close defer (retCode 2) instead of flattening when Step 1 could not look. Found by a lane reader sub-agent; re-verified by the lane."
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "scripts/ops/pipeline.py --check (or the pipeline-guard CI) FAILS a record whose filename does not sort by write time (e.g. an id-named 'PI-*.json' among timestamped '2026...Z-*.json' names), OR load() orders records by a field inside the record instead of by filename; proven by a test where an id-named original plus a later timestamped closure folds to the closure's state. Killable with a reason if writers are proven unable to produce a non-timestamp filename.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261002-APBY4NTV-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-02 ~19:40Z, after lane DIALOG-MEASURE (session_01PNFmCa7dgP1ykmsBd5s8kE) reported the sort trap on PI-20261001-SBD5S8KE-0001 (PR #15637).",
+    "rerun": "ls docs/claude/work/pipeline | grep -c '^PI-' ; python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import pipeline as p;print(p.load().items['PI-20261002-UBMITVIS-0001']['state'])\""
+  },
+  "routed_to": "CI-AUTOMERGE (re-pointed from CI-AUTOMERGE (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "SILENT SHADOWING IN THE PIPELINE STORE. pipeline.load() folds records in FILENAME order. A record named by its id ('PI-....json') sorts AFTER every timestamped record ('2026...Z-*.json', since '2' < 'P'), so a later update or closure written with a timestamped name is overridden by the older original. pipeline --check gave NO warning for it. MEASURED 2026-10-02 ~19:40Z on origin/main: 7 of 2610 record files were id-named. Exactly 1 was already shadowed: the manager's closure of PI-20261002-UBMITVIS-0001 (state done) folded as 'queued'. The probe is positive-controlled by that one known case. Mitigated, not fixed: the manager renamed all 7 to timestamped names of their creation commits (content identical), so the item now folds to done; #15637 does the same for PI-20261001-SBD5S8KE-0001. Nothing stops the next writer from naming a record by id. Fix: guard the filename shape in --check, or fold by a record field."
+}

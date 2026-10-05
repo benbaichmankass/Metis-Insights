@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "Either (a) a measured co-occurrence rate is on record and the operator has decided the two-row rendering is adequate, with the reason stated; or (b) a position holding both conditions surfaces as a single row that names the stop as the only remaining protection, demonstrated on a real or synthetic co-occurrence. A row closed on 'the Sunday routine flattened MGC' does NOT satisfy this - that clears the instance, not the class.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260822-MGC-TARGET-NAKED-AND-MONITOR-BLIND-TOGETHER",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-07",
+    "how_to_check": " Either a measured co-occurrence rate + operator decision, or a single row naming stop as only protection for a target-naked AND monitor-blind position. | evidence: Still-current design: src/runtime/execution_diagnostics.py:1213 enqueue_monitor_blindness_alert and the separate target-naked alert remain separate rows; no co-occurrence single-row rendering found. Not live-verified (ib_paper MGC state not read).",
+    "what": "Either (a) a measured co-occurrence rate is on record and the operator has decided the two-row rendering is adequate, with the reason stated; or (b) a position holding both conditions surfaces as a single row that names the stop as the only remaining protection, demonstrated on a real or synthetic co-occurrence. A row closed on 'the Sunday routine flattened MGC' does NOT satisfy this - that clears the instance, not the class."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260822-MGC-TARGET-NAKED-AND-MONITOR-BLIND-TOGETHER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260822-MGC-TARGET-NAKED-AND-MONITOR-BLIND-TOGETHER'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Either a measured co-occurrence rate + operator decision, or a single row naming stop as only protection for a target-naked AND monitor-blind position. | evidence: Still-current design: src/runtime/execution_diagnostics.py:1213 enqueue_monitor_blindness_alert and the separate target-naked alert remain separate rows; no co-occurrence single-row rendering found. Not live-verified (ib_paper MGC state not read).",
+  "what": "[health] ib_paper/MGC is target-naked AND monitor-blind at the same time, and each alert cites the other's missing half as its backstop"
+}

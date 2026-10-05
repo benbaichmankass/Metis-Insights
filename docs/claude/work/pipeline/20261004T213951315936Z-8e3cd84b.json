@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either .github/workflows/stop-micro-zombie.yml exists and is dispatchable, or vm-migration/SKILL.md and the runbook are corrected to strike the dead reference and document the terminate-instance fallback as the sole decommission-hygiene path.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-CAB09-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-vm-migration-stop-micro-zombie-missing",
+    "rerun": "grep -rl 'stop-micro-zombie' .github/workflows/ (expect: no matches); grep -n 'stop-micro-zombie' .claude/skills/vm-migration/SKILL.md docs/runbooks/live-vm-migration-ampere.md"
+  },
+  "routed_to": "DOCS-DRIFT | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — vm-migration/SKILL.md:90 and docs/runbooks/live-vm-migration-ampere.md:75,154 still cite stop-micro-zombie; no such workflow in .github/workflows.",
+  "state": "routed",
+  "what": "[infra] .claude/skills/vm-migration/SKILL.md and docs/runbooks/live-vm-migration-ampere.md both document a 'stop-micro-zombie' GitHub Actions workflow (label stop-micro-zombie) as the way to disable the entire ict-* fleet on a retired box during decommission -- the documented mitigation for the 2026-06-14 BL-20260615-MICRO-ZOMBIE incident that spammed a real-money Bybit account with ErrCode 10010. No such workflow exists: .github/workflows/ has no stop-micro-zombie.yml, and grep -rl 'stop-micro-zombie' .github/workflows/ returns nothing. A session following the decommission-hygiene step as written would try to dispatch a workflow that cannot be dispatched, in exactly the safety-relevant moment the mitigation exists for. vm-migration/SKILL.md separately documents a working fallback (terminate-instance with mode: list -> OCID -> terminate) that does not depend on the missing workflow."
+}

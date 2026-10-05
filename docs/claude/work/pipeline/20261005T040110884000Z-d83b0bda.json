@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 35,
+    "clears_when": "A 110001 on a leg the same run already removed via its paired sibling is classified as already_gone rather than failed, so a run that reaches its intended post-state reports success. The states stay separate: already_gone (we removed it via its pair) must not be merged into cancelled (we cancelled it directly) nor into failed (the venue refused). A test asserts a run whose targets all return 110001 after their stops cancelled OK does not report partial_cancel.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260826-CANCEL-STALE-TPSL-LEGS-COUNTS-AN-ALREADY-CANCELLED-PAIRED-LEG-AS-A-FAILURE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-09",
+    "how_to_check": " A 110001 on a leg already removed via its paired sibling is classified already_gone and the run reports success | evidence: scripts/ops/cancel_stale_tpsl_legs.py:~302-326 counts any retCode not in (0,'0',None) as ok:false and sets action partial_cancel; no 110001/already_gone classification (git grep 110001 in scripts and workflows = 0 hits).",
+    "what": "A 110001 on a leg the same run already removed via its paired sibling is classified as already_gone rather than failed, so a run that reaches its intended post-state reports success. The states stay separate: already_gone (we removed it via its pair) must not be merged into cancelled (we cancelled it directly) nor into failed (the venue refused). A test asserts a run whose targets all return 110001 after their stops cancelled OK does not report partial_cancel."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-CANCEL-STALE-TPSL-LEGS-COUNTS-AN-ALREADY-CANCELLED-PAIRED-LEG-AS-A-FAILURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-CANCEL-STALE-TPSL-LEGS-COUNTS-AN-ALREADY-CANCELLED-PAIRED-LEG-AS-A-FAILURE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A 110001 on a leg already removed via its paired sibling is classified already_gone and the run reports success | evidence: scripts/ops/cancel_stale_tpsl_legs.py:~302-326 counts any retCode not in (0,'0',None) as ok:false and sets action partial_cancel; no 110001/already_gone classification (git grep 110001 in scripts and workflows = 0 hits).",
+  "what": "[health] cancel-stale-tpsl-legs reported 'partial_cancel - 7 failed' on a run that fully achieved its goal"
+}

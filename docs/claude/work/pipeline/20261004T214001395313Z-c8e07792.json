@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a fix for AUD-20260927-CA-B01-multiclass-served-score-is-max-proba is merged with a test that fails on the old code (detector: Unit test: ShadowPredictor(multiclass).predict(row) == predict_proba(row)[positive_class] for a declared positive_class.), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-3WM5HADW-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B01 (session_01M6NBQHKgKXsvrB3Wm5HAdW), finding AUD-20260927-CA-B01-multiclass-served-score-is-max-proba in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B01-multiclass-served-score-is-max-proba (evidence field) in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl, re-read ml/predictors/multiclass.py:38-43; ml/predictors/shadow.py:103; consumers src/runtime/shadow_adapter.py:176, src/runtime/conviction_inputs.py:128-147, ml/calibration/regime_alignment.py:94-107, ml/promotion/attribution.py on main, and re-run the stated command / repro in docs/audits/code-audit-2026-09-27/CA-B01-repros/; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "ML-HYGIENE [route; size S, value M, tier 2] BACKLOG-ROUTE 2026-10-04: ml/predictors/multiclass.py predict() returns float(max(proba.values())) (lines ~38-43) and ml/predictors/shadow.py:103 serves wrapped.predict(row) as score: finding holds on main. No fix commit found. | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — ml/predictors/multiclass.py:38-43 predict() still returns max(proba.values()); no positive_class in predictors (grep hit only ml/cli.py:602).",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "HIGH (code audit AUD-20260927-CA-B01-multiclass-served-score-is-max-proba): MulticlassPredictor.predict (the score ShadowPredictor logs and attribution/c_reg consume) returns max(predict_proba), which is symmetric in the class: a regime head logs ~0.9 for both 'confidently range' and 'confidently volatile', and a 'won'-target head logs 0.958 for a near-certain loss and 0.961 for a near-certain win — and conviction-meta-v1, a multiclass 'won' head, is at SHADOW in the live registry, so its attribution AUC/brier demote triggers are computed on a direction-less score. LOCATION: ml/predictors/multiclass.py:38-43; ml/predictors/shadow.py:103; consumers src/runtime/shadow_adapter.py:176, src/runtime/conviction_inputs.py:128-147, ml/calibration/regime_alignment.py:94-107, ml/promotion/attribution.py. PROPOSED FIX: Declare positive_class in model_state/manifest; make predict return P(positive_class) (or log the full proba dict in the shadow record); recompute attribution for affected heads and refit any regime_alignment calibrator."
+}

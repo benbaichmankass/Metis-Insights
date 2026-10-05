@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "docs/research/M28-macro-value-speculation-DESIGN.md's DONE status is paired with the P4 scorecard verdict (calibration_rank, edge_vs_baseline), OR a freshly rerun P4 backtest clears calibration_rank > 0 and edge_vs_baseline > 0 out-of-sample",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAA05-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-30",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A05, finding CA-A05-005",
+    "rerun": "python3 -c \"import json; d=json.load(open('comms/macro/thesis_p4_scorecard.json')); print(d['scorecard']['calibration_rank'], d['scorecard']['edge_vs_baseline'])\" -- finding holds while both remain <= 0, and clears when the design doc names the verdict next to its DONE status, or a fresh scorecard clears the bar."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A05-003, MEASURED 2026-09-27): the M28 macro-value sleeve's own most recently committed P4 promotion-gate evidence (comms/macro/thesis_p4_scorecard.json) shows it fails its own promotion bar even at ZERO cost. Scorecard meta: n=1104 scored thesis-entries, 263 rebalance dates, 2005-01-01 to 2026-07-10, 5-symbol universe (GLD, IEF, SLV, SPY, TLT), horizon_days=30, fee_frac=0.0, carry_frac_per_day=0.0 (the most favorable possible cost assumption -- more optimistic than the fee-only corpus CLAUDE.md already flags). Result: calibration_rank=-0.003723 (~0, thesis_conviction has no measurable relationship to net_return) and edge_vs_baseline=-0.004677 (negative -- underperforms a naive all-long baseline by ~47bps mean net return per thesis). The design doc's \"Build status: DONE\" framing does not surface this verdict, creating a risk that a future session or the daily brief reads \"148 tests green\" as \"this sleeve has edge\" when its own P4 evidence says the opposite. The gate itself is functioning correctly -- nothing has been promoted -- this finding is that the doc/evidence link is missing, not that the gate is broken. FIX: pair the design doc's DONE status line with a pointer to this scorecard's verdict (calibration_rank, edge_vs_baseline) so it cannot be read as \"has edge\". Full finding: docs/audits/code-audit-2026-09-27/CA-A05.findings.jsonl id CA-A05-005."
+}

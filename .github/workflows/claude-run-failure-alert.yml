@@ -88,6 +88,7 @@ on:
       # The reaper is the only thing recording what a killed session left behind.
       # A dead reaper run is invisible in the worst way: its ledger simply stops
       # advancing, and a stale ledger reads exactly like a quiet week.
+      # (manual-dispatch only since 2026-10-04; no push/cron trigger — see its header)
       - session-reaper
       - work-digest
       # The coordination board's proof that it is ALIVE. This entry is the
@@ -393,8 +394,53 @@ jobs:
             echo "No successful [operator-ping] step on this run — alerting."
           fi
 
+      # ── SUPERSEDED-BY-CONCURRENCY IS NOT DEAD (REAPER-NOISE, 2026-10-04) ──
+      # A workflow whose concurrency group has `cancel-in-progress: false` still
+      # has its PENDING runs cancelled when a newer run queues behind them. That
+      # surfaces as `cancelled` and used to page "STOP waiting — it is dead" for a
+      # run that was merely replaced (16 of session-reaper's last 30 runs).
+      # Rule: a `cancelled` run is `superseded` when the SAME workflow has a
+      # newer run (created after it, any status) AND the cancelled run never
+      # started a job (no job with a started_at). A run that began work and was
+      # cancelled (timeout, manual cancel) never qualifies, so real cancellations
+      # still ping. `could_not_check` pings anyway, as above.
+      - name: Was the cancelled run merely superseded by a newer one?
+        id: superseded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          WF_ID: ${{ github.event.workflow_run.workflow_id }}
+          CREATED: ${{ github.event.workflow_run.created_at }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          if [ "${CONCLUSION}" != "cancelled" ]; then
+            echo "state=not_applicable" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          api() { curl -sS --max-time 30 -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${REPO}/$1"; }
+          jobs="$(api "actions/runs/${RUN_ID}/jobs?per_page=100")" || jobs=""
+          newer="$(api "actions/workflows/${WF_ID}/runs?per_page=30")" || newer=""
+          if ! printf '%s' "${jobs}" | jq -e '.jobs' >/dev/null 2>&1 \
+             || ! printf '%s' "${newer}" | jq -e '.workflow_runs' >/dev/null 2>&1; then
+            echo "state=could_not_check" >> "$GITHUB_OUTPUT"
+            echo "::warning::could not read run/jobs — alerting anyway."
+            exit 0
+          fi
+          started="$(printf '%s' "${jobs}" | jq '[.jobs[] | select(.started_at != null)] | length')"
+          n_newer="$(printf '%s' "${newer}" | jq --arg c "${CREATED}" --argjson id "${RUN_ID}" \
+            '[.workflow_runs[] | select(.id != $id) | select(.created_at > $c)] | length')"
+          if [ "${started:-1}" -eq 0 ] && [ "${n_newer:-0}" -gt 0 ]; then
+            echo "state=superseded" >> "$GITHUB_OUTPUT"
+            echo "Suppressing: cancelled before any job started, and ${n_newer} newer run(s) exist."
+          else
+            echo "state=genuine" >> "$GITHUB_OUTPUT"
+            echo "Cancelled run started ${started} job(s), ${n_newer} newer run(s) — alerting."
+          fi
+
       - name: Loud Telegram flag — a Claude-driven run just died
-        if: steps.selfping.outputs.state != 'self_pinged'
+        if: steps.selfping.outputs.state != 'self_pinged' && steps.superseded.outputs.state != 'superseded'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

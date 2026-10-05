@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 20,
+    "clears_when": "a fix for CA-A01-034 is merged with a test that fails on the old code (detector: none), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260927-KFWRL9R1-0010",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-25",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-034 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-034 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:5852-5876 on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "PROTECTION-HARDENING (lane session_017nt865EQaLPJszJ4SFBKu9): re-verified 2026-10-04 -- watchdog flat branch still stamps closed_at=now with no basis marker; not fixed by this lane (provenance change touching the local-PnL sweep; out of the protection scope this lane could land inside its ceiling). | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — order_monitor.py ~6586-6600: watchdog flat branch still sets closed_at = now_iso; no closed_at_basis stamp or UNMEASURED refusal (grep closed_at_basis/watchdog_observed: no hits). | next: Stamp n",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A01-034, INFERRED): The watchdog's position-flat/broker-unmatched branch stamps closed_at = the watchdog's own observation time, so the downstream local-PnL sweep prices the row at the candle for that time and labels it candle_at_close (ESTIMATED), although the real exit could have been hours earlier. LOCATION: src/runtime/order_monitor.py:5852-5876. PROPOSED FIX: Stamp notes.closed_at_basis='watchdog_observed' (or similar) and make the sweep refuse to anchor on it (declare UNMEASURED_MARKER), or register such rows as FABRICATED; optionally bound closed_at by the last alive observation."
+}

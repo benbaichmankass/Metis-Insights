@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Audit workflows that write to $GITHUB_STEP_SUMMARY for whether their output is a RESULT a session must consume (vs. a human-facing render), and tee those. A checklist line in docs/github-actions-workflows.md would also close it.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260824-A-STEP-SUMMARY-IS-INVISIBLE-TO-THE-ACTIONS-API",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-19",
+    "how_to_check": " Audit those 36 for result-vs-render use and tee results, or add checklist line to docs/github-actions-workflows.md | evidence: 36 workflows under .github/workflows reference GITHUB_STEP_SUMMARY (git grep -l | wc -l = 36); docs/github-actions-workflows.md has no STEP_SUMMARY checklist line (grep = 0 hits).",
+    "what": "Audit workflows that write to $GITHUB_STEP_SUMMARY for whether their output is a RESULT a session must consume (vs. a human-facing render), and tee those. A checklist line in docs/github-actions-workflows.md would also close it."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-A-STEP-SUMMARY-IS-INVISIBLE-TO-THE-ACTIONS-API",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-A-STEP-SUMMARY-IS-INVISIBLE-TO-THE-ACTIONS-API'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Audit those 36 for result-vs-render use and tee results, or add checklist line to docs/github-actions-workflows.md | evidence: 36 workflows under .github/workflows reference GITHUB_STEP_SUMMARY (git grep -l | wc -l = 36); docs/github-actions-workflows.md has no STEP_SUMMARY checklist line (grep = 0 hits).",
+  "what": "[health] A workflow whose result goes only to $GITHUB_STEP_SUMMARY is write-only to the session that dispatched it"
+}

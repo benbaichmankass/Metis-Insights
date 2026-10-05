@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 31,
+    "clears_when": "CLOSE when the 1d fleet has ONE recorded disposition covering all three lever families -- either a stated alternative evidence standard (with the standard named on the cells it grades) or an explicit terminal 'not gradeable at this standard' status in the matrix legend. Closing the individual cells one at a time under the CURRENT standard does not resolve this, because it cannot happen.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-05",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN'), indent=2))\"",
+    "what": "CLOSE when the 1d fleet has ONE recorded disposition covering all three lever families -- either a stated alternative evidence standard (with the standard named on the cells it grades) or an explicit terminal 'not gradeable at this standard' status in the matrix legend. Closing the individual cells one at a time under the CURRENT standard does not resolve this, because it cannot happen."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Matrix legend carries one disposition covering all three lever families for the 1d fleet. | evidence: docs/research/exit-refinement-coverage.json has 1d fleet cells (lines ~1243-1296) but grep found no matrix-legend 'not gradeable' status or alternative evidence standard for the 1d fleet (positive control: other 1d-fleet lines found). No live owner. | previous owner dropped (did not cover the item): M20-EXITS-4 — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never close",
+  "what": "[health] M20's remaining done-condition is not 42 independent tasks -- 25 of the 42 open cells (59.5%) are the 1d fleet, and all three lever families block there for ONE reason: daily bars do not produce enough trades for the OOS standards in use"
+}

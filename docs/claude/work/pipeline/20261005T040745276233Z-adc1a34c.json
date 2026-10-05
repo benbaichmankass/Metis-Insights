@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "mgc_trend_1h vol_trail and fvg_range_15m exit cells are swept (needs a data route: MGC has no free-lane candle feed; fvg_range_15m is crypto and the free data.binance.vision lane covers it) and the verdicts land in docs/research/exit-refinement-coverage.json, or the manager kills the rows with a stated reason (both legs are execution: shadow).",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-KZWVN6MG-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane M20-EXITS-3 session_012sUFUwazYENjW2KZwVN6mg, 2026-09-30, task 3 survey of docs/research/exit-refinement-coverage.json",
+    "rerun": "python3 - <<< count statuses per row: rows with status 'pending' in docs/research/exit-refinement-coverage.json and whether the leg is on bybit_2/alpaca_live/bybit_portfolio in config/accounts.yaml"
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "Task-3 survey 2026-09-30, over the 52 matrix rows x lever columns (~468 cells): on the 7 real-money-roster legs (accounts bybit_2, alpaca_live, bybit_portfolio) NO hard-lever cell is pending; their only non-verdict cells are exit_head_ml = blocked:no_lever_consumer_in_unit (structural: no live consumer for the head; not something a sweep clears). The 10 pending cells are all on execution:shadow legs: mgc_trend_1h (vol_trail, exit_head_ml), fvg_range_15m (exit_head_ml, bracket_geometry), and the 'shadow fleet' aggregate row (6 levers). No sweep was run this pass: the sweep workflow needs a dispatch/data route this lane did not have (github-actions MCP failed to connect), so this is a survey, not a verdict."
+}

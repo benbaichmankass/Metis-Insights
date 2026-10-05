@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-20261001-01HYQ6XT-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1, prop signal-gap check 2026-10-01 ~14:20Z",
+    "rerun": "GET /api/bot/prop/tickets?account_id=breakout_1 for 2026-09-17..2026-09-21 vs /api/diag/audit_query pipeline_result multi_account_dispatched for trend_donchian_sol / trend_donchian_eth (base legs) and trend_donchian_*_prop over the same window; then order_packages + risk-refusal audit events for breakout_1 on those days"
+  },
+  "routed_to": "PROP-EXEC [route; size S, value M, tier 1] BACKLOG-ROUTE 2026-10-04: Live order-packages 2026-09-15..22: trend_donchian_sol base long conf 1.0/0.95/0.83 on 9/18,9/21 and eth base on 9/17,9/18,9/20,9/21, yet trend_donchian_sol_prop and _eth_prop show 0 packages in window (denominators: sol_prop 43, eth_prop 91 total rows). Prop min_confidence sol 0.8, eth 0.6, so min_confidence alone does not explain SOL; prop legs may have different params (not checked). | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — /api/bot/prop/tickets (187 rows): none 09-17..09-22. audit_query per day: SOL/ETH prop evals all below min_confidence (0.8/0.6) EXCEPT trend_donchian_eth_prop 2026-09-20 02:47-03:03Z: SHORT, conf",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "POSSIBLE SILENT PROP-TICKET DROP (INFERRED, not verified): the base Bybit legs trend_donchian_sol/eth dispatched on 2026-09-17, 09-18 (SOL x4), 09-20 and 09-21, but breakout_1 has NO prop_tickets row on those days (Sept 1-30: 18 rows on 8 days, MEASURED from /api/bot/prop/tickets). emit_prop_ticket (src/prop/breakout_executor.py:188) writes a row even when suppressed/skipped, so a missing row means the intent never reached the breakout branch of execute_pkg (src/units/accounts/execute.py:232), or the prop legs' own gates (SOL-prop min_confidence 0.80, long-only) legitimately filtered them. Unverified hypothesis: a prop risk refusal under breach_guards: enforce before `report` was set on 9/28. Settle which: if every missing day is explained by the prop legs' own min_confidence/side filter, kill with that reason; if a refusal/drop path exists that writes no ticket row, that is a collapsed-state bug (a refused prop intent must leave a visible row) and gets fixed. Context: the 2026-09-30T13:00Z..2026-10-01T14:14Z gap was checked and is a quiet market (no actionable signal on either prop or base leg; 772 evals/leg, max eval gap 224s)."
+}

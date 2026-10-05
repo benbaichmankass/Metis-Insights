@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "#13609 merges (so LANDING_MACHINERY carries the autoland checker); then dispatch the one-list change, or kill it with a stated reason if the operator decides the resolver needs no landing hold",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260928-TURC5MJC-0007",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-21",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "lane JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc; manager re-review of #13609 at 76dba3b (non-blocking item 5)",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ci');import check_pr_landing as c;print([p for p in c.LANDING_MACHINERY if 'mandate_resolver' in p or 'r4_demotion_gate' in p])\"  # [] = the gap is still open"
+  },
+  "routed_to": "AUTOMERGE-GAPS | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — check_pr_landing.LANDING_MACHINERY now holds scripts/ci/check_mandate_autoland.py but neither mandate_resolver.py nor r4_demotion_gate.py (probe filtered list printed only autoland).",
+  "state": "routed",
+  "what": "PRE-EXISTING GAP (found by the manager's re-review of #13609, 2026-09-28): scripts/ops/mandate_resolver.py decides the A5 FIRE that lets the ARMED MD-DEMOTE-S2-S1 route land a real-money Stage-2 roster cut with no human. scripts/ops/r4_demotion_gate.py decides which legs are cut and writes the evidence. NEITHER is in check_pr_landing.py LANDING_MACHINERY, nor in its Tier-2/Tier-3 path lists. So a PR that loosens the resolver's FIRE rule or the gate's selection could self-land as Tier 1 through the ordinary route. #13609 adds check_mandate_autoland.py and r4-demotion-gate.yml to LANDING_MACHINERY, and deliberately NOT these two, per the manager's instruction not to widen that PR. Fix: add both to LANDING_MACHINERY (and consider TIER3_PATHS), with a check_pr_landing self-test plant proving that a Tier-1 self-land touching either is refused."
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "Either the status axis is retired (removed, or documented in ml/registry/model_registry.py's module docstring as vestigial with target_deployment_stage named as the live ladder), or it is driven for real. Closed when a reader of a registry row cannot mistake `status` for the deployment ladder.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-REGISTRY-STATUS-AXIS-IS-VESTIGIAL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-08",
+    "how_to_check": " Read the trainer registry rows: status distribution vs target_deployment_stage; then retire/document the status axis | evidence: ml/registry/model_registry.py:3-10 docstring calls Status 'the legacy WS4 backing state machine' beside target_deployment_stage, but VALID_STATUSES (L26) still live and the docstring does not say vestigial/never moved; the all-95-candidate claim is t",
+    "what": "Either the status axis is retired (removed, or documented in ml/registry/model_registry.py's module docstring as vestigial with target_deployment_stage named as the live ladder), or it is driven for real. Closed when a reader of a registry row cannot mistake `status` for the deployment ladder."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-REGISTRY-STATUS-AXIS-IS-VESTIGIAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-REGISTRY-STATUS-AXIS-IS-VESTIGIAL'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Read the trainer registry rows: status distribution vs target_deployment_stage; then retire/document the status axis | evidence: ml/registry/model_registry.py:3-10 docstring calls Status 'the legacy WS4 backing state machine' beside target_deployment_stage, but VALID_STATUSES (L26) still live and the docstring does not say vestigial/never moved; the all-95-candidate claim is t",
+  "what": "[health] `RegistryEntry.status` is a dead axis — all 95 rows read `candidate`, including the 3 advisory heads, and nothing ever moves it"
+}

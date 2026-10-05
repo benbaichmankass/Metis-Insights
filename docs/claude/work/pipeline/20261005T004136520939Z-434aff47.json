@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a session with real browser access (or a network path Cloudflare does not challenge) fetches https://www.breakoutprop.com/symbols/ successfully and docs/integrations/breakout-instruments-2026-09-27.md is corrected/reconfirmed against it.",
+    "kind": "event",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260927-ODDTM5QY-0004",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "curl -sS -D - -A 'Mozilla/5.0' https://www.breakoutprop.com/symbols/ | head -5  # check for cf-mitigated: challenge in the response headers",
+    "what": "a session with real browser access (or a network path Cloudflare does not challenge) fetches https://www.breakoutprop.com/symbols/ successfully and docs/integrations/breakout-instruments-2026-09-27.md is corrected/reconfirmed against it."
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "docs/integrations/breakout-instruments-2026-09-27.md",
+    "rerun": "curl -sS -D - -A 'Mozilla/5.0' https://www.breakoutprop.com/symbols/ | head -5  # check for cf-mitigated: challenge in the response headers"
+  },
+  "routed_to": "PROP-ETH | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — curl -A Mozilla https://www.breakoutprop.com/symbols/ from this sandbox 2026-10-05T00:32Z still returns HTTP/2 403. No browser-capable fetch has happened; instruments doc last touched in 9adda355",
+  "state": "routed",
+  "what": "[W6/B6] Breakout's symbols page (https://www.breakoutprop.com/symbols/) is Cloudflare-challenge-blocked to non-browser fetches (WebFetch + curl both returned HTTP 403 with cf-mitigated: challenge, 2026-09-27T08:39:05Z). The instrument reference at docs/integrations/breakout-instruments-2026-09-27.md is built from an operator screenshot transcription + WebSearch corroboration, not a direct fetch. Re-attempt with real browser access (or a different network path) and correct any row that disagrees."
+}

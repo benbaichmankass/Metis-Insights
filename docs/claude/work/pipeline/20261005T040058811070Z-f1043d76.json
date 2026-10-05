@@ -1,0 +1,49 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "An operator decision on the SOL twin, recorded either way, with this table in front of them: (a) re-flip - re-add trend_donchian_sol to breakout_1.strategies and remove trend_donchian_sol_prop (Tier-3), accepting that it re-adopts the tp_r: 50.0 geometry; (b) hold the current routing and record that the lower-EV twin is kept deliberately, because its target is a prediction and the base's is a venue limit; or (c) defer until M20's active-management build gives the _prop leg a real target, then re-run this matrix - which is the only option that resolves the tension rather than choosing a side of it. Both legs ROUTE and both are positive EV, so the cost of the current state is opportunity and not risk; this is a decision, not an incident, and must NOT be closed by a session re-flipping it unilaterally. Closed when the decision and its reasoning are in the record.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed both twins still route: bybit_1 carries both trend_donchian_sol and trend_donchian_sol_4h; breakout_1 (prop) carries trend_donchian_sol_prop. config/strategies.yaml shows trend_donchian (base family) still tp_r: 50.0 (trail-only), consistent with the finding's premise. No decision record found in MANAGER-CHECKLIST.json or docs/claude/work/pipeline/ naming this SOL-twin choice.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "Re-adopts the tp_r: 50.0 trail-only geometry on the prop leg, which was the reason a prop-compatible twin existed in the first place (venue-limit driven, not a strategy choice)",
+          "label": "Re-flip SOL to match ETH's pattern",
+          "risk": "Low — reversible config change; no backtest contradicts either twin's positive EV",
+          "what_happens": "Re-add trend_donchian_sol to breakout_1.strategies, remove trend_donchian_sol_prop (Tier-3 accounts.yaml/strategies.yaml change)"
+        },
+        {
+          "cost": "Opportunity cost only — both legs are positive EV, so this is forgone upside, not risk",
+          "label": "Hold current routing, record it as deliberate",
+          "risk": "None — status quo, fully reversible later",
+          "what_happens": "Keep trend_donchian_sol_prop on breakout_1 as-is; write down that the lower-EV twin is kept on purpose because its target reflects a prop-account venue limit, not a prediction"
+        },
+        {
+          "cost": "Delay",
+          "label": "Defer until M20 gives the prop leg a real target",
+          "risk": "None, but this is the option the original finding says is the only one that resolves the tension rather than picking a side of it",
+          "what_happens": "No change now; re-run this comparison once active-management (M20) replaces the venue-limit-driven target on the prop leg with a real one"
+        }
+      ],
+      "priority_tier": 4,
+      "question": "The 2026-08-23 de-dup between the base and prop-compatible Donchian twins kept the better twin on ETH but the worse one on SOL (both currently route). What should happen to the SOL twin?",
+      "recommendation": "Option 3 (defer to M20) if the M20 active-management timeline is short; otherwise option 2 (hold + record) since both legs are positive EV and this is a decision, not an incident."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Operator decision on the SOL twin (re-flip / hold deliberately / defer to M20 active-management) recorded with the compat table. | evidence: config/accounts.yaml: breakout_1.strategies = [trend_donchian_sol_prop, trend_donchian_eth_prop]; trend_donchian_sol (base twin) only on bybit_1. No recorded operator decision a/b/c; PROP-EVIDENCE-2 (blocked) concerns the SOL prop bracket geometry, n",
+  "what": "[health] The mandatory prop compat matrix, run for the first time on the CURRENT roster, says the 2026-08-23 de-dup kept the better twin on ETH and the WORSE twin on SOL - seed-stable, both still ROUTE\n\n[TRIAGE 2026-09-28] OPERATOR (tier 4) — The 2026-08-23 de-dup between the base and prop-compatible Donchian twins kept the better twin on ETH but the worse one on SOL (both currently route). What should happen to the SOL twin? Recommendation: Option 3 (defer to M20) if the M20 active-management timeline is short; otherwise option 2 (hold + record) since both legs are positive EV and this is a decision, not an incident."
+}

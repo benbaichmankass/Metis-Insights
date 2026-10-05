@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "Closed when running the sweep exactly as the SKILL documents produces no false positives - either because the greps are gone, or because the eyeball path is served by the checker itself.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260820-DOC-FRESHNESS-HAND-GREPS-ARE-NOISIER-THAN-THE-CI-CHECKER",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-07",
+    "how_to_check": " Edit doc-freshness SKILL.md to drop the greps or defer to the checker; rerun the documented sweep and expect 0 hits | evidence: Documented hand-grep #1 in .claude/skills/doc-freshness/SKILL.md:110-115 (rg 158.178.210.252 ... | rg -v filter) still returns 43 lines at HEAD, while python3 scripts/ci/check_canonical_doc_coherence.py prints 'all checks passed'.",
+    "what": "Closed when running the sweep exactly as the SKILL documents produces no false positives - either because the greps are gone, or because the eyeball path is served by the checker itself."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-DOC-FRESHNESS-HAND-GREPS-ARE-NOISIER-THAN-THE-CI-CHECKER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-DOC-FRESHNESS-HAND-GREPS-ARE-NOISIER-THAN-THE-CI-CHECKER'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Edit doc-freshness SKILL.md to drop the greps or defer to the checker; rerun the documented sweep and expect 0 hits | evidence: Documented hand-grep #1 in .claude/skills/doc-freshness/SKILL.md:110-115 (rg 158.178.210.252 ... | rg -v filter) still returns 43 lines at HEAD, while python3 scripts/ci/check_canonical_doc_coherence.py prints 'all checks passed'.",
+  "what": "[health] The doc-freshness SKILL's documented hand-greps return ~40 false positives where check_canonical_doc_coherence.py returns 0 - a session that runs them as instructed learns to ignore the output"
+}

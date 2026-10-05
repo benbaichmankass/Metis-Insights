@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "EITHER pr-opener.yml is changed to skip the results write-back when a PR already exists for the head branch (avoiding the extra bot commit entirely), OR this action_required behavior is confirmed as a one-time, harmless GitHub Actions approval gate that self-clears (re-test without a manual rerun and observe).",
+    "kind": "event",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260928-RQOPS2-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-26",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01G2SwTpGGacwEKLHukpTp3w (RQ-OPS-2), landing PR #13571",
+    "rerun": "Push a branch whose PR is opened by claude-pr-automerge.yml's auto-open path, then also drop a request file for the SAME branch at automation/pr-requests/<slug>.json so pr-opener.yml writes a \"results\" commit onto the already-open PR; check the new head sha's required-check conclusions via actions_list list_workflow_runs."
+  },
+  "routed_to": "AUTOMERGE-GAPS | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — pr-opener.yml (still last touched 2b433130a) writes results commit via GITHUB_TOKEN push (line 165-168) with no skip-if-PR-exists; header documents the zero-check/approval behaviour as unresolved",
+  "state": "routed",
+  "what": "pr-opener.yml, when it detects a PR already exists for the pushed head (opened separately by claude-pr-automerge.yml, e.g. because the branch is claude/**-prefixed) and writes its results file back onto that SAME branch as a new github-actions[bot]-authored commit: the resulting PR-synchronize checks (pytest-run, pytest-collect, guards, repo-inventory) landed conclusion=action_required instead of running, on PR #13571 (RQ-OPS-2). MEASURED: the checks for the PREVIOUS head sha (pushed under this session's own git identity) ran normally (in_progress/success); only the head sha whose commit was authored by github-actions[bot] via pr-opener's write-back landed action_required. Re-running each stuck run via actions_run_trigger rerun_workflow_run, triggered by an authorized human/session, cleared it and the checks proceeded normally -- so this is a one-time approval gate, not a hard block, but it is silent (no error, just checks that never start) and would strand any PR nobody manually re-triggers."
+}

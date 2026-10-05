@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "A real end-to-end entry→modify→close cycle on the demo account, under `BYBIT_TPSL_MODE=partial`, confirms: the trade row's `sl_order_id`/`tp_order_id` populate at entry (not NULL), a subsequent SL modify amends that exact leg in place (verified by unchanged `orderId`, no second leg created), and the close cancels it. If entry-time capture is found to silently fail or mis-fire under real conditions, that's a new Tier-2/3 finding to raise with the operator, not something to fix quietly in a health-review session.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260721-XRPTPSL-ENTRYCAPTURE-VERIFY",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": " An audit/venue read showing an SL modify on a partial-mode leg with unchanged sl_order_id and no second leg, and the close cancelling it. | evidence: Live trades 2026-09-04..10-05 (diag journal, 561 bybit open/closed rows): 525 carry both sl_order_id and tp_order_id at entry (bybit_1 492, bybit_portfolio 17, bybit_2 16); BYBIT_TPSL_MODE=partial is the live value (order_monitor.py:2097). Modify-in-",
+    "what": "A real end-to-end entry→modify→close cycle on the demo account, under `BYBIT_TPSL_MODE=partial`, confirms: the trade row's `sl_order_id`/`tp_order_id` populate at entry (not NULL), a subsequent SL modify amends that exact leg in place (verified by unchanged `orderId`, no second leg created), and the close cancels it. If entry-time capture is found to silently fail or mis-fire under real conditions, that's a new Tier-2/3 finding to raise with the operator, not something to fix quietly in a health-review session."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260721-XRPTPSL-ENTRYCAPTURE-VERIFY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260721-XRPTPSL-ENTRYCAPTURE-VERIFY'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: An audit/venue read showing an SL modify on a partial-mode leg with unchanged sl_order_id and no second leg, and the close cancelling it. | evidence: Live trades 2026-09-04..10-05 (diag journal, 561 bybit open/closed rows): 525 carry both sl_order_id and tp_order_id at entry (bybit_1 492, bybit_portfolio 17, bybit_2 16); BYBIT_TPSL_MODE=partial is the live value (order_monitor.py:2097). Modify-in-",
+  "what": "[health] [verify] live-confirm PR #7321's ENTRY-TIME leg-id capture on a genuinely fresh Bybit Partial-tpsl order (not just the backfill-then-amend path already verified)"
+}

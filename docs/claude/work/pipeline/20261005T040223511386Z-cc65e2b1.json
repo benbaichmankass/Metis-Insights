@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "due_date": "2026-10-25",
+    "kind": "date"
+  },
+  "id": "PI-20260927-W6OPSR-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-25",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "docs/research/recurring-validations-audit-2026-09-27.md § F2",
+    "rerun": "latest stale-automation-sweep job log: grep -E '#[0-9]+ (absent_on_main|carries_append_only|superseded)'; and list open PRs with head automation/*"
+  },
+  "routed_to": "AUTOMERGE-GAPS | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — GitHub pulls API 2026-10-05: open PRs pages 1-2 = 140, of which 115 head automation/* (was 75/55 on 09-28). #12996, #12989, #12979 all still open and unmerged. | next: Close #12989/#12979 with di",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[ops] 53 of 77 open PRs (2026-09-27 ~09:20Z) are stranded automation/* landings; stale-automation-sweep reports the ones it will not refresh 'for a human read' and no reader exists. Urgent subset: #12996 carries 9 append-only rows of comms/macro/valuation_snapshots.jsonl absent from main (needs a refresh on a green base so it lands); #12989 is superseded by #13003 (close with disposition); #12979 is a superseded trainer-capture receipt (close). Then decide a standing owner for the sweep's human-read list. -- MEASURED 2026-09-28T07:05Z (W6-OPS-R): unchanged and growing -- 75 open PRs, 55 automation/* (was 53/77). #12996 (9 valuation rows), #12989, #12979 all still open. NEW: #13105 = soak-book-grade-weekly's 09-27 09:09Z scheduled run's pointer record (research/results/_unattributed/36308457855.jsonl), mergeable_state=blocked with ZERO check runs (the canon's 'clean, still no runs' delivery-drop row -> dispatch the required checks on its branch ref); that run concluded failure on 'Land the pointer record on main', and main carries only comms/research/soak_book_grade/2026-09-26.json."
+}

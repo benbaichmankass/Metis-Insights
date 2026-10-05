@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 31,
+    "clears_when": "CLOSE when a family dir with 0 harness trades produces a one-line stated refusal and a non-zero exit instead of a sklearn traceback, AND the live arm's scoping relative to `--legs` is either enforced or documented as deliberate. Suppressing the traceback without answering the scoping question only hides how those dirs appear.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260813-TRAIN-EXIT-HEAD-CRASHES-ON-LIVE-ONLY-FAMILY",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-05",
+    "how_to_check": " Run train_exit_head on a family dir with 0 harness trades and live trades>0; expect one-line refusal + nonzero exit | evidence: scripts/ml/train_exit_head.py:~805 'if l_trades: model_all = train_model(harness)' with no check for empty harness (no stated refusal; sklearn ValueError remains possible). Live-arm scoping half is done: build_exit_head_dataset.py:614 --legs restrict",
+    "what": "CLOSE when a family dir with 0 harness trades produces a one-line stated refusal and a non-zero exit instead of a sklearn traceback, AND the live arm's scoping relative to `--legs` is either enforced or documented as deliberate. Suppressing the traceback without answering the scoping question only hides how those dirs appear."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-TRAIN-EXIT-HEAD-CRASHES-ON-LIVE-ONLY-FAMILY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-TRAIN-EXIT-HEAD-CRASHES-ON-LIVE-ONLY-FAMILY'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Run train_exit_head on a family dir with 0 harness trades and live trades>0; expect one-line refusal + nonzero exit | evidence: scripts/ml/train_exit_head.py:~805 'if l_trades: model_all = train_model(harness)' with no check for empty harness (no stated refusal; sklearn ValueError remains possible). Live-arm scoping half is done: build_exit_head_dataset.py:614 --legs restrict",
+  "what": "[health] `train_exit_head.py` dies on an unhandled sklearn ValueError when a family has 0 harness trades, and the `--db` live arm CREATES such families because it is not scoped to the round's `--legs`"
+}

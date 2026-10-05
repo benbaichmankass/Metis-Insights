@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 23,
+    "clears_when": "account_compat_matrix.py has been run against the roster as it stands, under breakout.yaml, and its EV + survival verdict is recorded against each live leg — with the run predating any further routing change rather than following it. Closed when a reader can tell, from the record, that every leg currently routed to breakout_1 was evaluated under that account's own rules AT ITS CURRENT CONCENTRATION.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-PROP-ROSTER-COMPAT-MATRIX-UNVERIFIED",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-PROP-ROSTER-COMPAT-MATRIX-UNVERIFIED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-PROP-ROSTER-COMPAT-MATRIX-UNVERIFIED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "",
+    "date": "2026-09-28",
+    "decision_text": "Literal ask (re-run scripts/prop/account_compat_matrix.py against breakout_1's current 2-leg roster) was never done -- the only compat_trend_donchian.json run on disk predates the current concentration (runtime_logs/prop_eval/2026-06-17-perp-validation). BUT the underlying question (EV+survival verdict for breakout_1 AT ITS CURRENT CONCENTRATION, trend_donchian_sol_prop + trend_donchian_eth_prop) has since been answered by a superior, purpose-built instrument: scripts/research/prop_ev_sim.py (B6), which jointly Monte-Carlo-simulates the whole 2-leg account life (concurrent trades, daily-loss + static-DD barriers, real Breakout cost stack) rather than one strategy at a time. Per docs/claude/work/MANAGER-CHECKLIST.json (P2 lane, 2026-09-27, merged PR #13084/95403ef90): scored docs/research/b6-prop-ev/breakout_1-2026-09-27.json using trend_donchian_sol_prop n=65 + trend_donchian_eth_prop n=169, both config_fingerprints == current strategies.yaml -- verdict INDETERMINATE under a pre-registered rule (not a clean PASS, but a real, current, recorded EV+survival read of exactly this roster at exactly this concentration). Decision: treat this row's clears_when as satisfied by the B6 record rather than demanding a redundant account_compat_matrix.py re-run; a lane should cross-reference the B6 result into the row this finding lives under (and into docs/research/exit-refinement-coverage.json's prop-routing notes) so the next reader finds it instead of re-deriving it.",
+    "disposition": "DECIDE",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A committed account_compat_matrix.py result for the current breakout_1 roster under config/prop_rulesets/breakout.yaml with per-leg EV+survival verdict. | evidence: breakout_1 roster at HEAD = [trend_donchian_sol_prop, trend_donchian_eth_prop] (two legs, premise holds; tradeify_1 same two). No account_compat_matrix.py run recorded under breakout.yaml for this roster found in docs/research, comms or checklist; B6",
+  "what": "[health] breakout_1 is down to TWO live legs of one strategy family and no compat matrix has been verified for the roster as it now stands\n\n[TRIAGE 2026-09-28] DECIDE — Literal ask (re-run scripts/prop/account_compat_matrix.py against breakout_1's current 2-leg roster) was never done -- the only compat_trend_donchian.json run on disk predates the current concentration (runtime_logs/prop_eval/2026-06-17-perp-validation). BUT the underlying question (EV+survival verdict for breakout_1 AT ITS CURRENT CONCENTRATION, trend_donchian_sol_prop + trend_donchian_eth_prop) has since been answered by a superior, purpose-built instrument: scripts/research/prop_ev_sim.py (B6), which jointly Monte-Carlo-simulates the whole 2-leg account life (concurrent trades, daily-loss + static-DD barriers, real Breakout cost stack) rather than one strategy at a time. Per docs/claude/work/MANAGER-CHECKLIST.json (P2 lane, 2026-09-27, merged PR #13084/95403ef90): scored docs/research/b6-prop-ev/breakout_1-2026-09-27.json using trend_donchian_sol_prop n=65 + trend_donchian_eth_prop n=169, both config_fingerprints == current strategies.yaml -- verdict INDETERMINATE under a pre-registered rule (not a clean PASS, but a real, current, recorded EV+survival read of exactly this roster at exactly this concentration). Decision: treat this row's clears_when as satisfied by the B6 record rather than demanding a redundant account_compat_matrix.py re-run; a lane should cross-reference the B6 result into the row this finding lives under (and into docs/research/exit-refinement-coverage.json's prop-routing notes) so the next reader finds it instead of re-deriving it."
+}

@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 25,
+    "clears_when": "TWO parts, both required. (1) /api/bot/performance?window=30d publishes an expectancyR that AGREES IN SIGN with its own totalPnl and profitFactor on the SAME payload -- verified by reading the LIVE endpoint, not a test. (2) Rows graded `contaminated` by classify_r are demonstrably excluded from, or separated out of, that published figure -- shown by the |R|>10 control: 35 such rows exist among the 124 contaminated and 0 among the 174 confirmed_initial, so a corrected aggregate must NOT move when those 35 are removed. NOT SUFFICIENT: rProvenance merely being published (it already is, and the aggregate ignores it); a passing unit test; or the sibling PB-20260821 being closed on its own.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-30",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG'), indent=2))\"",
+    "what": "TWO parts, both required. (1) /api/bot/performance?window=30d publishes an expectancyR that AGREES IN SIGN with its own totalPnl and profitFactor on the SAME payload -- verified by reading the LIVE endpoint, not a test. (2) Rows graded `contaminated` by classify_r are demonstrably excluded from, or separated out of, that published figure -- shown by the |R|>10 control: 35 such rows exist among the 124 contaminated and 0 among the 174 confirmed_initial, so a corrected aggregate must NOT move when those 35 are removed. NOT SUFFICIENT: rProvenance merely being published (it already is, and the ag"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Live payload showing contaminated rows excluded/separated, with the |R|>10 control. | evidence: Live /api/bot/performance?window=30d 2026-10-05: expectancyR -0.836 vs totalPnl -55.59, profitFactor 0.0098 -> part (1) sign agreement met; part (2) |R|>10 exclusion control not shown (rProvenance.contaminated still counted). | previous owner dropped (did not cover the item): M20-EXITS-4 — triaged 2026-10-05: still applies — Sign now agrees live (expectan",
+  "what": "[performance] R contamination QUANTIFIED: 12 rows (30.8%) carry 117% of the 30d real-money R, and removing them flips expectancyR from the published +0.98 to -0.24 || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): orrection_matrix.py (--self-test, 15 controls; it grades three sign states and REFUSES to report an inflation computed over a shorter window than the block it describes). Evidence: docs/research/m20-u13-expectancyr-two-defects-2026-09-12.md.\" |     } |   ] | }"
+}

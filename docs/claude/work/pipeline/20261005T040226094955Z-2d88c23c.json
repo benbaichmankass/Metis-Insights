@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "P5 parity check recorded for ada_pullback_2h vol_trail AND a pre-registered fresh-holdout re-grade of vt_hot90_t2.5 is graded; then #14053 is shipped or closed on that verdict. Or the manager kills it with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-AQRK6CL1-0012",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-26",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "Evidence review of PR #14053 (manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29); lane M20-EXITS session_01113oMBNikT5uJanU16K3yq",
+    "rerun": "Check that #14053 is still open and held; grep docs/research/m20-sweep-corpus.jsonl for ada_pullback_2h vol_trail rows dated after 2026-09-29 (a fresh holdout) and for a P5 parity record for this lever."
+  },
+  "routed_to": "M20-EXITS | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — PR #14053 still open (REST, merged=false, 2026-10-05); docs/research/m20-sweep-corpus.jsonl has 0 ada_pullback_2h vol_trail rows after 2026-08-15 (32 ada rows total, n=all); strategies.yaml ada_p",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 3,
+  "what": "PR #14053 (declare vol_trail vt_hot90_t2.5 on ada_pullback_2h; REAL MONEY: bybit_2 + bybit_portfolio, also soak bybit_1) is NEEDS-DATA, not ship. Independent evidence review 2026-09-29 ~21:00Z: it clears RULE-EXIT-REFINEMENT-P2-GATE (RQ-20260928-007, registered 2026-08-10) only at the 2/3 walk-forward minimum (4/6; the 2025 fold, the first OOS year, lost -0.82R). Base n 235 IS / 49 OOS; +2.29R IS / +1.72R OOS; maxDD -2.61R / -0.65R; costs complete (pullback harness, venue defaults). The cell was SELECTED after 17 cells over 3 re-runs of this lever (OOS gain swings 0.91-3.08R), with no multiplicity correction, and the skill's P5 live parity check has NOT run. Missing evidence, as tasks: (a) P5 parity check on bybit_1 soak, logging the lever without acting on it. The strategies.yaml key is account-wide, so the parity instrument must log-only. (b) A fresh-holdout re-grade of THIS ONE cell on data after 2026-09-29 (pre-register the rule: net_R AND maxDD better than baseline, OOS only, n floor stated) before any Tier-3 flip. (c) Rebase #14053: it conflicts on docs/research/m20-sweep-corpus.jsonl and tests/test_corpus_lever_in_baseline.py. #14053 stays HELD until (a) and (b) are done."
+}

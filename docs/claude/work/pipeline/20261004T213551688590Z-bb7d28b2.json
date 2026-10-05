@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "(B) is observed after #14737 is deployed: an unfilled SOL entry outlives valid_until and the executor journal shows cancel_expired_resting, followed by a skipped fill whose reason starts with 'expired: resting entry cancelled'. OR 30 days pass after #14737 is deployed with no unfilled SOL entry; state that as the result. (A) is already observed (see what).",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, for manager session_01HYq6XtfesZ57VyaQrK6CL1",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/tickets?limit=500' and 'https://ict-bot.duckdns.org/api/bot/prop/fills?limit=500'; join fills.ticket_id to tickets"
+  },
+  "routed_to": "PROP-EXEC (re-pointed from PROP-EXEC (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "PR #14581 (held, Tier-2) — prop executor: (1) a symbol_not_enabled ticket (ETH) is ledger-only, no `skipped` write-back, so it stays `emitted` for the manual bridge; (2) an unfilled entry LIMIT is cancelled once at its ticket's valid_until. landed_unproven until observed live. || 2026-09-30 13:36Z, lane BREAKOUT-ATTRITION: MERGED as f752baf50. DEPLOYED: the first executor tick on code 81e8d009f (which contains f752baf50) ran at 09:29:06Z, and diag version git_sha_on_disk read 81e8d009f. (A) OBSERVED. ETHUSDT ticket prop-manual-a22cb1d44517 was created at 12:33:48Z and was valid until 13:33:48Z. The executor journal at 12:34:59Z logs exactly one action for it, `skipped symbol_not_enabled ETHUSD`, with no report and no prop_fills row. The ticket stayed `emitted`: it suppressed the 13:00:42Z ETH re-signal prop-manual-8fbefc720127 as outstanding_ticket:emitted. It then reached `expiry_prompted`, meaning the manual bridge's prompt fired. (B) NOT YET OBSERVABLE. Every SOL LIMIT placement currently fails pre-submit with 'form fields not found: [price]' (b573aecb5d47 and 686c6d5a4127), so no SOL entry can rest until #14737 lands. #14737 (the prerequisite for (B)) DEPLOYED 2026-09-30 14:22:36Z (e76e49020); the 30-day clock for (B) starts there."
+}

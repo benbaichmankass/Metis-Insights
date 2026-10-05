@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "The Alpaca re-arm refuses when the venue position does not hold the row's qty/side or when the stop is already breached (tests + one observed refusal or a clean week of history with no repeated stop fills), or the manager kills it with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-PR6YRTQY-0005",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-26",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "JC-SA-08 population evidence docs/research/evidence/jc-sa-08-population-and-rearm-loop-2026-09-29.md; lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ",
+    "rerun": "alpaca_order_history?account_id=<acc>&after=<date> — any symbol with the SAME stop leg (qty, stop_price) filled more than once within an hour is this loop; also journal protection_repairs > 3 on an alpaca row."
+  },
+  "routed_to": "FIX-SA-03 | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — #14241 pre-flight merged 09-29. Journal since 09-29: no alpaca row has protection_repairs>1 (max 1, n=all alpaca rows) but also zero alpaca stop fills since 09-28, so the guard was never exercise",
+  "severity": "high",
+  "state": "routed",
+  "tier": 2,
+  "what": "Alpaca naked re-arm has no position-presence or marketable-stop guard. MEASURED via /api/diag/alpaca_order_history: on 2026-09-24 alpaca_portfolio QQQ, after row 5928's own 2-sh stop filled at 13:32:10, the sweep re-armed 5928 28 more times (a 2-sh OCO at stop 736.35 with QQQ already below it); each stop filled on arrival, liquidating sibling row 6024's 56 shares at 734.96-736.42 although 6024's stop was 716.80 (5928 protection_repairs=29). #14123 does NOT remove this instance's trigger — 6024's own bracket legs had lapsed at the 09-21 close, so it had no resting stop to make visible (an earlier draft of this row said otherwise). _check_broker_naked_equity_positions re-arms without (1) confirming the venue position holds the row's qty on its side (a row whose stop filled but whose journal row is still open is re-armed as a sell OCO on a flat position -> unintended short or refusal loop; reachable on alpaca_live) and (2) refusing a stop already through the market (a marketable stop is an exit, not protection). Fix: fresh /v2/positions/{sym} read before re-arm (qty >= row qty, side matches, else refuse with reason) and a current_price vs sl check (long: price <= sl -> refuse + page), plus a per-row re-arm attempt cap. Fix: PR #14241 (held, stacked after #14177).\n\n[2026-09-30 lane ALPACA-REARM, session_01FWD56p45DUf3cUzpDiPmDA] Tests are on main: the cap is pinned at 3 by test_rearm_cap_is_three_and_bounds_a_stop_that_never_holds (#14545), and a mutation check this session showed the preflight tests go red when the preflight is bypassed. The observation half is still OPEN: #14241 deployed on 2026-09-29, so 'a clean week' cannot complete before 2026-10-06, and no refusal has been observed yet. Close it on either the first rearm_refused_* > 0 sweep line or a clean alpaca_order_history week. MEASURED 2026-09-30 via the diag relay (journalctl?unit=ict-trader-live): the trader is running 83cdae6b9 (#14545 merge, restarted 06:14:28Z). Its sweep lines at 06:15:45Z and 06:17:48Z carry 39 keys with unaccounted=0: checked=9 = stop_resting 8 + active_close_skipped 1 (alpaca_paper/GLD). rearmed=0, no refusals, no tracebacks. The pre-deploy lines (06:07-06:13Z, old pid) still showed checked=9 with only covered=7."
+}

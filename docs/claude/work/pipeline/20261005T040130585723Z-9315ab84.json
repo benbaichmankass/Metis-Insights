@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "an apply dispatch of rearm-alpaca-protective has reported state=rearmed (or cancel_unsettled) with market_open recorded, and /api/diag/alpaca_open_orders shows one GTC OCO sized to the SPY net qty on alpaca_paper",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-3QJJAY5Y-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-11",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "read the system-action issue comment of the rearm-alpaca-protective apply dispatch for alpaca_paper/SPY; confirm with /api/diag/alpaca_open_orders?account_id=alpaca_paper that ONE GTC OCO qty 19 rests",
+    "what": "an apply dispatch of rearm-alpaca-protective has reported state=rearmed (or cancel_unsettled) with market_open recorded, and /api/diag/alpaca_open_orders shows one GTC OCO sized to the SPY net qty on alpaca_paper"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/13043",
+    "rerun": "read the system-action issue comment of the rearm-alpaca-protective apply dispatch for alpaca_paper/SPY; confirm with /api/diag/alpaca_open_orders?account_id=alpaca_paper that ONE GTC OCO qty 19 rests"
+  },
+  "routed_to": "PROTECTION-HARDENING (re-pointed from PROTECTION-HARDENING — rearm-alpaca-protective observation (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "rearm-alpaca-protective (PR #13043): Alpaca's docs do not state whether a CANCEL outside RTH settles immediately; the action guards it (places nothing unless every cancelled order reads terminal and qty_available releases, else cancel_unsettled exit 5) but the behaviour is unverified live. The first apply dispatch (alpaca_paper/SPY) answers it: read the result's market_open, settle.order_status and unprotected_window_s. -- UPDATE 2026-09-27: the SPY repair now goes through ROW MODE, which issues NO cancel, so that dispatch will NOT answer this question. It stays open until a net-mode apply (or any other out-of-RTH Alpaca cancel with a recorded outcome) is observed."
+}

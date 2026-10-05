@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "RESOLVED when a session can read `trades` rows OPENED BEFORE 2026-08-30 that lie outside the newest 1000 ids -- demonstrated by a pull whose minimum trade id is below the then-current newest-1000 floor, with the id range recorded. Read the IDS, never the route's docstring. NOT sufficient: the route merely ACCEPTING an offset or since parameter -- FastAPI ignores unknown query params silently, which is exactly how this was invisible, so prove it CHANGED the rows returned with a positive control that two different offsets yield different ids. NOT sufficient either: the e35 question being abandoned, which makes the gap unobservable rather than fixed. If the operator decides the pre era is not worth recovering, that CLOSES this row as a recorded decision WITH its consequence stated -- the e35 stop term is then permanently undecidable, and it must never again be re-measured as though it could be settled.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME'), indent=2))\"",
+    "what": "RESOLVED when a session can read `trades` rows OPENED BEFORE 2026-08-30 that lie outside the newest 1000 ids -- demonstrated by a pull whose minimum trade id is below the then-current newest-1000 floor, with the id range recorded. Read the IDS, never the route's docstring. NOT sufficient: the route merely ACCEPTING an offset or since parameter -- FastAPI ignores unknown query params silently, which is exactly how this was invisible, so prove it CHANGED the rows returned with a positive control that two different offsets yield different ids. NOT sufficient either: the e35 question being abandon"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME'), indent=2))\""
+  },
+  "routed_to": "RESEARCH — triaged 2026-10-05: sub-agent proposed fixed, not independently verified — Live diag journal offset=3000 returns trade id 3448 dated 2026-07-14, far below the newest-1000 floor and before 2026-08-30, so pre-era rows are readable. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Trades opened before 2026-08-30 outside the newest 1000 are readable via offset. || EVIDENCE: Live probe 2026-10-05: offset=1500 limit=100 -> ids 4851-4950 opened 2026-08-20..22; offset=2500 -> ids 3851-3950 opened 2026-07-22..24, while newest-1000 floor is ~id 5451. Different offsets yield different ids (positive control). || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] The e35 pre-era baseline is eroded by the 1000-row journal clamp, so a live Tier-3 question gets less answerable every day"
+}

@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "f1_volatile rises off the floor under purged CV with class weighting AND forward A/B is non-negative -> propose shadow.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "MB-20260613-002",
+  "ml_review_2026_10_04": "2026-10-04 evidence that the flow features contribute NOTHING at train time: btc-regime-5m-lgbm-flow-v1 latest_run macro_f1 0.55319 == btc-regime-5m-lgbm-v2 0.55319, and the prior cycle 0.56460 == 0.56460 (GET /api/bot/ml/registry) -- byte-identical across two cycles is what an all-NaN feature block produces under LightGBM. Consistent with DATA-BLOCKED; the manifest passes the audit only if those columns are declared expected_optional (not read this session). Still awaiting forward L2 capture.",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " Trainer registry: flow-v1 f1_volatile under purged CV with class weighting after enough forward L2 accrual, plus forward A/B. | evidence: ml/configs/btc-regime-5m-lgbm-flow-v1.yaml:13,47 says L2 columns are 0.0 until forward capture accrues; docs/claude/work/TRAINER-CAPTURE-WATCH.json 2026-10-04T21:40Z capture_state 'fresh'. ML-HYGIENE row text does not mention this head (keyword route",
+    "what": "f1_volatile rises off the floor under purged CV with class weighting AND forward A/B is non-negative -> propose shadow."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260613-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260613-002'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Trainer registry: flow-v1 f1_volatile under purged CV with class weighting after enough forward L2 accrual, plus forward A/B. | evidence: ml/configs/btc-regime-5m-lgbm-flow-v1.yaml:13,47 says L2 columns are 0.0 until forward capture accrues; docs/claude/work/TRAINER-CAPTURE-WATCH.json 2026-10-04T21:40Z capture_state 'fresh'. ML-HYGIENE row text does not mention this head (keyword route | previous owner dropped (did not cover the item): ML-HYGIENE",
+  "what": "[ml] VPIN/order-flow head (btc-regime-5m-lgbm-flow-v1): DATA-BLOCKED, not idle — awaits forward L2 capture"
+}

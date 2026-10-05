@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0010",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-13",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-ws-a-s3-significance-winners-curse",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-ws-a-s3-significance-winners-curse against current scripts/research/ws_a_s3_significance.py:175"
+  },
+  "routed_to": "RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "CA-B04 audit finding (high): scripts/research/ws_a_s3_significance.py:175 — Docstring: S3 answers \"is the edge statistically distinguishable from luck\" via block bootstrap on the S2-tuned survivors; the companion doc (docs/research/ws-a-s3-significance-202"
+}

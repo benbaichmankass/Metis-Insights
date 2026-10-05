@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "A PR that wires any submit/cancel/close click for breakout_terminal fixes N1-N3 with tests and documents N4; or the manager kills it with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-AQRK6CL1-0010",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-21",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "Independent review of PR #14366 (manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29); lane PROP-TERM session_01DRfUhAJ93tkSDcfRj7nmpu",
+    "rerun": "Read CLOSE_ROW_JS table selection in src/prop/platform/breakout_terminal.py for an _ORDER_ONLY-style exclusion (absent = N1 open); read place_bracket's armed branch for clicks before the refusal (present = N2 open); grep close_order_ticket callers in armed refusals (N3)."
+  },
+  "routed_to": "PROP-TERM | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — Not wired click yet; N1: CLOSE_ROW_JS built from dxtrade JS via _replace_once (breakout_terminal.py:236-245) with Avg Price in _POS_WORDS_JS (L233); not re-verified N2-N4",
+  "severity": "low",
+  "state": "routed",
+  "tier": 2,
+  "what": "Non-blocking findings from the independent review of #14366 (breakout_terminal adapter hardening, APPROVE, 2026-09-29 ~19:30Z). None is reachable today: no account uses platform breakout_terminal and every armed call refuses before its final click. They must be fixed BEFORE any click is wired for this terminal.\nN1 src/prop/platform/breakout_terminal.py ~L226-239: CLOSE_ROW_JS picks the positions table by an entry-price-like header only and lacks the _ORDER_ONLY exclusion _is_positions_table (~L382) applies, so an Order History table with 'Avg Price' and one matching row could be located as the position row (or force a rows=2 refusal).\nN2 ~L944-976: place_bracket with arm=True still clicks side/type/SL-TP toggles and types into the unmeasured ticket; nothing proves a side button does not place on its own (one-click semantics).\nN3 ~L853-866: close_order_ticket clicks whatever the form JS tagged 'close' (^(cancel|close|x)$), also from armed refusals; scoped to the form, pre-existing.\nN4 prop_executor.py ~L1020: against this adapter a watched close always ends 'close not confirmed' (by design, rule 9); document it where the platform switch is decided so it is not read as a bug."
+}

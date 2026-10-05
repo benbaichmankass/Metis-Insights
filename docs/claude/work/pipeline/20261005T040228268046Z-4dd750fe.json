@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "NOT DECISIVE OFFLINE (2026-09-29, manager-directed re-measure, Binance 1m proxy, record window 2025-09-25..2026-09-24, full cost stack): forming arm n=77 -7.56R, 90% CI [-28.2, +13.8] trade-bootstrap / [-25.0, +12.7] month-block — includes the D1 bar (0), MDE at n=77 = 31.6R; per-trade mean -0.098R (sd 1.45) would need n~1,348 trades (~17 years at 77/yr) for 80% power, and over full history 2020-01..2026-09 the forming arm is n=497 +25.30R (mean +0.051R, CI [-16.9, +68.4]). The in-window dR -19.3R has a month-block CI [-31.9, -6.3] but is a single post-hoc-selected 12-month window; full-history dR -18.1R, CI [-49.7, +13.5]. The demotion signal for this leg is therefore the LIVE mirror window (daily R4 gate, 07:41Z; MD-DEMOTE-S2-S1), which DOES grade this leg: r4-demotion-gate run 36541157651 (2026-09-29T08:11Z, window 30d, min_trades 20) -> HOLD, r4=abstain_thin, src=real_money n=7 closed rows, usd_meas -25.04, cov 0.714, R -6.45 (the absent mirror_window record is correct: R4 writes one only for a DEMOTE candidate). BUT the gate is structurally thin on this leg: 7 closed in 30d < 20, and the leg's record rate is n=57/365d (~4.7 per 30d), so a 30d window can never reach min_trades; carried as PI-20260929-VOLSKIP-SIGNAL-0005. Clears when R4 grades the leg with n >= min_trades (i.e. after -0005 is decided).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-VOLSKIP-SIGNAL-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-26",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLSKIP-SIGNAL (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, RQ-20260929-302",
+    "rerun": "python3 scripts/research/forming_bar_pooled_regrade.py --fetch --klines-dir /tmp/klines --out /tmp/p.json --leg xrp_pullback_2h  # holds while evidence_restatement.xrp_pullback_2h.STANDING_AT_RISK is true"
+  },
+  "routed_to": "VOLSKIP-FORMING | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — xrp_pullback_2h still on bybit_2 roster (accounts.yaml:390). bybit_2 closed rows for it n=14 (journal, all history) < T3_N=40, so R4 cannot grade it yet; forming-bar evidence undecisive offline (",
+  "state": "routed",
+  "what": "[strategy][stage-2-standing] xrp_pullback_2h (REAL MONEY bybit_2) passes RULE-D1-STAGE0-NET-OF-FULL-COST on its closed-bar evidence record (comms/strategy_evidence/xrp_pullback_2h.json: +12.79R, n=57, window 2025-09-25..2026-09-24) but FAILS it under decision_bar=forming, which is what the live builder trades (RQ-20260929-302, Binance 1m proxy, full cost stack: proxy closed arm +11.75R n=58 reproduces the record within 1.04R; forming arm -7.56R n=77 over the same window). Full history 2020-01..2026-09: closed n=413 +43.42R vs forming n=497 +25.30R. The rule flags it to the manager for the demotion mandate's own clauses (MD-DEMOTE-S2-S1 is armed for auto-land); not acted on by the lane. Decision needed: whether a Stage-0 record that does not describe the traded (forming-bar) trade set still counts as this leg's evidence."
+}

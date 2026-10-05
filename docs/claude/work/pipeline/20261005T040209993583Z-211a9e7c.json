@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "due_date": "2026-10-20",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-20",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers",
+    "rerun": "python3 -c \"import ast,pathlib;print([f'{p}:{n.lineno}' for p in pathlib.Path('src').rglob('*.py') for n in ast.walk(ast.parse(p.read_text())) if isinstance(n,ast.Call) and (getattr(n.func,'id',None) or getattr(n.func,'attr',None))=='safe_place_order'])\"  # [] => still open"
+  },
+  "routed_to": "ORDER-AUDIT-2 | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — safe_place_order (src/runtime/orders.py:47) has no src caller (only scripts/smoke_test_trade.py:215); guards still dead.",
+  "state": "routed",
+  "what": "[AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers] src/runtime/orders.py::safe_place_order has zero call sites in src/, so the order-layer guards it implements (MAX_DAILY_LOSS_USD, MAX_OPEN_POSITIONS, MAX_POS_PER_STRATEGY, MAX_DAILY_LOSS_PER_STRATEGY_USD, the overtrading throttle, and the 'second, independent' HALT_FLAG_PATH check wired 2026-08-16 per validation.py:218-238) can never fire, while risk_counters recomputes their inputs every tick for no consumer. Proposed fix: Decide per guard: wire the still-wanted checks (halt, global daily loss) into multi_account_execute's pre-dispatch, and delete the rest plus risk_counters' per-tick SQL; correct the four comments. (Tier 2; audit lanes do not enact fixes.)"
+}

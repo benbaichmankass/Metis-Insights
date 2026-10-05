@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 25,
+    "clears_when": "native MES per-contract shard pulled + cells re-backtested; verdict recorded",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260707-NATIVE-MES-PULL",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-30",
+    "how_to_check": " Trainer disk headroom decision, then native MES shard pulled and cells re-backtested with a recorded verdict. | evidence: No live row or queue unit covers native MES history (git grep of research/queue and checklist). Item's own 2026-10-04 note says blocked behind trainer disk 91.7% / 4.03 GB free; I did not re-read trainer disk.",
+    "what": "native MES per-contract shard pulled + cells re-backtested; verdict recorded"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260707-NATIVE-MES-PULL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260707-NATIVE-MES-PULL'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Trainer disk headroom decision, then native MES shard pulled and cells re-backtested with a recorded verdict. | evidence: No live row or queue unit covers native MES history (git grep of research/queue and checklist). Item's own 2026-10-04 note says blocked behind trainer disk 91.7% / 4.03 GB free; I did not re-read trainer disk.",
+  "what": "[performance] Deeper native-MES per-contract history — re-judge MES pullback 1h + fvg 15m on 3y+ || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): validated; research/build work needing trainer capacity, and the trainer is at 91.7% disk / 4.03 GB free with a live low-disk warning. Blocked behind that decision.\" |     } |   ], |   \"snoozed_at\": \"2026-08-29T17:05:00+00:00\", |   \"disposition\": \"snoozed\" | }"
+}

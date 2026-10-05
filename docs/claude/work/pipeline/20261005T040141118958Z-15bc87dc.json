@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "drop_forming_bar (or fetch_candles) uses the frame's fetch time so a cached pre-close frame is never treated as closed by any caller, shown by a test that plants a pre-close cached frame against each of regime_bar_scoring, forecast_live and exit_head_shadow, or the consumers' written-row close values are shown identical to the final bar's close over >= 20 4h/2h closes and the defect is dispositioned as negligible.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-GQPT6PQF-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane DONCHIAN-PARITY (session_01KjACh47AwiaCPSgQPT6PQF), from manager review of #14800, 2026-09-30",
+    "rerun": "grep -rn drop_forming_bar src; for a 4h close compare the close stored by each consumer for the just-closed bar against the venue's final close for the same bar."
+  },
+  "routed_to": "DONCHIAN-PARITY (re-pointed from DONCHIAN-PARITY (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[live] The same defect that PR #14800 fixes for decision_bar: closed donchian legs (a frame served from the 300 s candle cache, or fetched a few seconds after a boundary, whose last row is a bar that is closed by the CLOCK but whose data was fetched before the close or before the venue finalised it) affects every other closed-bar consumer that calls src.runtime.closed_bars.drop_forming_bar on a fetch_candles frame: regime scoring (src/runtime/regime_bar_scoring.py, FIX-CA-23), the forecast producer (src/runtime/forecast_live.py) and exit-head shadow (exit_head_shadow.py). drop_forming_bar tests open_ts + tf > now (clock), not open_ts + tf > fetched_at. Population: live CANDLE_CACHE_TTL_MAX_S = 300 s (get-env issue #14797, 2026-09-30), so every >=15m frame can be up to 300 s old; observed once on trend_donchian_xrp_4h (12:01:30Z read close 1.5143, later 1.5161 for the same 08:00 bar; 1 of 3 post-merge closes). Not measured for the observe-only consumers. General fix proposed by the manager: fetch_candles stamps df.attrs['fetched_at'] and drop_forming_bar treats a bar as forming when open + tf > fetched_at (falling back to the clock when absent), instead of per-caller cache bypasses.",
+  "why_it_matters": "Train/serve skew for the ML heads that read closed-bar features (they train on final bars, serve partial ones), and the same partial-bar entry risk for any future closed-bar leg."
+}

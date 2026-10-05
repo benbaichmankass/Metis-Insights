@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A manager checking mergeability CANNOT be misled by the armed driver, and it is OBSERVED not being misled. Either (a) the local check itself is made honest — a helper the merge-queue duty actually calls (not prose) that either merges with the drivers DISABLED (`git -c merge.jsonregister.driver=false merge`, or `-c core.attributesFile=/dev/null`) or reports both results side by side and labels which one predicts GitHub; or (b) the duty stops test-merging locally to answer this question at all and reads `mergeable_state` from the API first, with that written into the merge-queue contract rather than left to judgement. VERIFY BY REPRODUCING THE FALSE NEGATIVE AND WATCHING IT NOT HAPPEN: construct two branches that each append a row to the tail of a `merge=jsonregister` register, and confirm the check reports CONFLICT (or 'GitHub will conflict') in an ARMED clone. A test asserting the helper's behaviour on a synthetic repo is NECESSARY BUT NOT SUFFICIENT — the defect only appears when the driver is armed AND .gitattributes maps the path, so the check must exercise that shape. DO NOT 'fix' this by disarming the driver or removing the .gitattributes mapping: that trades this false negative for the eleven hand-resolutions BL-20260906-REGISTER-MERGE-DRIVER-SHIPS-UNARMED-AND-A-SESSION-PAID-ELEVEN-HAND-RESOLUTIONS records, which is a worse trade. The driver is doing its job; what is missing is a way to ask the OTHER question. AND MORE PROSE IN .gitattributes DOES NOT CLEAR THIS — the w …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Clause (a) is met: a helper the manager preflight actually calls predicts GitHub's verdict instead of trusting the armed local driver; the merge-queue duty it was filed against is retired. || EVIDENCE: scripts/ops/github_equivalent_merge.py runs a real `git merge --no-commit --no-ff` in a worktree (l.254) and labels the GitHub-equivalent result; wired into scripts/ops/manager_preflight.py:142,1266 (planted-case self-test); tests/test_github_equivalent_merge.py; manager SKILL.md:692 reads mergeable_state on lane PRs. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] With merge.jsonregister armed, a local test-merge of a register-touching PR reports a clean merge for a PR GitHub grades `dirty` — the manager's own pre-merge check silently inverts"
+}

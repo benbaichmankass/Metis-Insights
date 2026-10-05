@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the decay_stall10_t2.5 exit on ief_pullback_1d has been observed live (M20-EXITS row closed) AND a P5 vol_trail parity record exists; then vt_hot80_t2.5 is re-graded on a fresh partition and either shipped as a Tier-3 PR with the evidence or killed with the reason (e.g. inert on the fold-examined window); or killed",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-P24XMV4V-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "DECISION-BRIEF lane session_01XGZZ1RZsfiUwKap24xMV4v, manager session_01MM8o5js6TcDFeNAPBY4Ntv, docs/plans/decision-brief-2026-10-04.md",
+    "rerun": "python3 - <<'X'\nimport json\nrows=[json.loads(l) for l in open('docs/research/m20-sweep-corpus.jsonl')]\nprint([(r['run_id'][:10],r['verdict'],r['d_net_r_OOS'],r['wf_wins'],r['base_trades_OOS']) for r in rows if r['leg']=='ief_pullback_1d' and r['cell']=='vt_hot80_t2.5'])\nX"
+  },
+  "routed_to": "RESEARCH — ief vt_hot80_t2.5 confirmatory — a research-queue data task (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "NEEDS-DATA: ief_pullback_1d vt_hot80_t2.5 (vol_trail lever) reads PASS on TWO partitions of docs/research/m20-sweep-corpus.jsonl (2026-08-15 split 2017-01-20: dOOS +3.41R wf 5/6, base OOS n=36; 2026-10-02 split 2015-12-10: dOOS +2.24R wf 5/6, base OOS n=39; folds 2024-2026 are exactly 0.0, i.e. the lever never fired there). It was not shipped by M20-EXITS-4, which shipped decay_stall10_t2.5 (#15593, merged 2026-10-03, alpaca_live, NOT yet observed live). Two things must exist before this cell can be decided: (a) the first trail_decay-driven ief exit observed in the live journal (M20-EXITS row closes on it; one lever per leg at a time, combos only after singles are observed), and (b) a P5 live-parity record for the vol_trail lever, which has none for any leg yet (ada_pullback_2h's log-only shadow log, PI-20260930-KZWVN6MG-0001, is the same instrument). Not an operator question until both exist."
+}

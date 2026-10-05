@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "a diag pull (/api/bot/config or /api/diag/snapshot) confirms these legs read execution: shadow on the live VM.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260924-TJTOJHYE-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-17",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-17",
+    "how_to_check": "python3 scripts/ops/build_strategy_evidence.py --strategy trend_donchian_ada_4h --strategy trend_donchian_avax_4h --strategy trend_donchian_sol_4h --days 365 --folds 4",
+    "what": "a diag pull (/api/bot/config or /api/diag/snapshot) confirms these legs read execution: shadow on the live VM."
+  },
+  "origin": {
+    "kind": "research",
+    "ref": "comms/strategy_evidence/trend_donchian_{ada,avax,sol}_4h.json @ branch lane/e69-donchian-resweep (lane E69)",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --strategy trend_donchian_ada_4h --strategy trend_donchian_avax_4h --strategy trend_donchian_sol_4h --days 365 --folds 4"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH — donchian 4h corrected resweep (BACKLOG-BURNDOWN-2'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "E69 corrected resweep (SRQ-20260618-001, E67/PR#12875 pending item): trend_donchian_{ada,avax,sol}_4h on bybit_1 (Stage-1 paper soak) re-measured through the E55 tp_r-fixed harness + E60 venue-correct 3.0bps Bybit-perp slippage (was still 5.0bps in the E55-generated records, which predate E60's merge). All three still fail Stage-0 net of the full cost stack (fee 7.5 + slippage 3.0 + funding 1.0bps/window): ada_4h net_r_oos=-8.6081 n=46 WR=28.3% folds_positive=1/4; avax_4h net_r_oos=-9.1414 n=50 WR=26.0% folds_positive=0/4; sol_4h net_r_oos=-2.796 n=35 WR=22.9% folds_positive=1/4 (window 2025-10-01..2026-09-21, 365d). Per RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE (registered 2026-09-24T17:22:00Z, before this run), all three PROPOSE DEMOTE (live->shadow). Proposal only -- Tier-3, needs explicit operator approval; no config/ edit made by this item. Evidence: comms/strategy_evidence/trend_donchian_{ada,avax,sol}_4h.json and comms/strategy_evidence/runs/2026-09-24-e69/*__trades.jsonl (branch lane/e69-donchian-resweep).\n\n[TRIAGE 2026-09-28] OPERATOR (tier 4) — E69's corrected resweep (venue-correct slippage, tp_r-fixed harness) finds all three of trend_donchian_{ada,avax,sol}_4h on bybit_1 still fail Stage-0 net of the full cost stack (net_r_oos -8.6/-9.1/-2.8, WR 22-28%, mostly-negative folds). Per the pre-registered RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE, all three propose DEMOTE (live -> shadow). Approve? Recommendation: Approve the demote -- the rule was registered before the run (avoids post-hoc cherry-picking) and all three fail uniformly across 4 walk-forward folds. OPERATOR DECISION 2026-09-28 (relayed via manager to lane EXIT-OPS): \"Demote all 3 to shadow\". Before editing, confirmed each leg's routing against config/accounts.yaml (field, not the stale per-leg comment \"demo-only soak (paper money) per paper-execute policy\" that sits on every trend_donchian_*_4h execution line): trend_donchian_ada_4h, trend_donchian_avax_4h and trend_donchian_sol_4h each route ONLY to bybit_1 (account_class=paper) -- none is on any real-money roster, so the STOP condition does not apply. SHIPPED: execution: shadow set for all three in config/strategies.yaml, PR #13607 (lane/exit-ops-20260928-demote-scalp-5m), shadow-guard markers citing this decision and the E69 evidence per leg. Tier-3, landing: hold -- the manager merges. MERGED 2026-09-28T13:51:27Z (PR #13607, merge sha d0a642e35c7449b78448419e325a6f1a5aa03774) -- MERGED, not yet independently OBSERVED on the live VM (ict-git-sync pulls main every ~5min; no diag pull was taken after this merge to confirm /api/bot/config reads execution: shadow for these legs). Distinguishing merged from deployed from observed per RULE ONE; the next session/review should verify with a live diag pull rather than treat this record as observed. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=3): x_4h             refuse_measured |   trend_donchian_sol_4h              refuse_measured | Nothing was lost. Fix the run (the usual cause is a missing feed dependency -- yfinance for the Yahoo lane) and re-run; a SUCCESSFUL re-measure still overwrites normally."
+}

@@ -67,6 +67,23 @@ UNITS_YAML = textwrap.dedent("""\
 """)
 
 
+@pytest.fixture(autouse=True)
+def _deterministic_tick_size(monkeypatch):
+    """Resolve the tick size the same way whatever ran before this test.
+
+    The mocked clients here are bare ``MagicMock``s, so a live
+    ``get_instruments_info`` lookup hands back a MagicMock ``tickSize`` and the
+    order path refuses with ``conversion from MagicMock to Decimal``. In the
+    full suite an earlier test had usually warmed ``precision._LIVE_CACHE`` for
+    the symbol, which hid this; run alone, 4 tests failed
+    (PI-20260930-MEK2XMWT-0001). Clear the cache and skip the live lookup so
+    the static map / fallback decides, as it would for an unknown client.
+    """
+    from src.units.accounts import precision
+    monkeypatch.setattr(precision, "_LIVE_CACHE", {})
+    monkeypatch.setattr(precision, "_live_tick_size", lambda *a, **k: None)
+
+
 @pytest.fixture()
 def units_yaml(tmp_path):
     p = tmp_path / "units.yaml"

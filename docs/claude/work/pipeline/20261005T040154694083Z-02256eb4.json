@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "a 730d Stage-0 rebuild of trend_donchian_xrp_4h with a pre-registered rule is committed as the leg's evidence record and graded; the leg is then either kept (pin re-stated) or cut under MD-DERISK-ONLY-ROSTER-CUT; PI-20261002-84ZIQNJD-0001 closes on the same evidence; or killed",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-P24XMV4V-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "DECISION-BRIEF lane session_01XGZZ1RZsfiUwKap24xMV4v, manager session_01MM8o5js6TcDFeNAPBY4Ntv, docs/plans/decision-brief-2026-10-04.md",
+    "rerun": "python3 -c \"import json;d=json.load(open('comms/strategy_evidence/trend_donchian_xrp_4h.json'));print({k:d.get(k) for k in ('window_days','n_closed','n','net_expectancy_r','p10','fidelity','generated_at','source_run')})\""
+  },
+  "routed_to": "RESEARCH — xrp_4h Stage-0 rebuild — a research-queue data task (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "NEEDS-DATA: PI-20261002-84ZIQNJD-0001 asks the operator (next_action ask_operator) whether to refresh trend_donchian_xrp_4h's committed Stage-0 record, whose p10 flips sign on a 3-day-newer 365d window at n=16 (control rebuild at the committed trail_mult 5.0 gives the identical net_r_oos 5.94, so the flip is the window, not the trail4 cell). Under the 2026-09-29 directive that is not a preference: n=16 is below every floor this repo uses (MD-PROMOTE-S0-S1 bar min_n_closed 30; exit-refinement MIN_OOS_TRADES 25), so the record cannot decide either way. The data task is a Stage-0 rebuild of xrp_4h (short, 4h, the committed config) on a 730-day window with the rule registered before the run (net of the full cost stack, n floor >= 30, fold majority), landed as the new comms/strategy_evidence/trend_donchian_xrp_4h.json. If it fails the four-clause bar, MD-DERISK-ONLY-ROSTER-CUT covers the demotion of this real-money bybit_2 leg without a popup; if it passes, the pin (tests/test_mandate_resolver.py::test_real_stage2_thresholds_match_the_operators_pricing) is re-stated from the new record and the SIGNAL-0005 pricing is re-stated to the operator as a report, not a question."
+}

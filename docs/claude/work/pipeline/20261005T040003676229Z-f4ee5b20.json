@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "pnlCoverage over a trailing 7d window is at or above the 30d figure rather than an order of magnitude below it, and a same-day Bybit close resolves with exit_price_source='exchange_fill'.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-23",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE'), indent=2))\"",
+    "what": "pnlCoverage over a trailing 7d window is at or above the 30d figure rather than an order of magnitude below it, and a same-day Bybit close resolves with exit_price_source='exchange_fill'."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Next Bybit real_money close with notes.exit_price_source='exchange_fill' AND trailing-7d vs 30d real-money pnlCoverage computed from journal over a stated population. | evidence: Real-money closes in newest-1000 journal (2026-09-04..10-05): 20 closed; since 09-28 only 3, exit_price_source bybit_closed_pnl/exchange_fill(IAUM,Alpaca). No same-day Bybit real_money close with exit_price_source=exchange_fill. /api/bot/stats real-m | previous owner dropped (did not cover the item): M20-EXITS-4 — triaged 2026-10-05: COULD NOT LOOK (a \"could not look\" never close",
+  "what": "[health] Real-money trade 4863 crossed its declared TP, was closed by the netting reconciler at a bar-anchored ESTIMATE ~317 below the TP, and its paper mirror recorded pnl NULL"
+}

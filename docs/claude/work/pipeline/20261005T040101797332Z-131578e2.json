@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) the operator/team explicitly accepts staying on the <0.16 pin as the standing policy, OR (b) ruff 0.16+ is adopted with all 8228 residuals fixed-or-suppressed (operator-hold paths routed correctly) and the pin bumped, with ruff-lint green on both paths.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-19",
+    "how_to_check": " Operator acceptance of the <0.16 pin as standing policy, or ruff 0.16+ adopted with residuals fixed/suppressed and pin bumped. | evidence: requirements-dev.txt:21 still 'ruff>=0.15.0,<0.16' (pin held); no recorded operator acceptance of the pin as standing policy and no 8228-hit cleanup.",
+    "what": "Either (a) the operator/team explicitly accepts staying on the <0.16 pin as the standing policy, OR (b) ruff 0.16+ is adopted with all 8228 residuals fixed-or-suppressed (operator-hold paths routed correctly) and the pin bumped, with ruff-lint green on both paths."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Operator acceptance of the <0.16 pin as standing policy, or ruff 0.16+ adopted with residuals fixed/suppressed and pin bumped. | evidence: requirements-dev.txt:21 still 'ruff>=0.15.0,<0.16' (pin held); no recorded operator acceptance of the pin as standing policy and no 8228-hit cleanup.",
+  "what": "[health] ruff 0.16.0 default-ruleset expansion turned the required ruff-lint check red repo-wide (8228 pre-existing hits); pinned <0.16 as the interim hold"
+}

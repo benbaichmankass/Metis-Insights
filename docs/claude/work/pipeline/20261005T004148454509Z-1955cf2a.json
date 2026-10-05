@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either the executor's `expired` branch no longer writes ticket status (it alerts and records in its own ledger only, with a test asserting no POST for a ticket still `emitted`), or a committed note on the branch states why the double write is safe with the prompter paused. Killable with a reason if the expiry prompter's on/off knob is removed, which closes the race.",
+    "kind": "event",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20261002-OPFUNNEL-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Lane PROP-FUNNEL, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-02, while tracing why the executor never reported `expired` for prop-manual-fb466451fd1f: src/prop/prop_executor.py run_cycle intake (api.tickets uses status=emitted; the vu <= now branch POSTs _skip_body(..., 'expired')) vs src/prop/prop_expiry_prompt.py::run_prop_expiry_prompts.",
+    "rerun": "grep -n 'status=emitted' src/prop/prop_executor.py && grep -n '_PROMPTED_STATUS\\|def _enabled' src/prop/prop_expiry_prompt.py && grep -n \"_skip_body(cfg, t, .expired.)\" src/prop/prop_executor.py"
+  },
+  "routed_to": "PROP-EXEC [route; size S, value L, tier 2] BACKLOG-ROUTE 2026-10-04: Both writers still present: prop_executor.py:630 intake status=emitted, :1083 POST skipped 'expired'; prop_expiry_prompt.py:62 _PROMPTED_STATUS and :89 _enabled() unchanged. Latent only while prompter is on. | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — origin/main src/prop/prop_executor.py:1100-1106: past-valid_until branch still does ledger.record('expired') and _report(_skip_body(cfg,t,'expired')) (POST flips status); prop_expiry_prompt._enab",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "LATENT: TWO WRITERS OWN prop_tickets.status FOR THE SAME STALE TICKET, and one of them can silently remove it from the manual bridge. (1) src/prop/prop_executor.py's intake, on seeing a ticket still `emitted` past its valid_until, records ledger `expired` and POSTs `skipped: expired` -- which flips the ticket off `emitted`. (2) src/prop/prop_expiry_prompt.py's run_prop_expiry_prompts flips the same ticket to `expiry_prompted` at its valid_until. Today (2) wins because the trader tick runs far more often than the executor's 5-minute timer, which is WHY the executor's branch is effectively dead code -- MEASURED: prop-manual-fb466451fd1f reached expiry_prompted and the executor never logged `expired` for it. But prop_expiry_prompt._enabled() is an on/off knob; with the prompter paused, the executor's POST would pull the ticket out of every manual-bridge path that keys on `emitted` (the price-invalidation 'do NOT place' warning, the expiry 'did you place this?' prompt, and the one-ticket-per-trade reticket guard in breakout_executor._reticket_suppress_reason). NOT OBSERVED -- filed because the race is in the code, not because it fired. Decide whether the executor should own that flip at all, or only alert (which is what PR #15595 does for the no-attempt case)."
+}

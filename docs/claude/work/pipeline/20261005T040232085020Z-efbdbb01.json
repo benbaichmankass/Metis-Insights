@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "clears_when": "us_equity_session uses a real tz database (zoneinfo America/New_York) and an NYSE holiday calendar, the rerun prints 'rth extended closed', and a test pins both DST edges and one holiday; or the manager kills it with a stated reason.",
+    "due_date": "2027-02-15",
+    "kind": "date"
+  },
+  "id": "PI-20260929-K1XNYYAQ-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2027-02-15",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "REVIEW-14241 round 3 (manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29 17:09Z); lane FIX-SA-03 session_01Pr6YRTQYauPEEkK1xNyyAQ",
+    "rerun": "python3 -c \"from datetime import datetime,timezone; from src.runtime.market_hours import us_equity_session as s; print(s(datetime(2027,3,15,13,45,tzinfo=timezone.utc)), s(datetime(2027,3,15,20,30,tzinfo=timezone.utc)), s(datetime(2026,11,26,15,0,tzinfo=timezone.utc)))\". Correct output is 'rth extended closed': Mon 2027-03-15 is in DST, and Thu 2026-11-26 is Thanksgiving. On 2026-09-29 it printed 'extended rth rth'."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "what": "src/runtime/market_hours.us_equity_session() approximates ET from a month table (_FULL_DST_MONTHS). March and November always read as standard time (UTC-5), and US exchange holidays are not modelled; its own docstring says so. This was read from the code and reproduced with the rerun on 2026-09-29, not observed live. Effect 1: from the 2nd Sunday of March to Mar 31, and from Nov 1 to the 1st Sunday of November, the real 09:30-10:30 ET hour reads 'extended' and the real 16:00-17:00 ET after-hours hour reads 'rth'. Effect 2: on a US holiday the weekday RTH window reads 'rth'. Consumers: AlpacaClient.close, which chooses between a market order, an extended-hours limit and a deferral; and, from #14241, the Alpaca naked sweep's _breach_state, where 'rth' lets a fresh last-trade breach drive a market exit and outside RTH a stop rests. A wrong read sends those paths down the wrong branch: a market order after hours or on a holiday is refused or deferred, and no exit is attempted in the misread first RTH hour."
+}

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 20,
+    "clears_when": "At least 10 Alpaca equity sl/tp-family closes with exit_price_source=exchange_fill (and IBKR futures likewise) have accrued; realized round-trip slippage is measured against the 5.0 bps working assumption; execution_costs and the affected evidence records are updated if it differs materially (or the 5.0 bps is confirmed with the measurement cited).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260927-HJPL5ABP-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-25",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "operator",
+    "ref": "MANAGER-CHECKLIST E62 note 2026-09-27; config/mandates.yaml MD-PROMOTE-S1-S2 clause (b) note",
+    "rerun": "diag-relay /api/bot/trades/closed?limit=500 filtered to alpaca_* accounts, exit_price_source=='exchange_fill': count them and compute (fill - intended) slippage in bps"
+  },
+  "routed_to": "E62 | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — Measured now: alpaca exchange_fill sl/tp-family closes accrued (journal n=4000: 28 portfolio, 17 paper, 2 live); alpaca_portfolio roundtrip mean 28.4 bps CI95 [-8.9,78.1] vs 5.0 assumed; alpaca_l",
+  "state": "routed",
+  "what": "E62 MONITOR: the operator reaffirmed 5.0 bps slippage for Alpaca equities / IBKR futures as the working assumption on 2026-09-27 (clearing MD-PROMOTE-S1-S2 clause (b)) and asked for a task to monitor real fills and update accordingly once supporting data exists. Measure realized slippage from exchange-fill closes; update execution_costs and regenerate the affected evidence records when the data supports a different number."
+}

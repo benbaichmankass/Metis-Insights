@@ -390,6 +390,60 @@ runs:
                    ".github/pr-automerge-requests/${SLUG}.txt" \
                    ".github/merge-slots"
         git commit -m "${MESSAGE}"
+        # CUT THE THROWAWAY BRANCH FROM `main`, NOT FROM THE DISPATCH REF
+        # (2026-10-04, lane CI-AUTOMERGE). Until now the commit above sat on
+        # whatever the CALLER checked out. A run dispatched on a session branch
+        # therefore pushed that whole branch: MEASURED 2026-10-04 on #16457
+        # (m20-exit-lever-sweep run 37222250087, dispatched on
+        # `claude/research-run-units`) — 1 result file plus 19 unmerged session
+        # commits and 57 files, including pre-registered queue units and that
+        # branch's own `hold` declaration, so `check_pr_landing` refused it under
+        # R5 + R12 and it could never land. 21 open research-result PRs had the
+        # same shape. The fix: replay ONLY the produced commit onto `main`.
+        #
+        # ⚠️ Only when the job did not run on `main` (GITHUB_REF), so a scheduled
+        # or main-dispatched caller is byte-for-byte unchanged. A conflicted
+        # `*.jsonl` is an append-only store: it resolves to main's file plus
+        # EXACTLY the lines this commit added — never the dispatch branch's own
+        # rows, which land (or not) with that branch's PR. Any other conflict
+        # falls back to the old behaviour, LOUDLY: the rows are kept on a PR
+        # that will need a human, rather than lost.
+        if [ "${GITHUB_REF:-refs/heads/main}" != "refs/heads/main" ]; then
+          PRODUCED="$(git rev-parse HEAD)"
+          if git fetch -q --no-tags origin main; then
+            git checkout -q --detach FETCH_HEAD
+            REPLAYED=false
+            if git cherry-pick --allow-empty "${PRODUCED}" >/dev/null 2>&1; then
+              REPLAYED=true
+            else
+              RESOLVED=true
+              for f in $(git diff --name-only --diff-filter=U); do
+                case "$f" in
+                  *.jsonl)
+                    { git show "FETCH_HEAD:$f" 2>/dev/null || true
+                      git diff --no-color --unified=0 "${PRODUCED}~1" "${PRODUCED}" -- "$f" \
+                        | grep -E '^\+' | grep -vE '^\+\+\+ ' | cut -c2- ; } > "$f.cm-tmp"
+                    mv "$f.cm-tmp" "$f"
+                    git add -- "$f" ;;
+                  *) RESOLVED=false ;;
+                esac
+              done
+              if [ "${RESOLVED}" = "true" ] && GIT_EDITOR=true git cherry-pick --continue >/dev/null 2>&1; then
+                REPLAYED=true
+              else
+                git cherry-pick --abort || true
+              fi
+            fi
+            if [ "${REPLAYED}" = "true" ]; then
+              echo "commit-to-main: ran on ${GITHUB_REF}; replayed the produced commit onto main so ${BR} carries only this run's paths."
+            else
+              git checkout -q --detach "${PRODUCED}"
+              echo "::warning::commit-to-main: ran on ${GITHUB_REF} and the produced commit does not replay cleanly onto main. Falling back to the dispatch ref as the base, so ${BR} ALSO carries that ref's unmerged commits and will likely need a human to land."
+            fi
+          else
+            echo "::warning::commit-to-main: could not fetch main to replay onto; ${BR} is cut from ${GITHUB_REF} and carries its unmerged commits."
+          fi
+        fi
         # Push the throwaway branch. The calling job checked out with the PAT, so
         # `origin` is PAT-authenticated → the PR opened below triggers the required
         # checks (a GITHUB_TOKEN-opened PR would not).

@@ -1,0 +1,26 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "PR claude/vol-trail-p5-shadow-ada is deployed AND runtime_logs/vol_trail_shadow.jsonl has been read from the VM and scripts/research/vol_trail_parity_report.py output recorded (n rows, closed-vs-raw disagreement, stops_differ); then the P5 half of PI-20260929-AQRK6CL1-0012 is graded.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-KZWVN6MG-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-14",
+    "how_to_check": "ls runtime_logs/vol_trail_shadow.jsonl on the live VM via the diag relay; python3 scripts/research/vol_trail_parity_report.py <copy>",
+    "what": "PR claude/vol-trail-p5-shadow-ada is deployed AND runtime_logs/vol_trail_shadow.jsonl has been read from the VM and scripts/research/vol_trail_parity_report.py output recorded (n rows, closed-vs-raw disagreement, stops_differ); then the P5 half of PI-20260929-AQRK6CL1-0012 is graded."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane M20-EXITS-3 session_012sUFUwazYENjW2KZwVN6mg, 2026-09-30",
+    "rerun": "ls runtime_logs/vol_trail_shadow.jsonl on the live VM via the diag relay; python3 scripts/research/vol_trail_parity_report.py <copy>"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "Record what the log-only vol_trail shadow logs after deploy (P5 parity for ada_pullback_2h vt_hot90_t2.5). Also unblock RQ-20260930-901 (research/queue/blocked) when a dry sweep at split 2026-09-29 shows base_trades_OOS>=25 (expected ~2027-06-08 at 0.099 trades/day)."
+}

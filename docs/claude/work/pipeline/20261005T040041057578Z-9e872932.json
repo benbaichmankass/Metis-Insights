@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "1. The operating rule, which is the cheap and durable half: when polling CI, read `actions_get method=get_workflow_run` and treat `updated_at` as the freshness signal. Do NOT conclude `in_progress` from `get_check_runs` or `list_workflow_jobs` alone, and NEVER cancel or re-dispatch on that basis. Land it wherever the merge/CI practice is written down so it is reachable by a session that has not read this row.\n2. Establish whether the lag is the hosted GitHub MCP's caching or GitHub's own API. Not attempted here — the direct REST API is unreachable from this sandbox (it 403s, per CLAUDE.md), so the two cannot be compared from a web session. A CLI session could settle it in one call.\n3. If it is MCP-side caching it is not fixable from this repo, and the rule in (1) is the whole remedy — which is fine, and is why (1) does not depend on (2).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-08",
+    "how_to_check": " Rule landed in session-capabilities.md/git-actions skill, and a CLI session compares MCP check-run reads against REST for one completed run. | evidence: Operating rule not in a doc a session reads (see item BL-20260825-ACTIONS-GET-LAGS...). Only SOAK-REPORT-observations.md:338 mentions it. Direct REST/GraphQL from this sandbox is blocked, so MCP-vs-GitHub lag cause (clause 2) is unsettled. Not re-mea",
+    "what": "1. The operating rule, which is the cheap and durable half: when polling CI, read `actions_get method=get_workflow_run` and treat `updated_at` as the freshness signal. Do NOT conclude `in_progress` from `get_check_runs` or `list_workflow_jobs` alone, and NEVER cancel or re-dispatch on that basis. Land it wherever the merge/CI practice is written down so it is reachable by a session that has not read this row.\n2. Establish whether the lag is the hosted GitHub MCP's caching or GitHub's own API. Not attempted here — the direct REST API is unreachable from this sandbox (it 403s, per CLAUDE.md), so"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Rule landed in session-capabilities.md/git-actions skill, and a CLI session compares MCP check-run reads against REST for one completed run. | evidence: Operating rule not in a doc a session reads (see item BL-20260825-ACTIONS-GET-LAGS...). Only SOAK-REPORT-observations.md:338 mentions it. Direct REST/GraphQL from this sandbox is blocked, so MCP-vs-GitHub lag cause (clause 2) is unsettled. Not re-mea",
+  "what": "[health] mcp__github check-run and job reads lag by tens of minutes on this repo, so a COMPLETED check reads as `in_progress` — and a session waiting on CI concludes the job is hung"
+}

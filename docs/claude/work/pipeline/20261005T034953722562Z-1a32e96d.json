@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "MECHANICALLY CHECKABLE, on purpose. A test asserts that `update_row(path, rid, fields={'updates': None})` against a row whose `updates` holds >= 1 entry RAISES rather than writing, AND that the file on disk is UNCHANGED afterwards -- the second half matters because a raise after a partial write would still have destroyed the row. PLUS a POSITIVE CONTROL in the same suite: extending `updates` to a LONGER list through the same `fields=` path still succeeds, since forbidding list writes outright would break every disposition this register records and would pass a negative-only suite. PLUS a VACUITY CONTROL showing the assertion can go red -- reconstruct the current permissive behaviour and assert the test fails against it. [!] A GREEN `--check-live` CLEARS NOTHING: the clobbered file round-trips byte-for-byte, which is exactly why this went unnoticed by every existing check. [!] AND DO NOT CLOSE THIS ON THE ONE INSTANCE BEING REPAIRED: the row I clobbered was restored from `main` the same minute; what is owed is the REFUSAL, not the repair.\n\nVERBATIM REPRODUCTION, so a successor re-measures rather than trusting this row (tmpdir, never a live register):\n    from scripts.ops.backlog_append import update_row\n    # row 'BL-1' with updates=[{...},{...}]\n    update_row(p, 'BL-1', fields={'updates': None})\n    # observed 2026-09-17: before 2 -> after None, no exception, no warning\n[!] AND RUN IT AGAINST A COPY: the point of the row is that this call destroys data.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260917-UPDATE-ROW-ACCEPTS-A-VALUE-THAT-DESTROYS-A-POPULATED-LIST-FIELD-SO-THE-MANDATED-WRITER-CAN-WIPE-A-ROWS-HISTORY-SILENTLY",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-UPDATE-ROW-ACCEPTS-A-VALUE-THAT-DESTROYS-A-POPULATED-LIST-FIELD-SO-THE-MANDATED-WRITER-CAN-WIPE-A-ROWS-HISTORY-SILENTLY'), indent=2))\"",
+    "what": "MECHANICALLY CHECKABLE, on purpose. A test asserts that `update_row(path, rid, fields={'updates': None})` against a row whose `updates` holds >= 1 entry RAISES rather than writing, AND that the file on disk is UNCHANGED afterwards -- the second half matters because a raise after a partial write would still have destroyed the row. PLUS a POSITIVE CONTROL in the same suite: extending `updates` to a LONGER list through the same `fields=` path still succeeds, since forbidding list writes outright would break every disposition this register records and would pass a negative-only suite. PLUS a VACUI"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-UPDATE-ROW-ACCEPTS-A-VALUE-THAT-DESTROYS-A-POPULATED-LIST-FIELD-SO-THE-MANDATED-WRITER-CAN-WIPE-A-ROWS-HISTORY-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-UPDATE-ROW-ACCEPTS-A-VALUE-THAT-DESTROYS-A-POPULATED-LIST-FIELD-SO-THE-MANDATED-WRITER-CAN-WIPE-A-ROWS-HISTORY-SILENTLY'), indent=2))\""
+  },
+  "routed_to": "CI-AUTOMERGE — triaged 2026-10-05: sub-agent proposed obsolete, not independently verified — update_row exists only in scripts/ops/backlog_append.py (used only by backlog_append/backlog_union_merge); the backlog registers it mutates are retired. grep over scripts/src/.github shows no live caller. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: The writer the repo mandated and its target registers were retired in the 2026-09-21 reset; the pipeline (scripts/ops/pipeline.py) has its own invariants. || EVIDENCE: No live backlog file exists (ls docs/claude/*backlog* only a 2026-06 digest); the registers update_row wrote are archived (docs/archive/2026-09-21-operating-reset/registers/*backlog.json) and CLAUDE.md/CANONICAL no longer mandate backlog_append (git grep empty). scripts/ops/backlog_append.py persists as a library with no live target. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] update_row accepts a value that DESTROYS a populated list field, so the writer CLAUDE.md mandates can wipe a row's entire history without a word"
+}

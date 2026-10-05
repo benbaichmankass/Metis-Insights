@@ -1,0 +1,31 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "Either (a) a live fc-geometry shadow-soak (exit_ladder_soak shape: log the fc-scaled SL/TP alongside the placed SL/TP per opening order, compare realized outcomes) shows a real net-R/maxDD improvement under the account rulesets, gating a Tier-3 proposal; or (b) the lever is closed as not-worth-pursuing after the soak shows no edge. A pure offline backtest is NOT sufficient (proven unfaithful here).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "MB-20260705-FC-SLTP-GEOMETRY",
+  "ml_review_2026_10_04": "2026-10-04 ml-review: no new ML-registry evidence bears on this; the fc_* forecast features are served live (fc_q10_rel, fc_q90_rel, fc_range_rel, fc_ret_med, fc_skew, fc_up_prob in btc/sol fc-pcv-v2 row_keys). Unchanged; stays with the exit-ladder soak.",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " fc_geometry_resolve output over the accrued soak showing net-R/maxDD improvement (Tier-3 proposal) or closing the lever. | evidence: Instrument exists: src/runtime/fc_geometry_soak.py; GET /api/bot/fc-geometry/soak (2026-10-05) returns latest 100 records, 66 with fc_present true, newest 2026-10-05T03:14Z. Outcome resolution is scripts/ml/fc_geometry_resolve.py trainer-side; no res",
+    "what": "Either (a) a live fc-geometry shadow-soak (exit_ladder_soak shape: log the fc-scaled SL/TP alongside the placed SL/TP per opening order, compare realized outcomes) shows a real net-R/maxDD improvement under the account rulesets, gating a Tier-3 proposal; or (b) the lever is closed as not-worth-pursuing after the soak shows no edge. A pure offline backtest is NOT sufficient (proven unfaithful here)."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260705-FC-SLTP-GEOMETRY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260705-FC-SLTP-GEOMETRY'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Found scripts/ml/fc_geometry_resolve.py already implementing the live fc-geometry shadow-soak counterfactual comparison this item's clears_when asks for, plus an already-fixed join bug (PI-20260927-CAB02-0002, state=done) improving its accuracy. This is an inconclusive research finding under active follow-up, not a dead end.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation — the live shadow-soak instrument named in clears_when(a) already exists and is being refined; per the standing rule an inconclusive result is never killed on one pass. Recheck once the soak has accrued enough fills to read a net-R verdict rather than re-asking the operator now.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: fc_geometry_resolve output over the accrued soak showing net-R/maxDD improvement (Tier-3 proposal) or closing the lever. | evidence: Instrument exists: src/runtime/fc_geometry_soak.py; GET /api/bot/fc-geometry/soak (2026-10-05) returns latest 100 records, 66 with fc_present true, newest 2026-10-05T03:14Z. Outcome resolution is scripts/ml/fc_geometry_resolve.py trainer-side; no res",
+  "what": "[ml] fc→SL/TP geometry offline backtest INCONCLUSIVE: forward triple-barrier re-sim fails reality-calibration (real-realized -0.68R vs fixed-resim -0.06R, ~0.6R gap) so the fc-vol-scaled +0.42R 'edge' is an in-simulator artifact, not a real-money result.\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation — the live shadow-soak instrument named in clears_when(a) already exists and is being refined; per the standing rule an inconclusive result is never killed on one pass. Recheck once the soak has accrued enough fills to read a net-R verdict rather than re-asking the operator now."
+}

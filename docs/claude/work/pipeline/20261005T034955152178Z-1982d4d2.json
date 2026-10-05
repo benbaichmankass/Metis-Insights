@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "MGC 15m either serves candles or the leg is explicitly declared unevaluable; either way the condition is visible as a state, not an exception string.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260810-MGC-15M-NO-CANDLE-DATA",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-MGC-15M-NO-CANDLE-DATA",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-MGC-15M-NO-CANDLE-DATA'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: clears_when's first branch (MGC 15m serves candles) is met: the leg evaluates on price, not on missing data, as of 2026-10-05. || EVIDENCE: Live 2026-10-05: /api/bot/candles?symbol=MGC&interval=15m returns candles (time 1791168300.. close 4170.2); /api/diag/audit_query strategy=ict_scalp_mgc_15m latest row logged_at 2026-10-05T03:29:44Z id 3743888 reason is price-based ('last bar did not produce a wick rejection at the FVG') with bar_close 4168.3. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] ict_scalp_mgc_15m raises 'no candle data for MGC 15m' every evaluation — the strategy cannot evaluate and it is surfacing only as a generic operator_warning banner"
+}

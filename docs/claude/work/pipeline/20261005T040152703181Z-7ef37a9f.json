@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-16",
+    "kind": "date"
+  },
+  "filed": "2026-10-04",
+  "id": "PI-20261004-KQIWJZWX-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01WfdESzsCPZbuawkqiWjzWX",
+    "kind": "session",
+    "ref": "VELOTRADE-WIRE (checklist row; held PR claude/velotrade-wire)",
+    "rerun": "grep -rn 'qualifying_day\\|payout_cap\\|first_payouts_capped' src/prop/ | head; grep -n 'Overexposure' docs/research/prop-firm-deepdive-2026-10-04.md"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 3,
+  "what": "velotrade_1 go-live prerequisites the executor does not have (deep-dive 2026-10-04 § 1.9): (a) a qualifying-day counter -- a day counts only at >= 0.8% of the INITIAL balance realised 00:30-00:30 UTC (0.8% of the $5,000 initial balance = $40 per qualifying day; basis: Velotrade's first-party /rules page 'Minimum Trading Days', read 2026-10-04, as quoted in docs/research/prop-firm-deepdive-2026-10-04.md § 1.4), 5 per phase and 5 more funded before the first payout; surface it on the prop status so a pass is not mistaken for passed; (b) a payout scheduler: first payout >= 14 days after the first funded trade, then weekly, full withdrawal only, first two capped at 20x the fee (excess FORFEITED); (c) Velotrade's 'Overexposure' rule names simultaneous longs on BTC/ETH/SOL as risk-abusive -- decide whether ETH+SOL trend legs open together need a same-direction concurrency cap on this account. None blocks a dry run; each blocks a live roster."
+}

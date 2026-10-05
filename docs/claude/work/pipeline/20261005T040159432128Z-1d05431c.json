@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 20,
+    "clears_when": "next diag pull confirms the /accounts_status Telegram output actually renders non-'--' gross-exposure values for at least one live account.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PI-20260928-C4KXTCUS-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-18",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-18",
+    "how_to_check": "origin.rerun: scripts/ops/diag_fetch.sh or a live /accounts_status Telegram call, then confirm the 'Gross exposure' line shows a measured $ amount / multiple (not '--') for at least one live account (e.g. bybit_1 or bybit_2).",
+    "what": "next diag pull confirms the /accounts_status Telegram output actually renders non-'--' gross-exposure values for at least one live account."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "session_0116oibqE8zMM9FZC4kXtcUs (admin-triage-2026-09-28 visibility lane, dispatched by ADMIN lane)",
+    "rerun": "scripts/ops/diag_fetch.sh or a live /accounts_status Telegram call, then confirm the 'Gross exposure' line shows a measured $ amount / multiple (not '--') for at least one live account (e.g. bybit_1 or bybit_2)."
+  },
+  "state": "queued",
+  "what": "[health] Follow-up to BL-20260808: the /accounts_status Telegram consumer for per-account gross exposure has now been wired (src/bot/telegram_query_bot.py::_accounts_view_data passes through the exposure block; src/bot/menu.py::render_accounts_view renders a 'Gross exposure' line via _exposure_str, tested with synthetic accounts in tests/test_menu.py and tests/test_telegram_query_bot.py). That plumbing has NOT been observed against a live account yet -- no live diag/VM access was available to this lane to confirm the deployed bot actually renders a non-'--' value for a real account. This item tracks that observation, which the original recommendation explicitly called for before any cap-vs-uncapped decision is made."
+}

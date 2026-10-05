@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 23,
+    "clears_when": "training-rerun-5m.yml's push trigger is scoped to the branches it is meant to run on (or the auto-commit step refuses to push to a branch it does not recognize as a training-plan branch), or the item is killed with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAB02-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-20",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_018nPWVCBmAyJ95AQwR6G7sZ, incidentally observed while landing code-audit lane CA-B02 (PR #13200); reverted at commit c07ba5f on branch claude/ca-b02-audit",
+    "rerun": "Re-read .github/workflows/training-rerun-5m.yml's `on: push:` block; confirm whether a `branches:` allowlist (or a path restriction limited to a training-plan-scoped branch pattern) has been added, and whether `git push origin HEAD:${{ github.ref_name }}` has been guarded against pushing to a branch outside that allowlist."
+  },
+  "state": "queued",
+  "what": "MEDIUM (incidental, not CA-B02 scope): .github/workflows/training-rerun-5m.yml's `push` trigger has no `branches:` filter and matches ANY branch touching experiments/2026-05-07-vwap-accuracy/{run_5m.py,fetch_data.py} or the workflow file itself; it then commits its results 'back to the same branch as the triggering push' (git push origin HEAD:${{ github.ref_name }}). Observed live: merging origin/main into PR #13200's branch (claude/ca-b02-audit) picked up an unrelated PR's edit to this workflow file, which triggered training-rerun-5m.yml to run AND commit a 'TRAINING-RESULTS: 2026-05-07-vwap-accuracy 5m re-run' result commit directly onto claude/ca-b02-audit -- a docs-only code-audit PR with nothing to do with the vwap experiment. Had to be reverted (commit c07ba5f) to keep the audit PR's diff clean. Any PR that merges main and picks up a change to that workflow file (or the two experiment files) is exposed to the same contamination, regardless of what the PR is actually about."
+}

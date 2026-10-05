@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 15,
+    "clears_when": "a fix distinguishing a build_signal() exception from a genuine no-signal result is merged with a test that fails on the old code, or the item is killed with a stated reason by re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAB02-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B02, finding AUD-20260927-CA-B02-training-harness-swallows-signal-errors-as-zero-trades in docs/audits/code-audit-2026-09-27/CA-B02.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B02-training-harness-swallows-signal-errors-as-zero-trades (evidence field) in docs/audits/code-audit-2026-09-27/CA-B02.findings.jsonl, re-read scripts/training/backtest_helpers.py:10-59 and scripts/training/run_experiment.py:74-93 on main, and re-run the planted-bug repro described in the evidence field; the finding holds while the quoted code is unchanged and no test file exists under tests/ referencing scripts.training."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit AUD-20260927-CA-B02-training-harness-swallows-signal-errors-as-zero-trades): scripts/training/backtest_helpers.py:simple_backtest() swallows every exception from the caller-supplied build_signal() (`except Exception: sig = None`) and, when a hypothesis genuinely finds no setup, returns the identical {'trades': 0, 'expectancy_r': 0.0, 'win_rate': 0.0, 'sharpe': 0.0, 'max_dd_r': 0.0} in both cases. scripts/training/run_experiment.py (the autonomous training-run entrypoint dispatched by .github/workflows/training-run.yml on every push to claude/training-plan-*) renders this as '| H1 | OK | E[R]=0.000 ... |' in SUMMARY.md -- indistinguishable from a hypothesis that legitimately found no edge. Per docs/claude/training-improvement-workflow.md Stage 4, a reviewing session reads that SUMMARY.md and decides adopt/reject/needs-more-data per hypothesis, so a broken build_signal() (wrong column name, bad indexing, any bug) reads as a clean null result rather than a failure needing a fix. scripts/training/** (run_experiment.py, data_loader.py, backtest_helpers.py) carries zero test coverage (confirmed: no test file anywhere under tests/ references scripts.training or scripts/training). LOCATION: scripts/training/backtest_helpers.py:26-32 (silent except), :48-49 (collapsed 0-trade return); scripts/training/run_experiment.py:80-90 (renders trades=0 as 'OK'). PROPOSED FIX: re-raise (or record and report) build_signal exceptions distinctly from a legitimate None/no-signal return (e.g. a build_signal_errors counter surfaced in the result dict and in SUMMARY.md), and add tests/scripts/test_training_backtest_helpers.py covering both paths."
+}

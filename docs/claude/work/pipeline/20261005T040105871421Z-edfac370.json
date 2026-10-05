@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 32,
+    "clears_when": "`grep -rn 'claude-vm-runner' scripts/` returns zero hits outside purge_vm_runner.sh and its historical references, and every touched operator action still runs clean in a dry-run dispatch.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-06",
+    "how_to_check": " grep -rn claude-vm-runner scripts/ returns zero outside purge_vm_runner.sh | evidence: git grep -c claude-vm-runner scripts/: >=12 files still hit (deploy_diag.sh 4, deploy_pull_restart.sh 3, pull_and_deploy.sh 3, restart_bot.sh 3, purge_vm_runner.sh 9, disable/enable_* 2 each, fix_data_dir.sh 2, notify_run.sh 1, install_systemd_units.",
+    "what": "`grep -rn 'claude-vm-runner' scripts/` returns zero hits outside purge_vm_runner.sh and its historical references, and every touched operator action still runs clean in a dry-run dispatch."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: grep -rn claude-vm-runner scripts/ returns zero outside purge_vm_runner.sh | evidence: git grep -c claude-vm-runner scripts/: >=12 files still hit (deploy_diag.sh 4, deploy_pull_restart.sh 3, pull_and_deploy.sh 3, restart_bot.sh 3, purge_vm_runner.sh 9, disable/enable_* 2 each, fix_data_dir.sh 2, notify_run.sh 1, install_systemd_units.",
+  "what": "[health] Eight operator-action scripts still guard against a claude-vm-runner that no longer exists"
+}

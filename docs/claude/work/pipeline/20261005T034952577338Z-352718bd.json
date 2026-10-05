@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A bybit_2 position_read_state_soak row is OBSERVED in which EVERY configured symbol is accounted for — either returned by the settleCoin page with all its books, or cross-checked by a symbol-scoped query — with a state that distinguishes 'queried and empty' from 'never queried'. [!] THE SECOND CLAUSE IS THE WHOLE POINT: a read that simply shows more rows does not clear this unless a reader can tell WHICH symbols were asked about. Today could_not_look_count is 0 on a read that skipped two symbols entirely. [!] A GREEN TEST CLEARS NOTHING: a fixture chooses what the page returns, and the defect is that the venue returns less than it holds. [!] AND IF THE REMEDY IS REJECTED on the per-tick-cost argument (a cross-check for every configured symbol on every read is the June 2026 wedge shape), this row does NOT clear — it CHANGES: the incompleteness is then an ACCEPTED condition on a real-money account and must be RECORDED as that decision, with the consequence stated, rather than left looking like a fix about to land.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260912-SETTLECOIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-AND-THE-BACKFILL-SKIPS-PARTIALLY-SURFACED-SYMBOLS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-SETTLECOIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-AND-THE-BACKFILL-SKIPS-PARTIALLY-SURFACED-SYMBOLS'), indent=2))\"",
+    "what": "A bybit_2 position_read_state_soak row is OBSERVED in which EVERY configured symbol is accounted for — either returned by the settleCoin page with all its books, or cross-checked by a symbol-scoped query — with a state that distinguishes 'queried and empty' from 'never queried'. [!] THE SECOND CLAUSE IS THE WHOLE POINT: a read that simply shows more rows does not clear this unless a reader can tell WHICH symbols were asked about. Today could_not_look_count is 0 on a read that skipped two symbols entirely. [!] A GREEN TEST CLEARS NOTHING: a fixture chooses what the page returns, and the defect "
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-SETTLECOIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-AND-THE-BACKFILL-SKIPS-PARTIALLY-SURFACED-SYMBOLS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-SETTLECOIN-PAGE-RETURNS-FEWER-POSITIONS-THAN-THE-VENUE-HOLDS-AND-THE-BACKFILL-SKIPS-PARTIALLY-SURFACED-SYMBOLS'), indent=2))\""
+  },
+  "routed_to": "SOAK-WATCH — triaged 2026-10-05: sub-agent proposed fixed, not independently verified — Same defect as the bybit_2 hedge row: clients.py:1694 symbol-scoped cross-check plus 1726-1790 hedge-sibling backfill; live soak row 2026-10-05T00:19Z accounts every configured symbol (symbol_scoped rows_returned, hedge_sibling BTCUSDT) with could_not_look_cou (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: A bybit_2 soak row accounts for every configured symbol with queried-and-empty distinguishable, observed on the live feed. || EVIDENCE: Soak 2026-10-05T01:33-03:30Z, 65 bybit_2 rows: each queries all 4 configured symbols (BTC/ETH/XRP/ADA) via symbol_scoped scope with query_state rows_returned vs no_rows (queried-and-empty vs absent), settle_coin_page row_count 0 while symbol queries returned 2 rows each; could_not_look_count 0. Config symbols for bybit_2 = those four. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] The Bybit settleCoin position page returns fewer rows than the venue holds, and the per-symbol backfill is gated on `sym in seen` so it SKIPS exactly the symbols that surfaced partially — a second live hedge book is never READ, and no counter says so"
+}

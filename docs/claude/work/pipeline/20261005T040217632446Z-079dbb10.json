@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "#14272 is merged AND each of the three items is fixed in a PR (or killed with a stated reason)",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-QSURYUHK-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-21",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1 re-review of #14257/#14272, relayed 2026-09-29 16:50Z; filed by lane DEMOTE-T3",
+    "rerun": "grep -n 'first_trade_id\\|_threshold_at_base\\|def staleness' scripts/ops/mandate_resolver.py scripts/ci/check_mandate_autoland.py scripts/ops/r4_demotion_gate.py"
+  },
+  "routed_to": "B3 | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — grep first_trade_id/disjoint in scripts/ops/mandate_resolver.py finds no trade-id disjointness check (only 'non-overlapping' window logic at :321,:1194).",
+  "state": "routed",
+  "what": "[mandate][MD-DEMOTE-S2-S1][hardening][non-blocking] Three follow-ups from the manager's independent re-review of #14272 (head 5f3d4f9f, approved 2026-09-29 ~16:50Z): (1) mandate_resolver._demote_s2 does not re-check that the record's two T3 windows are DISJOINT BY TRADE ID (the route now publishes first/last trade ids per block and the gate writes them into windows[], but the resolver only checks n_closed/net_r/threshold); (2) check_mandate_autoland._threshold_at_base runs for every firing record, not only MD-DEMOTE-S2-S1 -- scope it to that mandate id so a future derisk mandate without a T3 threshold is not refused by it; (3) r4_demotion_gate.staleness() is GLOBAL across both books (newest close on either) -- a stalled mirror book with a live real-money book (or vice versa) still reads fresh; consider per-book freshness for the book R4 actually chose."
+}

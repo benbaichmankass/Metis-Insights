@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 19,
+    "clears_when": "Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-24",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN'), indent=2))\"",
+    "what": "Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Re-read /api/bot/performance?window=30d when real-money closed n>=20: totalR sign matches totalPnl sign and no per-strategy expectancyR exceeds a stated bound. | evidence: Live /api/bot/performance?window=30d (since 2026-09-05, real money): n=18, totalPnl -55.59, totalR -15.05 (signs agree), max per-strategy |expectancyR| 1.29, rBasis refusedWrongSide 0. The 62.6R/34.84R outliers are gone, but clears_when requires >=20 | previous owner dropped (did not cover the item): ORDER-AUDIT-2 — triaged 2026-10-05: sub-agent proposed fixed, not independently ",
+  "what": "[performance] expectancyR and dollar PnL disagree in SIGN on multiple legs — trend_donchian_ada_4h reports 62.6R expectancy, ict_scalp_5m reports +34.84R on real money against -$0.54 || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): ding measures 17.2% of closed rows storing a stop on the WRONG SIDE of entry, which gives a negative-or-inverted risk denominator and is a sufficient mechanism for exactly these readings. That finding is not this drain's and is not restated as if it were.\" | }"
+}

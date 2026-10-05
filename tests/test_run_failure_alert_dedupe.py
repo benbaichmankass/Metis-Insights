@@ -229,3 +229,70 @@ def test_the_convention_check_actually_fires():
     assert step.get("continue-on-error") is True
     assert "||" in step["run"]
     assert "set +e" in step["run"]
+
+
+# ── REAPER-NOISE: a run superseded by concurrency is not a dead run ──────────
+
+def _superseded_script() -> str:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    m = re.search(r"id: superseded\n.*?run: \|\n(.*?)\n\n      - name:", text, re.S)
+    assert m, "could not locate the superseded step"
+    return m.group(1)
+
+
+def _run_superseded(tmp_path, jobs, runs, conclusion="cancelled"):
+    """Run the SHIPPING shell with `curl` stubbed to canned API bodies."""
+    jq = shutil.which("jq")
+    if jq is None:
+        pytest.skip("jq not installed")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    (tmp_path / "jobs.json").write_text(json.dumps(jobs) if jobs is not None else "")
+    (tmp_path / "runs.json").write_text(json.dumps(runs))
+    (bindir / "curl").write_text(
+        '#!/bin/sh\nfor a in "$@"; do case "$a" in\n'
+        f'  */jobs*) cat {tmp_path}/jobs.json; exit 0;;\n'
+        f'  */workflows/*) cat {tmp_path}/runs.json; exit 0;;\n'
+        'esac; done\nexit 1\n'
+    )
+    (bindir / "curl").chmod(0o755)
+    out = tmp_path / "out"
+    out.write_text("")
+    env = {
+        "PATH": f"{bindir}:/usr/bin:/bin", "GH_TOKEN": "x", "RUN_ID": "5",
+        "WF_ID": "1", "CREATED": "2026-10-04T10:00:00Z", "CONCLUSION": conclusion,
+        "REPO": "o/r", "GITHUB_OUTPUT": str(out),
+    }
+    subprocess.run(["bash", "-c", _superseded_script()], env=env, check=True)
+    return out.read_text().strip()
+
+
+NEWER = {"workflow_runs": [{"id": 6, "created_at": "2026-10-04T10:05:00Z"}]}
+ALONE = {"workflow_runs": [{"id": 5, "created_at": "2026-10-04T10:00:00Z"}]}
+NO_JOB = {"jobs": []}
+STARTED = {"jobs": [{"started_at": "2026-10-04T10:00:05Z"}]}
+
+
+def test_pending_run_replaced_by_newer_is_superseded(tmp_path):
+    assert _run_superseded(tmp_path, NO_JOB, NEWER) == "state=superseded"
+
+
+def test_cancelled_run_that_started_work_still_alerts(tmp_path):
+    assert _run_superseded(tmp_path, STARTED, NEWER) == "state=genuine"
+
+
+def test_cancelled_run_with_no_newer_run_still_alerts(tmp_path):
+    assert _run_superseded(tmp_path, NO_JOB, ALONE) == "state=genuine"
+
+
+def test_unreadable_api_alerts_anyway(tmp_path):
+    assert _run_superseded(tmp_path, None, NEWER) == "state=could_not_check"
+
+
+def test_failure_conclusion_is_never_suppressed(tmp_path):
+    assert _run_superseded(tmp_path, NO_JOB, NEWER, "failure") == "state=not_applicable"
+
+
+def test_ping_step_is_gated_on_superseded():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "steps.superseded.outputs.state != 'superseded'" in text

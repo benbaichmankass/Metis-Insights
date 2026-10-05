@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "Either (a) a tuning attempt on the ENTRY axis and the TRAIL axis is run and recorded, at which point the leg has had the genuine multi-axis attempt the rule requires and a disposition (keep / tune / demote) can be PROPOSED to the operator with evidence on every axis; or (b) the operator decides on the leg without waiting for those axes. Closure requires the axes to be NAMED as tested or explicitly waived -- 'we tuned it and it did not work' without saying which axis is exactly the shape this row exists to prevent. NOT sufficient: shipping any geometry change on the strength of this grid, which found nothing to ship.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260823-XRP-PULLBACK-GEOMETRY-TUNING-EXHAUSTED-NEGATIVE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-XRP-PULLBACK-GEOMETRY-TUNING-EXHAUSTED-NEGATIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-XRP-PULLBACK-GEOMETRY-TUNING-EXHAUSTED-NEGATIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/strategies.yaml xrp_pullback_2h shows trail_mult 5.0->6.0 and tp_r 50.0->3.0 both dated 'operator-approved 2026-08-23' with 'beats_baseline TRUE, train/OOS-consistent TRUE over 13,212 XRPUSDT 2h bars' — i.e. the TRAIL axis has already been swept, tuned and shipped with evidence, the same day this row was filed. comms/strategy_evidence/xrp_pullback_2h.json (generated 2026-09-25) shows decision_rule verdict=pass. No comparable evidence was found for an ENTRY-axis sweep (trend_lookback/pullback_lookback/pullback_frac/atr_stop_mult are unchanged and uncommented).",
+    "date": "2026-09-28",
+    "decision_text": "The row's clause (a) is half-satisfied: the TRAIL axis (stop/target geometry) was already tuned and operator-approved with positive OOS evidence on 2026-08-23, so 'keep/tune' on that axis is decided and shipped, not open. What remains open per the item's own closure rule is naming the ENTRY axis as tested or explicitly waived — that has not happened. This residual should move off ask_operator to a build task rather than sit as a judgment call.",
+    "disposition": "DECIDE",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Entry-axis tuning attempt recorded (and trail axis confirmed), then keep/tune/demote proposal; or operator decides on the leg without it. | evidence: xrp_pullback_2h is live on bybit_2 (config/accounts.yaml). RQ-20260928-007 (M20 hard-lever sweep incl. xrp_pullback_2h) status done covers exit-lever axis; no entry-axis tuning unit found; no operator decision recorded.",
+  "what": "[health] xrp_pullback_2h: the joint (stop, target) tuning attempt is COMPLETE and returns NO profitable geometry -- 37 measured cells, 0 positive, and the LIVE geometry is the interior optimum\n\n[TRIAGE 2026-09-28] DECIDE — The row's clause (a) is half-satisfied: the TRAIL axis (stop/target geometry) was already tuned and operator-approved with positive OOS evidence on 2026-08-23, so 'keep/tune' on that axis is decided and shipped, not open. What remains open per the item's own closure rule is naming the ENTRY axis as tested or explicitly waived — that has not happened. This residual should move off ask_operator to a build task rather than sit as a judgment call."
+}

@@ -1,0 +1,27 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "Each sub-item fixed or killed with a reason.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-GCFA5DOR-0010",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: (b), (c) and (e) are handled by the lane directly, not on this branch. (d) FIXED: deploy_pull_restart.sh adds back as runtime the scripts/research modules the web-api brief imports in-process. The closure was MEASURED by building and rendering the brief: 8 files, not 1. They are queue_throughput, queue_grade, queue_replenish, research_queue, dispatch_queue, e35_bracket_geometry_sweep, m20_fleet_exit_sweep and m20_wf_effective. A test re-measures the closure and fails on any module missing from the list. Negative control: dropping m20_wf_effective fails it. diag.py has _IN_PROCESS_RUNTIME_PATHS_RE, and the lock-step test pins it equal. (a) NOT CHANGED, because the premise does not hold. install_systemd_units.sh never runs on the trainer VM: trainer_git_sync.sh is a code-only `git checkout` that installs no units, and deploy/trainer/ units are installed by cloud-init or by hand (per .github/pr-landing/sa-infra-fix-sa-08-12-onfailure-disk-alarm.json), so extending the deploy/*.timer loop to deploy/trainer/ would only write inert drop-ins on the LIVE VM. Running that installer on the trainer would also copy every live unit and enable every live timer there, because only the gateway role is pruned. Even when installed, notify_unit_failure.py enqueues to the trainer's LOCAL runtime_logs/pending_pings, and nothing drains that on the trainer. Live pings drain on the live VM, and run_promotion_readiness.sh pushes its own over SSH. A real fix needs a trainer-side installer plus a delivery path. It stays open on this row for the lane to route. Observation that clears (d): a commit touching only scripts/research/queue_throughput.py restarts ict-web-api, and /api/diag/version restart_pending reads true until it does."
+  ],
+  "observation": {
+    "due_by": "2026-10-16",
+    "how_to_check": "diag trainer: systemctl show -p OnFailure ict-trainer.service; grep -n unit_failures src/web/api/routers/diag.py.",
+    "what": "Each sub-item fixed or killed with a reason."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "diag trainer: systemctl show -p OnFailure ict-trainer.service; grep -n unit_failures src/web/api/routers/diag.py."
+  },
+  "routed_to": "OPS-AUDIT (re-pointed from OPS-AUDIT — deploy hygiene bundle (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "OA-16 (LOW, Tier-1 bundle). (a) FIX-SA-08 coverage gap: trainer units under deploy/trainer/ get no OnFailure. OBSERVED: trainer diag #16214 shows ict-trainer.service OnFailure= empty (install_systemd_units.sh's loop iterates deploy/*.timer only). (b) runtime_logs/unit_failures.jsonl is not on the diag log_file allowlist, so FIX-SA-08 cannot be observed from a session. (c) decision_bar_ledger.py:30 docstring says the decision is recorded BEFORE the strategy runs; the code records it after order_package returns. (d) scripts/research/queue_throughput is imported in-process by the web-api brief (render_daily_brief.py ~334) but treated as non-runtime by the deploy, so the brief can serve stale code. (e) A corrupt decision ledger fails open silently (decision_bar_ledger.py:114)."
+}

@@ -2547,6 +2547,53 @@ class AlpacaClient:
         result = env.get("result") or {}
         return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
 
+    def cancel_row_protection(
+        self, symbol: str, *, qty: Any, direction: Any, sibling_qtys: Any,
+    ) -> Dict[str, Any]:
+        """Cancel ONE finalised journal row's own resting protective legs.
+
+        The Alpaca counterpart of :meth:`IBClient.cancel_trade_protection`, for
+        the monitor's flat-FINALISE paths (stuck-strategy watchdog,
+        ``reconciler_filled``, netted-sibling cascade) that close a row without
+        going through :meth:`close`. Before it an Alpaca row finalised flat left
+        its OCO legs resting, and a resting SELL stop on a flat equity OPENS A
+        SHORT (FIX-CA-01 follow-up, PI-20260927-01CGDPN9-0002).
+
+        Ownership is identified exactly as the re-arm does
+        (:meth:`_scoped_rearm_cancel`): protective type, REDUCING side for
+        *direction*, sized to *qty*, and only when no sibling open row on the
+        symbol shares that size. Opening-side orders (a resting entry) and legs
+        of other sizes are never touched. ``sibling_qtys=None`` (the caller
+        could not read them) and a failed open-orders read cancel NOTHING —
+        could-not-look never acts. Never raises.
+        """
+        try:
+            want = {"long": "sell", "buy": "sell",
+                    "short": "buy", "sell": "buy"}.get(str(direction or "").lower())
+            q = abs(float(qty))
+        except (TypeError, ValueError):
+            return {"retCode": 1, "retMsg": f"unreadable qty {qty!r}"}
+        if not want or q <= 0:
+            return {"retCode": 1,
+                    "retMsg": f"unreadable direction/qty {direction!r}/{qty!r}"}
+        sym = str(symbol or "").upper()
+        if sibling_qtys is None:
+            # _scoped_rearm_cancel would cancel nothing; say so rather than
+            # report "OK" — could not look is not success.
+            return {"retCode": 1,
+                    "retMsg": "cancelled nothing: could not look (sibling sizes unreadable)"}
+        if self._open_orders_for_symbol(sym) is None:
+            return {"retCode": 1,
+                    "retMsg": "cancelled nothing: could not look (open-orders read failed)"}
+        try:
+            refusal, _ = self._scoped_rearm_cancel(sym, want, q, sibling_qtys)
+        except Exception as exc:  # noqa: BLE001
+            return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+        if refusal:
+            return {"retCode": 1, "retMsg": refusal}
+        return {"retCode": 0, "retMsg": "OK",
+                "result": {"symbol": sym, "close_side": want, "qty": q}}
+
     def _scoped_rearm_cancel(
         self, sym: str, close_side: str, qty: int, sibling_qtys: Any = None,
     ) -> Tuple[Optional[str], List[str]]:

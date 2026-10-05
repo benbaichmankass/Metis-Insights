@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 38,
+    "clears_when": "A surviving fixture can no longer reach a commit -- demonstrated by planting the file, running `git add -A`, and observing it is NOT staged. [!] A CLEAN RUN CLOSES NOTHING: the fixture is removed correctly when the run completes, which is the state that already holds; the failure needs an INTERRUPTED run. [!] AND FIXING THE TWO DOWNSTREAM GUARDS TO IGNORE THE PATH IS THE WRONG REPAIR -- they reported truthfully about a file that was really in the diff.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260917-A-GUARD-SELF-TEST-PLANTS-A-SKILL-INTO-THE-WORKING-TREE-AND-A-BROAD-GIT-ADD-COMMITS-IT-WHICH-THEN-FAILS-TWO-OTHER-GUARDS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-12",
+    "how_to_check": " Plant the file, run `git add -A`, observe it is not staged (ignore rule or temp-dir plant); then re-run guards. | evidence: scripts/ci/guard_selftests.py:386 still plants .claude/skills/_selftest_doc_values/SKILL.md in the real tree; `git check-ignore -v` on that path returns nothing (exit 1) - not ignored (only scripts/ml/_selftest_probe.py is, .gitignore:168).",
+    "what": "A surviving fixture can no longer reach a commit -- demonstrated by planting the file, running `git add -A`, and observing it is NOT staged. [!] A CLEAN RUN CLOSES NOTHING: the fixture is removed correctly when the run completes, which is the state that already holds; the failure needs an INTERRUPTED run. [!] AND FIXING THE TWO DOWNSTREAM GUARDS TO IGNORE THE PATH IS THE WRONG REPAIR -- they reported truthfully about a file that was really in the diff."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-A-GUARD-SELF-TEST-PLANTS-A-SKILL-INTO-THE-WORKING-TREE-AND-A-BROAD-GIT-ADD-COMMITS-IT-WHICH-THEN-FAILS-TWO-OTHER-GUARDS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-A-GUARD-SELF-TEST-PLANTS-A-SKILL-INTO-THE-WORKING-TREE-AND-A-BROAD-GIT-ADD-COMMITS-IT-WHICH-THEN-FAILS-TWO-OTHER-GUARDS'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Plant the file, run `git add -A`, observe it is not staged (ignore rule or temp-dir plant); then re-run guards. | evidence: scripts/ci/guard_selftests.py:386 still plants .claude/skills/_selftest_doc_values/SKILL.md in the real tree; `git check-ignore -v` on that path returns nothing (exit 1) - not ignored (only scripts/ml/_selftest_probe.py is, .gitignore:168).",
+  "what": "[health] guard_selftests.py plants .claude/skills/_selftest_doc_values/SKILL.md in the REAL tree; an interrupted run leaves it behind, `git add -A` commits it, and CI then fails document-index and skills-index on a skill nobody wrote"
+}

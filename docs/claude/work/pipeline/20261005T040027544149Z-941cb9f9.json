@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "direction_walkforward.analyze's stable_drag/stable_edge verdict is fold-count invariant (or reports its sensitivity), mirroring the regime-cell fix; callers/tests updated.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260802-DIRWF-FOLDCOUNT-VERDICT-FLIP",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-04",
+    "how_to_check": " direction_walkforward.analyze verdict identical across fold counts (or reports sensitivity) with a test | evidence: scripts/research/direction_walkforward.py:107 still computes stable_drag = long_neg > folds/2 and pooled long_r<0; no sensitivity/invariance logic; last touch is a docs chore commit. No checklist row or queue unit mentions direction_walkforward.",
+    "what": "direction_walkforward.analyze's stable_drag/stable_edge verdict is fold-count invariant (or reports its sensitivity), mirroring the regime-cell fix; callers/tests updated."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260802-DIRWF-FOLDCOUNT-VERDICT-FLIP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260802-DIRWF-FOLDCOUNT-VERDICT-FLIP'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: direction_walkforward.analyze verdict identical across fold counts (or reports sensitivity) with a test | evidence: scripts/research/direction_walkforward.py:107 still computes stable_drag = long_neg > folds/2 and pooled long_r<0; no sensitivity/invariance logic; last touch is a docs chore commit. No checklist row or queue unit mentions direction_walkforward.",
+  "what": "[health] [research][tooling] direction_walkforward.analyze's stable_drag/stable_edge verdict flips on fold count (same bug class as the now-fixed regime-cell verdict) || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): osition\": \"kept_open\", |       \"note\": \"Re-validated: research/tooling correctness, propose-only. Same bug class as an already-fixed sibling; a verdict that flips on fold count is not a verdict.\" |     } |   ], |   \"updated_at\": \"2026-08-10T05:05:00+00:00\" | }"
+}

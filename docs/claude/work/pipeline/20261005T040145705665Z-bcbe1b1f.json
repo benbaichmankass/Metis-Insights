@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "a measured dispatch run whose total duration is under 30 min with stamps and results still landing on main, OR the manager decides the 75-min hold is acceptable and kills this with that reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261001-1MX1RCZS-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "research-queue-dispatch run 36798175014; RESEARCH-W7 lane report 2026-10-01",
+    "rerun": "list research-queue-dispatch runs via the Actions API and subtract created_at from updated_at; read the per-step started_at/completed_at of 'Land the batch of runner results on main' and 'Land the dispatch stamps on main' via list_workflow_jobs"
+  },
+  "routed_to": "CI-AUTOMERGE (re-pointed from CI-AUTOMERGE — re-pointed again: the 2026-10-04 22:00Z records of #16505 re-wrote this item from a stale snapshot and restored the lane-type routing (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "A research-queue-dispatch cycle holds its concurrency group for ~75 min, so fire cycles cannot run more often than that and every extra manual/keeper dispatch queues behind the last. Measured on run 36798175014 (2026-10-01 00:50Z, event workflow_dispatch): 'Land the batch of runner results on main' 00:51:17Z -> 01:25:41Z (34 min), 'Grade and dispatch' 8 s, 'Land the liveness receipt' 4 min, 'Land the dispatch stamps on main' 01:29:57Z -> 02:06:51Z (37 min); job 00:50:31Z -> 02:06:54Z. Earlier runs the same shape: 36716391228 (12:41Z -> 14:05Z, 84 min), 36747172700 (16:50Z -> 17:36Z, 46 min). Each landing step opens an automation PR and polls it every 30 s until merged (commit-to-main VERIFY_MERGED, 30 min timeout), so the wait is merge-queue latency, not compute. Consequence: the dispatch itself takes seconds but fire cadence is bounded by landing latency; a cycle also fires at most --max-research-inflight 3 units. Options to cost out: (a) run the dispatch step FIRST and land stamps/results in a separate job so the next cycle does not wait on them; (b) land results and stamps in ONE PR; (c) drop VERIFY_MERGED for stamp PRs (stamps are idempotent data; the risk is a re-fire if the PR strands, which the liveness alarm would surface). Any of these touches the workflow or commit-to-main action, i.e. landing machinery: a human-read change. || lane CI-AUTOMERGE (session_01MD7v8mG8doHqFYuTbsceQM) 2026-10-04: not started this session. The ~75 min cycle is commit-to-main's verify-merged polling across serial landing steps. Next step: batch the stamps into the results landing (one PR per cycle), or drop verify-merged on the stamp step."
+}

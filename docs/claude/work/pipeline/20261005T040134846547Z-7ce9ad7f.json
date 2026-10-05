@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 8,
+    "clears_when": "a fix for CA-A01-020 is merged with a test that fails on the old code (detector: unit test on _reconcile_orphan_exchange_positions with venue size >> journal size), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-KFWRL9R1-0007",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-020 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-020 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:L3260-L3267, L3671-L3672 on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "PROTECTION-HARDENING — FIXED AND DEPLOYED, NOT DONE: #16492/01dfd61 + 6c465e0 + 70ec92b are contained in the live git_sha 95c9faec2 (restart_pending false, manager read 2026-10-04); done needs this path observed firing on the live trader — rides the PROTECTION-HARDENING row observation due 2026-10-11 (#16516) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "HIGH (code audit CA-A01-020, MEASURED): The reverse reconciler's orphan test is set MEMBERSHIP on (symbol, side), not quantity, so a venue position larger than the sum of the journal's open rows on that (symbol, side) is never detected — the untracked surplus is reported as 0 orphans. LOCATION: src/runtime/order_monitor.py:L3260-L3267, L3671-L3672. PROPOSED FIX: Aggregate venue size per (symbol, canonical side) and journal open position_size per the same key; when venue exceeds journal by more than the existing _BYBIT_QTY_DIVERGENCE_FRAC tolerance, alert (detect_only first) and optionally adopt the surplus qty."
+}

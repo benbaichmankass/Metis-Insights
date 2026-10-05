@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "SPLG returns a full candle history on both paths and splg_trend_long_1d evaluates (fires or declines on price, not on missing data).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": " /api/bot/candles?symbol=SPLG&interval=1d returns >=46 candles AND a new splg_trend_long_1d_eval row reason is price-based (not 'got N candles') | evidence: Live 2026-10-05: GET /api/bot/candles?symbol=SPLG&interval=1d and 1h -> candles [] count 0 error no_data (control: SPY 1d returns 2 candles). Last splg_trend_long_1d signal row 2026-09-24T19:58Z reason 'need at least 46 candles... got 1'. No live che",
+    "what": "SPLG returns a full candle history on both paths and splg_trend_long_1d evaluates (fires or declines on price, not on missing data)."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: /api/bot/candles?symbol=SPLG&interval=1d returns >=46 candles AND a new splg_trend_long_1d_eval row reason is price-based (not 'got N candles') | evidence: Live 2026-10-05: GET /api/bot/candles?symbol=SPLG&interval=1d and 1h -> candles [] count 0 error no_data (control: SPY 1d returns 2 candles). Last splg_trend_long_1d signal row 2026-09-24T19:58Z reason 'need at least 46 candles... got 1'. No live che",
+  "what": "[health] [data][strategy] SPLG returns ZERO candles on /api/bot/candles and 35 to the strategy — splg_trend_long_1d has never been able to evaluate"
+}
