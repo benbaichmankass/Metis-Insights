@@ -175,8 +175,11 @@ def test_instrument_profiles_route_to_alpaca():
 
 def test_account_routing_and_descriptions():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["alpaca_paper"]
+    # 2026-10-05 MD-S1-CUT-ON-STAGE0-FAIL (#16548 grant) removed all four legs
+    # from alpaca_paper: complete soaks whose Stage-0 record fails. The builders
+    # stay wired; a re-add is a MD-PROMOTE-S0-S1 act and updates this test.
     for name in _BUILDERS:
-        assert name in acct["strategies"]
+        assert name not in acct["strategies"]
     assert "USO" in acct["symbols"]
     # SPY/QQQ/TLT already routed; the 1h pullback cells reuse them.
     for sym in ("SPY", "QQQ", "TLT"):

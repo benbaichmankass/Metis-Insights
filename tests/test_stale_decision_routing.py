@@ -108,7 +108,10 @@ def test_routing_is_keyed_on_declared_strategies_not_on_symbols() -> None:
     """
     routing = ROLLUP._funding_by_leg()
     assert ROLLUP._leg_funding("trend_donchian_eth_4h", routing) == "real_money"
-    assert ROLLUP._leg_funding("eth_pullback_2h", routing) == "paper", (
+    # Since 2026-10-05 (MD-S1-CUT-ON-STAGE0-FAIL, #16548) eth_pullback_2h is on
+    # no roster at all, so it reads `unresolved`; the regression this guards is
+    # a symbol-keyed `real_money` grade, which must still never happen.
+    assert ROLLUP._leg_funding("eth_pullback_2h", routing) != "real_money", (
         "eth_pullback_2h graded real_money — it trades ETHUSDT, which bybit_2 "
         "trades, but since the R2 cut (2026-09-22) bybit_2.strategies does not "
         "list this leg. That is the same symbol-keyed inference that published "
