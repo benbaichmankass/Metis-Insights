@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-18",
+    "kind": "date"
+  },
+  "id": "PI-20261004-IRWQEEXT-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-18",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN 2026-10-04 (session_01TGCaeyMya7i4qiirWQeeXT) grouping of the BACKLOG-ROUTE lane-type routings",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import pipeline as p;r=p.load(p.STORE);print({k:r.items[k]['state'] for k in r.items if 'BACKLOG-ROUTE 2026-10-04' in (r.items[k].get('routed_to') or '')})\""
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH — lane proposal: members already re-pointed here (B'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "[LANE PROPOSAL RESEARCH-HARNESS-AUDIT-FIXES] Tier 1, S-M (1-2 PRs): CA-B04 research-script defects (stale-JSON reuse in sweeps, wrong Engle-Granger critical value, in-sample subset selection) + missing queue units. MEMBERS (19): PI-20260927-9TQLIVUR-0001, PI-20260927-ADM2F2AD-0001, PI-20260927-HJPL5ABP-0002, PI-20260927-ZGQPHR3D-0002, PI-20260927-ZGQPHR3D-0003, PI-20260927-ZGQPHR3D-0004, PI-20260927-ZGQPHR3D-0005, PI-20260927-ZGQPHR3D-0006, PI-20260927-ZGQPHR3D-0007, PI-20260927-ZGQPHR3D-0008, PI-20260927-ZGQPHR3D-0009, PI-20260927-ZGQPHR3D-0010, PI-20260930-39SDYWCO-0002, PI-20260930-GQPT6PQF-0001, PI-20260930-GQPT6PQF-0003, PI-20260930-KZWVN6MG-0002, PI-20260930-LJF2ZFXF-0002, PI-20261001-E74LANE-0001, PI-20261001-S8DMYMUN-0002. Filed by BACKLOG-BURNDOWN 2026-10-04 for the manager to dispatch as a checklist row; member items are routed_to a lane TYPE until then."
+}

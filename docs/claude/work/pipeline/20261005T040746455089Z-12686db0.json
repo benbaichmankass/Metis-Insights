@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "A NEW candidate (strategy or entry mechanism) clears a pre-registered test under HyroTrader's rules, INCLUDING the demo-realism flagged-fill rule (gate B at a non-zero flag_frac or a mechanism that avoids flagged fills), as a research/results record with read_state measured and verdict pass; only then does the park reopen and a purchase decision go back to the operator. Until then this row stays parked.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-HYRO502P-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-14",
+    "how_to_check": "List research/results/ for any Hyro-tagged unit (grep -l -i 'hyro' research/queue/*.yaml research/results/*/*.jsonl; units RQ-20260930-501..505 are the known set) and read each record's verdict, read_state and decision_rule id; reopen only if a unit other than 501 (which assumes no flagged fills) has a measured pass under the flagged-fill rule.",
+    "what": "A NEW candidate (strategy or entry mechanism) clears a pre-registered test under HyroTrader's rules, INCLUDING the demo-realism flagged-fill rule (gate B at a non-zero flag_frac or a mechanism that avoids flagged fills), as a research/results record with read_state measured and verdict pass; only then does the park reopen and a purchase decision go back to the operator. Until then this row stays parked."
+  },
+  "origin": {
+    "kind": "operator",
+    "ref": "docs/research/hyro-strategy-feasibility-2026-09-30.md",
+    "rerun": "List research/results/ for any Hyro-tagged unit (grep -l -i 'hyro' research/queue/*.yaml research/results/*/*.jsonl; units RQ-20260930-501..505 are the known set) and read each record's verdict, read_state and decision_rule id; reopen only if a unit other than 501 (which assumes no flagged fills) has a measured pass under the flagged-fill rule."
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('PROP-FIRM-DEEP (re-pointed from PROP-FIRM-DEEP (BACKLOG-BURN'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "HyroTrader is PARKED by operator decision 2026-09-30 (popup answer verbatim: \"Park it (Recommended)\"). Evidence at parking: RQ-20260930-501 PASS (pooled 15m ict_scalp ETH/SOL/XRP book at market orders, best case with no fill flagged; half the fills flagged gives P(both) 0.019); RQ-20260930-502 FAIL (post-only limit variant, gate B seed 3 = 0.2293 vs 0.25); RQ-20260930-503 FAIL (day-flat 1h trend); RQ-20260930-504 FAIL (no confirmed short-timeframe cell). Nothing purchased, no hyro_1 wiring. Memo: docs/research/hyro-strategy-feasibility-2026-09-30.md. | UPDATE 2026-10-04 (lane PROP-EVIDENCE): the RQ-20260930-501 PASS above is SUPERSEDED. Re-run on the causal HTF harness (#15341) under the same rule and command reads FAIL (pooled n=996, full-cost net -3.26R, gate B 0.137/0.147/0.114, gate C 0.063/0.084/0.073; research/results/RQ-20260930-501/session-20261004.jsonl). The 09-30 PASS was built on the lookahead harness. The park now has no passing Hyro unit behind it at all."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only records from lane BACKLOG-BURNDOWN-3 batch D -- 35 young items were routed to 'RESEARCH' / a finished lane / a parked row, none of which is a live checklist row or research-queue unit; corrected to queued with due dates untouched. No code, config or runtime change."
+}

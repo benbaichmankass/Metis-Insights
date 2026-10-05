@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-11",
+    "kind": "date"
+  },
+  "id": "PI-20260927-9TQLIVUR-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-11",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "research/queue/RQ-20260927-003.yaml",
+    "rerun": "python3 scripts/research/exit_head_prop_swap_feasibility.py --strategy trend_donchian_eth_prop --symbol ETHUSDT --timeframe 1h --swap-rate-daily 0.00033 --json /tmp/rq0927-003-eth.json   (dispatched ALONE via workflow_dispatch on trainer-vm-diag.yml, then trend_donchian_sol_prop/SOLUSDT separately -- never combined in one SSH session again)"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "RQ-20260927-003 (exit-head-for-prop-legs feasibility, trend_donchian_sol_prop/trend_donchian_eth_prop) failed to measure: trainer-vm-diag workflow_dispatch run 36302282489 dispatched both legs in ONE sequential SSH session and was CANCELLED by the workflow's own timeout-minutes: 60 (.github/workflows/trainer-vm-diag.yml:176) after exactly 60m10s, before producing any output for either leg -- landed honestly as research/results/RQ-20260927-003/36302282489.jsonl (read_state=producer_failed/verdict=not_applicable/population.n=null for both legs; research/queue/RQ-20260927-003.yaml `result:` has the full diagnosis). Needs a re-dispatch as TWO SEPARATE single-leg workflow_dispatch calls (ETH first -- docs/research/exit-refinement-coverage.json already records ETH's own from-scratch head as PASSED-but-stranded for lack of a publishable artifact, and this unit's option (ii) is that row's own stated unblock path), never recombined into one SSH session, to isolate whether the 60+ minute cost is a cold SOLUSDT/ETHUSDT candle fetch (unlike BTCUSDT, already warm from RQ-20260927-001/-002) or something else."
+}
