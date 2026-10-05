@@ -11,18 +11,27 @@
 # A wrong value here cannot place anything: config/prop_platforms.yaml
 # velotrade_1.executor has no lot table and no enabled symbol, so every ticket
 # is refused / skipped before the order form is touched.
+#
+# dxtrade_api_symbol (VELOTRADE-API-EXEC, 2026-10-05): the REST instrument
+# name, which is what velotrade_1 trades on now (platform: dxtrade_api).
+# MEASURED: the account-scoped instrument read returned an exact `symbol` row
+# for ETHUSD / SOLUSD / XRPUSD (issue #16616, run 37311474412). contract value
+# 1.0: lotSize 1 and multiplier 1 on all three (same read).
 account_size_usd: 5000
 risk_pct: 0.5                       # PERCENT, informational (the account's
                                     # accounts.yaml risk_pct is what sizes)
 symbols:
   ETHUSDT:
     dxtrade_symbol: ETHUSD          # UNCONFIRMED on Velotrade's terminal
+    dxtrade_api_symbol: ETHUSD      # MEASURED over REST (#16616)
     contract_value_usd_per_point: 1.0
   SOLUSDT:
     dxtrade_symbol: SOLUSD          # UNCONFIRMED on Velotrade's terminal
+    dxtrade_api_symbol: SOLUSD      # MEASURED over REST (#16616)
     contract_value_usd_per_point: 1.0
   XRPUSDT:
     dxtrade_symbol: XRPUSD          # UNCONFIRMED on Velotrade's terminal
+    dxtrade_api_symbol: XRPUSD      # MEASURED over REST (#16616)
     contract_value_usd_per_point: 1.0
 symbol_map:
   ETHUSDT: ETHUSD

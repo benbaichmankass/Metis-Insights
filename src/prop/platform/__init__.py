@@ -20,7 +20,11 @@ from src.prop.platform.base import (  # noqa: F401  (re-exported)
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 PLATFORMS_PATH = _REPO_ROOT / "config" / "prop_platforms.yaml"
 
-KNOWN_PLATFORMS = ("dxtrade", "breakout_terminal")
+KNOWN_PLATFORMS = ("dxtrade", "breakout_terminal", "dxtrade_api")
+# Platforms driven over a REST API, not a browser (VELOTRADE-API-EXEC,
+# 2026-10-05). The browser scripts (breakout_login_check, prop_executor_tick)
+# refuse them instead of launching Chromium against a REST base URL.
+API_PLATFORMS = ("dxtrade_api",)
 
 # Login URL used when an entry omits ``login_url``, so switching an account's
 # terminal is the one line ``platform: <name>`` (PROP-TERM, 2026-09-28). The
@@ -48,7 +52,11 @@ def load_platform_config(account_id: str, path: Optional[Path] = None,
     if platform not in KNOWN_PLATFORMS:
         raise ValueError(
             f"{account_id!r}: unknown platform {platform!r} (known: {', '.join(KNOWN_PLATFORMS)})")
-    entry.setdefault("login_url", DEFAULT_LOGIN_URLS[platform])
+    if platform not in DEFAULT_LOGIN_URLS and not entry.get("login_url"):
+        # A REST platform has no default host: which deployment's API an
+        # account trades on is never guessed.
+        raise ValueError(f"{account_id!r}: platform {platform!r} needs an explicit login_url (its REST base)")
+    entry.setdefault("login_url", DEFAULT_LOGIN_URLS.get(platform))
     # A leftover URL of the OTHER terminal would drive the wrong page: a
     # half-done switch fails loudly here instead of at the login.
     for other, other_url in DEFAULT_LOGIN_URLS.items():
@@ -68,6 +76,9 @@ def adapter_for_platform(platform: str) -> PropPlatformAdapter:
     if platform == "breakout_terminal":
         from src.prop.platform.breakout_terminal import BreakoutTerminalAdapter
         return BreakoutTerminalAdapter()
+    if platform == "dxtrade_api":
+        from src.prop.platform.dxtrade_api import DXtradeApiAdapter
+        return DXtradeApiAdapter()
     raise ValueError(f"unknown platform {platform!r}")
 
 

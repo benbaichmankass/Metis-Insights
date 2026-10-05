@@ -75,7 +75,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.prop.platform import FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
+from src.prop.platform import API_PLATFORMS, FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV = 0, 1, 3, 4, 5
 
@@ -267,6 +267,13 @@ def main(argv: Optional[list] = None) -> int:
           f"password {'set' if password else 'MISSING'} (values never printed)")
     if not username or not password:
         print("feasibility: no_credentials (sync BREAKOUT_DX_* to the VM .env first)")
+        return EXIT_FEASIBILITY
+
+    if platform in API_PLATFORMS:
+        # A REST-API account has no browser terminal to log in to here
+        # (VELOTRADE-API-EXEC): refuse before Chromium, never half-drive it.
+        print(f"feasibility: api_platform ({platform} is driven over REST; "
+              "use the velotrade-api-roundtrip action, not the browser check)")
         return EXIT_FEASIBILITY
 
     adapter = adapter_for_platform(platform)
