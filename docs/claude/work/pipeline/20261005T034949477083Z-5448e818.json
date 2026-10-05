@@ -1,0 +1,63 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The live trader is observed RUNNING code that contains merge 2a44d771 (#13599): via the vm-diag-snapshot relay, the /opt/ict-trading-bot checkout's HEAD contains 2a44d771 AND ict-trader-live.service's start time is later than that pull; and on that checkout `python3 scripts/ci/check_priority_fallback_distribution.py --strict` exits 0. Close as done citing the diag issue number. If a post-restart SLV contention appears in the journal, its election must name slv_pullback_1d (priority 1) over slv_trend_1h.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE",
+  "landed_unproven": {
+    "merge_sha": "2a44d771",
+    "merged": "2026-09-28",
+    "note": "MERGED, not DEPLOYED, not OBSERVED. Re-opened from 'done' because merged is not observed (close-out: landed_unproven != done). Observation to close: vm-diag-snapshot relay: checkout HEAD contains 2a44d771 + ict-trader-live.service start time after it; check_priority_fallback_distribution.py --strict exits 0 on that tree.",
+    "pr": "#13599",
+    "prior_done_record_reason": "Fixed on branch claude/exec-fix-priority (PR opened 2026-09-28 by lane EXEC-FIX, landing: hold for manager merge after independent review; operator 'Fix both + wire guard', 2026-09-28). (1) all 5 enabled execution:live legs absent from DEFAULT_PRIORITIES (gdx_pullback_1d, iaum_pullback_1d, scha_trend_long_1d, splg_trend_long_1d at 0; slv_pullback_1d at 1 to keep beating shadow slv_trend_1h on SLV) mapped; (2) _UNKNOWN_STRATEGY_PRIORITY 10 -> -1, strictly below min=0; (3) election-unchanged proven over every pair of enabled legs sharing a symbol in config/strategies.yaml (tests/test_priority_fallback_election_unchanged.py); (4) scripts/ci/check_priority_fallback_distribution.py wired into run_guards.py with --self-test + --strict and an empty seeded baseline. MERGED != DEPLOYED: live effect observable only after the manager merges and ict-git-sync + trader restart.",
+    "recorded_by": "lane EXEC-FIX session_01C7mgVNtBDmoVSQSvBNzoVh, manager instruction 2026-09-28 13:02Z"
+  },
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-11",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE'), indent=2))\"",
+    "what": "The live trader is observed RUNNING code that contains merge 2a44d771 (#13599): via the vm-diag-snapshot relay, the /opt/ict-trading-bot checkout's HEAD contains 2a44d771 AND ict-trader-live.service's start time is later than that pull; and on that checkout `python3 scripts/ci/check_priority_fallback_distribution.py --strict` exits 0. Close as done citing the diag issue number. If a post-restart SLV contention appears in the journal, its election must name slv_pullback_1d (priority 1) over slv_trend_1h."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE'), indent=2))\""
+  },
+  "routed_to": "EXEC-FIX | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: live read 2026-10-04 ~22:5xZ: /api/diag/version git_sha 95c9faec2 CONTAINS merge 2a44d771 (git merge-base --is-ancestor, history deepened). The other half (ict-trader-live started AFTER that merge) is not readable through diag; not cleared.",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Fix is merged, running on the live trader (running sha contains it) and the strict guard passes at HEAD; the unknown-strategy fallback now sits below all 55 mapped legs. || EVIDENCE: HEAD src/runtime/intents.py:447 _UNKNOWN_STRATEGY_PRIORITY=-1 (same at running sha 9ddf1ee04); python3 scripts/ci/check_priority_fallback_distribution.py --strict exits 0: R1 fallback_below_all (-1 vs min mapped 0), R2 all_covered (38 live legs, 0 absent), R3 no_absent_leg_routed. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "triage_2026_09_28": {
+    "checked": "Confirmed by running python3 scripts/ci/check_priority_fallback_distribution.py: fallback=10, 45/50 mapped legs strictly below it (unchanged), and NOW 5 execution:live legs absent from DEFAULT_PRIORITIES (gdx_pullback_1d, iaum_pullback_1d, scha_trend_long_1d, slv_pullback_1d, splg_trend_long_1d) with 2 of them (iaum_pullback_1d, slv_pullback_1d) routed on alpaca_live -- mode:live, account_class:real_money -- so exposure_state=absent_leg_on_real_money. The detector script itself exists (built against this exact BL id, with a full self-test) but is NOT wired into scripts/ci/run_guards.py or any .github/workflows/*.yml (grepped both, zero hits), and no baseline has been seeded (docs/claude/work/PRIORITY-FALLBACK-BASELINE.json does not exist), so R3 (the only enforcing rule) currently always reports 'no_baseline' and the guard can never fail a PR today. The finding is unresolved and has escalated exactly as the row warned (now touches real money).",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "small PR",
+          "label": "Add DEFAULT_PRIORITIES entries (or a dated priority_exempt) for the 5 absent legs",
+          "risk": "low, reversible; needs a quick check that it doesn't change today's election outcomes",
+          "what_happens": "One-line-per-leg Tier-3 PR to src/runtime/intents.py, closes the coverage gap without touching the fallback constant"
+        },
+        {
+          "cost": "small PR",
+          "label": "Lower _UNKNOWN_STRATEGY_PRIORITY below min(DEFAULT_PRIORITIES.values())=0 (e.g. to -1)",
+          "risk": "changes tie-break behavior for every currently-unmapped intent; needs a regression check on election order",
+          "what_happens": "One-line Tier-3 change so any future unmapped strategy safely loses by construction"
+        },
+        {
+          "cost": "one Tier-1 PR + one Tier-3 PR",
+          "label": "Do both, then wire check_priority_fallback_distribution.py into run_guards.py, seed the R3 baseline, and flip --strict once clean",
+          "risk": "none beyond options 1/2",
+          "what_happens": "Tier-1 CI-wiring PR (no operator gate) + the Tier-3 config change above; fully closes the loop this row asks for"
+        }
+      ],
+      "priority_tier": 0,
+      "question": "_UNKNOWN_STRATEGY_PRIORITY=10 still beats 45/50 mapped legs, and 2 of the 5 execution:live legs missing from DEFAULT_PRIORITIES (iaum_pullback_1d, slv_pullback_1d) now route on alpaca_live (real money, live). The detector for this (scripts/ci/check_priority_fallback_distribution.py) exists but is not wired into CI and has no seeded baseline, so nothing currently catches a worsening. What should happen?",
+      "recommendation": "Option 3 -- do both config fixes and finish wiring the already-built guard into CI so a future worsening cannot recur silently; the exposure is on real money today (alpaca_live) so this should not sit longer."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] _UNKNOWN_STRATEGY_PRIORITY = 10 is documented as 'deliberately below the in-scope strategies' while 45 of 50 mapped legs now sit below 10, and five declared execution:live legs are absent from the map. Omission does not merely fail to be safe -- it WINS the arbitration, the exact inverse of the constant's stated purpose. The 2026-08-20 audit's F-32 is unremediated and has escalated from theoretical to live contention.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 0) — _UNKNOWN_STRATEGY_PRIORITY=10 still beats 45/50 mapped legs, and 2 of the 5 execution:live legs missing from DEFAULT_PRIORITIES (iaum_pullback_1d, slv_pullback_1d) now route on alpaca_live (real money, live). The detector for this (scripts/ci/check_priority_fallback_distribution.py) exists but is not wired into CI and has no seeded baseline, so nothing currently catches a worsening. What should happen? Recommendation: Option 3 -- do both config fixes and finish wiring the already-built guard into CI so a future worsening cannot recur silently; the exposure is on real money today (alpaca_live) so this should not sit longer. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=0): e could not manifest today even if the arbitration produced one. || NO PRIORITY VALUE IS PROPOSED -- Tier-3, the operator's. Memo: docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md.\" |     } |   ], |   \"updated_at\": \"2026-09-13\" | }"
+}

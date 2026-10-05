@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "bybit-bracket-audit grades a price dimension, its roll-up names it, and a planted divergence is shown to FAIL the check before a clean result is trusted.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: bybit-bracket-audit now grades a price dimension, its roll-up names it, and a planted divergence is shown to be detected. || EVIDENCE: scripts/ops/bybit_bracket_audit.py:278-333 grades price_state agree/diverged/ungradeable with price_diverged_count; tests/ops/test_bybit_bracket_audit_rollup.py:203,273-274 plant a divergence and assert 'diverged', roll-up key price_agreement. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] The Bybit bracket audit grades 5 dimensions and NONE of them is price — the same blind spot broker_bracket_reconcile was built to close on the IB side"
+}

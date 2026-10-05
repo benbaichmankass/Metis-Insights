@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The line number in an impossibility-claim finding resolves to the line carrying the claim when opened in the file, and an annotation placed within ANNOTATION_WINDOW lines of the claim satisfies the guard.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-IMPOSSIBILITY-GUARD-REPORTS-A-LINE-NUMBER-THAT-IS-NOT-THE-FILE-LINE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-IMPOSSIBILITY-GUARD-REPORTS-A-LINE-NUMBER-THAT-IS-NOT-THE-FILE-LINE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-IMPOSSIBILITY-GUARD-REPORTS-A-LINE-NUMBER-THAT-IS-NOT-THE-FILE-LINE'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Reported line numbers resolve to the claim line in both scan modes at HEAD (4/4 spot checks, code derivation correct); the original drift came from the since-retired JSON backlog scan path. Limited sample, annotation-window acceptance not exercised. || EVIDENCE: python3 scripts/check_impossibility_claims.py --all at HEAD: spot-checked 4 findings (A-regime-router...DESIGN:126, AUTONOMOUS-WORKPLAN-2026-07-30:60, RESEARCH-CAPABILITY-INDEX:6, M23-meta-labeling-DESIGN:46) via sed -n: each reported line is the claim line. Diff mode (_added_lines, check_impossibility_claims.py:358-373) uses --unified=0 + '+N' hun || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] impossibility-claim-guard reports a line number that does not match the file, and the drift is variable — so its own +-6 annotation window is anchored in the wrong place and can miss a `checked:` annotation sitting 3 lines from the claim."
+}
