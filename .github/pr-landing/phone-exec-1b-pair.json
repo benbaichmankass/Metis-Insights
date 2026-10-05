@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "pairs the operator's phone to breakout_2 (adds one token fingerprint to config/prop_phone_devices.yaml); the manager merges (asked 2026-10-05 ~19:00Z), covered by the operator's go-live direction",
+  "why": "device pairing: one fingerprint row (not a secret) in config/prop_phone_devices.yaml"
+}

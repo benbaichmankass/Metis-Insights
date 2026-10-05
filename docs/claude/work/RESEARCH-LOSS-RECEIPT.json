@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-10-05T05:55:51Z",
+  "generated_at": "2026-10-05T20:47:47Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": "37269903438",
+    "run_id": "37370783906",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
       "findings": [
         {
-          "age_hours": 28.5,
+          "age_hours": 43.4,
           "branch": "automation/research-queue-grade-37167828059-1",
           "pr": 16124,
           "title": "research-queue: mechanical grading (auto)"
         }
       ],
-      "population": "31 open PRs; 5 automation/*; 1 carry research; 4 automation/* carry none (not graded here)",
+      "population": "31 open PRs; 8 automation/*; 6 carry research; 2 automation/* carry none (not graded here)",
       "state": "findings",
       "threshold_hours": 6.0
     },
@@ -50,6 +50,26 @@
           "run_id": "36615144815",
           "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615144815",
           "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-10-05T19:09:09Z",
+          "result_job": [
+            "cancelled"
+          ],
+          "run_id": "37361321037",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361321037",
+          "workflow": "m20-exit-lever-sweep.yml"
+        },
+        {
+          "conclusion": "cancelled",
+          "created_at": "2026-10-05T19:09:12Z",
+          "result_job": [
+            "cancelled"
+          ],
+          "run_id": "37361325975",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361325975",
+          "workflow": "research-harness-dispatch.yml"
         }
       ],
       "lost": [
@@ -84,13 +104,34 @@
           "workflow": "research-exit-head-build.yml"
         }
       ],
-      "pending_merge": [],
-      "population": "83 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-21 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1492 produced no result by design (skipped); 174 result file(s) on origin/main",
+      "pending_merge": [
+        {
+          "conclusion": "failure",
+          "created_at": "2026-10-05T19:09:09Z",
+          "result_job": [
+            "cancelled"
+          ],
+          "run_id": "37361321037",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361321037",
+          "workflow": "m20-exit-lever-sweep.yml"
+        },
+        {
+          "conclusion": "cancelled",
+          "created_at": "2026-10-05T19:09:12Z",
+          "result_job": [
+            "cancelled"
+          ],
+          "run_id": "37361325975",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361325975",
+          "workflow": "research-harness-dispatch.yml"
+        }
+      ],
+      "population": "88 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-21 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1493 produced no result by design (skipped); 193 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "2397 artifact(s) listed, 2397 unexpired, 2031 expire within 72.0h across 2031 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "2289 artifact(s) listed, 2289 unexpired, 1875 expire within 72.0h across 1875 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },

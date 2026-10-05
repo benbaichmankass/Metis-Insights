@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "server-side fix to the always-dry phone test ticket (src/prop/phone_executor.py) and a read-only field on the prop tickets view (src/prop/prop_journal.py); the manager merges (asked 2026-10-05 ~21:27Z)",
+  "why": "test ticket put sl above the limit for a long, so the phone refused every dry test; refusal reasons were stored but not returned by /api/bot/prop/tickets"
+}
