@@ -103,8 +103,8 @@
     var counts = {el: all.length, canvas: 0, iframe: 0, input: 0, select: 0, textarea: 0, button: 0, table: 0,
                   svg: 0, shadow: 0, editable: 0, dialog: 0, tab: 0};
     var iframes = [], controls = [], tables = [], headings = [];
-    var markers = {email: false, nummatch: false, otp_like: false, pw: false, otc: false, cf: false, blocked: false, twofa: false, buy: false, sell: false, send: false, login_word: false};
-    var CAP = 300, ptr = 0, numBtns = 0;
+    var markers = {otp_like: false, pw: false, otc: false, cf: false, blocked: false, twofa: false, buy: false, sell: false, send: false, login_word: false};
+    var CAP = 300, ptr = 0;
     for (var i = 0; i < all.length; i++) {
       var el = all[i], tag = el.tagName.toLowerCase();
       if (el.shadowRoot) counts.shadow++;
@@ -162,8 +162,6 @@
         if (tg === "input" && typ !== "password" && ml >= 4 && ml <= 8 && /numeric|decimal|tel|number/.test((c.getAttribute("inputmode") || "") + typ)) markers.otp_like = true;
       }
       var low = lab.toLowerCase();
-      if (typ === "email" || (tg === "input" && /email/.test(low))) markers.email = true;
-      if (/^#$/.test(lab.trim()) && (tg === "button" || r === "button" || tg === "a")) numBtns++;
       if (/\bbuy\b/.test(low)) markers.buy = true;
       if (/\bsell\b/.test(low)) markers.sell = true;
       if (/\bsend\b.*\border\b|\bsend order\b/.test(low)) markers.send = true;
@@ -172,9 +170,6 @@
                      l: lab, nm: ident(c.getAttribute("name")), tid: ident(c.getAttribute("data-testid") || c.getAttribute("data-test") || c.getAttribute("data-qa")), st: states(c), vis: vis,
                      w: Math.round(rect.width / 10) * 10, h: Math.round(rect.height / 10) * 10, up: chain(c)});
     }
-    counts.numbtn = numBtns;
-    // heuristic: an email "number match" page is a few buttons whose labels are only digits and no inputs
-    if (numBtns >= 2 && counts.input === 0 && counts.button <= 10) markers.nummatch = true;
     // markers: booleans only, never page text
     var low2 = "";
     try { low2 = ((document.body && document.body.innerText) || "").slice(0, 4000).toLowerCase(); } catch (e) {}
@@ -272,7 +267,7 @@
       var open = false;
       if (sh) sh.controls.forEach(function (c) { if (/^open terminal$/i.test(c.l)) open = true; });
       return JSON.stringify({pw: f.pw, cf: f.cf || !!m.cf, blocked: f.blocked, captcha: f.captcha, otp: !!m.otp_like || !!m.otc, twofa: !!m.twofa,
-        buyish: !!(m.buy && m.sell) || !!m.send, email: !!m.email, nummatch: !!m.nummatch, open_terminal: open, host: location.hostname, path: sh ? sh.path : ""});
+        buyish: !!(m.buy && m.sell) || !!m.send, open_terminal: open, host: location.hostname, path: sh ? sh.path : ""});
     },
     openTerminal: function () {
       var done = "none";

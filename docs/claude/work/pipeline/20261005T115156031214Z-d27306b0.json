@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20261005-9HEP9LYP-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1A session_01FuWi5xUmKJf6ps9HEp9LyP; operator question 2026-10-05 via manager",
+    "rerun": "read the probe report's navs/probes/session fields (session.first_terminal_at, last_terminal_at, login_after_terminal_min, code_or_2fa_seen_count) from the latest operator-pasted report; compare against first logged-in capture 2026-10-05T11:43:25Z"
+  },
+  "state": "queued",
+  "what": "STAY-LOGGED-IN measurement on the NEW Breakout terminal (trade.breakoutprop.com) in the probe WebView, operator logged in 2026-10-05 ~11:43Z by email number-match (number tapped in Chrome, then RELOAD in the app). Measure, never assume: (a) session lifetime: Capture/Recheck at ~12:45Z, ~17:45Z and the next morning with the app left alone and the session NOT cleared (a reinstall wipes it); (b) survival of the app being force-stopped and reopened, a phone restart, a Wi-Fi/cellular change; (c) whether a re-login prompt, the email step or a 2FA/authenticator step returns on reload. Record each as state + time since 11:43Z. Open anomaly: 2026-10-05T11:44:33Z nav to portal.breakoutprop.com classified code_or_2fa while OFFLINE (http=-1, wifi=false, cellular=false): the 2FA reading is NOT established, re-check on a stable network. Grade into design 7.9 (stay-logged-in memo)."
+}

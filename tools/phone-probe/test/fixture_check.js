@@ -112,19 +112,6 @@ window.__S=function(){return JSON.stringify({em:S.em.length,pw:S.pw.length,sub:S
   const all = JSON.parse(await lp.evaluate("window.__probeShapeAll()"));
   ok(all.top && Array.isArray(all.same) && Array.isArray(all.cross), "direct capture returns top, same-origin and cross-origin lists");
 
-
-  // ---- email login (1a.4): number-match page vs email entry vs a numeric pager
-  const NM = `<!doctype html><title>Verify</title><body><h2>Tap the number shown on your device</h2><button>47</button><button>83</button><button>15</button>`;
-  const EM = `<!doctype html><title>Sign in</title><body><label for="e">Email</label><input id="e" type="email"><button>Continue</button>`;
-  const PG = `<!doctype html><title>List</title><body><input aria-label="Search"><button>1</button><button>2</button><button>3</button>`;
-  for (const [h, body] of [["nm.test", NM], ["em.test", EM], ["pg.test", PG]]) await ctx.route(`https://${h}/**`, r => r.fulfill({ contentType: "text/html", body }));
-  async function marks(host) { const pg = await ctx.newPage(); await pg.goto(`https://${host}/`); return JSON.parse(await pg.evaluate("window.__probeShape()")); }
-  const nm = await marks("nm.test"), em = await marks("em.test"), pg2 = await marks("pg.test");
-  ok(nm.markers.nummatch === true && nm.counts.numbtn === 3, "number-match page detected (3 digit-only buttons, no inputs)");
-  ok(!JSON.stringify(nm).includes("47") && !JSON.stringify(nm).includes("83"), "the numbers themselves never appear in the shape (digits masked)");
-  ok(em.markers.email === true && em.markers.nummatch === false && em.markers.pw === false, "email-first form detected, not number-match");
-  ok(pg2.markers.nummatch === false, "a numeric pager next to an input is NOT read as number-match");
-
   await b.close();
   console.log(fails ? `${fails} FAILED` : "ALL PASS");
   process.exit(fails ? 1 : 0);
