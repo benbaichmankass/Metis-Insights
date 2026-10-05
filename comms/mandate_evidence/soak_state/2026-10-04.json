@@ -1,0 +1,345 @@
+{
+  "captured_at": "2026-10-04T21:29:52+00:00",
+  "captured_by": "scripts/ops/snapshot_soak_state_for_mandate.py",
+  "note": "Accruing soaks are folded into a count by the brief and are NOT listed; a soak absent here is not complete.",
+  "soaks": [
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-09-26",
+      "id": "SOAK-shadow-avax_pullback_2h",
+      "kind": "shadow",
+      "leg": "avax_pullback_2h",
+      "progress": "108/10 packages",
+      "started": "2026-07-23",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-10-15",
+      "id": "SOAK-shadow-fade_breakout_4h",
+      "kind": "shadow",
+      "leg": "fade_breakout_4h",
+      "progress": "43/10 packages",
+      "started": "2026-06-01",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-10-05",
+      "id": "SOAK-shadow-htf_pullback_trend_2h",
+      "kind": "shadow",
+      "leg": "htf_pullback_trend_2h",
+      "progress": "10/10 packages",
+      "started": "2026-08-23",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-10-19",
+      "id": "SOAK-shadow-ict_scalp_avax_5m",
+      "kind": "shadow",
+      "leg": "ict_scalp_avax_5m",
+      "progress": "27/10 packages",
+      "started": "2026-09-28",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-10-18",
+      "id": "SOAK-shadow-ict_scalp_sol_5m",
+      "kind": "shadow",
+      "leg": "ict_scalp_sol_5m",
+      "progress": "13/10 packages",
+      "started": "2026-09-28",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "ib_paper"
+      ],
+      "end_date": "2026-07-19",
+      "id": "SOAK-shadow-mgc_trend_1h",
+      "kind": "shadow",
+      "leg": "mgc_trend_1h",
+      "progress": "263/10 packages",
+      "started": "2026-06-18",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "alpaca_paper",
+        "alpaca_options_paper"
+      ],
+      "end_date": "2026-10-17",
+      "id": "SOAK-shadow-slv_trend_1h",
+      "kind": "shadow",
+      "leg": "slv_trend_1h",
+      "progress": "22/10 packages",
+      "started": "2026-08-24",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "end_date": "2026-08-01",
+      "id": "SOAK-stage1-alpaca_paper-gld_pullback_1h",
+      "kind": "stage1",
+      "leg": "gld_pullback_1h",
+      "progress": "10/10 closes",
+      "started": "2026-06-21",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "end_date": "2026-08-27",
+      "id": "SOAK-stage1-alpaca_paper-qqq_pullback_1h",
+      "kind": "stage1",
+      "leg": "qqq_pullback_1h",
+      "progress": "15/10 closes",
+      "started": "2026-06-21",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "end_date": "2026-08-26",
+      "id": "SOAK-stage1-alpaca_paper-uso_trend_1h",
+      "kind": "stage1",
+      "leg": "uso_trend_1h",
+      "progress": "11/10 closes",
+      "started": "2026-06-21",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-08-22",
+      "id": "SOAK-stage1-bybit_1-ada_pullback_2h",
+      "kind": "stage1",
+      "leg": "ada_pullback_2h",
+      "progress": "39/10 closes",
+      "started": "2026-06-18",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-08-09",
+      "id": "SOAK-stage1-bybit_1-eth_pullback_2h",
+      "kind": "stage1",
+      "leg": "eth_pullback_2h",
+      "progress": "38/10 closes",
+      "started": "2026-06-11",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-09-07",
+      "id": "SOAK-stage1-bybit_1-ict_scalp_eth_15m",
+      "kind": "stage1",
+      "leg": "ict_scalp_eth_15m",
+      "progress": "38/10 closes",
+      "started": "2026-07-22",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-09-04",
+      "id": "SOAK-stage1-bybit_1-ict_scalp_sol_15m",
+      "kind": "stage1",
+      "leg": "ict_scalp_sol_15m",
+      "progress": "49/10 closes",
+      "started": "2026-07-22",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-09-09",
+      "id": "SOAK-stage1-bybit_1-ict_scalp_xrp_15m",
+      "kind": "stage1",
+      "leg": "ict_scalp_xrp_15m",
+      "progress": "37/10 closes",
+      "started": "2026-07-22",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-08-12",
+      "id": "SOAK-stage1-bybit_1-ict_scalp_xrp_5m",
+      "kind": "stage1",
+      "leg": "ict_scalp_xrp_5m",
+      "progress": "43/10 closes",
+      "started": "2026-07-21",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2027-01-07",
+      "id": "SOAK-stage1-bybit_1-sol_pullback_2h",
+      "kind": "stage1",
+      "leg": "sol_pullback_2h",
+      "progress": "27/10 closes",
+      "started": "2026-06-18",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2027-05-24",
+      "id": "SOAK-stage1-bybit_1-squeeze_breakout_4h",
+      "kind": "stage1",
+      "leg": "squeeze_breakout_4h",
+      "progress": "63/10 closes",
+      "started": "2026-05-24",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-07-14",
+      "id": "SOAK-stage1-bybit_1-trend_donchian",
+      "kind": "stage1",
+      "leg": "trend_donchian",
+      "progress": "38/10 closes",
+      "started": "2026-05-25",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-08-11",
+      "id": "SOAK-stage1-bybit_1-trend_donchian_eth",
+      "kind": "stage1",
+      "leg": "trend_donchian_eth",
+      "progress": "20/10 closes",
+      "started": "2026-07-07",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-09-09",
+      "id": "SOAK-stage1-bybit_1-trend_donchian_eth_4h",
+      "kind": "stage1",
+      "leg": "trend_donchian_eth_4h",
+      "progress": "17/10 closes",
+      "started": "2026-06-18",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-09-07",
+      "id": "SOAK-stage1-bybit_1-trend_donchian_sol",
+      "kind": "stage1",
+      "leg": "trend_donchian_sol",
+      "progress": "10/10 closes",
+      "started": "2026-07-07",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-08-22",
+      "id": "SOAK-stage1-bybit_1-xrp_pullback_2h",
+      "kind": "stage1",
+      "leg": "xrp_pullback_2h",
+      "progress": "25/10 closes",
+      "started": "2026-06-18",
+      "state": "ready"
+    },
+    {
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "end_date": "2026-08-09",
+      "id": "SOAK-stage1-alpaca_paper-spy_pullback_1h",
+      "kind": "stage1",
+      "leg": "spy_pullback_1h",
+      "progress": "8/10 closes",
+      "started": "2026-06-21",
+      "state": "overdue"
+    },
+    {
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "end_date": "2026-07-30",
+      "id": "SOAK-stage1-alpaca_paper-tlt_pullback_1h",
+      "kind": "stage1",
+      "leg": "tlt_pullback_1h",
+      "progress": "4/10 closes",
+      "started": "2026-06-21",
+      "state": "overdue"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2026-10-15",
+      "id": "SOAK-shadow-eth_pullback_prop_2h",
+      "kind": "shadow",
+      "leg": "eth_pullback_prop_2h",
+      "progress": "0/10 packages",
+      "started": "2026-08-23",
+      "state": "dead"
+    },
+    {
+      "accounts": [
+        "bybit_1"
+      ],
+      "end_date": "2027-02-28",
+      "id": "SOAK-shadow-fvg_range_15m",
+      "kind": "shadow",
+      "leg": "fvg_range_15m",
+      "progress": "0/10 packages",
+      "started": "2026-07-28",
+      "state": "dead"
+    },
+    {
+      "accounts": [
+        "alpaca_paper"
+      ],
+      "end_date": "\u2014",
+      "id": "SOAK-stage1-alpaca_paper-splg_trend_long_1d",
+      "kind": "stage1",
+      "leg": "splg_trend_long_1d",
+      "progress": "\u2014",
+      "started": "2026-07-07",
+      "state": "unknown"
+    }
+  ],
+  "source": "GET /api/bot/work/brief \u00a7 4 SOAKS (soak_state.soak_states(), computed live on the VM)"
+}

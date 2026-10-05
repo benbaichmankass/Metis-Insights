@@ -897,6 +897,10 @@ def _decide(leg: str, frm: str, to: str, account: str, root: Path,
 
     if direction == "add_risk":
         _add_risk(leg, frm, to, account, exchange, venue, m, rosters, acfg, root, ctx)
+    elif mid == S1_CUT_MANDATE_ID:
+        if (frm, to) != ("S1", "OFF"):
+            raise _Refuse("R-TRANSITION", f"{mid} covers S1 -> OFF only, not {frm} -> {to}")
+        _s1_cut_on_stage0_fail(leg, account, exchange, m, rosters, acfg, root, ctx)
     elif (frm, to) == ("S2", "S1"):
         _demote_s2(leg, root, ctx)
     else:
@@ -1291,6 +1295,220 @@ def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path
                      f"{R3_RULE_ID} grades {leg} `{verdict}`, not `divergent` ({r3.get('record')}) "
                      f"-- not decisive either way",
                      _cost_fidelity_data_task(leg, r3, tol, provisional))
+
+
+# --------------------------------------------------------------------------
+# MD-S1-CUT-ON-STAGE0-FAIL -- remove a Stage-1 leg whose OFFLINE evidence fails
+# (operator grant 2026-10-04 ~21:25Z, popup in manager session
+# session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim "Grant it (Recommended)"; proposed
+# in docs/plans/soak-verdicts-2026-10-04.md § "Proposed mandate").
+#
+# The gap it closes, MEASURED in that doc: a leg whose Stage-1 soak is complete
+# and whose Stage-0 record fails had NO mandate that removes it --
+# MD-DEMOTE-S1-OFF fires only on an R3 `divergent` cost verdict, and
+# MD-DERISK-ONLY-ROSTER-CUT covers real-money rosters only. So the same Tier-3
+# question reached the operator once per leg.
+#
+# It is reached ONLY through `--mandate MD-S1-CUT-ON-STAGE0-FAIL` on an
+# S1 -> OFF transition: TRANSITION_MANDATE still maps S1 -> OFF to
+# MD-DEMOTE-S1-OFF, so no existing consumer (r4_demotion_gate,
+# check_mandate_autoland) changes behaviour.
+#
+# FIRE needs ALL of:
+#   (1) `account` is in the mandate's `scope_accounts` (bybit_1, alpaca_paper);
+#   (2) the leg is on NO roster outside paper soak books -- a leg also on a
+#       real-money roster or a Stage-2 mirror is MD-DEMOTE-S2-S1's (REFUSE);
+#   (3) the leg is `execution: live` -- a shadow leg is not a Stage-1 soak
+#       (REFUSE, out of scope; its disposition is a separate question);
+#   (4) a DECISIVE Stage-0 failure (any one, every one is listed):
+#         R-CUT-RULE       decision_rule.verdict == fail, registered before the run
+#         R-CUT-EXPECTANCY expectancy_r_oos <= 0 or net_r_oos <= 0, net of full cost
+#         R-CUT-FOLDS      positive folds not a majority (bar.fold_majority)
+#         R-CUT-N          n_trades_oos < bar.min_n_closed
+#         R-CUT-AFFORD     the exchange's Stage-2 account sizes NONE of the leg's
+#                          setups (the S1->S2 R-AFFORD measurement, reused)
+#       read only off a record that is DECISIVE: named harness, stated n, the
+#       FULL cost stack (B1 C1-C3), bound to the leg's current config (B1
+#       identity), source_run committed. A record that is not is NEEDS_DATA --
+#       "could not look" is never a cut signal;
+#   (5) the leg's Stage-1 soak contract (SOAK-stage1-<account>-<leg>) reads a
+#       state in bar.soak_states (ready | overdue) in the newest committed soak
+#       snapshot under comms/mandate_evidence/soak_state/, captured within
+#       bar.soak_snapshot_max_age_days. Absent, stale, or any other state is
+#       NEEDS_DATA.
+# A record with no failing clause REFUSEs (R-STAGE0-PASSES): the evidence must
+# support the cut, not merely fail to forbid it.
+# --------------------------------------------------------------------------
+S1_CUT_MANDATE_ID = "MD-S1-CUT-ON-STAGE0-FAIL"
+SOAK_SNAPSHOT_DIR_REL = "comms/mandate_evidence/soak_state"
+#: The Stage-2 account per exchange whose sizer R-CUT-AFFORD asks.
+STAGE2_ACCOUNT = {"bybit": "bybit_2", "alpaca": "alpaca_live", "interactive_brokers": "ib_live"}
+
+
+def latest_soak_snapshot(root: Path) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """The newest DATED (YYYY-MM-DD.json) committed soak-state snapshot."""
+    d = root / SOAK_SNAPSHOT_DIR_REL
+    if not d.is_dir():
+        return None, None
+    dated = sorted(p for p in d.glob("*.json") if re.fullmatch(r"\d{4}-\d{2}-\d{2}\.json", p.name))
+    if not dated:
+        return None, None
+    rel = f"{SOAK_SNAPSHOT_DIR_REL}/{dated[-1].name}"
+    return rel, _json(dated[-1])
+
+
+def _soak_snapshot_data_task(leg: str, account: str, why: str) -> Dict[str, Any]:
+    return {
+        "what": (f"{leg}@{account}'s Stage-1 soak state is not readable for "
+                 f"{S1_CUT_MANDATE_ID}: {why}. Capture it with "
+                 f"`python3 scripts/ops/snapshot_soak_state_for_mandate.py` (reads the live "
+                 f"brief's SOAKS section, computed by soak_state.soak_states()) and commit it."),
+        "clears_when": (f"the newest {SOAK_SNAPSHOT_DIR_REL}/<date>.json is fresh and lists "
+                        f"SOAK-stage1-{account}-{leg} as ready or overdue"),
+        "check_every_days": 7,
+        "next_action": "check_observation",
+    }
+
+
+def _soak_complete(leg: str, account: str, bar: Dict[str, Any], root: Path,
+                   ctx: Dict[str, Any]) -> None:
+    want = bar.get("soak_states")
+    max_age = bar.get("soak_snapshot_max_age_days")
+    if not isinstance(want, list) or not want or not _num(max_age):
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{S1_CUT_MANDATE_ID} does not state "
+                                               "bar.soak_states / bar.soak_snapshot_max_age_days")
+    sid = f"SOAK-stage1-{account}-{leg}"
+    rel, snap = latest_soak_snapshot(root)
+    ev = {"snapshot": rel, "soak_id": sid}
+    ctx["evidence"]["soak"] = ev
+    if snap is None:
+        raise _NeedsData("R-SOAK-INCOMPLETE", f"no readable committed soak snapshot under "
+                                              f"{SOAK_SNAPSHOT_DIR_REL}/",
+                         _soak_snapshot_data_task(leg, account, "no snapshot committed"))
+    cap = _parse_ts(snap.get("captured_at"))
+    if cap is None:
+        raise _NeedsData("R-SOAK-INCOMPLETE", f"{rel} carries no parseable captured_at",
+                         _soak_snapshot_data_task(leg, account, "captured_at unparseable"))
+    from datetime import datetime, timezone
+    age = (datetime.now(timezone.utc) - cap).total_seconds() / 86400.0
+    ev.update({"captured_at": snap.get("captured_at"), "age_days": round(age, 2),
+               "source": snap.get("source")})
+    if age > float(max_age) or age < -ACCOUNT_SNAPSHOT_FUTURE_SKEW_DAYS:
+        raise _NeedsData("R-SOAK-INCOMPLETE", f"{rel} captured_at={snap.get('captured_at')} is "
+                                              f"{age:.1f} days old (limit {max_age})",
+                         _soak_snapshot_data_task(leg, account, "snapshot stale"))
+    row = next((r for r in snap.get("soaks") or [] if isinstance(r, dict) and r.get("id") == sid),
+               None)
+    if row is None:
+        raise _NeedsData("R-SOAK-INCOMPLETE", f"{rel} lists no {sid} (the brief lists accruing "
+                                              f"soaks only as a count, so absent is not complete)",
+                         _soak_snapshot_data_task(leg, account, f"{sid} not listed"))
+    ev.update({"state": row.get("state"), "progress": row.get("progress")})
+    if row.get("state") not in want:
+        raise _NeedsData("R-SOAK-INCOMPLETE", f"{sid} reads state={row.get('state')!r} "
+                                              f"({row.get('progress')}); the cut needs one of {want}",
+                         _soak_snapshot_data_task(leg, account, f"state {row.get('state')!r}"))
+
+
+def _s1_cut_on_stage0_fail(leg: str, account: str, exchange: str, m: Dict[str, Any],
+                           rosters: Dict[str, Dict[str, Any]], acfg: Dict[str, Any],
+                           root: Path, ctx: Dict[str, Any]) -> None:
+    bar = m.get("bar")
+    if not isinstance(bar, dict):
+        raise _Refuse("R-MANDATE-NOT-GRANTED", f"{m['id']} does not state its `bar:`")
+    scope = m.get("scope_accounts")
+    if not isinstance(scope, list) or account not in scope:
+        raise _Refuse("R-ACCOUNT", f"{account!r} is outside {m['id']}.scope_accounts={scope!r}")
+    stage2_mirrors = set(MIRROR_OF.values())
+    outside = sorted(a for a, r in rosters.items() if leg in r["legs"]
+                     and (r["class"] != "paper" or a in stage2_mirrors))
+    if outside:
+        raise _Refuse("R-REAL-MONEY", f"{leg} is also on {outside} -- a real-money or Stage-2 "
+                                      "mirror roster; that cut belongs to MD-DEMOTE-S2-S1")
+    if _leg_execution(root, leg) == "shadow":
+        raise _Refuse("R-EXECUTION-SHADOW", f"{leg} is `execution: shadow` -- roster membership "
+                                            "is not a Stage-1 soak, so this mandate does not cover it")
+
+    # ── the Stage-0 record, and is it DECISIVE ──────────────────────────────
+    rec_rel = f"{EVIDENCE_DIR_REL}/{leg}.json"
+    record = b1.load_record(leg, root / EVIDENCE_DIR_REL)
+    if record is None:
+        raise _NeedsData("R-RECORD-MISSING", f"no readable committed record at {rec_rel}",
+                         _record_missing_data_task(leg, "S1", "OFF"))
+    ev = ctx["evidence"]
+    dr = record.get("decision_rule") or {}
+    ev.update({"record": rec_rel, "harness": record.get("harness"),
+               "n_trades_oos": record.get("n_trades_oos"),
+               "expectancy_r_oos": record.get("expectancy_r_oos"),
+               "net_r_oos": record.get("net_r_oos"), "folds": record.get("folds"),
+               "folds_positive": record.get("folds_positive"),
+               "cost_stack": record.get("cost_stack"), "decision_rule": dr.get("id"),
+               "decision_rule_verdict": dr.get("verdict"),
+               "source_run": record.get("source_run")})
+    if not in_repo(root, record.get("source_run")):
+        raise _Refuse("R-SOURCE-RUN-ABSENT", f"source_run {record.get('source_run')!r} is not a "
+                                             "committed file in the repo")
+    verdicts = {c: (ok, d) for c, ok, d in b1.clause_verdicts(record)}
+    for c in ("C1", "C2", "C3"):
+        if not verdicts.get(c, (False, ""))[0]:
+            raise _NeedsData(f"R-B1-{c}", f"the record is not decisive: {verdicts.get(c, (0, '?'))[1]}",
+                             _record_missing_data_task(leg, "S1", "OFF"))
+    strategies = (_yaml(root, STRATEGIES_REL) or {}).get("strategies") or {}
+    ok, detail = b1.identity_verdict(record, leg, strategies)
+    if not ok:
+        raise _NeedsData("R-B1-IDENTITY", f"the record does not describe {leg}'s current config: "
+                                          f"{detail}", _record_missing_data_task(leg, "S1", "OFF"))
+
+    # ── the failing clauses -- every one is recorded, any one is decisive ───
+    fails: List[Tuple[str, str]] = []
+    reg, gen = _parse_ts(dr.get("registered_at")), _parse_ts(record.get("generated_at"))
+    if str(dr.get("verdict") or "").lower() == "fail" and reg is not None and gen is not None \
+            and reg <= gen:
+        fails.append(("R-CUT-RULE", f"decision_rule {dr.get('id')!r} (registered "
+                                    f"{dr.get('registered_at')}, before the run) verdict=fail"))
+    exp, net, n = record.get("expectancy_r_oos"), record.get("net_r_oos"), record.get("n_trades_oos")
+    if _num(exp) and _num(net) and (exp <= 0 or net <= 0):
+        fails.append(("R-CUT-EXPECTANCY", f"expectancy_r_oos={exp}, net_r_oos={net} -- not > 0 "
+                                          "net of the full cost stack"))
+    folds, pos = record.get("folds"), record.get("folds_positive")
+    if bar.get("fold_majority") and isinstance(folds, int) and isinstance(pos, int) and folds >= 1:
+        detail_rows = record.get("fold_detail")
+        if isinstance(detail_rows, list):
+            counted = sum(1 for f in detail_rows if isinstance(f, dict)
+                          and _num(f.get("net_r")) and f["net_r"] > 0)
+            if len(detail_rows) != folds or counted != pos:
+                raise _Refuse("R-FOLDS", f"fold_detail shows {counted}/{len(detail_rows)} positive "
+                                         f"but the record states {pos}/{folds}")
+        if not 2 * pos > folds:
+            fails.append(("R-CUT-FOLDS", f"positive in {pos} of {folds} folds -- not a majority"))
+    min_n = bar.get("min_n_closed")
+    if isinstance(min_n, int) and not isinstance(min_n, bool) and isinstance(n, int) and n < min_n:
+        fails.append(("R-CUT-N", f"n_trades_oos={n} < bar.min_n_closed={min_n}"))
+    afford_pending: Optional[_NeedsData] = None
+    if not fails and bar.get("affordability"):
+        s2 = STAGE2_ACCOUNT.get(exchange)
+        if s2 and s2 in acfg:
+            try:
+                _affordability(leg, s2, exchange, record, acfg, root, ctx)
+            except _Refuse as r:
+                # A source_run with no sizable setup measured nothing: that is
+                # "could not look", never "unaffordable".
+                if not (ctx["evidence"].get("affordability") or {}).get("setups_in_run"):
+                    afford_pending = _NeedsData("R-CUT-AFFORD", r.detail,
+                                                _record_missing_data_task(leg, "S1", "OFF"))
+                else:
+                    fails.append(("R-CUT-AFFORD", f"{s2}: {r.detail}"))
+            except _NeedsData as nd:
+                afford_pending = nd
+    ev["stage0_failures"] = [{"clause": c, "detail": d} for c, d in fails]
+    if not fails:
+        if afford_pending is not None:
+            raise afford_pending
+        raise _Refuse("R-STAGE0-PASSES", f"{leg}'s Stage-0 record fails no clause of "
+                                         f"{m['id']} -- the evidence does not support a cut")
+
+    # ── the Stage-1 soak is complete ────────────────────────────────────────
+    _soak_complete(leg, account, bar, root, ctx)
 
 
 # --------------------------------------------------------------------------

@@ -958,3 +958,160 @@ def test_afford_rejects_non_finite_equity(repo, field, bad):
                      snapshots={"bybit_2": 100_000.0, "alpaca_live": snap}),
                 leg=EQ_LEG, account="alpaca_live")
     _needs_data(res, "R-AFFORD")
+
+
+# ── MD-S1-CUT-ON-STAGE0-FAIL ────────────────────────────────────────────────
+# Same discipline as above: one passing (FIRE) fixture, each test breaks one thing.
+CUT_ID = "MD-S1-CUT-ON-STAGE0-FAIL"
+CUT_LEG = "eth_pullback_2h"
+CUT_CFG = {"enabled": True, "execution": "live", "timeframe": "2h", "symbols": ["ETHUSDT"]}
+CUT_BAR = {"min_n_closed": 30, "expectancy_gt": 0, "fold_majority": True, "affordability": True,
+           "soak_states": ["ready", "overdue"], "soak_snapshot_max_age_days": 7}
+
+
+def _cut_mandates(**over):
+    m = {"id": CUT_ID, "grants": "x", "direction": "derisk_only", "granted_by": "operator",
+         "granted_at": "2026-10-04", "scope_accounts": ["bybit_1", "alpaca_paper"],
+         "bar": dict(CUT_BAR)}
+    m.update(over)
+    return {"mandates": MANDATES["mandates"] + [m], "proposed": []}
+
+
+def _cut_accounts(extra_on=None):
+    a = copy.deepcopy(ACCOUNTS)
+    a["accounts"]["bybit_1"]["strategies"].append(CUT_LEG)
+    if extra_on:
+        a["accounts"][extra_on]["strategies"].append(CUT_LEG)
+    return a
+
+
+def _soak_snap(state="ready", *, age_days=0.0, leg=CUT_LEG, account="bybit_1"):
+    from datetime import datetime, timedelta, timezone
+    ts = (datetime.now(timezone.utc) - timedelta(days=age_days)).isoformat()
+    return {"captured_at": ts, "source": "test",
+            "soaks": [{"id": f"SOAK-stage1-{account}-{leg}", "leg": leg, "state": state,
+                       "progress": "38/10 closes"}]}
+
+
+@pytest.fixture
+def cut_repo(repo):
+    def build(*, record=None, mandates=None, accounts=None, soak=..., execution="live",
+              snapshots=None):
+        root = repo(mandates=mandates or _cut_mandates(), accounts=accounts or _cut_accounts(),
+                    records={LEG: _record(LEG, LEG_CFG), EQ_LEG: _record(EQ_LEG, EQ_CFG)},
+                    snapshots=snapshots)
+        cfg = dict(CUT_CFG, execution=execution)
+        _w(root, mr.STRATEGIES_REL, {"strategies": {LEG: LEG_CFG, EQ_LEG: EQ_CFG, CUT_LEG: cfg}},
+           as_yaml=True)
+        rec = record if record is not None else _record(
+            CUT_LEG, CUT_CFG, n=62, folds_net=(-1.0, -0.5, 0.9, -1.1))
+        _w(root, f"{mr.EVIDENCE_DIR_REL}/{CUT_LEG}.json", rec)
+        (root / rec["source_run"]).parent.mkdir(parents=True, exist_ok=True)
+        (root / rec["source_run"]).write_text("{}\n")
+        if soak is ...:
+            soak = _soak_snap()
+        if soak is not None:
+            _w(root, f"{mr.SOAK_SNAPSHOT_DIR_REL}/2026-10-04.json", soak)
+        return root
+    return build
+
+
+def _cut(root, account="bybit_1", leg=CUT_LEG):
+    return mr.resolve(leg, "S1", "OFF", account, root=root, mandate_id=CUT_ID)
+
+
+def test_cut_fires_on_a_failing_record_after_a_complete_soak(cut_repo):
+    res = _cut(cut_repo())
+    assert res["verdict"] == "FIRE", res
+    assert res["proposal"]["roster_remove"] == {"bybit_1": [CUT_LEG]}
+    assert res["proposal"]["roster_add"] == {}
+    clauses = {f["clause"] for f in res["evidence"]["stage0_failures"]}
+    assert clauses == {"R-CUT-EXPECTANCY", "R-CUT-FOLDS"}
+    assert res["evidence"]["soak"]["state"] == "ready"
+
+
+def test_cut_fires_on_an_overdue_soak(cut_repo):
+    assert _cut(cut_repo(soak=_soak_snap("overdue")))["verdict"] == "FIRE"
+
+
+def test_cut_fires_on_folds_alone_and_on_n_alone(cut_repo):
+    folds = _record(CUT_LEG, CUT_CFG, n=62, folds_net=(3.0, 2.0, -0.5, -0.4))  # 2/4, net > 0
+    res = _cut(cut_repo(record=folds))
+    assert res["verdict"] == "FIRE" and \
+        [f["clause"] for f in res["evidence"]["stage0_failures"]] == ["R-CUT-FOLDS"]
+    small = _record(CUT_LEG, CUT_CFG, n=18)  # passing record, n below the floor
+    res = _cut(cut_repo(record=small))
+    assert res["verdict"] == "FIRE" and \
+        [f["clause"] for f in res["evidence"]["stage0_failures"]] == ["R-CUT-N"]
+
+
+def test_cut_fires_on_a_failing_registered_rule(cut_repo):
+    rec = _record(CUT_LEG, CUT_CFG, n=62)
+    rec["decision_rule"]["verdict"] = "fail"
+    res = _cut(cut_repo(record=rec))
+    assert res["verdict"] == "FIRE"
+    assert [f["clause"] for f in res["evidence"]["stage0_failures"]] == ["R-CUT-RULE"]
+
+
+def test_cut_refuses_when_the_record_passes(cut_repo):
+    # A passing record whose committed setups size on the Stage-2 account.
+    rec = _record(CUT_LEG, CUT_CFG, n=62)
+    root = cut_repo(record=rec)
+    (root / rec["source_run"]).write_text(json.dumps(
+        {"symbol": "ETHUSDT", "entry_time": "2026-09-01 00:00:00+00:00", "direction": "long",
+         "entry": 4000.0, "sl": 3900.0, "confidence": 1.0}) + "\n")
+    _refused(_cut(root), "R-STAGE0-PASSES")
+    # ...and one with no setups to size is not "unaffordable": NEEDS-DATA.
+    _needs_data(_cut(cut_repo(record=rec)), "R-CUT-AFFORD")
+
+
+def test_cut_refuses_a_leg_also_on_a_real_money_or_mirror_roster(cut_repo):
+    for acct in ("bybit_2", "bybit_portfolio"):
+        _refused(_cut(cut_repo(accounts=_cut_accounts(extra_on=acct))), "R-REAL-MONEY")
+
+
+def test_cut_refuses_outside_scope_accounts(cut_repo):
+    root = cut_repo(mandates=_cut_mandates(scope_accounts=["alpaca_paper"]))
+    _refused(_cut(root), "R-ACCOUNT")
+
+
+def test_cut_refuses_a_shadow_leg(cut_repo):
+    _refused(_cut(cut_repo(execution="shadow")), "R-EXECUTION-SHADOW")
+
+
+def test_cut_refuses_when_not_granted(cut_repo):
+    root = cut_repo(mandates={"mandates": MANDATES["mandates"], "proposed": []})
+    _refused(_cut(root), "R-MANDATE-NOT-GRANTED")
+
+
+def test_cut_refuses_any_other_transition(cut_repo):
+    res = mr.resolve(CUT_LEG, "S2", "S1", "bybit_2", root=cut_repo(), mandate_id=CUT_ID)
+    assert res["verdict"] == "REFUSE", res
+
+
+@pytest.mark.parametrize("soak", [None, _soak_snap("accruing"), _soak_snap("dead"),
+                                  _soak_snap("unknown"), _soak_snap(age_days=8),
+                                  _soak_snap(leg="other_leg")])
+def test_cut_needs_data_unless_the_soak_is_complete_and_fresh(cut_repo, soak):
+    _needs_data(_cut(cut_repo(soak=soak)), "R-SOAK-INCOMPLETE")
+
+
+def test_cut_needs_data_on_a_record_that_is_not_decisive(cut_repo):
+    fee_only = _record(CUT_LEG, CUT_CFG, n=62, folds_net=(-1.0, -0.5, 0.9, -1.1))
+    fee_only["cost_stack"] = {"fees": 7.5}
+    _needs_data(_cut(cut_repo(record=fee_only)), "R-B1-C3")
+    stale = _record(CUT_LEG, dict(CUT_CFG, atr_stop_mult=9.0), n=62,
+                    folds_net=(-1.0, -0.5, 0.9, -1.1))
+    _needs_data(_cut(cut_repo(record=stale)), "R-B1-IDENTITY")
+
+
+def test_cut_afford_fires_only_when_stage2_sizes_nothing(cut_repo):
+    rec = _record(CUT_LEG, CUT_CFG, n=62)  # passes every other clause
+    rec["source_run"] = f"comms/strategy_evidence/runs/x/{CUT_LEG}__trades.jsonl"
+    root = cut_repo(record=rec, snapshots={"bybit_2": 0.01, "alpaca_live": 100_000.0})
+    (root / rec["source_run"]).write_text("".join(json.dumps(
+        {"symbol": "ETHUSDT", "entry_time": f"2026-09-{d:02d} 00:00:00+00:00", "direction": "long",
+         "entry": 4000.0, "sl": 3900.0, "confidence": 1.0}) + "\n" for d in range(1, 6)))
+    res = _cut(root)
+    assert res["verdict"] == "FIRE", res
+    assert [f["clause"] for f in res["evidence"]["stage0_failures"]] == ["R-CUT-AFFORD"]
