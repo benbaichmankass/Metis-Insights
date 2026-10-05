@@ -1,6 +1,6 @@
 id: RQ-20261005-811
 title: 'PROP-ROSTER-EXPAND candidate evidence: 730d records for the 8 Tradeify/Velotrade-symbol legs that lack one (lane PROP-ROSTER-EXPAND)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -57,3 +57,4 @@ lands:
 related:
 - research/queue/RQ-20261002-701.yaml
 - docs/claude/work/pipeline/20261005T093354512568Z-27b80ef7.json
+result: 'GRADED 2026-10-05 against RULE-RQ1005-PROPEXPAND-ADMIT (session-local, 730d/4 folds, records under comms/strategy_evidence/runs/2026-10-05-730d-expand/). ADMITTED: none of the 8 (4 approximate: trend_donchian_eth n=232, eth_pullback_2h n=116, trend_donchian_sol n=120, xrp_pullback_2h n=122; UNDERPOWERED: trend_donchian_eth_4h n=85, trend_donchian_sol_4h n=75, sol_pullback_2h n=36 (net -1.55R), trend_donchian_xrp_4h n=25). Admitted pool for books = existing 730d PASS records trend_donchian_eth_prop, trend_donchian_sol_prop, ict_scalp_eth_15m. Follow-up PI-20261005-XJSGZG1X-0002.'

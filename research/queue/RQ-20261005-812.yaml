@@ -1,6 +1,6 @@
 id: RQ-20261005-812
 title: 'PROP-ROSTER-EXPAND: Tradeify BOOK search over admitted ETH/SOL/XRP legs, inactivity + P(pass) + daily-loss (lane PROP-ROSTER-EXPAND)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -75,3 +75,4 @@ related:
 - research/queue/RQ-20261005-811.yaml
 - config/prop_rulesets/tradeify_247_1step.yaml
 - docs/claude/work/pipeline/20261005T093354512568Z-27b80ef7.json
+result: 'GRADED 2026-10-05 against RULE-RQ1005-PROPEXPAND-TRADEIFY (research/results/RQ-20261005-812/book_search.json). No book PASSES. ETH_prop+SOL_prop at 0.5%: INACTIVITY_SAFE_IMPROVEMENT (gap 6.6d, min-seed P 0.372 vs incumbent 0.284, EV +$179 vs +$58, worst realised day -$109 of $300); at 0.75% NULL. ict_scalp_eth_15m+SOL_prop 0.5% FAIL (EV -$21). Solo sol_prop / ict_eth fail the 14d gap (18.6d / 20.8d).'

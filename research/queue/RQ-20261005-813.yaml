@@ -1,7 +1,7 @@
 id: RQ-20261005-813
 title: 'PROP-ROSTER-EXPAND: Velotrade BOOK search over admitted ETH/SOL/XRP legs, inactivity + P(pass) + daily-loss (lane
   PROP-ROSTER-EXPAND)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -78,3 +78,4 @@ related:
 - research/queue/RQ-20261005-811.yaml
 - config/prop_rulesets/velotrade_classic_1step.yaml
 - docs/claude/work/pipeline/20261005T093354512568Z-27b80ef7.json
+result: 'GRADED 2026-10-05 against RULE-RQ1005-PROPEXPAND-VELOTRADE (research/results/RQ-20261005-813/book_search.json). No book PASSES. ETH_prop+SOL_prop at 0.5%: INACTIVITY_SAFE_IMPROVEMENT (gap 6.6d, min-seed P 0.4215 vs ETH alone 0.3302, EV +$151 vs +$59); 0.75% NULL; ict_eth+SOL 0.5% FAIL. Qualifying-day counts not reported by this harness (prop_ev_sim applies them inside P).'
