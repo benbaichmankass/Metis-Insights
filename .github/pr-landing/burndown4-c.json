@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 CI-tooling fix to scripts/ci/check_stale_in_flight.py (_materialise_base no longer names the retired objects dir, which made the ratchet base_unreadable on every base) plus a regression test that fails without it (verified), and pipeline records. No runtime, order-path, config or strategy change."
+}

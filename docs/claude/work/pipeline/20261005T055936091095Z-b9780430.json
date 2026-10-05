@@ -1,0 +1,20 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "owner row GUARD-FIDELITY reaches done, or this item is verified fixed at HEAD. Routed 2026-10-05: verified at HEAD: check_stale_in_flight ratchet=base_unreadable; git archive still names docs/claude/work/objects (line 93)",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-WJUTENGU-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "SA-DOCS lane 2026-09-29",
+    "rerun": "python3 scripts/ci/check_stale_in_flight.py --base origin/main | grep ratchet"
+  },
+  "routed_to": "GUARD-FIDELITY (queued)",
+  "state": "done",
+  "terminal_reason": "FIXED 2026-10-05 by BACKLOG-BURNDOWN-4 (branch claude/burndown4-c, see PI-20261005-MWOP8C4X-0001): _materialise_base names the retired objects dir only when the base carries it; `check_stale_in_flight.py --base origin/main` now prints ratchet base=0 head=0 delta=+0 (was base_unreadable); regression test fails without the fix. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "what": "check_stale_in_flight's ratchet is dead: _materialise_base does `git archive` on docs/claude/work/objects (retired), so ratchet=base_unreadable on every base and the diff's own contribution is never graded. Fix: archive only the checklist path, or drop the objects register. Found by FIX-SA-10 (#14162)."
+}

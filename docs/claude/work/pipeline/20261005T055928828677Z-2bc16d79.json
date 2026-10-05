@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-MWOP8C4X-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X), measured at main fee0ae7e",
+    "rerun": "grep -n 'filter_state' src/web/api/routers/trades_closed.py  # no match = still open"
+  },
+  "severity": "low",
+  "state": "queued",
+  "what": "GET /api/bot/trades/closed?since=<unparseable> returns [] with no filter_state, indistinguishable from 'no trades in the window' (src/web/api/routers/trades_closed.py::_query_closed_trades / get_closed_trades, line ~300). db_explorer.py already has a three-valued filter_state; trades_closed does not. Fix: validate `since` and 422, or return filter_state=ignored_unparseable."
+}
