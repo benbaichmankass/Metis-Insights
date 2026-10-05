@@ -124,18 +124,32 @@ def main() -> int:
         full_user = f"{login_user}@{domain_used}"
         st, js, tx = _call("GET", "/users/" + urllib.parse.quote(full_user, safe=""), token)
         _out(f"users: http={st} shape={type(js).__name__} keys={sorted(js.keys()) if isinstance(js, dict) else 'n/a'}")
-        accounts = []
-        if isinstance(js, dict):
-            ud = js.get("userDetails")
-            cand = [ud] if isinstance(ud, dict) else js.get("users") if isinstance(js.get("users"), list) else [js]
-        elif isinstance(js, list):
-            cand = js
-        else:
-            cand = []
-        for u in cand:
-            if isinstance(u, dict):
-                accounts.extend(u.get("accounts") or [])
-        _out(f"users: accounts={len(accounts)}" + (f" userDetails_keys={sorted(js['userDetails'].keys())}" if isinstance(js, dict) and isinstance(js.get('userDetails'), dict) else ""))
+        def _shape(o, depth=0):
+            if depth > 3:
+                return "..."
+            if isinstance(o, dict):
+                return {k: _shape(v, depth + 1) for k, v in o.items()}
+            if isinstance(o, list):
+                return [_shape(o[0], depth + 1)] if o else []
+            return type(o).__name__
+
+        def _find_accounts(o):
+            if isinstance(o, dict):
+                if isinstance(o.get("accounts"), list):
+                    return o["accounts"]
+                for v in o.values():
+                    r = _find_accounts(v)
+                    if r:
+                        return r
+            elif isinstance(o, list):
+                for v in o:
+                    r = _find_accounts(v)
+                    if r:
+                        return r
+            return []
+
+        accounts = _find_accounts(js)
+        _out(f"users: accounts={len(accounts)} shape={json.dumps(_shape(js), sort_keys=True)[:600]}")
         codes = []
         for a in accounts:
             c = a.get("accountCode") or a.get("account") or a.get("code") if isinstance(a, dict) else a
