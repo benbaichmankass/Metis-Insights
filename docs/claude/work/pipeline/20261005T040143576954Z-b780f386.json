@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "The fallback is scoped to the package's own accounts (or removed), with a test where two open packages share strategy+symbol and the leg-less one does not resolve to the other's trade; OR a measurement over order_packages shows no open package can reach the fallback (linked_trade_id NULL and no order_package_id-scoped trades).",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-MEK2XMWT-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GATE-SCOPE (session_01C4qod5gogYDwASmek2XMWT), manager review of #14590 (session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-30",
+    "rerun": "grep -n '_find_trade_by_match(' src/runtime/order_monitor.py ; scripts/ops/diag_fetch.sh 'journal?table=order_packages&limit=200'  # count status=open rows with linked_trade_id NULL"
+  },
+  "routed_to": "ORDER-AUDIT-2 (re-pointed from ORDER-AUDIT-2 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[order-path] order_monitor's strategy+symbol fallback can bind a package to ANOTHER package's trade once per-account packages coexist. src/runtime/order_monitor.py (package-leg resolver, ~L828-858): when an open package has no package-scoped open trade rows AND no linked_trade_id, it falls back to _find_trade_by_match(strategy, symbol) -> the most recent open trade for that strategy+symbol, on ANY package, and effectuates this package's verdict (trail/close) against it. Until #14590 two open packages for one strategy+symbol were rare (the gate was strategy-wide). With the per-account/pair-coupled gate (#14590) they coexist routinely: e.g. a Stage-1 soak package on alpaca_paper plus a Stage-2 package on alpaca_live/alpaca_portfolio for the same leg. A package that loses its legs without a linked id could then trail or close the other package's trade. Not measured on live data yet: how many open packages today have linked_trade_id NULL and no open rows.",
+  "why_it_matters": "A wrong-package match can move the stop on, or close, a real-money leg on the strength of a different package's exit verdict."
+}

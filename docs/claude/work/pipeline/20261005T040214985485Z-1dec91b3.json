@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "The guard normalises direction (with a test) and the 07-05 row is reconciled or closed with provenance; or the manager kills it with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-AQRK6CL1-0011",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-21",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-29 ~20:55Z, Breakout ticket-emission investigation (verdict NO SIGNALS)",
+    "rerun": "GET https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_1&limit=200 and look for status 'filled' with direction 'buy' or 'sell'; read src/prop/breakout_executor.py ~L123 for a direction normalisation."
+  },
+  "routed_to": "PROP-EXEC | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — breakout_executor.py:267-270 normalises buy/sell only when building a ticket; guard (~L130-150) compares lowercase direction of pos row, no buy/sell mapping; 07-05 row reconcile unverifiable offline",
+  "severity": "low",
+  "state": "routed",
+  "tier": 2,
+  "what": "breakout_1 carries a legacy fill row from 2026-07-05 (ETHUSDT, direction 'buy', status 'filled') whose direction is not normalised. The guard in src/prop/breakout_executor.py ~L123-127 compares against lowercase 'long'/'short', so this row never matches any check. Harmless today (MEASURED 2026-09-29 ~20:55Z by a manager read-only investigation: no blocking ticket among all 173 breakout_1 tickets), but it is an un-normalised 'open' row. Any reader that counts open prop fills by status alone would treat the account as holding ETH. Fix: normalise buy/sell to long/short at the guard (or at write), and reconcile or close this one row with a stated reason."
+}

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 16,
+    "clears_when": "PassthroughAllocator reads each account's actual configured risk_pct and applies the same confidence scalar as src/units/accounts/risk.py (or the stale-parity docstrings on allocator.py/portfolio_state.py and the two design docs are corrected to state parity no longer holds), with a test that cross-checks PassthroughAllocator's sizing against risk.py's actual formula rather than against its own hardcoded fallback.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-RLBXQDGK-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-20",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A15",
+    "rerun": "python3 -c \"from src.core.allocator import PassthroughAllocator; from src.core.portfolio_state import PortfolioState; from src.core.signal_contract import SignalPackage\" # then allocate() a signal against PortfolioState.from_dict({'balance':10000.0}) with no risk_pct_by_strategy and confirm qty implies risk_pct=0.005"
+  },
+  "routed_to": "ORDER-AUDIT-2 | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — src/core/allocator.py:83 still ps.risk_pct_by_strategy.get(..., 0.005); no confidence scalar.",
+  "state": "routed",
+  "what": "AUD-20260927-CA-A15-passthrough-allocator-flat-risk: src/core/allocator.py::PassthroughAllocator.allocate() sizes every strategy at a flat 0.5% risk (ps.risk_pct_by_strategy.get(signal.strategy_id, 0.005)) because src/runtime/pipeline.py's caller (coord.build_order_packages([_sig_pkg], {\"balance\": _bal})) never populates risk_pct_by_strategy, so the per-strategy lookup always misses and always falls back to 0.005. The docstring claims this 'replicates the current per-strategy risk.py sizing formula exactly' / 'mirrors src/units/accounts/risk.py', but risk.py is account-level (config-driven risk_pct, default 1%, not 0.5%) and applies a confidence scalar (_confidence_scalar) that PassthroughAllocator never applies at all. Per-strategy risk_pct was removed from strategies.yaml on 2026-06-29 with a CI guard forbidding its return, so the allocator's whole model is 3 months stale versus what it claims to replicate. Currently dormant: CENTRALIZED_ALLOCATOR defaults false (src/runtime/runtime_flags.py) and is provisioned nowhere per docs/research/prop-unblock-sequence-2026-09-12.md. NOT a shadow-only path when armed: pipeline.py dispatches its output through coord.multi_account_execute_typed(), the same real order path, per ROADMAP.md's own S6 entry (shipped 2026-05-20). tests/test_s4_allocator_wiring.py asserts the 0.005 fallback AS correct, so it cannot catch this -- nothing cross-checks PassthroughAllocator's output against risk.py's real formula."
+}

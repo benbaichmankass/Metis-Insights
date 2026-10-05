@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 9,
+    "clears_when": "The 6 bybit_1 reconciler closes (2026-09-23..09-30) are each root-caused, with a fix merged or a stated benign cause; AND /api/bot/trades/closed exposes the raw exit_reason, and the 'other' population is broken down with every raw reason mapped to a declared strategy exit or filed as a bug. Or the manager kills it with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-AQRK6CL1-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-13",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30 ~05:20Z, operator question 'why no live trades'",
+    "rerun": "for a in bybit_1 alpaca_paper alpaca_portfolio; do curl -s 'https://ict-bot.duckdns.org/api/bot/trades/closed?limit=200&include_paper=true&since=<7d ago>&account_id='$a; done | count closeReason"
+  },
+  "routed_to": "EXIT-CLUSTER (re-pointed from EXIT-CLUSTER (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 1,
+  "what": "Close-reason hygiene on the paper books. MEASURED 2026-09-30 ~05:20Z via GET /api/bot/trades/closed?since=2026-09-23&include_paper=true, closeReason counts: bybit_1 119 trades = other 75 / sl 29 / tp 9 / reconciler 6; alpaca_paper 6 = other 5 / sl 1; alpaca_portfolio 5 = other 4 / sl 1. Real-money bybit_2 8/8 sl, bybit_portfolio 8/8 sl, alpaca_live 2/2 sl. Two problems. (1) The 6 bybit_1 'reconciler' closes are non-TP/SL/strategy closes, a bug class per the session contract: root-cause each (which trades, why the reconciler closed them, orphan or missed fill?). (2) 'other' is a COLLAPSED state. src/web/api/routers/trades_closed.py::_normalise_close_reason maps every exit_reason outside {tp, sl, manual, reconciler*} to 'other', so a legitimate strategy close (time stop, trail, pairs exit) and an unexplained close are indistinguishable on the wire; 75 of 119 bybit_1 closes are unreadable (see also PI-20260927-YZRZQ725-0004, the pairs-leg classification). Fix: expose the raw exit_reason beside closeReason (additive field), and break down the 'other' population by raw exit_reason; any raw reason that is not a declared strategy exit is a bug to root-cause."
+}

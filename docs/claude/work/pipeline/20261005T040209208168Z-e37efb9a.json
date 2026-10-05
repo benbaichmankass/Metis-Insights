@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 16,
+    "clears_when": "system-report/SKILL.md either redirects to the three live review skills (health-review, performance-review, ml-review) per CLAUDE.md's 'the three reviews stay separate' section, or is itself retired/archived to match system-review.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-CAB09-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-20",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-system-report-dangling-pointer",
+    "rerun": "test -f .claude/skills/system-review/SKILL.md (expect: missing); cat .claude/skills/system-report/SKILL.md"
+  },
+  "routed_to": "DOCS-DRIFT | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — .claude/skills/system-report/SKILL.md still says invoke /system-review; .claude/skills/system-review absent.",
+  "state": "routed",
+  "what": "[operating-model] .claude/skills/system-report/SKILL.md (a live, catalog-listed skill) instructs a session to 'invoke /system-review and follow .claude/skills/system-review/SKILL.md verbatim'. .claude/skills/system-review/ does not exist on disk -- it is one of the ten skills CLAUDE.md's 2026-09-21 reset says were retired and archived to docs/archive/2026-09-21-operating-reset/skills/system-review/. .claude/settings.json's own SessionStart hook text says plainly '(The /system-review roll-up is RETIRED and archived; do not invoke it.)'. Invoking /system-report today points a session at a file that isn't there. || [2026-10-04 performance-review re-check, lane session_013rQhqo11aVJrH3zbHFJg6X] origin.rerun executed (rc=2): /bin/sh: 1: Syntax error: \"(\" unexpected"
+}

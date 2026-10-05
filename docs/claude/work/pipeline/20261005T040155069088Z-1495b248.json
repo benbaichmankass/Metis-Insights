@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "a tradeify_1 ticket passes guards with ticket_risk_usd <= the cap, or an operator/lane decision reconciles ticket sizing with the ruleset cap and is recorded on this row",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-PUQ1APTH-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "ask_operator",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: Tier-3 prop sizing ($75 ticket vs $50 cap) queued for the operator."
+  ],
+  "origin": {
+    "kind": "review",
+    "ref": "health-review 2026-10-04 (comms/reviews/health/2026-10-04-health-review.json); diag journalctl?unit=ict-prop-executor@tradeify_1.service 2026-10-04T08:03Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'journalctl?unit=ict-prop-executor@tradeify_1.service&lines=400' | grep -o '\"guards\".*fits\": false[^}]*' | tail -3 -- holds while refusals cite the flat-mode cap"
+  },
+  "routed_to": "TRADEIFY-RISK-75 (re-pointed from TRADEIFY-RISK-75 — tradeify_1 first live ticket refused by risk cap, operator decision A5 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[prop/tradeify_1 MONEY PATH] The first LIVE ticket the automated tradeify_1 executor evaluated was REFUSED by its own risk cap. MEASURED 2026-10-04T08:03:18Z (diag journalctl?unit=ict-prop-executor@tradeify_1.service): ETHUSDT long from trend_donchian_eth_prop, band_ok, then guards fits=false: `risk cap: ticket asks $74.85, above the flat-mode cap $50.00 after sizing at the venue increments -- REFUSED (the size was already cut to the cap where rounding allowed)`; facts lots=4.97 units=4.97 ticket_claimed_risk_usd=75.0 ticket_risk_usd=74.85 risk_cap={action: resized, cap_usd: 50} risk_cap_resize=null; report kind=fill status=skipped. So the trader sizes tradeify_1 tickets at $75 risk while the executor's flat-mode cap is $50, and the 'resized' action left lots at 4.97 (74.85/75 = no reduction), i.e. the resize is a no-op at this increment. Unless reconciled, EVERY ETH ticket on tradeify_1 is refused and the account trades nothing while reading live (mode live since 05:37Z). Related: PI-20261002-ULPHZHHQ-0001 (breakout_1 rounding overshoot at the $75 cap). Owner: TRADEIFY lane; Tier-2/3 (prop sizing). Decide which is right -- the ruleset's $50 flat cap or the ticket's $75 -- then make the resize actually shrink lots to fit."
+}

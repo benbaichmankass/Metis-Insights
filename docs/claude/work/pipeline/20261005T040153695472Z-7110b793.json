@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "the daily live-replay-parity run reports 0 of this class for this leg, with the cause root-caused, or killed with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-LRP-DF7A0332",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "live-replay-parity:uso_trend_1h:candle_mismatch",
+    "rerun": "python3 scripts/ops/live_replay_parity.py --base-url <tunnel to the live web-api> --days 7  (or label an issue `live-replay-parity`; the workflow .github/workflows/live-replay-parity.yml runs it daily and commits comms/live_parity/latest.json)"
+  },
+  "routed_to": "LIVE-PARITY — daily live_replay_parity.py census; the standing check owns the class (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "Live-vs-replay parity: leg `uso_trend_1h` — candle_mismatch ×4 (paper roster) in window 2026-09-27T06:45:00+00:00..2026-10-04T06:45:00+00:00. MEASURED by scripts/ops/live_replay_parity.py; artifact comms/live_parity/2026-10-04.json. Examples: [{\"class\": \"candle_mismatch\", \"bar\": \"2026-09-28T16:00:00+00:00\", \"t\": \"2026-09-28T16:22:21+00:00\", \"live\": {\"side\": \"none\", \"adx\": 16.8713, \"close\": 150.34, \"reason\": \"Strategy 'uso_trend_1h': no breakout on the latest bar (close=150.34 within channel [146.43, 155.5]) \\u2014 non-actionable.\"}, \"replay\": {\"sides\": [\"none\"], \"adx_range\": [17.4887, 17.5314], \"candidates\": [\"2026-09-28T16:15:00+00:00\"], \"diag_adx\": {\"final_bar_200\": 17.5314, \"closed_only_199\": 18.0871, \"closed_only_200\": 18.0871, \"next_bar_200\": 17.3875}, \"fine_candle\": {\"time\": 1790612100, \"low\": 148.04, \"high\": 152.3}}}, {\"class\": \"candle_mismatch\", \"bar\": \"2026-09-28T16:00:00+00:00\", \"t\": \"2026-09-28T16:24:19+00:00\", \"live\": {\"side\": \"none\", \"adx\": 16.8713, \"close\": 150.34, \"reason\": \"Strategy 'uso_trend_1h': no breakout on the latest bar (close=150.34 within channel [146.43, 155.5]) \\u2014 non-actionable.\"}, \"replay\": {"
+}

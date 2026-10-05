@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 15,
+    "clears_when": "test_position_flat_no_broker_record_finalizes_closed_local (or a sibling) asserts a protection-cancel call on finalize and fails on unpatched order_monitor.py, or the item is killed with a stated reason.",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-JT7JW9CR-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B07 (session_0176ddjoUxwveWpnJT7Jw9cr), finding AUD-20260927-CA-B07-watchdog-flatclose-test-blind-to-cancel in docs/audits/code-audit-2026-09-27/CA-B07.findings.jsonl",
+    "rerun": "Read tests/test_monitor_reconciler.py:1857-1905 and tests/test_p3_close_wiring.py:759-791 on main; re-run `grep -n _cancel_resting_protection_after_flat tests/*.py` (expect only test_p3_close_wiring.py hits) and `python3 -m pytest tests/test_monitor_reconciler.py -q`. The finding holds while the finalize test asserts no protection-cancel call."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-B07, MEASURED): the only test that drives _watchdog_stuck_strategies's position-flat finalize branch to completion (tests/test_monitor_reconciler.py::test_position_flat_no_broker_record_finalizes_closed_local, lines 1857-1905) asserts DB row state only (auto_cleared, trade status/exit_reason/pnl, absence of an orphan ping) and never asserts that resting broker protection was cancelled. The only test coverage of _cancel_resting_protection_after_flat itself (tests/test_p3_close_wiring.py::test_after_flat_helper_*) calls it directly and in isolation, never through the watchdog path. This is why the suite stayed green on exactly the code path that carries the already-MEASURED, live critical defect CA-A01-001 (PI-20260927-KFWRL9R1-0001): an ib_paper OCA protect group (oca-protect-t5836) left resting after trade 5836 closed via this same finalize path on 2026-09-19. LOCATION: tests/test_monitor_reconciler.py:1857-1905; tests/test_p3_close_wiring.py:759-791. PROPOSED FIX: extend the finalize test with a fake broker client whose cancel_resting_protection/place_protective is spied, and assert it is called once for (account_id, symbol) on finalize -- this test will only pass once PI-20260927-KFWRL9R1-0001's code fix wires the call in."
+}

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "order_monitor._is_session_defer anchors each generic defer phrase ('exit deferred' / 'deferring' / 'market closed') to the venue that emits it (Alpaca / IB), so an unrelated venue's error text containing one of them is a failure, with a table test per venue.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-ZIFJ1RKM-0006",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "#14899 re-review nit (manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30 21:27Z); lane ALPACA-CLOSE-WEDGE session_01LLCqwwDGQM7BZMZifj1rkM",
+    "rerun": "python3 -c \"from src.runtime import order_monitor as om; print(om._is_session_defer('bybit: order rejected, market closed for maintenance'))\"  # True = generic phrase still venue-agnostic"
+  },
+  "routed_to": "ORDER-AUDIT-2 (re-pointed from ORDER-AUDIT-2 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[money-path] order_monitor._is_session_defer still honours the GENERIC phrases 'exit deferred' / 'deferring' / 'market closed' on EVERY venue, unchanged from main (#14899 only added the Alpaca RTH escalation and the 'deferred to the regular session' phrase). Any venue whose error text happens to contain one of them (e.g. a Bybit maintenance message) clears the close-failure streak and never pages. Fix: gate each phrase on the integration that emits it (AlpacaClient / IBClient), with per-venue tests. Tier-2 order-path, HELD PR. Not done in #14899 by manager decision."
+}

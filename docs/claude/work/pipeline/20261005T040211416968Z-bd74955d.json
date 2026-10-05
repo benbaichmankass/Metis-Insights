@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 16,
+    "clears_when": "item PI-20260927-EPMBGUYB-0001 above is fixed AND symbol_data_binding_census.py is wired into scripts/ci/run_guards.py as a blocking guard",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-EPMBGUYB-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-20",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/claude/work/MANAGER-CHECKLIST.json row E7",
+    "rerun": "grep -c symbol_data_binding_census.py scripts/ci/run_guards.py"
+  },
+  "routed_to": "GUARD-FIDELITY | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — grep -c symbol_data_binding_census scripts/ci/run_guards.py = 0; blocked on -0001",
+  "state": "routed",
+  "what": "scripts/ops/symbol_data_binding_census.py (the E4 unbound --symbol/--data census) has NO CI RUNNER at all -- zero references in scripts/ci/run_guards.py -- despite carrying its own --self-test. A regression that adds a new unbound site (or a new harness with the BL-20260813 shape) would go undetected until someone runs it by hand. Not wired in by this lane because it would immediately redden CI on the pre-existing, unrelated violation filed alongside this item (scripts/ml/build_calibration_corpus.py); wire it once that clears."
+}

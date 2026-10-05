@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "an edit-dialog-probe readout on a real open breakout_1 position is posted on #15347 and either the EDIT_DIALOG_MEASURED flip PR is opened (held Tier-2) or the selectors are adjusted from it; OR the manager kills this with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261001-SBD5S8KE-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #15347 (DIALOG-MEASURE step 2, held) stacked on #15327; PROP-TRAIL #15316 go-live review",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | jq '.status.raw' (open_positions non-empty => dispatch breakout-login-check, apply: edit-dialog-probe, symbols: <that ONE venue symbol>)"
+  },
+  "routed_to": "DIALOG-MEASURE (re-pointed from DIALOG-MEASURE (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "DIALOG-MEASURE step 1 not run: breakout_1 was FLAT at 22:12Z 2026-10-01 (feed open_positions [], open_orders []), and the SL/TP edit pencil exists only on a Positions row. After #15327 then #15347 merge and git-sync, the next time breakout_1 holds a strategy position dispatch the read-only edit-dialog-probe (one pencil click + the dialog's own Cancel, submits nothing). Its readout decides: adjust EDIT_DIALOG_JS / edit_dialog_mismatch to the measured markup (mode select, submit name, qty read-only, tick-rounding of the read-back), then open the held Tier-2 PR setting DXtradeAdapter.EDIT_DIALOG_MEASURED=True. Until then armed modify_bracket refuses and the PROP-TRAIL trail is inert on the venue. No trade is to be opened for the measurement without an operator call. PROGRESS 2026-10-02 (lane DIALOG-MEASURE): edit-dialog-probe RAN on the live ETHUSD short (issue #15628, 19:04Z): the row trio measured as closeBy (disabled) / modify (test-id 'position-table-modify', icon #icon-replace-context) / closePosition; the modify click opened NO new dialog (visible 1, fresh 0) -- the edit UI reuses an already-visible surface, most likely the docked sidebar. Read-only held (Escape only), post-state identical (feed 19:07:37Z). The flip is NOT possible on that readout. Next: the read-only edit-surface diff probe (#15636, HELD) is run on an open position after merge; its readout re-targets modify_bracket from a NEW dialog to a CHANGED surface. PROGRESS 2026-10-02 20:05Z (lane DIALOG-MEASURE): edit-surface-probe RAN on the live ETHUSD short (issue #15657, run 37058159549, on-disk c9310d4d contains #15636's df3ba84f). The modify control opens a docked 'Position Details' panel: headings Position Details / ETHUSD / ETH / Protection; 'Stop Loss:' input 2718.46 and 'Take Profit:' input 2394.06, each with a 'Price' mode button; 'Close Position' (enabled) beside 'Modify Position' (disabled until a value changes); 'Discard' below; no quantity field. baseline_order_entry showed no order ticket. Exit: Escape did not close it; the panel's own 'Discard' did. Post-state verified identical (feed 20:07:32Z: short 1.22, entry 2657.17, SL 2718.46, TP 2394.06, 0 working orders). The run's one alert (not back at baseline, 3+/3-) is a probe false positive from live Bid/Ask prices in control names (fixed in the re-target PR). Next: the held modify_bracket re-target onto this panel, then the one-line EDIT_DIALOG_MEASURED flip after manager review."
+}

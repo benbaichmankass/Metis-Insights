@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-13",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value against current scripts/research/pairs_universe_scan.py:361"
+  },
+  "routed_to": "RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "CA-B04 audit finding (high): scripts/research/pairs_universe_scan.py:361 uses the wrong Engle-Granger critical value (-2.86, the plain single-series ADF value, not the more-negative 2-variable MacKinnon value), inflating false cointegration detections to 60/300 trials (20%) in a Monte Carlo of genuinely independent random-walk pairs, vs. the claimed 5% — see docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value for full evidence."
+}

@@ -1,0 +1,27 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "A cancelled system-actions run leaves a comment on its issue (or is auto-re-dispatched), demonstrated once, with a test or a run link.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-GCFA5DOR-0011",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "check_observation",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: observation-only -- #16289 merged and the cancel guard observed registered and skipping correctly (per #16302); clears on the first real pending-cancelled mutating run receiving the CANCELLED, NOT RUN comment + alert."
+  ],
+  "observation": {
+    "due_by": "2026-10-16",
+    "how_to_check": "List system-actions runs with conclusion=cancelled in the last 7 days and check each one's issue for a bot comment: any cancelled run whose issue has 0 comments = still open.",
+    "what": "A cancelled system-actions run leaves a comment on its issue (or is auto-re-dispatched), demonstrated once, with a test or a run link."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR, follow-up to docs/audits/system-audit-2026-10-04.md",
+    "rerun": "List system-actions runs with conclusion=cancelled in the last 7 days and check each one's issue for a bot comment: any cancelled run whose issue has 0 comments = still open."
+  },
+  "routed_to": "OPS-AUDIT (re-pointed from OPS-AUDIT — system-action drop; #16289 merged (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "OA-17 (MED, ops). System-action requests are silently DROPPED when several are queued. MEASURED 2026-10-04: runs 37190355256 (#16251, breakout_1 executor-disable-timer) and 37191556184 (#16263, tradeify_1 executor-enable-timer) ended 'cancelled' while pending, never executed; each issue stayed open with ZERO comments, so the requester sees nothing. Cause: .github/workflows/system-actions.yml:274-276 has one shared concurrency group 'system-actions' with cancel-in-progress: false. GitHub still keeps only ONE pending run per group, so a newer request cancels the older pending one. With several lanes filing (e.g. the 09:22Z tradeify round-trip-dry), an OA-03 de-risk step (timer disable) was lost without trace. Proposed fix (Tier-1 CI, manager review): either (a) a sweeper that, on a system-actions run concluding 'cancelled', comments on and re-labels its issue so it is re-dispatched (or at least says 'cancelled — re-file'); or (b) per-action concurrency groups for read-only actions. Note: GitHub's single-pending limit means queueing alone cannot fix it; the drop must be made visible and retried."
+}

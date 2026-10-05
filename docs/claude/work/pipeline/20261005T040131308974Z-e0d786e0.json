@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either a production caller of event_store.write_events/write_event_links/resolve_all exists outside tests, and thesis_tick passes watched_events_by_symbol/signal_ids_by_symbol through, with a test asserting the join fires end-to-end; OR the M28 design doc is corrected to state P2 is built-but-unwired",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAA05-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-11",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A05, finding CA-A05-002",
+    "rerun": "grep -rln \"write_event_links(|resolve_all(|write_events(|write_signals(\" --include=*.py . | grep -v tests/ | grep -v macro_thesis/event_store.py -- currently empty outside the module itself. Also check thesis_tick.py for watched_events_by_symbol/signal_ids_by_symbol being passed to form_theses_from_reads. Finding holds while both remain empty/unpassed."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A05-002, MEASURED 2026-09-27): the M28 design doc (docs/research/M28-macro-value-speculation-DESIGN.md:10-13) states P2 (event resolver + store + calendar feed) is \"DONE\", but no production code path anywhere in the repo calls event_store.write_events / write_event_links / resolve_all, or macro_signals.write_signals / make_signal, outside their own module and tests. No macro_events.jsonl / macro_signals.jsonl / thesis_event_links.jsonl exists anywhere in comms/macro/ (which has 26 other producer outputs). thesis_tick.py:130-137 (the only production entrypoint, called from src/main.py:1153-1154) never passes watched_events_by_symbol or signal_ids_by_symbol into form_theses_from_reads. Every thesis the live tick has ever formed carries watched_events=[] and signals=[] (thesis_engine.py defaults). The event-resolver DSL, event_store, and macro_signals store are fully built and unit-tested in isolation but have zero producer and zero consumer in production -- built but never wired, contradicting the design doc's DONE status. FIX: either wire econ_calendar_data.py's parsed events into event_store.write_events and thread watched_events_by_symbol/signal_ids_by_symbol through thesis_tick, or correct the design doc's status to \"built, not wired\" so a future session does not assume this join is live. Full finding: docs/audits/code-audit-2026-09-27/CA-A05.findings.jsonl id CA-A05-002."
+}

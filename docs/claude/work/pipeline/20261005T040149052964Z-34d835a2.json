@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "report.json carries a HOLDOUT (time-aware, not in-sample) brier/ece per strategy beside the in-sample ones, AND states coverage as fit/total strategy names so the raw-fallback population is visible; OR the operator records that in-sample reporting is accepted for these reference calibrators.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-AHCVAAF5-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "ml-review 2026-10-04 lane (manager session_01MM8o5js6TcDFeNAPBY4Ntv), session_011rsPvFXySRXoyMAHcvAAF5, comms/reviews/ml-review-20261004-125000.json",
+    "rerun": "trainer-vm-diag cmd: cat /home/ubuntu/ict-trading-bot/artifacts/calibration/report.json | python3 -c \"import json,sys;d=json.load(sys.stdin);print({k:(v['n'],v['ece_calibrated'],v.get('ece_holdout')) for k,v in d.items()})\"; and grep strategy_name runtime_logs/trainer/dataset_audit.jsonl | tail -1 for the trade_outcomes n_unique."
+  },
+  "routed_to": "ML-HYGIENE — calibrator report holdout metrics (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "low",
+  "state": "routed",
+  "tier": 1,
+  "what": "Confidence-calibrator coverage and quality cannot be read off artifacts/calibration/report.json as written: 6 strategies are fit (fade_breakout, fvg_range, htf_pullback_trend_2h, ict_scalp_5m, squeeze_breakout, trend_donchian; isotonic; refreshed 2026-10-04T06:31:48Z, calibrators_ok each cycle) and every one reports ece_calibrated = 0.0 exactly with reliability bins where mean_pred == frac_pos to 4 decimals -- that is isotonic regression evaluated on its own fit set, an in-sample number that cannot say 'we did not look out of sample'. Coverage is also unstated: the trade_outcomes dataset carries 48 strategy_name values (dataset_audit 2026-10-04) against 6 calibrators, so ~42 strategies (every trend_donchian_* variant, the pullbacks, pairs) fall back to raw normalization in the live conviction stamp, and the report does not say so. Measured trainer-vm-diag #16329."
+}

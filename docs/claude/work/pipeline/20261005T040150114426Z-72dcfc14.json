@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "(a) and (b) merged with tests, or each killed with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-GCFA5DOR-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "dispatch_lane",
+  "notes": [
+    "2026-10-04 lane OPS-FIXES: NOT done -- same files as #16392; a follow-up branch after #16392 lands. Listed in docs/plans/ops-decisions-2026-10-04.md section C."
+  ],
+  "origin": {
+    "kind": "session",
+    "ref": "Lane OPS-AUDIT session_01NQGspf9jnJZ81SGcfA5doR (manager session_01MM8o5js6TcDFeNAPBY4Ntv), docs/audits/system-audit-2026-10-04.md",
+    "rerun": "grep -n 'def submit_label_mismatch' -A45 src/prop/platform/dxtrade.py | grep -c limit_price -- 0 = (a) still open."
+  },
+  "routed_to": "PROP-SUBMIT-LABEL — OA-07 submit_label_mismatch limit-price check is that row exactly (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "OA-07 (LOW, prop). (a) submit_label_mismatch (dxtrade.py ~4826-4870) checks side, qty and symbol but not the limit price. tradeify's price field reverts to a market-derived price unless it sees typing, and the 03:40Z breakout_1 submit label moved from 'at 120.91' to 'at 120.94' after the click. Proposed: for a LIMIT order, refuse when the label price differs from spec.limit_price by more than price_step. (b) classify_confirmation uses rel tol 0.02 on SL/TP (prop_executor.py ~583), so a terminal-default SL within 2% reads as bracketed. Proposed: tolerance of price_step. (c) The shared Chromium reinstall runs under breakout's login.lock while tradeify's tick holds only its own lock (breakout_login_check_action.sh ~455/532). (d) symbol_map reads breakout_routing.yaml for every account."
+}

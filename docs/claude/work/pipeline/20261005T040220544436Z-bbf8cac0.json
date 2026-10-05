@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "link-state-dump on tradeify_1 lists its watchlist rows (or the mode is retired for tradeify with a stated reason), or killed with a reason",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261002-EFKI6YYD-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-22",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "TRADEIFY-GOLIVE lane session_01Db47kLwhEpWPNaEfki6yYD; issue #15687",
+    "rerun": "Dispatch breakout-login-check account tradeify_1 apply: link-state-dump; the bug stands while link_state_dump.rows is [] although the watchlist (instrument-info-dry watchlist_diff) lists symbols."
+  },
+  "routed_to": "PROP-EXEC [route; size S, value L, tier 1] BACKLOG-ROUTE 2026-10-04: dxtrade.py LINK_STATE_DUMP_JS reads rows only inside the header table's widget container scope (lines ~3772-3779), while WATCHLIST_SYMBOLS_JS reads document-wide; no later fix found. Live reproduction not run. | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — LINK_STATE_DUMP_JS (dxtrade.py:3723) not changed for split header/row tables per this check; unverified live",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "link-state-dump (LINK_STATE_DUMP_JS) reads watchlist rows only inside the Symbol/Bid/Ask HEADER table. tradeify_1 renders its watchlist header and rows as two SEPARATE tables (MEASURED #15602/#15648), so link-state-dump #15687 (run 37067249993) reported rows: [] and a header-only tr while the watchlist held ETHUSD, SOLUSD, XRPUSD (re-read by instrument-info-dry #15684-#15686). The dump therefore cannot show tradeify's row state. Read path only; WATCHLIST_SYMBOLS_JS already handles the split."
+}

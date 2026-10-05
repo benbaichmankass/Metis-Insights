@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "a symbol-switch-dry on breakout_1 shows the ticket field route picking (switch.route == 'ticket_field', ok) OR the field route is retired in code with the new_tops evidence cited.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261001-QUROBE9Z-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "#15139 symbol-switch-dry result (PROP-ETH-DOM lane session_01HS7ws2n8c57QMUquRobE9z, manager session_01HYq6XtfesZ57VyaQrK6CL1)",
+    "rerun": "Open a system-action issue (label system-action): action: breakout-login-check, account: breakout_1, apply: symbol-switch-dry, symbols: ETHUSD. In the result read switch.route and switch.ticket_route.pick.{n_candidates,field_value,new_tops}. route == 'watchlist' with n_candidates 0 = still open."
+  },
+  "routed_to": "PROP-EXEC (re-pointed from PROP-EXEC (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[prop/breakout_1] The order ticket's own Symbol field lists NO dropdown row when typed into (MEASURED #15139, 2026-10-01 11:30Z, code 858196797: typed 'SOLUSD' then 'sol', n_candidates 0; the only exact-text match was the watchlist tr.instrument, correctly rejected). The PRIMARY per-ticket route (select_ticket_symbol, manager comment 5928196365 on #15070) therefore never picks on breakout_1, and every switch runs on the ALTERNATIVE verified watchlist click, which works (#15139 restore ok, ticket_after SOLUSD). Not a go-live blocker (operator go-live rule 2026-10-01). Next: after #15138 deploys, run one symbol-switch-dry ETHUSD. Read pick.field_value (did the fill land?) and pick.new_tops (what typing rendered). Then either fix the field route or retire it, citing that evidence."
+}

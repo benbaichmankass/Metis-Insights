@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "#16498 observed on the live VM: /api/diag/version git_sha contains 70ec92b3, and either the journal shows an Alpaca flat-finalise logging 'flat-close cancel of trade ... own Alpaca protection' with a retCode, or 7 days pass with no Alpaca short opened by a resting stop on a flat row. Part (a) needs no further action (decided: leave).",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-01CGDPN9-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-11",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "FIX-CA-01 / PR #13187 follow-ups",
+    "rerun": "grep -n 'def cancel_trade_protection' src/units/accounts/alpaca_client.py (absent = finding holds); grep -n '_cancel_closed_row_protection' src/runtime/order_monitor.py and check whether _netting_apply_close calls it."
+  },
+  "routed_to": "FIX-CA-01 — part (b) merged in #16498; observation only (manager note kept in history) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "HIGH (FIX-CA-01 follow-up, from reading the code 2026-09-27): PR #13187 wires the trade-scoped protection cancel into the watchdog, reconciler_filled and netted-sibling flat-finalise paths, but NOT into (a) _netting_apply_close (attribution close; the netted position may still be open, so the closed row's group may be the remainder's only protection -- needs a decision rather than a blind cancel), or (b) Alpaca: AlpacaClient has no cancel_trade_protection, so an Alpaca row finalised flat by the watchdog leaves its OCO legs resting, and a resting SELL stop on a flat equity OPENS A SHORT. Build: AlpacaClient.cancel_trade_protection that cancels the row's own bracket, plus a decision on (a)."
+}

@@ -1,0 +1,26 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "EITHER the mes-regime-5m-lgbm-v2 minus mes-regime-5m-baseline-v1 macro_f1 margin is back >= 5.0 points on a subsequent cycle (dataset settled), OR it stays < 4.0 points for 3 consecutive cycles -> open a [refinement] row per docs/claude/model-refinement-lifecycle.md (drift-remediation skill step 2: dataset/regime-mix shift diagnosis) and propose the Tier-3 soft-off only after that attempt.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-AHCVAAF5-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-15",
+    "how_to_check": "GET https://ict-bot.duckdns.org/api/bot/ml/registry -> for model_id in (mes-regime-5m-lgbm-v2, mes-regime-5m-baseline-v1): runs[-1].metrics.macro_f1 minus runs[-2]; report the advisory-minus-baseline margin per cycle. Trainer side: tail runtime_logs/trainer/dataset_builds.jsonl for family market_raw symbol MES and dataset_audit.jsonl for mes-regime-5m-lgbm-v2 n_rows.",
+    "what": "EITHER the mes-regime-5m-lgbm-v2 minus mes-regime-5m-baseline-v1 macro_f1 margin is back >= 5.0 points on a subsequent cycle (dataset settled), OR it stays < 4.0 points for 3 consecutive cycles -> open a [refinement] row per docs/claude/model-refinement-lifecycle.md (drift-remediation skill step 2: dataset/regime-mix shift diagnosis) and propose the Tier-3 soft-off only after that attempt."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "ml-review 2026-10-04 lane (manager session_01MM8o5js6TcDFeNAPBY4Ntv), session_011rsPvFXySRXoyMAHcvAAF5, comms/reviews/ml-review-20261004-125000.json",
+    "rerun": "GET https://ict-bot.duckdns.org/api/bot/ml/registry -> for model_id in (mes-regime-5m-lgbm-v2, mes-regime-5m-baseline-v1): runs[-1].metrics.macro_f1 minus runs[-2]; report the advisory-minus-baseline margin per cycle. Trainer side: tail runtime_logs/trainer/dataset_builds.jsonl for family market_raw symbol MES and dataset_audit.jsonl for mes-regime-5m-lgbm-v2 n_rows."
+  },
+  "routed_to": "ML-HYGIENE — mes regime advisory vs baseline margin (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 3,
+  "what": "mes-regime-5m-lgbm-v2 (ADVISORY, order-influencing) and its two candidate siblings all moved on the SAME 2026-10-04 cycle while the baseline rose: mes-regime-5m-lgbm-v2 macro_f1 0.7132 -> 0.7023, mes-regime-5m-lgbm-macro-v1 0.7314 -> 0.6695, mes-regime-5m-lgbm-yz-v1 0.7242 -> 0.6838, mes-regime-5m-baseline-v1 0.6443 -> 0.6657 (GET /api/bot/ml/registry latest_run vs runs[-2], read 2026-10-04T12:30Z; all n_eval 7719). The advisory head's margin over its own baseline shrank from +6.9 to +3.7 macro_f1 points in one cycle; the MES 5m market_raw was rebuilt at 05:33Z the same morning, so the common cause is the dataset, not three independent regressions. Live: drift moderate (KS 0.1210 PSI 0.1719), RG4 live regime AUC 0.747, stage-guard hold -- WATCH, not a demote trigger."
+}

@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "either a producer for btc-regime-5m-lgbm-flow-v1-offload is built and it is promote-staged back to shadow with its declared features present in >=1 live shadow row, or the operator kills the head with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260929-K85Q64SF-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-21",
+  "ml_review_2026_10_04": "2026-10-04: the live half is now OBSERVED -- api/bot/shadow/stats?model_id=btc-regime-5m-lgbm-flow-v1-offload last_seen 2026-09-29T11:55:16Z, zero rows since; registry stage candidate (GET /api/bot/ml/registry). The soak stopped accruing as intended. Still owed: the producer-or-kill decision (ask_operator) -- surfaced as a decision in the 2026-10-04 ml-review record.",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-02",
+    "rerun": "trainer-vm-diag: base64 probe over ml/registry-store/registry.jsonl + runtime_logs/shadow_predictions*.jsonl* (active+gz archives) — declared feature keys vs union of feature_row keys with non-null values; issue #14147 has the script"
+  },
+  "routed_to": "ML-HYGIENE | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — No live order-flow producer feeding shadow row at HEAD (regime_shadow.py:326 side-stream not served).",
+  "state": "routed",
+  "what": "JC-SA-02 (a) DEMOTED shadow->candidate on the trainer registry 2026-09-29 (lane ML-DEMOTE): btc-regime-5m-lgbm-flow-v1-offload. Re-measured: 7 of 13 declared features served; ofi, ofi_zscore, vpin, order_imbalance, rel_spread_mean, microprice_dev absent; n=8448 shadow rows (active 873 + 3 gz archives); no producer in src/. NOTE: this head was promoted candidate->shadow by the operator 2026-08-29 (R3 offload-transport proof), so this demotion reverses an operator-approved transition on new evidence. While the declared features are never served, its soak days measure nothing. To return: build a live order-flow producer (the ict-orderflow-capture side-car exists on the trainer VM, scripts/ml/orderflow_capture.py, but nothing feeds the live shadow row), then promote-stage back to shadow. Option (b) applies only with a research case. Merged/deployed/observed: registry stage OBSERVED candidate on the trainer VM (issue #14152); the live shadow factory refusing it after the next registry-mirror sync is NOT yet observed."
+}

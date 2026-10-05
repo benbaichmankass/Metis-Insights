@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 8,
+    "clears_when": "a fix for CA-A01-005 is merged with a test that fails on the old code (detector: test: _apply_update with _send_close_to_exchange returning the verbatim archived 110017 pybit message must close the leg and leave _CLOSE_FAIL_STREAK empty.), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-KFWRL9R1-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-005 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-005 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:1092-1114 on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "routed_to": "PROTECTION-HARDENING — FIXED AND DEPLOYED, NOT DONE: #16492/01dfd61 + 6c465e0 + 70ec92b are contained in the live git_sha 95c9faec2 (restart_pending false, manager read 2026-10-04); done needs this path observed firing on the live trader — rides the PROTECTION-HARDENING row observation due 2026-10-11 (#16516) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "HIGH (code audit CA-A01-005, MEASURED): The close path's 'position already closed on the exchange' recogniser never matches the real Bybit rejection, so a monitor close of a position whose broker SL/TP already fired is treated as a genuine close FAILURE (DB left open, fail streak, 'won't flatten' page) instead of a completed close. LOCATION: src/runtime/order_monitor.py:1092-1114. PROPOSED FIX: Match on the numeric code in any format (regex r'(retCode=|ErrCode: ?)(110017|30031)\\b') and on 'position is zero'; better, have close_open_position return a structured ret_code field and branch on it. Drop 110025 (Bybit 'position mode not modified' - unrelated to flatness) after checking the V5 code table."
+}
