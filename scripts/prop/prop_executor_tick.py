@@ -82,7 +82,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.prop import prop_executor as pe  # noqa: E402
-from src.prop.platform import FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
+from src.prop.platform import API_PLATFORMS, FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV, EXIT_NO_SESSION = 0, 1, 3, 4, 5, 6
 # A secondary test that stood aside for a live ticket (the tick wins).
@@ -490,6 +490,12 @@ def main(argv: Optional[list] = None) -> int:
             emit({"deferred": f"{len(waiting)} live ticket(s) waiting ({', '.join(waiting[:3])}); "
                               f"the executor tick wins -- re-dispatch this {mode} after it is placed"})
             return EXIT_DEFERRED
+    if cfg_plat["platform"] in API_PLATFORMS:
+        # The REST order path has no browser tick yet (VELOTRADE-API-EXEC):
+        # refuse before Chromium instead of driving a REST host as a page.
+        emit({"feasibility": "api_platform",
+              "why": f"{cfg_plat['platform']} is driven over REST; this browser tick does not run it"})
+        return EXIT_FEASIBILITY
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000

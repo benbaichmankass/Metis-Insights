@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "VELOTRADE-API-EXEC: new dxtrade_api platform adapter (DXtrade REST order path: IF-THEN bracket in one POST, 409/100 = already placed, ETag/If-Match with one 412 retry, 429 backoff, one-instrument Bulk Close flatten), DRY BY DEFAULT (arm=False builds and never sends). velotrade_1 switched to platform dxtrade_api with REST-measured lots; it stays mode dry_run with an EMPTY roster and enabled_venue_symbols [], kill switch unset. The browser scripts refuse an API platform. No strategy, roster, mode or risk change.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 order-path adapter. Operator decision relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv (popup 2026-10-05 ~14:48Z), verbatim: \"Build it + pre-approve test\". The dispatch authorizes the lane to merge after green CI."
+}

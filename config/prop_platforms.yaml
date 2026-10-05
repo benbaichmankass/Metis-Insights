@@ -262,11 +262,21 @@ accounts:
   # same login markers the Breakout/Tradeify selectors were measured on.
   # NOT measured: a login, the post-login DOM, symbol display names, lots,
   # price steps, the order-ticket opener, one-click state.
-  # Velotrade also serves the DXtrade REST API (/dxsca-web, deep-dive § 1.1);
-  # this entry drives the BROWSER terminal like tradeify_1, nothing else.
+  # Velotrade also serves the DXtrade REST API (/dxsca-web, deep-dive § 1.1).
+  #
+  # platform dxtrade_api (VELOTRADE-API-EXEC, 2026-10-05; operator decision
+  # relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim "Build it +
+  # pre-approve test"; design docs/research/velotrade-api-executor-design-2026-10-05.md):
+  # orders go over the REST API (src/prop/platform/dxtrade_api.py), not the
+  # browser ticket. login_url is the REST BASE. MEASURED: the REST login and
+  # reads work from the VM egress (#16616); the account is positionBased: true
+  # (#16631), so a bracket is ONE IF-THEN POST with no naked window.
+  # The browser scripts (breakout_login_check, prop_executor_tick) REFUSE an
+  # API platform (exit feasibility) rather than drive a REST host as a page.
+  # Revert to the browser path: platform: dxtrade, login_url: https://dx.velotrade.com/
   velotrade_1:
-    platform: dxtrade
-    login_url: https://dx.velotrade.com/
+    platform: dxtrade_api
+    login_url: https://dx.velotrade.com/dxsca-web
     username_env: VELOTRADE_DX_USERNAME
     password_env: VELOTRADE_DX_PASSWORD
     # Kill switch: PROP_EXECUTOR_MODE_VELOTRADE_1 (off | read_only | live,
@@ -278,9 +288,16 @@ accounts:
       safety_margin_usd: 5
       unconfirmed_reads: 3
       confirm_rel_tol: 0.02
-      # EMPTY ON PURPOSE: no Velotrade lot size, step, minimum or price step
-      # is measured. A symbol with no entry is REFUSED by the structure guard.
-      lots: {}
+      # MEASURED 2026-10-05 12:43Z over REST, account-scoped instruments
+      # (issue #16616, run 37311474412; docs/research/velotrade-api-probe-2026-10-05.md
+      # § 1). Units = lots (lotSize 1). SOLUSD min is 0.1 here, NOT Tradeify's
+      # 0.01; XRPUSD steps in 10s. These SIZE nothing on their own:
+      # enabled_venue_symbols stays empty and the roster is empty.
+      lots:
+        ETHUSD: {lot_units: 1, lot_step: 0.01,  min_lots: 0.01,  price_step: 0.01}
+        SOLUSD: {lot_units: 1, lot_step: 0.1,   min_lots: 0.1,   price_step: 0.001}
+        XRPUSD: {lot_units: 1, lot_step: 10,    min_lots: 10,    price_step: 0.00001}
+        BTCUSD: {lot_units: 1, lot_step: 0.001, min_lots: 0.001, price_step: 0.01}
       watched_click_max_lots: {}
       # Nothing may be acted on. A symbol joins only after its lots are
       # measured AND it passes the dry round trip, in a separate go-live PR.
