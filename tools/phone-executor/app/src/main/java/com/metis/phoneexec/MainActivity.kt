@@ -201,7 +201,9 @@ class MainActivity : Activity() {
                 else -> "other"
             }
             if (st != lastState) {
-                if (st == "login" && lastState == "logged_in") api.event("logout_seen", "")
+                // Any arrival at the login page pings at once (also right after a restart), so one human tap can
+                // re-log in while auto re-login is unconfigured or latched. No claim/fill/submit happens while logged out.
+                if (st == "login") api.event("logout_seen", if (Store.get(this, Store.INBOX_PASS) == null || Store.flag(this, Store.RELOGIN_LATCHED)) "LOGGED OUT: open the app and log in (no orders until then)" else "logged out; trying auto re-login (no orders until logged in)")
                 if (st == "challenged") api.event("error", "challenge page shown; executor stopped (no solving, no retry loop)")
                 lastState = st
             }

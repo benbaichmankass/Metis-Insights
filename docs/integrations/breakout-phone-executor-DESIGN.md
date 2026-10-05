@@ -592,6 +592,11 @@ By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the le
 
 **ACCEPTED RISK, terms (operator decision ~15:52Z, verbatim, relayed by the manager):** "we'll take the risk without reviewing the terms, but we still need build automatic re-login". This replaces the dispatch's terms-read gate. The full Terms of Service stay unread, and `PI-20261005-9HEP9LYP-0003` is closed `killed` with these words. The first-party FAQ reading below is kept as context only. It decides nothing.
 
+**CORRECTION, re-login is not a go-live gate (operator ~15:59Z, verbatim, relayed by the manager):** "automatic log in is not required to go live, it's just a priority and needs to happen even without the terms". This supersedes the manager's 15:52Z line that made automatic re-login REQUIRED for go-live.
+- **Go-live path:** phone executor and ticket channel, then the dry ticket end to end, then the live flip. It runs on the current manually logged-in session.
+- **Automatic re-login:** built in this same PR. It is not on the go-live path, and the unread terms do not block it.
+- **Until auto re-login is configured and proven:** the app pings the operator at once whenever it lands on the login page (`logout_seen`), including right after a restart, so one human tap re-logs in. While logged out the app fails closed: no claim, no fill, no submit.
+
 **Terms read for this phase (first-party help centre, `intercom.help/breakoutprop`, 2026-10-05).** The full Terms of Service / Funded Trader Agreement still returned HTTP 403 and are **unread**.
 - *Prohibited practices* (article 11644090) lists no clause on automation, bots, scripts or software.
 - That article **does** prohibit "sharing account access, or trading multiple accounts from the same household, device, or IP address".
