@@ -1,7 +1,7 @@
 id: RQ-20261005-814
 title: 'Breakout 1-Step Turbo $5k prop fit (730d): trend_donchian_sol_prop at FLAT sizing (0.5% and 1.0% of the $5k start) (lane PHONE-EXEC-1B, roster for the
   phone-executed Breakout account)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -83,3 +83,5 @@ related:
 - config/prop_rulesets/breakout_turbo_1step.yaml
 - research/queue/RQ-20261005-807.yaml
 - docs/integrations/breakout-phone-executor-DESIGN.md
+last_dispatched_at: '2026-10-05T15:30:00+00:00'
+result: "GRADED 2026-10-05 by lane PHONE-EXEC-1B against this unit's own rule (registered before the run): NULL (indeterminate) on both arms, NOT a fail. trend_donchian_sol_prop n=132: F050 ($25) ev +$12.67..+$15.45, P 0.198-0.207; F100 ($50) ev +$26.67..+$29.50, P 0.193-0.212. Sizing rule -> $50 for this leg. NOT applied: risk_pct is account-level and per-leg prop sizing is not built; breakout_2 runs $25 (ETH's pick, the n=355 leg), still ev > 0 on every SOL seed. Per-leg sizing filed PI-20261005-YUVCGTMJ-0006."
