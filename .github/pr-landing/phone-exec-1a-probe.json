@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "New sideloadable Android WebView probe under tools/phone-probe/ plus a workflow that builds its debug APK as an artifact (phase 1a of docs/integrations/breakout-phone-executor-DESIGN.md). Read-only app: no order, no tap on the Breakout page, no stored credential; no src/, config/, VM or order-path change."
+}
