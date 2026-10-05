@@ -126,7 +126,8 @@ def main() -> int:
         _out(f"users: http={st} shape={type(js).__name__} keys={sorted(js.keys()) if isinstance(js, dict) else 'n/a'}")
         accounts = []
         if isinstance(js, dict):
-            cand = js.get("users") if isinstance(js.get("users"), list) else [js]
+            ud = js.get("userDetails")
+            cand = [ud] if isinstance(ud, dict) else js.get("users") if isinstance(js.get("users"), list) else [js]
         elif isinstance(js, list):
             cand = js
         else:
@@ -134,7 +135,7 @@ def main() -> int:
         for u in cand:
             if isinstance(u, dict):
                 accounts.extend(u.get("accounts") or [])
-        _out(f"users: accounts={len(accounts)}")
+        _out(f"users: accounts={len(accounts)}" + (f" userDetails_keys={sorted(js['userDetails'].keys())}" if isinstance(js, dict) and isinstance(js.get('userDetails'), dict) else ""))
         codes = []
         for a in accounts:
             c = a.get("accountCode") or a.get("account") or a.get("code") if isinstance(a, dict) else a
