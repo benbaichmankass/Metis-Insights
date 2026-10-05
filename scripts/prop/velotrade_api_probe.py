@@ -27,6 +27,12 @@ import urllib.request
 
 BASE = "https://dx.velotrade.com/dxsca-web"
 SYMBOLS = ["ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD"]
+# Account fields that describe the account's TYPE, not its identity. Printed by
+# value; anything not listed here (account code, owner, ids) is never printed.
+# `isPositionBased` is the spec's name (rest/types/account-details.md: "shows if the
+# account is Position-based or Net-based"); `positionBased` kept in case the server differs.
+ACCOUNT_TYPE_FIELDS = ("isPositionBased", "positionBased", "accountStatus", "baseCurrency",
+                       "accountType", "type", "status", "marginMode", "marginCalculationType", "hedging")
 SPEC_FIELDS = (
     "symbol", "type", "currency", "lotSize", "multiplier", "priceIncrement",
     "pipSize", "quantityIncrement", "assetClass", "tradingStatus",
@@ -168,6 +174,14 @@ def main() -> int:
         _SECRETS.extend(codes)
         if accounts and isinstance(accounts[0], dict):
             _out(f"account_keys: {sorted(accounts[0].keys())}")
+            # Non-identifying account TYPE fields only (VELOTRADE-WIRE, API order path):
+            # order groups (IF-THEN brackets) are valid only on a position-based account.
+            # Booleans / short enums from a fixed allowlist; never codes, names or ids.
+            for n, a in enumerate(accounts, 1):
+                if isinstance(a, dict):
+                    kept = {k: a[k] for k in ACCOUNT_TYPE_FIELDS
+                            if k in a and isinstance(a[k], (bool, int, float, str)) and len(str(a[k])) <= 32}
+                    _out(f"account#{n} type: {json.dumps(kept, sort_keys=True)}")
 
         for n, code in enumerate(codes, 1):
             q = urllib.parse.quote(code, safe="")
