@@ -483,6 +483,17 @@ no-account scope) and touches the live `breakout_1` account (risk 3), so it is *
 
 **Operator-reported progress (2026-10-05 about 08:30Z, relayed by the manager, NOT captured by the probe):** the operator says they logged in to the breached account successfully on both Wi-Fi and mobile data. **Not established:** whether that login was inside the probe app or in Chrome, whether it was a WebView at all, whether any code / 2FA step appeared, and what the page looked like. No report has been pasted, so this line answers none of the table's cells. If it was Chrome, it adds only that the account logs in from the phone on both networks, which § 7.8 already had for LTE in Comet.
 
+**First probe report (operator-pasted JSON, 2026-10-05 about 08:22-08:26Z; relayed to this lane as a summary by the manager, not read in full; breached `breakout_1` DX account on `app.breakoutprop.com`; Pixel 9a, Android 16, WebView 153, `ua_wv_marker` true).** Navs: cellular `other_served` (22 elements), cellular `login` (911 elements, password marker, 2 inputs, 1 button), cellular post-login `other_served` (980 elements, 2 iframes, 7 buttons, 0 inputs, no buy / sell / send marker), Wi-Fi `other_served` (41 elements, 1 iframe). `cf_mitigated` false and `blocked` false on every nav; code / 2FA markers false. `captures` empty. `fixtures` held only the feature flags. `session.first_login_seen_at` 08:22:42Z.
+
+| GO-BUY criterion (registered above) | state | evidence and limit |
+|---|---|---|
+| App loads the site, not challenged, on both networks | **met** for `app.breakoutprop.com` | no challenge or block on any of the 4 navs, cellular and Wi-Fi. Not the new `trade.` host. |
+| Login survives in the WebView | **partly met** | the login page rendered and the next nav is a non-login page, so the sign-in worked once. Session lifetime and recurrence of a code step are NOT measured (no recheck is in the relayed summary). |
+| A capture returns a non-empty shape for the logged-in page | **NOT met** | `captures` is empty. Nav summaries carry counts only. |
+| At least one typing route registers (Fixtures) | **NOT met (no data)** | only the feature flags were recorded; the run was probably copied before it finished. |
+
+By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the letter. The two open items are local to the phone and the app, need no purchase, and do not depend on the new account, so they can be closed on the breached account before or after the $20 purchase. The purchase risk itself is small ($20, look-only) and the operator has chosen it, so this is a note on the evidence, not a block. The post-login page has 0 inputs, 7 buttons and 2 iframes and no buy / sell marker: it reads as a dashboard, not an order ticket. Whether the ticket sits inside one of those iframes is open.
+
 **Verdict: none yet.** No phone run exists, so neither GO nor STOP is established. Criteria registered before the run:
 
 - **STOP (structural):** the public page is challenged or blocked in the WebView on both networks; or login is refused or loops in the WebView; or a code / 2FA step recurs on every login; or the order ticket is a canvas with no readable controls; or the session does not survive an hour.
