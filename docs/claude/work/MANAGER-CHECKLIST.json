@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-10-05T06:46:00Z",
+  "updated_at": "2026-10-05T06:53:00Z",
   "updated_by": "session_01MM8o5js6TcDFeNAPBY4Ntv",
   "last_review": {
     "_comment": "Set by the manager's daily review (manager SKILL \u00a7 'The work system'): the WR-YYYYMMDD-HHMMZ report it worked from GET /api/bot/work/report, when, by whom, and disposition counts. Per-item dispositions live on the pipeline items. null = no review recorded yet.",
@@ -4969,7 +4969,7 @@
           "what": "Chrome + Wi-Fi step-zero results; resume after meeting"
         }
       ],
-      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required."
+      "note": "[2026-10-04T09:00Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] PAUSED by operator ~08:30Z ('we can pause that lane'). Design doc docs/integrations/breakout-phone-executor-DESIGN.md merged (#16215, #16229). Step zero: app.breakoutprop.com served in Comet over LTE on the operator's phone (existing DXtrade account; not the new terminal). Resume needs the operator's Chrome + Wi-Fi step-zero results, then phase 1a only on manager go. No purchase until the lane says a login is required. [2026-10-05T06:52Z manager session_01MM8o5js6TcDFeNAPBY4Ntv] BREAKOUT-BLOCKERS verdict (#16570; FAQ quote re-verified by the manager): Breakout sells no new DXtrade accounts, so a re-buy lands on the proprietary terminal (VM is Cloudflare-blocked). Operator popup answer: 'Revisit the phone executor'. Still blocked on the operator's step-zero (design doc section 7.6: Chrome, home Wi-Fi + mobile data, one line) - requested in chat 06:53Z; on a pass the manager dispatches phase 1a only."
     },
     {
       "id": "PROP-FIRM-SCAN",
@@ -5315,19 +5315,36 @@
       "note": "2026-10-05 05:56Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv from the 05:52Z review. mandate_resolver --from S0 --to S1 returns R-NO-OP for these legs (it models roster membership, not the execution: shadow->live flip), so no granted mandate covers the flip; config edits come back as one Tier-3 hold PR. Lane may draft (not grant) a proposed mandate."
     },
     {
+      "id": "PROP-LIMIT-GUARD",
+      "title": "Pre-submit guard: never click submit on a marketable prop LIMIT (long >= ask / short <= bid); reuse awaiting_resting_price; protects live tradeify_1",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "manager-dispatched lane",
+      "lane": "session_017NKfdLEY6VtcraLnuhXbu5",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-05 06:52Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv; operator approved verbatim \"Yes, fix it now (Recommended)\". Tier-2 hold PR, manager merges + verifies deploy."
+    },
+    {
       "id": "BREAKOUT-BLOCKERS",
       "title": "Read-only verdict for the operator: is there a STRUCTURAL blocker to automated execution on Breakout DXtrade (gates buying a replacement account)?",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "manager-dispatched lane",
       "lane": "session_01P3B4ThDiTRvrKgiKGmv63B",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 10,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16570
+      ],
       "blocked_on": [],
-      "note": "2026-10-05 06:43Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv on operator popup answer \"Yes, assess blockers (Recommended)\". Same session: operator chose \"Set it to dry_run (Recommended)\" for breakout_1 ($4,698 vs $4,700 static floor, executor latched) -> set-account-mode issue #16568 (opens a Tier-3 hold PR; manager merges + verifies)."
+      "note": "2026-10-05 06:43Z dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv on operator popup answer \"Yes, assess blockers (Recommended)\". Same session: operator chose \"Set it to dry_run (Recommended)\" for breakout_1 ($4,698 vs $4,700 static floor, executor latched) -> set-account-mode issue #16568 (opens a Tier-3 hold PR; manager merges + verifies). 06:49Z verdict: STRUCTURAL - no new DXtrade accounts sold (Breakout FAQ 14215629, updated 2026-09-03, re-fetched by manager). DXtrade itself blocks nothing. 1 FIXABLE: PI-20261005-BRKBLOCK-0001 -> PROP-LIMIT-GUARD."
     },
     {
       "id": "PROP-FIT-POWER",
