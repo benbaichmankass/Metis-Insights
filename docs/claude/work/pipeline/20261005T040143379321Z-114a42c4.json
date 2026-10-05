@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "RQ-20260930-504 has produced a verdict.json on real harness output (so the sweep is proven at smaller scale) AND a 1m run route is chosen and registered in RQ-20260930-505's run block",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-LJF2ZFXF-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "HYRO-STRATS lane, session_011sppGNJr87nzGbLjf2zFxf; manager review of #14586 (runner has no candles) forced the 1m arm out of 504",
+    "rerun": "git ls-tree --name-only origin/main research/queue/blocked/RQ-20260930-505.yaml research/queue/RQ-20260930-505.yaml; git ls-tree --name-only origin/main research/results/RQ-20260930-504"
+  },
+  "routed_to": "RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "Choose and register a run route for the 1m arm of the short-timeframe discovery grid (RQ-20260930-505, blocked/): the runner's 330-minute cap cannot cover 30 cells over ~3M bars each, so it needs trainer-resident 1m candles plus a trainer-routed run, or a per-family split registered as a design change BEFORE any run (a split changes the Bonferroni denominator S). Operator asked for 1m in the grid on 2026-09-30; 504 covers 5m/15m/30m only."
+}

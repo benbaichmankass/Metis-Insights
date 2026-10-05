@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "A census over >= 60 days of closed bars for every donchian leg reports the count of closed-bar signals with no live directional eval in that bar, and the result is dispositioned: an eval-at-close fix is filed, or the rate is shown negligible.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-QZSE4AMA-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane LIVE-NO-TRADES (session_01XEHP2RTP24AZWSQZSE4AMA), dispatched by manager session_01HYq6XtfesZ57VyaQrK6CL1, 2026-09-30",
+    "rerun": "Replay src/units/strategies/trend_donchian.order_package over /api/bot/candles?symbol=<SYM>&interval=4h&limit=400, prefix by prefix, for every live and soak donchian leg. Compare closed-bar SIGNAL bars with audit_query?strategy=<leg>&side=buy|sell over the same bars."
+  },
+  "routed_to": "DONCHIAN-PARITY (re-pointed from DONCHIAN-PARITY (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[parity] Live donchian legs evaluate the FORMING bar; the backtest scores the CLOSED bar. A breakout whose confidence clears min_confidence only on the final close is never seen live. MEASURED 2026-09-30 by replaying trend_donchian.order_package() over /api/bot/candles XRPUSDT 4h: the 2026-09-15 16:00Z bar closes as a short breakout at conf 0.8325, which clears trend_donchian_xrp_4h's min_confidence 0.8, and the leg is short-only. Live audit for 15:50-20:10Z: 90 'no breakout' rows and 43 'confidence X below min_confidence 0.8' rows, max 0.7734. At 20:04Z the channel had rolled to [1.2886, 1.4916] and the setup was gone. That is one missed real-money short on bybit_2/bybit_portfolio. n=1 so far, and the replay has not been run across the other donchian legs.",
+  "why_it_matters": "If this recurs, the live fill rate of confidence-gated donchian legs is below the backtest's, and Gate 1/2 read a signal set the live book cannot take."
+}

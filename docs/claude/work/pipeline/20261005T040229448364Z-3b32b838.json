@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-26",
+    "kind": "date"
+  },
+  "id": "PI-20261004-IRWQEEXT-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-26",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN 2026-10-04 (session_01TGCaeyMya7i4qiirWQeeXT) grouping of the BACKLOG-ROUTE lane-type routings",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import pipeline as p;r=p.load(p.STORE);print({k:r.items[k]['state'] for k in r.items if 'BACKLOG-ROUTE 2026-10-04' in (r.items[k].get('routed_to') or '')})\""
+  },
+  "routed_to": "PROTECTION-HARDENING (lane session_017nt865EQaLPJszJ4SFBKu9, checklist row PROTECTION-HARDENING) | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — pipeline.load(): container routed to PROTECTION-HARDENING; members 13: 12 routed, 1 done (none closed). #16492 (10-05) landed part of the orphan hardening. | next: Close container only when membe",
+  "state": "routed",
+  "what": "[LANE PROPOSAL PROTECTION-AND-ORPHAN-HARDENING] Tier 2, L (2-3 PRs): order_monitor/reconciler/protection money-path defects from the 2026-09-27 code audit CA-A01/CA-A03 (orphan flatten on read failure, venue surplus undetected, paper-orphan overwrite, IB/hedge covered-qty, over-cover keeper qty, Bybit 110017 matcher). MEMBERS (13): PI-20260927-01CGDPN9-0002, PI-20260927-3QJJAY5Y-0001, PI-20260927-ENGC5EUD-0001, PI-20260927-ENGC5EUD-0004, PI-20260927-KFWRL9R1-0002, PI-20260927-KFWRL9R1-0006, PI-20260927-KFWRL9R1-0007, PI-20260927-KFWRL9R1-0008, PI-20260927-KFWRL9R1-0010, PI-20260927-KFWRL9R1-0011, PI-20260927-KFWRL9R1-0012, PI-20260927-KFWRL9R1-0013, PI-20260927-ZCQTDZZG-0001. Filed by BACKLOG-BURNDOWN 2026-10-04 for the manager to dispatch as a checklist row; member items are routed_to a lane TYPE until then."
+}

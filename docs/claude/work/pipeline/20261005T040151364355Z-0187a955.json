@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "soak_report.py --print-state shows shadow:could-not-look == 0 for every enabled, rostered shadow strategy",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-JC8KDKLF-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state  # shadow:could-not-look count"
+  },
+  "routed_to": "SOAK-WATCH — R5 shadow-package count (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "SOAK-WATCH: R5 (scripts/ops/soak_book_grade.py) records mechanics: null for every execution:shadow leg -- it never reads shadow order packages -- so 13 shadow soaks grade could-not-look in docs/claude/work/SOAK-REPORT.md: nobody can tell a shadow leg that is logging packages from one that silently stopped. Extend R5 (or soak_report.py) to count per-leg shadow order packages over the window so shadow soaks grade accruing vs dead."
+}

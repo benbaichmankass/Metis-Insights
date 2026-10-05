@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "The GLD wedge is root-caused and closed (the row is closed with the correct exit_reason), or it is shown that a stop rests at the venue throughout AND the wedge is a market-closed deferral that clears at the RTH open; or the manager kills it with a stated reason.",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-ZPDIPMDA-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ALPACA-REARM (session_01FWD56p45DUf3cUzpDiPmDA) observing the #14545 deploy, 2026-09-30",
+    "rerun": "diag_fetch 'journalctl?unit=ict-trader-live&lines=3000' | grep -E 'standing wedge|active close is in flight' ; then alpaca_open_orders for alpaca_paper GLD (is a stop resting?) and journal?table=trades for the open GLD row."
+  },
+  "routed_to": "PROTECTION-HARDENING (re-pointed from PROTECTION-HARDENING (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": 2,
+  "what": "alpaca_paper GLD: package pkg-6a8e3fb325464be3 (gld_pullback_1h) is a 'standing wedge'. The order monitor returns verdict close/sl_cross (exit_price 382.95) every ~30 s, and logs 'close RE-PROBE of a standing wedge ... last observed 415.2min ago (re-probe every 60min)' at 2026-09-30 06:18Z. So a stop-cross exit has been wanted for about 7 h without closing. Because of it, the Alpaca naked sweep skips GLD's re-arm on EVERY sweep ('an active close is in flight', now counted as active_close_skipped=1). The same skip already appeared on the 2026-09-29 18:55Z line. A position that the close cannot flatten, and that the sweep will not re-arm, can sit with no resting stop. NOT established: whether GLD currently has a resting stop at the venue, and why the close is wedged (it may be the market-closed deferral; 06:18Z is outside RTH). Paper account, so no real money is at risk, but the same interaction applies on alpaca_live."
+}

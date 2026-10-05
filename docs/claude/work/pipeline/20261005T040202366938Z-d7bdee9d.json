@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-18",
+    "kind": "date"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0006",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-18",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, manager round-2 review of #14581",
+    "rerun": "grep -n 'Left Qty\\|_QTY_NAMES' src/prop/platform/dxtrade.py; search the dump-tables probe outputs (breakout-login-check apply: dump-tables issues) for an orders row with Status reading partially filled"
+  },
+  "state": "queued",
+  "what": "UNVERIFIED: is the Breakout DXtrade orders-table 'Size' column the ORIGINAL order quantity or the REMAINING one after a partial fill? orders_from_tables (src/prop/platform/dxtrade.py) prefers 'Left Qty' but the MEASURED live headers (run 36358563148, issue #13385: Sts, Status, Symbol, Side, Size, Price, Type, Stop loss, Take profit, Current Price, Date and Time Modified, Expiration, Order ID, Fill Price) carry only 'Size'. The executor's match_terminal matches an order to its ticket by size, so this decides whether a partly-filled entry reads as 'placed' or 'not_found'. #14581 makes both cases safe (no miss is counted and no cancel is made while any position is open on the symbol+side), but the semantics decide which path runs. Establish from existing DOM dumps or DXtrade docs; NO live probe without a plan the manager has seen."
+}

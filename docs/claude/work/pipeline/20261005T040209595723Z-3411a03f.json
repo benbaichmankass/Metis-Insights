@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 16,
+    "clears_when": "drift-remediation/SKILL.md's required-gate list matches ml/promotion/gates.py's actual required= defaults (drop live_regime_discrimination from 'required', or mark it advisory-only for regime heads).",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-CAB09-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-20",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-drift-remediation-required-gate-stale",
+    "rerun": "grep -n 'require_live_regime_discrimination' ml/promotion/gates.py; grep -n 'live_regime_discrimination' .claude/skills/drift-remediation/SKILL.md"
+  },
+  "routed_to": "DOCS-DRIFT | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — drift-remediation/SKILL.md:30,34 still treat live_regime_discrimination as required; ml/promotion/gates.py:108,178 sets require_..=False.",
+  "state": "routed",
+  "what": "[ml-serving] .claude/skills/drift-remediation/SKILL.md (last verified 2026-09-07) lists live_regime_discrimination alongside non_degenerate/oos_edge/cross_run_stability/sample_sufficiency as 'a required capability gate' whose FAILED state means persistent-drift diagnosis. ml/promotion/gates.py:108 sets require_live_regime_discrimination=False, with an operator-approved 2026-07-19 (M25) comment stating the gate is ADVISORY ONLY under the regime profile -- the actually-required live gates for a regime head are live_parity + labels_accruing. Following the skill as written would misdiagnose a regime head's non-clearing (advisory-only, not required) live_regime_discrimination gate as evidence of persistent capability failure."
+}

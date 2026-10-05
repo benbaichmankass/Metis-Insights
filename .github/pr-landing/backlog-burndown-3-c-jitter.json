@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only records from lane BACKLOG-BURNDOWN-3 batch C -- cadence-only jitter of 330 younger open items (last read 2026-10-04) whose cadences/due_by would all lapse on 10-11 and 10-18; state, routing and the observation are unchanged and each record says it was NOT re-read. Cadence and observation.due_by move together so no day carries more than 24 due items. No code, config or runtime change."
+}

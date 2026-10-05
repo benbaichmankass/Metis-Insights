@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "config/strategies.yaml::slv_trend_1h.execution is not 'shadow' AND slv_trend_1h is on 'alpaca_paper''s roster, with enough real fills there to clear RULE-R3-GATE1-COST-FIDELITY-v1's floor (>=10 measured entries and >=10 exits per side)",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-JC8KDKLF-0010",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01JqGq9ffmH9ZCU5jc8kDkLF",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg slv_trend_1h --from S1 --to S2 --account alpaca_live --json"
+  },
+  "routed_to": "SOAK-WATCH — genuine Stage-1 soak on alpaca_paper (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "MD-PROMOTE-S1-S2: slv_trend_1h (S1 -> S2, alpaca_live) is NEEDS-DATA at R-EXECUTION-SHADOW -- slv_trend_1h needs a genuine Stage-1 soak on 'alpaca_paper' before MD-PROMOTE-S1-S2 can decide slv_trend_1h -> alpaca_live: it must be `execution: live` (not `shadow`) on that roster, then accrue real fills there -- 'Never a leg that has not soaked at Stage 1' (the mandate's own `never:`)."
+}

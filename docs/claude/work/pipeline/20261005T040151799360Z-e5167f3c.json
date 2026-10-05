@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "comms/strategy_evidence/sol_pullback_2h.json states n_trades_oos >= 30",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-JC8KDKLF-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01JqGq9ffmH9ZCU5jc8kDkLF",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg sol_pullback_2h --from S1 --to S2 --account bybit_2 --json"
+  },
+  "routed_to": "SOAK-WATCH — accrue OOS trades to the mandate floor (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "MD-PROMOTE-S1-S2: sol_pullback_2h (S1 -> S2, bybit_2) is NEEDS-DATA at R-N -- sol_pullback_2h's Stage-0 record states n_trades_oos=18, below the mandate's floor of 30 closed trades -- accrue more history or re-run the harness over a longer window."
+}

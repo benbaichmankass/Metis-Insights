@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "either the dead safe_place_order MAX_* guards and the per-tick risk_counters inject calls are deleted, or a decision to wire specific guards into multi_account_execute is recorded on the ORDER-AUDIT-2 checklist row",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261001-IDQ1HLJD-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-22",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-22",
+    "how_to_check": "grep -rn 'inject_runtime_counters(\\|inject_per_strategy_counters(' src/runtime/pipeline.py; grep -rn 'MAX_DAILY_LOSS_USD\\|MAX_OPEN_POSITIONS' config/  # calls present + no config => still open",
+    "what": "either the dead safe_place_order MAX_* guards and the per-tick risk_counters inject calls are deleted, or a decision to wire specific guards into multi_account_execute is recorded on the ORDER-AUDIT-2 checklist row"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "ORDER-AUDIT-2 lane session_01MEyTMDNj3ZYV2ziDq1hLJd (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-01; PR #15306",
+    "rerun": "grep -rn 'inject_runtime_counters(\\|inject_per_strategy_counters(' src/runtime/pipeline.py; grep -rn 'MAX_DAILY_LOSS_USD\\|MAX_OPEN_POSITIONS' config/  # calls present + no config => still open"
+  },
+  "routed_to": "ORDER-AUDIT-2 | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — src/runtime/pipeline.py:1131,1134 still call inject_runtime_counters/inject_per_strategy_counters; no safe_place_order caller in src.",
+  "state": "routed",
+  "what": "Decision owed (ORDER-AUDIT-2 item 2 remainder): safe_place_order (src/runtime/orders.py) has no caller in src/; PR #15306 moves the halt layer into Coordinator.multi_account_execute but leaves its MAX_DAILY_LOSS_USD / MAX_OPEN_POSITIONS / MAX_POS_PER_STRATEGY / MAX_DAILY_LOSS_PER_STRATEGY_USD / overtrading guards dead, while pipeline.run still calls risk_counters.inject_runtime_counters + inject_per_strategy_counters every tick (an exchange position read + journal SQL) for no consumer. None of the MAX_* keys is set in config/ or any env file (grep 2026-10-01), so wiring them is a no-op and deleting them is the honest default. Proposal: delete the dead guards and the two per-tick inject calls; if a daily-loss cap is wanted, it belongs in the per-account RiskManager."
+}

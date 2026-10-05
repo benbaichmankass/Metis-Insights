@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 17,
+    "clears_when": "one of the two units is renamed to a non-colliding id and the pipeline record for the renamed unit is updated to reference the new filename",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260928-BFIXLANE-0001",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-21",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "ADMIN lane, PR #13633 manager-review fix, session_0116oibqE8zMM9FZC4kXtcUs",
+    "rerun": "diff <(git show origin/main:research/queue/RQ-20260928-006.yaml) <(git show origin/main:research/queue/blocked/RQ-20260928-006.yaml)"
+  },
+  "routed_to": "RQ-ID-ALLOCATOR | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — Both research/queue/RQ-20260928-006.yaml:1 and research/queue/blocked/RQ-20260928-006.yaml:1 still declare id: RQ-20260928-006.",
+  "state": "routed",
+  "what": "Duplicate research-queue id RQ-20260928-006 on main: research/queue/RQ-20260928-006.yaml (M20 hard-lever sweep for seven worst-covered price-only open legs, status=queued, landed via PR #13607/exit-ops) and research/queue/blocked/RQ-20260928-006.yaml (offline parity re-check of three volatile-keyed regime cells, status=blocked, landed via PR #13628/admin-triage-records) both declare id: RQ-20260928-006 -- two unrelated lanes independently minted the same id concurrently on 2026-09-28. Found incidentally while merging origin/main into an unrelated PR (#13633, IB close-qty clamp) and seeing both files appear. NOT currently breaking CI: load_queue(QUEUE_DIR) globs research/queue/*.yaml non-recursively, so the blocked/ copy is invisible to it and no uniqueness check sees both at once -- but the id collision itself is real and should be resolved (rename one, most likely the blocked/ one since it is already out of the live-loaded population) before either unit is referenced by its id in a context that assumes uniqueness."
+}

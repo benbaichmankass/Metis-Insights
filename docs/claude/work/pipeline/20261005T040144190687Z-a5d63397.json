@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "_monocle_gate reports open_package_read_failed for a journal_unreadable: id, with a test; OR the allocator path is retired.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-MEK2XMWT-0005",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GATE-SCOPE (session_01C4qod5gogYDwASmek2XMWT), manager post-merge review of #14590 / 2926c22f3 (session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-30",
+    "rerun": "grep -n 'UNREADABLE_PACKAGE_PREFIX\\|open_package_exists' src/runtime/pipeline.py src/runtime/strategy_monocle.py ; scripts/ops/diag_fetch.sh 'status'  # CENTRALIZED_ALLOCATOR state"
+  },
+  "routed_to": "ORDER-AUDIT-2 (re-pointed from ORDER-AUDIT-2 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[observability] On the typed-allocator dispatch path (CENTRALIZED_ALLOCATOR, default OFF) a journal read failure is reported as reason=open_package_exists, not open_package_read_failed. Since 2926c22f3 the legacy src/runtime/strategy_monocle.py::_has_open_package_for_strategy fails closed by returning UNREADABLE_PACKAGE_PREFIX + <exc type> ('journal_unreadable:...'); pipeline._monocle_gate (used by the allocator path) treats any non-None return as an open package and emits open_package_exists with open_package_id='journal_unreadable:...'. The block is correct; the reason is wrong, so a read fault reads as ordinary anti-stacking. Fix: in _monocle_gate, map an id starting with UNREADABLE_PACKAGE_PREFIX to reason=open_package_read_failed (+ the same audit event). Unreachable in production today only because the allocator is default-off -- not verified whether CENTRALIZED_ALLOCATOR is set on the VM.",
+  "why_it_matters": "A reason that collapses 'could not look' into 'looked and found a package' is the collapsed-state bug class CLAUDE.md names."
+}

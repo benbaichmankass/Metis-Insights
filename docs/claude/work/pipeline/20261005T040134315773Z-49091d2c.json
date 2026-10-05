@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 15,
+    "clears_when": "a test in this file asserts on cfg['mode'] using a spec-restricted or real TradingAccount fixture (not an unconstrained MagicMock), or the item is killed with a stated reason.",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-JT7JW9CR-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B07 (session_0176ddjoUxwveWpnJT7Jw9cr), finding AUD-20260927-CA-B07-account-mode-gate-test-never-asserts-mode in docs/audits/code-audit-2026-09-27/CA-B07.findings.jsonl; cross-references CA-A04's monitor-dry-run-gate-reads-absent-attribute (PI-20260927-KRAKE1TG-0002)",
+    "rerun": "Read tests/test_order_monitor_build_account_client.py:1-56 on main (expect 0 occurrences of cfg['mode'] or cfg[\"mode\"]); re-run `grep -n \"cfg\\['mode'\\]\\|cfg\\[.mode.\\]\" tests/test_order_monitor_build_account_client.py`. The finding holds while neither test asserts on the mode key."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-B07, MEASURED): tests/test_order_monitor_build_account_client.py is the ONLY test file for _build_account_client, and neither of its 2 tests asserts on cfg['mode'] at all -- so the suite is structurally blind to CA-A04's monitor-dry-run-gate-reads-absent-attribute (PI-20260927-KRAKE1TG-0002): order_monitor.py:1722 reads getattr(acc, 'mode', 'live'), but TradingAccount never sets .mode (it sets .dry_run), so all 11 accounts' dry_run gates at order_monitor.py:1804/1938/1999/2078 resolve to 'live' regardless of the account's real mode -- this is one of CLAUDE.md's own two declared execution gates (account-level mode: live|dry_run). Test 1 (line 8) uses an unconstrained MagicMock() whose .mode auto-vivifies as a child Mock -- had it been asserted on, this fixture shape could not even distinguish 'attribute present and correct' from 'attribute absent, default applied', because MagicMock() lies about what attributes the real TradingAccount class has. Test 2 (line 34) uses MagicMock(spec=[...]) without 'mode' in the spec, which DOES faithfully reproduce the real AttributeError->default path -- but still never asserts on cfg['mode']. LOCATION: tests/test_order_monitor_build_account_client.py:8-31, 34-56; src/runtime/order_monitor.py:1722,1804,1938,1999,2078. PROPOSED FIX: add cfg['mode'] assertions to both existing tests (expect 'live' via the spec-restricted fixture, matching today's buggy-but-consistent behavior) and one new test with a real minimal TradingAccount(dry_run=True) instance asserting cfg['mode'] would need to read 'dry_run' once CA-A04's fix lands -- written to FAIL on today's code, per the repo's own 'a fix is not closed without a detector' rule."
+}

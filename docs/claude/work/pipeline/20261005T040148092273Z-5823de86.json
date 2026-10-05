@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 11,
+    "clears_when": "a trailing-365d static-bracket re-grade of trend_donchian_sol_prop with n>=88 under a pre-registered rule, either PASS (close) or FAIL (Tier-3 shadow proposal to the operator)",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261003-APBY4NTV-0002",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-15",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-15",
+    "how_to_check": "python3 scripts/research/prop_bracket_exit_model.py --leg trend_donchian_sol_prop --days 365 --workdir <dir>; read static n and net_r. Due when n>=88 or on the next check.",
+    "what": "a trailing-365d static-bracket re-grade of trend_donchian_sol_prop with n>=88 under a pre-registered rule, either PASS (close) or FAIL (Tier-3 shadow proposal to the operator)"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv review of PR #15589 (lane SOL-BRACKET-REGRADE session_01FDKSBG6aQnf416DXVHEUaU)",
+    "rerun": "python3 scripts/research/prop_bracket_exit_model.py --leg trend_donchian_sol_prop --days 365 --workdir <dir>; read static n and net_r. Due when n>=88 or on the next check."
+  },
+  "routed_to": "PROP-EVIDENCE-2 (re-pointed from PROP-EVIDENCE-2 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "trend_donchian_sol_prop (breakout_1, live) PASSED the bracket-faithful re-grade only on the 730d pool (n=105, +13.37 R net, full cost; RQ-20261002-050, PR #15589). The most recent 365d on the real static bracket is -0.49 R (n=53, below the 88 floor so not gradeable alone); quarterly static net_r over that year: -5.51, +0.42, +0.05, +4.54. The registered rule did not test recency/stationarity, so this is not a FAIL and SOL stays live (operator popup 2026-10-02 'Keep SOL live until re-grade'). Open question: is SOL's bracket edge decaying? Re-grade the trailing 365d once it reaches n>=88 on the static bracket, under a rule registered before that run."
+}

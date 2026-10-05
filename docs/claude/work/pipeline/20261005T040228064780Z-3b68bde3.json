@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "Either the live score is traced to source (per_strategy_winrate.PerStrategyWinRateTrainer's serving lookup for these two model_ids) and confirmed correct (a coincidence, not a fallback bug) or not (a fix ships and a subsequent shadow/stats pull over a fresh window shows real per-strategy variance).",
+    "kind": "event",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-UAOAYGBB-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-26",
+  "ml_review_2026_10_04": "ROOT-CAUSED FROM CODE 2026-10-04, persisting live (api/bot/shadow/stats: n=1508 each since 2026-09-26, min==max; drift KS 0.0 PSI 0.0). ml/predictors/per_group.py PerGroupPredictor keys on ONE trainer_config.feature_column and returns global_rate for an unseen/empty key. (a) setup-quality-audit-baseline-v0: feature_column=audit_pattern, which is a post-hoc reviewer label and is NEVER in the served row (row_keys_seen: confidence, direction, killzone, setup_type, strategy_name, symbol) -> every row hits unknown_bucket -> constant global mean -0.0572 BY CONSTRUCTION; it cannot vary live, ever. (b) execution-quality-baseline-v0: feature_column=strategy_name, which IS served, so the constant -0.2017 means no live strategy_name matches a key in per_group_rate (n_eval 65, execution_quality v001 is tiny) -- needs the model_state.json per_group_rate keys read on the trainer to confirm (rerun below). (c) setup-quality-baseline-v0 varies (setup_type served, 9 distinct values) which is the control. Tier-3 proposal in the 2026-10-04 review: soft-off (shadow->candidate) setup-quality-audit-baseline-v0. RERUN ADDITION: trainer-vm-diag python3 -c \"import json;s=json.load(open(<model_state_path of execution-quality-baseline-v0 from registry>));print(list(s['per_group_rate'].keys()))\" vs the live strategy_name values.",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "ml-review W7 lane (dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ), session_0193d6xZVThefpX6UaoAyGbb, comms/reviews/ml-review-20260929.json",
+    "rerun": "vm-diag: api/bot/shadow/stats?model_id=execution-quality-baseline-v0 and ?model_id=setup-quality-audit-baseline-v0 -- check score_min vs score_max over the record; if still byte-identical over a >100-count window, the collapse is confirmed persistent."
+  },
+  "routed_to": "ML-HYGIENE | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — /api/bot/shadow/stats 2026-10-05: execution-quality-baseline-v0 and setup-quality-audit-baseline-v0 each count=1632 (09-26..10-04) with score_min==score_max (-0.2017, -0.0572); sibling setup-qual",
+  "severity": "low",
+  "state": "routed",
+  "tier": 1,
+  "what": "Two shadow-stage baseline models emit a LITERALLY CONSTANT live score across their full sampled window (754 predictions each, 2026-09-26 to 2026-09-29), while a sibling model of the SAME trainer/family scoring the SAME live population over the SAME window shows normal per-strategy variance -- ruling out 'the population itself is homogeneous' as the explanation. MEASURED this session, api/bot/shadow/stats: execution-quality-baseline-v0 (regression_baseline, PerStrategyWinRateTrainer): score_min=score_max=-0.20166275180833781 (byte-identical) across all 754 records, n_eval at training time was only 65. setup-quality-audit-baseline-v0 (same trainer family): score_min=score_max=-0.05719595959595961 across all 754 records, n_eval=49. Comparison: setup-quality-baseline-v0 (identical trainer, same 754-record window, first_seen/last_seen match exactly) shows score_min=-0.1740/score_max=-0.1652 -- real per-strategy variance, n_eval=507 at training. HYPOTHESIS (not confirmed): the two collapsed models' small training n_eval (49, 65) gives them sparse per-strategy coverage, and live serving for most/all strategies in the current population is falling through to a single default/global mean rather than a per-strategy value -- but this was not traced into the serving code this session. Both are shadow-stage / low live-influence, so this is a flag-and-file rather than an immediate concern, but it feeds the conviction/execution-quality lenses per the unified-confidence framework and a degenerate input there is a conviction-quality issue worth fixing before either is ever considered for promotion."
+}

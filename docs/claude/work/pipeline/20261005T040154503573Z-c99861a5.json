@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 12,
+    "clears_when": "a confirmatory research unit for GLD/GDX 1d pairs with a pre-registered IS/OOS + walk-forward rule has run and been graded; if it passes, the alpaca-pairs-executor build question goes to the operator as a bucket-3 preference with both pairs reads attached; if it fails, RQ-20260929-105 is closed as a non-generalising Stage-0 pass; or killed",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-P24XMV4V-0003",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-16",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "DECISION-BRIEF lane session_01XGZZ1RZsfiUwKap24xMV4v, manager session_01MM8o5js6TcDFeNAPBY4Ntv, docs/plans/decision-brief-2026-10-04.md",
+    "rerun": "for u in RQ-20260929-105 RQ-20260929-106; do grep -n '^status:' research/queue/$u.yaml; python3 -c \"import json,glob;[print(u, json.loads(l)['verdict'], json.loads(l)['measurement']['net_total_r'], json.loads(l)['measurement']['total_trades']) for u in ['$u'] for f in glob.glob('research/results/'+u+'/*.jsonl') for l in open(f) if l.strip()]\"; done"
+  },
+  "routed_to": "RESEARCH — GLD/GDX pairs confirmatory unit — a research-queue data task (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "NEEDS-DATA: RQ-20260929-105 (pairs harness GLD/GDX 1d) landed research/results/RQ-20260929-105/37188716030.jsonl with net_total_r +18.72R, n=144, win 62.5%, maxDD 6.38R, expectancy +0.13R/trade (MEASURED, venue-aware costs, 2016-10-06..2026-10-02). Read against its own registered rule RULE-RQ0929-105-GLD-GDX-PAIRS-STAGE0 (PASS if net_total_r>0 and n>=20) that is a Stage-0 PASS -- but the record itself carries RULE-E7-HARNESS-DISPATCHABLE / no_action_warranted (defect PI-20261004-FOJGFIZF-0004), the unit file still reads status: queued, and the run has no IS/OOS split and no walk-forward: a single 10-year pooled read on harness defaults. The unit explicitly proposes no live leg; the only action a PASS could lead to is an alpaca pairs executor (a separate, larger Tier-3 build). Before that build is even a question for the operator, the data task is a confirmatory unit: GLD/GDX 1d pairs with a pre-registered IS/OOS split and yearly walk-forward (rule registered before the run, n floor stated), plus the sibling SPY/QQQ 1h FAIL (RQ-20260929-106, -121.96R n=178, reproduced on a second run of the same window) on record as the mechanism's other read."
+}

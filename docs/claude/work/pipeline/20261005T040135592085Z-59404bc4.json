@@ -1,0 +1,31 @@
+{
+  "due_when": {
+    "check_every_days": 8,
+    "clears_when": "a live status-check system-action dispatch (post-deploy) on ict-bot-arm shows the new failed-unit-gate section, confirming scripts/ops/status_check.sh at HEAD>=PR#13247 is actually running on the VM.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260927-R1DJ7SUQ-0005",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-12",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "grep -rl 'OnFailure' deploy/ (expect 0 hits across all 64 files); read scripts/ops/status_check.sh's CANONICAL_UNITS array (currently 3 units) and confirm the broader ict-* enumeration is still documented as non-gating / head-capped. The finding holds while no push (OnFailure=) or gated pull (`systemctl is-failed` feeding the exit code) mechanism exists for any of the ~41 other declared ict-* units.",
+    "what": "a live status-check system-action dispatch (post-deploy) on ict-bot-arm shows the new failed-unit-gate section, confirming scripts/ops/status_check.sh at HEAD>=PR#13247 is actually running on the VM."
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A10 (session session_016shE4tRmBjWERor1Dj7Suq), finding CA-A10-402",
+    "rerun": "grep -rl 'OnFailure' deploy/ (expect 0 hits across all 64 files); read scripts/ops/status_check.sh's CANONICAL_UNITS array (currently 3 units) and confirm the broader ict-* enumeration is still documented as non-gating / head-capped. The finding holds while no push (OnFailure=) or gated pull (`systemctl is-failed` feeding the exit code) mechanism exists for any of the ~41 other declared ict-* units."
+  },
+  "routed_to": "SA-INFRA (re-pointed from SA-INFRA — #13247 merged 2026-09-27; needs a live status-check deploy+observation (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Confirmed via MANAGER-CHECKLIST.json that PR #13247 (FIX-CA-15) self-landed as commit 9a9f9e7 (Tier-1, 2026-09-27 17:30Z). Confirmed the fix is on disk/HEAD: scripts/ops/status_check.sh now calls `systemctl is-failed <unit>` (line 81) for exit-code gating, as the PR describes. Live-queried GET /api/diag/version just now: git_sha (running) 3deb238, git_sha_on_disk 12d968efa, restart_pending:true -- both are later commits than #13247's merge point (#13508 and beyond by PR numbering), so the fix is very likely already deployed, but I have no working GitHub Actions/system-action dispatch this session (github-actions MCP connection failed) to actually run status-check and observe the new failed-unit-gate section firing, which is what clears_when explicitly requires.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation -- merge is confirmed, deploy is highly likely (running/on-disk commits postdate the merge) but not directly observed. A lane with working GitHub Actions access should dispatch one status-check system-action on ict-bot-arm and confirm the new gate section appears, which would fully close this per its own clears_when.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "HIGH (code audit CA-A10-402, MEASURED 2026-09-27): zero of the 64 files under deploy/ declare OnFailure=, and scripts/ops/status_check.sh's exit code is gated on `systemctl is-active` for only 3 hardcoded long-running services (ict-trader-live, ict-web-api, ict-telegram-bot) -- its broader ict-* enumeration is explicitly documented as read-only, head-capped at 60 lines, and never affecting the exit code. So NO oneshot+timer pair in this repo (~41 declared ict-* units per the CA-A10 deploy-lane's count) has any alerting path for its own failure; a failed unit is visible only if a session or the operator happens to pull the right diag endpoint and specifically looks. This is the systemic cause behind the lead this lane was dispatched to check: ict-git-sync.service read 'failed' on 2026-09-27 (PI-20260927-YZRZQ725-0002, now closed -- see that record) while its timer stayed 'active' throughout, masking the failure from anything reading only timer state; a live re-pull this session caught a SECOND, independent, currently-failed instance of the exact same class (ict-ib-executions-pull.service, an IB Gateway connect refusal -- CA-A10-401/CA-A10-002 in this lane's findings file). Both were caught only by incidental diag reads, not by any purpose-built check. Full finding + evidence: docs/audits/code-audit-2026-09-27/CA-A10.findings.jsonl id CA-A10-402. Proposed fix: add `systemctl is-failed <unit>` (or a single `systemctl list-units --state=failed 'ict-*'` call) to status_check.sh's exit-code-gating logic for the money/deploy-freshness-adjacent oneshots at minimum. UPDATE 2026-09-27 (PR #13247, fix lane): the code fix is merged; this item stays open pending the deploy + live observation the clears_when itself requires.\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation -- merge is confirmed, deploy is highly likely (running/on-disk commits postdate the merge) but not directly observed. A lane with working GitHub Actions access should dispatch one status-check system-action on ict-bot-arm and confirm the new gate section appears, which would fully close this per its own clears_when."
+}

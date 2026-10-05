@@ -1,0 +1,26 @@
+{
+  "due_when": {
+    "check_every_days": 13,
+    "clears_when": "risk_management is non-unknown on a majority of newly graded packages AND a grade-vs-outcome table over >=100 closed decisions is recorded in a review (either confirming the rubric separates or motivating a re-centring proposal).",
+    "kind": "event",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20261004-ZBHFJG6X-0004",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-17",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-17",
+    "how_to_check": "python3 -c \"import json,collections; rows=[json.loads(l) for l in open('comms/claude_strategy_scores.jsonl') if l.strip()]; w=[r for r in rows if str(r.get('created_at') or '')>='2026-09-27']; print('risk_management',collections.Counter(r.get('risk_management') for r in w)); fc=[r for r in w if r.get('linked_trade_id') and r.get('pnl') is not None]; [print(g,len([r for r in fc if r.get('decision_grade') in g]),round(sum(r['pnl'] for r in fc if r.get('decision_grade') in g),2)) for g in ('AB','C','DF')]\"",
+    "what": "risk_management is non-unknown on a majority of newly graded packages AND a grade-vs-outcome table over >=100 closed decisions is recorded in a review (either confirming the rubric separates or motivating a re-centring proposal)."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "PERFORMANCE-REVIEW lane 2026-10-04 (session_013rQhqo11aVJrH3zbHFJg6X), comms/reviews/performance-review-20261004-*.json",
+    "rerun": "python3 -c \"import json,collections; rows=[json.loads(l) for l in open('comms/claude_strategy_scores.jsonl') if l.strip()]; w=[r for r in rows if str(r.get('created_at') or '')>='2026-09-27']; print('risk_management',collections.Counter(r.get('risk_management') for r in w)); fc=[r for r in w if r.get('linked_trade_id') and r.get('pnl') is not None]; [print(g,len([r for r in fc if r.get('decision_grade') in g]),round(sum(r['pnl'] for r in fc if r.get('decision_grade') in g),2)) for g in ('AB','C','DF')]\""
+  },
+  "routed_to": "GRADE — grader rubric blind spot (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "severity": "medium",
+  "state": "routed",
+  "tier": "1",
+  "what": "[performance] grade_drift + a rubric blind spot, measured on the 2026-10-04 window (218 packages, 2026-09-27T07:29Z..2026-10-04T08:01Z, graded with scripts/ops/score_order_packages.py::_grade_package): the A/B cohort of filled-and-closed decisions (n=13) netted -$515.33 with 3 wins, the C cohort (n=70) -$5,825.71 with 31 wins, D/F n=0 -- the rubric's confidence-anchored entry grade does not separate winners from losers on this population (paper notionals, mostly pairs and ict_scalp legs). Separately, `risk_management` read `unknown` on 218 of 218 packages because the rubric reads `signal_logic.sl_distance` and `signal_logic.atr`, keys the current writers do not emit; the package rows DO carry `entry`, `sl` and `meta.atr` (seen on every trend/pullback/prop package this window), so `abs(entry-sl)/meta.atr` is computable and the dimension is being thrown away. Proposed Tier-1 fix in score_order_packages.py: fall back to entry/sl distance and meta.atr; then re-measure the grade-vs-outcome split over >=100 closed decisions before any rubric re-centring."
+}

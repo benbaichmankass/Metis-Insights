@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 33,
+    "clears_when": "detect_liquidity_sweeps requires a post-pierce reversal (or the docstring is corrected to describe break-of-level behavior), with a test asserting the no-reversal case is NOT flagged as swept, merged AND deployed (git_sha on /api/diag/version contains the fix)",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAA05-0005",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-30",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A05, finding CA-A05-004",
+    "rerun": "Read src/ict_detection/liquidity.py:120-159 (detect_liquidity_sweeps): confirm no post-pierce reversal check exists between the pierce test and `pool[\"swept\"]=True`. Reproduce with a synthetic OHLC series that pierces a pool level and then trends away without reversing; the finding holds while swept=True fires on the pierce bar alone. Cross-check tests/test_liquidity.py for a reversal-asserting sweep test (none exists today)."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A05-004, MEASURED 2026-09-27): LiquidityDetector.detect_liquidity_sweeps() (src/ict_detection/liquidity.py:120-159) implements only half its own documented contract. Its docstring (lines 121-126) defines a sweep as \"Price pierces through the liquidity level, Then quickly reverses (takes the liquidity and runs)\" -- but the implementation only checks the pierce half (`if candle_high > pool[\"price\"]: pool[\"swept\"]=True; break` / the mirrored low check), with zero check for a subsequent reversal anywhere in the function. Reproduced with a synthetic 40-bar series: a 2-touch equal-high pool at 100.0, price breaks above 100 at bar 25 and trends monotonically upward for 15 more bars (never reversing) -- flagged swept=True at bar 25 regardless. tests/test_liquidity.py has exactly one sweep test and never exercises the reversal half, so this was never caught. This feeds /api/bot/liquidity's recent_sweeps array on the operator-facing \"Liquidity Maps\" dashboard tab (src/runtime/liquidity_state.py -> src/web/api/routers/liquidity.py) -- no live strategy reads this back (write-only from strategy_signal_builders.py, read-only by the web API), so this is a dashboard-accuracy issue today, not an order-routing issue, but it means the operator-visible liquidity map has been silently over-reporting stop-run sweeps as \"break of level\" events with no distinction, for as long as this detector has been live. FIX: either correct the docstring to say \"break of level\" (matching current behavior), or add a real reversal check (e.g. close back on the origin side within N bars) before setting swept=True, and add a test exercising the no-reversal case. Full finding: docs/audits/code-audit-2026-09-27/CA-A05.findings.jsonl id CA-A05-004."
+}

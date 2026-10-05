@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "Both paths resolve the file the same way (the coordinator honours ACCOUNTS_YAML_PATH via accounts_loader, or _accounts_declaring passes the coordinator's explicit path), with a test pinning the two equal under the env var.",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-MEK2XMWT-0006",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-14",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane GATE-SCOPE (session_01C4qod5gogYDwASmek2XMWT), manager post-merge review of #14590 / 2926c22f3 (session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-30",
+    "rerun": "grep -rn 'ACCOUNTS_YAML_PATH' src scripts config deploy ; grep -n 'accounts_path or' src/core/coordinator.py"
+  },
+  "routed_to": "ORDER-AUDIT-2 (re-pointed from ORDER-AUDIT-2 (BACKLOG-BURNDOWN-2 2026-10-04)) (BACKLOG-BURNDOWN-2 2026-10-04)",
+  "state": "routed",
+  "what": "[config-drift] Two resolvers for accounts.yaml can disagree. src/runtime/strategy_monocle.py::_accounts_declaring (used by #14590's per-account gate when a dispatch round has no E35 scope) reads via src/config/accounts_loader.load_accounts_dict, whose _resolve_path honours the ACCOUNTS_YAML_PATH env var FIRST; Coordinator.multi_account_execute ignores that env var and always loads <repo>/config/accounts.yaml (src/core/coordinator.py ~L962). No repo-tracked unit file or script sets ACCOUNTS_YAML_PATH (grep over src/ scripts/ config/ deploy/); the VM's runtime environment was NOT checked. If it is ever set, the gate would compute the round's declared-account set from a different file than the one the coordinator dispatches from; because account_scope only narrows, the effect is an account wrongly dropped (never wrongly added).",
+  "why_it_matters": "A silent divergence here can drop a real-money account from dispatch with a scope nobody can explain from accounts.yaml."
+}

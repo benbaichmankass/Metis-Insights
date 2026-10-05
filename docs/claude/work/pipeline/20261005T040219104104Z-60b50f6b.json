@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 18,
+    "clears_when": "a merged PR whose tests cover (a)-(e), including the round-3 reviewer scenario: a 0.3 remainder plus a 0.2 naked position, cycles to T+300, and a close at T+305. Killed only by manager/operator decision, with a stated reason (e.g. the venue is shown never to partially fill limit orders at these sizes).",
+    "kind": "observation",
+    "last_checked": "2026-10-04"
+  },
+  "id": "PI-20260930-KMYJ5XC7-0008",
+  "jitter_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] cadence jittered to spread the lapse wave (<= 24 due per day); NO re-read this pass -- observation unchanged (last read 2026-10-04); new next-due 2026-10-22",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane BREAKOUT-ATTRITION session_01KMYJ5xC7gtPjGVf6Nwywoq 2026-09-30, #14581 round-3 review",
+    "rerun": "grep -n '_suspected_partial_fill' src/prop/prop_executor.py; the round-3 review scenario in tests/test_prop_executor.py::test_reviewer_scenario_partial_fill_with_no_stop_fails_closed_end_to_end"
+  },
+  "routed_to": "PROP-EXEC [route; size M, value M, tier 2] BACKLOG-ROUTE 2026-10-04: prop_executor.py:1982 _suspected_partial_fill still fails closed and docstring says executor does NOT manage partial fills (no repair, no open report, no attribution). modify_bracket used only for partial_no_sl_tp (L2196). | BACKLOG-BURNDOWN-2 2026-10-04 re-read at HEAD: still applies — No merged partial-fill SL/TP repair evidenced; _repair_or_flatten (prop_executor.py:2208) is bracket-leg repair only; not checked further",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "BUILD (split out of #14581 at round 3, manager review 2026-09-30 08:13Z): partial-fill MANAGEMENT in the prop executor. What #14581 ships: a resting entry with any non-size-matching position on its symbol+side is CONTAINED and trips the AUTO-REVERT halt, with an alert naming each position's size and SL/TP (and 'NO STOP OR TARGET' when naked). No journal write, no cancel, and the claim is released so the orphan check sees the position. What remains: (a) compare the held position's SL/TP against the ticket spec and repair it through modify_bracket; halt only if the repair fails. (b) past valid_until, cancel the ticket's remaining ENTRY order by exact ticket or order identity, never a protective leg, with retry and exhaustion as in B2. (c) report the partial as `open` with the filled qty so later closes go through the normal close path. (d) attribute a position to a ticket by size and time bounds, and release it otherwise. (e) re-alert hourly while partial or held. The prerequisite is PI-20260930-KMYJ5XC7-0006 ('Size' semantics). Tier 2, a HELD PR."
+}
