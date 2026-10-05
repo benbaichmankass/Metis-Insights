@@ -47,3 +47,23 @@ older one without uninstalling (which clears the app's session).
 * **Capture** now takes over from a background capture instead of being dropped, reads the page directly (no dependence on
   the message listener), and reports same-origin iframes and cross-origin iframe hosts. **Copy / Share** refuse while
   Fixtures or Auto-login is still running.
+
+## 1a.4: email number-match login
+
+The new terminal logs in by EMAIL: you enter your email, Breakout emails numbers, and you tap the number the page shows.
+Tapping in the email opens Chrome, so the WebView page never completes. Two ways to bring the sign-in back into this app:
+
+* **"Paste link"** loads the URL in your clipboard into the WebView, but ONLY if it is `https` on `breakoutprop.com` or a
+  subdomain; anything else is refused. The link is a login token: it is loaded, then the clipboard is cleared, and only the
+  host and a path SHAPE (words kept, ids and tokens as `*`) are recorded. It is never echoed or stored.
+* **Route email taps into the app (3 phone steps, Android 12+):** (1) Settings > Apps > **Phone Probe 1a** > **Open by default**.
+  (2) Tap **Add link** and tick `trade.breakoutprop.com` (and `app.breakoutprop.com` if listed). (3) Tap the email's number
+  button again; it should now open in this app. The app is not auto-verified for these hosts, so Android may not offer the
+  option on every phone: if it does not, use "Paste link" (long-press the button in the email, copy the link address).
+
+What the report records: `session.login_methods_seen` (`password_form`, `email_first`, `email_number_match`,
+`code_or_2fa`), `session.completed_after_number_match` (did the waiting page finish by itself after the number was tapped in
+ANOTHER browser, and `without_app_reload` says whether this app reloaded it), `session.first_logged_in_at`, and
+`session.reauth_needed_after_min` (minutes until a sign-in step came back). The 1 h / 6 h / next-morning "3 Recheck" taps
+measure whether you are still logged in WITHOUT re-authenticating, which is what decides autonomy. Auto-login on this
+login stops with `email_login_human_step_required` / `number_match_human_step_required`: the human step is never automated.

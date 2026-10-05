@@ -22,7 +22,7 @@ class Report(private val ctx: Context) {
     private fun fresh() = JSONObject()
         .put("probe", "phone-probe-1a").put("report_version", 1)
         .put("probes", JSONArray()).put("navs", JSONArray()).put("captures", JSONArray())
-        .put("autologin", JSONArray()).put("fixtures", JSONObject()).put("events", JSONArray()).put("session", JSONObject())
+        .put("autologin", JSONArray()).put("links", JSONArray()).put("fixtures", JSONObject()).put("events", JSONArray()).put("session", JSONObject())
 
     fun clear() {
         for (k in root.keys().asSequence().toList()) root.remove(k)

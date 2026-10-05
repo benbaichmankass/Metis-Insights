@@ -143,21 +143,22 @@ class MainActivity : Activity() {
                 setOnClickListener { f() } }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)) }
         }
         root.addView(row("1 Load site" to { loadSite("load", SITE) }, "2 Capture" to { capture("manual", true, "manual") }, "3 Recheck" to { loadSite("recheck", SITE) }))
-        root.addView(row("4 Auto-login" to { autoLogin() }, "Set login" to { showLoginDialog() }, "Load app." to { loadSite("load_app", APP) }))
+        root.addView(row("4 Auto-login" to { autoLogin() }, "Paste link" to { pasteLink() }, "Set login" to { showLoginDialog() }, "Load app." to { loadSite("load_app", APP) }))
         root.addView(row("Fixtures" to { runFixtures() }, "Copy" to { export(false) }, "Share" to { export(true) }, "Clear" to { rep.clear(); setStatus("report cleared") }))
         root.addView(status)
         root.addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
 
         val d = JSONObject().put("sdk", Build.VERSION.SDK_INT).put("release", Build.VERSION.RELEASE).put("model", Build.MODEL).put("brand", Build.MANUFACTURER)
-            .put("app_version", "1a.3").put("login_saved", Creds.has(this))
+            .put("app_version", "1a.4").put("login_saved", Creds.has(this))
         val wvp = WebView.getCurrentWebViewPackage()
         val ua = web.settings.userAgentString ?: ""
         rep.root.put("device", d).put("webview", JSONObject().put("pkg", wvp?.packageName ?: "?").put("ver", wvp?.versionName ?: "?").put("ua_wv_marker", ua.contains("; wv)")))
             .put("features", JSONObject().put("document_start_script", featDoc).put("web_message_listener", featMsg))
         rep.save()
         ui.postDelayed(tick, 30_000)
-        setStatus("1a.3 · doc-start=$featDoc listener=$featMsg · login saved=${Creds.has(this)} · tap 1")
+        handleIntent(intent)
+        setStatus("1a.4 · doc-start=$featDoc listener=$featMsg · login saved=${Creds.has(this)} · tap 1")
     }
 
     override fun onResume() { super.onResume(); rep.event("resume") }
@@ -176,7 +177,7 @@ class MainActivity : Activity() {
     }
 
     private fun loadSite(label: String, url: String) {
-        fixtureMode = false
+        fixtureMode = false; loadCounter++
         rep.event("load_requested", JSONObject().put("label", label).put("host", host(url)).put("net", net()))
         web.loadUrl(url)
     }
@@ -235,9 +236,11 @@ class MainActivity : Activity() {
         return when {
             lastCf || m.optBoolean("cf") -> "challenged"
             m.optBoolean("blocked") || (lastHttp == 403 && els < 80) -> "blocked"
+            m.optBoolean("nummatch") && !m.optBoolean("pw") -> "number_match"
             m.optBoolean("otc") || (m.optBoolean("otp_like") && !m.optBoolean("pw")) || (m.optBoolean("twofa") && !m.optBoolean("pw")) -> "code_or_2fa"
             m.optBoolean("pw") -> "login"
             (m.optBoolean("buy") && m.optBoolean("sell")) || m.optBoolean("send") -> "terminal"
+            m.optBoolean("email") -> "email_entry"
             else -> "other_served"
         }
     }
@@ -281,22 +284,74 @@ class MainActivity : Activity() {
         inflightId = null
     }
 
-    /** Session lifetime bookkeeping: when the terminal was first seen after a login, and when it was last seen / lost. */
+    private var loadCounter = 0
+    private var nmLoadMark = -1
+
+    /** Login method and session lifetime. A state is AUTH (a human step is needed) or LOGGED_IN (anything else served). */
     private fun trackSession(state: String) {
         val s = rep.root.getJSONObject("session")
         val now = Report.now(); val ms = System.currentTimeMillis()
-        if (state == "terminal") {
-            if (!s.has("first_terminal_at")) { s.put("first_terminal_at", now); s.put("first_terminal_ms", ms) }
-            s.put("last_terminal_at", now); s.put("last_terminal_ms", ms)
-        } else if (state == "login" && s.has("first_terminal_ms")) {
-            val mins = (ms - s.getLong("first_terminal_ms")) / 60000
-            if (!s.has("login_after_terminal_min")) s.put("login_after_terminal_min", mins)
-            s.put("last_login_seen_at", now)
+        val auth = state == "login" || state == "email_entry" || state == "number_match" || state == "code_or_2fa"
+        val methods = s.optJSONArray("login_methods_seen") ?: JSONArray().also { s.put("login_methods_seen", it) }
+        fun seen(m: String) { for (i in 0 until methods.length()) if (methods.getString(i) == m) return; methods.put(m) }
+        when (state) {
+            "login" -> seen("password_form")
+            "email_entry" -> seen("email_first")
+            "number_match" -> { seen("email_number_match"); if (!s.has("number_match_seen_at")) { s.put("number_match_seen_at", now); nmLoadMark = loadCounter } }
+            "code_or_2fa" -> { seen("code_or_2fa"); s.put("code_or_2fa_seen_count", s.optInt("code_or_2fa_seen_count") + 1) }
         }
-        if (state == "login" && !s.has("first_login_seen_at")) s.put("first_login_seen_at", now)
-        if (state == "code_or_2fa") s.put("code_or_2fa_seen_count", s.optInt("code_or_2fa_seen_count") + 1)
+        if (auth && !s.has("first_auth_seen_at")) s.put("first_auth_seen_at", now)
+        val loggedIn = (state == "terminal" || state == "other_served") && s.has("first_auth_seen_at")
+        if (loggedIn) {
+            if (!s.has("first_logged_in_at")) { s.put("first_logged_in_at", now); s.put("first_logged_in_ms", ms) }
+            s.put("last_logged_in_at", now); s.put("last_logged_in_ms", ms)
+            // cross-device approval: the waiting page completed with NO load requested by this app after the number page appeared
+            if (s.has("number_match_seen_at") && !s.has("completed_after_number_match")) {
+                s.put("completed_after_number_match", JSONObject().put("at", now).put("without_app_reload", nmLoadMark == loadCounter))
+            }
+        } else if (auth && s.has("first_logged_in_ms") && !s.has("reauth_needed_after_min")) {
+            s.put("reauth_needed_after_min", (ms - s.getLong("first_logged_in_ms")) / 60000)
+            s.put("reauth_needed_state", state)
+        }
+        if (state == "terminal") { if (!s.has("first_terminal_at")) s.put("first_terminal_at", now); s.put("last_terminal_at", now) }
         rep.save()
     }
+
+    // ---- email magic link / number-match support (1a.4) ----------------------------------------------------
+
+    /** Only breakoutprop.com and its subdomains. A link is a login token: it is loaded, never echoed or stored. */
+    private fun linkHostOk(u: android.net.Uri?): Boolean {
+        val h = u?.host ?: return false
+        return u.scheme == "https" && (h == "breakoutprop.com" || h.endsWith(".breakoutprop.com"))
+    }
+
+    /** host + path SHAPE only: short lowercase words kept, everything else (ids, tokens, digits) becomes "*". */
+    private fun pathShape(u: android.net.Uri): String =
+        "/" + (u.pathSegments ?: emptyList()).take(5).joinToString("/") { if (Regex("^[a-z][a-z-]{0,19}$").matches(it)) it else "*" }
+
+    private fun openLink(u: android.net.Uri?, source: String) {
+        val rec = JSONObject().put("at", Report.now()).put("source", source).put("net", net())
+        if (!linkHostOk(u)) {
+            rec.put("accepted", false).put("reason", "host_not_breakoutprop_or_not_https")
+            rep.append("links", rec, 20); setStatus("link REFUSED: not an https breakoutprop.com link"); return
+        }
+        rec.put("accepted", true).put("host", u!!.host).put("path_shape", pathShape(u)).put("has_query", u.query != null)
+        rep.append("links", rec, 20)
+        loadCounter++; fixtureMode = false
+        setStatus("opening link: ${u.host}${pathShape(u)}")
+        web.loadUrl(u.toString())
+    }
+
+    private fun pasteLink() {
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val t = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()?.trim()
+        val u = try { android.net.Uri.parse(t) } catch (e: Exception) { null }
+        openLink(u, "clipboard")
+        try { if (Build.VERSION.SDK_INT >= 28) cm.clearPrimaryClip() else cm.setPrimaryClip(ClipData.newPlainText("", "")) } catch (_: Exception) {}
+    }
+
+    override fun onNewIntent(i: Intent) { super.onNewIntent(i); handleIntent(i) }
+    private fun handleIntent(i: Intent?) { if (i?.action == Intent.ACTION_VIEW) openLink(i.data, "intent") }
 
     // ---- saved login + auto-login test -----------------------------------------------------------------------
 
@@ -355,7 +410,10 @@ class MainActivity : Activity() {
                     o.optBoolean("blocked") -> alEnd(rec, "blocked", t0, 0)
                     o.optBoolean("pw") -> alFill(o, rec, t0, cred)
                     i + 1 < urls.size -> alTry(urls, i + 1, rec, t0, cred)
-                    else -> alEnd(rec, "no_login_form", t0, 0)
+                    else -> js("window.__probeLogin ? window.__probeLogin.status() : '{}'") { r ->
+                        val st = try { JSONObject(r) } catch (e: Exception) { JSONObject() }
+                        alEnd(rec, if (st.optBoolean("nummatch")) "number_match_human_step_required" else if (st.optBoolean("email")) "email_login_human_step_required" else "no_login_form", t0, 0)
+                    }
                 }
             }
         }, 5_000)
