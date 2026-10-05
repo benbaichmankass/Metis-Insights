@@ -64,3 +64,15 @@ generated:
     timeframe: 2h
 last_dispatched_at: '2026-10-05T01:47:39+00:00'
 result: "UNGRADED as of 2026-10-05 (lane RESEARCH-RUN). This lane hand-fired the e35 bracket sweep for eth_pullback_2h at about 14:53Z on 2026-10-04 (run 37210924314) and that run FAILED; the failure cause was never read. The dispatcher re-fired it at 01:47Z on 2026-10-05 (run 37252832009, completed success) but no result record for this unit was on main when checked, so there is nothing to grade. Not read, not graded; cause of the first failure unknown."
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-E35-BRACKET-IS-OOS-GATE
+  evidence:
+  - docs/research/e35-bracket-corpus.jsonl
+  graded_at: '2026-10-05'
+  grader: scripts/research/queue_grade.py
+  latest: true
+  needs_review: false
+  reason: 0 of 199 cells is_oos_pass at base_oos_trades 49
+  rows: 199
+  verdict: no_action_warranted
