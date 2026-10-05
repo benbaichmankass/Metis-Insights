@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "Hotfix to the phone executor app only (tools/phone-executor MainActivity.kt): a Pause toggle and a 5-minute hold of every automatic reload / re-login after any touch, because the 30 s loop was resetting the operator's manual login. No src/, config/, VM or order-path change.",
+  "hold_text": "tools/phone-executor/** is outside the guard's Tier-1 surface; the manager lands it (requested 2026-10-05 ~19:00Z)."
+}

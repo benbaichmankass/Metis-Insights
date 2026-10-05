@@ -60,6 +60,12 @@ class MainActivity : Activity() {
     private lateinit var api: Api
     private lateinit var ledger: Ledger
     private var busy = false
+    // HOTFIX 2026-10-05 (manual login was being reset by the loop): any touch/key on the screen holds every
+    // automatic navigation (reload, re-login) for USER_HOLD_MS; "Pause" holds everything until the page reads
+    // logged in, or PAUSE_MAX_MS passes.
+    private var lastUserInputMs = 0L
+    private var pausedUntilMs = 0L
+    private lateinit var pauseBtn: Button
     private var lastState = ""
     private var reloginFailures = 0
     private var execSrc = ""
@@ -67,6 +73,8 @@ class MainActivity : Activity() {
     companion object {
         const val TRADE_URL = "https://trade.breakoutprop.com/"
         const val TICK_MS = 30_000L
+        const val USER_HOLD_MS = 5 * 60_000L
+        const val PAUSE_MAX_MS = 10 * 60_000L
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -94,6 +102,7 @@ class MainActivity : Activity() {
             btn("Setup") { setupDialog() }
             btn("Dry test") { dryTest() }
             btn("Share ID") { shareFingerprint() }
+            addView(Button(this@MainActivity).apply { pauseBtn = this; isAllCaps = false; text = "Pause"; setOnClickListener { togglePause() } })
             btn("Reload") { web.loadUrl(TRADE_URL) }
             btn("Reset login") { Store.setFlag(this@MainActivity, Store.RELOGIN_LATCHED, false); reloginFailures = 0; setStatus("auto re-login re-enabled") }
         }
@@ -119,6 +128,14 @@ class MainActivity : Activity() {
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
     private fun setStatus(s: String) { status.text = s }
+    override fun onUserInteraction() { super.onUserInteraction(); lastUserInputMs = System.currentTimeMillis() }
+    private fun userActive() = System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
+    private fun paused() = System.currentTimeMillis() < pausedUntilMs
+    private fun togglePause() {
+        pausedUntilMs = if (paused()) 0L else System.currentTimeMillis() + PAUSE_MAX_MS
+        pauseBtn.text = if (paused()) "PAUSED (tap to resume)" else "Pause"
+        setStatus(if (paused()) "paused: no reload, no re-login, no ticket until logged in or 10 min" else "resumed")
+    }
     private fun armed() = Store.flag(this, Store.ARMED)
     private fun renderArm() { armBtn.text = if (armed()) "ARMED (live)" else "Dry (not armed)"; armBtn.setTextColor(if (armed()) Color.RED else Color.DKGRAY) }
 
@@ -200,6 +217,10 @@ class MainActivity : Activity() {
                 s.optBoolean("pw") || s.optBoolean("email") || s.optBoolean("codeWait") -> "login"
                 else -> "other"
             }
+            if (paused()) {
+                if (st == "logged_in") { pausedUntilMs = 0L; pauseBtn.text = "Pause"; setStatus("logged in: pause lifted") }
+                else { setStatus("paused (${(pausedUntilMs - System.currentTimeMillis()) / 60_000 + 1} min left): no automatic action"); return }
+            } else if (pauseBtn.text.toString() != "Pause") pauseBtn.text = "Pause"
             if (st != lastState) {
                 // Any arrival at the login page pings at once (also right after a restart), so one human tap can
                 // re-log in while auto re-login is unconfigured or latched. No claim/fill/submit happens while logged out.
@@ -211,13 +232,15 @@ class MainActivity : Activity() {
                 "challenged" -> setStatus("STOPPED: challenge page. Operator: open the app and check.")
                 "logged_in" -> { reloginFailures = 0; claimAndRun() }
                 "login" -> relogin(s)
-                else -> { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(TRADE_URL) }
+                else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
+                        else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(TRADE_URL) }
             }
         } finally { busy = false }
     }
 
     // ---------------- auto re-login ----------------
     private suspend fun relogin(s: JSONObject) {
+        if (userActive()) { setStatus("logged out; you are using the screen, so auto re-login waits 5 min after your last tap"); return }
         if (Store.flag(this, Store.RELOGIN_LATCHED)) { setStatus("logged out; auto re-login STOPPED after 2 failures (tap Reset login after logging in by hand)"); return }
         val email = Store.get(this, Store.LOGIN_EMAIL)
         val user = Store.get(this, Store.INBOX_USER)
@@ -254,7 +277,7 @@ class MainActivity : Activity() {
             api.event("login_failed", "STOPPED after 2 failures; manual login needed: $why")
         } else api.event("login_failed", why)
         setStatus("login failed ($reloginFailures): $why")
-        web.loadUrl(TRADE_URL)
+        if (!userActive()) web.loadUrl(TRADE_URL)
     }
 
     // ---------------- tickets ----------------
