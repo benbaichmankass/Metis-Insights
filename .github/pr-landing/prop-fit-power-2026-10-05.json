@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "New research units research/queue/RQ-20261005-801..810 are registrations (queue YAML is outside TIER1_SURFACE); a human or the manager merges so the runner picks them up from main.",
+  "why": "Research registrations plus committed 730d evidence records under comms/strategy_evidence/runs/. No config, roster or order-path change."
+}
