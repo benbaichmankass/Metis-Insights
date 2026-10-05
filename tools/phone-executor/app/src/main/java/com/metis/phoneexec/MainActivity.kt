@@ -103,7 +103,7 @@ class MainActivity : Activity() {
             btn("Dry test") { dryTest() }
             btn("Share ID") { shareFingerprint() }
             addView(Button(this@MainActivity).apply { pauseBtn = this; isAllCaps = false; text = "Pause"; setOnClickListener { togglePause() } })
-            btn("Reload") { web.loadUrl(TRADE_URL) }
+            btn("Reload") { web.loadUrl(home()) }
             btn("Reset login") { Store.setFlag(this@MainActivity, Store.RELOGIN_LATCHED, false); reloginFailures = 0; setStatus("auto re-login re-enabled") }
         }
         val root = LinearLayout(this).apply {
@@ -230,12 +230,33 @@ class MainActivity : Activity() {
             }
             when (st) {
                 "challenged" -> setStatus("STOPPED: challenge page. Operator: open the app and check.")
-                "logged_in" -> { reloginFailures = 0; claimAndRun() }
+                "logged_in" -> { reloginFailures = 0; onLoggedIn(s) }
                 "login" -> relogin(s)
                 else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
-                        else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(TRADE_URL) }
+                        else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(home()) }
             }
         } finally { busy = false }
+    }
+
+    /** Where "back to the terminal" goes: the last account terminal seen while logged in, else the host root. */
+    private fun home(): String = Store.get(this, Store.TERMINAL_URL)?.takeIf { it.startsWith("https://trade.breakoutprop.com/") } ?: TRADE_URL
+
+    /** Logged in. Inside an account: remember it and work tickets. On the account landing: open the ONE account
+     *  (single link, or the remembered terminal); never reload the landing; ambiguous = wait for one human tap. */
+    private suspend fun onLoggedIn(s: JSONObject) {
+        if (s.optBoolean("onAccount")) {
+            val href = s.optString("accountHref")
+            if (href.startsWith("https://trade.breakoutprop.com/") && href != Store.get(this, Store.TERMINAL_URL)) Store.put(this, Store.TERMINAL_URL, href)
+            claimAndRun(); return
+        }
+        if (userActive()) { setStatus("logged in (account list); you are using the screen, so no navigation"); return }
+        val one = s.optString("singleAccountLink")
+        val saved = Store.get(this, Store.TERMINAL_URL)
+        when {
+            one.startsWith("https://trade.breakoutprop.com/") -> { setStatus("logged in: opening the account"); web.loadUrl(one) }
+            saved != null && s.optInt("accountLinkCount") == 0 -> { setStatus("logged in: opening the remembered account"); web.loadUrl(home()) }
+            else -> setStatus("logged in on the account list: tap into the Breakout account ONCE (no tickets until then)")
+        }
     }
 
     // ---------------- auto re-login ----------------
@@ -262,7 +283,7 @@ class MainActivity : Activity() {
         if (link == null) return loginFail("no Breakout mail with exactly one matching link within 3 min")
         web.loadUrl(link)            // same WebView, same cookie store
         delay(8000)
-        web.loadUrl(TRADE_URL); delay(10_000); ensure()
+        web.loadUrl(home()); delay(10_000); ensure()
         val after = jsObj("__ex.state()")
         if (after?.optBoolean("loggedIn") == true) {
             reloginFailures = 0; lastState = "logged_in"; setStatus("re-login OK")
@@ -277,7 +298,7 @@ class MainActivity : Activity() {
             api.event("login_failed", "STOPPED after 2 failures; manual login needed: $why")
         } else api.event("login_failed", why)
         setStatus("login failed ($reloginFailures): $why")
-        if (!userActive()) web.loadUrl(TRADE_URL)
+        if (!userActive()) web.loadUrl(home())
     }
 
     // ---------------- tickets ----------------

@@ -601,6 +601,14 @@ By the criteria registered before the run, that is 2 of 4: **NOT-YET** by the le
 - **Automatic re-login:** built in this same PR. It is not on the go-live path, and the unread terms do not block it.
 - **Until auto re-login is configured and proven:** the app pings the operator at once whenever it lands on the login page (`logout_seen`), including right after a restart, so one human tap re-logs in. While logged out the app fails closed: no claim, no fill, no submit.
 
+**Session lifetime update (manager relay of the 1a probe report, 20:12Z):** the 1a session is still logged in at 20:12Z, about 8.5 h after the 11:43-11:47Z login. Phone restart and a night are still unmeasured.
+
+**Fix, 2026-10-05 ~20:20Z (logged-in landing read as "other"):** the first 1b build counted the page as logged in only if it had a button / link / tab whose text was exactly "Positions", "Open orders" or "Portfolio". The 1a captures show the logged-in landing has no tabs and no such exact control (state `other_served`), so the 30 s loop reloaded every good login. Logged in now means: the trade host, no login form, and any of: an `/account/` path, the terminal's navigation words in the page text, or an account link.
+- Inside an account, the app remembers that URL privately and works tickets.
+- On an account list, it opens the ONE account link or the remembered account. With several accounts it waits for one human tap.
+- It never reloads a logged-in page.
+- Covered by the landing cases in `tools/phone-executor/test/exec_check.js`.
+
 **Terms read for this phase (first-party help centre, `intercom.help/breakoutprop`, 2026-10-05).** The full Terms of Service / Funded Trader Agreement still returned HTTP 403 and are **unread**.
 - *Prohibited practices* (article 11644090) lists no clause on automation, bots, scripts or software.
 - That article **does** prohibit "sharing account access, or trading multiple accounts from the same household, device, or IP address".
