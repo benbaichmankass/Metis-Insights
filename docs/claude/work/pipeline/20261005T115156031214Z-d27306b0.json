@@ -5,6 +5,11 @@
   },
   "id": "PI-20261005-9HEP9LYP-0002",
   "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-06",
+    "how_to_check": "Read the operator-pasted probe report: for each Capture/Recheck, host trade.breakoutprop.com with no login/pw/code_or_2fa marker = still logged in; compare times with the first logged-in capture 2026-10-05T11:43:25Z; record the first time a login or code step returns.",
+    "what": "Whether the operator's login on trade.breakoutprop.com in the probe WebView (logged in 2026-10-05 ~11:43Z) is still logged in, with no email or 2FA step, at ~1 h (12:45Z), ~6 h (17:45Z) and the next morning, and after an app force-stop, a phone restart and a Wi-Fi/cellular switch."
+  },
   "origin": {
     "kind": "session",
     "ref": "lane PHONE-EXEC-1A session_01FuWi5xUmKJf6ps9HEp9LyP; operator question 2026-10-05 via manager",
