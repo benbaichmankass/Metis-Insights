@@ -27,7 +27,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Android SDK packages (runner image ships the SDK; add what the build needs)
+        run: |
+          SM=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -1)
+          yes | "$SM" --licenses >/dev/null || true
+          "$SM" "platforms;android-34" "build-tools;34.0.0" >/dev/null
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
