@@ -1,0 +1,5 @@
+{
+  "tier": 2,
+  "landing": "manager",
+  "why": "Adds the READ-ONLY velotrade-api-probe system-action (scripts/ops/velotrade_api_probe_action.sh + scripts/prop/velotrade_api_probe.py). The probe code hard-refuses any request other than GET, POST /login and POST /logout and never touches /orders; credentials, token and account codes are redacted from output. Tier-2 dispatch needs the operator OK already given in chat ('Ok, let's go that', relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv). Lane VELOTRADE-API-PROBE, pipeline PI-20261005-APBY4NTV-0004."
+}
