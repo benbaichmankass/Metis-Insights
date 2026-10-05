@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "_ict_scalp_variant_builder fetches HTF candles and populates cfg[\"htf_close\"]/cfg[\"htf_ema\"] for every variant with htf_trend_filter_enabled: true, with a test asserting it, merged AND deployed (git_sha on /api/diag/version contains the fix)",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAA05-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A05, finding CA-A05-001",
+    "rerun": "grep -n htf src/runtime/strategy_signal_builders.py (lines 726-855, _ict_scalp_variant_builder) -- currently 0 matches in that span, vs ict_scalp_signal_builder (lines ~612-648) which has several. Cross-check config/strategies.yaml for the 7 variant strategies (ict_scalp_sol_5m/xrp_5m/avax_5m/xrp_15m/eth_15m/sol_15m/mgc_15m) still declaring htf_trend_filter_enabled: true. The finding holds while _ict_scalp_variant_builder has no HTF-candle-fetch path."
+  },
+  "routed_to": "ICT-SCALP-HTF",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: verified by this lane 2026-10-05 (live read and/or file/test re-read, deployed sha 9ddf1ee04 per /api/diag/version): strategy_signal_builders.py:839 _ict_scalp_variant_builder now calls _fetch_htf_bias (def :733); test tests/test_ict_scalp_htf_filter_ca_a05_001.py; fix f4b3446ac (#15340) is ancestor of deployed 9ddf1ee04.",
+  "what": "HIGH (code audit CA-A05-001, MEASURED 2026-09-27): _ict_scalp_variant_builder (src/runtime/strategy_signal_builders.py:726-855), which backs 7 live-configured strategies (ict_scalp_sol_5m, xrp_5m, avax_5m, xrp_15m, eth_15m, sol_15m, mgc_15m), never fetches HTF candles or sets cfg[\"htf_close\"]/cfg[\"htf_ema\"] -- zero \"htf\" references anywhere in the function body. All 7 declare htf_trend_filter_enabled: True in config/strategies.yaml. src/units/strategies/ict_scalp.py:435-456 gates the HTF trend-bias filter on  -- since both are always None for these 7, the filter silently never fires and every signal is passed through unconditionally, with no log line distinguishing this from \"filter ran and agreed\". The flagship ict_scalp_signal_builder (ict_scalp_5m, lines 612-648) correctly fetches and wires HTF candles. scripts/backtest_ict_scalp.py:380-526 threads htf_close/htf_ema per bar, so the validated backtest that these strategies were promoted on ran WITH the filter on -- live mechanics diverge from the validated backtest (the exact \"live==backtest soak\" promise the M27-P1 promotion proposal makes). tests/test_ict_scalp_runtime.py only covers the flagship builder; tests/test_ict_scalp_variants.py's _base_cfg fixture hardcodes htf_trend_filter_enabled: False, sidestepping the gap entirely -- 26 tests pass, none of them exercise this path. These 7 legs run on bybit_1 (mode: live, Bybit demo/paper Stage-1 soak) and ib_paper for mgc_15m -- Stage-1 soak per the promotion ladder, not yet Stage-2 real-money mirror. FIX: extract the HTF-fetch block from ict_scalp_signal_builder (lines 612-648) into a shared helper, call it from _ict_scalp_variant_builder before building cfg, gated on vcfg.get(\"htf_trend_filter_enabled\") exactly as the flagship does; add a test asserting fetch_candles is called at the variant's htf_filter_timeframe for at least one _ict_scalp_variant_builder-backed strategy. Full finding: docs/audits/code-audit-2026-09-27/CA-A05.findings.jsonl id CA-A05-001."
+}

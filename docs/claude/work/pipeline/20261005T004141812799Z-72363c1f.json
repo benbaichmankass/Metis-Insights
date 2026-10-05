@@ -1,0 +1,54 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the first real r4-demotion-gate producer PR after 4df71fb5 is graded by pr-landing-guard R16 in CI with both A7 notes present, 'run <id> verified' and 'provenance ... pushed exactly this head'. Or, if it refuses with 'provenance could not be read', the artifact-timing question is answered in the negative and a fix is filed.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260928-TURC5MJC-0004",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "curl -s 'https://api.github.com/repos/benbaichmankass/Metis-Insights/pulls?state=all&per_page=50' | jq '.[] | select(.head.ref|startswith(\"automation/r4-demotion-\")) | {number, created_at, merged_at}'; then read that PR's guards job log for the A7 notes",
+    "what": "the first real r4-demotion-gate producer PR after 4df71fb5 is graded by pr-landing-guard R16 in CI with both A7 notes present, 'run <id> verified' and 'provenance ... pushed exactly this head'. Or, if it refuses with 'provenance could not be read', the artifact-timing question is answered in the negative and a fix is filed."
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28; probe PR #13502; docs/audits/code-audit-2026-09-27.md §6 JC-CA-03",
+    "rerun": "curl -s 'https://api.github.com/repos/benbaichmankass/Metis-Insights/pulls?state=all&per_page=50' | jq '.[] | select(.head.ref|startswith(\"automation/r4-demotion-\")) | {number, created_at, merged_at}'; then read that PR's guards job log for the A7 notes"
+  },
+  "routed_to": "JC-GIT | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — GitHub pulls API, 500 most recent closed PRs: none with head automation/r4-demotion-*; r4-demotion-gate runs (n=14 sampled, 09-27..10-02) succeed but no producer PR graded by R16 after 4df71fb5e.",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Verified probe PR #13502 (closed) via GitHub API: mergeable_state=blocked, matching the finding exactly. This is a fresh (2026-09-28, same day) session finding reported to the manager per dispatch, with a clear recommendation already stated (option A: run-id provenance, keep the PAT) but the actual choice among A/B/C is a security-architecture tradeoff only the operator can accept.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "one guard-code PR",
+          "label": "Option A: keep the PAT, make A7 verify the run via GET /repos/.../actions/runs/{id} (path==r4-demotion-gate.yml, head_branch=main)",
+          "risk": "low; this is the lane's own recommendation and closes the forgeability finding directly",
+          "what_happens": "A7 becomes unforgeable without changing who opens the PR"
+        },
+        {
+          "cost": "loses required-check enforcement on these PRs entirely (measured: 0 check runs under required names)",
+          "label": "Option B as originally chosen: switch to GITHUB_TOKEN in r4-demotion-gate.yml",
+          "risk": "high — removes the independent CI gate on demotion-gate PRs",
+          "what_happens": "PR author becomes github-actions[bot] for real"
+        },
+        {
+          "cost": "none",
+          "label": "Hold status quo (PAT, current forgeable A7 check)",
+          "risk": "A7's provenance check remains forgeable by any session",
+          "what_happens": "no change"
+        }
+      ],
+      "priority_tier": 6,
+      "question": "JC-CA-03: the operator's earlier choice (option B, switch r4-demotion-gate.yml to GITHUB_TOKEN) has no clean route — a GITHUB_TOKEN-opened PR gets 0 required checks, and even dispatching them separately would skip pr_only guard steps (including the A7 mandate-autoland check itself). The finding also shows A7's current PAT-login check is forgeable by any session via pr-opener.yml. Reopen the decision: keep the PAT with unforgeable provenance (verify the run itself via the Actions API), switch to GITHUB_TOKEN and accept no-required-checks, or hold status quo?",
+      "recommendation": "Option A, per the investigating lane's own finding — it fixes the forgeability gap without sacrificing required-check enforcement."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "JC-CA-03 BLOCKED, reported to the manager rather than improvised (per the dispatch). The operator chose option B, 'Use GITHUB_TOKEN' in r4-demotion-gate.yml so the PR author is really github-actions[bot]. MEASURED 2026-09-28, it has no clean route: (1) A GITHUB_TOKEN-opened PR gets no required checks here. #13001's head 7077d9e1 (opened by github-actions[bot]) got pull_request runs for Guards / pytest-run / pytest-collect / repo-inventory with 0 jobs, concluded failure, and 0 check runs under those names. (2) Workaround 'the producer dispatches the required workflows': GITHUB_TOKEN CAN dispatch (r4-demotion-gate run 36311893484, actor github-actions[bot], success). But the check runs do NOT satisfy branch protection. On probe PR #13502 (an empty commit with [skip ci], only dispatched runs) guards / pytest-collect / pytest-run were all success on the head SHA from app github-actions, yet mergeable_state=blocked. Control PR #13508 at the same moment, with the same contexts from pull_request, read clean. n=1 per arm. (3) Even if they had counted, a dispatched guards run skips every pr_only step (scripts/ci/run_guards.py:2282), which includes pr-landing-guard's real check and mandate-autoland-guard's R16 / A7. The required 'guards' would go green WITHOUT re-deriving the eight clauses, which removes the independent merge-time check the route's safety rests on. (4) FINDING, whichever option is chosen: A7's 'PR author == github-actions[bot]' is FORGEABLE. pr-opener.yml opens ANY session-pushed head branch with GITHUB_TOKEN, so the PR author is github-actions[bot] (read .github/workflows/pr-opener.yml). The commit-author check only compares git config emails. check_mandate_autoland.py's own docstring says A7 rests on 'a repo secret no session holds', and that is false for both tokens. Unforgeable provenance would be A7 verifying the run itself: GET /repos/{repo}/actions/runs/{run_id} must have path == .github/workflows/r4-demotion-gate.yml, head_branch main, and a status from that run. A session cannot mint a run of that workflow that computes a different diff. RECOMMENDATION: the operator's option A (provenance-based A7 exception), keeping the PAT so checks attach, with the provenance being that run-id API read rather than the PAT-owner login.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — JC-CA-03: the operator's earlier choice (option B, switch r4-demotion-gate.yml to GITHUB_TOKEN) has no clean route — a GITHUB_TOKEN-opened PR gets 0 required checks, and even dispatching them separately would skip pr_only guard steps (including the A7 mandate-autoland check itself). The finding also shows A7's current PAT-login check is forgeable by any session via pr-opener.yml. Reopen the decision: keep the PAT with unforgeable provenance (verify the run itself via the Actions API), switch to GITHUB_TOKEN and accept no-required-checks, or hold status quo? Recommendation: Option A, per the investigating lane's own finding — it fixes the forgeability gap without sacrificing required-check enforcement. | RE-DECIDED 2026-09-28 ~12:10Z by the operator (popup, relayed by manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: \"Keep PAT, verify run (Recommended)\": \"Keep the current token, and make the safety check verify via GitHub's API that the PR really came from the scheduled demotion-gate run on main. Unforgeable, and all required CI checks stay.\" Built in PR #13609: A7 verifies GET actions/runs/<id> (path r4-demotion-gate.yml, head_branch main, event schedule|workflow_dispatch, this repo, head_sha == branch base). RESIDUAL, still open under this item: a replay of a real run id from that run's exact base. A1-A6 bound what such a branch can do; a run-produced artifact naming the pushed head SHA would close it. Not built. | 2026-09-28 16:40Z: #13609 MERGED as 4df71fb5 after two manager BLOCK rounds, B1/B2 and then N1. A7 now: grades the PR head, never GitHub's merge ref; verifies the originating run via GET actions/runs/<id>; and binds the PR content via the run's r4-demotion-provenance artifact {run_id, branch, head_sha, removals, window, event}. Window must equal the declared r4-demotion-gate.yml default. A4/A8 are re-checked at main now. The replay residual is CLOSED by the artifact binding. LANDED_UNPROVEN: the artifact read-back and the run read are exercised only with mocks. Unverified whether upload-artifact@v4 artifacts are listable while the producer run is still in progress; if not, A7 fails closed and a human merges."
+}

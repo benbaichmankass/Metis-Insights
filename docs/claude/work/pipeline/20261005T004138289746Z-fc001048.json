@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-20260927-W6OPSR-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "docs/research/recurring-validations-audit-2026-09-27.md table rows 25-27",
+    "rerun": "open a vm-diag-request issue with body `timers` and compare last_trigger to OnUnitActiveSec for ict-insights-generator-strategies / ict-db-integrity"
+  },
+  "routed_to": "SA-INFRA | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — Live /api/diag/timers 2026-10-05T00:30Z: ict-db-integrity (OnUnitActiveSec=1h) last_trigger 10-04 17:29Z (~7h ago); ict-insights-generator-strategies (120min) last 10-04 05:31Z (~19h ago); ib-gat",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[ops] Live-trader monotonic timers look starved (INFERRED, not established): at 2026-09-27T09:18Z /api/diag/timers showed ict-insights-generator-strategies (120 min) last_trigger 05:14Z and ict-db-integrity (60 min) last_trigger 06:13Z, both with next_elapse implying a re-arm at ~08:57-08:58Z without a trigger; ict-ib-gateway-watchdog is inactive with no schedule. Hypothesis: deploy/install_systemd_units restarts re-arm OnUnitActiveSec timers, starving long-period ones on busy deploy days. First step is a READ (journalctl -u <timer> and the deploy log around 08:57Z); any unit/deploy change is Tier-2. -- BLOCKED 2026-09-28T07:03Z (W6-OPS-R): the vm-diag-snapshot relay itself now gets HTTP 401 from /api/diag/timers (issue #13511, run 36389586149); the same request returned 200 on 09-27 09:18Z (#13106). So the DIAG_READ_TOKEN Actions secret no longer matches the VM -- not only the sandbox env. That breaks every /api/diag relay read and is a credential matter (sync-vm-secrets / operator). The timer read here waits on it."
+}

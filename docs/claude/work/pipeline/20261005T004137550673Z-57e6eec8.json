@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "set-diag-token writes the same file set init_diag_token.sh writes (web-api.env AND .env when .env carries DIAG_READ_TOKEN, plus the legacy diag_token file), with a test, merged; OR a get-env/diag read shows the live VM's .env carries no DIAG_READ_TOKEN line and set-diag-token's header says why it is safe",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-VT1KDEYB-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "SEC-DT lane (session_01TTTMp6DEcXBZDLVT1kDEyB), branch claude/sec-diag-token-rotation",
+    "rerun": "Read deploy/ict-web-api.service: EnvironmentFile=/etc/ict-trader/web-api.env then EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env (later wins). Read .github/workflows/set-diag-token.yml step 'Install token on VM': it writes ONLY ENVFILE=/etc/ict-trader/web-api.env. Then on the VM (system-action get-env or trainer-style relay) check whether /home/ubuntu/ict-trading-bot/.env has a ^DIAG_READ_TOKEN= line (report presence only, never the value). The finding holds while set-diag-token writes one file and .env may carry the key."
+  },
+  "routed_to": "GUARD-FIDELITY",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: verified by this lane 2026-10-05 (live read and/or file/test re-read, deployed sha 9ddf1ee04 per /api/diag/version): PR #13510 merged 2026-09-28T07:49Z. Issue #13515 set-diag-token reply: rotation_state rotated, wrote web-api.env AND /home/ubuntu/ict-trading-bot/.env; tests/test_diag_token_workflows.py exists. Live /api/diag/* works with the rotated token today.",
+  "what": "set-diag-token (the operator-originated-value path, and the ONLY route to restore direct /api/diag/* from a web environment after init-diag-token rotates the value, since nobody can read the rotated value back) writes only /etc/ict-trader/web-api.env. ict-web-api.service loads .env AFTER it, so whenever .env carries DIAG_READ_TOKEN the install is shadowed: the VM keeps serving the .env value while the run reports on its own curl, which then 401s -> 'failed'. The pre-2026-09-27 init_diag_token.sh wrote .env, so a VM it ever ran on carries that line; whether the live VM does is NOT verified (no issue ever invoked init-diag-token, per the manager's search). Plausibly the unexplained half of BL-20260713-SET-DIAG-TOKEN-RESTORE-BROKEN. Fix: make set-diag-token call scripts/ops/init_diag_token.sh rotate with the secret on stdin (same file set, same backups, same no-op refusal)."
+}
