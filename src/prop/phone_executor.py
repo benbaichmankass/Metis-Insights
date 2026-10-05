@@ -211,6 +211,7 @@ def claim_next(device: PhoneDevice, now: Optional[datetime] = None) -> Optional[
     acct = device.account_id
     if kill_switch(acct) == "off":
         return None
+    serve_dry_test_request(device)
     conn = prop_journal._connect()
     try:
         prop_journal.ensure_tables(conn)
@@ -297,8 +298,35 @@ def _close_claim(account_id: str, ticket_id: str, status: str, result: Dict[str,
         conn.close()
 
 
+def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
+    """One-shot, git-visible way to run the dry end-to-end check WITHOUT the operator.
+
+    ``config/prop_platforms.yaml::phone_accounts.<acct>.dry_test_request: <request id>``. On the next claim, if no
+    ticket carries that request id yet, ONE always-dry test ticket is written (meta.test, so submit is forced dry
+    on the server and the phone never submits it). The id makes it idempotent; a new id requests a new test."""
+    req = str(phone_config(device.account_id).get("dry_test_request") or "").strip()
+    if not req:
+        return None
+    conn = prop_journal._connect()
+    try:
+        prop_journal.ensure_tables(conn)
+        seen = conn.execute("SELECT 1 FROM prop_tickets WHERE account_id = ? AND meta LIKE ? LIMIT 1",
+                            (device.account_id, f'%"dry_test_request": "{req}"%')).fetchone()
+    finally:
+        conn.close()
+    if seen:
+        return None
+    try:
+        tid = make_test_ticket(device, request_id=req)["ticket_id"]
+    except ValueError:
+        logger.warning("phone_executor: dry_test_request %s could not be served (no reference price)", req)
+        return None
+    logger.info("phone_executor: served dry_test_request %s as %s", req, tid)
+    return tid
+
+
 def make_test_ticket(device: PhoneDevice, *, symbol: str = "ETHUSDT",
-                     entry: Optional[float] = None) -> Dict[str, Any]:
+                     entry: Optional[float] = None, request_id: Optional[str] = None) -> Dict[str, Any]:
     """A synthetic, ALWAYS-dry ticket for the end-to-end dry check. ``meta.test``
     forces ``submit=dry`` in :func:`claim_next` whatever the account mode, and
     the phone also refuses to submit any test ticket."""
@@ -321,7 +349,7 @@ def make_test_ticket(device: PhoneDevice, *, symbol: str = "ETHUSDT",
         "risk_usd": None, "signal_time": now.isoformat(),
         "valid_until": (now + timedelta(minutes=15)).isoformat(),
         "status": "emitted", "message": "phone dry end-to-end test ticket",
-        "meta": {"test": True},
+        "meta": {"test": True, **({"dry_test_request": request_id} if request_id else {})},
     })
     return {"ok": True, "ticket_id": tid}
 

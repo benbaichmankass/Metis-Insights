@@ -163,3 +163,12 @@ def test_ticket_result_reason_is_visible_on_the_outbound_view():
                               "reason": "TP price field not unique", "form": {"inputs": [{"label": "Take profit"}]}})
     rows = [r for r in prop_journal.list_outbound_tickets(account_id="breakout_2") if r.get("ticket_id") == "t1"]
     assert rows and rows[0]["phone_result"]["reason"] == "TP price field not unique"
+
+
+def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
+    monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {"dry_test_request": "r1",
+                        "instruments": {"ETHUSDT": {"venue": "ETHUSD"}}})
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+    got = pe.claim_next(_dev())
+    assert got and got["meta"]["test"] is True and got["meta"]["dry_test_request"] == "r1" and got["submit"] == "dry"
+    assert pe.claim_next(_dev()) is None  # same request id is never served twice
