@@ -92,7 +92,9 @@ def test_routed_to_bybit_1_only_since_the_r2_cut():
     act that updates it deliberately.
     """
     accounts = yaml.safe_load(open("config/accounts.yaml"))["accounts"]
-    assert "eth_pullback_2h" in accounts["bybit_1"]["strategies"], "runs on bybit_1 (demo)"
+    # 2026-10-05 MD-S1-CUT-ON-STAGE0-FAIL (#16548 grant) removed it from bybit_1
+    # too: soak complete (38/10 closes), Stage-0 fails (-0.028R, 1/4 folds).
+    assert "eth_pullback_2h" not in accounts["bybit_1"]["strategies"]
     assert "eth_pullback_2h" not in accounts["bybit_2"]["strategies"], (
         "eth_pullback_2h is back on the real-money bybit_2 roster. That is a "
         "Tier-3 promotion and needs a record clearing the four-clause bar: "

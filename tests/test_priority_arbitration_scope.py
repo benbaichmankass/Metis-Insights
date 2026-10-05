@@ -82,9 +82,10 @@ def test_the_starved_twins_route_to_disjoint_accounts() -> None:
         ("trend_donchian_sol", "trend_donchian_sol_prop"),
         ("trend_donchian_eth", "trend_donchian_eth_prop"),
     ):
-        assert routed.get(base), f"{base} is unrouted -- fixture assumption broken"
+        # The base legs left bybit_1 on 2026-10-05 (MD-S1-CUT-ON-STAGE0-FAIL,
+        # #16548), so a base may be unrouted; the twin must still be routed.
         assert routed.get(twin), f"{twin} is unrouted -- fixture assumption broken"
-        assert not (routed[base] & routed[twin]), (
+        assert not (routed.get(base, set()) & routed[twin]), (
             f"{base} and {twin} now share an account; the disjoint-account "
             "argument in DEFAULT_PRIORITIES' header no longer holds and must "
             "be re-derived rather than trusted"

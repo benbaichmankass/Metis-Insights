@@ -5139,9 +5139,18 @@
       "ceiling_usd": 30,
       "spend_usd": 38.07,
       "tier": 1,
-      "prs": [16489, 16490, 16512, 16514, 16517, 16518, 16523, 16524],
+      "prs": [
+        16489,
+        16490,
+        16512,
+        16514,
+        16517,
+        16518,
+        16523,
+        16524
+      ],
       "blocked_on": [],
-      "note": "[2026-10-05 lane BACKLOG-BURNDOWN-2 CLOSE-OUT] DONE-CONDITION MET AND OBSERVED ON MAIN (pipeline.py --check, 2026-10-05 ~03:2xZ after #16523/#16524): (a) unrouted 0 (start 49); (b) total due 19 (start 358; target <=25) — 18 of the 19 are PI-SOAK-* items graded could-not-look that clear when the weekly soak-book-grade run (Sunday 03:00Z) lands the shadow_packages field shipped in #16512; (c) routed items naming no live row/lane: 0 (start 152); (d) due items filed >=14d ago: 0 (start 11, peaked at 179 on the 10-05 cadence cliff). PRs merged: #16489 #16490 #16512 #16514 #16517 #16518 #16523 #16524 (#16485 closed, replaced by #16489 after soak-contract-guard needed observation blocks; #16494 is the CI-AUTOMERGE lane's). Spend: manager meter $38.07 of $45. WHAT THIS DID NOT DO: 553 items filed >=14d ago remain OPEN (re-read and re-dated, not closed) and their cadences expire together on 2026-10-11/12 (~280 items) and 10-18/19 (~210), so due WILL climb back; filed as a pipeline item due 2026-10-10 with a runnable count (PI-20261005-4GA8WQPA-0002). OTHER FINDINGS FILED: stale-snapshot overwrite in pipeline.append (PI-20261004-4GA8WQPA-0002), Tier-2 diag log aggregate (PI-20261004-4GA8WQPA-0003), possibly unprotected paper TQQQ position (PI-20261005-4GA8WQPA-0001, due 10-06). OBSERVATION STILL OWED: PI-20261004-JC8KDKLF-0002 stays open until a committed grade record carries shadow_packages (first chance: Sunday 2026-10-11 03:00Z)."
+      "note": "[2026-10-05 lane BACKLOG-BURNDOWN-2 CLOSE-OUT] DONE-CONDITION MET AND OBSERVED ON MAIN (pipeline.py --check, 2026-10-05 ~03:2xZ after #16523/#16524): (a) unrouted 0 (start 49); (b) total due 19 (start 358; target <=25) \u2014 18 of the 19 are PI-SOAK-* items graded could-not-look that clear when the weekly soak-book-grade run (Sunday 03:00Z) lands the shadow_packages field shipped in #16512; (c) routed items naming no live row/lane: 0 (start 152); (d) due items filed >=14d ago: 0 (start 11, peaked at 179 on the 10-05 cadence cliff). PRs merged: #16489 #16490 #16512 #16514 #16517 #16518 #16523 #16524 (#16485 closed, replaced by #16489 after soak-contract-guard needed observation blocks; #16494 is the CI-AUTOMERGE lane's). Spend: manager meter $38.07 of $45. WHAT THIS DID NOT DO: 553 items filed >=14d ago remain OPEN (re-read and re-dated, not closed) and their cadences expire together on 2026-10-11/12 (~280 items) and 10-18/19 (~210), so due WILL climb back; filed as a pipeline item due 2026-10-10 with a runnable count (PI-20261005-4GA8WQPA-0002). OTHER FINDINGS FILED: stale-snapshot overwrite in pipeline.append (PI-20261004-4GA8WQPA-0002), Tier-2 diag log aggregate (PI-20261004-4GA8WQPA-0003), possibly unprotected paper TQQQ position (PI-20261005-4GA8WQPA-0001, due 10-06). OBSERVATION STILL OWED: PI-20261004-JC8KDKLF-0002 stays open until a committed grade record carries shadow_packages (first chance: Sunday 2026-10-11 03:00Z)."
     },
     {
       "id": "PROTECTION-HARDENING",
@@ -5228,9 +5237,29 @@
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [16538, 16539, 16540, 16541],
+      "prs": [
+        16538,
+        16539,
+        16540,
+        16541
+      ],
       "blocked_on": [],
       "note": "2026-10-05 03:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv per the operator directive (2026-10-04, verbatim in the manager transcript) to run the backlog burndown continuously until manageable. Predecessor BACKLOG-BURNDOWN-2 is done: due 19, unrouted 0 on main, $38.07. Lane session id filled in after dispatch. || [2026-10-05 lane BACKLOG-BURNDOWN-3 CLOSE-OUT, session session_016hpYjaAbdSHe5SwfBreDQp] DONE-CONDITION MET AND OBSERVED ON MAIN at df24cdab (pipeline.py --check + P.stats + P.is_due simulated per day): unrouted 0; due 19 (target <=25; was 19 at start); routed-not-live 0 (35 young items routed to 'RESEARCH'/a finished lane/a parked row, none a live row, corrected to queued in #16541); due-and->=14d-old 0; 14-day projection of NEWLY-due per day: 10-06 14, 10-07 8, 10-08 19, 10-09 4, 10-10 1, then 24/day 10-11..10-19 (max 24, target ~30). WHAT MOVED (population: the 553 open items filed >=14d ago): 63 closed done + 74 killed (#16538), 416 survivors re-read and kept/routed (#16539: 23 routed to verified-live rows, 393 kept with a next observation, keyword-routed owners that did not cover their item dropped to queued); plus 330 younger items jittered cadence-only with NO re-read, each record says so (#16540). METHOD: 13 read-only Sonnet triage batches, then 4 adversarial verifier waves over all 159 proposed closes/kills (9 refuted and 5 weak ones were NOT landed; refuted examples: E35 landing assertion, TTL semantics, grade-closed-trades truncation, prop-drawdown counters), then this lane spot-checked retired paths + intents.py:447 + selftest wiring. HONEST LIMITS: 18 items are UNKNOWN (trainer-VM artifacts, tail-only 83-137 MB logs, dashboard repo 403) and stay open; 416 old items are still open (closed 137 of 553, ~25%) -- the wave was SPREAD, not drained; most survivors have no live owner; spend_usd not read (lane ran 13 triage + 4 verifier Sonnet agents; ceiling $40). FOLLOW-UPS filed: PI-20261005-WFBREDQP-0001 (soak-guard/due_by re-date trap), PI-20261005-WFBREDQP-0002 (bybit_coverage_soak shows apply/binding:true vs 'arming held'). Next lapse dates: 24 items/day from 10-11; a BACKLOG-BURNDOWN-4 should take them in owner-row batches as they come due."
+    },
+    {
+      "id": "BACKLOG-BURNDOWN-4",
+      "title": "Continuous backlog burndown, wave 3: drain the paced ~24/day due wave from 10-11 (416 old items still open, most without a live owner, per BURNDOWN-3 close-out); CLOSE/KILL over re-date",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "burndown lane",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-10-05 05:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv under the operator's pacing directive (2026-10-05, the weekly limit must last to the Wed reset). Sonnet, $15 ceiling, NO parallel sub-agent fan-out (BURNDOWN-3 ran $65.71 against $40 with 17 sub-agents)."
     }
   ]
 }

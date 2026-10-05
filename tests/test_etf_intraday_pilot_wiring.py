@@ -139,8 +139,10 @@ def test_instrument_profiles_route_to_alpaca():
 
 def test_account_routing_and_descriptions():
     acct = yaml.safe_load(open("config/accounts.yaml"))["accounts"]["alpaca_paper"]
-    for name in _BUILDERS:
-        assert name in acct["strategies"]
+    assert "slv_trend_1h" in acct["strategies"]
+    # 2026-10-05 MD-S1-CUT-ON-STAGE0-FAIL (#16548 grant) removed gld_pullback_1h
+    # from alpaca_paper (R-CUT-AFFORD); a re-add is a MD-PROMOTE-S0-S1 act.
+    assert "gld_pullback_1h" not in acct["strategies"]
     assert "SLV" in acct["symbols"]
     assert "GLD" in acct["symbols"]  # already routed; gld_pullback_1h reuses it
     desc = json.load(open("config/strategy_descriptions.json"))
