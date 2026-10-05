@@ -1,0 +1,80 @@
+id: RQ-20261005-813
+title: 'PROP-ROSTER-EXPAND: Velotrade BOOK search over admitted ETH/SOL/XRP legs, inactivity + P(pass) + daily-loss (lane
+  PROP-ROSTER-EXPAND)'
+status: queued
+cadence: once
+kind: experiment
+theme: new_strategy_prop
+priority: 2
+question: 'Which book of admitted legs (one leg per symbol, from RQ-20261005-811 ADMITTED plus the existing 730d PASS records)
+  (a) never breaches the firm inactivity rule in the 730d ledger, (b) raises P(net>0)/EV per account life against velotrade_classic_1step.yaml
+  versus the incumbent velotrade_1 (empty roster, dry_run: incumbent baseline is the best single admitted leg at the same
+  arm) book, and (c) survives a simultaneous-loss check against the daily-loss limit ($200)? Folds in PI-20261005-MG7BGR46-0002
+  (the ETH+SOL book question) rather than duplicating it: ETH_prop+SOL_prop is one enumerated book.'
+why_this_matters: 'Operator directive 2026-10-05 (priority 1): stay within active-trading restrictions. The single ETH leg
+  is not near the 30d limit in backtest (max gap 7.5d) but is one leg on one symbol, and no crypto leg alone clears the P(net>0)>=0.70
+  bar (RQ-20261005-801..810). Books are the only lever left that touches both.'
+power:
+  expected_n: 200
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: Per-leg n>=88 floor (admission, RQ-20261005-811). Book verdicts are over 5 seeds of prop_ev_sim x lives; no new trades
+    are generated.
+  feasibility:
+    source: none
+    accrual_basis: Re-grading of committed 730d trade records.
+decision_rule:
+  id: RULE-RQ1005-PROPEXPAND-VELOTRADE
+  registered_at: '2026-10-05'
+  registered_before_run: true
+  statistic: 'Per candidate book B (set of ADMITTED legs, at most ONE leg per symbol so the no-hedging rule cannot be tripped
+    by two of our own legs; ETH/SOL/XRP only) and per flat-risk arm in flat 0.5% of balance ($25 on $5k); 0.75% as sensitivity:
+    (G) book_max_gap = largest gap in days between consecutive trade ENTRIES of the union ledger, plus the gaps from the window
+    start and to the window end, over the 730d window; (S) prop_ev_sim path-mode ev_net_usd_per_life and p_net_positive on
+    each of seeds 1-5 under velotrade_classic_1step.yaml (--no-hedge, --lev-cap per leg, prorated swap, funded-start fresh);
+    (D) over the union ledger at the arm risk: worst single day (reset 00:30 UTC) of summed realised net-R x risk$ and the
+    count of days at <= -80% of the daily-loss limit; plus mean pairwise daily-PnL correlation (reported).'
+  rule: 'PASS (Tier-3 roster proposal, NOT applied by this unit) iff ALL: (G) book_max_gap <= 14d; (S) ev_net_usd_per_life
+    > 0 AND p_net_positive >= 0.70 on ALL 5 seeds; (D) no day with realised loss > 80% of $200; every leg ADMITTED (n>=88,
+    net_r_oos>0).
+
+    INACTIVITY_SAFE_IMPROVEMENT (a hedge, explicitly NOT a pass, reported as such) iff (G) and (D) hold, ev_net_usd_per_life
+    > 0 on ALL 5 seeds, and min-over-seeds p_net_positive exceeds the incumbent''s (velotrade_1 (empty roster, dry_run: incumbent
+    baseline is the best single admitted leg at the same arm) book as rostered today = trend_donchian_eth_prop alone, same
+    arm) min-over-seeds p_net_positive by >= 0.05.
+
+    FAIL iff any leg n>=88 and ev <= 0 on any seed. Otherwise NULL. Ranking (reported, ties never broken by looking at results):
+    by min-over-seeds p_net_positive, then mean EV.
+
+    Velotrade adds: one trade held >= 60s every 30 calendar days (book gap rule (G) covers it provided every trade holds >=
+    60s: REPORT min hold of the union ledger) and 5 QUALIFYING days (realised day PnL >= 0.8% of initial balance) before pass
+    and before first payout: prop_ev_sim counts these; REPORT qualifying-day count per 730d for each book.
+
+    A single-leg fix is not a book: books with <2 legs are scored only as the incumbent baseline. The 14d margin, the 0.70
+    floor, the 80% line and the 0.05 improvement margin are NOT changed after seeing any result.'
+  what_it_does_not_do: 'Does not edit config/accounts.yaml. Backtest gaps do not prove live gaps: a live inactivity alert
+    is filed separately as a pipeline item. The velotrade_classic_1step.yaml numbers are UNCONFIRMED desk research (unconfirmed:
+    true in the ruleset).'
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 20
+  basis: 1 leg x 1 arm x 5 seeds of prop_ev_sim, same shape and cost as the generated Breakout prop-fit units.
+run:
+  workflow: session-local
+  note: Run SESSION-LOCAL by lane PROP-ROSTER-EXPAND via scripts/research/prop_book_search.py (gap + daily-loss + prop_ev_grid
+    per book).
+  inputs:
+    research_unit: RQ-20261005-813
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- research/queue/RQ-20261005-811.yaml
+- config/prop_rulesets/velotrade_classic_1step.yaml
+- docs/claude/work/pipeline/20261005T093354512568Z-27b80ef7.json
