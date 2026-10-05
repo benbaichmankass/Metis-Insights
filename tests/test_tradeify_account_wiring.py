@@ -169,14 +169,17 @@ def test_dry_account_emits_nothing():
 # ── a bare Telegram report still resolves to the LIVE prop account ───────────
 
 
-def test_bare_prop_report_defaults_to_breakout_1_with_tradeify_live(monkeypatch):
-    """Manager review B-1, carried into the go-live: with tradeify_1 LIVE
-    too, a bare fill report / screenshot must still resolve to breakout_1,
-    from the accounts file alone (its `report_default: true`; no env pin)."""
+def test_bare_prop_report_defaults_to_tradeify_1_with_breakout_1_dry_run(monkeypatch):
+    """Since 2026-10-05 breakout_1 is `mode: dry_run` (operator, set-account-mode
+    run 37273806314) and tradeify_1 is the only LIVE prop account, so a bare fill
+    report / screenshot resolves to tradeify_1 from the accounts file alone (the
+    single-live rule; a dry_run account places nothing, so a bare report cannot
+    be about it). No env pin. breakout_1 keeps `report_default: true`, which only
+    matters again if two prop accounts are live."""
     from src.prop import telegram_report_handler as h
 
     monkeypatch.delenv("PROP_DEFAULT_ACCOUNT", raising=False)
-    assert h.default_prop_account() == "breakout_1"
+    assert h.default_prop_account() == "tradeify_1"
 
 
 def test_default_prop_account_rules(monkeypatch):
