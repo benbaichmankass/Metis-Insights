@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261005-803/37283785325/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261005-803/37283785325",
+  "decision_rule_id": "RULE-RQ1005-TRADEIFY-FIT-LONG-ict_scalp_eth_15m-f050",
+  "decision_rule_registered_at": "2026-10-05",
+  "measurement_file": "",
+  "min_rows": "1",
+  "n": "null",
+  "note": "producer_failed: no run-manifest.json. Outputs (if any) are under comms/research/RQ-20261005-803/37283785325/ on main.",
+  "population": "RQ-20261005-803: the declared command did not complete \u2014 NEVER MEASURED",
+  "power_state": "",
+  "read_state": "producer_failed",
+  "records_file": "",
+  "research_unit": "RQ-20261005-803",
+  "tool": "(none ran)",
+  "verdict": "not_applicable"
+}
