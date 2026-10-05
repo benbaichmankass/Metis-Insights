@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "No graded row carries tp_appropriate/sl_appropriate unless its exit_reason is one of the declared-bracket mechanisms, and the review reports the by-mechanism split beside the grade histogram.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT'), indent=2))\"",
+    "what": "No graded row carries tp_appropriate/sl_appropriate unless its exit_reason is one of the declared-bracket mechanisms, and the review reports the by-mechanism split beside the grade histogram."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT'), indent=2))\""
+  },
+  "routed_to": "PROP-EXEC — triaged 2026-10-05: still applies — scripts/ops/score_order_packages.py:200-217 still derives exit_quality from realized_r/pnl sign; exit_reason only used for sl_hit/sl_cross. No mechanism gate. | next: Gate tp/sl_appropriate on declared-bracket exit_reason, else 'unknown'; add by-mechanism split. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[health] The decision grader labels exit_quality from the R value, not from the exit MECHANISM — 56 of 81 graded closes (69%) are scored tp_appropriate/sl_appropriate on exits the strategy never made"
+}

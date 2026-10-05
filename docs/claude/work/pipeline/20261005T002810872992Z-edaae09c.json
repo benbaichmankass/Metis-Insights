@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "TWO PARTS, different facts — say which was resolved. (1) MECHANISM: two concurrently-open self-landing PRs are OBSERVED both passing pr-landing-guard WITHOUT either having to rewrite a line the other also rewrites — proven by `git merge-tree --write-tree --name-only` between the two heads returning ZERO conflicted paths while both PRs' `pr-landing` checks are green. [!] NOT sufficient: one of them declaring `hold` to opt out, which is the workaround this row was found through and leaves the defect intact for every self-landing pair. (2) DETECTION: something FAILS or PAGES on a MERGE-QUEUE.json that is empty or stale while register-touching PRs are open — a guard, a workflow, or a manager check that can tell 'nothing to queue' from 'nobody is queueing'. [!] A green R8 run resolves NOTHING here: R8 passes on an empty queue by construction, which is the finding. [!] And a CLAUDE.md paragraph resolves nothing — the merge-queue duty is already canonised as a manager base function and the measurement above is what happened anyway.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION'), indent=2))\"",
+    "what": "TWO PARTS, different facts — say which was resolved. (1) MECHANISM: two concurrently-open self-landing PRs are OBSERVED both passing pr-landing-guard WITHOUT either having to rewrite a line the other also rewrites — proven by `git merge-tree --write-tree --name-only` between the two heads returning ZERO conflicted paths while both PRs' `pr-landing` checks are green. [!] NOT sufficient: one of them declaring `hold` to opt out, which is the workaround this row was found through and leaves the defect intact for every self-landing pair. (2) DETECTION: something FAILS or PAGES on a MERGE-QUEUE.json"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION'), indent=2))\""
+  },
+  "routed_to": "RESEARCH — triaged 2026-10-05: sub-agent proposed obsolete, not independently verified — MERGE-QUEUE.json and session-board.json retired (docs/claude/session-board.json absent); R13 conflict point superseded by per-branch slots .github/merge-slots (check_pr_landing.py:302, MI-280). (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-2 2026-10-05: premise is a machinery retired in the 2026-09-21 operating reset (root CLAUDE.md lists it as retired; the artifact is absent at HEAD — re-checked by this lane: docs/claude/work/objects, SESSIONS.json, MANAGER-LEASE.json, MERGE-QUEUE.json, OPEN-ITEMS.json, session-board.json all absent): MERGE-QUEUE.json and session-board.json retired (docs/claude/session-board.json absent); R13 conflict point superseded by per-branch slots .github/merge-slots (check_pr_landing.py:302, MI-280).",
+  "what": "[health] pr-landing-guard R13 makes docs/claude/session-board.json::merge_slot a guaranteed conflict point between any two concurrent self-landing PRs — and R8 passes vacuously on the empty queue that lets it happen"
+}

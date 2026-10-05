@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A mechanism, not a reminder -- the pattern is already recorded twice (BL-20260903 OPEN-PRS condition-dropping; the CLAUDE.md § OPEN-PRS half-informed-case rule) and prose did not hold. Candidate: a check that any artifact citing a coverage-matrix cell by name must also surface any operator-decision segment in that cell's `ref` (the refs already mark them with recognisable `SHIP BLOCKED (operator decision)` / `operator decision <date>` tokens, so this is greppable). Closing this needs either that check, or a recorded operator decision that memo-level summarisation is accepted as lossy and readers must always open the cell.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260906-MI146-ROUTED-A-SHIP-WITHOUT-THE-CANCELLATION-RECORDED-IN-THE-CELLS-IT-CITED",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-MI146-ROUTED-A-SHIP-WITHOUT-THE-CANCELLATION-RECORDED-IN-THE-CELLS-IT-CITED'), indent=2))\"",
+    "what": "A mechanism, not a reminder -- the pattern is already recorded twice (BL-20260903 OPEN-PRS condition-dropping; the CLAUDE.md § OPEN-PRS half-informed-case rule) and prose did not hold. Candidate: a check that any artifact citing a coverage-matrix cell by name must also surface any operator-decision segment in that cell's `ref` (the refs already mark them with recognisable `SHIP BLOCKED (operator decision)` / `operator decision <date>` tokens, so this is greppable). Closing this needs either that check, or a recorded operator decision that memo-level summarisation is accepted as lossy and reade"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-MI146-ROUTED-A-SHIP-WITHOUT-THE-CANCELLATION-RECORDED-IN-THE-CELLS-IT-CITED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-MI146-ROUTED-A-SHIP-WITHOUT-THE-CANCELLATION-RECORDED-IN-THE-CELLS-IT-CITED'), indent=2))\""
+  },
+  "routed_to": "GUARD-FIDELITY — triaged 2026-10-05: still applies — No guard found that makes artifacts citing a coverage-matrix cell surface operator-decision segments in its ref (grep of scripts/ci for SHIP-BLOCKED/ship-CANCELLED finds nothing); check_artifact_caveats.py covers producer defects only. | next: Kill if MI-146 ship is dead; else add a cell-ref decision-surfacing check. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "[health] MI-146's ship recommendation summarised five matrix cells and dropped the 2026-08-23 SHIP-BLOCKED/ship-CANCELLED operator decision recorded inside those same cells"
+}

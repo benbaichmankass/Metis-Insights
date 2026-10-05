@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only records from lane BACKLOG-BURNDOWN-2 batch 7 — triage of the 175 archived backlog rows that lapsed on 2026-10-05 (46 closed with evidence re-verified by this lane, 129 routed to live rows with a recorded re-read) plus routing of 10 newly unrouted items. No code, config or order-path change."
+}
