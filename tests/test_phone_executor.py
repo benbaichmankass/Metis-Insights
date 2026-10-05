@@ -146,3 +146,20 @@ def test_repo_config_declares_breakout_2_as_phone_and_devices_are_fingerprint_on
     for d in raw.get("devices") or []:
         assert len(d["token_sha256"]) == 64 and "token" not in {k for k in d if k != "token_sha256"}
     json.dumps(raw)
+
+
+def test_test_ticket_geometry_is_valid_for_a_long():
+    tid = pe.make_test_ticket(_dev(), entry=2712.0)["ticket_id"]
+    t = prop_journal.get_ticket(tid)
+    assert t["direction"] == "long"
+    assert t["sl"] < t["entry"] < t["tp"], (t["sl"], t["entry"], t["tp"])
+    assert t["entry"] < 2712.0  # the limit rests below the last price: a dry fill can never be marketable
+
+
+def test_ticket_result_reason_is_visible_on_the_outbound_view():
+    _ticket("t1")
+    pe.claim_next(_dev())
+    pe.record_report(_dev(), {"kind": "ticket_result", "ticket_id": "t1", "result": "refused",
+                              "reason": "TP price field not unique", "form": {"inputs": [{"label": "Take profit"}]}})
+    rows = [r for r in prop_journal.list_outbound_tickets(account_id="breakout_2") if r.get("ticket_id") == "t1"]
+    assert rows and rows[0]["phone_result"]["reason"] == "TP price field not unique"
