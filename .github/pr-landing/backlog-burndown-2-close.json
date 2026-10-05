@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register + pipeline only: moves checklist row BACKLOG-BURNDOWN-2 to done with the four done-condition numbers measured on main, and files the lapse-wave pipeline item. No code, config or order-path change."
+}

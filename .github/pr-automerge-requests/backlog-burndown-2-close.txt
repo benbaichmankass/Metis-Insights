@@ -1,0 +1,1 @@
+auto-merge: BACKLOG-BURNDOWN-2 close-out row + lapse-wave item
