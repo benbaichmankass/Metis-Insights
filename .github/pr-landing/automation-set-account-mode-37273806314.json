@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "set-account-mode breakout_1: live -> dry_run, requested through the system-actions workflow (run 37273806314, issue #16568). An account-mode flip is Tier-3 (config/accounts.yaml is in TIER3_PATHS) and Tier-3 never self-lands, so this waits for a merge on the operator's recorded approval. Reason given: Operator approved 2026-10-05 ~06:50Z (AskUserQuestion popup in manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim \"Set it to dry_run (Recommended)\"). breakout_1 balance $4,698 is $2 below its $4,700 static DD floor; executor latched since 2026-10-04 03:49Z; trader keeps issuing tickets that go nowhere. Reversible via set-account-mode mode: live.",
+  "why": "The durable form of a set-account-mode flip (JC-CA-01): the one-line `mode:` change is a commit to main, so ict-git-sync converges the VM on it instead of reverting it within ~5 minutes. After merge, account-mode-verify.yml dispatches verify-account-mode to confirm the running trader reads dry_run."
+}
