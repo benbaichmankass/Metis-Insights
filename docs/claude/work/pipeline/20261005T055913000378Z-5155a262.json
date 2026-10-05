@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "clears_when": "A committed note shows entry-by-entry agreement or names the harness/live gap; verdict flip/kill follows",
+    "due_date": "2026-10-19",
+    "kind": "date"
+  },
+  "id": "PI-20261005-OAKGATE1-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-19",
+    "how_to_check": "python3 scripts/ops/build_strategy_evidence.py --leg slv_trend_1h; compare with trade_journal slv_trend_1h closes",
+    "what": "A committed note shows entry-by-entry agreement or names the harness/live gap; verdict flip/kill follows"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv)",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --leg slv_trend_1h; compare with trade_journal slv_trend_1h closes"
+  },
+  "state": "queued",
+  "what": "slv_trend_1h: reconcile offline Stage-0 (+53.14R n=68) vs live Stage-1 record (0/13 wins, -$5,375 before 2026-08-24 demote). Replay the harness over the live window and compare entries, fills, confidence gating, bracket geometry (atr_stop_mult 1.5 vs 2.5 at live time)."
+}

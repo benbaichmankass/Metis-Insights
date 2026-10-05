@@ -1,0 +1,22 @@
+{
+  "due_when": {
+    "clears_when": "comms/strategy_evidence/trend_donchian_1h.json exists (coverage_state measured) and clears or fails RULE-D1-STAGE0-NET-OF-FULL-COST -> flip or kill",
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-SOAK-20261004-trend_donchian_1h",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 scripts/ops/soak_report.py --print-state; ls comms/strategy_evidence",
+    "what": "comms/strategy_evidence/trend_donchian_1h.json exists (coverage_state measured) and clears or fails RULE-D1-STAGE0-NET-OF-FULL-COST -> flip or kill"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "routed_to": "No evidence record exists (ls comms/strategy_evidence). Strategy is enabled:false, so it trades nothing meanwhile. Task: run scripts/ops/build_strategy_evidence.py for it.",
+  "state": "routed",
+  "what": "SOAK (shadow): trend_donchian_1h — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record ABSENT). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing. | SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv): NEEDS_DATA."
+}

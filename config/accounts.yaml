@@ -220,7 +220,7 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [ict_scalp_5m, fade_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h, eth_pullback_prop_2h, ict_scalp_sol_5m, ict_scalp_avax_5m]
+    strategies: [trend_donchian_1h, trend_donchian_eth_4h, trend_donchian_xrp_4h, xrp_pullback_2h, ada_pullback_2h]
                                        # 2026-10-05 MD-S1-CUT-ON-STAGE0-FAIL (operator grant
                                        # 2026-10-04, PR #16548) REMOVED 10 legs whose Stage-1 soak
                                        # was complete and whose Stage-0 record fails:
@@ -230,6 +230,11 @@ accounts:
                                        # ict_scalp_sol_15m. Per-leg evidence: the PR body and
                                        # `mandate_resolver.py --mandate MD-S1-CUT-ON-STAGE0-FAIL`.
                                        # A passing re-run re-enters via MD-PROMOTE-S0-S1.
+                                       # 2026-10-05 SOAK-GATE1 (Tier-3, data-backed standing authorization 2026-09-27):
+                                       # REMOVED 11 legs whose committed Stage-0 record FAILS RULE-D1-STAGE0-NET-OF-FULL-COST
+                                       # (net_r_oos <= 0 net of fee+slippage+funding): avax_pullback_2h, eth_pullback_prop_2h, fade_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, ict_scalp_5m, ict_scalp_avax_5m, ict_scalp_sol_5m, trend_donchian_ada_4h, trend_donchian_avax_4h, trend_donchian_sol_4h.
+                                       # Records: comms/strategy_evidence/<leg>.json. bybit_1 only (Stage 1); none is on
+                                       # bybit_2 / bybit_portfolio. All were execution: shadow. ROLLBACK: re-add the names.
                                        # ict_scalp_sol_5m / ict_scalp_xrp_5m / ict_scalp_avax_5m
                                        # added 2026-07-21 (Tier-3, operator-approved M27 P0
                                        # Batch-1 promotion): execution:live demo-soak paper

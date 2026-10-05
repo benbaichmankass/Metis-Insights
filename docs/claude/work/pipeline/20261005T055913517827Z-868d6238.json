@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "clears_when": "soak_report applies regime gating (or DEAD verdicts carry a regime_off flag) and eth_pullback_prop_2h silence is root-caused with a diag pull",
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-OAKGATE1-0003",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 scripts/ops/soak_report.py --print-state | grep -E 'fvg_range_15m|eth_pullback_prop_2h'",
+    "what": "soak_report applies regime gating (or DEAD verdicts carry a regime_off flag) and eth_pullback_prop_2h silence is root-caused with a diag pull"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state | grep -E 'fvg_range_15m|eth_pullback_prop_2h'"
+  },
+  "state": "queued",
+  "what": "Soak DEAD diagnosis. fvg_range_15m: silence is BY DESIGN (config/regime_policy.yaml long/short off in trending+chop) so soak_report's backtest-expected rate (~3.3 in 69d) ignores the regime router -- fix soak_report expected-rate to apply the router, else every regime-off leg grades DEAD. eth_pullback_prop_2h: 0 packages in 43d vs ~8.2 expected, NO regime cell (regime_coverage_exemptions only); cause NOT established -- check candles/signal path via diag (it is now removed from bybit_1, so only mirrors/prop accounts matter)."
+}
