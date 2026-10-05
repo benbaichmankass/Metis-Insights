@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261004-UQ9JJPRQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-RUN session_01VrUrxiBdxqP5XwUQ9JjprQ, 2026-10-04",
+    "rerun": "read research/queue/RQ-20260929-105.yaml result: PASS net +18.72 R n 144 (GLD/GDX pairs, harness defaults); then check whether any unit tests it off defaults or on a split"
+  },
+  "state": "queued",
+  "what": "GLD/GDX pairs passed Stage 0 once (RQ-20260929-105, population: 144 trades on GLD 1d vs GDX 1d from 2016-10-06 to 2026-10-02, harness defaults: net +18.72 R, expectancy +0.13 R/trade). One pass at defaults is not an edge claim: no parameter-neighbourhood, IS/OOS split or cost-sensitivity run exists. research-harness-dispatch.yml cannot pass lookback/entry-z/exit-z, so the follow-up needs a research-script-run unit over scripts/backtest_pairs.py (allowlist permitting) with a pre-registered neighbourhood rule, plus the SPY/QQQ spread (RQ-20260929-106 FAILED, population: 178 trades from 2024-10-14 to 2026-10-02: net -121.96 R) as the cross-pair contrast. Not a promotion; no alpaca pairs executor exists."
+}

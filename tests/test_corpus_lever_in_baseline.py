@@ -108,10 +108,10 @@ CORPUS = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
 # lever_absent_from_baseline 507 -> 509 (+2); in_baseline 65 and unknown 841 unmoved; total 1413 -> 1415.
 EXPECTED_PARTITION = {
     "lever_in_baseline": 65,
-    "lever_absent_from_baseline": 511,
+    "lever_absent_from_baseline": 584,
     "unknown": 841,
 }
-EXPECTED_TOTAL = 1417
+EXPECTED_TOTAL = 1490
 # Rows where the row's own lever was DROPPED — the population the naive
 # predicate gets wrong, and the reason `dropped` is consulted first.
 EXPECTED_OWN_LEVER_DROPPED = 41

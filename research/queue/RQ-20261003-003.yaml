@@ -3,7 +3,7 @@
 # only while `queue_replenish.py --verify` reproduces it byte-for-byte from the template.
 id: RQ-20261003-003
 title: 'Breakout prop fit: mes_trend_long_1d at sizing flat 1.5% of balance under RULE-B6 V2 (generated)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -92,3 +92,4 @@ generated:
     timeframe: 1d
     trades_file: comms/strategy_evidence/runs/2026-09-24-e55/mes_trend_long_1d__trades.jsonl
 last_dispatched_at: '2026-10-04T14:55:57+00:00'
+result: "GRADED 2026-10-04 by lane RESEARCH-RUN against this unit's own rule. UNDERPOWERED (indeterminate): mes_trend_long_1d: UNDERPOWERED: n=5 < floor 88 The run could not answer; this is 'could not answer', not 'no edge'. Source: research-script-run 37211074316 artifact (verdict.json, grid.json, sims/)."
