@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fixture A</title>
+<style>body{font:16px sans-serif;margin:8px}.row{margin:8px 0}.btn{display:inline-block;padding:12px 18px;border:1px solid #888;cursor:pointer;margin-right:6px}
+.on{background:#cde}input,select{font-size:16px;padding:6px;width:110px}iframe{width:100%;height:120px;border:1px solid #aaa}</style></head><body>
+<div role="tablist"><span role="tab">Positions</span><span role="tab">Orders</span></div>
+<div class="row"><select aria-label="Order type"><option>Market Order</option><option>Limit Order</option></select></div>
+<div class="row"><div id="sell" class="btn" role="button">Sell</div><div id="buy" class="btn" role="button">Buy</div></div>
+<div class="row"><label for="qty">Quantity (Lots)</label> <button id="qminus" type="button">-</button>
+  <input id="qty" name="qty" inputmode="decimal" type="text"> <button id="qplus" type="button">+</button></div>
+<div class="row"><div id="slsw" class="btn" role="switch" aria-checked="false">Stop Loss</div><input id="slp" aria-label="Stop Loss price" type="text"></div>
+<div class="row"><div id="tpsw" class="btn" role="switch" aria-checked="false">Take Profit</div><input id="tpp" aria-label="Take Profit price" type="text"></div>
+<div class="row"><button id="send" type="button">Send Order</button></div>
+<div class="row"><iframe id="fr" src="https://fixture-b.test/b.html"></iframe></div>
+<script>
+// A faithful miniature of React's controlled-input behaviour: a value TRACKER sits on the node; an 'input' event is
+// ignored when the node's value equals the tracked value (which is what happens after a plain `el.value = x`).
+var S = {qty: "", slp: "", tpp: "", side: "", sl: false, tp: false, sent: 0, renders: 0};
+function track(el, key) {
+  var proto = Object.getPrototypeOf(el), desc = Object.getOwnPropertyDescriptor(proto, "value"), tracked = "";
+  Object.defineProperty(el, "value", {configurable: true,
+    get: function () { return desc.get.call(el); },
+    set: function (v) { tracked = "" + v; desc.set.call(el, v); }});
+  el.addEventListener("input", function () {
+    var now = desc.get.call(el);
+    if (now === tracked) return;           // React: "no change", handler never runs
+    tracked = now; S[key] = now; S.renders++;
+  });
+}
+track(document.getElementById("qty"), "qty"); track(document.getElementById("slp"), "slp"); track(document.getElementById("tpp"), "tpp");
+function setSide(s) { return function () { S.side = s; document.getElementById("buy").classList.toggle("on", s === "buy"); document.getElementById("sell").classList.toggle("on", s === "sell"); }; }
+document.getElementById("buy").addEventListener("click", setSide("buy"));
+document.getElementById("sell").addEventListener("click", setSide("sell"));
+["sl", "tp"].forEach(function (k) {
+  var el = document.getElementById(k + "sw");
+  el.addEventListener("click", function () { S[k] = !S[k]; el.setAttribute("aria-checked", "" + S[k]); el.classList.toggle("on", S[k]); });
+});
+document.getElementById("send").addEventListener("click", function () { S.sent++; });
+window.__fx = {
+  state: function () { return JSON.stringify(S); },
+  reset: function () { ["qty", "slp", "tpp"].forEach(function (id) { var e = document.getElementById(id); var d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value"); d.set.call(e, ""); S[id] = ""; }); S.side = ""; S.sl = S.tp = false; S.sent = 0; S.renders = 0;
+    ["sl","tp"].forEach(function(k){var e=document.getElementById(k+"sw");e.setAttribute("aria-checked","false");e.classList.remove("on");}); return "ok"; },
+  naive: function () { var e = document.getElementById("qty"); e.value = "1.5"; e.dispatchEvent(new Event("input", {bubbles: true})); return S.qty; },
+  nativeSetter: function () { var e = document.getElementById("qty"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, "2.5"); e.dispatchEvent(new Event("input", {bubbles: true})); return S.qty; },
+  focusQty: function () { var e = document.getElementById("qty"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, ""); S.qty = ""; e.focus(); return document.activeElement === e ? "focused" : "no"; },
+  rect: function (id) { var r = document.getElementById(id).getBoundingClientRect(); return JSON.stringify({x: r.left + r.width / 2, y: r.top + r.height / 2, dpr: window.devicePixelRatio}); },
+  frameDirect: function () { try { return "reached:" + window.frames[0].document.title; } catch (e) { return "blocked:" + e.name; } },
+  cmd: function () {}
+};
+</script></body></html>
