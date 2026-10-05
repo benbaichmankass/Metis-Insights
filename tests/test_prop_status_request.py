@@ -217,7 +217,10 @@ def test_real_config_declares_the_live_prop_account() -> None:
 
     ids = declared_prop_account_ids(live_only=True)
     assert ids is not None, "accounts.yaml must be readable from the repo root"
-    assert "breakout_1" in ids
+    # 2026-10-05: breakout_1 is dry_run (operator), so the live-only set is
+    # tradeify_1; the dry_run account is enumerated only without live_only.
+    assert "tradeify_1" in ids and "breakout_1" not in ids
+    assert "breakout_1" in (declared_prop_account_ids(live_only=False) or [])
 
 
 def test_pause_knob(isolated_env: Path, captured,
