@@ -28,8 +28,11 @@ import urllib.request
 BASE = "https://dx.velotrade.com/dxsca-web"
 SYMBOLS = ["ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD"]
 SPEC_FIELDS = (
-    "symbol", "type", "lotSize", "minVolume", "maxVolume", "volumeStep",
-    "pricePrecision", "quantityPrecision", "marginRate", "currency",
+    "symbol", "type", "currency", "lotSize", "multiplier", "priceIncrement",
+    "pipSize", "quantityIncrement", "assetClass", "tradingStatus",
+    "minOrderSize", "maxOrderSize", "minOrderSizeIncrement", "marginRate",
+    # names the web terminal's own endpoint uses (seen in the login-check output)
+    "minVolume", "maxVolume", "volumeStep", "pricePrecision", "quantityPrecision",
     "financingMode", "swapRateLong", "swapRateShort", "spreadType",
 )
 UA = "metis-insights-velotrade-api-probe/1 (read-only; contact: repo owner)"
@@ -84,11 +87,27 @@ def _err(status, js, text) -> str:
     return f"http={status} body={text[:120]!r}"
 
 
+def _shape(o, depth=0):
+    if depth > 3:
+        return "..."
+    if isinstance(o, dict):
+        return {k: _shape(v, depth + 1) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_shape(o[0], depth + 1)] if o else []
+    return type(o).__name__
+
+
 def _specs(js) -> list[dict]:
+    """Instrument rows from a bare list, a single row, or a dict wrapping a list
+    under ANY key (the account-scoped view's wrapper key is not documented)."""
     if isinstance(js, dict) and "symbol" in js:
         return [js]
-    items = js.get("instruments") if isinstance(js, dict) else js
-    return [i for i in (items or []) if isinstance(i, dict)]
+    if isinstance(js, dict):
+        for v in js.values():
+            if isinstance(v, list) and v and isinstance(v[0], dict):
+                return [i for i in v if isinstance(i, dict)]
+        return []
+    return [i for i in (js or []) if isinstance(i, dict)]
 
 
 def main() -> int:
@@ -124,15 +143,6 @@ def main() -> int:
         full_user = f"{login_user}@{domain_used}"
         st, js, tx = _call("GET", "/users/" + urllib.parse.quote(full_user, safe=""), token)
         _out(f"users: http={st} shape={type(js).__name__} keys={sorted(js.keys()) if isinstance(js, dict) else 'n/a'}")
-        def _shape(o, depth=0):
-            if depth > 3:
-                return "..."
-            if isinstance(o, dict):
-                return {k: _shape(v, depth + 1) for k, v in o.items()}
-            if isinstance(o, list):
-                return [_shape(o[0], depth + 1)] if o else []
-            return type(o).__name__
-
         def _find_accounts(o):
             if isinstance(o, dict):
                 if isinstance(o.get("accounts"), list):
@@ -193,7 +203,7 @@ def main() -> int:
                 if rows:
                     _out(f"spec[{label}]: " + json.dumps({k: rows[0][k] for k in SPEC_FIELDS if k in rows[0]}, sort_keys=True))
                 else:
-                    _out(f"spec[{label}] {sym}: no exact row ({_err(st, js, tx)})")
+                    _out(f"spec[{label}] {sym}: no exact row ({_err(st, js, tx)}) shape={json.dumps(_shape(js), sort_keys=True)[:300]}")
     finally:
         st, js, tx = _call("POST", "/logout", token)
         _out(f"logout: http={st}")
