@@ -48,6 +48,7 @@ from typing import Any, Dict, Optional
 import yaml
 
 from src.prop import prop_journal
+from src.utils.json_notes import dump_capped
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +265,7 @@ def record_report(device: PhoneDevice, body: Dict[str, Any]) -> Dict[str, Any]:
         form = body.get("form") if isinstance(body.get("form"), dict) else {}
         n = _close_claim(device.account_id, tid, status, {
             "result": status, "reason": str(body.get("reason") or "")[:300],
-            "form": json.loads(json.dumps(form)[:20000]) if len(json.dumps(form)) <= 20000 else {"truncated": True},
+            "form": json.loads(dump_capped(form, 20000)),
             "at": _now().isoformat()})
         return {"ok": n == 1, "kind": "ticket_result", "updated": n}
     from src.prop.prop_report import ingest_report
