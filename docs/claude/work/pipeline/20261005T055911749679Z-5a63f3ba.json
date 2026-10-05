@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present)",
+    "kind": "observation",
+    "last_checked": "2026-10-04",
+    "soak": {
+      "declared_at": "2026-09-28",
+      "state_source": "docs/claude/work/soak-state.json",
+      "subject": "trend_donchian_ada_4h"
+    }
+  },
+  "id": "PI-SOAK-20261004-trend_donchian_ada_4h",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "SOAK-WATCH 2026-10-04 (scripts/ops/soak_report.py)",
+    "rerun": "python3 scripts/ops/soak_report.py --print-state"
+  },
+  "state": "killed",
+  "terminal_reason": "Gate 1 FAIL (SOAK-GATE1 2026-10-05 (lane of manager session_01MM8o5js6TcDFeNAPBY4Ntv)). comms/strategy_evidence/trend_donchian_ada_4h.json: net_r_oos -8.608R, n=46, 4 folds (1 positive), full cost stack, rule = FAIL (fee-only -7.503R). Removed from bybit_1 roster. Lands when the SOAK-GATE1 PR merges; revert = re-add to bybit_1 strategies.",
+  "what": "SOAK (shadow): trend_donchian_ada_4h — execution: shadow strategy. Exit: Gate 1: a committed Stage-0 evidence record clearing its registered rule → flip to live, else kill (evidence record present). Graded weekly into ready/dead/could-not-look/accruing; due only when not accruing."
+}
