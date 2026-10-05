@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: adds the VELOTRADE-WIRE row to MANAGER-CHECKLIST.json (blocked on the operator's Velotrade purchase + credential), split out of held Tier-2 PR #16500 because GitHub has no jsonregister merge driver. No code, config or order-path change."
+}
