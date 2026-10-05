@@ -699,8 +699,10 @@ so the `quantity unit must name the base asset` check cannot rely on the alert a
 The headless check (`tools/phone-executor/test/exec_check.js`, run by `phone-executor-apk.yml`) now includes three fixtures where the
 terminal starts on BTC and the ticket is ETH: a symbol strip, a picker that opens a search box (with the ambiguous ETHUSD/ETHUSDT
 case refusing), and no selector at all (`none`). All three prove mechanics on synthetic DOM, **not** Breakout's real selector, which is
-still unmeasured: the next dry test (`dry_test_request: 2026-10-06-morning-1`, served once the new APK is installed, the app open and
-logged in) is what measures it, and its refusal reason, if any, now says which route failed.
+still unmeasured: the next dry test is what measures it, and its refusal reason, if any, now says which route failed. **The
+`dry_test_request` bump comes AFTER the operator installs the new APK** (manager, 2026-10-05 22:45Z): the old app stays logged in
+overnight and claims every 30 s, so a bump merged before the install would be claimed and refused the old way within minutes. This PR
+leaves `dry_test_request: 2026-10-05-night-1` (already served); the manager bumps it in a separate PR once the install is confirmed.
 
 ## 8. Open questions for the operator / manager
 
