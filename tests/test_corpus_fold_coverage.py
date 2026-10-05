@@ -62,6 +62,17 @@ EXPECTED_UNCOVERED = {
     # examined. Its two sibling cells added by the same PR carry no folds
     # (wf_folds == []) and so are not in this set.
     ("qqq_trend_long_1d", "vt_hot90_t2"): [2017, 2018, 2019, 2020],
+    # 2026-10-04 (RESEARCH-RUN, RQ-20261004-772/674 coverage-gap sweeps): MEASURED by re-running
+    # fold_coverage over the committed corpus. scha_trend_long_1d's OOS split is 2017-11-21 but the
+    # walk-forward folds start in 2021, so OOS years 2017-2020 were never examined for all five of its
+    # passing / near-passing cells (this includes vt_hot90_t2 wf 6/6). spy_trend_long_1d decay_stall6_t2
+    # (wf 5/6) leaves 2020 unexamined.
+    ("scha_trend_long_1d", "decay_arm1.5R_stall6_t2"): [2017, 2018, 2019, 2020],
+    ("scha_trend_long_1d", "decay_stall10_t2"): [2017, 2018, 2019, 2020],
+    ("scha_trend_long_1d", "decay_stall6_t2"): [2017, 2018, 2019, 2020],
+    ("scha_trend_long_1d", "trail5"): [2017, 2018, 2019, 2020],
+    ("scha_trend_long_1d", "vt_hot90_t2"): [2017, 2018, 2019, 2020],
+    ("spy_trend_long_1d", "decay_stall6_t2"): [2020],
 }
 
 
