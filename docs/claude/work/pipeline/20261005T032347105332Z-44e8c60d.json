@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261005-APBY4NTV-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-05T03:23Z TQQQ refutation",
+    "rerun": "bash scripts/ops/diag_fetch.sh '/api/diag/alpaca_open_orders?account_id=alpaca_paper' and compare TQQQ legs to '/api/diag/alpaca_order_history?account_id=alpaca_paper&symbols=TQQQ': a stop leg with status held in history but absent from open_orders = finding holds"
+  },
+  "state": "queued",
+  "what": "COLLAPSED STATE in /api/diag/alpaca_open_orders: it omits Alpaca bracket legs in status 'held' (the stop-loss leg of an active bracket), so a fully protected position reads as take-profit-only / unprotected. It has produced 2 false 'naked position' findings in 24h: IAUM on alpaca_live (manager 2026-10-04, refuted via order history: nested OCO stop filled 09-28) and TQQQ on alpaca_paper (PI-20261005-4GA8WQPA-0001, refuted 03:23Z: stop 74.03 held). Fix: request open orders with nested=true (or status=all filtered to open+held) and render held legs with their status, so 'we did not see a stop' and 'there is no stop' are distinguishable. Also check that the equity naked-position sweep does not read the same un-nested view."
+}
