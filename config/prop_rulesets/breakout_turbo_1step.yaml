@@ -147,10 +147,11 @@ economics:
 # field, so the flip is a copy of a declared value and not a fresh judgement.
 # ROLLBACK (after the flip): set `mode: flat`.
 sizing:
-  mode: room                       # Turbo is a FRESH instance: breakout.yaml next_instance_mode (room, k 0.33)
+  mode: flat                       # PHONE account: room sizing needs a live balance read the phone does not have
+                                   # yet (PI-20261005-YUVCGTMJ-0002); flat cap chosen by RQ-20261005-813/814's rule.
   next_instance_mode: room         # what the flip sets `mode` to for a FRESH account
   flat:
-    max_risk_usd: 75               # the flat cap = 1.5% x $5,000. With
+    max_risk_usd: 25               # the flat cap = 0.5% x $5,000 (Turbo). With
                                    # PROP_TICKET_RISK_GATE_MODE=enforce a ticket
                                    # whose risk exceeds the CURRENT mode's cap
                                    # (this in flat mode; the room formula in room

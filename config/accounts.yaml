@@ -1902,6 +1902,43 @@ accounts:
                                        # places through a breach. Every other account
                                        # defaults to `enforce`. Rollback: delete this line.
 
+  # breakout_2: Breakout 1-Step TURBO $5k PROP account, bought 2026-10-05 and executed by the
+  # operator's PHONE (PHONE-EXEC-1B; design docs/integrations/breakout-phone-executor-DESIGN.md).
+  # OPERATOR DIRECTION 2026-10-05 ~15:20Z (relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv):
+  # "we're now pushing for live on breakout basically as soon as we can ... it's still breakout, so
+  # it should still be the same strategies". The VM cannot reach the new terminal (Cloudflare blocks
+  # its egress, design 7.9), so `exchange: breakout` emits tickets exactly as for breakout_1, and the
+  # phone claims them over /api/bot/prop/phone/* (config/prop_platforms.yaml::phone_accounts). No VM
+  # executor timer exists for this account.
+  #
+  # STARTS DRY: mode dry_run emits NO ticket (execute_pkg's breakout branch journals the package as
+  # shadow), so nothing reaches the phone until set-account-mode flips it. The end-to-end dry check
+  # uses the phone's always-dry test ticket instead. Even when live, the phone submits only when it
+  # is ALSO armed on the device.
+  breakout_2:
+    exchange: breakout
+    type: prop
+    account_class: prop
+    mode: dry_run                      # dry-run-guard: allow — new phone-executed prop account starts dry (manager dispatch PHONE-EXEC-1B 2026-10-05: "Start mode dry_run"); go-live is the set-account-mode system-action after the dry end-to-end ticket passes.
+    account_state: evaluation
+    phase_requirements:                # Breakout 1-Step Turbo (FAQ read 2026-10-05; see the ruleset header).
+      target_profit_pct: 0.09
+      min_active_days: 0
+    backtest_ruleset: prop_rulesets/breakout_turbo_1step.yaml
+    account_size_usd: 5000
+    strategies:                        # breakout_1's legs, each kept only if its Turbo fit did not FAIL
+      - trend_donchian_eth_prop        # Turbo fit RQ-20261005-811 (room) / -813 (flat): see the PR + 7.10
+      - trend_donchian_sol_prop        # Turbo fit RQ-20261005-812 (room) / -814 (flat)
+    symbols: [ETHUSDT, SOLUSDT]
+    risk:
+      max_dd_pct: 0.03                 # Turbo STATIC 3% = $150 (floor $4,850).
+      daily_loss_pct: 0.03             # 3% of the 00:30 UTC balance = $150.
+      daily_usd: 150                   # absolute fallback (= 3% of $5k).
+      risk_pct: 0.005                  # FLAT $25/ticket (0.5% x $5k): the flat arm chosen by the rule registered in
+                                       # RQ-20261005-813/814 before the run; ruleset sizing.flat.max_risk_usd matches.
+      # breach_guards: NOT set -> `enforce` (the default): a DAILY_LOSS_CAP / INTRADAY_DRAWDOWN
+      # breach REFUSES the trade. breakout_1's `report` is NOT carried over.
+
   # tradeify_1: Tradeify 247 1-Step $10k crypto evaluation on Tradeify's DXtrade
   # white-label (dx.tradeify247.co). TRADEIFY-WIRE, 2026-09-30, PR B (Tier-3).
   # OPERATOR DECISION (manager popup ~08:24Z 2026-09-30, relayed by manager

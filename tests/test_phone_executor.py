@@ -1,0 +1,148 @@
+"""Phone executor server contract (PHONE-EXEC-1B): per-device auth, atomic claim, one attempt per ticket,
+the submit decision, the claim watchdog, account pinning on report, event scrubbing, and the routes."""
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+import yaml
+from fastapi.testclient import TestClient
+
+from src.prop import phone_executor as pe
+from src.prop import prop_journal
+
+TOKEN = "t" * 43
+OTHER = "u" * 43
+
+
+@pytest.fixture(autouse=True)
+def _iso(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TRADE_JOURNAL_DB", str(tmp_path / "trade_journal.db"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "bot-data"))
+    dev = tmp_path / "devices.yaml"
+    dev.write_text(yaml.safe_dump({"devices": [
+        {"device_id": "p1", "account_id": "breakout_2", "token_sha256": hashlib.sha256(TOKEN.encode()).hexdigest()},
+        {"device_id": "p2", "account_id": "breakout_2", "token_sha256": hashlib.sha256(OTHER.encode()).hexdigest(),
+         "revoked": True},
+    ]}))
+    monkeypatch.setattr(pe, "DEVICES_PATH", dev)
+    monkeypatch.delenv("PROP_PHONE_MODE_BREAKOUT_2", raising=False)
+    sent: list = []
+    monkeypatch.setattr("src.runtime.notify.send_telegram_direct", lambda m, **k: sent.append(m) or True)
+    return sent
+
+
+def _ticket(tid: str, *, minutes: int = 10, account: str = "breakout_2", meta=None) -> None:
+    now = datetime.now(timezone.utc)
+    prop_journal.record_ticket({
+        "ticket_id": tid, "account_id": account, "strategy": "trend_donchian_eth_prop", "symbol": "ETHUSDT",
+        "direction": "long", "entry": 2500.0, "sl": 2450.0, "tp": 2700.0, "qty": 0.5,
+        "valid_until": (now + timedelta(minutes=minutes)).isoformat(), "status": "emitted", "meta": meta})
+
+
+def _dev() -> pe.PhoneDevice:
+    return pe.authenticate("Bearer " + TOKEN)
+
+
+def test_auth_pins_account_and_refuses_unknown_and_revoked():
+    assert _dev().account_id == "breakout_2"
+    for bad in (None, "Bearer short", "Bearer " + "x" * 43, "Basic " + TOKEN, "Bearer " + OTHER):
+        with pytest.raises(pe.PhoneAuthError):
+            pe.authenticate(bad)
+
+
+def test_claim_is_atomic_one_attempt_and_skips_expired():
+    _ticket("old", minutes=-1)
+    _ticket("t1")
+    got = pe.claim_next(_dev())
+    assert got["ticket_id"] == "t1" and got["status"] == "claimed"
+    assert pe.claim_next(_dev()) is None  # never re-offered, expired one never claimed
+    assert prop_journal.get_ticket("old")["status"] == "emitted"
+
+
+def test_claim_never_crosses_accounts():
+    _ticket("x", account="breakout_1")
+    assert pe.claim_next(_dev()) is None
+
+
+def test_submit_mode_dry_unless_account_live_and_not_test(tmp_path: Path, monkeypatch):
+    acc = tmp_path / "accounts.yaml"
+    acc.write_text(yaml.safe_dump({"accounts": {"breakout_2": {"mode": "dry_run"}}}))
+    assert pe.submit_mode("breakout_2", test=False, accounts_path=acc, env={}) == "dry"
+    acc.write_text(yaml.safe_dump({"accounts": {"breakout_2": {"mode": "live"}}}))
+    assert pe.submit_mode("breakout_2", test=False, accounts_path=acc, env={}) == "live"
+    assert pe.submit_mode("breakout_2", test=True, accounts_path=acc, env={}) == "dry"
+    assert pe.submit_mode("breakout_2", test=False, accounts_path=acc, env={"PROP_PHONE_MODE_BREAKOUT_2": "dry"}) == "dry"
+    assert pe.submit_mode("breakout_2", test=False, accounts_path=acc, env={"PROP_PHONE_MODE_BREAKOUT_2": "typo"}) == "dry"
+
+
+def test_kill_switch_off_claims_nothing(monkeypatch):
+    _ticket("t1")
+    monkeypatch.setenv("PROP_PHONE_MODE_BREAKOUT_2", "off")
+    assert pe.claim_next(_dev()) is None
+
+
+def test_watchdog_skips_unreported_claims():
+    _ticket("t1")
+    pe.claim_next(_dev())
+    later = datetime.now(timezone.utc) + timedelta(seconds=pe.CLAIM_TIMEOUT_S + 5)
+    assert pe.expire_stale_claims("breakout_2", now=later) == ["t1"]
+    assert prop_journal.get_ticket("t1")["status"] == "skipped"
+
+
+def test_ticket_result_keeps_form_dump_and_needs_a_claim():
+    _ticket("t1")
+    assert pe.record_report(_dev(), {"kind": "ticket_result", "ticket_id": "t1", "result": "dry_filled"})["updated"] == 0
+    pe.claim_next(_dev())
+    r = pe.record_report(_dev(), {"kind": "ticket_result", "ticket_id": "t1", "result": "dry_filled",
+                                  "reason": "app not armed", "form": {"inputs": [{"label": "Take profit price"}]},
+                                  "account_id": "breakout_1"})
+    assert r["updated"] == 1
+    t = prop_journal.get_ticket("t1")
+    assert t["status"] == "dry_filled" and t["account_id"] == "breakout_2"
+    assert t["meta"]["phone"]["result"]["form"]["inputs"][0]["label"] == "Take profit price"
+    with pytest.raises(ValueError):
+        pe.record_report(_dev(), {"kind": "ticket_result", "ticket_id": "t1", "result": "filled_somehow"})
+
+
+def test_event_scrubs_links_emails_and_long_numbers(_iso):
+    pe.record_event(_dev(), {"event": "login_failed",
+                             "reason": "open https://x.y/abc?t=1 for me@x.com acct 12345678"})
+    msg = _iso[-1]
+    assert "https" not in msg and "@" not in msg and "12345678" not in msg
+    with pytest.raises(ValueError):
+        pe.record_event(_dev(), {"event": "whatever"})
+
+
+def test_test_ticket_is_always_dry(tmp_path: Path, monkeypatch):
+    acc = tmp_path / "accounts.yaml"
+    acc.write_text(yaml.safe_dump({"accounts": {"breakout_2": {"mode": "live"}}}))
+    monkeypatch.setattr(pe, "ACCOUNTS_PATH", acc)
+    tid = pe.make_test_ticket(_dev(), entry=2500.0)["ticket_id"]
+    got = pe.claim_next(_dev())
+    assert got["ticket_id"] == tid and got["submit"] == "dry" and got["meta"]["test"] is True
+
+
+def test_routes_401_without_device_and_claim_with_device(monkeypatch):
+    from src.web.api import main as api_main
+    c = TestClient(api_main.app, raise_server_exceptions=False)
+    assert c.post("/api/bot/prop/phone/claim").status_code == 401
+    assert c.post("/api/bot/prop/phone/claim", headers={"Authorization": "Bearer " + OTHER}).status_code == 401
+    _ticket("t1")
+    r = c.post("/api/bot/prop/phone/claim", headers={"Authorization": "Bearer " + TOKEN})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["account_id"] == "breakout_2" and body["ticket"]["ticket_id"] == "t1"
+    assert body["ticket"]["venue_symbol"] == "ETHUSD"
+
+
+def test_repo_config_declares_breakout_2_as_phone_and_no_device_yet():
+    assert pe.is_phone_account("breakout_2")
+    assert not pe.is_phone_account("breakout_1")
+    raw = yaml.safe_load(Path("config/prop_phone_devices.yaml").read_text())
+    for d in raw.get("devices") or []:
+        assert len(d["token_sha256"]) == 64 and "token" not in {k for k in d if k != "token_sha256"}
+    json.dumps(raw)

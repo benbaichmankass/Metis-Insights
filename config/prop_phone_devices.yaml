@@ -1,0 +1,20 @@
+# config/prop_phone_devices.yaml — phone-executor devices (PHONE-EXEC-1B, 2026-10-05).
+#
+# Each device mints its OWN 256-bit token on the phone (Android Keystore-backed
+# storage; it never leaves the phone except as the HTTPS bearer to our API) and
+# shows only the token's SHA-256 FINGERPRINT ("Share ID" in the app). A
+# fingerprint is NOT a secret: 256 random bits cannot be recovered from it, so
+# it can travel through chat and live in this PUBLIC repo. The raw token is
+# never in git, chat, an issue or a log.
+#
+# A device is pinned to exactly ONE account: the server overwrites any
+# account_id the phone sends (src/prop/phone_executor.py::record_report).
+# REVOKE: set `revoked: true` (or delete the row) and deploy. Lost phone =
+# revoke. ROTATE = reinstall/clear the app's data and pair the new fingerprint.
+# Read by src/prop/phone_executor.py::authenticate on every request.
+devices: []
+#  - device_id: pixel9a-breakout2
+#    account_id: breakout_2
+#    token_sha256: <64 hex chars from the app's "Share ID">
+#    revoked: false
+#    paired_at: 2026-10-05
