@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Widens the auto-merge relay push trigger to non-claude branches; arming still needs the branch-own request file + pr-landing. Operator-approved 2026-10-05 (\"Yes, widen it\"); manager merges.",
+  "why": "Closes PI-20260929-AQRK6CL1-0001 and PI-20261002-ULPHZHHQ-0002."
+}
