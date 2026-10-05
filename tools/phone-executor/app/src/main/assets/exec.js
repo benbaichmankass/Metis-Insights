@@ -48,10 +48,25 @@
       var email = all("input[type=email],input[autocomplete=email],input[name*=mail i]").length > 0;
       var body = t(document.body).slice(0, 4000);
       var codeWait = /check your (e-?mail|inbox)|we('ve| have)? sent|tap the number|select the number|matching number/i.test(body);
-      var ctrls = all("button,[role=tab],a").map(t);
-      var loggedIn = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) && ctrls.some(function (s) { return /^(positions|open orders|portfolio)$/i.test(s); });
+      // LOGGED IN (fix 2026-10-05 ~20:20Z): the account landing on trade.breakoutprop.com has no tabs and none
+      // of the exact control labels the first build required, so a good login read as "other" and was reloaded
+      // every 30 s. Now: trade host, no login form, and either inside an account (/.../account/.../) or the page
+      // shows the terminal's navigation words or an account link.
+      var tradeHost = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname);
+      var onAccount = /\/account\//.test(location.pathname || "");
+      var full = t(document.body).slice(0, 20000);
+      var navText = /\b(positions|open orders|closed orders|portfolio|trades)\b/i.test(full);
+      var links = {};
+      Array.prototype.slice.call(document.querySelectorAll("a[href]")).forEach(function (a) {
+        try { var u = new URL(a.href, location.href); if (u.hostname === location.hostname && /\/account\//.test(u.pathname)) links[u.origin + u.pathname] = 1; } catch (e) {}
+      });
+      var linkList = Object.keys(links);
+      var loggedIn = tradeHost && (onAccount || navText || linkList.length > 0);
       return {host: location.hostname, path_depth: (location.pathname || "/").split("/").length, pw: pw, email: email,
-        codeWait: codeWait, loggedIn: loggedIn && !pw && !email, ticketOpen: !!submitBtn(),
+        codeWait: codeWait, loggedIn: loggedIn && !pw && !email && !codeWait, ticketOpen: !!submitBtn(),
+        onAccount: onAccount, accountLinkCount: linkList.length,
+        // Navigation targets stay in the app's memory / private storage; never logged or reported.
+        accountHref: onAccount ? location.href : "", singleAccountLink: linkList.length === 1 ? linkList[0] : "",
         challenged: /just a moment|verify you are human|cf-chl/i.test(body)};
     },
     // LOGIN step 1: type the account email and continue. The email value is never returned.

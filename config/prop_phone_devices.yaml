@@ -12,7 +12,12 @@
 # REVOKE: set `revoked: true` (or delete the row) and deploy. Lost phone =
 # revoke. ROTATE = reinstall/clear the app's data and pair the new fingerprint.
 # Read by src/prop/phone_executor.py::authenticate on every request.
-devices: []
+devices:
+  - device_id: pixel9a-breakout2
+    account_id: breakout_2
+    token_sha256: 62c62eb87c5b62c4f5918638c7802610f76210fccd2a95d8ae5ec7cca134f8a4
+    revoked: false
+    paired_at: '2026-10-05'   # operator's "Share ID" line, relayed by the manager ~19:00Z
 #  - device_id: pixel9a-breakout2
 #    account_id: breakout_2
 #    token_sha256: <64 hex chars from the app's "Share ID">

@@ -139,10 +139,36 @@ def test_routes_401_without_device_and_claim_with_device(monkeypatch):
     assert body["ticket"]["venue_symbol"] == "ETHUSD"
 
 
-def test_repo_config_declares_breakout_2_as_phone_and_no_device_yet():
+def test_repo_config_declares_breakout_2_as_phone_and_devices_are_fingerprint_only():
     assert pe.is_phone_account("breakout_2")
     assert not pe.is_phone_account("breakout_1")
     raw = yaml.safe_load(Path("config/prop_phone_devices.yaml").read_text())
     for d in raw.get("devices") or []:
         assert len(d["token_sha256"]) == 64 and "token" not in {k for k in d if k != "token_sha256"}
     json.dumps(raw)
+
+
+def test_test_ticket_geometry_is_valid_for_a_long():
+    tid = pe.make_test_ticket(_dev(), entry=2712.0)["ticket_id"]
+    t = prop_journal.get_ticket(tid)
+    assert t["direction"] == "long"
+    assert t["sl"] < t["entry"] < t["tp"], (t["sl"], t["entry"], t["tp"])
+    assert t["entry"] < 2712.0  # the limit rests below the last price: a dry fill can never be marketable
+
+
+def test_ticket_result_reason_is_visible_on_the_outbound_view():
+    _ticket("t1")
+    pe.claim_next(_dev())
+    pe.record_report(_dev(), {"kind": "ticket_result", "ticket_id": "t1", "result": "refused",
+                              "reason": "TP price field not unique", "form": {"inputs": [{"label": "Take profit"}]}})
+    rows = [r for r in prop_journal.list_outbound_tickets(account_id="breakout_2") if r.get("ticket_id") == "t1"]
+    assert rows and rows[0]["phone_result"]["reason"] == "TP price field not unique"
+
+
+def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
+    monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {"dry_test_request": "r1",
+                        "instruments": {"ETHUSDT": {"venue": "ETHUSD"}}})
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+    got = pe.claim_next(_dev())
+    assert got and got["meta"]["test"] is True and got["meta"]["dry_test_request"] == "r1" and got["submit"] == "dry"
+    assert pe.claim_next(_dev()) is None  # same request id is never served twice
