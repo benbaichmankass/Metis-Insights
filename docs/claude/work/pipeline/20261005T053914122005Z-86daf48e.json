@@ -1,0 +1,23 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "owner row VELOTRADE-WIRE reaches done, or this item is verified fixed at HEAD. Routed 2026-10-05: velotrade_1 login check pending",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "filed": "2026-10-04",
+  "id": "PI-20261004-KQIWJZWX-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01WfdESzsCPZbuawkqiWjzWX",
+    "kind": "session",
+    "ref": "VELOTRADE-WIRE (checklist row; held PR claude/velotrade-wire)",
+    "rerun": "grep -n 'velotrade_1' -A40 config/prop_platforms.yaml | grep -n 'lots\\|enabled_venue_symbols'; read the latest breakout-login-check issue for account: velotrade_1"
+  },
+  "routed_to": "VELOTRADE-WIRE (blocked)",
+  "severity": "high",
+  "state": "routed",
+  "tier": 2,
+  "what": "velotrade_1: after the first read-only login check passes on the VM (breakout-login-check account: velotrade_1), MEASURE before any go-live PR: how the terminal displays symbols (ETHUSD vs ETH/USD -> search_query_style), lot units / step / minimum and price step for ETHUSD/SOLUSD (symbol-switch-dry, probe-ticket or probe-ticket-ask), one-click state and the order-ticket opener, and whether the LIMIT price field keeps a page.fill (round-trip-dry,limit). Each Tradeify quirk (ask_button opener, keys fill, slash search) was MEASURED, not assumed; velotrade_1 inherits none. Then fill config/prop_platforms.yaml velotrade_1.executor.lots and config/prop_rulesets/velotrade_routing.yaml from the measurements."
+}

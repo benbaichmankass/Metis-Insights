@@ -1,0 +1,17 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-WJUTENGU-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "SA-DOCS lane close-out 2026-09-29",
+    "rerun": "python3 scripts/ops/pipeline.py --stats | grep -A3 unrouted_alarm"
+  },
+  "state": "done",
+  "terminal_reason": "MEASURED 2026-10-05 pipeline.py --stats on main fee0ae7e: unrouted=0, unrouted_alarm.breached=[] (population: 1900 items, 845 open). The routing lane this row asked for has run (SA-ROUTE, BURNDOWN-2/3/4). [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "what": "Unrouted pipeline items are still growing: 153 at 12:05Z on 2026-09-29, 175 by ~14:15Z (median age 2d, p90 5d, max 20d). JC-SA-06's alarm now fires (>100 or >7d) but nobody routes. A routing lane must disposition or route the backlog (kill dead rows with a stated reason)."
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "owner row GUARD-FIDELITY reaches done, or this item is verified fixed at HEAD. Routed 2026-10-05: verified at HEAD: diag-relay-render-guard and pytest-skip-attribution-guard are --self-test only",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-5VMBTZPH-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29/GUARD-PROOF.findings.jsonl (GUARD-PROOF-2: 3 more unplantable + artifact-caveat-guard vacuous)",
+    "rerun": "python3 - <<'X'\nimport json\nfor l in open('docs/audits/system-audit-2026-09-29/GUARD-PROOF.findings.jsonl'):\n    r=json.loads(l)\n    if r['verdict']=='unplantable' and not r.get('superseded'): print(r['guard'],'-',r['reason'][:100])\nX"
+  },
+  "routed_to": "GUARD-FIDELITY (queued)",
+  "state": "routed",
+  "what": "GUARD-PROOF-2 coverage gaps: (1) arch-doc-guard always exits 0 (advisory) so CI can never go red on it; (2) diag-relay-render-guard and pytest-skip-attribution-guard have only --self-test steps in CI, no whole-tree/diff step; (3) artifact-caveat-guard's core rule reads docs/claude/*-backlog.json, which are archived and absent on main, so its rule has nothing to check on the real tree (its plant had to recreate a backlog file); (4) research-tooling-selftests was plant-proven on ONE of ~20 bundled steps (check_workflow_failure_swallow.py) only. Decide per guard: add a real step, retire it, or accept as self-test-only."
+}
