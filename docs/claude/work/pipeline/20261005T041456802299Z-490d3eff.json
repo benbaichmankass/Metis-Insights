@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-WFBREDQP-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "BACKLOG-BURNDOWN-3 session_016hpYjaAbdSHe5SwfBreDQp (2026-10-05), triage of OI-20260902-BYBIT-COVERAGE-BASIS",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'log_file?name=bybit_coverage_soak'  # read mode/apply_scope/binding per account; then grep the config/code that sets them"
+  },
+  "state": "queued",
+  "what": "bybit_coverage_soak rows read mode: apply, apply_scope: allowlisted, binding: true for bybit_1 (read live by a BACKLOG-BURNDOWN-3 triage agent from the log tail, 2026-10-05), which contradicts the premise of OI-20260902-BYBIT-COVERAGE-BASIS ('arming deliberately held for a soak'). Either the arming happened and the item's soak clause is stale, or the log field does not mean what it reads as. Unverified beyond a 100-row tail of an 83 MB log; not settled by this lane."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Close-out of lane BACKLOG-BURNDOWN-3: its own checklist row (in_flight -> done, with the measured numbers and honest limits) plus two new pipeline items for findings the lane hit. No other checklist row touched; no code, config or runtime change."
+}
