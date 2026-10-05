@@ -51,5 +51,27 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
   eq(/ETH/.test(JSON.stringify(tk.alerts)), true, "quantity unit alert names the base asset");
   eq(await r("window.__submitted || 0"), 0, "nothing submitted by the fill path");
   eq(await r("__ex.loginNumber()"), "", "no login number on the ticket page");
+  // LANDING STATES on a routed trade.breakoutprop.com origin (fix 2026-10-05 ~20:20Z): the logged-in landing has
+  // no tabs and no exact "Positions" button, and must still read as logged in, never as "other".
+  const p2 = await b.newPage();
+  const pages = {
+    "/en/account/A1/trade": "<div><span>Trade</span><div role=button>Portfolio</div><div>Open orders</div><div>Positions</div><canvas></canvas></div>",
+    "/": "<div><h1>Your accounts</h1><a href='/en/account/A1/trade'>Turbo 5K</a></div>",
+    "/two": "<div><a href='/en/account/A1/trade'>One</a><a href='/en/account/B2/trade'>Two</a></div>",
+    "/login": "<form><input type=email><button>Continue</button></form>",
+  };
+  await p2.route("https://trade.breakoutprop.com/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><html><body>" + (pages[path] || "<p>?</p>") + "</body></html>" });
+  });
+  const st = async (path) => { await p2.goto("https://trade.breakoutprop.com" + path); await p2.addScriptTag({ content: src }); return p2.evaluate("__ex.state()"); };
+  let s1 = await st("/en/account/A1/trade");
+  eq([s1.loggedIn, s1.onAccount], [true, true], "landing inside an account reads logged in (no tabs, no exact button)");
+  s1 = await st("/");
+  eq([s1.loggedIn, s1.onAccount, s1.accountLinkCount, s1.singleAccountLink], [true, false, 1, "https://trade.breakoutprop.com/en/account/A1/trade"], "account list with ONE account: logged in, single link");
+  s1 = await st("/two");
+  eq([s1.loggedIn, s1.accountLinkCount, s1.singleAccountLink], [true, 2, ""], "two accounts: no single link (app waits for a human tap)");
+  s1 = await st("/login");
+  eq([s1.loggedIn, s1.email], [false, true], "login form is never logged in");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });
