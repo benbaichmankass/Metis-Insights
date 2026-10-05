@@ -1,5 +1,7 @@
 {
-  "tier": 1,
-  "landing": "self",
-  "why": "Phone-executor app only (tools/phone-executor/**): select the ticket's venue symbol on the terminal BEFORE opening/filling the ticket and verify the submit label names the asset before anything is typed; price/quantity/TP/SL located BY LABEL (set and read back), never by index; headless fixture where the terminal starts on BTC and the ticket is ETH (strip, picker+search, no selector). Config: config/prop_platforms.yaml phone_accounts.breakout_2.dry_test_request bumped to 2026-10-06-morning-1 so ONE always-dry ETH test ticket is served on the next claim (meta.test=true -> never submitted; server mechanism #16663). No accounts.yaml, mode, roster, strategy or order-path change; nothing here can place a live order (breakout_2 is dry_run and the app is not armed)."
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "tools/phone-executor/** is outside the guard's Tier-1 surface and config/prop_platforms.yaml is Tier-2 by name (the only change there is phone_accounts.breakout_2.dry_test_request -> 2026-10-06-morning-1, which serves ONE always-dry, never-submitted ETH test ticket). The manager merges, as with #16659/#16663, under the lane dispatch of 2026-10-05 22:25Z (items 5-6: open the PR with a landing file and request the next dry test in the same PR).",
+  "why": "Phone-executor app: select the ticket's venue symbol on the terminal BEFORE opening/filling the ticket and verify the submit label names the asset before anything is typed (the first dry ticket found the terminal on BTC and was refused); price/quantity/TP/SL located BY LABEL (set and read back), never by index; headless fixtures where the terminal starts on BTC and the ticket is ETH (strip, picker+search, no selector). Every existing safety check kept; nothing here can place a live order (breakout_2 is dry_run, the app is not armed, the test ticket is always dry). No accounts.yaml, mode, roster, strategy or order-path change."
 }
