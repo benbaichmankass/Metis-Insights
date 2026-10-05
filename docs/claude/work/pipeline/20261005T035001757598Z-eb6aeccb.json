@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when a conflict is resolved through backlog_union_merge.py against a file whose on-disk format differs from indent=2, and the resulting diff is confined to the rows that actually changed — verified by git --numstat on that commit, not by reading the tool. Until such a conflict occurs the fix is shipped-but-unexercised and belongs in the review_coverage.unexercised_fixes block, NOT closed on the code landing: this row's own subject is a tool whose docstring asserted a property it did not have, so a code citation is precisely the evidence that should not close it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-UNION-MERGE-HARDCODES-INDENT-AND-REFORMATS-THE-FILE-IT-EXISTS-TO-PROTECT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: The backlog files the union-merge tool serves were retired in the 2026-09-21 reset; there is no live register to conflict on, so the closing exercise cannot occur. || EVIDENCE: scripts/ops/backlog_union_merge.py:97 targets docs/claude/*-backlog.json registers; those registers were archived 2026-09-21 (no live backlog files; ls docs/claude | grep backlog shows only a digest). The 'conflict resolved through it' exercise cannot occur. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] backlog_union_merge.py hardcoded indent=2 while asserting parity with backlog_append — and reformatted all 4.8 MB of the health backlog on the one PR that used it"
+}

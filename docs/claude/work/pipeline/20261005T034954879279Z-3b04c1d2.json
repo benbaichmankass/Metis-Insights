@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "An approx-based assertion behaves identically alone and in a full run.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260807-PYTEST-APPROX-NUMPY-STUB",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-PYTEST-APPROX-NUMPY-STUB",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-PYTEST-APPROX-NUMPY-STUB'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Root cause (numpy MagicMock in sys.modules) fixed in conftest and a CI guard now fails any new stub; HEAD has zero numpy stubs. Structural verification only, not an observed numpy-less run. || EVIDENCE: tests/test_no_numpy_magicmock_stub.py (AST-parsed guard) exists; tests/conftest.py:~105-140 pre-imports and never stubs numpy. My AST probe over tests/**/*.py found 18 sites with for-loop sys.modules.setdefault(MagicMock) (probe can see positives) and 0 stub numpy. pytest not installed here so not executed. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] [test-infra] pytest.approx is unreliable suite-wide when numpy is absent — a truthy sys.modules stub makes it RAISE instead of compare"
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A per-gap disposition list, one line each, covering every gap the row names (dashboard /strategy/attribution + /pnl/exchange; android Accounts broker-truth): wired, or closed wont_fix with the reason. 'Wire incrementally when a consumer need arises' is a posture, not an exit condition, and is what has kept this row open - a row that can be satisfied by doing nothing indefinitely cannot be retired.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260726-CONSUMER-DISPLAY-GAPS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260726-CONSUMER-DISPLAY-GAPS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260726-CONSUMER-DISPLAY-GAPS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: The two consumers the display gaps were filed against are retired, so per-gap wired/wont_fix dispositions are moot. API endpoints still exist (src/web/api/routers/attribution.py:245); any gap in the SPA is a separate, SPA-repo item. || EVIDENCE: Gaps name the Streamlit dashboard (/strategy/attribution, /pnl/exchange) and the Android Accounts screen; CLAUDE.md ~l.475 records both retired from the live feed (SPA is the only consumer, operator 2026-09-01); repo tree has no dashboard/ or android/ directory (git ls-files check: 0). || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] BL-20260726-CONSUMER-DISPLAY-GAPS"
+}
