@@ -903,6 +903,13 @@ def test_afford_on_the_real_committed_gld_record(tmp_path):
                 f"{mr.EVIDENCE_DIR_REL}/{leg}.json", rec["source_run"]):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(REPO / rel, tmp_path / rel)
+    # MD-S1-CUT-ON-STAGE0-FAIL took the leg off alpaca_paper on 2026-10-05 (on this
+    # very R-AFFORD verdict); re-roster it in the COPY so the clause is still reached.
+    accts = yaml.safe_load((tmp_path / mr.ACCOUNTS_REL).read_text())
+    soak = accts["accounts"]["alpaca_paper"]["strategies"]
+    if leg not in soak:
+        soak.append(leg)
+    _w(tmp_path, mr.ACCOUNTS_REL, accts, as_yaml=True)
     _w(tmp_path, f"{mr.ACCOUNT_SNAPSHOT_DIR_REL}/alpaca_live.json",
        _snapshot("alpaca_live", 193.56))
     res = mr.resolve(leg, "S1", "S2", "alpaca_live", root=tmp_path)

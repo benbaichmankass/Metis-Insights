@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane MANDATE-S1-CUT dispatch: one PR, landing hold, the manager reviews and merges. Applies the operator-granted MD-S1-CUT-ON-STAGE0-FAIL (#16548).",
+  "why": "Removes 15 legs from the Stage-1 paper rosters bybit_1 and alpaca_paper under MD-S1-CUT-ON-STAGE0-FAIL; every removal is a resolver FIRE over the committed Stage-0 record and soak snapshot. No real-money roster, strategies.yaml, mode or execution field is touched. Roster-pinning tests updated to the new rosters."
+}
