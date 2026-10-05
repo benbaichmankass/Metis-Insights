@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "PR #14174 and #14173 are merged AND items (a)-(d) in `what` are each read on the live VM after the deploy",
+    "kind": "event",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-BTG1YDOI-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "bash scripts/ops/diag_fetch.sh version; bash scripts/ops/diag_fetch.sh services | grep -c notify; gh-free: mcp__github__pull_request_read(get, 14173/14174) for merged state",
+    "what": "PR #14174 and #14173 are merged AND items (a)-(d) in `what` are each read on the live VM after the deploy"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/14174",
+    "rerun": "bash scripts/ops/diag_fetch.sh version; bash scripts/ops/diag_fetch.sh services | grep -c notify; gh-free: mcp__github__pull_request_read(get, 14173/14174) for merged state"
+  },
+  "routed_to": "SA-INFRA | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: COULD NOT LOOK (never closes) — #14173/#14174 merged 2026-09-29T13:18Z (REST). Live: /api/diag/version restart_pending=false (d partly); services lists ict-trainer-disk-alarm.timer active. (a) systemctl cat OnFa",
+  "state": "routed",
+  "what": "SA-INFRA: PRs #14173 (FIX-SA-11) and #14174 (FIX-SA-08/12) are OPEN, not merged/deployed/observed. After merge+deploy the following must be OBSERVED, not assumed: (a) `systemctl cat ict-db-integrity.service` (and the other 17 timer-driven oneshots) shows OnFailure=ict-notify-failure@%n.service and ict-notify-failure@.service is installed; (b) a forced failure of one harmless oneshot produces exactly one ping and a unit_failures.jsonl row; (c) ict-trainer-disk-alarm.timer is active and trainer_disk_alarm_state.json reads state=alarm at 92%; (d) /api/diag/version restart_pending is false when only docs commits are outstanding and status.json carries git_sha_running."
+}

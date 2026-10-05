@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261004-UTBSCEQM-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-05",
+    "how_to_check": "Actions API: latest stale-automation-sweep run, Sweep step TRIAGE `refresh` count; then that run's '#N ... refreshed and pushed' PRs' merge state. For (b), the next automation/research-result-* PR's file list.",
+    "what": "stale-automation-sweep refreshes > 0 PRs and each refreshed PR lands; a non-main-dispatched research run opens a result-only automation PR"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane CI-AUTOMERGE 2026-10-04 (#16494)",
+    "rerun": "Read the latest stale-automation-sweep run's 'Sweep' step: the TRIAGE block's `refresh` count and the '#N refresh ... refreshed and pushed' lines. >0 refreshed after #16494 is on main means fixed."
+  },
+  "routed_to": "CI-AUTOMERGE — live-read triage 2026-10-05: still applies — #16494 merged 2026-10-04T23:40Z (REST). Latest stale-automation-sweep run 37242998991 is 23:13Z, before the merge; no post-merge run yet (now ~00:35Z). (a) and (b) unobserved. | next: Read the 'Sweep' step of the first stale-automation-sweep run after 23:40Z (~03:00Z): refresh>0. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "routed",
+  "what": "OBSERVE #16494 in production. (a) The first stale-automation-sweep run on a main that carries #16494 reports refresh > 0, and each refreshed PR then lands. The dry-run before merge graded 12 refresh, against 0 on run 37229187372. (b) The next research run dispatched from a non-main ref opens an automation PR whose diff is only its own result + landing files (the commit-to-main replay). Until both are observed, #16494 is merged, not done."
+}

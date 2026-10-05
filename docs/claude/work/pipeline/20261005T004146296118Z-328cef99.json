@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the Alpaca order-history read shows whether bracket stop legs rest after entry, and after the fix no alpaca_* entry shows naked_rearm within 30 min of created_at over 7 days",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#fix-sa-03",
+    "rerun": "curl -sS -H \"Authorization: Bearer $DIAG_READ_TOKEN\" 'https://ict-bot.duckdns.org/api/diag/journal?table=trades&limit=1000&envelope=true' | python3 -c \"import sys,json;r=json.load(sys.stdin)['rows'];print([(x['id'],x['protection_repair_last_kind']) for x in r if x['account_id'].startswith('alpaca') and x['created_at']>='2026-09-15'])\""
+  },
+  "routed_to": "FIX-SA-03 | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — Order-history read exists (alpaca_order_history, #14115). Fixes #14123/#14127 merged 09-29. Journal n=6448: last alpaca naked_rearm entry is 6260 (09-28 15:03); ~25 alpaca entries since 09-30, 0 ",
+  "state": "routed",
+  "what": "FIX-SA-03 (HIGH, AUD-1): every Alpaca entry since 09-15 (17/20; all 3 real-money alpaca_live: 5875 SLV, 5924 TLT, 6097 IAUM) is followed by a naked_rearm of protection 6.1-7.0 min after entry (5928 re-armed 29x), although entries go out as bracket/OTO GTC. Either the bracket legs do not rest (live positions naked ~6 min per entry) or the naked-sweep misclassifies held bracket children; no Alpaca order-history read surface exists to tell which. Step 1 Tier 1: add the diag read; step 2 diagnose; step 3 Tier 2 fix. Opus."
+}

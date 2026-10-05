@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "no workflow run older than 24h is in status queued",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260929-AQRK6CL1-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-EXEC report to manager 2026-09-29 ~18:05Z (gate-1 report)",
+    "rerun": "gh run list --status queued --limit 100 --json createdAt,name | python3 -c \"import json,sys;d=json.load(sys.stdin);print(sum(1 for r in d if r['createdAt']<'2026-09-20'),'of',len(d))\""
+  },
+  "routed_to": "AUTOMERGE-GAPS | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: still applies — GitHub runs API status=queued 2026-10-05: total_count 37, oldest created 2026-05-15T07:45Z; all 37 older than 24h. | next: Run a runner-side gh run cancel sweep on queued runs older than 24h, the",
+  "state": "routed",
+  "what": "[ci][hygiene] 36 GitHub Actions workflow runs sit in 'queued' state from 2026-09-12/13 (Guards / pytest-run / pytest-collect / armed-branch-push-watch on old lane branch titles), reported by lane PROP-EXEC at 2026-09-29 ~18:05Z from the Actions run list (8 in progress alongside). They inflate any 'queued runs' precondition and may hold concurrency groups; today's dispatches still run in 1-20 min. Cancel the stale queued runs (a runner-side `gh run cancel` sweep over runs created before 2026-09-20 in status queued) and add a check that flags queued runs older than 24h."
+}

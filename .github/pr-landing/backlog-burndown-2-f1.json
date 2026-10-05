@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-only: append-only records from lane BACKLOG-BURNDOWN-2 batch 8 — live-read triage of the 83 remaining non-soak due items by three read-only sub-agents with diag/API GET access (17 closed done + 3 killed, each re-verified by this lane; 63 re-read and routed/re-dated with the read recorded; KFWRL9R1 items held as fixed-and-deployed-not-done) plus one new item for a possibly unprotected paper TQQQ position. No code, config or order-path change."
+}

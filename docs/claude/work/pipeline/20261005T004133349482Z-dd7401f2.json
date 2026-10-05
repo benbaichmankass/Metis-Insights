@@ -1,0 +1,29 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20260927-3QJJAY5Y-0001",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-07",
+    "how_to_check": "count journal lines matching 'refused for want of available shares' for unit ict-trader-live over --since -7d. /api/diag/journalctl caps at 2000 lines and has no grep, so walk it in since/until windows (or a trainer/system-action journalctl | grep -c); nonzero => fired, then propose the Tier-3 fix (cancel only the closing trade's same-qty legs before the partial DELETE, re-arm the remainder on failure).",
+    "what": "Has AlpacaClient._close_partial's 'refused for want of available shares' branch fired on the live trader in the last 7 days (a sibling tranche's legs holding every share, so a trade-scoped partial close is refused)?"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/13047",
+    "rerun": "grep -n 'NOT escalating to a symbol-wide' src/units/accounts/alpaca_client.py  (the refusal branch); then diag-relay journalctl -u ict-trader-live --since '-7d' | grep -c 'refused for want of available shares'  -- nonzero means it has fired live"
+  },
+  "routed_to": "PROTECTION-HARDENING (lane session_017nt865EQaLPJszJ4SFBKu9): re-verified 2026-10-04 -- refusal branch 'NOT escalating to a symbol-wide' still at alpaca_client.py _close_partial; not fixed (candidate fix is Tier-3 order path). Needs the journalctl count via diag relay before a decision; left for check_observation. | BACKLOG-BURNDOWN-2 2026-10-05 re-read at HEAD: live-read triage 2026-10-05: COULD NOT LOOK (never closes) — Needs 7-day journalctl grep; diag journalctl caps at 1000 lines (~5 min of trader log: since=2026-10-04T00:00Z returned only to 00:05Z). 0 hits in two sampled windows is not evide",
+  "state": "routed",
+  "terminal_reason": null,
+  "triage_2026_09_28": {
+    "checked": "Confirmed src/units/accounts/alpaca_client.py's _close_partial still pre-cancels nothing (docstring explicitly: 'NOTHING IS PRE-CANCELLED') -- the code defect is unfixed. Confirmed via MANAGER-CHECKLIST.json that PR #13047 (Alpaca GTC entry brackets) is now MERGED AND DEPLOYED (deploy #13118 at 63348e7a3, 2026-09-27) -- so the premise 'PR #13047 (GTC entry legs, HELD)' in the finding is stale: it is live now, not held, which extends this bug's exposure window past the RTH close as the finding warned. Attempted a live journalctl grep via diag for 'refused for want of available shares' but the endpoint's grep param did not appear to filter server-side within this session's time budget, so whether it has actually fired live is not established.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation -- the due_date (2026-10-04) hasn't arrived and this is fundamentally a wait-and-see item, but note the risk premise changed (PR #13047 deployed, not held) so it is now MORE likely to fire, not less. A lane with working diag/journalctl access should re-check nearer the due date; if it has fired, this becomes a genuine Tier-3 order-path decision for the operator (the candidate fix is described in the finding).",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "Alpaca trade-scoped PARTIAL close is refused while sibling tranches' protective legs hold all shares. AlpacaClient._close_partial (DELETE /v2/positions/{sym}?qty=N) deliberately pre-cancels nothing, so on a symbol with several open journal rows each carrying its own bracket, qty_available is 0 and the venue refuses 'insufficient qty available' (logged loudly, no over-close, no naked position). Happens intraday today with DAY legs; PR #13047 (GTC entry legs, HELD) extends it past the RTH close. Candidate fix (Tier-3, order path): cancel only the legs whose qty equals the closing trade's qty (the same identification heuristic modify_protective uses) before the partial DELETE, re-arming the remainder on failure. INFERRED from code reading (alpaca_client.py _close_partial docstring + body) -- not measured on a live multi-row position this session.\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation -- the due_date (2026-10-04) hasn't arrived and this is fundamentally a wait-and-see item, but note the risk premise changed (PR #13047 deployed, not held) so it is now MORE likely to fire, not less. A lane with working diag/journalctl access should re-check nearer the due date; if it has fired, this becomes a genuine Tier-3 order-path decision for the operator (the candidate fix is described in the finding)."
+}
