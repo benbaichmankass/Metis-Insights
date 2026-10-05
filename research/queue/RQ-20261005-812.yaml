@@ -1,7 +1,7 @@
 id: RQ-20261005-812
 title: 'Breakout 1-Step Turbo $5k prop fit (730d): trend_donchian_sol_prop at room sizing (lane PHONE-EXEC-1B, roster for the
   phone-executed Breakout account)'
-status: queued
+status: done
 cadence: once
 kind: experiment
 theme: new_strategy_prop
@@ -78,3 +78,5 @@ related:
 - config/prop_rulesets/breakout_turbo_1step.yaml
 - research/queue/RQ-20261005-807.yaml
 - docs/integrations/breakout-phone-executor-DESIGN.md
+last_dispatched_at: '2026-10-05T15:24:00+00:00'
+result: "GRADED 2026-10-05 by lane PHONE-EXEC-1B against this unit's own rule (registered before the run, commit cd52b149): NULL (indeterminate), NOT a fail. trend_donchian_sol_prop, room sizing, n=132: ev +$6.76..+$8.02 per account life on all 5 seeds, P(net>0) 0.129-0.142. Acted on: the leg STAYS on breakout_2. Population: 730d committed trades, Breakout Turbo 1-Step ruleset, full cost stack, 5 seeds. Record: research/results/RQ-20261005-812/session-20261005.jsonl."
