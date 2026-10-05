@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "OBSERVABLE: issue a diag request whose response EXCEEDS the byte budget and whose filter names a nonexistent column; the returned comment must still show filter_state='ignored_unknown_column' (or an explicit relay-level warning that certification fields were dropped). Demonstrate by running it — a passing case on a small response proves nothing, since the bug only exists above the budget.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-12",
+    "how_to_check": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE'), indent=2))\"",
+    "what": "OBSERVABLE: issue a diag request whose response EXCEEDS the byte budget and whose filter names a nonexistent column; the returned comment must still show filter_state='ignored_unknown_column' (or an explicit relay-level warning that certification fields were dropped). Demonstrate by running it — a passing case on a small response proves nothing, since the bug only exists above the budget."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-TRUNCATION-STRIPS-THE-FIELDS-THAT-CERTIFY-A-RESPONSE'), indent=2))\""
+  },
+  "routed_to": "GUARD-FIDELITY — triaged 2026-10-05: sub-agent proposed fixed, not independently verified — scripts/ops/diag_relay_render.py:10-16 and vm-diag-snapshot.yml:741-756 hoist certification fields (filter_state, count) ahead of rows so truncation keeps them. Live demo not run. (BACKLOG-BURNDOWN-2 2026-10-05)",
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Truncation now keeps scalar certification fields and cuts bulk containers; demonstrated by running render_section above budget. Not exercised through a live relay issue, only the function the workflow calls. || EVIDENCE: scripts/ops/diag_relay_render.py render_section() (wired at vm-diag-snapshot.yml:761-765) run locally on an envelope ~230 KB with filter_state='ignored_unknown_column' and a 55000-byte budget returned 54,532 bytes still containing filter_state and ignored_unknown_column; self-test PASS. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] vm-diag-snapshot truncation removes filter_state/total/count FIRST, because they sit after `rows` — a truncated response keeps the data and loses the fields that invalidate it"
+}

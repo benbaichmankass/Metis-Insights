@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Filing N diag-request issues back-to-back yields N result comments (verified with a 3-burst), or the workflow comment + diag-relay doc accurately describe the one-pending-slot constraint and all skills instruct spacing.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260611-002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260611-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260611-002'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "BACKLOG-BURNDOWN-3 2026-10-05: Second clears_when branch met: the workflow comment and diag-data skill accurately describe GitHub's one-pending-run-per-group constraint, and the per-issue group removes the burst drop. A 3-burst test not run. || EVIDENCE: .github/workflows/vm-diag-snapshot.yml:103-107 concurrency is PER-ISSUE (BL-20260611-002 fix) and :858-876 states runs cannot be cancelled by siblings; .claude/skills/diag-data/SKILL.md:113 documents the one-pending-slot cause. || re-verified by an independent adversarial re-run + lane spot-check 2026-10-05.",
+  "what": "[health] vm-diag-snapshot burst requests silently cancelled despite cancel-in-progress:false — GitHub keeps only ONE pending run per concurrency group"
+}
