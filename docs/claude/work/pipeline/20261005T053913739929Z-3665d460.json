@@ -1,0 +1,19 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "owner row CANDLE-REFRESH reaches done, or this item is verified fixed at HEAD. Routed 2026-10-05: verified at HEAD: ict-candle-refresh ExecStart still SOL/XRP/ETH 15m only",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "PI-20260930-DVZQD9II-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "lane CANDLE-REFRESH, trainer diag #14511 file listing",
+    "rerun": "trainer-vm-diag: `cd /home/ubuntu/ict-trading-bot; ls -la --time-style=long-iso data/*_15m.csv data/*_5m.csv; for f in data/*_15m.csv data/*_5m.csv; do echo $f $(tail -1 $f | cut -d, -f1); done`"
+  },
+  "routed_to": "CANDLE-REFRESH (landed_unproven)",
+  "state": "routed",
+  "what": "Other trainer candle files still have NO refresh owner: data/{BNB,ADA,LINK,AVAX}USDT_15m.csv (last bar 2026-06-18), data/BTCUSDT_15m.csv (2026-07-12), and every data/*_5m.csv written in the same 2026-06-18 batch. ict-candle-refresh covers only SOL/XRP/ETH 15m. Any study reading the others still ends on those dates. Extending is the same tool (`refresh_candle_history.py SYMBOL:INTERVAL`); the open choices are which pairs a live study needs and whether the unit's ExecStart list grows (Tier-2 edit of deploy/trainer/ict-candle-refresh.service). NOT verified: which of these files each study actually reads, or whether the 5m files are Bybit-sourced like the 15m ones (check with compare_candle_feeds.py before appending)."
+}

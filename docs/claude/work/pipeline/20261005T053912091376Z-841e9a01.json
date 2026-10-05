@@ -1,0 +1,17 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-WJUTENGU-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "SA-DOCS lane 2026-09-29",
+    "rerun": "python3 scripts/ops/render_daily_brief.py | wc -c"
+  },
+  "state": "done",
+  "terminal_reason": "MEASURED 2026-10-05: render_daily_brief.py | wc -c = 21360 bytes at HEAD fee0ae7e (row recorded ~582 KB). Cap in effect. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "what": "The daily brief is still ~582 KB after JC-SA-06 cut section 0 from 301 KB to 16 KB; the other ~566 KB (non-section-0, likely checklist rendering) cannot be read in one sitting. Measure per-section size and cap likewise. Found by JC-SA-06 (#14168)."
+}
