@@ -63,7 +63,7 @@ generated:
     symbol: ETHUSDT
     timeframe: 2h
 last_dispatched_at: '2026-10-05T01:47:39+00:00'
-result: "UNGRADED as of 2026-10-05 (lane RESEARCH-RUN). This lane hand-fired the e35 bracket sweep for eth_pullback_2h at about 14:53Z on 2026-10-04 (run 37210924314) and that run FAILED; the failure cause was never read. The dispatcher re-fired it at 01:47Z on 2026-10-05 (run 37252832009, completed success) but no result record for this unit was on main when checked, so there is nothing to grade. Not read, not graded; cause of the first failure unknown."
+result: "GRADED 2026-10-05 by scripts/research/queue_grade.py (auto) against RULE-TPL-E35-BRACKET-IS-OOS-GATE: no_action_warranted. Corrected by lane PROP-FIT-POWER 2026-10-05; this line read UNGRADED because the result had not yet landed when it was written. Verified on main: 199 corpus rows with research_unit RQ-20260928-017 and source collected/e35-bracket-eth_pullback_2h/2026-10-05/report.json (run 37252832009, corpus landed by #16531); 7 of the 199 carry a gate verdict, all is_oos_fail at base_oos_trades 49 (>= the 39 floor, so powered); the other 192 cells were not gated (gate_top=2), so '0 of 199 pass' means 0 of the 7 gated cells. The first run (37210924314) did not fail in the sweep: plan, sweep and aggregate succeeded and only the corpus-landing step failed (rows pushed to a non-shared ref, merge owed; they later landed via #16400). Shipped eth_pullback_2h geometry stands; no Tier-3 proposal."
 grading:
   auto: true
   decision_rule_id: RULE-TPL-E35-BRACKET-IS-OOS-GATE

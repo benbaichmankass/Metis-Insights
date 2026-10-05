@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 roster change on a live prop account (config/accounts.yaml tradeify_1). Data-backed under the operator's 2026-09-27 standing authorization (RQ-20261005-807 FAIL); lands on a manager merge, then notify the operator.",
+  "why": "Removes trend_donchian_sol_prop from tradeify_1 only. Evidence: RQ-20261005-807, rule RULE-RQ1005-TRADEIFY-FIT-LONG-trend_donchian_sol_prop-f050 registered before the run in #16567; n=132, 730d, full cost stack, EV -$74, P(net>0) 0.11. Revert: re-add the name."
+}

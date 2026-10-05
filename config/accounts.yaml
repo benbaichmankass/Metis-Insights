@@ -1943,13 +1943,33 @@ accounts:
                                        # symbol, so the no-hedging rule cannot be
                                        # tripped by two of our own legs.
       - trend_donchian_eth_prop        # ETH 1h (n=169, net R +13.03 after Tradeify costs)
-      - trend_donchian_sol_prop        # SOL 1h (n=65, +4.97)
+      # trend_donchian_sol_prop REMOVED from tradeify_1 on 2026-10-05 (Tier-3,
+      # data-backed under the operator's standing authorization of 2026-09-27:
+      # "you can make tier 2 and 3 decisions autonomously as long as they are
+      # backed by data, just let me know that they have happened"; decided by
+      # manager session_01MM8o5js6TcDFeNAPBY4Ntv, lane PROP-FIT-POWER).
+      # EVIDENCE: research unit RQ-20261005-807, rule
+      # RULE-RQ1005-TRADEIFY-FIT-LONG-trend_donchian_sol_prop-f050 (registered
+      # 2026-10-05 before the run, #16567): trend_donchian_sol_prop, Tradeify
+      # 1-Step ruleset, flat 0.5% of balance (this account's risk_pct), 730d
+      # committed trades n=132 (comms/strategy_evidence/runs/2026-10-05-730d/),
+      # full cost stack, 5 seeds: ev_net_usd_per_life -$72..-$75 on every seed,
+      # P(net>0) 0.11-0.12, p_pass_eval 0.20-0.22. Verdict FAIL (rule: ev <= 0 on
+      # any seed). The earlier 365d record (n=65, +4.97R) was UNDERPOWERED; the
+      # longer window answered it. (0.75%, RQ-20261005-808: NULL, P 0.27-0.29,
+      # still far below the 0.70 bar.) trend_donchian_eth_prop is KEPT: NULL
+      # (positive EV, P(net>0) ~0.3), not a fail.
+      # tradeify_1 had no open SOL position or order at removal (prop status
+      # open_positions/open_orders empty 2026-10-05 09:26Z; its SOL tickets are
+      # all shadow/orphaned, none emitted).
+      # REVERT: re-add `- trend_donchian_sol_prop` to this list.
       # ict_scalp_xrp_15m DROPPED at go-live (OPERATOR DECISION 2026-10-03,
       # popup relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim:
       # "Drop it (Recommended)"): it fails its causal rebuild (#15603).
       # XRPUSDT left the data-pull list with it: no tradeify_1 leg trades XRP,
       # and `symbols:` is a pull list only (bybit_1 still pulls XRPUSDT).
-    symbols: [ETHUSDT, SOLUSDT]
+    symbols: [ETHUSDT]                 # SOLUSDT left the pull list with trend_donchian_sol_prop (2026-10-05);
+                                       # `symbols:` is a pull list only and other accounts still pull SOLUSDT.
     risk:
       max_dd_pct: 0.06                 # Tradeify 1-Step STATIC 6% = $600 floor at $9,400.
       daily_loss_pct: 0.03             # 3% daily = $300 (resets 22:00 UTC; ruleset limits).

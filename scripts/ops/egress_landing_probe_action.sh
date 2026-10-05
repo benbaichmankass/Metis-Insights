@@ -47,6 +47,12 @@ URLS=(
     "https://dx.velotrade.com/"
     "https://dx.velotrade.com/developers/"
     "https://velotrade.com/"
+    # Breakout's NEW terminal host (lane PHONE-EXEC-1A, 2026-10-05; operator-reported
+    # host of the post-purchase terminal). Asks: does it answer this VM's Oracle
+    # egress, or is it Cloudflare-blocked like app.breakoutprop.com (Error 1005)?
+    # Landing only; no account path, no credentials.
+    "https://trade.breakoutprop.com/"
+    "https://trade.breakoutprop.com/app/"
 )
 
 TMP="$(mktemp -d)"
@@ -83,7 +89,7 @@ for url in "${URLS[@]}"; do
     chal="$(grep -aoiE 'just a moment|challenge-platform|cf-chl|turnstile|attention required' "${body}" | head -n1 || true)"
     echo "  cloudflare_error_marker=${cferr:-none}"
     echo "  challenge_marker=${chal:-none}"
-    echo "  login_form_markers=$(grep -aoE 'loginForm-main|id="username"|id="password"' "${body}" | sort -u | tr '\n' ' ')"
+    echo "  login_form_markers=$(grep -aoE 'loginForm-main|id="username"|id="password"|type="password"|name="password"' "${body}" | sort -u | tr '\n' ' ')"
     case "${url}" in
         */specs)
             ct="$(getv content-type)"
