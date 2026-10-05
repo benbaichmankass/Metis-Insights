@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "tools/phone-executor/** (Kotlin, the injected page script, its headless check) is outside the guard's Tier-1 surface, so the guard cannot certify a self-landing; by substance this is Tier-1 tooling (an Android app that drives a web terminal; breakout_2 is dry_run and the app is not armed). Landed on the manager's 2026-10-05 22:45Z direction to drive it green and merge, the same way #16659 (tier 1 / hold / unvouchable_paths) was landed. No config change: the dry_test_request bump is deferred until the operator installs the new APK, because the old app would claim it first.",
+  "why": "Phone-executor app: select the ticket's venue symbol on the terminal BEFORE opening/filling the ticket and verify the submit label names the asset before anything is typed (the first dry ticket found the terminal on BTC and was refused); price/quantity/TP/SL located BY LABEL (set and read back), never by index; headless fixtures where the terminal starts on BTC and the ticket is ETH (strip, picker+search, no selector); design-doc note. No src/, config/, VM, accounts.yaml, mode, roster, strategy or order-path change; every existing safety check kept; nothing here can place a live order."
+}

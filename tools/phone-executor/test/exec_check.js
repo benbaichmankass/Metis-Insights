@@ -73,5 +73,76 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
   eq([s1.loggedIn, s1.accountLinkCount, s1.singleAccountLink], [true, 2, ""], "two accounts: no single link (app waits for a human tap)");
   s1 = await st("/login");
   eq([s1.loggedIn, s1.email], [false, true], "login form is never logged in");
+  // LABEL-BASED FIELDS (fix 2026-10-05 ~22:40Z): price and quantity are set and read back BY LABEL, never by index,
+  // and the two labels must resolve to two different inputs with their own values.
+  const p3 = await b.newPage(); await p3.setContent(page); await p3.addScriptTag({ content: src });
+  const r3 = (code) => p3.evaluate(code);
+  let sp = await r3("__ex.setByLabel('limit price', '', '2500.10')");
+  eq([sp.n, sp.label, sp.value], [1, "Limit price", "2500.10"], "price set by label");
+  let sq = await r3("__ex.setByLabel('quantity', '', '0.01')");
+  eq([sq.n, sq.label, sq.value], [1, "Quantity", "0.01"], "quantity set by label");
+  eq(sp.k !== sq.k, true, "price and quantity are different inputs");
+  eq(await r3("__ex.readByLabel('limit price', '').value"), "2500.10", "price read back by label is still the price, not the quantity");
+  eq(await r3("__ex.readByLabel('quantity', '').value"), "0.01", "quantity read back by label");
+  eq(await r3("__ex.readByLabel('nosuchlabel', '').n"), 0, "missing label: n=0, nothing set");
+  await r3("__ex.setTpsl(true)");
+  let amb = await r3("__ex.setByLabel('take ?profit', '', '1')");
+  eq([amb.n, amb.labels], [2, ["Take profit price", "Take profit %"]], "ambiguous label: n=2 with the labels, nothing set");
+  eq(await r3("__ex.readByLabel('take ?profit', '').value === undefined"), true, "ambiguous label returns no value");
+  eq((await r3("__ex.setByLabel('take ?profit', 'price', '2600')")).value, "2600", "prefer narrows TP to the price field");
+  eq(await r3("__ex.readByLabel('take ?profit', '%').value"), "", "TP % field untouched");
+  eq(await r3("__ex.ticket().symbol"), "ETHUSD", "ticket() reports the asset on the submit label");
+  eq(await r3("window.__submitted || 0"), 0, "label-based fill submits nothing");
+
+  // INSTRUMENT SELECTION (fix 2026-10-05 ~22:40Z): the terminal starts on BTC and the ticket is ETH. The executor
+  // must select ETH (through whichever route the page offers) or refuse with a named reason; it never submits.
+  // Fixture A: a symbol strip of buttons (the exact-text route).
+  const strip = (cur) => `<!doctype html><html><body>
+<div id=strip><button>BTCUSD</button><button>ETHUSD</button><button>SOLUSD</button></div>
+<button>Order</button><h2 id=h>${cur}</h2>
+<form id=f><div role=tablist><button type=button role=tab aria-selected=true>Market</button><button type=button role=tab aria-selected=false>Limit</button></div>
+<div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div>
+<label for=lp>Limit price</label><input id=lp type=text value="85,778.8"><label for=q>Quantity</label><input id=q type=text value="85,778.8">
+<div role=alert>Quantity exceeds available to trade</div>
+<button type=submit id=sub>Long (buy) ${cur.replace('USD','')}</button></form>
+<script>document.querySelectorAll('#strip button').forEach(function(b){b.onclick=function(){var s=b.textContent;document.getElementById('h').textContent=s;document.getElementById('sub').textContent='Long (buy) '+s.replace('USD','');}});
+document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};</script></body></html>`;
+  // symbolStep() refuses ("bad_host") off breakoutprop.com, so these fixtures are served on the trade host.
+  const onHost = async (html) => { const pg = await b.newPage(); await pg.route("https://trade.breakoutprop.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: html }));
+    await pg.goto("https://trade.breakoutprop.com/en/account/A1/trade"); await pg.addScriptTag({ content: src }); return pg; };
+  const pA = await onHost(strip("BTCUSD"));
+  const rA = (code) => pA.evaluate(code);
+  eq(await r3("__ex.symbolStep('ETHUSD')"), "bad_host", "symbol routes refuse off breakoutprop.com");
+  eq(await rA("__ex.symbolOnTicket()"), "BTC", "ticket starts on BTC (the 2026-10-05 22:20Z dump)");
+  eq(await rA("__ex.symbolStep('ETHUSD')"), "clicked_symbol", "strip: exact-text ETHUSD button clicked");
+  eq(await rA("__ex.symbolOnTicket()"), "ETH", "strip: submit label now names ETH");
+  eq(await rA("__ex.symbolStep('ETHUSD')"), "done", "strip: second step reports done");
+  eq(await rA("__ex.symbolStep('Market')"), "not_a_symbol", "a word that is not a symbol clicks nothing (Market tab is not a symbol control)");
+  eq(await rA("__ex.tabSelected('Market')"), true, "Market tab untouched by the symbol routes");
+  eq(await rA("window.__submitted || 0"), 0, "strip: nothing submitted");
+  // Fixture B: a current-symbol picker (BTC/USD) that opens a search box; results are rows that START with the symbol.
+  const picker = `<!doctype html><html><body>
+<button id=cur aria-haspopup=listbox>BTC/USD</button><div id=pk style="display:none"><input id=s placeholder="Search symbol"><ul id=res></ul></div>
+<form id=f><label for=lp>Limit price</label><input id=lp type=text><label for=q>Quantity</label><input id=q type=text>
+<button type=submit id=sub>Long (buy) BTC</button></form>
+<script>var ALL=['BTCUSD Bitcoin','ETHUSD Ethereum','ETHUSDT Ethereum Tether','SOLUSD Solana'];
+document.getElementById('cur').onclick=function(){document.getElementById('pk').style.display='block'};
+document.getElementById('s').addEventListener('input',function(){var v=this.value.toUpperCase();var u=document.getElementById('res');u.innerHTML='';ALL.filter(function(a){return a.indexOf(v)===0}).forEach(function(a){var li=document.createElement('li');li.textContent=a;li.onclick=function(){var sym=a.split(' ')[0];document.getElementById('cur').textContent=sym.slice(0,3)+'/'+sym.slice(3);document.getElementById('sub').textContent='Long (buy) '+sym.replace(/USDT?$/,'');document.getElementById('pk').style.display='none'};u.appendChild(li)})});
+document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};</script></body></html>`;
+  const pB = await onHost(picker);
+  const rB = (code) => pB.evaluate(code);
+  eq(await rB("__ex.symbolOnTicket()"), "BTC", "picker: ticket starts on BTC");
+  eq(await rB("__ex.symbolStep('ETHUSD')"), "opened_picker", "picker: current-symbol control opened");
+  eq(await rB("__ex.symbolStep('ETHUSD')"), "typed_search", "picker: symbol typed into the search box");
+  eq(await rB("__ex.symbolStep('ETHUSD')"), "ambiguous", "picker: ETHUSD and ETHUSDT both start with ETHUSD and neither is exact-only -> refuse, click nothing");
+  eq(await rB("__ex.symbolOnTicket()"), "BTC", "picker: ambiguous result changed nothing");
+  await rB("ALL.splice(2,1); document.getElementById('s').dispatchEvent(new Event('input'))");
+  eq(await rB("__ex.symbolStep('ETHUSD')"), "clicked_result", "picker: with one result left, its row (starts with the symbol) is clicked");
+  eq(await rB("__ex.symbolOnTicket()"), "ETH", "picker: submit label now names ETH");
+  eq(await rB("window.__submitted || 0"), 0, "picker: nothing submitted");
+  // Fixture C: no symbol control at all -> "none", so the app refuses with the route in the reason.
+  const pC = await onHost(strip("BTCUSD").replace(/<div id=strip>.*?<\/div>/, ""));
+  eq(await pC.evaluate("__ex.symbolStep('ETHUSD')"), "none", "no selector: none (app refuses 'symbol ETH not on the submit label')");
+  eq(await pC.evaluate("__ex.symbolOnTicket()"), "BTC", "no selector: ticket unchanged");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -672,6 +672,38 @@ Every one of these is a **refusal with the form dump**, never a guess, so the fi
 6. Tap **Dry test**. The app fills one ETH ticket, reads it back, does **not** submit, and the VM pings the result.
 7. Keep the phone on charge with the app on screen. Do **not** tap ARMED until the go-live message.
 
+### 7.12 First dry ticket on the phone (2026-10-05 22:20Z): refused on the symbol, and what that measured
+
+**MEASURED (the phone's own report, `GET /api/bot/prop/tickets?account_id=breakout_2`, relayed by the manager):** the app claimed
+the always-dry ETH test ticket (`dry_test_request: 2026-10-05-night-1`) and **refused** it with `symbol ETH not verified on the ticket`.
+The dump: form open; tabs Market / **Limit** / Trigger and **Buy** / Sell; inputs `Limit price` = `85,778.8` and `Quantity` = `85,778.8`;
+TP/SL unticked; submit `Long (buy) BTC`, disabled; alert `Quantity exceeds available to trade`. So the terminal was on **BTC**, and the
+executor's symbol step (one exact-text click, built against a symbol strip whose labels the 1a probe had redacted) selected nothing.
+The refusal itself is the design working: nothing was typed and nothing was submitted.
+
+**The equal Quantity and Limit price are the PAGE's values, not ours.** In `execute()` at #16663 no field is written before the symbol
+check; the dump is taken before the refusal's quantity clean-up. INFERRED from the two equal numbers: the terminal's default
+quantity (1 BTC) shown in its USD unit. Not established: the unit toggle's state. The alert carries **no asset name** at that point,
+so the `quantity unit must name the base asset` check cannot rely on the alert alone.
+
+**Fix (this PR, lane PHONE-EXEC-1B follow-up, 2026-10-05 ~22:40Z):**
+
+| | before | after |
+|---|---|---|
+| order | open ticket, one exact-text symbol click, verify | **select the symbol first**, then open the ticket, then **verify the submit label names the asset before anything is typed**; a second selection round with the ticket open (its header may be the picker) |
+| symbol routes (`exec.js` `symbolStep`, one move per call, read back between moves, at most 6) | exact text only | exact text (strip button, row, result) → search box outside the ticket (type, then click the ONE result starting with the symbol; two = `ambiguous`, refuse) → the current-symbol picker (a control with a popup, or the one symbol-looking control; headings are never clicked); tabs inside the ticket are never symbol controls; a request that is not symbol-shaped is `not_a_symbol` |
+| fields | index from one `ticket()` read, reused after the DOM changed | **by label**, at the moment of typing and again at read-back (`setByLabel` / `readByLabel`); `n != 1` refuses with the labels seen; the four labels must resolve to four different inputs |
+| quantity unit | the alert must contain the asset | the alert **or** the quantity field's own container text (unit toggle) must contain it; the refusal carries both texts so the next dump measures the real shape |
+| refusal reasons | `symbol ETH not verified on the ticket` | name the route taken and what the ticket shows, e.g. `symbol ETH not on the submit label (ticket shows 'BTC'; symbol route: none)` |
+
+The headless check (`tools/phone-executor/test/exec_check.js`, run by `phone-executor-apk.yml`) now includes three fixtures where the
+terminal starts on BTC and the ticket is ETH: a symbol strip, a picker that opens a search box (with the ambiguous ETHUSD/ETHUSDT
+case refusing), and no selector at all (`none`). All three prove mechanics on synthetic DOM, **not** Breakout's real selector, which is
+still unmeasured: the next dry test is what measures it, and its refusal reason, if any, now says which route failed. **The
+`dry_test_request` bump comes AFTER the operator installs the new APK** (manager, 2026-10-05 22:45Z): the old app stays logged in
+overnight and claims every 30 s, so a bump merged before the install would be claimed and refused the old way within minutes. This PR
+leaves `dry_test_request: 2026-10-05-night-1` (already served); the manager bumps it in a separate PR once the install is confirmed.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |
