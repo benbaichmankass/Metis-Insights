@@ -1,0 +1,26 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 34,
+    "clears_when": "Amend BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING so it no longer presents actions_get as a reliable second opinion, and state the safe reading rule: a 'completed' verdict from either surface is trustworthy; an 'in_progress' verdict from EITHER is 'we could not look', not 'it is running'. Any poller that branches on in_progress needs a wait-and-recheck rather than a conclusion.",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-08",
+    "how_to_check": " A safe-reading rule ('completed' trustworthy; 'in_progress' from either surface = could not look, wait and recheck) written in docs/reference/session-capabilities.md or the git-actions skill. | evidence: Rule not landed in any session-read doc: git grep 'get_workflow_run|updated_at fresh|in_progress...lag' outside archive hits only docs/claude/work/SOAK-REPORT-observations.md:338 and docs/sprint-logs/S-OPERATOR-OWED-REGISTER-2026-08-25.md:346. docs/r",
+    "what": "Amend BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING so it no longer presents actions_get as a reliable second opinion, and state the safe reading rule: a 'completed' verdict from either surface is trustworthy; an 'in_progress' verdict from EITHER is 'we could not look', not 'it is running'. Any poller that branches on in_progress needs a wait-and-recheck rather than a conclusion."
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS'), indent=2))\""
+  },
+  "routed_to": "BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING",
+  "state": "killed",
+  "terminal_reason": "DUPLICATE of BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUN... (kept open): same GitHub MCP read-lag class (check-run/job reads and get_workflow_run lag identically); both are session-capability caveats, not repo defects. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: A safe-reading rule ('completed' trustworthy; 'in_progress' from either surface = could not look, wait and recheck) written in docs/reference/session-capabilities.md or the git-actions skill. | evidence: Rule not landed in any session-read doc: git grep 'get_workflow_run|updated_at fresh|in_progress...lag' outside archive hits only docs/claude/work/SOAK-REPORT-observations.md:338 and docs/sprint-logs/S-OPERATOR-OWED-REGISTER-2026-08-25.md:346. docs/r",
+  "what": "[health] actions_get get_workflow_run is NOT an escape hatch from the check-run read lag — it lagged identically, and its frozen updated_at is not evidence of a stalled job"
+}

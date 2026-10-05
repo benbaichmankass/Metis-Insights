@@ -103,7 +103,7 @@ CORPUS = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
 # lever_absent_from_baseline 480 -> 507 (+27), unknown 841 unmoved. The exactly-
 # zero-delta self-baselined population goes 10 -> 11 and every one still grades
 # `lever_in_baseline`.
-# 2026-10-04 (RESEARCH-RUN, RQ-20261004-653/654 XRP trail4 confirmation sweeps): +2 cell rows,
+# 2026-10-04 (RESEARCH-RUN, RQ-20261004-753/654 XRP trail4 confirmation sweeps): +2 cell rows,
 # MEASURED by re-running the shipped predicate over the committed corpus:
 # lever_absent_from_baseline 507 -> 509 (+2); in_baseline 65 and unknown 841 unmoved; total 1413 -> 1415.
 EXPECTED_PARTITION = {

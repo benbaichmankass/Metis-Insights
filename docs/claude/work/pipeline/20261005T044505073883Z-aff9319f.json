@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261004-J4SFBKU9-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PROTECTION-HARDENING lane session_017nt865EQaLPJszJ4SFBKu9, manager finding 2026-10-04 21:23Z",
+    "rerun": "scripts/ops/diag_fetch.sh 'alpaca_order_history?account_id=alpaca_portfolio&symbols=TLT,IEF&after=2026-07-01T00:00:00Z&limit=500' and 'exchange_positions'; holds while alpaca_portfolio shows TLT/IEF short and alpaca_live does not"
+  },
+  "state": "queued",
+  "what": "alpaca_portfolio (Stage-2 MIRROR) holds two LEGACY shorts alpaca_live does not: TLT short 738 (trade 5912, tlt_pullback_1d, pkg-dfe2ec1e82fd46c8, opened 2026-09-18 -- leg pulled from both rosters by A6 on 09-21) and IEF short 152 (trade 4195, ief_pullback_1d, pkg-5e636e3adddf4a83, opened 2026-07-29; alpaca_live's twin 4196 was rejected). MEASURED 2026-10-04T21:52Z (alpaca_order_history, exchange-side): both rest a GTC OCO (TLT stop BUY 738 @80.08 + limit 73.38; IEF stop BUY 152 @90.26 + limit), stops trailed by the package monitor through 2026-10-01 14:06Z and equal to journal stop_loss (80.08035714 / 90.26321429) -- so they are PROTECTED and MANAGED (run_monitor_tick walks every open package regardless of roster), not orphans; both stops sit below entry (81.445 / 93.495), i.e. profit-locked. What they break: the mirror holds positions the live book does not, so the Stage-2 net-of-cost window read off alpaca_portfolio includes two trades with no live counterpart. Decision for the operator: (a) let both run out on their own stops/targets and exclude trades 5912 and 4195 from the Gate-2 demotion window, or (b) close both now to restore position equality (an order-path action: HELD PR / system-action, never a lane click). Lane recommendation: (a) -- both are stop-protected at profit-locking levels; a forced close realises nothing safer. || OPERATOR DECISION 2026-10-05 ~04:40Z (manager popup, verbatim): \"Let them run, exclude (Recommended)\". So: NO orders. TLT (trade 5912) and IEF (trade 4195) exit on their own resting stops, and both trades are excluded from the Stage-2 alpaca_portfolio-vs-alpaca_live net-of-cost (Gate-2 demotion) window. Remaining work, a small build: add the exclusion where the Gate-2 window is computed, naming both trade ids and this decision, with a test. Deferred until after the 2026-10-08 weekly usage reset per the operator's pacing directive (no new lanes this week)."
+}

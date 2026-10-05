@@ -1,0 +1,26 @@
+{
+  "disposed_by": "BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)",
+  "due_when": {
+    "check_every_days": 32,
+    "clears_when": "Either (a) the guard refuses to run against a dirty tree for the files it scans, exiting with a distinct message naming the uncommitted paths (never a claim-shaped error), or (b) it resolves added lines and the annotation window against the SAME tree so line numbers and window both refer to one version. Verified by: with a correctly-annotated claim in a file, insert N unrelated lines ABOVE it without committing, run `python3 scripts/check_impossibility_claims.py --base origin/main`, and observe it either pass or emit the dirty-tree message -- NOT an unsubstantiated-claim error. Second check: any line number it does report must contain the quoted claim text (assert the file's line N contains the snippet the message quotes).",
+    "kind": "observation",
+    "last_checked": "2026-10-05"
+  },
+  "id": "BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-11-06",
+    "how_to_check": " Run the guard with a dirty tree and a correctly-annotated claim: no phantom finding (refuses to run or uses one tree for both). | evidence: scripts/check_impossibility_claims.py:447-452 only calls _dirty_tree.warn() (notice, exit code unchanged by design); _added_lines diffs base...HEAD while body is read from the working tree (l.462-470), so line/window mismatch persists on a dirty tree",
+    "what": "Either (a) the guard refuses to run against a dirty tree for the files it scans, exiting with a distinct message naming the uncommitted paths (never a claim-shaped error), or (b) it resolves added lines and the annotation window against the SAME tree so line numbers and window both refer to one version. Verified by: with a correctly-annotated claim in a file, insert N unrelated lines ABOVE it without committing, run `python3 scripts/check_impossibility_claims.py --base origin/main`, and observe it either pass or emit the dirty-tree message -- NOT an unsubstantiated-claim error. Second check: a"
+  },
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-IMPOSSIBILITY-GUARD-PHANTOM-FINDING-ON-DIRTY-TREE'), indent=2))\""
+  },
+  "routed_to": "BL-20260810-IMPOSSIBILITY-GUARD-LINENO-VS-WORKTREE-OFFSET",
+  "state": "killed",
+  "terminal_reason": "DUPLICATE of BL-20260810-IMPOSSIBILITY-GUARD-LINENO-VS-WORKTREE-OFFSET (kept open): same impossibility-claim-guard false finding on a dirty working tree (commit-diff line numbers vs worktree window). CI runs it on a clean tree, so only local dirty-tree use is affected. [BACKLOG-BURNDOWN-4 2026-10-05 (session_01FF7rXg93DhjUErmWop8C4X)]",
+  "triage_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] still applies at HEAD (no live owner / owner does not cover it). NEXT OBSERVATION: Run the guard with a dirty tree and a correctly-annotated claim: no phantom finding (refuses to run or uses one tree for both). | evidence: scripts/check_impossibility_claims.py:447-452 only calls _dirty_tree.warn() (notice, exit code unchanged by design); _added_lines diffs base...HEAD while body is read from the working tree (l.462-470), so line/window mismatch persists on a dirty tree",
+  "what": "[health] impossibility-claim-guard reports a phantom finding, at a wrong line number, when the working tree is dirty"
+}

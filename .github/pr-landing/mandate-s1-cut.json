@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane MANDATE-S1-CUT dispatch: 'Mark it landing hold so the manager reviews and merges.' Touches the mandate store, so the manager merges.",
+  "why": "Transcribes the operator's grant of MD-S1-CUT-ON-STAGE0-FAIL into config/mandates.yaml, adds its resolver rule + tests, a committed soak-state snapshot and its capture script, and checklist row MANDATE-S1-CUT. No roster, strategy, mode or execution field is changed in this PR."
+}

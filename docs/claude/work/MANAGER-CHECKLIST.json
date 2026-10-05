@@ -5114,6 +5114,21 @@
       "note": "[2026-10-04T18:55Z lane OPS-FIXES] DONE as a lane: the manager's three verification asks (#16392, #16391, #16385) are observed; every effect not yet observable is owned by its own pipeline row with a clears_when (listed below), so this row carries no open observation of its own. ALL 10 PRs MERGED (#16380 #16394 #16388 self-land; #16381 #16383 #16393 #16391 #16389 #16385 #16392 by manager). DEPLOYED: VM deploy 18:21:55Z on 2fe7188b7 (contains all four 18:19Z merges); web-api git_sha matches; ict-trader-live restarted and ticking clean (18:45Z); all units active except ict-prop-executor.service=failed, which is breakout_1's pre-existing halted state (timer disabled since 10:15Z, PI-20261004-PUQ1APTH-0005). OBSERVED (diag #16431/#16435): #16392 tradeify_1 ticks 18:33Z/18:38Z exit 0 alerts=0; #16385 INV-7 '[ok] recent=0' with a real read; INV-2 recent=0 + INV-2c [6409]; #16383 one 'pending-pings: 512 ... skipped' line per pull; #16389 log_file unit_failures readable (and it shows OnFailure firing -> PI-20261004-SHFA88UK-0002, ib-executions-pull exit 2). STILL UNOBSERVED, each on its own pipeline row: parity controls_unproven on the 2026-10-05 06:35Z run; commit-to-main green after a normal auto-merge (PUQ1APTH-0008/FOJGFIZF-0003); 7 days with 0 MIS-ROUTED pings (PUQ1APTH-0003); role-file/gc.log noise on the next unit-refresh deploy (PUQ1APTH-0007); harness verdicts on the next real dispatch (FOJGFIZF-0004). Not done: OA-07 a/b, OA-16(a), PUQ1APTH-0005 (docs/plans/ops-decisions-2026-10-04.md section C); review nits PI-20261004-SHFA88UK-0001. Spend: manager count ~$35.6 at 18:20Z + verification."
     },
     {
+      "id": "MANDATE-S1-CUT",
+      "title": "Record operator grant MD-S1-CUT-ON-STAGE0-FAIL in config/mandates.yaml + resolver rule; then apply it (Stage-1 roster cuts) in a separate PR",
+      "phase": "B",
+      "state": "in_flight",
+      "owner": "lane MANDATE-S1-CUT",
+      "lane": "session_012tsLa1ugTpjgNvCFMSLXPD",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-05 lane MANDATE-S1-CUT] OPERATOR GRANT: popup in manager session session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04 ~21:25Z, verbatim \"Grant it (Recommended)\" for MD-S1-CUT-ON-STAGE0-FAIL as proposed in docs/plans/soak-verdicts-2026-10-04.md; confirmed to the lane in its own session (\"Go\") 2026-10-05. PR 1 (held, manager merges): grant entry in config/mandates.yaml, resolver rule mandate_resolver._s1_cut_on_stage0_fail + 13 tests, soak snapshot comms/mandate_evidence/soak_state/2026-10-04.json (live brief 21:29Z) and its capture script. Dry evaluation over every bybit_1/alpaca_paper leg: 15 FIRE, listed with evidence in the PR body. NO roster is cut in PR 1 (manager instruction: cut only after the grant is on main). Closes when: PR 1 merged; PR 2 (the cuts) merged and deployed; cut legs observed producing no new order packages on their Stage-1 account over the next ticks."
+    },
+    {
       "id": "BACKLOG-BURNDOWN-2",
       "title": "Burn the pipeline backlog down to a manageable level: kill what is dead, close what is done, fix small Tier-1 items, route the rest to a live lane",
       "phase": "floor",
@@ -5206,16 +5221,16 @@
       "id": "BACKLOG-BURNDOWN-3",
       "title": "Continuous backlog burndown, wave 2: CLOSE or KILL (not re-date) the lapse wave of 553 imported items >=14d old whose cadences expire together (173 due 2026-10-11, 108 on 10-12, 94 on 10-18, 115 on 10-19, 249 on 10-21, per BURNDOWN-2 close-out); jitter surviving cadences; target due <=25 and no single-day cliff >30",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "owner": "burndown lane",
       "lane": null,
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [16538, 16539, 16540, 16541],
       "blocked_on": [],
-      "note": "2026-10-05 03:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv per the operator directive (2026-10-04, verbatim in the manager transcript) to run the backlog burndown continuously until manageable. Predecessor BACKLOG-BURNDOWN-2 is done: due 19, unrouted 0 on main, $38.07. Lane session id filled in after dispatch."
+      "note": "2026-10-05 03:3xZ: dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv per the operator directive (2026-10-04, verbatim in the manager transcript) to run the backlog burndown continuously until manageable. Predecessor BACKLOG-BURNDOWN-2 is done: due 19, unrouted 0 on main, $38.07. Lane session id filled in after dispatch. || [2026-10-05 lane BACKLOG-BURNDOWN-3 CLOSE-OUT, session session_016hpYjaAbdSHe5SwfBreDQp] DONE-CONDITION MET AND OBSERVED ON MAIN at df24cdab (pipeline.py --check + P.stats + P.is_due simulated per day): unrouted 0; due 19 (target <=25; was 19 at start); routed-not-live 0 (35 young items routed to 'RESEARCH'/a finished lane/a parked row, none a live row, corrected to queued in #16541); due-and->=14d-old 0; 14-day projection of NEWLY-due per day: 10-06 14, 10-07 8, 10-08 19, 10-09 4, 10-10 1, then 24/day 10-11..10-19 (max 24, target ~30). WHAT MOVED (population: the 553 open items filed >=14d ago): 63 closed done + 74 killed (#16538), 416 survivors re-read and kept/routed (#16539: 23 routed to verified-live rows, 393 kept with a next observation, keyword-routed owners that did not cover their item dropped to queued); plus 330 younger items jittered cadence-only with NO re-read, each record says so (#16540). METHOD: 13 read-only Sonnet triage batches, then 4 adversarial verifier waves over all 159 proposed closes/kills (9 refuted and 5 weak ones were NOT landed; refuted examples: E35 landing assertion, TTL semantics, grade-closed-trades truncation, prop-drawdown counters), then this lane spot-checked retired paths + intents.py:447 + selftest wiring. HONEST LIMITS: 18 items are UNKNOWN (trainer-VM artifacts, tail-only 83-137 MB logs, dashboard repo 403) and stay open; 416 old items are still open (closed 137 of 553, ~25%) -- the wave was SPREAD, not drained; most survivors have no live owner; spend_usd not read (lane ran 13 triage + 4 verifier Sonnet agents; ceiling $40). FOLLOW-UPS filed: PI-20261005-WFBREDQP-0001 (soak-guard/due_by re-date trap), PI-20261005-WFBREDQP-0002 (bybit_coverage_soak shows apply/binding:true vs 'arming held'). Next lapse dates: 24 items/day from 10-11; a BACKLOG-BURNDOWN-4 should take them in owner-row batches as they come due."
     }
   ]
 }

@@ -867,4 +867,90 @@ mandates:
     # accounts.yaml and refuses config/strategies.yaml; this entry ADDS notional
     # per unit risk on paper; and it has never fired once. No `autoland:` field.
 
+  # ── PROPOSED 2026-10-04, GRANTED 2026-10-04 ──────────────────────────────────
+  # Proposed by lane SOAK-WATCH in docs/plans/soak-verdicts-2026-10-04.md
+  # § "Proposed mandate": the same Tier-3 question ("Stage-1 soak complete,
+  # Stage-0 record fails, nothing removes it") arrived once per ready leg on
+  # 2026-10-04. GRANTED by the operator. Transcribed here by lane MANDATE-S1-CUT
+  # in a PR the lane does not merge (landing: hold); the manager reviews and merges.
+  - id: MD-S1-CUT-ON-STAGE0-FAIL
+    grants: remove a Stage-1 leg from its Stage-1 paper roster when its Stage-0 evidence record fails
+    direction: derisk_only
+    proposed_by: SOAK-WATCH lane (manager session_01MM8o5js6TcDFeNAPBY4Ntv)
+    proposed_at: '2026-10-04'
+    granted_by: operator (Ben)
+    granted_at: '2026-10-04'
+    source: >-
+      Popup in manager session session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-04
+      ~21:25Z, answered verbatim "Grant it (Recommended)" to granting the
+      mandate proposed in docs/plans/soak-verdicts-2026-10-04.md: remove a
+      Stage-1 leg from a Stage-1 (paper) roster (bybit_1 / alpaca_paper) when
+      its Stage-0 evidence record fails, whether net of cost, on folds, on
+      sample size or on affordability; de-risk only, removes and never adds,
+      touches no real-money roster, and reports every cut to the operator.
+      Confirmed to lane MANDATE-S1-CUT in its own session ("Go"), 2026-10-05.
+      Recorded on checklist row MANDATE-S1-CUT.
+    recurrence: >-
+      2026-10-04: every ready/overdue Stage-1 soak that REFUSED promotion on its
+      Stage-0 record (docs/plans/soak-verdicts-2026-10-04.md § 1, § 3) had no
+      mandate able to remove it. MD-DEMOTE-S1-OFF fires only on an R3
+      `divergent` cost verdict; MD-DERISK-ONLY-ROSTER-CUT covers real-money
+      rosters only.
+    # Evaluated by scripts/ops/mandate_resolver.py::_s1_cut_on_stage0_fail,
+    # reached ONLY as `--from S1 --to OFF --account <acct> --mandate
+    # MD-S1-CUT-ON-STAGE0-FAIL`. TRANSITION_MANDATE still maps S1 -> OFF to
+    # MD-DEMOTE-S1-OFF, so no existing consumer changes behaviour.
+    fires_when: >-
+      ALL of: (1) the account is in scope_accounts (bybit_1, alpaca_paper);
+      (2) the leg is `execution: live` and on NO roster other than paper soak
+      books: not on bybit_2, bybit_portfolio, alpaca_live, alpaca_portfolio,
+      ib_live, breakout_1, tradeify_1, or any account whose account_class is
+      not `paper`; (3) its committed Stage-0 record at
+      comms/strategy_evidence/<leg>.json is DECISIVE (B1 C1-C3: named harness,
+      stated n, the full cost stack; B1 identity: bound to the leg's current
+      config; source_run committed) and FAILS at least one of: its
+      decision_rule verdict is `fail` with the rule registered before the run
+      (R-CUT-RULE); expectancy_r_oos or net_r_oos <= 0 net of the full cost
+      stack (R-CUT-EXPECTANCY); positive folds are not a majority
+      (R-CUT-FOLDS); n_trades_oos < bar.min_n_closed (R-CUT-N); or, only when
+      none of those fails, the exchange's Stage-2 account (bybit_2 /
+      alpaca_live) sizes NONE of the leg's committed setups at its measured
+      equity (R-CUT-AFFORD, the S1->S2 R-AFFORD measurement reused); and (4)
+      its Stage-1 soak contract SOAK-stage1-<account>-<leg> reads a state in
+      bar.soak_states in the newest committed snapshot under
+      comms/mandate_evidence/soak_state/ captured within
+      bar.soak_snapshot_max_age_days. The edit REMOVES the leg from that one
+      Stage-1 roster in config/accounts.yaml and nothing else.
+    never: >-
+      NEVER an addition. Never a leg on any real-money roster or Stage-2
+      mirror; that path is MD-DEMOTE-S2-S1. Never touches
+      config/strategies.yaml, `mode:`, `execution:`, a risk cap or another
+      account's roster. Never on a record that is missing, unreadable,
+      fee-only, stale against the leg's config, or cites a source_run absent
+      from the repo: "could not look" is not a cut signal. Never on a soak
+      that is accruing, dead, unknown, absent from the snapshot, or read from
+      a stale snapshot. Never an `execution: shadow` leg (not a Stage-1 soak).
+      Never lands itself: no `autoland:`; the PR declares `landing: hold` and
+      a human merges.
+    evidence_required: >-
+      Per leg: the Stage-0 record path, its harness, n, net-of-full-cost
+      expectancy, folds and decision-rule verdict, and the failing clause(s);
+      the soak snapshot path, its captured_at and the soak's state; the
+      resolver verdict line. Plus the realtime ping to the operator and the
+      section-1 evidence review in the next daily brief.
+    scope_accounts: [bybit_1, alpaca_paper]
+    bar:
+      # Same floor as MD-PROMOTE-S0-S1 / MD-PROMOTE-S1-S2: a record below it
+      # could never promote, which is what "fails on sample size" means here.
+      min_n_closed: 30
+      expectancy_gt: 0
+      # Majority, as the promotion bar reads it: 2 of 4 is NOT a majority and
+      # fails. (The proposal's prose said "a fold minority"; the grant says
+      # "fails on folds", which is the promotion bar's fold clause.)
+      fold_majority: true
+      affordability: true
+      # soak_state.STATES: complete = n reached (ready) or end date passed (overdue).
+      soak_states: [ready, overdue]
+      soak_snapshot_max_age_days: 7
+
 proposed: []
