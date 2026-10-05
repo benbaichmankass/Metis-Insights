@@ -87,8 +87,8 @@ def test_json_body_prints_keys_only_not_values(tmp_path):
 def test_curl_is_https_only_and_ignores_curlrc(tmp_path):
     p = _run(tmp_path)
     lines = [ln for ln in p.curl_log.splitlines() if ln.strip()]
-    # one curl per allowlisted URL: 3 Tradeify (2026-09-30) + 3 Velotrade (2026-10-04)
-    assert len(lines) == 6
+    # one curl per allowlisted URL: 3 Tradeify (2026-09-30) + 3 Velotrade (2026-10-04) + 2 Breakout trade host (2026-10-05)
+    assert len(lines) == 8
     for ln in lines:
         assert ln.startswith("-q "), ln
         assert "--proto =https" in ln and "--proto-redir =https" in ln, ln

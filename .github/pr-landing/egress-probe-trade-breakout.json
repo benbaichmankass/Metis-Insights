@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Adds two GET-only landing URLs (trade.breakoutprop.com/ and /app/) to the fixed allowlist of the Tier-2 read-only egress-landing-probe system-action; the manager merges, then the probe is dispatched. No credentials, no url parameter, no order path.",
+  "why": "Lane PHONE-EXEC-1A, manager instruction 2026-10-05 (requirement A): measure from the live VM's egress whether Breakout's new terminal host answers or is Cloudflare-blocked. Also widens the login-form markers to type/name=password so a non-DXtrade login page is recognised. Test count 6 -> 8 and the docs row updated."
+}
