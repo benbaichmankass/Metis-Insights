@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "strategy": "xrp_pullback_2h",
+  "symbol": "XRPUSDT",
+  "timeframe": "2h",
+  "config_fingerprint": "sha256:8ad85cb1f2a2a7dacbebac2b4729bb48",
+  "basis": "harness_timefolds",
+  "coverage_state": "measured",
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "trail_decay_arm_r",
+    "trail_decay_tight_mult"
+  ],
+  "net_r_oos": 14.6684,
+  "expectancy_r_oos": 0.1202,
+  "n_trades_oos": 122,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 30,
+      "net_r": -1.6113,
+      "expectancy_r": -0.0537,
+      "start": "2024-10-15 06:00:00+00:00",
+      "end": "2025-03-15 20:00:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 30,
+      "net_r": 4.7477,
+      "expectancy_r": 0.1583,
+      "start": "2025-03-20 12:00:00+00:00",
+      "end": "2025-09-09 16:00:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 30,
+      "net_r": 8.6112,
+      "expectancy_r": 0.287,
+      "start": "2025-09-16 10:00:00+00:00",
+      "end": "2026-02-23 12:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 32,
+      "net_r": 2.9208,
+      "expectancy_r": 0.0913,
+      "start": "2026-02-26 12:00:00+00:00",
+      "end": "2026-09-25 18:00:00+00:00"
+    }
+  ],
+  "folds_positive": 3,
+  "window_days": 730,
+  "fee_bps_roundtrip": 7.5,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 122,
+    "max_drawdown_r": 12.3084,
+    "max_drawdown_at_trade": 47,
+    "final_equity_r": 14.6684,
+    "max_equity_r": 17.7561,
+    "worst_trade_r": -1.1415,
+    "best_trade_r": 2.9419,
+    "worst_day_r": -1.1415,
+    "worst_day_date": "2026-08-19",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 3.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h__bt.json"
+  },
+  "net_r_oos_fee_only": 18.581,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
+  "param_selection_provenance": "not_established",
+  "generated_at": "2026-10-05T11:17:40.419516+00:00",
+  "generated_by": "scripts/ops/build_strategy_evidence.py",
+  "source_run": "comms/strategy_evidence/runs/2026-10-05-730d-expand/xrp_pullback_2h__trades.jsonl",
+  "error": null,
+  "harness": "pullback",
+  "venue_bracket_arm": null
+}

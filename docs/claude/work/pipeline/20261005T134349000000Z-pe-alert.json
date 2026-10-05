@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-XJSGZG1X-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane PROP-ROSTER-EXPAND session_01WkDasLkAvbbEyVxjsgzg1x; units RQ-20261005-901..903",
+    "rerun": "python3 scripts/research/prop_book_search.py --firm tradeify --no-sim --out /tmp/gap --legs trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl  # prints solo/book max gap; then grep -n inactivity config/prop_rulesets/*.yaml"
+  },
+  "state": "queued",
+  "what": "BUILD (not built, filed only; operator directive 2026-10-05 priority 1): live inactivity alert. A scheduled check that pings via send-ping if any prop account (tradeify_1: 30 consecutive days without a trade breaches the account; velotrade_1: needs one trade held >= 60s every 30 calendar days) has gone N days without a fill, N = 14 (warn) and 21 (urgent). Read last fill per prop account from the journal/prop fills source; a null read (could not look) must be distinguishable from 0 days. Backtest basis: ETH leg alone max entry gap 7.5d over 730d; the ETH+SOL book 6.6d; limits are UNCONFIRMED desk research (ruleset comments tradeify_247_1step.yaml:66, velotrade_classic_1step.yaml:33)."
+}

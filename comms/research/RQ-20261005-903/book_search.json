@@ -1,0 +1,819 @@
+{
+ "firm": "velotrade",
+ "ruleset": "config/prop_rulesets/velotrade_classic_1step.yaml",
+ "window": [
+  "2024-10-06T14:00:00+00:00",
+  "2026-10-02T04:00:00+00:00"
+ ],
+ "legs": {
+  "trend_donchian_eth_prop": {
+   "symbol": "ETHUSDT",
+   "n": 355,
+   "trades_file": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
+   "min_hold_s": 3600.0,
+   "solo_max_gap_days": 7.54
+  },
+  "trend_donchian_sol_prop": {
+   "symbol": "SOLUSDT",
+   "n": 132,
+   "trades_file": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl",
+   "min_hold_s": 3600.0,
+   "solo_max_gap_days": 18.62
+  },
+  "ict_scalp_eth_15m": {
+   "symbol": "ETHUSDT",
+   "n": 151,
+   "trades_file": "comms/strategy_evidence/runs/2026-10-02-730d/ict_scalp_eth_15m__trades.jsonl",
+   "min_hold_s": 1800.0,
+   "solo_max_gap_days": 20.77
+  }
+ },
+ "books": [
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 18.62,
+   "gap_ok": false,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2025-12-28",
+    "worst_day_usd": -28.02,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 129,
+    "ok": true
+   },
+   "cells": {},
+   "incumbent_min_p": 0.3302,
+   "min_p": null,
+   "verdict": "NULL_GAP"
+  },
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.0075,
+   "max_gap_days": 18.62,
+   "gap_ok": false,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 37.5,
+    "worst_day": "2025-12-28",
+    "worst_day_usd": -42.03,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 129,
+    "ok": true
+   },
+   "cells": {},
+   "incumbent_min_p": 0.369,
+   "min_p": null,
+   "verdict": "NULL_GAP"
+  },
+  {
+   "book": [
+    "ict_scalp_eth_15m"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 20.77,
+   "gap_ok": false,
+   "min_hold_s": 1800.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2026-05-26",
+    "worst_day_usd": -30.71,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 139,
+    "ok": true
+   },
+   "cells": {},
+   "incumbent_min_p": 0.3302,
+   "min_p": null,
+   "verdict": "NULL_GAP"
+  },
+  {
+   "book": [
+    "ict_scalp_eth_15m"
+   ],
+   "risk": 0.0075,
+   "max_gap_days": 20.77,
+   "gap_ok": false,
+   "min_hold_s": 1800.0,
+   "daily_loss": {
+    "risk_usd": 37.5,
+    "worst_day": "2026-05-26",
+    "worst_day_usd": -46.07,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 139,
+    "ok": true
+   },
+   "cells": {},
+   "incumbent_min_p": 0.369,
+   "min_p": null,
+   "verdict": "NULL_GAP"
+  },
+  {
+   "book": [
+    "ict_scalp_eth_15m",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 9.99,
+   "gap_ok": true,
+   "min_hold_s": 1800.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2026-01-05",
+    "worst_day_usd": -53.82,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": -0.019,
+    "n_days": 240,
+    "ok": true
+   },
+   "cells": {
+    "3": {
+     "ev": 4.76,
+     "p": 0.2115,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "4": {
+     "ev": 0.79,
+     "p": 0.1953,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "2": {
+     "ev": 0.65,
+     "p": 0.199,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "1": {
+     "ev": 0.83,
+     "p": 0.1943,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "5": {
+     "ev": -1.38,
+     "p": 0.1875,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    }
+   },
+   "incumbent_min_p": 0.3302,
+   "min_p": 0.1875,
+   "mean_ev": 1.13,
+   "verdict": "FAIL"
+  },
+  {
+   "book": [
+    "ict_scalp_eth_15m",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.0075,
+   "max_gap_days": 9.99,
+   "gap_ok": true,
+   "min_hold_s": 1800.0,
+   "daily_loss": {
+    "risk_usd": 37.5,
+    "worst_day": "2026-01-05",
+    "worst_day_usd": -80.74,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": -0.019,
+    "n_days": 240,
+    "ok": true
+   },
+   "cells": {
+    "1": {
+     "ev": 93.15,
+     "p": 0.3735,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "2": {
+     "ev": 87.6,
+     "p": 0.3515,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "3": {
+     "ev": 90.36,
+     "p": 0.3508,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "4": {
+     "ev": 82.98,
+     "p": 0.3453,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "5": {
+     "ev": 90.02,
+     "p": 0.3523,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    }
+   },
+   "incumbent_min_p": 0.369,
+   "min_p": 0.3453,
+   "mean_ev": 88.82,
+   "verdict": "NULL"
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 7.54,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2026-06-30",
+    "worst_day_usd": -52.62,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 328,
+    "ok": true
+   },
+   "cells": {
+    "1": {
+     "ev": 56.68,
+     "p": 0.331,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "2": {
+     "ev": 58.31,
+     "p": 0.335,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "3": {
+     "ev": 60.75,
+     "p": 0.3315,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "4": {
+     "ev": 62.59,
+     "p": 0.3528,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "5": {
+     "ev": 54.75,
+     "p": 0.3302,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    }
+   },
+   "incumbent_min_p": 0.3302,
+   "min_p": 0.3302,
+   "mean_ev": 58.62,
+   "verdict": "NULL"
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.0075,
+   "max_gap_days": 7.54,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 37.5,
+    "worst_day": "2026-06-30",
+    "worst_day_usd": -78.93,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 328,
+    "ok": true
+   },
+   "cells": {
+    "1": {
+     "ev": 134.12,
+     "p": 0.3777,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "2": {
+     "ev": 134.65,
+     "p": 0.377,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "3": {
+     "ev": 133.55,
+     "p": 0.3777,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "4": {
+     "ev": 131.7,
+     "p": 0.369,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "5": {
+     "ev": 138.14,
+     "p": 0.3917,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    }
+   },
+   "incumbent_min_p": 0.369,
+   "min_p": 0.369,
+   "mean_ev": 134.43,
+   "verdict": "NULL"
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 6.62,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2025-02-09",
+    "worst_day_usd": -78.16,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": 0.193,
+    "n_days": 373,
+    "ok": true
+   },
+   "cells": {
+    "3": {
+     "ev": 144.13,
+     "p": 0.4215,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "1": {
+     "ev": 147.85,
+     "p": 0.432,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "2": {
+     "ev": 152.16,
+     "p": 0.453,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "4": {
+     "ev": 158.35,
+     "p": 0.4442,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "5": {
+     "ev": 151.33,
+     "p": 0.443,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    }
+   },
+   "incumbent_min_p": 0.3302,
+   "min_p": 0.4215,
+   "mean_ev": 150.76,
+   "verdict": "INACTIVITY_SAFE_IMPROVEMENT"
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.0075,
+   "max_gap_days": 6.62,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 37.5,
+    "worst_day": "2025-02-09",
+    "worst_day_usd": -117.25,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": 0.193,
+    "n_days": 373,
+    "ok": true
+   },
+   "cells": {
+    "1": {
+     "ev": 159.74,
+     "p": 0.3703,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "2": {
+     "ev": 157.33,
+     "p": 0.3658,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "3": {
+     "ev": 164.88,
+     "p": 0.3762,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "4": {
+     "ev": 157.45,
+     "p": 0.3635,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    },
+    "5": {
+     "ev": 152.67,
+     "p": 0.3593,
+     "raw_keys": [
+      "account_fee_usd",
+      "counters",
+      "days_to_pass",
+      "death_causes",
+      "ev_banked_usd_per_life",
+      "ev_net_usd_per_365d_with_rebuy",
+      "ev_net_usd_per_life",
+      "ev_net_usd_per_life_mc_se",
+      "evidence_ci",
+      "lifetime_days",
+      "mean_payouts_per_life",
+      "mean_trades_per_life"
+     ]
+    }
+   },
+   "incumbent_min_p": 0.369,
+   "min_p": 0.3593,
+   "mean_ev": 158.41,
+   "verdict": "NULL"
+  }
+ ]
+}

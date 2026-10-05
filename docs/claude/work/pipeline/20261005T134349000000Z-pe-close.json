@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-12",
+    "kind": "date"
+  },
+  "id": "PI-20261005-MG7BGR46-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane PROP-FIT-POWER session_01SGtB43mEJKQKsfmg7bGr46; units RQ-20261005-801..810, PR #16567",
+    "rerun": "python3 scripts/research/prop_ev_sim.py --help  # then re-price the committed 730d records: ls comms/strategy_evidence/runs/2026-10-05-730d/*__trades.jsonl; the per-unit verdicts are in research/queue/RQ-20261005-801..810.yaml"
+  },
+  "state": "done",
+  "terminal_reason": "Answered by RQ-20261005-902/-903 (730d, 5 seeds, full cost stack, committed under research/results/): ETH_prop+SOL_prop book does NOT clear P(net>0)>=0.70 at any flat size (Tradeify 0.5%: min-seed P 0.372, EV +$179 vs ETH alone 0.284/+$58; Velotrade 0.5%: 0.4215 vs 0.3302), it grades INACTIVITY_SAFE_IMPROVEMENT at 0.5% only and NULL at 0.75%. Follow-ups filed as PI-20261005-XJSGZG1X-0001/-0002. [lane PROP-ROSTER-EXPAND session_01WkDasLkAvbbEyVxjsgzg1x]",
+  "what": "RESEARCH QUESTION (not a build): the Tradeify 1-Step prop bar (EV>0 and P(net>0)>=0.70 on every seed, 12% target / 6% static max DD / 3% daily) needs a multi-leg book or a different structure. MEASURED 2026-10-05, RQ-20261005-801..810 (730d committed trades, full cost stack, n>=132, 5 seeds): no single crypto leg clears it; the two trend legs have positive EV but P(net>0) ~0.3 (trend_donchian_eth_prop n=355: +$54..66 at 0.5%, P 0.29-0.31; +$144..172 at 0.75%, P 0.34-0.37. trend_donchian_sol_prop n=132: -$74 at 0.5% (FAIL), +$47..58 at 0.75%, P 0.27-0.29). The earlier 365d eth_prop sizing curve peaked near P 0.5 at 0.5% and never approached 0.70, so single-leg sizing cannot fix it. QUESTION: does a COMBINED ETH+SOL (or wider) book clear P(net>0)>=0.70 on the Tradeify ruleset, and at what flat sizing? Pre-register the rule before any run; use prop_ev_sim --book on the committed 730d trade records (comms/strategy_evidence/runs/2026-10-05-730d/ for the two trend legs); n floor 88 per leg. tradeify_1 decision already taken separately: trend_donchian_sol_prop removed from its roster (this lane, Tier-3, data-backed). | UPDATE 2026-10-05 lane PROP-ROSTER-EXPAND: ANSWERED, see terminal_reason."
+}
