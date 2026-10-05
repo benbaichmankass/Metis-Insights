@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "the operator has pasted or summarised the sign-in page and the terms text on automation, device/IP, second device and session keepalive, and the stay-logged-in memo in design 7.9 cites it",
+    "kind": "event"
+  },
+  "id": "PI-20261005-9HEP9LYP-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1A session_01FuWi5xUmKJf6ps9HEp9LyP; design docs/integrations/breakout-phone-executor-DESIGN.md 6.1 and 7.9",
+    "rerun": "WebFetch https://intercom.help/breakoutprop/en/collections/19162084 and the portal sign-in / program-rules URLs; any that return text answer the matching item, a 403 means it is still unread"
+  },
+  "state": "killed",
+  "terminal_reason": "killed: operator decision ~15:52Z 2026-10-05, verbatim (relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv): \"we'll take the risk without reviewing the terms, but we still need build automatic re-login\". Terms read is no longer a gate; recorded as an accepted risk in docs/integrations/breakout-phone-executor-DESIGN.md 7.11.",
+  "what": "READ BREAKOUT'S OWN TEXT on login persistence and automation before any keepalive or re-login design: (1) the portal sign-in page (portal.breakoutprop.com/sign-in) and the Funded Trader Agreement / Terms / program rules (www.breakoutprop.com/program-rules/) both returned HTTP 403 to this lane's fetch and were NOT worked around; the operator (or a session fed the text) should paste: any 'remember me' / 'trusted device' / session-length statement, whether an authenticator-app (TOTP) second factor is offered on the Breakout Terminal login (a web-search summary says 'a security code from an Authenticator app and backup code options', UNREAD at source), any clause on automated or algorithmic trading, trade copiers, third-party tools, multiple devices/IPs and account access from a second device, and whether a periodic automated reload to keep a session alive is permitted. (2) The help-center collection 'Breakout terminal' has 6 articles and none covers login persistence. No design of keepalive, TOTP entry or email reading happens before this is read and the operator decides."
+}

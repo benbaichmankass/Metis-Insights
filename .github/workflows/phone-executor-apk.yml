@@ -2,7 +2,7 @@ name: phone-executor-apk
 
 # Builds the phase-1b Breakout PHONE EXECUTOR (tools/phone-executor/) and uploads a RELEASE APK signed with a
 # STABLE key, so each new build installs OVER the previous one and keeps the app's logged-in WebView session.
-# Design: docs/integrations/breakout-phone-executor-DESIGN.md (§ 3, § 7.9) and its § 7.10 (1b build notes).
+# Design: docs/integrations/breakout-phone-executor-DESIGN.md (§ 3, § 7.9) and its § 7.11 (1b build notes).
 #
 # STABLE SIGNING, with no keystore in this PUBLIC repo and no operator step:
 #   - the key lives ONLY in Actions secrets PHONE_EXEC_KEYSTORE_B64 + PHONE_EXEC_KEYSTORE_PASSWORD;
