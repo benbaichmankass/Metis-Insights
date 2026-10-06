@@ -11,6 +11,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputType
 import android.view.KeyCharacterMap
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.CookieManager
@@ -92,6 +93,10 @@ class MainActivity : Activity() {
         execSrc = assets.open("exec.js").bufferedReader().readText()
 
         web = WebView(this)
+        // TOUCH-HOLD counts only a real finger-down on the page (fix 2026-10-06 09:06Z: the operator saw "paused because
+        // you are using it" with the app open and untouched; Activity.onUserInteraction also fires for keys, resumes and
+        // system-dispatched events). Our own dispatchKeyEvent typing never reaches a touch listener.
+        web.setOnTouchListener { _, ev -> if (ev.actionMasked == MotionEvent.ACTION_DOWN) lastUserInputMs = System.currentTimeMillis(); false }
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         CookieManager.getInstance().setAcceptCookie(true)
@@ -137,8 +142,9 @@ class MainActivity : Activity() {
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
     private fun setStatus(s: String) { status.text = s; lastStatus = s }
-    override fun onUserInteraction() { super.onUserInteraction(); lastUserInputMs = System.currentTimeMillis() }
-    private fun userActive() = System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
+    /** The touch-hold protects a HUMAN LOGIN only (operator 2026-10-06 09:06Z): once logged in it never blocks claim,
+     *  navigation or execution. The Pause button is the only manual stop. */
+    private fun userActive() = lastState != "logged_in" && System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
     private fun paused() = System.currentTimeMillis() < pausedUntilMs
     private fun togglePause() {
         pausedUntilMs = if (paused()) 0L else System.currentTimeMillis() + PAUSE_MAX_MS
@@ -263,7 +269,7 @@ class MainActivity : Activity() {
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
             .put("path_depth", s?.optInt("path_depth") ?: 0)
         jsObj("__ex.terminal()")?.let { tm ->
-            for (k in listOf("ready", "probe", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
+            for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
             state.put("tabs", tm.optInt("tabs")).put("inputs", tm.optInt("inputs"))
         }
         api.heartbeat(lastStatus, state)
@@ -303,7 +309,7 @@ class MainActivity : Activity() {
         setStatus("logged in: opening the account's terminal")
         web.loadUrl(href)
         for (i in 0 until 12) { delay(2500); ensure(); if (terminalReady()) return true }
-        setStatus("terminal did not load (no Order control / Buy-Sell tabs / buy+sell markers): no claim")
+        setStatus("terminal did not load (no Order/Order form control, Buy-Sell tabs, panels or buy+sell markers): no claim")
         // Self-diagnosing miss (fix 06:17Z): post the page's control texts once per load attempt, never a report.
         val tm = jsObj("__ex.terminal()")
         val ctl = try { JSONArray(js("JSON.stringify(__ex.controls())")) } catch (e: Exception) { JSONArray() }
@@ -364,7 +370,7 @@ class MainActivity : Activity() {
         val r = api.post("claim") ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
         if (!r.optBoolean("ok")) { setStatus("logged in · claim refused (http ${r.optInt("http")})"); return }
         val t = r.optJSONObject("ticket")
-        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · no ticket · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
         execute(t, r.optJSONObject("config") ?: JSONObject())
     }
 
@@ -427,16 +433,39 @@ class MainActivity : Activity() {
         val fPrice = Field("Limit price", "limit price"); val fQty = Field("Quantity", "quantity")
         for (f in listOf(fPrice, fQty)) { val n = readField(f)?.optInt("n", 0) ?: 0; if (n != 1) return refuse(id, "${f.name} field not unique (n=$n)", jsObj("__ex.ticket()")) }
         if (!typeInto(fPrice, fmt(entry, pStep), entry, pStep)) return refuse(id, "limit price did not read back", jsObj("__ex.ticket()"))
+        // quantity UNIT before the quantity is typed (MEASURED am-3 09:16Z: a "Toggle quantity unit" button reading
+        // "USD", so 0.01 would have been $0.01). Toggle ONCE to the base asset and verify; never convert to a notional.
+        val unit0 = js("__ex.qtyUnit()")
+        if (unit0.isNotEmpty() && !unit0.uppercase().contains(base)) {
+            if (js("__ex.toggleQtyUnit()") != "clicked") return refuse(id, "quantity unit toggle not clickable (shows '$unit0')", jsObj("__ex.ticket()"))
+            delay(800); ensure()
+            val unit1 = js("__ex.qtyUnit()")
+            if (!unit1.uppercase().contains(base)) return refuse(id, "quantity unit toggle did not reach $base (was '$unit0', now '$unit1')", jsObj("__ex.ticket()"))
+        }
         if (!typeInto(fQty, fmt(qty, qStep), qty, qStep)) return refuse(id, "quantity did not read back", jsObj("__ex.ticket()"))
-        // quantity unit: the "Quantity ... available" alert OR the quantity field's own adornment (unit toggle) must
-        // name the base asset, not USD; the refusal carries both texts so the next dump measures the real shape.
+        // quantity unit verified AFTER typing: the unit toggle names the base asset, else (no toggle on this layout) the
+        // "Quantity ... available" alert or the field's own adornment must; the refusal carries all three texts.
         tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
         val alerts = (tk.optJSONArray("alerts")?.toString() ?: "").uppercase()
         val qNear = (readField(fQty)?.optString("near") ?: "").uppercase()
-        if (!alerts.contains(base) && !qNear.contains(base)) return refuse(id, "quantity unit not verified as $base (alerts $alerts; near '$qNear')", tk)
-        // 4. TP/SL
-        if (js("__ex.setTpsl(true)") != "ok") return refuse(id, "TP/SL box not ticked", tk)
-        delay(900); ensure()
+        val unitNow = js("__ex.qtyUnit()").uppercase()
+        val unitOk = if (unitNow.isNotEmpty()) unitNow.contains(base) else (alerts.contains(base) || qNear.contains(base))
+        if (!unitOk) return refuse(id, "quantity unit not verified as $base (toggle '$unitNow'; alerts $alerts; near '$qNear')", tk)
+        // 4. TP/SL: open the section (checkbox or the "TP/SL" control, MEASURED am-3), then the fields BY LABEL
+        // one move per step with read-back (am-4 09:48Z: box checked but the section stayed collapsed)
+        // deterministic candidates by attempt (exec.js openTpsl), each followed by a ~3 s poll for "Take profit price"
+        var tpslSeq = ""
+        var phase = 0   // each candidate is clicked at most ONCE (a second click on an accordion would collapse it)
+        for (i in 0 until 4) {
+            val r = js("__ex.openTpsl($phase)")
+            tpslSeq += (if (tpslSeq.isEmpty()) "" else ">") + r
+            if (r == "ok" || r == "none" || r == "ambiguous" || (r == "wait" && phase >= 2)) break
+            if (r == "expanded" || r == "switched" || r == "wait") phase++
+            var shown = false
+            for (w in 0 until 6) { delay(500); ensure(); if (js("__ex.readByLabel('take ?profit|\\\\btp\\\\b','price').n") != "0") { shown = true; break } }
+            if (shown) { tpslSeq += ">ok"; break }
+        }
+        if (!tpslSeq.endsWith("ok")) return refuse(id, "TP/SL section not opened ($tpslSeq)", jsObj("__ex.ticket()"))
         val fTp = Field("TP price", "take ?profit|\\btp\\b", "price"); val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price")
         for (f in listOf(fTp, fSl)) { val r = readField(f); if (r?.optInt("n", 0) != 1) return refuse(id, "${f.name} field not unique (n=${r?.optInt("n", 0) ?: 0}, labels ${r?.optJSONArray("labels")})", jsObj("__ex.ticket()")) }
         if (!typeInto(fTp, fmt(tp, pStep), tp, pStep)) return refuse(id, "TP did not read back", jsObj("__ex.ticket()"))
@@ -520,7 +549,7 @@ class MainActivity : Activity() {
             val r = js("__ex.symbolStep(${q(venue)})")
             route += (if (route.isEmpty()) "" else ">") + r
             if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
-            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "opened_picker")) return "$route>stuck"
+            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "clicked_watch" || r == "opened_picker")) return "$route>stuck"
             prev = r
             delay(1500); ensure()
         }

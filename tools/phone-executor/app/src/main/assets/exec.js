@@ -65,6 +65,50 @@
       if (x.children.length || inForm(x)) return false; var s = norm(t(x)); return s === n || s === n + "T";
     });
   }
+  // "Order" (older layout) or "Order form" (the panel toggle, MEASURED 08:58Z).
+  var ORDER_RE = /^order( form)?$/i;
+  // Watchlist button "<BASE> <signed %>" (MEASURED 08:58Z: "ETH -0.5%", "BTC -1.2%" ...), outside the ticket.
+  function watchControls(sym) {
+    var rx = new RegExp("^" + base(sym) + "\\s+[-+]?\\d[\\d.,]*\\s*%$", "i");
+    return innermost(clickables("button,[role=button],[role=tab],[role=option],a,li").filter(function (x) { return !inForm(x) && rx.test(t(x)); }));
+  }
+  // The open-instrument chip "<BASE> x" (MEASURED 08:58Z: "ETH x"): the shown symbol only when exactly ONE chip exists.
+  function chipSymbol() {
+    var c = all("button,[role=button],[role=tab]").map(t).filter(function (x) { return /^[A-Za-z]{2,6}\s*[x\u00d7]$/.test(x); });
+    return c.length === 1 ? c[0].replace(/\s*[x\u00d7]$/, "") : "";
+  }
+  function tpslBox() {
+    var cb = all("input[type=checkbox]").filter(function (c) { return /tp\s*\/\s*sl/i.test(labelFor(c) + " " + t(c.parentElement)); })[0];
+    if (!cb) { cb = Array.prototype.slice.call(document.querySelectorAll("input[type=checkbox]")).filter(function (c) { return /tp\s*\/\s*sl/i.test(t(c.closest("label") || c.parentElement)); })[0]; }
+    return cb || null;
+  }
+  function desc(x) {
+    return {tag: x.tagName.toLowerCase(), role: x.getAttribute("role") || "", type: x.getAttribute("type") || "",
+      checked: x.getAttribute("aria-checked") || (x.type === "checkbox" ? String(x.checked) : ""),
+      expanded: x.getAttribute("aria-expanded") || "", text: t(x).replace(/\d/g, "#").slice(0, 24)};
+  }
+  function tpslTexts(cb) {
+    var f = form() || document;
+    return innermost(Array.prototype.slice.call(f.querySelectorAll("button,[role=button],[role=switch],[role=checkbox],[aria-expanded],label,div,span,p")).filter(function (x) {
+      return vis(x) && /^tp\s*\/\s*sl$/i.test(t(x)) && !(cb && (x.contains(cb) || x === cb.closest("label")));
+    }));
+  }
+  function tpslSwitches(h, cb) {
+    var p = h.parentElement, d = 0, sw = [];
+    while (p && d < 2 && !sw.length) {
+      sw = Array.prototype.slice.call(p.querySelectorAll("[role=switch],[role=checkbox],button,input[type=checkbox]")).filter(function (x) {
+        return vis(x) && x !== cb && !h.contains(x) && (x.tagName === "INPUT" || !t(x));
+      });
+      p = p.parentElement; d++;
+    }
+    return sw;
+  }
+  function qtyUnitBtn() {
+    var f = form(); if (!f) return null;
+    return Array.prototype.slice.call(f.querySelectorAll("button,[role=button]")).filter(function (b) {
+      return vis(b) && /quantity unit/i.test((b.getAttribute("aria-label") || "") + " " + (b.getAttribute("title") || ""));
+    })[0] || null;
+  }
   function searchBox() {
     return inputs(document).filter(function (i) {
       return (i.type === "text" || i.type === "search") && !inForm(i) &&
@@ -164,13 +208,18 @@
     // load" on the real terminal) the 1a probe's classifier, MEASURED on this page over 6 captures: trade host,
     // a /trade path, buy AND sell text markers, and tabs >= 3 or inputs >= 2.
     terminal: function () {
-      var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); }).length > 0;
+      var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return ORDER_RE.test(t(x)); }).length > 0;
       var tb = all("[role=tab]").map(t);
       var bs = tb.some(function (x) { return /^buy$/i.test(x); }) && tb.some(function (x) { return /^sell$/i.test(x); });
       var body = t(document.body).slice(0, 20000);
       var probe = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) && /\/trade(\/|$)/.test(location.pathname || "") &&
         /\bbuy\b/i.test(body) && /\bsell\b/i.test(body) && (tb.length >= 3 || inputs(document).length >= 2);
-      return {ready: ctl || !!submitBtn() || bs || probe, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs,
+      // PANEL layout (MEASURED 2026-10-06 08:58Z terminal_miss on the real terminal, ticket closed: controls "Order form",
+      // "Open orders", "Positions", "Market chart", "Order book" ...; tabs=0 inputs=0, no buy/sell text).
+      var ct = all("button,[role=tab],[role=button]").map(t);
+      var panels = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) &&
+        ct.some(function (x) { return /^positions$/i.test(x); }) && ct.some(function (x) { return /^open orders$/i.test(x); });
+      return {ready: ctl || !!submitBtn() || bs || probe || panels, panels: panels, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs,
         probe: probe, tabs: tb.length, inputs: inputs(document).length};
     },
     // Control texts on the page (buttons, tabs, role=button), first 40, digits masked: OUR OWN UI labels only, for
@@ -213,7 +262,7 @@
     },
     openTicket: function () {
       if (submitBtn()) return "open";
-      var b = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); })[0];
+      var b = all("button,[role=tab],[role=button]").filter(function (x) { return ORDER_RE.test(t(x)); })[0];
       if (!b) return "no_order_control"; b.click(); return "clicked";
     },
     // What the ticket says it trades: the text after "Long (buy)" / "Short (sell)" on the submit button ("BTC").
@@ -223,7 +272,7 @@
     },
     // The submit label first; else the page's current-symbol display (ticket closed). "" when neither is readable.
     symbolShown: function () {
-      return window.__ex.symbolOnTicket() || currentSymbolDisplay();
+      return window.__ex.symbolOnTicket() || currentSymbolDisplay() || chipSymbol();
     },
     // ONE move toward the venue symbol; the app calls it again after reading back. Returns the route taken:
     // done | clicked_symbol | typed_search | search_not_set | clicked_result | no_result | ambiguous | opened_picker | none
@@ -239,6 +288,7 @@
         var res = innermost(clickables().filter(function (x) { return !inForm(x) && x !== sb && norm(t(x)).indexOf(n) === 0; }));
         if (!res.length) return "no_result"; if (res.length > 1) return "ambiguous"; res[0].click(); return "clicked_result";
       }
+      var wc = watchControls(sym); if (wc.length === 1) { wc[0].click(); return "clicked_watch"; }
       var lb = symbolLabels(sym); if (lb.length === 1) { lb[0].click(); return "clicked_label"; }
       if (lb.length > 1) return "ambiguous";
       var pk = currentSymbolControl(); if (pk) { pk.click(); return "opened_picker"; }
@@ -259,7 +309,8 @@
         alerts: all("[role=alert]").map(function (a) { return t(a).replace(/\d/g, "#"); }).slice(0, 6),
         // page controls (digits masked): shows the symbol strip/picker when the symbol route fails
         controls: window.__ex.controls(),
-        symbolCandidates: window.__ex.symbolCandidates()};
+        symbolCandidates: window.__ex.symbolCandidates(),
+        tpslArea: window.__ex.tpslArea()};
     },
     tab: function (name) {
       var f = form() || document;
@@ -293,11 +344,49 @@
       setVal(i, ""); i.focus(); return document.activeElement === i ? "focused" : "nofocus";
     },
     setTpsl: function (on) {
-      var cb = all("input[type=checkbox]").filter(function (c) { return /tp\s*\/\s*sl/i.test(labelFor(c) + " " + t(c.parentElement)); })[0];
-      if (!cb) { cb = Array.prototype.slice.call(document.querySelectorAll("input[type=checkbox]")).filter(function (c) { return /tp\s*\/\s*sl/i.test(t(c.closest("label") || c.parentElement)); })[0]; }
+      var cb = tpslBox();
       if (!cb) return "none";
       if (cb.checked !== on) { (cb.closest("label") || cb).click(); }
       return cb.checked === on ? "ok" : "unchanged";
+    },
+    // QUANTITY UNIT (MEASURED 2026-10-06 09:16Z am-3 dump): a button inside the ticket, aria-label "Toggle quantity unit",
+    // text "USD" = the quantity field is a USD notional. Returns the button's text, or "" when there is no such toggle.
+    qtyUnit: function () { var b = qtyUnitBtn(); return b ? t(b) : ""; },
+    toggleQtyUnit: function () { var b = qtyUnitBtn(); if (!b) return "none"; b.click(); return "clicked"; },
+    // TP/SL section (MEASURED 09:16Z: a "TP/SL" control inside the ticket; the TP/SL price inputs sit behind it).
+    // "ok" when a Take profit input is already visible; else ticks the TP/SL checkbox or clicks the TP/SL control.
+    openTpsl: function (attempt) {
+      // ONE move per call; the app reads back (polls) between moves. MEASURED am-4 (09:48Z): the TP/SL checkbox read
+      // checked but no TP/SL inputs (and no Simple / Risk-Reward tabs) were shown; am-2 (opened by hand) showed
+      // "Take profit price" / "Stop loss price" with the box checked. Deterministic candidates, by attempt number:
+      //   tick the box if unchecked; phase 0: click the "TP/SL" text element ONCE (handler may be on an ancestor);
+      //   phase 1: click the switch / checkbox-role / text-less button beside that text ONCE (handler on a sibling).
+      // Returns ok | ticked | expanded | switched | none | ambiguous | wait.
+      if (byLabel("take ?profit|\\btp\\b", "price").hits.length) return "ok";
+      var cb = tpslBox();
+      if (cb && !cb.checked) { (cb.closest("label") || cb).click(); return "ticked"; }
+      var hs = tpslTexts(cb);
+      if (hs.length > 1) return "ambiguous";
+      if (!hs.length) return cb ? "wait" : "none";
+      var ph = attempt || 0;   // phase from the app: 0 = header not yet clicked, 1 = switch not yet clicked, 2 = done
+      if (ph === 0) { hs[0].click(); return "expanded"; }
+      if (ph === 1) {
+        var sw = tpslSwitches(hs[0], cb);
+        if (sw.length === 1) { sw[0].click(); return "switched"; }
+        return sw.length ? "ambiguous" : "wait";
+      }
+      return "wait";
+    },
+    // The TP/SL area for the refusal dump: the "TP/SL" text element, up to 3 ancestors and their direct children, as
+    // tag / role / type / aria-checked / aria-expanded / short text (digits masked). Our own UI only.
+    tpslArea: function () {
+      var hs = tpslTexts(tpslBox()); if (!hs.length) return [];
+      var out = [], n = hs[0], d = 0;
+      while (n && d < 4) {
+        out.push({depth: d, node: desc(n), kids: Array.prototype.slice.call(n.children).slice(0, 8).map(desc)});
+        n = n.parentElement; d++;
+      }
+      return out;
     },
     submit: function () {
       var b = submitBtn(); if (!b) return "none";
