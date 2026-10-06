@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """VELOTRADE-FIT — which roster, at which risk, can pass Velotrade's CLASSIC 1-Step $5k evaluation?
 
-Executes the rule registered in research/queue/RQ-20261006-002.yaml
+Executes the rule registered in research/queue/RQ-20261006-062.yaml
 (RULE-RQ1006-VELOTRADE-FIT) BEFORE any run. Nothing here changes a threshold;
 the constants below are copied from that unit and move only with it.
 
@@ -28,7 +28,7 @@ median days from target to pass. A cell where that share is >= 0.10 is labelled
 QUAL_DAYS_BINDING (a label, not a verdict).
 
 Usage:
-    python3 scripts/research/velotrade_fit_sweep.py --unit RQ-20261006-002 --out comms/research/RQ-20261006-002
+    python3 scripts/research/velotrade_fit_sweep.py --unit RQ-20261006-062 --out comms/research/RQ-20261006-062
     python3 scripts/research/velotrade_fit_sweep.py --self-test
 """
 from __future__ import annotations
@@ -174,7 +174,7 @@ def _self_test() -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--self-test", action="store_true")
-    ap.add_argument("--unit", default="RQ-20261006-002")
+    ap.add_argument("--unit", default="RQ-20261006-062")
     ap.add_argument("--legs", nargs="*", metavar="LEG=PATH", default=[f"{k}={v}" for k, v in DEFAULT_LEGS.items()])
     ap.add_argument("--risks", nargs="*", type=float, default=list(RISKS))
     ap.add_argument("--seeds", nargs="*", type=int, default=list(SEEDS))
@@ -183,7 +183,7 @@ def main(argv=None) -> int:
     ap.add_argument("--lives-per-outer", type=int, default=100)
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--out", help="artifact dir, e.g. comms/research/<unit>")
-    ap.add_argument("--run-id", default="velotrade-fit-002")
+    ap.add_argument("--run-id", default="velotrade-fit-062")
     ap.add_argument("--emit-result", action="store_true", help="land research/results/<unit>/<run_id>.jsonl")
     a = ap.parse_args(argv)
     if a.self_test:
