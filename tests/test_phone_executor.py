@@ -172,3 +172,18 @@ def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
     got = pe.claim_next(_dev())
     assert got and got["meta"]["test"] is True and got["meta"]["dry_test_request"] == "r1" and got["submit"] == "dry"
     assert pe.claim_next(_dev()) is None  # same request id is never served twice
+
+
+def test_terminal_miss_keeps_latest_controls_scrubbed_and_does_not_ping(_iso):
+    n = len(_iso)
+    assert pe.last_diag("breakout_2") is None
+    pe.record_event(_dev(), {"event": "terminal_miss", "reason": "tabs=0 inputs=1 probe=false",
+                             "controls": ["Positions", "acct 12345678", "me@x.com", "", "x" * 99] + ["c"] * 60})
+    d = pe.last_diag("breakout_2")
+    assert len(_iso) == n  # quiet: diagnostics, not an operator ping
+    assert d["reason"] == "tabs=0 inputs=1 probe=false" and d["controls"][0] == "Positions"
+    assert all("12345678" not in c and "@" not in c and len(c) <= 40 for c in d["controls"])
+    assert len(d["controls"]) <= pe._DIAG_MAX
+    from src.web.api import main as api_main
+    body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
+    assert body.get("phone_diag", {}).get("controls", [None])[0] == "Positions"
