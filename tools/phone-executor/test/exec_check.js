@@ -199,7 +199,7 @@ document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function()
   eq(await rE("__ex.toggleQtyUnit()"), "clicked", "panel: unit toggled once");
   eq(await rE("__ex.qtyUnit()"), "ETH", "panel: quantity unit now ETH");
   eq(await rE("__ex.readByLabel('take ?profit|\\btp\\b','price').n"), 0, "panel: TP field hidden before the TP/SL control");
-  eq(await rE("__ex.openTpsl()"), "expanded", "panel: TP/SL control clicked");
+  eq(await rE("__ex.openTpsl(0)"), "expanded", "panel: TP/SL control clicked");
   eq(await rE("__ex.openTpsl()"), "ok", "panel: TP/SL now open");
   eq(await rE("[__ex.readByLabel('take ?profit|\\btp\\b','price').n, __ex.readByLabel('stop ?loss|\\bsl\\b','price').n]"), [1, 1], "panel: TP and SL fields unique by label");
   eq(await rE("window.__submitted || 0"), 0, "panel: nothing submitted");
@@ -210,7 +210,17 @@ document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function()
 <script>document.getElementById('hdr').onclick=function(){document.getElementById('box').innerHTML='<label for=tp>Take profit price</label><input id=tp type=text><label for=sl>Stop loss price</label><input id=sl type=text>';};
 document.getElementById('cb').onclick=function(){window.__cbClicks=(window.__cbClicks||0)+1};</script></body></html>`;
   const pF = await onHost(tpF);
-  eq(await pF.evaluate("__ex.openTpsl()"), "expanded", "checked box + collapsed section: header expanded, box untouched");
+  eq(await pF.evaluate("__ex.openTpsl(0)"), "expanded", "checked box + collapsed section: header expanded, box untouched");
   eq(await pF.evaluate("[__ex.openTpsl(), document.getElementById('cb').checked, window.__cbClicks || 0]"), ["ok", true, 0], "then ok; checkbox never toggled off");
+  // Fixture G: the "TP/SL" text is a plain span; the handler sits on a text-less role=switch beside it.
+  const tpG = `<!doctype html><html><body><form id=f><label for=lp>Limit price</label><input id=lp type=text>
+<div><span id=txt>TP/SL</span><button type=button role=switch id=sw aria-checked=false></button></div><div id=box></div>
+<button type=submit>Long (buy) ETH</button></form>
+<script>document.getElementById('sw').onclick=function(){this.setAttribute('aria-checked','true');document.getElementById('box').innerHTML='<label for=tp>Take profit price</label><input id=tp type=text><label for=sl>Stop loss price</label><input id=sl type=text>';};</script></body></html>`;
+  const pG = await onHost(tpG);
+  eq(await pG.evaluate("__ex.openTpsl(0)"), "expanded", "switch layout: text clicked first (no effect)");
+  eq(await pG.evaluate("__ex.openTpsl(1)"), "switched", "switch layout: the text-less switch beside it is clicked");
+  eq(await pG.evaluate("__ex.openTpsl(2)"), "ok", "switch layout: TP/SL inputs now shown");
+  eq(await pG.evaluate("__ex.tpslArea()[0].node.text"), "TP/SL", "tpslArea dump names the TP/SL element");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

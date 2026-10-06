@@ -452,13 +452,18 @@ class MainActivity : Activity() {
         val unitOk = if (unitNow.isNotEmpty()) unitNow.contains(base) else (alerts.contains(base) || qNear.contains(base))
         if (!unitOk) return refuse(id, "quantity unit not verified as $base (toggle '$unitNow'; alerts $alerts; near '$qNear')", tk)
         // 4. TP/SL: open the section (checkbox or the "TP/SL" control, MEASURED am-3), then the fields BY LABEL
-        // one move per step with read-back, at most 4 (am-4 09:48Z: box checked but the section stayed collapsed)
+        // one move per step with read-back (am-4 09:48Z: box checked but the section stayed collapsed)
+        // deterministic candidates by attempt (exec.js openTpsl), each followed by a ~3 s poll for "Take profit price"
         var tpslSeq = ""
+        var phase = 0   // each candidate is clicked at most ONCE (a second click on an accordion would collapse it)
         for (i in 0 until 4) {
-            val r = js("__ex.openTpsl()")
+            val r = js("__ex.openTpsl($phase)")
             tpslSeq += (if (tpslSeq.isEmpty()) "" else ">") + r
-            if (r == "ok" || r == "none" || r == "ambiguous") break
-            delay(900); ensure()
+            if (r == "ok" || r == "none" || r == "ambiguous" || (r == "wait" && phase >= 2)) break
+            if (r == "expanded" || r == "switched" || r == "wait") phase++
+            var shown = false
+            for (w in 0 until 6) { delay(500); ensure(); if (js("__ex.readByLabel('take ?profit|\\\\btp\\\\b','price').n") != "0") { shown = true; break } }
+            if (shown) { tpslSeq += ">ok"; break }
         }
         if (!tpslSeq.endsWith("ok")) return refuse(id, "TP/SL section not opened ($tpslSeq)", jsObj("__ex.ticket()"))
         val fTp = Field("TP price", "take ?profit|\\btp\\b", "price"); val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price")

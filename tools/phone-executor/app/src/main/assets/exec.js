@@ -82,6 +82,27 @@
     if (!cb) { cb = Array.prototype.slice.call(document.querySelectorAll("input[type=checkbox]")).filter(function (c) { return /tp\s*\/\s*sl/i.test(t(c.closest("label") || c.parentElement)); })[0]; }
     return cb || null;
   }
+  function desc(x) {
+    return {tag: x.tagName.toLowerCase(), role: x.getAttribute("role") || "", type: x.getAttribute("type") || "",
+      checked: x.getAttribute("aria-checked") || (x.type === "checkbox" ? String(x.checked) : ""),
+      expanded: x.getAttribute("aria-expanded") || "", text: t(x).replace(/\d/g, "#").slice(0, 24)};
+  }
+  function tpslTexts(cb) {
+    var f = form() || document;
+    return innermost(Array.prototype.slice.call(f.querySelectorAll("button,[role=button],[role=switch],[role=checkbox],[aria-expanded],label,div,span,p")).filter(function (x) {
+      return vis(x) && /^tp\s*\/\s*sl$/i.test(t(x)) && !(cb && (x.contains(cb) || x === cb.closest("label")));
+    }));
+  }
+  function tpslSwitches(h, cb) {
+    var p = h.parentElement, d = 0, sw = [];
+    while (p && d < 2 && !sw.length) {
+      sw = Array.prototype.slice.call(p.querySelectorAll("[role=switch],[role=checkbox],button,input[type=checkbox]")).filter(function (x) {
+        return vis(x) && x !== cb && !h.contains(x) && (x.tagName === "INPUT" || !t(x));
+      });
+      p = p.parentElement; d++;
+    }
+    return sw;
+  }
   function qtyUnitBtn() {
     var f = form(); if (!f) return null;
     return Array.prototype.slice.call(f.querySelectorAll("button,[role=button]")).filter(function (b) {
@@ -288,7 +309,8 @@
         alerts: all("[role=alert]").map(function (a) { return t(a).replace(/\d/g, "#"); }).slice(0, 6),
         // page controls (digits masked): shows the symbol strip/picker when the symbol route fails
         controls: window.__ex.controls(),
-        symbolCandidates: window.__ex.symbolCandidates()};
+        symbolCandidates: window.__ex.symbolCandidates(),
+        tpslArea: window.__ex.tpslArea()};
     },
     tab: function (name) {
       var f = form() || document;
@@ -333,21 +355,38 @@
     toggleQtyUnit: function () { var b = qtyUnitBtn(); if (!b) return "none"; b.click(); return "clicked"; },
     // TP/SL section (MEASURED 09:16Z: a "TP/SL" control inside the ticket; the TP/SL price inputs sit behind it).
     // "ok" when a Take profit input is already visible; else ticks the TP/SL checkbox or clicks the TP/SL control.
-    openTpsl: function () {
-      // ONE move per call; the app reads back between moves. MEASURED am-4 (09:48Z): the TP/SL checkbox read checked
-      // but no TP/SL inputs (and no Simple / Risk-Reward tabs) were shown, so the section is also a collapsed "TP/SL"
-      // header; am-2 (opened by hand) showed the inputs with the box checked. Returns ok | ticked | expanded | none |
-      // ambiguous | wait.
+    openTpsl: function (attempt) {
+      // ONE move per call; the app reads back (polls) between moves. MEASURED am-4 (09:48Z): the TP/SL checkbox read
+      // checked but no TP/SL inputs (and no Simple / Risk-Reward tabs) were shown; am-2 (opened by hand) showed
+      // "Take profit price" / "Stop loss price" with the box checked. Deterministic candidates, by attempt number:
+      //   tick the box if unchecked; phase 0: click the "TP/SL" text element ONCE (handler may be on an ancestor);
+      //   phase 1: click the switch / checkbox-role / text-less button beside that text ONCE (handler on a sibling).
+      // Returns ok | ticked | expanded | switched | none | ambiguous | wait.
       if (byLabel("take ?profit|\\btp\\b", "price").hits.length) return "ok";
       var cb = tpslBox();
       if (cb && !cb.checked) { (cb.closest("label") || cb).click(); return "ticked"; }
-      var f = form() || document;
-      var c = innermost(Array.prototype.slice.call(f.querySelectorAll("button,[role=button],[role=switch],[role=checkbox],[aria-expanded],label,div,span")).filter(function (x) {
-        return vis(x) && /^tp\s*\/\s*sl$/i.test(t(x)) && !(cb && (x.contains(cb) || x === cb.closest("label")));
-      }));
-      if (c.length > 1) return "ambiguous";
-      if (c.length === 1) { c[0].click(); return "expanded"; }
-      return cb ? "wait" : "none";
+      var hs = tpslTexts(cb);
+      if (hs.length > 1) return "ambiguous";
+      if (!hs.length) return cb ? "wait" : "none";
+      var ph = attempt || 0;   // phase from the app: 0 = header not yet clicked, 1 = switch not yet clicked, 2 = done
+      if (ph === 0) { hs[0].click(); return "expanded"; }
+      if (ph === 1) {
+        var sw = tpslSwitches(hs[0], cb);
+        if (sw.length === 1) { sw[0].click(); return "switched"; }
+        return sw.length ? "ambiguous" : "wait";
+      }
+      return "wait";
+    },
+    // The TP/SL area for the refusal dump: the "TP/SL" text element, up to 3 ancestors and their direct children, as
+    // tag / role / type / aria-checked / aria-expanded / short text (digits masked). Our own UI only.
+    tpslArea: function () {
+      var hs = tpslTexts(tpslBox()); if (!hs.length) return [];
+      var out = [], n = hs[0], d = 0;
+      while (n && d < 4) {
+        out.push({depth: d, node: desc(n), kids: Array.prototype.slice.call(n.children).slice(0, 8).map(desc)});
+        n = n.parentElement; d++;
+      }
+      return out;
     },
     submit: function () {
       var b = submitBtn(); if (!b) return "none";
