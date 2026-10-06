@@ -56,6 +56,8 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
   const p2 = await b.newPage();
   const pages = {
     "/en/account/A1/trade": "<div><span>Trade</span><div role=button>Portfolio</div><div>Open orders</div><div>Positions</div><canvas></canvas></div>",
+    "/en/account/A1/overview": "<div><span>Portfolio</span><div>Positions</div><p>Balance</p></div>",
+    "/en/account/A1/trade-ready": "<div><button>Order</button><div role=tablist><button role=tab>Buy</button><button role=tab>Sell</button></div></div>",
     "/": "<div><h1>Your accounts</h1><a href='/en/account/A1/trade'>Turbo 5K</a></div>",
     "/two": "<div><a href='/en/account/A1/trade'>One</a><a href='/en/account/B2/trade'>Two</a></div>",
     "/login": "<form><input type=email><button>Continue</button></form>",
@@ -71,6 +73,12 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
   eq([s1.loggedIn, s1.onAccount, s1.accountLinkCount, s1.singleAccountLink], [true, false, 1, "https://trade.breakoutprop.com/en/account/A1/trade"], "account list with ONE account: logged in, single link");
   s1 = await st("/two");
   eq([s1.loggedIn, s1.accountLinkCount, s1.singleAccountLink], [true, 2, ""], "two accounts: no single link (app waits for a human tap)");
+  s1 = await st("/en/account/A1/overview");
+  eq(s1.loggedIn, true, "account overview reads logged in");
+  eq(await p2.evaluate("__ex.terminal().ready"), false, "account overview is NOT the terminal (the 05:21Z claim page): no claim");
+  eq(await p2.evaluate("__ex.terminalHref()"), "https://trade.breakoutprop.com/en/account/A1/trade", "terminal URL derived from the current account path");
+  await st("/en/account/A1/trade-ready");
+  eq(await p2.evaluate("__ex.terminal().ready"), true, "terminal with Order control + Buy/Sell tabs is ready");
   s1 = await st("/login");
   eq([s1.loggedIn, s1.email], [false, true], "login form is never logged in");
   // LABEL-BASED FIELDS (fix 2026-10-05 ~22:40Z): price and quantity are set and read back BY LABEL, never by index,

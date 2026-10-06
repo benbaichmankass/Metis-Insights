@@ -150,6 +150,20 @@
       var same = c.filter(function (e) { return parseFloat(getComputedStyle(e).fontSize) === top && t(e) !== t(c[0]); });
       return same.length ? "" : t(c[0]);
     },
+    // TERMINAL GATE (2026-10-06 05:21Z dry test: claimed on an /account/ page that was not the trading terminal,
+    // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page.
+    terminal: function () {
+      var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); }).length > 0;
+      var tb = all("[role=tab]").map(t);
+      var bs = tb.some(function (x) { return /^buy$/i.test(x); }) && tb.some(function (x) { return /^sell$/i.test(x); });
+      return {ready: ctl || !!submitBtn() || bs, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs};
+    },
+    // The account's terminal URL, derived from the CURRENT /account/<id>/ path (deterministic: the account the
+    // page is already on). "" when the path is not an account path. Never reported.
+    terminalHref: function () {
+      var m = /^(.*\/account\/[^\/]+)(\/.*)?$/.exec(location.pathname || "");
+      return m ? location.origin + m[1] + "/trade" : "";
+    },
     clickText: function (re, roleSel) {
       var rx = new RegExp(re, "i");
       var b = all(roleSel || "button,[role=tab],[role=button],a").filter(function (x) { return rx.test(t(x)); })[0];

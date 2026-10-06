@@ -251,7 +251,10 @@ class MainActivity : Activity() {
      *  (single link, or the remembered terminal); never reload the landing; ambiguous = wait for one human tap. */
     private suspend fun onLoggedIn(s: JSONObject) {
         if (s.optBoolean("onAccount")) {
-            val href = s.optString("accountHref")
+            // Claim ONLY on the trading terminal (05:21Z dry test claimed on an account page without one and burned
+            // the ticket). Not ready -> open this account's /trade page and wait; still not ready -> no claim.
+            if (!ensureTerminal()) return
+            val href = js("location.href")
             if (href.startsWith("https://trade.breakoutprop.com/") && href != Store.get(this, Store.TERMINAL_URL)) Store.put(this, Store.TERMINAL_URL, href)
             claimAndRun(); return
         }
@@ -263,6 +266,20 @@ class MainActivity : Activity() {
             saved != null && s.optInt("accountLinkCount") == 0 -> { setStatus("logged in: opening the remembered account"); web.loadUrl(home()) }
             else -> setStatus("logged in on the account list: tap into the Breakout account ONCE (no tickets until then)")
         }
+    }
+
+    private suspend fun terminalReady(): Boolean = jsObj("__ex.terminal()")?.optBoolean("ready") == true
+
+    private suspend fun ensureTerminal(): Boolean {
+        if (terminalReady()) return true
+        if (userActive()) { setStatus("logged in, not on the terminal; you are using the screen, so no navigation"); return false }
+        val href = js("__ex.terminalHref()")
+        if (!href.startsWith("https://trade.breakoutprop.com/")) { setStatus("logged in, not on the terminal and no account path: tap into the account once"); return false }
+        setStatus("logged in: opening the account's terminal")
+        web.loadUrl(href)
+        for (i in 0 until 12) { delay(2500); ensure(); if (terminalReady()) return true }
+        setStatus("terminal did not load (no Order control / Buy-Sell tabs): no claim")
+        return false
     }
 
     // ---------------- auto re-login ----------------
