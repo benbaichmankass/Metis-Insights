@@ -39,16 +39,21 @@ name: research-queue-dispatch
 
 on:
   schedule:
-    # Every 6 h at :20 (00:20 / 06:20 / 12:20 / 18:20 UTC) — RQ-RUN, 2026-09-28,
-    # operator direction "keep the research queue moving through the slowdown":
-    # with the token-free runner (research-script-run.yml) a unit landed at
-    # 09:00 no longer waits a day for the next dispatch. The 06:20 slot stays
-    # after the IB gateway's 06:05 reset window. schedule-keeper reads these
+    # HOURLY at :20 — operator direction 2026-10-06 (verbatim: "the research
+    # queue shouldn't need a claude session pushing it - claude should be
+    # queuing research units and analyzing results, but the git
+    # infrastructure should be what keeps the queue moving"). Was every 6 h
+    # (`20 */6 * * *`, RQ-RUN 2026-09-28); a unit landed at 09:00 now fires
+    # at the next :20 instead of waiting up to 6 h. The 06:20 slot still
+    # follows the IB gateway's 06:05 reset window. schedule-keeper reads these
     # crons from this file, so its dedupe/keep logic follows the change with no
-    # edit of its own; the per-run GPU cap and the monthly ledger cap are
-    # unchanged and bind each run exactly as before (4 runs/day x cap 1 is the
-    # new per-day GPU ceiling — the ledger's $10/month still binds first).
-    - cron: "20 */6 * * *"
+    # edit of its own; `--max-research-inflight 3`, `--max-repo-queued 10`,
+    # the per-run GPU cap and the monthly ledger cap are UNCHANGED and bind
+    # each run exactly as before (24 runs/day x cap 1 is the per-day GPU
+    # ceiling — the ledger's $10/month still binds first). The replenisher's
+    # 6 h "runnable" horizon (queue_replenish.py DISPATCH_CYCLE_HOURS) and
+    # the 12 h idle alarm (queue_throughput.py) are deliberately NOT retuned.
+    - cron: "20 * * * *"
   workflow_dispatch:
     inputs:
       fire:

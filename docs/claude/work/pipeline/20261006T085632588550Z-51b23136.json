@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261006-LCEVL8D5-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv addendum to lane rq-dispatch-hourly (PR #16736), 2026-10-06 08:55Z",
+    "rerun": "python3 -c \"import yaml,glob; U={p:yaml.safe_load(open(p)) for p in glob.glob('research/queue/*.yaml')}; q=[p for p,u in U.items() if isinstance(u,dict) and u.get('status')=='queued']; sb=[p for p in q if not str((U[p].get('run') or {}).get('workflow') or '').endswith(('.yml','.yaml'))]; sg=[p for p in q if p not in sb and not U[p].get('generated') and not (U[p].get('grading') or {}).get('auto')]; print('session-bound',len(sb),sb); print('session-graded',len(sg),sg)\""
+  },
+  "state": "queued",
+  "what": "Research-queue SESSION DEBT (operator principle 2026-10-06, research/queue/README.md: a step that waits on a session is debt, not process). MEASURED by this lane 2026-10-06 08:56Z over research/queue/*.yaml (308 files): 2 queued units are SESSION-BOUND (run.workflow is a human note, not a .yml: RQ-20260928-001, RQ-20260927-003) so the dispatcher can never fire them, and 4 more queued units are SESSION-GRADED (hand-written, no grading.auto, no generated: RQ-20260922-008, RQ-20260830-002, RQ-20260929-104, RQ-20260831-002) so queue_grade.py will never close them. DO, per unit: convert to research-script-run.yml + grading.auto with a mechanical rule, or set status: killed with a stated reason. DONE = 0 queued units in either bucket; re-run the rerun command to prove it."
+}

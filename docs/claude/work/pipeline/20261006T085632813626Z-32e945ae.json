@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261006-LCEVL8D5-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv addendum to lane rq-dispatch-hourly (PR #16736), 2026-10-06 08:55Z",
+    "rerun": "grep -l 'needs_review: true' research/queue/*.yaml | wc -l; grep -rn 'needs_review' scripts/ops/render_daily_brief.py scripts/ops/work_digest*.py .github/workflows/work-digest*.yml 2>/dev/null | head"
+  },
+  "state": "queued",
+  "what": "The research queue's needs_review bucket (grading.needs_review: true -- a ran unit queue_grade.py could not grade mechanically) surfaces NOWHERE on a non-session cadence: it is only `grep -l 'needs_review: true' research/queue/*.yaml`, which a session has to think to run. MEASURED by this lane 2026-10-06 08:56Z: 11 units carry the flag (all statuses; the manager counted 8 at ~08:45Z over a narrower population). DO: render the bucket (count + ids + age since the flag was set) into a surface that exists without a session -- the daily work digest (work-digest workflow) and/or render_daily_brief.py section 0 -- and make it a loud line, not a count. DONE = the bucket appears on the Workflow page / digest within 24 h of a unit being flagged, with no session in the loop."
+}
