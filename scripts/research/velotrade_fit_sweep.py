@@ -78,10 +78,19 @@ def sim_cell(legs: dict[str, Path], symbols: dict[str, str], risk: float, seed: 
              "--risk-pct", str(risk), "--modes", "path", "--seed", str(seed),
              "--lives", str(lives), "--outer", str(outer), "--lives-per-outer", str(lives_per_outer),
              *COSTS, "--out", str(out)]
-    p = subprocess.run(argv, cwd=REPO, capture_output=True, text=True, check=False)
-    if p.returncode != 0:
-        return {"error": p.stderr[-400:]}
-    d = json.loads(out.read_text())
+    d = None
+    if out.exists():
+        # resume: a cell already simulated on disk is re-read, not re-run, so a re-invocation
+        # after an interrupted sweep (or a driver-only change) costs seconds, not CPU-hours
+        try:
+            d = json.loads(out.read_text())
+        except ValueError:
+            d = None
+    if d is None:
+        p = subprocess.run(argv, cwd=REPO, capture_output=True, text=True, check=False)
+        if p.returncode != 0:
+            return {"error": p.stderr[-400:]}
+        d = json.loads(out.read_text())
     blk = d["results"]["path"]
     return {
         "ev": blk["ev_net_usd_per_life"], "ev_mc_se": blk["ev_net_usd_per_life_mc_se"],
@@ -89,7 +98,12 @@ def sim_cell(legs: dict[str, Path], symbols: dict[str, str], risk: float, seed: 
         "ev_p5": blk["evidence_ci"]["ev_net_usd_p5"], "ev_p95": blk["evidence_ci"]["ev_net_usd_p95"],
         "p_pass_p5": blk["evidence_ci"]["p_pass_eval_p5"],
         "days_to_pass_p50": (blk["days_to_pass"] or {}).get("p50"),
+        "days_to_pass_p90": (blk["days_to_pass"] or {}).get("p90"),
         "lifetime_days_mean": blk["lifetime_days"]["mean"],
+        # the 730d horizon truncates an UNLIMITED-time evaluation: a life still in eval at the
+        # horizon counts as not passed, so P(pass) is a 2-year lower bound where this is large
+        "p_alive_at_horizon": blk["p_alive_at_horizon"],
+        "p_death_before_first_payout": blk["p_death_before_first_payout"],
         "death_causes": blk["death_causes"],
         "qualifying_days": blk["qualifying_days"],
         "payout_deferred_qual_days_per_life": round(blk["counters"].get("payout_deferred_qual_days", 0) / blk["n_lives"], 2),
