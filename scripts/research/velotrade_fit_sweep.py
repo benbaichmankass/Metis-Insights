@@ -66,7 +66,7 @@ DEFAULT_LEGS = {
     "trend_donchian_eth_prop": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
     "trend_donchian_sol_prop": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl",
 }
-CLASS_ORDER = {"GO_LIVE": 0, "NULL": 1, "FAIL": 2, "NOT_APPLICABLE": 3}
+CLASS_ORDER = {"GO_LIVE": 0, "NULL": 1, "FAIL": 2, "SIM_ERROR": 3}
 
 
 def _load_book_search():
@@ -126,7 +126,7 @@ def sim_cell(legs: dict[str, Path], symbols: dict[str, str], risk: float, seed: 
 def grade(cells: dict, gap_ok: bool, loss_ok: bool) -> tuple[str, str]:
     """The registered rule (re-scoped 2026-10-06). Returns (class, binding clause or '')."""
     if any("error" in c for c in cells.values()) or len(cells) != len(SEEDS):
-        return "NOT_APPLICABLE", "sim"
+        return "SIM_ERROR", "sim"
     evs = [c["ev"] for c in cells.values()]
     pb = [c["p_breach_daily_loss"] for c in cells.values()]
     if min(evs) < 0:
@@ -161,7 +161,7 @@ def _self_test() -> int:
     assert grade(good, True, False) == ("NULL", "D:daily_loss")
     assert grade(good, False, True) == ("NULL", "G:gap")
     assert grade({s: dict(good[s], ev=(-1.0 if s == 3 else 10.0)) for s in SEEDS}, True, True) == ("FAIL", "R:ev")
-    assert grade({s: good[s] for s in SEEDS[:4]}, True, True)[0] == "NOT_APPLICABLE"
+    assert grade({s: good[s] for s in SEEDS[:4]}, True, True)[0] == "SIM_ERROR"
     assert edge_label(good) == "EDGE_PASS" and edge_label({s: dict(good[s], p_net=0.5) for s in SEEDS}) == "EDGE_NULL"
     a = {"verdict": "GO_LIVE", "min_p_net": 0.5, "mean_ev": 100, "risk": 0.01}
     b = {"verdict": "GO_LIVE", "min_p_net": 0.5, "mean_ev": 100, "risk": 0.005}
