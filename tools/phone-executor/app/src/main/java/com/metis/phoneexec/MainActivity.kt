@@ -433,15 +433,27 @@ class MainActivity : Activity() {
         val fPrice = Field("Limit price", "limit price"); val fQty = Field("Quantity", "quantity")
         for (f in listOf(fPrice, fQty)) { val n = readField(f)?.optInt("n", 0) ?: 0; if (n != 1) return refuse(id, "${f.name} field not unique (n=$n)", jsObj("__ex.ticket()")) }
         if (!typeInto(fPrice, fmt(entry, pStep), entry, pStep)) return refuse(id, "limit price did not read back", jsObj("__ex.ticket()"))
+        // quantity UNIT before the quantity is typed (MEASURED am-3 09:16Z: a "Toggle quantity unit" button reading
+        // "USD", so 0.01 would have been $0.01). Toggle ONCE to the base asset and verify; never convert to a notional.
+        val unit0 = js("__ex.qtyUnit()")
+        if (unit0.isNotEmpty() && !unit0.uppercase().contains(base)) {
+            if (js("__ex.toggleQtyUnit()") != "clicked") return refuse(id, "quantity unit toggle not clickable (shows '$unit0')", jsObj("__ex.ticket()"))
+            delay(800); ensure()
+            val unit1 = js("__ex.qtyUnit()")
+            if (!unit1.uppercase().contains(base)) return refuse(id, "quantity unit toggle did not reach $base (was '$unit0', now '$unit1')", jsObj("__ex.ticket()"))
+        }
         if (!typeInto(fQty, fmt(qty, qStep), qty, qStep)) return refuse(id, "quantity did not read back", jsObj("__ex.ticket()"))
-        // quantity unit: the "Quantity ... available" alert OR the quantity field's own adornment (unit toggle) must
-        // name the base asset, not USD; the refusal carries both texts so the next dump measures the real shape.
+        // quantity unit verified AFTER typing: the unit toggle names the base asset, else (no toggle on this layout) the
+        // "Quantity ... available" alert or the field's own adornment must; the refusal carries all three texts.
         tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
         val alerts = (tk.optJSONArray("alerts")?.toString() ?: "").uppercase()
         val qNear = (readField(fQty)?.optString("near") ?: "").uppercase()
-        if (!alerts.contains(base) && !qNear.contains(base)) return refuse(id, "quantity unit not verified as $base (alerts $alerts; near '$qNear')", tk)
-        // 4. TP/SL
-        if (js("__ex.setTpsl(true)") != "ok") return refuse(id, "TP/SL box not ticked", tk)
+        val unitNow = js("__ex.qtyUnit()").uppercase()
+        val unitOk = if (unitNow.isNotEmpty()) unitNow.contains(base) else (alerts.contains(base) || qNear.contains(base))
+        if (!unitOk) return refuse(id, "quantity unit not verified as $base (toggle '$unitNow'; alerts $alerts; near '$qNear')", tk)
+        // 4. TP/SL: open the section (checkbox or the "TP/SL" control, MEASURED am-3), then the fields BY LABEL
+        val tpsl = js("__ex.openTpsl()")
+        if (tpsl != "ok" && tpsl != "clicked") return refuse(id, "TP/SL section not opened ($tpsl)", tk)
         delay(900); ensure()
         val fTp = Field("TP price", "take ?profit|\\btp\\b", "price"); val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price")
         for (f in listOf(fTp, fSl)) { val r = readField(f); if (r?.optInt("n", 0) != 1) return refuse(id, "${f.name} field not unique (n=${r?.optInt("n", 0) ?: 0}, labels ${r?.optJSONArray("labels")})", jsObj("__ex.ticket()")) }

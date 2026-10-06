@@ -182,8 +182,8 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
 <div id=wl><button data-s=BTC>BTC -1.2%</button><button data-s=ETH>ETH -0.5%</button><button data-s=SOL>SOL +2.0%</button></div>
 <div id=panel></div>
 <script>var cur='BTC';
-function form(){return '<form id=f><div role=tablist><button type=button role=tab aria-selected=false>Market</button><button type=button role=tab aria-selected=true>Limit</button></div><div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div><label for=lp>Limit price</label><input id=lp type=text value=1><button type=submit id=sub>Long (buy) '+cur+'</button></form>';}
-document.getElementById('of').onclick=function(){document.getElementById('panel').innerHTML=form();document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};};
+function form(){return '<form id=f><div role=tablist><button type=button role=tab aria-selected=false>Market</button><button type=button role=tab aria-selected=true>Limit</button></div><div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div><label for=lp>Limit price</label><input id=lp type=text value=1><label for=q>Quantity</label><input id=q type=text value=0><button type=button id=qu aria-label=\"Toggle quantity unit\">USD</button><div id=tps>TP/SL</div><div id=tpbox></div><button type=submit id=sub>Long (buy) '+cur+'</button></form>';}
+document.getElementById('of').onclick=function(){document.getElementById('panel').innerHTML=form();document.getElementById('qu').onclick=function(){this.textContent=this.textContent==='USD'?cur:'USD';};document.getElementById('tps').onclick=function(){document.getElementById('tpbox').innerHTML='<label for=tp>Take profit price</label><input id=tp type=text><label for=sl>Stop loss price</label><input id=sl type=text>';};document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};};
 document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function(){cur=b.getAttribute('data-s');document.getElementById('chip').textContent=cur+' x';var sb=document.getElementById('sub');if(sb)sb.textContent='Long (buy) '+cur;};});
 </script></body></html>`;
   const pE = await onHost(panel);
@@ -194,6 +194,14 @@ document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function()
   eq(await rE("__ex.symbolStep('ETHUSD')"), "done", "panel: chip now 'ETH x' -> done");
   eq(await rE("__ex.openTicket()"), "clicked", "panel: 'Order form' opens the ticket");
   eq(await rE("__ex.symbolOnTicket()"), "ETH", "panel: submit label names ETH");
+  // QUANTITY UNIT + TP/SL (MEASURED am-3 09:16Z): "Toggle quantity unit" button reads USD; "TP/SL" control hides the TP/SL inputs.
+  eq(await rE("__ex.qtyUnit()"), "USD", "panel: quantity unit toggle reads USD");
+  eq(await rE("__ex.toggleQtyUnit()"), "clicked", "panel: unit toggled once");
+  eq(await rE("__ex.qtyUnit()"), "ETH", "panel: quantity unit now ETH");
+  eq(await rE("__ex.readByLabel('take ?profit|\\btp\\b','price').n"), 0, "panel: TP field hidden before the TP/SL control");
+  eq(await rE("__ex.openTpsl()"), "clicked", "panel: TP/SL control clicked");
+  eq(await rE("__ex.openTpsl()"), "ok", "panel: TP/SL now open");
+  eq(await rE("[__ex.readByLabel('take ?profit|\\btp\\b','price').n, __ex.readByLabel('stop ?loss|\\bsl\\b','price').n]"), [1, 1], "panel: TP and SL fields unique by label");
   eq(await rE("window.__submitted || 0"), 0, "panel: nothing submitted");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

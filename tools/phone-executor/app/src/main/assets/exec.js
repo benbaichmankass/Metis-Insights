@@ -77,6 +77,12 @@
     var c = all("button,[role=button],[role=tab]").map(t).filter(function (x) { return /^[A-Za-z]{2,6}\s*[x\u00d7]$/.test(x); });
     return c.length === 1 ? c[0].replace(/\s*[x\u00d7]$/, "") : "";
   }
+  function qtyUnitBtn() {
+    var f = form(); if (!f) return null;
+    return Array.prototype.slice.call(f.querySelectorAll("button,[role=button]")).filter(function (b) {
+      return vis(b) && /quantity unit/i.test((b.getAttribute("aria-label") || "") + " " + (b.getAttribute("title") || ""));
+    })[0] || null;
+  }
   function searchBox() {
     return inputs(document).filter(function (i) {
       return (i.type === "text" || i.type === "search") && !inForm(i) &&
@@ -316,6 +322,22 @@
       if (!cb) return "none";
       if (cb.checked !== on) { (cb.closest("label") || cb).click(); }
       return cb.checked === on ? "ok" : "unchanged";
+    },
+    // QUANTITY UNIT (MEASURED 2026-10-06 09:16Z am-3 dump): a button inside the ticket, aria-label "Toggle quantity unit",
+    // text "USD" = the quantity field is a USD notional. Returns the button's text, or "" when there is no such toggle.
+    qtyUnit: function () { var b = qtyUnitBtn(); return b ? t(b) : ""; },
+    toggleQtyUnit: function () { var b = qtyUnitBtn(); if (!b) return "none"; b.click(); return "clicked"; },
+    // TP/SL section (MEASURED 09:16Z: a "TP/SL" control inside the ticket; the TP/SL price inputs sit behind it).
+    // "ok" when a Take profit input is already visible; else ticks the TP/SL checkbox or clicks the TP/SL control.
+    openTpsl: function () {
+      if (byLabel("take ?profit|\\btp\\b", "price").hits.length) return "ok";
+      var cb = window.__ex.setTpsl(true); if (cb === "ok") return "ok";
+      var f = form() || document;
+      var c = innermost(Array.prototype.slice.call(f.querySelectorAll("button,[role=button],[role=switch],[role=checkbox],label,div,span")).filter(function (x) {
+        return vis(x) && /^tp\s*\/\s*sl$/i.test(t(x));
+      }));
+      if (c.length !== 1) return c.length ? "ambiguous" : "none";
+      c[0].click(); return "clicked";
     },
     submit: function () {
       var b = submitBtn(); if (!b) return "none";
