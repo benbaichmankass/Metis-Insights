@@ -64,3 +64,15 @@ generated:
     symbol: MGC
     timeframe: 1d
 last_dispatched_at: '2026-10-06T12:05:05+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE
+  evidence:
+  - research/results/RQ-20261005-005/37460775015.jsonl
+  graded_at: '2026-10-06'
+  grader: scripts/research/queue_grade.py
+  latest: true
+  needs_review: false
+  reason: 1 row(s), all measured, all no_action_warranted
+  rows: 1
+  verdict: no_action_warranted
