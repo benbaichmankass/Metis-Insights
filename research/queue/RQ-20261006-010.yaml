@@ -1,0 +1,69 @@
+id: RQ-20261006-010
+title: 'Stage-0 backtest for a FASTER prop leg: squeeze harness on ADAUSDT 1h (PI-20261006-APBY4NTV-0001 slice 1)'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+question: Does the volatility-squeeze breakout (scripts/backtest_squeeze.py) show net-of-cost edge on ADAUSDT 1h -- a prop-tradable
+  instrument (Breakout ADAUSD (150k max position; leverage unconfirmed)) at a timeframe short enough to reach a prop profit
+  target faster than the current ETH/SOL trend_donchian 1h book (median ~220 d to +10% on velotrade_1, per PI-20261006-APBY4NTV-0001)?
+  Harness-default parameters; no live leg exists for this (symbol, timeframe, harness) and none is proposed by this unit.
+why_this_matters: 'Operator direction 2026-10-06 (verbatim in PI-20261006-APBY4NTV-0001): "continue searching for new strategies
+  ... specifically for the prop accounts, with an emphasis on shorter-timeframe strategies, or at least strategies that turn
+  a profit faster (we would ideally want +10% monthly, not over more than 6 months)" and "we shouldn''t be stuck on eth and
+  sol - anything that we''re able to trade is fair game". This is one cell of the first concrete slice of that search: an
+  existing harness, an instrument a prop venue lists, a timeframe at or below 1h. A PASS is Stage-0 evidence for a follow-on
+  prop_ev_sim unit (the 730d evidence record + three-ruleset fit); a FAIL re-queues once, then closes the cell.'
+power:
+  expected_n: 50
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 -> 39 trades at alpha 0.05 / power 0.8, the repo''s standing E35 floor (RQ-20260929-107 used the same). expected_n=50
+    is a cadence guess, not a measurement: 24 bars/day over 1095 d of 1h candles gives the harness room for well over 39 setups,
+    but this (symbol, timeframe, harness) has never been run in this repo, so no observed trade count exists (see feasibility).'
+  feasibility:
+    source: none
+    accrual_basis: 'First observation of squeeze on ADAUSDT 1h in this repo (research/queue/ and research/results/ hold no
+      such cell; checked 2026-10-06). Data: binance_vision (1095 d trailing window, declared in scripts/ops/fetch_backtest_corpus.py).
+      Below the floor the unit grades indeterminate, never FAIL.'
+decision_rule:
+  id: RULE-RQ1006-010-ADAUSDT-1h-SQUEEZE-STAGE0
+  registered_at: '2026-10-06'
+  registered_before_run: true
+  statistic: net_total_r (net of the harness's full cost stack via execution_costs.resolve_cost_policy, except orb which is
+    fee-only) and total_trades from the harness's own JSON summary, harness-default parameters, as mapped by scripts/research/harness_dispatch_result.py
+    (which applies THIS rule mechanically).
+  rule: PASS IF net_total_r > 0 AND n_trades >= 39 -- Stage-0 evidence only. FAIL IF net_total_r <= 0 AND n_trades >= 39 --
+    one pass; re-queues for a confirmatory run before it is read as a kill. indeterminate IF n_trades < 39.
+  what_it_does_not_do: Does not touch config/strategies.yaml or config/accounts.yaml and does not propose a live or prop leg.
+    A PASS is a backtest on default parameters; the next unit, not this one, prices it under the three prop rulesets (tradeify_247_1step,
+    breakout_turbo_1step, velotrade_classic_1step) with days-to-target as the headline.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: Single-symbol GitHub-runner harness dispatch, same shape as RQ-20260929-107 and the roster-walkforward template.
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: squeeze
+    symbol: ADAUSDT
+    timeframe: 1h
+    research_unit: RQ-20261006-010
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+grading:
+  auto: true
+related:
+- PI-20261006-APBY4NTV-0001
+- docs/integrations/breakout-instruments-2026-09-27.md
+- RQ-20260929-107
+- research/templates/roster-walkforward.yaml
+last_dispatched_at: null

@@ -218,3 +218,31 @@ def test_report_default_breaks_a_tie_between_live_prop_accounts(monkeypatch):
     monkeypatch.setattr(accounts_loader, "load_accounts_dict", lambda *a, **k: {
         "a": {**prop, "report_default": True}, "b": {**prop, "report_default": True}})
     assert h.default_prop_account() is None                   # two defaults: ask
+
+
+def test_auto_executed_accounts_do_not_take_the_bare_report_default(monkeypatch):
+    """VELOTRADE-GOLIVE: an account executed over REST (dxtrade_api) or by the
+    phone never takes a manual Telegram report-back, so its going live must not
+    make the bare-report default ambiguous."""
+    from src.config import accounts_loader
+    from src.prop import platform as plat
+    from src.prop import telegram_report_handler as h
+
+    monkeypatch.delenv("PROP_DEFAULT_ACCOUNT", raising=False)
+    prop = {"exchange": "breakout", "type": "prop", "account_class": "prop", "mode": "live"}
+    monkeypatch.setattr(accounts_loader, "load_accounts_dict",
+                        lambda *a, **k: {"manual": dict(prop), "rest": dict(prop), "phone": dict(prop)})
+    monkeypatch.setattr(plat, "auto_executed_accounts", lambda *a, **k: {"rest", "phone"})
+    assert h.default_prop_account() == "manual"
+    # two MANUAL live accounts are still ambiguous without a report_default flag
+    monkeypatch.setattr(accounts_loader, "load_accounts_dict",
+                        lambda *a, **k: {"m1": dict(prop), "m2": dict(prop), "rest": dict(prop)})
+    assert h.default_prop_account() is None
+
+
+def test_auto_executed_accounts_reads_the_real_config():
+    from src.prop.platform import auto_executed_accounts
+    auto = auto_executed_accounts()
+    assert "velotrade_1" in auto          # platform: dxtrade_api
+    assert "breakout_2" in auto           # phone_accounts
+    assert "tradeify_1" not in auto and "breakout_1" not in auto

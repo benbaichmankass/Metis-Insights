@@ -137,6 +137,12 @@ def _phone_diag(acct: str) -> dict[str, Any] | None:
     return phone_executor.last_diag(acct) if phone_executor.is_phone_account(acct) else None
 
 
+def _phone_heartbeat(acct: str) -> dict[str, Any] | None:
+    from src.prop import phone_executor
+
+    return phone_executor.last_heartbeat(acct) if phone_executor.is_phone_account(acct) else None
+
+
 @router.get("/status")
 def get_status(account_id: str | None = None) -> dict[str, Any]:
     from src.prop import prop_journal, prop_reconcile
@@ -159,6 +165,8 @@ def get_status(account_id: str | None = None) -> dict[str, Any]:
             "rule_distance": rule_distance,
             # PHONE-EXEC-1B: the phone's latest "terminal did not load" control dump (null = none posted)
             "phone_diag": _phone_diag(acct),
+            # the phone's latest heartbeat: status line + gate/pause/touch-hold state (null = none posted)
+            "phone_heartbeat": _phone_heartbeat(acct),
         }
     except Exception:  # noqa: BLE001  # allow-silent: degrade to present:false, not a 500
         logger.warning("prop: /status read failed; degrading to present:false", exc_info=True)

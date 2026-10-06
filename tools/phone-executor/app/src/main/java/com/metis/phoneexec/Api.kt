@@ -32,6 +32,10 @@ class Api(private val c: Context) {
     suspend fun event(kind: String, reason: String = "", ticket: String = "") =
         post("event", JSONObject().put("event", kind).put("reason", reason.take(150)).put("ticket_id", ticket))
 
+    /** Heartbeat: the on-screen status line + the app's own state (quiet; latest kept server-side). */
+    suspend fun heartbeat(statusLine: String, state: JSONObject) =
+        post("event", JSONObject().put("event", "heartbeat").put("reason", statusLine.take(150)).put("state", state))
+
     /** "terminal did not load": the page's control texts (our own UI labels, digits masked page-side). */
     suspend fun terminalMiss(reason: String, controls: JSONArray) =
         post("event", JSONObject().put("event", "terminal_miss").put("reason", reason.take(150)).put("controls", controls))
