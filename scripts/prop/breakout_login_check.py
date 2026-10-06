@@ -231,6 +231,67 @@ def layout_watchlist_line(adapter: Any, page: Any, *, polls: int = 3, wait_ms: i
     return f"layout_watchlist: MISSING ({wl.get('why') or 'not readable'})"
 
 
+
+def api_status_check(args, cfg, username: str, password: str) -> int:
+    """The status read for a REST platform (``dxtrade_api``; VELOTRADE-GOLIVE).
+
+    No browser: REST login, the three reads, the same ``account_status``
+    report (``--emit-status``) the browser feed posts, logout. Every
+    browser-only option (dump, structure, instruments capture, layout canary)
+    is skipped and said so."""
+    adapter = adapter_for_platform(cfg["platform"])
+    try:
+        adapter.login(None, cfg["login_url"], username, password)
+    except FeasibilityError as fe:
+        print(_redact(f"feasibility: {fe.reason} ({fe.detail})", username, password))
+        return EXIT_FEASIBILITY
+    secrets = (username, password, *getattr(adapter, "_secrets", ()))
+    print("login: ok (rest)")
+    rc = EXIT_OK
+    try:
+        snap = adapter.read_account(None).as_dict()
+        print("account: " + json.dumps({k: v for k, v in snap.items() if k != "unparsed"}))
+        if snap.get("unparsed"):
+            print(f"account_unparsed: {', '.join(snap['unparsed'])}")
+        if snap.get("balance") is None or snap.get("equity") is None:
+            rc = EXIT_UNPARSED
+        read_rows: Dict[str, Optional[list]] = {"positions": None, "orders": None}
+        for label, reader in (("positions", adapter.read_positions), ("orders", adapter.read_orders)):
+            try:
+                items = [i.as_dict() for i in reader(None)]
+                read_rows[label] = items
+                print(f"{label}: {len(items)}")
+                for it in items:
+                    it.pop("raw", None)
+                    print(_redact(f"  {json.dumps(it)}", *secrets))
+            except Exception as exc:
+                print(_redact(f"{label}: UNPARSED ({type(exc).__name__}: {exc})", *secrets))
+                rc = EXIT_UNPARSED
+        print("browser-only reads: SKIPPED (REST platform)")
+        if args.emit_status:
+            report = build_status_report(args.account, snap,
+                                         positions=read_rows["positions"], orders=read_rows["orders"])
+            if report is None:
+                print("emit_status: SKIPPED (balance and equity both unread)")
+            else:
+                try:
+                    res = post_status(report, args.api_base)
+                    print(f"emit_status: ok id={res.get('id')}")
+                except Exception as exc:
+                    print(_redact(f"emit_status: FAILED ({type(exc).__name__}: {exc})", *secrets))
+                    rc = rc or EXIT_ERROR
+        else:
+            print("emit_status: off (default)")
+    except Exception as exc:
+        print(_redact(f"read: ERROR ({type(exc).__name__}: {exc})", *secrets)[:600])
+        rc = EXIT_ERROR
+    finally:
+        try:
+            adapter.logout()
+        except Exception:
+            pass
+    return rc
+
 def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--account", default="breakout_1")
@@ -270,11 +331,7 @@ def main(argv: Optional[list] = None) -> int:
         return EXIT_FEASIBILITY
 
     if platform in API_PLATFORMS:
-        # A REST-API account has no browser terminal to log in to here
-        # (VELOTRADE-API-EXEC): refuse before Chromium, never half-drive it.
-        print(f"feasibility: api_platform ({platform} is driven over REST; "
-              "use the velotrade-api-roundtrip action, not the browser check)")
-        return EXIT_FEASIBILITY
+        return api_status_check(args, cfg, username, password)
 
     adapter = adapter_for_platform(platform)
 

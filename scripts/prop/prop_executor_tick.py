@@ -74,6 +74,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -359,6 +360,106 @@ def _code_sha() -> str:
         return "unknown"
 
 
+
+def run_cycle_and_trail(*, adapter, page, api, cfg, mode, args, state_dir, secrets, sleep,
+                        save_session=None) -> int:
+    """One executor cycle plus the PROP-TRAIL step, shared by the browser tick
+    and the REST tick (VELOTRADE-GOLIVE). ``page`` is None on a REST platform."""
+    res = pe.run_cycle(
+        adapter=adapter, page=page, api=api, cfg=cfg, mode=mode,
+        ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
+        state=pe.ExecutorState(state_dir),
+        walk_form=args.dry_run,
+        max_lots=cfg.watched_click_max_lots if args.watched_click else None,
+        only_ticket_id=args.ticket_id or None,
+        sleep=sleep)
+    # The cycle's reads / actions / reports / alerts are emitted and the
+    # session saved BEFORE the trail step (manager re-review of #15316):
+    # a trail step that hangs past the wrapper's wall clock must not
+    # lose this tick's alert lines or its ping.
+    emit({"reads": res.reads}, *secrets)
+    for a in res.actions:
+        emit({"action": a}, *secrets)
+    for r in res.reports:
+        emit({"report": r}, *secrets)
+    for al in res.alerts:
+        emit({"alert": al}, *secrets)
+    emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+    if save_session is not None:
+        save_session()
+    if not (args.watched_click or args.ticket_id):
+        # PROP-TRAIL: the leg's declared trail, by amending the resting
+        # SL. AFTER the cycle and its output, so it never delays a
+        # ticket or an alert; same mode (read_only walks to the edit
+        # control and stops). Fully contained: an exception here must
+        # not reach the outer handler, whose record_tick_error trips
+        # the entry halt. Its own reports / alerts are emitted after it.
+        n_rep, n_al = len(res.reports), len(res.alerts)
+        try:
+            # PROP-TRAIL-VENV: import the trail's deps EXPLICITLY (the
+            # candle feed builds its ccxt client lazily, per call) and
+            # emit a POSITIVE line, so executor-dry-run proves the venv
+            # rather than relying on an absent alert.
+            import ccxt  # noqa: F401
+            import pandas  # noqa: F401
+
+            from src.prop import prop_trail
+            candles_fn = prop_trail.default_candles_fn()
+            emit({"trail": {"deps": "importable (pandas, ccxt)", "mode": res.mode}})
+            prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
+                                      state_dir=state_dir, candles_fn=candles_fn, res=res)
+        except ImportError as exc:
+            res.alerts.append(f"trail: step failed ({type(exc).__name__}: {exc.name or exc}) -- "
+                              "PROP-TRAIL-VENV: the executor venv cannot import the trail's deps; "
+                              "entries unaffected")
+        except Exception as exc:  # noqa: BLE001
+            res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
+        for r in res.reports[n_rep:]:
+            emit({"report": r}, *secrets)
+        for al in res.alerts[n_al:]:
+            emit({"alert": al}, *secrets)
+    return EXIT_UNPARSED if res.halted else EXIT_OK
+
+
+def run_api_tick(*, args, mode, cfg, cfg_plat, username, password, secrets) -> int:
+    """The executor tick for a REST platform (``dxtrade_api``; VELOTRADE-GOLIVE).
+
+    No browser: a FRESH REST login every tick (the feed's saved browser session
+    means nothing to a REST host, so ``--login reuse`` is ignored), then the
+    SAME ``run_cycle`` + trail step as the browser tick with ``page=None``.
+    Only the executor modes run here; every probe/round-trip mode is a browser
+    measurement and is refused."""
+    if mode not in ("live", "read_only"):
+        emit({"feasibility": "api_platform",
+              "why": f"mode {mode!r} is a browser measurement; {cfg_plat['platform']} runs live/read_only only"})
+        return EXIT_FEASIBILITY
+    if not username or not password:
+        emit({"feasibility": "no_credentials"})
+        return EXIT_FEASIBILITY
+    adapter = adapter_for_platform(cfg_plat["platform"])
+    try:
+        adapter.login(None, cfg_plat["login_url"], username, password)
+    except FeasibilityError as fe:
+        emit({"feasibility": fe.reason, "detail": fe.detail}, *secrets)
+        return EXIT_FEASIBILITY
+    secrets = tuple(secrets) + tuple(getattr(adapter, "_secrets", ()))
+    emit({"session": "rest_login"})
+    api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
+    try:
+        return run_cycle_and_trail(adapter=adapter, page=None, api=api, cfg=cfg, mode=mode, args=args,
+                                   state_dir=Path(args.state_dir), secrets=secrets, sleep=time.sleep)
+    except Exception as exc:
+        emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)
+        trip = pe.record_tick_error(Path(args.state_dir), mode == "live", type(exc).__name__)
+        if trip:
+            emit({"alert": trip + " — new entries halted until cleared"}, *secrets)
+        return EXIT_ERROR
+    finally:
+        try:
+            adapter.logout()
+        except Exception:
+            pass
+
 def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--account", default="breakout_1")
@@ -460,7 +561,7 @@ def main(argv: Optional[list] = None) -> int:
     if mode == "off":
         emit({"executor": "off", "why": f"{mode_env}=off — nothing read, nothing clicked"})
         return EXIT_OK
-    if args.login == "reuse" and not args.storage_state:
+    if args.login == "reuse" and not args.storage_state and cfg_plat["platform"] not in API_PLATFORMS:
         emit({"session": "none", "why": "--login reuse needs --storage-state (the feed's session file)"})
         return EXIT_NO_SESSION
     if args.login == "fresh" and (not username or not password):
@@ -491,11 +592,8 @@ def main(argv: Optional[list] = None) -> int:
                               f"the executor tick wins -- re-dispatch this {mode} after it is placed"})
             return EXIT_DEFERRED
     if cfg_plat["platform"] in API_PLATFORMS:
-        # The REST order path has no browser tick yet (VELOTRADE-API-EXEC):
-        # refuse before Chromium instead of driving a REST host as a page.
-        emit({"feasibility": "api_platform",
-              "why": f"{cfg_plat['platform']} is driven over REST; this browser tick does not run it"})
-        return EXIT_FEASIBILITY
+        return run_api_tick(args=args, mode=mode, cfg=cfg, cfg_plat=cfg_plat,
+                            username=username, password=password, secrets=secrets)
     adapter = adapter_for_platform(cfg_plat["platform"])
     if hasattr(adapter, "timeout_ms"):
         adapter.timeout_ms = args.timeout_s * 1000
@@ -707,75 +805,17 @@ def main(argv: Optional[list] = None) -> int:
                     except Exception as exc:
                         emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
                 return code
-            res = pe.run_cycle(
-                adapter=adapter, page=page, api=api, cfg=cfg, mode=mode,
-                ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
-                state=pe.ExecutorState(state_dir),
-                walk_form=args.dry_run,
-                max_lots=cfg.watched_click_max_lots if args.watched_click else None,
-                only_ticket_id=args.ticket_id or None,
-                sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
-            # The cycle's reads / actions / reports / alerts are emitted and the
-            # session saved BEFORE the trail step (manager re-review of #15316):
-            # a trail step that hangs past the wrapper's wall clock must not
-            # lose this tick's alert lines or its ping.
-            emit({"reads": res.reads}, *secrets)
-            for a in res.actions:
-                emit({"action": a}, *secrets)
-            for r in res.reports:
-                emit({"report": r}, *secrets)
-            for al in res.alerts:
-                emit({"alert": al}, *secrets)
-            emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
-            if args.login == "reuse":
-                try:
-                    save_storage_state(context, args.storage_state)
-                except Exception as exc:
-                    emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
-            if not (args.watched_click or args.ticket_id):
-                # PROP-TRAIL: the leg's declared trail, by amending the resting
-                # SL. AFTER the cycle and its output, so it never delays a
-                # ticket or an alert; same mode (read_only walks to the edit
-                # control and stops). Fully contained: an exception here must
-                # not reach the outer handler, whose record_tick_error trips
-                # the entry halt. Its own actions / reports / alerts are emitted
-                # after it. ACTIONS INCLUDED (ACTIVE-GEOMETRY lane, 2026-10-06):
-                # run_trail_step records every per-position decision through
-                # ``res.log`` (``trail_amend`` / ``trail_skip`` → res.actions),
-                # and ``res.actions`` was emitted ONLY above, before the step
-                # ran, so the trail's own evidence never reached the journal:
-                # an SL amend on a prop account was unobservable from any
-                # session. Measured 2026-10-06 over the last 2000 journal lines
-                # of ict-prop-executor@tradeify_1: 0 ``trail_amend`` /
-                # ``trail_skip`` lines, with the per-tick ``{"trail": ...}``
-                # deps line present on every tick.
-                n_act, n_rep, n_al = len(res.actions), len(res.reports), len(res.alerts)
-                try:
-                    # PROP-TRAIL-VENV: import the trail's deps EXPLICITLY (the
-                    # candle feed builds its ccxt client lazily, per call) and
-                    # emit a POSITIVE line, so executor-dry-run proves the venv
-                    # rather than relying on an absent alert.
-                    import ccxt  # noqa: F401
-                    import pandas  # noqa: F401
+            def _save_session():
+                if args.login == "reuse":
+                    try:
+                        save_storage_state(context, args.storage_state)
+                    except Exception as exc:
+                        emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
 
-                    from src.prop import prop_trail
-                    candles_fn = prop_trail.default_candles_fn()
-                    emit({"trail": {"deps": "importable (pandas, ccxt)", "mode": res.mode}})
-                    prop_trail.run_trail_step(adapter=adapter, page=page, api=api, cfg=cfg, mode=res.mode,
-                                              state_dir=state_dir, candles_fn=candles_fn, res=res)
-                except ImportError as exc:
-                    res.alerts.append(f"trail: step failed ({type(exc).__name__}: {exc.name or exc}) -- "
-                                      "PROP-TRAIL-VENV: the executor venv cannot import the trail's deps; "
-                                      "entries unaffected")
-                except Exception as exc:  # noqa: BLE001
-                    res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
-                for a in res.actions[n_act:]:
-                    emit({"action": a}, *secrets)
-                for r in res.reports[n_rep:]:
-                    emit({"report": r}, *secrets)
-                for al in res.alerts[n_al:]:
-                    emit({"alert": al}, *secrets)
-            return EXIT_UNPARSED if res.halted else EXIT_OK
+            return run_cycle_and_trail(adapter=adapter, page=page, api=api, cfg=cfg, mode=mode, args=args,
+                                       state_dir=state_dir, secrets=secrets,
+                                       sleep=lambda s: page.wait_for_timeout(int(s * 1000)),
+                                       save_session=_save_session)
         except Exception as exc:
             emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)
             if mode in ("live", "read_only"):
