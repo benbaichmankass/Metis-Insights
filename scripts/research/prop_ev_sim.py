@@ -170,7 +170,7 @@ import json
 import math
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -641,6 +641,10 @@ class Life:
     # P(pass) - P(target reached) is the share of lives the gate (plus a later death) cost.
     target_first_reached_days: Optional[float] = None
     qual_days_eval: int = 0
+    # reset instants (days) at which each EVAL qualifying day was counted, in order --
+    # so "P(5 qualifying days by day N)" and "expected qualifying days per N days" are
+    # readable off a life without re-running it
+    qual_day_times: List[float] = field(default_factory=list)
 
     def net(self, fee: float) -> float:
         return self.banked - fee
@@ -724,6 +728,7 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                     qual_days += 1
                     if phase == "eval":
                         life.qual_days_eval = qual_days
+                        life.qual_day_times.append(now)
                 day_realized = 0.0
                 day_closed = 0
             # the 00:30 balance, excluding open positions -- or, on Velotrade, the
@@ -879,7 +884,19 @@ def summarize(lives: Sequence[Life], rules: PropRules) -> Dict[str, Any]:
     t2p = np.array([lf.days_to_pass - lf.target_first_reached_days for lf in passed
                     if lf.target_first_reached_days is not None], dtype=float)
     qde = np.array([lf.qual_days_eval for lf in lives], dtype=float)
+    need = rules.qual_day_min_days or 5
     qual_block = {
+        # P(the eval has accrued `need` qualifying days by day N); a life dead before N
+        # without them counts as not reached. Expected eval qualifying days inside the
+        # first N days, over ALL lives (deaths censor naturally).
+        "p_reach_min_qual_days_by_day": {
+            str(N): round(sum(1 for lf in lives if len(lf.qual_day_times) >= need
+                              and lf.qual_day_times[need - 1] <= N) / n, 4)
+            for N in (30, 60, 90, 180)},
+        "expected_qual_days_by_day": {
+            str(N): round(float(np.mean([sum(1 for t in lf.qual_day_times if t <= N) for lf in lives])), 2)
+            for N in (30, 60, 90)},
+        "min_qual_days": need,
         # share of lives whose eval balance ever reached the target (passed is a subset)
         "p_target_reached_eval": round(len(reached) / n, 4),
         "p_pass_given_target_reached": (round(len(passed) / len(reached), 4) if reached else None),
@@ -912,6 +929,14 @@ def summarize(lives: Sequence[Life], rules: PropRules) -> Dict[str, Any]:
         "mean_trades_skipped_leg_busy_per_life": round(
             float(np.mean([lf.trades_skipped_leg_busy for lf in lives])), 2),
         "death_causes": dict(sorted(causes.items())),
+        # per-life breach probabilities, any phase (the gate the operator re-scoped to on
+        # 2026-10-06: "strategies that we know meet the risk requirements")
+        "p_breach_daily_loss": round(sum(1 for lf in lives if lf.died and lf.death_cause == "daily_loss") / n, 4),
+        "p_breach_max_dd": round(sum(1 for lf in lives if lf.died and lf.death_cause == "static_drawdown") / n, 4),
+        "p_breach_daily_loss_in_eval": round(sum(1 for lf in lives if lf.died and lf.death_cause == "daily_loss"
+                                                 and lf.death_phase == "eval") / n, 4),
+        "p_breach_max_dd_in_eval": round(sum(1 for lf in lives if lf.died and lf.death_cause == "static_drawdown"
+                                             and lf.death_phase == "eval") / n, 4),
         "ev_net_usd_per_365d_with_rebuy": (
             round(365.0 * mean_net / mean_life, 2) if mean_life > 0 else None),
     }
@@ -1265,6 +1290,14 @@ def _self_test() -> int:
     lf8b = lf
     s8 = summarize([lf8a, lf8b], PropRules())
     q8 = s8["qualifying_days"]
+    check(len(lf8a.qual_day_times) == 5
+          and all(abs(t - (k + 0.5 / 24)) < 1e-6 for k, t in enumerate(lf8a.qual_day_times, start=1)),
+          f"qualifying-day times: the five eval qualifying resets are days 1..5 at 00:30 ({lf8a.qual_day_times})")
+    check(q8["p_reach_min_qual_days_by_day"]["30"] == 0.5 and q8["expected_qual_days_by_day"]["30"] == 2.5
+          and q8["p_reach_min_qual_days_by_day"]["180"] == 0.5,
+          f"qualifying-day timing summary: half the lives reach 5 by day 30, 2.5 expected per 30d ({q8})")
+    check(s8["p_breach_daily_loss"] == 0.0 and s8["p_breach_max_dd"] == 0.0,
+          "breach probabilities: a deterministic winner never breaches")
     check(q8["p_target_reached_eval"] == 1.0 and s8["p_pass_eval"] == 0.5
           and q8["p_pass_given_target_reached"] == 0.5 and q8["p_target_reached_not_passed"] == 0.5
           and q8["days_target_to_pass"]["p50"] > 0,

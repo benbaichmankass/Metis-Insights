@@ -6,7 +6,7 @@ cadence: once
 kind: experiment
 theme: new_strategy_prop
 priority: 1
-question: 'Over the admitted ETH/SOL prop legs (trend_donchian_eth_prop, trend_donchian_sol_prop; one leg per symbol, so
+question: 'GO-LIVE GATE = the risk requirements (operator 2026-10-06 06:40Z). Over the admitted ETH/SOL prop legs (trend_donchian_eth_prop, trend_donchian_sol_prop; one leg per symbol, so
   ETH, SOL, ETH+SOL) and a flat-risk sweep of 0.5% / 1.0% / 1.5% of balance, which (book, risk) cell can pass the
   velotrade_classic_1step.yaml evaluation (+10% target AND 5 qualifying days at >= +0.8% of the initial balance realised,
   00:30-00:30 UTC) and survive the 4% daily / 7% static limits, under VELOTRADE''s own cost stack? Is the 5-qualifying-day
@@ -45,28 +45,37 @@ decision_rule:
     (P(target reached in eval), P(pass | target reached), P(target reached and never passed) = the gate''s cost, median
     days from target to pass), pass_deferred_qual_days and payout_deferred_qual_days per life, min hold of the union ledger
     (the 60 s inactivity floor), mean pairwise daily-PnL correlation.'
-  rule: 'PASS (Tier-3 roster proposal, NOT applied by this unit) iff ALL: (G) book_max_gap <= 14d; (D) no day with realised
-    loss > 80% of $200; (S) ev_net_usd_per_life > 0 AND p_net_positive >= 0.70 on ALL 5 seeds; (Q) p_pass_eval >= 0.50
-    on ALL 5 seeds.
+  rule: 'RE-SCOPED 2026-10-06 ~06:45Z, BEFORE ANY CELL WAS GRADED, on the manager''s relay of the operator''s 06:40Z decision
+    (verbatim): "if we have strategies that we know meet the risk requirements, even if we''re not sure yet about the trading
+    days, we can still go live. That shouldn''t be a blocker. We can test that after the account is already live and then
+    make adjustments." The v1 text (PASS = G+D+S+Q with S = P(net>0) >= 0.70 and Q = P(pass) >= 0.50 as gates) is in this
+    file''s git history (commit a7763b65f). Disclosure: 15 v1 cells had run and 4 SOL-solo 0.5% cells were previewed (EV
+    -21..-24, P(pass) 0.31) before the re-scope; all 15 were discarded and every cell is re-run with the timing fields.
 
-    EVAL_FIT (explicitly NOT a pass: the roster is expected to clear the EVALUATION, the account-life EV bar is unmet)
-    iff (G), (D), (Q) hold and ev_net_usd_per_life > 0 on ALL 5 seeds but min-over-seeds p_net_positive < 0.70.
+    GO_LIVE (Tier-3 roster proposal, NOT applied by this unit) iff ALL: (G) book_max_gap <= 14d; (D) no 00:30-UTC day
+    with realised loss > 80% of $200 in the 730d ledger at the arm risk; (B) P(daily-loss breach) per life <= 0.05 on
+    ALL 5 seeds (the sizing-driven breach; the static 7% floor is where every prop life ends and is the accepted cost of
+    the bet, B6); (R) ev_net_usd_per_life >= 0 on ALL 5 seeds.
 
-    FAIL iff ev_net_usd_per_life <= 0 on any seed. Otherwise NULL, with the first failing clause named in the order Q, S,
-    D, G as the binding constraint.
+    FAIL iff ev_net_usd_per_life < 0 on any seed. Otherwise NULL, with the first failing clause named in the order B, D, G
+    as the binding constraint.
 
-    Ranking (reported; ties never broken by looking at results): by class PASS > EVAL_FIT > NULL > FAIL, then min-over-seeds
-    p_net_positive, then mean EV, then the LOWER risk. The recommendation is the top cell iff its class is PASS or EVAL_FIT,
-    else "none passes" with that cell''s binding clause named.
+    REPORTED beside every verdict, never gated: P(max-DD breach) per life; P(net>0) and the prop-fit lanes'' edge bar
+    (EDGE_PASS iff EV > 0 and P(net>0) >= 0.70 on all seeds, else EDGE_NULL); P(pass eval) within the 730d horizon and
+    P(alive at horizon); the qualifying-day measurement: expected qualifying days per 30/60/90d, P(5 qualifying days by
+    day 30/60/90/180), P(target reached), P(pass | target reached), P(target reached and never passed), median days from
+    target to pass. The 5-qualifying-day rule is labelled QUAL_DAYS_BINDING for a cell iff P(target reached and never
+    passed) >= 0.10 of lives; if any GO_LIVE cell carries that label the memo states one line on what would fix it (more
+    legs or more frequency) as a follow-up research unit, not a blocker.
 
-    The qualifying-day rule is declared BINDING for a cell (a reported label, not a verdict) iff P(target reached and
-    never passed) >= 0.10 of lives, i.e. at least one life in ten reaches +10% and still dies or times out before 5 qualifying
-    days accrue.
+    Ranking (reported; ties never broken by looking at results): by class GO_LIVE > NULL > FAIL, then min-over-seeds
+    p_net_positive, then mean EV, then the LOWER risk. The recommendation is the top cell iff its class is GO_LIVE, else
+    "none passes" with that cell''s binding clause named. ETH+SOL at the account''s risk_pct (0.5%) is run and reported
+    FIRST (operator: speed over breadth), then the sweep.
 
-    The 0.50 P(pass) floor is registered knowing RQ-20261005-903 measured 0.59 for ETH+SOL at 0.5% under the Breakout
-    stack; it is the "median life passes" floor, not a number tuned to that cell. The 14d margin, the 80% line, the 0.70
-    floor and the 0.50 floor are NOT changed after seeing any result. 1.5% is in the grid although (D) is expected to
-    refuse it: the grid is the operator''s ask and the refusal is the measurement.'
+    The 14d margin, the 80% line, the 0.05 breach ceiling, the 0.70 edge bar and the 0.10 binding share are NOT changed
+    after seeing any result. 1.5% is in the grid although (D) is expected to refuse it: the grid is the operator''s ask and
+    the refusal is the measurement.'
   what_it_does_not_do: 'Does not edit config/accounts.yaml (the proposed diff goes in the PR body for the manager''s Tier-3
     call). Backtest gaps do not prove live gaps. The velotrade_classic_1step.yaml numbers are UNCONFIRMED desk research
     (unconfirmed: true in the ruleset) and the funded offer is discretionary (Terms 5.3(b)), neither modelled. A pilot

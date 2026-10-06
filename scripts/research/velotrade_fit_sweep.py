@@ -9,17 +9,23 @@ Per (book, risk arm) this runs scripts/research/prop_ev_sim.py under
 config/prop_rulesets/velotrade_classic_1step.yaml with VELOTRADE's own cost
 stack (commission 0.03% per side = 6 bps round trip, slippage 3 bps round trip,
 swap 0.05% of notional per 00:30-UTC crossing — the `dxtrade` model), one seed
-per cell, and grades the cell on four registered clauses:
+per cell, and grades the cell on the GO-LIVE gate the operator re-scoped on 2026-10-06
+06:40Z ("if we have strategies that we know meet the risk requirements, even if
+we're not sure yet about the trading days, we can still go live"):
 
   (G) inactivity: union-ledger max entry gap <= 14 d  (prop_book_search.book_max_gap)
   (D) daily loss: no 00:30-reset day of realised net-R x risk$ beyond 80% of $200
-  (S) edge:       ev_net_usd_per_life > 0 AND p_net_positive >= 0.70 on every seed
-  (Q) evaluation: p_pass_eval >= 0.50 on every seed (the median account life passes)
+  (B) breach:     P(daily-loss breach) per life <= 0.05 on every seed
+  (R) EV:         ev_net_usd_per_life >= 0 on every seed
 
-and reports — never grades on — the qualifying-day measurement the simulator
-now exposes (results.path.qualifying_days): P(target reached), P(pass | target
+and REPORTS, never grades on: P(max-DD breach) per life (every prop life ends
+there eventually -- the accepted cost of the bet, B6), P(net>0) and the 0.70
+edge bar, P(pass eval), and the qualifying-day measurement the simulator now
+exposes (results.path.qualifying_days): expected qualifying days per 30/60/90 d,
+P(5 qualifying days by day 30/60/90/180), P(target reached), P(pass | target
 reached), the share of lives that reached +10% and still never passed, and the
-median days from target to pass.
+median days from target to pass. A cell where that share is >= 0.10 is labelled
+QUAL_DAYS_BINDING (a label, not a verdict).
 
 Usage:
     python3 scripts/research/velotrade_fit_sweep.py --unit RQ-20261006-002 --out comms/research/RQ-20261006-002
@@ -44,8 +50,9 @@ RULE_ID = "RULE-RQ1006-VELOTRADE-FIT"
 RULE_REGISTERED_AT = "2026-10-06"
 MAX_GAP_DAYS = 14.0
 LOSS_LINE_FRAC = 0.80
-P_NET_FLOOR = 0.70
-P_PASS_FLOOR = 0.50
+P_NET_FLOOR = 0.70            # reported edge bar (prop-fit lanes' convention), NOT the go-live gate
+P_BREACH_DAILY_MAX = 0.05     # (B) per-life P(daily-loss breach) ceiling, every seed
+QUAL_BINDING_SHARE = 0.10     # label: P(target reached and never passed) >= this => QUAL_DAYS_BINDING
 SEEDS = (1, 2, 3, 4, 5)
 RISKS = (0.005, 0.01, 0.015)
 ACCOUNT = 5000.0
@@ -59,7 +66,7 @@ DEFAULT_LEGS = {
     "trend_donchian_eth_prop": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
     "trend_donchian_sol_prop": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl",
 }
-CLASS_ORDER = {"PASS": 0, "EVAL_FIT": 1, "NULL": 2, "FAIL": 3, "NOT_APPLICABLE": 4}
+CLASS_ORDER = {"GO_LIVE": 0, "NULL": 1, "FAIL": 2, "NOT_APPLICABLE": 3}
 
 
 def _load_book_search():
@@ -95,6 +102,9 @@ def sim_cell(legs: dict[str, Path], symbols: dict[str, str], risk: float, seed: 
     return {
         "ev": blk["ev_net_usd_per_life"], "ev_mc_se": blk["ev_net_usd_per_life_mc_se"],
         "p_net": blk["p_net_positive"], "p_pass": blk["p_pass_eval"],
+        "p_breach_daily_loss": blk["p_breach_daily_loss"], "p_breach_max_dd": blk["p_breach_max_dd"],
+        "p_breach_daily_loss_in_eval": blk["p_breach_daily_loss_in_eval"],
+        "p_breach_max_dd_in_eval": blk["p_breach_max_dd_in_eval"],
         "ev_p5": blk["evidence_ci"]["ev_net_usd_p5"], "ev_p95": blk["evidence_ci"]["ev_net_usd_p95"],
         "p_pass_p5": blk["evidence_ci"]["p_pass_eval_p5"],
         "days_to_pass_p50": (blk["days_to_pass"] or {}).get("p50"),
@@ -114,24 +124,28 @@ def sim_cell(legs: dict[str, Path], symbols: dict[str, str], risk: float, seed: 
 
 
 def grade(cells: dict, gap_ok: bool, loss_ok: bool) -> tuple[str, str]:
-    """The registered rule. Returns (class, binding clause or '')."""
+    """The registered rule (re-scoped 2026-10-06). Returns (class, binding clause or '')."""
     if any("error" in c for c in cells.values()) or len(cells) != len(SEEDS):
         return "NOT_APPLICABLE", "sim"
     evs = [c["ev"] for c in cells.values()]
-    pn = [c["p_net"] for c in cells.values()]
-    pp = [c["p_pass"] for c in cells.values()]
-    if min(evs) <= 0:
-        return "FAIL", "S:ev"
-    q_ok, s_ok = min(pp) >= P_PASS_FLOOR, min(pn) >= P_NET_FLOOR
-    if gap_ok and loss_ok and s_ok and q_ok:
-        return "PASS", ""
-    if gap_ok and loss_ok and q_ok:
-        return "EVAL_FIT", "S:p_net"
-    # the first failing clause, in the registered order Q, S, D, G
-    for name, ok in (("Q:p_pass", q_ok), ("S:p_net", s_ok), ("D:daily_loss", loss_ok), ("G:gap", gap_ok)):
+    pb = [c["p_breach_daily_loss"] for c in cells.values()]
+    if min(evs) < 0:
+        return "FAIL", "R:ev"
+    b_ok = max(pb) <= P_BREACH_DAILY_MAX
+    if gap_ok and loss_ok and b_ok:
+        return "GO_LIVE", ""
+    for name, ok in (("B:p_breach_daily", b_ok), ("D:daily_loss", loss_ok), ("G:gap", gap_ok)):
         if not ok:
             return "NULL", name
     return "NULL", "?"
+
+
+def edge_label(cells: dict) -> str:
+    """Reported beside the verdict: does the cell also clear the prop-fit lanes' edge bar?"""
+    ok = [c for c in cells.values() if "error" not in c]
+    if len(ok) != len(SEEDS):
+        return "n/a"
+    return "EDGE_PASS" if min(c["ev"] for c in ok) > 0 and min(c["p_net"] for c in ok) >= P_NET_FLOOR else "EDGE_NULL"
 
 
 def rank_key(ent: dict) -> tuple:
@@ -140,17 +154,17 @@ def rank_key(ent: dict) -> tuple:
 
 
 def _self_test() -> int:
-    good = {s: {"ev": 10.0, "p_net": 0.75, "p_pass": 0.6} for s in SEEDS}
-    assert grade(good, True, True) == ("PASS", "")
-    assert grade({s: dict(good[s], p_net=0.5) for s in SEEDS}, True, True) == ("EVAL_FIT", "S:p_net")
-    assert grade({s: dict(good[s], p_pass=0.4) for s in SEEDS}, True, True) == ("NULL", "Q:p_pass")
-    assert grade({s: dict(good[s], p_pass=0.4, p_net=0.5) for s in SEEDS}, True, True) == ("NULL", "Q:p_pass")
+    good = {s: {"ev": 10.0, "p_net": 0.75, "p_pass": 0.6, "p_breach_daily_loss": 0.01} for s in SEEDS}
+    assert grade(good, True, True) == ("GO_LIVE", "")
+    assert grade({s: dict(good[s], ev=0.0) for s in SEEDS}, True, True) == ("GO_LIVE", "")
+    assert grade({s: dict(good[s], p_breach_daily_loss=(0.06 if s == 2 else 0.01)) for s in SEEDS}, True, True) == ("NULL", "B:p_breach_daily")
     assert grade(good, True, False) == ("NULL", "D:daily_loss")
     assert grade(good, False, True) == ("NULL", "G:gap")
-    assert grade({s: dict(good[s], ev=(-1.0 if s == 3 else 10.0)) for s in SEEDS}, True, True) == ("FAIL", "S:ev")
+    assert grade({s: dict(good[s], ev=(-1.0 if s == 3 else 10.0)) for s in SEEDS}, True, True) == ("FAIL", "R:ev")
     assert grade({s: good[s] for s in SEEDS[:4]}, True, True)[0] == "NOT_APPLICABLE"
-    a = {"verdict": "EVAL_FIT", "min_p_net": 0.5, "mean_ev": 100, "risk": 0.01}
-    b = {"verdict": "EVAL_FIT", "min_p_net": 0.5, "mean_ev": 100, "risk": 0.005}
+    assert edge_label(good) == "EDGE_PASS" and edge_label({s: dict(good[s], p_net=0.5) for s in SEEDS}) == "EDGE_NULL"
+    a = {"verdict": "GO_LIVE", "min_p_net": 0.5, "mean_ev": 100, "risk": 0.01}
+    b = {"verdict": "GO_LIVE", "min_p_net": 0.5, "mean_ev": 100, "risk": 0.005}
     c = {"verdict": "NULL", "min_p_net": 0.9, "mean_ev": 900, "risk": 0.005}
     assert [e["risk"] for e in sorted([a, b, c], key=rank_key)] == [0.005, 0.01, 0.005]
     print("self-test ok")
@@ -205,6 +219,8 @@ def main(argv=None) -> int:
             for s in a.seeds:
                 tasks.append((ent, s))
 
+    tasks.sort(key=lambda t: (-len(t[0]["book"]), t[0]["risk"], t[1]))
+
     def run(t):
         ent, s = t
         name = "+".join(ent["book"]) + f"__r{ent['risk']}__s{s}.json"
@@ -221,7 +237,14 @@ def main(argv=None) -> int:
             ent["min_p_pass"] = min(c["p_pass"] for c in ok)
             ent["mean_ev"] = round(sum(c["ev"] for c in ok) / len(ok), 2)
             ent["mean_p_pass"] = round(sum(c["p_pass"] for c in ok) / len(ok), 4)
+            ent["max_p_breach_daily_loss"] = max(c["p_breach_daily_loss"] for c in ok)
+            ent["mean_p_breach_max_dd"] = round(sum(c["p_breach_max_dd"] for c in ok) / len(ok), 4)
+            ent["edge"] = edge_label(cells)
             ent["qual_gate"] = {
+                "label": ("QUAL_DAYS_BINDING" if sum(c["qualifying_days"]["p_target_reached_not_passed"] for c in ok) / len(ok) >= QUAL_BINDING_SHARE
+                          else "QUAL_DAYS_NOT_BINDING"),
+                "expected_qual_days_by_day": {N: round(sum(c["qualifying_days"]["expected_qual_days_by_day"][N] for c in ok) / len(ok), 2) for N in ("30", "60", "90")},
+                "p_reach_min_qual_days_by_day": {N: round(sum(c["qualifying_days"]["p_reach_min_qual_days_by_day"][N] for c in ok) / len(ok), 4) for N in ("30", "60", "90", "180")},
                 "mean_p_target_reached": round(sum(c["qualifying_days"]["p_target_reached_eval"] for c in ok) / len(ok), 4),
                 "mean_p_target_reached_not_passed": round(sum(c["qualifying_days"]["p_target_reached_not_passed"] for c in ok) / len(ok), 4),
                 "days_target_to_pass_p50": [c["qualifying_days"]["days_target_to_pass"] and c["qualifying_days"]["days_target_to_pass"]["p50"] for c in ok],
@@ -231,11 +254,13 @@ def main(argv=None) -> int:
     ranked = sorted(report["cells"], key=rank_key)
     best = ranked[0]
     report["ranking"] = [{"book": e["book"], "risk": e["risk"], "verdict": e["verdict"], "binding_clause": e["binding_clause"],
+                          "edge": e.get("edge"), "qual_label": (e.get("qual_gate") or {}).get("label"),
+                          "max_p_breach_daily_loss": e.get("max_p_breach_daily_loss"), "mean_p_breach_max_dd": e.get("mean_p_breach_max_dd"),
                           "min_p_net": e.get("min_p_net"), "min_p_pass": e.get("min_p_pass"), "mean_ev": e.get("mean_ev")}
                          for e in ranked]
     report["recommendation"] = (
         {"roster": best["book"], "risk_pct": best["risk"], "class": best["verdict"]}
-        if best["verdict"] in ("PASS", "EVAL_FIT") else
+        if best["verdict"] == "GO_LIVE" else
         {"roster": None, "class": best["verdict"], "binding_constraint": best["binding_clause"],
          "best_cell": {"book": best["book"], "risk": best["risk"]}})
     (out / "fit.json").write_text(json.dumps(report, indent=1, default=str))
@@ -244,7 +269,7 @@ def main(argv=None) -> int:
     if a.emit_result:
         sys.path.insert(0, str(REPO / "scripts" / "research"))
         import research_result as rr
-        verdict = {"PASS": "pass", "FAIL": "fail"}.get(best["verdict"], "indeterminate")
+        verdict = {"GO_LIVE": "pass", "FAIL": "fail"}.get(best["verdict"], "indeterminate")
         sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
         n = sum(len(r) for r in rows.values())
         rec = rr.build(
@@ -256,15 +281,17 @@ def main(argv=None) -> int:
             n=n, workflow="session-local", run_id=a.run_id, commit_sha=sha, tool=TOOL,
             measurement={"recommendation": report["recommendation"], "ranking": report["ranking"][:6],
                          "summary": "; ".join(f"{'+'.join(e['book'])} @{e['risk']}: {e['verdict']} "
-                                              f"(minP(net>0) {e.get('min_p_net')}, minP(pass) {e.get('min_p_pass')}, EV {e.get('mean_ev')})"
+                                              f"(maxP(daily breach) {e.get('max_p_breach_daily_loss')}, minP(net>0) {e.get('min_p_net')}, "
+                                              f"minP(pass) {e.get('min_p_pass')}, EV {e.get('mean_ev')}, {e.get('edge')}, {(e.get('qual_gate') or {}).get('label')})"
                                               for e in ranked[:4])},
             artifact_store=str(out), artifact_locator="fit.json (per-seed cells under sims/)",
             rows_landed=len(report["cells"]),
             note=(f"{RULE_ID}: best class {best['verdict']}"
                   + (f", binding clause {best['binding_clause']}" if best["binding_clause"] else "")
-                  + ". Classes: PASS = G+D+S+Q; EVAL_FIT = G+D+Q with EV>0 but P(net>0)<0.70 (not a pass; "
-                    "the roster is expected to clear the evaluation, the account-life EV bar is unmet); "
-                    "NULL/FAIL otherwise. Does not edit config/accounts.yaml."),
+                  + ". GO_LIVE = G (gap<=14d) + D (no realised day beyond 80% of $200) + B (P(daily-loss breach)/life<=0.05 "
+                    "every seed) + R (EV>=0 every seed); FAIL = EV<0 on any seed; NULL otherwise. The 0.70 P(net>0) edge bar "
+                    "and the 5-qualifying-day rule are REPORTED, not gated (operator re-scope 2026-10-06 06:40Z). "
+                    "Does not edit config/accounts.yaml."),
         )
         path = rr.write([rec], research_unit=a.unit, run_id=a.run_id)
         print(f"landed result: {path}", file=sys.stderr)
