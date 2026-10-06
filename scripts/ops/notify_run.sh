@@ -192,6 +192,17 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="high" ;;
         esac
         ;;
+    velotrade-api-roundtrip)
+        # ONE live-or-dry REST round trip on velotrade_1 (VELOTRADE-API-EXEC).
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — round trip passed (or dry), account flat"; priority="normal" ;;
+            3) result="STOP RULE tripped — flattened and verified flat (see run log)"; priority="high" ;;
+            4) result="STOP RULE tripped — NOT verified flat: check velotrade_1 NOW"; priority="high" ;;
+            5) result="refused before any send (preflight / latch / confirm)"; priority="normal" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
+        esac
+        ;;
     egress-landing-probe|velotrade-api-probe)
         # READ-ONLY landing-page reachability probe of a fixed host allowlist.
         # Any HTTP outcome is a measurement; only an environment fault fails.
