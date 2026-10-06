@@ -60,6 +60,8 @@ class MainActivity : Activity() {
     private lateinit var api: Api
     private lateinit var ledger: Ledger
     private var busy = false
+    private var lastHbMs = 0L
+    private var lastStatus = ""
     // HOTFIX 2026-10-05 (manual login was being reset by the loop): any touch/key on the screen holds every
     // automatic navigation (reload, re-login) for USER_HOLD_MS; "Pause" holds everything until the page reads
     // logged in, or PAUSE_MAX_MS passes.
@@ -77,6 +79,7 @@ class MainActivity : Activity() {
         // form is not the way in.
         const val APP_URL = "https://app.breakoutprop.com/"
         const val TICK_MS = 30_000L
+        const val HEARTBEAT_MS = 120_000L
         const val USER_HOLD_MS = 5 * 60_000L
         const val PAUSE_MAX_MS = 10 * 60_000L
     }
@@ -133,7 +136,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
-    private fun setStatus(s: String) { status.text = s }
+    private fun setStatus(s: String) { status.text = s; lastStatus = s }
     override fun onUserInteraction() { super.onUserInteraction(); lastUserInputMs = System.currentTimeMillis() }
     private fun userActive() = System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
     private fun paused() = System.currentTimeMillis() < pausedUntilMs
@@ -214,10 +217,12 @@ class MainActivity : Activity() {
     private suspend fun tick() {
         if (busy) return
         busy = true
+        var st = "unread"
+        var s: JSONObject? = null
         try {
             ensure()
-            val s = jsObj("__ex.state()") ?: run { setStatus("page not readable"); return }
-            val st = when {
+            s = jsObj("__ex.state()") ?: run { setStatus("page not readable"); return }
+            st = when {
                 s.optBoolean("challenged") -> "challenged"
                 s.optBoolean("loggedIn") -> "logged_in"
                 s.optBoolean("pw") || s.optBoolean("email") || s.optBoolean("codeWait") -> "login"
@@ -241,7 +246,27 @@ class MainActivity : Activity() {
                 else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
                         else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(home()) }
             }
-        } finally { busy = false }
+        } finally {
+            try { heartbeat(st, s) } catch (e: Exception) { }
+            busy = false
+        }
+    }
+
+    /** HEARTBEAT (2026-10-06 08:15Z: an hour with no claim and no event, because every no-claim branch but one only
+     *  set the on-screen status). On EVERY tick path, at most every 2 min: the status line, the page state, the
+     *  pause / touch-hold flags and the terminal gate. Our own state and UI labels only; never links or values. */
+    private suspend fun heartbeat(st: String, s: JSONObject?) {
+        val now = System.currentTimeMillis()
+        if (now - lastHbMs < HEARTBEAT_MS) return
+        lastHbMs = now
+        val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive()).put("armed", armed())
+            .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
+            .put("path_depth", s?.optInt("path_depth") ?: 0)
+        jsObj("__ex.terminal()")?.let { tm ->
+            for (k in listOf("ready", "probe", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
+            state.put("tabs", tm.optInt("tabs")).put("inputs", tm.optInt("inputs"))
+        }
+        api.heartbeat(lastStatus, state)
     }
 
     /** Where "back to the terminal" goes: the last account terminal seen while logged in, else the host root. */
@@ -278,7 +303,11 @@ class MainActivity : Activity() {
         setStatus("logged in: opening the account's terminal")
         web.loadUrl(href)
         for (i in 0 until 12) { delay(2500); ensure(); if (terminalReady()) return true }
-        setStatus("terminal did not load (no Order control / Buy-Sell tabs): no claim")
+        setStatus("terminal did not load (no Order control / Buy-Sell tabs / buy+sell markers): no claim")
+        // Self-diagnosing miss (fix 06:17Z): post the page's control texts once per load attempt, never a report.
+        val tm = jsObj("__ex.terminal()")
+        val ctl = try { JSONArray(js("JSON.stringify(__ex.controls())")) } catch (e: Exception) { JSONArray() }
+        api.terminalMiss("tabs=${tm?.optInt("tabs")} inputs=${tm?.optInt("inputs")} probe=${tm?.optBoolean("probe")}", ctl)
         return false
     }
 
@@ -491,7 +520,7 @@ class MainActivity : Activity() {
             val r = js("__ex.symbolStep(${q(venue)})")
             route += (if (route.isEmpty()) "" else ">") + r
             if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
-            if (r == prev && (r == "clicked_symbol" || r == "opened_picker")) return "$route>stuck"
+            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "opened_picker")) return "$route>stuck"
             prev = r
             delay(1500); ensure()
         }

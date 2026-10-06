@@ -62,8 +62,11 @@ CLAIM_TIMEOUT_S = 180  # design § 3.3: "suggest 3 minutes without a report"
 _FP_RE = re.compile(r"^[0-9a-f]{64}$")
 _EVENT_KINDS = {
     "login_ok", "login_failed", "logout_seen", "login_started", "refusal",
-    "mismatch", "flattened", "dry_fill_ok", "submitted", "app_started", "error",
+    "mismatch", "flattened", "dry_fill_ok", "submitted", "app_started", "error", "terminal_miss", "heartbeat",
 }
+# terminal_miss carries the control texts the page showed (our own UI labels, scrubbed like a reason) so the
+# next "terminal did not load" is self-diagnosing; only the LATEST one per account is kept, beside the journal.
+_DIAG_MAX = 40
 
 
 class PhoneAuthError(Exception):
@@ -377,7 +380,11 @@ def record_event(device: PhoneDevice, body: Dict[str, Any], *, send=None) -> Dic
     msg = f"📱 phone {device.account_id}: {kind}" + (f" [{ticket}]" if ticket else "") + (
         f" — {reason}" if reason else "")
     logger.info("phone_executor event %s %s %s", device.account_id, kind, ticket)
-    quiet = kind == "app_started" and not body.get("ping")
+    if kind == "terminal_miss":
+        _write_diag(device.account_id, reason, body.get("controls"))
+    if kind == "heartbeat":
+        _write_heartbeat(device.account_id, reason, body.get("state"))
+    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat")
     sent = False
     if not quiet:
         try:
@@ -388,6 +395,67 @@ def record_event(device: PhoneDevice, body: Dict[str, Any], *, send=None) -> Dic
         except Exception:  # noqa: BLE001  # allow-silent: logged; the event is still acknowledged
             logger.warning("phone_executor: event ping failed", exc_info=True)
     return {"ok": True, "pinged": sent}
+
+
+def _scrub(s: Any, n: int) -> str:
+    s = re.sub(r"[^A-Za-z0-9 _.:/()=+&%-]", "", str(s or ""))[:n]
+    return re.sub(r"https?\S*|\S+@\S+|\d{6,}", "*", s)
+
+
+def _diag_path(account_id: str) -> Path:
+    return Path(prop_journal._db_path()).parent / f"prop_phone_diag_{re.sub(r'[^a-z0-9_]', '', account_id)}.json"
+
+
+def _write_diag(account_id: str, reason: str, controls: Any) -> None:
+    ctl = [_scrub(c, 40) for c in (controls if isinstance(controls, list) else [])][:_DIAG_MAX]
+    try:
+        _diag_path(account_id).write_text(json.dumps(
+            {"at": _now().isoformat(), "reason": reason, "controls": [c for c in ctl if c]}))
+    except OSError:  # allow-silent: diagnostics only; the event is still acknowledged
+        logger.warning("phone_executor: diag write failed", exc_info=True)
+
+
+# heartbeat (2026-10-06 08:15Z: the phone went silent for an hour with no claim and no event, because every
+# no-claim branch but one only set the on-screen status). The app posts its status line + gate state on every
+# tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
+# ints or scrubbed short strings.
+_HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "orderControl",
+            "ticketOpen", "buySell", "tabs", "inputs", "armed", "build"}
+
+
+def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
+    st: Dict[str, Any] = {}
+    for k, v in (state.items() if isinstance(state, dict) else []):
+        if k not in _HB_KEYS:
+            continue
+        if isinstance(v, bool) or (isinstance(v, int) and abs(v) < 100000):
+            st[k] = v
+        else:
+            st[k] = _scrub(v, 60)
+    try:
+        _heartbeat_path(account_id).write_text(json.dumps({"at": _now().isoformat(), "status": reason, "state": st}))
+    except OSError:  # allow-silent: diagnostics only; the event is still acknowledged
+        logger.warning("phone_executor: heartbeat write failed", exc_info=True)
+
+
+def _heartbeat_path(account_id: str) -> Path:
+    return _diag_path(account_id).with_name(f"prop_phone_hb_{re.sub(r'[^a-z0-9_]', '', account_id)}.json")
+
+
+def last_heartbeat(account_id: str) -> Optional[Dict[str, Any]]:
+    """The phone's latest heartbeat (status line + gate state), or None when none was ever posted."""
+    try:
+        return json.loads(_heartbeat_path(account_id).read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def last_diag(account_id: str) -> Optional[Dict[str, Any]]:
+    """The latest terminal_miss diagnostic for the account, or None when none was ever posted."""
+    try:
+        return json.loads(_diag_path(account_id).read_text())
+    except (OSError, ValueError):
+        return None
 
 
 def alert_expired(account_id: str, ids: list, *, send=None) -> None:
