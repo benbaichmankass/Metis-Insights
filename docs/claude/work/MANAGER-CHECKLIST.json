@@ -5412,7 +5412,7 @@
       "id": "PHONE-EXEC-1B",
       "title": "Breakout live via the operator phone: phone executor + ticket channel, breakout_2 (Turbo $5k), then auto re-login via dedicated inbox",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane PHONE-EXEC-1B",
       "lane": "session_01Ce3EyP4Z9A4P4MyUvcgtmJ",
       "model": "claude-opus-5-5",
@@ -5426,16 +5426,23 @@
         16659,
         16663,
         16667,
-        16668
+        16668,
+        16687,
+        16688,
+        16692,
+        16693,
+        16722,
+        16740,
+        16742,
+        16747
       ],
-      "blocked_on": [
-        {
-          "kind": "operator_decision",
-          "ref": "APK run 37383589537",
-          "what": "operator installs the APK, logs in, says 'installed'; then manager merges held #16668"
-        }
-      ],
-      "note": "[2026-10-06T00:20Z manager] Device paired (#16651, live 19:44Z). Login works on #16659 build (Login->app.breakoutprop.com, Reload). Dry tests: 21:23Z refused (test-ticket geometry bug, fixed #16663); 22:20Z refused 'symbol ETH not verified' (terminal on BTC; instrument selection fixed #16667, lane PHONE-EXEC-INSTR, archived). Next: operator installs run-37383589537 APK + logs in -> manager merges held #16668 (dry_test_request 2026-10-06-morning-1) -> auto dry test -> if clean, set-account-mode breakout_2 live + operator taps ARMED. Lane 1B session idle on a permission prompt; superseded tonight. Prior: [2026-10-05T17:58Z manager] OPERATOR ~15:20Z: go live on Breakout ASAP, same strategies; ~15:52Z \"we'll take the risk without reviewing the terms, but we still need build automatic re-login\"; ~15:59Z \"automatic log in is not required to go live, it's just a priority and needs to happen even without the terms\". #16638 merged bf6e28ce: breakout_2 dry_run, roster ETH+SOL prop (RQ-20261005-851..854 NULL, kept), $25/ticket, device-token auth. Next: operator install+pair, dry ticket, set-account-mode live. Session evidence (1a.3): logged in 6h+, survived Wi-Fi/cellular switch, force-stop, phone restart."
+      "blocked_on": [],
+      "note": "[2026-10-06T10:35Z manager] LANDED_UNPROVEN. Two clean dry_filled end-to-end tickets on the real terminal (fab3ca 10:26Z button, 068d87 10:27Z unattended config request): ETH, Limit/Buy, qty 0.01 ETH, TP/SL typed and read back, submit enabled and not clicked. Live flip: set-account-mode #16762 -> PR #16763 (Tier-3 hold, operator go-live-ASAP directive). close_when: first LIVE breakout_2 ticket shows (a) confirm dialog handled, (b) order seen in Open orders/Positions, (c) SL/TP on the venue position -- PI-20261006-APBY4NTV-0008. Follow-ups: SOL symbol picker PI-...-0007; screenshots/background robustness/claim 502 PI-...-0006. Lane closed out (near ceiling). || [2026-10-06T00:20Z manager] Device paired (#16651, live 19:44Z). Login works on #16659 build (Login->app.breakoutprop.com, Reload). Dry tests: 21:23Z refused (test-ticket geometry bug, fixed #16663); 22:20Z refused 'symbol ETH not verified' (terminal on BTC; instrument selection fixed #16667, lane PHONE-EXEC-INSTR, archived). Next: operator installs run-37383589537 APK + logs in -> manager merges held #16668 (dry_test_request 2026-10-06-morning-1) -> auto dry test -> if clean, set-account-mode breakout_2 live + operator taps ARMED. Lane 1B session idle on a permission prompt; superseded tonight. Prior: [2026-10-05T17:58Z manager] OPERATOR ~15:20Z: go live on Breakout ASAP, same strategies; ~15:52Z \"we'll take the risk without reviewing the terms, but we still need build automatic re-login\"; ~15:59Z \"automatic log in is not required to go live, it's just a priority and needs to happen even without the terms\". #16638 merged bf6e28ce: breakout_2 dry_run, roster ETH+SOL prop (RQ-20261005-851..854 NULL, kept), $25/ticket, device-token auth. Next: operator install+pair, dry ticket, set-account-mode live. Session evidence (1a.3): logged in 6h+, survived Wi-Fi/cellular switch, force-stop, phone restart.",
+      "observation": {
+        "what": "first LIVE breakout_2 ticket: phone_result shows the confirm dialog handled, the order seen in Open orders/Positions (placed/filled, not mismatch), and SL/TP present on the venue position",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 -> newest non-test ticket's status + phone_result (PI-20261006-APBY4NTV-0008)",
+        "due_by": "2026-10-08T18:00Z"
+      }
     },
     {
       "id": "VELOTRADE-API-EXEC",
@@ -5460,6 +5467,36 @@
         }
       ],
       "note": "[2026-10-06T00:20Z manager] Round-trip PR #16660 held (Tier 2); dispatch denied by classifier, awaiting operator approval in lane session. [2026-10-05T17:58Z manager] OPERATOR popup ~14:48Z: \"Build it + pre-approve test\". #16636 merged 432a92c9 (adapter, dry by default; positionBased=true so IF-THEN bracket). Next: roundtrip system-action PR, one 0.01 ETHUSD round trip with flatten-on-mismatch stop rule. velotrade_1 stays dry_run, empty roster."
+    },
+    {
+      "id": "PHONE-BG",
+      "title": "Breakout phone app claims and runs tickets while backgrounded (operator: needed for real automated trading)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane PHONE-BG",
+      "lane": "session_01LLrWmPZRqeZAMX5tpSuYdG",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-06T10:36Z manager] Operator ~10:35Z: quick fix before the reset if small, else post-reset (PI-20261006-APBY4NTV-0006). INFERRED root cause: backgrounded WebView -> evaluateJavascript never calls back -> tick wedged (busy=true, no heartbeat 10:03-10:24Z). Plan: js() timeout, HTTP-only pending peek while backgrounded, bring Activity to front (overlay perm) to claim+fill, then moveTaskToBack. Closes when a dry_test_request dry_fills with the app backgrounded."
+    },
+    {
+      "id": "RQ-FIX",
+      "title": "Research queue: results discarded (no PyYAML on the result runner) + hourly double-fire from the stamp race",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane RQ-FIX",
+      "lane": "session_01MZC82v4c5CnXkZ1vpYtx8e",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
     }
   ]
 }
