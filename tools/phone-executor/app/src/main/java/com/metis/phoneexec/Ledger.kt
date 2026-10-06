@@ -22,5 +22,13 @@ class Ledger(c: Context) {
         return last.filter { it.value == "intended" || it.value == "submitted" }.keys.toList()
     }
 
+    /** The ticket's latest ledger state, or null when the ledger never saw it. */
+    fun last(ticket: String): String? {
+        if (!f.exists()) return null
+        var st: String? = null
+        f.readLines().forEach { l -> try { val o = JSONObject(l); if (o.getString("ticket_id") == ticket) st = o.getString("state") } catch (_: Exception) {} }
+        return st
+    }
+
     fun seen(ticket: String): Boolean = f.exists() && f.readLines().any { it.contains("\"ticket_id\":\"$ticket\"") }
 }
