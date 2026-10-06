@@ -113,6 +113,16 @@ CANDIDATE_PAIRS: dict[tuple[str, str], tuple[str, str, int]] = {
     ("BNBUSDT", "1h"): (CRYPTO, "60", 1095), ("BNBUSDT", "2h"): (CRYPTO, "120", 1095),
     ("BNBUSDT", "4h"): (CRYPTO, "240", 1095),
     ("ETHUSDT", "5m"): (CRYPTO, "5", 365),
+    # PI-20261006-APBY4NTV-0001 slice 1 (lane RQ-PROP-SEED, 2026-10-06): shorter-timeframe Stage-0
+    # cells on prop-listed crypto beyond ETH/SOL (Breakout lists XRP/ADA/BNB/DOGE/LINK --
+    # docs/integrations/breakout-instruments-2026-09-27.md). Windows follow the BNBUSDT precedent
+    # above: long enough that a 39-trade E35 floor is reachable, so the run can answer rather
+    # than land INDETERMINATE. Units: RQ-20261006-005..028.
+    ("XRPUSDT", "1h"): (CRYPTO, "60", 1095),
+    ("ADAUSDT", "1h"): (CRYPTO, "60", 1095), ("ADAUSDT", "15m"): (CRYPTO, "15", 730),
+    ("BNBUSDT", "15m"): (CRYPTO, "15", 730), ("BNBUSDT", "5m"): (CRYPTO, "5", 365),
+    ("DOGEUSDT", "1h"): (CRYPTO, "60", 1095), ("DOGEUSDT", "15m"): (CRYPTO, "15", 730),
+    ("LINKUSDT", "1h"): (CRYPTO, "60", 1095),
 }
 
 PROXY_WRITE_NAME = {"MGC": "GC_F", "MES": "ES_F", "MHG": "HG_F"}

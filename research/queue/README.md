@@ -283,13 +283,20 @@ scoped to writing questions, not to building their follow-through.
 
 ## The queue refills and grades itself (RQ-RUN, 2026-09-28)
 
-Operator: *"The research queue should be running 24/7 with or without Claude."*
-Three scheduled workflows now own that:
+> Operator, 2026-10-06: *"the research queue shouldn't need a claude session
+> pushing it - claude should be queuing research units and analyzing results,
+> but the git infrastructure should be what keeps the queue moving."* A session
+> REGISTERS units and READS results; refill, dispatch, landing and mechanical
+> grading are the workflows' job, and any step that still waits on a session is
+> listed below as debt, not as process.
+
+Operator, 2026-09-28: *"The research queue should be running 24/7 with or
+without Claude."* Three scheduled workflows own that:
 
 | workflow | what | lands |
 |---|---|---|
-| `research-queue-replenish.yml` (daily 05:50) | `scripts/research/queue_replenish.py` expands `research/templates/*.yaml` (five pre-registered families, weights 30/25/20/15/10) into new units until >= 25 RUNNABLE units are queued -- runnable = the dispatcher would fire it within the next 6 h cycle (never run, or cadence elapsed; a `once` unit that already ran or a monthly unit that ran yesterday is queued but NOT runnable) | new `RQ-*.yaml` files, carrying `generated:` |
-| `research-queue-dispatch.yml` (every 6 h) | fires what is due | `last_dispatched_at` stamps |
+| `research-queue-replenish.yml` (daily 05:50) | `scripts/research/queue_replenish.py` expands `research/templates/*.yaml` (five pre-registered families, weights 30/25/20/15/10) into new units until >= 25 RUNNABLE units are queued -- runnable = the dispatcher would fire it within the next 6 h (`DISPATCH_CYCLE_HOURS`, the replenish HORIZON, unchanged when the cron went hourly; never run, or cadence elapsed; a `once` unit that already ran or a monthly unit that ran yesterday is queued but NOT runnable) | new `RQ-*.yaml` files, carrying `generated:` |
+| `research-queue-dispatch.yml` (HOURLY at :20 since 2026-10-06; was every 6 h) | fires what is due, under the unchanged caps: `--max-research-inflight 3`, `--max-repo-queued 10`, per-run GPU cap 1 | `last_dispatched_at` stamps |
 | `research-queue-grade.yml` (every 6 h, :50) | `scripts/research/queue_grade.py` reads each ran unit's committed rows and applies its rule mechanically | `status: done`, a confirmatory re-queue on a first FAIL, or `grading.needs_review: true` |
 
 A generated or graded unit self-lands ONLY because `check_pr_landing.py` (E58)
@@ -303,7 +310,21 @@ bucket is `grep -l "needs_review: true" research/queue/*.yaml`. The alarm
 through the send-ping system-action when nothing has dispatched in 12 h or runnable units (same definition) < 25 AND the
 templates cannot fill the gap; when they can, it fires `research-queue-replenish.yml`
 instead of paging (exit 3 from the health check), because the refill is daily while the
-dispatcher consumes up to 3 units every 6 h.
+dispatcher runs hourly (up to 3 research runs in flight at once; it consumed up to 3 units
+every 6 h before 2026-10-06). The 12 h idle alarm is deliberately kept at the hourly cadence —
+GitHub drops hourly slots and a stamp takes ~1 h to land, so a tighter alarm would page on
+scheduler weather (`scripts/research/queue_throughput.py`).
+
+### Session debt — steps that still wait on a session (2026-10-06)
+
+Filed in the pipeline (`docs/claude/work/pipeline/`), each with a `rerun` that re-measures
+it; re-run those rather than quoting these counts.
+
+| debt | measured 2026-10-06 | row |
+|---|---|---|
+| `automation/*` PRs strand when their CI checks are cancelled ~15 min in; `stale-automation-sweep` refreshes but never re-requests checks, so a stranded stamp PR re-fires its units | #16656, #16657, #16124, #16654 (manager); checks on #16656 re-run by hand as a stopgap | `PI-20261006-LCEVL8D5-0001` |
+| queued units the dispatcher can never fire (`run.workflow` is a human note) or the grader can never close (hand-written, no `grading.auto`) | 2 session-bound + 4 session-graded of 308 files | `PI-20261006-LCEVL8D5-0002` |
+| the `needs_review` bucket surfaces only to a session that thinks to grep for it | 11 flagged (all statuses) | `PI-20261006-LCEVL8D5-0003` |
 
 ## `run.workflow` DECLARED vs. actually `gh workflow run`-DISPATCHABLE
 

@@ -346,8 +346,12 @@ def existing_units(root: Path) -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
     return units, bad
 
 
-#: The dispatcher's cron is `20 */6 * * *` (research-queue-dispatch.yml), so a
-#: unit that becomes due within six hours fires on the next cycle.
+#: The REPLENISH HORIZON, not the dispatcher's cadence. The dispatcher's cron
+#: is HOURLY (`20 * * * *`, research-queue-dispatch.yml, operator 2026-10-06:
+#: the git infrastructure keeps the queue moving, not a session); it was
+#: `20 */6 * * *` until then. This stays 6.0 so "runnable" keeps meaning
+#: "would fire within the next six hours" and the daily refill target of 25
+#: runnable units is measured over the same window as before the change.
 DISPATCH_CYCLE_HOURS = 6.0
 
 

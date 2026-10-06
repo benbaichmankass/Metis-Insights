@@ -1,0 +1,3089 @@
+{
+ "research_unit": "RQ-20261006-062",
+ "decision_rule": {
+  "id": "RULE-RQ1006-VELOTRADE-FIT",
+  "registered_at": "2026-10-06"
+ },
+ "ruleset": "config/prop_rulesets/velotrade_classic_1step.yaml",
+ "costs": [
+  "--commission-bps-rt",
+  "6",
+  "--slippage-bps-rt",
+  "3",
+  "--swap-daily",
+  "0.0005",
+  "--swap-model",
+  "dxtrade"
+ ],
+ "window": [
+  "2024-10-06T14:00:00+00:00",
+  "2026-10-02T04:00:00+00:00"
+ ],
+ "sim_size": {
+  "lives": 2000,
+  "outer": 50,
+  "lives_per_outer": 100,
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ]
+ },
+ "legs": {
+  "trend_donchian_eth_prop": {
+   "symbol": "ETHUSDT",
+   "n": 355,
+   "trades_file": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl",
+   "min_hold_s": 3600.0,
+   "solo_max_gap_days": 7.54
+  },
+  "trend_donchian_sol_prop": {
+   "symbol": "SOLUSDT",
+   "n": 132,
+   "trades_file": "comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl",
+   "min_hold_s": 3600.0,
+   "solo_max_gap_days": 18.62
+  }
+ },
+ "cells": [
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 18.62,
+   "gap_ok": false,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2025-12-28",
+    "worst_day_usd": -28.02,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 129,
+    "ok": true
+   },
+   "seeds": {
+    "1": {
+     "ev": -21.39,
+     "ev_mc_se": 2.02,
+     "p_net": 0.15,
+     "p_pass": 0.327,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.121,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.106,
+     "ev_p5": -54.0,
+     "ev_p95": 105.8,
+     "p_pass_p5": 0.01,
+     "days_to_pass_p50": 464.8,
+     "days_to_pass_p90": 680.0,
+     "lifetime_days_mean": 695.2,
+     "p_alive_at_horizon": 0.879,
+     "p_death_before_first_payout": 0.118,
+     "death_causes": {
+      "eval:static_drawdown": 212,
+      "funded:static_drawdown": 30
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0095,
+       "90": 0.0685,
+       "180": 0.4585
+      },
+      "expected_qual_days_by_day": {
+       "30": 0.67,
+       "60": 1.39,
+       "90": 2.15
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.327,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 14.99,
+       "p50": 16.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 47.7,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 0.26,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": -22.86,
+     "ev_mc_se": 2.0,
+     "p_net": 0.142,
+     "p_pass": 0.311,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.126,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.114,
+     "ev_p5": -54.0,
+     "ev_p95": 91.16,
+     "p_pass_p5": 0.0345,
+     "days_to_pass_p50": 460.6,
+     "days_to_pass_p90": 667.9,
+     "lifetime_days_mean": 691.8,
+     "p_alive_at_horizon": 0.874,
+     "p_death_before_first_payout": 0.123,
+     "death_causes": {
+      "eval:static_drawdown": 228,
+      "funded:static_drawdown": 24
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.01,
+       "90": 0.0645,
+       "180": 0.4245
+      },
+      "expected_qual_days_by_day": {
+       "30": 0.66,
+       "60": 1.36,
+       "90": 2.08
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.311,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 14.71,
+       "p50": 15.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 46.2,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 0.25,
+     "n_lives": 2000
+    },
+    "2": {
+     "ev": -23.73,
+     "ev_mc_se": 2.04,
+     "p_net": 0.131,
+     "p_pass": 0.3085,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.125,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.114,
+     "ev_p5": -54.0,
+     "ev_p95": 261.91,
+     "p_pass_p5": 0.0,
+     "days_to_pass_p50": 467.3,
+     "days_to_pass_p90": 669.2,
+     "lifetime_days_mean": 693.3,
+     "p_alive_at_horizon": 0.875,
+     "p_death_before_first_payout": 0.1225,
+     "death_causes": {
+      "eval:static_drawdown": 228,
+      "funded:static_drawdown": 22
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0075,
+       "90": 0.0705,
+       "180": 0.4375
+      },
+      "expected_qual_days_by_day": {
+       "30": 0.66,
+       "60": 1.4,
+       "90": 2.15
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.3085,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 14.77,
+       "p50": 15.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 44.99,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 0.24,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": -23.11,
+     "ev_mc_se": 2.0,
+     "p_net": 0.137,
+     "p_pass": 0.3135,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.121,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.1135,
+     "ev_p5": -54.0,
+     "ev_p95": 243.3,
+     "p_pass_p5": 0.01,
+     "days_to_pass_p50": 476.7,
+     "days_to_pass_p90": 685.7,
+     "lifetime_days_mean": 694.5,
+     "p_alive_at_horizon": 0.879,
+     "p_death_before_first_payout": 0.1185,
+     "death_causes": {
+      "eval:static_drawdown": 227,
+      "funded:static_drawdown": 15
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.01,
+       "90": 0.052,
+       "180": 0.41
+      },
+      "expected_qual_days_by_day": {
+       "30": 0.63,
+       "60": 1.35,
+       "90": 2.05
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.3135,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 14.9,
+       "p50": 16.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 43.47,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 0.24,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": -22.09,
+     "ev_mc_se": 1.98,
+     "p_net": 0.145,
+     "p_pass": 0.3165,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.115,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.1015,
+     "ev_p5": -54.0,
+     "ev_p95": 148.7,
+     "p_pass_p5": 0.0145,
+     "days_to_pass_p50": 461.3,
+     "days_to_pass_p90": 667.3,
+     "lifetime_days_mean": 695.5,
+     "p_alive_at_horizon": 0.885,
+     "p_death_before_first_payout": 0.112,
+     "death_causes": {
+      "eval:static_drawdown": 203,
+      "funded:static_drawdown": 27
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.012,
+       "90": 0.0645,
+       "180": 0.422
+      },
+      "expected_qual_days_by_day": {
+       "30": 0.62,
+       "60": 1.35,
+       "90": 2.06
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.3165,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 14.9,
+       "p50": 15.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 46.2,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 0.25,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.131,
+   "min_p_pass": 0.3085,
+   "mean_ev": -22.64,
+   "mean_p_pass": 0.3153,
+   "max_p_breach_daily_loss": 0.0,
+   "mean_p_breach_max_dd": 0.1216,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 0.65,
+     "60": 1.37,
+     "90": 2.1
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.0,
+     "60": 0.0098,
+     "90": 0.064,
+     "180": 0.4305
+    },
+    "mean_p_target_reached": 0.3153,
+    "mean_p_target_reached_not_passed": 0.0,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     47.7,
+     46.2,
+     44.99,
+     43.47,
+     46.2
+    ]
+   },
+   "verdict": "FAIL",
+   "binding_clause": "R:ev"
+  },
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.01,
+   "max_gap_days": 18.62,
+   "gap_ok": false,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 50.0,
+    "worst_day": "2025-12-28",
+    "worst_day_usd": -56.05,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 129,
+    "ok": true
+   },
+   "seeds": {
+    "1": {
+     "ev": 127.38,
+     "ev_mc_se": 6.61,
+     "p_net": 0.391,
+     "p_pass": 0.57,
+     "p_breach_daily_loss": 0.0105,
+     "p_breach_max_dd": 0.667,
+     "p_breach_daily_loss_in_eval": 0.0055,
+     "p_breach_max_dd_in_eval": 0.344,
+     "ev_p5": -50.09,
+     "ev_p95": 421.94,
+     "p_pass_p5": 0.1035,
+     "days_to_pass_p50": 241.6,
+     "days_to_pass_p90": 555.2,
+     "lifetime_days_mean": 469.9,
+     "p_alive_at_horizon": 0.3225,
+     "p_death_before_first_payout": 0.487,
+     "death_causes": {
+      "eval:daily_loss": 11,
+      "eval:static_drawdown": 688,
+      "funded:daily_loss": 10,
+      "funded:static_drawdown": 646
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0575,
+       "90": 0.265,
+       "180": 0.798
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.11,
+       "60": 2.3,
+       "90": 3.45
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.57,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 12.0,
+       "p50": 10.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 52.25,
+     "pass_deferred_qual_days_per_life": 0.04,
+     "mean_payouts_per_life": 1.25,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 116.77,
+     "ev_mc_se": 6.25,
+     "p_net": 0.38,
+     "p_pass": 0.5625,
+     "p_breach_daily_loss": 0.0135,
+     "p_breach_max_dd": 0.685,
+     "p_breach_daily_loss_in_eval": 0.007,
+     "p_breach_max_dd_in_eval": 0.359,
+     "ev_p5": -33.67,
+     "ev_p95": 637.89,
+     "p_pass_p5": 0.158,
+     "days_to_pass_p50": 249.1,
+     "days_to_pass_p90": 533.1,
+     "lifetime_days_mean": 465.4,
+     "p_alive_at_horizon": 0.3015,
+     "p_death_before_first_payout": 0.511,
+     "death_causes": {
+      "eval:daily_loss": 14,
+      "eval:static_drawdown": 718,
+      "funded:daily_loss": 13,
+      "funded:static_drawdown": 652
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.065,
+       "90": 0.2795,
+       "180": 0.816
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.16,
+       "60": 2.36,
+       "90": 3.49
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5625,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 11.9,
+       "p50": 10.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 51.9,
+     "pass_deferred_qual_days_per_life": 0.05,
+     "mean_payouts_per_life": 1.18,
+     "n_lives": 2000
+    },
+    "2": {
+     "ev": 122.82,
+     "ev_mc_se": 6.71,
+     "p_net": 0.376,
+     "p_pass": 0.5505,
+     "p_breach_daily_loss": 0.012,
+     "p_breach_max_dd": 0.6955,
+     "p_breach_daily_loss_in_eval": 0.008,
+     "p_breach_max_dd_in_eval": 0.367,
+     "ev_p5": -34.4,
+     "ev_p95": 522.2,
+     "p_pass_p5": 0.19,
+     "days_to_pass_p50": 250.9,
+     "days_to_pass_p90": 552.1,
+     "lifetime_days_mean": 467.5,
+     "p_alive_at_horizon": 0.2925,
+     "p_death_before_first_payout": 0.5055,
+     "death_causes": {
+      "eval:daily_loss": 16,
+      "eval:static_drawdown": 734,
+      "funded:daily_loss": 8,
+      "funded:static_drawdown": 657
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0655,
+       "90": 0.2895,
+       "180": 0.8125
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.14,
+       "60": 2.35,
+       "90": 3.5
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5505,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 11.96,
+       "p50": 10.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 50.38,
+     "pass_deferred_qual_days_per_life": 0.04,
+     "mean_payouts_per_life": 1.21,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 137.82,
+     "ev_mc_se": 6.98,
+     "p_net": 0.403,
+     "p_pass": 0.586,
+     "p_breach_daily_loss": 0.0125,
+     "p_breach_max_dd": 0.683,
+     "p_breach_daily_loss_in_eval": 0.0075,
+     "p_breach_max_dd_in_eval": 0.3435,
+     "ev_p5": -40.34,
+     "ev_p95": 536.03,
+     "p_pass_p5": 0.1425,
+     "days_to_pass_p50": 242.8,
+     "days_to_pass_p90": 532.7,
+     "lifetime_days_mean": 470.0,
+     "p_alive_at_horizon": 0.3045,
+     "p_death_before_first_payout": 0.492,
+     "death_causes": {
+      "eval:daily_loss": 15,
+      "eval:static_drawdown": 687,
+      "funded:daily_loss": 10,
+      "funded:static_drawdown": 679
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0605,
+       "90": 0.295,
+       "180": 0.8225
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.13,
+       "60": 2.34,
+       "90": 3.5
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.586,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 11.75,
+       "p50": 10.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 54.56,
+     "pass_deferred_qual_days_per_life": 0.05,
+     "mean_payouts_per_life": 1.33,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 125.71,
+     "ev_mc_se": 6.59,
+     "p_net": 0.389,
+     "p_pass": 0.5595,
+     "p_breach_daily_loss": 0.0125,
+     "p_breach_max_dd": 0.6975,
+     "p_breach_daily_loss_in_eval": 0.008,
+     "p_breach_max_dd_in_eval": 0.363,
+     "ev_p5": -44.04,
+     "ev_p95": 567.26,
+     "p_pass_p5": 0.1245,
+     "days_to_pass_p50": 235.7,
+     "days_to_pass_p90": 527.2,
+     "lifetime_days_mean": 462.3,
+     "p_alive_at_horizon": 0.29,
+     "p_death_before_first_payout": 0.4995,
+     "death_causes": {
+      "eval:daily_loss": 16,
+      "eval:static_drawdown": 726,
+      "funded:daily_loss": 9,
+      "funded:static_drawdown": 669
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0665,
+       "90": 0.2775,
+       "180": 0.7975
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.11,
+       "60": 2.33,
+       "90": 3.47
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5595,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 11.66,
+       "p50": 10.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 51.29,
+     "pass_deferred_qual_days_per_life": 0.05,
+     "mean_payouts_per_life": 1.23,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.376,
+   "min_p_pass": 0.5505,
+   "mean_ev": 126.1,
+   "mean_p_pass": 0.5657,
+   "max_p_breach_daily_loss": 0.0135,
+   "mean_p_breach_max_dd": 0.6856,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 1.13,
+     "60": 2.34,
+     "90": 3.48
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.0,
+     "60": 0.063,
+     "90": 0.2813,
+     "180": 0.8093
+    },
+    "mean_p_target_reached": 0.5657,
+    "mean_p_target_reached_not_passed": 0.0,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     52.25,
+     51.9,
+     50.38,
+     54.56,
+     51.29
+    ]
+   },
+   "verdict": "NULL",
+   "binding_clause": "G:gap"
+  },
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.015,
+   "max_gap_days": 18.62,
+   "gap_ok": false,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 75.0,
+    "worst_day": "2025-12-28",
+    "worst_day_usd": -84.07,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 129,
+    "ok": true
+   },
+   "seeds": {
+    "1": {
+     "ev": 88.43,
+     "ev_mc_se": 7.4,
+     "p_net": 0.2235,
+     "p_pass": 0.435,
+     "p_breach_daily_loss": 0.2295,
+     "p_breach_max_dd": 0.758,
+     "p_breach_daily_loss_in_eval": 0.1505,
+     "p_breach_max_dd_in_eval": 0.4135,
+     "ev_p5": -50.87,
+     "ev_p95": 405.93,
+     "p_pass_p5": 0.0945,
+     "days_to_pass_p50": 125.0,
+     "days_to_pass_p90": 306.2,
+     "lifetime_days_mean": 211.6,
+     "p_alive_at_horizon": 0.0125,
+     "p_death_before_first_payout": 0.773,
+     "death_causes": {
+      "eval:daily_loss": 301,
+      "eval:static_drawdown": 827,
+      "funded:daily_loss": 158,
+      "funded:static_drawdown": 689
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.102,
+       "90": 0.316,
+       "180": 0.6145
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.24,
+       "60": 2.44,
+       "90": 3.28
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.449,
+      "p_pass_given_target_reached": 0.9688,
+      "p_target_reached_not_passed": 0.014,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 26.7
+      },
+      "qual_days_eval": {
+       "mean": 5.9,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 29.59,
+     "pass_deferred_qual_days_per_life": 0.42,
+     "mean_payouts_per_life": 0.73,
+     "n_lives": 2000
+    },
+    "2": {
+     "ev": 89.67,
+     "ev_mc_se": 7.4,
+     "p_net": 0.233,
+     "p_pass": 0.4345,
+     "p_breach_daily_loss": 0.247,
+     "p_breach_max_dd": 0.7385,
+     "p_breach_daily_loss_in_eval": 0.161,
+     "p_breach_max_dd_in_eval": 0.402,
+     "ev_p5": -26.17,
+     "ev_p95": 348.71,
+     "p_pass_p5": 0.2045,
+     "days_to_pass_p50": 122.3,
+     "days_to_pass_p90": 286.4,
+     "lifetime_days_mean": 212.5,
+     "p_alive_at_horizon": 0.0145,
+     "p_death_before_first_payout": 0.762,
+     "death_causes": {
+      "eval:daily_loss": 322,
+      "eval:static_drawdown": 804,
+      "funded:daily_loss": 172,
+      "funded:static_drawdown": 673
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0725,
+       "90": 0.314,
+       "180": 0.628
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.21,
+       "60": 2.38,
+       "90": 3.29
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.447,
+      "p_pass_given_target_reached": 0.972,
+      "p_target_reached_not_passed": 0.0125,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 29.9
+      },
+      "qual_days_eval": {
+       "mean": 5.92,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 29.63,
+     "pass_deferred_qual_days_per_life": 0.37,
+     "mean_payouts_per_life": 0.76,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 85.05,
+     "ev_mc_se": 7.22,
+     "p_net": 0.229,
+     "p_pass": 0.4235,
+     "p_breach_daily_loss": 0.2255,
+     "p_breach_max_dd": 0.7645,
+     "p_breach_daily_loss_in_eval": 0.1495,
+     "p_breach_max_dd_in_eval": 0.4265,
+     "ev_p5": -45.38,
+     "ev_p95": 287.67,
+     "p_pass_p5": 0.099,
+     "days_to_pass_p50": 119.1,
+     "days_to_pass_p90": 283.1,
+     "lifetime_days_mean": 208.5,
+     "p_alive_at_horizon": 0.01,
+     "p_death_before_first_payout": 0.769,
+     "death_causes": {
+      "eval:daily_loss": 299,
+      "eval:static_drawdown": 853,
+      "funded:daily_loss": 152,
+      "funded:static_drawdown": 676
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0915,
+       "90": 0.312,
+       "180": 0.623
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.25,
+       "60": 2.41,
+       "90": 3.28
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.434,
+      "p_pass_given_target_reached": 0.9758,
+      "p_target_reached_not_passed": 0.0105,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 29.8
+      },
+      "qual_days_eval": {
+       "mean": 5.8,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 29.51,
+     "pass_deferred_qual_days_per_life": 0.41,
+     "mean_payouts_per_life": 0.71,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 87.39,
+     "ev_mc_se": 7.3,
+     "p_net": 0.2325,
+     "p_pass": 0.422,
+     "p_breach_daily_loss": 0.221,
+     "p_breach_max_dd": 0.764,
+     "p_breach_daily_loss_in_eval": 0.1365,
+     "p_breach_max_dd_in_eval": 0.441,
+     "ev_p5": -19.54,
+     "ev_p95": 401.13,
+     "p_pass_p5": 0.28,
+     "days_to_pass_p50": 112.7,
+     "days_to_pass_p90": 281.2,
+     "lifetime_days_mean": 203.4,
+     "p_alive_at_horizon": 0.015,
+     "p_death_before_first_payout": 0.766,
+     "death_causes": {
+      "eval:daily_loss": 273,
+      "eval:static_drawdown": 882,
+      "funded:daily_loss": 169,
+      "funded:static_drawdown": 646
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.089,
+       "90": 0.318,
+       "180": 0.608
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.24,
+       "60": 2.4,
+       "90": 3.23
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.4335,
+      "p_pass_given_target_reached": 0.9735,
+      "p_target_reached_not_passed": 0.0115,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 32.5
+      },
+      "qual_days_eval": {
+       "mean": 5.6,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 28.27,
+     "pass_deferred_qual_days_per_life": 0.4,
+     "mean_payouts_per_life": 0.73,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 80.09,
+     "ev_mc_se": 7.16,
+     "p_net": 0.218,
+     "p_pass": 0.4195,
+     "p_breach_daily_loss": 0.217,
+     "p_breach_max_dd": 0.772,
+     "p_breach_daily_loss_in_eval": 0.1435,
+     "p_breach_max_dd_in_eval": 0.437,
+     "ev_p5": -39.89,
+     "ev_p95": 490.06,
+     "p_pass_p5": 0.129,
+     "days_to_pass_p50": 129.5,
+     "days_to_pass_p90": 282.8,
+     "lifetime_days_mean": 208.4,
+     "p_alive_at_horizon": 0.011,
+     "p_death_before_first_payout": 0.7815,
+     "death_causes": {
+      "eval:daily_loss": 287,
+      "eval:static_drawdown": 874,
+      "funded:daily_loss": 147,
+      "funded:static_drawdown": 670
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.0795,
+       "90": 0.313,
+       "180": 0.611
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.22,
+       "60": 2.36,
+       "90": 3.25
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.4345,
+      "p_pass_given_target_reached": 0.9655,
+      "p_target_reached_not_passed": 0.015,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 26.5
+      },
+      "qual_days_eval": {
+       "mean": 5.81,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 28.35,
+     "pass_deferred_qual_days_per_life": 0.38,
+     "mean_payouts_per_life": 0.69,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.218,
+   "min_p_pass": 0.4195,
+   "mean_ev": 86.13,
+   "mean_p_pass": 0.4269,
+   "max_p_breach_daily_loss": 0.247,
+   "mean_p_breach_max_dd": 0.7594,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 1.23,
+     "60": 2.4,
+     "90": 3.27
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.0,
+     "60": 0.0869,
+     "90": 0.3146,
+     "180": 0.6169
+    },
+    "mean_p_target_reached": 0.4396,
+    "mean_p_target_reached_not_passed": 0.0127,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     29.59,
+     29.63,
+     29.51,
+     28.27,
+     28.35
+    ]
+   },
+   "verdict": "NULL",
+   "binding_clause": "B:p_breach_daily"
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 7.54,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2026-06-30",
+    "worst_day_usd": -52.62,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 328,
+    "ok": true
+   },
+   "seeds": {
+    "1": {
+     "ev": 74.56,
+     "ev_mc_se": 4.7,
+     "p_net": 0.3805,
+     "p_pass": 0.5455,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.463,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.284,
+     "ev_p5": -48.6,
+     "ev_p95": 452.23,
+     "p_pass_p5": 0.0835,
+     "days_to_pass_p50": 325.3,
+     "days_to_pass_p90": 611.1,
+     "lifetime_days_mean": 571.6,
+     "p_alive_at_horizon": 0.537,
+     "p_death_before_first_payout": 0.364,
+     "death_causes": {
+      "eval:static_drawdown": 568,
+      "funded:static_drawdown": 358
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.157,
+       "90": 0.5245,
+       "180": 0.9255
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.49,
+       "60": 3.05,
+       "90": 4.62
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5455,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 20.86,
+       "p50": 20.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 41.33,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.08,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 75.42,
+     "ev_mc_se": 4.79,
+     "p_net": 0.378,
+     "p_pass": 0.523,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.471,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.2935,
+     "ev_p5": -53.52,
+     "ev_p95": 532.16,
+     "p_pass_p5": 0.0335,
+     "days_to_pass_p50": 311.3,
+     "days_to_pass_p90": 602.3,
+     "lifetime_days_mean": 566.0,
+     "p_alive_at_horizon": 0.529,
+     "p_death_before_first_payout": 0.365,
+     "death_causes": {
+      "eval:static_drawdown": 587,
+      "funded:static_drawdown": 355
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.1615,
+       "90": 0.523,
+       "180": 0.9205
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.49,
+       "60": 3.07,
+       "90": 4.64
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.523,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 20.57,
+       "p50": 19.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 39.6,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.1,
+     "n_lives": 2000
+    },
+    "2": {
+     "ev": 87.23,
+     "ev_mc_se": 5.01,
+     "p_net": 0.3935,
+     "p_pass": 0.5315,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.449,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.2735,
+     "ev_p5": -47.67,
+     "ev_p95": 452.52,
+     "p_pass_p5": 0.118,
+     "days_to_pass_p50": 301.8,
+     "days_to_pass_p90": 587.0,
+     "lifetime_days_mean": 574.8,
+     "p_alive_at_horizon": 0.551,
+     "p_death_before_first_payout": 0.348,
+     "death_causes": {
+      "eval:static_drawdown": 547,
+      "funded:static_drawdown": 351
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.1595,
+       "90": 0.512,
+       "180": 0.938
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.47,
+       "60": 3.08,
+       "90": 4.62
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5315,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 20.8,
+       "p50": 19.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 40.64,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.19,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 73.46,
+     "ev_mc_se": 4.65,
+     "p_net": 0.381,
+     "p_pass": 0.5285,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.471,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.2935,
+     "ev_p5": -48.83,
+     "ev_p95": 603.5,
+     "p_pass_p5": 0.0745,
+     "days_to_pass_p50": 318.3,
+     "days_to_pass_p90": 597.3,
+     "lifetime_days_mean": 566.8,
+     "p_alive_at_horizon": 0.529,
+     "p_death_before_first_payout": 0.3715,
+     "death_causes": {
+      "eval:static_drawdown": 587,
+      "funded:static_drawdown": 355
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.156,
+       "90": 0.504,
+       "180": 0.922
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.48,
+       "60": 3.04,
+       "90": 4.59
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5285,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 20.62,
+       "p50": 19.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 40.06,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.08,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 72.27,
+     "ev_mc_se": 4.66,
+     "p_net": 0.372,
+     "p_pass": 0.5315,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.4725,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.2815,
+     "ev_p5": -48.88,
+     "ev_p95": 421.37,
+     "p_pass_p5": 0.0735,
+     "days_to_pass_p50": 312.8,
+     "days_to_pass_p90": 589.8,
+     "lifetime_days_mean": 567.9,
+     "p_alive_at_horizon": 0.5275,
+     "p_death_before_first_payout": 0.365,
+     "death_causes": {
+      "eval:static_drawdown": 563,
+      "funded:static_drawdown": 382
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0,
+       "60": 0.1665,
+       "90": 0.517,
+       "180": 0.926
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.54,
+       "60": 3.1,
+       "90": 4.63
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5315,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 20.75,
+       "p50": 19.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 41.58,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.07,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.372,
+   "min_p_pass": 0.523,
+   "mean_ev": 76.59,
+   "mean_p_pass": 0.532,
+   "max_p_breach_daily_loss": 0.0,
+   "mean_p_breach_max_dd": 0.4653,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 1.49,
+     "60": 3.07,
+     "90": 4.62
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.0,
+     "60": 0.1601,
+     "90": 0.5161,
+     "180": 0.9264
+    },
+    "mean_p_target_reached": 0.532,
+    "mean_p_target_reached_not_passed": 0.0,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     41.33,
+     39.6,
+     40.64,
+     40.06,
+     41.58
+    ]
+   },
+   "verdict": "GO_LIVE",
+   "binding_clause": ""
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.01,
+   "max_gap_days": 7.54,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 50.0,
+    "worst_day": "2026-06-30",
+    "worst_day_usd": -105.24,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 328,
+    "ok": true
+   },
+   "seeds": {
+    "1": {
+     "ev": 134.87,
+     "ev_mc_se": 8.27,
+     "p_net": 0.337,
+     "p_pass": 0.5185,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.988,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.4805,
+     "ev_p5": -18.37,
+     "ev_p95": 693.3,
+     "p_pass_p5": 0.249,
+     "days_to_pass_p50": 101.6,
+     "days_to_pass_p90": 261.3,
+     "lifetime_days_mean": 202.0,
+     "p_alive_at_horizon": 0.012,
+     "p_death_before_first_payout": 0.662,
+     "death_causes": {
+      "eval:static_drawdown": 961,
+      "funded:static_drawdown": 1015
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0925,
+       "60": 0.625,
+       "90": 0.763,
+       "180": 0.772
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.55,
+       "60": 4.7,
+       "90": 6.25
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5195,
+      "p_pass_given_target_reached": 0.9981,
+      "p_target_reached_not_passed": 0.001,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 10.61,
+       "p50": 8.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 17.94,
+     "pass_deferred_qual_days_per_life": 0.03,
+     "mean_payouts_per_life": 1.21,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 148.63,
+     "ev_mc_se": 8.96,
+     "p_net": 0.339,
+     "p_pass": 0.507,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.9865,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.493,
+     "ev_p5": -44.14,
+     "ev_p95": 494.45,
+     "p_pass_p5": 0.1245,
+     "days_to_pass_p50": 108.5,
+     "days_to_pass_p90": 288.8,
+     "lifetime_days_mean": 210.5,
+     "p_alive_at_horizon": 0.0135,
+     "p_death_before_first_payout": 0.661,
+     "death_causes": {
+      "eval:static_drawdown": 986,
+      "funded:static_drawdown": 987
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.084,
+       "60": 0.6045,
+       "90": 0.767,
+       "180": 0.7725
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.52,
+       "60": 4.7,
+       "90": 6.26
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5085,
+      "p_pass_given_target_reached": 0.9971,
+      "p_target_reached_not_passed": 0.0015,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 11.0,
+       "p50": 9.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 17.1,
+     "pass_deferred_qual_days_per_life": 0.03,
+     "mean_payouts_per_life": 1.3,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 139.47,
+     "ev_mc_se": 8.62,
+     "p_net": 0.3385,
+     "p_pass": 0.51,
+     "p_breach_daily_loss": 0.0005,
+     "p_breach_max_dd": 0.986,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.4885,
+     "ev_p5": -25.74,
+     "ev_p95": 489.05,
+     "p_pass_p5": 0.2135,
+     "days_to_pass_p50": 100.7,
+     "days_to_pass_p90": 252.9,
+     "lifetime_days_mean": 212.5,
+     "p_alive_at_horizon": 0.0135,
+     "p_death_before_first_payout": 0.6595,
+     "death_causes": {
+      "eval:static_drawdown": 977,
+      "funded:daily_loss": 1,
+      "funded:static_drawdown": 995
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.083,
+       "60": 0.622,
+       "90": 0.7865,
+       "180": 0.79
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.56,
+       "60": 4.78,
+       "90": 6.46
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5115,
+      "p_pass_given_target_reached": 0.9971,
+      "p_target_reached_not_passed": 0.0015,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 11.19,
+       "p50": 9.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 17.85,
+     "pass_deferred_qual_days_per_life": 0.03,
+     "mean_payouts_per_life": 1.26,
+     "n_lives": 2000
+    },
+    "2": {
+     "ev": 139.45,
+     "ev_mc_se": 8.26,
+     "p_net": 0.351,
+     "p_pass": 0.5225,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.9895,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.477,
+     "ev_p5": -6.73,
+     "ev_p95": 520.33,
+     "p_pass_p5": 0.244,
+     "days_to_pass_p50": 103.9,
+     "days_to_pass_p90": 278.4,
+     "lifetime_days_mean": 207.2,
+     "p_alive_at_horizon": 0.0105,
+     "p_death_before_first_payout": 0.6465,
+     "death_causes": {
+      "eval:static_drawdown": 954,
+      "funded:static_drawdown": 1025
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.091,
+       "60": 0.6375,
+       "90": 0.7735,
+       "180": 0.7775
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.61,
+       "60": 4.81,
+       "90": 6.4
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5245,
+      "p_pass_given_target_reached": 0.9962,
+      "p_target_reached_not_passed": 0.002,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 11.02,
+       "p50": 8.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 17.56,
+     "pass_deferred_qual_days_per_life": 0.04,
+     "mean_payouts_per_life": 1.23,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 131.76,
+     "ev_mc_se": 7.88,
+     "p_net": 0.3375,
+     "p_pass": 0.508,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.987,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.4905,
+     "ev_p5": -43.93,
+     "ev_p95": 721.63,
+     "p_pass_p5": 0.1425,
+     "days_to_pass_p50": 101.8,
+     "days_to_pass_p90": 259.0,
+     "lifetime_days_mean": 204.8,
+     "p_alive_at_horizon": 0.013,
+     "p_death_before_first_payout": 0.6605,
+     "death_causes": {
+      "eval:static_drawdown": 981,
+      "funded:static_drawdown": 993
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0745,
+       "60": 0.6185,
+       "90": 0.767,
+       "180": 0.7725
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.51,
+       "60": 4.75,
+       "90": 6.32
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.509,
+      "p_pass_given_target_reached": 0.998,
+      "p_target_reached_not_passed": 0.001,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 10.74,
+       "p50": 8.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 17.42,
+     "pass_deferred_qual_days_per_life": 0.03,
+     "mean_payouts_per_life": 1.18,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.337,
+   "min_p_pass": 0.507,
+   "mean_ev": 138.84,
+   "mean_p_pass": 0.5132,
+   "max_p_breach_daily_loss": 0.0005,
+   "mean_p_breach_max_dd": 0.9874,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 2.55,
+     "60": 4.75,
+     "90": 6.34
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.085,
+     "60": 0.6215,
+     "90": 0.7714,
+     "180": 0.7769
+    },
+    "mean_p_target_reached": 0.5146,
+    "mean_p_target_reached_not_passed": 0.0014,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     17.94,
+     17.1,
+     17.85,
+     17.56,
+     17.42
+    ]
+   },
+   "verdict": "GO_LIVE",
+   "binding_clause": ""
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.015,
+   "max_gap_days": 7.54,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 75.0,
+    "worst_day": "2026-06-30",
+    "worst_day_usd": -157.86,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": null,
+    "n_days": 328,
+    "ok": true
+   },
+   "seeds": {
+    "1": {
+     "ev": 109.1,
+     "ev_mc_se": 8.25,
+     "p_net": 0.262,
+     "p_pass": 0.462,
+     "p_breach_daily_loss": 0.027,
+     "p_breach_max_dd": 0.973,
+     "p_breach_daily_loss_in_eval": 0.0195,
+     "p_breach_max_dd_in_eval": 0.5185,
+     "ev_p5": -26.27,
+     "ev_p95": 309.27,
+     "p_pass_p5": 0.1925,
+     "days_to_pass_p50": 49.0,
+     "days_to_pass_p90": 114.8,
+     "lifetime_days_mean": 90.8,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.738,
+     "death_causes": {
+      "eval:daily_loss": 39,
+      "eval:static_drawdown": 1037,
+      "funded:daily_loss": 15,
+      "funded:static_drawdown": 909
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.1505,
+       "60": 0.591,
+       "90": 0.6155,
+       "180": 0.6155
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.69,
+       "60": 4.15,
+       "90": 4.88
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.466,
+      "p_pass_given_target_reached": 0.9914,
+      "p_target_reached_not_passed": 0.004,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 10.3
+      },
+      "qual_days_eval": {
+       "mean": 5.54,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 9.8,
+     "pass_deferred_qual_days_per_life": 0.34,
+     "mean_payouts_per_life": 0.77,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 107.88,
+     "ev_mc_se": 8.42,
+     "p_net": 0.2485,
+     "p_pass": 0.467,
+     "p_breach_daily_loss": 0.0265,
+     "p_breach_max_dd": 0.9735,
+     "p_breach_daily_loss_in_eval": 0.0165,
+     "p_breach_max_dd_in_eval": 0.5165,
+     "ev_p5": -22.72,
+     "ev_p95": 491.3,
+     "p_pass_p5": 0.21,
+     "days_to_pass_p50": 48.5,
+     "days_to_pass_p90": 115.8,
+     "lifetime_days_mean": 93.3,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.7515,
+     "death_causes": {
+      "eval:daily_loss": 33,
+      "eval:static_drawdown": 1033,
+      "funded:daily_loss": 20,
+      "funded:static_drawdown": 914
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.132,
+       "60": 0.5995,
+       "90": 0.6365,
+       "180": 0.6365
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.68,
+       "60": 4.18,
+       "90": 4.89
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.4725,
+      "p_pass_given_target_reached": 0.9884,
+      "p_target_reached_not_passed": 0.0055,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 15.0
+      },
+      "qual_days_eval": {
+       "mean": 5.7,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 9.68,
+     "pass_deferred_qual_days_per_life": 0.41,
+     "mean_payouts_per_life": 0.77,
+     "n_lives": 2000
+    },
+    "2": {
+     "ev": 95.84,
+     "ev_mc_se": 7.4,
+     "p_net": 0.252,
+     "p_pass": 0.44,
+     "p_breach_daily_loss": 0.028,
+     "p_breach_max_dd": 0.972,
+     "p_breach_daily_loss_in_eval": 0.018,
+     "p_breach_max_dd_in_eval": 0.542,
+     "ev_p5": -17.67,
+     "ev_p95": 365.56,
+     "p_pass_p5": 0.2745,
+     "days_to_pass_p50": 48.8,
+     "days_to_pass_p90": 119.5,
+     "lifetime_days_mean": 90.0,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.748,
+     "death_causes": {
+      "eval:daily_loss": 36,
+      "eval:static_drawdown": 1084,
+      "funded:daily_loss": 20,
+      "funded:static_drawdown": 860
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.1545,
+       "60": 0.5835,
+       "90": 0.611,
+       "180": 0.611
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.7,
+       "60": 4.1,
+       "90": 4.81
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.4485,
+      "p_pass_given_target_reached": 0.981,
+      "p_target_reached_not_passed": 0.0085,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 10.3
+      },
+      "qual_days_eval": {
+       "mean": 5.56,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 9.54,
+     "pass_deferred_qual_days_per_life": 0.32,
+     "mean_payouts_per_life": 0.71,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 93.69,
+     "ev_mc_se": 7.25,
+     "p_net": 0.257,
+     "p_pass": 0.456,
+     "p_breach_daily_loss": 0.024,
+     "p_breach_max_dd": 0.976,
+     "p_breach_daily_loss_in_eval": 0.017,
+     "p_breach_max_dd_in_eval": 0.527,
+     "ev_p5": -21.93,
+     "ev_p95": 281.38,
+     "p_pass_p5": 0.219,
+     "days_to_pass_p50": 47.9,
+     "days_to_pass_p90": 122.0,
+     "lifetime_days_mean": 91.2,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.743,
+     "death_causes": {
+      "eval:daily_loss": 34,
+      "eval:static_drawdown": 1054,
+      "funded:daily_loss": 14,
+      "funded:static_drawdown": 898
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.1625,
+       "60": 0.585,
+       "90": 0.6145,
+       "180": 0.615
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.68,
+       "60": 4.11,
+       "90": 4.82
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.462,
+      "p_pass_given_target_reached": 0.987,
+      "p_target_reached_not_passed": 0.006,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 11.9
+      },
+      "qual_days_eval": {
+       "mean": 5.56,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 9.82,
+     "pass_deferred_qual_days_per_life": 0.34,
+     "mean_payouts_per_life": 0.72,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 104.15,
+     "ev_mc_se": 7.72,
+     "p_net": 0.2605,
+     "p_pass": 0.4615,
+     "p_breach_daily_loss": 0.024,
+     "p_breach_max_dd": 0.976,
+     "p_breach_daily_loss_in_eval": 0.0165,
+     "p_breach_max_dd_in_eval": 0.522,
+     "ev_p5": -20.47,
+     "ev_p95": 368.13,
+     "p_pass_p5": 0.267,
+     "days_to_pass_p50": 48.0,
+     "days_to_pass_p90": 117.0,
+     "lifetime_days_mean": 91.9,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.7395,
+     "death_causes": {
+      "eval:daily_loss": 33,
+      "eval:static_drawdown": 1044,
+      "funded:daily_loss": 15,
+      "funded:static_drawdown": 908
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.154,
+       "60": 0.576,
+       "90": 0.6075,
+       "180": 0.608
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.67,
+       "60": 4.08,
+       "90": 4.77
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.464,
+      "p_pass_given_target_reached": 0.9946,
+      "p_target_reached_not_passed": 0.0025,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 10.3
+      },
+      "qual_days_eval": {
+       "mean": 5.56,
+       "p50": 5.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 10.01,
+     "pass_deferred_qual_days_per_life": 0.31,
+     "mean_payouts_per_life": 0.73,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.2485,
+   "min_p_pass": 0.44,
+   "mean_ev": 102.13,
+   "mean_p_pass": 0.4573,
+   "max_p_breach_daily_loss": 0.028,
+   "mean_p_breach_max_dd": 0.9741,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 2.68,
+     "60": 4.12,
+     "90": 4.83
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.1507,
+     "60": 0.587,
+     "90": 0.617,
+     "180": 0.6172
+    },
+    "mean_p_target_reached": 0.4626,
+    "mean_p_target_reached_not_passed": 0.0053,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     9.8,
+     9.68,
+     9.54,
+     9.82,
+     10.01
+    ]
+   },
+   "verdict": "GO_LIVE",
+   "binding_clause": ""
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.005,
+   "max_gap_days": 6.62,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 25.0,
+    "worst_day": "2025-02-09",
+    "worst_day_usd": -78.16,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": 0.193,
+    "n_days": 373,
+    "ok": true
+   },
+   "seeds": {
+    "1": {
+     "ev": 168.17,
+     "ev_mc_se": 7.25,
+     "p_net": 0.46,
+     "p_pass": 0.617,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.7225,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.3405,
+     "ev_p5": -19.55,
+     "ev_p95": 587.14,
+     "p_pass_p5": 0.1945,
+     "days_to_pass_p50": 221.1,
+     "days_to_pass_p90": 491.7,
+     "lifetime_days_mean": 449.7,
+     "p_alive_at_horizon": 0.2775,
+     "p_death_before_first_payout": 0.472,
+     "death_causes": {
+      "eval:static_drawdown": 681,
+      "funded:static_drawdown": 764
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0195,
+       "60": 0.354,
+       "90": 0.714,
+       "180": 0.8795
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.85,
+       "60": 3.8,
+       "90": 5.65
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.617,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 17.6,
+       "p50": 15.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 34.88,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.78,
+     "n_lives": 2000
+    },
+    "2": {
+     "ev": 188.34,
+     "ev_mc_se": 7.64,
+     "p_net": 0.4845,
+     "p_pass": 0.624,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.7215,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.3345,
+     "ev_p5": -31.6,
+     "ev_p95": 856.79,
+     "p_pass_p5": 0.169,
+     "days_to_pass_p50": 220.2,
+     "days_to_pass_p90": 504.4,
+     "lifetime_days_mean": 457.3,
+     "p_alive_at_horizon": 0.2785,
+     "p_death_before_first_payout": 0.452,
+     "death_causes": {
+      "eval:static_drawdown": 669,
+      "funded:static_drawdown": 774
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.02,
+       "60": 0.383,
+       "90": 0.723,
+       "180": 0.8915
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.97,
+       "60": 3.98,
+       "90": 5.83
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.624,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 17.77,
+       "p50": 15.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 34.38,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.93,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 169.4,
+     "ev_mc_se": 7.35,
+     "p_net": 0.451,
+     "p_pass": 0.613,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.723,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.34,
+     "ev_p5": -29.98,
+     "ev_p95": 728.15,
+     "p_pass_p5": 0.227,
+     "days_to_pass_p50": 223.9,
+     "days_to_pass_p90": 495.3,
+     "lifetime_days_mean": 450.5,
+     "p_alive_at_horizon": 0.277,
+     "p_death_before_first_payout": 0.4795,
+     "death_causes": {
+      "eval:static_drawdown": 680,
+      "funded:static_drawdown": 766
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0175,
+       "60": 0.358,
+       "90": 0.703,
+       "180": 0.8835
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.88,
+       "60": 3.86,
+       "90": 5.68
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.613,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 17.94,
+       "p50": 15.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 34.15,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.76,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 166.57,
+     "ev_mc_se": 7.25,
+     "p_net": 0.465,
+     "p_pass": 0.6165,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.7235,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.3415,
+     "ev_p5": -39.17,
+     "ev_p95": 761.17,
+     "p_pass_p5": 0.138,
+     "days_to_pass_p50": 231.8,
+     "days_to_pass_p90": 497.4,
+     "lifetime_days_mean": 452.1,
+     "p_alive_at_horizon": 0.2765,
+     "p_death_before_first_payout": 0.4665,
+     "death_causes": {
+      "eval:static_drawdown": 683,
+      "funded:static_drawdown": 764
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0255,
+       "60": 0.3585,
+       "90": 0.699,
+       "180": 0.886
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.86,
+       "60": 3.84,
+       "90": 5.68
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.6165,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 17.98,
+       "p50": 15.5
+      }
+     },
+     "payout_deferred_qual_days_per_life": 34.36,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.75,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 177.27,
+     "ev_mc_se": 7.39,
+     "p_net": 0.4695,
+     "p_pass": 0.6255,
+     "p_breach_daily_loss": 0.0,
+     "p_breach_max_dd": 0.7205,
+     "p_breach_daily_loss_in_eval": 0.0,
+     "p_breach_max_dd_in_eval": 0.3325,
+     "ev_p5": -36.67,
+     "ev_p95": 874.79,
+     "p_pass_p5": 0.1545,
+     "days_to_pass_p50": 219.7,
+     "days_to_pass_p90": 500.8,
+     "lifetime_days_mean": 451.7,
+     "p_alive_at_horizon": 0.2795,
+     "p_death_before_first_payout": 0.46,
+     "death_causes": {
+      "eval:static_drawdown": 665,
+      "funded:static_drawdown": 776
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.0175,
+       "60": 0.3705,
+       "90": 0.714,
+       "180": 0.8845
+      },
+      "expected_qual_days_by_day": {
+       "30": 1.91,
+       "60": 3.89,
+       "90": 5.74
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.6255,
+      "p_pass_given_target_reached": 1.0,
+      "p_target_reached_not_passed": 0.0,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 0.0
+      },
+      "qual_days_eval": {
+       "mean": 17.64,
+       "p50": 15.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 34.6,
+     "pass_deferred_qual_days_per_life": 0.0,
+     "mean_payouts_per_life": 1.84,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.451,
+   "min_p_pass": 0.613,
+   "mean_ev": 173.95,
+   "mean_p_pass": 0.6192,
+   "max_p_breach_daily_loss": 0.0,
+   "mean_p_breach_max_dd": 0.7222,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 1.89,
+     "60": 3.87,
+     "90": 5.72
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.02,
+     "60": 0.3648,
+     "90": 0.7106,
+     "180": 0.885
+    },
+    "mean_p_target_reached": 0.6192,
+    "mean_p_target_reached_not_passed": 0.0,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     34.88,
+     34.38,
+     34.15,
+     34.36,
+     34.6
+    ]
+   },
+   "verdict": "GO_LIVE",
+   "binding_clause": ""
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.01,
+   "max_gap_days": 6.62,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 50.0,
+    "worst_day": "2025-02-09",
+    "worst_day_usd": -156.33,
+    "days_beyond_80pct_line": 0,
+    "days_beyond_limit": 0,
+    "mean_pairwise_daily_corr": 0.193,
+    "n_days": 373,
+    "ok": true
+   },
+   "seeds": {
+    "2": {
+     "ev": 125.35,
+     "ev_mc_se": 8.38,
+     "p_net": 0.2995,
+     "p_pass": 0.499,
+     "p_breach_daily_loss": 0.0155,
+     "p_breach_max_dd": 0.984,
+     "p_breach_daily_loss_in_eval": 0.0105,
+     "p_breach_max_dd_in_eval": 0.4905,
+     "ev_p5": -16.94,
+     "ev_p95": 431.22,
+     "p_pass_p5": 0.208,
+     "days_to_pass_p50": 62.0,
+     "days_to_pass_p90": 144.7,
+     "lifetime_days_mean": 120.9,
+     "p_alive_at_horizon": 0.0005,
+     "p_death_before_first_payout": 0.7005,
+     "death_causes": {
+      "eval:daily_loss": 21,
+      "eval:static_drawdown": 981,
+      "funded:daily_loss": 10,
+      "funded:static_drawdown": 987
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.171,
+       "60": 0.678,
+       "90": 0.6995,
+       "180": 0.6995
+      },
+      "expected_qual_days_by_day": {
+       "30": 3.03,
+       "60": 5.04,
+       "90": 6.22
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5065,
+      "p_pass_given_target_reached": 0.9852,
+      "p_target_reached_not_passed": 0.0075,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 9.7
+      },
+      "qual_days_eval": {
+       "mean": 7.92,
+       "p50": 6.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 11.21,
+     "pass_deferred_qual_days_per_life": 0.25,
+     "mean_payouts_per_life": 0.99,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 141.61,
+     "ev_mc_se": 8.88,
+     "p_net": 0.311,
+     "p_pass": 0.496,
+     "p_breach_daily_loss": 0.012,
+     "p_breach_max_dd": 0.988,
+     "p_breach_daily_loss_in_eval": 0.0055,
+     "p_breach_max_dd_in_eval": 0.4985,
+     "ev_p5": -17.13,
+     "ev_p95": 422.32,
+     "p_pass_p5": 0.2945,
+     "days_to_pass_p50": 62.5,
+     "days_to_pass_p90": 164.9,
+     "lifetime_days_mean": 125.9,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.689,
+     "death_causes": {
+      "eval:daily_loss": 11,
+      "eval:static_drawdown": 997,
+      "funded:daily_loss": 13,
+      "funded:static_drawdown": 979
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.165,
+       "60": 0.6795,
+       "90": 0.701,
+       "180": 0.701
+      },
+      "expected_qual_days_by_day": {
+       "30": 3.05,
+       "60": 5.07,
+       "90": 6.27
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5015,
+      "p_pass_given_target_reached": 0.989,
+      "p_target_reached_not_passed": 0.0055,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 7.6
+      },
+      "qual_days_eval": {
+       "mean": 8.14,
+       "p50": 6.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 11.23,
+     "pass_deferred_qual_days_per_life": 0.21,
+     "mean_payouts_per_life": 1.12,
+     "n_lives": 2000
+    },
+    "1": {
+     "ev": 126.0,
+     "ev_mc_se": 8.35,
+     "p_net": 0.3125,
+     "p_pass": 0.4955,
+     "p_breach_daily_loss": 0.0145,
+     "p_breach_max_dd": 0.985,
+     "p_breach_daily_loss_in_eval": 0.01,
+     "p_breach_max_dd_in_eval": 0.4945,
+     "ev_p5": -2.39,
+     "ev_p95": 533.42,
+     "p_pass_p5": 0.299,
+     "days_to_pass_p50": 61.5,
+     "days_to_pass_p90": 164.8,
+     "lifetime_days_mean": 122.9,
+     "p_alive_at_horizon": 0.0005,
+     "p_death_before_first_payout": 0.6875,
+     "death_causes": {
+      "eval:daily_loss": 20,
+      "eval:static_drawdown": 989,
+      "funded:daily_loss": 9,
+      "funded:static_drawdown": 981
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.1705,
+       "60": 0.6675,
+       "90": 0.687,
+       "180": 0.687
+      },
+      "expected_qual_days_by_day": {
+       "30": 3.03,
+       "60": 4.94,
+       "90": 6.06
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.504,
+      "p_pass_given_target_reached": 0.9831,
+      "p_target_reached_not_passed": 0.0085,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 9.7
+      },
+      "qual_days_eval": {
+       "mean": 8.02,
+       "p50": 6.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 11.53,
+     "pass_deferred_qual_days_per_life": 0.24,
+     "mean_payouts_per_life": 1.02,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 140.78,
+     "ev_mc_se": 8.78,
+     "p_net": 0.3195,
+     "p_pass": 0.51,
+     "p_breach_daily_loss": 0.0135,
+     "p_breach_max_dd": 0.9865,
+     "p_breach_daily_loss_in_eval": 0.01,
+     "p_breach_max_dd_in_eval": 0.48,
+     "ev_p5": -21.79,
+     "ev_p95": 357.05,
+     "p_pass_p5": 0.2345,
+     "days_to_pass_p50": 61.9,
+     "days_to_pass_p90": 158.0,
+     "lifetime_days_mean": 124.7,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.6805,
+     "death_causes": {
+      "eval:daily_loss": 20,
+      "eval:static_drawdown": 960,
+      "funded:daily_loss": 7,
+      "funded:static_drawdown": 1013
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.155,
+       "60": 0.686,
+       "90": 0.705,
+       "180": 0.705
+      },
+      "expected_qual_days_by_day": {
+       "30": 3.03,
+       "60": 5.06,
+       "90": 6.23
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.5145,
+      "p_pass_given_target_reached": 0.9913,
+      "p_target_reached_not_passed": 0.0045,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 1.0
+      },
+      "qual_days_eval": {
+       "mean": 7.89,
+       "p50": 6.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 11.92,
+     "pass_deferred_qual_days_per_life": 0.21,
+     "mean_payouts_per_life": 1.1,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 124.58,
+     "ev_mc_se": 8.21,
+     "p_net": 0.3135,
+     "p_pass": 0.492,
+     "p_breach_daily_loss": 0.0155,
+     "p_breach_max_dd": 0.9845,
+     "p_breach_daily_loss_in_eval": 0.0095,
+     "p_breach_max_dd_in_eval": 0.4985,
+     "ev_p5": 4.02,
+     "ev_p95": 499.97,
+     "p_pass_p5": 0.318,
+     "days_to_pass_p50": 62.2,
+     "days_to_pass_p90": 155.8,
+     "lifetime_days_mean": 119.1,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.6865,
+     "death_causes": {
+      "eval:daily_loss": 19,
+      "eval:static_drawdown": 997,
+      "funded:daily_loss": 12,
+      "funded:static_drawdown": 972
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.1655,
+       "60": 0.675,
+       "90": 0.694,
+       "180": 0.694
+      },
+      "expected_qual_days_by_day": {
+       "30": 3.02,
+       "60": 5.02,
+       "90": 6.17
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.4955,
+      "p_pass_given_target_reached": 0.9929,
+      "p_target_reached_not_passed": 0.0035,
+      "days_target_to_pass": {
+       "p50": 0.0,
+       "p90": 4.0
+      },
+      "qual_days_eval": {
+       "mean": 7.76,
+       "p50": 6.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 11.11,
+     "pass_deferred_qual_days_per_life": 0.19,
+     "mean_payouts_per_life": 1.0,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.2995,
+   "min_p_pass": 0.492,
+   "mean_ev": 131.66,
+   "mean_p_pass": 0.4985,
+   "max_p_breach_daily_loss": 0.0155,
+   "mean_p_breach_max_dd": 0.9856,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 3.03,
+     "60": 5.03,
+     "90": 6.19
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.1654,
+     "60": 0.6772,
+     "90": 0.6973,
+     "180": 0.6973
+    },
+    "mean_p_target_reached": 0.5044,
+    "mean_p_target_reached_not_passed": 0.0059,
+    "days_target_to_pass_p50": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "payout_deferred_qual_days_per_life": [
+     11.21,
+     11.23,
+     11.53,
+     11.92,
+     11.11
+    ]
+   },
+   "verdict": "GO_LIVE",
+   "binding_clause": ""
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.015,
+   "max_gap_days": 6.62,
+   "gap_ok": true,
+   "min_hold_s": 3600.0,
+   "daily_loss": {
+    "risk_usd": 75.0,
+    "worst_day": "2025-02-09",
+    "worst_day_usd": -234.49,
+    "days_beyond_80pct_line": 3,
+    "days_beyond_limit": 2,
+    "mean_pairwise_daily_corr": 0.193,
+    "n_days": 373,
+    "ok": false
+   },
+   "seeds": {
+    "2": {
+     "ev": 48.3,
+     "ev_mc_se": 6.5,
+     "p_net": 0.1595,
+     "p_pass": 0.3775,
+     "p_breach_daily_loss": 0.283,
+     "p_breach_max_dd": 0.717,
+     "p_breach_daily_loss_in_eval": 0.183,
+     "p_breach_max_dd_in_eval": 0.4395,
+     "ev_p5": -20.51,
+     "ev_p95": 191.9,
+     "p_pass_p5": 0.209,
+     "days_to_pass_p50": 32.0,
+     "days_to_pass_p90": 65.4,
+     "lifetime_days_mean": 47.6,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.8405,
+     "death_causes": {
+      "eval:daily_loss": 366,
+      "eval:static_drawdown": 879,
+      "funded:daily_loss": 200,
+      "funded:static_drawdown": 555
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.2645,
+       "60": 0.4835,
+       "90": 0.485,
+       "180": 0.485
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.83,
+       "60": 3.63,
+       "90": 3.85
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.3945,
+      "p_pass_given_target_reached": 0.9569,
+      "p_target_reached_not_passed": 0.017,
+      "days_target_to_pass": {
+       "p50": 0.3,
+       "p90": 20.3
+      },
+      "qual_days_eval": {
+       "mean": 3.9,
+       "p50": 4.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 4.42,
+     "pass_deferred_qual_days_per_life": 1.1,
+     "mean_payouts_per_life": 0.41,
+     "n_lives": 2000
+    },
+    "3": {
+     "ev": 55.84,
+     "ev_mc_se": 6.72,
+     "p_net": 0.1685,
+     "p_pass": 0.3855,
+     "p_breach_daily_loss": 0.298,
+     "p_breach_max_dd": 0.702,
+     "p_breach_daily_loss_in_eval": 0.185,
+     "p_breach_max_dd_in_eval": 0.4295,
+     "ev_p5": -15.57,
+     "ev_p95": 156.94,
+     "p_pass_p5": 0.24,
+     "days_to_pass_p50": 31.3,
+     "days_to_pass_p90": 64.8,
+     "lifetime_days_mean": 49.1,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.8315,
+     "death_causes": {
+      "eval:daily_loss": 370,
+      "eval:static_drawdown": 859,
+      "funded:daily_loss": 226,
+      "funded:static_drawdown": 545
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.283,
+       "60": 0.497,
+       "90": 0.5,
+       "180": 0.5
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.92,
+       "60": 3.76,
+       "90": 3.99
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.4015,
+      "p_pass_given_target_reached": 0.9601,
+      "p_target_reached_not_passed": 0.016,
+      "days_target_to_pass": {
+       "p50": 0.2,
+       "p90": 18.4
+      },
+      "qual_days_eval": {
+       "mean": 4.08,
+       "p50": 4.5
+      }
+     },
+     "payout_deferred_qual_days_per_life": 4.78,
+     "pass_deferred_qual_days_per_life": 0.99,
+     "mean_payouts_per_life": 0.44,
+     "n_lives": 2000
+    },
+    "1": {
+     "ev": 62.95,
+     "ev_mc_se": 7.14,
+     "p_net": 0.1685,
+     "p_pass": 0.383,
+     "p_breach_daily_loss": 0.288,
+     "p_breach_max_dd": 0.712,
+     "p_breach_daily_loss_in_eval": 0.1775,
+     "p_breach_max_dd_in_eval": 0.4395,
+     "ev_p5": -22.38,
+     "ev_p95": 256.97,
+     "p_pass_p5": 0.2145,
+     "days_to_pass_p50": 32.0,
+     "days_to_pass_p90": 62.7,
+     "lifetime_days_mean": 49.1,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.8315,
+     "death_causes": {
+      "eval:daily_loss": 355,
+      "eval:static_drawdown": 879,
+      "funded:daily_loss": 221,
+      "funded:static_drawdown": 545
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.26,
+       "60": 0.491,
+       "90": 0.4925,
+       "180": 0.4925
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.84,
+       "60": 3.67,
+       "90": 3.86
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.4045,
+      "p_pass_given_target_reached": 0.9468,
+      "p_target_reached_not_passed": 0.0215,
+      "days_target_to_pass": {
+       "p50": 0.3,
+       "p90": 18.4
+      },
+      "qual_days_eval": {
+       "mean": 3.93,
+       "p50": 4.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 4.7,
+     "pass_deferred_qual_days_per_life": 1.01,
+     "mean_payouts_per_life": 0.44,
+     "n_lives": 2000
+    },
+    "4": {
+     "ev": 55.03,
+     "ev_mc_se": 7.01,
+     "p_net": 0.17,
+     "p_pass": 0.384,
+     "p_breach_daily_loss": 0.299,
+     "p_breach_max_dd": 0.701,
+     "p_breach_daily_loss_in_eval": 0.187,
+     "p_breach_max_dd_in_eval": 0.429,
+     "ev_p5": -28.94,
+     "ev_p95": 248.78,
+     "p_pass_p5": 0.2,
+     "days_to_pass_p50": 32.0,
+     "days_to_pass_p90": 69.8,
+     "lifetime_days_mean": 48.9,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.83,
+     "death_causes": {
+      "eval:daily_loss": 374,
+      "eval:static_drawdown": 858,
+      "funded:daily_loss": 224,
+      "funded:static_drawdown": 544
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.268,
+       "60": 0.4935,
+       "90": 0.4955,
+       "180": 0.4955
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.82,
+       "60": 3.67,
+       "90": 3.9
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.405,
+      "p_pass_given_target_reached": 0.9481,
+      "p_target_reached_not_passed": 0.021,
+      "days_target_to_pass": {
+       "p50": 0.2,
+       "p90": 18.4
+      },
+      "qual_days_eval": {
+       "mean": 3.99,
+       "p50": 4.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 4.6,
+     "pass_deferred_qual_days_per_life": 1.02,
+     "mean_payouts_per_life": 0.42,
+     "n_lives": 2000
+    },
+    "5": {
+     "ev": 44.1,
+     "ev_mc_se": 6.07,
+     "p_net": 0.165,
+     "p_pass": 0.35,
+     "p_breach_daily_loss": 0.3025,
+     "p_breach_max_dd": 0.6975,
+     "p_breach_daily_loss_in_eval": 0.2015,
+     "p_breach_max_dd_in_eval": 0.4485,
+     "ev_p5": -29.33,
+     "ev_p95": 172.23,
+     "p_pass_p5": 0.19,
+     "days_to_pass_p50": 31.0,
+     "days_to_pass_p90": 68.0,
+     "lifetime_days_mean": 46.9,
+     "p_alive_at_horizon": 0.0,
+     "p_death_before_first_payout": 0.835,
+     "death_causes": {
+      "eval:daily_loss": 403,
+      "eval:static_drawdown": 897,
+      "funded:daily_loss": 202,
+      "funded:static_drawdown": 498
+     },
+     "qualifying_days": {
+      "p_reach_min_qual_days_by_day": {
+       "30": 0.2665,
+       "60": 0.4685,
+       "90": 0.4695,
+       "180": 0.4695
+      },
+      "expected_qual_days_by_day": {
+       "30": 2.82,
+       "60": 3.61,
+       "90": 3.82
+      },
+      "min_qual_days": 5,
+      "p_target_reached_eval": 0.373,
+      "p_pass_given_target_reached": 0.9383,
+      "p_target_reached_not_passed": 0.023,
+      "days_target_to_pass": {
+       "p50": 0.3,
+       "p90": 19.8
+      },
+      "qual_days_eval": {
+       "mean": 3.9,
+       "p50": 4.0
+      }
+     },
+     "payout_deferred_qual_days_per_life": 4.17,
+     "pass_deferred_qual_days_per_life": 0.99,
+     "mean_payouts_per_life": 0.38,
+     "n_lives": 2000
+    }
+   },
+   "min_p_net": 0.1595,
+   "min_p_pass": 0.35,
+   "mean_ev": 53.24,
+   "mean_p_pass": 0.376,
+   "max_p_breach_daily_loss": 0.3025,
+   "mean_p_breach_max_dd": 0.7059,
+   "edge": "EDGE_NULL",
+   "qual_gate": {
+    "label": "QUAL_DAYS_NOT_BINDING",
+    "expected_qual_days_by_day": {
+     "30": 2.85,
+     "60": 3.67,
+     "90": 3.88
+    },
+    "p_reach_min_qual_days_by_day": {
+     "30": 0.2684,
+     "60": 0.4867,
+     "90": 0.4885,
+     "180": 0.4885
+    },
+    "mean_p_target_reached": 0.3957,
+    "mean_p_target_reached_not_passed": 0.0197,
+    "days_target_to_pass_p50": [
+     0.3,
+     0.2,
+     0.3,
+     0.2,
+     0.3
+    ],
+    "payout_deferred_qual_days_per_life": [
+     4.42,
+     4.78,
+     4.7,
+     4.6,
+     4.17
+    ]
+   },
+   "verdict": "NULL",
+   "binding_clause": "B:p_breach_daily"
+  }
+ ],
+ "ranking": [
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.005,
+   "verdict": "GO_LIVE",
+   "binding_clause": "",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.0,
+   "mean_p_breach_max_dd": 0.7222,
+   "min_p_net": 0.451,
+   "min_p_pass": 0.613,
+   "mean_ev": 173.95
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.005,
+   "verdict": "GO_LIVE",
+   "binding_clause": "",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.0,
+   "mean_p_breach_max_dd": 0.4653,
+   "min_p_net": 0.372,
+   "min_p_pass": 0.523,
+   "mean_ev": 76.59
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.01,
+   "verdict": "GO_LIVE",
+   "binding_clause": "",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.0005,
+   "mean_p_breach_max_dd": 0.9874,
+   "min_p_net": 0.337,
+   "min_p_pass": 0.507,
+   "mean_ev": 138.84
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.01,
+   "verdict": "GO_LIVE",
+   "binding_clause": "",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.0155,
+   "mean_p_breach_max_dd": 0.9856,
+   "min_p_net": 0.2995,
+   "min_p_pass": 0.492,
+   "mean_ev": 131.66
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop"
+   ],
+   "risk": 0.015,
+   "verdict": "GO_LIVE",
+   "binding_clause": "",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.028,
+   "mean_p_breach_max_dd": 0.9741,
+   "min_p_net": 0.2485,
+   "min_p_pass": 0.44,
+   "mean_ev": 102.13
+  },
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.01,
+   "verdict": "NULL",
+   "binding_clause": "G:gap",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.0135,
+   "mean_p_breach_max_dd": 0.6856,
+   "min_p_net": 0.376,
+   "min_p_pass": 0.5505,
+   "mean_ev": 126.1
+  },
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.015,
+   "verdict": "NULL",
+   "binding_clause": "B:p_breach_daily",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.247,
+   "mean_p_breach_max_dd": 0.7594,
+   "min_p_net": 0.218,
+   "min_p_pass": 0.4195,
+   "mean_ev": 86.13
+  },
+  {
+   "book": [
+    "trend_donchian_eth_prop",
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.015,
+   "verdict": "NULL",
+   "binding_clause": "B:p_breach_daily",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.3025,
+   "mean_p_breach_max_dd": 0.7059,
+   "min_p_net": 0.1595,
+   "min_p_pass": 0.35,
+   "mean_ev": 53.24
+  },
+  {
+   "book": [
+    "trend_donchian_sol_prop"
+   ],
+   "risk": 0.005,
+   "verdict": "FAIL",
+   "binding_clause": "R:ev",
+   "edge": "EDGE_NULL",
+   "qual_label": "QUAL_DAYS_NOT_BINDING",
+   "max_p_breach_daily_loss": 0.0,
+   "mean_p_breach_max_dd": 0.1216,
+   "min_p_net": 0.131,
+   "min_p_pass": 0.3085,
+   "mean_ev": -22.64
+  }
+ ],
+ "recommendation": {
+  "roster": [
+   "trend_donchian_eth_prop",
+   "trend_donchian_sol_prop"
+  ],
+  "risk_pct": 0.005,
+  "class": "GO_LIVE"
+ }
+}

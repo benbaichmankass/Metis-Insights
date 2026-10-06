@@ -170,7 +170,7 @@ import json
 import math
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -634,6 +634,17 @@ class Life:
     trades_taken: int = 0
     trades_skipped_leg_busy: int = 0
     alive_at_horizon: bool = False
+    # Qualifying-day observability (lane VELOTRADE-FIT, 2026-10-06). The gate itself is
+    # older (PROP-FIRM-DEEP); these two fields make it MEASURABLE whether the gate binds:
+    # the first eval exit at which the balance reached the target (None if never), and the
+    # qualifying days counted while still in evaluation. passed => target reached, so
+    # P(pass) - P(target reached) is the share of lives the gate (plus a later death) cost.
+    target_first_reached_days: Optional[float] = None
+    qual_days_eval: int = 0
+    # reset instants (days) at which each EVAL qualifying day was counted, in order --
+    # so "P(5 qualifying days by day N)" and "expected qualifying days per N days" are
+    # readable off a life without re-running it
+    qual_day_times: List[float] = field(default_factory=list)
 
     def net(self, fee: float) -> float:
         return self.banked - fee
@@ -715,6 +726,9 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
             if qual_on:
                 if day_closed > 0 and day_realized >= rules.qual_day_profit_pct * start - 1e-9:
                     qual_days += 1
+                    if phase == "eval":
+                        life.qual_days_eval = qual_days
+                        life.qual_day_times.append(now)
                 day_realized = 0.0
                 day_closed = 0
             # the 00:30 balance, excluding open positions -- or, on Velotrade, the
@@ -765,9 +779,14 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
             bal += pnl
             day_realized += pnl
             day_closed += 1
-            if (phase == "eval" and bal >= target - 1e-9
-                    and (not qual_on or qual_days >= rules.qual_day_min_days)):
-                kind = "pass"
+            if phase == "eval" and bal >= target - 1e-9:
+                if life.target_first_reached_days is None:
+                    life.target_first_reached_days = now
+                if not qual_on or qual_days >= rules.qual_day_min_days:
+                    kind = "pass"
+                else:
+                    # target met, pass withheld: the qualifying-day gate is binding right now
+                    counters["pass_deferred_qual_days"] = counters.get("pass_deferred_qual_days", 0) + 1
         if kind == "pass":
             life.passed = True
             life.days_to_pass = now
@@ -861,6 +880,32 @@ def summarize(lives: Sequence[Life], rules: PropRules) -> Dict[str, Any]:
             key = f"{lf.death_phase}:{lf.death_cause}"
             causes[key] = causes.get(key, 0) + 1
     dtp = np.array([lf.days_to_pass for lf in passed], dtype=float)
+    reached = [lf for lf in lives if lf.target_first_reached_days is not None]
+    t2p = np.array([lf.days_to_pass - lf.target_first_reached_days for lf in passed
+                    if lf.target_first_reached_days is not None], dtype=float)
+    qde = np.array([lf.qual_days_eval for lf in lives], dtype=float)
+    need = rules.qual_day_min_days or 5
+    qual_block = {
+        # P(the eval has accrued `need` qualifying days by day N); a life dead before N
+        # without them counts as not reached. Expected eval qualifying days inside the
+        # first N days, over ALL lives (deaths censor naturally).
+        "p_reach_min_qual_days_by_day": {
+            str(N): round(sum(1 for lf in lives if len(lf.qual_day_times) >= need
+                              and lf.qual_day_times[need - 1] <= N) / n, 4)
+            for N in (30, 60, 90, 180)},
+        "expected_qual_days_by_day": {
+            str(N): round(float(np.mean([sum(1 for t in lf.qual_day_times if t <= N) for lf in lives])), 2)
+            for N in (30, 60, 90)},
+        "min_qual_days": need,
+        # share of lives whose eval balance ever reached the target (passed is a subset)
+        "p_target_reached_eval": round(len(reached) / n, 4),
+        "p_pass_given_target_reached": (round(len(passed) / len(reached), 4) if reached else None),
+        # the gate's cost: reached the target, never passed (died or ran out of horizon first)
+        "p_target_reached_not_passed": round((len(reached) - len(passed)) / n, 4),
+        "days_target_to_pass": ({"p50": round(_pct(t2p, 50), 1), "p90": round(_pct(t2p, 90), 1)}
+                                if t2p.size else None),
+        "qual_days_eval": {"mean": round(float(qde.mean()), 2), "p50": round(_pct(qde, 50), 1)},
+    }
     return {
         "n_lives": n,
         "ev_net_usd_per_life": round(mean_net, 2),
@@ -877,12 +922,21 @@ def summarize(lives: Sequence[Life], rules: PropRules) -> Dict[str, Any]:
                           "p90": round(_pct(life_days, 90), 1)},
         "days_to_pass": ({"p50": round(_pct(dtp, 50), 1), "p90": round(_pct(dtp, 90), 1)}
                          if dtp.size else None),
+        "qualifying_days": qual_block,
         "net_usd_percentiles": {f"p{q}": round(_pct(net, q), 2) for q in (5, 25, 50, 75, 95)},
         "mean_payouts_per_life": round(float(np.mean([lf.n_payouts for lf in lives])), 2),
         "mean_trades_per_life": round(float(np.mean([lf.trades_taken for lf in lives])), 1),
         "mean_trades_skipped_leg_busy_per_life": round(
             float(np.mean([lf.trades_skipped_leg_busy for lf in lives])), 2),
         "death_causes": dict(sorted(causes.items())),
+        # per-life breach probabilities, any phase (the gate the operator re-scoped to on
+        # 2026-10-06: "strategies that we know meet the risk requirements")
+        "p_breach_daily_loss": round(sum(1 for lf in lives if lf.died and lf.death_cause == "daily_loss") / n, 4),
+        "p_breach_max_dd": round(sum(1 for lf in lives if lf.died and lf.death_cause == "static_drawdown") / n, 4),
+        "p_breach_daily_loss_in_eval": round(sum(1 for lf in lives if lf.died and lf.death_cause == "daily_loss"
+                                                 and lf.death_phase == "eval") / n, 4),
+        "p_breach_max_dd_in_eval": round(sum(1 for lf in lives if lf.died and lf.death_cause == "static_drawdown"
+                                             and lf.death_phase == "eval") / n, 4),
         "ev_net_usd_per_365d_with_rebuy": (
             round(365.0 * mean_net / mean_life, 2) if mean_life > 0 else None),
     }
@@ -1219,16 +1273,43 @@ def _self_test() -> int:
     lf = simulate_life(hist, r8, cfg8, "realized", np.random.default_rng(0), stream=stream8())
     check(lf.passed and abs((lf.days_to_pass or 0) - (5 + 0.5 / 24)) < 1e-6,
           f"qualifying-day gate: pass moves from day 4.125 to the day-5 reset ({lf.days_to_pass})")
+    lf8a = lf
+    check(lf8a.target_first_reached_days is not None and lf8a.target_first_reached_days < lf8a.days_to_pass
+          and lf8a.qual_days_eval == 5,
+          f"qualifying-day observability: target reached at {lf8a.target_first_reached_days} before the pass, "
+          f"{lf8a.qual_days_eval} eval qualifying days counted")
     # 8b. a threshold no day can meet (3% of start > the $100 daily win) never passes
+    c8b: Dict[str, int] = {}
     lf = simulate_life(hist, PropRules(qual_day_min_days=5, qual_day_profit_pct=0.03), cfg8,
-                       "realized", np.random.default_rng(0), stream=stream8())
+                       "realized", np.random.default_rng(0), counters=c8b, stream=stream8())
     check(not lf.passed and lf.alive_at_horizon, "qualifying-day gate: unreachable threshold never passes")
+    check(lf.target_first_reached_days is not None and lf.qual_days_eval == 0
+          and c8b.get("pass_deferred_qual_days", 0) > 0,
+          f"qualifying-day observability: target reached, 0 qualifying days, "
+          f"{c8b.get('pass_deferred_qual_days', 0)} deferred passes counted")
+    lf8b = lf
+    s8 = summarize([lf8a, lf8b], PropRules())
+    q8 = s8["qualifying_days"]
+    check(len(lf8a.qual_day_times) == 5
+          and all(abs(t - (k + 0.5 / 24)) < 1e-6 for k, t in enumerate(lf8a.qual_day_times, start=1)),
+          f"qualifying-day times: the five eval qualifying resets are days 1..5 at 00:30 ({lf8a.qual_day_times})")
+    check(q8["p_reach_min_qual_days_by_day"]["30"] == 0.5 and q8["expected_qual_days_by_day"]["30"] == 2.5
+          and q8["p_reach_min_qual_days_by_day"]["180"] == 0.5,
+          f"qualifying-day timing summary: half the lives reach 5 by day 30, 2.5 expected per 30d ({q8})")
+    check(s8["p_breach_daily_loss"] == 0.0 and s8["p_breach_max_dd"] == 0.0,
+          "breach probabilities: a deterministic winner never breaches")
+    check(q8["p_target_reached_eval"] == 1.0 and s8["p_pass_eval"] == 0.5
+          and q8["p_pass_given_target_reached"] == 0.5 and q8["p_target_reached_not_passed"] == 0.5
+          and q8["days_target_to_pass"]["p50"] > 0,
+          f"qualifying-day summary: P(target)=1.0, P(pass)=0.5, gate cost 0.5 ({q8})")
     # 8c. gate OFF (qual_day_profit_pct None) reproduces section 2 exactly, even with min days set
     lf_off = simulate_life(hist, PropRules(qual_day_min_days=5), cfg8, "realized",
                            np.random.default_rng(0), stream=stream8())
     lf_ref = simulate_life(hist, PropRules(), cfg8, "realized", np.random.default_rng(0), stream=stream8())
     check(lf_off.banked == lf_ref.banked and lf_off.days_to_pass == lf_ref.days_to_pass,
           "qualifying-day gate is OFF unless qualifying_day_profit_pct is declared")
+    check(lf_ref.target_first_reached_days == lf_ref.days_to_pass and lf_ref.qual_days_eval == 0,
+          "gate OFF: the pass lands at the exit that reaches the target, and no qualifying day is counted")
     # 8d. first-payout funded gate: 5 qualifying funded days are banked well before the day-14
     # first payout, so the gate must not change the outcome; 20 qualifying days must defer it.
     lf5 = simulate_life(hist, PropRules(qual_day_min_days=0, qual_day_profit_pct=0.02,

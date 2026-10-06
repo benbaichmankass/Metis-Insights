@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Held for the manager (08:15Z: 'Hold the PR and build the APK'). tools/phone-executor/** is outside the guard's Tier-1 surface. The src/ part is additive observability: one quiet event kind (heartbeat) storing the latest allowlisted state beside the journal, and a phone_heartbeat field on GET /api/bot/prop/status. No order path, mode, roster, strategy or risk change.",
+  "why": "From 07:06Z to 08:18Z the phone made no claim and posted nothing except app_started (web-api journal), and phone_diag stayed null: every no-claim branch of the app's tick except the 30 s terminal wait only set the on-screen status line (touch-hold, paused, off-/account/ page, 'other' reload), so the server was blind. The app now posts a quiet heartbeat on EVERY tick path at most every 2 min: the status line plus st, paused, touch-hold, armed, host, onAccount, path depth and the terminal() gate fields. Server keeps the latest (fixed key allowlist, strings scrubbed), surfaced as phone_heartbeat."
+}

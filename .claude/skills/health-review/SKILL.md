@@ -427,6 +427,27 @@ The audit findings appear in `compliance_audit` in the response JSON:
 This rotation does NOT touch artifacts outside the day's section — the
 weekly cycle is the coverage guarantee, not a per-session full sweep.
 
+**Standing measurement on EVERY rotation day (operator directive 2026-10-06
+— the TP doctrine, `docs/ARCHITECTURE-CANONICAL.md` § "TP doctrine"):** run
+
+```bash
+python3 scripts/ci/check_tp_doctrine.py --strict --json
+```
+
+and put its `summary.by_class` block into `compliance_audit` as a finding
+named `tp-doctrine` (`rule: "ARCHITECTURE-CANONICAL § TP doctrine"`), with the
+per-class `entry_tp` / `tp_revision` FAIL counts beside their denominators.
+`--strict` exits 1 while ANY baselined debt remains — that is the audit shape,
+because the audit asks whether the debt SHRANK, not whether it grew (the PR
+guard asks the latter). Three dispositions, by class, real-money and prop
+first: a routing that became compliant → remove its `BASELINE_2026_10_06` line
+in the same PR (the guard fails on a stale line); a routing still failing →
+confirm it is carried by `PI-20261006-5FUGHVX8-0001` or a successor pipeline
+row / `research/queue/` unit; a routing that is NEW and failing → the guard
+already failed its PR, so the finding is how it got in. Exit 2 is *could not
+look* and is reported as such, never as clean.
+
+
 ## New-work compliance audit (MANDATORY — 2026-07-19)
 
 Operator directive: **everything built since the last review gets audited

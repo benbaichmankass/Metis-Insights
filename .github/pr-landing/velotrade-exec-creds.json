@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "VELOTRADE-GOLIVE fix: scripts/ops/prop_executor_tick.sh exports the account's own login keys (prop_env_keys.py, the same two the feed exports). The REST tick (dxtrade_api) logs in fresh every run; without them every velotrade_1 tick exited 4 no_credentials (journal 2026-10-06 08:48Z / 08:53Z). Browser ticks reuse the feed session and ignore the keys.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 VM wrapper fix under the operator's go-live direction (manager 08:33Z). Manager merges."
+}

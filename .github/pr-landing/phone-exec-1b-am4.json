@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "manager 2026-10-06 09:17Z: 'stage dry_test_request am-4 as a separate held PR so I can merge both together' (with #16740)",
+  "why": "one-line config bump that asks the phone for one more always-dry test ticket"
+}

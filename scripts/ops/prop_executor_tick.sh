@@ -63,6 +63,10 @@ else
     STATE_DIR="${BASE}/accounts/${ACCOUNT}/executor"
     LOCK_FILE="${BASE}/accounts/${ACCOUNT}/login.lock"
     MODE_KEY="PROP_EXECUTOR_MODE_$(printf '%s' "${ACCOUNT}" | tr 'a-z' 'A-Z' | tr -c 'A-Z0-9\n' '_')"
+    # The account's own login keys (the same two the feed exports). A REST
+    # platform (dxtrade_api, VELOTRADE-GOLIVE) logs in fresh every tick, so its
+    # tick needs them; a browser tick reuses the feed's session and ignores them.
+    LOGIN_KEYS="$(cd "${REPO_DIR}" && python3 scripts/prop/prop_env_keys.py "${ACCOUNT}" | awk '{print $1, $2}')"
 fi
 SESSION_STATE="${FEED_DIR}/session_state.json"
 TIMEOUT_S="${PROP_EXECUTOR_TIMEOUT_S:-150}"
@@ -73,7 +77,7 @@ chmod 700 "${STATE_DIR}"
 
 # Kill switch from the VM .env (values of the credential keys never echoed).
 if [ -f "${REPO_DIR}/.env" ]; then
-    for ckey in ${MODE_KEY} DASHBOARD_API_TOKEN; do
+    for ckey in ${MODE_KEY} ${LOGIN_KEYS:-} DASHBOARD_API_TOKEN; do
         cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
         if [ -n "${cval}" ]; then
             cval="${cval%\"}"; cval="${cval#\"}"

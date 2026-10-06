@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Lane RQ-PROP-SEED for PI-20261006-APBY4NTV-0001 (operator direction 2026-10-06: faster prop strategies, shorter timeframes, any tradable symbol). Adds 41 NEW research/queue units (29 research-harness-dispatch Stage-0 cells on prop-listed symbols at 5m/15m/1h; 12 prop_ev_grid three-ruleset fits on committed 730d records), 8 CANDIDATE_PAIRS rows in scripts/ops/fetch_backtest_corpus.py so those cells fetch data instead of landing producer_failed, and one pipeline item for the P(pass-by-horizon) metric prop_ev_sim lacks. Tier-1 by the canonical list (research tooling + queue registrations; no config/, src/, deploy/ or order path). It HOLDS for a human on purpose: check_pr_landing's STAMP_ONLY_SURFACE vouches only for last_dispatched_at stamps on EXISTING queue files; a new hand-written unit is a pre-registration of a decision rule and may not self-land (E57). The manager merges.",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "41 NEW research/queue/RQ-20261006-*.yaml units: check_pr_landing's STAMP_ONLY_SURFACE vouches only for last_dispatched_at stamps on files that exist at the merge-base, and a new hand-written unit is a decision-rule pre-registration that must be read by a human (E57). The manager merges once it has read the rules."
+}

@@ -23,10 +23,15 @@ from typing import Any, Dict, Optional
 from scripts.research.queue_grade import _parse_ts, health
 from scripts.research.queue_replenish import existing_units
 
-#: Alarm when runnable units exist and nothing has FIRED for this long. 12 h because the healthy gap
-#: is bounded by: cron 6 h + GitHub's measured 4-6 h scheduler lag (schedule_keeper.py docstring) is
+#: Alarm when runnable units exist and nothing has FIRED for this long. 12 h was set when the cron
+#: was 6-hourly: cron 6 h + GitHub's measured 4-6 h scheduler lag (schedule_keeper.py docstring) is
 #: absorbed by the keeper's own dispatch, leaving one cycle (~6 h) + the ~1 h stamp-landing lag; 12 h
 #: is that plus one missed cycle. It equals the operator's 2026-09-28 "no unit has run in 12h".
+#: The cron went HOURLY on 2026-10-06 (operator: the git infrastructure keeps the queue moving) and
+#: this is deliberately KEPT at 12 h: GitHub drops hourly slots outright (schedule_keeper.py, measured
+#: 2026-09-20..27), the keeper's own floor is hourly, and a run's stamp still lands through a
+#: ~1 h commit-to-main wait, so a tighter alarm would page on scheduler weather rather than on a
+#: dispatcher that has actually stopped.
 DEFAULT_IDLE_HOURS = 12.0
 
 

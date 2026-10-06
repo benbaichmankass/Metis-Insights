@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane VELOTRADE-FIT was dispatched by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-06), which merges lane work and decides the Tier-3 velotrade_1 roster. This PR is research only: a new queue unit (a NEW queue file never self-lands, STAMP_ONLY_SURFACE), an observability-only change to prop_ev_sim.py with tests, a sweep driver, evidence records and a memo. config/accounts.yaml is untouched; the proposed roster diff is in the PR body.",
+  "why": "Research evidence, a research script, a simulator observability field (no simulated outcome changes; self-test and pytest pinned) and records only. No runtime, order-path, config or roster change, so Tier-1 by path; held for the manager."
+}

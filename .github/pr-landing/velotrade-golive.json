@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "why": "VELOTRADE-GOLIVE: velotrade_1 mode dry_run -> live (roster still []), plus the REST runner the live path needs: the executor tick and the status feed run dxtrade_api accounts over REST (no browser) instead of refusing them. Orders still need PROP_EXECUTOR_MODE_VELOTRADE_1=live (set-env) and an enabled venue symbol.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 go-live. Held until (1) the velotrade-api-roundtrip passes on the VM and (2) the manager fills the roster from lane VELOTRADE-FIT. Manager request 2026-10-06 06:41Z; operator popup 'Build it + pre-approve test' and the 06:35Z parallel go-live instruction."
+}
