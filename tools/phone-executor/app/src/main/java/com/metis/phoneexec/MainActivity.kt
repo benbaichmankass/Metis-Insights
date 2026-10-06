@@ -11,6 +11,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputType
 import android.view.KeyCharacterMap
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.CookieManager
@@ -92,6 +93,10 @@ class MainActivity : Activity() {
         execSrc = assets.open("exec.js").bufferedReader().readText()
 
         web = WebView(this)
+        // TOUCH-HOLD counts only a real finger-down on the page (fix 2026-10-06 09:06Z: the operator saw "paused because
+        // you are using it" with the app open and untouched; Activity.onUserInteraction also fires for keys, resumes and
+        // system-dispatched events). Our own dispatchKeyEvent typing never reaches a touch listener.
+        web.setOnTouchListener { _, ev -> if (ev.actionMasked == MotionEvent.ACTION_DOWN) lastUserInputMs = System.currentTimeMillis(); false }
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         CookieManager.getInstance().setAcceptCookie(true)
@@ -137,8 +142,9 @@ class MainActivity : Activity() {
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
     private fun setStatus(s: String) { status.text = s; lastStatus = s }
-    override fun onUserInteraction() { super.onUserInteraction(); lastUserInputMs = System.currentTimeMillis() }
-    private fun userActive() = System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
+    /** The touch-hold protects a HUMAN LOGIN only (operator 2026-10-06 09:06Z): once logged in it never blocks claim,
+     *  navigation or execution. The Pause button is the only manual stop. */
+    private fun userActive() = lastState != "logged_in" && System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
     private fun paused() = System.currentTimeMillis() < pausedUntilMs
     private fun togglePause() {
         pausedUntilMs = if (paused()) 0L else System.currentTimeMillis() + PAUSE_MAX_MS
@@ -364,7 +370,7 @@ class MainActivity : Activity() {
         val r = api.post("claim") ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
         if (!r.optBoolean("ok")) { setStatus("logged in · claim refused (http ${r.optInt("http")})"); return }
         val t = r.optJSONObject("ticket")
-        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · no ticket · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
         execute(t, r.optJSONObject("config") ?: JSONObject())
     }
 
