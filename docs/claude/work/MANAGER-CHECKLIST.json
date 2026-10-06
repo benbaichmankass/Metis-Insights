@@ -5467,6 +5467,21 @@
         }
       ],
       "note": "[2026-10-06T00:20Z manager] Round-trip PR #16660 held (Tier 2); dispatch denied by classifier, awaiting operator approval in lane session. [2026-10-05T17:58Z manager] OPERATOR popup ~14:48Z: \"Build it + pre-approve test\". #16636 merged 432a92c9 (adapter, dry by default; positionBased=true so IF-THEN bracket). Next: roundtrip system-action PR, one 0.01 ETHUSD round trip with flatten-on-mismatch stop rule. velotrade_1 stays dry_run, empty roster."
+    },
+    {
+      "id": "PHONE-BG",
+      "title": "Breakout phone app claims and runs tickets while backgrounded (operator: needed for real automated trading)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane PHONE-BG",
+      "lane": "session_01LLrWmPZRqeZAMX5tpSuYdG",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-06T10:36Z manager] Operator ~10:35Z: quick fix before the reset if small, else post-reset (PI-20261006-APBY4NTV-0006). INFERRED root cause: backgrounded WebView -> evaluateJavascript never calls back -> tick wedged (busy=true, no heartbeat 10:03-10:24Z). Plan: js() timeout, HTTP-only pending peek while backgrounded, bring Activity to front (overlay perm) to claim+fill, then moveTaskToBack. Closes when a dry_test_request dry_fills with the app backgrounded."
     }
   ]
 }
