@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-07"
+  },
+  "id": "PI-20261006-APBY4NTV-0010",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, found 2026-10-06 ~13:00Z while surveying the prop research queue (operator: push prop roster research on Fable)",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/actions/runs/37454118580/jobs --jq '.jobs[].id' | xargs -I{} gh api repos/benbaichmankass/Metis-Insights/actions/jobs/{}/logs | grep -c \"No module named 'yaml'\"; git grep -c 'missing/unreadable' origin/main -- research/results | wc -l"
+  },
+  "state": "routed",
+  "routed_to": "checklist row RQ-FIX (lane, Fable, ceiling $15)",
+  "what": "RESEARCH QUEUE PRODUCES NO VERDICTS. (1) research-harness-dispatch.yml's result job runs harness_dispatch_result.py on a runner with no PyYAML -> load_unit() returns None -> every unit-attached result lands verdict=wiring_only ('queue file is missing/unreadable'). MEASURED run 37454118580 log: ModuleNotFoundError: No module named 'yaml'; unit file present at the run commit. 8 of 358 landed result rows discarded across 6 units (RQ-20261006-005 x2, RQ-20261005-010 x2, RQ-20261004-660/-661, RQ-20260928-030/-031); e.g. 005 measured 397 trades, net -5.45R = FAIL under its own rule, thrown away. Since #16388 (2026-10-04). (2) Hourly dispatch (#16736, this morning) + stamp PRs that take ~35-60 min of CI to merge = the next cycle re-fires the same unit (005 fired 09:59 and 11:05; 659 fired 10:04 and 11:09); stamp PR #16770 dirty (receipt json + unit yaml conflicts) so its stamps are lost. The dispatcher's own _stamp() docstring names this race. FIX = lane RQ-FIX: install pyyaml + fail loudly on a missing dep; result/open-PR-based idempotence in dispatch_queue.py; re-grade the 8 rows append-only under each unit's rule. DONE = a fresh harness-dispatch result lands with a PASS/FAIL/indeterminate verdict, and two consecutive hourly cycles fire no unit twice."
+}
