@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "manager 2026-10-06 06:17Z: 'Then stage a bump PR for dry_test_request am-3, held as before' — merge only after the #16692 APK is installed",
+  "why": "one-line config bump that asks the phone for one more always-dry test ticket"
+}
