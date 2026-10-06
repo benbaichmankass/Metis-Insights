@@ -22,7 +22,7 @@ pytest.importorskip("yaml")  # the guard reads the two configs; without yaml it 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.ci import check_tp_doctrine as guard
+from scripts.ci import check_tp_doctrine as guard  # noqa: E402
 
 
 def test_source_read_unit_resolution_matches_runtime_resolver() -> None:
