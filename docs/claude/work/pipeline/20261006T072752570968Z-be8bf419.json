@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "filed": "2026-10-05",
+  "id": "PI-20261005-KQIWJZWX-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "by": "session_01WfdESzsCPZbuawkqiWjzWX",
+    "kind": "session",
+    "ref": "VELOTRADE-WIRE API order-path memo (manager task 2026-10-05 12:54Z)",
+    "rerun": "read the latest velotrade-api-probe system-action issue output for 'account#1 type: {...isPositionBased...}'; ls src/prop/platform/ | grep -i api"
+  },
+  "severity": "medium",
+  "state": "done",
+  "terminal_reason": "Built (#16636 adapter, #16660 round-trip action) and exercised once live on velotrade_1 with every step http 200 and read-back exact; account flat after; cost $0.03 (issue #16710).",
+  "tier": 2,
+  "what": "DECISION + BUILD: give velotrade_1 a DXtrade REST order path (a `dxtrade_api` platform adapter implementing the 8 PropPlatformAdapter methods over REST, dry by default), per docs/research/velotrade-api-executor-design-2026-10-05.md. Gate: isPositionBased from velotrade-api-probe v4 (#16619): true -> IF-THEN bracket in one POST (no naked window); false -> entry then protect-by-positionCode (one-round-trip naked window, stated). Then the memo's section-4 Tier-2 min-size round trip on ETHUSD (0.01 ETH), only with an operator OK in chat. No config/accounts.yaml or roster change. || MEASURED 2026-10-05 14:40Z (issue #16631, run 37326456086, probe v4 at 42e15364): velotrade_1 `positionBased: true` (the server's key is `positionBased`, not the spec's `isPositionBased`), accountStatus FULL_TRADING, baseCurrency USD, 0 positions, 0 orders, balance/equity 5000. So the IF-THEN bracket (entry+SL+TP in ONE POST, no naked window) is the build path. Tier-2 round trip still NOT approved (manager takes it to the operator). || UPDATE 2026-10-05 ~15:00Z (lane VELOTRADE-API-EXEC session_01CbWE56MbSskgGNZrm27cBW; operator decision relayed by manager, verbatim \"Build it + pre-approve test\"): BUILT the dxtrade_api adapter (src/prop/platform/dxtrade_api.py, dry by default, mocked-REST tests) and switched velotrade_1 to platform dxtrade_api (still dry_run, empty roster, enabled_venue_symbols []), branch claude/velotrade-api-exec. NOT DONE: the section-4 live round trip. Creating its one-shot live system-action (velotrade-api-roundtrip) was DENIED inside the lane by Claude Code's auto-mode permission classifier (category: Real-World Transactions); the lane stopped there. Open for the operator/manager: how the one live round trip is to be run. || DONE 2026-10-06 07:25Z: velotrade-api-roundtrip passed LIVE on the VM (issue #16710, run 37429519500, exit 0; VM on-disk sha 3b3af3634 contains #16660 8daadf4b and #16636 432a92c9). 0.01 ETHUSD IF-THEN in ONE POST: http 200; filled 2696.69; SL 2157.35 / TP 3236.03 read back exactly; SL modified one tick to 2157.36 (PUT If-Match 200) and read back; Bulk Close sold 0.01 at 2696.45; 0 positions / 0 orders; balance 5000.00 -> 4999.97 (cost $0.03). Go-live: held PR #16705."
+}
