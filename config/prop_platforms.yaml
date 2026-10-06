@@ -339,6 +339,7 @@ phone_accounts:
     terminal_url: https://trade.breakoutprop.com/
     # One-shot dry end-to-end test without the operator (src/prop/phone_executor.py::serve_dry_test_request):
     # on the phone's next claim, ONE always-dry ETH test ticket is written for this id. Change the id to ask again.
+    # Faster, no CI run: the Tier-1 `phone-dry-test` system-action (docs/claude/system-actions.md) writes the same ticket.
     dry_test_request: 2026-10-06-bg-1   # background proof for #16764 (app backgrounded; PI-20261006-APBY4NTV-0006)
     instruments:
       ETHUSDT: {venue: ETHUSD, qty_step: 0.01, price_step: 0.01}

@@ -70,7 +70,7 @@ if [ "${action}" = "send-ping" ]; then
 fi
 
 case "${action}" in
-    status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|generate-strategy-review-packets|send-prop-test-ping|grade-closed-trades|net-r-regrade|get-env)
+    status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|generate-strategy-review-packets|send-prop-test-ping|phone-dry-test|grade-closed-trades|net-r-regrade|get-env)
         tier=1
         if [ "${exit_code}" -eq 0 ]; then
             result="ok"
