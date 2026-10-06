@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-08"
+  },
+  "id": "PI-20261006-APBY4NTV-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PHONE-EXEC-1B lane close-out 2026-10-06 10:33Z (session_01Ce3EyP4Z9A4P4MyUvcgtmJ), filed by manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=breakout_2' | python3 -c \"import json,sys;[print(t['ticket_id'],t.get('symbol'),(t.get('phone_result') or {}).get('reason')) for t in json.load(sys.stdin)['tickets'][:20]]\""
+  },
+  "state": "queued",
+  "what": "BREAKOUT PHONE EXECUTOR: SYMBOL PICKER ROUTE UNWIRED -> breakout_2's SOL leg cannot trade unless the terminal already shows SOL. The terminal's real instrument picker is the 'Select market' chip (role=button, aria 'Select market', text 'ETH x'); exec.js only succeeds when the terminal is already on the ticket's symbol or via the watchlist button. A SOL ticket (trend_donchian_sol_prop is on breakout_2's roster) while the terminal is on ETH is expected to REFUSE (safe: symbol is verified on the submit label before any click -- a missed trade, never a wrong-symbol order). Fix: drive the 'Select market' chip -> pick the venue symbol -> re-verify the submit label. DONE = a SOL test ticket (dry_test_request) dry_fills with the terminal starting on ETH. Due 2026-10-08 OR the first breakout_2 SOL ticket, whichever comes first."
+}
