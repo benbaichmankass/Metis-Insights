@@ -1,4 +1,4 @@
-id: RQ-20261006-003
+id: RQ-20261006-061
 title: "TP doctrine, real money: a finite target for alpaca_live's three 1d pullback sentinels (iaum / ief / slv)"
 status: queued
 cadence: once
@@ -61,7 +61,7 @@ power:
       `source: none` opt-out would hide a number the corpus already holds.
 
 decision_rule:
-  id: RULE-RQ1006-003-FINITE-TP-1D-PULLBACK-OR-POOL
+  id: RULE-RQ1006-061-FINITE-TP-1D-PULLBACK-OR-POOL
   registered_at: '2026-10-06'
   registered_before_run: true
   statistic: >-
@@ -108,7 +108,7 @@ run:
     gate_top: '2'
     singles_only: 'false'
     max_parallel: '3'
-    research_unit: RQ-20261006-003
+    research_unit: RQ-20261006-061
 
 lands:
   store: docs/research/e35-bracket-corpus.jsonl

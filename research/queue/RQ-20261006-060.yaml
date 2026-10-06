@@ -1,4 +1,4 @@
-id: RQ-20261006-002
+id: RQ-20261006-060
 title: "TP doctrine, real money: does a finite, venue-reachable target beat trend_donchian_eth_4h's 50R sentinel on bybit_2?"
 status: queued
 cadence: once
@@ -19,7 +19,7 @@ question: >-
 why_this_matters: >-
   MEASURED by `python3 scripts/ci/check_tp_doctrine.py` on main at f6c63f99
   (2026-10-06): of the 7 real-money routings, 4 fail `entry_tp` -- this leg on
-  bybit_2 and the three alpaca_live 1d pullback legs (RQ-20261006-003). This is
+  bybit_2 and the three alpaca_live 1d pullback legs (RQ-20261006-061). This is
   the only real-money sentinel on the venue whose exit path already forwards a
   TP amend (Bybit `modify` cap), so a declared target here is executable the
   day it is approved. The leg's e35 corpus rows carry base_oos_trades 49-59
@@ -56,7 +56,7 @@ power:
       floor.
 
 decision_rule:
-  id: RULE-RQ1006-002-FINITE-TP-BEATS-SENTINEL
+  id: RULE-RQ1006-060-FINITE-TP-BEATS-SENTINEL
   registered_at: '2026-10-06'
   registered_before_run: true
   statistic: >-
@@ -110,7 +110,7 @@ run:
     gate_top: '2'
     singles_only: 'false'
     max_parallel: '1'
-    research_unit: RQ-20261006-002
+    research_unit: RQ-20261006-060
 
 lands:
   store: docs/research/e35-bracket-corpus.jsonl
