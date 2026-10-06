@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "This PR adds two NEW research/queue units (RQ-20261006-060, RQ-20261006-061). A new queue file is never a dispatch stamp, so STAMP_ONLY_SURFACE cannot vouch for it and TIER1_SURFACE deliberately excludes research/queue/** (a pre-registered decision rule must not self-land in the act that writes it). Everything else in the diff (docs, CLAUDE.md, two SKILL.md files, scripts/ci, tests, a pipeline record, this file) is inside the Tier-1 surface. The manager (session_01MM8o5js6TcDFeNAPBY4Ntv) lands lane PRs; the lane reports the PR number.",
+  "why": "TP-doctrine lane (manager dispatch 2026-10-06 ~08:30Z, operator directive verbatim in the new docs/ARCHITECTURE-CANONICAL.md § 'TP doctrine'): canonicalise the doctrine, add the tp-doctrine-guard ratchet (scripts/ci/check_tp_doctrine.py, every (account, leg) routing graded on entry_tp and tp_revision, day-one debt baselined), wire it into the health-review compliance-audit rotation, register two research units for the real-money sentinel legs, and file the ranked debt list as one pipeline row. No order-path, config, strategy or parameter change."
+}
