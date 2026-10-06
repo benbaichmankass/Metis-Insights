@@ -353,11 +353,38 @@ def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
     return tid
 
 
+def write_dry_test_ticket(account_id: str, symbol: str = "ETHUSDT", *, source: str = "phone-dry-test",
+                          entry: Optional[float] = None) -> Dict[str, Any]:
+    """The ``phone-dry-test`` system-action's writer (PI-20261006-APBY4NTV-0009): ONE always-dry test
+    ticket through the SAME :func:`make_test_ticket` the in-app Dry test button and ``dry_test_request``
+    use, so ``meta.test`` is set and :func:`submit_mode` forces ``dry`` whatever the account mode.
+
+    Fail-closed on both inputs, because this runs from an issue body: the account must be declared under
+    ``phone_accounts`` in ``config/prop_platforms.yaml`` (a VM-driven prop account or a typo is refused,
+    never written) and the symbol must be one of that account's ``instruments`` (nothing else has a venue
+    symbol the phone could type). ``meta.source`` records who asked. Cannot write a non-test ticket:
+    there is no code path from here that omits ``test=True``."""
+    acct = str(account_id or "").strip()
+    sym = str(symbol or "").strip().upper()
+    if not acct or not is_phone_account(acct):
+        raise ValueError(f"{acct or '<empty>'} is not a phone_accounts entry in config/prop_platforms.yaml")
+    instruments = phone_config(acct).get("instruments") or {}
+    if sym not in instruments:
+        raise ValueError(f"{sym or '<empty>'} is not in phone_accounts.{acct}.instruments "
+                         f"(allowed: {', '.join(sorted(instruments)) or 'none'})")
+    out = make_test_ticket(PhoneDevice(f"system-action:{source}", acct), symbol=sym, entry=entry,
+                           source=str(source or "phone-dry-test")[:80])
+    logger.info("phone_executor: %s wrote dry test ticket %s for %s/%s", source, out["ticket_id"], acct, sym)
+    return {**out, "account_id": acct, "symbol": sym, "submit": "dry"}
+
+
 def make_test_ticket(device: PhoneDevice, *, symbol: str = "ETHUSDT",
-                     entry: Optional[float] = None, request_id: Optional[str] = None) -> Dict[str, Any]:
+                     entry: Optional[float] = None, request_id: Optional[str] = None,
+                     source: Optional[str] = None) -> Dict[str, Any]:
     """A synthetic, ALWAYS-dry ticket for the end-to-end dry check. ``meta.test``
     forces ``submit=dry`` in :func:`claim_next` whatever the account mode, and
-    the phone also refuses to submit any test ticket."""
+    the phone also refuses to submit any test ticket. ``source`` (optional) names
+    the caller in ``meta.source`` — the ``phone-dry-test`` system-action sets it."""
     if entry is None:
         entry = _bybit_last(symbol)
     if not entry or entry <= 0:
@@ -377,7 +404,8 @@ def make_test_ticket(device: PhoneDevice, *, symbol: str = "ETHUSDT",
         "risk_usd": None, "signal_time": now.isoformat(),
         "valid_until": (now + timedelta(minutes=15)).isoformat(),
         "status": "emitted", "message": "phone dry end-to-end test ticket",
-        "meta": {"test": True, **({"dry_test_request": request_id} if request_id else {})},
+        "meta": {"test": True, **({"dry_test_request": request_id} if request_id else {}),
+                 **({"source": source} if source else {})},
     })
     return {"ok": True, "ticket_id": tid}
 

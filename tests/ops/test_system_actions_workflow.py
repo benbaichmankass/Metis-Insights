@@ -160,6 +160,11 @@ EXPECTED_ACTIONS = {
     # 2026-06-17 — fire one TEST prop ticket through the real prop_signal path
     # (FCM + prop Telegram bot). Tier 1: notify-only, nothing journaled.
     "send-prop-test-ping": "send_prop_test_ping_action.sh",
+    # 2026-10-06 (PI-20261006-APBY4NTV-0009) — write ONE always-dry PHONE test
+    # ticket (meta.test, submit forced dry) for a phone_accounts entry, through
+    # the same writer as the in-app Dry test button. Tier 1: one prop_tickets
+    # row, no exchange socket, no non-test path; account + symbol allowlisted.
+    "phone-dry-test": "phone_dry_test_action.sh",
     # M7 — autonomous strategy-review-packet generator (Tier 1: read-only
     # SQL + write to runtime_logs/strategy_reviews/).
     "generate-strategy-review-packets": "generate_strategy_review_packets_action.sh",

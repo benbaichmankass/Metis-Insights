@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "The diff touches src/prop/phone_executor.py, scripts/prop/phone_dry_test.py and a comment line in config/prop_platforms.yaml, which sit outside the Tier-1 self-landing surface, and the manager's dispatch for this lane says the manager merges and the lane must not self-land.",
+  "why": "Lane PHONE-DRYTEST-ACTION (PI-20261006-APBY4NTV-0009): adds the Tier-1 `phone-dry-test` system-action — allowlist row, workflow case, scripts/ops wrapper, a validated writer in src/prop/phone_executor.py over the existing make_test_ticket, tests and docs. No order path, no strategy or risk config, no account mode; the only config edit is a comment. Holds for a human (manager) merge."
+}

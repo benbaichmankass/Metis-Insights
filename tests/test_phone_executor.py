@@ -165,6 +165,58 @@ def test_ticket_result_reason_is_visible_on_the_outbound_view():
     assert rows and rows[0]["phone_result"]["reason"] == "TP price field not unique"
 
 
+def test_phone_dry_test_action_writes_one_test_ticket_and_refuses_bad_account_and_symbol(tmp_path, monkeypatch):
+    """The ``phone-dry-test`` system-action's writer (PI-20261006-APBY4NTV-0009), three proofs:
+    (1) the ticket is ``meta.test`` and claims as ``submit=dry`` even on a LIVE account; (2) an account that is
+    not a ``phone_accounts`` entry is refused; (3) a symbol outside the account's instruments is refused —
+    and a refusal writes NOTHING."""
+    plat = tmp_path / "prop_platforms.yaml"
+    plat.write_text(yaml.safe_dump({"phone_accounts": {"breakout_2": {
+        "platform": "breakout_phone", "instruments": {"ETHUSDT": {"venue": "ETHUSD"}, "SOLUSDT": {"venue": "SOLUSD"}}}}}))
+    monkeypatch.setattr(pe, "PLATFORMS_PATH", plat)
+    acc = tmp_path / "accounts.yaml"
+    acc.write_text(yaml.safe_dump({"accounts": {"breakout_2": {"mode": "live"}, "breakout_1": {"mode": "live"}}}))
+    monkeypatch.setattr(pe, "ACCOUNTS_PATH", acc)
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+
+    # (1) the SAME writer the Dry test button uses: meta.test, source recorded, forced dry on a live account.
+    out = pe.write_dry_test_ticket("breakout_2", "solusdt", source="phone-dry-test#123")
+    assert out["submit"] == "dry" and out["symbol"] == "SOLUSDT" and out["account_id"] == "breakout_2"
+    got = pe.claim_next(_dev())
+    assert got["ticket_id"] == out["ticket_id"] and got["submit"] == "dry"
+    assert got["meta"]["test"] is True and got["meta"]["source"] == "phone-dry-test#123"
+    assert got["venue_symbol"] == "SOLUSD"
+
+    # (2) a VM-driven prop account (not under phone_accounts) is refused, (3) a non-allowlisted symbol is refused.
+    with pytest.raises(ValueError, match="not a phone_accounts entry"):
+        pe.write_dry_test_ticket("breakout_1", "ETHUSDT")
+    with pytest.raises(ValueError, match="not in phone_accounts.breakout_2.instruments"):
+        pe.write_dry_test_ticket("breakout_2", "BTCUSDT")
+    # ...and a refusal writes nothing: the only row is the one from (1), now claimed.
+    conn = prop_journal._connect()
+    try:
+        rows = conn.execute("SELECT ticket_id, status, meta FROM prop_tickets").fetchall()
+    finally:
+        conn.close()
+    assert [(r["ticket_id"], r["status"]) for r in rows] == [(out["ticket_id"], "claimed")]
+    assert all(json.loads(r["meta"])["test"] is True for r in rows)
+
+
+def test_phone_dry_test_cli_exit_codes_and_json(tmp_path, monkeypatch, capsys):
+    """``scripts/prop/phone_dry_test.py``: exit 0 + a JSON line on a write, exit 1 + ``refused`` on a bad input."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "phone_dry_test", Path(pe._REPO_ROOT) / "scripts" / "prop" / "phone_dry_test.py")
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+    assert cli.main(["--account", "nope", "--symbol", "ETHUSDT"]) == 1
+    assert json.loads(capsys.readouterr().out)["refused"]
+    assert cli.main(["--account", "breakout_2", "--symbol", "ETHUSDT", "--source", "phone-dry-test#7"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True and out["submit"] == "dry" and out["ticket_id"].startswith("phone-test-")
+
+
 def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
     monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {"dry_test_request": "r1",
                         "instruments": {"ETHUSDT": {"venue": "ETHUSD"}}})
