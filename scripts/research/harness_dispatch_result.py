@@ -149,8 +149,35 @@ def parse_rule(rule_text: Any) -> int | None:
     return floor if floor > 0 else None
 
 
+class UnitLoaderUnavailable(RuntimeError):
+    """PyYAML is not importable, so NO unit file can be read -- a runner
+    defect, never a fact about the unit. Raised rather than swallowed.
+
+    MEASURED 2026-10-06 (lane RQ-FIX): `research-harness-dispatch.yml`'s
+    result job ran this mapper on a bare setup-python runner with no PyYAML.
+    `load_unit` caught the ImportError in its blanket except, logged
+    `::warning:: ... unreadable — ModuleNotFoundError: No module named 'yaml'`
+    (run 37454118580) and returned None, so `apply_unit_rule` stamped every
+    unit-attached result `wiring_only` with the note "queue file is
+    missing/unreadable" -- 8 of 358 landed rows across 6 units, every
+    unit-attached harness result since #16388. The unit files were present at
+    every one of those commits. A missing dependency must FAIL the step
+    loudly (the workflow runs under `set -euo pipefail`), not land a
+    non-decision that reads as the unit's own fault.
+    """
+
+
 def load_unit(unit_id: str, queue_dir: Path = QUEUE_DIR) -> dict[str, Any] | None:
-    """The queue unit's parsed YAML, or None if absent/unreadable."""
+    """The queue unit's parsed YAML, or None if absent/unreadable.
+
+    Three states, never collapsed:
+      * no file            -> None (the unit is not on this checkout)
+      * file but unreadable (OSError / YAMLError / not a mapping) -> None,
+                              with a ::warning:: naming the file and the error
+      * PyYAML not importable -> raises UnitLoaderUnavailable. This is the
+                              runner's defect, not the unit's, and the caller
+                              must not land a verdict about the unit from it.
+    """
     if not unit_id:
         return None
     p = queue_dir / f"{unit_id}.yaml"
@@ -158,8 +185,18 @@ def load_unit(unit_id: str, queue_dir: Path = QUEUE_DIR) -> dict[str, Any] | Non
         return None
     try:
         import yaml
+    except ImportError as exc:
+        raise UnitLoaderUnavailable(
+            f"PyYAML is not importable on this runner ({type(exc).__name__}: {exc}), so "
+            f"{p} cannot be read and {unit_id}'s rule cannot be applied. Install pyyaml "
+            f"in the job before this step; refusing to land a wiring_only verdict that "
+            f"would blame the unit for a missing dependency.") from exc
+    try:
         u = yaml.safe_load(p.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001  # allow-silent: unreadable unit -> logged ::warning:: and the result is stamped wiring_only (never a decisive verdict)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        # allow-silent: an unreadable unit FILE is logged ::warning:: and the
+        # result is stamped wiring_only (never a decisive verdict). A missing
+        # dependency is the separate, raised branch above.
         print(f"::warning::harness_dispatch_result: {p} unreadable — "
               f"{type(exc).__name__}: {exc}")
         return None
@@ -502,7 +539,15 @@ def main(argv: list | None = None) -> int:
         read_error = f"{src} does not exist"
 
     unit_id = args.research_unit.strip()
-    unit = load_unit(unit_id) if unit_id else None
+    try:
+        # QUEUE_DIR read at CALL time (not the def-time default) so a test can repoint it.
+        unit = load_unit(unit_id, QUEUE_DIR) if unit_id else None
+    except UnitLoaderUnavailable as exc:
+        # Exit NON-ZERO so the derive step fails under `set -e` and nothing is
+        # landed: a red step names the runner defect; a wiring_only row would
+        # have blamed the unit (8 rows did, 2026-10-04..06).
+        print(f"::error::harness_dispatch_result: {exc}")
+        return 2
     (verdict, read_state, population, n, measurement, note,
      rule_id, rule_at) = derive_full(
         harness=args.harness, symbol=args.symbol, timeframe=args.timeframe,
