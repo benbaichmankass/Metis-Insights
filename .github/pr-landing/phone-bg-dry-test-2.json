@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges and reads the result (operator granted the overlay after allowing restricted settings)",
+  "why": "one-line config/prop_platforms.yaml dry_test_request bump: requests one always-dry test ticket for breakout_2"
+}
