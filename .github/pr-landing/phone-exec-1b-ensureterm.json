@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "Phone executor app: claim only on the trading terminal. The 05:21Z dry test claimed on an /account/ page with no order control and burned the ticket; the app now opens the account's /trade page and waits for the Order control / Buy-Sell tabs before claiming, and claims nothing if they never appear. App + headless page test only.",
+  "hold_text": "tools/phone-executor/** is outside the guard's Tier-1 surface; the manager lands it (requested 2026-10-06 ~05:23Z)."
+}
