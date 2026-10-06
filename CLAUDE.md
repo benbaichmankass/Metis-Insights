@@ -219,6 +219,23 @@ one said *"no invariant exists"* (inferred, never checked); another said *"live
 `tlt_pullback_1d` the same day — which is why the surplus the operator approved
 was **12, not the 9** every note said.
 
+### The TP doctrine — no fictional take-profits (operator, 2026-10-06, binding)
+
+**Every leg's bracket carries a REAL predictive take-profit at entry, the
+prediction moves through the trade, a momentum/trailing exit does not exempt
+a leg, and compliance is MEASURED in audits.** The operator's words and the
+four clauses are canonical in
+[`docs/ARCHITECTURE-CANONICAL.md`](docs/ARCHITECTURE-CANONICAL.md) § "TP
+doctrine"; the measurement is `python3 scripts/ci/check_tp_doctrine.py`
+(guard `tp-doctrine-guard`, a ratchet over every (account, leg) routing in
+`config/accounts.yaml`). A `tp_r: 50.0` sentinel, an inherited class default
+that rests at the venue cap, and a `tp_intent: none` declaration are all
+**non-compliant** — the doctrine says the trail decides when the thesis has
+failed, not where the move was expected to end. ⚠️ **Re-run the guard, never
+quote its counts**: they move with every roster edit. Legs that fail are
+prioritised by money at stake (real-money and prop first, then mirrors, then
+paper) through the exit-refinement skill and `research/queue/`.
+
 ### The daily sync, and standing authorizations
 
 One session a day with the operator. The manager pushes the brief **before** the

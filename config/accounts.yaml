@@ -2088,6 +2088,12 @@ accounts:
       max_dd_pct: 0.07                 # 7% STATIC = $350, floor $4,650 for the life of the account.
       daily_loss_pct: 0.04             # 4% below max(balance, equity) at 00:30 UTC (ruleset limits).
       daily_usd: 200                   # absolute fallback (= 4% of $5k).
-      risk_pct: 0.005                  # 0.5% = $25/ticket (deep-dive § 1.8 item 6; ruleset sizing.flat cap 25).
+      risk_pct: 0.01                   # 1.0% = $50/ticket. OPERATOR 2026-10-06 09:20Z (verbatim): "ok, let's move the velotrade
+                                       # risk to 1% - let's also check the impact of doing the same for tradeify and breakout".
+                                       # Evidence RQ-20261006-062 (rule RULE-RQ1006-VELOTRADE-FIT, registered before the run):
+                                       # ETH+SOL at 1.0% GO_LIVE on 5/5 seeds -- P(daily-loss breach)/life 0.015, median 62d
+                                       # to +10%, EV/life +$125..+$142, P(net>0) 0.30. Was 0.005 ($25; deep-dive § 1.8 item 6).
+                                       # Moves with prop_rulesets/velotrade_classic_1step.yaml sizing.flat.max_risk_usd 25 -> 50
+                                       # (the executor caps a ticket there). Revert: 0.005 here and cap 25 in the ruleset.
       # breach_guards: NOT set -> `enforce` (the default), as tradeify_1: a
       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN breach REFUSES the trade.
