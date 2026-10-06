@@ -452,9 +452,15 @@ class MainActivity : Activity() {
         val unitOk = if (unitNow.isNotEmpty()) unitNow.contains(base) else (alerts.contains(base) || qNear.contains(base))
         if (!unitOk) return refuse(id, "quantity unit not verified as $base (toggle '$unitNow'; alerts $alerts; near '$qNear')", tk)
         // 4. TP/SL: open the section (checkbox or the "TP/SL" control, MEASURED am-3), then the fields BY LABEL
-        val tpsl = js("__ex.openTpsl()")
-        if (tpsl != "ok" && tpsl != "clicked") return refuse(id, "TP/SL section not opened ($tpsl)", tk)
-        delay(900); ensure()
+        // one move per step with read-back, at most 4 (am-4 09:48Z: box checked but the section stayed collapsed)
+        var tpslSeq = ""
+        for (i in 0 until 4) {
+            val r = js("__ex.openTpsl()")
+            tpslSeq += (if (tpslSeq.isEmpty()) "" else ">") + r
+            if (r == "ok" || r == "none" || r == "ambiguous") break
+            delay(900); ensure()
+        }
+        if (!tpslSeq.endsWith("ok")) return refuse(id, "TP/SL section not opened ($tpslSeq)", jsObj("__ex.ticket()"))
         val fTp = Field("TP price", "take ?profit|\\btp\\b", "price"); val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price")
         for (f in listOf(fTp, fSl)) { val r = readField(f); if (r?.optInt("n", 0) != 1) return refuse(id, "${f.name} field not unique (n=${r?.optInt("n", 0) ?: 0}, labels ${r?.optJSONArray("labels")})", jsObj("__ex.ticket()")) }
         if (!typeInto(fTp, fmt(tp, pStep), tp, pStep)) return refuse(id, "TP did not read back", jsObj("__ex.ticket()"))

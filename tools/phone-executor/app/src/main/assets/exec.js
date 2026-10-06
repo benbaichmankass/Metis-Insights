@@ -77,6 +77,11 @@
     var c = all("button,[role=button],[role=tab]").map(t).filter(function (x) { return /^[A-Za-z]{2,6}\s*[x\u00d7]$/.test(x); });
     return c.length === 1 ? c[0].replace(/\s*[x\u00d7]$/, "") : "";
   }
+  function tpslBox() {
+    var cb = all("input[type=checkbox]").filter(function (c) { return /tp\s*\/\s*sl/i.test(labelFor(c) + " " + t(c.parentElement)); })[0];
+    if (!cb) { cb = Array.prototype.slice.call(document.querySelectorAll("input[type=checkbox]")).filter(function (c) { return /tp\s*\/\s*sl/i.test(t(c.closest("label") || c.parentElement)); })[0]; }
+    return cb || null;
+  }
   function qtyUnitBtn() {
     var f = form(); if (!f) return null;
     return Array.prototype.slice.call(f.querySelectorAll("button,[role=button]")).filter(function (b) {
@@ -317,8 +322,7 @@
       setVal(i, ""); i.focus(); return document.activeElement === i ? "focused" : "nofocus";
     },
     setTpsl: function (on) {
-      var cb = all("input[type=checkbox]").filter(function (c) { return /tp\s*\/\s*sl/i.test(labelFor(c) + " " + t(c.parentElement)); })[0];
-      if (!cb) { cb = Array.prototype.slice.call(document.querySelectorAll("input[type=checkbox]")).filter(function (c) { return /tp\s*\/\s*sl/i.test(t(c.closest("label") || c.parentElement)); })[0]; }
+      var cb = tpslBox();
       if (!cb) return "none";
       if (cb.checked !== on) { (cb.closest("label") || cb).click(); }
       return cb.checked === on ? "ok" : "unchanged";
@@ -330,14 +334,20 @@
     // TP/SL section (MEASURED 09:16Z: a "TP/SL" control inside the ticket; the TP/SL price inputs sit behind it).
     // "ok" when a Take profit input is already visible; else ticks the TP/SL checkbox or clicks the TP/SL control.
     openTpsl: function () {
+      // ONE move per call; the app reads back between moves. MEASURED am-4 (09:48Z): the TP/SL checkbox read checked
+      // but no TP/SL inputs (and no Simple / Risk-Reward tabs) were shown, so the section is also a collapsed "TP/SL"
+      // header; am-2 (opened by hand) showed the inputs with the box checked. Returns ok | ticked | expanded | none |
+      // ambiguous | wait.
       if (byLabel("take ?profit|\\btp\\b", "price").hits.length) return "ok";
-      var cb = window.__ex.setTpsl(true); if (cb === "ok") return "ok";
+      var cb = tpslBox();
+      if (cb && !cb.checked) { (cb.closest("label") || cb).click(); return "ticked"; }
       var f = form() || document;
-      var c = innermost(Array.prototype.slice.call(f.querySelectorAll("button,[role=button],[role=switch],[role=checkbox],label,div,span")).filter(function (x) {
-        return vis(x) && /^tp\s*\/\s*sl$/i.test(t(x));
+      var c = innermost(Array.prototype.slice.call(f.querySelectorAll("button,[role=button],[role=switch],[role=checkbox],[aria-expanded],label,div,span")).filter(function (x) {
+        return vis(x) && /^tp\s*\/\s*sl$/i.test(t(x)) && !(cb && (x.contains(cb) || x === cb.closest("label")));
       }));
-      if (c.length !== 1) return c.length ? "ambiguous" : "none";
-      c[0].click(); return "clicked";
+      if (c.length > 1) return "ambiguous";
+      if (c.length === 1) { c[0].click(); return "expanded"; }
+      return cb ? "wait" : "none";
     },
     submit: function () {
       var b = submitBtn(); if (!b) return "none";
