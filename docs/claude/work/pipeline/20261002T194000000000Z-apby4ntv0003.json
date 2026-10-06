@@ -1,8 +1,8 @@
 {
   "due_when": {
+    "kind": "event",
     "check_every_days": 7,
-    "clears_when": "scripts/ops/pipeline.py --check (or the pipeline-guard CI) FAILS a record whose filename does not sort by write time (e.g. an id-named 'PI-*.json' among timestamped '2026...Z-*.json' names), OR load() orders records by a field inside the record instead of by filename; proven by a test where an id-named original plus a later timestamped closure folds to the closure's state. Killable with a reason if writers are proven unable to produce a non-timestamp filename.",
-    "kind": "event"
+    "clears_when": "scripts/ops/pipeline.py --check (or the pipeline-guard CI) FAILS a record whose filename does not sort by write time (e.g. an id-named 'PI-*.json' among timestamped '2026...Z-*.json' names), OR load() orders records by a field inside the record instead of by filename; proven by a test where an id-named original plus a later timestamped closure folds to the closure's state. Killable with a reason if writers are proven unable to produce a non-timestamp filename."
   },
   "id": "PI-20261002-APBY4NTV-0003",
   "next_action": "dispatch_lane",
