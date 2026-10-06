@@ -2076,7 +2076,7 @@ accounts:
       min_active_days: 5               # 5 QUALIFYING days (each >= +0.8% of the initial balance, realised, 00:30-00:30 UTC).
     backtest_ruleset: prop_rulesets/velotrade_classic_1step.yaml
     account_size_usd: 5000
-    strategies:                        # VELOTRADE-GOLIVE roster (Tier-3, HELD). Lane VELOTRADE-FIT: unit RQ-20261006-002,
+    strategies:                        # VELOTRADE-GOLIVE roster (Tier-3, HELD). Lane VELOTRADE-FIT: unit RQ-20261006-062,
                                        # rule RULE-RQ1006-VELOTRADE-FIT (registered before grading, commit 3769f2b1f):
                                        # GO_LIVE on all 5 seeds at risk_pct 0.005 -- P(daily-loss breach)/life 0.000,
                                        # worst realised day -$78 vs the $160 line, max entry gap 6.6d, EV/life +$167..+$188.
