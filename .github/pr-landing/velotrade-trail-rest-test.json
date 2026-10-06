@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tests only: proves PROP-TRAIL amends the SL through the dxtrade_api REST adapter with page=None (conditional PUT, confirmed on re-read), that the DOM-only rollout latch stays clear, and that read_only sends no PUT. No runtime, config or order-path change."
+}
