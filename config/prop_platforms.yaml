@@ -301,7 +301,7 @@ accounts:
       watched_click_max_lots: {}
       # Nothing may be acted on. A symbol joins only after its lots are
       # measured AND it passes the dry round trip, in a separate go-live PR.
-      enabled_venue_symbols: []
+      enabled_venue_symbols: [ETHUSD, SOLUSD]   # VELOTRADE-GOLIVE (HELD): the roster's venues (RQ-20261006-002)
 
 # Read-only terminal PROBES (not traded accounts): run by the
 # `breakout-terminal-probe` system-action (scripts/prop/breakout_terminal_probe.py)

@@ -31,10 +31,12 @@ def _accounts():
 # ── accounts.yaml: dry, no roster ─────────────────────────────────────────
 
 
-def test_velotrade_1_is_live_with_no_roster_yet():
+def test_velotrade_1_is_live_with_the_fit_roster():
     a = _accounts()["velotrade_1"]
     assert a["mode"] == "live"            # VELOTRADE-GOLIVE: tickets emitted; orders still gated (kill switch + enabled symbols)
-    assert a["strategies"] == []          # Tier-3: proposed in the PR, never applied here
+    # VELOTRADE-GOLIVE roster (RQ-20261006-002 / RULE-RQ1006-VELOTRADE-FIT)
+    assert a["strategies"] == ["trend_donchian_eth_prop", "trend_donchian_sol_prop"]
+    assert a["symbols"] == ["ETHUSDT", "SOLUSDT"]
     assert a["exchange"] == "breakout" and a["type"] == "prop" and a["account_class"] == "prop"
     assert a["backtest_ruleset"] == "prop_rulesets/velotrade_classic_1step.yaml"
     assert a["account_size_usd"] == 5000
@@ -60,7 +62,7 @@ def test_platform_entry_points_at_velotrade_and_enables_nothing():
     assert v["login_url"] == "https://dx.velotrade.com/dxsca-web"
     assert (v["username_env"], v["password_env"]) == ("VELOTRADE_DX_USERNAME", "VELOTRADE_DX_PASSWORD")
     ex = v["executor"]
-    assert ex["enabled_venue_symbols"] == []
+    assert ex["enabled_venue_symbols"] == ["ETHUSD", "SOLUSD"]   # VELOTRADE-GOLIVE
     # lots are the REST-measured specs (#16616); they arm nothing on their own
     assert set(ex["lots"]) == {"ETHUSD", "SOLUSD", "XRPUSD", "BTCUSD"}
     assert ex["watched_click_max_lots"] == {}
@@ -109,7 +111,7 @@ def test_executor_config_reads_velotrades_numbers():
     assert c.risk_cap_usd == 25.0
     assert c.daily_loss_reset_basis == "max_balance_equity"
     assert c.daily_loss_amount_basis == "day_start_balance"   # 4% of the day-start value, not of size
-    assert c.enabled_venue_symbols == []
+    assert c.enabled_venue_symbols == ["ETHUSD", "SOLUSD"]
     assert {s: v["venue"] for s, v in c.symbols.items()} == {
         "ETHUSDT": "ETHUSD", "SOLUSDT": "SOLUSD", "XRPUSDT": "XRPUSD"}
     # Measured lots now reach the executor; enabled_venue_symbols (empty)

@@ -95,7 +95,7 @@ def test_registered_and_velotrade_1_uses_it():
     v = load_platform_config("velotrade_1")
     assert v["platform"] == "dxtrade_api"
     assert v["login_url"] == "https://dx.velotrade.com/dxsca-web"
-    assert v["executor"]["enabled_venue_symbols"] == []   # acts on nothing
+    assert set(v["executor"]["enabled_venue_symbols"]) <= set(v["executor"]["lots"])   # only measured venues
 
 
 def test_api_platform_needs_an_explicit_login_url(tmp_path):

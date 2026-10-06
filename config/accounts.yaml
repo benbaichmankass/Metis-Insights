@@ -2076,8 +2076,14 @@ accounts:
       min_active_days: 5               # 5 QUALIFYING days (each >= +0.8% of the initial balance, realised, 00:30-00:30 UTC).
     backtest_ruleset: prop_rulesets/velotrade_classic_1step.yaml
     account_size_usd: 5000
-    strategies: []                     # Tier-3: proposed in the PR body, not applied.
-    symbols: []
+    strategies:                        # VELOTRADE-GOLIVE roster (Tier-3, HELD). Lane VELOTRADE-FIT: unit RQ-20261006-002,
+                                       # rule RULE-RQ1006-VELOTRADE-FIT (registered before grading, commit 3769f2b1f):
+                                       # GO_LIVE on all 5 seeds at risk_pct 0.005 -- P(daily-loss breach)/life 0.000,
+                                       # worst realised day -$78 vs the $160 line, max entry gap 6.6d, EV/life +$167..+$188.
+                                       # Operator 2026-10-06 06:40Z: risk-qualified legs go live; 5-qualifying-days tuned after.
+      - trend_donchian_eth_prop        # evidence: comms/strategy_evidence/trend_donchian_eth_prop.json
+      - trend_donchian_sol_prop        # evidence: comms/strategy_evidence/trend_donchian_sol_prop.json
+    symbols: [ETHUSDT, SOLUSDT]
     risk:
       max_dd_pct: 0.07                 # 7% STATIC = $350, floor $4,650 for the life of the account.
       daily_loss_pct: 0.04             # 4% below max(balance, equity) at 00:30 UTC (ruleset limits).
