@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "OPERATOR DECISION 2026-10-06 09:20Z (verbatim): \"ok, let's move the velotrade risk to 1% - let's also check the impact of doing the same for tradeify and breakout\". Tier 3: risk sizing on velotrade_1 (live mode, real $54 evaluation). Change: config/accounts.yaml velotrade_1.risk.risk_pct 0.005 -> 0.01 and config/prop_rulesets/velotrade_classic_1step.yaml sizing.flat.max_risk_usd 25 -> 50 (the executor caps a ticket there, so it must move too); tests/test_velotrade_wiring.py updated to the new numbers. Evidence: RQ-20261006-062 (rule RULE-RQ1006-VELOTRADE-FIT registered before the run) -- ETH+SOL at 1.0% GO_LIVE on 5/5 seeds, P(daily-loss breach)/life 0.015, median 62d to +10%, EV/life +$125..+$142, P(net>0) 0.30. Revert: risk_pct 0.005 and max_risk_usd 25. The tradeify/breakout half of the decision is research units RQ-20261006-070/-071 in a separate Tier-1 PR; nothing on those accounts changes here.",
+  "why": "Operator-directed risk change on a live prop account; the manager/operator merges."
+}
