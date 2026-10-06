@@ -17,10 +17,12 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("yaml")  # the guard reads the two configs; without yaml it can only say "could not look"
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.ci import check_tp_doctrine as guard  # noqa: E402
+from scripts.ci import check_tp_doctrine as guard
 
 
 def test_source_read_unit_resolution_matches_runtime_resolver() -> None:
@@ -56,14 +58,14 @@ def test_strict_fails_while_debt_exists() -> None:
 
 def test_self_test_passes() -> None:
     proc = subprocess.run([sys.executable, "scripts/ci/check_tp_doctrine.py", "--self-test"],
-                          cwd=REPO, capture_output=True, text=True)
+                          cwd=REPO, capture_output=True, text=True, check=False)
     assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 def test_json_output_carries_summary_by_class() -> None:
     import json
     proc = subprocess.run([sys.executable, "scripts/ci/check_tp_doctrine.py", "--json"],
-                          cwd=REPO, capture_output=True, text=True)
+                          cwd=REPO, capture_output=True, text=True, check=False)
     assert proc.returncode in (0, 1), proc.stdout + proc.stderr
     data = json.loads(proc.stdout)
     assert set(data["summary"]["by_class"]) <= set(guard.CLASS_RANK)
