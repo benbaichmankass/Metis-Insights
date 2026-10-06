@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "merge only after the operator confirms the new APK is installed",
+  "why": "One-line config change: config/prop_platforms.yaml phone_accounts.breakout_2.dry_test_request 2026-10-05-night-1 -> 2026-10-06-morning-1. On the phone's next claim after this merges, src/prop/phone_executor.py::serve_dry_test_request writes ONE always-dry ETH test ticket (meta.test=true: the app fills and reads back, never submits). Pre-staged by the manager's 2026-10-05 22:54Z direction so it can be merged the moment the operator confirms the APK from #16667 is installed; merging it BEFORE the install would let the old app claim and refuse the ticket the old way. No accounts.yaml, mode, roster, strategy or order-path change."
+}
