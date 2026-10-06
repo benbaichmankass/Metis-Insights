@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "Phone executor app fix: the logged-in Breakout landing was classified as 'other' and reloaded every 30 s. Logged-in detection now uses the trade host plus an /account/ path, nav words or an account link; the app opens the single account and never reloads a logged-in page. App + its headless page test + a design note only; no src/, config/, VM or order-path change.",
+  "hold_text": "tools/phone-executor/** is outside the guard's Tier-1 surface; the manager lands it (requested 2026-10-05 ~20:16Z)."
+}

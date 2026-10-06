@@ -36,6 +36,65 @@
       return vis(i) && i.type !== "hidden" && i.type !== "range" && i.type !== "checkbox";
     });
   }
+  // ---- instrument selection (fix 2026-10-05 ~22:40Z) ----
+  // The first dry ticket found the terminal on BTC: the old selectSymbol only clicked a control whose exact text was
+  // the venue symbol, the 1a probe had redacted the symbol strip's labels to "*", nothing matched, and the ticket was
+  // (correctly) refused "symbol ETH not verified". The page's selector shape is still UNMEASURED, so symbolStep() tries
+  // the routes a DXtrade-style terminal offers, ONE move per call, and the app reads the result back between moves:
+  //   1 a visible control whose exact text is the symbol (strip button, watchlist row, search result)
+  //   2 a search box outside the ticket: type the symbol, then click the one result that starts with it
+  //   3 the current-symbol display (BTCUSD / BTC/USD, often a picker) : open it, then route 2
+  // Every move is a selection, never a submit; the app refuses unless the ticket's submit label names the asset.
+  function base(sym) { return norm(sym).replace(/(USD[TC]?|PERP)$/, ""); }
+  function inForm(el) { var f = form(); return !!(f && f.contains(el)); }
+  function looksLikeSymbol(s) { return /^[A-Z]{2,6}(USD[TC]?|PERP)$/.test(norm(s)) || /^[A-Za-z]{2,6}\s*[\/-]\s*[A-Za-z]{2,5}$/.test((s || "").trim()); }
+  function innermost(list) { return list.filter(function (c) { return !list.some(function (o) { return o !== c && c.contains(o); }); }); }
+  function clickables(sel) { return all(sel || "button,[role=button],[role=tab],[role=option],[role=menuitem],a,li,[role=row],tr,td"); }
+  function exactSymbolControls(sym) {
+    var n = norm(sym), b = base(sym);
+    // never a tab inside the ticket (Market / Limit / Buy / Sell are tabs, not symbols)
+    var full = clickables().filter(function (x) { var s = norm(t(x)); return (s === n || s === n + "T" || s === n + "PERP") && !(x.getAttribute("role") === "tab" && inForm(x)); });
+    var bare = clickables("button,[role=button],[role=option],a,li").filter(function (x) { return norm(t(x)) === b && !inForm(x); });
+    return innermost(full).concat(innermost(bare));
+  }
+  function searchBox() {
+    return inputs(document).filter(function (i) {
+      return (i.type === "text" || i.type === "search") && !inForm(i) &&
+        /search|symbol|instrument/i.test(labelFor(i) + " " + (i.getAttribute("aria-label") || "") + " " + (i.placeholder || ""));
+    })[0] || null;
+  }
+  function symbolLooking(sel) {
+    var sub = submitBtn();
+    return innermost(all(sel).filter(function (x) { return x !== sub && x.getAttribute("role") !== "tab" && looksLikeSymbol(t(x)); }));
+  }
+  // The page's current-symbol DISPLAY (read only): a heading or a control showing one symbol; "" when none or several.
+  function currentSymbolDisplay() { var c = symbolLooking("button,[role=button],[role=combobox],[aria-haspopup],h1,h2,h3,[role=heading]"); return c.length === 1 ? t(c[0]) : ""; }
+  // The current-symbol PICKER (clickable): a control with a popup, else the one symbol-looking control; headings
+  // are never clicked. Several symbol-looking controls = a strip, not a picker.
+  function currentSymbolControl() {
+    var c = symbolLooking("button,[role=button],[role=combobox],[aria-haspopup]");
+    var pick = c.filter(function (x) { return x.getAttribute("aria-haspopup") || x.getAttribute("role") === "combobox" || x.hasAttribute("aria-expanded"); });
+    if (pick.length) return pick[0];
+    return c.length === 1 ? c[0] : null;
+  }
+  // Inputs BY LABEL (fix 2026-10-05): an index from one ticket() read is not a stable identity; the field set
+  // changes with the TP/SL box and the quantity-unit toggle. `prefer` narrows when several labels match.
+  function byLabel(re, prefer) {
+    var rx = new RegExp(re, "i"), px = prefer ? new RegExp(prefer, "i") : null;
+    var list = inputs(form() || document);
+    var hits = list.filter(function (i) { return rx.test(labelFor(i)); });
+    if (hits.length > 1 && px) hits = hits.filter(function (i) { return px.test(labelFor(i)); });
+    return {list: list, hits: hits};
+  }
+  function near(el) {   // the field's own container text (unit toggle, adornment), digits masked, no values
+    var n = el.parentElement, d = 0, s = "";
+    while (n && d < 3 && s.length < 8) { s = t(n); n = n.parentElement; d++; }
+    return s.replace(/\d/g, "#").slice(0, 80);
+  }
+  function fieldInfo(h) {
+    if (h.hits.length !== 1) return {n: h.hits.length, k: -1, labels: h.hits.map(labelFor)};
+    var i = h.hits[0]; return {n: 1, k: h.list.indexOf(i), label: labelFor(i), value: i.value, near: near(i)};
+  }
   function tabs(root) {
     return Array.prototype.slice.call((root || document).querySelectorAll("[role=tab]")).filter(vis).map(function (b) {
       return {text: t(b), selected: b.getAttribute("aria-selected") === "true" || b.getAttribute("data-state") === "active"};
@@ -48,10 +107,25 @@
       var email = all("input[type=email],input[autocomplete=email],input[name*=mail i]").length > 0;
       var body = t(document.body).slice(0, 4000);
       var codeWait = /check your (e-?mail|inbox)|we('ve| have)? sent|tap the number|select the number|matching number/i.test(body);
-      var ctrls = all("button,[role=tab],a").map(t);
-      var loggedIn = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) && ctrls.some(function (s) { return /^(positions|open orders|portfolio)$/i.test(s); });
+      // LOGGED IN (fix 2026-10-05 ~20:20Z): the account landing on trade.breakoutprop.com has no tabs and none
+      // of the exact control labels the first build required, so a good login read as "other" and was reloaded
+      // every 30 s. Now: trade host, no login form, and either inside an account (/.../account/.../) or the page
+      // shows the terminal's navigation words or an account link.
+      var tradeHost = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname);
+      var onAccount = /\/account\//.test(location.pathname || "");
+      var full = t(document.body).slice(0, 20000);
+      var navText = /\b(positions|open orders|closed orders|portfolio|trades)\b/i.test(full);
+      var links = {};
+      Array.prototype.slice.call(document.querySelectorAll("a[href]")).forEach(function (a) {
+        try { var u = new URL(a.href, location.href); if (u.hostname === location.hostname && /\/account\//.test(u.pathname)) links[u.origin + u.pathname] = 1; } catch (e) {}
+      });
+      var linkList = Object.keys(links);
+      var loggedIn = tradeHost && (onAccount || navText || linkList.length > 0);
       return {host: location.hostname, path_depth: (location.pathname || "/").split("/").length, pw: pw, email: email,
-        codeWait: codeWait, loggedIn: loggedIn && !pw && !email, ticketOpen: !!submitBtn(),
+        codeWait: codeWait, loggedIn: loggedIn && !pw && !email && !codeWait, ticketOpen: !!submitBtn(),
+        onAccount: onAccount, accountLinkCount: linkList.length,
+        // Navigation targets stay in the app's memory / private storage; never logged or reported.
+        accountHref: onAccount ? location.href : "", singleAccountLink: linkList.length === 1 ? linkList[0] : "",
         challenged: /just a moment|verify you are human|cf-chl/i.test(body)};
     },
     // LOGIN step 1: type the account email and continue. The email value is never returned.
@@ -76,6 +150,20 @@
       var same = c.filter(function (e) { return parseFloat(getComputedStyle(e).fontSize) === top && t(e) !== t(c[0]); });
       return same.length ? "" : t(c[0]);
     },
+    // TERMINAL GATE (2026-10-06 05:21Z dry test: claimed on an /account/ page that was not the trading terminal,
+    // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page.
+    terminal: function () {
+      var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); }).length > 0;
+      var tb = all("[role=tab]").map(t);
+      var bs = tb.some(function (x) { return /^buy$/i.test(x); }) && tb.some(function (x) { return /^sell$/i.test(x); });
+      return {ready: ctl || !!submitBtn() || bs, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs};
+    },
+    // The account's terminal URL, derived from the CURRENT /account/<id>/ path (deterministic: the account the
+    // page is already on). "" when the path is not an account path. Never reported.
+    terminalHref: function () {
+      var m = /^(.*\/account\/[^\/]+)(\/.*)?$/.exec(location.pathname || "");
+      return m ? location.origin + m[1] + "/trade" : "";
+    },
     clickText: function (re, roleSel) {
       var rx = new RegExp(re, "i");
       var b = all(roleSel || "button,[role=tab],[role=button],a").filter(function (x) { return rx.test(t(x)); })[0];
@@ -86,19 +174,41 @@
       var b = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); })[0];
       if (!b) return "no_order_control"; b.click(); return "clicked";
     },
-    // Symbol: click a control whose normalized text equals the venue symbol (ETHUSD, ETH/USD, ETH-USD ...).
-    selectSymbol: function (sym) {
-      var n = norm(sym);
-      var cands = all("button,[role=button],[role=tab],a,[role=option],li").filter(function (x) { var s = norm(t(x)); return s === n || s === n + "T" || s === n + "PERP"; });
-      if (!cands.length) return "none";
-      cands[0].click(); return "clicked";
+    // What the ticket says it trades: the text after "Long (buy)" / "Short (sell)" on the submit button ("BTC").
+    symbolOnTicket: function () {
+      var sub = submitBtn(); if (!sub) return "";
+      var m = t(sub).match(/\((buy|sell)\)\s*(.+)$/i); return m ? m[2].trim() : "";
     },
+    // The submit label first; else the page's current-symbol display (ticket closed). "" when neither is readable.
+    symbolShown: function () {
+      return window.__ex.symbolOnTicket() || currentSymbolDisplay();
+    },
+    // ONE move toward the venue symbol; the app calls it again after reading back. Returns the route taken:
+    // done | clicked_symbol | typed_search | search_not_set | clicked_result | no_result | ambiguous | opened_picker | none
+    symbolStep: function (sym) {
+      if (!hostOk()) return "bad_host";
+      if (!looksLikeSymbol(sym)) return "not_a_symbol";   // ETHUSD, ETH/USD, SOLUSDT ...; never a bare word like "Market"
+      var n = norm(sym), b = base(sym), shown = norm(window.__ex.symbolShown());
+      if (shown && (shown === n || shown === n + "T" || shown === b)) return "done";
+      var ex = exactSymbolControls(sym); if (ex.length) { ex[0].click(); return "clicked_symbol"; }
+      var sb = searchBox();
+      if (sb) {
+        if (norm(sb.value) !== n) { sb.focus(); setVal(sb, sym); return norm(sb.value) === n ? "typed_search" : "search_not_set"; }
+        var res = innermost(clickables().filter(function (x) { return !inForm(x) && x !== sb && norm(t(x)).indexOf(n) === 0; }));
+        if (!res.length) return "no_result"; if (res.length > 1) return "ambiguous"; res[0].click(); return "clicked_result";
+      }
+      var pk = currentSymbolControl(); if (pk) { pk.click(); return "opened_picker"; }
+      return "none";
+    },
+    // Kept for the Dry test button / older callers: one exact-text click, else "none".
+    selectSymbol: function (sym) { var ex = exactSymbolControls(sym); if (!ex.length) return "none"; ex[0].click(); return "clicked"; },
     // Read the whole ticket back: tabs, labelled inputs with values, the TP/SL box, the submit label.
     ticket: function () {
       var f = form(); var sub = submitBtn();
       var cb = all("input[type=checkbox]").filter(function (c) { return /tp\s*\/\s*sl/i.test(labelFor(c) + " " + t(c.parentElement)); })[0];
       return {open: !!sub, tabs: tabs(f || document),
-        inputs: inputs(f || document).map(function (i, k) { return {k: k, label: labelFor(i), type: i.type, mode: i.inputMode || "", value: i.value}; }),
+        inputs: inputs(f || document).map(function (i, k) { return {k: k, label: labelFor(i), type: i.type, mode: i.inputMode || "", value: i.value, near: near(i)}; }),
+        symbol: window.__ex.symbolOnTicket(),
         tpsl: cb ? cb.checked : null,
         submit: sub ? {text: t(sub), disabled: !!(sub.disabled || sub.getAttribute("aria-disabled") === "true")} : null,
         heading: all("h1,h2,h3,[role=heading]").map(t).slice(0, 8),
@@ -115,6 +225,16 @@
       var f = form() || document;
       var b = Array.prototype.slice.call(f.querySelectorAll("[role=tab]")).filter(function (x) { return vis(x) && t(x).toLowerCase() === name.toLowerCase(); })[0];
       return b ? (b.getAttribute("aria-selected") === "true" || b.getAttribute("data-state") === "active") : null;
+    },
+    // Field BY LABEL: {n: matches, k, label, value, near}; n != 1 means not unique (labels listed) and nothing is set.
+    readByLabel: function (re, prefer) { return fieldInfo(byLabel(re, prefer)); },
+    setByLabel: function (re, prefer, v) {
+      var h = byLabel(re, prefer); if (h.hits.length !== 1) return fieldInfo(h);
+      var i = h.hits[0]; i.focus(); setVal(i, String(v)); i.blur(); return fieldInfo(h);
+    },
+    focusByLabel: function (re, prefer) {
+      var h = byLabel(re, prefer); if (h.hits.length !== 1) return "none";
+      var i = h.hits[0]; setVal(i, ""); i.focus(); return document.activeElement === i ? "focused" : "nofocus";
     },
     // Set the k-th visible input of the ticket (index from ticket().inputs). Returns the read-back value.
     setInput: function (k, v) {

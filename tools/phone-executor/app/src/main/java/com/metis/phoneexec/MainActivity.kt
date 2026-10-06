@@ -72,6 +72,10 @@ class MainActivity : Activity() {
 
     companion object {
         const val TRADE_URL = "https://trade.breakoutprop.com/"
+        // The login entry that WORKED in the 1a probe (11:44-11:47Z): portal code step -> app.breakoutprop.com
+        // (Cloudflare check, then served) -> trade host SSO -> logged-in landing. The trade host's own password
+        // form is not the way in.
+        const val APP_URL = "https://app.breakoutprop.com/"
         const val TICK_MS = 30_000L
         const val USER_HOLD_MS = 5 * 60_000L
         const val PAUSE_MAX_MS = 10 * 60_000L
@@ -89,10 +93,11 @@ class MainActivity : Activity() {
         web.settings.domStorageEnabled = true
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
-        web.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(v: WebView, r: android.webkit.WebResourceRequest): Boolean =
-                r.url.scheme != "https"  // never leave https; everything else stays in THIS WebView
-        }
+        web.settings.allowFileAccess = false; web.settings.allowContentAccess = false
+        web.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        // Same WebView setup as the 1a probe, whose login worked (stock UA, default navigation handling):
+        // no shouldOverrideUrlLoading filter, every navigation stays in THIS WebView and cookie store.
+        web.webViewClient = WebViewClient()
         status = TextView(this).apply { setPadding(16, 8, 16, 8); setBackgroundColor(Color.parseColor("#202833")); setTextColor(Color.WHITE); textSize = 12f }
         armBtn = Button(this)
         val bar = LinearLayout(this).apply {
@@ -103,7 +108,8 @@ class MainActivity : Activity() {
             btn("Dry test") { dryTest() }
             btn("Share ID") { shareFingerprint() }
             addView(Button(this@MainActivity).apply { pauseBtn = this; isAllCaps = false; text = "Pause"; setOnClickListener { togglePause() } })
-            btn("Reload") { web.loadUrl(TRADE_URL) }
+            btn("Login") { lastUserInputMs = System.currentTimeMillis(); setStatus("login: opening app.breakoutprop.com (log in there, then tap Reload)"); web.loadUrl(APP_URL) }
+            btn("Reload") { web.loadUrl(home()) }
             btn("Reset login") { Store.setFlag(this@MainActivity, Store.RELOGIN_LATCHED, false); reloginFailures = 0; setStatus("auto re-login re-enabled") }
         }
         val root = LinearLayout(this).apply {
@@ -230,12 +236,50 @@ class MainActivity : Activity() {
             }
             when (st) {
                 "challenged" -> setStatus("STOPPED: challenge page. Operator: open the app and check.")
-                "logged_in" -> { reloginFailures = 0; claimAndRun() }
+                "logged_in" -> { reloginFailures = 0; onLoggedIn(s) }
                 "login" -> relogin(s)
                 else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
-                        else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(TRADE_URL) }
+                        else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(home()) }
             }
         } finally { busy = false }
+    }
+
+    /** Where "back to the terminal" goes: the last account terminal seen while logged in, else the host root. */
+    private fun home(): String = Store.get(this, Store.TERMINAL_URL)?.takeIf { it.startsWith("https://trade.breakoutprop.com/") } ?: TRADE_URL
+
+    /** Logged in. Inside an account: remember it and work tickets. On the account landing: open the ONE account
+     *  (single link, or the remembered terminal); never reload the landing; ambiguous = wait for one human tap. */
+    private suspend fun onLoggedIn(s: JSONObject) {
+        if (s.optBoolean("onAccount")) {
+            // Claim ONLY on the trading terminal (05:21Z dry test claimed on an account page without one and burned
+            // the ticket). Not ready -> open this account's /trade page and wait; still not ready -> no claim.
+            if (!ensureTerminal()) return
+            val href = js("location.href")
+            if (href.startsWith("https://trade.breakoutprop.com/") && href != Store.get(this, Store.TERMINAL_URL)) Store.put(this, Store.TERMINAL_URL, href)
+            claimAndRun(); return
+        }
+        if (userActive()) { setStatus("logged in (account list); you are using the screen, so no navigation"); return }
+        val one = s.optString("singleAccountLink")
+        val saved = Store.get(this, Store.TERMINAL_URL)
+        when {
+            one.startsWith("https://trade.breakoutprop.com/") -> { setStatus("logged in: opening the account"); web.loadUrl(one) }
+            saved != null && s.optInt("accountLinkCount") == 0 -> { setStatus("logged in: opening the remembered account"); web.loadUrl(home()) }
+            else -> setStatus("logged in on the account list: tap into the Breakout account ONCE (no tickets until then)")
+        }
+    }
+
+    private suspend fun terminalReady(): Boolean = jsObj("__ex.terminal()")?.optBoolean("ready") == true
+
+    private suspend fun ensureTerminal(): Boolean {
+        if (terminalReady()) return true
+        if (userActive()) { setStatus("logged in, not on the terminal; you are using the screen, so no navigation"); return false }
+        val href = js("__ex.terminalHref()")
+        if (!href.startsWith("https://trade.breakoutprop.com/")) { setStatus("logged in, not on the terminal and no account path: tap into the account once"); return false }
+        setStatus("logged in: opening the account's terminal")
+        web.loadUrl(href)
+        for (i in 0 until 12) { delay(2500); ensure(); if (terminalReady()) return true }
+        setStatus("terminal did not load (no Order control / Buy-Sell tabs): no claim")
+        return false
     }
 
     // ---------------- auto re-login ----------------
@@ -249,7 +293,13 @@ class MainActivity : Activity() {
         setStatus("logged out: starting email login")
         api.event("login_started", "")
         val since = Date(System.currentTimeMillis() - 60_000)
-        if (!s.optBoolean("codeWait")) {
+        var st0 = s
+        if (!st0.optBoolean("codeWait") && st0.optString("host").startsWith("trade.")) {
+            web.loadUrl(APP_URL); delay(10_000); ensure()
+            st0 = jsObj("__ex.state()") ?: return loginFail("app.breakoutprop.com not readable")
+            if (st0.optBoolean("challenged")) return loginFail("app.breakoutprop.com shows a challenge; manual login needed")
+        }
+        if (!st0.optBoolean("codeWait")) {
             val r = js("__ex.loginEmail(${q(email)})")
             if (r != "clicked" && r != "submitted") return loginFail("email step: $r")
             delay(6000); ensure()
@@ -262,7 +312,7 @@ class MainActivity : Activity() {
         if (link == null) return loginFail("no Breakout mail with exactly one matching link within 3 min")
         web.loadUrl(link)            // same WebView, same cookie store
         delay(8000)
-        web.loadUrl(TRADE_URL); delay(10_000); ensure()
+        web.loadUrl(home()); delay(10_000); ensure()
         val after = jsObj("__ex.state()")
         if (after?.optBoolean("loggedIn") == true) {
             reloginFailures = 0; lastState = "logged_in"; setStatus("re-login OK")
@@ -277,7 +327,7 @@ class MainActivity : Activity() {
             api.event("login_failed", "STOPPED after 2 failures; manual login needed: $why")
         } else api.event("login_failed", why)
         setStatus("login failed ($reloginFailures): $why")
-        if (!userActive()) web.loadUrl(TRADE_URL)
+        if (!userActive()) web.loadUrl(home())
     }
 
     // ---------------- tickets ----------------
@@ -321,48 +371,59 @@ class MainActivity : Activity() {
         if (!(if (long) sl < entry && entry < tp else tp < entry && entry < sl)) return refuse(id, "bracket geometry wrong for the side", null)
         setStatus("ticket $id: ${if (live) "LIVE" else "DRY"} $sideTab ${fmt(qty, qStep)} $venue @ ${fmt(entry, pStep)}")
 
-        // 1. ticket open, symbol
-        if (js("__ex.openTicket()") == "no_order_control") return refuse(id, "order control not found", null)
+        // 1. SYMBOL FIRST, then the ticket, then VERIFY before anything is typed (fix 2026-10-05 ~22:40Z: the first
+        //    dry ticket found the terminal on BTC, nothing selected ETH, and the ticket was refused "symbol ETH not
+        //    verified" with the page's own BTC values in the dump; our code had typed nothing). The venue symbol is
+        //    selected on the page before the ticket is opened or touched; the ticket's submit label ("Long (buy) ETH")
+        //    must then name the asset. Every move is a selection; a route that cannot be verified refuses with its name.
+        var route = selectSymbol(venue, base)
+        if (js("__ex.openTicket()") == "no_order_control") return refuse(id, "order control not found (symbol route: $route)", jsObj("__ex.ticket()"))
         delay(1500); ensure()
-        js("__ex.selectSymbol(${q(venue)})"); delay(2000); ensure()
-        if (js("__ex.openTicket()") == "clicked") delay(1500)
+        var shown = js("__ex.symbolOnTicket()")
+        if (!shown.uppercase().contains(base)) {
+            // second round with the ticket open: its own header may be the symbol picker
+            route += " | ticket open: " + selectSymbol(venue, base)
+            if (js("__ex.openTicket()") == "clicked") delay(1500)
+            shown = js("__ex.symbolOnTicket()")
+        }
         var tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        if (!tk.optBoolean("open")) return refuse(id, "ticket not open", tk)
-        val symText = (tk.optJSONArray("heading")?.toString() ?: "") + tk.optJSONObject("submit")?.optString("text") + tk.optJSONArray("alerts")
-        if (!symText.uppercase().contains(base)) return refuse(id, "symbol $base not verified on the ticket", tk)
+        if (!tk.optBoolean("open")) return refuse(id, "ticket not open (symbol route: $route)", tk)
+        if (!shown.uppercase().contains(base)) return refuse(id, "symbol $base not on the submit label (ticket shows '${shown.ifEmpty { "?" }}'; symbol route: $route)", tk)
         // 2. type + side
         js("__ex.tab('Limit')"); delay(500); js("__ex.tab(${q(sideTab)})"); delay(700)
         if (js("__ex.tabSelected('Limit')") != "true" || js("__ex.tabSelected(${q(sideTab)})") != "true") return refuse(id, "Limit/$sideTab tab not selected", jsObj("__ex.ticket()"))
-        // 3. price + quantity
-        tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        val pIdx = idx(tk, Regex("limit price", RegexOption.IGNORE_CASE)) ?: return refuse(id, "Limit price field not unique", tk)
-        val qIdx = idx(tk, Regex("quantity", RegexOption.IGNORE_CASE)) ?: return refuse(id, "Quantity field not unique", tk)
-        if (!typeInto(pIdx, fmt(entry, pStep), entry, pStep)) return refuse(id, "limit price did not read back", jsObj("__ex.ticket()"))
-        if (!typeInto(qIdx, fmt(qty, qStep), qty, qStep)) return refuse(id, "quantity did not read back", jsObj("__ex.ticket()"))
-        // quantity unit: the "Quantity ... available" alert must name the base asset, not USD
+        if (!js("__ex.symbolOnTicket()").uppercase().contains(base)) return refuse(id, "submit label lost $base after the tabs", jsObj("__ex.ticket()"))
+        // 3. price + quantity, BY LABEL (never by index alone): each field is located by its label at the moment it
+        //    is typed and again when it is read back; n != 1 (missing or ambiguous label) refuses with the labels seen.
+        val fPrice = Field("Limit price", "limit price"); val fQty = Field("Quantity", "quantity")
+        for (f in listOf(fPrice, fQty)) { val n = readField(f)?.optInt("n", 0) ?: 0; if (n != 1) return refuse(id, "${f.name} field not unique (n=$n)", jsObj("__ex.ticket()")) }
+        if (!typeInto(fPrice, fmt(entry, pStep), entry, pStep)) return refuse(id, "limit price did not read back", jsObj("__ex.ticket()"))
+        if (!typeInto(fQty, fmt(qty, qStep), qty, qStep)) return refuse(id, "quantity did not read back", jsObj("__ex.ticket()"))
+        // quantity unit: the "Quantity ... available" alert OR the quantity field's own adornment (unit toggle) must
+        // name the base asset, not USD; the refusal carries both texts so the next dump measures the real shape.
         tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
         val alerts = (tk.optJSONArray("alerts")?.toString() ?: "").uppercase()
-        if (!alerts.contains(base)) return refuse(id, "quantity unit not verified as $base", tk)
+        val qNear = (readField(fQty)?.optString("near") ?: "").uppercase()
+        if (!alerts.contains(base) && !qNear.contains(base)) return refuse(id, "quantity unit not verified as $base (alerts $alerts; near '$qNear')", tk)
         // 4. TP/SL
         if (js("__ex.setTpsl(true)") != "ok") return refuse(id, "TP/SL box not ticked", tk)
         delay(900); ensure()
-        tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        val tpIdx = idx(tk, Regex("take ?profit|\\btp\\b", RegexOption.IGNORE_CASE), prefer = Regex("price", RegexOption.IGNORE_CASE))
-            ?: return refuse(id, "TP price field not unique (labels in the dump)", tk)
-        val slIdx = idx(tk, Regex("stop ?loss|\\bsl\\b", RegexOption.IGNORE_CASE), prefer = Regex("price", RegexOption.IGNORE_CASE))
-            ?: return refuse(id, "SL price field not unique (labels in the dump)", tk)
-        if (tpIdx == slIdx || tpIdx == pIdx || slIdx == pIdx || tpIdx == qIdx || slIdx == qIdx) return refuse(id, "TP/SL fields collide", tk)
-        if (!typeInto(tpIdx, fmt(tp, pStep), tp, pStep)) return refuse(id, "TP did not read back", jsObj("__ex.ticket()"))
-        if (!typeInto(slIdx, fmt(sl, pStep), sl, pStep)) return refuse(id, "SL did not read back", jsObj("__ex.ticket()"))
-        // 5. full read-back
+        val fTp = Field("TP price", "take ?profit|\\btp\\b", "price"); val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price")
+        for (f in listOf(fTp, fSl)) { val r = readField(f); if (r?.optInt("n", 0) != 1) return refuse(id, "${f.name} field not unique (n=${r?.optInt("n", 0) ?: 0}, labels ${r?.optJSONArray("labels")})", jsObj("__ex.ticket()")) }
+        if (!typeInto(fTp, fmt(tp, pStep), tp, pStep)) return refuse(id, "TP did not read back", jsObj("__ex.ticket()"))
+        if (!typeInto(fSl, fmt(sl, pStep), sl, pStep)) return refuse(id, "SL did not read back", jsObj("__ex.ticket()"))
+        // 5. full read-back, by label, all four at once; the four labels must resolve to four DIFFERENT inputs
         delay(500)
         tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
-        val ins = tk.optJSONArray("inputs") ?: JSONArray()
-        fun v(k: Int) = num(ins.optJSONObject(k)?.optString("value"))
-        val ok = close(v(pIdx), entry, pStep) && close(v(qIdx), qty, qStep) && close(v(tpIdx), tp, pStep) && close(v(slIdx), sl, pStep)
+        val fields = listOf(fPrice, fQty, fTp, fSl); val wants = listOf(entry, qty, tp, sl); val steps = listOf(pStep, qStep, pStep, pStep)
+        val reads = fields.map { readField(it) }
+        val ks = reads.map { it?.optInt("k", -1) ?: -1 }
+        if (ks.any { it < 0 } || ks.toSet().size != 4) return refuse(id, "fields not unique or collide at read-back (k=$ks)", tk)
+        val ok = reads.indices.all { close(num(reads[it]?.optString("value")), wants[it], steps[it]) }
         val sub = tk.optJSONObject("submit")
         val subText = sub?.optString("text") ?: ""
         if (!ok) return refuse(id, "read-back mismatch", tk)
+        if (!subText.uppercase().contains(base)) return refuse(id, "submit label lost $base at read-back", tk)
         if (tk.optBoolean("tpsl") != true) return refuse(id, "TP/SL box not on at read-back", tk)
         if (!sideRe.containsMatchIn(subText) || oppRe.containsMatchIn(subText)) return refuse(id, "submit label does not match the side", tk)
         if (sub?.optBoolean("disabled") != false) return refuse(id, "submit disabled after fill", tk)
@@ -371,7 +432,7 @@ class MainActivity : Activity() {
             ledger.append(id, "dry_filled")
             report(id, "dry_filled", if (test) "test ticket (always dry)" else if (!armed()) "app not armed" else "server mode dry", tk)
             api.event("dry_fill_ok", "filled + read back, NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
-            js("__ex.setInput($qIdx, '')")
+            js("__ex.setByLabel('quantity', '', '')")
             setStatus("DRY ticket $id filled and read back; not submitted")
             return
         }
@@ -413,24 +474,40 @@ class MainActivity : Activity() {
         setStatus("ticket $id UNCONFIRMED — operator check")
     }
 
-    private fun idx(tk: JSONObject, re: Regex, prefer: Regex? = null): Int? {
-        val ins = tk.optJSONArray("inputs") ?: return null
-        val hits = (0 until ins.length()).map { ins.getJSONObject(it) }.filter { re.containsMatchIn(it.optString("label")) }
-        val pick = if (hits.size > 1 && prefer != null) hits.filter { prefer.containsMatchIn(it.optString("label")) } else hits
-        return if (pick.size == 1) pick[0].optInt("k") else null
-    }
+    /** A ticket field named by its LABEL (regex), with an optional narrowing regex when several labels match. */
+    private class Field(val name: String, val re: String, val prefer: String = "")
+
+    private suspend fun readField(f: Field): JSONObject? = jsObj("__ex.readByLabel(${q(f.re)}, ${q(f.prefer)})")
 
     private fun close(got: Double?, want: Double, step: Double) = got != null && abs(got - want) <= step / 2 + 1e-9
 
-    /** Native value setter first; if the page does not keep it, real key events into the focused field. */
-    private suspend fun typeInto(k: Int, text: String, want: Double, step: Double): Boolean {
-        js("__ex.setInput($k, ${q(text)})"); delay(300)
-        var back = num((jsObj("__ex.ticket()")?.optJSONArray("inputs")?.optJSONObject(k))?.optString("value"))
-        if (close(back, want, step)) return true
-        if (js("__ex.focusInput($k)") != "focused") return false
+    /** Drive the page to the venue symbol: one page-side move per step, read back between moves, at most 6 moves.
+     *  Returns the route taken (for the refusal reason / the dump); "already" when the ticket named the asset. */
+    private suspend fun selectSymbol(venue: String, base: String): String {
+        var route = ""
+        var prev = ""
+        for (step in 0 until 6) {
+            if (js("__ex.symbolOnTicket()").uppercase().contains(base)) return route.ifEmpty { "already" }
+            val r = js("__ex.symbolStep(${q(venue)})")
+            route += (if (route.isEmpty()) "" else ">") + r
+            if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
+            if (r == prev && (r == "clicked_symbol" || r == "opened_picker")) return "$route>stuck"
+            prev = r
+            delay(1500); ensure()
+        }
+        return route
+    }
+
+    /** Native value setter first; if the page does not keep it, real key events into the focused field. Both the
+     *  set and the read-back locate the field by label at that moment. */
+    private suspend fun typeInto(f: Field, text: String, want: Double, step: Double): Boolean {
+        val res = jsObj("__ex.setByLabel(${q(f.re)}, ${q(f.prefer)}, ${q(text)})") ?: return false
+        if (res.optInt("n", 0) != 1) return false
+        delay(300)
+        if (close(num(readField(f)?.optString("value")), want, step)) return true
+        if (js("__ex.focusByLabel(${q(f.re)}, ${q(f.prefer)})") != "focused") return false
         typeKeys(text); delay(400)
-        back = num((jsObj("__ex.ticket()")?.optJSONArray("inputs")?.optJSONObject(k))?.optString("value"))
-        return close(back, want, step)
+        return close(num(readField(f)?.optString("value")), want, step)
     }
 
     private suspend fun refuse(id: String, why: String, dump: JSONObject?) {
