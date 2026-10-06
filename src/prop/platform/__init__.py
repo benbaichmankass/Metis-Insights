@@ -69,6 +69,24 @@ def load_platform_config(account_id: str, path: Optional[Path] = None,
     return entry
 
 
+def auto_executed_accounts(path: Optional[Path] = None) -> set:
+    """Prop accounts whose fills NEVER come from a manual (Telegram) report-back:
+    REST-executed accounts (``accounts.<id>.platform`` in :data:`API_PLATFORMS`)
+    and phone-executed ones (``phone_accounts.<id>``). VELOTRADE-GOLIVE: a bare
+    Telegram report must not be ambiguous because such an account went live.
+    Reads the raw YAML (no per-entry validation); an unreadable file -> empty set,
+    so the caller falls back to its old rules rather than guessing."""
+    p = Path(path) if path else PLATFORMS_PATH
+    try:
+        data = yaml.safe_load(p.read_text()) or {}
+    except Exception:
+        return set()
+    out = {aid for aid, e in (data.get("accounts") or {}).items()
+           if isinstance(e, dict) and str(e.get("platform") or "").strip() in API_PLATFORMS}
+    out |= {aid for aid in (data.get("phone_accounts") or {})}
+    return out
+
+
 def adapter_for_platform(platform: str) -> PropPlatformAdapter:
     if platform == "dxtrade":
         from src.prop.platform.dxtrade import DXtradeAdapter

@@ -3929,7 +3929,7 @@ def test_review_the_tick_exits_3_when_a_dry_restore_fails(env, capsys):
     assert "RESTORE FAILED" in out and '"executor": "done"' in out
     src = (Path(__file__).resolve().parents[1] / "scripts/prop/prop_executor_tick.py").read_text()
     branch = src[src.index('if mode.startswith("round_trip") or mode.startswith("close_position"):'):
-                 src.index("res = pe.run_cycle(")]
+                 src.index("return run_cycle_and_trail(adapter=adapter, page=page")]
     assert "code = emit_round_trip(res, *secrets)" in branch and "return code" in branch
     assert "if res.halted else" not in branch
 
