@@ -161,5 +161,17 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
   const pC = await onHost(strip("BTCUSD").replace(/<div id=strip>.*?<\/div>/, ""));
   eq(await pC.evaluate("__ex.symbolStep('ETHUSD')"), "none", "no selector: none (app refuses 'symbol ETH not on the submit label')");
   eq(await pC.evaluate("__ex.symbolOnTicket()"), "BTC", "no selector: ticket unchanged");
+  // Fixture D (fix 06:24Z, am-2 "symbol route: none"): a watchlist whose rows are plain divs with the symbol in a
+  // leaf span and the click handler on the row. Route 1b clicks the ONE exact leaf; the read-back verifies.
+  const wl = strip("BTCUSD").replace(/<div id=strip>.*?<\/div>/, "<div id=wl><div class=r data-s=BTCUSD><span>BTCUSD</span><span>85,225.0</span></div><div class=r data-s=ETHUSD><span>ETHUSD</span><span>2,612.4</span></div></div>")
+    .replace("document.querySelectorAll('#strip button').forEach(function(b){b.onclick=function(){var s=b.textContent;", "document.querySelectorAll('#wl .r').forEach(function(b){b.onclick=function(){var s=b.getAttribute('data-s');");
+  const pD = await onHost(wl);
+  eq(await pD.evaluate("__ex.symbolStep('ETHUSD')"), "clicked_label", "watchlist: exact leaf label clicked, row handler fires");
+  eq(await pD.evaluate("__ex.symbolOnTicket()"), "ETH", "watchlist: submit label now names ETH");
+  eq(await pD.evaluate("__ex.symbolStep('ETHUSD')"), "done", "watchlist: then done");
+  const cands = await pD.evaluate("__ex.symbolCandidates().map(function(c){return c.text})");
+  eq(cands.includes("BTCUSD") && cands.includes("ETHUSD") && !cands.some(function (c) { return /\d/.test(c); }), true, "symbolCandidates lists the watchlist symbols, digits masked");
+  eq(await pD.evaluate("Array.isArray(__ex.ticket().symbolCandidates)"), true, "refusal dump carries symbolCandidates");
+  eq(await pD.evaluate("window.__submitted || 0"), 0, "watchlist: nothing submitted");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

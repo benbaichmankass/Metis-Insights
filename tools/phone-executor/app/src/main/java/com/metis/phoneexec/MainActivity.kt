@@ -495,7 +495,7 @@ class MainActivity : Activity() {
             val r = js("__ex.symbolStep(${q(venue)})")
             route += (if (route.isEmpty()) "" else ">") + r
             if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
-            if (r == prev && (r == "clicked_symbol" || r == "opened_picker")) return "$route>stuck"
+            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "opened_picker")) return "$route>stuck"
             prev = r
             delay(1500); ensure()
         }

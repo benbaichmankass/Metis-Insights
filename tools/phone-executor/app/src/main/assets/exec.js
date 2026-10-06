@@ -57,6 +57,14 @@
     var bare = clickables("button,[role=button],[role=option],a,li").filter(function (x) { return norm(t(x)) === b && !inForm(x); });
     return innermost(full).concat(innermost(bare));
   }
+  // Route 1b (fix 06:24Z, am-2 "symbol route: none"): a watchlist/portfolio row whose symbol is a plain text LEAF
+  // (span/div/td, no role) with the click handler on an ancestor. Exact symbol text only, outside the ticket.
+  function symbolLabels(sym) {
+    var n = norm(sym);
+    return all("span,div,td,p,strong,b").filter(function (x) {
+      if (x.children.length || inForm(x)) return false; var s = norm(t(x)); return s === n || s === n + "T";
+    });
+  }
   function searchBox() {
     return inputs(document).filter(function (i) {
       return (i.type === "text" || i.type === "search") && !inForm(i) &&
@@ -167,6 +175,24 @@
     },
     // Control texts on the page (buttons, tabs, role=button), first 40, digits masked: OUR OWN UI labels only, for
     // the "terminal did not load" event and the refusal dump. Never values, never account numbers.
+    // Symbol-selector candidates for the refusal dump (fix 06:24Z): elements whose text or aria-label looks like an
+    // instrument (BTC, BTCUSD, ETH/USD ...) or names an instrument/watchlist/search control, plus search-like inputs.
+    // Text, aria-label, role and tag only; digits masked; first 30. Our own UI, never values or account numbers.
+    symbolCandidates: function () {
+      var out = [], seen = {}, kw = /instrument|symbol|watchlist|market|search|asset/i;
+      all("button,[role],a,li,span,div,td,h1,h2,h3,input").forEach(function (x) {
+        if (out.length >= 30) return;
+        var tx = x.tagName === "INPUT" ? "" : t(x), al = x.getAttribute("aria-label") || "", ph = x.getAttribute("placeholder") || "";
+        var leafish = x.tagName === "INPUT" || x.children.length <= 2;
+        var hit = (tx.length <= 24 && (looksLikeSymbol(tx) || /^[A-Z]{2,5}$/.test(tx))) || kw.test(al + " " + ph) ||
+          (x.tagName === "INPUT" && /text|search/.test(x.type) && !inForm(x));
+        if (!hit || !leafish) return;
+        var row = {tag: x.tagName.toLowerCase(), role: x.getAttribute("role") || "", text: tx.replace(/\d/g, "#").slice(0, 24),
+          aria: al.replace(/\d/g, "#").slice(0, 40), ph: ph.replace(/\d/g, "#").slice(0, 30), popup: !!x.getAttribute("aria-haspopup"), inTicket: inForm(x)};
+        var k = JSON.stringify(row); if (!seen[k]) { seen[k] = 1; out.push(row); }
+      });
+      return out;
+    },
     controls: function () {
       var seen = {}, out = [];
       all("button,[role=tab],[role=button]").forEach(function (x) {
@@ -213,6 +239,8 @@
         var res = innermost(clickables().filter(function (x) { return !inForm(x) && x !== sb && norm(t(x)).indexOf(n) === 0; }));
         if (!res.length) return "no_result"; if (res.length > 1) return "ambiguous"; res[0].click(); return "clicked_result";
       }
+      var lb = symbolLabels(sym); if (lb.length === 1) { lb[0].click(); return "clicked_label"; }
+      if (lb.length > 1) return "ambiguous";
       var pk = currentSymbolControl(); if (pk) { pk.click(); return "opened_picker"; }
       return "none";
     },
@@ -230,7 +258,8 @@
         heading: all("h1,h2,h3,[role=heading]").map(t).slice(0, 8),
         alerts: all("[role=alert]").map(function (a) { return t(a).replace(/\d/g, "#"); }).slice(0, 6),
         // page controls (digits masked): shows the symbol strip/picker when the symbol route fails
-        controls: window.__ex.controls()};
+        controls: window.__ex.controls(),
+        symbolCandidates: window.__ex.symbolCandidates()};
     },
     tab: function (name) {
       var f = form() || document;
