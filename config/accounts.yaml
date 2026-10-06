@@ -1919,7 +1919,7 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    mode: dry_run                      # dry-run-guard: allow — new phone-executed prop account starts dry (manager dispatch PHONE-EXEC-1B 2026-10-05: "Start mode dry_run"); go-live is the set-account-mode system-action after the dry end-to-end ticket passes.
+    mode: live  # set-account-mode run 37449965576: Operator directive 2026-10-05/06 (manager session_01MM8o5js6TcDFeNAPBY4Ntv): "go live ASAP" on Breakout via the phone app; the gate set at account creation (acc | was: dry-run-guard: allow — new phone-executed prop account starts dry (manager dispatch PHONE-EXEC-1B 2026-10-05: "Start mode dry_run"); go-live is the set-account-mode system-action after the dry end-to-end ticket passes.
     account_state: evaluation
     phase_requirements:                # Breakout 1-Step Turbo (FAQ read 2026-10-05; see the ruleset header).
       target_profit_pct: 0.09
