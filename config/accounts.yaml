@@ -2069,7 +2069,7 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    mode: dry_run                      # dry-run-guard: allow — new prop account starts dry (manager dispatch VELOTRADE-WIRE 2026-10-04: "starting in DRY / read_only, never live"). Go-live is a separate PR after a read-only login check passes on the VM.
+    mode: live                         # VELOTRADE-GOLIVE (Tier-3 go-live, HELD; manager 2026-10-06 06:41Z, operator "Build it + pre-approve test" + parallel go-live 06:35Z): tickets are emitted for velotrade_1. Orders still need PROP_EXECUTOR_MODE_VELOTRADE_1=live on the VM AND a symbol in prop_platforms.yaml enabled_venue_symbols; the roster below is filled from lane VELOTRADE-FIT. Revert: mode dry_run (with its dry-run-guard marker).
     account_state: evaluation
     phase_requirements:                # Velotrade CLASSIC 1-Step (first-party, read 2026-10-04, unconfirmed).
       target_profit_pct: 0.10          # +10% to pass.

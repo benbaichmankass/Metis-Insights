@@ -395,26 +395,63 @@ def test_call_log_and_redaction_carry_no_secret():
         assert secret not in text
 
 
-# ── the browser scripts refuse an API platform ─────────────────────────────
+# ── the REST feed + tick (VELOTRADE-GOLIVE): no browser on a REST platform ─
 
 
-def test_browser_login_check_refuses_api_platform(monkeypatch, capsys):
+def _rest_adapter_factory(server):
+    real = load_platform_config("velotrade_1")["login_url"].rstrip("/")
+
+    def transport(method, url, data, headers, timeout):
+        return server(method, url.replace(real, BASE), data, headers, timeout)
+
+    return lambda platform: DXtradeApiAdapter(transport=transport, sleep=lambda _: None)
+
+
+def _flat(server):
+    server.on(("GET", f"{A}/metrics"), 200, {"metrics": [{"balance": 5000, "equity": 5000, "openPl": 0}]})
+    server.on(("GET", f"{A}/portfolio"), 200, {"portfolios": [{"positions": []}]})
+    server.on(("GET", f"{A}/orders"), 200, [], {"ETag": "v1"})
+    return server
+
+
+def test_feed_reads_and_emits_status_over_rest(monkeypatch, capsys):
     from scripts.prop import breakout_login_check as blc
-    monkeypatch.setenv("VELOTRADE_DX_USERNAME", "u")
-    monkeypatch.setenv("VELOTRADE_DX_PASSWORD", "p")
-    monkeypatch.setattr(blc, "adapter_for_platform",
-                        lambda p: (_ for _ in ()).throw(AssertionError("no browser adapter")))
-    assert blc.main(["--account", "velotrade_1"]) == blc.EXIT_FEASIBILITY
-    assert "feasibility: api_platform" in capsys.readouterr().out
+    s = _flat(FakeServer())
+    monkeypatch.setenv("VELOTRADE_DX_USERNAME", "trader")
+    monkeypatch.setenv("VELOTRADE_DX_PASSWORD", "pw-SECRET")
+    monkeypatch.setattr(blc, "adapter_for_platform", _rest_adapter_factory(s))
+    posted = []
+    monkeypatch.setattr(blc, "post_status", lambda report, base: posted.append(report) or {"id": 1})
+    assert blc.main(["--account", "velotrade_1", "--emit-status"]) == blc.EXIT_OK
+    out = capsys.readouterr().out
+    assert "login: ok (rest)" in out and "positions: 0" in out and "emit_status: ok id=1" in out
+    assert len(posted) == 1 and posted[0]["balance"] == 5000.0
+    assert "pw-SECRET" not in out and "SECRETACCT77" not in out
+    assert s.sent("POST", "/logout")
 
 
-def test_browser_tick_refuses_api_platform(monkeypatch, capsys, tmp_path):
+def test_tick_runs_a_read_only_cycle_over_rest_without_a_browser(monkeypatch, capsys, tmp_path):
+    from scripts.prop import prop_executor_tick as tick
+    s = _flat(FakeServer())
+    monkeypatch.setenv("VELOTRADE_DX_USERNAME", "trader")
+    monkeypatch.setenv("VELOTRADE_DX_PASSWORD", "pw-SECRET")
+    monkeypatch.setattr(tick, "adapter_for_platform", _rest_adapter_factory(s))
+    monkeypatch.setattr(tick.pe, "pending_live_tickets", lambda *a, **k: [])
+    calls = []
+    monkeypatch.setattr(tick, "run_cycle_and_trail", lambda **kw: calls.append(kw) or tick.EXIT_OK)
+    rc = tick.main(["--account", "velotrade_1", "--login", "reuse", "--state-dir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == tick.EXIT_OK and '"session": "rest_login"' in out
+    assert len(calls) == 1 and calls[0]["page"] is None and calls[0]["mode"] == "read_only"
+    assert not s.sent("POST", "/orders") and s.sent("POST", "/logout")
+
+
+def test_rest_tick_refuses_browser_measurement_modes(monkeypatch, capsys, tmp_path):
     from scripts.prop import prop_executor_tick as tick
     monkeypatch.setenv("VELOTRADE_DX_USERNAME", "u")
     monkeypatch.setenv("VELOTRADE_DX_PASSWORD", "p")
     monkeypatch.setattr(tick, "adapter_for_platform",
-                        lambda p: (_ for _ in ()).throw(AssertionError("no browser adapter")))
-    monkeypatch.setattr(tick.pe, "pending_live_tickets", lambda *a, **k: [])
-    rc = tick.main(["--account", "velotrade_1", "--login", "fresh", "--state-dir", str(tmp_path)])
-    assert rc == tick.EXIT_FEASIBILITY
-    assert '"feasibility": "api_platform"' in capsys.readouterr().out
+                        lambda p: (_ for _ in ()).throw(AssertionError("no adapter for a refused mode")))
+    rc = tick.main(["--account", "velotrade_1", "--login", "fresh", "--probe-ticket", "ETHUSD",
+                    "--state-dir", str(tmp_path)])
+    assert rc == tick.EXIT_FEASIBILITY and '"feasibility": "api_platform"' in capsys.readouterr().out

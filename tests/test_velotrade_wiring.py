@@ -31,9 +31,9 @@ def _accounts():
 # ── accounts.yaml: dry, no roster ─────────────────────────────────────────
 
 
-def test_velotrade_1_is_dry_with_no_roster():
+def test_velotrade_1_is_live_with_no_roster_yet():
     a = _accounts()["velotrade_1"]
-    assert a["mode"] == "dry_run"
+    assert a["mode"] == "live"            # VELOTRADE-GOLIVE: tickets emitted; orders still gated (kill switch + enabled symbols)
     assert a["strategies"] == []          # Tier-3: proposed in the PR, never applied here
     assert a["exchange"] == "breakout" and a["type"] == "prop" and a["account_class"] == "prop"
     assert a["backtest_ruleset"] == "prop_rulesets/velotrade_classic_1step.yaml"
