@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "set-account-mode breakout_2: dry_run -> live, requested through the system-actions workflow (run 37449965576, issue #16762). An account-mode flip is Tier-3 (config/accounts.yaml is in TIER3_PATHS) and Tier-3 never self-lands, so this waits for a merge on the operator's recorded approval. Reason given: Operator directive 2026-10-05/06 (manager session_01MM8o5js6TcDFeNAPBY4Ntv): \"go live ASAP\" on Breakout via the phone app; the gate set at account creation (accounts.yaml comment: \"go-live is the set-account-mode system-action after the dry end-to-end ticket passes\") is now met — test ticket phone-test-fab3ca3977cc at 10:26:10Z returned dry_filled (ETH long limit 2,630.42, qty 0.01 ETH, TP 2,735.64 above / SL 2,577.81 below, all six fields read back, submit enabled, not pressed). Revert: set-account-mode breakout_2 mode: dry_run (or PROP_PHONE_MODE_BREAKOUT_2=dry). The phone's own ARMED switch still gates the first live submit.",
+  "why": "The durable form of a set-account-mode flip (JC-CA-01): the one-line `mode:` change is a commit to main, so ict-git-sync converges the VM on it instead of reverting it within ~5 minutes. After merge, account-mode-verify.yml dispatches verify-account-mode to confirm the running trader reads live."
+}

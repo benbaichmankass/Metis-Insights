@@ -301,23 +301,48 @@ def _close_claim(account_id: str, ticket_id: str, status: str, result: Dict[str,
         conn.close()
 
 
-def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
-    """One-shot, git-visible way to run the dry end-to-end check WITHOUT the operator.
-
-    ``config/prop_platforms.yaml::phone_accounts.<acct>.dry_test_request: <request id>``. On the next claim, if no
-    ticket carries that request id yet, ONE always-dry test ticket is written (meta.test, so submit is forced dry
-    on the server and the phone never submits it). The id makes it idempotent; a new id requests a new test."""
-    req = str(phone_config(device.account_id).get("dry_test_request") or "").strip()
+def _unserved_dry_test_request(account_id: str) -> Optional[str]:
+    """The configured ``dry_test_request`` id when no ticket carries it yet, else None. Read-only."""
+    req = str(phone_config(account_id).get("dry_test_request") or "").strip()
     if not req:
         return None
     conn = prop_journal._connect()
     try:
         prop_journal.ensure_tables(conn)
         seen = conn.execute("SELECT 1 FROM prop_tickets WHERE account_id = ? AND meta LIKE ? LIMIT 1",
-                            (device.account_id, f'%"dry_test_request": "{req}"%')).fetchone()
+                            (account_id, f'%"dry_test_request": "{req}"%')).fetchone()
     finally:
         conn.close()
-    if seen:
+    return None if seen else req
+
+
+def pending_count(device: PhoneDevice, now: Optional[datetime] = None) -> int:
+    """READ-ONLY peek for the backgrounded app (PI-20261006-APBY4NTV-0006): how many tickets the next claim
+    would find (still-valid ``emitted`` tickets, plus one for an unserved ``dry_test_request``). Claims nothing,
+    writes nothing; 0 when the kill switch is off, matching ``claim_next``."""
+    now = now or _now()
+    acct = device.account_id
+    if kill_switch(acct) == "off":
+        return 0
+    conn = prop_journal._connect()
+    try:
+        prop_journal.ensure_tables(conn)
+        rows = conn.execute("SELECT valid_until FROM prop_tickets WHERE account_id = ? AND status = 'emitted'",
+                            (acct,)).fetchall()
+    finally:
+        conn.close()
+    n = sum(1 for r in rows if (vu := _parse(r["valid_until"])) is not None and vu > now)
+    return n + (1 if _unserved_dry_test_request(acct) else 0)
+
+
+def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
+    """One-shot, git-visible way to run the dry end-to-end check WITHOUT the operator.
+
+    ``config/prop_platforms.yaml::phone_accounts.<acct>.dry_test_request: <request id>``. On the next claim, if no
+    ticket carries that request id yet, ONE always-dry test ticket is written (meta.test, so submit is forced dry
+    on the server and the phone never submits it). The id makes it idempotent; a new id requests a new test."""
+    req = _unserved_dry_test_request(device.account_id)
+    if not req:
         return None
     try:
         tid = make_test_ticket(device, request_id=req)["ticket_id"]
@@ -420,7 +445,7 @@ def _write_diag(account_id: str, reason: str, controls: Any) -> None:
 # tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
 # ints or scrubbed short strings.
 _HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
-            "ticketOpen", "buySell", "tabs", "inputs", "armed", "build"}
+            "ticketOpen", "buySell", "tabs", "inputs", "armed", "build", "fg", "jsTimeouts", "pending"}
 
 
 def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
