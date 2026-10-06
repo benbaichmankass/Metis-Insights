@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Substance is Tier-1 (two NEW research-queue units, records only: research/queue/RQ-20261006-070.yaml and RQ-20261006-071.yaml register the tradeify_1 and breakout_2 halves of the operator's 2026-10-06 09:20Z decision \"let's also check the impact of doing the same for tradeify and breakout\" as rule-before-run units). pr-landing-guard cannot vouch for a NEW queue unit (a registration, not a stamp), so this holds for the manager to read and merge, as the RQ-20261006-034..045 intake did. No config, roster or runtime change.",
+  "why": "Operator-requested research intake; the manager merges after reading the two decision rules."
+}
