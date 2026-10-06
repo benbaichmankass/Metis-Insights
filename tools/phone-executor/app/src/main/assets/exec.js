@@ -57,6 +57,14 @@
     var bare = clickables("button,[role=button],[role=option],a,li").filter(function (x) { return norm(t(x)) === b && !inForm(x); });
     return innermost(full).concat(innermost(bare));
   }
+  // Route 1b (fix 06:24Z, am-2 "symbol route: none"): a watchlist/portfolio row whose symbol is a plain text LEAF
+  // (span/div/td, no role) with the click handler on an ancestor. Exact symbol text only, outside the ticket.
+  function symbolLabels(sym) {
+    var n = norm(sym);
+    return all("span,div,td,p,strong,b").filter(function (x) {
+      if (x.children.length || inForm(x)) return false; var s = norm(t(x)); return s === n || s === n + "T";
+    });
+  }
   function searchBox() {
     return inputs(document).filter(function (i) {
       return (i.type === "text" || i.type === "search") && !inForm(i) &&
@@ -151,12 +159,46 @@
       return same.length ? "" : t(c[0]);
     },
     // TERMINAL GATE (2026-10-06 05:21Z dry test: claimed on an /account/ page that was not the trading terminal,
-    // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page.
+    // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page;
+    // OR (fix 06:17Z: the live terminal with the ticket CLOSED had none of those exact shapes, "terminal did not
+    // load" on the real terminal) the 1a probe's classifier, MEASURED on this page over 6 captures: trade host,
+    // a /trade path, buy AND sell text markers, and tabs >= 3 or inputs >= 2.
     terminal: function () {
       var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); }).length > 0;
       var tb = all("[role=tab]").map(t);
       var bs = tb.some(function (x) { return /^buy$/i.test(x); }) && tb.some(function (x) { return /^sell$/i.test(x); });
-      return {ready: ctl || !!submitBtn() || bs, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs};
+      var body = t(document.body).slice(0, 20000);
+      var probe = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) && /\/trade(\/|$)/.test(location.pathname || "") &&
+        /\bbuy\b/i.test(body) && /\bsell\b/i.test(body) && (tb.length >= 3 || inputs(document).length >= 2);
+      return {ready: ctl || !!submitBtn() || bs || probe, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs,
+        probe: probe, tabs: tb.length, inputs: inputs(document).length};
+    },
+    // Control texts on the page (buttons, tabs, role=button), first 40, digits masked: OUR OWN UI labels only, for
+    // the "terminal did not load" event and the refusal dump. Never values, never account numbers.
+    // Symbol-selector candidates for the refusal dump (fix 06:24Z): elements whose text or aria-label looks like an
+    // instrument (BTC, BTCUSD, ETH/USD ...) or names an instrument/watchlist/search control, plus search-like inputs.
+    // Text, aria-label, role and tag only; digits masked; first 30. Our own UI, never values or account numbers.
+    symbolCandidates: function () {
+      var out = [], seen = {}, kw = /instrument|symbol|watchlist|market|search|asset/i;
+      all("button,[role],a,li,span,div,td,h1,h2,h3,input").forEach(function (x) {
+        if (out.length >= 30) return;
+        var tx = x.tagName === "INPUT" ? "" : t(x), al = x.getAttribute("aria-label") || "", ph = x.getAttribute("placeholder") || "";
+        var leafish = x.tagName === "INPUT" || x.children.length <= 2;
+        var hit = (tx.length <= 24 && (looksLikeSymbol(tx) || /^[A-Z]{2,5}$/.test(tx))) || kw.test(al + " " + ph) ||
+          (x.tagName === "INPUT" && /text|search/.test(x.type) && !inForm(x));
+        if (!hit || !leafish) return;
+        var row = {tag: x.tagName.toLowerCase(), role: x.getAttribute("role") || "", text: tx.replace(/\d/g, "#").slice(0, 24),
+          aria: al.replace(/\d/g, "#").slice(0, 40), ph: ph.replace(/\d/g, "#").slice(0, 30), popup: !!x.getAttribute("aria-haspopup"), inTicket: inForm(x)};
+        var k = JSON.stringify(row); if (!seen[k]) { seen[k] = 1; out.push(row); }
+      });
+      return out;
+    },
+    controls: function () {
+      var seen = {}, out = [];
+      all("button,[role=tab],[role=button]").forEach(function (x) {
+        var s = t(x).replace(/\d/g, "#").slice(0, 40); if (s && !seen[s] && out.length < 40) { seen[s] = 1; out.push(s); }
+      });
+      return out;
     },
     // The account's terminal URL, derived from the CURRENT /account/<id>/ path (deterministic: the account the
     // page is already on). "" when the path is not an account path. Never reported.
@@ -197,6 +239,8 @@
         var res = innermost(clickables().filter(function (x) { return !inForm(x) && x !== sb && norm(t(x)).indexOf(n) === 0; }));
         if (!res.length) return "no_result"; if (res.length > 1) return "ambiguous"; res[0].click(); return "clicked_result";
       }
+      var lb = symbolLabels(sym); if (lb.length === 1) { lb[0].click(); return "clicked_label"; }
+      if (lb.length > 1) return "ambiguous";
       var pk = currentSymbolControl(); if (pk) { pk.click(); return "opened_picker"; }
       return "none";
     },
@@ -212,7 +256,10 @@
         tpsl: cb ? cb.checked : null,
         submit: sub ? {text: t(sub), disabled: !!(sub.disabled || sub.getAttribute("aria-disabled") === "true")} : null,
         heading: all("h1,h2,h3,[role=heading]").map(t).slice(0, 8),
-        alerts: all("[role=alert]").map(function (a) { return t(a).replace(/\d/g, "#"); }).slice(0, 6)};
+        alerts: all("[role=alert]").map(function (a) { return t(a).replace(/\d/g, "#"); }).slice(0, 6),
+        // page controls (digits masked): shows the symbol strip/picker when the symbol route fails
+        controls: window.__ex.controls(),
+        symbolCandidates: window.__ex.symbolCandidates()};
     },
     tab: function (name) {
       var f = form() || document;
