@@ -1445,6 +1445,31 @@ GUARDS: List[Dict[str, Any]] = [
                   ["python3", "scripts/ci/check_tp_venue_cap_single_owner.py"]],
     },
     {
+        "name": "tp-doctrine-guard",
+        # The TP doctrine (docs/ARCHITECTURE-CANONICAL.md § "TP doctrine",
+        # operator 2026-10-06): no fictional take-profits. A RATCHET over every
+        # (account, leg) routing: the day-one debt is carried in a dated
+        # BASELINE inside the script, and the guard fails only on NEW
+        # non-compliance (a newly rostered leg with a sentinel / no target, or
+        # one whose family cannot move its TP), on debt GROWTH, or on a STALE
+        # baseline line. Relevance follows every source it reads: the two
+        # configs (a roster edit or a tp_r edit), the strategy units (a
+        # monitor() gaining a `tp` verdict), the builder alias table, the venue
+        # caps table and the prop trail (the TP-amend path).
+        "when": {"globs": [
+            "config/accounts.yaml", "config/strategies.yaml",
+            "src/units/strategies/*.py", "src/runtime/strategy_signal_builders.py",
+            "src/units/accounts/clients.py", "src/prop/prop_trail.py",
+            "scripts/research/bracket_expectation_census.py",
+            "scripts/ci/check_tp_doctrine.py",
+        ]},
+        # Self-test FIRST: its planted controls include the live-repo assertion
+        # that the baseline matches the scan exactly, so a stale baseline fails
+        # here before the scan is trusted to say anything.
+        "steps": [["python3", "scripts/ci/check_tp_doctrine.py", "--self-test"],
+                  ["python3", "scripts/ci/check_tp_doctrine.py"]],
+    },
+    {
         "name": "automerge-trigger-guard",
         # UNGATED: `when: None`, so it runs on every PR regardless of the diff.
         # The registry's convention for "always" is an EXPLICIT `None`, never an

@@ -196,6 +196,34 @@ The next `/health-review` MUST verify the mechanics of the first real
 lever-driven exit; `/ml-review`/`/performance-review` track the realized
 `future_r_delta` record. Demotion = delete the YAML lines.
 
+## The TP doctrine binds every lever (operator directive 2026-10-06)
+
+Canonical text: [`docs/ARCHITECTURE-CANONICAL.md`](../../../docs/ARCHITECTURE-CANONICAL.md)
+§ "TP doctrine". In this skill it means:
+
+- **A sentinel TP is a `pending` row, not a finished one.** A leg whose
+  effective target is `tp_r >= 50` (declared or inherited) or whose monitor
+  cannot return a `{"tp": ...}` verdict has not been exit-processed under the
+  doctrine, whatever its lever columns read. `tp_intent: {mode: none}` records
+  the old decision; it does not close the row.
+- **P1 gains a required read:** the leg's grade from
+  `python3 scripts/ci/check_tp_doctrine.py --json` (`entry_tp` and
+  `tp_revision`, never collapsed). Work the fails by money at stake —
+  real-money and prop routings first, then `paper_role: portfolio` mirrors,
+  then paper.
+- **P2 gains a required lever family:** a finite, calibrated target at entry
+  (the e35 bracket sweep's `tp_r` axis; per-leg MFE-quantile targets in R per
+  `docs/research/ml2-predictive-bracket-2026-09-06.md`, whose verdict was that
+  a per-leg MFE quantile is the answer and a conditional model is not), and a
+  TP-revision lever (extend when price nears the target while the thesis holds,
+  § E3.6 point 4). *Extend the target* has no harness lever and no monitor
+  producer today — building both is a prerequisite, not a sweep result.
+- **A `tp` verdict is graded calibration-first** (§ E3.6's falsifier): does the
+  stated expectation match where trades actually exit, before P&L.
+- Flipping a leg's target or shipping a producer stays Tier-3; the ratchet
+  baseline in the guard may only shrink, and adding a line for a real-money or
+  prop routing is the operator's act.
+
 ## Hard rules
 
 These rules are also codified generically (for any research skill, not just
