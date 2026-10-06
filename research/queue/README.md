@@ -283,16 +283,15 @@ scoped to writing questions, not to building their follow-through.
 
 ## The queue refills and grades itself (RQ-RUN, 2026-09-28)
 
-Operator: *"The research queue should be running 24/7 with or without Claude."*
-And, 2026-10-06, the principle that sets the cadence: *"the research queue
-shouldn't need a claude session pushing it - claude should be queuing research
-units and analyzing results, but the git infrastructure should be what keeps
-the queue moving."* A session's job is to **write units and read results**; the
-dispatch, the stamping, the grading and the refill are the workflows' job. If a
-unit is waiting on a session to fire it, that is a bug in the workflows, not a
-task for the session.
+> Operator, 2026-10-06: *"the research queue shouldn't need a claude session
+> pushing it - claude should be queuing research units and analyzing results,
+> but the git infrastructure should be what keeps the queue moving."* A session
+> REGISTERS units and READS results; refill, dispatch, landing and mechanical
+> grading are the workflows' job, and any step that still waits on a session is
+> listed below as debt, not as process.
 
-Three scheduled workflows own that:
+Operator, 2026-09-28: *"The research queue should be running 24/7 with or
+without Claude."* Three scheduled workflows own that:
 
 | workflow | what | lands |
 |---|---|---|
@@ -315,6 +314,17 @@ dispatcher runs hourly (up to 3 research runs in flight at once; it consumed up 
 every 6 h before 2026-10-06). The 12 h idle alarm is deliberately kept at the hourly cadence —
 GitHub drops hourly slots and a stamp takes ~1 h to land, so a tighter alarm would page on
 scheduler weather (`scripts/research/queue_throughput.py`).
+
+### Session debt — steps that still wait on a session (2026-10-06)
+
+Filed in the pipeline (`docs/claude/work/pipeline/`), each with a `rerun` that re-measures
+it; re-run those rather than quoting these counts.
+
+| debt | measured 2026-10-06 | row |
+|---|---|---|
+| `automation/*` PRs strand when their CI checks are cancelled ~15 min in; `stale-automation-sweep` refreshes but never re-requests checks, so a stranded stamp PR re-fires its units | #16656, #16657, #16124, #16654 (manager); checks on #16656 re-run by hand as a stopgap | `PI-20261006-LCEVL8D5-0001` |
+| queued units the dispatcher can never fire (`run.workflow` is a human note) or the grader can never close (hand-written, no `grading.auto`) | 2 session-bound + 4 session-graded of 308 files | `PI-20261006-LCEVL8D5-0002` |
+| the `needs_review` bucket surfaces only to a session that thinks to grep for it | 11 flagged (all statuses) | `PI-20261006-LCEVL8D5-0003` |
 
 ## `run.workflow` DECLARED vs. actually `gh workflow run`-DISPATCHABLE
 
