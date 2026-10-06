@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane dispatch (manager session_01MM8o5js6TcDFeNAPBY4Ntv, acting with the operator's authority, 2026-10-06 08:05Z) asked the lane to report PR numbers to the manager, who lands them; the lane's attempt to arm the Tier-1 self-land route (claim_merge_slot --branch-claim + automerge request) was refused by the Claude Code auto-mode classifier ('Merge Without Review'), so the merge is the manager's click.",
+  "why": "ACTIVE-GEOMETRY lane scan (child of PI-20261006-APBY4NTV-0003): the prop executor tick now emits the trail step's own trail_amend / trail_skip rows (observability only, one extra emit of an in-memory list) plus a source-shape test and pipeline follow-up rows. No order-path, config or schema change."
+}

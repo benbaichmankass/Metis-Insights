@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-KX6ZKFNA-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ACTIVE-GEOMETRY scan session_01WeYNGaK7Ao3hp4Kx6ZkFna (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-06 ~08:25Z, after the operator widened the scope to all accounts; child of PI-20261006-APBY4NTV-0003",
+    "rerun": "python3 -c \"import yaml;s=yaml.safe_load(open('config/strategies.yaml'))['strategies'];c=s['xrp_pullback_2h'];print({k:c.get(k) for k in ('tp_r','trail_decay_arm_r','trail_decay_stall_bars','trail_decay_tight_mult')})\"  # dead while arm_r >= tp_r and stall_bars is None"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "DEAD LEVER ON A REAL-MONEY LEG: xrp_pullback_2h (bybit_2 live + bybit_1/bybit_portfolio) declares trail_decay_arm_r=4.49 / trail_decay_tight_mult=2.5 with NO trail_decay_stall_bars, so the decay arms only when peak R >= 4.49 -- but tp_r was cut 50.0 -> 3.0 on 2026-08-23 (Tier-3, operator-approved), so the resting TP closes the trade at 3R before the arm can ever be reached. The arm came from the 2026-07-13 P4.4 p80 sweep run at the 50R sentinel; E41/E48 re-measured arm reachability against the VENUE cap, not against the later tp_r cut, which is how this one survived. MEASURED 2026-10-06 by parsing config/strategies.yaml (the only such case across the 9 live real-money/prop legs; trend_donchian_xrp_4h has arm 2.0 < tp 3 and is fine). No money is lost to it (the lever only tightens) but a declared lever that cannot fire is a live-vs-evidence mismatch: the Stage-0 record behind the 3R cut either modelled decay that never fires live (harmless) or was run without it (then the lines are dead config). FIX (Tier-3, either): strip the two trail_decay_* lines from xrp_pullback_2h, or re-sweep the arm against min(cap_R, tp_r=3) and declare a reachable one (or a stall arm). Decide from the sweep delta."
+}

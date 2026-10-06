@@ -40,7 +40,7 @@ def test_velotrade_1_is_live_with_the_fit_roster():
     assert a["exchange"] == "breakout" and a["type"] == "prop" and a["account_class"] == "prop"
     assert a["backtest_ruleset"] == "prop_rulesets/velotrade_classic_1step.yaml"
     assert a["account_size_usd"] == 5000
-    assert a["risk"]["risk_pct"] == 0.005
+    assert a["risk"]["risk_pct"] == 0.01   # operator 2026-10-06 09:20Z: 1% (RQ-20261006-062)
     assert a["risk"]["max_dd_pct"] == 0.07 and a["risk"]["daily_loss_pct"] == 0.04
     assert "breach_guards" not in a["risk"]   # enforce (the default), like tradeify_1
 
@@ -108,7 +108,7 @@ def test_executor_config_reads_velotrades_numbers():
     assert c.account_size_usd == 5000.0
     assert c.daily_loss_pct == 0.04 and c.max_dd_pct == 0.07
     assert c.daily_reset_utc == "00:30"
-    assert c.risk_cap_usd == 25.0
+    assert c.risk_cap_usd == 50.0   # ruleset sizing.flat.max_risk_usd moved with risk_pct
     assert c.daily_loss_reset_basis == "max_balance_equity"
     assert c.daily_loss_amount_basis == "day_start_balance"   # 4% of the day-start value, not of size
     assert c.enabled_venue_symbols == ["ETHUSD", "SOLUSD"]

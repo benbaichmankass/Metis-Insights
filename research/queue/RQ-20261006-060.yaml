@@ -1,0 +1,124 @@
+id: RQ-20261006-060
+title: "TP doctrine, real money: does a finite, venue-reachable target beat trend_donchian_eth_4h's 50R sentinel on bybit_2?"
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 1
+
+question: >-
+  trend_donchian_eth_4h is the one REAL-MONEY Bybit leg (bybit_2, mirrored on
+  bybit_portfolio and bybit_1) whose take-profit is the fleet's `tp_r: 50.0`
+  sentinel: the level that rests is `entry x 1.099`, the venue cap, not a
+  prediction. The TP doctrine (docs/ARCHITECTURE-CANONICAL.md § "TP doctrine",
+  operator 2026-10-06) says that is non-compliant. Does any FINITE tp_r cell of
+  the e35 bracket grid (1.0 .. 6.0 R, times the stop and timeout axes) clear
+  the IS/OOS Path A/B gate against the shipped sentinel geometry on this leg,
+  so a real expectation can be declared at entry?
+
+why_this_matters: >-
+  MEASURED by `python3 scripts/ci/check_tp_doctrine.py` on main at f6c63f99
+  (2026-10-06): of the 7 real-money routings, 4 fail `entry_tp` -- this leg on
+  bybit_2 and the three alpaca_live 1d pullback legs (RQ-20261006-061). This is
+  the only real-money sentinel on the venue whose exit path already forwards a
+  TP amend (Bybit `modify` cap), so a declared target here is executable the
+  day it is approved. The leg's e35 corpus rows carry base_oos_trades 49-59
+  (research_disposition --report, 2026-10-06), so it is the one real-money
+  sentinel this instrument can grade at power now.
+
+power:
+  expected_n: 49
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    n is the e35 sweep's own achieved base_oos_trades for this leg: 49 on the
+    RQ-20260922-005 run (2026-09-24) and 59 on the RQ-20260830-002 run
+    (2026-09-29), read from docs/research/e35-bracket-corpus.jsonl via
+    `scripts/research/research_disposition.py --report`. The floor at d=0.45
+    is (1.96+0.8416)^2 / 0.45^2 = 38.76 -> 39, so 49 clears it by 10. Declared
+    as the MINIMUM of the two observed counts, not the maximum, so a run that
+    lands at the lower boundary still grades as powered. Read a null as "no
+    finite cell beats the sentinel by half a standard deviation", never as "a
+    finite target is worse".
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+      - trend_donchian_eth_4h
+    basis: >-
+      Grounded on e35 because this unit's run IS an e35 bracket sweep, so the
+      corpus statistic and the run's own count are the same measurement.
+      min_per_leg over this one leg reads 49 (2026-10-06), against the 38.76
+      floor.
+
+decision_rule:
+  id: RULE-RQ1006-060-FINITE-TP-BEATS-SENTINEL
+  registered_at: '2026-10-06'
+  registered_before_run: true
+  statistic: >-
+    Per cell with a FINITE tp_r (the TP_R_GRID axis, 1.0-6.0 R): gate_verdict
+    (is_oos_pass / is_oos_fail) from the IS/OOS Path A/B gate against the
+    config-exact sentinel base; the cell's tp_r; base_oos_trades. A finite
+    cell is REACHABLE only if its tp_r <= cap_r at the leg's observed
+    ATR/entry (scripts/research/target_reachability_report.py), because a
+    declared target the venue clamps is the sentinel again under another name.
+  rule: >-
+    PASS IF at least one finite, reachable tp_r cell reads is_oos_pass with
+    base_oos_trades >= 39 -> a Tier-3 proposal to declare that tp_r (the best
+    passing cell by OOS net_R, with its calibration: the fraction of the base
+    book's trades whose MFE reached it) on trend_donchian_eth_4h, applied to
+    bybit_2, bybit_portfolio and bybit_1 in one PR because the mirror tests
+    require equality. The proposal is a POPUP ONLY IF the choice between two
+    passing cells is a preference; a single passing cell is a data-backed
+    Tier-3 decision under the 2026-09-27 standing authorization.
+    honest_negative IF no finite reachable cell passes with base_oos_trades
+    >= 39: the sentinel is not beaten by a FIXED R-multiple on this leg, and
+    the doctrine's answer becomes a per-leg MFE-quantile expectation in R
+    (docs/research/ml2-predictive-bracket-2026-09-06.md's verdict) placed as
+    the TP and EXTENDED while the Donchian thesis holds -- which needs the
+    `tp` producer and the harness extend-lever named in
+    PI-20261006-5FUGHVX8-0001, so the disposition is "blocked on that build",
+    recorded on the pipeline row, never a demotion.
+    unresolvable_at_current_n IF base_oos_trades < 39.
+  what_it_does_not_do: >-
+    Touches no config. Does not demote the leg (it carries a real-money Stage-0
+    record) and does not grade the mirror/paper copies separately -- the
+    mirror tests force roster equality, so one verdict covers the three Bybit
+    routings.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 45
+  basis: >-
+    Runner. e35-bracket-sweep.yml shards one leg per job and fetches ETHUSDT
+    4h candles from data.binance.vision; the leg is in plan_legs' runnable set
+    (verified 2026-10-06 by calling plan_legs(..., ignore_missing_data=True)).
+    est_minutes is the template's per-leg timing (199 cells, ~6 min measured
+    2026-09-24, plus fetch), not a measurement of this run.
+
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    only: trend_donchian_eth_4h
+    days: '1830'
+    gate_top: '2'
+    singles_only: 'false'
+    max_parallel: '1'
+    research_unit: RQ-20261006-060
+
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+
+related:
+  - 'docs/ARCHITECTURE-CANONICAL.md § "TP doctrine" (operator directive 2026-10-06)'
+  - 'PI-20261006-5FUGHVX8-0001 (the ranked TP-doctrine debt list; this unit is its real-money Bybit entry)'
+  - 'RQ-20260922-005 / RQ-20260830-002 (prior e35 sweeps of this leg: 0 of 199 cells cleared the gate at the SENTINEL base; this unit asks the finite-tp_r cells the reachability question those runs did not)'
+  - 'docs/research/ml2-predictive-bracket-2026-09-06.md (ML-2 refuted; per-leg MFE quantile in R is the predictive-bracket answer)'
