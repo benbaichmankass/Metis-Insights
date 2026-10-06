@@ -242,6 +242,15 @@ async def phone_claim(authorization: str | None = Header(default=None)) -> dict[
             "config": pe.phone_config(dev.account_id)}
 
 
+@router.get("/phone/pending")
+async def phone_pending(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """READ-ONLY: how many tickets are waiting for the device's account. Claims nothing; the backgrounded app
+    polls this and brings itself to the front before it claims (PI-20261006-APBY4NTV-0006)."""
+    from src.prop import phone_executor as pe
+    dev = _phone_device(authorization)
+    return {"ok": True, "pending": await asyncio.to_thread(pe.pending_count, dev)}
+
+
 @router.post("/phone/report")
 async def phone_report(request: Request,
                        authorization: str | None = Header(default=None)) -> dict[str, Any]:

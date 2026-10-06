@@ -19,7 +19,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 120 of 120 routes documented (100%).**
+> **Coverage, computed rather than counted: 121 of 121 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -247,6 +247,7 @@ is missing" is exactly what a tier inventory is for.
 |---|---|---|---|
 | `POST /api/bot/prop/report` | `routers/prop.py` | **503 — fail-CLOSED** | Ingests an inbound prop fill/close or account-status report-back. **A genuine Tier-2 mutation: DB write + operator notification.** `_require_write_token` refuses with 503 when the token is unset rather than accepting anonymous writes, so a dropped `.env` value (e.g. a VM migration) can never reopen an anonymous write hole (BL-20260705-DASHBOARD-API-TOKEN-UNSET). Missing / wrong-scheme / wrong bearer → 401. |
 | `POST /api/bot/prop/phone/claim` | `routers/prop.py` | **n/a — per-DEVICE bearer, 401 unless a fingerprint in `config/prop_phone_devices.yaml` matches** | Phone executor (PHONE-EXEC-1B). Atomically claims the next valid ticket (`emitted → claimed`) for the ONE account the device is pinned to; runs the claim watchdog (unreported claims → `skipped` + ping). Never accepts `DASHBOARD_API_TOKEN`. 409 when the account is not declared `breakout_phone` in `config/prop_platforms.yaml::phone_accounts`. |
+| `GET /api/bot/prop/phone/pending` | `routers/prop.py` | **n/a — per-device bearer (401)** | READ-ONLY peek for the backgrounded app (PI-20261006-APBY4NTV-0006): `{"pending": n}` = still-valid `emitted` tickets for the device's pinned account, plus one for an unserved `dry_test_request`; 0 when the kill switch is off. Claims nothing and writes nothing; the app brings itself to the front and claims only once resumed. |
 | `POST /api/bot/prop/phone/report` | `routers/prop.py` | **n/a — per-device bearer (401)** | Wraps `ingest_report` with `account_id` overwritten from the device's pin; `kind=ticket_result` closes a claim that placed nothing. |
 | `POST /api/bot/prop/phone/event` | `routers/prop.py` | **n/a — per-device bearer (401)** | Login/logout/refusal/mismatch events → operator Telegram ping. Fixed event vocabulary; links, emails and 6+ digit runs are scrubbed from the reason. `terminal_miss` is quiet (no ping): it stores the latest scrubbed control texts (≤40) beside the journal, surfaced as `phone_diag` on `GET /prop/status`; `heartbeat` (quiet, ≤ every 2 min on every app tick path) likewise surfaces as `phone_heartbeat`. |
 | `POST /api/bot/prop/phone/test-ticket` | `routers/prop.py` | **n/a — per-device bearer (401)** | Writes one synthetic `meta.test` ticket that is ALWAYS `submit: dry` (server) and never submitted (phone): the end-to-end dry check. |
