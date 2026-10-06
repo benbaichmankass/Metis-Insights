@@ -394,7 +394,13 @@ def run_cycle_and_trail(*, adapter, page, api, cfg, mode, args, state_dir, secre
         # control and stops). Fully contained: an exception here must
         # not reach the outer handler, whose record_tick_error trips
         # the entry halt. Its own reports / alerts are emitted after it.
-        n_rep, n_al = len(res.reports), len(res.alerts)
+        # ACTIONS INCLUDED (ACTIVE-GEOMETRY lane, 2026-10-06): run_trail_step
+        # records every per-position decision through ``res.log``
+        # (``trail_amend`` / ``trail_skip`` -> res.actions), and res.actions was
+        # emitted ONLY above, before the step ran, so the trail's evidence never
+        # reached the journal (0 such lines in 2000 journal lines of
+        # ict-prop-executor@tradeify_1, deps line on every tick).
+        n_act, n_rep, n_al = len(res.actions), len(res.reports), len(res.alerts)
         try:
             # PROP-TRAIL-VENV: import the trail's deps EXPLICITLY (the
             # candle feed builds its ccxt client lazily, per call) and
@@ -414,6 +420,8 @@ def run_cycle_and_trail(*, adapter, page, api, cfg, mode, args, state_dir, secre
                               "entries unaffected")
         except Exception as exc:  # noqa: BLE001
             res.alerts.append(f"trail: step failed ({type(exc).__name__}); entries unaffected")
+        for a in res.actions[n_act:]:
+            emit({"action": a}, *secrets)
         for r in res.reports[n_rep:]:
             emit({"report": r}, *secrets)
         for al in res.alerts[n_al:]:
