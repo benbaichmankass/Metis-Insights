@@ -187,3 +187,18 @@ def test_terminal_miss_keeps_latest_controls_scrubbed_and_does_not_ping(_iso):
     from src.web.api import main as api_main
     body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
     assert body.get("phone_diag", {}).get("controls", [None])[0] == "Positions"
+
+
+def test_heartbeat_keeps_latest_allowlisted_state_and_does_not_ping(_iso):
+    n = len(_iso)
+    assert pe.last_heartbeat("breakout_2") is None
+    pe.record_event(_dev(), {"event": "heartbeat", "reason": "logged in, not on the terminal; acct 12345678",
+                             "state": {"st": "logged_in", "hold": True, "tabs": 3, "host": "trade.breakoutprop.com",
+                                       "secret": "x", "onAccount": False}})
+    hb = pe.last_heartbeat("breakout_2")
+    assert len(_iso) == n
+    assert "12345678" not in hb["status"] and hb["state"] == {"st": "logged_in", "hold": True, "tabs": 3,
+                                                               "host": "trade.breakoutprop.com", "onAccount": False}
+    from src.web.api import main as api_main
+    body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
+    assert body["phone_heartbeat"]["state"]["hold"] is True
