@@ -1965,10 +1965,6 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    report_default: true               # VELOTRADE-GOLIVE: with velotrade_1 live too, a bare Telegram fill
-                                       # report / screenshot (no acct=) stays tradeify_1's -- velotrade_1's fills
-                                       # come from the REST API, never a manual report. breakout_1 (dry_run) keeps
-                                       # its flag; only LIVE flagged accounts count (default_prop_account).
     mode: live                         # TRADEIFY-WIRE PR C (Tier-3 go-live, HELD): tickets
                                        # emit to the prop Telegram channel like breakout_1's.
                                        # Merge ONLY after: login check exit 0 from the VM,
