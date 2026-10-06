@@ -63,7 +63,7 @@ generated:
     leg: eth_pullback_2h
     symbol: ETHUSDT
     timeframe: 2h
-last_dispatched_at: '2026-09-29T00:53:03+00:00'
+last_dispatched_at: '2026-10-06T03:00:23+00:00'
 grading:
   auto: true
   decision_rule_id: RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST
