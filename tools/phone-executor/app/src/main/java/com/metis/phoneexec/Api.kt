@@ -29,6 +29,20 @@ class Api(private val c: Context) {
         } catch (e: Exception) { null }
     }
 
+    /** READ-ONLY peek used while the Activity is backgrounded: tickets waiting for this device's account, or null
+     *  when the VM is unreachable / refused. Claims nothing (the claim happens only once the Activity is resumed). */
+    suspend fun pending(): Int? = withContext(Dispatchers.IO) {
+        try {
+            val u = URL(base() + "/api/bot/prop/phone/pending")
+            if (u.protocol != "https") return@withContext null
+            val conn = u.openConnection() as HttpURLConnection
+            conn.connectTimeout = 10000; conn.readTimeout = 20000
+            conn.setRequestProperty("Authorization", "Bearer " + Store.token(c))
+            if (conn.responseCode !in 200..299) null
+            else JSONObject(conn.inputStream.bufferedReader().readText()).optInt("pending", -1).takeIf { it >= 0 }
+        } catch (e: Exception) { null }
+    }
+
     suspend fun event(kind: String, reason: String = "", ticket: String = "") =
         post("event", JSONObject().put("event", kind).put("reason", reason.take(150)).put("ticket_id", ticket))
 

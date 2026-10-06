@@ -202,3 +202,32 @@ def test_heartbeat_keeps_latest_allowlisted_state_and_does_not_ping(_iso):
     from src.web.api import main as api_main
     body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
     assert body["phone_heartbeat"]["state"]["hold"] is True
+
+
+def test_pending_peek_counts_without_claiming(monkeypatch):
+    from src.web.api import main as api_main
+    cfg = pe.phone_config("breakout_2")
+    monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {k: v for k, v in cfg.items() if k != "dry_test_request"})
+    c = TestClient(api_main.app, raise_server_exceptions=False)
+    assert c.get("/api/bot/prop/phone/pending").status_code == 401
+    h = {"Authorization": "Bearer " + TOKEN}
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json() == {"ok": True, "pending": 0}
+    _ticket("old", minutes=-1)
+    _ticket("t1")
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json()["pending"] == 1
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json()["pending"] == 1  # a peek claims nothing
+    assert pe.claim_next(_dev())["ticket_id"] == "t1"
+    assert pe.pending_count(_dev()) == 0
+    _ticket("t2")
+    monkeypatch.setenv("PROP_PHONE_MODE_BREAKOUT_2", "off")
+    assert pe.pending_count(_dev()) == 0  # kill switch off: nothing to wake for, like claim_next
+
+
+def test_pending_counts_an_unserved_dry_test_request_without_serving_it(monkeypatch):
+    monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {"dry_test_request": "r9",
+                        "instruments": {"ETHUSDT": {"venue": "ETHUSD"}}})
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+    assert pe.pending_count(_dev()) == 1
+    assert pe.pending_count(_dev()) == 1  # still unserved: the peek wrote no ticket
+    assert pe.claim_next(_dev())["meta"]["dry_test_request"] == "r9"
+    assert pe.pending_count(_dev()) == 0
