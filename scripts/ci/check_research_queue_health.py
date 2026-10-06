@@ -41,9 +41,13 @@ DEFAULT_MAX_IDLE_HOURS = 12.0
 #: fires research-queue-replenish.yml instead of paging. Measured 2026-09-29
 #: 10:07Z (manager, via lane M19-S1): runnable 8 of 58 on main with 153
 #: unclaimed template points -- starved, but self-healing, and the refill is
-#: daily while the dispatcher consumes up to 3 units every 6 h, so a bare
-#: page would have rung after most cycles. A page is for what a refill
-#: cannot fix: an unfillable gap, or a dispatcher that stopped firing.
+#: daily while the dispatcher consumed up to 3 units every 6 h, so a bare
+#: page would have rung after most cycles. Since 2026-10-06 the dispatcher
+#: runs HOURLY (operator: the git infrastructure keeps the queue moving),
+#: still capped at 3 research runs in flight, so the gap between refills
+#: can only open faster -- the refill-before-page branch matters more, not
+#: less. A page is for what a refill cannot fix: an unfillable gap, or a
+#: dispatcher that stopped firing (12 h idle, queue_throughput.py).
 EXIT_REFILL = 3
 
 

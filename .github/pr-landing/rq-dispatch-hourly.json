@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One cron change: .github/workflows/research-queue-dispatch.yml moves from `20 */6 * * *` to `20 * * * *` (hourly) on operator direction 2026-10-06 ('the git infrastructure should be what keeps the queue moving'), plus the comments/docs that described the 6 h cadence (queue_replenish.py, check_research_queue_health.py, queue_throughput.py, research/queue/README.md, docs/github-actions-workflows.md). CI/tooling/docs only, all on the Tier-1 surface (.github/**, scripts/**, docs/**, research/queue/README.md): no order path, no strategy config, no risk caps, no src/, no deploy/, no live-VM runtime file. The dispatcher's caps (--max-research-inflight 3, --max-repo-queued 10, per-run GPU 1, monthly ledger) are byte-for-byte unchanged, so the hourly cron changes WHEN the queue is graded, never what may be spent per run. schedule-keeper reads the cron from the file; the cadence-liveness registry grades the receipt's age, not the cron."
+}
