@@ -60,6 +60,8 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
     "/en/account/A1/trade-ready": "<div><button>Order</button><div role=tablist><button role=tab>Buy</button><button role=tab>Sell</button></div></div>",
     "/": "<div><h1>Your accounts</h1><a href='/en/account/A1/trade'>Turbo 5K</a></div>",
     "/two": "<div><a href='/en/account/A1/trade'>One</a><a href='/en/account/B2/trade'>Two</a></div>",
+    "/en/account/A2/trade": "<div><div role=tablist><button role=tab>Positions</button><button role=tab>Open orders</button><button role=tab>History</button></div><span>Buy</span> 85,225 <span>Sell</span> 85,220</div>",
+    "/en/account/A3/trade": "<div><span>Buy</span> <span>Sell</span></div>",
     "/login": "<form><input type=email><button>Continue</button></form>",
   };
   await p2.route("https://trade.breakoutprop.com/**", (route) => {
@@ -79,6 +81,13 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
   eq(await p2.evaluate("__ex.terminalHref()"), "https://trade.breakoutprop.com/en/account/A1/trade", "terminal URL derived from the current account path");
   await st("/en/account/A1/trade-ready");
   eq(await p2.evaluate("__ex.terminal().ready"), true, "terminal with Order control + Buy/Sell tabs is ready");
+  // TERMINAL WITH THE TICKET CLOSED (fix 06:17Z, "terminal did not load" on the real terminal): no Order control,
+  // no Buy/Sell tabs, but the 1a probe classifier (trade host, /trade path, buy+sell markers, tabs>=3) says ready.
+  await st("/en/account/A2/trade");
+  eq(await p2.evaluate("[__ex.terminal().ready, __ex.terminal().probe, __ex.terminal().orderControl]"), [true, true, false], "terminal with the ticket closed is ready via the probe classifier");
+  eq(await p2.evaluate("__ex.controls()"), ["Positions", "Open orders", "History"], "controls(): the page's control texts for the miss event");
+  await st("/en/account/A3/trade");
+  eq(await p2.evaluate("__ex.terminal().ready"), false, "buy/sell words alone (no tabs, no inputs) are not the terminal");
   s1 = await st("/login");
   eq([s1.loggedIn, s1.email], [false, true], "login form is never logged in");
   // LABEL-BASED FIELDS (fix 2026-10-05 ~22:40Z): price and quantity are set and read back BY LABEL, never by index,

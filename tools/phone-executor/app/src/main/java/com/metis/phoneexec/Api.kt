@@ -3,6 +3,7 @@ package com.metis.phoneexec
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -30,4 +31,8 @@ class Api(private val c: Context) {
 
     suspend fun event(kind: String, reason: String = "", ticket: String = "") =
         post("event", JSONObject().put("event", kind).put("reason", reason.take(150)).put("ticket_id", ticket))
+
+    /** "terminal did not load": the page's control texts (our own UI labels, digits masked page-side). */
+    suspend fun terminalMiss(reason: String, controls: JSONArray) =
+        post("event", JSONObject().put("event", "terminal_miss").put("reason", reason.take(150)).put("controls", controls))
 }

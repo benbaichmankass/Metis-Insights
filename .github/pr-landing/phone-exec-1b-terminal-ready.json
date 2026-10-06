@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Held for the manager (06:17Z direction: build the APK and hold the PR). tools/phone-executor/** is outside the guard's Tier-1 surface. The src/ part is additive: one new phone event kind (terminal_miss) that stores the latest control dump beside the journal, and a phone_diag field on GET /api/bot/prop/status. No order path, mode, roster, strategy or risk change.",
+  "why": "The terminal gate read the real Breakout terminal (ticket closed) as 'terminal did not load' and nothing was claimed. Readiness now also accepts the 1a probe's classifier, measured on this page over 6 captures: trade host, /trade path, buy+sell text markers, tabs>=3 or inputs>=2. Downstream fail-closed checks (symbol verified on the submit label, fields by label) are unchanged. A miss posts a quiet terminal_miss event with the page's control texts (digits masked page-side, scrubbed server-side), readable as phone_diag on /prop/status. The refusal form dump now also carries the page controls, so the BTC->ETH symbol-route blocker seen at 06:18Z becomes diagnosable from the next refusal. Headless fixtures: terminal with the ticket closed (ready), buy/sell words alone (not ready)."
+}

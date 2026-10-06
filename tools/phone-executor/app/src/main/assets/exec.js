@@ -151,12 +151,28 @@
       return same.length ? "" : t(c[0]);
     },
     // TERMINAL GATE (2026-10-06 05:21Z dry test: claimed on an /account/ page that was not the trading terminal,
-    // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page.
+    // "order control not found"). Ready = an "Order" control, an open ticket, or Buy+Sell tabs are on the page;
+    // OR (fix 06:17Z: the live terminal with the ticket CLOSED had none of those exact shapes, "terminal did not
+    // load" on the real terminal) the 1a probe's classifier, MEASURED on this page over 6 captures: trade host,
+    // a /trade path, buy AND sell text markers, and tabs >= 3 or inputs >= 2.
     terminal: function () {
       var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); }).length > 0;
       var tb = all("[role=tab]").map(t);
       var bs = tb.some(function (x) { return /^buy$/i.test(x); }) && tb.some(function (x) { return /^sell$/i.test(x); });
-      return {ready: ctl || !!submitBtn() || bs, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs};
+      var body = t(document.body).slice(0, 20000);
+      var probe = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) && /\/trade(\/|$)/.test(location.pathname || "") &&
+        /\bbuy\b/i.test(body) && /\bsell\b/i.test(body) && (tb.length >= 3 || inputs(document).length >= 2);
+      return {ready: ctl || !!submitBtn() || bs || probe, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs,
+        probe: probe, tabs: tb.length, inputs: inputs(document).length};
+    },
+    // Control texts on the page (buttons, tabs, role=button), first 40, digits masked: OUR OWN UI labels only, for
+    // the "terminal did not load" event and the refusal dump. Never values, never account numbers.
+    controls: function () {
+      var seen = {}, out = [];
+      all("button,[role=tab],[role=button]").forEach(function (x) {
+        var s = t(x).replace(/\d/g, "#").slice(0, 40); if (s && !seen[s] && out.length < 40) { seen[s] = 1; out.push(s); }
+      });
+      return out;
     },
     // The account's terminal URL, derived from the CURRENT /account/<id>/ path (deterministic: the account the
     // page is already on). "" when the path is not an account path. Never reported.
@@ -212,7 +228,9 @@
         tpsl: cb ? cb.checked : null,
         submit: sub ? {text: t(sub), disabled: !!(sub.disabled || sub.getAttribute("aria-disabled") === "true")} : null,
         heading: all("h1,h2,h3,[role=heading]").map(t).slice(0, 8),
-        alerts: all("[role=alert]").map(function (a) { return t(a).replace(/\d/g, "#"); }).slice(0, 6)};
+        alerts: all("[role=alert]").map(function (a) { return t(a).replace(/\d/g, "#"); }).slice(0, 6),
+        // page controls (digits masked): shows the symbol strip/picker when the symbol route fails
+        controls: window.__ex.controls()};
     },
     tab: function (name) {
       var f = form() || document;
