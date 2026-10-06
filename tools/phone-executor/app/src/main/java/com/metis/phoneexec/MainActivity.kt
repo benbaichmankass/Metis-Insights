@@ -29,6 +29,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Date
@@ -52,6 +53,13 @@ import kotlin.math.round
  *                      LIVE (server says live AND the app is ARMED): submit, read Open orders / Positions back,
  *                           report the placement to the VM ledger; an opposite-side position is flattened.
  * Any unread, ambiguous or mismatched value is a refusal (fail closed), reported with the ticket dump.
+ *
+ * BACKGROUND (PI-20261006-APBY4NTV-0006, OBSERVED 2026-10-06: heartbeat stopped 10:03Z while the app was backgrounded,
+ * claims resumed only when the operator reopened it): a backgrounded WebView may never answer evaluateJavascript, and
+ * an un-timed js() then wedged the loop (busy=true forever: no claim, no heartbeat). Now every js() call times out,
+ * and while the Activity is NOT resumed the loop never touches the WebView: it peeks GET /phone/pending (read-only,
+ * claims nothing), and when a ticket waits it brings this Activity to the front. The claim + fill + every gate run
+ * only once resumed; afterwards the task is moved back so the phone returns to what the operator was doing.
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -72,6 +80,14 @@ class MainActivity : Activity() {
     private var lastState = ""
     private var reloginFailures = 0
     private var execSrc = ""
+    private var resumed = false
+    private var jsTimeouts = 0
+    private var lastPending = -1
+    private var claimedThisTick = false
+    private var bgWakeUntilMs = 0L      // a bring-to-front was requested; retried only after this passes
+    private var wokeAtMs = 0L           // > 0 while WE brought the Activity forward (it goes back afterwards)
+
+    private class JsTimeout : Exception("page did not answer")
 
     companion object {
         const val TRADE_URL = "https://trade.breakoutprop.com/"
@@ -83,6 +99,8 @@ class MainActivity : Activity() {
         const val HEARTBEAT_MS = 120_000L
         const val USER_HOLD_MS = 5 * 60_000L
         const val PAUSE_MAX_MS = 10 * 60_000L
+        const val JS_TIMEOUT_MS = 10_000L
+        const val BG_WAKE_MAX_MS = 3 * 60_000L
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -140,6 +158,13 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
+
+    override fun onResume() {
+        super.onResume(); resumed = true
+        if (bgWakeUntilMs > System.currentTimeMillis()) { wokeAtMs = System.currentTimeMillis(); scope.launch { delay(3000); tick() } }
+    }
+
+    override fun onPause() { resumed = false; super.onPause() }
 
     private fun setStatus(s: String) { status.text = s; lastStatus = s }
     /** The touch-hold protects a HUMAN LOGIN only (operator 2026-10-06 09:06Z): once logged in it never blocks claim,
@@ -211,7 +236,10 @@ class MainActivity : Activity() {
 
     // ---------------- page bridge ----------------
     private fun unq(raw: String?): String = try { JSONArray("[" + raw + "]").get(0).toString() } catch (e: Exception) { raw ?: "" }
-    private suspend fun js(code: String): String = suspendCancellableCoroutine { c -> web.evaluateJavascript(code) { c.resume(unq(it)) } }
+    /** Every page call is bounded: a frozen (backgrounded) WebView never answers, and an unbounded wait wedged the loop. */
+    private suspend fun js(code: String): String =
+        withTimeoutOrNull(JS_TIMEOUT_MS) { suspendCancellableCoroutine<String> { c -> web.evaluateJavascript(code) { if (c.isActive) c.resume(unq(it)) } } }
+            ?: run { jsTimeouts += 1; throw JsTimeout() }
     private suspend fun ensure() { if (js("typeof window.__ex") != "object") { js(execSrc + ";'ok'"); delay(100) } }
     private suspend fun jsObj(code: String): JSONObject? = try { JSONObject(js("JSON.stringify($code)")) } catch (e: Exception) { null }
     private fun q(s: String) = JSONObject.quote(s)
@@ -222,7 +250,9 @@ class MainActivity : Activity() {
 
     private suspend fun tick() {
         if (busy) return
+        if (!resumed) { backgroundTick(); return }
         busy = true
+        claimedThisTick = false
         var st = "unread"
         var s: JSONObject? = null
         try {
@@ -252,10 +282,47 @@ class MainActivity : Activity() {
                 else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
                         else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(home()) }
             }
+        } catch (e: JsTimeout) {
+            setStatus("page did not answer within ${JS_TIMEOUT_MS / 1000} s (${if (resumed) "foreground" else "went to background"}); no action this tick")
         } finally {
             try { heartbeat(st, s) } catch (e: Exception) { }
+            // We brought the Activity forward for a waiting ticket: once the claim ran (ticket or none), or the wake
+            // window passed, hand the screen back -- unless the operator touched it meanwhile.
+            val now = System.currentTimeMillis()
+            if (wokeAtMs > 0 && (claimedThisTick || now > bgWakeUntilMs)) {
+                val touched = lastUserInputMs > wokeAtMs
+                wokeAtMs = 0L; bgWakeUntilMs = 0L
+                if (!touched && resumed) moveTaskToBack(true)
+            }
             busy = false
         }
+    }
+
+    /** Activity not resumed: never touch the WebView. Peek (read-only) for a waiting ticket; if one waits, bring the
+     *  Activity to the front so the normal resumed tick claims and runs it. A failed bring-to-front burns nothing. */
+    private suspend fun backgroundTick() {
+        busy = true
+        try {
+            val n = api.pending()
+            lastPending = n ?: -1
+            val now = System.currentTimeMillis()
+            when {
+                n == null -> setStatus("background: pending check failed (VM unreachable or refused); no claim")
+                n == 0 -> setStatus("background: no ticket waiting")
+                paused() -> setStatus("background: $n ticket(s) waiting, but paused")
+                now < bgWakeUntilMs -> setStatus("background: $n ticket(s) waiting; bring-to-front already requested")
+                else -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $n ticket(s) waiting; bringing the executor to the front"); bringToFront() }
+            }
+        } finally {
+            try { heartbeat("background", null) } catch (e: Exception) { }
+            busy = false
+        }
+    }
+
+    /** Allowed from the background because the operator granted "Display over other apps" (as for the boot restart). */
+    private fun bringToFront() {
+        try { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
+        catch (e: Exception) { setStatus("background: bring-to-front failed (${e.javaClass.simpleName}); overlay=${Settings.canDrawOverlays(this)}") }
     }
 
     /** HEARTBEAT (2026-10-06 08:15Z: an hour with no claim and no event, because every no-claim branch but one only
@@ -268,7 +335,9 @@ class MainActivity : Activity() {
         val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive()).put("armed", armed())
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
             .put("path_depth", s?.optInt("path_depth") ?: 0)
-        jsObj("__ex.terminal()")?.let { tm ->
+            .put("fg", resumed).put("jsTimeouts", jsTimeouts).put("pending", lastPending)
+        // never touch the WebView while backgrounded (jsObj is bounded anyway and yields null on a timeout)
+        if (resumed) jsObj("__ex.terminal()")?.let { tm ->
             for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
             state.put("tabs", tm.optInt("tabs")).put("inputs", tm.optInt("inputs"))
         }
@@ -367,11 +436,24 @@ class MainActivity : Activity() {
 
     // ---------------- tickets ----------------
     private suspend fun claimAndRun() {
+        // NEVER claim while backgrounded: the page cannot be driven, and a claimed ticket is one attempt only.
+        if (!resumed) { setStatus("backgrounded: no claim"); return }
         val r = api.post("claim") ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
         if (!r.optBoolean("ok")) { setStatus("logged in · claim refused (http ${r.optInt("http")})"); return }
+        claimedThisTick = true
         val t = r.optJSONObject("ticket")
         if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
-        execute(t, r.optJSONObject("config") ?: JSONObject())
+        val id = t.optString("ticket_id")
+        try { execute(t, r.optJSONObject("config") ?: JSONObject()) }
+        catch (e: JsTimeout) {
+            // The page stopped answering mid-ticket (e.g. the app was sent to the background). Fail closed: after a
+            // submit click it is UNCONFIRMED for a human; before one, a refusal (nothing was submitted).
+            if (ledger.last(id) == "submitted") {
+                ledger.append(id, "unconfirmed")
+                api.event("mismatch", "page stopped answering after submit; CHECK the terminal", id)
+                setStatus("ticket $id UNCONFIRMED — operator check")
+            } else if (ledger.last(id) == "intended") refuse(id, "page stopped answering mid-fill (not submitted)", null)
+        }
     }
 
     private fun num(s: String?): Double? = s?.replace(",", "")?.replace(" ", "")?.toDoubleOrNull()

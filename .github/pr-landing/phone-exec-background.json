@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "phone executor order-path app + a new web-API route; the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) merges after the APK job; lane PHONE-BG does not self-merge",
+  "why": "Breakout phone executor tick loop (order path) and a new read-only device-auth route in routers/prop.py: Tier-2 by path"
+}
