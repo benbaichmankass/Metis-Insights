@@ -1,0 +1,7 @@
+{
+  "head": "claude/velotrade-trail-rest-test",
+  "base": "main",
+  "title": "test(prop): PROP-TRAIL amends the SL over the dxtrade_api REST adapter (page=None)",
+  "body": "Lane VELOTRADE-API-EXEC, in answer to the manager's 08:24Z question: does velotrade_1 go live with the trail?\n\n**Yes, by code and by test.** `prop_trail.run_trail_step` calls only `read_positions`, `read_quote` and `modify_bracket`, plus `read_positions` again for the confirm. All of them are implemented over REST in `src/prop/platform/dxtrade_api.py`, and none of them reads `page`.\n\nNew tests (`tests/test_prop_trail_rest_adapter.py`) run the real `DXtradeApiAdapter` over a stateful fake venue:\n- **live:** one conditional PUT (`If-Match`) moves the SL to the bounded rollout step (98.15). The venue SL changes, the re-read confirms it, and an `amend` report is posted.\n- **rollout latch:** the REST modify never records it, so `modify_rollout.json` stays clear. Successive ticks walk bounded steps to the replay target (103.0), and stop amending there.\n- **read_only:** no PUT is sent and nothing is posted.\n\nTests only. No runtime, config or order-path change (Tier 1).\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01CbWE56MbSskgGNZrm27cBW",
+  "draft": false
+}
