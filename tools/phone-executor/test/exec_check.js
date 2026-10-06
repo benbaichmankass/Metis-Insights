@@ -173,5 +173,27 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
   eq(cands.includes("BTCUSD") && cands.includes("ETHUSD") && !cands.some(function (c) { return /\d/.test(c); }), true, "symbolCandidates lists the watchlist symbols, digits masked");
   eq(await pD.evaluate("Array.isArray(__ex.ticket().symbolCandidates)"), true, "refusal dump carries symbolCandidates");
   eq(await pD.evaluate("window.__submitted || 0"), 0, "watchlist: nothing submitted");
+  // Fixture E (MEASURED 2026-10-06 08:58Z terminal_miss): the real PANEL-layout terminal with the order form CLOSED:
+  // no tabs, no inputs, no buy/sell text; an "Order form" toggle, Positions / Open orders panels, an open-instrument
+  // chip "BTC x" and a watchlist of "<BASE> <signed %>" buttons. Opening the form shows the usual ticket.
+  const panel = `<!doctype html><html><body>
+<button>Trade</button><button id=chip>BTC x</button><button>Market chart</button><button id=of>Order form</button>
+<button>Open orders</button><button>Positions</button><button>Order book</button>
+<div id=wl><button data-s=BTC>BTC -1.2%</button><button data-s=ETH>ETH -0.5%</button><button data-s=SOL>SOL +2.0%</button></div>
+<div id=panel></div>
+<script>var cur='BTC';
+function form(){return '<form id=f><div role=tablist><button type=button role=tab aria-selected=false>Market</button><button type=button role=tab aria-selected=true>Limit</button></div><div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div><label for=lp>Limit price</label><input id=lp type=text value=1><button type=submit id=sub>Long (buy) '+cur+'</button></form>';}
+document.getElementById('of').onclick=function(){document.getElementById('panel').innerHTML=form();document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};};
+document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function(){cur=b.getAttribute('data-s');document.getElementById('chip').textContent=cur+' x';var sb=document.getElementById('sub');if(sb)sb.textContent='Long (buy) '+cur;};});
+</script></body></html>`;
+  const pE = await onHost(panel);
+  const rE = (code) => pE.evaluate(code);
+  eq(await rE("[__ex.terminal().ready, __ex.terminal().panels, __ex.terminal().tabs, __ex.terminal().inputs]"), [true, true, 0, 0], "panel terminal, form closed: ready via panels (the 08:58Z miss)");
+  eq(await rE("__ex.symbolShown()"), "BTC", "panel: shown symbol read from the one 'BTC x' chip");
+  eq(await rE("__ex.symbolStep('ETHUSD')"), "clicked_watch", "panel: the ONE 'ETH -0.5%' watchlist button clicked");
+  eq(await rE("__ex.symbolStep('ETHUSD')"), "done", "panel: chip now 'ETH x' -> done");
+  eq(await rE("__ex.openTicket()"), "clicked", "panel: 'Order form' opens the ticket");
+  eq(await rE("__ex.symbolOnTicket()"), "ETH", "panel: submit label names ETH");
+  eq(await rE("window.__submitted || 0"), 0, "panel: nothing submitted");
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

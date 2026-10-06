@@ -65,6 +65,18 @@
       if (x.children.length || inForm(x)) return false; var s = norm(t(x)); return s === n || s === n + "T";
     });
   }
+  // "Order" (older layout) or "Order form" (the panel toggle, MEASURED 08:58Z).
+  var ORDER_RE = /^order( form)?$/i;
+  // Watchlist button "<BASE> <signed %>" (MEASURED 08:58Z: "ETH -0.5%", "BTC -1.2%" ...), outside the ticket.
+  function watchControls(sym) {
+    var rx = new RegExp("^" + base(sym) + "\\s+[-+]?\\d[\\d.,]*\\s*%$", "i");
+    return innermost(clickables("button,[role=button],[role=tab],[role=option],a,li").filter(function (x) { return !inForm(x) && rx.test(t(x)); }));
+  }
+  // The open-instrument chip "<BASE> x" (MEASURED 08:58Z: "ETH x"): the shown symbol only when exactly ONE chip exists.
+  function chipSymbol() {
+    var c = all("button,[role=button],[role=tab]").map(t).filter(function (x) { return /^[A-Za-z]{2,6}\s*[x\u00d7]$/.test(x); });
+    return c.length === 1 ? c[0].replace(/\s*[x\u00d7]$/, "") : "";
+  }
   function searchBox() {
     return inputs(document).filter(function (i) {
       return (i.type === "text" || i.type === "search") && !inForm(i) &&
@@ -164,13 +176,18 @@
     // load" on the real terminal) the 1a probe's classifier, MEASURED on this page over 6 captures: trade host,
     // a /trade path, buy AND sell text markers, and tabs >= 3 or inputs >= 2.
     terminal: function () {
-      var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); }).length > 0;
+      var ctl = all("button,[role=tab],[role=button]").filter(function (x) { return ORDER_RE.test(t(x)); }).length > 0;
       var tb = all("[role=tab]").map(t);
       var bs = tb.some(function (x) { return /^buy$/i.test(x); }) && tb.some(function (x) { return /^sell$/i.test(x); });
       var body = t(document.body).slice(0, 20000);
       var probe = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) && /\/trade(\/|$)/.test(location.pathname || "") &&
         /\bbuy\b/i.test(body) && /\bsell\b/i.test(body) && (tb.length >= 3 || inputs(document).length >= 2);
-      return {ready: ctl || !!submitBtn() || bs || probe, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs,
+      // PANEL layout (MEASURED 2026-10-06 08:58Z terminal_miss on the real terminal, ticket closed: controls "Order form",
+      // "Open orders", "Positions", "Market chart", "Order book" ...; tabs=0 inputs=0, no buy/sell text).
+      var ct = all("button,[role=tab],[role=button]").map(t);
+      var panels = /(^|\.)trade\.breakoutprop\.com$/.test(location.hostname) &&
+        ct.some(function (x) { return /^positions$/i.test(x); }) && ct.some(function (x) { return /^open orders$/i.test(x); });
+      return {ready: ctl || !!submitBtn() || bs || probe || panels, panels: panels, orderControl: ctl, ticketOpen: !!submitBtn(), buySell: bs,
         probe: probe, tabs: tb.length, inputs: inputs(document).length};
     },
     // Control texts on the page (buttons, tabs, role=button), first 40, digits masked: OUR OWN UI labels only, for
@@ -213,7 +230,7 @@
     },
     openTicket: function () {
       if (submitBtn()) return "open";
-      var b = all("button,[role=tab],[role=button]").filter(function (x) { return /^order$/i.test(t(x)); })[0];
+      var b = all("button,[role=tab],[role=button]").filter(function (x) { return ORDER_RE.test(t(x)); })[0];
       if (!b) return "no_order_control"; b.click(); return "clicked";
     },
     // What the ticket says it trades: the text after "Long (buy)" / "Short (sell)" on the submit button ("BTC").
@@ -223,7 +240,7 @@
     },
     // The submit label first; else the page's current-symbol display (ticket closed). "" when neither is readable.
     symbolShown: function () {
-      return window.__ex.symbolOnTicket() || currentSymbolDisplay();
+      return window.__ex.symbolOnTicket() || currentSymbolDisplay() || chipSymbol();
     },
     // ONE move toward the venue symbol; the app calls it again after reading back. Returns the route taken:
     // done | clicked_symbol | typed_search | search_not_set | clicked_result | no_result | ambiguous | opened_picker | none
@@ -239,6 +256,7 @@
         var res = innermost(clickables().filter(function (x) { return !inForm(x) && x !== sb && norm(t(x)).indexOf(n) === 0; }));
         if (!res.length) return "no_result"; if (res.length > 1) return "ambiguous"; res[0].click(); return "clicked_result";
       }
+      var wc = watchControls(sym); if (wc.length === 1) { wc[0].click(); return "clicked_watch"; }
       var lb = symbolLabels(sym); if (lb.length === 1) { lb[0].click(); return "clicked_label"; }
       if (lb.length > 1) return "ambiguous";
       var pk = currentSymbolControl(); if (pk) { pk.click(); return "opened_picker"; }

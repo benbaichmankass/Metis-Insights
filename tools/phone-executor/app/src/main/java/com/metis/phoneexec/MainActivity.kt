@@ -263,7 +263,7 @@ class MainActivity : Activity() {
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
             .put("path_depth", s?.optInt("path_depth") ?: 0)
         jsObj("__ex.terminal()")?.let { tm ->
-            for (k in listOf("ready", "probe", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
+            for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
             state.put("tabs", tm.optInt("tabs")).put("inputs", tm.optInt("inputs"))
         }
         api.heartbeat(lastStatus, state)
@@ -303,7 +303,7 @@ class MainActivity : Activity() {
         setStatus("logged in: opening the account's terminal")
         web.loadUrl(href)
         for (i in 0 until 12) { delay(2500); ensure(); if (terminalReady()) return true }
-        setStatus("terminal did not load (no Order control / Buy-Sell tabs / buy+sell markers): no claim")
+        setStatus("terminal did not load (no Order/Order form control, Buy-Sell tabs, panels or buy+sell markers): no claim")
         // Self-diagnosing miss (fix 06:17Z): post the page's control texts once per load attempt, never a report.
         val tm = jsObj("__ex.terminal()")
         val ctl = try { JSONArray(js("JSON.stringify(__ex.controls())")) } catch (e: Exception) { JSONArray() }
@@ -520,7 +520,7 @@ class MainActivity : Activity() {
             val r = js("__ex.symbolStep(${q(venue)})")
             route += (if (route.isEmpty()) "" else ">") + r
             if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
-            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "opened_picker")) return "$route>stuck"
+            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "clicked_watch" || r == "opened_picker")) return "$route>stuck"
             prev = r
             delay(1500); ensure()
         }

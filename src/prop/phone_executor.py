@@ -419,7 +419,7 @@ def _write_diag(account_id: str, reason: str, controls: Any) -> None:
 # no-claim branch but one only set the on-screen status). The app posts its status line + gate state on every
 # tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
 # ints or scrubbed short strings.
-_HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "orderControl",
+_HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
             "ticketOpen", "buySell", "tabs", "inputs", "armed", "build"}
 
 
