@@ -4,7 +4,7 @@
     "kind": "event"
   },
   "id": "PI-20261005-YUVCGTMJ-0006",
-  "next_action": "operator_decision",
+  "next_action": "ask_operator",
   "origin": {
     "kind": "session",
     "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; research/results/RQ-20261005-814",

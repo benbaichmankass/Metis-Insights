@@ -1,1 +1,0 @@
-HOLD: Tier-3 sizing support PR; manager/operator decide. See .github/pr-landing/prop-per-leg-sizing.json.
