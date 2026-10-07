@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261007-ITYCHECK-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-PARITY-CHECK (dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07",
+    "rerun": "read research/queue/RQ-20261007-904.yaml result line; trail4 rows for leg trend_donchian_xrp_4h in docs/research/m20-sweep-corpus.jsonl with run_id after 2026-10-07"
+  },
+  "state": "queued",
+  "what": "XRP trail4 re-run on the LIVE short-only book (RQ-20261007-904). Rule RULE-RQ1007-XRP-TRAIL4-SHORTONLY-A: CONFIRMED needs wf_wins_effective >= 5/6 and base OOS >= 25; then a Tier-3 packet for trail_mult 5.0 -> 4.0 on trend_donchian_xrp_4h (rollback: restore 5.0; note PI-20261002-84ZIQNJD-0001: any edit to this leg refreshes its Stage-0 record and flips the mandate resolver p10 sign; prior PR #15594 closed unmerged). NOT CONFIRMED -> flip the trail_geometry cell to honest_negative. The unit only runs correctly once the side_filter forwarding fix is on main."
+}
