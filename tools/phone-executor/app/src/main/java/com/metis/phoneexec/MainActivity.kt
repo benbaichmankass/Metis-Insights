@@ -626,10 +626,11 @@ class MainActivity : Activity() {
         if (token.isEmpty() || v.optString("readback_sha256") != rbHash) return refuse(id, "server verify answered without a token bound to this read-back", tk)
 
         if (!live || !serverLive) {
-            // exercise the redeem on the dry path too: a dry token must answer go=false (never a click either way)
-            val g = api.post("go", JSONObject().put("ticket_id", id).put("token", token).put("readback_sha256", rbHash))
-            val goTxt = if (g == null) "go unreachable" else if (g.optBoolean("go")) "go=TRUE on a dry path" else "go=false (${g.optString("reason").take(40)})"
-            if (g?.optBoolean("go") == true) api.event("mismatch", "server said go on a DRY path; not submitted", id)
+            // exercise the redeem on the dry path too: a DRY token must answer go=false (never a click either way). A LIVE
+            // token on a locally-dry path (app not armed) is left to expire unredeemed.
+            val g = if (serverLive) null else api.post("go", JSONObject().put("ticket_id", id).put("token", token).put("readback_sha256", rbHash))
+            val goTxt = if (serverLive) "live token not redeemed (app dry)" else if (g == null) "go unreachable" else if (g.optBoolean("go")) "go=TRUE on a dry token" else "go=false (${g.optString("reason").take(40)})"
+            if (g?.optBoolean("go") == true) api.event("mismatch", "server said go on a DRY token; not submitted", id)
             ledger.append(id, "dry_filled")
             report(id, "dry_filled", (if (test) "test ticket (always dry)" else if (!armed()) "app not armed" else "server mode dry") + "; server verify ok, ${v.optString("mode")} token, $goTxt", tk)
             api.event("dry_fill_ok", "filled + read back + SERVER verified (${v.optString("mode")} token, $goTxt), NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
