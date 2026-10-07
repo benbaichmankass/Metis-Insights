@@ -5643,7 +5643,7 @@
         16943
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T19:05Z manager] DONE. MERGED #16943 (~18:52Z). DEPLOYED: the 8 diag names resolve on the live API at 19:00Z. OBSERVED: prop_trail_latch_tradeify_1 present:false (no modify_rollout.json -> trail NOT paused); prop_trail_state_tradeify_1 present:true, {} (no per-ticket entries). Caveat: shows nothing is latched, not that a step ran. Lane archived. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0003. Add the two files per prop account to diag._LOG_FILES (no secrets: prices, ticket ids, timestamps). Tier-1. Sonnet, auto."
+      "note": "[2026-10-07T19:08Z] Correction: the pipeline item has a second half (pulse field) -> row TRAIL-PAUSE-PULSE; this row stays done for the read surface. || [2026-10-07T19:05Z manager] DONE. MERGED #16943 (~18:52Z). DEPLOYED: the 8 diag names resolve on the live API at 19:00Z. OBSERVED: prop_trail_latch_tradeify_1 present:false (no modify_rollout.json -> trail NOT paused); prop_trail_state_tradeify_1 present:true, {} (no per-ticket entries). Caveat: shows nothing is latched, not that a step ran. Lane archived. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0003. Add the two files per prop account to diag._LOG_FILES (no secrets: prices, ticket ids, timestamps). Tier-1. Sonnet, auto."
     },
     {
       "id": "MANAGER-SKILL-LANDING",
@@ -6123,6 +6123,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-07T18:58Z manager] Found by API-COLLAPSED-STATES (relay 2026-10-07 18:43Z; PI-20261007-5ZFJCTNR-0001): ib_paper's gateway read is could_not_look and its watchdog timer is inactive, so the IB paper book is not trading and nothing alarms; a leftover non-templated ict-prop-executor.service reads failed beside the templated per-account units. Tier-2 (timers/services) via the allowlisted system-actions; verify post-state through the relay."
+    },
+    {
+      "id": "TRAIL-PAUSE-PULSE",
+      "title": "Prop trail: announce a pause -- 'trail_paused_since' on the executor's prop_monitor_pulse (second half of PI-20261006-KX6ZKFNA-0003)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane TRAIL-PAUSE-PULSE",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 6,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:08Z manager] The read surface landed (#16943, TRAIL-OBSERVABILITY done); this is the announce half: the executor's existing prop_monitor_pulse carries trail_paused_since (null when not paused) so the digest/attention block can alarm on a latched trail instead of someone having to read the file."
     }
   ]
 }
