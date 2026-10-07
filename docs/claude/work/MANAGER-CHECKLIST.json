@@ -5872,7 +5872,7 @@
       "id": "MIRROR-LEGACY-SHORTS",
       "title": "alpaca_portfolio (Stage-2 mirror) holds two legacy shorts alpaca_live does not (TLT 738 et al.): mirror equality is the demotion signal, so resolve them (Tier-2 close proposal)",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane MIRROR-LEGACY-SHORTS",
       "lane": "session_01FBnP34nkWQZrBTHTvXgdYJ",
       "model": "claude-sonnet-5-5",
@@ -5883,7 +5883,12 @@
         16951
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:57Z manager] PR #16951 held Tier-2: alpaca_portfolio IEF short 152 (trade 4195, +661.96) and TLT short 738 (trade 5912, +3131.51), both stop-protected; alpaca_live none. No closes (operator 2026-10-05 decision cited by the lane); PR excludes both from the Gate-2 window + daily mirror-orphan watch. Manager merges on green. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:55Z manager] #16951 MERGED 19:54Z (9d78d3f49), implementing the operator's 2026-10-05 decision 'Let them run, exclude': trades 5912/4195 dropped from the Gate-2 mirror window via config/mirror_window_exclusions.yaml, r4_demotion_gate refuses on an unreadable list, daily mirror-orphan-watch workflow. Merged != deployed: the performance router needs a web-api restart (batch with #16974); the gate and the watch run from main on GitHub. Lane woken to deploy + observe. || [2026-10-07T18:57Z manager] PR #16951 held Tier-2: alpaca_portfolio IEF short 152 (trade 4195, +661.96) and TLT short 738 (trade 5912, +3131.51), both stop-protected; alpaca_live none. No closes (operator 2026-10-05 decision cited by the lane); PR excludes both from the Gate-2 window + daily mirror-orphan watch. Manager merges on green. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-J4SFBKU9-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator.",
+      "observation": {
+        "what": "/api/bot/performance/recent mirror book publishes excludedTradeIds [5912, 4195] with exclusionsReadState ok, and the first mirror-orphan-watch run completes reporting exactly those two",
+        "how_to_check": "curl -sS https://ict-bot.duckdns.org/api/bot/performance/recent | python3 -c \"import json,sys;d=json.load(sys.stdin);print(d.get('paperPortfolio',{}).get('excludedTradeIds'), d.get('paperPortfolio',{}).get('exclusionsReadState'))\"; gh api repos/benbaichmankass/Metis-Insights/actions/workflows/mirror-orphan-watch.yml/runs?per_page=1",
+        "due_by": "2026-10-08T18:00Z"
+      }
     },
     {
       "id": "EXIT-PARITY-CHECK",
