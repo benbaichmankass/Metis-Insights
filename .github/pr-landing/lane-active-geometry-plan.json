@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Lane ACTIVE-GEOMETRY-PLAN (PI-20261006-APBY4NTV-0003, manager session_01MM8o5js6TcDFeNAPBY4Ntv): four pre-registered research-queue units under research/queue/blocked/ (RQ-20261007-001..004, each with a decision rule registered before any run and an explicit blocked_on naming the harness lever), the ranked active-geometry plan appended to research/queue/PLANNING.md, and one paragraph in .claude/skills/exit-refinement/SKILL.md. Research registration + docs only: no src/, no config/, no deploy/, no order path, no strategy params."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Substance is Tier-1 (four NEW research-queue units under research/queue/blocked/, a section appended to research/queue/PLANNING.md, one paragraph in .claude/skills/exit-refinement/SKILL.md), but pr-landing-guard's STAMP_ONLY_SURFACE refuses self-land on a brand-new research/queue/*.yaml by design (\"a new queue unit is a registration, not a stamp\"); measured this session: `python3 scripts/ci/check_pr_landing.py --base origin/main` -> R5 undeclared on exactly those four paths with landing=self. Re-declared hold per the admin-triage-2026-09-28-records precedent; the manager (session_01MM8o5js6TcDFeNAPBY4Ntv) lands it.",
+  "why": "Lane ACTIVE-GEOMETRY-PLAN (PI-20261006-APBY4NTV-0003): research registration + docs only. Each unit carries a decision rule registered before any run and an explicit blocked_on naming the harness lever that unblocks it. No src/, no config/, no deploy/, no order path, no strategy params."
 }
