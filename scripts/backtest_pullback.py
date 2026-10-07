@@ -60,6 +60,7 @@ import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 # not `src/**`).
 sys.path.insert(0, str(_REPO_ROOT / "scripts" / "research"))  # noqa: E402
 from regime_weight import soft_regime_weight, soft_weight_armed  # noqa: E402
+import tp_geometry as _tpg  # noqa: E402  (GEOM-B1: a take-profit that moves; every lever off by default)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
 # MANDATORY venue-aware cost is applied by main() (the CLI / production path): unset
@@ -95,6 +96,12 @@ class Trade:
     # identical fields and scripts/research/regime_weight.py for the shared rule.
     adx_at_entry: Optional[float] = None
     regime_weight: float = 1.0
+    # GEOM-B1 TP geometry (scripts/research/tp_geometry.py). All None unless a
+    # --tp-* lever is armed, so a default run's Trade rows are unchanged.
+    final_target_r: Optional[float] = None
+    n_extends: Optional[int] = None
+    n_retargets: Optional[int] = None
+    tp_exit_r: Optional[float] = None
 
 
 def _load_candles(path: str) -> pd.DataFrame:
@@ -227,6 +234,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
                  side_filter: str = "both",
+                 tp_geometry: Optional[_tpg.TPGeometrySpec] = None,
                  subbar_df: Optional[pd.DataFrame] = None,
                  exit_grain: str = "leg",
                  vol_pctl_override: Optional[Sequence[float]] = None,
@@ -263,6 +271,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     # never touched — an open trade rides through skipped hours unchanged.
     skip_hour_set = {int(h) for h in str(skip_hours).split(",") if str(h).strip() != ""}
     df = df.reset_index(drop=True)
+    tp_geom = tp_geometry or _tpg.TPGeometrySpec()
+    _refused = _tpg.refusal(tp_geom, has_target=tp_cap_pct > 0.0)
+    if _refused:
+        raise ValueError(_refused)
     # ── Intrabar exit-evaluation grain (three arms; `leg` = byte-identical) ──
     # docs/live-exit-monitor-cadence-DESIGN.md § 4.1. Live evaluates bot-side
     # exit levers ~21x per 1h bar; the harness evaluates them ONCE, at the
@@ -572,6 +584,19 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             else:
                 tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
             _tp_r_effective.append(abs(tp_price - entry) / risk)
+        # GEOM-B1: a finite entry-time target and/or a target that moves
+        # (scripts/research/tp_geometry.py). Skipped entirely at default.
+        _tpt = None
+        if tp_geom.armed:
+            _was_capped = tp_price is not None
+            tp_price = _tpg.entry_target(
+                tp_geom, anchor=entry, risk=risk, is_long=(direction == "long"),
+                tp_cap_pct=tp_cap_pct, legacy_tp=tp_price)
+            if tp_price is not None and not _was_capped:
+                _tp_r_effective.append(abs(tp_price - entry) / risk)
+            _tpt = _tpg.TPTracker(
+                tp_geom, anchor=entry, sl=sl, risk=risk, is_long=(direction == "long"),
+                tp_cap_pct=tp_cap_pct, target=tp_price, atr0=atr)
         ext = entry
         ext_j = i
         trail = sl
@@ -772,6 +797,22 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 exit_price, exit_reason = hit[0], hit[1]
                 exit_idx = j
                 break
+            # GEOM-B1 target revision (off unless --tp-extend-r / --tp-retarget-mode):
+            # once per LEG bar, on its close, after the bar's own stop/target and
+            # lever tests; the revised level binds from the next bar. Native
+            # thesis = the pullback's own trend filter: the close is still on the
+            # trend side of the Donchian midline that qualified the entry.
+            if _tpt is not None and tp_geom.revises:
+                def _trend_thesis(_ab, _j=j, _long=(direction == "long")):
+                    _m = df["mid"].iloc[_j]
+                    if pd.isna(_m):
+                        return None
+                    _c = float(df["close"].iloc[_j])
+                    return (_c > float(_m)) if _long else (_c < float(_m))
+                _tpt.on_bar_close(close=bc, ext=ext, bars_since_peak=j - ext_j,
+                                  atr_now=float(df["atr"].iloc[j]),
+                                  thesis_fn=_trend_thesis, bar_index=j)
+                tp_price = _tpt.target
         if _rest_hit is not None:
             exit_price, exit_reason = _rest_hit
             exit_idx = i
@@ -781,6 +822,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
              else (entry - exit_price) / risk)
+        _tp_exit_r = r      # raw price R, before bank / regime weighting (calibration)
         if banked:
             r = bank_frac * bank_at_r + (1.0 - bank_frac) * r
         # SRQ-20260618-002 soft regime-weight lever — see the identical block
@@ -801,7 +843,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             exit_time=df["timestamp"].iloc[exit_idx], exit_price=exit_price,
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
             confidence=confidence, adx_at_entry=adx_at_entry,
-            regime_weight=round(regime_weight, 4)))
+            regime_weight=round(regime_weight, 4),
+            **({} if _tpt is None else dict(
+                final_target_r=_tpt.final_target_r, n_extends=_tpt.n_extends,
+                n_retargets=_tpt.n_retargets, tp_exit_r=round(_tp_exit_r, 4)))))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
     if emit_path:
@@ -845,7 +890,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     "entry": t.entry, "sl": t.sl,
                     "exit_time": str(t.exit_time),
                     "mfe_r": t.mfe_r,
-                    "exit_reason": t.outcome}, default=str) + "\n")
+                    "exit_reason": t.outcome,
+                    **(_tpg_row(t) if tp_geom.armed else {})}, default=str) + "\n")
     params: Dict[str, Any] = {"trend_lookback": trend_lookback,
                               "pullback_lookback": pullback_lookback,
                               "pullback_frac": pullback_frac,
@@ -888,6 +934,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["adx_soft_weight_min"] = adx_soft_weight_min
     if direction_filter != "off":
         params["direction_filter"] = direction_filter
+    params.update(tp_geom.params())
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
                       tp_r_effective=_tp_r_effective,
                       rr_min_per_trade=_rr_min_per_trade,
@@ -900,11 +947,20 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     # still print as "the intrabar result". `subbar_missing_bars` is None (not
     # 0) on arm A — nothing was looked for, which is not the same claim as
     # nothing was missing.
+    if tp_geom.armed:
+        summary["tp_geometry"] = _tpg.summarize_geometry([
+            {**_tpg_row(t), "outcome": t.outcome} for t in trades])
     summary["exit_grain"] = exit_grain
     summary["subbar_coverage"] = _sub_coverage
     summary["subbar_missing_bars"] = (subbar_missing_bars
                                       if exit_grain != "leg" else None)
     return summary
+
+
+def _tpg_row(t: "Trade") -> Dict[str, Any]:
+    """The TP-geometry fields of one trade (only emitted when a lever is armed)."""
+    return {"final_target_r": t.final_target_r, "n_extends": t.n_extends,
+            "n_retargets": t.n_retargets, "exit_r": t.tp_exit_r}
 
 
 def _cost_breakdown(t: Trade) -> Dict[str, float]:
@@ -1167,6 +1223,7 @@ def main(argv: List[str]) -> int:
     p.add_argument("--tp-r", type=float, default=50.0,
                    help="The leg's declared tp_r sentinel (default 50R). Only "
                         "consulted when --tp-cap-pct > 0; the cap normally binds.")
+    _tpg.add_cli_flags(p)
     p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
                    help="M20 giveback-stop lever: arm once peak open profit reaches "
                         "this many R (0=off, legacy behaviour).")
@@ -1277,6 +1334,15 @@ def main(argv: List[str]) -> int:
               "lever cannot fire and the run would report a zero delta that is "
               "NOT a measurement of it.", file=sys.stderr)
         return 2
+    try:
+        args.tp_geometry = _tpg.spec_from_args(args)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    _tpg_refusal = _tpg.refusal(args.tp_geometry, has_target=args.tp_cap_pct > 0.0)
+    if _tpg_refusal:
+        print(f"ERROR: {_tpg_refusal}", file=sys.stderr)
+        return 2
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     # Mandatory venue-aware cost policy (operator directive 2026-08-04): a faithful
     # backtest is net-of-real-cost by default. Unset flags resolve to the venue-aware
@@ -1365,6 +1431,7 @@ def main(argv: List[str]) -> int:
                        trail_vol_below_pctl=args.trail_vol_below_pctl,
                        trail_vol_tight_mult=args.trail_vol_tight_mult,
                        side_filter=args.side_filter,
+                       tp_geometry=args.tp_geometry,
                        subbar_df=subbar_df,
                        exit_grain=args.exit_grain)
     print(_fmt(out))

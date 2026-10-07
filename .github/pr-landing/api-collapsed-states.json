@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "check_pr_landing R5 refuses to self-land a diff touching src/** (hourly_report.py, accounts/clients.py, web/api/_since.py, order_packages.py, trades_closed.py) because the guard cannot certify those paths. The change itself is a read-path honesty fix with no order path, risk, config or account-mode change; the manager lands it after CI green.",
+  "why": "Lane API-COLLAPSED-STATES: hourly Accounts read_state, alpaca_open_orders held legs, and ?since= filter_state/422 on order-packages and trades/closed. Additive wire fields; the one behaviour change is a 422 instead of a silent empty result on an unparseable since."
+}

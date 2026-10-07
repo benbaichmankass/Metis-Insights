@@ -73,5 +73,5 @@ grading:
   grader: scripts/research/queue_grade.py
   needs_review: true
   reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
-  rows: 1
+  rows: 2
   verdict: null

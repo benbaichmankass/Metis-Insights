@@ -81,7 +81,17 @@ TARGETS: dict[str, dict] = {
     # triggered workflow in the repo fired normally that morning, so this was
     # not a repo-wide GitHub incident). It predates this fix by definition:
     # the keeper was built 2026-09-27 and this workflow was never added.
-    "research-queue-dispatch.yml": {"stale_hours": 26},
+    #
+    # RQ-CADENCE (2026-10-07): the cron is HOURLY (`20 * * * *`) since
+    # 2026-10-06, so 26 h of silence was 26 missed slots before anyone was told.
+    # ⚠️ stale_hours IS NOT WHAT RE-DISPATCHES A MISSED SLOT -- `decide_keep`
+    # dispatches on SLOT AGE (>= GRACE_MIN, no run since the slot), whatever
+    # this number is. Lowering it only makes the keeper REPORT (page) silence
+    # sooner: 3 h = three consecutive slots with no completed run. What bounded
+    # the real cadence (MEASURED 2026-10-07: 18 runs/24 h, largest gap 3h40m)
+    # was each run holding the concurrency group through its commit-to-main
+    # waits, fixed by the dispatch/land split in research-queue-dispatch.yml.
+    "research-queue-dispatch.yml": {"stale_hours": 3},
     # RQ-RUN (2026-09-28): the queue's own replenisher (daily) and mechanical
     # grader (every 6 h) are what make it run without a session; a dropped
     # slot on either is exactly the silence this keeper exists to cover.
@@ -311,6 +321,28 @@ def self_test() -> int:
     check("never ran -> STALE", d["stale"], True)
     d = decide_keep(["41 7 * * *"], [sched(4, "2026-09-26T12:25:09Z", "failure")], now, 26)
     check("a FAILED run still counts as having run (silence, not failure)", d["stale"], False)
+
+    # RQ-CADENCE (2026-10-07): the hourly dispatch cron. A missed slot is
+    # re-dispatched on slot age alone; stale_hours only decides the page.
+    hc = ["20 * * * *"]
+    h_hist = [sched(20, "2026-10-07T11:20:00Z")]
+    d = decide_keep(hc, h_hist, T("2026-10-07T12:55"), 3)
+    check("hourly: 12:20 slot 35 min old, no run since -> dispatch", d["dispatch"], True)
+    check("hourly: last completed 1.6h ago is not stale at 3h", d["stale"], False)
+    d = decide_keep(hc, h_hist, T("2026-10-07T12:45"), 3)
+    check("hourly: 25 min old slot is inside grace", d["dispatch"], False)
+    d = decide_keep(hc, h_hist + [keep(21, "2026-10-07T12:40:00Z")], T("2026-10-07T12:55"), 3)
+    check("hourly: a keeper run in flight occupies the slot (no double fire)", d["dispatch"], False)
+    d = decide_keep(hc, h_hist, T("2026-10-07T14:55"), 3)
+    check("hourly: 2 slots missed -> still dispatches the latest only", d["dispatch"], True)
+    check("hourly: last completed 3.6h ago -> STALE at 3h", d["stale"], True)
+    d = decide_dedupe("20 * * * *", sched(22, "2026-10-07T13:50:00Z", None, "in_progress"),
+                      [keep(23, "2026-10-07T13:25:00Z", "success", "completed")])
+    check("hourly: late scheduled run of a keeper-covered slot is skipped", d["skip"], True)
+    d = decide_dedupe("20 * * * *", sched(24, "2026-10-07T14:25:00Z", None, "in_progress"),
+                      [keep(23, "2026-10-07T13:25:00Z", "success", "completed")])
+    check("hourly: the NEXT slot's scheduled run is not suppressed by the previous slot's keeper run",
+          d["skip"], False)
 
     late = sched(10, "2026-09-27T12:25:00Z", None, "in_progress")
     d = decide_dedupe("41 7 * * *", late, [late, keep(2, "2026-09-27T08:20:00Z", "success", "completed")])
