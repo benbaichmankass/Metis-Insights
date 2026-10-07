@@ -6139,9 +6139,17 @@
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        17010,
+        17011
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:57Z manager] Proposed by lane ACTIVE-GEOMETRY-PLAN (PR #16955, research/queue/PLANNING.md \u00a7 5): every TP-revision research question is blocked on this one Tier-1 harness build (no backtest_*.py extends or re-prices a target). Done when the flags exist (--help lists them), m20-exit-lever-sweep.yml and ict-scalp-exit-sweep.yml accept the lever, and the four blocked geometry units are dispatchable. Distinct from TP-DOCTRINE (the live producer in monitor())."
+      "note": "[2026-10-07T20:06Z manager] Lane: three PRs open, none merged. #17000 harness levers (tier-1 self, auto-merge armed, CI queued); #17010 sweep half (tp_extend/tp_retarget cells in m20_fleet_exit_sweep, coverage-matrix columns, ict-scalp-exit-sweep cells tp_revision + result-landing job; stacked on #17000, lane arms auto-merge after #17000 lands); #17011 moves RQ-20261007-001..004 from blocked/ to research/queue/ with dispatch written in -- landing HOLD, MANAGER MERGES LAST (the hourly dispatcher fires queued units on landing; dry run: all four would_dispatch). Findings: RQ-20261007-002 only half-dispatchable (prop EV sim cannot run on the token-free runner) -> PI-20261007-HY7G7NYF-0001; RQ-20261007-003 dispatches 32 explicit legs (empty legs would mean census top-10). The scalp workflow's landing job is unproven until its first dispatch. || [2026-10-07T18:57Z manager] Proposed by lane ACTIVE-GEOMETRY-PLAN (PR #16955, research/queue/PLANNING.md \u00a7 5): every TP-revision research question is blocked on this one Tier-1 harness build (no backtest_*.py extends or re-prices a target). Done when the flags exist (--help lists them), m20-exit-lever-sweep.yml and ict-scalp-exit-sweep.yml accept the lever, and the four blocked geometry units are dispatchable. Distinct from TP-DOCTRINE (the live producer in monitor()).",
+      "observation": {
+        "what": "#17000, #17010, #17011 merged in that order and the first RQ-20261007-001..004 dispatch lands a result via the new ict-scalp-exit-sweep landing job",
+        "how_to_check": "ls research/results/ | grep -E 'RQ-20261007-00[1-4]'; gh api repos/benbaichmankass/Metis-Insights/actions/workflows/ict-scalp-exit-sweep.yml/runs?per_page=3",
+        "due_by": "2026-10-10T18:00Z"
+      }
     },
     {
       "id": "GEOM-CENSUS",
