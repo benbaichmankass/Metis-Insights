@@ -530,7 +530,7 @@ def run_backtest(
     tp_geometry: Optional[_tpg.TPGeometrySpec] = None,
 ) -> Dict[str, Any]:
     tp_geom = tp_geometry or _tpg.TPGeometrySpec()
-    _refused = _tpg.refusal(tp_geom, tp_cap_pct=tp_cap_pct, has_target=not no_tp)
+    _refused = _tpg.refusal(tp_geom, has_target=not no_tp)
     if _refused:
         raise ValueError(_refused)
     if entry_mode not in ("market", "limit"):
@@ -1388,8 +1388,7 @@ def main(argv: List[str]) -> int:
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    _tpg_refusal = _tpg.refusal(args.tp_geometry, tp_cap_pct=args.tp_cap_pct,
-                                has_target=not args.no_tp)
+    _tpg_refusal = _tpg.refusal(args.tp_geometry, has_target=not args.no_tp)
     if _tpg_refusal:
         print(f"ERROR: {_tpg_refusal}", file=sys.stderr)
         return 2

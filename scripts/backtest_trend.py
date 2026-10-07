@@ -354,7 +354,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     """
     df = df.reset_index(drop=True)
     tp_geom = tp_geometry or _tpg.TPGeometrySpec()
-    _refused = _tpg.refusal(tp_geom, tp_cap_pct=tp_cap_pct, has_target=tp_cap_pct > 0.0)
+    _refused = _tpg.refusal(tp_geom, has_target=tp_cap_pct > 0.0)
     if _refused:
         raise ValueError(_refused)
     df["atr"] = _atr(df, atr_period)
@@ -1500,8 +1500,7 @@ def main(argv: List[str]) -> int:
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    _tpg_refusal = _tpg.refusal(args.tp_geometry, tp_cap_pct=args.tp_cap_pct,
-                                has_target=args.tp_cap_pct > 0.0)
+    _tpg_refusal = _tpg.refusal(args.tp_geometry, has_target=args.tp_cap_pct > 0.0)
     if _tpg_refusal:
         print(f"ERROR: {_tpg_refusal}", file=sys.stderr)
         return 2

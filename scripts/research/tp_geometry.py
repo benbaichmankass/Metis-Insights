@@ -166,7 +166,7 @@ def add_cli_flags(p: Any) -> None:
                         "beyond the best price reached (default 0.5).")
 
 
-def refusal(spec: TPGeometrySpec, *, tp_cap_pct: float, has_target: bool) -> Optional[str]:
+def refusal(spec: TPGeometrySpec, *, has_target: bool) -> Optional[str]:
     """A message when the combination cannot MEASURE what it names, else None.
 
     A revision lever with no target to revise returns exactly-zero deltas that

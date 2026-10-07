@@ -272,7 +272,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     skip_hour_set = {int(h) for h in str(skip_hours).split(",") if str(h).strip() != ""}
     df = df.reset_index(drop=True)
     tp_geom = tp_geometry or _tpg.TPGeometrySpec()
-    _refused = _tpg.refusal(tp_geom, tp_cap_pct=tp_cap_pct, has_target=tp_cap_pct > 0.0)
+    _refused = _tpg.refusal(tp_geom, has_target=tp_cap_pct > 0.0)
     if _refused:
         raise ValueError(_refused)
     # ── Intrabar exit-evaluation grain (three arms; `leg` = byte-identical) ──
@@ -1339,8 +1339,7 @@ def main(argv: List[str]) -> int:
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    _tpg_refusal = _tpg.refusal(args.tp_geometry, tp_cap_pct=args.tp_cap_pct,
-                                has_target=args.tp_cap_pct > 0.0)
+    _tpg_refusal = _tpg.refusal(args.tp_geometry, has_target=args.tp_cap_pct > 0.0)
     if _tpg_refusal:
         print(f"ERROR: {_tpg_refusal}", file=sys.stderr)
         return 2
