@@ -5469,6 +5469,22 @@
       "note": "[2026-10-06T00:20Z manager] Round-trip PR #16660 held (Tier 2); dispatch denied by classifier, awaiting operator approval in lane session. [2026-10-05T17:58Z manager] OPERATOR popup ~14:48Z: \"Build it + pre-approve test\". #16636 merged 432a92c9 (adapter, dry by default; positionBased=true so IF-THEN bracket). Next: roundtrip system-action PR, one 0.01 ETHUSD round trip with flatten-on-mismatch stop rule. velotrade_1 stays dry_run, empty roster."
     },
     {
+      "id": "VELOTRADE-RECON",
+      "title": "Reconcile velotrade_1 closes from the venue's own trade history (dxtrade_api read_trade_history)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane VELOTRADE-RECON",
+      "lane": "session_01DZSAXAAYAWhKdcWpbhwthS",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07 lane VELOTRADE-RECON] Pipeline PI-20261006-ZRM27CBW-0001. Implemented DXtradeApiAdapter.read_trade_history (GET orders/history -> match_exit rows) + read-only system-action velotrade-trade-history-read. Unit-tested against a SPEC-shaped fixture only: NOT yet observed on the live account. Closes when the action is dispatched after merge and returns the 2026-10-06 10:18Z 0.01 ETH round trip rows; re-record the fixture from that output.",
+      "observation": "dispatch velotrade-trade-history-read after merge; expect an opening BUY and a closing SELL 0.01 ETHUSD near 2026-10-06T10:18Z in period=today/yesterday rows"
+    },
+    {
       "id": "PHONE-BG",
       "title": "Breakout phone app claims and runs tickets while backgrounded (operator: needed for real automated trading)",
       "phase": "W6",

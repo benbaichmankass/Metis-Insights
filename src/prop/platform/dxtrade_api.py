@@ -41,6 +41,7 @@ from __future__ import annotations
 import json
 import math
 import time
+from datetime import datetime, timezone
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -392,6 +393,19 @@ class DXtradeApiAdapter(PropPlatformAdapter):
         r = self._request("GET", f"/accounts/{self._acct()}/orders/history?period=today&for-instrument={q}")
         return _history_rows(r.body)
 
+    def read_trade_history(self, page: Any = None, restore: Optional[str] = None,
+                           query: str = "period=today") -> List[Dict[str, Any]]:
+        """READ-ONLY (``GET .../orders/history``): executed trades in the shape
+        ``prop_executor.match_exit`` consumes from the browser adapter's Trade
+        History read (:func:`trade_history_rows`). ``page`` / ``restore`` are
+        accepted and ignored. Raises ``RuntimeError`` on a non-200 (the caller
+        then keeps the close unread, never guessed); ``[]`` means the read
+        succeeded and found no executions."""
+        r = self._request("GET", f"/accounts/{self._acct()}/orders/history?{query}")
+        if not r.ok:
+            raise RuntimeError(f"trade history read failed {self.redact(json.dumps(r.error()))}")
+        return trade_history_rows(r.body)
+
     # ── order controls (dry unless arm=True) ────────────────────────────
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
         bad = check_spec(spec)
@@ -574,4 +588,62 @@ def _history_rows(js: Any) -> List[Dict[str, Any]]:
                     "position_effect": leg.get("positionEffect"), "avg_price": _f(leg.get("averagePrice")),
                     "filled_qty": _f(leg.get("filledQuantity")), "fills": fills,
                     "issue_time": o.get("issueTime")})
+    return out
+
+
+def _iso(text: Any) -> Optional[datetime]:
+    """An ISO-8601 instant (``2026-10-06T10:18:03.123Z`` / ``+00:00``) as an
+    aware UTC datetime; None when it does not parse (never guessed)."""
+    t = str(text or "").strip()
+    if not t:
+        return None
+    if t.endswith("Z"):
+        t = t[:-1] + "+00:00"
+    try:
+        d = datetime.fromisoformat(t)
+    except ValueError:
+        return None
+    return d.replace(tzinfo=timezone.utc) if d.tzinfo is None else d.astimezone(timezone.utc)
+
+
+_EXEC_TIME_KEYS = ("executionTime", "time", "transactionTime", "timestamp")
+
+
+def trade_history_rows(js: Any) -> List[Dict[str, Any]]:
+    """One row per execution (TRADE fill) in an Order History body, the shape of
+    ``dxtrade.trade_history_from_tables``: ``time`` (raw), ``ts`` (UTC datetime
+    or None), ``symbol``, ``side`` (long = BUY / short = SELL), ``effect``
+    ("opening" / "closing" / None, from the leg's positionEffect), ``volume``
+    (``lastQuantity``), ``price`` (``lastPrice``), ``commission``,
+    ``closed_pnl`` and ``net_closed_pnl`` (None unless the venue sent them: the
+    REST order model is not known to carry realized P&L, and an absent figure is
+    never filled in). Order and account identifiers are NOT carried. An
+    execution without a usable price or quantity is skipped, not defaulted."""
+    orders = js.get("orders") if isinstance(js, dict) else js
+    out: List[Dict[str, Any]] = []
+    for o in orders or []:
+        if not isinstance(o, dict):
+            continue
+        leg = (o.get("legs") or [{}])[0] or {}
+        eff = str(leg.get("positionEffect") or "").upper()
+        side = str(o.get("side") or leg.get("side") or "").upper()
+        for e in o.get("executions") or []:
+            if not isinstance(e, dict):
+                continue
+            px, qty = _f(e.get("lastPrice")), _f(e.get("lastQuantity"))
+            if px is None or not qty:
+                continue
+            raw = next((e[k] for k in _EXEC_TIME_KEYS if e.get(k)), None) or o.get("transactionTime") \
+                or o.get("issueTime") or ""
+            out.append({
+                "time": str(raw), "ts": _iso(raw),
+                "symbol": str(o.get("instrument") or leg.get("instrument") or "").upper(),
+                "side": "long" if side == "BUY" else "short" if side == "SELL" else None,
+                "effect": "opening" if eff == "OPEN" else "closing" if eff == "CLOSE" else None,
+                "volume": abs(qty), "price": px,
+                "commission": _f(e.get("commission")),
+                "closed_pnl": _f(e.get("closedPnl") if e.get("closedPnl") is not None else e.get("closedPL")),
+                "net_closed_pnl": _f(e.get("netClosedPnl")),
+            })
+    out.sort(key=lambda r: (r["ts"] is None, r["ts"] or datetime.min.replace(tzinfo=timezone.utc)))
     return out
