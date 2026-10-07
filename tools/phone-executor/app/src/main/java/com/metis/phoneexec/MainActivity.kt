@@ -48,11 +48,16 @@ import kotlin.math.round
  *                    Two failures latch it off and ping the operator.
  *   - logged in   -> claim the next ticket from the VM (atomic, one attempt per ticket), fill it, read EVERY field
  *                    back (the submit label must carry the side), then:
- *                      DRY  (default; any test ticket; server says dry; or the app is not ARMED): do NOT submit,
+ *                      DRY  (any test ticket, or the server says dry): do NOT submit,
  *                           report the read-back and clear the quantity.
- *                      LIVE (server says live AND the app is ARMED): submit, read Open orders / Positions back,
+ *                      LIVE (the server says live): submit, read Open orders / Positions back,
  *                           report the placement to the VM ledger; an opposite-side position is flattened.
  * Any unread, ambiguous or mismatched value is a refusal (fail closed), reported with the ticket dump.
+ *
+ * LIVE vs DRY IS DECIDED ONLY BY THE SERVER (operator 2026-10-06, ARMED-GATE): the claim's `submit` field, which
+ * src/prop/phone_executor.py::submit_mode derives from accounts.yaml `mode` and the PROP_PHONE_MODE_<ACCOUNT> kill
+ * switch (shadow / dry legs never emit a ticket at all). There is no device-local "armed" switch: a second, hidden
+ * gate on the phone made the system harder to manage, not safer. Test tickets stay always dry.
  *
  * BACKGROUND (PI-20261006-APBY4NTV-0006, OBSERVED 2026-10-06: heartbeat stopped 10:03Z while the app was backgrounded,
  * claims resumed only when the operator reopened it): a backgrounded WebView may never answer evaluateJavascript, and
@@ -64,7 +69,6 @@ import kotlin.math.round
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var status: TextView
-    private lateinit var armBtn: Button
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var api: Api
     private lateinit var ledger: Ledger
@@ -125,11 +129,9 @@ class MainActivity : Activity() {
         // no shouldOverrideUrlLoading filter, every navigation stays in THIS WebView and cookie store.
         web.webViewClient = WebViewClient()
         status = TextView(this).apply { setPadding(16, 8, 16, 8); setBackgroundColor(Color.parseColor("#202833")); setTextColor(Color.WHITE); textSize = 12f }
-        armBtn = Button(this)
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             fun btn(label: String, f: () -> Unit) = addView(Button(this@MainActivity).apply { text = label; isAllCaps = false; setOnClickListener { f() } })
-            addView(armBtn.apply { isAllCaps = false; setOnClickListener { toggleArm() } })
             btn("Setup") { setupDialog() }
             btn("Dry test") { dryTest() }
             btn("Share ID") { shareFingerprint() }
@@ -145,7 +147,6 @@ class MainActivity : Activity() {
             addView(web, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
         setContentView(root)
-        renderArm()
         KeepAliveService.start(this, launch = false)
         web.loadUrl(TRADE_URL)
 
@@ -175,16 +176,6 @@ class MainActivity : Activity() {
         pausedUntilMs = if (paused()) 0L else System.currentTimeMillis() + PAUSE_MAX_MS
         pauseBtn.text = if (paused()) "PAUSED (tap to resume)" else "Pause"
         setStatus(if (paused()) "paused: no reload, no re-login, no ticket until logged in or 10 min" else "resumed")
-    }
-    private fun armed() = Store.flag(this, Store.ARMED)
-    private fun renderArm() { armBtn.text = if (armed()) "ARMED (live)" else "Dry (not armed)"; armBtn.setTextColor(if (armed()) Color.RED else Color.DKGRAY) }
-
-    private fun toggleArm() {
-        if (armed()) { Store.setFlag(this, Store.ARMED, false); renderArm(); return }
-        AlertDialog.Builder(this).setTitle("Arm live submits?")
-            .setMessage("Live orders are submitted only when the server ALSO says live (the account is live). Test tickets are never submitted.")
-            .setPositiveButton("Arm") { _, _ -> Store.setFlag(this, Store.ARMED, true); renderArm() }
-            .setNegativeButton("Cancel", null).show()
     }
 
     private fun shareFingerprint() {
@@ -332,7 +323,7 @@ class MainActivity : Activity() {
         val now = System.currentTimeMillis()
         if (now - lastHbMs < HEARTBEAT_MS) return
         lastHbMs = now
-        val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive()).put("armed", armed())
+        val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive())
             .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
             .put("path_depth", s?.optInt("path_depth") ?: 0)
             .put("fg", resumed).put("jsTimeouts", jsTimeouts).put("pending", lastPending)
@@ -442,7 +433,7 @@ class MainActivity : Activity() {
         if (!r.optBoolean("ok")) { setStatus("logged in · claim refused (http ${r.optInt("http")})"); return }
         claimedThisTick = true
         val t = r.optJSONObject("ticket")
-        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        if (t == null) { setStatus("logged in · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
         val id = t.optString("ticket_id")
         try { execute(t, r.optJSONObject("config") ?: JSONObject()) }
         catch (e: JsTimeout) {
@@ -469,7 +460,7 @@ class MainActivity : Activity() {
         ledger.append(id, "intended")
         val meta = t.optJSONObject("meta") ?: JSONObject()
         val test = meta.optBoolean("test")
-        val live = t.optString("submit") == "live" && armed() && !test
+        val live = t.optString("submit") == "live" && !test
         val sym = t.optString("symbol").uppercase()
         val inst = cfg.optJSONObject("instruments")?.optJSONObject(sym)
         val venue = t.optString("venue_symbol").ifEmpty { inst?.optString("venue") ?: "" }
@@ -570,7 +561,7 @@ class MainActivity : Activity() {
 
         if (!live) {
             ledger.append(id, "dry_filled")
-            report(id, "dry_filled", if (test) "test ticket (always dry)" else if (!armed()) "app not armed" else "server mode dry", tk)
+            report(id, "dry_filled", if (test) "test ticket (always dry)" else "server mode dry", tk)
             api.event("dry_fill_ok", "filled + read back, NOT submitted: $sideTab ${fmt(qty, qStep)} $venue lim ${fmt(entry, pStep)} tp ${fmt(tp, pStep)} sl ${fmt(sl, pStep)}", id)
             js("__ex.setByLabel('quantity', '', '')")
             setStatus("DRY ticket $id filled and read back; not submitted")
