@@ -1,0 +1,87 @@
+id: RQ-20261007-240
+title: 'NEW FAMILY (pace): intraday session-range breakout (ORB) with a time stop on ETH/SOL/XRP 1h, full cost stack -- blocked
+  on scripts/backtest_orb.py pricing fees in points only'
+status: blocked
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+question: 'Does an opening-range breakout -- the first N bars of a declared UTC session define the range, a break of it enters
+  with the opposite side of the range as the stop and a FLAT-AT-SESSION-CLOSE time stop (no overnight hold, so no swap and
+  a resolution every day) -- show net-of-FULL-cost edge on ETHUSDT, SOLUSDT and XRPUSDT 1h over 1095 d, with sessions at the
+  13:00-21:00 UTC US overlap and the 00:00-08:00 UTC Asia session (crypto has no exchange open; the session IS the lever),
+  harness-default --or-bars 3 and --max-or-width-atr 1.5? The appeal is pace: every trade resolves inside one session, so
+  a prop account''s daily P&L distribution is dense and the eval target is reached by many small resolutions instead of a
+  few long trend holds. scripts/backtest_orb.py already has the session logic and the time stop; what it lacks is the cost
+  stack.'
+why_this_matters: 'Operator 2026-10-06 (verbatim, in PI-20261006-APBY4NTV-0001): "continue searching for new strategies ...
+  specifically for the prop accounts, with an emphasis on shorter-timeframe strategies, or at least strategies that turn a
+  profit faster (we would ideally want +10% monthly, not over more than 6 months)" and "we shouldn''t be stuck on eth and
+  sol - anything that we''re able to trade is fair game". Batch 1 (RQ-20261006-005..031, Stage-0 net of each harness''s cost
+  stack, research/results/RQ-20261006-0NN/*.jsonl, measurement block; the `wiring_only` verdict field is a grader bug being
+  fixed by lane RQ-RESULTS): 5 PASS, all at 1h (ADA/DOGE/LINK pullback, DOGE squeeze, SLV fade); 17 FAIL including every 15m
+  and 5m cell (BTC 15m fade -1820R over 4214 trades); the 5m/15m chop scalps indeterminate (n<39). READ: with these harnesses
+  the cost stack kills 5m/15m; pace has to come from BREADTH (more 1h-4h legs on more instruments) and from stacking legs,
+  not from faster bars. CLAUDE.md lists scripts/backtest_orb.py among the four harness families without a full cost stack
+  (fee only, in POINTS, no slippage or funding) and out of scope for any promotion corpus until fixed; RQ-20260929-108 ran
+  it on ETH 5m fee-only. DECISION ON THE CHEAPER PATH (INFERRED from reading the file 2026-10-07): FIXING IT is cheaper than
+  a new harness -- the entry/exit/session machinery (637-665 argparse, _fee_r at 277) is done; the change is to replace FEE_POINTS_ROUNDTRIP
+  with execution_costs.resolve_cost_policy (fee + slippage + funding in bps, the way scripts/backtest_fvg_range.py and backtest_trend.py
+  already do) and to emit net_total_r / total_trades in its --json so harness_dispatch_result.py can grade it. That is one
+  Tier-1 tooling PR, filed as PI-20261007-ZKGGKTAG-0001.'
+power:
+  expected_n: 300
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: 'd=0.45 -> 39 trades at alpha 0.05 / power 0.8 (the standing E35 floor). expected_n=300 is a cadence estimate: one
+    qualifying session per symbol-day at most, two sessions, 1095 d, with the OR-width filter rejecting most days (RQ-20260929-108''s
+    ETH 5m fee-only run is the only prior observation of this harness in the repo); not a measurement on these cells.'
+  feasibility:
+    source: none
+    accrual_basis: No ORB cell has ever run with a cost stack; the instrument does not exist yet (blocked_on).
+decision_rule:
+  id: RULE-RQ1007-240-ORB-SESSION-RANGE-STAGE0
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per (symbol, session): net_total_r net of fee + slippage + funding via execution_costs.resolve_cost_policy and
+    total_trades from the fixed harness''s --json, graded by harness_dispatch_result.py.'
+  rule: PASS IF net_total_r > 0 AND n_trades >= 39 for a (symbol, session) cell -- Stage-0 evidence only; the next unit commits
+    the rows and prices them under the three prop rulesets with days_to_pass as the headline. FAIL IF net_total_r <= 0 AND
+    n_trades >= 39 -- one pass; re-queues once. indeterminate IF n_trades < 39. If the fee-only result and the full-cost result
+    differ in sign on a cell, the full-cost one is the verdict and the fee-only one is noted as the reason the fix was needed.
+  what_it_does_not_do: Does not propose a live or prop leg, does not touch config/, and does not decide between fixing backtest_orb.py
+    and writing a new harness (that decision is stated above and lives in the pipeline item).
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: Single-symbol GitHub-runner harness dispatch once orb carries the cost stack (same shape as RQ-20261006-005).
+blocked_on:
+- what: scripts/backtest_orb.py prices fees in POINTS round trip (FEE_POINTS_ROUNDTRIP = 0.5, _fee_r at line 277) and has
+    no slippage or funding term, so its net_total_r is not net of the full cost stack and CLAUDE.md § 'The daily sync' keeps
+    it out of every promotion corpus. research-harness-dispatch.yml lists `orb` but passes it only --symbol/--timeframe, so
+    the session flags (--session-start/--session-end) cannot be set per unit either (PI-20261006-TPQQDKFF-0002's extra_args
+    gap).
+  ref: PI-20261007-ZKGGKTAG-0001 (docs/claude/work/pipeline/), and PI-20261006-TPQQDKFF-0002 for the dispatch extra_args
+  clears_when: 'backtest_orb.py resolves fee/slippage/funding through src.runtime.execution_costs.resolve_cost_policy (bps
+    of notional, venue-aware defaults), emits net_total_r and total_trades in --json, and research-harness-dispatch.yml can
+    pass --session-start/--session-end (or the unit declares one session per cell via extra_args); then `git mv` this file
+    to research/queue/ and fill run.workflow: research-harness-dispatch.yml, inputs {harness: orb, symbol, timeframe: 1h},
+    lands.store: research/results/.'
+run:
+  workflow: null
+  note: 'Deliberately null until blocked_on clears: naming research-harness-dispatch.yml today would dispatch a fee-only run
+    whose verdict CLAUDE.md says may not be used.'
+lands:
+  store: research/results/ (once promoted)
+related:
+- PI-20261006-APBY4NTV-0001
+- RQ-20260929-108
+- scripts/backtest_orb.py
+- PI-20261006-TPQQDKFF-0002
+- docs/research/d1-cost-stack-verification-2026-09-25.md
+last_dispatched_at: null
