@@ -265,6 +265,50 @@ def _record_balance_snapshot_to_db(
         )
 
 
+# read_state vocabulary for one account's hourly balance read. "We could not
+# look" (api_error) must never share a rendering with "there is no API to look
+# at" (no_api_by_design) or "we chose not to look" (dry_run_not_read) -- they
+# call for opposite operator actions (PI-20261004-APBY4NTV-0002: the operator
+# read ``API ERROR`` every hour for browser-executor prop accounts where
+# ``api_ok=False`` is the design).
+READ_OK = "ok"
+READ_NO_API_BY_DESIGN = "no_api_by_design"
+READ_DRY_RUN_NOT_READ = "dry_run_not_read"
+READ_API_ERROR = "api_error"
+
+
+def _is_prop_account(acc: Dict[str, Any]) -> bool:
+    """A prop-firm account executes via a ticket/browser bridge: no broker API."""
+    return (
+        str(acc.get("type") or "").lower() == "prop"
+        or str(acc.get("account_class") or "").lower() == "prop"
+    )
+
+
+def _account_read_state(acc: Dict[str, Any], bal: Optional[Dict[str, Any]]) -> str:
+    if _is_prop_account(acc):
+        return READ_NO_API_BY_DESIGN
+    if bal is not None:
+        return READ_OK
+    ex = str(acc.get("exchange") or "").lower()
+    if ex in ("interactive_brokers", "ib") and str(acc.get("mode") or "live").lower() != "live":
+        # data_loaders._ib_balance_diagnostic never dials a dry_run gateway.
+        return READ_DRY_RUN_NOT_READ
+    return READ_API_ERROR
+
+
+def _prop_status(account_id: str) -> Dict[str, Any]:
+    """The prop executor's own view of the account (operator-reported snapshot)."""
+    try:
+        from src.prop.prop_balance import prop_sizing_balance
+        state, val, meta = prop_sizing_balance(account_id)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged; the hourly report must not fail on a prop read -- rendered as prop_status "error"
+        logger.warning("hourly_report: prop status(%s) raised: %s", account_id, exc)
+        return {"prop_status": "error", "prop_balance": None, "prop_age_hours": None}
+    return {"prop_status": state, "prop_balance": val,
+            "prop_age_hours": meta.get("age_hours")}
+
+
 def account_snapshots() -> Optional[List[Dict[str, Any]]]:
     """Return one dict per account: balance, 1h delta, API ok/err, open pos count.
 
@@ -307,14 +351,19 @@ def account_snapshots() -> Optional[List[Dict[str, Any]]]:
             logger.warning("hourly_report: balance(%s) raised: %s", aid, exc)
             bal = None
 
+        read_state = _account_read_state(acc, bal)
         if bal is None:
-            out.append({
+            row = {
                 "account_id": aid,
                 "balance": None,
                 "delta_1h": None,
                 "api_ok": False,
+                "read_state": read_state,
                 "open_positions": None,
-            })
+            }
+            if read_state == READ_NO_API_BY_DESIGN:
+                row.update(_prop_status(aid))
+            out.append(row)
             _record_balance_snapshot_to_db(
                 aid, balance=None, delta_1h=None,
                 open_positions=None, api_ok=False, ts=now_iso,
@@ -339,6 +388,7 @@ def account_snapshots() -> Optional[List[Dict[str, Any]]]:
             "balance": total,
             "delta_1h": delta,
             "api_ok": True,
+            "read_state": read_state,
             "open_positions": open_count,
         })
         _record_balance_snapshot_to_db(
@@ -888,7 +938,15 @@ def _build_account_sections(
     api_errors = 0
     for a in accounts:
         aid = a["account_id"]
-        if not a.get("api_ok"):
+        # Older rows carry no read_state: derive it, never invent "error".
+        rs = a.get("read_state") or (READ_OK if a.get("api_ok") else READ_API_ERROR)
+        if rs == READ_NO_API_BY_DESIGN:
+            acct_lines.append(f"{aid}: {_render_prop_line(a)}")
+            continue
+        if rs == READ_DRY_RUN_NOT_READ:
+            acct_lines.append(f"{aid}: dry_run - gateway not read (by design)")
+            continue
+        if rs == READ_API_ERROR or not a.get("api_ok"):
             acct_lines.append(f"{aid}: API ERROR")
             api_errors += 1
             continue
@@ -915,6 +973,19 @@ def _build_account_sections(
                 body=bullet_list(acct_lines, empty="(no accounts configured)"),
                 priority=20),
     ]
+
+
+def _render_prop_line(a: Dict[str, Any]) -> str:
+    """A prop account line from the prop executor's own status, never 'API ERROR'."""
+    st = a.get("prop_status")
+    if st == "ok" and a.get("prop_balance") is not None:
+        age = a.get("prop_age_hours")
+        age_s = f", {age:.1f}h old" if isinstance(age, (int, float)) else ""
+        return (f"no broker API (prop bridge) | reported equity "
+                f"{_fmt_money(a['prop_balance'])}{age_s}")
+    if st in ("stale", "absent", "error"):
+        return f"no broker API (prop bridge) | operator balance {st}"
+    return "no broker API (prop bridge) | status —"
 
 
 def render_strategy_report(report: Dict[str, Any]) -> str:

@@ -34,6 +34,7 @@ from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import asset_class_for_symbol
+from src.web.api._since import parse_since
 from src.web.api._clean_trades import account_class_wire, not_paper_predicate
 
 logger = logging.getLogger(__name__)
@@ -242,15 +243,19 @@ def get_order_packages(
     error so the dashboard tab stays usable.
     """
     effective_include = include_paper or include_demo
+    # 422 (filter_state "unparsed") on a bad value -- never a silent empty page.
+    since, filter_state = parse_since(since)
     if not _DB_PATH.exists():
-        return {"rows": [], "count": 0, "claude_log_present": _CLAUDE_SCORES.is_file()}
+        return {"rows": [], "count": 0, "filter_state": filter_state,
+                "claude_log_present": _CLAUDE_SCORES.is_file()}
     try:
         rows = _query_order_packages(
             _DB_PATH, limit, since, strategy, include_demo=effective_include,
         )
     except sqlite3.Error:  # allow-silent: best-effort read; logs + returns empty so the tab stays usable
         logger.exception("order_packages: sqlite read failed")
-        return {"rows": [], "count": 0, "claude_log_present": _CLAUDE_SCORES.is_file()}
+        return {"rows": [], "count": 0, "filter_state": filter_state,
+                "claude_log_present": _CLAUDE_SCORES.is_file()}
 
     claude = _load_claude_scores()
     out: List[Dict[str, Any]] = []
@@ -299,5 +304,6 @@ def get_order_packages(
     return {
         "rows": out,
         "count": len(out),
+        "filter_state": filter_state,
         "claude_log_present": _CLAUDE_SCORES.is_file(),
     }

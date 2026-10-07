@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-path honesty fixes only (lane API-COLLAPSED-STATES, dispatched by the manager session): the hourly Accounts renderer, GET /api/diag/alpaca_open_orders, and the ?since= parsers on /api/bot/order-packages and /api/bot/trades/closed. All additive to the wire shape (new read_state/held_legs_state/filter_state fields, X-Filter-State header) except that an unparseable ?since now returns 422 instead of a silent empty result. No order path, no strategy/risk/config, no account mode."
+}
