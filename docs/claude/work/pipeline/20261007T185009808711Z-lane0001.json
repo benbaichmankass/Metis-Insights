@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-5ZFJCTNR-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane API-COLLAPSED-STATES session_01LTcc4ccHr2rcL85zFjcTnR, diag 'services' 2026-10-07T18:43Z",
+    "rerun": "scripts/ops/diag_fetch.sh services | python3 -c \"import sys,json;print([x for x in json.load(sys.stdin) if x['state'] not in ('active','inactive')])\""
+  },
+  "state": "queued",
+  "what": "ict-prop-executor.service (the NON-templated unit; its .timer is inactive) reads state 'failed' on the live VM as of 2026-10-07T18:43Z, while the templated ict-prop-executor@tradeify_1 / @velotrade_1 timers are active. Establish whether this is a stale legacy unit (then disable+reset-failed it) or a real executor outage; journalctl?unit=ict-prop-executor first. Also: ib_paper (mode live) reads could_not_look on /api/diag/ib_open_orders at the same instant, i.e. the IB gateway is not answering for the one IB account that IS meant to be read (ict-ib-gateway-watchdog.timer is inactive)."
+}
