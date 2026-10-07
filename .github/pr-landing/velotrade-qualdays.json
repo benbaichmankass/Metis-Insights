@@ -2,6 +2,6 @@
   "tier": 2,
   "landing": "hold",
   "why": "Read-only counter (new src/prop/qualifying_days.py over prop_fills), but it is called from src/prop/prop_reconcile.py::compute_rule_distance, which prop_risk_gate also reads, so it sits next to the order gate; it never raises and adds only a key. Also adds a suffix to the account-status ack line and a rule_effective_dates block to config/prop_rulesets/velotrade_classic_1step.yaml (read only by the new module). No executor tick, sizing, risk-limit or mode change. Held for a human read because the guard cannot certify these paths for self-landing.",
-  "hold_reason": "unvouchable_paths",
-  "hold_text": "Paths named Tier-2/3 by the landing guard (prop_reconcile.py, telegram_report_handler.py, a prop ruleset yaml); the change is a read-only key plus a status-line suffix, held for a human read."
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 read-path change next to prop_risk_gate: seeking a human read/OK from the operator before merge; no behavioural change to gating, sizing or orders."
 }
