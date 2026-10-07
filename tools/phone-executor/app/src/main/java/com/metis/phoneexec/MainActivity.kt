@@ -545,6 +545,9 @@ class MainActivity : Activity() {
         //    verified" with the page's own BTC values in the dump; our code had typed nothing). The venue symbol is
         //    selected on the page before the ticket is opened or touched; the ticket's submit label ("Long (buy) ETH")
         //    must then name the asset. Every move is a selection; a route that cannot be verified refuses with its name.
+        //    SOL-PICKER (2026-10-07): the first route is the terminal's "Select market" chip (open, pick ONE row,
+        //    read back), then the watchlist; the picker state is reset per ticket so a failed pick never carries over.
+        js("__ex.symbolReset()")
         var route = selectSymbol(venue, base)
         if (js("__ex.openTicket()") == "no_order_control") return refuse(id, "order control not found (symbol route: $route)", jsObj("__ex.ticket()"))
         delay(1500); ensure()
@@ -558,6 +561,9 @@ class MainActivity : Activity() {
         var tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
         if (!tk.optBoolean("open")) return refuse(id, "ticket not open (symbol route: $route)", tk)
         if (!shown.uppercase().contains(base)) return refuse(id, "symbol $base not on the submit label (ticket shows '${shown.ifEmpty { "?" }}'; symbol route: $route)", tk)
+        // the market chip, when the page has exactly one, must agree with the submit label (both read, before any typing)
+        val chip = js("__ex.marketShown()")
+        if (chip.isNotEmpty() && chip != base) return refuse(id, "market chip shows '$chip', submit label shows '$shown' (expected $base; symbol route: $route)", tk)
         // 2. type + side
         js("__ex.tab('Limit')"); delay(500); js("__ex.tab(${q(sideTab)})"); delay(700)
         if (js("__ex.tabSelected('Limit')") != "true" || js("__ex.tabSelected(${q(sideTab)})") != "true") return refuse(id, "Limit/$sideTab tab not selected", jsObj("__ex.ticket()"))
@@ -673,17 +679,19 @@ class MainActivity : Activity() {
 
     private fun close(got: Double?, want: Double, step: Double) = got != null && abs(got - want) <= step / 2 + 1e-9
 
-    /** Drive the page to the venue symbol: one page-side move per step, read back between moves, at most 6 moves.
+    /** Drive the page to the venue symbol: one page-side move per step, read back between moves, at most 8 moves
+     *  (the market chip takes up to 4: open, [type in its search], pick, [fail -> close]; the watchlist then needs 1-2).
      *  Returns the route taken (for the refusal reason / the dump); "already" when the ticket named the asset. */
     private suspend fun selectSymbol(venue: String, base: String): String {
         var route = ""
         var prev = ""
-        for (step in 0 until 6) {
+        for (step in 0 until 8) {
             if (js("__ex.symbolOnTicket()").uppercase().contains(base)) return route.ifEmpty { "already" }
             val r = js("__ex.symbolStep(${q(venue)})")
             route += (if (route.isEmpty()) "" else ">") + r
             if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
-            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "clicked_watch" || r == "opened_picker")) return "$route>stuck"
+            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "clicked_watch" || r == "opened_picker" ||
+                    r == "opened_market" || r == "picked_market" || r == "typed_market_search")) return "$route>stuck"
             prev = r
             delay(1500); ensure()
         }

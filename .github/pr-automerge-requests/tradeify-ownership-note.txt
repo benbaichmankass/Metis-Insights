@@ -1,0 +1,1 @@
+auto-merge: ownership note + pipeline closure
