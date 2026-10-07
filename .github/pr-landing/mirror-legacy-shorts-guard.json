@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Manager OK sought for the Gate-2 window change (operator already decided 2026-10-05, 'Let them run, exclude': NO close orders). Positions measured 2026-10-07 18:34Z via diag: alpaca_portfolio holds IEF short 152 (trade 4195, ief_pullback_1d, pkg-5e636e3adddf4a83, open P&L +661.96) and TLT short 738 (trade 5912, tlt_pullback_1d, pkg-dfe2ec1e82fd46c8, open P&L +3131.51); alpaca_live holds none. Both still rest a held GTC OCO buy-stop (IEF 90.26, TLT 79.75 trailed 2026-10-07 13:31Z). The PR drops trades 5912 and 4195 from the mirror window and adds a daily mirror-vs-live position check; it places no orders. If the manager instead wants them closed, the close is a separate system-action/Tier-2 action on those two ids, not part of this PR.",
+  "why": "Read path (/api/bot/performance/recent mirror book) + r4_demotion_gate refusal + a read-only daily watch workflow + config/mirror_window_exclusions.yaml. No order path, roster, risk or strategy change; held because it changes what the Gate-2 demotion signal reads."
+}
