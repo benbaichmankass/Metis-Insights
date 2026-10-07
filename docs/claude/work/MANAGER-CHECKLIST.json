@@ -5539,31 +5539,45 @@
       "id": "SOL-PICKER",
       "title": "Phone executor: drive the terminal's 'Select market' chip so breakout_2's SOL leg can trade when the terminal shows ETH",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane SOL-PICKER",
       "lane": "session_01Pinmhx9oym7vJRoPddeVeu",
       "model": "claude-opus-5-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16944
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0007. MEASURED (PHONE-EXEC-1B close-out): the real picker is the 'Select market' chip (role=button, aria 'Select market'); exec.js only works when the terminal already shows the ticket's symbol. Safe failure today (symbol verified on the submit label -> refuse), but a missed trade. DONE = a SOL phone-dry-test (system-action, issue-dispatched) dry_fills with the terminal starting on ETH. Opus (order path), default mode."
+      "note": "[2026-10-07T18:55Z manager] MERGED #16944 b593448b (Select-market chip route: exactly one row or watchlist fallback/refuse; chip-vs-submit-label check). Proof after the operator installs the main APK: phone-dry-test SOLUSDT with the terminal on ETH -> dry_filled with SOL on the submit label; the lane dispatches it on my word. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0007. MEASURED (PHONE-EXEC-1B close-out): the real picker is the 'Select market' chip (role=button, aria 'Select market'); exec.js only works when the terminal already shows the ticket's symbol. Safe failure today (symbol verified on the submit label -> refuse), but a missed trade. DONE = a SOL phone-dry-test (system-action, issue-dispatched) dry_fills with the terminal starting on ETH. Opus (order path), default mode.",
+      "observation": {
+        "what": "SOL phone-dry-test dry_fills with the terminal starting on ETH",
+        "how_to_check": "GET /api/bot/prop/tickets?account_id=breakout_2 newest phone-test symbol SOLUSDT status dry_filled",
+        "due_by": "2026-10-09T18:00Z"
+      }
     },
     {
       "id": "PHONE-SCREENSHOTS",
       "title": "Phone executor: screenshots blank (FLAG_SECURE on the whole window) + the one-off claim 502",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane PHONE-SCREENSHOTS",
       "lane": "session_01FMJ8hcTGUi1r3NPSCwvvdz",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16945
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0006. Scope FLAG_SECURE to credential surfaces only (login page, credential dialog) so the terminal can be screenshotted; root-cause the 502 on /phone/claim seen 2026-10-06 10:26Z. Background robustness already landed (#16764). Sonnet, auto."
+      "note": "[2026-10-07T18:55Z manager] MERGED #16945 b2cc9777 (FLAG_SECURE only on credential screens, fail-closed until logged_in; claim 5xx backoff, no double-claim). 502 root cause NOT confirmed by the lane. On the phone only with the next APK install. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0006. Scope FLAG_SECURE to credential surfaces only (login page, credential dialog) so the terminal can be screenshotted; root-cause the 502 on /phone/claim seen 2026-10-06 10:26Z. Background robustness already landed (#16764). Sonnet, auto.",
+      "observation": {
+        "what": "operator screenshots the trading terminal (not black) with the APK built from main (run 37669999484 or later)",
+        "how_to_check": "operator report; phone_heartbeat st logged_in",
+        "due_by": "2026-10-09T18:00Z"
+      }
     },
     {
       "id": "ACTIVE-GEOMETRY-PLAN",
@@ -5636,9 +5650,11 @@
       "ceiling_usd": 5,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16942
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0005. Manager decision 2026-10-07 18:20Z (closes PI-20261006-KX6ZKFNA-0005): no permissions.allow change; the existing practice is the rule. One paragraph in .claude/skills/manager/SKILL.md \u00a7 Spawning, plus the canonical-doc coherence guard green. Haiku, auto."
+      "note": "[2026-10-07T18:55Z manager] PR #16942 auto-merging. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-KX6ZKFNA-0005. Manager decision 2026-10-07 18:20Z (closes PI-20261006-KX6ZKFNA-0005): no permissions.allow change; the existing practice is the rule. One paragraph in .claude/skills/manager/SKILL.md \u00a7 Spawning, plus the canonical-doc coherence guard green. Haiku, auto."
     },
     {
       "id": "TP-DOCTRINE",
@@ -5846,9 +5862,11 @@
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16948
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:55Z manager] ROOT CAUSE of stranded stamps: the dispatcher stacks the stamp commit on its receipt commit; the stamp PR conflicts with main and gets NO pull_request runs. PR #16948 (commit-to-main replays onto main's tip; test) held: landing machinery, the manager lands. Added: stale-automation-sweep runs 110-119 failing; ~16 superseded stamp PRs -> lane lists, manager closes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261006-TPQQDKFF-0001, PI-20261006-TPQQDKFF-0002, PI-20261006-LCEVL8D5-0001, PI-20261006-LCEVL8D5-0002, PI-20261006-LCEVL8D5-0003, PI-20261005-RQ-ID-RACE-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "API-COLLAPSED-STATES",
@@ -5891,9 +5909,11 @@
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16952
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-IRWQEEXT-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T18:55Z manager] PR #16952 auto-merging (EG 2-var crit + pre-OOS vector fit; run_fresh for 4 sweeps; ict_scalp WF grade; pair_funding_drag hard-fail; session_gating OOS holdout). Blast radius 0 landed rows; pairs verdicts stand. Re-run list on PI-20260927-ZGQPHR3D-0002..0010. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261004-IRWQEEXT-0004. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "TRADEIFY-OWNERSHIP-NOTE",
@@ -5906,9 +5926,11 @@
       "ceiling_usd": 6,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16956
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Ownership note ready, nothing else (Recommended)'. Doc-only. Pipeline: PI-20261004-OZ9AAZSV-0003."
+      "note": "[2026-10-07T18:55Z manager] PR #16956 auto-merging. Flag for the operator: git author-name mapping (~100 commits by an unidentified author). || [2026-10-07T18:37Z manager] OPERATOR DECISIONS 2026-10-07 ~18:36Z (AskUserQuestion popup, verbatim labels): 'Ownership note ready, nothing else (Recommended)'. Doc-only. Pipeline: PI-20261004-OZ9AAZSV-0003."
     },
     {
       "id": "DXTRADE-PROBE",
@@ -5951,9 +5973,11 @@
       "ceiling_usd": 8,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16954
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:41Z manager] Operator, verbatim: \"you did a good job of 'hibernating' the work ahead of the usage limit outage, so I want us to add to the manager skill instructions for how to prepare for that properly.\" Doc-only; written from the measured 2026-10-06/07 sequence (what worked: auto-merge armed, lanes told to self-land, pick-up reminder, routines paused; what broke: lanes died at the limit unlanded, queue ran but produced nothing, stranded register commits). Row written after dispatch (manager slip, corrected)."
+      "note": "[2026-10-07T18:55Z manager] PR #16954 auto-merging; may need a main merge after #16942. || [2026-10-07T18:41Z manager] Operator, verbatim: \"you did a good job of 'hibernating' the work ahead of the usage limit outage, so I want us to add to the manager skill instructions for how to prepare for that properly.\" Doc-only; written from the measured 2026-10-06/07 sequence (what worked: auto-merge armed, lanes told to self-land, pick-up reminder, routines paused; what broke: lanes died at the limit unlanded, queue ran but produced nothing, stranded register commits). Row written after dispatch (manager slip, corrected)."
     },
     {
       "id": "PHONE-DRYTEST-ACTION",
@@ -5983,9 +6007,11 @@
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        16947
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:15Z manager] MEASURED on /api/bot/prop/tickets: first live signal 01:59:22Z (trend_donchian_eth_prop ETH SHORT, entry 2672, risk_usd 50.0 = the 1% sizing OBSERVED) was never placed; status expiry_prompted after valid_until 02:59Z; the 02:01, 03:02, 10:08 and 11:01Z re-tickets were all 'reticket suppressed -- outstanding_ticket:expiry_prompted'. Balance 4999.97 unchanged; executor alive (status posted 18:08Z). The manual bridge's expiry_prompted state waits for a human report; the REST path has none, so the account cannot trade until the ticket is terminal. Opus (live order path), default mode. Fix = terminal state for unplaced-expired tickets on REST accounts + unblock the stuck ticket in tier."
+      "note": "[2026-10-07T18:55Z manager] FACT 1: band_wait on all 12 ticks 02:03-02:58Z (bid 2608.97-2618.41 vs short entry 2672.0), never attempted. PR #16947 held Tier-2 (expiry prompter leaves REST accounts to the executor; expired unplaced -> terminal skipped with last verdict); I merge on green + restart the trader. Stuck ticket: operator taps the Telegram \u274c (asked) or self-clears 2026-10-08 02:59Z. Follow-up: allowlisted prop-ticket-expire. Findings PI-20261007-JOHNSXDJ-0001 (stale-at-emission, 2.1% from market) / -0002. || [2026-10-07T18:15Z manager] MEASURED on /api/bot/prop/tickets: first live signal 01:59:22Z (trend_donchian_eth_prop ETH SHORT, entry 2672, risk_usd 50.0 = the 1% sizing OBSERVED) was never placed; status expiry_prompted after valid_until 02:59Z; the 02:01, 03:02, 10:08 and 11:01Z re-tickets were all 'reticket suppressed -- outstanding_ticket:expiry_prompted'. Balance 4999.97 unchanged; executor alive (status posted 18:08Z). The manual bridge's expiry_prompted state waits for a human report; the REST path has none, so the account cannot trade until the ticket is terminal. Opus (live order path), default mode. Fix = terminal state for unplaced-expired tickets on REST accounts + unblock the stuck ticket in tier."
     }
   ]
 }
