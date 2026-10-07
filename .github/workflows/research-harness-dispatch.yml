@@ -66,6 +66,8 @@ on:
           - orb
           - pullback
           - squeeze
+          - trend
+          - ict_scalp
           - funding_carry
           - pairs
           - xsec_momentum
@@ -138,7 +140,12 @@ jobs:
           }
 
           case "$HARNESS" in
-            chop_scalp|fade|fvg_range|orb|pullback|squeeze)
+            # trend / ict_scalp joined 2026-10-07 (PI-20261006-TPQQDKFF-0002): the
+            # prop book's own families, with the same --symbol/--timeframe/--json/
+            # --emit-trades shape. Run on SPY 1d locally: exit 0, total_trades +
+            # net_total_r present. src/backtest/run_backtest_vwap.py is NOT here --
+            # it hardcodes its symbol, reads BACKTEST_DATA_PATH and has no --json.
+            chop_scalp|fade|fvg_range|orb|pullback|squeeze|trend|ict_scalp)
               fetch "$SYM" "$TF"
               python3 "scripts/backtest_${HARNESS}.py" \
                 --symbol "$SYM" --timeframe "$TF" \
