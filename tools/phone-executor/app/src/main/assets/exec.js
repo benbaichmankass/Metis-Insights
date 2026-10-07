@@ -153,6 +153,44 @@
     });
   }
 
+  // ---- POSITION AMEND (PROP-TRAIL-PHONE, 2026-10-07): the trail's SL (and a TP revision) edited on an OPEN position.
+  // UNMEASURED on Breakout's terminal: no capture has shown the Positions row's edit control or its dialog. So every
+  // helper finds things by text/label/role only, demands exactly ONE match, and returns a dump (our own UI labels,
+  // digits masked) when it cannot; the app refuses before any click it cannot verify. Never a close control.
+  var NOT_EDIT = /close|flatten|reverse|cancel|remove|delete|partial/i;
+  function posRows(sym, sideRe) {
+    var n = norm(sym), b = base(sym), rx = new RegExp(sideRe, "i");
+    return innermost(all("tr,[role=row]").filter(function (r) {
+      var s = t(r), ns = norm(s); return (ns.indexOf(n) >= 0 || ns.indexOf(b) >= 0) && rx.test(s) && !r.querySelector("th,[role=columnheader]");
+    }));
+  }
+  function ctlText(x) { return (t(x) + " " + (x.getAttribute("aria-label") || "") + " " + (x.getAttribute("title") || "")).trim(); }
+  function rowCtls(r) { return Array.prototype.slice.call(r.querySelectorAll("button,[role=button],a")).filter(vis); }
+  function rowCells(r) {
+    var cells = Array.prototype.slice.call(r.querySelectorAll("td,[role=cell],[role=gridcell]"));
+    var tb = r.closest("table,[role=table],[role=grid]"), hs = [];
+    if (tb) hs = Array.prototype.slice.call(tb.querySelectorAll("th,[role=columnheader]")).map(t);
+    var out = {}; if (hs.length === cells.length) cells.forEach(function (c, i) { out[hs[i]] = t(c); });
+    return {headers: hs, map: out, n: cells.length};
+  }
+  function col(map, re) { var rx = new RegExp(re, "i"), ks = Object.keys(map).filter(function (k) { return rx.test(k); }); return ks.length === 1 ? map[ks[0]] : null; }
+  function dialogs() { return all("[role=dialog],[role=alertdialog],dialog[open]"); }
+  function dlg() { var d = dialogs(); return d.length === 1 ? d[0] : null; }
+  function dlgByLabel(re, prefer) {
+    var d = dlg(); if (!d) return {list: [], hits: []};
+    var rx = new RegExp(re, "i"), px = prefer ? new RegExp(prefer, "i") : null, list = inputs(d);
+    var hits = list.filter(function (i) { return rx.test(labelFor(i)); });
+    if (hits.length > 1 && px) hits = hits.filter(function (i) { return px.test(labelFor(i)); });
+    return {list: list, hits: hits};
+  }
+  function dlgButtons(re, notRe) {
+    var d = dlg(); if (!d) return [];
+    var rx = new RegExp(re, "i");
+    return Array.prototype.slice.call(d.querySelectorAll("button,[role=button]")).filter(function (x) {
+      var s = ctlText(x); return vis(x) && rx.test(s) && !(notRe && notRe.test(s));
+    });
+  }
+
   window.__ex = {
     state: function () {
       var pw = all("input[type=password]").length > 0;
@@ -409,6 +447,57 @@
       var rs = all("tr,[role=row]");
       return rs.map(function (r) { return Array.prototype.slice.call(r.querySelectorAll("td,th,[role=cell],[role=gridcell],[role=columnheader]")).map(t); })
         .filter(function (c) { return c.length > 1; }).slice(0, 40);
+    },
+    // AMEND: the ONE open-position row for (symbol, side): {n, sl, tp (column text or null), headers, controls}.
+    // controls are the row's own control texts (digits masked) for the refusal dump; never values beyond SL/TP.
+    posInfo: function (sym, sideRe) {
+      var rs = posRows(sym, sideRe);
+      if (rs.length !== 1) return {n: rs.length};
+      var c = rowCells(rs[0]);
+      return {n: 1, sl: col(c.map, "^(sl|s/l|stop ?loss)"), tp: col(c.map, "^(tp|t/p|take ?profit)"), headers: c.headers.map(function (h) { return h.replace(/\d/g, "#").slice(0, 24); }),
+        controls: rowCtls(rs[0]).map(function (x) { return ctlText(x).replace(/\d/g, "#").slice(0, 40); }).slice(0, 12)};
+    },
+    // AMEND: click the row's ONE edit control (text / aria-label / title naming edit, modify or TP/SL; never a close).
+    // Returns clicked | no_row | rows_<n> | no_edit | ambiguous.
+    posEdit: function (sym, sideRe) {
+      if (!hostOk()) return "bad_host";
+      var rs = posRows(sym, sideRe);
+      if (!rs.length) return "no_row"; if (rs.length > 1) return "rows_" + rs.length;
+      var e = rowCtls(rs[0]).filter(function (x) { var s = ctlText(x); return /edit|modify|tp\s*\/\s*sl|sl\s*\/\s*tp|protection/i.test(s) && !NOT_EDIT.test(s); });
+      if (!e.length) return "no_edit"; if (e.length > 1) return "ambiguous";
+      e[0].click(); return "clicked";
+    },
+    // AMEND dialog read: how many dialogs, their inputs (label + value: values are OUR prices) and button texts.
+    editDialog: function () {
+      var ds = dialogs(); if (ds.length !== 1) return {n: ds.length};
+      return {n: 1, text: t(ds[0]).replace(/\d/g, "#").slice(0, 200),
+        inputs: inputs(ds[0]).map(function (i) { return {label: labelFor(i), value: i.value}; }),
+        buttons: Array.prototype.slice.call(ds[0].querySelectorAll("button,[role=button]")).filter(vis).map(function (x) { return ctlText(x).replace(/\d/g, "#").slice(0, 30); })};
+    },
+    dlgRead: function (re, prefer) { return fieldInfo(dlgByLabel(re, prefer)); },
+    dlgSet: function (re, prefer, v) {
+      var h = dlgByLabel(re, prefer); if (h.hits.length !== 1) return fieldInfo(h);
+      var i = h.hits[0]; i.focus(); setVal(i, String(v)); i.blur(); return fieldInfo(h);
+    },
+    dlgFocus: function (re, prefer) {
+      var h = dlgByLabel(re, prefer); if (h.hits.length !== 1) return "none";
+      var i = h.hits[0]; setVal(i, ""); i.focus(); return document.activeElement === i ? "focused" : "nofocus";
+    },
+    // The ONE save/confirm button of the ONE dialog (never close/cancel/remove/flatten/reverse). clicked | none | ambiguous | disabled
+    dlgSave: function () {
+      var b = dlgButtons("^\\s*(save|confirm|modify|apply|update|submit|ok)\\b", NOT_EDIT);
+      if (!b.length) return "none"; if (b.length > 1) return "ambiguous";
+      if (b[0].disabled || b[0].getAttribute("aria-disabled") === "true") return "disabled";
+      b[0].click(); return "clicked";
+    },
+    // Dismiss the ONE dialog without saving: its ONE cancel/discard button, else Escape. clicked | escape | none
+    dlgCancel: function () {
+      var d = dlg(); if (!d) return "none";
+      var b = dlgButtons("^\\s*(cancel|discard|dismiss)\\s*$", null);
+      if (b.length === 1) { b[0].click(); return "clicked"; }
+      d.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", code: "Escape", keyCode: 27, bubbles: true}));
+      document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", code: "Escape", keyCode: 27, bubbles: true}));
+      return "escape";
     },
     rowClose: function (sym, sideRe) {
       var n = norm(sym); var rx = new RegExp(sideRe, "i");

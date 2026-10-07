@@ -704,6 +704,35 @@ still unmeasured: the next dry test is what measures it, and its refusal reason,
 overnight and claims every 30 s, so a bump merged before the install would be claimed and refused the old way within minutes. This PR
 leaves `dry_test_request: 2026-10-05-night-1` (already served); the manager bumps it in a separate PR once the install is confirmed.
 
+### 7.13 Trail amends on the phone path (PROP-TRAIL-PHONE, 2026-10-07)
+
+**Why:** the prop trail (`src/prop/prop_trail.py::run_trail_step`) runs only in the VM executor tick, so breakout_2's
+`*_prop` legs traded a static SL+TP bracket while their Stage-0 record assumed the chandelier trail (§ 5.3 already named
+"no trailing amendments" as a cost of the phone path).
+
+**Server** (`src/prop/phone_trail.py`): the trail is planned with the same `plan_trail` replay, once per closed bar, for every
+`placed`/`filled` ticket. One amend is published in a single slot on the parent ticket (`meta.phone_trail`), so at most one
+is ever outstanding. The claim serves it ONLY to an app that posts `accepts: ["amend"]`. `submit` is the entry path's
+`submit_mode`, with ARMED on top. TP revisions travel through the same slot (`request_tp_amend`).
+
+**Phone** (`executeAmend`, `exec.js` `posInfo` / `posEdit` / `editDialog` / `dlg*`):
+1. Find the ONE Positions row for the symbol and side.
+2. The terminal must show the stop (and target) the server believes is resting. If it shows anything else, report
+   `human_moved` and never override it.
+3. Click the row's ONE edit control (text, aria-label or title naming edit / modify / TP-SL). Never a close control.
+4. Find the ONE dialog, then the SL (and TP) fields by label. Type the values and read every one back; the kept TP must
+   read back unchanged.
+5. **DRY:** cancel and report `dry_amended`. **LIVE:** click the ONE save button, then read the result back on the terminal:
+   the row's SL/TP columns, or else the dialog re-opened read-only and cancelled.
+
+Anything unverified before the save is `refused`; after it, `mismatch`. The server locks that ticket's trail on
+`mismatch`, `human_moved`, a second refusal, or a claimed amend with no report, and pings the operator. A locked trail is
+never retried.
+
+**UNMEASURED:** no capture has shown Breakout's Positions row edit control or its dialog. The headless fixtures
+(`test/exec_check.js`, "amend") prove the helpers' mechanics on synthetic DOM only. The first real amend, dry or live,
+either passes or refuses with the dump (row headers and controls, dialog inputs and buttons) that names the label to fix.
+
 ## 8. Open questions for the operator / manager
 
 | # | question | my lean |

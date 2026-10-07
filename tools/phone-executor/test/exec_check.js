@@ -222,5 +222,47 @@ document.getElementById('cb').onclick=function(){window.__cbClicks=(window.__cbC
   eq(await pG.evaluate("__ex.openTpsl(1)"), "switched", "switch layout: the text-less switch beside it is clicked");
   eq(await pG.evaluate("__ex.openTpsl(2)"), "ok", "switch layout: TP/SL inputs now shown");
   eq(await pG.evaluate("__ex.tpslArea()[0].node.text"), "TP/SL", "tpslArea dump names the TP/SL element");
+  // POSITION AMEND (PROP-TRAIL-PHONE): SYNTHETIC Positions table + edit dialog. Proves the helpers' mechanics, NOT
+  // Breakout's real edit UI (never captured): unique row, never a close control, dialog fields by label, one save.
+  const posH = (cols, rowBtns, extraRow) => `<!doctype html><html><body><button>Positions</button><button>Open orders</button>
+<table><thead><tr>${cols.map((c) => "<th>" + c + "</th>").join("")}</tr></thead><tbody>
+<tr id=r1><td>ETHUSD</td><td>Buy</td><td>0.50</td><td>2,500.00</td>${cols.includes("SL") ? "<td id=csl>2,450.00</td><td id=ctp>2,800.00</td>" : ""}<td>${rowBtns}</td></tr>${extraRow || ""}
+</tbody></table><div id=dl></div>
+<script>window.__closed=0;window.__saved=0;
+document.querySelectorAll('[data-close]').forEach(function(x){x.onclick=function(){window.__closed++}});
+document.querySelectorAll('[data-edit]').forEach(function(x){x.onclick=function(){
+ var sl=(document.getElementById('csl')||{}).textContent||window.__sl||'2450.00', tp=(document.getElementById('ctp')||{}).textContent||window.__tp||'2800.00';
+ document.getElementById('dl').innerHTML='<div role=dialog><h3>Edit position</h3><label for=dsl>Stop loss price</label><input id=dsl type=text value="'+sl.replace(/,/g,'')+'"><label for=dslp>Stop loss %</label><input id=dslp type=text><label for=dtp>Take profit price</label><input id=dtp type=text value="'+tp.replace(/,/g,'')+'"><button id=sv>Save</button><button id=cx>Cancel</button><button>Close position</button></div>';
+ document.getElementById('sv').onclick=function(){window.__saved++;var a=document.getElementById('dsl').value,b2=document.getElementById('dtp').value;if(document.getElementById('csl')){document.getElementById('csl').textContent=a;document.getElementById('ctp').textContent=b2}else{window.__sl=a;window.__tp=b2}document.getElementById('dl').innerHTML=''};
+ document.getElementById('cx').onclick=function(){document.getElementById('dl').innerHTML=''};}});
+</script></body></html>`;
+  const COLS = ["Symbol", "Side", "Qty", "Entry", "SL", "TP", ""];
+  const pP = await onHost(posH(COLS, "<button data-edit aria-label='Edit'>✎</button><button data-close>Close</button>"));
+  const rP = (c) => pP.evaluate(c);
+  let pi = await rP("__ex.posInfo('ETHUSD','long|buy')");
+  eq([pi.n, pi.sl, pi.tp], [1, "2,450.00", "2,800.00"], "amend: one ETH long row, SL/TP columns read");
+  eq((await rP("__ex.posInfo('ETHUSD','short|sell')")).n, 0, "amend: no short row");
+  eq(await rP("__ex.posEdit('ETHUSD','long|buy')"), "clicked", "amend: the row's ONE edit control clicked");
+  eq(await rP("window.__closed"), 0, "amend: close control never clicked");
+  eq((await rP("__ex.editDialog()")).n, 1, "amend: one dialog");
+  eq((await rP("__ex.dlgRead('stop ?loss|\\bsl\\b','')")).n, 2, "amend: SL label ambiguous (price + %) without prefer");
+  eq((await rP("__ex.dlgRead('stop ?loss|\\bsl\\b','price')")).value, "2450.00", "amend: dialog SL read by label");
+  eq((await rP("__ex.dlgSet('stop ?loss|\\bsl\\b','price','2530.00')")).value, "2530.00", "amend: dialog SL typed + read back");
+  eq((await rP("__ex.dlgRead('take ?profit|\\btp\\b','price')")).value, "2800.00", "amend: kept TP unchanged");
+  eq(await rP("__ex.dlgCancel()"), "clicked", "amend (dry): cancelled, not saved");
+  eq([await rP("window.__saved"), (await rP("__ex.editDialog()")).n, (await rP("__ex.posInfo('ETHUSD','long|buy')")).sl], [0, 0, "2,450.00"], "amend (dry): nothing saved, row unchanged");
+  await rP("__ex.posEdit('ETHUSD','long|buy')");
+  await rP("__ex.dlgSet('stop ?loss|\\bsl\\b','price','2530.00')");
+  eq(await rP("__ex.dlgSave()"), "clicked", "amend (live): the ONE save button (never 'Close position')");
+  eq([await rP("window.__saved"), await rP("window.__closed"), (await rP("__ex.posInfo('ETHUSD','long|buy')")).sl], [1, 0, "2530.00"], "amend (live): saved, row read back with the new SL");
+  // no SL/TP columns: the read-back re-opens the dialog; a row with only a close control has no edit route
+  const pQ = await onHost(posH(["Symbol", "Side", "Qty", "Entry", ""], "<button data-edit title='Modify TP/SL'></button><button data-close>Close</button>"));
+  eq([(await pQ.evaluate("__ex.posInfo('ETHUSD','long|buy')")).sl, await pQ.evaluate("__ex.posEdit('ETHUSD','long|buy')")], [null, "clicked"], "amend: no SL column -> null; edit found by title");
+  const pR = await onHost(posH(["Symbol", "Side", "Qty", "Entry", ""], "<button data-close>Close</button><button data-close aria-label='Close position'>x</button>"));
+  eq([await pR.evaluate("__ex.posEdit('ETHUSD','long|buy')"), await pR.evaluate("window.__closed")], ["no_edit", 0], "amend: only close controls -> no_edit, nothing clicked");
+  const pS = await onHost(posH(COLS, "<button data-edit>Edit</button>", "<tr><td>ETHUSD</td><td>Buy</td><td>0.10</td><td>2,400</td><td>2,300</td><td>2,900</td><td><button data-edit>Edit</button></td></tr>"));
+  eq(await pS.evaluate("__ex.posEdit('ETHUSD','long|buy')"), "rows_2", "amend: two ETH long rows -> refused, nothing clicked");
+  eq(await pS.evaluate("__ex.dlgSave()"), "none", "amend: no dialog -> no save");
+
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });
