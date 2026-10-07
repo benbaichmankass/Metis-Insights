@@ -3322,6 +3322,48 @@ def account_alpaca_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, An
             if isinstance(leg, dict):
                 _emit(leg, parent_id=o.get("id"))
 
+    # FILLED-BRACKET CHILDREN (PI-20261005-APBY4NTV-0002). `status=open` never
+    # returns a `held` stop at top level, and a bracket's PARENT (the market
+    # entry) is `filled`, so it is not returned at all -- its held stop child is
+    # reachable only through the parent's `legs` on a `status=closed` read. A
+    # fully bracketed position therefore read as unprotected here. Same recipe
+    # as AlpacaClient._open_orders_for_symbol (FIX-SA-03), bounded to ONE page:
+    # a full page is reported `truncated`, a failed read `could_not_look` --
+    # neither is ever rendered as "no held legs". The open read above already
+    # answered the main question, so this sub-read degrades the payload's
+    # `held_legs_state` rather than nulling it.
+    held_legs_state = "read"
+    _resting = ("new", "accepted", "held", "partially_filled", "pending_new",
+                "pending_replace", "accepted_for_bidding", "calculated")
+    try:
+        from datetime import datetime, timedelta, timezone
+        after = (datetime.now(timezone.utc) - timedelta(days=91)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
+        page_limit = 500
+        env2 = client._request(
+            "GET", f"/v2/orders?status=closed&nested=true&direction=desc"
+                   f"&limit={page_limit}&after={after}")
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged; surfaced as held_legs_state="could_not_look", never as "no held legs"
+        logger.warning("account_alpaca_open_orders(%s): closed-parent read raised: %s", aid, exc)
+        env2 = None
+    if not isinstance(env2, dict) or env2.get("retCode") != 0:
+        held_legs_state = "could_not_look"
+    else:
+        closed = [o for o in (env2.get("result") or []) if isinstance(o, dict)]
+        if len(closed) >= page_limit:
+            held_legs_state = "truncated"
+        seen_ids = {o.get("order_id") for o in orders}
+        for parent in closed:
+            if str(parent.get("status") or "").lower() not in ("filled", "partially_filled"):
+                continue
+            for leg in (parent.get("legs") or []):
+                if not isinstance(leg, dict) or leg.get("id") in seen_ids:
+                    continue
+                if str(leg.get("status") or "").lower() not in _resting:
+                    continue
+                seen_ids.add(leg.get("id"))
+                _emit(leg, parent_id=parent.get("id"))
+
     # POSITIONS SECOND -- context, not the answer. `positions()` already returns
     # None on a read failure rather than [], so that distinction is preserved
     # rather than re-derived here.
@@ -3346,6 +3388,9 @@ def account_alpaca_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, An
         "orders": orders,
         "positions": positions,
         "positions_state": positions_state,
+        # "read" | "truncated" | "could_not_look": whether `held` bracket legs
+        # of FILLED parents were enumerated (they are invisible to status=open).
+        "held_legs_state": held_legs_state,
         # Stated so a consumer never mistakes the shape for the Bybit one.
         "position_level_protection_supported": False,
     }

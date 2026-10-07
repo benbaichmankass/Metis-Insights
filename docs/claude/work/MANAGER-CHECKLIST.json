@@ -5469,22 +5469,6 @@
       "note": "[2026-10-06T00:20Z manager] Round-trip PR #16660 held (Tier 2); dispatch denied by classifier, awaiting operator approval in lane session. [2026-10-05T17:58Z manager] OPERATOR popup ~14:48Z: \"Build it + pre-approve test\". #16636 merged 432a92c9 (adapter, dry by default; positionBased=true so IF-THEN bracket). Next: roundtrip system-action PR, one 0.01 ETHUSD round trip with flatten-on-mismatch stop rule. velotrade_1 stays dry_run, empty roster."
     },
     {
-      "id": "VELOTRADE-RECON",
-      "title": "Reconcile velotrade_1 closes from the venue's own trade history (dxtrade_api read_trade_history)",
-      "phase": "W6",
-      "state": "in_flight",
-      "owner": "lane VELOTRADE-RECON",
-      "lane": "session_01DZSAXAAYAWhKdcWpbhwthS",
-      "model": "claude-sonnet-5-5",
-      "ceiling_usd": 20,
-      "spend_usd": null,
-      "tier": 2,
-      "prs": [],
-      "blocked_on": [],
-      "note": "[2026-10-07 lane VELOTRADE-RECON] Pipeline PI-20261006-ZRM27CBW-0001. Implemented DXtradeApiAdapter.read_trade_history (GET orders/history -> match_exit rows) + read-only system-action velotrade-trade-history-read. Unit-tested against a SPEC-shaped fixture only: NOT yet observed on the live account. Closes when the action is dispatched after merge and returns the 2026-10-06 10:18Z 0.01 ETH round trip rows; re-record the fixture from that output.",
-      "observation": "dispatch velotrade-trade-history-read after merge; expect an opening BUY and a closing SELL 0.01 ETHUSD near 2026-10-06T10:18Z in period=today/yesterday rows"
-    },
-    {
       "id": "PHONE-BG",
       "title": "Breakout phone app claims and runs tickets while backgrounded (operator: needed for real automated trading)",
       "phase": "W6",
@@ -5522,6 +5506,46 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-06T13:05Z manager] Found while surveying the 41 prop units for the operator's 'push prop roster research' ask. PI-20261006-APBY4NTV-0010 has the measurements (8 of 358 result rows discarded across 6 units; 005 and 659 each fired twice). The double-fire is a consequence of my own #16736 (hourly cadence); the yaml bug predates it (#16388). Closes when a fresh harness result carries a real verdict and two consecutive cycles fire nothing twice."
+    },
+    {
+      "id": "VELOTRADE-RECON",
+      "title": "Reconcile velotrade_1 closes from the venue's own trade history (dxtrade_api read_trade_history)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "lane VELOTRADE-RECON",
+      "lane": "session_01DZSAXAAYAWhKdcWpbhwthS",
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07 lane VELOTRADE-RECON] Pipeline PI-20261006-ZRM27CBW-0001. Implemented DXtradeApiAdapter.read_trade_history (GET orders/history -> match_exit rows) + read-only system-action velotrade-trade-history-read. Unit-tested against a SPEC-shaped fixture only: NOT yet observed on the live account. Closes when the action is dispatched after merge and returns the 2026-10-06 10:18Z 0.01 ETH round trip rows; re-record the fixture from that output.",
+      "observation": "dispatch velotrade-trade-history-read after merge; expect an opening BUY and a closing SELL 0.01 ETHUSD near 2026-10-06T10:18Z in period=today/yesterday rows"
+    },
+    {
+      "id": "PROP-TRAIL-PHONE",
+      "title": "Give the phone-executed prop account (breakout_2) the chandelier trail its Stage-0 record assumed: server plans, phone amends on the terminal",
+      "phase": "E",
+      "state": "blocked",
+      "owner": "build lane",
+      "lane": "session_01YT5VE5mnD6LfbHaVMK2Q5Y",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        16959,
+        16980
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "MANAGER-MERGE",
+          "what": "#16959 (server) and #16980 (app) are Tier-2 HELD for the manager; then deploy (git-sync) + build/install the APK from phone-executor-apk on the merged head"
+        }
+      ],
+      "note": "[2026-10-07 lane session_01YT5VE5mnD6LfbHaVMK2Q5Y] BUILT, not merged. Pipeline PI-20261006-KX6ZKFNA-0002 (routed here). #16959: src/prop/phone_trail.py reuses prop_trail.plan_trail once per closed bar per placed ticket; ONE amend slot in prop_tickets.meta.phone_trail; served only to an app posting accepts:[amend]; mismatch/human_moved/2nd refusal/unreported claim lock + ping, never retried; request_tp_amend for TP-DOCTRINE. #16980: executeAmend (unique Positions row, resting stop must match else human_moved, one edit control never a close, one dialog, fields by label, read back, dry=cancel, live=one save then terminal re-read). UNMEASURED: Breakout's position edit UI was never captured; the first amend either passes or refuses with the dump. landed_unproven observation (after merge+deploy+install): the first live breakout_2 position receives one amend with meta.phone_trail.amend.status=='amended'. Related gap filed: PI-20261007-AVMK2Q5Y-0001 (phone fills never journaled open)."
     }
   ]
 }

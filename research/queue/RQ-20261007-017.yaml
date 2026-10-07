@@ -1,0 +1,76 @@
+id: RQ-20261007-017
+title: 'Stage-0 baskets: dollar-neutral cross-sectional momentum on the fixed ETF basket (SPY, QQQ, GLD, TLT, IWM, 1d) --
+  the relative-value baskets family, net of fees and slippage'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 3
+kind: experiment
+question: 'Over the committed 1d ETF corpus (SPY, QQQ, GLD, TLT, IWM; yfinance 3650 d), does scripts/backtest_xsec_momentum.py''s
+  weekly-rebalanced long-top-tercile / short-bottom-tercile dollar-neutral book clear the harness''s OWN three-clause gate
+  (every in-sample k-fold net-positive after 1x fees; 2x-cost Sharpe > 0; holdout net-positive) with slippage charged? P7
+  (docs/research/P7-xsec-momentum-firstpass-2026-06-26.md) answered FAIL on 6 crypto coins; this is the first registered run
+  on the ETF basket, where no funding term is owed (non-perp legs), so the D1 gap that keeps the perp variant out of scope
+  does not apply. Registered by lane ARB-RESEARCH session_01Aeyqvqf9sajCVDx9Ufef4u (PI-20261006-APBY4NTV-0005); family table:
+  docs/research/relative-value-families-2026-10-07.md.'
+why_this_matters: 'Operator 2026-10-06: relative-value strategies beyond directional prediction. A cross-sectional book is
+  the only basket-shaped family with a net-of-cost harness and a dispatch route today (research-harness-dispatch.yml wires
+  this exact basket). No N-leg order path exists, so a PASS leads to an order-path build, not a soak -- but the Stage-0 question
+  is answerable now and a FAIL closes the family cheaply.'
+power:
+  expected_n: 2500
+  min_detectable_effect: 0.063
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: The statistic is a DAILY BOOK RETURN series, not trades. An annualised Sharpe of 1.0 is a daily standardised mean
+    of 1/sqrt(252) = 0.063 sd; detecting it at alpha 0.05 / power 0.8 needs (1.96+0.84)^2 / 0.063^2 = ~1975 daily observations.
+    expected_n=2500 = ~10 years x 252 trading days, the yfinance 1d window the corpus manifest records for all five ETFs (2016-09-26..2026-09-25).
+  feasibility:
+    source: none
+    accrual_basis: No xsec_momentum run on ETFs has landed; the one dispatch on record is a wiring proof (research-harness-dispatch.yml's
+      xsec arm). The n is a property of the fixed calendar window, not of accrual -- it is known in advance and will not grow.
+decision_rule:
+  id: RULE-RQ1007-017-XSEC-ETF-BASKET-GATE
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'The harness''s `gate` block in result.json: (1) every in-sample k-fold''s net_total_return > 0 after 1x fees;
+    (2) sharpe_annualized of the full series at 2x costs > 0; (3) holdout net_total_return > 0. Fees and slippage per execution_costs
+    (ETF: fee default, slippage 5 bps rt); no funding (non-perp). Also REPORTED, never graded on: sharpe_annualized at 1x,
+    max drawdown, per-fold table.'
+  rule: 'PASS iff clauses (1), (2) and (3) all read PASS in the harness''s gate block. FAIL iff clause (1) reads FAIL (a k-fold
+    is net-negative after 1x fees). Otherwise NULL, naming the first failing clause in the order 2, 3. A PASS is Stage-0 evidence
+    for an order-path build proposal, never a placement. Thresholds are the harness''s own (P7) and are not changed after
+    seeing a result. GRADING IS BY SESSION: scripts/research/harness_dispatch_result.py maps only `net_total_r`/`total_trades`
+    rules and this harness emits net_total_return/sharpe_annualized/gate, so the landed record reads `wiring_only` and queue_grade
+    sets needs_review; the reader applies the three clauses from the record''s measurement block (PI-20261007-X9UFEF4U-0003
+    files the mapper gap).'
+  what_it_does_not_do: Does not touch any roster or config. Five ETFs is a thin cross-section (ceil(5 x 1/3) = 2 names per
+    side); a PASS here is not evidence for a wider universe, and a FAIL is not evidence against one. Says nothing about perps
+    (the harness has no funding term -- D1 list in CLAUDE.md). Borrow on the short ETF legs is NOT modelled.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 10
+  basis: Five 1d CSV fetches plus a daily-panel backtest; the xsec arm ran inside the 30-minute build job on its wiring-proof
+    dispatch.
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: xsec_momentum
+    symbol: SPY
+    symbol_b: QQQ
+    timeframe: 1d
+    research_unit: RQ-20261007-017
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- docs/research/P7-xsec-momentum-firstpass-2026-06-26.md
+- docs/research/relative-value-families-2026-10-07.md
+- PI-20261006-APBY4NTV-0005
+- PI-20261007-X9UFEF4U-0003
+last_dispatched_at: null
