@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0004",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-13",
+    "how_to_check": "git log origin/main --oneline -- <the script named in this item> shows the fix; python3 -m pytest the test file named in this item passes",
+    "what": "PR claude/harness-audit-fixes (#16952) merged to main and its guards green; fix for this finding present on main"
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value against current scripts/research/pairs_universe_scan.py:361"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/pairs_universe_scan.py:361 uses the wrong Engle-Granger critical value (-2.86, the plain single-series ADF value, not the more-negative 2-variable MacKinnon value), inflating false cointegration detections to 60/300 trials (20%) in a Monte Carlo of genuinely independent random-walk pairs, vs. the claimed 5% — see docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value for full evidence. || HARNESS-AUDIT-FIXES 2026-10-07: FIXED on branch claude/harness-audit-fixes (EG crit now MacKinnon 2-var via eg_critical_value; cointegrating vector fit pre-OOS only -- also closes AUD ...oos-persistence-leakage; tests/test_pairs_universe_scan_eg.py fails on old code). BLAST RADIUS MEASURED: 0 of 334 records under research/results + comms/strategy_evidence name pairs_universe_scan.py (only pairs tool named: scripts/backtest_pairs.py, no ADF gate); docs/research/pairs-extensions-2026-07-15.md D5 findings are still 'pending'. Landed pairs verdicts STAND. Only exposure: blocked unit RQ-20260922-011 plans to run the scan -- it must run the FIXED scan (this branch merged)."
+}

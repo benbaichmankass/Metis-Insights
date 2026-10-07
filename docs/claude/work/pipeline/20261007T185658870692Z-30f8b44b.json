@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0008",
+  "next_action": "check_observation",
+  "observation": {
+    "due_by": "2026-10-13",
+    "how_to_check": "git log origin/main --oneline -- <the script named in this item> shows the fix; python3 -m pytest the test file named in this item passes",
+    "what": "PR claude/harness-audit-fixes (#16952) merged to main and its guards green; fix for this finding present on main"
+  },
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-sweep-wave1-stale-json-reuse",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-sweep-wave1-stale-json-reuse against current scripts/research/sweep_wave1_families.py:89"
+  },
+  "state": "queued",
+  "unrouted_2026_10_05": "[BACKLOG-BURNDOWN-3 2026-10-05] routed_to named no live checklist row or research-queue unit ('RESEARCH (re-pointed from RESEARCH (BACKLOG-BURNDOWN-2 2026-'); an owner that does not exist is not an owner -- state corrected to queued, due dates untouched. It surfaces as unrouted when its date lapses.",
+  "what": "CA-B04 audit finding (high): scripts/research/sweep_wave1_families.py:89 — Module docstring: \"Robust: every run is subprocess-isolated with a timeout; a failure is logged and the sweep continues,\" implying a failed backtest run is recorded as a failure in || HARNESS-AUDIT-FIXES 2026-10-07: FIXED on branch claude/harness-audit-fixes (run_fresh; a failed run is now ok:false instead of the previous run's numbers). BLAST RADIUS: no record under research/results, comms/strategy_evidence, docs or config names sweep_wave1_families.py; its results.jsonl is not committed."
+}
