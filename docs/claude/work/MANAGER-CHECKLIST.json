@@ -5637,7 +5637,7 @@
       "lane": "session_01RhuwEhfTiPHfhET5rLDaSX",
       "model": "claude-sonnet-5-5",
       "ceiling_usd": 8,
-      "spend_usd": null,
+      "spend_usd": 2.15,
       "tier": 1,
       "prs": [
         16943
