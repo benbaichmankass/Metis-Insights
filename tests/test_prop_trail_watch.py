@@ -37,7 +37,9 @@ def test_since_three_values(tmp_path):
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores directory permissions")
 def test_unreadable_is_unknown_not_none(tmp_path):
-    d = tmp_path / "ex"; d.mkdir(); _latch(d)
+    d = tmp_path / "ex"
+    d.mkdir()
+    _latch(d)
     os.chmod(d, 0)
     try:
         assert tp.read_trail_paused_since(d) == tp.UNKNOWN
@@ -46,7 +48,8 @@ def test_unreadable_is_unknown_not_none(tmp_path):
 
 
 def test_unknown_when_path_component_is_a_file(tmp_path):
-    f = tmp_path / "afile"; f.write_text("x")
+    f = tmp_path / "afile"
+    f.write_text("x")
     assert tp.read_trail_paused_since(f / "sub") in (None, tp.UNKNOWN)  # ENOTDIR path: never a crash
 
 
@@ -114,7 +117,8 @@ def test_attention_watch_edge_class_carries_it(tmp_path):
 
 
 def _mk(d: Path, since, ticks):
-    _pulse(d, since, ticks); return d
+    _pulse(d, since, ticks)
+    return d
 
 
 def test_tick_emits_pulse_line(tmp_path, capsys):
