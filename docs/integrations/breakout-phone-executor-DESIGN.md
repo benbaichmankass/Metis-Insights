@@ -172,6 +172,17 @@ The VM executor's order is: kill switch → read the terminal → reconcile → 
 | Submit | Re-hashes the live form; clicks **only if** it equals the verified hash and the token is unexpired | Never. Network loss between verify and click ⇒ **no click** (fail closed). |
 | Confirm | Re-reads positions/orders; classifies `confirmed / partial_no_sl_tp / absent` | Receives the report; `partial_no_sl_tp` triggers containment and an alert. |
 
+**Built (PHONE-GO-TOKEN, 2026-10-07; PI-20261005-YUVCGTMJ-0003).** `POST /api/bot/prop/phone/verify` and
+`POST /api/bot/prop/phone/go` (`src/prop/phone_executor.py::verify_readback` / `redeem_go_token`). As built, it differs
+from the table above in two stated ways: (1) the phone's own phase-1b checks are KEPT and run first; the server check is a
+second, independent one over the raw strings the page shows (symbol, selected side and order-type tabs, price, qty and
+its unit, TP, SL, submit label and its enabled state, TP/SL state), not a port of `check_form_shape`, because the
+proprietary terminal's form is not the DXtrade shape that function reads; (2) the 30 s token is REDEEMED on the server
+(`/phone/go`, consumed once, refused on replay, on a changed form hash, on expiry, or when the account / kill switch is
+no longer live) instead of being compared on the phone only. A `meta.test` ticket, a `dry_run` account or the kill
+switch get a `dry` token whose redeem always answers `go: false`; the dry path redeems it too, so a dry test exercises
+the whole route without a click.
+
 Why server-side for read-back: it keeps one tested implementation and means a fix lands without shipping an APK. The cost
 is that the phone cannot place an order while offline; that is correct, since it could not report either. The click
 guard on the phone is deliberately dumb (an equality check on a hash).

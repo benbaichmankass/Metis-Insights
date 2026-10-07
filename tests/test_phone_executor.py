@@ -283,3 +283,160 @@ def test_pending_counts_an_unserved_dry_test_request_without_serving_it(monkeypa
     assert pe.pending_count(_dev()) == 1  # still unserved: the peek wrote no ticket
     assert pe.claim_next(_dev())["meta"]["dry_test_request"] == "r9"
     assert pe.pending_count(_dev()) == 0
+
+
+# ---- server-side read-back + go-token (design 3.4, PHONE-GO-TOKEN) ----
+
+def _live(tmp_path: Path, monkeypatch, mode: str = "live") -> None:
+    acc = tmp_path / "accounts.yaml"
+    acc.write_text(yaml.safe_dump({"accounts": {"breakout_2": {"mode": mode}}}))
+    monkeypatch.setattr(pe, "ACCOUNTS_PATH", acc)
+
+
+def _rb(tid: str, **over) -> dict:
+    rb = {"ticket_id": tid, "symbol": "ETHUSD", "side": "Buy", "order_type": "Limit", "price": "2,500.00",
+          "qty": "0.50", "qty_unit": "ETH", "tp": "2700.00", "sl": "2450.00",
+          "submit_label": "Long (buy) ETHUSD", "submit_disabled": "false", "tpsl": "true"}
+    rb.update(over)
+    return rb
+
+
+def _verify(tid: str, **over) -> dict:
+    rb = _rb(tid, **over)
+    return pe.verify_readback(_dev(), {"ticket_id": tid, "readback": rb, "readback_sha256": pe.readback_hash(rb)})
+
+
+def _claimed(tid: str = "t1", **kw) -> str:
+    _ticket(tid, **kw)
+    assert pe.claim_next(_dev())["ticket_id"] == tid
+    return tid
+
+
+def test_verify_match_issues_one_live_token_and_go_redeems_once(tmp_path, monkeypatch, _iso):
+    _live(tmp_path, monkeypatch)
+    tid = _claimed()
+    v = _verify(tid)
+    assert v["ok"] is True and v["mode"] == "live" and v["token"] and v["ttl_s"] == 30
+    stored = prop_journal.get_ticket(tid)["meta"]["phone"]["go"]
+    assert v["token"] not in json.dumps(stored)  # only the token's hash is kept
+    go = pe.redeem_go_token(_dev(), {"ticket_id": tid, "token": v["token"], "readback_sha256": v["readback_sha256"]})
+    assert go["go"] is True
+    # replay of the used token is refused (and pinged)
+    again = pe.redeem_go_token(_dev(), {"ticket_id": tid, "token": v["token"], "readback_sha256": v["readback_sha256"]})
+    assert again["go"] is False and "replay" in again["reason"]
+    assert any("go-token refused" in m for m in _iso)
+    # one token per ticket: a second verify is refused
+    assert _verify(tid)["ok"] is False
+
+
+def test_verify_tolerates_one_step_and_refuses_beyond(tmp_path, monkeypatch):
+    _live(tmp_path, monkeypatch)
+    ok = _verify(_claimed("a"), price="2500.01", tp="2699.99", sl="2450.01", qty="0.5")
+    assert ok["ok"] is True, ok.get("reasons")
+    bad = _verify(_claimed("b"), price="2500.02")
+    assert bad["ok"] is False and any("price" in r for r in bad["reasons"])
+    over = _verify(_claimed("c"), qty="0.51")
+    assert over["ok"] is False and any("exceeds" in r for r in over["reasons"])
+    under = _verify(_claimed("d"), qty="0.49")  # the phone floors to the step: a full step below is not its fill
+    assert under["ok"] is False and any("below" in r for r in under["reasons"])
+
+
+@pytest.mark.parametrize("over,needle", [
+    ({"symbol": "BTCUSD"}, "symbol"),
+    ({"side": "Sell"}, "side tab"),
+    ({"submit_label": "Short (sell) ETHUSD"}, "side"),
+    ({"submit_label": "Long (buy) BTCUSD"}, "submit label does not name"),
+    ({"order_type": "Market"}, "order type"),
+    ({"qty_unit": "USD"}, "quantity unit"),
+    ({"tp": "2600.00"}, "tp"),
+    ({"sl": "2550.00"}, "sl"),
+    ({"submit_disabled": "true"}, "enabled"),
+    ({"tpsl": "false"}, "TP/SL"),
+    ({"price": ""}, "price unreadable"),
+])
+def test_verify_mismatch_fails_closed_and_pings(tmp_path, monkeypatch, _iso, over, needle):
+    _live(tmp_path, monkeypatch)
+    tid = _claimed()
+    v = _verify(tid, **over)
+    assert v["ok"] is False and v["token"] is None
+    assert any(needle in r for r in v["reasons"]), v["reasons"]
+    assert prop_journal.get_ticket(tid)["meta"]["phone"]["verify"]["ok"] is False
+    assert any("SERVER read-back refused" in m for m in _iso)
+    # no token -> no go
+    assert pe.redeem_go_token(_dev(), {"ticket_id": tid, "token": "x" * 32, "readback_sha256": ""})["go"] is False
+
+
+def test_verify_refuses_hash_drift_and_unclaimed_or_foreign_tickets(tmp_path, monkeypatch):
+    _live(tmp_path, monkeypatch)
+    tid = _claimed()
+    rb = _rb(tid)
+    v = pe.verify_readback(_dev(), {"ticket_id": tid, "readback": rb, "readback_sha256": "0" * 64})
+    assert v["ok"] is False and any("hash" in r for r in v["reasons"])
+    _ticket("unclaimed")
+    assert _verify("unclaimed")["ok"] is False
+    _ticket("other", account="breakout_1")
+    assert _verify("other")["ok"] is False
+
+
+def test_test_ticket_never_gets_a_live_token(tmp_path, monkeypatch, _iso):
+    _live(tmp_path, monkeypatch)
+    tid = _claimed("tt", meta={"test": True})
+    v = _verify(tid)
+    assert v["ok"] is True and v["mode"] == "dry"
+    go = pe.redeem_go_token(_dev(), {"ticket_id": tid, "token": v["token"], "readback_sha256": v["readback_sha256"]})
+    assert go["go"] is False and "dry token" in go["reason"]
+    assert not any("go-token refused" in m for m in _iso)  # the expected dry path is quiet
+
+
+def test_dry_account_and_kill_switch_give_dry_tokens(tmp_path, monkeypatch):
+    _live(tmp_path, monkeypatch, mode="dry_run")
+    assert _verify(_claimed("d1"))["mode"] == "dry"
+    _live(tmp_path, monkeypatch)
+    v = _verify(_claimed("d2"))
+    assert v["mode"] == "live"
+    monkeypatch.setenv("PROP_PHONE_MODE_BREAKOUT_2", "dry")  # flipped between verify and click
+    go = pe.redeem_go_token(_dev(), {"ticket_id": "d2", "token": v["token"], "readback_sha256": v["readback_sha256"]})
+    assert go["go"] is False and "no longer live" in go["reason"]
+
+
+def test_go_refuses_expired_token_and_changed_form(tmp_path, monkeypatch):
+    _live(tmp_path, monkeypatch)
+    v = _verify(_claimed("e1"))
+    late = datetime.now(timezone.utc) + timedelta(seconds=31)
+    go = pe.redeem_go_token(_dev(), {"ticket_id": "e1", "token": v["token"],
+                                     "readback_sha256": v["readback_sha256"]}, now=late)
+    assert go["go"] is False and "expired" in go["reason"]
+    v2 = _verify(_claimed("e2"))
+    changed = pe.readback_hash(_rb("e2", qty="0.40"))
+    go2 = pe.redeem_go_token(_dev(), {"ticket_id": "e2", "token": v2["token"], "readback_sha256": changed})
+    assert go2["go"] is False and "form changed" in go2["reason"]
+    # the refused redeem consumed the token: the right hash afterwards is still refused
+    go3 = pe.redeem_go_token(_dev(), {"ticket_id": "e2", "token": v2["token"], "readback_sha256": v2["readback_sha256"]})
+    assert go3["go"] is False
+
+
+def test_verify_and_go_routes(tmp_path, monkeypatch):
+    from src.web.api import main as api_main
+    _live(tmp_path, monkeypatch)
+    c = TestClient(api_main.app, raise_server_exceptions=False)
+    assert c.post("/api/bot/prop/phone/verify", json={}).status_code == 401
+    assert c.post("/api/bot/prop/phone/go", json={}).status_code == 401
+    tid = _claimed()
+    h = {"Authorization": "Bearer " + TOKEN}
+    rb = _rb(tid)
+    v = c.post("/api/bot/prop/phone/verify", headers=h,
+               json={"ticket_id": tid, "readback": rb, "readback_sha256": pe.readback_hash(rb)}).json()
+    assert v["ok"] is True and v["mode"] == "live"
+    g = c.post("/api/bot/prop/phone/go", headers=h,
+               json={"ticket_id": tid, "token": v["token"], "readback_sha256": v["readback_sha256"]}).json()
+    assert g["go"] is True
+
+
+def test_readback_hash_matches_the_phone_canonical_form():
+    # MainActivity.kt readBackLines(): "key=value" lines in READBACK_FIELDS order, values trimmed, joined by "\n".
+    rb = _rb("t1")
+    lines = "\n".join(f"{k}={rb[k]}" for k in pe.READBACK_FIELDS)
+    assert pe.readback_hash(rb) == hashlib.sha256(lines.encode()).hexdigest()
+    src = Path("tools/phone-executor/app/src/main/java/com/metis/phoneexec/MainActivity.kt").read_text()
+    order = src.split("READBACK_FIELDS = listOf(")[1].split(")")[0]
+    assert [x.strip().strip('"') for x in order.split(",") if x.strip()] == list(pe.READBACK_FIELDS)
