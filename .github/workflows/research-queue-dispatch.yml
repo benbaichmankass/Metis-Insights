@@ -201,6 +201,21 @@ jobs:
       - name: Install pyyaml
         run: pip install --quiet pyyaml
 
+      # The sha this job checked out. commit-to-main commits on the CURRENT
+      # HEAD, and this job calls it up to three times in sequence (batch
+      # results, liveness receipt, dispatch stamps), so without a reset the
+      # second branch carried the first commit and the third carried both.
+      # MEASURED 2026-10-06 on stamp PR #16770: 10 files, of which only 3 were
+      # stamps -- the receipt json and the receipt branch's own landing
+      # declarations rode along, and the moment the NEXT run's receipt merged
+      # (a different run_id in the same json) the stamp PR went `dirty` and
+      # its stamps were dropped whole. Each landing below returns to this sha
+      # first ("Return to the checked-out base"), so every throwaway branch
+      # carries exactly its own paths. The working-tree stamps survive the
+      # checkout: they are modifications to files no landing commit touches.
+      - name: Record the checked-out base
+        run: echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       # RQ-OPS-2 (2026-09-28, follow-up to PI-20260928-RQOPS2-0002): a real
       # dispatch on 2026-09-28 (run 36427562901) hit exactly the gap that PI
       # documents — the only units due that day were two of the six whose
@@ -282,7 +297,11 @@ jobs:
           # queued repo-wide; dispatch_queue.py counts via gh and says why.
           ARGS=(--ref "${{ github.ref_name }}" --max-gpu-dispatches-per-run "${{ inputs.max_gpu || '1' }}"
                 --max-research-inflight 3 --max-repo-queued 10)
-          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire); fi
+          # --check-open-stamp-prs rides with the fire flag (same FIRE gate): a
+          # unit stamped by an OPEN stamp PR is already dispatched (lane RQ-FIX,
+          # 2026-10-06); if gh cannot list PRs the cycle defers every fire
+          # rather than double-fire.
+          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire --check-open-stamp-prs); fi
           if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
           python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
 
@@ -305,6 +324,9 @@ jobs:
       # dodge a second wait, and that is exactly the "twelve of thirteen
       # callers never check" defect that test exists to catch. `timeout-
       # minutes` below is sized for two sequential worst-case waits instead.
+      - name: Return to the checked-out base (drop the batch landing's commit)
+        run: git checkout -q --detach "${BASE_SHA}"
+
       - name: Write the liveness receipt
         env:
           # `steps.grade.outcome` (GH Actions expression, resolved BEFORE the
@@ -354,16 +376,29 @@ jobs:
       #
       # ⚠️ Only on a REAL fire. A dry run stamps nothing, so there is nothing to
       # land and this step is skipped rather than opening an empty PR.
-      # ⚠️ THE STAMP IS THIS WORKFLOW'S ONLY IDEMPOTENCY, AND UNTIL 2026-08-30 IT
-      # WAS UNVERIFIED. The comment below correctly warns that a fired-but-
-      # unstamped job "re-fires forever" — and then guards only ONE of the two
-      # routes to that state. The other is this step: `commit-to-main` exits 0
-      # when the PR is OPENED, so a stranded stamp PR means `last_dispatched_at`
-      # never reaches main and the dispatcher re-fires the SAME job every single
-      # day, indefinitely, burning a runner each time (and, for a GPU-routed job,
-      # real money against the spend ledger). That is not theoretical: origin
-      # carried 5 stranded `automation/*` branches the day this was armed, the
-      # oldest 10 weeks. `verify-merged` closes it.
+      # ⚠️ THE STAMP WAS THIS WORKFLOW'S ONLY IDEMPOTENCY UNTIL 2026-10-06, AND
+      # UNTIL 2026-08-30 IT WAS UNVERIFIED. The comment below correctly warns
+      # that a fired-but-unstamped job "re-fires forever" — and then guards only
+      # ONE of the two routes to that state. The other is this step:
+      # `commit-to-main` exits 0 when the PR is OPENED, so a stranded stamp PR
+      # means `last_dispatched_at` never reaches main and the dispatcher
+      # re-fires the SAME job every single day, indefinitely, burning a runner
+      # each time (and, for a GPU-routed job, real money against the spend
+      # ledger). That is not theoretical: origin carried 5 stranded
+      # `automation/*` branches the day this was armed, the oldest 10 weeks.
+      # `verify-merged` closes it.
+      # ⚠️ AND WITH AN HOURLY CRON THE STAMP ALONE CANNOT BE THE IDEMPOTENCY:
+      # this PR's CI cycle (~35-60 min) outlasts the slot, so the next cycle
+      # read main without it and fired the same unit again (RQ-20261006-005
+      # at 09:59 and 11:05, RQ-20261004-659 at 10:04 and 11:09, 2026-10-06).
+      # dispatch_queue.py now also (1) reads a landed research/results/<uid>/
+      # row as a stamp nobody has to write and (2) asks GitHub once per cycle
+      # for OPEN `automation/research-queue-stamp-*` PRs and treats a unit one
+      # of them stamps as already dispatched -- see `_stamp`'s docstring.
+      - name: Return to the checked-out base (drop the receipt landing's commit)
+        if: env.FIRE == 'true'
+        run: git checkout -q --detach "${BASE_SHA}"
+
       - name: Land the dispatch stamps on main
         # Reads the SAME `FIRE` as the flag above. If these two can disagree, a
         # fired job goes unstamped and re-fires forever.
