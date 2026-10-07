@@ -335,6 +335,30 @@
       var i = h.hits[0]; setVal(i, ""); i.focus(); return document.activeElement === i ? "focused" : "nofocus";
     },
     // Set the k-th visible input of the ticket (index from ticket().inputs). Returns the read-back value.
+    // ACCOUNT PANEL READ (PHONE-BALANCE-READ, read-only). The terminal shows "Portfolio #,###.## USD" as a control and
+    // may label Balance / Equity beside their values. Anchored on the LABEL (own text, or label + value in one short
+    // element, or label element + adjacent value element); a value is returned only when ONE distinct number matched,
+    // else null (absent is never 0, never guessed). "Portfolio" is reported separately so the app can say which label
+    // the equity came from. Numbers only; no account id, no other text.
+    accountPanel: function () {
+      function num(s) { var m = /^[-+]?\$?\s*(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*(USD[TC]?)?$/i.exec((s || "").trim()); return m ? parseFloat(m[0].replace(/[^\d.\-]/g, "")) : null; }
+      function pick(label) {
+        var rx = new RegExp("^" + label + "\\s*:?\\s*(.*)$", "i"), found = {};
+        all("button,[role=button],[role=tab],div,span,p,td,li,dt,strong,b,h1,h2,h3,h4").forEach(function (x) {
+          var tx = t(x); if (tx.length > 60) return;
+          var m = rx.exec(tx); if (!m) return;
+          var v = num(m[1]);
+          if (v === null && m[1] === "") {   // the element is the bare label: value in the next sibling or the parent's remainder
+            var sib = x.nextElementSibling; v = sib ? num(t(sib)) : null;
+            if (v === null && x.parentElement) { var pm = rx.exec(t(x.parentElement)); v = pm ? num(pm[1]) : null; }
+          }
+          if (v !== null) found[v] = 1;
+        });
+        var k = Object.keys(found); return {n: k.length, v: k.length === 1 ? parseFloat(k[0]) : null};
+      }
+      var b = pick("balance"), e = pick("equity"), p = pick("portfolio");
+      return {balance: b.v, equity: e.v, portfolio: p.v, n: {balance: b.n, equity: e.n, portfolio: p.n}};
+    },
     setInput: function (k, v) {
       var i = inputs(form() || document)[k]; if (!i) return null;
       i.focus(); setVal(i, String(v)); i.blur(); return i.value;
