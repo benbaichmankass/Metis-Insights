@@ -31,6 +31,7 @@ sizing exists to replace, and never sizes from a number nobody measured.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -148,9 +149,9 @@ def _parse_per_leg(ruleset_path: Any, mode: str, flat: Dict[str, Any]) -> Dict[s
         try:
             v = float(val)
         except (TypeError, ValueError):
-            raise ValueError(
+            raise ValueError(  # noqa: TRY004 — one error type for every bad value
                 f"{ruleset_path}: sizing.flat.per_leg_risk_usd[{leg!r}] is not a number: {val!r}")
-        if isinstance(val, bool) or not (v > 0.0) or v != v:
+        if isinstance(val, bool) or not (v > 0.0) or math.isnan(v):
             raise ValueError(
                 f"{ruleset_path}: sizing.flat.per_leg_risk_usd[{leg!r}] must be > 0, got {val!r}")
         if v > cap:
