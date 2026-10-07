@@ -1,45 +1,93 @@
 {
-  "generated_at": "2026-10-06T18:29:58Z",
+  "generated_at": "2026-10-07T06:12:12Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": "37511674898",
+    "run_id": "37580170359",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
       "findings": [
         {
-          "age_hours": 65.1,
+          "age_hours": 76.8,
           "branch": "automation/research-queue-grade-37167828059-1",
           "pr": 16124,
           "title": "research-queue: mechanical grading (auto)"
         },
         {
-          "age_hours": 23.3,
+          "age_hours": 35.0,
           "branch": "automation/e35-bracket-corpus-37361316449-1",
           "pr": 16654,
           "title": "corpus: e35 bracket sweep (run 37361316449)"
         },
         {
-          "age_hours": 23.2,
+          "age_hours": 34.9,
           "branch": "automation/research-queue-stamp-37361085176-1",
           "pr": 16656,
           "title": "chore(research-queue): dispatch stamps (auto)"
         },
         {
-          "age_hours": 23.1,
+          "age_hours": 34.8,
           "branch": "automation/research-queue-grade-37362738822-1",
           "pr": 16657,
           "title": "research-queue: mechanical grading (auto)"
         },
         {
-          "age_hours": 6.2,
+          "age_hours": 17.9,
           "branch": "automation/e35-bracket-corpus-37460771573-1",
           "pr": 16779,
           "title": "corpus: e35 bracket sweep (run 37460771573)"
+        },
+        {
+          "age_hours": 16.9,
+          "branch": "automation/research-queue-stamp-37468557781-1",
+          "pr": 16790,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        },
+        {
+          "age_hours": 16.1,
+          "branch": "automation/research-queue-grade-37475671134-1",
+          "pr": 16792,
+          "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 15.8,
+          "branch": "automation/e35-bracket-corpus-37476734499-1",
+          "pr": 16798,
+          "title": "corpus: e35 bracket sweep (run 37476734499)"
+        },
+        {
+          "age_hours": 13.8,
+          "branch": "automation/research-queue-stamp-37492039274-1",
+          "pr": 16810,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        },
+        {
+          "age_hours": 11.7,
+          "branch": "automation/research-queue-stamp-37509844168-1",
+          "pr": 16823,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        },
+        {
+          "age_hours": 10.8,
+          "branch": "automation/research-queue-grade-37518271438-1",
+          "pr": 16826,
+          "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 9.6,
+          "branch": "automation/research-queue-stamp-37525197418-1",
+          "pr": 16838,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        },
+        {
+          "age_hours": 7.6,
+          "branch": "automation/research-queue-stamp-37535490196-1",
+          "pr": 16850,
+          "title": "chore(research-queue): dispatch stamps (auto)"
         }
       ],
-      "population": "40 open PRs; 16 automation/*; 12 carry research; 4 automation/* carry none (not graded here)",
+      "population": "40 open PRs; 16 automation/*; 13 carry research; 3 automation/* carry none (not graded here)",
       "state": "findings",
       "threshold_hours": 6.0
     },
@@ -109,12 +157,12 @@
         }
       ],
       "pending_merge": [],
-      "population": "108 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-22 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1493 produced no result by design (skipped); 216 result file(s) on origin/main",
+      "population": "128 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-23 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1493 produced no result by design (skipped); 236 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "1958 artifact(s) listed, 1958 unexpired, 1527 expire within 72.0h across 1527 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "1812 artifact(s) listed, 1812 unexpired, 1381 expire within 72.0h across 1381 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },
