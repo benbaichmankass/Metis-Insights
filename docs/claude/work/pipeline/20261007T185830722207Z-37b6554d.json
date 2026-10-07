@@ -4,7 +4,7 @@
     "kind": "date"
   },
   "id": "PI-20261007-ITYCHECK-0001",
-  "next_action": "check_observation",
+  "next_action": "dispatch_lane",
   "origin": {
     "kind": "session",
     "ref": "lane EXIT-PARITY-CHECK (dispatched by manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07",
