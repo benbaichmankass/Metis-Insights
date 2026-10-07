@@ -2,8 +2,6 @@
 excluded from the Gate-2 window (PI-20261004-J4SFBKU9-0001)."""
 from __future__ import annotations
 
-import sqlite3
-import textwrap
 from pathlib import Path
 
 from scripts.ops.check_mirror_orphans import check
