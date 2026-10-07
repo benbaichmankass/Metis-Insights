@@ -10,8 +10,9 @@ gates before any shadow wiring:
 Prints a verdict table. Reads the same staged harnesses + data on the VM.
 """
 import json
-import subprocess
 from pathlib import Path
+
+from _fresh_run import run_fresh
 
 REPO = '/home/ubuntu/ict-trading-bot'
 PY = f'{REPO}/.venv/bin/python'
@@ -46,7 +47,7 @@ def run(script, data, symbol, tf, extra, fee=7.5, start=None, end=None, tag='x')
     if end:
         cmd += ['--end', end]
     try:
-        subprocess.run(cmd, cwd=REPO, capture_output=True, timeout=240)
+        run_fresh(cmd, jp, cwd=REPO, timeout=240)
         d = json.loads(jp.read_text())
         return d.get('net_total_r', 0.0), d.get('net_total_r_long', 0.0), d.get('total_trades', 0), d.get('max_drawdown_r', 0.0)
     except Exception as e:  # noqa: BLE001

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "doc-only: new section in .claude/skills/manager/SKILL.md; no runtime, order path or config touched"
+}

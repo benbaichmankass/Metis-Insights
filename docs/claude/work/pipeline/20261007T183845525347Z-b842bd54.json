@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20261007-JOHNSXDJ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VELOTRADE-TICKET session_01BbBqjBgks6BVLgjoHnSxdJ, manager session_01MM8o5js6TcDFeNAPBY4Ntv, 2026-10-07",
+    "rerun": "grep -n rest_executed_accounts src/prop/prop_invalidation_prompt.py  # empty = still open"
+  },
+  "state": "queued",
+  "what": "prop_invalidation_prompt (trader tick) still sends the human 'did you place this?' Yes/No for tickets on REST-executed accounts (velotrade_1) and flips them to invalidated_prompted, pulling them out of the REST executor's intake (status=emitted). The VELOTRADE-TICKET fix (branch fix/velotrade-rest-ticket-expiry) excluded REST accounts from the EXPIRY prompt only. invalidated_prompted does not block a re-ticket, so the cost is a pointless human prompt plus a ticket that never reaches a terminal status. Decide: exclude src.prop.platform.rest_executed_accounts() there too (the executor's entry-band check already refuses price beyond the stop), or keep it as an operator heads-up."
+}

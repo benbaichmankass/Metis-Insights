@@ -1,0 +1,6 @@
+{
+  "held_by": "lane-EXIT-PARITY-CHECK",
+  "branch": "claude/exit-parity-check-2026-10-07",
+  "claimed_at": "2026-10-07T18:41:56Z",
+  "purpose": "exit-parity-check sweep side_filter fix + matrix"
+}

@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-ZKGGKTAG-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-STRATEGY-SEARCH (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07, PI-20261006-APBY4NTV-0001 batch 2",
+    "rerun": "grep -c 'resolve_cost_policy' scripts/backtest_orb.py; grep -c 'net_total_r' scripts/backtest_orb.py  # 0 and 0 = gap still open"
+  },
+  "related": [
+    "PI-20261006-APBY4NTV-0001",
+    "RQ-20261007-240",
+    "PI-20261006-TPQQDKFF-0002"
+  ],
+  "state": "queued",
+  "what": "BUILD (Tier-1 research tooling, no live path): give scripts/backtest_orb.py the FULL cost stack and a gradable summary. Today it prices fees in POINTS round trip (FEE_POINTS_ROUNDTRIP = 0.5, _fee_r at ~L277) with no slippage or funding term, which is why CLAUDE.md keeps it out of every promotion corpus. Change: resolve fee/slippage/funding through src.runtime.execution_costs.resolve_cost_policy (bps of notional, venue-aware defaults, explicit flags win) the way scripts/backtest_fvg_range.py and backtest_trend.py do; emit net_total_r and total_trades (plus mean bars held) in --json so scripts/research/harness_dispatch_result.py can apply the mechanical Stage-0 rule; keep --fee-points-roundtrip as an explicit override for the futures use. DECIDED by the batch-2 lane (INFERRED from reading the file): fixing it is cheaper than a new session-range harness because the session/OR/time-stop machinery is done. Clears research/queue/blocked/RQ-20261007-240.yaml (ORB with a time stop on ETH/SOL/XRP 1h, the first new pace family), which then needs `git mv` into research/queue/ with run.workflow research-harness-dispatch.yml. Also needs the dispatch workflow to pass --session-start/--session-end (see the extra_args sibling item)."
+}

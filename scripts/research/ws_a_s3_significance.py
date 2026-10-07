@@ -49,6 +49,16 @@ RNG = np.random.default_rng(20260602)
 
 SCRIPT = {"trend": "scripts/backtest_trend.py", "pullback": "scripts/backtest_pullback.py"}
 
+# CA-B04: the survivors below are the single best of dozens of correlated configs
+# per target (ws_a_s2_retune.py), hand-carried here. The bootstrap resamples the
+# WINNER's own trades, so its p05 is optimistic by an unmeasured amount — it is
+# not a search-adjusted significance level. Every verdict this script prints says
+# so; a PASS is "survives resampling of its own path", not "survives the search".
+SEARCH_CAVEAT = ("NOT ADJUSTED for the upstream S2 parameter search (winner's curse): "
+                 "the bootstrap resamples the selected config's own trades, so p05 is "
+                 "optimistically biased. Needs a permutation test over the full S2 grid "
+                 "before any Tier-3 use.")
+
 # Tuned survivors from S2 (best robust config per lead).
 SURVIVORS = [
     ("GC=F", "Gold", "trend",
@@ -158,6 +168,8 @@ def main() -> int:
         "AND (bootstrap 5th-pct expectancy > 0).** Internal significance vs "
         "resampled luck — not a live guarantee; =F daily data caveat stands.",
         "",
+        f"> **{SEARCH_CAVEAT}**",
+        "",
     ]
     for ticker, label, strat, params in SURVIVORS:
         csv = find_csv(ticker)
@@ -175,7 +187,9 @@ def main() -> int:
         verdict_boot = isinstance(boot.get("exp_p05"), float) and boot["exp_p05"] > 0
         passes = verdict_year and verdict_boot
         results[f"{label}/{strat}"] = {"params": params, "by_year": years,
-                                       "bootstrap": boot, "passes": passes}
+                                       "bootstrap": boot, "passes": passes,
+                                       "selection_adjusted": False,
+                                       "caveat": SEARCH_CAVEAT}
 
         lines.append(f"## {label} / {strat} — `{pstr(params)}`")
         lines.append("")
@@ -190,7 +204,7 @@ def main() -> int:
         pos = sum(1 for _, _, r in years if r > 0)
         lines.append(f"- by-year ({pos}/{len(years)} positive): "
                      + ", ".join(f"{y}:{r:+.1f}(n{n})" for y, n, r in years))
-        lines.append(f"- **VERDICT: {'PASS — genuine candidate' if passes else 'FAIL — do not advance on this data'}** "
+        lines.append(f"- **VERDICT: {'PASS — candidate, UNADJUSTED for the S2 search' if passes else 'FAIL — do not advance on this data'}** "
                      f"(years {'ok' if verdict_year else 'no'}, bootstrap {'ok' if verdict_boot else 'no'})")
         lines.append("")
 

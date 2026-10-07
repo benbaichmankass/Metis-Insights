@@ -224,6 +224,23 @@ Canonical text: [`docs/ARCHITECTURE-CANONICAL.md`](../../../docs/ARCHITECTURE-CA
   baseline in the guard may only shrink, and adding a line for a real-money or
   prop routing is the operator's act.
 
+**Active geometry (operator, 2026-10-06, PI-20261006-APBY4NTV-0003).** The
+milestone is not "exit refinement" and not "brackets": BOTH legs of the bracket
+are managed state through the trade's life, for every account class (live,
+paper, mirror, prop), conditioned on regime, volatility, time-in-trade and the
+strategy's own thesis. MEASURED 2026-10-07 on the live journal (closed trades
+since 2026-09-01): the SL was amended on 131 of 752, the TP on 0 of 748 — the
+fleet manages one leg. Consequences for this pipeline: (1) P1's evidence read
+reports the TP-amend count beside the SL-amend count per leg (the rerun is in
+`research/queue/PLANNING.md` § 5); (2) P2's lever families gain a REVISION
+family — extend-on-thesis and retarget (ATR-rescale, stall pull-in) — which has
+no harness lever today; the pre-registered questions are
+`research/queue/blocked/RQ-20261007-001..004` and the build that unblocks them is
+checklist row GEOM-B1-HARNESS; (3) every NEW strategy answers the geometry
+question at wiring time — where the move is expected to run out, what revises
+that prediction, and what thesis condition extends it — or its coverage row is
+`pending`, whatever its lever columns read.
+
 ## Hard rules
 
 These rules are also codified generically (for any research skill, not just

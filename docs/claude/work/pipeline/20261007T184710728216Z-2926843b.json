@@ -1,0 +1,21 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261007-ZKGGKTAG-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-STRATEGY-SEARCH (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07, PI-20261006-APBY4NTV-0001 batch 2",
+    "rerun": "grep -c 'extra_args' .github/workflows/research-harness-dispatch.yml  # 0 = gap still open"
+  },
+  "related": [
+    "PI-20261006-APBY4NTV-0001",
+    "RQ-20261007-241",
+    "RQ-20261007-240",
+    "PI-20261006-TPQQDKFF-0002"
+  ],
+  "state": "queued",
+  "what": "BUILD (Tier-1 CI/tooling): add an `extra_args` workflow_dispatch input to .github/workflows/research-harness-dispatch.yml, appended (shell-split) to the harness argv in every branch of the case statement at ~L138-200, and recorded on the E5 result by scripts/research/harness_dispatch_result.py so the record says which parameters produced it; the dispatcher (scripts/research/dispatch_queue.py _fire) must forward run.inputs.extra_args like any other input. Today every harness is invoked with --symbol/--timeframe only, so a unit cannot vary a single harness parameter (a time stop, a session window, a confidence floor) without a new workflow, and research-script-run.yml cannot land a harness run because no harness writes verdict.json. Clears research/queue/blocked/RQ-20261007-241.yaml (volatility breakout with a time stop: squeeze at --timeout-bars 6/12/24 on DOGE/ADA/LINK 1h) and is the second half of what RQ-20261007-240 (ORB sessions) needs. Sibling of PI-20261006-TPQQDKFF-0002 (adding trend/ict_scalp/vwap to the same workflow); one PR can do both."
+}

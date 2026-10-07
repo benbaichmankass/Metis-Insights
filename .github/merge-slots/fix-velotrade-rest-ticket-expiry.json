@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01BbBqjBgks6BVLgjoHnSxdJ",
+  "branch": "fix/velotrade-rest-ticket-expiry",
+  "claimed_at": "2026-10-07T18:20:31Z",
+  "purpose": "VELOTRADE-TICKET: REST prop ticket expiry goes terminal, not expiry_prompted"
+}
