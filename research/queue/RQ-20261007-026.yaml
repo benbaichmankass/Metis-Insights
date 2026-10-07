@@ -1,4 +1,4 @@
-id: RQ-20261007-005
+id: RQ-20261007-026
 title: 'Tradeify 247 1-Step prop fit on the 730d record: trend_donchian_sol_prop at flat 0.5% and 0.75% of balance, n=132
   (re-price of the UNDERPOWERED 2026-10-04 unit; PI-20261004-UQ9JJPRQ-0001)'
 status: queued
@@ -81,7 +81,7 @@ run:
   - --jobs
   - '4'
   inputs:
-    research_unit: RQ-20261007-005
+    research_unit: RQ-20261007-026
 lands:
   store: research/results/
   assert_field: read_state

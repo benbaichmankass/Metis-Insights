@@ -1,4 +1,4 @@
-id: RQ-20261007-001
+id: RQ-20261007-022
 title: 'Tune-before-demote: M8 parameter sweep for ada_pullback_2h (REAL MONEY, bybit_2 + bybit_portfolio) on atr_stop_mult
   and adx_min at the live params, 730d, 4 OOS folds (PI-20261004-P24XMV4V-0001)'
 status: queued
@@ -83,7 +83,7 @@ run:
     registry does not forward, the lane records the omitted lever on the packet and grades fidelity approximate rather than
     dropping the pin.'
   inputs:
-    research_unit: RQ-20261007-001
+    research_unit: RQ-20261007-022
 lands:
   store: runtime_logs/strategy_tunes/
   assert_field: recommendation

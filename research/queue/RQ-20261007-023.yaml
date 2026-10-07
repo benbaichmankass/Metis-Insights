@@ -1,4 +1,4 @@
-id: RQ-20261007-002
+id: RQ-20261007-023
 title: 'Stage-0 record rebuild for trend_donchian_xrp_4h (REAL MONEY, bybit_2 + bybit_portfolio) on a 1460-day window: the
   730d rebuild landed n=25, below the 30 floor (PI-20261004-P24XMV4V-0004)'
 status: queued
@@ -71,7 +71,7 @@ run:
     land that refusal sidecar as the result, never a stub). Then land one research_result.py record under research/results/<this
     unit>/ with the branch taken.'
   inputs:
-    research_unit: RQ-20261007-002
+    research_unit: RQ-20261007-023
 lands:
   store: comms/strategy_evidence/
   assert_field: coverage_state

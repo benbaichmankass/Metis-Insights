@@ -1,4 +1,4 @@
-id: RQ-20261007-012
+id: RQ-20261007-033
 title: Confirmatory re-runs on a DISJOINT window for the four first-pass Stage-0 FAILs of 2026-10-04 (RQ-20260929-101 BNB
   pullback 2h, -102 BNB squeeze 4h, -103 BNB fade 4h, -107 chop_scalp BTC 15m), as their own rules require (PI-20261004-APBY4NTV-0001
   residual)
@@ -71,7 +71,7 @@ run:
     <cell>.json --emit-trades <cell>.jsonl (config-exact params as the parent unit''s rule states), landing one research_result.py
     record per cell under research/results/<this unit>/.'
   inputs:
-    research_unit: RQ-20261007-012
+    research_unit: RQ-20261007-033
 lands:
   store: research/results/
   assert_field: read_state

@@ -1,4 +1,4 @@
-id: RQ-20261007-003
+id: RQ-20261007-024
 title: 'ief_pullback_1d vt_hot80_t2.5 (vol_trail) on a THIRD IS/OOS partition (split_target_oos 60): does the two-partition
   PASS generalise, or is it inert on the recent folds? (PI-20261004-P24XMV4V-0002)'
 status: queued
@@ -71,7 +71,7 @@ run:
     tp_cap_pct: '0.099'
     split_mode: oos-trades
     split_target_oos: '60'
-    research_unit: RQ-20261007-003
+    research_unit: RQ-20261007-024
 lands:
   store: research/results/
   assert_field: read_state

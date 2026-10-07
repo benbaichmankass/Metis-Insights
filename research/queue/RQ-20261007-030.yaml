@@ -1,4 +1,4 @@
-id: RQ-20261007-009
+id: RQ-20261007-030
 title: 'Prop candidate pool: 1095-day evidence records for trend_donchian_eth_4h (n=85 at 730d) and trend_donchian_sol_4h
   (n=75 at 730d), both just under the 88 admission floor (PI-20261005-XJSGZG1X-0002)'
 status: queued
@@ -60,7 +60,7 @@ run:
     ; commit the workdir and the replaced canonical records (measured -> measured overwrite); land one research_result.py
     record per leg under research/results/<this unit>/.'
   inputs:
-    research_unit: RQ-20261007-009
+    research_unit: RQ-20261007-030
 lands:
   store: comms/strategy_evidence/
   assert_field: coverage_state

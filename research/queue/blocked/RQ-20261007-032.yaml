@@ -1,4 +1,4 @@
-id: RQ-20261007-011
+id: RQ-20261007-032
 title: Stage-0 evidence records (coverage_state measured) for trend_donchian_1h, turtle_soup and vwap -- the three SOAK-GATE1
   legs whose records are absent or no_harness (PI-20261005-OAKGATE1-0002)
 status: blocked
@@ -77,7 +77,7 @@ run:
     ; commit the workdir and the three canonical records; land one research_result.py record per leg under research/results/<this
     unit>/.'
   inputs:
-    research_unit: RQ-20261007-011
+    research_unit: RQ-20261007-032
 lands:
   store: comms/strategy_evidence/
   assert_field: coverage_state

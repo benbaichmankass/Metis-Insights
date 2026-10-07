@@ -1,4 +1,4 @@
-id: RQ-20261007-004
+id: RQ-20261007-025
 title: 'GLD/GDX 1d pairs confirmatory: pre-registered IS/OOS split, yearly walk-forward and a 3x3 parameter neighbourhood
   on the same harness that passed once at defaults (PI-20261004-P24XMV4V-0003, PI-20261004-UQ9JJPRQ-0002)'
 status: queued
@@ -71,7 +71,7 @@ run:
     ; commit them and land one research_result.py record under research/results/<this unit>/ with the three counts and the
     verdict.'
   inputs:
-    research_unit: RQ-20261007-004
+    research_unit: RQ-20261007-025
 lands:
   store: research/results/
   assert_field: read_state

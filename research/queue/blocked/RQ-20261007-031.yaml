@@ -1,4 +1,4 @@
-id: RQ-20261007-010
+id: RQ-20261007-031
 title: VELOTRADE-FIT re-run on the MEASURED velotrade_1 cost stack (commission + swap read off live fills) once >= 2 closed
   round trips exist (PI-20261006-1BPXEUJR-0001)
 status: blocked
@@ -70,12 +70,12 @@ routing:
 run:
   workflow: session-local
   note: 'Prepared command once unblocked (measured values substituted into the script''s COSTS first, per the row''s rerun):
-    python3 scripts/research/velotrade_fit_sweep.py --unit RQ-20261007-010 --legs trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl
+    python3 scripts/research/velotrade_fit_sweep.py --unit RQ-20261007-031 --legs trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl
     trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl --risks 0.01
-    --seeds 1 2 3 4 5 --jobs 4 --out comms/research/RQ-20261007-010 --emit-result ; diff the recommendation block against
+    --seeds 1 2 3 4 5 --jobs 4 --out comms/research/RQ-20261007-031 --emit-result ; diff the recommendation block against
     comms/research/RQ-20261006-062/fit.json.'
   inputs:
-    research_unit: RQ-20261007-010
+    research_unit: RQ-20261007-031
 lands:
   store: research/results/
   assert_field: read_state
