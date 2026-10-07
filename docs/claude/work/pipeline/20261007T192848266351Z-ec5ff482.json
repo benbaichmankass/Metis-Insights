@@ -9,8 +9,8 @@
   },
   "origin": {
     "kind": "session",
-    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv 2026-10-07 19:45Z (routing the due item; breakout_2 live + ARMED since 2026-10-07, no live signal yet)",
-    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=breakout_2' | python3 -c \"import json,sys;[print(t['ticket_id'],t.get('status'),json.dumps(t.get('phone_result'))[:400]) for t in json.load(sys.stdin)['tickets'][:5]]\""
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; branch claude/phone-exec-1b",
+    "rerun": "GET /api/bot/prop/tickets?account_id=breakout_2 ; ask the operator to open Breakout's own app on the first live order"
   },
-  "what": "Routing record: the live-path proof waits on the first live breakout_2 signal (none since ARMED). The manager reads the ticket at each check-in; a lane is dispatched only if the phone_result shows a defect."
+  "what": "PHONE: SL/TP-at-venue survival (design 5.4) is still unmeasured on the new terminal: whether a bracket placed by the phone keeps working when the app/phone is gone. Measure on the FIRST live fill: after the read-back confirms the order, check the order/position in Breakout's own mobile app or web from another device and confirm the TP and SL legs are listed server-side. | ROUTED 2026-10-07 19:45Z by the manager (session_01MM8o5js6TcDFeNAPBY4Ntv): breakout_2 is live + ARMED since 2026-10-07 and no live signal has fired yet; the manager reads the ticket list at each check-in and dispatches a lane only if the phone_result shows a defect. Sibling PI-20261005-YUVCGTMJ-0005 reads SL/TP survival off the same ticket."
 }
