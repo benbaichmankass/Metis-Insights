@@ -1,0 +1,1 @@
+lane PAIRS-STOCKTAKE (session_011BUSVxr9kPZvkNn6TXSaL6): Tier-1 records + guard fix; auto-merge requested

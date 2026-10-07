@@ -113,13 +113,27 @@ blocked_on:
   - kind: work_item
     ref: E37
     what: >-
-      NOTHING ROUTES scripts/backtest_pairs.py TO A WORKFLOW. The harness
-      exists and is net-of-cost by its own argparse description, and
-      pairs_universe_scan.py and pairs_dollar_lots.py exist alongside it —
-      but no .github/workflows entry fires any of them, so this unit names no
-      `run.workflow` and the dispatcher correctly refuses it. Same defect
-      class as E25 (fvg_range) and E28 (ict_scalp). THIS is the blocker: it is
-      about the instrument, not about what happens after a pass.
+      [STALE AS WRITTEN -- corrected 2026-10-07 by the PAIRS-STOCKTAKE lane,
+      rule above UNCHANGED.] This block said "NOTHING ROUTES
+      scripts/backtest_pairs.py TO A WORKFLOW". That stopped being true when
+      E7 landed research-harness-dispatch.yml (harness=pairs; MEASURED: run
+      37188716030 landed research/results/RQ-20260929-105/37188716030.jsonl
+      from scripts/backtest_pairs.py), and since 2026-10-07 a configured-
+      parameter route exists too (scripts/research/pairs_configured_stage0.py
+      via research-script-run.yml -- RQ-20261007-001..004 run the four
+      CONFIGURED pairs net of the full cost stack). What remains blocking THIS
+      unit is narrower: the UNIVERSE SCAN it asks for
+      (scripts/research/pairs_universe_scan.py) needs a directory of candle
+      files for the liquid-perp universe (trainer-resident, no workflow fetches
+      it to a runner) and its own power basis from a dry pass, and the
+      maker-execution arm needs a measured maker fee schedule. E37 (the
+      per-pair evidence record) is served by RQ-20261007-001..004, not by
+      this unit.
+    clears_when: >-
+      A workflow (or a research-script-run command) can fetch the candidate
+      universe's 1h candles to a runner and run pairs_universe_scan.py with
+      a declared --oos-start, AND a dry pass has produced the n this unit's
+      power block refuses to invent. Then promote with run.workflow filled.
 
 routing:
   needs_trainer_resident_data: false

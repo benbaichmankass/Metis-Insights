@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 10,
+    "clears_when": "a dated record under comms/research/r3_cost_fidelity/ newer than 2026-09-25 carries a cell for pairs_sol_eth_a or pairs_bnb_btc_a (any verdict), or states why pairs legs are ungradeable; or killed with a reason",
+    "kind": "event"
+  },
+  "id": "PI-20261007-N6TXSAL6-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PAIRS-STOCKTAKE session_011BUSVxr9kPZvkNn6TXSaL6, manager session_01MM8o5js6TcDFeNAPBY4Ntv, docs/research/pairs-stocktake-2026-10-07.md",
+    "rerun": "python3 - <<'X'\nimport json,glob,re\nrec=sorted(glob.glob('comms/research/r3_cost_fidelity/2026-*.json'))[-1]\nd=json.load(open(rec)); cells=d.get('cells') or d.get('legs') or d\nkeys=list(cells.keys()) if isinstance(cells,dict) else [c.get('leg') for c in cells]\nprint(rec, [k for k in keys if 'pairs' in str(k)], 'of', len(keys))\nX"
+  },
+  "state": "queued",
+  "what": "Gate-1 cost-fidelity grader emits NO cell for any pairs leg although the fills are in its own rows file. MEASURED 2026-10-07: comms/research/r3_cost_fidelity/2026-09-25.json grades 9 cells, none `pairs_*`; comms/research/r3_cost_fidelity/2026-09-25__rows.jsonl contains pairs_sol_eth_a/_b rows. MD-PROMOTE-S1-S2 requires a per-leg `consistent` verdict from the newest dated record, so every pairs leg reads `no_record` at Gate 1 regardless of Stage 0. DATA TASK: the next r3 cost-fidelity run must grade pairs_sol_eth_{a,b} and pairs_bnb_btc_{a,b} as cells (market cell from bybit_1 fills vs the slippage the pair's Stage-0 record models, once RQ-20261007-001/002 land), or state in the record why a pairs cell cannot be graded."
+}
