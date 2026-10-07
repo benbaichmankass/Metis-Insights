@@ -4,7 +4,7 @@
     "kind": "date"
   },
   "id": "PI-20261006-KX6ZKFNA-0005",
-  "next_action": "none",
+  "next_action": "dispatch_lane",
   "origin": {
     "kind": "session",
     "ref": "lane ACTIVE-GEOMETRY scan session_01WeYNGaK7Ao3hp4Kx6ZkFna, 2026-10-06 ~08:27Z, PR #16719",
