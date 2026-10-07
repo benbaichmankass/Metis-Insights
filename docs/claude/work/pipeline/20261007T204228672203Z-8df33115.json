@@ -1,0 +1,16 @@
+{
+  "id": "PI-20261007-APBY4NTV-0006",
+  "state": "routed",
+  "routed_to": "checklist row TRADEIFY-FEED-TRIP",
+  "next_action": "dispatch_lane",
+  "due_when": {
+    "kind": "date",
+    "due_date": "2026-10-08"
+  },
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-FLOW-SEPARATION session_01QhZ61suEMNrBnDGq8XWqDR report 2026-10-07 20:41Z, filed by manager session_01MM8o5js6TcDFeNAPBY4Ntv",
+    "rerun": "diag relay: journalctl -u ict-prop-executor@tradeify_1 --since -2h | grep -c -E 'rc=4|feasibility'  (nonzero = still tripped); curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=tradeify_1' | python3 -c \"import json,sys;print(json.load(sys.stdin)['status']['reported_at'])\"  (older than 2h = stale)"
+  },
+  "what": "LIVE PROP ACCOUNT SILENTLY NOT TRADING. tradeify_1's executor feed tripped rc=4 (feasibility stop) at 2026-10-06 18:27:45Z and is never retried; every tick since exits before the executor runs (still at 20:18Z 2026-10-07); the account_status snapshot is stale since 18:21Z; tickets since then are suppressed/expired unplaced with no prompt. No alert fired: the silence probe keys on fills (idle 2.6 d reads ok), the hourly snapshot shows 'API ERROR' by design for browser accounts (PI-20261004-APBY4NTV-0002). Routed to TRADEIFY-FEED-TRIP: cause, clearing action, and the missing 'tripped live account pages after N hours' alarm."
+}
