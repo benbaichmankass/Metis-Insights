@@ -350,7 +350,17 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     "cost_slippage_r": round(cb["slippage_r"], 5),
                     "cost_funding_r": round(cb["funding_r"], 5),
                     "funding_windows": round(cb["funding_windows"], 3),
-                    "confidence": t.confidence}, default=str) + "\n")
+                    "confidence": t.confidence,
+                    # Trade geometry (additive, 2026-10-07, lane RQ-RESULTS): the
+                    # pullback and squeeze emitters already carry these, and
+                    # scripts/research/prop_ev_sim.py REQUIRES exit_time on every
+                    # row and entry/sl/gross_r for `--costs breakout`. Without them
+                    # a fade PASS (RQ-20261006-031, SLV 1h) could not be priced
+                    # under any prop ruleset -- PI-20261007-71Y2H2VZ-0001.
+                    "entry": t.entry, "sl": t.sl,
+                    "exit_time": str(t.exit_time),
+                    "mfe_r": t.mfe_r,
+                    "exit_reason": t.outcome}, default=str) + "\n")
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol,
                       params={"donchian": donchian, "atr_stop_buffer": atr_stop_buffer,
                               "pierce_min": pierce_min, "exit_style": exit_style,
