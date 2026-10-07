@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "POST /api/bot/prop/phone/verify exists and the app clicks only on its go-token, or the operator/manager kills this as not worth it with a stated reason",
+    "kind": "event"
+  },
+  "id": "PI-20261005-YUVCGTMJ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PHONE-EXEC-1B session_01Ce3EyP4Z9A4P4MyUvcgtmJ; branch claude/phone-exec-1b",
+    "rerun": "grep -n 'verify' src/web/api/routers/prop.py"
+  },
+  "state": "routed",
+  "what": "PHONE GO-TOKEN / SERVER-SIDE READ-BACK (design 3.4) is not built: phase 1b verifies the form ON THE PHONE (labels, values within one step, submit label carries the side) instead of the server's check_form_shape/read_back + a 30 s form-hash go-token. Port it once the real ticket labels are captured, so one tested implementation verifies both executors.",
+  "routed_to": "checklist row PHONE-GO-TOKEN"
+}
