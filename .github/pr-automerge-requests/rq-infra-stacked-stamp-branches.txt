@@ -1,1 +1,0 @@
-auto-merge: tier-1 CI tooling (commit-to-main stacked-branch fix)
