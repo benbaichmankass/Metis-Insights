@@ -1,0 +1,12 @@
+prop_ev_grid: 1 leg(s) x 2 arm(s) x 5 seed(s) = 10 cells, 4 parallel
+  trend_donchian_eth_prop      A        seed=1 exit=0 ev=+33.07 p=0.2182 (520.4s)
+  trend_donchian_eth_prop      A        seed=2 exit=0 ev=+31.33 p=0.2170 (518.5s)
+  trend_donchian_eth_prop      A        seed=3 exit=0 ev=+31.98 p=0.2127 (504.3s)
+  trend_donchian_eth_prop      A        seed=4 exit=0 ev=+36.31 p=0.2305 (515.9s)
+  trend_donchian_eth_prop      A        seed=5 exit=0 ev=+36.35 p=0.2240 (352.4s)
+  trend_donchian_eth_prop      B        seed=1 exit=0 ev=+11.85 p=0.1075 (130.7s)
+  trend_donchian_eth_prop      B        seed=2 exit=0 ev=+17.70 p=0.1212 (132.7s)
+  trend_donchian_eth_prop      B        seed=3 exit=0 ev=+11.08 p=0.1092 (129.8s)
+  trend_donchian_eth_prop      B        seed=4 exit=0 ev=+14.25 p=0.1172 (66.5s)
+  trend_donchian_eth_prop      B        seed=5 exit=0 ev=+13.27 p=0.1155 (96.2s)
+prop_ev_grid: overall=pass {"trend_donchian_eth_prop": "pass"}
