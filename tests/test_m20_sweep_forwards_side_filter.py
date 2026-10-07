@@ -13,7 +13,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts" / "research"))
 
-import m20_fleet_exit_sweep as sweep
+import m20_fleet_exit_sweep as sweep  # noqa: E402
 
 
 def _args(fam, **cfg):
