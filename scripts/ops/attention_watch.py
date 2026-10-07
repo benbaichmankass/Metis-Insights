@@ -76,6 +76,7 @@ for _p in (REPO_ROOT, REPO_ROOT / "scripts"):
         sys.path.insert(0, str(_p))
 
 from scripts.ops import pipeline  # noqa: E402
+from scripts.ops import prop_silence  # noqa: E402
 
 # ⚠️ Anchored to the repo root, like work_digest_now.py: the unit carries no
 # data-dir drop-in and diag reads the receipt through repo_root().
@@ -373,6 +374,10 @@ def build(now: datetime | None = None) -> dict:
             "inflight": probe_inflight(now, shallow),
             "manager": probe_manager(now),
             "report": probe_report(now),
+            # PROP-SILENCE-ALERTS: idle-fill (warn 14 d / urgent 21 d) per prop
+            # account + breakout_2's phone heartbeat. Each carries `level` and
+            # `priority`; see scripts/ops/prop_silence.py.
+            **prop_silence.all_probes(now),
         },
     }
 
@@ -383,6 +388,7 @@ PROBE_LABEL = {
     "inflight": "in_flight rows gone quiet",
     "manager": "manager's register not written",
     "report": "scheduled work report missing or broken",
+    **prop_silence.LABELS,
 }
 
 
@@ -482,13 +488,18 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
         a = alarms.get(k, {})
         if p["status"] == BREACHED:
             last = a.get("last_sent")
-            due = (last is None or
+            level = p.get("level")
+            # A warn -> urgent step is a NEW fact: send it now, not in 24 h.
+            escalated = bool(a.get("breached")) and level is not None and a.get("level") != level
+            due = (last is None or escalated or
                    now - datetime.fromisoformat(last) >= timedelta(hours=REALERT_HOURS))
             if due:
-                msgs.append(("high", f"🔕 Expected signal missing — {PROBE_LABEL[k]}: {p['detail']}"))
-                a = {"status": BREACHED, "breached": True, "last_sent": now.isoformat()}
+                msgs.append((p.get("priority", "high"),
+                             f"🔕 Expected signal missing — {PROBE_LABEL[k]}: {p['detail']}"))
+                a = {"status": BREACHED, "breached": True, "last_sent": now.isoformat(),
+                     "level": level}
             else:
-                a = {**a, "status": BREACHED, "breached": True}
+                a = {**a, "status": BREACHED, "breached": True, "level": level}
         elif p["status"] == OK:
             if a.get("breached"):
                 msgs.append(("normal", f"✅ Cleared — {PROBE_LABEL[k]}: {p['detail']}"))
@@ -517,7 +528,8 @@ def compose_block(v: dict, msgs: list[tuple[str, str]]) -> tuple[str, str, list[
     so a new actionable thing is unmissable and the steady state is quiet."""
     summary = [b for _, b in msgs if b.startswith("📋")]
     new = [b for _, b in msgs if not b.startswith("📋")]
-    pri = "high" if any(p == "high" for p, b in msgs if not b.startswith("📋")) else "normal"
+    pris = {p for p, b in msgs if not b.startswith("📋")}
+    pri = "urgent" if "urgent" in pris else "high" if "high" in pris else "normal"
     L: list[str] = []
     if new:
         L.append(f"🆕 NEW since last digest ({len(new)}):")
