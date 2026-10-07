@@ -285,6 +285,31 @@ def test_pending_counts_an_unserved_dry_test_request_without_serving_it(monkeypa
     assert pe.pending_count(_dev()) == 0
 
 
+def test_account_status_from_phone_is_measured_and_absent_stays_absent():
+    from src.prop import prop_journal
+    assert prop_journal.latest_account_status(_dev().account_id) is None
+    r = pe.record_report(_dev(), {"kind": "account_status", "account_id": "someone_else", "balance": 5000.5,
+                                  "equity": None, "equity_label": "portfolio"})
+    assert r["kind"] == "account_status"
+    row = prop_journal.latest_account_status(_dev().account_id)   # account forced from the token, not the body
+    assert row["balance"] == 5000.5 and row["equity"] is None     # unread equity is NULL, never 0
+    raw = json.loads(row["raw"])
+    assert raw["provenance"] == "MEASURED" and raw["source"] == "phone_executor"
+
+
+@pytest.mark.parametrize("body", [
+    {"kind": "account_status"},
+    {"kind": "account_status", "balance": None, "equity": None},
+    {"kind": "account_status", "balance": "5000"},
+    {"kind": "account_status", "balance": float("nan")},
+    {"kind": "account_status", "equity": -1},
+    {"kind": "account_status", "equity": True},
+])
+def test_account_status_unread_or_invalid_is_refused(body):
+    with pytest.raises(ValueError):
+        pe.record_report(_dev(), body)
+
+
 # ---- server-side read-back + go-token (design 3.4, PHONE-GO-TOKEN) ----
 
 def _live(tmp_path: Path, monkeypatch, mode: str = "live") -> None:

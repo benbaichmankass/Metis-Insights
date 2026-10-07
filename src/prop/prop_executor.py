@@ -1101,9 +1101,15 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
             # This branch DID report the expiry, so the no-attempt sweep must
             # not alert about the same ticket as well.
             _clear_unattempted(state, st, t["ticket_id"])
+            # On a REST account (VELOTRADE-TICKET, 2026-10-07) this is the
+            # ticket's terminal disposition: the trader's expiry prompter
+            # leaves it `emitted` (no human to ask), so this `skipped` report
+            # is what ends it, with the executor's last verdict as the reason.
+            last = (st.get(_UNATTEMPTED_LAST_KEY) or {}).get(t["ticket_id"])
+            reason = f"expired unplaced; last verdict {last}" if last else "expired"
             if live:
-                ledger.record(t["ticket_id"], "expired")
-                _report(res, post, _skip_body(cfg, t, "expired"))
+                ledger.record(t["ticket_id"], "expired", reason=reason)
+                _report(res, post, _skip_body(cfg, t, reason))
             continue
         if candidate is None and venue:
             # The entry-band check, identical for a first attempt and a
@@ -1918,6 +1924,9 @@ def _entry_band(ticket: Mapping[str, Any]) -> Optional[Tuple[float, float]]:
 #: validity passes so the expiry is not silent. Bounded: the newest N.
 _UNATTEMPTED_KEEP = 50
 _UNATTEMPTED_KEY = "unattempted"
+#: The last no-attempt verdict of a ticket whose validity ran out, for the
+#: reason on intake's ``expired`` report. Bounded like the notes.
+_UNATTEMPTED_LAST_KEY = "unattempted_last"
 
 
 def _note_unattempted(state: "ExecutorState", st: Dict[str, Any], ticket: Mapping[str, Any],
@@ -1971,6 +1980,9 @@ def _alert_unattempted_expiries(res: "CycleResult", state: "ExecutorState", st: 
     ticket status, because a ``skipped`` report would flip the ticket off
     ``emitted`` and pull it out of every manual-bridge path that keys on it
     (the price-invalidation warning, the expiry prompt, the reticket guard).
+    On a REST-executed account the prompter does not flip the ticket, so it
+    stays in intake and the ``expired`` branch there reports it terminal,
+    reusing the verdict this sweep keeps under ``_UNATTEMPTED_LAST_KEY``.
     """
     rows = dict(st.get(_UNATTEMPTED_KEY) or {})
     if not rows:
@@ -1982,9 +1994,15 @@ def _alert_unattempted_expiries(res: "CycleResult", state: "ExecutorState", st: 
             continue
         rows.pop(tid, None)
         fired = True
+        kind = str((row or {}).get("kind") or "unknown")
+        # Kept so intake's `expired` report can carry the last verdict: on a
+        # REST account nobody flips the ticket off `emitted`, so intake sees it
+        # past valid_until right after this sweep and reports it terminal.
+        last = dict(st.get(_UNATTEMPTED_LAST_KEY) or {})
+        last[tid] = f"{kind}: {(row or {}).get('why')}"
+        st[_UNATTEMPTED_LAST_KEY] = dict(list(last.items())[-_UNATTEMPTED_KEEP:])
         if not _first_time(state, st, f"unattempted_expiry_{mode}", tid):
             continue
-        kind = str((row or {}).get("kind") or "unknown")
         detail = ("the executor waited on the entry band for the whole window"
                   if kind == "band_wait" else
                   "the symbol is not in the executor's enabled venue symbols, so it was never attempted"

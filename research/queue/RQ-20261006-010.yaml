@@ -64,16 +64,19 @@ related:
 - docs/integrations/breakout-instruments-2026-09-27.md
 - RQ-20260929-107
 - research/templates/roster-walkforward.yaml
-last_dispatched_at: '2026-10-06T17:19:20+00:00'
+last_dispatched_at: null
 grading:
   auto: true
+  confirmatory_run: 1
   decision_rule_id: RULE-RQ1006-010-ADAUSDT-1h-SQUEEZE-STAGE0
   evidence:
   - research/results/RQ-20261006-010/37502665151.jsonl
   - research/results/RQ-20261006-010/37511363900.jsonl
+  first_fail: 2 row(s), all measured, all fail (2 earlier producer_failed / re-graded wiring_only row(s)
+    superseded)
   graded_at: '2026-10-07'
   grader: scripts/research/queue_grade.py
-  needs_review: true
-  reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
+  note: 'first FAIL: re-queued for a confirmatory run (last_dispatched_at reset), not killed'
+  reason: 2 row(s), all measured, all fail (2 earlier producer_failed / re-graded wiring_only row(s) superseded)
   rows: 2
-  verdict: null
+  verdict: fail

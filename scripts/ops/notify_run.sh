@@ -180,6 +180,16 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    prop-ticket-expire)
+        # Moves ONE dead prop ticket on a REST account to `expired`
+        # (VELOTRADE-TICKET). Exit 3 is a guarded REFUSAL, nothing written.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — ticket expired (or dry-run plan printed; see run log)"; priority="normal" ;;
+            3) result="refused — nothing written (see run log for the reason)"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     breakout-terminal-probe)
         # READ-ONLY measurement of Breakout's proprietary terminal (PROP-TERM).
         # Exit 4 is a FEASIBILITY finding, not a crash.

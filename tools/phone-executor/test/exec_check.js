@@ -222,6 +222,17 @@ document.getElementById('cb').onclick=function(){window.__cbClicks=(window.__cbC
   eq(await pG.evaluate("__ex.openTpsl(1)"), "switched", "switch layout: the text-less switch beside it is clicked");
   eq(await pG.evaluate("__ex.openTpsl(2)"), "ok", "switch layout: TP/SL inputs now shown");
   eq(await pG.evaluate("__ex.tpslArea()[0].node.text"), "TP/SL", "tpslArea dump names the TP/SL element");
+  // ACCOUNT PANEL READ (PHONE-BALANCE-READ): label-anchored, one distinct number or null.
+  const acctA = `<!doctype html><html><body><button>Positions</button><button>Open orders</button>
+<button id=pf>Portfolio 98,123.45 USD</button><button>Turbo Eval 1</button><div><span>Balance</span><span>97,000.10</span></div><div>Equity: 98,123.45</div></body></html>`;
+  const acctpA = await onHost(acctA);
+  eq(await acctpA.evaluate("__ex.accountPanel()"), {balance: 97000.1, equity: 98123.45, portfolio: 98123.45, n: {balance: 1, equity: 1, portfolio: 1}}, "account panel: balance/equity/portfolio read by label");
+  const acctpB = await onHost(`<!doctype html><html><body><button>Portfolio 10,000.00 USD</button><button>Turbo Eval 5</button></body></html>`);
+  eq(await acctpB.evaluate("__ex.accountPanel()"), {balance: null, equity: null, portfolio: 10000, n: {balance: 0, equity: 0, portfolio: 1}}, "account panel: only Portfolio shown -> balance/equity absent (null), portfolio read");
+  const acctpC = await onHost(`<!doctype html><html><body><button>Portfolio 1.00 USD</button><span>Portfolio 2.00 USD</span><button>Balance</button></body></html>`);
+  eq(await acctpC.evaluate("__ex.accountPanel()"), {balance: null, equity: null, portfolio: null, n: {balance: 0, equity: 0, portfolio: 2}}, "account panel: two different values or no value -> null, never guessed");
+  eq(await acctpC.evaluate("window.__submitted || 0"), 0, "account panel: read-only");
+
   // Fixture H (SOL-PICKER, MEASURED 2026-10-06 dry-fill dumps): the real "Select market" chip (div role=button,
   // aria-label "Select market", text "ETH 20x"), watchlist buttons WITH a price ("SOL 150.23 -1.23%"), the ticket open on
   // ETH. The list the chip opens is UNMEASURED: H = a role=dialog of plain div rows (handler on the row, symbol in a

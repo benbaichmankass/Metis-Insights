@@ -180,6 +180,25 @@ def run_prop_expiry_prompts(
     except Exception as exc:  # noqa: BLE001
         logger.warning("prop_expiry_prompt: scan failed: %s", exc)
         return stats
+    # A REST-executed account has no human placing its tickets, so "did you
+    # place this?" has nobody to answer it, and the `expiry_prompted` flip
+    # would block that account's next same-key signal for STALE_PROMPT_GRACE.
+    # MEASURED 2026-10-07: velotrade_1 ETH-short prop-manual-4fa7266cfcf0 sat
+    # in band_wait its whole validity, was flipped to expiry_prompted at
+    # expiry, and suppressed 4 later ETH-short signals. Such a ticket is left
+    # `emitted`: past valid_until it no longer blocks a re-ticket, and the
+    # executor's own intake reports it terminal (`skipped`, reason `expired …`
+    # with its last verdict). Phone + browser/manual accounts are unchanged.
+    try:
+        from src.prop.platform import rest_executed_accounts
+        rest = rest_executed_accounts()
+    except Exception as exc:  # noqa: BLE001 — fall back to prompting everyone
+        logger.warning("prop_expiry_prompt: platform read failed: %s", exc)
+        rest = set()
+    if rest:
+        kept = [t for t in tickets if t.get("account_id") not in rest]
+        stats["rest_left_to_executor"] = len(tickets) - len(kept)
+        tickets = kept
     stats["candidates"] = len(tickets)
     if not tickets:
         return stats

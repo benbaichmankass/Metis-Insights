@@ -1476,9 +1476,18 @@ def get_performance_recent(
             env["mirror"]["readState"] = "accounts_unreadable"
         elif portfolio_ids:
             pp_rows = _query(_DB_PATH, None, demo=True, account_ids=portfolio_ids)
+            # Operator decision 2026-10-05 (PI-20261004-J4SFBKU9-0001): legacy
+            # mirror-only trades with no live twin are not part of the Gate-2
+            # window. Published, never silent; an unreadable file is surfaced.
+            from src.config.mirror_exclusions import load_mirror_exclusions
+            excl = load_mirror_exclusions()
+            excl_ids = {int(e["trade_id"]) for e in excl["exclusions"] if "trade_id" in e}
+            pp_rows = [r for r in pp_rows if _rget(r, "trade_id") not in excl_ids]
             env["mirror"] = {
                 "readState": "ok",
                 "accountIds": portfolio_ids,
+                "excludedTradeIds": sorted(excl_ids),
+                "exclusionsReadState": excl["readState"],
                 "newestClosedAt": _newest_close(pp_rows),
                 "perStrategy": _book_blocks(pp_rows, n, RECENT_BLOCK, rosters["portfolioLegs"]),
             }
