@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261007-BQESW7M2-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-SILENCE-ALERTS session_01Fhry4ikKEvC4LNBqESw7m2; PR #16950 (merged b90cbe1c6)",
+    "rerun": "scripts/ops/diag_fetch.sh '/api/diag/log_file?name=attention_watch_receipt'  # after the first hourly run following VM sha >= b90cbe1c6 (VM was c4487fb0d at 2026-10-07 19:38Z, contains it): probes must list prop_idle_tradeify_1, prop_idle_velotrade_1, prop_idle_breakout_2, phone_hb_breakout_2"
+  },
+  "state": "queued",
+  "what": "OBSERVE the prop silence alerts (PR #16950): merged and on the VM checkout (sha contains the merge) but NOT yet run - the last attention_watch_receipt (19:00:16Z) pre-dates it and lists only the 5 old probes. Closes when (1) the receipt after the 20:00Z digest lists the four new probes with status ok/unknown (live read via the public API 2026-10-07 19:39Z gave tradeify_1 ok 2.6 d, velotrade_1 unknown (0 fills), breakout_2 unknown (0 fills), phone_hb ok 2 min) and (2) the phone-dead path has fired once on a deliberately closed app (also the clears_when of PI-20261005-YUVCGTMJ-0001). Hourly carrier => dead-phone ping up to ~1h after the 10-min threshold."
+}
