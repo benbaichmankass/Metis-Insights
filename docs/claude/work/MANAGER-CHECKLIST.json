@@ -5700,16 +5700,23 @@
       "id": "ARB-RESEARCH",
       "title": "Relative-value / arbitrage strategy families: feasibility table on our feeds, order paths and venue rules, plus registered queue units for the feasible ones",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane ARB-RESEARCH",
       "lane": "session_01Aeyqvqf9sajCVDx9Ufef4u",
       "model": "claude-fable-5-1",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        16972
+      ],
       "blocked_on": [],
-      "note": "[2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0005. Operator 2026-10-06 ~08:20Z verbatim: 'other complex strategies (not just based on predicting movement, but arbitraging symbols, spreads, etc)'. Fable, auto."
+      "note": "[2026-10-07T19:02Z manager] VERDICT TABLE (docs/research/relative-value-families-2026-10-07.md): FEASIBLE-NOW Stage 0: pairs/ratio-z-score spread MR (harness-dispatch pairs arm; Bybit Stage 1 via config/pairs.yaml Tier-3; Alpaca needs an order path; ETF short borrow unmodelled) and dollar-neutral ETF baskets (xsec). NEEDS-A-FEED: funding carry (Bybit funding 403 from runners; Binance Vision fundingRate archive answers; fetcher arm missing), perp-spot basis, volatility spreads. NOT-FOR-US: cross-venue arb (one API venue; all props ban cross-account hedging; 60 s tick), triangular/FX cross-rate, index/ETF-vs-underlying, SPY/MES basis. Units: 4 queue + 2 blocked (renumbered to 014-019 after the fourth id collision today). New items to route: PI-20261007-X9UFEF4U-0001 (BUILD fundingRate fetcher + basis verdict, due 10-14), -0002 (RQ-20260922-011 blocker cleared, owner PAIRS-STOCKTAKE, due 10-10), -0003 (harness_dispatch_result cannot grade xsec gate block, due 10-14). PI-20261006-APBY4NTV-0005 done. PR held; manager lands after the renumber. || [2026-10-07T18:23Z manager] Dispatched (all 12 confirmed status_bucket WORKING at 18:23Z); post-reset (operator: 'let's get everything going again'). Pipeline: PI-20261006-APBY4NTV-0005. Operator 2026-10-06 ~08:20Z verbatim: 'other complex strategies (not just based on predicting movement, but arbitraging symbols, spreads, etc)'. Fable, auto.",
+      "observation": {
+        "what": "PR #16972 lands (family table memo + units renumbered 014-019); the three new pipeline items routed",
+        "how_to_check": "git ls-tree origin/main research/queue | grep -c RQ-20261007-01[4-7]",
+        "due_by": "2026-10-09T18:00Z"
+      }
     },
     {
       "id": "PROP-STRATEGY-SEARCH",
