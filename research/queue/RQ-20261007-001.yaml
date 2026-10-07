@@ -146,4 +146,16 @@ related:
 - src/units/accounts/clients.py (EXCHANGE_MANAGEMENT_CAPS["breakout"] is empty)
 - scripts/research/prop_bracket_exit_model.py (the earlier SL+TP-only arm, before the trail existed)
 - RQ-20261007-002 (the same question for xrp_pullback_2h's dead trail-decay arm)
+result_preliminary: 'MEASURED 2026-10-07 by lane EXIT-PARITY-RQ on a session-local run of this unit''s exact command
+  through scripts/research/script_run.py (run id local-5fd0163ca; locator comms/research/RQ-20261007-001/local-5fd0163ca/verdict.json,
+  committed), AFTER the rule above was registered on commit 5fd0163ca. Positive control: W reproduced the committed record
+  exactly (355 trades, net_total_r 13.0223, diff 0.0). W (stale exit on): n=355, net +13.0223 R, maxDD 13.0335 R, by_outcome
+  stop 76 / trail_stop 187 / stale_stop 79 / take_profit 13, mean 12.2 bars, 0.072 R per capital-day. X (stale exit off,
+  no timeout): n=348, net +12.8408 R, maxDD 13.5719 R, by_outcome stop 77 / trail_stop 259 / take_profit 12 (0 timeouts),
+  mean 13.6 bars, 0.0651 R per capital-day. dR = +0.1815 R, dDD = +0.5384 R, W out-earns X in 2 of 4 calendar folds
+  (W folds 2.02 / 1.01 / 15.70 / -5.71; X 2.93 / 0.37 / 13.54 / -4.00). VERDICT under the registered rule: FAIL /
+  live_without_lever -- the stale exit is worth ~0.18 R over 730 days, inside the 2.0 R bar, and does not even hold its
+  sign across folds; so fix (B), strip stale_exit_bars / stale_exit_below_r from trend_donchian_eth_prop and re-run its
+  Stage-0 record, is the cheaper fix; a close verb (fix A) is NOT proposed. Status stays queued: the runner''s own run
+  lands the durable E5 record and the grader closes the unit; this field is the session read, not the landing.'
 last_dispatched_at: null

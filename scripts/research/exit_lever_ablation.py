@@ -89,7 +89,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(REPO / "scripts" / "research"), str(REPO / "scripts"), str(REPO)]
@@ -100,7 +100,7 @@ N_FOLDS = 4
 
 
 # ── arm specs ───────────────────────────────────────────────────────────────
-def parse_arm(spec: str) -> Tuple[str, Dict[str, Any], List[str], List[str]]:
+def parse_arm(spec: str) -> tuple[str, dict[str, Any], list[str], list[str]]:
     """``LABEL=tok;tok`` -> (label, cfg_set, cfg_unset, extra_argv)."""
     import yaml
     if "=" not in spec:
@@ -109,9 +109,9 @@ def parse_arm(spec: str) -> Tuple[str, Dict[str, Any], List[str], List[str]]:
     label = label.strip()
     if not label:
         raise ValueError(f"arm spec {spec!r} has an empty label")
-    sets: Dict[str, Any] = {}
-    unsets: List[str] = []
-    extra: List[str] = []
+    sets: dict[str, Any] = {}
+    unsets: list[str] = []
+    extra: list[str] = []
     for tok in (t.strip() for t in body.split(";")):
         if not tok:
             continue
@@ -130,7 +130,7 @@ def parse_arm(spec: str) -> Tuple[str, Dict[str, Any], List[str], List[str]]:
     return label, sets, unsets, extra
 
 
-def arm_cfg(base: Dict[str, Any], sets: Dict[str, Any], unsets: List[str]) -> Dict[str, Any]:
+def arm_cfg(base: dict[str, Any], sets: dict[str, Any], unsets: list[str]) -> dict[str, Any]:
     cfg = dict(base)
     for k in unsets:
         cfg.pop(k, None)
@@ -139,7 +139,7 @@ def arm_cfg(base: Dict[str, Any], sets: Dict[str, Any], unsets: List[str]) -> Di
 
 
 # ── harness runs ────────────────────────────────────────────────────────────
-def _replace_opt(argv: List[str], flag: str, value: str) -> List[str]:
+def _replace_opt(argv: list[str], flag: str, value: str) -> list[str]:
     out = list(argv)
     if flag in out:
         out[out.index(flag) + 1] = value
@@ -148,8 +148,8 @@ def _replace_opt(argv: List[str], flag: str, value: str) -> List[str]:
     return out
 
 
-def build_arm_argv(leg: str, cfg: Dict[str, Any], csv: str, resample: str, emit: str, jout: str,
-                   extra: List[str], start: Optional[str], end: Optional[str]) -> Tuple[List[str], List[str]]:
+def build_arm_argv(leg: str, cfg: dict[str, Any], csv: str, resample: str, emit: str, jout: str,
+                   extra: list[str], start: str | None, end: str | None) -> tuple[list[str], list[str]]:
     """The committed-record argv for ``cfg`` (via build_harness_cmd), plus the
     arm's raw flags and the pinned window. Returns (argv, omitted_levers)."""
     import regime_debt_matrix as rdm
@@ -176,7 +176,7 @@ def build_arm_argv(leg: str, cfg: Dict[str, Any], csv: str, resample: str, emit:
     return argv, list(omitted)
 
 
-def fetch_candles(leg: str, cfg: Dict[str, Any], days: int, csv: str) -> Dict[str, Any]:
+def fetch_candles(leg: str, cfg: dict[str, Any], days: int, csv: str) -> dict[str, Any]:
     """The SAME fetch the evidence builder makes (regime_debt_matrix._fetch_csv)."""
     import regime_debt_matrix as rdm
     sym = (cfg.get("symbols") or [None])[0]
@@ -188,8 +188,8 @@ def fetch_candles(leg: str, cfg: Dict[str, Any], days: int, csv: str) -> Dict[st
     return feed
 
 
-def _load_trades(path: str) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
+def _load_trades(path: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     with open(path, encoding="utf-8") as fh:
         for ln in fh:
             ln = ln.strip()
@@ -203,7 +203,7 @@ def _ts(s: Any):
     return pd.Timestamp(str(s)).tz_localize("UTC") if pd.Timestamp(str(s)).tzinfo is None else pd.Timestamp(str(s))
 
 
-def fold_edges(csv: str, start: Optional[str], end: Optional[str]) -> List[Any]:
+def fold_edges(csv: str, start: str | None, end: str | None) -> list[Any]:
     """N_FOLDS+1 calendar boundaries over the measured candle window."""
     import pandas as pd
     df = pd.read_csv(csv, usecols=["timestamp"])
@@ -220,7 +220,7 @@ def fold_edges(csv: str, start: Optional[str], end: Optional[str]) -> List[Any]:
     return [lo + step * i for i in range(N_FOLDS)] + [hi]
 
 
-def fold_net_r(trades: List[Dict[str, Any]], edges: List[Any]) -> List[Dict[str, Any]]:
+def fold_net_r(trades: list[dict[str, Any]], edges: list[Any]) -> list[dict[str, Any]]:
     out = []
     for i in range(N_FOLDS):
         lo, hi = edges[i], edges[i + 1]
@@ -232,7 +232,7 @@ def fold_net_r(trades: List[Dict[str, Any]], edges: List[Any]) -> List[Dict[str,
     return out
 
 
-def summarize_arm(jout: str, emit: str, edges: List[Any]) -> Dict[str, Any]:
+def summarize_arm(jout: str, emit: str, edges: list[Any]) -> dict[str, Any]:
     with open(jout, encoding="utf-8") as fh:
         bt = json.load(fh)
     trades = _load_trades(emit)
@@ -254,7 +254,7 @@ def summarize_arm(jout: str, emit: str, edges: List[Any]) -> Dict[str, Any]:
 
 
 # ── grading (pure) ──────────────────────────────────────────────────────────
-def check_control(arm: Dict[str, Any], record_bt: Dict[str, Any], tol_n: float, tol_r: float) -> Dict[str, Any]:
+def check_control(arm: dict[str, Any], record_bt: dict[str, Any], tol_n: float, tol_r: float) -> dict[str, Any]:
     """Does the arm reproduce the committed record? (n within tol_n fraction, net_r within tol_r R)."""
     rn, rr = int(record_bt["total_trades"]), float(record_bt["net_total_r"])
     dn = abs(arm["n"] - rn) / max(rn, 1)
@@ -264,13 +264,13 @@ def check_control(arm: Dict[str, Any], record_bt: Dict[str, Any], tol_n: float, 
             "n_frac_diff": round(dn, 4), "net_r_abs_diff": round(dr, 4), "tol_n": tol_n, "tol_r": tol_r}
 
 
-def _fold_wins(a: Dict[str, Any], b: Dict[str, Any]) -> int:
+def _fold_wins(a: dict[str, Any], b: dict[str, Any]) -> int:
     """Folds where arm a out-earns arm b (strictly)."""
     return sum(1 for fa, fb in zip(a["folds"], b["folds"]) if fa["net_r"] > fb["net_r"])
 
 
-def grade_parity(arms: Dict[str, Dict[str, Any]], *, baseline: str, candidate: str, delta_r: float,
-                 fold_majority: int, n_floor: int, control: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def grade_parity(arms: dict[str, dict[str, Any]], *, baseline: str, candidate: str, delta_r: float,
+                 fold_majority: int, n_floor: int, control: dict[str, Any] | None) -> dict[str, Any]:
     b, c = arms[baseline], arms[candidate]
     d_r = round(b["net_r"] - c["net_r"], 4)
     d_dd = round(c["max_drawdown_r"] - b["max_drawdown_r"], 4)
@@ -297,11 +297,11 @@ def grade_parity(arms: Dict[str, Dict[str, Any]], *, baseline: str, candidate: s
                    "measured value is inside the materiality bar, so declared == executable (strip it) is the cheaper fix"}
 
 
-def grade_sweep(arms: Dict[str, Dict[str, Any]], *, baseline: str, candidates: List[str], delta_r: float,
-                fold_majority: int, n_floor: int, control: Optional[Dict[str, Any]],
-                same_as: Optional[Tuple[str, str]]) -> Dict[str, Any]:
+def grade_sweep(arms: dict[str, dict[str, Any]], *, baseline: str, candidates: list[str], delta_r: float,
+                fold_majority: int, n_floor: int, control: dict[str, Any] | None,
+                same_as: tuple[str, str] | None) -> dict[str, Any]:
     b = arms[baseline]
-    m: Dict[str, Any] = {"baseline": baseline, "candidates": {}, "delta_r_bar": delta_r,
+    m: dict[str, Any] = {"baseline": baseline, "candidates": {}, "delta_r_bar": delta_r,
                          "fold_majority": fold_majority, "n_floor": n_floor, "control": control}
     if same_as:
         x, y = same_as
@@ -336,15 +336,15 @@ def grade_sweep(arms: Dict[str, Dict[str, Any]], *, baseline: str, candidates: L
                    "earns its place -- strip them (Tier-3, not done here)"}
 
 
-def verdict_record(grade: Dict[str, Any], *, leg: str, arms: Dict[str, Dict[str, Any]], population: str,
-                   n: int, extra: Dict[str, Any]) -> Dict[str, Any]:
+def verdict_record(grade: dict[str, Any], *, leg: str, arms: dict[str, dict[str, Any]], population: str,
+                   n: int, extra: dict[str, Any]) -> dict[str, Any]:
     return {"verdict": grade["verdict"], "read_state": "measured", "population": population, "n": n,
             "measurement": {"leg": leg, "label": grade.get("label"), "grade": grade, "arms": arms, **extra},
             "note": f"{grade['verdict'].upper()} / {grade.get('label')}: {grade.get('why')}"}
 
 
 # ── main ────────────────────────────────────────────────────────────────────
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     if "--self-test" in (sys.argv[1:] if argv is None else argv):
         return _self_test()
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
@@ -407,14 +407,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     wd = Path(tempfile.mkdtemp(prefix="exit_lever_ablation_"))
     csv = a.data_csv or str(wd / f"{a.leg}__data.csv")
-    feed: Dict[str, Any] = {"resample": base.get("timeframe"), "source": "explicit --data-csv"}
+    feed: dict[str, Any] = {"resample": base.get("timeframe"), "source": "explicit --data-csv"}
     if not a.data_csv:
         feed = fetch_candles(a.leg, base, a.days, csv)
     edges = fold_edges(csv, a.start, a.end)
     arms_dir = out / "arms"
     arms_dir.mkdir(exist_ok=True)
-    arms: Dict[str, Dict[str, Any]] = {}
-    argvs: Dict[str, Any] = {}
+    arms: dict[str, dict[str, Any]] = {}
+    argvs: dict[str, Any] = {}
     for label, sets, unsets, extra in specs:
         cfg = arm_cfg(base, sets, unsets)
         emit, jout = str(arms_dir / f"{label}__trades.jsonl"), str(arms_dir / f"{label}__bt.json")
@@ -423,7 +423,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         argvs[label] = {"argv": shown, "cfg_set": sets, "cfg_unset": unsets, "extra_flags": extra,
                         "omitted_levers_per_builder": omitted}
         print(f"[{label}] {' '.join(shown)}", flush=True)
-        r = subprocess.run(argv_i, cwd=str(REPO), capture_output=True, text=True)
+        r = subprocess.run(argv_i, cwd=str(REPO), capture_output=True, text=True, check=False)
         (arms_dir / f"{label}__stderr.log").write_text(r.stderr[-20000:], encoding="utf-8")
         if r.returncode != 0:
             print(f"ERROR: arm {label} harness exit {r.returncode}: {r.stderr[-800:]}", file=sys.stderr)
@@ -454,7 +454,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 # ── self-test: planted controls for every grading branch, no network ─────────
-def _arm(n: int, net_r: float, dd: float, folds: List[float]) -> Dict[str, Any]:
+def _arm(n: int, net_r: float, dd: float, folds: list[float]) -> dict[str, Any]:
     return {"n": n, "net_r": net_r, "max_drawdown_r": dd,
             "folds": [{"fold": i + 1, "net_r": f} for i, f in enumerate(folds)]}
 

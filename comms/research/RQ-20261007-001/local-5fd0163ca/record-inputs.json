@@ -1,0 +1,17 @@
+{
+  "artifact_locator": "comms/research/RQ-20261007-001/local-5fd0163ca/ (run-manifest.json + verdict.json + logs/)",
+  "artifact_store": "comms/research/RQ-20261007-001/local-5fd0163ca",
+  "decision_rule_id": "RULE-RQ1007-001-PROP-CLOSE-LEVER-PARITY",
+  "decision_rule_registered_at": "2026-10-07",
+  "measurement_file": "comms/research/RQ-20261007-001/local-5fd0163ca/measurement.json",
+  "min_rows": "1",
+  "n": "355",
+  "note": "FAIL / live_without_lever: dR=0.1815 / dDD=0.5384 against bar 2.0 with 2/4 fold wins: the lever's measured value is inside the materiality bar, so declared == executable (strip it) is the cheaper fix",
+  "population": "trend_donchian_eth_prop: 355 trades in the baseline arm 'W' on ETHUSDT 1h candles 2024-10-05 .. 2026-10-03 23:59, net of fee+slippage+funding (the harness's venue-aware stack); arms ['W', 'X']",
+  "power_state": "cleared",
+  "read_state": "measured",
+  "records_file": "",
+  "research_unit": "RQ-20261007-001",
+  "tool": "python3 scripts/research/exit_lever_ablation.py",
+  "verdict": "fail"
+}

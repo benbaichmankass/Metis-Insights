@@ -151,4 +151,17 @@ related:
 - scripts/backtest_pullback.py (M20 P4.1 trail-decay lever)
 - RQ-20261006-004 (weekly walk-forward of the same leg)
 - RQ-20261007-001 (the same question for trend_donchian_eth_prop's close lever)
+result_preliminary: 'MEASURED 2026-10-07 by lane EXIT-PARITY-RQ on a session-local run of this unit''s exact command
+  through scripts/research/script_run.py (run id local-5fd0163ca; locator comms/research/RQ-20261007-002/local-5fd0163ca/verdict.json,
+  committed), AFTER the rule above was registered on commit 5fd0163ca. Premise check: S (decay declared at 4.49) and N
+  (no decay) are byte-identical: 122 trades, net +14.6686 R, maxDD 12.3084 R, by_outcome stop 63 / take_profit 45 /
+  trail_stop 11 / timeout 3 -- the lever is dead under tp_r 3.0. Positive control: N reproduced the committed 730d-expand
+  record exactly (122, 14.6686, diff 0.0). Reachable arms at tight_mult 2.5 vs N: R10 n=144 net -2.9577 R (dR -17.63,
+  dDD +4.55, 0 fold wins); R15 n=134 net +5.9978 R (dR -8.67, dDD -0.54, 1 fold win); R20 n=129 net +6.3323 R (dR -8.34,
+  dDD +0.75, 0 wins); R25 n=126 net +11.0392 R (dR -3.63, dDD +1.13, 0 wins). Every reachable arm LOSES money against
+  the no-decay book (the tightened trail cuts trades that would have reached the 3 R target: take_profit exits fall from
+  45 to 31-42). VERDICT under the registered rule: FAIL / no_reachable_lever_beats_removed -- the two trail_decay_* lines
+  are dead config and nothing reachable earns their place; the Tier-3 proposal is to strip trail_decay_arm_r and
+  trail_decay_tight_mult from xrp_pullback_2h (bybit_2, bybit_portfolio, bybit_1 in one PR). Status stays queued: the
+  runner''s own run lands the durable E5 record and the grader closes the unit; this field is the session read, not the landing.'
 last_dispatched_at: null
