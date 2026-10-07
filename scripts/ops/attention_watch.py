@@ -76,6 +76,7 @@ for _p in (REPO_ROOT, REPO_ROOT / "scripts"):
         sys.path.insert(0, str(_p))
 
 from scripts.ops import pipeline  # noqa: E402
+from scripts.ops import prop_trail_watch  # noqa: E402
 
 # ⚠️ Anchored to the repo root, like work_digest_now.py: the unit carries no
 # data-dir drop-in and diag reads the receipt through repo_root().
@@ -373,6 +374,9 @@ def build(now: datetime | None = None) -> dict:
             "inflight": probe_inflight(now, shallow),
             "manager": probe_manager(now),
             "report": probe_report(now),
+            # TRAIL-PAUSE-PULSE: prop_trail_paused_<account>, one per executor
+            # account with a state dir on this host; see prop_trail_watch.py.
+            **prop_trail_watch.all_probes(now),
         },
     }
 
@@ -383,6 +387,7 @@ PROBE_LABEL = {
     "inflight": "in_flight rows gone quiet",
     "manager": "manager's register not written",
     "report": "scheduled work report missing or broken",
+    **prop_trail_watch.LABELS,
 }
 
 
