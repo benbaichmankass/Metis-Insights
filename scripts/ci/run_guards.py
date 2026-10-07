@@ -1260,6 +1260,16 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # PI-20261005-RQ-ID-RACE-0001: generated units mint 001-899, hand-authored 900-999, and a
+        # PR may not add a unit whose id is taken or sits in the wrong band.
+        "name": "research-queue-id-bands",
+        "when": {"globs": ["research/queue/**", "scripts/ci/check_research_queue_id_bands.py",
+                            "scripts/research/next_rq_id.py", "scripts/research/queue_replenish.py"]},
+        "steps": [["python3", "scripts/ci/check_research_queue_id_bands.py", "--self-test"],
+                  ["python3", "scripts/ci/check_research_queue_id_bands.py",
+                   "--base", "origin/{base_ref}"]],
+    },
+    {
         # RQ-RUN (2026-09-28): the queue's self-replenishment + mechanical
         # grading + health alarm. Self-tests only: the live health read is
         # the DISPATCHER's alarm (it pages), not a PR gate -- a PR must not go
