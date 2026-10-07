@@ -1,10 +1,5 @@
 {
-  "pr_number": 16991,
-  "title": "Fix APK build concurrency",
-  "branch": "fix/apk-build-concurrency",
   "tier": 1,
-  "category": "workflow",
-  "description": "Per-commit workflow-level concurrency with job-level signing serialization to allow parallel builds while preserving keystore generation safety.",
-  "author": "claude-haiku-4-5",
-  "created_at": "2026-10-07T19:30:00Z"
+  "landing": "self",
+  "why": "GitHub Actions workflow fix (.github/workflows/phone-executor-apk.yml) — per-commit concurrency change with job-level serialization safety. This is a Tier-1 CI/workflow change that affects only tooling, not live runtime behavior."
 }
