@@ -1,0 +1,126 @@
+id: RQ-20261006-071
+title: 'Impact of risk_pct 0.5% -> 1.0% on breakout_2 (Breakout Turbo 1-Step $5k): ETH+SOL trend_donchian book, 730d records,
+  graded on the RULE-RQ1006-VELOTRADE-FIT clauses (operator 2026-10-06 09:20Z)'
+status: done
+cadence: once
+theme: new_strategy_prop
+priority: 1
+kind: experiment
+question: 'OPERATOR 2026-10-06 09:20Z (verbatim): "ok, let''s move the velotrade risk to 1% - let''s also check the impact
+  of doing the same for tradeify and breakout". Velotrade moved to 1% in PR claude/velotrade-risk-1pct on RQ-20261006-062.
+  This unit answers the second half for breakout_2: over the ETH+SOL book (trend_donchian_eth_prop + trend_donchian_sol_prop,
+  the account''s current roster), at flat risk 0.005 (arm A, today''s 0.005 ($25 flat cap in the ruleset)) versus 0.010
+  (arm B), under config/prop_rulesets/breakout_turbo_1step.yaml (3% daily = $150 on $5,000, 3% static drawdown, 00:30 UTC
+  reset), does the 1.0% arm still clear the risk gate that velotrade_1 was promoted on, and what does it do to EV/life,
+  P(net>0) and days to target? Prices the committed 730d records (comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl,
+  355 trades; comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl, 132 trades; full cost
+  stack); no new backtest. Prior fits of this book on this ruleset ran at 0.5% only: RQ-20261005-851..854 (Turbo fits at
+  0.5%, NULL with ev > 0 every seed).'
+why_this_matters: 'The operator asked for the impact of the same 1% move on tradeify and breakout before deciding it. breakout_2
+  is mode: dry_run (phone-executed, PHONE-EXEC-1B) with risk_pct 0.005 in config/accounts.yaml; doubling the ticket doubles
+  the daily-loss exposure against a $150 line, so the answer has to be a graded record, not an extrapolation from Velotrade''s
+  4% daily / $5k book. A GO_LIVE on arm B is the evidence a Tier-3 risk_pct PR for breakout_2 would cite; a NULL names the
+  binding clause so the operator knows WHY 1% is refused there.'
+power:
+  expected_n: 487
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (floor registered by RQ-20260928-011/-012). expected_n=487
+    = 355 + 132, `wc -l` of the two 730d trade records counted 2026-10-06 before this unit was registered; below 88 the
+    unit grades UNDERPOWERED, never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: Re-grading of committed 730d trade records; nothing accrues.
+decision_rule:
+  id: RULE-RQ1006-071-BREAKOUT-RISK-1PCT
+  registered_at: '2026-10-06'
+  registered_before_run: true
+  statistic: 'Per arm (A: --sizing balance --risk-pct 0.005; B: --sizing balance --risk-pct 0.01) and per seed 1-5, over
+    the ETH+SOL union book (both legs passed to prop_ev_sim as --trades; the SOL leg rides in --common so every cell scores
+    the BOOK, not ETH alone), under config/prop_rulesets/breakout_turbo_1step.yaml with --no-hedge, --lev-cap 5 on each
+    leg, --swap-model prorated, --funded-start fresh (the simulator''s default cost stack, as RQ-20261006-034..045): (R)
+    path-mode ev_net_usd_per_life and p_net_positive; (B) P(daily-loss breach) per life, read from the same sims/ output''s
+    life-end reasons; (D) worst single 00:30-UTC day of summed realised net-R x r x $5,000 over the union ledger at the
+    arm risk r; (G) book_max_gap = largest gap in days between consecutive trade ENTRIES of the union ledger plus window
+    edges. Also REPORTED, never graded on: days_to_pass p50/p90, p_pass_eval, P(max-DD breach), and the arm-A vs arm-B delta
+    of every figure.'
+  rule: 'The gate is RULE-RQ1006-VELOTRADE-FIT (RQ-20261006-062) re-registered here with breakout_2''s numbers, unchanged
+    thresholds. Per arm: GO_LIVE iff ALL of (R) ev_net_usd_per_life >= 0 on ALL 5 seeds; (B) P(daily-loss breach) per life
+    <= 0.05 on ALL 5 seeds; (D) no 00:30-UTC day in the 730d ledger with realised loss worse than -80% of the $150 daily
+    limit (i.e. none below -$120) at the arm risk; (G) book_max_gap <= 14d. FAIL iff ev_net_usd_per_life < 0 on any seed.
+    UNDERPOWERED (indeterminate) iff n < 88. Otherwise NULL with the first failing clause named in the order B, D, G as
+    the binding constraint. MACHINE verdict (prop_ev_grid --grade pass_all_seeds --p-floor 0.0) pools BOTH arms and grades
+    clause R only: it reads pass iff EV > 0 on every (arm, seed) cell, fail iff any cell has EV <= 0. The per-arm verdict
+    on all four clauses is graded by the reader from grid.json / sims/ against the thresholds written here, with D and G
+    computed over the union ledger (scripts/research/velotrade_fit_sweep.py on branch claude/velotrade-fit-rq002, PR #16741,
+    does exactly this for the Velotrade ruleset; until a ruleset-parametrised copy lands the reader computes D and G from
+    the two trade JSONLs directly). Decision mapping, fixed before the run: arm B GO_LIVE -> a Tier-3 proposal to set breakout_2.risk.risk_pct
+    0.01 (and the ruleset flat cap to 1% of size), NOT applied by this unit; arm B NULL or FAIL -> breakout_2 stays at 0.005
+    and the binding clause is reported to the operator; arm A failing the gate while it is the live setting is a finding
+    filed to the pipeline on its own. The 14d margin, the 80% line and the 0.05 breach ceiling are NOT changed after seeing
+    any result.'
+  what_it_does_not_do: Does not edit config/accounts.yaml, any prop ruleset or any roster. Prices committed 730d trades
+    (fee + slippage + funding per the simulator's cost stack); not a live-parity check. Backtest gaps do not prove live
+    gaps. Says nothing about any risk fraction other than 0.5% and 1.0%.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 40
+  basis: 1 book (2 legs) x 2 arms x 5 seeds of prop_ev_sim, twice the shape and cost of RQ-20261006-034 (20 min for 1 x
+    1 x 5).
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 120
+  command:
+  - python3
+  - scripts/research/prop_ev_grid.py
+  - --leg
+  - trend_donchian_eth_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop__trades.jsonl
+  - --arm
+  - A=--sizing balance --risk-pct 0.005
+  - --arm
+  - B=--sizing balance --risk-pct 0.01
+  - --common
+  - --trades trend_donchian_sol_prop=comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop__trades.jsonl
+    --ruleset config/prop_rulesets/breakout_turbo_1step.yaml --lev-cap trend_donchian_eth_prop=5 --lev-cap trend_donchian_sol_prop=5
+    --no-hedge --swap-model prorated --funded-start fresh
+  - --seeds
+  - 1,2,3,4,5
+  - --grade
+  - pass_all_seeds
+  - --p-floor
+  - '0.0'
+  - --n-floor
+  - '88'
+  - --out
+  - '{out_dir}'
+  - --jobs
+  - '4'
+  inputs:
+    research_unit: RQ-20261006-071
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+related:
+- RQ-20261006-062
+- RQ-20261006-034
+- config/prop_rulesets/breakout_turbo_1step.yaml
+- comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_eth_prop.json
+- comms/strategy_evidence/runs/2026-10-05-730d/trend_donchian_sol_prop.json
+- claude/velotrade-risk-1pct
+last_dispatched_at: '2026-10-07T12:02:24+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-RQ1006-071-BREAKOUT-RISK-1PCT
+  evidence:
+  - research/results/RQ-20261006-071/37618208825.jsonl
+  graded_at: '2026-10-07'
+  grader: scripts/research/queue_grade.py
+  reason: 1 row(s), all measured, all pass
+  rows: 1
+  verdict: pass

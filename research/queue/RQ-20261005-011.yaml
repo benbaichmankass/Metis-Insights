@@ -63,4 +63,15 @@ generated:
     leg: mgc_pullback_1d
     symbol: MGC
     timeframe: 1d
-last_dispatched_at: null
+last_dispatched_at: '2026-10-07T08:21:33+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST
+  evidence:
+  - research/results/RQ-20261005-011/37593252967.jsonl
+  graded_at: '2026-10-07'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
+  rows: 2
+  verdict: null

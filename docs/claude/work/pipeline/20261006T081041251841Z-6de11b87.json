@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-KX6ZKFNA-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ACTIVE-GEOMETRY scan session_01WeYNGaK7Ao3hp4Kx6ZkFna (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-06 ~08:20Z; child of PI-20261006-APBY4NTV-0003",
+    "rerun": "python3 -c \"import yaml;s=yaml.safe_load(open('config/strategies.yaml'))['strategies'];print({k:{x:v[x] for x in v if x.startswith(('stale_exit','giveback'))} for k,v in s.items() if k.endswith('_prop')})\"; grep -n '_CLOSE_LEVERS' src/prop/prop_trail.py"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "PROP LEGS DECLARE A CLOSE-TYPE EXIT LEVER THE PROP PATH CANNOT EXECUTE. trend_donchian_eth_prop (rostered on tradeify_1 live, breakout_1/breakout_2) declares stale_exit_bars=12 / stale_exit_below_r=0.0; its Stage-0 evidence (scripts/backtest_trend.py) exits at the bar close when the lever fires. prop_trail.run_trail_step lists stale_exit_bars/giveback_* as _CLOSE_LEVERS and, by its own docstring, 'raises one alert per ticket when the lever WOULD fire and does nothing else'; 'breakout' is an EMPTY set in EXCHANGE_MANAGEMENT_CAPS so the order_monitor close path returns unsupported_op:close for prop rows. So the live prop book trades a different exit than the one measured (same category as the PROP-TRAIL finding, for the close-type levers). MEASURED 2026-10-06: tradeify_1's one filled trade since 2026-09-01 (ETH long 2026-10-04T22:23Z -> SL 2026-10-05T04:32Z, 6h, -57.05 USD) is too short for a 12-bar stale exit to have fired, so no money has yet been lost to it; the gap is structural. FIX (Tier-3 either way, after the usage reset): (A) give prop_trail a close verb for close-type levers through adapter close (dxtrade 'Close Position' control measured ENABLED in DIALOG-MEASURE #15657; dxtrade_api REST has cancel/close), gated like the trail rollout; or (B) strip stale_exit_* from the _prop legs and re-run the Stage-0 record without it so declared == executable. Decide with the Stage-0 delta between A and B."
+}

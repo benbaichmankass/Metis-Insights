@@ -1,0 +1,139 @@
+id: RQ-20261007-212
+title: 'Velotrade Classic 1-Step $5k prop fit with PACE: ict_scalp 15m on SUIUSDT at flat 0.5% / 1.0% of balance, days-to-target
+  reported (PI-20261006-APBY4NTV-0001 batch 2)'
+status: queued
+cadence: once
+theme: new_strategy_prop
+priority: 1
+requires_result:
+  unit: RQ-20261007-201
+kind: experiment
+question: 'Does ict_scalp 15m (donor ict_scalp_xrp_15m) on SUIUSDT (Breakout SUIUSD (100k cap)) clear clause (R) of the operator''s
+  go-live gate -- E[net $ banked before the account dies] > 0 on every seed -- under Velotrade Classic 1-Step $5k (4% daily
+  (00:30 UTC reset, equity) / 7% static max-DD, +10% target plus 5 qualifying days at >= +0.8%) when sized flat 0.5% (arm
+  A, velotrade_1''s risk since 2026-10-06) or 1.0% (arm B) of balance, and how FAST: days_to_pass p50/p90 and p_pass_eval,
+  beside p_breach_daily_loss and P(net>0)? The cell is re-run from a fresh 730 d fetch (p2_breakout_symbol_screen.py --census-only
+  writes the rows; the grid prices them) because RQ-20261001-040 measured it (n=307, pooled net +12.3R, both halves positive)
+  but committed no rows. Venue reachability is per docs/integrations/breakout-instruments-2026-09-27.md (operator screenshot,
+  unverified against the live page), Tradeify "100+ cryptocurrency pairs" and Velotrade "104 crypto instruments on KuCoin
+  perp feeds" (docs/research/prop-firm-deepdive-2026-10-04.md); only ETH/SOL/XRP/BTC/ADA have measured lots on any prop terminal,
+  so every other symbol is a candidate for research, not yet an executable leg.'
+why_this_matters: 'Operator 2026-10-06 (verbatim, in PI-20261006-APBY4NTV-0001): "continue searching for new strategies ...
+  specifically for the prop accounts, with an emphasis on shorter-timeframe strategies, or at least strategies that turn a
+  profit faster (we would ideally want +10% monthly, not over more than 6 months)" and "we shouldn''t be stuck on eth and
+  sol - anything that we''re able to trade is fair game". Batch 1 (RQ-20261006-005..031, Stage-0 net of each harness''s cost
+  stack, research/results/RQ-20261006-0NN/*.jsonl, measurement block; the `wiring_only` verdict field is a grader bug being
+  fixed by lane RQ-RESULTS): 5 PASS, all at 1h (ADA/DOGE/LINK pullback, DOGE squeeze, SLV fade); 17 FAIL including every 15m
+  and 5m cell (BTC 15m fade -1820R over 4214 trades); the 5m/15m chop scalps indeterminate (n<39). READ: with these harnesses
+  the cost stack kills 5m/15m; pace has to come from BREADTH (more 1h-4h legs on more instruments) and from stacking legs,
+  not from faster bars. The P2r2 screen (RQ-20261001-001..049, research/results/RQ-20261001-0NN/p2r2-session-2.jsonl, 730
+  d ending 2026-10-01, LIVE donor params re-pointed at the symbol, net of fee+slippage+funding) found 16 cells with harness
+  net_r > 0 pooled AND in both chronological halves: trend_donchian 1h on SOL +20.0R, XRP +31.0R, HYPE +15.0R, ADA +16.0R,
+  FIL +22.5R, LINK +27.0R, SUI +10.3R, UNI +23.4R, ZEC +40.7R; ict_scalp 15m on HYPE +8.4R, AAVE +13.6R, ONDO +17.5R, DOGE
+  +8.1R, SUI +12.3R, ZEC +7.3R; pullback 2h on XRP +14.7R. Every one of them graded NULL under Breakout CLASSIC at 1.5% risk
+  (ev > 0 on all seeds, P(net>0) < 0.70 somewhere) and NONE has committed per-trade rows (the session ran them locally; comms/research/
+  holds no RQ-20261001 directory). The bar that failed was the 1.5% Breakout edge bar, not the operator''s go-live gate (2026-10-06
+  06:40Z: the risk requirements), and the question never asked was PACE. This unit prices one of those cells on the live prop
+  venue with the lowest fee stack at the risk the operator just set, with PACE as a headline.'
+power:
+  expected_n: 307
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: d=0.3 needs ~87-90 observations at alpha 0.05 / power 0.8 (the floor RQ-20260928-011/-012 registered and every prop
+    fit since has used). expected_n=307 is the cell's MEASURED trade count in research/results/RQ-20261001-040/p2r2-session-2.jsonl
+    (730 d ending 2026-10-01); the window re-fetched at run time ends ~1 week later, so n moves by a few trades. Below 88
+    the grid grades UNDERPOWERED (indeterminate), never FAIL.
+  feasibility:
+    source: none
+    accrual_basis: A 730 d window fetched from data.binance.vision at run time and re-priced; nothing accrues.
+decision_rule:
+  id: RULE-RQ1007-212-VELO-FIT-p2_ict15_suiusdt
+  registered_at: '2026-10-07'
+  registered_before_run: true
+  statistic: 'Per seed and arm: prop_ev_sim path-mode ev_net_usd_per_life, p_net_positive, p_breach_daily_loss, p_breach_max_dd,
+    p_pass_eval and days_to_pass p50/p90 over p2_ict15_suiusdt''s rows (comms/research/RQ-20261007-212/<run_id>/screen_suiusdt/p2_ict15_suiusdt__trades.jsonl),
+    under config/prop_rulesets/velotrade_classic_1step.yaml, Velotrade''s own stack (ruleset header, first-party 2026-10-04;
+    scripts/research/velotrade_fit_sweep.py COSTS): 0.03%/side = 6 bps round trip, 3 bps slippage, 0.05%/night swap at 00:30
+    UTC (dxtrade model), --lev-cap p2_ict15_suiusdt=2, --no-hedge.'
+  rule: 'The grid''s verdict.json is the MECHANICAL half and closes the unit (grading.auto): PASS IF ev_net_usd_per_life >
+    0 on ALL 5 seeds at either arm (--p-floor 0.0: clause (R) of the operator''s 2026-10-06 06:40Z go-live gate, as RQ-20261006-070/071);
+    UNDERPOWERED (indeterminate) IF n < 88; FAIL IF ev <= 0 on any seed at every arm; NULL (indeterminate) otherwise. The
+    RANKING half is read from the landed sims/*.json by the grading session and never changes the verdict: per arm, days_to_pass
+    p50 and p90, p_pass_eval, p_breach_daily_loss, p_breach_max_dd and p_net_positive. A PASS arm with p_breach_daily_loss
+    <= 0.05 on every seed AND days_to_pass p50 <= 60 d is a ''PACE CANDIDATE'' for the ranked list in PI-20261006-APBY4NTV-0001;
+    a PASS with p50 > 180 d is ''too slow'' (still a PASS); p_breach_daily_loss > 0.05 on any seed is ''breach-bound'' (still
+    a PASS on the mechanical rule, never a placement). Any placement is a Tier-3 roster proposal for the matching prop account,
+    NOT applied by this unit. A FAIL is one pass and re-queues once before it is read as a kill.'
+  what_it_does_not_do: Does not touch config/accounts.yaml, config/strategies.yaml or any prop roster. Re-prices a 730 d backtest
+    at the donor leg's LIVE parameters (fee + slippage + funding in the harness, then the venue's own commission/slippage/swap
+    in the sim); not a live-parity check and not a per-symbol lot/leverage check on any terminal. P(pass by 30/90/180 d) is
+    not emitted by prop_ev_sim (PI-20261006-TPQQDKFF-0001); days_to_pass p50/p90 stands in.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.5
+  est_minutes: 45
+  basis: one binance-vision fetch + one harness run (scripts/research/p2_breakout_symbol_screen.py --census-only, the RQ-20261001
+    shape, ~5-20 min) then 2 arms x 5 seeds of prop_ev_sim at ~2.5 min per cell over 4 jobs (the RQ-20261006-040 shape).
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 150
+  commands:
+  - - python3
+    - scripts/research/p2_breakout_symbol_screen.py
+    - --symbol
+    - SUIUSDT
+    - --family
+    - ict15
+    - --days
+    - '730'
+    - --workdir
+    - '{out_dir}/screen_suiusdt'
+    - --census-only
+    - --jobs
+    - '4'
+  - - python3
+    - scripts/research/prop_ev_grid.py
+    - --leg
+    - p2_ict15_suiusdt={out_dir}/screen_suiusdt/p2_ict15_suiusdt__trades.jsonl
+    - --arm
+    - A=--sizing balance --risk-pct 0.005
+    - --arm
+    - B=--sizing balance --risk-pct 0.01
+    - --common
+    - --ruleset config/prop_rulesets/velotrade_classic_1step.yaml --costs breakout --commission-bps-rt 6 --slippage-bps-rt
+      3 --swap-daily 0.0005 --swap-model dxtrade --no-hedge --funded-start fresh --lev-cap p2_ict15_suiusdt=2
+    - --seeds
+    - 1,2,3,4,5
+    - --grade
+    - pass_all_seeds
+    - --p-floor
+    - '0.0'
+    - --n-floor
+    - '88'
+    - --out
+    - '{out_dir}'
+    - --jobs
+    - '4'
+    - --note
+    - 'RQ-20261007-212: p2_ict15_suiusdt Velotrade fit, flat 0.5% (A) and 1.0% (B) of balance, pace read from sims/'
+  inputs:
+    research_unit: RQ-20261007-212
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+grading:
+  auto: true
+related:
+- PI-20261006-APBY4NTV-0001
+- RQ-20261001-040
+- config/prop_rulesets/velotrade_classic_1step.yaml
+- RQ-20261006-062
+- RQ-20261006-034
+- docs/integrations/breakout-instruments-2026-09-27.md
+- scripts/research/p2_breakout_symbol_screen.py
+last_dispatched_at: null

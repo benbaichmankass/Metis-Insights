@@ -60,6 +60,8 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
     "/en/account/A1/trade-ready": "<div><button>Order</button><div role=tablist><button role=tab>Buy</button><button role=tab>Sell</button></div></div>",
     "/": "<div><h1>Your accounts</h1><a href='/en/account/A1/trade'>Turbo 5K</a></div>",
     "/two": "<div><a href='/en/account/A1/trade'>One</a><a href='/en/account/B2/trade'>Two</a></div>",
+    "/en/account/A2/trade": "<div><div role=tablist><button role=tab>Positions</button><button role=tab>Open orders</button><button role=tab>History</button></div><span>Buy</span> 85,225 <span>Sell</span> 85,220</div>",
+    "/en/account/A3/trade": "<div><span>Buy</span> <span>Sell</span></div>",
     "/login": "<form><input type=email><button>Continue</button></form>",
   };
   await p2.route("https://trade.breakoutprop.com/**", (route) => {
@@ -79,6 +81,13 @@ function eq(a, b, m) { if (JSON.stringify(a) !== JSON.stringify(b)) { console.er
   eq(await p2.evaluate("__ex.terminalHref()"), "https://trade.breakoutprop.com/en/account/A1/trade", "terminal URL derived from the current account path");
   await st("/en/account/A1/trade-ready");
   eq(await p2.evaluate("__ex.terminal().ready"), true, "terminal with Order control + Buy/Sell tabs is ready");
+  // TERMINAL WITH THE TICKET CLOSED (fix 06:17Z, "terminal did not load" on the real terminal): no Order control,
+  // no Buy/Sell tabs, but the 1a probe classifier (trade host, /trade path, buy+sell markers, tabs>=3) says ready.
+  await st("/en/account/A2/trade");
+  eq(await p2.evaluate("[__ex.terminal().ready, __ex.terminal().probe, __ex.terminal().orderControl]"), [true, true, false], "terminal with the ticket closed is ready via the probe classifier");
+  eq(await p2.evaluate("__ex.controls()"), ["Positions", "Open orders", "History"], "controls(): the page's control texts for the miss event");
+  await st("/en/account/A3/trade");
+  eq(await p2.evaluate("__ex.terminal().ready"), false, "buy/sell words alone (no tabs, no inputs) are not the terminal");
   s1 = await st("/login");
   eq([s1.loggedIn, s1.email], [false, true], "login form is never logged in");
   // LABEL-BASED FIELDS (fix 2026-10-05 ~22:40Z): price and quantity are set and read back BY LABEL, never by index,
@@ -152,5 +161,115 @@ document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__su
   const pC = await onHost(strip("BTCUSD").replace(/<div id=strip>.*?<\/div>/, ""));
   eq(await pC.evaluate("__ex.symbolStep('ETHUSD')"), "none", "no selector: none (app refuses 'symbol ETH not on the submit label')");
   eq(await pC.evaluate("__ex.symbolOnTicket()"), "BTC", "no selector: ticket unchanged");
+  // Fixture D (fix 06:24Z, am-2 "symbol route: none"): a watchlist whose rows are plain divs with the symbol in a
+  // leaf span and the click handler on the row. Route 1b clicks the ONE exact leaf; the read-back verifies.
+  const wl = strip("BTCUSD").replace(/<div id=strip>.*?<\/div>/, "<div id=wl><div class=r data-s=BTCUSD><span>BTCUSD</span><span>85,225.0</span></div><div class=r data-s=ETHUSD><span>ETHUSD</span><span>2,612.4</span></div></div>")
+    .replace("document.querySelectorAll('#strip button').forEach(function(b){b.onclick=function(){var s=b.textContent;", "document.querySelectorAll('#wl .r').forEach(function(b){b.onclick=function(){var s=b.getAttribute('data-s');");
+  const pD = await onHost(wl);
+  eq(await pD.evaluate("__ex.symbolStep('ETHUSD')"), "clicked_label", "watchlist: exact leaf label clicked, row handler fires");
+  eq(await pD.evaluate("__ex.symbolOnTicket()"), "ETH", "watchlist: submit label now names ETH");
+  eq(await pD.evaluate("__ex.symbolStep('ETHUSD')"), "done", "watchlist: then done");
+  const cands = await pD.evaluate("__ex.symbolCandidates().map(function(c){return c.text})");
+  eq(cands.includes("BTCUSD") && cands.includes("ETHUSD") && !cands.some(function (c) { return /\d/.test(c); }), true, "symbolCandidates lists the watchlist symbols, digits masked");
+  eq(await pD.evaluate("Array.isArray(__ex.ticket().symbolCandidates)"), true, "refusal dump carries symbolCandidates");
+  eq(await pD.evaluate("window.__submitted || 0"), 0, "watchlist: nothing submitted");
+  // Fixture E (MEASURED 2026-10-06 08:58Z terminal_miss): the real PANEL-layout terminal with the order form CLOSED:
+  // no tabs, no inputs, no buy/sell text; an "Order form" toggle, Positions / Open orders panels, an open-instrument
+  // chip "BTC x" and a watchlist of "<BASE> <signed %>" buttons. Opening the form shows the usual ticket.
+  const panel = `<!doctype html><html><body>
+<button>Trade</button><button id=chip>BTC x</button><button>Market chart</button><button id=of>Order form</button>
+<button>Open orders</button><button>Positions</button><button>Order book</button>
+<div id=wl><button data-s=BTC>BTC -1.2%</button><button data-s=ETH>ETH -0.5%</button><button data-s=SOL>SOL +2.0%</button></div>
+<div id=panel></div>
+<script>var cur='BTC';
+function form(){return '<form id=f><div role=tablist><button type=button role=tab aria-selected=false>Market</button><button type=button role=tab aria-selected=true>Limit</button></div><div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div><label for=lp>Limit price</label><input id=lp type=text value=1><label for=q>Quantity</label><input id=q type=text value=0><button type=button id=qu aria-label=\"Toggle quantity unit\">USD</button><div id=tps>TP/SL</div><div id=tpbox></div><button type=submit id=sub>Long (buy) '+cur+'</button></form>';}
+document.getElementById('of').onclick=function(){document.getElementById('panel').innerHTML=form();document.getElementById('qu').onclick=function(){this.textContent=this.textContent==='USD'?cur:'USD';};document.getElementById('tps').onclick=function(){document.getElementById('tpbox').innerHTML='<label for=tp>Take profit price</label><input id=tp type=text><label for=sl>Stop loss price</label><input id=sl type=text>';};document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};};
+document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function(){cur=b.getAttribute('data-s');document.getElementById('chip').textContent=cur+' x';var sb=document.getElementById('sub');if(sb)sb.textContent='Long (buy) '+cur;};});
+</script></body></html>`;
+  const pE = await onHost(panel);
+  const rE = (code) => pE.evaluate(code);
+  eq(await rE("[__ex.terminal().ready, __ex.terminal().panels, __ex.terminal().tabs, __ex.terminal().inputs]"), [true, true, 0, 0], "panel terminal, form closed: ready via panels (the 08:58Z miss)");
+  eq(await rE("__ex.symbolShown()"), "BTC", "panel: shown symbol read from the one 'BTC x' chip");
+  eq(await rE("__ex.symbolStep('ETHUSD')"), "clicked_watch", "panel: the ONE 'ETH -0.5%' watchlist button clicked");
+  eq(await rE("__ex.symbolStep('ETHUSD')"), "done", "panel: chip now 'ETH x' -> done");
+  eq(await rE("__ex.openTicket()"), "clicked", "panel: 'Order form' opens the ticket");
+  eq(await rE("__ex.symbolOnTicket()"), "ETH", "panel: submit label names ETH");
+  // QUANTITY UNIT + TP/SL (MEASURED am-3 09:16Z): "Toggle quantity unit" button reads USD; "TP/SL" control hides the TP/SL inputs.
+  eq(await rE("__ex.qtyUnit()"), "USD", "panel: quantity unit toggle reads USD");
+  eq(await rE("__ex.toggleQtyUnit()"), "clicked", "panel: unit toggled once");
+  eq(await rE("__ex.qtyUnit()"), "ETH", "panel: quantity unit now ETH");
+  eq(await rE("__ex.readByLabel('take ?profit|\\btp\\b','price').n"), 0, "panel: TP field hidden before the TP/SL control");
+  eq(await rE("__ex.openTpsl(0)"), "expanded", "panel: TP/SL control clicked");
+  eq(await rE("__ex.openTpsl()"), "ok", "panel: TP/SL now open");
+  eq(await rE("[__ex.readByLabel('take ?profit|\\btp\\b','price').n, __ex.readByLabel('stop ?loss|\\bsl\\b','price').n]"), [1, 1], "panel: TP and SL fields unique by label");
+  eq(await rE("window.__submitted || 0"), 0, "panel: nothing submitted");
+  // Fixture F (MEASURED am-4 09:48Z): TP/SL checkbox already CHECKED, section still collapsed behind a "TP/SL" header.
+  const tpF = `<!doctype html><html><body><form id=f><div role=tablist><button type=button role=tab aria-selected=true>Buy</button></div>
+<label for=lp>Limit price</label><input id=lp type=text><label><input type=checkbox id=cb checked>TP/SL</label>
+<div id=hdr aria-expanded=false>TP/SL</div><div id=box></div><button type=submit>Long (buy) ETH</button></form>
+<script>document.getElementById('hdr').onclick=function(){document.getElementById('box').innerHTML='<label for=tp>Take profit price</label><input id=tp type=text><label for=sl>Stop loss price</label><input id=sl type=text>';};
+document.getElementById('cb').onclick=function(){window.__cbClicks=(window.__cbClicks||0)+1};</script></body></html>`;
+  const pF = await onHost(tpF);
+  eq(await pF.evaluate("__ex.openTpsl(0)"), "expanded", "checked box + collapsed section: header expanded, box untouched");
+  eq(await pF.evaluate("[__ex.openTpsl(), document.getElementById('cb').checked, window.__cbClicks || 0]"), ["ok", true, 0], "then ok; checkbox never toggled off");
+  // Fixture G: the "TP/SL" text is a plain span; the handler sits on a text-less role=switch beside it.
+  const tpG = `<!doctype html><html><body><form id=f><label for=lp>Limit price</label><input id=lp type=text>
+<div><span id=txt>TP/SL</span><button type=button role=switch id=sw aria-checked=false></button></div><div id=box></div>
+<button type=submit>Long (buy) ETH</button></form>
+<script>document.getElementById('sw').onclick=function(){this.setAttribute('aria-checked','true');document.getElementById('box').innerHTML='<label for=tp>Take profit price</label><input id=tp type=text><label for=sl>Stop loss price</label><input id=sl type=text>';};</script></body></html>`;
+  const pG = await onHost(tpG);
+  eq(await pG.evaluate("__ex.openTpsl(0)"), "expanded", "switch layout: text clicked first (no effect)");
+  eq(await pG.evaluate("__ex.openTpsl(1)"), "switched", "switch layout: the text-less switch beside it is clicked");
+  eq(await pG.evaluate("__ex.openTpsl(2)"), "ok", "switch layout: TP/SL inputs now shown");
+  eq(await pG.evaluate("__ex.tpslArea()[0].node.text"), "TP/SL", "tpslArea dump names the TP/SL element");
+  // ACCOUNT PANEL READ (PHONE-BALANCE-READ): label-anchored, one distinct number or null.
+  const acctA = `<!doctype html><html><body><button>Positions</button><button>Open orders</button>
+<button id=pf>Portfolio 98,123.45 USD</button><button>Turbo Eval 1</button><div><span>Balance</span><span>97,000.10</span></div><div>Equity: 98,123.45</div></body></html>`;
+  const acctpA = await onHost(acctA);
+  eq(await acctpA.evaluate("__ex.accountPanel()"), {balance: 97000.1, equity: 98123.45, portfolio: 98123.45, n: {balance: 1, equity: 1, portfolio: 1}}, "account panel: balance/equity/portfolio read by label");
+  const acctpB = await onHost(`<!doctype html><html><body><button>Portfolio 10,000.00 USD</button><button>Turbo Eval 5</button></body></html>`);
+  eq(await acctpB.evaluate("__ex.accountPanel()"), {balance: null, equity: null, portfolio: 10000, n: {balance: 0, equity: 0, portfolio: 1}}, "account panel: only Portfolio shown -> balance/equity absent (null), portfolio read");
+  const acctpC = await onHost(`<!doctype html><html><body><button>Portfolio 1.00 USD</button><span>Portfolio 2.00 USD</span><button>Balance</button></body></html>`);
+  eq(await acctpC.evaluate("__ex.accountPanel()"), {balance: null, equity: null, portfolio: null, n: {balance: 0, equity: 0, portfolio: 2}}, "account panel: two different values or no value -> null, never guessed");
+  eq(await acctpC.evaluate("window.__submitted || 0"), 0, "account panel: read-only");
+
+  // Fixture H (SOL-PICKER, MEASURED 2026-10-06 dry-fill dumps): the real "Select market" chip (div role=button,
+  // aria-label "Select market", text "ETH 20x"), watchlist buttons WITH a price ("SOL 150.23 -1.23%"), the ticket open on
+  // ETH. The list the chip opens is UNMEASURED: H = a role=dialog of plain div rows (handler on the row, symbol in a
+  // leaf span, a "SOLV" decoy); I = the same rows with NO popup role, SOL first (found as "appeared after the click");
+  // J = the chip opens nothing -> watchlist fallback; K = two SOL rows -> ambiguous, nothing picked, watchlist fallback.
+  const market = (mode) => `<!doctype html><html><body>
+<div role=button id=chip aria-label="Select market">ETH 20x</div><button>Order form</button><button>Open orders</button><button>Positions</button>
+<div id=wl><button data-s=BTC>BTC 62,410.5 -1.20%</button><button data-s=ETH>ETH 2,612.40 -0.50%</button><button data-s=SOL>SOL 150.23 -1.23%</button></div>
+<div id=list></div>
+<form id=f><div role=tablist><button type=button role=tab aria-selected=false>Market</button><button type=button role=tab aria-selected=true>Limit</button></div>
+<div role=tablist><button type=button role=tab aria-selected=true>Buy</button><button type=button role=tab aria-selected=false>Sell</button></div>
+<label for=lp>Limit price</label><input id=lp type=text><label for=q>Quantity</label><input id=q type=text>
+<button type=button aria-label="Toggle quantity unit">USD</button><button type=submit id=sub>Long (buy) ETH</button></form>
+<script>var MODE='${mode}';var LEV={BTC:50,ETH:20,SOL:10,SOLV:5,XRP:5};
+function pick(s){document.getElementById('chip').textContent=s+' '+LEV[s]+'x';document.getElementById('sub').textContent='Long (buy) '+s;close();}
+function close(){document.getElementById('list').innerHTML='';}
+function row(s,name){var d=document.createElement('div');d.className='r';d.innerHTML='<span>'+s+'</span><span>'+name+'</span>';d.onclick=function(){window.__picks=(window.__picks||0)+1;pick(s.split(/[-\/]/)[0])};return d;}
+document.getElementById('chip').onclick=function(){if(MODE==='J')return;var l=document.getElementById('list');var box=l;
+ if(MODE!=='I'){box=document.createElement('div');box.setAttribute('role','dialog');l.appendChild(box);}
+ var rs=MODE==='I'?[['SOL','Solana'],['BTC','Bitcoin'],['ETH','Ethereum']]:[['BTC','Bitcoin'],['ETH','Ethereum'],['SOLV','Solv'],['SOL','Solana'],['XRP','Ripple']];
+ if(MODE==='K')rs.push(['SOL-PERP','Solana perp']);
+ rs.forEach(function(r){box.appendChild(row(r[0],r[1]))});};
+document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+document.querySelectorAll('#wl button').forEach(function(b){b.onclick=function(){window.__wl=(window.__wl||0)+1;pick(b.getAttribute('data-s'));};});
+document.getElementById('f').onsubmit=function(e){e.preventDefault();window.__submitted=(window.__submitted||0)+1};</script></body></html>`;
+  for (const [mode, route] of [["H", ["opened_market", "picked_market"]], ["I", ["opened_market", "picked_market"]],
+    ["J", ["opened_market", "market_no_row", "clicked_watch"]], ["K", ["opened_market", "market_ambiguous", "clicked_watch"]]]) {
+    const pM = await onHost(market(mode)); const rM = (code) => pM.evaluate(code);
+    eq([await rM("__ex.marketShown()"), await rM("__ex.symbolShown()")], ["ETH", "ETH"], `market ${mode}: chip 'ETH 20x' read as ETH, ticket on ETH`);
+    eq(await rM("__ex.symbolReset()"), "ok", `market ${mode}: picker state reset per ticket`);
+    const got = []; for (let i = 0; i < route.length; i++) got.push(await rM("__ex.symbolStep('SOLUSD')"));
+    eq(got, route, `market ${mode}: route ${route.join(">")}`);
+    eq(await rM("__ex.symbolStep('SOLUSD')"), "done", `market ${mode}: then done`);
+    eq([await rM("__ex.symbolOnTicket()"), await rM("__ex.marketShown()")], ["SOL", "SOL"], `market ${mode}: submit label AND chip name SOL`);
+    eq([await rM("window.__picks || 0"), await rM("window.__wl || 0")], mode === "J" || mode === "K" ? [0, 1] : [1, 0], `market ${mode}: exactly one selection click (${mode === "J" || mode === "K" ? "watchlist" : "picker row"})`);
+    eq(await rM("window.__submitted || 0"), 0, `market ${mode}: nothing submitted`);
+    eq(await rM("[__ex.symbolStep('ETHUSD'), __ex.symbolStep('ETHUSD')]"), ["opened_market", mode === "J" ? "market_no_row" : "picked_market"], `market ${mode}: and back to ETH from SOL`);
+  }
   await b.close(); console.log("exec_check: all passed");
 })().catch((e) => { console.error(e); process.exit(1); });

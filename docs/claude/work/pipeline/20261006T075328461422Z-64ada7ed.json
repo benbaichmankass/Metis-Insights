@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-09",
+    "kind": "date"
+  },
+  "id": "PI-20261006-APBY4NTV-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv, operator request 2026-10-06 ~07:50Z",
+    "rerun": "grep -n 'ARMED\\|armed()' tools/phone-executor/app/src/main/java/com/metis/phoneexec/MainActivity.kt | head"
+  },
+  "state": "queued",
+  "what": "REMOVE THE PHONE APP'S MANUAL ARM SWITCH (operator, 2026-10-06 ~07:50Z, verbatim: \"not have the feature on the app where I need to arm it manually. That falls into the category of extra gates that are unnecessary and then make it harder to manage the system correctly and are actually less safe than we think\"). Not urgent; after breakout_2 is live. The phone executor (tools/phone-executor, Store.ARMED / toggleArm / renderArm) only submits live when the server says live AND the phone's local ARMED flag is on -- a THIRD, device-local, invisible-to-git gate, contrary to CLAUDE.md 'The two execution gates' ('There is no third gate'). Change: live submit is decided ONLY by the server (accounts.yaml mode + strategies.yaml execution, surfaced in the claim's submit_mode); delete the ARMED UI/flag; keep test tickets always dry and PROP_PHONE_MODE off/dry as the server-side kill switch. Update docs/integrations/breakout-phone-executor-DESIGN.md and tests; ship a new APK (installs as update)."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "manager pattern 2026-10-06: dry_test_request bumps are staged held and merged with the APK fix; am-4 was refused at 09:48Z on the collapsed TP/SL section (#16740 fixes it)",
+  "why": "one-line config bump that asks the phone for one more always-dry test ticket"
+}

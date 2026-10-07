@@ -69,9 +69,9 @@ grading:
   decision_rule_id: RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST
   evidence:
   - research/results/RQ-20261004-660/37280059787.jsonl
-  graded_at: '2026-10-06'
+  graded_at: '2026-10-07'
   grader: scripts/research/queue_grade.py
   needs_review: true
   reason: 'verdicts not unanimous-mechanical: [''wiring_only'']'
-  rows: 1
+  rows: 2
   verdict: null

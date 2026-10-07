@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-KX6ZKFNA-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ACTIVE-GEOMETRY scan session_01WeYNGaK7Ao3hp4Kx6ZkFna, 2026-10-06 ~08:27Z, PR #16719",
+    "rerun": "grep -n 'claim_merge_slot\\|Merge Without Review' .claude/settings.json docs/CLAUDE-RULES-CANONICAL.md | head"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "PERMISSION REFUSAL RECORD (docs/CLAUDE-RULES-CANONICAL.md 'Reading is never gated': a session that hits a refusal records the exact call). The Claude Code auto-mode classifier denied, as 'Merge Without Review', this exact Tier-1 self-land arming on PR #16719: `python3 scripts/ops/claim_merge_slot.py --branch-claim --branch claude/lane-active-geometry-scan --held-by session_01WeYNGaK7Ao3hp4Kx6ZkFna --purpose ...` run together with writing .github/pr-landing/<slug>.json landing=self. The PR was re-declared landing=hold (hold_reason operator_asked_to_hold) and left to the manager. Not worked around. If Tier-1 lanes are meant to self-land (CLAUDE.md Permission Tiers), the per-branch claim route needs a permissions.allow entry or the manager lands lane PRs by default; decide which and record it in the manager skill."
+}

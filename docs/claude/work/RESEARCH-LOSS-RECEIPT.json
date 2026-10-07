@@ -1,21 +1,75 @@
 {
-  "generated_at": "2026-10-05T20:47:47Z",
+  "generated_at": "2026-10-07T19:41:27Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": "37370783906",
+    "run_id": "37671043705",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
       "findings": [
         {
-          "age_hours": 43.4,
+          "age_hours": 90.3,
           "branch": "automation/research-queue-grade-37167828059-1",
           "pr": 16124,
           "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 48.5,
+          "branch": "automation/e35-bracket-corpus-37361316449-1",
+          "pr": 16654,
+          "title": "corpus: e35 bracket sweep (run 37361316449)"
+        },
+        {
+          "age_hours": 48.3,
+          "branch": "automation/research-queue-grade-37362738822-1",
+          "pr": 16657,
+          "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 31.4,
+          "branch": "automation/e35-bracket-corpus-37460771573-1",
+          "pr": 16779,
+          "title": "corpus: e35 bracket sweep (run 37460771573)"
+        },
+        {
+          "age_hours": 30.4,
+          "branch": "automation/research-queue-stamp-37468557781-1",
+          "pr": 16790,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        },
+        {
+          "age_hours": 29.6,
+          "branch": "automation/research-queue-grade-37475671134-1",
+          "pr": 16792,
+          "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 29.3,
+          "branch": "automation/e35-bracket-corpus-37476734499-1",
+          "pr": 16798,
+          "title": "corpus: e35 bracket sweep (run 37476734499)"
+        },
+        {
+          "age_hours": 24.3,
+          "branch": "automation/research-queue-grade-37518271438-1",
+          "pr": 16826,
+          "title": "research-queue: mechanical grading (auto)"
+        },
+        {
+          "age_hours": 13.3,
+          "branch": "automation/e35-bracket-corpus-37580760434-1",
+          "pr": 16874,
+          "title": "corpus: e35 bracket sweep (run 37580760434)"
+        },
+        {
+          "age_hours": 12.2,
+          "branch": "automation/research-queue-stamp-37585451056-1",
+          "pr": 16883,
+          "title": "chore(research-queue): dispatch stamps (auto)"
         }
       ],
-      "population": "31 open PRs; 8 automation/*; 6 carry research; 2 automation/* carry none (not graded here)",
+      "population": "81 open PRs; 14 automation/*; 11 carry research; 3 automation/* carry none (not graded here)",
       "state": "findings",
       "threshold_hours": 6.0
     },
@@ -50,26 +104,6 @@
           "run_id": "36615144815",
           "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36615144815",
           "workflow": "research-exit-head-build.yml"
-        },
-        {
-          "conclusion": "failure",
-          "created_at": "2026-10-05T19:09:09Z",
-          "result_job": [
-            "cancelled"
-          ],
-          "run_id": "37361321037",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361321037",
-          "workflow": "m20-exit-lever-sweep.yml"
-        },
-        {
-          "conclusion": "cancelled",
-          "created_at": "2026-10-05T19:09:12Z",
-          "result_job": [
-            "cancelled"
-          ],
-          "run_id": "37361325975",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361325975",
-          "workflow": "research-harness-dispatch.yml"
         }
       ],
       "lost": [
@@ -104,34 +138,13 @@
           "workflow": "research-exit-head-build.yml"
         }
       ],
-      "pending_merge": [
-        {
-          "conclusion": "failure",
-          "created_at": "2026-10-05T19:09:09Z",
-          "result_job": [
-            "cancelled"
-          ],
-          "run_id": "37361321037",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361321037",
-          "workflow": "m20-exit-lever-sweep.yml"
-        },
-        {
-          "conclusion": "cancelled",
-          "created_at": "2026-10-05T19:09:12Z",
-          "result_job": [
-            "cancelled"
-          ],
-          "run_id": "37361325975",
-          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/37361325975",
-          "workflow": "research-harness-dispatch.yml"
-        }
-      ],
-      "population": "88 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-21 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1493 produced no result by design (skipped); 193 result file(s) on origin/main",
+      "pending_merge": [],
+      "population": "152 completed run(s) of 6 workflow(s) calling ./.github/actions/research-result since 2026-09-23 (dukascopy-span-probe.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, research-harness-dispatch.yml, soak-book-grade-weekly.yml); 1493 produced no result by design (skipped); 262 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "2289 artifact(s) listed, 2289 unexpired, 1875 expire within 72.0h across 1875 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "1602 artifact(s) listed, 1602 unexpired, 1176 expire within 72.0h across 1176 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },

@@ -11,6 +11,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputType
 import android.view.KeyCharacterMap
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.CookieManager
@@ -28,6 +29,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Date
@@ -51,6 +53,13 @@ import kotlin.math.round
  *                      LIVE (server says live AND the app is ARMED): submit, read Open orders / Positions back,
  *                           report the placement to the VM ledger; an opposite-side position is flattened.
  * Any unread, ambiguous or mismatched value is a refusal (fail closed), reported with the ticket dump.
+ *
+ * BACKGROUND (PI-20261006-APBY4NTV-0006, OBSERVED 2026-10-06: heartbeat stopped 10:03Z while the app was backgrounded,
+ * claims resumed only when the operator reopened it): a backgrounded WebView may never answer evaluateJavascript, and
+ * an un-timed js() then wedged the loop (busy=true forever: no claim, no heartbeat). Now every js() call times out,
+ * and while the Activity is NOT resumed the loop never touches the WebView: it peeks GET /phone/pending (read-only,
+ * claims nothing), and when a ticket waits it brings this Activity to the front. The claim + fill + every gate run
+ * only once resumed; afterwards the task is moved back so the phone returns to what the operator was doing.
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -60,6 +69,9 @@ class MainActivity : Activity() {
     private lateinit var api: Api
     private lateinit var ledger: Ledger
     private var busy = false
+    private var lastHbMs = 0L
+    private var lastAcctMs = 0L
+    private var lastStatus = ""
     // HOTFIX 2026-10-05 (manual login was being reset by the loop): any touch/key on the screen holds every
     // automatic navigation (reload, re-login) for USER_HOLD_MS; "Pause" holds everything until the page reads
     // logged in, or PAUSE_MAX_MS passes.
@@ -69,6 +81,16 @@ class MainActivity : Activity() {
     private var lastState = ""
     private var reloginFailures = 0
     private var execSrc = ""
+    private var resumed = false
+    private var jsTimeouts = 0
+    private var lastPending = -1
+    private var claimedThisTick = false
+    private var claim5xx = 0
+    private var claimBackoffUntilMs = 0L
+    private var bgWakeUntilMs = 0L      // a bring-to-front was requested; retried only after this passes
+    private var wokeAtMs = 0L           // > 0 while WE brought the Activity forward (it goes back afterwards)
+
+    private class JsTimeout : Exception("page did not answer")
 
     companion object {
         const val TRADE_URL = "https://trade.breakoutprop.com/"
@@ -77,18 +99,27 @@ class MainActivity : Activity() {
         // form is not the way in.
         const val APP_URL = "https://app.breakoutprop.com/"
         const val TICK_MS = 30_000L
+        const val HEARTBEAT_MS = 120_000L
+        const val ACCT_MS = 300_000L
         const val USER_HOLD_MS = 5 * 60_000L
         const val PAUSE_MAX_MS = 10 * 60_000L
+        const val JS_TIMEOUT_MS = 10_000L
+        const val BG_WAKE_MAX_MS = 3 * 60_000L
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_SECURE)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        setSecure(true)   // fail closed: secure until the state machine has SEEN the logged-in terminal
         api = Api(this); ledger = Ledger(this)
         execSrc = assets.open("exec.js").bufferedReader().readText()
 
         web = WebView(this)
+        // TOUCH-HOLD counts only a real finger-down on the page (fix 2026-10-06 09:06Z: the operator saw "paused because
+        // you are using it" with the app open and untouched; Activity.onUserInteraction also fires for keys, resumes and
+        // system-dispatched events). Our own dispatchKeyEvent typing never reaches a touch listener.
+        web.setOnTouchListener { _, ev -> if (ev.actionMasked == MotionEvent.ACTION_DOWN) lastUserInputMs = System.currentTimeMillis(); false }
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         CookieManager.getInstance().setAcceptCookie(true)
@@ -97,7 +128,13 @@ class MainActivity : Activity() {
         web.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         // Same WebView setup as the 1a probe, whose login worked (stock UA, default navigation handling):
         // no shouldOverrideUrlLoading filter, every navigation stays in THIS WebView and cookie store.
-        web.webViewClient = WebViewClient()
+        // Fail closed on navigation: any page off the trade host (the portal / login / code step) is secure at once;
+        // the terminal itself is cleared only by tick() after it read state == logged_in.
+        web.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(v: WebView?, url: String?, f: android.graphics.Bitmap?) {
+                if (url == null || !url.startsWith("https://trade.breakoutprop.com/")) setSecure(true)
+            }
+        }
         status = TextView(this).apply { setPadding(16, 8, 16, 8); setBackgroundColor(Color.parseColor("#202833")); setTextColor(Color.WHITE); textSize = 12f }
         armBtn = Button(this)
         val bar = LinearLayout(this).apply {
@@ -133,9 +170,27 @@ class MainActivity : Activity() {
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
 
-    private fun setStatus(s: String) { status.text = s }
-    override fun onUserInteraction() { super.onUserInteraction(); lastUserInputMs = System.currentTimeMillis() }
-    private fun userActive() = System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
+    override fun onResume() {
+        super.onResume(); resumed = true
+        if (bgWakeUntilMs > System.currentTimeMillis()) { wokeAtMs = System.currentTimeMillis(); scope.launch { delay(3000); tick() } }
+    }
+
+    override fun onPause() { resumed = false; super.onPause() }
+
+    /** FLAG_SECURE (blank screenshots / recents) is ON for every credential-bearing screen -- login, code step,
+     *  challenge, unread state, the Setup dialog (which sets its own flag) -- and OFF only on the logged-in trading
+     *  terminal, which shows balances and positions but never a credential (operator 2026-10-06: screenshots of the app). */
+    private var secureOn = false
+    private fun setSecure(on: Boolean) {
+        if (on == secureOn) return
+        secureOn = on
+        if (on) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    private fun setStatus(s: String) { status.text = s; lastStatus = s }
+    /** The touch-hold protects a HUMAN LOGIN only (operator 2026-10-06 09:06Z): once logged in it never blocks claim,
+     *  navigation or execution. The Pause button is the only manual stop. */
+    private fun userActive() = lastState != "logged_in" && System.currentTimeMillis() - lastUserInputMs < USER_HOLD_MS
     private fun paused() = System.currentTimeMillis() < pausedUntilMs
     private fun togglePause() {
         pausedUntilMs = if (paused()) 0L else System.currentTimeMillis() + PAUSE_MAX_MS
@@ -202,7 +257,10 @@ class MainActivity : Activity() {
 
     // ---------------- page bridge ----------------
     private fun unq(raw: String?): String = try { JSONArray("[" + raw + "]").get(0).toString() } catch (e: Exception) { raw ?: "" }
-    private suspend fun js(code: String): String = suspendCancellableCoroutine { c -> web.evaluateJavascript(code) { c.resume(unq(it)) } }
+    /** Every page call is bounded: a frozen (backgrounded) WebView never answers, and an unbounded wait wedged the loop. */
+    private suspend fun js(code: String): String =
+        withTimeoutOrNull(JS_TIMEOUT_MS) { suspendCancellableCoroutine<String> { c -> web.evaluateJavascript(code) { if (c.isActive) c.resume(unq(it)) } } }
+            ?: run { jsTimeouts += 1; throw JsTimeout() }
     private suspend fun ensure() { if (js("typeof window.__ex") != "object") { js(execSrc + ";'ok'"); delay(100) } }
     private suspend fun jsObj(code: String): JSONObject? = try { JSONObject(js("JSON.stringify($code)")) } catch (e: Exception) { null }
     private fun q(s: String) = JSONObject.quote(s)
@@ -213,16 +271,21 @@ class MainActivity : Activity() {
 
     private suspend fun tick() {
         if (busy) return
+        if (!resumed) { backgroundTick(); return }
         busy = true
+        claimedThisTick = false
+        var st = "unread"
+        var s: JSONObject? = null
         try {
             ensure()
-            val s = jsObj("__ex.state()") ?: run { setStatus("page not readable"); return }
-            val st = when {
+            s = jsObj("__ex.state()") ?: run { setStatus("page not readable"); return }
+            st = when {
                 s.optBoolean("challenged") -> "challenged"
                 s.optBoolean("loggedIn") -> "logged_in"
                 s.optBoolean("pw") || s.optBoolean("email") || s.optBoolean("codeWait") -> "login"
                 else -> "other"
             }
+            setSecure(st != "logged_in")
             if (paused()) {
                 if (st == "logged_in") { pausedUntilMs = 0L; pauseBtn.text = "Pause"; setStatus("logged in: pause lifted") }
                 else { setStatus("paused (${(pausedUntilMs - System.currentTimeMillis()) / 60_000 + 1} min left): no automatic action"); return }
@@ -241,7 +304,82 @@ class MainActivity : Activity() {
                 else -> if (userActive()) setStatus("not on the terminal; you are using the screen, so no reload")
                         else { setStatus("not on the terminal (${s.optString("host")}); reloading"); web.loadUrl(home()) }
             }
-        } finally { busy = false }
+        } catch (e: JsTimeout) {
+            setStatus("page did not answer within ${JS_TIMEOUT_MS / 1000} s (${if (resumed) "foreground" else "went to background"}); no action this tick")
+        } finally {
+            try { heartbeat(st, s) } catch (e: Exception) { }
+            // We brought the Activity forward for a waiting ticket: once the claim ran (ticket or none), or the wake
+            // window passed, hand the screen back -- unless the operator touched it meanwhile.
+            val now = System.currentTimeMillis()
+            if (wokeAtMs > 0 && (claimedThisTick || now > bgWakeUntilMs)) {
+                val touched = lastUserInputMs > wokeAtMs
+                wokeAtMs = 0L; bgWakeUntilMs = 0L
+                if (!touched && resumed) moveTaskToBack(true)
+            }
+            busy = false
+        }
+    }
+
+    /** Activity not resumed: never touch the WebView. Peek (read-only) for a waiting ticket; if one waits, bring the
+     *  Activity to the front so the normal resumed tick claims and runs it. A failed bring-to-front burns nothing. */
+    private suspend fun backgroundTick() {
+        busy = true
+        try {
+            val n = api.pending()
+            lastPending = n ?: -1
+            val now = System.currentTimeMillis()
+            when {
+                n == null -> setStatus("background: pending check failed (VM unreachable or refused); no claim")
+                n == 0 -> setStatus("background: no ticket waiting")
+                paused() -> setStatus("background: $n ticket(s) waiting, but paused")
+                now < bgWakeUntilMs -> setStatus("background: $n ticket(s) waiting; bring-to-front already requested")
+                else -> { bgWakeUntilMs = now + BG_WAKE_MAX_MS; setStatus("background: $n ticket(s) waiting; bringing the executor to the front"); bringToFront() }
+            }
+        } finally {
+            try { heartbeat("background", null) } catch (e: Exception) { }
+            busy = false
+        }
+    }
+
+    /** Allowed from the background because the operator granted "Display over other apps" (as for the boot restart). */
+    private fun bringToFront() {
+        try { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
+        catch (e: Exception) { setStatus("background: bring-to-front failed (${e.javaClass.simpleName}); overlay=${Settings.canDrawOverlays(this)}") }
+    }
+
+    /** HEARTBEAT (2026-10-06 08:15Z: an hour with no claim and no event, because every no-claim branch but one only
+     *  set the on-screen status). On EVERY tick path, at most every 2 min: the status line, the page state, the
+     *  pause / touch-hold flags and the terminal gate. Our own state and UI labels only; never links or values. */
+    private suspend fun heartbeat(st: String, s: JSONObject?) {
+        val now = System.currentTimeMillis()
+        if (now - lastHbMs < HEARTBEAT_MS) return
+        lastHbMs = now
+        val state = JSONObject().put("st", st).put("paused", paused()).put("hold", userActive()).put("armed", armed())
+            .put("host", s?.optString("host") ?: "").put("onAccount", s?.optBoolean("onAccount") ?: false)
+            .put("path_depth", s?.optInt("path_depth") ?: 0)
+            .put("fg", resumed).put("jsTimeouts", jsTimeouts).put("pending", lastPending)
+        // never touch the WebView while backgrounded (jsObj is bounded anyway and yields null on a timeout)
+        if (resumed) jsObj("__ex.terminal()")?.let { tm ->
+            for (k in listOf("ready", "probe", "panels", "orderControl", "ticketOpen", "buySell")) state.put(k, tm.optBoolean(k))
+            state.put("tabs", tm.optInt("tabs")).put("inputs", tm.optInt("inputs"))
+        }
+        if (resumed && st == "logged_in" && now - lastAcctMs >= ACCT_MS) { lastAcctMs = now; state.put("acct", readAccount()) }
+        api.heartbeat(lastStatus, state)
+    }
+
+    /** Read the account panel (read-only) and post it as account_status; only on the terminal with no ticket open.
+     *  Returns a short state for the heartbeat: posted / unread / busy. Nothing is posted unless a value was read. */
+    private suspend fun readAccount(): String {
+        val tm = jsObj("__ex.terminal()") ?: return "busy"
+        if (!tm.optBoolean("ready") || tm.optBoolean("ticketOpen")) return "busy"
+        val a = jsObj("__ex.accountPanel()") ?: return "unread"
+        val bal = if (a.isNull("balance")) null else a.optDouble("balance")
+        val eqRead = if (a.isNull("equity")) null else a.optDouble("equity")
+        val pf = if (a.isNull("portfolio")) null else a.optDouble("portfolio")
+        val eq = eqRead ?: pf   // "Portfolio" is the terminal's headline account value; the label is posted so the server records which one
+        if (bal == null && eq == null) return "unread"
+        api.accountStatus(bal, eq, if (eqRead != null) "equity" else "portfolio")
+        return "posted"
     }
 
     /** Where "back to the terminal" goes: the last account terminal seen while logged in, else the host root. */
@@ -278,7 +416,11 @@ class MainActivity : Activity() {
         setStatus("logged in: opening the account's terminal")
         web.loadUrl(href)
         for (i in 0 until 12) { delay(2500); ensure(); if (terminalReady()) return true }
-        setStatus("terminal did not load (no Order control / Buy-Sell tabs): no claim")
+        setStatus("terminal did not load (no Order/Order form control, Buy-Sell tabs, panels or buy+sell markers): no claim")
+        // Self-diagnosing miss (fix 06:17Z): post the page's control texts once per load attempt, never a report.
+        val tm = jsObj("__ex.terminal()")
+        val ctl = try { JSONArray(js("JSON.stringify(__ex.controls())")) } catch (e: Exception) { JSONArray() }
+        api.terminalMiss("tabs=${tm?.optInt("tabs")} inputs=${tm?.optInt("inputs")} probe=${tm?.optBoolean("probe")}", ctl)
         return false
     }
 
@@ -332,11 +474,38 @@ class MainActivity : Activity() {
 
     // ---------------- tickets ----------------
     private suspend fun claimAndRun() {
+        // NEVER claim while backgrounded: the page cannot be driven, and a claimed ticket is one attempt only.
+        if (!resumed) { setStatus("backgrounded: no claim"); return }
+        val now = System.currentTimeMillis()
+        if (now < claimBackoffUntilMs) { setStatus("logged in · VM busy (5xx); backing off ${(claimBackoffUntilMs - now) / 1000 + 1} s (no claim)"); return }
         val r = api.post("claim") ?: run { setStatus("logged in · VM unreachable (no claim, no click)"); return }
-        if (!r.optBoolean("ok")) { setStatus("logged in · claim refused (http ${r.optInt("http")})"); return }
+        if (!r.optBoolean("ok")) {
+            // 5xx (e.g. the API restarting for a deploy): ONE attempt, no in-tick retry, and no execution -- we hold no
+            // ticket, so nothing can be filled or submitted. Back off 1 -> 2 -> 4 -> 5 min. If the server committed the
+            // claim before the 502, that ticket is never served again (status 'claimed'; it expires server-side).
+            val http = r.optInt("http")
+            if (http >= 500) {
+                claim5xx += 1
+                claimBackoffUntilMs = System.currentTimeMillis() + minOf(60_000L shl minOf(claim5xx - 1, 3), 300_000L)
+                setStatus("logged in · claim failed (http $http); backing off, will not retry this tick")
+            } else setStatus("logged in · claim refused (http $http)")
+            return
+        }
+        claim5xx = 0; claimBackoffUntilMs = 0L
+        claimedThisTick = true
         val t = r.optJSONObject("ticket")
-        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · no ticket · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
-        execute(t, r.optJSONObject("config") ?: JSONObject())
+        if (t == null) { setStatus("logged in · ${if (armed()) "ARMED" else "dry"} · waiting for a ticket (none queued) · ${java.text.DateFormat.getTimeInstance().format(Date())}"); return }
+        val id = t.optString("ticket_id")
+        try { execute(t, r.optJSONObject("config") ?: JSONObject()) }
+        catch (e: JsTimeout) {
+            // The page stopped answering mid-ticket (e.g. the app was sent to the background). Fail closed: after a
+            // submit click it is UNCONFIRMED for a human; before one, a refusal (nothing was submitted).
+            if (ledger.last(id) == "submitted") {
+                ledger.append(id, "unconfirmed")
+                api.event("mismatch", "page stopped answering after submit; CHECK the terminal", id)
+                setStatus("ticket $id UNCONFIRMED — operator check")
+            } else if (ledger.last(id) == "intended") refuse(id, "page stopped answering mid-fill (not submitted)", null)
+        }
     }
 
     private fun num(s: String?): Double? = s?.replace(",", "")?.replace(" ", "")?.toDoubleOrNull()
@@ -376,6 +545,9 @@ class MainActivity : Activity() {
         //    verified" with the page's own BTC values in the dump; our code had typed nothing). The venue symbol is
         //    selected on the page before the ticket is opened or touched; the ticket's submit label ("Long (buy) ETH")
         //    must then name the asset. Every move is a selection; a route that cannot be verified refuses with its name.
+        //    SOL-PICKER (2026-10-07): the first route is the terminal's "Select market" chip (open, pick ONE row,
+        //    read back), then the watchlist; the picker state is reset per ticket so a failed pick never carries over.
+        js("__ex.symbolReset()")
         var route = selectSymbol(venue, base)
         if (js("__ex.openTicket()") == "no_order_control") return refuse(id, "order control not found (symbol route: $route)", jsObj("__ex.ticket()"))
         delay(1500); ensure()
@@ -389,6 +561,9 @@ class MainActivity : Activity() {
         var tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
         if (!tk.optBoolean("open")) return refuse(id, "ticket not open (symbol route: $route)", tk)
         if (!shown.uppercase().contains(base)) return refuse(id, "symbol $base not on the submit label (ticket shows '${shown.ifEmpty { "?" }}'; symbol route: $route)", tk)
+        // the market chip, when the page has exactly one, must agree with the submit label (both read, before any typing)
+        val chip = js("__ex.marketShown()")
+        if (chip.isNotEmpty() && chip != base) return refuse(id, "market chip shows '$chip', submit label shows '$shown' (expected $base; symbol route: $route)", tk)
         // 2. type + side
         js("__ex.tab('Limit')"); delay(500); js("__ex.tab(${q(sideTab)})"); delay(700)
         if (js("__ex.tabSelected('Limit')") != "true" || js("__ex.tabSelected(${q(sideTab)})") != "true") return refuse(id, "Limit/$sideTab tab not selected", jsObj("__ex.ticket()"))
@@ -398,16 +573,39 @@ class MainActivity : Activity() {
         val fPrice = Field("Limit price", "limit price"); val fQty = Field("Quantity", "quantity")
         for (f in listOf(fPrice, fQty)) { val n = readField(f)?.optInt("n", 0) ?: 0; if (n != 1) return refuse(id, "${f.name} field not unique (n=$n)", jsObj("__ex.ticket()")) }
         if (!typeInto(fPrice, fmt(entry, pStep), entry, pStep)) return refuse(id, "limit price did not read back", jsObj("__ex.ticket()"))
+        // quantity UNIT before the quantity is typed (MEASURED am-3 09:16Z: a "Toggle quantity unit" button reading
+        // "USD", so 0.01 would have been $0.01). Toggle ONCE to the base asset and verify; never convert to a notional.
+        val unit0 = js("__ex.qtyUnit()")
+        if (unit0.isNotEmpty() && !unit0.uppercase().contains(base)) {
+            if (js("__ex.toggleQtyUnit()") != "clicked") return refuse(id, "quantity unit toggle not clickable (shows '$unit0')", jsObj("__ex.ticket()"))
+            delay(800); ensure()
+            val unit1 = js("__ex.qtyUnit()")
+            if (!unit1.uppercase().contains(base)) return refuse(id, "quantity unit toggle did not reach $base (was '$unit0', now '$unit1')", jsObj("__ex.ticket()"))
+        }
         if (!typeInto(fQty, fmt(qty, qStep), qty, qStep)) return refuse(id, "quantity did not read back", jsObj("__ex.ticket()"))
-        // quantity unit: the "Quantity ... available" alert OR the quantity field's own adornment (unit toggle) must
-        // name the base asset, not USD; the refusal carries both texts so the next dump measures the real shape.
+        // quantity unit verified AFTER typing: the unit toggle names the base asset, else (no toggle on this layout) the
+        // "Quantity ... available" alert or the field's own adornment must; the refusal carries all three texts.
         tk = jsObj("__ex.ticket()") ?: return refuse(id, "ticket unreadable", null)
         val alerts = (tk.optJSONArray("alerts")?.toString() ?: "").uppercase()
         val qNear = (readField(fQty)?.optString("near") ?: "").uppercase()
-        if (!alerts.contains(base) && !qNear.contains(base)) return refuse(id, "quantity unit not verified as $base (alerts $alerts; near '$qNear')", tk)
-        // 4. TP/SL
-        if (js("__ex.setTpsl(true)") != "ok") return refuse(id, "TP/SL box not ticked", tk)
-        delay(900); ensure()
+        val unitNow = js("__ex.qtyUnit()").uppercase()
+        val unitOk = if (unitNow.isNotEmpty()) unitNow.contains(base) else (alerts.contains(base) || qNear.contains(base))
+        if (!unitOk) return refuse(id, "quantity unit not verified as $base (toggle '$unitNow'; alerts $alerts; near '$qNear')", tk)
+        // 4. TP/SL: open the section (checkbox or the "TP/SL" control, MEASURED am-3), then the fields BY LABEL
+        // one move per step with read-back (am-4 09:48Z: box checked but the section stayed collapsed)
+        // deterministic candidates by attempt (exec.js openTpsl), each followed by a ~3 s poll for "Take profit price"
+        var tpslSeq = ""
+        var phase = 0   // each candidate is clicked at most ONCE (a second click on an accordion would collapse it)
+        for (i in 0 until 4) {
+            val r = js("__ex.openTpsl($phase)")
+            tpslSeq += (if (tpslSeq.isEmpty()) "" else ">") + r
+            if (r == "ok" || r == "none" || r == "ambiguous" || (r == "wait" && phase >= 2)) break
+            if (r == "expanded" || r == "switched" || r == "wait") phase++
+            var shown = false
+            for (w in 0 until 6) { delay(500); ensure(); if (js("__ex.readByLabel('take ?profit|\\\\btp\\\\b','price').n") != "0") { shown = true; break } }
+            if (shown) { tpslSeq += ">ok"; break }
+        }
+        if (!tpslSeq.endsWith("ok")) return refuse(id, "TP/SL section not opened ($tpslSeq)", jsObj("__ex.ticket()"))
         val fTp = Field("TP price", "take ?profit|\\btp\\b", "price"); val fSl = Field("SL price", "stop ?loss|\\bsl\\b", "price")
         for (f in listOf(fTp, fSl)) { val r = readField(f); if (r?.optInt("n", 0) != 1) return refuse(id, "${f.name} field not unique (n=${r?.optInt("n", 0) ?: 0}, labels ${r?.optJSONArray("labels")})", jsObj("__ex.ticket()")) }
         if (!typeInto(fTp, fmt(tp, pStep), tp, pStep)) return refuse(id, "TP did not read back", jsObj("__ex.ticket()"))
@@ -481,17 +679,19 @@ class MainActivity : Activity() {
 
     private fun close(got: Double?, want: Double, step: Double) = got != null && abs(got - want) <= step / 2 + 1e-9
 
-    /** Drive the page to the venue symbol: one page-side move per step, read back between moves, at most 6 moves.
+    /** Drive the page to the venue symbol: one page-side move per step, read back between moves, at most 8 moves
+     *  (the market chip takes up to 4: open, [type in its search], pick, [fail -> close]; the watchlist then needs 1-2).
      *  Returns the route taken (for the refusal reason / the dump); "already" when the ticket named the asset. */
     private suspend fun selectSymbol(venue: String, base: String): String {
         var route = ""
         var prev = ""
-        for (step in 0 until 6) {
+        for (step in 0 until 8) {
             if (js("__ex.symbolOnTicket()").uppercase().contains(base)) return route.ifEmpty { "already" }
             val r = js("__ex.symbolStep(${q(venue)})")
             route += (if (route.isEmpty()) "" else ">") + r
             if (r == "done" || r == "none" || r == "ambiguous" || r == "no_result" || r == "search_not_set" || r == "bad_host" || r == "not_a_symbol") return route
-            if (r == prev && (r == "clicked_symbol" || r == "opened_picker")) return "$route>stuck"
+            if (r == prev && (r == "clicked_symbol" || r == "clicked_label" || r == "clicked_watch" || r == "opened_picker" ||
+                    r == "opened_market" || r == "picked_market" || r == "typed_market_search")) return "$route>stuck"
             prev = r
             delay(1500); ensure()
         }

@@ -1919,7 +1919,7 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    mode: dry_run                      # dry-run-guard: allow — new phone-executed prop account starts dry (manager dispatch PHONE-EXEC-1B 2026-10-05: "Start mode dry_run"); go-live is the set-account-mode system-action after the dry end-to-end ticket passes.
+    mode: live  # set-account-mode run 37449965576: Operator directive 2026-10-05/06 (manager session_01MM8o5js6TcDFeNAPBY4Ntv): "go live ASAP" on Breakout via the phone app; the gate set at account creation (acc | was: dry-run-guard: allow — new phone-executed prop account starts dry (manager dispatch PHONE-EXEC-1B 2026-10-05: "Start mode dry_run"); go-live is the set-account-mode system-action after the dry end-to-end ticket passes.
     account_state: evaluation
     phase_requirements:                # Breakout 1-Step Turbo (FAQ read 2026-10-05; see the ruleset header).
       target_profit_pct: 0.09
@@ -2069,19 +2069,31 @@ accounts:
     exchange: breakout
     type: prop
     account_class: prop
-    mode: dry_run                      # dry-run-guard: allow — new prop account starts dry (manager dispatch VELOTRADE-WIRE 2026-10-04: "starting in DRY / read_only, never live"). Go-live is a separate PR after a read-only login check passes on the VM.
+    mode: live                         # VELOTRADE-GOLIVE (Tier-3 go-live, HELD; manager 2026-10-06 06:41Z, operator "Build it + pre-approve test" + parallel go-live 06:35Z): tickets are emitted for velotrade_1. Orders still need PROP_EXECUTOR_MODE_VELOTRADE_1=live on the VM AND a symbol in prop_platforms.yaml enabled_venue_symbols; the roster below is filled from lane VELOTRADE-FIT. Revert: mode dry_run (with its dry-run-guard marker).
     account_state: evaluation
     phase_requirements:                # Velotrade CLASSIC 1-Step (first-party, read 2026-10-04, unconfirmed).
       target_profit_pct: 0.10          # +10% to pass.
       min_active_days: 5               # 5 QUALIFYING days (each >= +0.8% of the initial balance, realised, 00:30-00:30 UTC).
     backtest_ruleset: prop_rulesets/velotrade_classic_1step.yaml
     account_size_usd: 5000
-    strategies: []                     # Tier-3: proposed in the PR body, not applied.
-    symbols: []
+    strategies:                        # VELOTRADE-GOLIVE roster (Tier-3, HELD). Lane VELOTRADE-FIT: unit RQ-20261006-062,
+                                       # rule RULE-RQ1006-VELOTRADE-FIT (registered before grading, commit 3769f2b1f):
+                                       # GO_LIVE on all 5 seeds at risk_pct 0.005 -- P(daily-loss breach)/life 0.000,
+                                       # worst realised day -$78 vs the $160 line, max entry gap 6.6d, EV/life +$167..+$188.
+                                       # Operator 2026-10-06 06:40Z: risk-qualified legs go live; 5-qualifying-days tuned after.
+      - trend_donchian_eth_prop        # evidence: comms/strategy_evidence/trend_donchian_eth_prop.json
+      - trend_donchian_sol_prop        # evidence: comms/strategy_evidence/trend_donchian_sol_prop.json
+    symbols: [ETHUSDT, SOLUSDT]
     risk:
       max_dd_pct: 0.07                 # 7% STATIC = $350, floor $4,650 for the life of the account.
       daily_loss_pct: 0.04             # 4% below max(balance, equity) at 00:30 UTC (ruleset limits).
       daily_usd: 200                   # absolute fallback (= 4% of $5k).
-      risk_pct: 0.005                  # 0.5% = $25/ticket (deep-dive § 1.8 item 6; ruleset sizing.flat cap 25).
+      risk_pct: 0.01                   # 1.0% = $50/ticket. OPERATOR 2026-10-06 09:20Z (verbatim): "ok, let's move the velotrade
+                                       # risk to 1% - let's also check the impact of doing the same for tradeify and breakout".
+                                       # Evidence RQ-20261006-062 (rule RULE-RQ1006-VELOTRADE-FIT, registered before the run):
+                                       # ETH+SOL at 1.0% GO_LIVE on 5/5 seeds -- P(daily-loss breach)/life 0.015, median 62d
+                                       # to +10%, EV/life +$125..+$142, P(net>0) 0.30. Was 0.005 ($25; deep-dive § 1.8 item 6).
+                                       # Moves with prop_rulesets/velotrade_classic_1step.yaml sizing.flat.max_risk_usd 25 -> 50
+                                       # (the executor caps a ticket there). Revert: 0.005 here and cap 25 in the ruleset.
       # breach_guards: NOT set -> `enforce` (the default), as tradeify_1: a
       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN breach REFUSES the trade.

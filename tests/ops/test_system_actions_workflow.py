@@ -160,6 +160,11 @@ EXPECTED_ACTIONS = {
     # 2026-06-17 — fire one TEST prop ticket through the real prop_signal path
     # (FCM + prop Telegram bot). Tier 1: notify-only, nothing journaled.
     "send-prop-test-ping": "send_prop_test_ping_action.sh",
+    # 2026-10-06 (PI-20261006-APBY4NTV-0009) — write ONE always-dry PHONE test
+    # ticket (meta.test, submit forced dry) for a phone_accounts entry, through
+    # the same writer as the in-app Dry test button. Tier 1: one prop_tickets
+    # row, no exchange socket, no non-test path; account + symbol allowlisted.
+    "phone-dry-test": "phone_dry_test_action.sh",
     # M7 — autonomous strategy-review-packet generator (Tier 1: read-only
     # SQL + write to runtime_logs/strategy_reviews/).
     "generate-strategy-review-packets": "generate_strategy_review_packets_action.sh",
@@ -266,6 +271,11 @@ EXPECTED_ACTIONS = {
     # close fill to the real position ticket, close it, restore the phantom.
     # DRY-RUN by default; apply gated + DB backup; guarded + idempotent.
     "fix-prop-mislinked-close": "prop_fix_mislinked_close_action.sh",
+    # 2026-10-07 — VELOTRADE-TICKET: move ONE dead prop ticket on a REST-
+    # executed account (expiry_prompted, or emitted past valid_until) to
+    # `expired`. DRY-RUN by default; apply gated + DB backup; every other
+    # transition, a non-REST account, or a ticket with fills is refused.
+    "prop-ticket-expire": "prop_ticket_expire_action.sh",
     # 2026-08-20 — prop-journal hygiene for fills admitted with NO direction
     # (BL-20260820-PROP-FILL-DIRECTION-ADMISSION-GAP). _position_key needs
     # (account, symbol, direction) but ingest_report only validates the first
@@ -288,6 +298,8 @@ EXPECTED_ACTIONS = {
     "egress-landing-probe": "egress_landing_probe_action.sh",
     # 2026-10-05 — READ-ONLY Velotrade DXtrade REST probe (VELOTRADE-API-PROBE).
     "velotrade-api-probe": "velotrade_api_probe_action.sh",
+    # 2026-10-05 — ONE REST round trip on velotrade_1, dry unless apply=live (VELOTRADE-API-EXEC).
+    "velotrade-api-roundtrip": "velotrade_api_roundtrip_action.sh",
     # 2026-06-30 — clear the daily_risk_state row for one account so
     # INTRADAY_DRAWDOWN counters reset without a full service restart.
     "reset-daily-risk-state": "reset_daily_risk_state.sh",
@@ -414,11 +426,13 @@ TIER_2_ACTIONS = {
     "supersede-reset-orphan-artifacts",
     "supersede-intent-reduce-phantom-pnl",
     "fix-prop-mislinked-close",
+    "prop-ticket-expire",
     "repair-prop-fill-direction",
     "breakout-login-check",
     "breakout-terminal-probe",
     "egress-landing-probe",
     "velotrade-api-probe",
+    "velotrade-api-roundtrip",
     "reset-daily-risk-state",
     "repair-malformed-notes",
     "repair-netted-rows",

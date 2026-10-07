@@ -311,6 +311,14 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # PI-20261004-APBY4NTV-0003: the per-row checklist store/loader/generator
+        # (step (a); the monolith-equals-render guard arrives with step (c)).
+        "name": "checklist-store-guard",
+        "when": {"globs": ["scripts/ops/checklist.py", "tests/test_checklist_store.py",
+                            "docs/claude/work/checklist/**"]},
+        "steps": [["python3", "scripts/ops/checklist.py", "--self-test"]],
+    },
+    {
         # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
         #
         # `artifact-validity-guard`, `recurrence-ledger-guard` and
@@ -1260,6 +1268,16 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # PI-20261005-RQ-ID-RACE-0001: generated units mint 001-899, hand-authored 900-999, and a
+        # PR may not add a unit whose id is taken or sits in the wrong band.
+        "name": "research-queue-id-bands",
+        "when": {"globs": ["research/queue/**", "scripts/ci/check_research_queue_id_bands.py",
+                            "scripts/research/next_rq_id.py", "scripts/research/queue_replenish.py"]},
+        "steps": [["python3", "scripts/ci/check_research_queue_id_bands.py", "--self-test"],
+                  ["python3", "scripts/ci/check_research_queue_id_bands.py",
+                   "--base", "origin/{base_ref}"]],
+    },
+    {
         # RQ-RUN (2026-09-28): the queue's self-replenishment + mechanical
         # grading + health alarm. Self-tests only: the live health read is
         # the DISPATCHER's alarm (it pages), not a PR gate -- a PR must not go
@@ -1443,6 +1461,31 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_tp_venue_cap_single_owner.py",
                    "--self-test"],
                   ["python3", "scripts/ci/check_tp_venue_cap_single_owner.py"]],
+    },
+    {
+        "name": "tp-doctrine-guard",
+        # The TP doctrine (docs/ARCHITECTURE-CANONICAL.md § "TP doctrine",
+        # operator 2026-10-06): no fictional take-profits. A RATCHET over every
+        # (account, leg) routing: the day-one debt is carried in a dated
+        # BASELINE inside the script, and the guard fails only on NEW
+        # non-compliance (a newly rostered leg with a sentinel / no target, or
+        # one whose family cannot move its TP), on debt GROWTH, or on a STALE
+        # baseline line. Relevance follows every source it reads: the two
+        # configs (a roster edit or a tp_r edit), the strategy units (a
+        # monitor() gaining a `tp` verdict), the builder alias table, the venue
+        # caps table and the prop trail (the TP-amend path).
+        "when": {"globs": [
+            "config/accounts.yaml", "config/strategies.yaml",
+            "src/units/strategies/*.py", "src/runtime/strategy_signal_builders.py",
+            "src/units/accounts/clients.py", "src/prop/prop_trail.py",
+            "scripts/research/bracket_expectation_census.py",
+            "scripts/ci/check_tp_doctrine.py",
+        ]},
+        # Self-test FIRST: its planted controls include the live-repo assertion
+        # that the baseline matches the scan exactly, so a stale baseline fails
+        # here before the scan is trusted to say anything.
+        "steps": [["python3", "scripts/ci/check_tp_doctrine.py", "--self-test"],
+                  ["python3", "scripts/ci/check_tp_doctrine.py"]],
     },
     {
         "name": "automerge-trigger-guard",

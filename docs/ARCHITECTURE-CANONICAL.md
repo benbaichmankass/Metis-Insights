@@ -467,6 +467,142 @@ unwatched (`BL-20260813-CADDY-HTTPS-TRANSPORT-UNDOCUMENTED-AND-UNWATCHED`).
    `config/accounts.yaml`, mutated only via `set-account-mode`.
 7. **Promotion decision** — Tier 3, requires explicit operator approval.
 
+## TP doctrine — no fictional take-profits (operator directive 2026-10-06, binding)
+
+The operator, verbatim, 2026-10-06:
+
+> *"As I have said previously many times, there should be no fictional TPs —
+> even if the exit strategy is based on momentum, we need to constantly have a
+> prediction about where momentum will run out that is embodied in the TP, and
+> this also needs to move as the trade goes on (the prediction is constantly
+> updated to the most recent market conditions). This should, at this point, be
+> a canonical design doctrine that is measured against the code during audit
+> sessions, and any strategies that still don't have this need to be
+> prioritized for research and adjustment so that they comply"*
+
+The same requirement was stated on 2026-08-20 and 2026-08-23
+([`docs/design/exit-mechanism-construction-PROCESS.md`](design/exit-mechanism-construction-PROCESS.md)
+§ E3.6, [`src/runtime/target_expectation.py`](../src/runtime/target_expectation.py))
+and sat in `ROADMAP.md` M20 as *"the bracket must carry a predictive expectation
+at entry"*. It was in no canonical doc and nothing enforced it. This section is
+the doctrine; the guard below is the enforcement.
+
+### The four clauses
+
+1. **Every leg's bracket carries a REAL predictive take-profit at entry.** The
+   TP is where the strategy expects the move to run out. A sentinel TP (the
+   fleet's `tp_r: 50.0` idiom, declared or inherited from a unit's class
+   default) and a TP that rests at the venue cap (`entry × 1.099`,
+   `src/runtime/tp_venue_cap.py`) are **non-compliant**: the level that rests is
+   the exchange's rejection threshold wearing a target's label, not a prediction.
+   `tp_intent: {mode: none, reason: trail_is_the_profit_exit}` records a past
+   decision honestly and **does not exempt the leg** — see clause 3.
+2. **The TP is a LIVE prediction.** It is re-estimated through the trade's life
+   from current market conditions and moved through the existing `tp` verdict
+   path: `monitor()` returns `{"tp": <level>}` →
+   `monitor_verdict.interpret_verdict` → `order_monitor._apply_update` →
+   `execute.modify_open_order` (Bybit / IB / Alpaca). Revising a resting level
+   is not a fill and costs nothing (§ E3.6 point 3), so revision may be
+   frequent; the prediction must be conditioned on the strategy's own thesis
+   (§ E3.6 point 4), never on the trade's path alone.
+3. **A momentum or trailing exit does not exempt a leg.** A trail decides when
+   the thesis has failed; it does not say where the move was expected to end.
+   A momentum leg still predicts where momentum runs out, places that
+   prediction as its TP, and extends it when price nears the target while the
+   exhaustion condition has not fired.
+4. **Compliance is MEASURED in audits, not asserted.** The measurement is
+   `scripts/ci/check_tp_doctrine.py` (guard `tp-doctrine-guard`, every PR that
+   touches a source it reads; `--strict --json` in the `/health-review`
+   compliance-audit rotation). It grades every (account, leg) routing in
+   `config/accounts.yaml` on two dimensions, never collapsed:
+   `entry_tp` (declared · sentinel · no_target) and `tp_revision` (a producer of
+   `tp` verdicts in the leg's monitor unit AND an exit path that forwards a TP
+   amend). Legs that fail are **prioritised for research and adjustment by
+   money at stake**: real-money and prop accounts first, then the paper
+   mirrors (`paper_role: portfolio`), then paper.
+
+### What the measurement reads today, and how it ratchets
+
+MEASURED by `python3 scripts/ci/check_tp_doctrine.py` on `main` at `233c9c28`
+(2026-10-06), population every (account, leg) routing in `config/accounts.yaml`,
+all 14 accounts whatever their `mode`:
+
+| class | routings | `entry_tp` FAIL | `tp_revision` FAIL | compliant |
+|---|--:|--:|--:|--:|
+| real_money (`bybit_2`, `alpaca_live`) | 7 | 4 of 7 | 7 of 7 | 0 of 7 |
+| prop (`tradeify_1`, `velotrade_1`, `breakout_1`, `breakout_2`) | 8 | 0 of 8 | 8 of 8 | 0 of 8 |
+| mirror (`bybit_portfolio`, `alpaca_portfolio`) | 6 | 3 of 6 | 6 of 6 | 0 of 6 |
+| paper | 31 | 19 of 31 | 31 of 31 | 0 of 31 |
+| **total** | **52** (26 distinct legs) | **26 of 52** | **52 of 52** | **0 of 52** |
+
+Two structural facts behind the right-hand columns, both read from source
+rather than inferred: **no strategy module's `monitor()` has ever returned a
+`tp` verdict** (AST-read over `src/units/strategies/`; the `{"tp": float}`
+contract has been declared in `_base.monitor`'s docstring since it was written
+and `target_extension_soak` is observe-only), and **the prop exit path never
+forwards a TP** — `src/prop/prop_trail.py` calls `modify_bracket(…, None)` while
+`dxtrade_api.modify_bracket` can PUT one. So the revision half of the doctrine
+is a BUILD (a producer, and the prop TP path) before it is a research question;
+the entry half is research per leg (`research/queue/`, the exit-refinement
+harness). Re-run the guard rather than quoting this table; it moves with every
+roster edit.
+
+The guard is a **ratchet**, deliberately. The debt above is carried as one
+dated, visible line per routing in `BASELINE_2026_10_06` inside the script —
+the `check_soak_registered.py` pattern — and the guard **fails** on a NEW
+non-compliant routing (a newly rostered leg with a fictional TP), on debt
+GROWTH (a baselined routing failing a dimension it did not fail before), and on
+a STALE line (a dimension that became compliant and was not removed, or a
+routing that left the roster). The list may only shrink. Adding a baseline
+line for a real-money or prop routing is a roster decision the operator owns
+(Tier-3); the diff shows who did it. Follow-through for the current debt is
+pipeline row `PI-20261006-5FUGHVX8-0001`, which holds the ranked list and a
+disposition per leg.
+
+### B1 — the revision contract (2026-10-07, lane TP-DOCTRINE)
+
+The verdict a revising `monitor()` returns is `{"tp": <price>, "tp_reason":
+"<rule>: <why>"}`, alone or merged into its SL verdict by
+`src/runtime/tp_revision.py::merge_verdict` (a close verdict always wins). The
+prediction itself is computed in ONE place, `tp_revision.plan_tp_revision`,
+from a rule the leg DECLARES (`tp_revision: <rule>` or `{rule: <rule>, …}` in
+`config/strategies.yaml`; undeclared = no revision, and declaring one is
+Tier-3). It refuses a TP through the current price and clamps to the venue cap
+measured from the CURRENT price, saying so in the reason. Consumers:
+
+- **exchange** — `interpret_verdict` carries `tp_reason` onto
+  `VerdictDecision`; `order_monitor._apply_update` forwards `tp` to
+  `_send_modify_to_exchange` and names the reason in its log and TRADE UPDATED
+  ping. Fail-closed is the existing contract: a leg whose amend did not land
+  leaves `order_packages.tp` unchanged so the verdict re-fires.
+- **prop, API adapter** — `prop_trail._tp_step` calls the same
+  `plan_tp_revision` on a tick with no SL step due, sends a TP-only
+  `modify_bracket(page, p, None, tp)`, confirms on re-read and alerts on a
+  refusal or an unconfirmed amend (capped at `MAX_ATTEMPTS_PER_TARGET`). Asked
+  only of an adapter declaring `TP_AMEND_SUPPORTED = True` — today
+  `dxtrade_api` (velotrade_1).
+- **prop, browser `dxtrade`** (breakout_1, tradeify_1) — `TP_AMEND_SUPPORTED =
+  False`: its rollout guard admits only SL-only tightens
+  (`rollout_tighten_mismatch`), so a TP amend would be refused before any
+  click. Measured as path `absent`, not hidden.
+- **prop, phone** (breakout_2) — contract with lane PROP-TRAIL-PHONE: the phone
+  executor calls `plan_tp_revision` and sends its TP over its own amend
+  channel; the guard reads the path as `plumbed` only when it does.
+
+`tp-doctrine-guard` counts a revision only when it is produced AND consumed: the
+leg declares a registered rule, its unit's `monitor()` calls
+`plan_tp_revision` and returns through `merge_verdict` (a bare `{"tp": …}`
+literal no longer counts), and the account's own path — per prop platform, not
+one global prop state — forwards it.
+
+**What this does NOT change.** The two execution gates are unchanged (§ Mode
+Mutation Contract); the doctrine decides what a bracket must *carry*, not
+whether a leg *runs*. Flipping any leg's `tp_r`, adding a `tp` producer to a
+monitor, or wiring the prop TP amend remains Tier-3 / Tier-2 work under the
+usual evidence standard — this section makes the gap measurable, it does not
+license closing it without a record.
+
+
 ## Operator Communication Pipeline
 
 The flow is repo-driven and auditable.
@@ -990,6 +1126,8 @@ filtered to architecture-level deltas only.
 | 2026-09-22 | E42 | **`config/accounts.yaml::symbols` stops being an execution gate; the tick fetch set becomes `UNION(roster-implied, declared)`.** `src/main.py::_resolve_tick_symbols` built the per-tick symbol set from each account's `symbols:` list ALONE, so a strategy on an account's `strategies:` roster whose symbol nobody had declared there got no candles, no signal and no order — while reading as wired on every surface. A third execution gate in everything but name (Prime Directive rule 6), and the same shape as the 2026-05 `MULTI_SYMBOL_ENABLED` flag that stranded MES, spelled as an omission instead of a flag. It now unions in `_symbols_for_account(...)`, so the ROSTER is the single source of truth for what trades and `symbols:` is a purely ADDITIVE **data-pull** list that legitimately names instruments nothing trades (21 such entries, measured). `intents.supported_symbols()` is widened identically and NOT optionally: `StrategyIntent.__post_init__` raises on an unaccepted symbol, so widening only the fetch set would have converted a silent no-trade into a `ValueError` on the live path. New guard `roster-symbol-reachability` fails a PR whose pull list has fallen behind a roster, and its message blames the PULL LIST — never the leg. PROVEN ADDITIVE over the checked-in config: the global fetch set is 23 symbols before and the same 23 after (0 added, 0 removed); `supported_symbols()` 24 → 24. The field is documented, not renamed — `/api/bot/config` publishes it and the SPA derives its symbol selectors from it. | `src/main.py`, `src/runtime/intents.py`, `src/web/api/routers/bot_config.py`, `scripts/ci/check_roster_symbol_reachability.py`, `scripts/ci/run_guards.py`, `tests/test_roster_symbol_union.py`, `config/accounts.yaml` (comment-only), `CLAUDE.md`, `docs/CLAUDE-RULES-CANONICAL.md`, `docs/TRADE-PIPELINE.md`, `docs/reference/bot-api-reference.md`, `docs/claude/system-actions.md` | No change to what trades today, and that is measured rather than asserted. What changes is that wiring a leg onto a roster is now SUFFICIENT for it to get data — you no longer have to remember a second list, and forgetting it fails CI instead of failing silently. Tier-2: held for operator approval, not deployed. |
 | 2026-09-25 | E35 (Tier-3, landing hold) | **Symbol arbitration is PER ACCOUNT; the global election no longer routes.** `intent_multiplexer` still gates once (`intents.gate_intents`, one `regime_hard_gate` row per candidate per tick) and still elects a global headline (audit, signal writer, allocator soak), but the dispatch is now `arbitration_fanout.plan_per_account_election` over the same gated set: each account elects from its OWN declared candidates, and `pipeline._dispatch_rounds` sends one package per distinct elected strategy with `account_scope` = the accounts that elected it (an account is in at most one round → at most one package per tick; a strategy is one package however many accounts elected it). The four per-strategy monocle gates run PER ROUND on the round's own strategy. Retired: `ARBITRATION_FANOUT_MODE` / `ARBITRATION_FANOUT_ACCOUNTS` (ignored, warned once), the all-or-nothing `accepted_rounds` reader and `_round_order_package` (which stamped the global winner's meta under another strategy's name). `arbitration_fanout_soak` is kept as a v4 record graded against the per-account routing (`starved` = elected but in no round — a defect; `global_would_drop` = what the old routing dropped). Replay over 1000 live soak rows: `scripts/research/e35_per_account_election_replay.py`. |
 | 2026-10-05 | PHONE-EXEC-1B | **Phone-executed prop account.** `breakout_2` (Breakout 1-Step Turbo $5k, `mode: dry_run`) emits tickets through the unchanged `exchange: breakout` bridge; because the VM's egress is Cloudflare-blocked from the new terminal, an Android app on the operator's phone claims them (`POST /api/bot/prop/phone/claim`, atomic `emitted→claimed`, one attempt per ticket, 3-min watchdog), fills and reads back the order ticket, and reports via `phone/report` (account forced from a per-device token whose SHA-256 fingerprint is the only thing in git). Submit is `live` only when the account is live AND the device is armed; test tickets are always dry. | `src/prop/phone_executor.py`, `src/web/api/routers/prop.py`, `config/{accounts,prop_platforms,prop_phone_devices}.yaml`, `config/prop_rulesets/breakout_turbo_1step.yaml`, `tools/phone-executor/`, `.github/workflows/phone-executor-apk.yml`, `docs/integrations/breakout-phone-executor-DESIGN.md` § 7.11 | Merged ≠ deployed: nothing runs until the web API is redeployed, a device is paired, and the account is flipped by `set-account-mode`. |
+| 2026-10-06 | TP-DOCTRINE (lane, Tier-1) | **The TP doctrine is canonical and measured.** Operator directive 2026-10-06 (verbatim in § "TP doctrine"): no fictional take-profits — every leg's bracket carries a real predictive TP at entry, the prediction is re-estimated through the trade and moved via the `tp` verdict path, a momentum/trailing exit does not exempt a leg, and compliance is measured in audits. New guard `tp-doctrine-guard` (`scripts/ci/check_tp_doctrine.py`) grades every (account, leg) routing on `entry_tp` and `tp_revision` and RATCHETS: day-one debt (52 of 52 routings fail revision, 26 of 52 fail entry, measured at `233c9c28`) is carried in a dated visible baseline; the guard fails on NEW non-compliance, debt growth, or a stale baseline line; `--strict` is the audit shape, wired into the `/health-review` compliance-audit rotation. Research units `RQ-20261006-060/061` sweep finite targets for the real-money sentinel legs; pipeline row `PI-20261006-5FUGHVX8-0001` holds the ranked debt list with a disposition per leg. | `docs/ARCHITECTURE-CANONICAL.md`, `CLAUDE.md`, `.claude/skills/exit-refinement/SKILL.md`, `.claude/skills/health-review/SKILL.md`, `scripts/ci/check_tp_doctrine.py`, `scripts/ci/run_guards.py`, `tests/test_check_tp_doctrine.py`, `research/queue/RQ-20261006-06{0,1}.yaml`, `docs/claude/work/pipeline/` | None to what trades today: docs, a CI guard and research registrations only. No order path, config, strategy or param change. The guard blocks a future PR that rosters a leg with a sentinel / no target or a family that cannot move its TP, unless its debt is added to the baseline as a visible line (Tier-3 on real-money / prop). |
+| 2026-10-07 | TP-DOCTRINE (lane, Tier-3 hold) | **TP doctrine B1 — the TP-revision mechanism.** New `src/runtime/tp_revision.py` owns the verdict contract (`{"tp", "tp_reason"}`), the declared-rule registry and `plan_tp_revision` (through-price refusal, venue-cap clamp from the current price). `monitor_verdict` carries `tp_reason`; `order_monitor` logs and pings it. `prop_trail` gains a TP-only amend step for adapters declaring `TP_AMEND_SUPPORTED` (`dxtrade_api`); browser `dxtrade` declares False (rollout guard). `tp-doctrine-guard` now requires produced-and-consumed (declared registered rule + `plan_tp_revision`/`merge_verdict` in `monitor()` + per-platform prop path). | `src/runtime/tp_revision.py`, `src/runtime/monitor_verdict.py`, `src/runtime/order_monitor.py`, `src/prop/prop_trail.py`, `src/prop/platform/{base,dxtrade,dxtrade_api}.py`, `scripts/ci/check_tp_doctrine.py`, `tests/test_tp_revision_contract.py` | None on merge: no leg declares a `tp_revision` rule, so no TP moves. Guard counts unchanged (52 routings, 0 compliant) except velotrade_1's path now reads `plumbed`. |
 
 ## Known gaps
 

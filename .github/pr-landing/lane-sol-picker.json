@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane SOL-PICKER (dispatched by Manager Session 2026-10-01, session_01MM8o5js6TcDFeNAPBY4Ntv; pipeline item PI-20261006-APBY4NTV-0007). The diff changes the Breakout phone executor's instrument-selection route (tools/phone-executor exec.js + MainActivity.kt), which runs on the live prop order path once the operator installs the APK. Dispatch instruction: tier 2, landing hold — the manager merges.",
+  "why": "Phone executor: drive the terminal's measured 'Select market' chip (open, pick ONE row by text, read back), fall back to the watchlist (regex now accepts the price), then verify the submit label exactly as before plus a chip-agrees check, before any field is typed. Selection only; submit path unchanged; dry tests stay dry. Headless check fixtures H-K added."
+}

@@ -37,6 +37,7 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import os
 import re
 import sqlite3
@@ -62,8 +63,11 @@ CLAIM_TIMEOUT_S = 180  # design § 3.3: "suggest 3 minutes without a report"
 _FP_RE = re.compile(r"^[0-9a-f]{64}$")
 _EVENT_KINDS = {
     "login_ok", "login_failed", "logout_seen", "login_started", "refusal",
-    "mismatch", "flattened", "dry_fill_ok", "submitted", "app_started", "error",
+    "mismatch", "flattened", "dry_fill_ok", "submitted", "app_started", "error", "terminal_miss", "heartbeat",
 }
+# terminal_miss carries the control texts the page showed (our own UI labels, scrubbed like a reason) so the
+# next "terminal did not load" is self-diagnosing; only the LATEST one per account is kept, beside the journal.
+_DIAG_MAX = 40
 
 
 class PhoneAuthError(Exception):
@@ -269,6 +273,24 @@ def record_report(device: PhoneDevice, body: Dict[str, Any]) -> Dict[str, Any]:
             "form": json.loads(dump_capped(form, 20000)),
             "at": _now().isoformat()})
         return {"ok": n == 1, "kind": "ticket_result", "updated": n}
+    if body.get("kind") == "account_status":
+        # MEASURED off the terminal's account panel (read-only). A value that was not read stays None (absent, never 0);
+        # a report with neither is refused so "we did not look" never lands as a snapshot.
+        clean: dict[str, Any] = {}
+        for k in ("balance", "equity"):
+            v = body.get(k)
+            if v is None:
+                clean[k] = None
+                continue
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
+                raise ValueError(f"account_status.{k} invalid")
+            clean[k] = float(v)
+        if clean["balance"] is None and clean["equity"] is None:
+            raise ValueError("account_status needs balance or equity")
+        label = "portfolio" if str(body.get("equity_label") or "") == "portfolio" else "equity"
+        body = {"kind": "account_status", "account_id": device.account_id, "balance": clean["balance"],
+                "equity": clean["equity"], "source": "phone_executor", "provenance": "MEASURED",
+                "equity_label": label}
     from src.prop.prop_report import ingest_report
     res = ingest_report(body)
     tid = body.get("ticket_id")
@@ -298,23 +320,48 @@ def _close_claim(account_id: str, ticket_id: str, status: str, result: Dict[str,
         conn.close()
 
 
-def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
-    """One-shot, git-visible way to run the dry end-to-end check WITHOUT the operator.
-
-    ``config/prop_platforms.yaml::phone_accounts.<acct>.dry_test_request: <request id>``. On the next claim, if no
-    ticket carries that request id yet, ONE always-dry test ticket is written (meta.test, so submit is forced dry
-    on the server and the phone never submits it). The id makes it idempotent; a new id requests a new test."""
-    req = str(phone_config(device.account_id).get("dry_test_request") or "").strip()
+def _unserved_dry_test_request(account_id: str) -> Optional[str]:
+    """The configured ``dry_test_request`` id when no ticket carries it yet, else None. Read-only."""
+    req = str(phone_config(account_id).get("dry_test_request") or "").strip()
     if not req:
         return None
     conn = prop_journal._connect()
     try:
         prop_journal.ensure_tables(conn)
         seen = conn.execute("SELECT 1 FROM prop_tickets WHERE account_id = ? AND meta LIKE ? LIMIT 1",
-                            (device.account_id, f'%"dry_test_request": "{req}"%')).fetchone()
+                            (account_id, f'%"dry_test_request": "{req}"%')).fetchone()
     finally:
         conn.close()
-    if seen:
+    return None if seen else req
+
+
+def pending_count(device: PhoneDevice, now: Optional[datetime] = None) -> int:
+    """READ-ONLY peek for the backgrounded app (PI-20261006-APBY4NTV-0006): how many tickets the next claim
+    would find (still-valid ``emitted`` tickets, plus one for an unserved ``dry_test_request``). Claims nothing,
+    writes nothing; 0 when the kill switch is off, matching ``claim_next``."""
+    now = now or _now()
+    acct = device.account_id
+    if kill_switch(acct) == "off":
+        return 0
+    conn = prop_journal._connect()
+    try:
+        prop_journal.ensure_tables(conn)
+        rows = conn.execute("SELECT valid_until FROM prop_tickets WHERE account_id = ? AND status = 'emitted'",
+                            (acct,)).fetchall()
+    finally:
+        conn.close()
+    n = sum(1 for r in rows if (vu := _parse(r["valid_until"])) is not None and vu > now)
+    return n + (1 if _unserved_dry_test_request(acct) else 0)
+
+
+def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
+    """One-shot, git-visible way to run the dry end-to-end check WITHOUT the operator.
+
+    ``config/prop_platforms.yaml::phone_accounts.<acct>.dry_test_request: <request id>``. On the next claim, if no
+    ticket carries that request id yet, ONE always-dry test ticket is written (meta.test, so submit is forced dry
+    on the server and the phone never submits it). The id makes it idempotent; a new id requests a new test."""
+    req = _unserved_dry_test_request(device.account_id)
+    if not req:
         return None
     try:
         tid = make_test_ticket(device, request_id=req)["ticket_id"]
@@ -325,11 +372,38 @@ def serve_dry_test_request(device: PhoneDevice) -> Optional[str]:
     return tid
 
 
+def write_dry_test_ticket(account_id: str, symbol: str = "ETHUSDT", *, source: str = "phone-dry-test",
+                          entry: Optional[float] = None) -> Dict[str, Any]:
+    """The ``phone-dry-test`` system-action's writer (PI-20261006-APBY4NTV-0009): ONE always-dry test
+    ticket through the SAME :func:`make_test_ticket` the in-app Dry test button and ``dry_test_request``
+    use, so ``meta.test`` is set and :func:`submit_mode` forces ``dry`` whatever the account mode.
+
+    Fail-closed on both inputs, because this runs from an issue body: the account must be declared under
+    ``phone_accounts`` in ``config/prop_platforms.yaml`` (a VM-driven prop account or a typo is refused,
+    never written) and the symbol must be one of that account's ``instruments`` (nothing else has a venue
+    symbol the phone could type). ``meta.source`` records who asked. Cannot write a non-test ticket:
+    there is no code path from here that omits ``test=True``."""
+    acct = str(account_id or "").strip()
+    sym = str(symbol or "").strip().upper()
+    if not acct or not is_phone_account(acct):
+        raise ValueError(f"{acct or '<empty>'} is not a phone_accounts entry in config/prop_platforms.yaml")
+    instruments = phone_config(acct).get("instruments") or {}
+    if sym not in instruments:
+        raise ValueError(f"{sym or '<empty>'} is not in phone_accounts.{acct}.instruments "
+                         f"(allowed: {', '.join(sorted(instruments)) or 'none'})")
+    out = make_test_ticket(PhoneDevice(f"system-action:{source}", acct), symbol=sym, entry=entry,
+                           source=str(source or "phone-dry-test")[:80])
+    logger.info("phone_executor: %s wrote dry test ticket %s for %s/%s", source, out["ticket_id"], acct, sym)
+    return {**out, "account_id": acct, "symbol": sym, "submit": "dry"}
+
+
 def make_test_ticket(device: PhoneDevice, *, symbol: str = "ETHUSDT",
-                     entry: Optional[float] = None, request_id: Optional[str] = None) -> Dict[str, Any]:
+                     entry: Optional[float] = None, request_id: Optional[str] = None,
+                     source: Optional[str] = None) -> Dict[str, Any]:
     """A synthetic, ALWAYS-dry ticket for the end-to-end dry check. ``meta.test``
     forces ``submit=dry`` in :func:`claim_next` whatever the account mode, and
-    the phone also refuses to submit any test ticket."""
+    the phone also refuses to submit any test ticket. ``source`` (optional) names
+    the caller in ``meta.source`` — the ``phone-dry-test`` system-action sets it."""
     if entry is None:
         entry = _bybit_last(symbol)
     if not entry or entry <= 0:
@@ -349,7 +423,8 @@ def make_test_ticket(device: PhoneDevice, *, symbol: str = "ETHUSDT",
         "risk_usd": None, "signal_time": now.isoformat(),
         "valid_until": (now + timedelta(minutes=15)).isoformat(),
         "status": "emitted", "message": "phone dry end-to-end test ticket",
-        "meta": {"test": True, **({"dry_test_request": request_id} if request_id else {})},
+        "meta": {"test": True, **({"dry_test_request": request_id} if request_id else {}),
+                 **({"source": source} if source else {})},
     })
     return {"ok": True, "ticket_id": tid}
 
@@ -377,7 +452,11 @@ def record_event(device: PhoneDevice, body: Dict[str, Any], *, send=None) -> Dic
     msg = f"📱 phone {device.account_id}: {kind}" + (f" [{ticket}]" if ticket else "") + (
         f" — {reason}" if reason else "")
     logger.info("phone_executor event %s %s %s", device.account_id, kind, ticket)
-    quiet = kind == "app_started" and not body.get("ping")
+    if kind == "terminal_miss":
+        _write_diag(device.account_id, reason, body.get("controls"))
+    if kind == "heartbeat":
+        _write_heartbeat(device.account_id, reason, body.get("state"))
+    quiet = (kind == "app_started" and not body.get("ping")) or kind in ("terminal_miss", "heartbeat")
     sent = False
     if not quiet:
         try:
@@ -388,6 +467,67 @@ def record_event(device: PhoneDevice, body: Dict[str, Any], *, send=None) -> Dic
         except Exception:  # noqa: BLE001  # allow-silent: logged; the event is still acknowledged
             logger.warning("phone_executor: event ping failed", exc_info=True)
     return {"ok": True, "pinged": sent}
+
+
+def _scrub(s: Any, n: int) -> str:
+    s = re.sub(r"[^A-Za-z0-9 _.:/()=+&%-]", "", str(s or ""))[:n]
+    return re.sub(r"https?\S*|\S+@\S+|\d{6,}", "*", s)
+
+
+def _diag_path(account_id: str) -> Path:
+    return Path(prop_journal._db_path()).parent / f"prop_phone_diag_{re.sub(r'[^a-z0-9_]', '', account_id)}.json"
+
+
+def _write_diag(account_id: str, reason: str, controls: Any) -> None:
+    ctl = [_scrub(c, 40) for c in (controls if isinstance(controls, list) else [])][:_DIAG_MAX]
+    try:
+        _diag_path(account_id).write_text(json.dumps(
+            {"at": _now().isoformat(), "reason": reason, "controls": [c for c in ctl if c]}))
+    except OSError:  # allow-silent: diagnostics only; the event is still acknowledged
+        logger.warning("phone_executor: diag write failed", exc_info=True)
+
+
+# heartbeat (2026-10-06 08:15Z: the phone went silent for an hour with no claim and no event, because every
+# no-claim branch but one only set the on-screen status). The app posts its status line + gate state on every
+# tick path at most every 2 min; only the latest is kept. Keys are a fixed allowlist; values are bools, small
+# ints or scrubbed short strings.
+_HB_KEYS = {"st", "paused", "hold", "host", "onAccount", "path_depth", "ready", "probe", "panels", "orderControl",
+            "ticketOpen", "buySell", "tabs", "inputs", "armed", "build", "fg", "jsTimeouts", "pending", "acct"}
+
+
+def _write_heartbeat(account_id: str, reason: str, state: Any) -> None:
+    st: Dict[str, Any] = {}
+    for k, v in (state.items() if isinstance(state, dict) else []):
+        if k not in _HB_KEYS:
+            continue
+        if isinstance(v, bool) or (isinstance(v, int) and abs(v) < 100000):
+            st[k] = v
+        else:
+            st[k] = _scrub(v, 60)
+    try:
+        _heartbeat_path(account_id).write_text(json.dumps({"at": _now().isoformat(), "status": reason, "state": st}))
+    except OSError:  # allow-silent: diagnostics only; the event is still acknowledged
+        logger.warning("phone_executor: heartbeat write failed", exc_info=True)
+
+
+def _heartbeat_path(account_id: str) -> Path:
+    return _diag_path(account_id).with_name(f"prop_phone_hb_{re.sub(r'[^a-z0-9_]', '', account_id)}.json")
+
+
+def last_heartbeat(account_id: str) -> Optional[Dict[str, Any]]:
+    """The phone's latest heartbeat (status line + gate state), or None when none was ever posted."""
+    try:
+        return json.loads(_heartbeat_path(account_id).read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def last_diag(account_id: str) -> Optional[Dict[str, Any]]:
+    """The latest terminal_miss diagnostic for the account, or None when none was ever posted."""
+    try:
+        return json.loads(_diag_path(account_id).read_text())
+    except (OSError, ValueError):
+        return None
 
 
 def alert_expired(account_id: str, ids: list, *, send=None) -> None:

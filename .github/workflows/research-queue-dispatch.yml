@@ -39,16 +39,21 @@ name: research-queue-dispatch
 
 on:
   schedule:
-    # Every 6 h at :20 (00:20 / 06:20 / 12:20 / 18:20 UTC) — RQ-RUN, 2026-09-28,
-    # operator direction "keep the research queue moving through the slowdown":
-    # with the token-free runner (research-script-run.yml) a unit landed at
-    # 09:00 no longer waits a day for the next dispatch. The 06:20 slot stays
-    # after the IB gateway's 06:05 reset window. schedule-keeper reads these
+    # HOURLY at :20 — operator direction 2026-10-06 (verbatim: "the research
+    # queue shouldn't need a claude session pushing it - claude should be
+    # queuing research units and analyzing results, but the git
+    # infrastructure should be what keeps the queue moving"). Was every 6 h
+    # (`20 */6 * * *`, RQ-RUN 2026-09-28); a unit landed at 09:00 now fires
+    # at the next :20 instead of waiting up to 6 h. The 06:20 slot still
+    # follows the IB gateway's 06:05 reset window. schedule-keeper reads these
     # crons from this file, so its dedupe/keep logic follows the change with no
-    # edit of its own; the per-run GPU cap and the monthly ledger cap are
-    # unchanged and bind each run exactly as before (4 runs/day x cap 1 is the
-    # new per-day GPU ceiling — the ledger's $10/month still binds first).
-    - cron: "20 */6 * * *"
+    # edit of its own; `--max-research-inflight 3`, `--max-repo-queued 10`,
+    # the per-run GPU cap and the monthly ledger cap are UNCHANGED and bind
+    # each run exactly as before (24 runs/day x cap 1 is the per-day GPU
+    # ceiling — the ledger's $10/month still binds first). The replenisher's
+    # 6 h "runnable" horizon (queue_replenish.py DISPATCH_CYCLE_HOURS) and
+    # the 12 h idle alarm (queue_throughput.py) are deliberately NOT retuned.
+    - cron: "20 * * * *"
   workflow_dispatch:
     inputs:
       fire:
@@ -61,12 +66,6 @@ on:
       max_gpu:
         description: "Per-run cap on GPU bursts"
         default: "1"
-
-concurrency:
-  # Two dispatchers running at once could fire the same job twice — the ledger
-  # cap is monthly and would not stop it inside one window.
-  group: research-queue-dispatch
-  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -105,6 +104,23 @@ jobs:
           python3 scripts/ops/schedule_keeper.py dedupe
           --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
 
+  # ⚠️ SPLIT 2026-10-07 (lane RQ-CADENCE, PI-20261007-APBY4NTV-0004): THIS JOB NO
+  # LONGER LANDS ANYTHING. It used to hold the `research-queue-dispatch`
+  # concurrency group for the whole run INCLUDING three `commit-to-main`
+  # `verify-merged` waits (up to 50 min each, on a CI queue of 240+ runs), so
+  # one run held the group 1-2 h and the NEXT hourly slot could not start
+  # until it finished. MEASURED off the Actions API 2026-10-07 19:31Z, last
+  # 24 h: 18 runs (4 schedule + 14 keeper-dispatched), 16 failed + 1 cancelled
+  # AT THE LANDING WAIT, each 60-130 min; the largest start-to-start gap was
+  # 3 h 40 m (02:34Z -> 06:16Z) -- the keeper only runs on a push to main, and
+  # the landing PRs that would have been the push were the thing still waiting.
+  # So the cadence was bounded by how long CI took to merge a stamp PR, not by
+  # GitHub's cron. Now: this job (collect -> grade/fire -> receipt) holds the
+  # group for MINUTES and hands its working-tree changes to the `land` job as
+  # an artifact; `land` has no shared group. Two dispatchers still never fire
+  # the same unit -- this job is the only place a unit is FIRED, it is the
+  # only holder of the group, and the open-stamp-PR / landed-results checks in
+  # dispatch_queue.py cover the minutes between "fired" and "stamp PR open".
   dispatch:
     needs: dedupe
     if: |
@@ -113,60 +129,18 @@ jobs:
       github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest
-    # 35, not 15: `verify-merged` below blocks until the stamp PR merges, and a
-    # budget under that wait kills the job mid-wait and reports a timeout for a
-    # stamp that was about to land.
-    #
-    # ⚠️ THIS COMMENT SAID "waits up to 18 min" AND WAS STALE. The wait is
-    # `commit-to-main`'s `verify-timeout-minutes`, which this workflow does not
-    # set — so it takes that action's DEFAULT, and the default moved 18 -> 30.
-    # The arithmetic a reader would do from the old text was wrong by 12 min.
-    #
-    # MEASURED on run 33388490432 (2026-08-31), rather than estimated:
-    #   job total                                    16m04s
-    #   set-up + checkout + pip + grade + dispatch      14s
-    #   "Land the dispatch stamps on main" (the wait) 15m45s
-    # So the budget is 30 (wait) + ~0.2 (everything else) and 35 leaves ~5 min
-    # of real headroom. It is NOT thin — an earlier read of this called it
-    # 32-34 of 35 by assuming minutes of startup; startup is fourteen seconds.
-    #
-    # The 30-min default is also vindicated by that run: 15m45s is 52.5% of 30
-    # but 87.5% of the old 18, i.e. this exact shape of run was a coin-flip
-    # before the default was raised. Raise this number only if the WAIT's own
-    # default rises above ~33.
-    #
-    # ⚠️ RAISED 35 -> 70 (RQ-OPS-2, 2026-09-28), AND THE OLD FIGURE WAS ALREADY
-    # STALE THE DAY IT SHIPPED. MEASURED on the two runs that actually
-    # cancelled here (36239222079, 35996108860): the stamp PR's required
-    # `pytest-run` check took ~13m of GitHub QUEUE TIME before it even
-    # started, plus ~20m to RUN — ~33m total just to resolve the check,
-    # already past `verify-merged`'s own 30m poll deadline before that
-    # deadline's failure message could ever fire. The outer 35m job ceiling
-    # then killed the wait mid-poll, reporting an ambiguous `cancelled`
-    # instead of `commit-to-main`'s own clear pass/fail. This is a TIMING
-    # fix only — it does not change what `verify-merged` waits FOR, does not
-    # touch the FIRE decision, and does not widen what merges: a genuinely
-    # failing check still fails, just with commit-to-main's own diagnosable
-    # error message instead of an outer-timeout cancellation.
-    #
-    # ⚠️ AND THE JOB NOW HOLDS TWO `commit-to-main` CALLS, NOT ONE — the
-    # liveness receipt (added the same day, see below) also sets
-    # `verify-merged: true`, because tests/test_commit_to_main_callers.py
-    # allows no exemption for a "low-stakes" caller. `test_every_caller_
-    # budget_outlasts_the_merge_wait` only checks a FLOOR (budget >= one
-    # wait + 5m slack) and does not sum multiple calls in one job — sizing
-    # for the real worst case is this job's own responsibility. 70 = 30
-    # (receipt wait) + 30 (stamp wait) + ~10 (observed queue+run overhead on
-    # top of either wait, per the ~33m measured above), covering both waits
-    # maxing out sequentially. Root-caused in PI-20260928-RQOPS2-0001.
-    # ⚠️ RAISED 70 -> 105 (manager review 2026-09-29): a THIRD commit-to-main
-    # call (the batch landing of the runner's results, below) adds its own
-    # 30-min wait; 105 = 3 x 30 + ~15 observed queue/run overhead.
-    # ⚠️ RAISED 105 -> 165 (lane OPS-FIXES 2026-10-04, PI-20261004-PUQ1APTH-0008
-    # / PI-20261004-FOJGFIZF-0003): the shared wait default moved 30 -> 50
-    # because pytest-run alone now takes ~35-37 min; 165 = 3 x 50 + 15. Pinned
-    # by tests/test_commit_to_main_callers.py::test_budget_covers_every_wait_in_the_job.
-    timeout-minutes: 165
+    concurrency:
+      # Two dispatchers running at once could fire the same job twice — the
+      # ledger cap is monthly and would not stop it inside one window.
+      group: research-queue-dispatch
+      cancel-in-progress: false
+    # No merge wait lives here any more: collect + grade + dispatch + receipt
+    # are ~1-3 min of work. 30 leaves room for a slow `gh` count under load.
+    timeout-minutes: 30
+    outputs:
+      fire: ${{ steps.flag.outputs.fire }}
+      collect_count: ${{ steps.collect.outputs.count }}
+      payload: ${{ steps.bundle.outputs.payload }}
     env:
       # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`
       # directly — see the header. A scheduled run fires; a hand dispatch fires
@@ -185,9 +159,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # PAT so the stamp auto-merge PR (commit-to-main) triggers checks —
-          # mirrors gpu-burst-train.yml's checkout for the same reason.
-          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
@@ -229,42 +200,6 @@ jobs:
           python3 scripts/research/collect_runner_results.py --self-test
           python3 scripts/research/collect_runner_results.py --json-out /tmp/collected.json | tee /tmp/collect.txt
 
-      - name: Land the batch of runner results on main
-        id: batch
-        if: steps.collect.outputs.count != '0' && steps.collect.outputs.count != ''
-        uses: ./.github/actions/commit-to-main
-        with:
-          verify-merged: "true"
-          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: comms/research research/results
-          message: "research: batch-land ${{ steps.collect.outputs.count }} runner result(s) (dispatcher run ${{ github.run_id }})"
-          pr-title: "research results: batch of ${{ steps.collect.outputs.count }} runner run(s) (dispatcher run ${{ github.run_id }})"
-          pr-body: >-
-            One landing per dispatcher cycle for every completed research-script-run
-            whose artifact was not yet on main: comms/research/<unit>/<run_id>/ (manifest,
-            verdict.json, logs) plus the E5 record research/results/<unit>/<run_id>.jsonl,
-            emitted through research_result.py. R2: a run is done when its result is
-            readable on main, which the step after this one asserts per record.
-          branch-prefix: automation/research-results-batch
-
-      - name: Assert every batched record is readable on main
-        if: steps.collect.outputs.count != '0' && steps.collect.outputs.count != ''
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin main
-          python3 - <<'PY'
-          import json, subprocess, sys
-          batch = json.load(open("/tmp/collected.json"))
-          bad = 0
-          for x in batch["landed"]:
-              rc = subprocess.run([sys.executable, "scripts/ci/assert_rows_landed.py", "--store", x["record"],
-                                   "--ref", "origin/main", "--field", "read_state",
-                                   "--min-rows", str(x.get("min_rows") or 1)]).returncode
-              bad += rc != 0
-          print(f"asserted {len(batch['landed'])} record(s) on main; {bad} missing")
-          sys.exit(1 if bad else 0)
-          PY
-
       - name: Grade and dispatch
         id: grade
         continue-on-error: true
@@ -277,7 +212,11 @@ jobs:
           # queued repo-wide; dispatch_queue.py counts via gh and says why.
           ARGS=(--ref "${{ github.ref_name }}" --max-gpu-dispatches-per-run "${{ inputs.max_gpu || '1' }}"
                 --max-research-inflight 3 --max-repo-queued 10)
-          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire); fi
+          # --check-open-stamp-prs rides with the fire flag (same FIRE gate): a
+          # unit stamped by an OPEN stamp PR is already dispatched (lane RQ-FIX,
+          # 2026-10-06); if gh cannot list PRs the cycle defers every fire
+          # rather than double-fire.
+          if [ "${FIRE}" = "true" ]; then ARGS+=(--fire --check-open-stamp-prs); fi
           if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
           python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
 
@@ -325,66 +264,38 @@ jobs:
               json.dump(payload, fh, indent=2)
               fh.write("\n")
           PY
-      - name: Land the liveness receipt
-        uses: ./.github/actions/commit-to-main
-        with:
-          verify-merged: "true"
-          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: docs/claude/work/research-queue-dispatch-receipt.json
-          message: "chore(research-queue): liveness receipt for run ${{ github.run_id }}"
-          pr-title: "chore(research-queue): liveness receipt (auto)"
-          pr-body: >-
-            Automated liveness receipt from the research-queue dispatcher.
-            Data-only; graded by
-            scripts/ci/check_research_queue_dispatch_liveness.py so a
-            silently-stopped cron is detectable instead of invisible.
-          branch-prefix: automation/research-queue-receipt
+      # Hand the working-tree changes (stamps, receipt, collected results) to
+      # the `land` job. `if: always()` so a failed grade still lands the
+      # receipt and any stamp dispatch_queue.py wrote before it failed.
+      - name: Record the fire flag for the land job
+        id: flag
+        if: always()
+        run: echo "fire=${FIRE}" >> "$GITHUB_OUTPUT"
 
-      # The dispatcher stamps `last_dispatched_at` on any job it fired. `main`
-      # is branch-protected, so this lands through the shared commit-to-main
-      # action as an auto-merge PR rather than a direct push — the same wire
-      # BL-20260706-GPU-BURST-LEDGER-PUSH-RACE established for the spend ledger
-      # after a direct `git push HEAD:main` was rejected (GH006) and silently
-      # dropped billed rows.
-      #
-      # ⚠️ Only on a REAL fire. A dry run stamps nothing, so there is nothing to
-      # land and this step is skipped rather than opening an empty PR.
-      # ⚠️ THE STAMP IS THIS WORKFLOW'S ONLY IDEMPOTENCY, AND UNTIL 2026-08-30 IT
-      # WAS UNVERIFIED. The comment below correctly warns that a fired-but-
-      # unstamped job "re-fires forever" — and then guards only ONE of the two
-      # routes to that state. The other is this step: `commit-to-main` exits 0
-      # when the PR is OPENED, so a stranded stamp PR means `last_dispatched_at`
-      # never reaches main and the dispatcher re-fires the SAME job every single
-      # day, indefinitely, burning a runner each time (and, for a GPU-routed job,
-      # real money against the spend ledger). That is not theoretical: origin
-      # carried 5 stranded `automation/*` branches the day this was armed, the
-      # oldest 10 weeks. `verify-merged` closes it.
-      - name: Land the dispatch stamps on main
-        # Reads the SAME `FIRE` as the flag above. If these two can disagree, a
-        # fired job goes unstamped and re-fires forever.
-        if: env.FIRE == 'true'
-        uses: ./.github/actions/commit-to-main
-        with:
-          verify-merged: "true"
-          # A PAT, not GITHUB_TOKEN: a PR authored by GITHUB_TOKEN does not
-          # trigger checks, so its auto-merge would sit forever waiting on
-          # required checks that never start. Same reason gpu-burst-train.yml
-          # passes it for the spend ledger.
-          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: research/queue
-          message: "chore(research-queue): stamp last_dispatched_at for run ${{ github.run_id }}"
-          pr-title: "chore(research-queue): dispatch stamps (auto)"
-          pr-body: >-
-            Automated `last_dispatched_at` stamps from the research-queue
-            dispatcher. Data-only; it drives the cadence check so a recurring
-            job does not re-fire every run.
-          branch-prefix: automation/research-queue-stamp
+      - name: Bundle the landing payload
+        id: bundle
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/payload
+          git ls-files -m -o --exclude-standard -- comms/research research/results research/queue \
+            docs/claude/work/research-queue-dispatch-receipt.json > /tmp/payload/changed.txt
+          cat /tmp/payload/changed.txt
+          if [ -f /tmp/collected.json ]; then cp /tmp/collected.json /tmp/payload/collected.json; fi
+          tar czf /tmp/payload/landing.tgz --ignore-failed-read -T /tmp/payload/changed.txt
+          echo "payload=true" >> "$GITHUB_OUTPUT"
 
-      # `if: always()` — a stale/never_ran verdict must be checked and
-      # PINGED however the steps above went, including when "Grade and
-      # dispatch" itself failed (the exact case a receipt cannot update
-      # for). `continue-on-error: true` so the alarm mechanism can never
-      # itself be the reason this job's own conclusion goes red or cancels.
+      # no-durable-result is declared at the bottom of this file (the landing
+      # guard greps the whole file): this artifact is a minutes-long hand-off
+      # between two jobs of one run, not a research result.
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.bundle.outputs.payload == 'true'
+        with:
+          name: rq-landing-payload
+          path: /tmp/payload
+          retention-days: 3
+
+
       - name: Alarm if the dispatcher has gone stale
         if: always()
         continue-on-error: true
@@ -453,3 +364,252 @@ jobs:
         run: |
           echo "::error::dispatch_queue.py reported invalid or dispatch-failed unit(s) — see 'Grade and dispatch' above (or the job summary). The liveness receipt and any successfully-fired units' stamps still landed."
           exit 1
+
+  # The three landings, moved out of the group-holding job. Each is a
+  # `commit-to-main` + `verify-merged` exactly as before (the tests that pin
+  # that follow this job). No `concurrency:` here ON PURPOSE: with
+  # `cancel-in-progress: false` GitHub still replaces an older PENDING run of a
+  # group with a newer one, which here would DROP a payload of stamps -- and a
+  # fired-but-unstamped unit re-fires. Distinct runs land on distinct branches.
+  # The one shared file, the receipt json, is protected below by skipping a
+  # receipt landing while another receipt PR is still open.
+  land:
+    needs: dispatch
+    if: |
+      !cancelled() && needs.dispatch.outputs.payload == 'true' &&
+      (needs.dispatch.result == 'success' || needs.dispatch.result == 'failure')
+    runs-on: ubuntu-latest
+    # 35, not 15: `verify-merged` below blocks until the stamp PR merges, and a
+    # budget under that wait kills the job mid-wait and reports a timeout for a
+    # stamp that was about to land.
+    #
+    # ⚠️ THIS COMMENT SAID "waits up to 18 min" AND WAS STALE. The wait is
+    # `commit-to-main`'s `verify-timeout-minutes`, which this workflow does not
+    # set — so it takes that action's DEFAULT, and the default moved 18 -> 30.
+    # The arithmetic a reader would do from the old text was wrong by 12 min.
+    #
+    # MEASURED on run 33388490432 (2026-08-31), rather than estimated:
+    #   job total                                    16m04s
+    #   set-up + checkout + pip + grade + dispatch      14s
+    #   "Land the dispatch stamps on main" (the wait) 15m45s
+    # So the budget is 30 (wait) + ~0.2 (everything else) and 35 leaves ~5 min
+    # of real headroom. It is NOT thin — an earlier read of this called it
+    # 32-34 of 35 by assuming minutes of startup; startup is fourteen seconds.
+    #
+    # The 30-min default is also vindicated by that run: 15m45s is 52.5% of 30
+    # but 87.5% of the old 18, i.e. this exact shape of run was a coin-flip
+    # before the default was raised. Raise this number only if the WAIT's own
+    # default rises above ~33.
+    #
+    # ⚠️ RAISED 35 -> 70 (RQ-OPS-2, 2026-09-28), AND THE OLD FIGURE WAS ALREADY
+    # STALE THE DAY IT SHIPPED. MEASURED on the two runs that actually
+    # cancelled here (36239222079, 35996108860): the stamp PR's required
+    # `pytest-run` check took ~13m of GitHub QUEUE TIME before it even
+    # started, plus ~20m to RUN — ~33m total just to resolve the check,
+    # already past `verify-merged`'s own 30m poll deadline before that
+    # deadline's failure message could ever fire. The outer 35m job ceiling
+    # then killed the wait mid-poll, reporting an ambiguous `cancelled`
+    # instead of `commit-to-main`'s own clear pass/fail. This is a TIMING
+    # fix only — it does not change what `verify-merged` waits FOR, does not
+    # touch the FIRE decision, and does not widen what merges: a genuinely
+    # failing check still fails, just with commit-to-main's own diagnosable
+    # error message instead of an outer-timeout cancellation.
+    #
+    # ⚠️ AND THE JOB NOW HOLDS TWO `commit-to-main` CALLS, NOT ONE — the
+    # liveness receipt (added the same day, see below) also sets
+    # `verify-merged: true`, because tests/test_commit_to_main_callers.py
+    # allows no exemption for a "low-stakes" caller. `test_every_caller_
+    # budget_outlasts_the_merge_wait` only checks a FLOOR (budget >= one
+    # wait + 5m slack) and does not sum multiple calls in one job — sizing
+    # for the real worst case is this job's own responsibility. 70 = 30
+    # (receipt wait) + 30 (stamp wait) + ~10 (observed queue+run overhead on
+    # top of either wait, per the ~33m measured above), covering both waits
+    # maxing out sequentially. Root-caused in PI-20260928-RQOPS2-0001.
+    # ⚠️ RAISED 70 -> 105 (manager review 2026-09-29): a THIRD commit-to-main
+    # call (the batch landing of the runner's results, below) adds its own
+    # 30-min wait; 105 = 3 x 30 + ~15 observed queue/run overhead.
+    # ⚠️ RAISED 105 -> 165 (lane OPS-FIXES 2026-10-04, PI-20261004-PUQ1APTH-0008
+    # / PI-20261004-FOJGFIZF-0003): the shared wait default moved 30 -> 50
+    # because pytest-run alone now takes ~35-37 min; 165 = 3 x 50 + 15. Pinned
+    # by tests/test_commit_to_main_callers.py::test_budget_covers_every_wait_in_the_job.
+    timeout-minutes: 165
+    env:
+      # Read from the dispatch job, which owns THE ONE FIRE DECISION (see its env).
+      # `inputs` is deliberately not consulted here: on a schedule event it is empty.
+      FIRE: ${{ needs.dispatch.outputs.fire }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # PAT so the stamp auto-merge PR (commit-to-main) triggers checks —
+          # mirrors gpu-burst-train.yml's checkout for the same reason.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pyyaml
+        run: pip install --quiet pyyaml
+
+      # The sha this job checked out. commit-to-main commits on the CURRENT
+      # HEAD, and this job calls it up to three times in sequence (batch
+      # results, liveness receipt, dispatch stamps), so without a reset the
+      # second branch carried the first commit and the third carried both.
+      # MEASURED 2026-10-06 on stamp PR #16770: 10 files, of which only 3 were
+      # stamps -- the receipt json and the receipt branch's own landing
+      # declarations rode along, and the moment the NEXT run's receipt merged
+      # (a different run_id in the same json) the stamp PR went `dirty` and
+      # its stamps were dropped whole. Each landing below returns to this sha
+      # first ("Return to the checked-out base"), so every throwaway branch
+      # carries exactly its own paths. The working-tree stamps survive the
+      # checkout: they are modifications to files no landing commit touches.
+      - name: Record the checked-out base
+        run: echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: rq-landing-payload
+          path: /tmp/payload
+
+      - name: Restore the dispatch job's working-tree changes
+        run: |
+          set -euo pipefail
+          tar xzf /tmp/payload/landing.tgz
+          if [ -f /tmp/payload/collected.json ]; then cp /tmp/payload/collected.json /tmp/collected.json; fi
+          git status --short | head -40
+
+      - name: Land the batch of runner results on main
+        id: batch
+        if: needs.dispatch.outputs.collect_count != '0' && needs.dispatch.outputs.collect_count != ''
+        uses: ./.github/actions/commit-to-main
+        with:
+          verify-merged: "true"
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/research research/results
+          message: "research: batch-land ${{ needs.dispatch.outputs.collect_count }} runner result(s) (dispatcher run ${{ github.run_id }})"
+          pr-title: "research results: batch of ${{ needs.dispatch.outputs.collect_count }} runner run(s) (dispatcher run ${{ github.run_id }})"
+          pr-body: >-
+            One landing per dispatcher cycle for every completed research-script-run
+            whose artifact was not yet on main: comms/research/<unit>/<run_id>/ (manifest,
+            verdict.json, logs) plus the E5 record research/results/<unit>/<run_id>.jsonl,
+            emitted through research_result.py. R2: a run is done when its result is
+            readable on main, which the step after this one asserts per record.
+          branch-prefix: automation/research-results-batch
+
+      - name: Assert every batched record is readable on main
+        if: needs.dispatch.outputs.collect_count != '0' && needs.dispatch.outputs.collect_count != ''
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          python3 - <<'PY2'
+          import json, subprocess, sys
+          batch = json.load(open("/tmp/collected.json"))
+          bad = 0
+          for x in batch["landed"]:
+              rc = subprocess.run([sys.executable, "scripts/ci/assert_rows_landed.py", "--store", x["record"],
+                                   "--ref", "origin/main", "--field", "read_state",
+                                   "--min-rows", str(x.get("min_rows") or 1)]).returncode
+              bad += rc != 0
+          print(f"asserted {len(batch['landed'])} record(s) on main; {bad} missing")
+          sys.exit(1 if bad else 0)
+          PY2
+
+      - name: Return to the checked-out base (drop the batch landing's commit)
+        run: git checkout -q --detach "${BASE_SHA}"
+
+      # The receipt json is ONE file that every run rewrites, so two receipt PRs
+      # open at once conflict (stamp PR #16938 failed_conflict 2026-10-07). With
+      # the group no longer serialising whole runs, skip this run's receipt
+      # LANDING when an earlier receipt PR is still open: that PR is the
+      # liveness signal (the guard grades age against a 48 h window, so a
+      # receipt a few minutes older changes nothing). Fails open: if the API
+      # call fails, land it.
+      - name: Check for an in-flight receipt PR
+        id: rcpt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          n="$(gh api "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
+                --jq '[.[] | select(.head.ref | startswith("automation/research-queue-receipt"))] | length' || echo 0)"
+          echo "open receipt PRs: ${n}"
+          if [ "${n}" != "0" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
+
+      - name: Land the liveness receipt
+        if: steps.rcpt.outputs.skip != 'true'
+        uses: ./.github/actions/commit-to-main
+        with:
+          verify-merged: "true"
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/research-queue-dispatch-receipt.json
+          message: "chore(research-queue): liveness receipt for run ${{ github.run_id }}"
+          pr-title: "chore(research-queue): liveness receipt (auto)"
+          pr-body: >-
+            Automated liveness receipt from the research-queue dispatcher.
+            Data-only; graded by
+            scripts/ci/check_research_queue_dispatch_liveness.py so a
+            silently-stopped cron is detectable instead of invisible.
+          branch-prefix: automation/research-queue-receipt
+
+      # The dispatcher stamps `last_dispatched_at` on any job it fired. `main`
+      # is branch-protected, so this lands through the shared commit-to-main
+      # action as an auto-merge PR rather than a direct push — the same wire
+      # BL-20260706-GPU-BURST-LEDGER-PUSH-RACE established for the spend ledger
+      # after a direct `git push HEAD:main` was rejected (GH006) and silently
+      # dropped billed rows.
+      #
+      # ⚠️ Only on a REAL fire. A dry run stamps nothing, so there is nothing to
+      # land and this step is skipped rather than opening an empty PR.
+      # ⚠️ THE STAMP WAS THIS WORKFLOW'S ONLY IDEMPOTENCY UNTIL 2026-10-06, AND
+      # UNTIL 2026-08-30 IT WAS UNVERIFIED. The comment below correctly warns
+      # that a fired-but-unstamped job "re-fires forever" — and then guards only
+      # ONE of the two routes to that state. The other is this step:
+      # `commit-to-main` exits 0 when the PR is OPENED, so a stranded stamp PR
+      # means `last_dispatched_at` never reaches main and the dispatcher
+      # re-fires the SAME job every single day, indefinitely, burning a runner
+      # each time (and, for a GPU-routed job, real money against the spend
+      # ledger). That is not theoretical: origin carried 5 stranded
+      # `automation/*` branches the day this was armed, the oldest 10 weeks.
+      # `verify-merged` closes it.
+      # ⚠️ AND WITH AN HOURLY CRON THE STAMP ALONE CANNOT BE THE IDEMPOTENCY:
+      # this PR's CI cycle (~35-60 min) outlasts the slot, so the next cycle
+      # read main without it and fired the same unit again (RQ-20261006-005
+      # at 09:59 and 11:05, RQ-20261004-659 at 10:04 and 11:09, 2026-10-06).
+      # dispatch_queue.py now also (1) reads a landed research/results/<uid>/
+      # row as a stamp nobody has to write and (2) asks GitHub once per cycle
+      # for OPEN `automation/research-queue-stamp-*` PRs and treats a unit one
+      # of them stamps as already dispatched -- see `_stamp`'s docstring.
+      - name: Return to the checked-out base (drop the receipt landing's commit)
+        if: env.FIRE == 'true'
+        run: git checkout -q --detach "${BASE_SHA}"
+
+      - name: Land the dispatch stamps on main
+        # Reads the SAME `FIRE` as the flag above. If these two can disagree, a
+        # fired job goes unstamped and re-fires forever.
+        if: env.FIRE == 'true'
+        uses: ./.github/actions/commit-to-main
+        with:
+          verify-merged: "true"
+          # A PAT, not GITHUB_TOKEN: a PR authored by GITHUB_TOKEN does not
+          # trigger checks, so its auto-merge would sit forever waiting on
+          # required checks that never start. Same reason gpu-burst-train.yml
+          # passes it for the spend ledger.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: research/queue
+          message: "chore(research-queue): stamp last_dispatched_at for run ${{ github.run_id }}"
+          pr-title: "chore(research-queue): dispatch stamps (auto)"
+          pr-body: >-
+            Automated `last_dispatched_at` stamps from the research-queue
+            dispatcher. Data-only; it drives the cadence check so a recurring
+            job does not re-fire every run.
+          branch-prefix: automation/research-queue-stamp
+
+      # `if: always()` — a stale/never_ran verdict must be checked and
+      # PINGED however the steps above went, including when "Grade and
+      # dispatch" itself failed (the exact case a receipt cannot update
+      # for). `continue-on-error: true` so the alarm mechanism can never
+      # itself be the reason this job's own conclusion goes red or cancels.
+
+      # no-durable-result: minutes-long artifact hand-off between two jobs of one run (dispatch -> land); the durable landings are the commit-to-main steps above, not this artifact
+

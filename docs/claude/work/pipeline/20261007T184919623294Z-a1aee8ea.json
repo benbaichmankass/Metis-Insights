@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-14",
+    "kind": "date"
+  },
+  "id": "PI-20261007-SXUZGFME-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane ACTIVE-GEOMETRY-PLAN session_017GnSZfLoVVFF5isxUzgfme (manager session_01MM8o5js6TcDFeNAPBY4Ntv), 2026-10-07, PR #16955; child of PI-20261006-APBY4NTV-0003",
+    "rerun": "python3 -c \"import json;d=json.load(open('docs/research/mi307-offline-mfe-2026-09-18.json'));[print(r['leg'],r.get('tp_r_declared'),(r.get('reach_rate') or {}).get(str(float(r.get('tp_r_declared') or 0)).rstrip('0').rstrip('.'))) for r in d['results'] if not r.get('capped') and r['state']=='ok' and r.get('tp_r_declared') and r['tp_r_declared']<50]\"  # reach-rate at the DECLARED target, uncapped book; python3 scripts/ci/check_tp_doctrine.py --json | grep -c sentinel"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "THE TP-DOCTRINE GUARD GRADES A FINITE TARGET AS 'declared' WHATEVER ITS REACH-RATE, SO A NEAR-SENTINEL PASSES entry_tp. scripts/ci/check_tp_doctrine.py keys entry_state on tp_r >= 50 (sentinel) and on the venue cap at a REFERENCE ATR; it never asks whether the declared level is a level trades reach. INFERRED 2026-10-07 from docs/research/mi307-offline-mfe-2026-09-18.json (uncapped harness MFE distribution per leg, scripts/research/mi307_offline_mfe.py, 2026-09-18): trend_donchian_eth_prop tp_r 6.0 is reached by 0.9% of 1,004 trades and trend_donchian_sol_prop 6.0 by 1.9% of 370 -- every prop routing passes entry_tp on a target that is a prediction almost no trade meets (the operator's 'fictional TP' under another number). The real-money 'declared' legs sit nearer the line: xrp_pullback_2h 3R reached 24.6% of 268 with the clamp binding on 78% of trades at that level, trend_donchian_xrp_4h 3R 15.8% of 146 (clamp 70%), ada_pullback_2h 4R 24.1% of 253 (clamp 71%). The guard is a ratchet over a two-state entry grade, so this debt is invisible to it and to /health-review's compliance audit. FIX (Tier-1, guard + doc): add a third entry dimension `entry_calibration` graded from the committed mi307 artifact (or a fresh mi307 run) -- reach-rate at the declared level below a pre-registered floor (proposal: 0.10, i.e. 1 trade in 10 touches it; the operator sets the number) reads `near_sentinel`, never collapsed into `declared`; surface it in the doctrine section's class table and carry it in BASELINE as its own dated line per routing. The research that answers what the calibrated target should be is RQ-20261007-001/-002 (blocked on GEOM-B1-HARNESS). DONE WHEN check_tp_doctrine.py --json reports entry_calibration per routing with the prop legs reading near_sentinel at today's config, and the floor is quoted from the operator's decision, not from this row."
+}

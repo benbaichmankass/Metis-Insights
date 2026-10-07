@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "VELOTRADE-API-EXEC: adds the one-shot velotrade-api-roundtrip system-action (scripts/ops/velotrade_api_roundtrip_action.sh + scripts/prop/velotrade_api_roundtrip.py) running the design memo's section-4 plan over the merged dxtrade_api adapter. Dry unless apply: live AND confirm_account: velotrade_1; latch refuses a second live run; stop rule = Bulk Close ETHUSD + verify flat. No config, roster, mode or strategy change.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 VM action. Operator decision relayed by manager session_01MM8o5js6TcDFeNAPBY4Ntv, verbatim \"Build it + pre-approve test\"; manager: 'Add the velotrade-api-roundtrip system-action (small PR; I will merge it)'."
+}

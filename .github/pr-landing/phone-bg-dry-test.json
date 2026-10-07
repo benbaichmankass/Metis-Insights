@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "awaiting_evidence",
+  "hold_text": "manager merges only after the operator has installed the #16764 APK (run 37455101408) and backgrounded the app",
+  "why": "one-line config/prop_platforms.yaml dry_test_request bump: requests one always-dry test ticket for breakout_2"
+}

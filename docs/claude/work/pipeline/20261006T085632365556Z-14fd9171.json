@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20261006-LCEVL8D5-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01MM8o5js6TcDFeNAPBY4Ntv addendum to lane rq-dispatch-hourly (PR #16736), 2026-10-06 08:55Z",
+    "rerun": "gh pr list --state open --search 'head:automation/' --json number,headRefName | python3 -c \"import json,sys,subprocess; [print(p['number'], subprocess.run(['gh','pr','checks',str(p['number'])],capture_output=True,text=True).stdout.count('cancel')) for p in json.load(sys.stdin)]\""
+  },
+  "state": "queued",
+  "what": "automation/* PRs STRAND when their CI check runs get cancelled, so auto-merge never fires and a stranded dispatch-stamp PR re-fires the same units (the runaway research-queue-dispatch.yml's header warns about). Manager measurement 2026-10-06 ~08:45Z: #16656 (dispatch stamps), #16657 and #16124 (grading), #16654 (corpus) each had every check cancelled ~15 min in; stale-automation-sweep merges main into them but never re-requests checks, so the strand is permanent. Verified by this lane 08:56Z: #16656's checks are re-running by hand (run ids from 2026-10-05, started 08:53Z) -- the manager's stopgap. DO: (1) root-cause the cancellation from the run logs (a shared concurrency group with cancel-in-progress, or a job timeout) and fix it; (2) make stale-automation-sweep.yml re-request checks (push via PAT, or gh run rerun) after its refresh so a refreshed PR is graded; (3) MEASURE after: 0 open automation/* PRs older than 2 h with a cancelled required check. POPULATION: open PRs with automation/* head refs."
+}

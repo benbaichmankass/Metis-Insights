@@ -148,7 +148,37 @@ APPEND_ONLY = frozenset({"docs/claude/pending-pings.jsonl"})
 #: Fields a generated register uses to date itself, in the order they are
 #: preferred. A file carrying none of them is `undated` — reported as such
 #: rather than guessed at.
-DATE_FIELDS = ("generated_at", "observed_at", "as_of", "updated_at")
+DATE_FIELDS = ("generated_at", "observed_at", "as_of", "updated_at",
+               # research-queue-dispatch-receipt.json (PI-20261006-LCEVL8D5-0001, 2026-10-07)
+               "timestamp")
+
+#: A research-queue unit file. Its only machine-written, datable change is the
+#: dispatcher's `last_dispatched_at` stamp. MEASURED 2026-10-07 on stale-automation-
+#: sweep run 37659085458: 18 of 20 open automation PRs graded `undated_payload` --
+#: every dispatch-stamp PR (a unit YAML + the receipt) -- so the sweep could never
+#: say whether one was superseded.
+QUEUE_UNIT = re.compile(r"^research/queue/RQ-\d{8}-\d{3}\.yaml$")
+_STAMP_LINE = re.compile(r"^last_dispatched_at:.*\n?", re.M)
+_STAMP_VALUE = re.compile(r"^last_dispatched_at:\s*'?([^'\n]*)'?\s*$", re.M)
+
+
+def stamp_of(blob: Optional[str]) -> str:
+    """The unit's `last_dispatched_at` ('' for null/absent: the oldest possible)."""
+    m = _STAMP_VALUE.search(blob or "")
+    v = (m.group(1).strip() if m else "")
+    return "" if v in ("null", "~") else v
+
+
+def stamp_only_diff(main_blob: Optional[str], head_blob: Optional[str]) -> bool:
+    """True iff the two versions of a unit file differ ONLY in `last_dispatched_at`.
+
+    ⚠️ This is what makes the stamp a datable register. A unit whose status, grading
+    or result fields also changed is a different PR kind (grade/result) and stays
+    undated -- a stamp's date says nothing about whether THOSE edits are newer.
+    """
+    if main_blob is None or head_blob is None:
+        return False
+    return _STAMP_LINE.sub("", main_blob) == _STAMP_LINE.sub("", head_blob)
 
 REFRESH = "refresh"
 SUPERSEDED_IDENTICAL = "superseded_identical"
@@ -158,6 +188,10 @@ CARRIES_APPEND_ONLY = "carries_append_only"
 UNDATED_PAYLOAD = "undated_payload"
 NO_PAYLOAD = "no_payload"
 ABSENT_ON_MAIN = "absent_on_main"
+
+#: Prefix of `refresh()`'s note when merging `main` conflicts. `run()` reports it as a
+#: warning, not a failure -- the branch is untouched and only a human can resolve it.
+CONFLICT_NOTE = "conflict"
 
 #: The ONLY state this file acts on. Everything else is reported and left alone.
 ACTIONABLE = (REFRESH,)
@@ -184,6 +218,8 @@ def dated_at(ref: str, path: str, cwd: Optional[Path] = None) -> Optional[str]:
     raw = _blob(ref, path, cwd=cwd)
     if not raw or not raw.strip():
         return None
+    if QUEUE_UNIT.match(path):
+        return stamp_of(raw) or None
     try:
         doc = json.loads(raw)
     except (json.JSONDecodeError, ValueError):
@@ -262,6 +298,8 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
     if code != 0:
         head = pr["ref"]
     files = payload_files(main, head, cwd=cwd)
+    mb_code, mb_out = git("merge-base", main, head, cwd=cwd)
+    merge_base = mb_out if mb_code == 0 else main
     buckets: Dict[str, List[str]] = {
         "same": [], "older": [], "newer": [], "undated": [], "append_only": [],
         "absent": []}
@@ -284,6 +322,20 @@ def classify(pr: Dict[str, Any], main: str, newest_holder: Dict[str, int],
         if path in APPEND_ONLY or looks_appended(main_blob, head_blob):
             n = extra_rows(head, path, main, cwd=cwd)
             buckets["append_only"].append(f"{path} (+{n} row(s) not on main)")
+            continue
+        if QUEUE_UNIT.match(path):
+            # ⚠️ WHAT THE *PR* CHANGED, NOT HOW IT DIFFERS FROM main NOW. The first version
+            # compared branch vs main and was measured (live dry-run, 21 open automation PRs,
+            # 2026-10-07) to rescue almost none of them: main's unit files have since gained
+            # grading blocks, so branch-vs-main is never stamp-only. The PR's own contribution
+            # is branch-vs-merge-base; when THAT is a bare stamp, its date is ordered against
+            # main's stamp and main's other edits are irrelevant to it.
+            if not stamp_only_diff(_blob(merge_base, path, cwd=cwd), head_blob):
+                buckets["undated"].append(path)   # a grade/result edit: a stamp cannot order it
+                continue
+            # null is the OLDEST stamp, so a stamp-only change always orders
+            theirs, ours = stamp_of(head_blob), stamp_of(main_blob)
+            buckets["older" if theirs <= ours else "newer"].append(path)
             continue
         theirs, ours = dated_at(head, path, cwd=cwd), dated_at(main, path, cwd=cwd)
         if theirs and ours:
@@ -392,11 +444,15 @@ def newest_by_path(prs: List[Dict[str, Any]], main: str,
         head = f"origin/{pr['ref']}"
         if git("rev-parse", "--verify", head, cwd=cwd)[0] != 0:
             head = pr["ref"]
+        mb = git("merge-base", main, head, cwd=cwd)[1] or main
         for path in payload_files(main, head, cwd=cwd):
             if path in APPEND_ONLY:
                 continue
             stamp = dated_at(head, path, cwd=cwd)
             if not stamp:
+                continue
+            if QUEUE_UNIT.match(path) and not stamp_only_diff(
+                    _blob(mb, path, cwd=cwd), _blob(head, path, cwd=cwd)):
                 continue
             if path not in best or stamp > best[path][0]:
                 best[path] = (stamp, pr["number"])
@@ -435,7 +491,7 @@ def refresh(entry: Dict[str, Any], main: str, held_by: str,
     if code != 0:
         _, conflicted = git("diff", "--name-only", "--diff-filter=U", cwd=cwd)
         git("merge", "--abort", cwd=cwd)
-        return False, f"conflict ({conflicted!r}) — left alone for a human"
+        return False, f"{CONFLICT_NOTE} ({conflicted!r}) — left alone for a human"
 
     slot = _branch_slot_rel(ref)
     code, merge_base = git("merge-base", main, "HEAD", cwd=cwd)
@@ -570,10 +626,20 @@ def run(main: str, apply: bool, held_by: str,
     print("=" * 72)
 
     failures = 0
+    conflicts = 0
     for e in sorted(entries, key=lambda x: x["pr"]):
         if e["state"] in ACTIONABLE:
             ok, note = refresh(e, main, held_by, apply)
-            failures += 0 if ok else 1
+            if not ok and note.startswith(CONFLICT_NOTE):
+                # ⚠️ NOT a failed refresh (PI-20261006-LCEVL8D5-0001, 2026-10-07): the sweep was
+                # red on runs 110-119 for two PRs (#11912, #13133) it can only ever leave alone.
+                # A permanently-red job is the alarm fatigue this repo files as its own bug --
+                # it taught everyone to skip the sweep's one real signal. A conflict is still
+                # surfaced, as a warning annotation naming the PR, and the PR stays open.
+                conflicts += 1
+                print(f"::warning::sweep-stale-automation-prs: #{e['pr']} {note}")
+            else:
+                failures += 0 if ok else 1
             print(f"  #{e['pr']} {e['state']:24} {note}")
         else:
             print(f"  #{e['pr']} {e['state']:24} {e['why'][:150]}")
@@ -589,6 +655,8 @@ def run(main: str, apply: bool, held_by: str,
               f"close. Read the diff, then close by hand with a recorded reason.")
         for e in needs_human:
             print(f"    #{e['pr']} {e['state']}: {e['why'][:120]}")
+    if conflicts:
+        print(f"\n⚠️ {conflicts} PR(s) CONFLICT with main and were left alone (warnings above).")
     if not apply:
         print("\n(dry-run — nothing was pushed. Re-run with --apply.)")
     return 1 if failures else 0

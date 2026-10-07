@@ -109,3 +109,45 @@ def test_stale_book_is_refused(monkeypatch):
         return {}, {"leg": {"fingerprint_matches": False}}
     monkeypatch.setattr(sim, "resolve_book", fake_resolve)
     assert sim.main(["--book", "breakout_1"]) == 2
+
+
+def test_qualifying_day_gate_is_observable():
+    """Lane VELOTRADE-FIT (2026-10-06): whether Velotrade's 5-qualifying-day rule BINDS has
+    to be readable off the summary, not inferred. passed is a subset of target-reached,
+    the gap between them is the gate's cost, and with the gate off the two coincide."""
+    import numpy as np
+    rows = sim._toy_rows([1.0] * 400)
+    trades, _, days = sim.build_trades({"toy": rows}, sim.CostConfig(mode="as_given"))
+    hist = sim.History(trades, days)
+    cfg = sim.SimConfig(risk_pct=0.02, sizing="start", horizon_days=60, block_days=days)
+    def stream():
+        return ((t.entry, t.exit, t) for t in hist.trades)
+    on = sim.simulate_life(hist, sim.PropRules(qual_day_min_days=5, qual_day_profit_pct=0.02), cfg,
+                           "realized", np.random.default_rng(0), stream=stream())
+    counters = {}
+    blocked = sim.simulate_life(hist, sim.PropRules(qual_day_min_days=5, qual_day_profit_pct=0.03), cfg,
+                                "realized", np.random.default_rng(0), counters=counters, stream=stream())
+    off = sim.simulate_life(hist, sim.PropRules(), cfg, "realized", np.random.default_rng(0), stream=stream())
+    assert on.passed and on.target_first_reached_days < on.days_to_pass and on.qual_days_eval == 5
+    assert not blocked.passed and blocked.target_first_reached_days is not None
+    assert counters["pass_deferred_qual_days"] > 0
+    assert off.target_first_reached_days == off.days_to_pass
+    q = sim.summarize([on, blocked], sim.PropRules())["qualifying_days"]
+    assert q["p_target_reached_eval"] == 1.0 and q["p_pass_given_target_reached"] == 0.5
+    assert q["p_target_reached_not_passed"] == 0.5
+
+
+def test_p_pass_by_days_is_a_cdf_over_all_lives():
+    """PI-20261006-TPQQDKFF-0001: P(pass by 30/90/180 d) is over ALL lives, so a life that
+    never passed counts against every horizon and the curve plateaus at p_pass_eval."""
+    def life(passed, days):
+        lf = sim.Life()
+        lf.passed, lf.days_to_pass = passed, days
+        return lf
+    lives = [life(True, 10.0), life(True, 30.0), life(True, 100.0), life(False, None)]
+    got = sim.p_pass_by_days(lives)
+    assert got == {"30": 0.5, "90": 0.5, "180": 0.75}, got      # day 30 is inclusive
+    assert list(got) == ["30", "90", "180"]
+    assert got["180"] <= sim.summarize(lives, sim.PropRules())["p_pass_eval"] == 0.75
+    assert sim.summarize(lives, sim.PropRules())["p_pass_by_days"] == got
+    assert sim.p_pass_by_days([life(False, None)] * 3) == {"30": 0.0, "90": 0.0, "180": 0.0}

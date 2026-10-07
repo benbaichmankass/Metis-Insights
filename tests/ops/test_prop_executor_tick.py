@@ -374,3 +374,14 @@ def test_a_real_tradeify_1_read_only_tick_runs_end_to_end_and_clicks_nothing(
     if enable_eth:
         # the ticket was actually evaluated (quote read), not filtered out
         assert ("read_quote", "ETHUSD") in ad.calls, ad.calls
+
+
+def test_wrapper_exports_the_accounts_login_keys_for_a_rest_tick():
+    """VELOTRADE-GOLIVE: the REST tick (dxtrade_api) logs in fresh each run, so
+    the wrapper must export the account's own login keys -- the same two the
+    feed exports. Without them every velotrade_1 tick exited 4 no_credentials
+    (journal 2026-10-06 08:48Z / 08:53Z)."""
+    from pathlib import Path
+    sh = (Path(__file__).resolve().parents[2] / "scripts/ops/prop_executor_tick.sh").read_text()
+    assert 'LOGIN_KEYS="$(cd "${REPO_DIR}" && python3 scripts/prop/prop_env_keys.py "${ACCOUNT}"' in sh
+    assert "for ckey in ${MODE_KEY} ${LOGIN_KEYS:-} DASHBOARD_API_TOKEN; do" in sh

@@ -165,6 +165,58 @@ def test_ticket_result_reason_is_visible_on_the_outbound_view():
     assert rows and rows[0]["phone_result"]["reason"] == "TP price field not unique"
 
 
+def test_phone_dry_test_action_writes_one_test_ticket_and_refuses_bad_account_and_symbol(tmp_path, monkeypatch):
+    """The ``phone-dry-test`` system-action's writer (PI-20261006-APBY4NTV-0009), three proofs:
+    (1) the ticket is ``meta.test`` and claims as ``submit=dry`` even on a LIVE account; (2) an account that is
+    not a ``phone_accounts`` entry is refused; (3) a symbol outside the account's instruments is refused —
+    and a refusal writes NOTHING."""
+    plat = tmp_path / "prop_platforms.yaml"
+    plat.write_text(yaml.safe_dump({"phone_accounts": {"breakout_2": {
+        "platform": "breakout_phone", "instruments": {"ETHUSDT": {"venue": "ETHUSD"}, "SOLUSDT": {"venue": "SOLUSD"}}}}}))
+    monkeypatch.setattr(pe, "PLATFORMS_PATH", plat)
+    acc = tmp_path / "accounts.yaml"
+    acc.write_text(yaml.safe_dump({"accounts": {"breakout_2": {"mode": "live"}, "breakout_1": {"mode": "live"}}}))
+    monkeypatch.setattr(pe, "ACCOUNTS_PATH", acc)
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+
+    # (1) the SAME writer the Dry test button uses: meta.test, source recorded, forced dry on a live account.
+    out = pe.write_dry_test_ticket("breakout_2", "solusdt", source="phone-dry-test#123")
+    assert out["submit"] == "dry" and out["symbol"] == "SOLUSDT" and out["account_id"] == "breakout_2"
+    got = pe.claim_next(_dev())
+    assert got["ticket_id"] == out["ticket_id"] and got["submit"] == "dry"
+    assert got["meta"]["test"] is True and got["meta"]["source"] == "phone-dry-test#123"
+    assert got["venue_symbol"] == "SOLUSD"
+
+    # (2) a VM-driven prop account (not under phone_accounts) is refused, (3) a non-allowlisted symbol is refused.
+    with pytest.raises(ValueError, match="not a phone_accounts entry"):
+        pe.write_dry_test_ticket("breakout_1", "ETHUSDT")
+    with pytest.raises(ValueError, match="not in phone_accounts.breakout_2.instruments"):
+        pe.write_dry_test_ticket("breakout_2", "BTCUSDT")
+    # ...and a refusal writes nothing: the only row is the one from (1), now claimed.
+    conn = prop_journal._connect()
+    try:
+        rows = conn.execute("SELECT ticket_id, status, meta FROM prop_tickets").fetchall()
+    finally:
+        conn.close()
+    assert [(r["ticket_id"], r["status"]) for r in rows] == [(out["ticket_id"], "claimed")]
+    assert all(json.loads(r["meta"])["test"] is True for r in rows)
+
+
+def test_phone_dry_test_cli_exit_codes_and_json(tmp_path, monkeypatch, capsys):
+    """``scripts/prop/phone_dry_test.py``: exit 0 + a JSON line on a write, exit 1 + ``refused`` on a bad input."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "phone_dry_test", Path(pe._REPO_ROOT) / "scripts" / "prop" / "phone_dry_test.py")
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+    assert cli.main(["--account", "nope", "--symbol", "ETHUSDT"]) == 1
+    assert json.loads(capsys.readouterr().out)["refused"]
+    assert cli.main(["--account", "breakout_2", "--symbol", "ETHUSDT", "--source", "phone-dry-test#7"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True and out["submit"] == "dry" and out["ticket_id"].startswith("phone-test-")
+
+
 def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
     monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {"dry_test_request": "r1",
                         "instruments": {"ETHUSDT": {"venue": "ETHUSD"}}})
@@ -172,3 +224,87 @@ def test_dry_test_request_serves_exactly_one_dry_ticket(monkeypatch):
     got = pe.claim_next(_dev())
     assert got and got["meta"]["test"] is True and got["meta"]["dry_test_request"] == "r1" and got["submit"] == "dry"
     assert pe.claim_next(_dev()) is None  # same request id is never served twice
+
+
+def test_terminal_miss_keeps_latest_controls_scrubbed_and_does_not_ping(_iso):
+    n = len(_iso)
+    assert pe.last_diag("breakout_2") is None
+    pe.record_event(_dev(), {"event": "terminal_miss", "reason": "tabs=0 inputs=1 probe=false",
+                             "controls": ["Positions", "acct 12345678", "me@x.com", "", "x" * 99] + ["c"] * 60})
+    d = pe.last_diag("breakout_2")
+    assert len(_iso) == n  # quiet: diagnostics, not an operator ping
+    assert d["reason"] == "tabs=0 inputs=1 probe=false" and d["controls"][0] == "Positions"
+    assert all("12345678" not in c and "@" not in c and len(c) <= 40 for c in d["controls"])
+    assert len(d["controls"]) <= pe._DIAG_MAX
+    from src.web.api import main as api_main
+    body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
+    assert body.get("phone_diag", {}).get("controls", [None])[0] == "Positions"
+
+
+def test_heartbeat_keeps_latest_allowlisted_state_and_does_not_ping(_iso):
+    n = len(_iso)
+    assert pe.last_heartbeat("breakout_2") is None
+    pe.record_event(_dev(), {"event": "heartbeat", "reason": "logged in, not on the terminal; acct 12345678",
+                             "state": {"st": "logged_in", "hold": True, "tabs": 3, "host": "trade.breakoutprop.com",
+                                       "secret": "x", "onAccount": False}})
+    hb = pe.last_heartbeat("breakout_2")
+    assert len(_iso) == n
+    assert "12345678" not in hb["status"] and hb["state"] == {"st": "logged_in", "hold": True, "tabs": 3,
+                                                               "host": "trade.breakoutprop.com", "onAccount": False}
+    from src.web.api import main as api_main
+    body = TestClient(api_main.app, raise_server_exceptions=False).get("/api/bot/prop/status?account_id=breakout_2").json()
+    assert body["phone_heartbeat"]["state"]["hold"] is True
+
+
+def test_pending_peek_counts_without_claiming(monkeypatch):
+    from src.web.api import main as api_main
+    cfg = pe.phone_config("breakout_2")
+    monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {k: v for k, v in cfg.items() if k != "dry_test_request"})
+    c = TestClient(api_main.app, raise_server_exceptions=False)
+    assert c.get("/api/bot/prop/phone/pending").status_code == 401
+    h = {"Authorization": "Bearer " + TOKEN}
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json() == {"ok": True, "pending": 0}
+    _ticket("old", minutes=-1)
+    _ticket("t1")
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json()["pending"] == 1
+    assert c.get("/api/bot/prop/phone/pending", headers=h).json()["pending"] == 1  # a peek claims nothing
+    assert pe.claim_next(_dev())["ticket_id"] == "t1"
+    assert pe.pending_count(_dev()) == 0
+    _ticket("t2")
+    monkeypatch.setenv("PROP_PHONE_MODE_BREAKOUT_2", "off")
+    assert pe.pending_count(_dev()) == 0  # kill switch off: nothing to wake for, like claim_next
+
+
+def test_pending_counts_an_unserved_dry_test_request_without_serving_it(monkeypatch):
+    monkeypatch.setattr(pe, "phone_config", lambda acct, path=None: {"dry_test_request": "r9",
+                        "instruments": {"ETHUSDT": {"venue": "ETHUSD"}}})
+    monkeypatch.setattr(pe, "_bybit_last", lambda sym: 2700.0)
+    assert pe.pending_count(_dev()) == 1
+    assert pe.pending_count(_dev()) == 1  # still unserved: the peek wrote no ticket
+    assert pe.claim_next(_dev())["meta"]["dry_test_request"] == "r9"
+    assert pe.pending_count(_dev()) == 0
+
+
+def test_account_status_from_phone_is_measured_and_absent_stays_absent():
+    from src.prop import prop_journal
+    assert prop_journal.latest_account_status(_dev().account_id) is None
+    r = pe.record_report(_dev(), {"kind": "account_status", "account_id": "someone_else", "balance": 5000.5,
+                                  "equity": None, "equity_label": "portfolio"})
+    assert r["kind"] == "account_status"
+    row = prop_journal.latest_account_status(_dev().account_id)   # account forced from the token, not the body
+    assert row["balance"] == 5000.5 and row["equity"] is None     # unread equity is NULL, never 0
+    raw = json.loads(row["raw"])
+    assert raw["provenance"] == "MEASURED" and raw["source"] == "phone_executor"
+
+
+@pytest.mark.parametrize("body", [
+    {"kind": "account_status"},
+    {"kind": "account_status", "balance": None, "equity": None},
+    {"kind": "account_status", "balance": "5000"},
+    {"kind": "account_status", "balance": float("nan")},
+    {"kind": "account_status", "equity": -1},
+    {"kind": "account_status", "equity": True},
+])
+def test_account_status_unread_or_invalid_is_refused(body):
+    with pytest.raises(ValueError):
+        pe.record_report(_dev(), body)

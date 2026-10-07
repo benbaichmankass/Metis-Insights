@@ -1,0 +1,128 @@
+id: RQ-20261006-061
+title: "TP doctrine, real money: a finite target for alpaca_live's three 1d pullback sentinels (iaum / ief / slv)"
+status: queued
+cadence: once
+kind: experiment
+theme: live_strategy
+priority: 1
+
+question: >-
+  iaum_pullback_1d, ief_pullback_1d and slv_pullback_1d are alpaca_live's
+  whole real-money roster (mirrored on alpaca_portfolio minus the IAUM proxy),
+  and all three rest their take-profit at the venue cap through the
+  `tp_r: 50.0` sentinel with `tp_intent: none`. Under the TP doctrine
+  (docs/ARCHITECTURE-CANONICAL.md § "TP doctrine", operator 2026-10-06) that
+  is non-compliant on a real-money book. Does any finite, reachable tp_r cell
+  of the e35 bracket grid clear the IS/OOS gate on these legs -- and if the
+  daily timeframe cannot supply the trades to answer, what exactly bounds n?
+
+why_this_matters: >-
+  MEASURED by `python3 scripts/ci/check_tp_doctrine.py` on main at f6c63f99
+  (2026-10-06): 3 of the 4 real-money `entry_tp` failures are these legs. They
+  are also the thinnest books in the corpus -- e35 base_oos_trades 4 / 4 / 7
+  (research_disposition --report, 2026-10-06) -- so this unit is registered
+  with its power state stated up front rather than left for the reader to
+  discover: it is INFEASIBLE at d=0.45 by the corpus's own numbers and runs
+  anyway (queue README: infeasible runs; it cannot emit a POWERED verdict).
+  The deliverable in that branch is the exact bound and the pooled design that
+  would clear it, not a pass/fail on 4 trades.
+
+power:
+  expected_n: 39
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    The floor at d=0.45 is (1.96+0.8416)^2 / 0.45^2 = 38.76 -> 39, declared as
+    expected_n because that is what the DESIGN needs; the corpus says these
+    legs supply 4-7 OOS trades each over 1830 days (daily bars, ~20 signals a
+    year per leg, most filtered), so the feasibility check below is expected
+    to grade this `infeasible` -- scope, not design. The honest bound is
+    structural: a single 1d pullback leg cannot reach 39 OOS trades inside the
+    window the harness can fetch. What WOULD clear it is a family-level test
+    pooling the pullback-1d legs (iaum, ief, slv, gld, gdx, tlt, mgc, mhg:
+    corpus n 4-10 each, ~45-55 pooled) with the leg as a stratum -- a design
+    change this unit names as its follow-on rather than lowering the bar.
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+      - iaum_pullback_1d
+      - ief_pullback_1d
+      - slv_pullback_1d
+    basis: >-
+      Grounded on e35 because the run is an e35 bracket sweep. min_per_leg over
+      the three legs reads 4 (iaum 4, ief 4, slv 7; 2026-10-06), far under the
+      38.76 floor -> `infeasible`. Declared so, deliberately: the queue README
+      forbids lowering a pre-registered bar to manufacture a verdict, and a
+      `source: none` opt-out would hide a number the corpus already holds.
+
+decision_rule:
+  id: RULE-RQ1006-061-FINITE-TP-1D-PULLBACK-OR-POOL
+  registered_at: '2026-10-06'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per finite-tp_r cell: gate_verdict and base_oos_trades from the
+    IS/OOS Path A/B gate; reachability of the cell's tp_r against cap_r at the
+    leg's observed ATR/entry (scripts/research/target_reachability_report.py).
+  rule: >-
+    PASS IF, for a leg, at least one finite reachable tp_r cell reads
+    is_oos_pass with base_oos_trades >= 39 -> a Tier-3 proposal to declare
+    that tp_r on the leg, applied to alpaca_live AND alpaca_portfolio in one
+    PR (the mirror test requires trade-shaping equality).
+    unresolvable_at_current_n IF base_oos_trades < 39 for the leg -- the
+    EXPECTED branch -- in which case the deliverable is (a) the achieved n per
+    leg written against the 39 floor, and (b) a follow-on queue unit
+    registering the pooled pullback-1d family design above with its own
+    pre-registered rule and feasibility read off the same corpus. No tp_r is
+    proposed from an unpowered cell, in either direction.
+    honest_negative IF a leg reaches n >= 39 and no finite reachable cell
+    passes: the doctrine's answer for that leg becomes a per-leg MFE-quantile
+    expectation in R placed as the TP and revised while the pullback thesis
+    holds, blocked on the producer + extend-lever build named in
+    PI-20261006-5FUGHVX8-0001; recorded there, never a demotion.
+  what_it_does_not_do: >-
+    Touches no config, demotes nothing, and does not read alpaca_paper's
+    copies of these legs as evidence for the real-money book (never blend
+    real/paper).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 60
+  basis: >-
+    Runner. e35-bracket-sweep.yml shards one leg per job and fetches daily
+    candles through the free lane (yfinance); all three legs are in plan_legs'
+    runnable set (verified 2026-10-06, ignore_missing_data=True). 3 legs at
+    the template's ~6 min per leg plus fetch, in parallel -- an estimate.
+
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    only: iaum_pullback_1d,ief_pullback_1d,slv_pullback_1d
+    days: '1830'
+    gate_top: '2'
+    singles_only: 'false'
+    max_parallel: '3'
+    research_unit: RQ-20261006-061
+
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    min_rows 1, not 3: the sweep shards per leg and one leg's fetch can fail,
+    so requiring all three would grade a 2-of-3 run as a LANDING failure --
+    a different defect from "nothing landed". Per-leg completeness is read
+    off the corpus.
+
+related:
+  - 'docs/ARCHITECTURE-CANONICAL.md § "TP doctrine" (operator directive 2026-10-06)'
+  - 'PI-20261006-5FUGHVX8-0001 (the ranked TP-doctrine debt list; this unit is its real-money Alpaca entry)'
+  - 'RQ-20260929-004 (iaum_pullback_1d e35 sweep, graded accruing) and RQ-20260929-002 (gld_pullback_1d) -- the same thin-book finding on sibling legs'
+  - 'CLAUDE.md § promotion ladder: alpaca_portfolio mirrors alpaca_live minus the two affordability proxies (iaum is one), so a target change lands on both in one PR'
+last_dispatched_at: '2026-10-06T14:10:13+00:00'

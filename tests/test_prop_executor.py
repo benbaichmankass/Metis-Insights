@@ -3929,7 +3929,7 @@ def test_review_the_tick_exits_3_when_a_dry_restore_fails(env, capsys):
     assert "RESTORE FAILED" in out and '"executor": "done"' in out
     src = (Path(__file__).resolve().parents[1] / "scripts/prop/prop_executor_tick.py").read_text()
     branch = src[src.index('if mode.startswith("round_trip") or mode.startswith("close_position"):'):
-                 src.index("res = pe.run_cycle(")]
+                 src.index("return run_cycle_and_trail(adapter=adapter, page=page")]
     assert "code = emit_round_trip(res, *secrets)" in branch and "return code" in branch
     assert "if res.halted else" not in branch
 
@@ -4571,3 +4571,33 @@ def test_presubmit_guard_does_not_spend_the_attempt_budget_and_places_once_resti
     ad.quote, ad.after_submit = {"bid": 120.1, "ask": 120.2}, ([], [_o()])
     _rcycle(ad, api, env, 1)
     assert len(_places(ad)) == 1 and ledger.state("prop-manual-aaa") == "placed"
+
+
+# ── VELOTRADE-TICKET: on a REST account the expired ticket stays in intake ──
+#
+# MEASURED 2026-10-07 (velotrade_1 executor journal, 02:03Z-02:58Z): ETH short
+# prop-manual-4fa7266cfcf0 (entry 2672.0, valid_until 02:59:24Z) was declined
+# with band_wait on all 12 ticks (bid 2608.97..2618.41), then the trader's
+# expiry prompter flipped it to expiry_prompted and it suppressed 4 later ETH
+# shorts. The prompter now leaves a REST account's ticket `emitted`, so
+# intake sees it past valid_until: it must end terminal, with the verdict.
+
+
+def test_rest_account_expired_unattempted_ticket_reports_terminal_with_its_verdict(env):
+    ledger, _ = env
+    ad = FakeAdapter(quote={"bid": 117.4, "ask": 117.5})        # outside ticket()'s band
+    api = FakeApi([ticket()])
+    _band_cycle(ad, api, env, 0)                                 # waits inside validity
+    res = _band_cycle(ad, api, env, 7)                           # still in intake, past valid_until
+    # the no-attempt alert still fires exactly once
+    assert len([a for a in res.alerts if "NOT PLACED" in a]) == 1
+    skips = [p for p in api.posts if p.get("status") == "skipped"]
+    assert len(skips) == 1 and skips[0]["ticket_id"] == "prop-manual-aaa"
+    assert skips[0]["reason"].startswith("expired unplaced; last verdict band_wait:")
+    assert "entry band" in skips[0]["reason"]
+    assert ledger.latest()["prop-manual-aaa"]["state"] == "expired"
+    assert _places(ad) == []
+    # final: never re-reported, never re-alerted
+    res = _band_cycle(ad, api, env, 8)
+    assert len([p for p in api.posts if p.get("status") == "skipped"]) == 1
+    assert [a for a in res.alerts if "NOT PLACED" in a] == []
