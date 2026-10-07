@@ -8,13 +8,14 @@ second PR then hits an add/add conflict at best and, at worst, two units share a
 
 WHAT IT CLAIMS. An id is *claimed* when ``RQ-YYYYMMDD-NNN`` appears as a unit file in ``research/queue/``
 (or ``blocked/``), as a result directory under ``research/results/``, in the working tree, on ``main`` or on
-ANY ``origin/*`` branch. It prints the first number above the highest claimed for that day.
+ANY ``origin/*`` branch. It prints the first number above the highest claimed for that day, IN THE HAND BAND 900-999
+(queue_replenish mints 001-899, so the two can never meet).
 
 WHAT IT DOES NOT CLAIM. Two lanes that run it in the same minute, before either pushes, still collide --
 there is no lock here and none is possible without a service. The remedy is to push the unit file FIRST (a
 branch push is the claim) and to ``--fetch`` immediately before allocating. ``queue_replenish`` is
 deliberately NOT routed through this: its ids must be reproducible from the merge-base for the E58
-``--verify`` check, and a ref-dependent id would break that.
+``--verify`` check, and a ref-dependent id would break that. It mints 001-899 instead.
 
     python3 scripts/research/next_rq_id.py --fetch            # next id for today (UTC)
     python3 scripts/research/next_rq_id.py --day 2026-10-04 --count 3
@@ -31,6 +32,9 @@ from pathlib import Path
 from typing import Dict, List
 
 ID_RE = re.compile(r"(RQ-(\d{8})-(\d{3}))")
+#: Hand-authored units live at 900-999 of each day; queue_replenish.py mints 001-899
+#: (PI-20261005-RQ-ID-RACE-0001). Keep equal to queue_replenish.HAND_FLOOR.
+HAND_FLOOR = 900
 _DIRS = ("research/queue", "research/queue/blocked", "research/results")
 
 
@@ -65,15 +69,20 @@ def claimed_ids(root: Path) -> Dict[str, str]:
 def next_ids(claimed: Dict[str, str], day: str, count: int = 1) -> List[str]:
     compact = day.replace("-", "")
     used = [int(m.group(3)) for uid in claimed if (m := ID_RE.fullmatch(uid)) and m.group(2) == compact]
-    start = (max(used) if used else 0) + 1
+    start = max(max(used) if used else 0, HAND_FLOOR - 1) + 1
+    if start + count - 1 > 999:
+        raise SystemExit(f"hand-authored band RQ-{compact}-900..999 is full; use another day")
     return [f"RQ-{compact}-{n:03d}" for n in range(start, start + count)]
 
 
 def _self_test() -> int:
-    c = {"RQ-20301001-001": "a", "RQ-20301001-014": "origin/branch", "RQ-20301002-099": "b"}
-    assert next_ids(c, "2030-10-01") == ["RQ-20301001-015"]
-    assert next_ids(c, "2030-10-01", 2) == ["RQ-20301001-015", "RQ-20301001-016"]
-    assert next_ids(c, "2030-10-03") == ["RQ-20301003-001"]
+    c = {"RQ-20301001-001": "a", "RQ-20301001-914": "origin/branch", "RQ-20301002-099": "b",
+         "RQ-20301004-653": "generated"}
+    assert next_ids(c, "2030-10-01") == ["RQ-20301001-915"]
+    assert next_ids(c, "2030-10-01", 2) == ["RQ-20301001-915", "RQ-20301001-916"]
+    assert next_ids(c, "2030-10-03") == ["RQ-20301003-900"]
+    # the 2026-10-05 collision: a generated id at 653 must not push a hand id into the generated band
+    assert next_ids(c, "2030-10-04") == ["RQ-20301004-900"]
     assert ID_RE.search("RQ-20301001-014.yaml").group(1) == "RQ-20301001-014"
     print("next_rq_id self-test OK")
     return 0

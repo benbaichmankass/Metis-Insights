@@ -734,3 +734,75 @@ def test_build_hourly_report_swallows_assembly_errors(monkeypatch):
     txt = build_hourly_report(now_utc=datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc))
     assert "[WARN]" in txt
     assert "Report assembly failed" in txt
+
+
+# ---------------------------------------------------------------------------
+# read_state -- "no API by design" is not "API ERROR" (PI-20261004-APBY4NTV-0002)
+# ---------------------------------------------------------------------------
+
+
+def test_account_snapshots_carries_read_state_per_account(tmp_path, monkeypatch):
+    monkeypatch.setattr(hr, "RUNTIME_LOGS", tmp_path)
+    monkeypatch.setattr(hr, "BALANCE_SNAPSHOT_FILE", tmp_path / "snap.json")
+    accts = [
+        {"account_id": "ok1", "exchange": "bybit", "mode": "live"},
+        {"account_id": "broken", "exchange": "bybit", "mode": "live"},
+        {"account_id": "prop1", "exchange": "breakout", "type": "prop",
+         "account_class": "prop", "mode": "dry_run"},
+        {"account_id": "ib_live", "exchange": "interactive_brokers",
+         "mode": "dry_run", "account_class": "real_money"},
+        {"account_id": "ib_down", "exchange": "interactive_brokers", "mode": "live"},
+    ]
+    fake = MagicMock()
+    fake.list_accounts = lambda: accts
+    fake.account_balance = lambda acc: (
+        {"total_usdt": 5.0} if acc["account_id"] == "ok1" else None)
+    fake.account_open_positions = lambda acc: []
+    sys.modules["src.bot.data_loaders"] = fake
+    monkeypatch.setattr(
+        hr, "_prop_status",
+        lambda aid: {"prop_status": "ok", "prop_balance": 9876.0, "prop_age_hours": 2.0})
+    by_id = {a["account_id"]: a for a in account_snapshots()}
+    assert by_id["ok1"]["read_state"] == "ok"
+    assert by_id["broken"]["read_state"] == "api_error"
+    assert by_id["prop1"]["read_state"] == "no_api_by_design"
+    assert by_id["prop1"]["prop_balance"] == 9876.0
+    assert by_id["ib_live"]["read_state"] == "dry_run_not_read"
+    assert by_id["ib_down"]["read_state"] == "api_error"
+
+
+def test_render_distinguishes_the_three_states():
+    now = datetime(2026, 5, 1, 14, 0, tzinfo=timezone.utc)
+    report = {
+        "now_utc": now,
+        "ticks": {"ticks_ok": 1, "ticks_err": 0, "signals_total": 0,
+                  "signals_by_strategy": {}, "last_tick_ts": now.isoformat()},
+        "trades": {"placed": [], "closed": [], "realized_pnl": 0.0},
+        "accounts": [
+            {"account_id": "broken", "balance": None, "delta_1h": None,
+             "api_ok": False, "read_state": "api_error", "open_positions": None},
+            {"account_id": "prop1", "balance": None, "delta_1h": None,
+             "api_ok": False, "read_state": "no_api_by_design",
+             "open_positions": None, "prop_status": "ok",
+             "prop_balance": 9876.0, "prop_age_hours": 2.0},
+            {"account_id": "prop2", "balance": None, "delta_1h": None,
+             "api_ok": False, "read_state": "no_api_by_design",
+             "open_positions": None, "prop_status": "stale",
+             "prop_balance": None, "prop_age_hours": None},
+            {"account_id": "ib_live", "balance": None, "delta_1h": None,
+             "api_ok": False, "read_state": "dry_run_not_read",
+             "open_positions": None},
+        ],
+        "strategies": [], "outcomes": {"top_errors": []},
+        "health": {"tick_age_s": 1, "tick_stale": False, "tick_interval_s": 900,
+                   "warn_count": 0, "error_count": 0, "critical_count": 0,
+                   "overall": "ok", "checks": []},
+    }
+    from src.runtime.hourly_report import render_accounts_report
+    txt = render_accounts_report(report)
+    assert txt.count("API ERROR") == 1          # only the genuinely broken one
+    assert "broken: API ERROR" in txt
+    assert "prop1: no broker API (prop bridge) | reported equity" in txt
+    assert "prop2: no broker API (prop bridge) | operator balance stale" in txt
+    assert "ib_live: dry_run" in txt
+    assert "1 API errors" in txt

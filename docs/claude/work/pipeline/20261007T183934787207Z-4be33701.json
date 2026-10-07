@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20261004-UQ9JJPRQ-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane RESEARCH-RUN session_01VrUrxiBdxqP5XwUQ9JjprQ, 2026-10-04",
+    "rerun": "read research/queue/RQ-20261004-753.yaml, -672.yaml, -674.yaml, -671.yaml result lines; then check docs/research/exit-refinement-coverage.json cells spy_trend_long_1d/trail_decay and scha_trend_long_1d/vol_trail for a live-parity entry"
+  },
+  "state": "done",
+  "terminal_reason": "Live-parity check run 2026-10-07 on all four. XRP trail4: parity FAILED (sweep base lacked live side_filter=short; fixed, re-run queued as RQ-20261007-904, no Tier-3 proposal). scha vt_hot90_t2: KILLED (wf 6/6 all inert, effective 0/6). spy decay_stall6_t2: KILLED (effective 2/6, 2024 negative). squeeze vt_cold10_t1.8: KILLED (squeeze unit has no vol_trail code; orphaned declare). Matrix cells annotated.",
+  "what": "Four Tier-3 exit-lever candidates passed Stage 0 on 2026-10-04 and none has had the exit-refinement live-parity check: trend_donchian_xrp_4h trail4 (RQ-20261004-753, wf 6/6, base OOS 60 trades), scha_trend_long_1d vt_hot90_t2 (RQ-20261004-774, wf 6/6, base OOS 36 trades), spy_trend_long_1d decay_stall6_t2 (RQ-20261004-772, wf 5/6, base OOS 49 trades), squeeze_breakout_4h vt_cold10_t1.8 (RQ-20261004-771, Path B, wf 4/6, base OOS 49 trades). Caveats: about 77 cells were tried and 6 cleared a gate; the scha walk-forward folds start in 2021 but its OOS split is 2017-11-21, so OOS years 2017-2020 were never examined, and spy's 5/6 leaves 2020 unexamined. Next step per the exit-refinement skill is the live-parity check, then an operator Tier-3 declare or a kill with the reason. || UPDATE 2026-10-07 (lane EXIT-PARITY-CHECK): live-parity step run on all four; outcome in terminal_reason."
+}
