@@ -1,6 +1,6 @@
 # Tradeify 247 — bot ownership note (tradeify_1)
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-10-07` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 Operator decision, 2026-10-07 (manager popup), verbatim label:
 *"Ownership note ready, nothing else (Recommended)"*. This closes pipeline item
