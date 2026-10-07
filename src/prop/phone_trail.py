@@ -426,8 +426,14 @@ def record_amend_result(device: Any, body: Mapping[str, Any], *, now: Optional[d
                 tr["ended"] = "position no longer on the terminal"
             else:
                 tr["no_position"] = int(tr.get("no_position") or 0) + 1
+                if tr["no_position"] == 1:
+                    # a limit not yet filled, OR a Positions layout the phone cannot read: say so once
+                    alerts.append(f"{tid}: the phone found no matching row in Positions (limit not filled yet, or a "
+                                  f"layout it cannot read; rows dump in the ticket's phone_trail); the trail ends "
+                                  f"after {MAX_NO_POSITION} such reads")
                 if tr["no_position"] >= MAX_NO_POSITION:
                     tr["ended"] = f"position never seen on the terminal in {MAX_NO_POSITION} reads"
+                    alerts.append(f"{tid}: trail ENDED: {tr['ended']}")
         elif result == "refused":
             tr["refusals"] = int(tr.get("refusals") or 0) + 1
             if tr["refusals"] >= MAX_REFUSALS:

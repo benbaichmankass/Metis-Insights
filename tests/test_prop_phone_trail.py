@@ -216,12 +216,13 @@ def test_claimed_amend_with_no_report_locks_and_pings(_iso):
     assert any("never reported" in m for m in _iso)
 
 
-def test_no_position_ends_after_seen_else_counts():
+def test_no_position_ends_after_seen_else_counts(_iso):
     a = _claimed()
     pe.record_report(_dev(), {"kind": "amend_result", "ticket_id": "T1", "amend_id": a["amend_id"],
                               "result": "no_position"})
     tr = _trail()
     assert tr["no_position"] == 1 and not tr.get("ended")
+    assert sum("no matching row in Positions" in m for m in _iso) == 1
 
 
 def test_stale_or_foreign_result_is_refused():
