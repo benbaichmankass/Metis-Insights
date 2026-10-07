@@ -335,3 +335,104 @@ into a measured fact either (`/specs` served no docs). Do not promote any of thi
   research sub-agents' reports** (also `WebFetch` summaries) and was not re-fetched by
   me. My own fetch of the `dx.trade` traders' FAQ returned a garbled answer to the
   IP question; the wording used in § 2 is the sub-agents' and is a summary, not a quote.
+
+## 7. DXTRADE-REST-PILOT (2026-10-07): can the REST adapter read the Tradeify 247 pilot? — NOT MEASURED, blocked on a missing allowlisted action
+
+Lane DXTRADE-REST-PILOT, dispatched by Manager Session 2026-10-01. One question:
+does the DXtrade REST API (the adapter `velotrade_1` runs on,
+`src/prop/platform/dxtrade_api.py`) log in and read the account for the Tradeify
+247 pilot (`tradeify_1`)?
+
+**Answer: unknown. No login, account read or instrument read was attempted, because
+nothing on the system-actions allowlist can run the adapter against Tradeify.**
+This is a stop, not a failure of the venue; nothing was run, so nothing about
+Tradeify's REST behaviour is newly established.
+
+### 7.1 What was checked (this session, on the repo at `origin/main`)
+
+| Check | Result |
+|---|---|
+| Tradeify credential entries exist in the repo's declared plumbing | YES, names only: `TRADEIFY_DX_USERNAME`, `TRADEIFY_DX_PASSWORD` are in `config/prop_platforms.yaml::tradeify_1` (`username_env`/`password_env`) and in the `OPTIONAL_SECRETS` list and both step env blocks of `.github/workflows/sync-vm-secrets.yml`. **Whether the VM `.env` currently holds them was not read** (no VM read this session). |
+| An allowlisted action that logs in over REST | `velotrade-api-probe` only. `scripts/prop/velotrade_api_probe.py` hardcodes `BASE = "https://dx.velotrade.com/dxsca-web"` and reads only `VELOTRADE_DX_*`; `scripts/ops/velotrade_api_probe_action.sh` exports only those names. It takes no account parameter. Pointing it at Tradeify needs a code change. |
+| Other actions that touch Tradeify | `egress-landing-probe` (GET only, no credentials, fixed URLs: `/` and `/specs`) and `breakout-login-check` (browser adapter; it **refuses** a `dxtrade_api` platform, so it cannot drive REST either). Neither logs in over REST. |
+| Running the probe from a session machine with pasted credentials | Not done and not permitted by the brief. |
+
+Already measured elsewhere and unchanged (section 4, 2026-09-30, and PR #16967 for
+2026-10-07): `dx.tradeify247.co/` serves the DXtrade login page to the VM egress
+(200, no block) and `/specs` answers 409 DXtrade JSON. **Neither says whether
+`/dxsca-web/login` exists on this white-label or accepts the pilot's login**:
+`/specs` returning DXtrade-shaped JSON shows a DXtrade backend, not an enabled
+public REST API. Tradeify's help center says its own bots may use the DXtrade API
+(section 3), which is third-party-summarised, not a measurement.
+
+### 7.2 PROPOSAL (Tier-1, not applied): generalise the probe to a fixed account choice
+
+The smallest addition that answers the question without a credential ever leaving
+the VM:
+
+1. `scripts/prop/velotrade_api_probe.py` -> take `--account <velotrade_1|tradeify_1>`
+   (argparse `choices`, never free text). Derive `BASE` from
+   `config/prop_platforms.yaml::<account>.login_url` + `/dxsca-web` for a browser-style
+   URL (Tradeify's `login_url` is `https://dx.tradeify247.co/`; velotrade_1's is already
+   the REST base), and the env names from `username_env`/`password_env`. The
+   GET/login/logout-only choke point (`_call`) and the redaction list are unchanged.
+   Default stays `velotrade_1`, so the current action behaves identically.
+2. `scripts/ops/velotrade_api_probe_action.sh` (or a thin `dxtrade_api_probe_action.sh`)
+   -> also export `TRADEIFY_DX_USERNAME`/`TRADEIFY_DX_PASSWORD` from the VM `.env`
+   using the same `grep` loop, and pass `--account "${ACCOUNT}"`.
+3. `.github/workflows/system-actions.yml` -> a `choice` input `account`
+   (`velotrade_1`/`tradeify_1`) forwarded to the script, mirroring the
+   `velotrade-api-roundtrip` `confirm_account` plumbing at ~line 1919, and the new
+   action name (if split) added to the allowlist lines (~157, ~740, ~1630).
+4. `docs/claude/system-actions.md` -> extend the `velotrade-api-probe` row; update
+   `tests/test_velotrade_api_roundtrip.py`-style wiring tests to assert the account
+   choice cannot reach `/orders`.
+5. Reads wanted from it for the pilot: login accepted?, `positionBased` flag (an
+   IF-THEN bracket needs a position-based account), account metrics, and exact
+   instrument rows for ETHUSD / SOLUSD / XRPUSD (Tradeify's browser terminal names
+   them `ETH/USD`; the REST name is what we are measuring).
+
+Tier: the action itself is Tier-2 on the allowlist (outbound request with credentials
+from the trader VM, as `velotrade-api-probe` is); the code change is Tier-1 (no order
+path). Dispatch of the probe after merge needs one chat OK.
+
+### 7.3 PROPOSAL (Tier-2/3, HELD, nothing changed): moving `tradeify_1` from the browser executor to `dxtrade_api`
+
+Do **not** start this until 7.2's probe returns login accepted + `positionBased: true`
++ the three instrument rows. If it does, the change set mirrors `velotrade_1`:
+
+- `config/prop_platforms.yaml::tradeify_1`: `platform: dxtrade` -> `dxtrade_api`;
+  `login_url: https://dx.tradeify247.co/` -> the REST base
+  (`https://dx.tradeify247.co/dxsca-web`, to be confirmed by the probe); delete the
+  browser-only keys `search_query_style`, `ticket_opener`, `limit_price_fill`
+  (they are MEASURED browser quirks and meaningless over REST); re-measure
+  `executor.lots` from the REST account-scoped instruments (the browser table says
+  SOLUSD min 0.01; velotrade's REST said 0.1, so do not assume equality);
+  `watched_click_max_lots`/`dry_walk_max_lots` go (browser-only). Keep
+  `enabled_venue_symbols` empty until a dry round trip passes, then set it in a
+  separate go-live PR as velotrade did (Tier-3).
+- `config/accounts.yaml::tradeify_1`: no roster change needed; `exchange: breakout`
+  and the `mode` gate stay as they are. Kill switch stays `PROP_EXECUTOR_MODE_TRADEIFY_1`
+  (off | read_only | live, default read_only).
+- Executor: the same `ict-prop-executor@tradeify_1` template unit
+  (`deploy/ict-prop-executor@.service`, script `scripts/ops/prop_executor_tick.sh`) runs
+  the adapter selected by `platform`; no new timer. The browser scripts
+  (`breakout_login_check`, `prop_executor_tick`) refuse an API platform by design, so
+  the browser-side login check and `prop-executor` screenshots stop applying to
+  `tradeify_1`; the REST probe replaces them.
+- Ruleset: `config/prop_rulesets/tradeify_247_1step.yaml` and `tradeify_routing.yaml`
+  are unchanged by the transport, but `tradeify_routing.yaml` needs a
+  `dxtrade_api_symbol` per symbol (as `velotrade_routing.yaml` has) once the REST
+  names are measured.
+- Rollback: `platform: dxtrade` and the browser `login_url` (one commit revert).
+- Not decided here: that REST is better for Tradeify. The browser path is the only
+  one with live Tradeify measurements (dry round trips, price-fill quirks). Moving
+  trades away from the measured path should wait for the probe and a REST dry round
+  trip.
+
+### 7.4 Limits of this section
+
+- **Not read:** the VM `.env` (so whether the Tradeify credentials are present there),
+  any Tradeify REST endpoint, the live roster state of `tradeify_1`.
+- **Measured here:** the file contents quoted in 7.1 at `origin/main` as of this session.
+- Nothing in this section was observed on the VM; merged != deployed != observed.
