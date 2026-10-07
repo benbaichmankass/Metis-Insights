@@ -99,6 +99,23 @@ LEVERS: Dict[str, Dict[str, Any]] = {
                  "runnable_exempt":
                      "backtest-only; no live unit implements it "
                      "(BL-20260818-RR-FLOOR-IS-BACKTEST-ONLY-AND-CANNOT-BE-DECLARED)"},
+    # GEOM-B1: BACKTEST-ONLY TODAY, recorded rather than hidden (same shape as
+    # rr_floor above). The harness half exists (scripts/research/tp_geometry.py,
+    # the `--tp-*` flags); no live `monitor()` yet returns `{"tp": ...}` -- that
+    # producer is lane TP-DOCTRINE's / BUILD B1 (PI-20261006-5FUGHVX8-0001), so a
+    # PASSING cell here cannot be declared yet. Clear it by implementing the
+    # producer in the units, NOT by adding these to exit_mechanism_coverage.
+    # `cells_kwargs`: the cells are OPT-IN in cells_for, so the probe must ask.
+    "tp_extend": {"sweep_lever": "tp_extend", "probe_family": "donchian",
+                  "cells_kwargs": {"tp_geometry_cells": True},
+                  "runnable_exempt":
+                      "backtest-only; no live monitor() returns a `tp` verdict yet "
+                      "(GEOM-B1-HARNESS measures; TP-DOCTRINE / BUILD B1 produces)"},
+    "tp_retarget": {"sweep_lever": "tp_retarget", "probe_family": "donchian",
+                    "cells_kwargs": {"tp_geometry_cells": True},
+                    "runnable_exempt":
+                        "backtest-only; no live monitor() returns a `tp` verdict yet "
+                        "(GEOM-B1-HARNESS measures; TP-DOCTRINE / BUILD B1 produces)"},
     # exit_head is REGISTERED and expected to be runnable+visible, but it is
     # scored from an ML artifact rather than swept as a parameter cell, so it
     # is exempt from GRADEABLE. Recorded as an explicit exemption rather than
@@ -156,7 +173,8 @@ def assess() -> List[Dict[str, Any]]:
         else:
             cfg = {"timeframe": "2h", "symbols": ["BTCUSDT"], "trail_mult": 3.0}
             cells = sweep.cells_for(cfg, spec["probe_family"], skipped=[],
-                                    tp_cap_pct=LIVE_TP_CAP)
+                                    tp_cap_pct=LIVE_TP_CAP,
+                                    **spec.get("cells_kwargs", {}))
             tags = [t for t, lev, _ in cells if lev == spec["sweep_lever"]]
             row["gradeable"] = tags
             if not tags:
