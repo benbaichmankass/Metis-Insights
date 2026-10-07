@@ -435,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
         g = grade_parity(arms, baseline=a.baseline, candidate=a.candidate, delta_r=a.delta_r,
                          fold_majority=a.fold_majority, n_floor=a.n_floor, control=control)
     else:
-        cands = [l for l in labels if l != a.baseline and (not same_as or l not in same_as)]
+        cands = [lab for lab in labels if lab != a.baseline and (not same_as or lab not in same_as)]
         g = grade_sweep(arms, baseline=a.baseline, candidates=cands, delta_r=a.delta_r,
                         fold_majority=a.fold_majority, n_floor=a.n_floor, control=control, same_as=same_as)
     window = {"start": a.start, "end": a.end, "fetch_days": a.days, "feed": feed,
