@@ -211,6 +211,60 @@ def read_soak_states() -> tuple[str, list[dict]]:
     return "read", out
 
 
+QUEUE_DIR = REPO_ROOT / "research" / "queue"
+
+
+def read_needs_review(queue_dir: Path | None = None) -> tuple[str, list[dict]]:
+    """Units whose mechanical grading could not decide (``grading.needs_review: true``).
+
+    PI-20261006-LCEVL8D5-0003: this bucket was only ``grep -l 'needs_review: true'
+    research/queue/*.yaml`` -- reachable only by a session that thought to run it.
+    Returns ``("read", rows)`` / ``("absent", [])`` (no queue dir) /
+    ``("unreadable", [])`` -- never an empty list for a failed read.
+    """
+    d = queue_dir or QUEUE_DIR
+    if not d.is_dir():
+        return "absent", []
+    try:
+        import yaml
+    except ImportError:
+        return "unreadable", []
+    rows: list[dict] = []
+    for f in sorted(d.glob("*.yaml")):
+        try:
+            text = f.read_text(encoding="utf-8")
+            if "needs_review: true" not in text:
+                continue
+            u = yaml.safe_load(text)
+        except (OSError, yaml.YAMLError):
+            return "unreadable", []
+        g = (u or {}).get("grading") if isinstance(u, dict) else None
+        if isinstance(g, dict) and g.get("needs_review") is True:
+            rows.append({"id": str(u.get("id") or f.stem), "graded_at": str(g.get("graded_at") or ""),
+                         "reason": g.get("reason") or g.get("note") or ""})
+    return "read", rows
+
+
+def _age_days(graded_at: str, today: date) -> int | None:
+    try:
+        return (today - date.fromisoformat(graded_at[:10])).days
+    except ValueError:
+        return None
+
+
+def _needs_review_line(v: dict) -> str | None:
+    read, rows = v.get("needs_review_read", "absent"), v.get("needs_review", [])
+    if read == "unreadable":
+        return "❔ needs_review bucket: research/queue UNREADABLE (not zero — not measured)"
+    if read != "read" or not rows:
+        return None
+    ages = [a for a in (_age_days(r["graded_at"], v["today"]) for r in rows) if a is not None]
+    oldest = f", oldest flagged {max(ages)}d ago" if ages else ""
+    ids = ", ".join(r["id"] for r in rows[:4])
+    return (f"🔎 {len(rows)} research unit(s) need a read (grading.needs_review){oldest}: "
+            f"{ids}{' …' if len(rows) > 4 else ''}")
+
+
 def _soak_key(r: dict) -> str:
     return str(r.get("id") or f"{r.get('account', '?')}:{r.get('leg', '?')}")
 
@@ -360,7 +414,9 @@ def build(now: datetime | None = None) -> dict:
     items = list(res.items.values())
     shallow = _is_shallow()
     soak_read, soaks = read_soak_states()
+    nr_read, nr_rows = read_needs_review()
     return {
+        "needs_review_read": nr_read, "needs_review": nr_rows,
         "now": now, "today": today, "pipeline_readable": res.healthy,
         "pipeline_unreadable": len(res.unreadable),
         "stats": pipeline.stats(res, today),
@@ -405,6 +461,9 @@ def render_digest(v: dict) -> str:
         L.append("Soaks: " + (" · ".join(f"{k} {n}" for k, n in sorted(by.items())) or "none"))
     else:
         L.append(f"Soaks: state source {v['soak_read'].upper()} (not zero — not measured)")
+    nr_line = _needs_review_line(v)
+    if nr_line:
+        L.append(nr_line)
     bad = [k for k, p in v["probes"].items() if p["status"] != OK]
     for k in bad:
         p = v["probes"][k]
@@ -475,6 +534,25 @@ def plan_messages(v: dict, state: dict, digest_now: bool = False) -> tuple[list[
                          f"{n['dead']} dead (see report)"))
             new["seed_soaks_sent_at"] = now.isoformat()
         new["soak_states"] = cur_s
+
+    # (b3) research units newly needing a read — edge-triggered, same seeding rule
+    # as (b1): the first pass sends ONE count line, never silently, never per item.
+    if v.get("needs_review_read") == "read":
+        cur_nr = {r["id"]: r for r in v.get("needs_review", [])}
+        seen_nr = set(state.get("seen_needs_review", []))
+        fresh_nr = [cur_nr[k] for k in sorted(cur_nr) if k not in seen_nr]
+        if fresh_nr and "seen_needs_review" in state:
+            L = [f"🔎 {len(fresh_nr)} research unit(s) newly need a read (needs_review):"]
+            for r in fresh_nr[:6]:
+                L.append(f"• {r['id']}: {_short(r.get('reason'), 140)}")
+            if len(fresh_nr) > 6:
+                L.append(f"…and {len(fresh_nr) - 6} more — see the daily digest.")
+            msgs.append(("normal", "\n".join(L)))
+        if "seed_needs_review_sent_at" not in state:
+            msgs.append(("normal", f"🔎 needs_review at deploy: {len(cur_nr)} research unit(s) flagged "
+                                   f"(listed in the daily digest)"))
+            new["seed_needs_review_sent_at"] = now.isoformat()
+        new["seen_needs_review"] = sorted(cur_nr)
 
     # (c) silence alarms — send on breach, re-send every REALERT_HOURS, one clear.
     alarms = dict(state.get("alarms", {}))
@@ -670,6 +748,34 @@ def _self_test() -> int:
     early = view(now=now.replace(hour=2))
     check("no digest before DIGEST_HOUR_UTC",
           not any(b.startswith("📋") for _, b in plan_messages(early, {})[0]), "")
+    nr1 = {"id": "RQ-1", "graded_at": "2026-10-02", "reason": "n 9 < 39"}
+    nr2 = {"id": "RQ-2", "graded_at": "2026-10-04", "reason": "mixed"}
+    nseed, nst = plan_messages(view(needs_review_read="read", needs_review=[nr1]), st2)
+    check("first needs_review read sends ONE count line, not one per unit",
+          [b for _, b in nseed if "needs_review at deploy" in b] == [
+              "🔎 needs_review at deploy: 1 research unit(s) flagged (listed in the daily digest)"], nseed)
+    nnew, nst2 = plan_messages(view(needs_review_read="read", needs_review=[nr1, nr2]), nst)
+    check("a newly flagged unit alerts once, naming it",
+          len(nnew) == 1 and "RQ-2" in nnew[0][1] and "RQ-1" not in nnew[0][1], nnew)
+    check("…and is quiet on the next pass",
+          plan_messages(view(needs_review_read="read", needs_review=[nr1, nr2]), nst2)[0] == [], "")
+    check("an UNREADABLE queue neither alerts nor burns the seed marker",
+          plan_messages(view(needs_review_read="unreadable"), st2)[1].get("seed_needs_review_sent_at") is None, "")
+    dig = render_digest(view(needs_review_read="read", needs_review=[nr1, nr2]))
+    check("the digest carries a loud line with count, age and ids",
+          "🔎 2 research unit(s) need a read" in dig and "oldest flagged 2d ago" in dig and "RQ-1" in dig, dig)
+    check("unreadable is said, not rendered as zero",
+          "UNREADABLE" in render_digest(view(needs_review_read="unreadable")), "")
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        (Path(td) / "RQ-9.yaml").write_text("id: RQ-9\ngrading:\n  needs_review: true\n  graded_at: '2026-10-01'\n  reason: r\n")
+        (Path(td) / "RQ-8.yaml").write_text("id: RQ-8\ngrading:\n  needs_review: false\n")
+        rd, rows = read_needs_review(Path(td))
+        check("the reader finds the flagged unit and skips the unflagged one",
+              rd == "read" and [r["id"] for r in rows] == ["RQ-9"], (rd, rows))
+        (Path(td) / "RQ-7.yaml").write_text("id: [unclosed\nneeds_review: true\n")
+        check("a corrupt unit makes the read UNREADABLE, never a shorter list",
+              read_needs_review(Path(td))[0] == "unreadable", "")
     blk, pri, new_items = compose_block(view(), [])
     check("nothing new → ONE quiet line", blk.startswith("🟢") and "\n" not in blk and not new_items, blk)
     blk2, pri2, _ = compose_block(view(), [("high", "❓ 1 new decision"), ("normal", "📋 Daily")])
