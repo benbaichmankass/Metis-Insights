@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane ACTIVE-GEOMETRY-PLAN (PI-20261006-APBY4NTV-0003, manager session_01MM8o5js6TcDFeNAPBY4Ntv): four pre-registered research-queue units under research/queue/blocked/ (RQ-20261007-001..004, each with a decision rule registered before any run and an explicit blocked_on naming the harness lever), the ranked active-geometry plan appended to research/queue/PLANNING.md, and one paragraph in .claude/skills/exit-refinement/SKILL.md. Research registration + docs only: no src/, no config/, no deploy/, no order path, no strategy params."
+}
