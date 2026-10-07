@@ -1,0 +1,1 @@
+auto-merge: tier-1 CI tooling (sweep grades stamp PRs)
