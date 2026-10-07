@@ -5754,7 +5754,7 @@
       "id": "PROP-SILENCE-ALERTS",
       "title": "Prop inactivity alert (operator priority 1, 2026-10-05) + phone-dead alert: ping when a prop account goes N days without a fill or the phone heartbeat stops while breakout_2 is live",
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "lane PROP-SILENCE-ALERTS",
       "lane": "session_01Fhry4ikKEvC4LNBqESw7m2",
       "model": "claude-sonnet-5-5",
@@ -5765,7 +5765,7 @@
         16950
       ],
       "blocked_on": [],
-      "note": "[2026-10-07T19:05Z manager] PR #16950 held Tier-2: prop_idle_{tradeify_1,velotrade_1,breakout_2} (warn 14d / urgent 21d; null != 0) + phone_hb_breakout_2 (>10 min while live -> urgent) as probes in the hourly attention block. Caveat: hourly carrier => up to ~1h phone-dead latency; no fill on record reads unknown. Manager merges, then observes the first digest probes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
+      "note": "[2026-10-07T19:45Z manager] #16950 MERGED 19:46Z (squash). Merged != deployed: attention_watch.py/prop_silence.py run from a workflow or VM cron per the lane's PR body; the lane's row carries the deploy/observe steps. Archive the lane once it reports. || [2026-10-07T19:05Z manager] PR #16950 held Tier-2: prop_idle_{tradeify_1,velotrade_1,breakout_2} (warn 14d / urgent 21d; null != 0) + phone_hb_breakout_2 (>10 min while live -> urgent) as probes in the hourly attention block. Caveat: hourly carrier => up to ~1h phone-dead latency; no fill on record reads unknown. Manager merges, then observes the first digest probes. || [2026-10-07T18:30Z manager] Second post-reset wave, dispatched 18:33Z (all 13 WORKING at creation) (operator: 'what other items were pushed till after the reset ... kick off now'). Pipeline: PI-20261005-XJSGZG1X-0001, PI-20261005-YUVCGTMJ-0001. Model by risk; auto mode; Tier-2/3 PRs land on hold for the manager/operator."
     },
     {
       "id": "PHONE-GO-TOKEN",
@@ -6201,6 +6201,38 @@
       "prs": [],
       "blocked_on": [],
       "note": "[2026-10-07T19:16Z manager] OPERATOR, verbatim: \"In general, if a ticket expires and I haven't logged a trade, the system should assume that the trade wasnt placed and the ticket should be kept alive. And the prop accounts should have their own separate flow that isn't contaminated by the telegram channels activity.\" PI-20261007-APBY4NTV-0003 carries the design reading. Opus (live ticket state machine on both prop accounts), auto mode; PR held Tier-2; manager merges and notifies. Builds on #16947 / #16977 (VELOTRADE-TICKET) rather than replacing them."
+    },
+    {
+      "id": "RQ-CADENCE",
+      "title": "Make research-queue-dispatch run hourly in WALL-CLOCK terms: MEASURED 2026-10-07 only 4 schedule fires in 24 h (GitHub drops ~4 in 5 hourly slots for this repo; dashboard-edge-watch 4/24, schedule-keeper 7/48), the keeper covers it only at a 26 h stale window, and each run holds the `research-queue-dispatch` concurrency group up to 50 min waiting for a stamp PR to merge through a saturated CI queue (20 concurrent jobs, 15 of them pytest-run)",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "lane RQ-CADENCE",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        16948
+      ],
+      "note": "[2026-10-07T19:45Z manager] ONE QUESTION: how does the dispatcher fire about once an hour regardless of GitHub cron delivery and of the stamp-landing wait? Candidates for the lane to measure, not assume: (a) drop research-queue-dispatch's keeper stale window from 26 h to ~1.5 h so every push to main re-dispatches a missed slot (keeper already runs on push); (b) after #16948 (stamps replayed onto the main tip) the 50-min wait should vanish; verify on the first post-merge run; (c) decouple the liveness-receipt/stamp landing from the dispatch run so the concurrency group frees in minutes. Tier-1 (workflows + scripts/ops). DONE = three consecutive hours each with a completed dispatch run (schedule OR keeper OR push), measured off the Actions API, and the stale alarm window documented."
+    },
+    {
+      "id": "BREAKOUT-TERMS-READ",
+      "title": "First-party read of Breakout Prop's terms on automated access / order placement / login verification, so PI-20261005-9HEP9LYP-0001 and -0003 close with a quote rather than 'unread' while breakout_2 trades live through the phone executor",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "lane BREAKOUT-TERMS-READ",
+      "lane": null,
+      "model": "claude-sonnet-5-5",
+      "ceiling_usd": 8,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "[2026-10-07T19:45Z manager] Research/read only: fetch the public terms + FAQ (breakoutprop.com), quote the clauses verbatim with URL + retrieval time into docs/integrations/breakout-terms-read-2026-10-07.md, grade each phone-executor behaviour (screen automation, auto re-login via a dedicated inbox, SOL picker) as permitted / prohibited / silent. No decision: the operator decides; the lane files the exact question if any clause is 'prohibited'. Pipeline items -0001/-0003 then close as answered."
     }
   ]
 }
