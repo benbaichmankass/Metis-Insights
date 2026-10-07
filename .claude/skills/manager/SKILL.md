@@ -3,7 +3,7 @@ name: manager
 description: The manager-session contract. Read this at the start of any session that spawns or supervises other sessions. Defines the one job, the one register, spawn rules, the model table, the budget, and the daily-sync brief.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-10-04` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-10-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # The manager contract
 
@@ -230,6 +230,77 @@ Headroom this leaves is available for **depth** when a task warrants it
 (multi-fold rather than single-split tests, Opus where risk warrants it,
 audits). It is not a target to hit, and never a reason to move work off the model
 its risk demands.
+
+## Hibernating before a usage-limit outage
+
+> **Operator, 2026-10-07 (verbatim):** "you did a good job of 'hibernating' the
+> work ahead of the usage limit outage, so I want us to add to the manager skill
+> instructions for how to prepare for that properly."
+
+Run this when the weekly bar nears its limit (Settings → Usage) or a lane reports
+*"You've hit your weekly limit"*. It takes about 15 minutes. It is written from
+what happened on 2026-10-06/07; the items marked "measured" are observations, not
+design intent.
+
+### Before the limit — what worked
+
+1. **Arm GitHub auto-merge on every PR that would otherwise wait on the manager**:
+   `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/ccr/auto_merge -f merge_method=squash`.
+   Merges then happen on green with nobody in the loop. Tier-2/3 PRs stay held by
+   design — do not arm those.
+2. **Tell every live lane, by trigger, that the manager may go silent**: arm
+   auto-merge on their own PRs, finish and close out without waiting, report after
+   the reset.
+3. **Put the pick-up list in a reminder bound to the manager session**, firing
+   about 5 minutes after the reset (`send_later` / `create_trigger` with
+   `run_once_at`). It names the routines to re-enable, the lanes to read, the
+   live-money checks, the research results to read and the items to dispatch.
+   **Update it as the list changes** — a stale pick-up prompt is the first thing
+   the resumed manager meets.
+4. **Pause the check-in and review routines** (`update_trigger` `enabled=false`) so
+   they do not burn the last budget on empty passes, and **name them in the pick-up
+   list** so they are re-enabled.
+5. **Confirm every register change is ON MAIN, not just pushed.** A commit pushed
+   to a branch whose PR already merged is stranded. Measured 2026-10-06: two
+   checklist commits pushed to `claude/mgr-pairs-review` after #16721 merged
+   (10:32:49Z) were lost until re-landed on 2026-10-07. After any merge, branch
+   again from `origin/main`.
+6. **Archive finished lanes; record final spends** on their checklist rows.
+7. **Leave live money in a state that needs no session**: executors on VM timers,
+   alerts routed to the operator's Telegram, kill switches documented on the rows.
+8. **Tell the operator in one message** what keeps running, what waits, and when
+   the pick-up fires.
+
+### What still broke — check these first on return
+
+- **Lanes die mid-task at the limit** with status "You've hit your weekly limit"
+  and **no wake**. Measured: RQ-FIX had pushed its branch but not opened its PR;
+  PHONE-DRYTEST-ACTION had merged but not run its proof. On return:
+  `list_sessions(mine=true)`, read `status_bucket` and `post_turn_summary` of every
+  unarchived lane, then finish or re-dispatch each.
+- **"Keeps running" is not "keeps producing."** The research queue kept running
+  (cron + PAT auto-merge), but a defect it carried (PyYAML missing on the result
+  job) meant it produced no verdicts for 29 hours — `PI-20261006-APBY4NTV-0010`.
+  Put a **result-quality check** (verdict distribution, double fires) in the
+  pick-up list.
+- **A lane's self-land arming can be refused by the classifier**; those PRs wait
+  for the manager. Arm their auto-merge yourself before going dark — #16782 was
+  armed that way and merged at 14:01Z while the manager was out.
+- **A `hold` PR is the one that stays open.** RQ-FIX's fix PR #16791 landed
+  `hold` (`changes_landing_machinery`: R12 counts `queue_grade.py` as landing
+  machinery), so it could not self-land and still needed the manager. Its
+  register PR #16783, which the manager had armed, merged on green at 13:52Z
+  with nobody in the loop. List the `hold` PRs in the pick-up list.
+
+### On return — the order that worked
+
+1. Read notifications.
+2. Re-enable the paused routines.
+3. Verify stranded register commits (compare each lane/manager branch to `main`).
+4. Read lane states (as above).
+5. Check live-money tickets since the last operator message.
+6. Verify the research queue produced real verdicts, not just runs.
+7. Then report to the operator and dispatch.
 
 ## Spawning
 
